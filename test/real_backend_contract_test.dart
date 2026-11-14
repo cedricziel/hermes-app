@@ -109,8 +109,8 @@ import 'support/attachment_fixtures.dart';
 /// (no credentials, no build) and removes it, and the sign-in test starts and
 /// cancels a flow against a minimal OAuth provider on the loopback interface.
 /// The model provider tests only read the five list routes and call both
-/// validate routes with an empty value; they save no key, start no sign-in and
-/// remove nothing.
+/// validate routes with an empty value; the read-only group saves no key,
+/// starts no sign-in and removes nothing.
 /// The model provider write tests create three throwaway profiles named
 /// `contract-check-key-…`, `-endpoint-…` and `-pool-…`, save fake keys, a
 /// custom endpoint that points at a model served on the loopback interface, a
@@ -120,7 +120,12 @@ import 'support/attachment_fixtures.dart';
 /// Nothing reaches a real provider. The tool write tests do the same with a
 /// profile named `contract-check-tools-…`: they switch toolsets, pick a
 /// provider with a fake key, a model and a terminal backend, and chat with a
-/// scripted model; no install step is started.
+/// scripted model; no install step is started. These write groups create and
+/// delete profiles, so a second run against the same backend fails until it
+/// restarts. Fake keys go only to the backend, and no test saves a key for a
+/// hosted provider (Hermes would fetch that provider's catalog with it): the
+/// provider tests use LM Studio pointed at the loopback server, the tool test
+/// FAL.ai, whose catalog is built in.
 /// The media tests write throwaway files under the backend's `images` folder
 /// and the system temp directory, so they need a backend on this machine, and
 /// delete them after. The scripted-model tests create a throwaway profile
@@ -3678,6 +3683,8 @@ void main() {
 
     test('every toolset the server lists has been decided about in the '
         'risk table, or is on the list still to decide', () async {
+      // When a Hermes bump (update-hermes-contracts.yml) adds a toolset, this
+      // fails: decide it in toolset_risk.dart, or add it here on purpose.
       // Names the server listed on d923a5eb that the app has not decided
       // about (no risk line, no confirmation). A name outside all three sets
       // is new: decide it in lib/src/tools/toolset_risk.dart.
@@ -3878,9 +3885,11 @@ void main() {
       // runtime for a profile with nothing connected.
       final plain = await options(keyProfile, unconfigured: false);
       expect(plain['provider'], '');
+      final plainRows = (plain['providers']! as List).cast<Map>();
       expect(
-        (plain['providers']! as List).cast<Map>().map((r) => r['source']),
-        everyElement('local-runtime'),
+        plainRows.where((r) => r['source'] != 'local-runtime'),
+        isEmpty,
+        reason: 'only a staged local runtime can be listed',
       );
       // The skeleton may name no key variable; /api/env always does.
       expect(openRouter['key_env'], anyOf('', 'OPENROUTER_API_KEY'));
@@ -3917,90 +3926,82 @@ void main() {
       expect(catalog.byId('openrouter')!.keyEnv, 'OPENROUTER_API_KEY');
     });
 
-    test('a saved key lists the provider with its models at once, and '
-        'removing the default provider\'s key keeps provider and '
-        'model', () async {
-      expect(
-        await providers.saveKey(
-          keyProfile,
-          'OPENROUTER_API_KEY',
-          'sk-or-demo-0000',
+    test('a saved key connects the provider, and removing it keeps the '
+        'default', () async {
+      // Only the loopback server is ever reached: LM Studio is a local
+      // provider, and its base URL is pointed at the scripted model before
+      // any key is saved. (A key for a hosted provider would let Hermes fetch
+      // that provider's catalog with it.)
+      await client.raw.setEnvVarApiEnvPut(
+        envVarUpdate: EnvVarUpdate(
+          key: 'LM_BASE_URL',
+          value: 'http://127.0.0.1:${model.port}/v1',
+          apiKey: null,
+          providerSetup: null,
         ),
+        profile: keyProfile,
+      );
+      expect(
+        await providers.saveKey(keyProfile, 'LM_API_KEY', 'demo-lm-0000'),
         isA<KeySaved>(),
       );
 
       final body = await options(keyProfile);
-      final row = optionsRow(body, 'openrouter')!;
+      final row = optionsRow(body, 'lmstudio')!;
       expect(row['authenticated'], isTrue);
-      expect(row['models'], isNotEmpty);
       expect(row['total_models'], isA<int>());
       expect(body['provider'], '');
       final env = await read(
         client.raw.getEnvVarsApiEnvGet(profile: keyProfile),
       );
-      final keyRow = env['OPENROUTER_API_KEY'] as Map;
+      final keyRow = env['LM_API_KEY'] as Map;
       expect(keyRow['is_set'], isTrue);
       expect(keyRow['redacted_value'], startsWith('«redacted:'));
       final pool = await read(
         client.raw.listCredentialPoolApiCredentialsPoolGet(profile: keyProfile),
       );
       final group = (pool['providers']! as List).single as Map;
-      expect(group['provider'], 'openrouter');
+      expect(group['provider'], 'lmstudio');
       expect(
         ((group['entries']! as List).single as Map)['source'],
         isA<String>(),
       );
       expect(
         ((group['entries']! as List).single as Map)['source'],
-        'env:OPENROUTER_API_KEY',
+        'env:LM_API_KEY',
       );
-      expect(
-        (await catalogOf(keyProfile)).byId('openrouter')!.connected,
-        isTrue,
-      );
+      expect((await catalogOf(keyProfile)).byId('lmstudio')!.connected, isTrue);
 
-      final recommended = await providers.recommendedDefault(
-        keyProfile,
-        'openrouter',
-      );
-      expect(recommended, isNotNull);
       expect(
-        await providers.setDefaultModel(
-          keyProfile,
-          'openrouter',
-          recommended!.model,
-        ),
+        await providers.setDefaultModel(keyProfile, 'lmstudio', 'scripted'),
         isA<DefaultModelSaved>(),
       );
-      expect((await options(keyProfile))['provider'], 'openrouter');
+      expect((await options(keyProfile))['provider'], 'lmstudio');
 
       expect(
-        await providers.removeKey(keyProfile, 'OPENROUTER_API_KEY'),
+        await providers.removeKey(keyProfile, 'LM_API_KEY'),
         isA<Removed>(),
       );
+      // The key is gone and so is its pool mirror, and the default stays.
+      // (LM Studio is a local provider and stays "authenticated" without a
+      // key, so the hosted-provider case of a removed key, recorded in
+      // design.md and the fixtures, is not run here: it would need a key
+      // saved for a hosted provider.)
       final after = await options(keyProfile);
-      expect(after['provider'], 'openrouter');
-      expect(after['model'], recommended.model);
-      // With the flag the provider keeps a skeleton row, not authenticated,
-      // that names the saved model; without it (the chat picker) it has none.
-      final missing = optionsRow(after, 'openrouter')!;
-      expect(missing['authenticated'], isFalse);
-      expect(missing['warning'], isA<String>());
-      expect(missing['models'], contains(recommended.model));
-      expect(
-        optionsRow(
-          await options(keyProfile, unconfigured: false),
-          'openrouter',
-        ),
-        isNull,
-      );
+      expect(after['provider'], 'lmstudio');
+      expect(after['model'], 'scripted');
       final gone = await read(
         client.raw.listCredentialPoolApiCredentialsPoolGet(profile: keyProfile),
       );
       expect(gone['providers'], isEmpty);
-      final catalog = await catalogOf(keyProfile);
-      expect(catalog.byId('openrouter')!.connected, isFalse);
-      expect(catalog.byId('openrouter')!.isDefault, isTrue);
+      final env2 = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: keyProfile),
+      );
+      expect((env2['LM_API_KEY'] as Map)['is_set'], isFalse);
+      expect(
+        (await catalogOf(keyProfile)).byId('lmstudio')!.credentials,
+        isEmpty,
+      );
     });
 
     test('a custom endpoint is checked, saved and made the default as '
@@ -4101,8 +4102,8 @@ void main() {
       final added = await read(
         client.raw.addCredentialPoolEntryApiCredentialsPoolPost(
           credentialPoolAdd: CredentialPoolAdd(
-            provider: 'openrouter',
-            apiKey: 'sk-or-demo-0001',
+            provider: 'lmstudio',
+            apiKey: 'demo-lm-0001',
             label: 'manual demo',
           ),
           profile: poolProfile,
@@ -4132,20 +4133,19 @@ moa:
     contract-mix:
       enabled: true
       aggregator:
-        provider: openrouter
-        model: example-model-a
+        provider: lmstudio
+        model: scripted
       reference_models: []
 ''',
         ),
       );
       final body = await options(poolProfile);
-      final openRouter = optionsRow(body, 'openrouter')!;
+      final openRouter = optionsRow(body, 'lmstudio')!;
       expect(openRouter['authenticated'], isTrue);
-      expect(openRouter['models'], isNotEmpty);
       final env = await read(
         client.raw.getEnvVarsApiEnvGet(profile: poolProfile),
       );
-      expect((env['OPENROUTER_API_KEY'] as Map)['is_set'], isFalse);
+      expect((env['LM_API_KEY'] as Map)['is_set'], isFalse);
       final moa = optionsRow(body, 'moa')!;
       expect(moa['auth_type'], 'virtual');
       expect(moa['source'], 'virtual');
@@ -4156,7 +4156,7 @@ moa:
       final catalog = await catalogOf(poolProfile);
       expect(catalog.skippedRows, 0);
       expect(catalog.byId('moa'), isNull);
-      final connected = catalog.byId('openrouter')!;
+      final connected = catalog.byId('lmstudio')!;
       expect(connected.connected, isTrue);
       expect(connected.credentials.single.kind, CredentialKind.poolKey);
       expect(connected.credentials.single.label, 'manual demo');
@@ -4267,27 +4267,25 @@ model:
     test('a provider, a key, a model and a terminal backend are answered '
         'and read back', () async {
       final config = value(await tools.config('image_gen'));
-      // A provider with one key to save and a model catalog that needs no
-      // network: one with a live catalog lists none offline once its key is
-      // set, so the candidates are tried in order.
-      ToolsetProvider? provider;
-      ToolsetEnvSaved? saved;
-      for (final candidate in config.providers.where(
-        (p) =>
-            p.status == ToolsetProviderStatus.needsKeys &&
-            p.envVars.length == 1,
-      )) {
-        value(await tools.pickProvider('image_gen', candidate.name));
-        final key = candidate.envVars.single.key;
-        saved = value(await tools.saveEnv('image_gen', {key: 'demo-0000'}));
-        if (value(await tools.models('image_gen')).hasModels) {
-          provider = candidate;
-          break;
-        }
-      }
-      expect(provider, isNotNull, reason: 'a provider with a model catalog');
-      final key = provider!.envVars.single.key;
-      expect(saved!.saved, [key]);
+      // The provider is chosen by name, with a built-in catalog: a row whose
+      // tag speaks of a live catalog would make Hermes call the provider with
+      // the fake key on a machine with a network. The check comes before
+      // anything is saved.
+      final provider = config.providers.singleWhere(
+        (p) => p.name == 'FAL.ai',
+        orElse: () => throw TestFailure('image_gen has no FAL.ai provider'),
+      );
+      expect(provider.tag ?? '', isNot(contains('live catalog')));
+      expect(provider.envVars, hasLength(1));
+      value(await tools.pickProvider('image_gen', provider.name));
+      final saved = value(
+        await tools.saveEnv('image_gen', {
+          provider.envVars.single.key: 'demo-0000',
+        }),
+      );
+      expect(value(await tools.models('image_gen')).hasModels, isTrue);
+      final key = provider.envVars.single.key;
+      expect(saved.saved, [key]);
       expect(saved.isSet[key], isTrue);
       // A blank value is skipped, never cleared.
       final blank = value(await tools.saveEnv('image_gen', {key: ''}));
@@ -5332,6 +5330,10 @@ Future<HttpServer> _serveScriptedModel({
       response.write(
         jsonEncode({
           'object': 'list',
+          // LM Studio's own listing (`/api/v1/models`) reads `models`.
+          'models': [
+            {'key': 'scripted', 'type': 'llm'},
+          ],
           'data': [
             {'id': 'scripted', 'object': 'model', 'context_length': 131072},
           ],
