@@ -242,11 +242,93 @@ void main() {
     expect(summary()!.sentence.text, contains('recalled 5 memories'));
   });
 
-  test('a process outlives the turn that started it', () async {
+  test('an open process card does not keep the line up after the turn: the '
+      'backend reports no process exit', () async {
     await open();
     await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
-    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
     expect(summary()!.sentence.kind, WorkingSentenceKind.processes);
+    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+    expect(chat.processOutputsIn(chat.selectedThread!)!.cards, hasLength(1));
+    expect(summary(), isNull);
+  });
+
+  test('a reclaimed session drops its process cards and the line', () async {
+    await open();
+    await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    await emit('session.reclaimed', {
+      'session_id': 'rt-1',
+      'stored_session_id': 'stored-1',
+      'reason': 'Synthetic',
+    });
+    expect(chat.processOutputsIn(chat.selectedThread!)?.cards ?? [], isEmpty);
+    expect(summary(), isNull);
+  });
+
+  test('a status that comes ahead of a server-started turn counts', () async {
+    await chat.loadThreads('work');
+    chat.select('stored-1');
+    await pumpEventQueue();
+    await emit('status.update', {
+      'kind': 'process',
+      'text': 'Resuming interrupted turn…',
+    });
+    final thread = chat.selectedThread!;
+    await emit('message.start', {});
+    expect(thread.isReplying, isTrue);
+    expect(
+      chat.workingSummaryIn(thread)!.sentence.text,
+      'Resuming interrupted turn…',
+    );
+    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+    expect(chat.workingSummaryIn(thread), isNull);
+  });
+
+  test('a queued turn that follows at once does not inherit the statuses of '
+      'the last one', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    chat.submit('Next', const []);
+    await pumpEventQueue();
+    gateway.event('message.complete', 'rt-1', {
+      'text': 'Done',
+      'status': 'complete',
+    });
+    gateway.event('message.start', 'rt-1', {});
+    await pumpEventQueue();
+    expect(summary(), isNull);
+    await emit('status.update', {'kind': 'status', 'text': 'Second turn'});
+    expect(summary()!.sentence.text, 'Second turn');
+  });
+
+  test('stopping the reply folds the line away', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    expect(summary(), isNotNull);
+    final stopped = chat.stopReply(chat.selectedThread!);
+    await pumpEventQueue();
+    await emit('message.complete', {'text': '', 'status': 'interrupted'});
+    await stopped;
+    expect(summary(), isNull);
+  });
+
+  test('a lost connection that fails the turn folds the line away', () async {
+    await open();
+    final thread = chat.selectedThread!;
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    expect(chat.workingSummaryIn(thread), isNotNull);
+    gateway.drop();
+    for (var i = 0; i < 20 && thread.isReplying; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
+    }
+    // Whatever the turn did (failed or waits for the reconnect), the line
+    // follows it.
+    expect(
+      chat.workingSummaryIn(thread) == null,
+      !thread.isReplying,
+      reason: 'the line is up exactly while the turn runs',
+    );
   });
 
   test('goal and heartbeat notices never feed the line, and a heartbeat '

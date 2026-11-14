@@ -93,6 +93,7 @@ extension _ChatControllerSessionState on ChatController {
         state.waits.clear();
         state.recallWaits.clear();
         state.waitAt.clear();
+        _processOutputs[thread]?.clear();
         _settleTimers.remove(thread)?.cancel();
         if (_queues[thread]?.isNotEmpty ?? false) {
           _reclaimedQueueReview.add(thread);

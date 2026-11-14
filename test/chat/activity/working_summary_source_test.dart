@@ -232,33 +232,78 @@ void turnScoped() {
     );
   });
 
-  test('processes, mixture-of-agents and restoring outlive the turn', () {
+  test('a process counts only while a turn runs; mixture-of-agents and '
+      'restoring outlive it', () {
     final source = WorkingSummarySource();
+    // The backend reports no process exit, so an open card does not keep the
+    // line up after the turn.
+    expect(source.read(scope, const WorkingInputs(processes: 1)), isNull);
     expect(
-      source.read(scope, const WorkingInputs(processes: 1))!.sentence.kind,
+      source
+          .read(scope, const WorkingInputs(replying: true, processes: 1))!
+          .sentence
+          .kind,
       WorkingSentenceKind.processes,
+    );
+    expect(
+      source.read(
+        scope,
+        const WorkingInputs(moa: MoaInput(combining: false, models: 2)),
+      ),
+      isNotNull,
     );
     expect(source.read(scope, const WorkingInputs(restoring: true)), isNotNull);
   });
 
-  test('a wait of an earlier turn does not come back with the next turn', () {
+  test('a wait counts when it arrived after the previous turn ended, also '
+      'ahead of a server-started turn; an earlier one does not', () {
     final source = WorkingSummarySource();
-    final old = source.next();
-    const waits = {'status': 'Recalled 5 memories'};
-    var summary = source.read(
-      scope,
-      WorkingInputs(replying: true, waits: waits, waitAt: {'status': old}),
+    const waits = {'process': 'Resuming interrupted turn…'};
+    final before = source.next();
+    source.turnEnded(scope);
+    final ahead = source.next();
+    // The status came first, then the turn starts.
+    expect(
+      source.read(
+        scope,
+        WorkingInputs(waits: waits, waitAt: {'process': ahead}),
+      ),
+      isNull,
     );
-    // The turn began after the wait arrived.
-    expect(summary, isNull);
-    source.read(scope, const WorkingInputs());
+    final summary = source.read(
+      scope,
+      WorkingInputs(replying: true, waits: waits, waitAt: {'process': ahead}),
+    );
+    expect(summary!.sentence.text, 'Resuming interrupted turn…');
+    expect(
+      source.read(
+        scope,
+        WorkingInputs(
+          replying: true,
+          waits: waits,
+          waitAt: {'process': before},
+        ),
+      ),
+      isNull,
+    );
+  });
+
+  test('a queued turn that follows at once does not inherit the last '
+      'turn\'s waits', () {
+    final source = WorkingSummarySource();
     source.read(scope, const WorkingInputs(replying: true));
-    final fresh = source.next();
-    summary = source.read(
+    final first = source.next();
+    source.turnEnded(scope);
+    // The next turn is already running when anything reads.
+    final summary = source.read(
       scope,
-      WorkingInputs(replying: true, waits: waits, waitAt: {'status': fresh}),
+      WorkingInputs(
+        replying: true,
+        waits: const {'status': 'Recalled 5 memories'},
+        waitAt: {'status': first},
+      ),
     );
-    expect(summary!.sentence.text, 'Recalled 5 memories');
+    expect(summary, isNull);
   });
 
   test('arrival stamps decide newest, not the order of reads', () {

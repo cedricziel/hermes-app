@@ -625,6 +625,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..._sessionStates.keys,
         ..._processOutputs.keys,
         ..._moaStates.keys,
+        for (final thread in _threads)
+          if (thread.isReplying) thread,
         ?selectedThread,
       }) {
         workingSummaryIn(thread);

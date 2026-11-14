@@ -259,6 +259,11 @@ void main() {
 
     await openThread(tester, 'Weekly digest');
     await settle();
+    // A turn runs, so the process counts.
+    await tester.enterText(composerField, 'Go on');
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Send'));
+    await settle();
     gateway.event('agent.terminal.output', 'rt-1', {
       'process_id': 'backup',
       'chunk': 'dumping tables',

@@ -100,20 +100,18 @@ WidgetBuilder buildChatComposer({
   );
 }
 
-/// Builds with the view's own metrics, the keyboard included, and again when
-/// they change.
-/// Builds with the view's own metrics, which a Scaffold body has already
-/// consumed the keyboard from, and again when they change.
+/// Builds with the view's own metrics, the keyboard included (a Scaffold body
+/// has consumed it from its own `MediaQuery`), and again when they change.
 class ViewMetricsBuilder extends StatefulWidget {
   const ViewMetricsBuilder({super.key, required this.builder});
 
   final Widget Function(BuildContext context, MediaQueryData media) builder;
 
   @override
-  State<ViewMetricsBuilder> createState() => ViewMetricsBuilderState();
+  State<ViewMetricsBuilder> createState() => _ViewMetricsBuilderState();
 }
 
-class ViewMetricsBuilderState extends State<ViewMetricsBuilder>
+class _ViewMetricsBuilderState extends State<ViewMetricsBuilder>
     with WidgetsBindingObserver {
   @override
   void initState() {

@@ -99,14 +99,22 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   }
 
-  // A process is what keeps the line up without a running turn; the server
-  // never clears a status with an empty text.
+  // The line is up while a turn runs and the server reports a status; the
+  // turn completing takes it down (the server never clears a status).
+  const sentence = 'Compiling the zebra report';
   Future<void> status(WidgetTester tester, String text) async {
-    gateway.event(
-      text.isEmpty ? 'terminal.close' : 'agent.terminal.output',
-      'rt-1',
-      {'process_id': 'worker', if (text.isNotEmpty) 'chunk': text},
-    );
+    if (text.isEmpty) {
+      gateway.event('message.complete', 'rt-1', {
+        'text': 'Done',
+        'status': 'complete',
+      });
+    } else {
+      await tester.enterText(composerField, 'Go on');
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel('Send'));
+      await settle(tester);
+      gateway.event('status.update', 'rt-1', {'kind': 'status', 'text': text});
+    }
     await settle(tester);
   }
 
@@ -137,10 +145,10 @@ void main() {
       await pumpScreen(tester, size: size);
       expect(line, findsNothing);
 
-      await status(tester, 'Process running');
+      await status(tester, sentence);
       expect(line, findsOneWidget);
       expect(
-        find.descendant(of: line, matching: find.text('Process running')),
+        find.descendant(of: line, matching: find.text(sentence)),
         findsOneWidget,
       );
       final header = tester.getRect(find.byType(ChatHeader));
@@ -160,9 +168,7 @@ void main() {
         ['chat.activity.opened'],
       );
       expect(
-        trail.recent.any(
-          (c) => '${c.name} ${c.attributes}'.contains('Process running'),
-        ),
+        trail.recent.any((c) => '${c.name} ${c.attributes}'.contains('zebra')),
         isFalse,
       );
       expect(line, findsNothing);
@@ -189,7 +195,7 @@ void main() {
       await pumpScreen(tester, platform: platform);
       tester.view.physicalSize = const Size(390, 844);
       await settle(tester);
-      await status(tester, 'Process running');
+      await status(tester, sentence);
       expect(line, findsOneWidget);
 
       await tester.tap(line);
@@ -199,7 +205,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(ActivityLine),
-          matching: find.text('Process running'),
+          matching: find.text(sentence),
         ),
         findsOneWidget,
       );
@@ -214,12 +220,12 @@ void main() {
     expect(find.byType(MacChatToolbar), findsOneWidget);
     expect(find.byKey(const Key('mac-subtitle-status')), findsNothing);
 
-    await status(tester, 'Process running');
+    await status(tester, sentence);
     expect(find.byType(ActivityLine), findsNothing);
     expect(
       find.descendant(
         of: find.byType(MacChatToolbar),
-        matching: find.text('Process running'),
+        matching: find.text(sentence),
       ),
       findsOneWidget,
     );

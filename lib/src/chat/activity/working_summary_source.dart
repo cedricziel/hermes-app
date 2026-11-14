@@ -79,11 +79,25 @@ class WorkingSummarySource {
   /// The next number of the controller-wide arrival sequence.
   int next() => ++_sequence;
 
+  /// A turn of [scope] ended (its reply settled, was stopped, failed or was
+  /// reclaimed). Called where the event is applied, not when a read happens,
+  /// so what arrived before it never counts for the turn that follows, even
+  /// when a queued turn follows at once.
+  void turnEnded(Object scope) {
+    final state = _scopes[scope] ??= _Scope();
+    state.turnEnd = next();
+    state.endedSinceStart = true;
+  }
+
   /// The summary of [scope] (the chat's thread) for [inputs]; null when
   /// nothing is working.
   WorkingSummary? read(Object scope, WorkingInputs inputs) {
     final state = _scopes[scope] ??= _Scope();
-    if (inputs.replying && !state.replying) state.turnStart = next();
+    if (inputs.replying && !state.replying) state.endedSinceStart = false;
+    if (!inputs.replying && state.replying && !state.endedSinceStart) {
+      // A turn ended without anyone saying so: mark it now.
+      state.turnEnd = next();
+    }
     state.replying = inputs.replying;
     final turn = inputs.replying;
     final stamps = state.stamps;
@@ -112,8 +126,9 @@ class WorkingSummarySource {
       for (final MapEntry(:key, :value) in inputs.waits.entries) {
         if (value.trim().isEmpty) continue;
         final arrived = inputs.waitAt[key];
-        // A wait from an earlier turn stays in the panel, not on the line.
-        if (arrived != null && arrived < state.turnStart) continue;
+        // A wait from before the last turn ended stays in the panel, not on
+        // the line. One that came ahead of a server-started turn counts.
+        if (arrived != null && arrived < state.turnEnd) continue;
         if (arrived == null) {
           sentence('wait:$key', WorkingSentenceKind.status, text: value);
         } else {
@@ -136,12 +151,12 @@ class WorkingSummarySource {
         }
       }
     }
-    if (inputs.processes > 0) {
-      sentence(
-        'processes',
-        WorkingSentenceKind.processes,
-        count: inputs.processes,
-      );
+    // The backend reports no process exit (terminal.close comes only from the
+    // close_terminal tool), so a card with output counts as running only
+    // while its turn does.
+    final processes = turn ? inputs.processes : 0;
+    if (processes > 0) {
+      sentence('processes', WorkingSentenceKind.processes, count: processes);
     }
     final moa = inputs.moa;
     if (moa != null) {
@@ -167,11 +182,11 @@ class WorkingSummarySource {
         ),
       );
     }
-    if (inputs.processes > 0) {
+    if (processes > 0) {
       counters.add(
         WorkingCounter.processes(
-          running: inputs.processes,
-          at: at('processes#', inputs.processes)!,
+          running: processes,
+          at: at('processes#', processes)!,
         ),
       );
     }
@@ -196,7 +211,10 @@ class WorkingSummarySource {
 class _Scope {
   final stamps = <String, (Object, int)>{};
   bool replying = false;
-  int turnStart = 0;
+  bool endedSinceStart = true;
+
+  /// When the last turn ended, in the arrival sequence.
+  int turnEnd = 0;
 }
 
 /// The Working sources of [thread] in [chat].
