@@ -6772,6 +6772,26 @@
   "@voiceCallUnmute": {
     "description": "Label of the round control that unmutes the microphone."
   },
+  "voiceCheckModelFollowsMain": "Voice replies follow your main model.",
+  "@voiceCheckModelFollowsMain": {
+    "description": "Detail of the Voice model row when voice chat follows the main model."
+  },
+  "voiceCheckModelNamed": "Voice replies use a model chosen for voice.",
+  "@voiceCheckModelNamed": {
+    "description": "Detail of the Voice model row when the profile names a model for voice chat."
+  },
+  "voiceCheckModelProviderOnly": "Voice replies use a fast model from the voice provider.",
+  "@voiceCheckModelProviderOnly": {
+    "description": "Detail of the Voice model row when only a provider is pinned for voice chat."
+  },
+  "voiceCheckModelUnknown": "Couldn't check the voice model. The call can still start.",
+  "@voiceCheckModelUnknown": {
+    "description": "Warning of the Voice model row when the read failed or the server has no such setting."
+  },
+  "voiceCheckModelUnresolved": "Hermes has no model set for voice replies. The call can still start.",
+  "@voiceCheckModelUnresolved": {
+    "description": "Warning of the Voice model row when voice chat has no model to run on."
+  },
   "voiceConsentSentence": "Hermes sends each thing you say after a pause, without you pressing send. It can use its tools to act on it.",
   "@voiceConsentSentence": {
     "description": "Sentence in the consent card on the call start screen explaining that speech is sent automatically."
@@ -6823,6 +6843,10 @@
   "voiceNoticeMicMayBeOpenTitle": "The call ended, but the microphone may still be open.",
   "@voiceNoticeMicMayBeOpenTitle": {
     "description": "Title of the notice when the call ended but the app could not confirm the microphone closed."
+  },
+  "voiceNoticeRouteNeutralTitle": "Audio route changed. Please repeat if needed.",
+  "@voiceNoticeRouteNeutralTitle": {
+    "description": "Notice after the audio route changed while an earlier turn was already sent and answering, so it does not say that nothing was sent."
   },
   "voiceNoticeRouteTitle": "Audio route changed. Please repeat if needed. Nothing was sent.",
   "@voiceNoticeRouteTitle": {

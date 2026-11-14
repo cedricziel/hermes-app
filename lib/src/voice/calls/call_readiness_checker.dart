@@ -119,21 +119,34 @@ class CallReadinessChecker {
     if (!isCurrent()) return report();
     try {
       final route = await voiceModel().timeout(timeout);
+      final (code, detail) = switch (route) {
+        VoiceModelRoute.named => (
+          CallDetail.voiceModelNamed,
+          'Voice replies use a model chosen for voice.',
+        ),
+        VoiceModelRoute.followsMain => (
+          CallDetail.voiceModelFollowsMain,
+          'Voice replies follow your main model.',
+        ),
+        VoiceModelRoute.providerOnly => (
+          CallDetail.voiceModelProviderOnly,
+          'Voice replies use a fast model from the voice provider.',
+        ),
+        VoiceModelRoute.unresolved => (
+          CallDetail.voiceModelUnresolved,
+          'Hermes has no model set for voice replies. The call can still start.',
+        ),
+        VoiceModelRoute.unknown => (
+          CallDetail.voiceModelUnknown,
+          "Couldn't check the voice model. The call can still start.",
+        ),
+      };
       update(
         CallCheck(
           CallCheckId.voiceModel,
           route.resolved ? CallCheckStatus.ready : CallCheckStatus.warning,
-          switch (route) {
-            VoiceModelRoute.named =>
-              'Voice replies use a model chosen for voice.',
-            VoiceModelRoute.followsMain =>
-              'Voice replies follow your main model.',
-            VoiceModelRoute.providerOnly =>
-              'Voice replies use a fast model from the voice provider.',
-            VoiceModelRoute.unresolved => 'Hermes has no model set for voice replies. The call can still start.',
-            VoiceModelRoute.unknown =>
-              "Couldn't check the voice model. The call can still start.",
-          },
+          detail,
+          code: code,
         ),
       );
     } on Object catch (error) {
@@ -143,6 +156,7 @@ class CallReadinessChecker {
           CallCheckId.voiceModel,
           CallCheckStatus.warning,
           "Couldn't check the voice model. The call can still start.",
+          code: CallDetail.voiceModelUnknown,
         ),
       );
     }

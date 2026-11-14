@@ -175,7 +175,7 @@ void main() {
       await pumpEventQueue();
       expect(agent.prompts, isEmpty);
       expect(call.phase, CallPhase.listening);
-      expect(call.caption, contains('Audio route changed'));
+      expect(call.notice, CallNotice.routeChanged);
       expect(bridge.ends, 0);
     },
   );

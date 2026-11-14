@@ -146,6 +146,11 @@ class VoiceCall extends ChangeNotifier {
   /// the bridge's.
   bool get capturePaused => _paused || _bridgePaused;
 
+  /// Whether the user asked for mute, which counts before the bridge confirms
+  /// it. A control that toggles mute toggles this, so a second quick tap
+  /// unmutes.
+  bool get mutedRequested => _requestedMute;
+
   /// Whether the microphone is closed for longer than a tone: Waiting for you
   /// or the bridge's own pause (desktop playback). The strip says "paused"
   /// for these only; a tone's few hundred milliseconds stay "open".
@@ -290,9 +295,13 @@ class VoiceCall extends ChangeNotifier {
         _epoch++;
         _vad.reset();
         _stopSpeech();
+        // A reply of an earlier turn that is still going has been sent.
+        final submitted = _running > 0;
         phase = _idlePhase;
-        caption =
-            'Audio route changed. Please repeat if needed. Nothing was sent.';
+        caption = '';
+        notice = submitted
+            ? CallNotice.routeChangedNeutral
+            : CallNotice.routeChanged;
         _lastPCM = _now();
         // The native reset reopened capture; Waiting for you needs it closed.
         _bridgePaused = false;
@@ -428,6 +437,8 @@ class VoiceCall extends ChangeNotifier {
       if (waiting) {
         if (phase == CallPhase.sending) _dropTurn();
         if (phase == CallPhase.thinking || phase == CallPhase.speaking) {
+          // Spoken by the server's voice, which Hermes picks per profile: the
+          // words are sent as text, so they cannot follow the app's language.
           _speech?.append(
             'Please open the chat to answer Hermes before we continue.',
           );
@@ -651,6 +662,7 @@ class VoiceCall extends ChangeNotifier {
       if (!_current(epoch)) return;
       // A tool-only turn may have nothing to read. Keep it conversational.
       if (!speech.hasText) {
+        // Spoken by the server's voice, like the sentence above: kept English.
         speech.append('I have finished. You can see the details in the chat.');
       }
       step = 'speech';

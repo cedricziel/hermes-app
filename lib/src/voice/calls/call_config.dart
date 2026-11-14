@@ -66,7 +66,13 @@ class VoiceCallConfig {
   /// "hey". No Unicode normalisation, as in Hermes.
   bool isStopPhrase(String transcript) {
     if (stopPhrases.isEmpty) return false;
-    return stopPhrases.contains(_withoutAddress(_clean(transcript)));
+    var text = _clean(transcript);
+    // "Hey, Hermes, stop." takes two addresses off.
+    for (var previous = ''; previous != text;) {
+      previous = text;
+      text = _withoutAddress(text);
+    }
+    return stopPhrases.contains(text);
   }
 }
 

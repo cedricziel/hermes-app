@@ -198,6 +198,12 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
         title: l10n.voiceNoticeMicMayBeOpenTitle,
         detail: l10n.voiceNoticeMicMayBeOpenDetail,
       ),
+      (CallNotice.routeChanged, _, _) => VoiceCallNotice(
+        title: l10n.voiceNoticeRouteTitle,
+      ),
+      (CallNotice.routeChangedNeutral, _, _) => VoiceCallNotice(
+        title: l10n.voiceNoticeRouteNeutralTitle,
+      ),
       (CallNotice.idle, _, _) => VoiceCallNotice(
         title: l10n.voiceNoticeIdleTitle,
         detail: l10n.voiceNoticeIdleDetail,
@@ -305,7 +311,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                 onInterrupt: call.phase == CallPhase.speaking
                     ? () => unawaited(call.interruptReply())
                     : null,
-                onMute: () => unawaited(call.setMuted(!call.muted)),
+                onMute: () => unawaited(call.setMuted(!call.mutedRequested)),
                 onSpeaker: () => unawaited(call.setSpeaker(!call.speaker)),
                 onEnd: () => unawaited(call.end()),
                 onShowChat: () => Navigator.of(context).pop(),

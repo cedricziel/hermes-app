@@ -1,5 +1,16 @@
 enum CallCheckId { microphone, input, output, voiceModel, connection }
 
+/// What a row says, for the rows whose words the widget layer owns (and
+/// translates). [CallCheck.detail] keeps an English sentence for the setup
+/// request to the agent.
+enum CallDetail {
+  voiceModelNamed,
+  voiceModelFollowsMain,
+  voiceModelProviderOnly,
+  voiceModelUnresolved,
+  voiceModelUnknown,
+}
+
 enum CallCheckStatus {
   checking,
   ready,
@@ -13,11 +24,14 @@ enum CallCheckStatus {
 enum CallSetupAction { microphone, dictation, hermes }
 
 class CallCheck {
-  const CallCheck(this.id, this.status, this.detail, {this.action});
+  const CallCheck(this.id, this.status, this.detail, {this.action, this.code});
   final CallCheckId id;
   final CallCheckStatus status;
   final String detail;
   final CallSetupAction? action;
+
+  /// The words the screen shows instead of [detail], when it has them.
+  final CallDetail? code;
 
   /// Whether this row lets the call start.
   bool get allowsCall =>

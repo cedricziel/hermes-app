@@ -342,6 +342,7 @@ class _CheckRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final ready = check.status == CallCheckStatus.ready;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -371,7 +372,17 @@ class _CheckRow extends StatelessWidget {
                 Text(check.title, style: theme.textTheme.titleSmall),
                 const SizedBox(height: 3),
                 Text(
-                  check.detail,
+                  switch (check.code) {
+                    CallDetail.voiceModelNamed => l10n.voiceCheckModelNamed,
+                    CallDetail.voiceModelFollowsMain =>
+                      l10n.voiceCheckModelFollowsMain,
+                    CallDetail.voiceModelProviderOnly =>
+                      l10n.voiceCheckModelProviderOnly,
+                    CallDetail.voiceModelUnresolved =>
+                      l10n.voiceCheckModelUnresolved,
+                    CallDetail.voiceModelUnknown => l10n.voiceCheckModelUnknown,
+                    null => check.detail,
+                  },
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

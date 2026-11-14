@@ -229,7 +229,11 @@ void main() {
       expect(h.agent.interrupts, 0, reason: 'the reply keeps running');
       expect(h.bridge.stops, 1, reason: 'the speech is dropped');
       expect(h.call.ended, isFalse);
-      expect(h.call.caption, contains('Audio route changed'));
+      expect(
+        h.call.notice,
+        CallNotice.routeChangedNeutral,
+        reason: 'a turn was already submitted, so no "nothing was sent"',
+      );
     });
 
     test('keeps Waiting for you and pauses capture again', () async {

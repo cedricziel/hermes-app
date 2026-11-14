@@ -236,6 +236,30 @@ void main() {
     await flow.dispose(tester);
   });
 
+  testWidgets(
+    'a second quick tap on Mute unmutes, before the bridge confirms',
+    (tester) async {
+      final flow = _Flow();
+      await flow.open(tester);
+      await flow.consentAndStart(tester);
+      await tester.runAsync(() async {
+        flow.bridge.emit('activated');
+        await pumpEventQueue();
+      });
+      await tester.pump();
+      flow.bridge.muteGate = Completer<void>();
+      await tester.tap(find.bySemanticsLabel('Mute').first);
+      await tester.pump();
+      expect(flow.call!.mutedRequested, isTrue);
+      expect(flow.call!.muted, isFalse, reason: 'not confirmed yet');
+      await tester.tap(find.bySemanticsLabel('Mute').first);
+      await tester.pump();
+      expect(flow.call!.mutedRequested, isFalse);
+      flow.bridge.muteGate!.complete();
+      await flow.dispose(tester);
+    },
+  );
+
   testWidgets('End shows the ended notice', (tester) async {
     final flow = _Flow();
     await flow.open(tester);

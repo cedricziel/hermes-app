@@ -80,6 +80,8 @@ void main() {
       expect(config.isStopPhrase('Hermes, stop'), isTrue);
       expect(config.isStopPhrase('OK stop.'), isTrue);
       expect(config.isStopPhrase('hey stop'), isTrue);
+      expect(config.isStopPhrase('Hey, Hermes, stop.'), isTrue);
+      expect(config.isStopPhrase('ok hey hermes, goodbye'), isTrue);
       expect(config.isStopPhrase('heyday stop'), isFalse);
       expect(config.isStopPhrase('okay stop'), isFalse);
       expect(config.isStopPhrase('hermes'), isFalse);
