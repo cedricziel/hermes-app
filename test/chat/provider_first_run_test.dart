@@ -83,7 +83,7 @@ void main() {
 
       expect(find.text('Connect a model to start chatting'), findsOneWidget);
       expect(
-        find.text('Your Hermes server has no model provider for default yet.'),
+        find.text('Your Hermes server has no model provider yet.'),
         findsOneWidget,
       );
       expect(find.text('What can you help me with?'), findsNothing);
@@ -182,7 +182,7 @@ void main() {
       expect(find.text("Reconnect your model's provider"), findsOneWidget);
       expect(
         find.text(
-          'New chats in default use example-model-a, but its provider\'s key '
+          'New chats use example-model-a, but its provider\'s key '
           'is missing or no longer works.',
         ),
         findsOneWidget,
@@ -285,8 +285,25 @@ void main() {
         },
       ));
       await tester.pumpAndSettle();
-      expect(find.text('Hermes is loading your models'), findsOneWidget);
+      // Still warming after "Check again": the card stops waiting.
+      expect(find.text('Connect a model to start chatting'), findsOneWidget);
       expect(find.text('What can you help me with?'), findsNothing);
+    });
+
+    testWidgets('an unchanged answer to Check again asks to connect', (
+      tester,
+    ) async {
+      backend
+        ..keys['OPENROUTER_API_KEY'] = FakeProviderBackend.redact(_key)
+        ..modelsWarm = false;
+      await pump(tester);
+      expect(find.text('Hermes is loading your models'), findsOneWidget);
+
+      await tester.tap(find.text('Check again'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Connect a model to start chatting'), findsOneWidget);
+      expect(find.text('Hermes is loading your models'), findsNothing);
     });
   });
 

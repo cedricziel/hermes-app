@@ -149,14 +149,29 @@ void main() {
       expect(options.warming, isFalse);
     });
 
-    test('a row without the flag is read like the ready ones: warming', () {
+    test('a row without the flag next to flagged rows is warming', () {
       expect(
         ModelOptions.fromJson({
-          'providers': [row('example-a')],
+          'providers': [
+            row('example-a'),
+            row('example-b', authenticated: false),
+          ],
         }).warming,
         isTrue,
       );
     });
+
+    test(
+      'rows without the flag anywhere (an older server) are not warming',
+      () {
+        expect(
+          ModelOptions.fromJson({
+            'providers': [row('example-a'), row('example-b')],
+          }).warming,
+          isFalse,
+        );
+      },
+    );
 
     test('a warming row is recorded next to a ready provider', () {
       final options = ModelOptions.fromJson({

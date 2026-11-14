@@ -33,6 +33,17 @@ void main() {
       expect(card?.kind, ConnectCardKind.loading);
     });
 
+    test('a loading answer that did not change asks to connect instead', () {
+      final card = connectCardFor(
+        ModelOptionsState.incomplete,
+        const ModelOptions(warming: true),
+        profile: 'work',
+        warmingUnchanged: true,
+      );
+
+      expect(card?.kind, ConnectCardKind.connect);
+    });
+
     test('a lost provider asks to reconnect, even when others are ready', () {
       final card = connectCardFor(
         ModelOptionsState.ready,
@@ -130,6 +141,11 @@ void main() {
         'Invalid API key',
         'Missing API key for example-a',
         'The API key is invalid.',
+        'Request failed with status code 401',
+        "Client error '401 Unauthorized' for url 'https://example.com/v1'",
+        '401 Unauthorized',
+        // Not a 4xx the list names, but the provider's own billing refusal.
+        'Error code: 400 - Your credit balance is too low',
       ]) {
         expect(isProviderReplyError(message), isTrue, reason: message);
       }
@@ -146,6 +162,11 @@ void main() {
         'Unauthorized',
         'Rotate the api key in the config file',
         'HTTP 500 from the example service',
+        // A tool's or a helper model's failure is not the chat model's.
+        'Missing API key for Tavily web search',
+        'No API key configured for the vision auxiliary model',
+        'web_extract failed: HTTP 403 fetching page',
+        'The helper model returned HTTP 401',
         '',
       ]) {
         expect(isProviderReplyError(message), isFalse, reason: message);

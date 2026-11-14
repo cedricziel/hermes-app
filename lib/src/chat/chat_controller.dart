@@ -698,6 +698,24 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> refreshModelOptions() =>
       _loadModelOptions(_profile, _loadGeneration);
 
+  bool _warmingUnchanged = false;
+
+  /// A "Check again" on the loading card found the options still warming:
+  /// the card gives up waiting and asks to connect. Cleared by any answer
+  /// that is not warming and by a profile switch.
+  bool get warmingUnchanged => _warmingUnchanged;
+
+  /// The loading card's "Check again": reads the options again and notes
+  /// whether they are still warming.
+  Future<void> checkModelOptionsAgain() async {
+    final wasWarming = _modelOptions?.warming == true;
+    await refreshModelOptions();
+    if (wasWarming && _modelOptions?.warming == true) {
+      _warmingUnchanged = true;
+      notifyListeners();
+    }
+  }
+
   /// The model picked before there is a thread to hold it.
   ModelChoice? _newChatModel;
 

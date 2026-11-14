@@ -12,7 +12,7 @@ export type ConnectModelCardKind = "connect" | "reconnect" | "loading";
 
 export interface ConnectModelCardProps {
   kind: ConnectModelCardKind;
-  /** The chat's profile; "default" on a server without profiles. */
+  /** The chat's profile; "default" (the server's own, not named in the text) on a server without profiles. */
   profile: string;
   /** The default model that lost its provider (`reconnect`). */
   modelName?: string;
@@ -55,11 +55,15 @@ export function ConnectModelCard({
   onPress,
 }: ConnectModelCardProps) {
   const { icon, title, action } = copy[kind];
+  // The profile named "default" is the server's own, so no name is said.
+  const named = profile !== "default";
   const body =
     kind === "connect"
-      ? `Your Hermes server has no model provider for ${profile} yet.`
+      ? named
+        ? `Your Hermes server has no model provider for ${profile} yet.`
+        : "Your Hermes server has no model provider yet."
       : kind === "reconnect"
-        ? `New chats in ${profile} use ${modelName}, but its provider's key is missing or no longer works.`
+        ? `New chats ${named ? `in ${profile} use` : "use"} ${modelName}, but its provider's key is missing or no longer works.`
         : "A provider is connected, but its model list isn't ready yet.";
   return (
     <section className="h-connect-card">

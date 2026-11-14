@@ -185,6 +185,7 @@ extension _ChatControllerHistory on ChatController {
       final switched = profile != _profile;
       if (switched) {
         _modelOptions = null;
+        _warmingUnchanged = false;
         _newChatModel = null;
         _ChatControllerWorkspace(this)._workspaceProfileSwitched();
         search?.clear();
@@ -399,6 +400,7 @@ extension _ChatControllerHistory on ChatController {
       return;
     }
     if (options != null) _modelOptions = options;
+    if (options?.warming != true) _warmingUnchanged = false;
     _modelOptionsState = state;
     notifyListeners();
   }

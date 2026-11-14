@@ -123,14 +123,18 @@ class ModelOptions {
     return ModelOptions(
       providers: providers,
       current: choice,
-      // Connected, yet left out above for listing no models.
-      warming: maps.any(
-        (row) =>
-            row['authenticated'] != false &&
-            row['slug'] is String &&
-            (row['slug'] as String).isNotEmpty &&
-            !readyIds.contains(row['slug']),
-      ),
+      // Connected, yet left out above for listing no models. A server that
+      // sends no `authenticated` flag on any row lists providers it knows,
+      // connected or not, so its empty rows say nothing.
+      warming:
+          maps.any((row) => row.containsKey('authenticated')) &&
+          maps.any(
+            (row) =>
+                row['authenticated'] != false &&
+                row['slug'] is String &&
+                (row['slug'] as String).isNotEmpty &&
+                !readyIds.contains(row['slug']),
+          ),
       // "auto" is the merged default, not a provider a row can stand for.
       missing:
           choice != null &&

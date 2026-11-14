@@ -366,12 +366,13 @@ extension _ChatScreenNavigation on _ChatScreenState {
             _chat.modelOptions,
             profile: _chat.profile ?? 'default',
             settled: _chat.settledModelOptionsState,
+            warmingUnchanged: _chat.warmingUnchanged,
           );
     if (data == null) return null;
     return ConnectModelCard(
       data: data,
       onPressed: data.kind == ConnectCardKind.loading
-          ? () => unawaited(_chat.refreshModelOptions())
+          ? () => unawaited(_chat.checkModelOptionsAgain())
           : () => _openProviders(
               ProvidersEntry.welcome,
               focus: ProvidersFocus.providerOrAdd(data.providerId),
