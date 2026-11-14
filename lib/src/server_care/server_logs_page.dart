@@ -11,6 +11,7 @@ import '../theme/platform_chrome.dart';
 import '../auth/auth_controller.dart';
 import '../widgets/dialog_presentation.dart';
 import '../widgets/route_dismissal.dart';
+import '../widgets/settings_pane.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/settings_search_field.dart';
 import 'care_result.dart';
@@ -150,9 +151,16 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   }
 
   /// Removes this page's own route, never whatever is on top of it (the
-  /// Copy question, a menu).
+  /// Copy question, a menu). In a detail pane the page has no route: the pane
+  /// empties instead.
   void _leave() => WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (mounted) dismissRoute(context);
+    if (!mounted) return;
+    final pane = SettingsPane.maybeOf(context);
+    if (pane != null) {
+      pane.close();
+    } else {
+      dismissRoute(context);
+    }
   });
 
   void _tabChanged() {

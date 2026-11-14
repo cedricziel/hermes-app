@@ -914,6 +914,7 @@
   "serverCareSidebarCaptionNeedsAttention": "Braucht Aufmerksamkeit",
   "serverCareSidebarCaptionRestarting": "Startet neu …",
   "serverCareSidebarCaptionUpdating": "Wird aktualisiert …",
+  "serverCareSplitEmpty": "Für diesen Server gibt es nichts weiter anzuzeigen.",
   "serverCareStorageMissingDetail": "Chats und Nutzung fehlen möglicherweise, bis er repariert ist.",
   "serverCareTitle": "Server",
   "serverCareToolsHeader": "Werkzeuge",

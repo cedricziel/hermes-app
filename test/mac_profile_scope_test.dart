@@ -468,6 +468,10 @@ void main() {
           'name': 'hermes-update',
           'action_id': 'a' * 32,
         })
+        // The window is wide, so the Server page shows Usage beside its list;
+        // a server that answers (here with a state, not a chart) keeps it there
+        // for the whole test.
+        ..on('GET', '/api/analytics/usage', {'detail': 'busy'}, status: 503)
         // The dashboard is gone for as long as the test looks.
         ..onRequest('GET', '/api/health', (o) {
           throw DioException.connectionError(requestOptions: o, reason: 'down');
