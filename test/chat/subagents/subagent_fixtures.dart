@@ -19,9 +19,17 @@
 /// - `subagent.steer` from a connection that never resumed the session
 ///   answers `rejected`, not 4001; list, tail and interrupt answer 4001.
 /// - A note queued after the child's last tool batch is reported in the
-///   completion frame's `summary` with the success-path notice, also when the
+///   completion frame's `summary` (a finished child's `text` too) with the success-path notice, also when the
 ///   child then failed with a provider error. The failure-path notice
 ///   (`before the subagent stopped`) was not reproduced.
+///
+/// Provenance: the two-goal delegation, interrupt, steer and 4001 answers and
+/// the apples/pears frames came from the committed scripted model in
+/// `test/real_backend_contract_test.dart`. The single-goal "quinces" child
+/// (note queued after its tool batch), the provider-error child and the
+/// 70-call tail came from variants of that model that are not committed
+/// (the child answered after a 6 s delay, failed with HTTP 400, or looped
+/// `echo` calls); those fixtures are recorded-with-uncommitted-variant.
 library;
 
 /// The Hermes revision the answers were recorded at.
@@ -157,9 +165,10 @@ const Map<String, Object?> tailUnavailable = {
   'truncated': false,
 };
 
-/// `subagent.tail` of a child that ran seventy quick tool calls: Hermes
-/// returns the last 16,384 bytes (here all ASCII, so characters) and sets
-/// `truncated`, so the text starts in the middle of a line.
+/// `subagent.tail` of a child that ran seventy quick tool calls. GENERATED,
+/// not recorded: the recorded answer had `available: true`, `truncated: true`
+/// and exactly 16,384 characters starting mid-line; this builds text of the
+/// same size and line form.
 Map<String, Object?> tailTruncatedAnswer() {
   final lines = StringBuffer();
   for (var n = 0; n < 70; n++) {

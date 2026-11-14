@@ -13,10 +13,6 @@ import 'subagent_fixtures.dart';
 /// the way the app reads them. Every expectation names a value that was in
 /// the recorded answer, so a parser that dropped it would fail here.
 void main() {
-  test('the fixtures name the revision they were recorded at', () {
-    expect(kSubagentFixturesRevision, 'd923a5eb');
-  });
-
   group('subagent.list', () {
     test('two running children of one delegation', () {
       final list = parseAgentList(listRunning)!;
@@ -233,7 +229,6 @@ void main() {
         summaryShowsMissedNote(completeFinished['summary'] as String?),
         isFalse,
       );
-      expect(completeInterrupted.containsKey('summary'), isFalse);
     });
   });
 

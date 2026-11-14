@@ -4414,6 +4414,19 @@ approvals:
             if (e.type == 'subagent.start') e.payload['subagent_id']! as String,
         };
         expect(ids, hasLength(2));
+        // A failed assertion must not leave the children sleeping.
+        addTearDown(() async {
+          for (final id in ids) {
+            try {
+              await tap.rpc.request('subagent.interrupt', {
+                'session_id': sid,
+                'subagent_id': id,
+              });
+            } on Object {
+              // Already ended or the connection is gone.
+            }
+          }
+        });
         Future<Map<String, Object?>> call(
           String method, [
           Map<String, Object?>? p,
@@ -4536,11 +4549,17 @@ approvals:
                   e.payload['subagent_id'] == second,
             );
         expect(complete.payload['status'], 'interrupted');
-        expect(
-          parseAgentTail(await call('subagent.tail', {'subagent_id': second}))!
-              .available,
-          isFalse,
-        );
+        // The record is dropped when the child ends; allow a short race.
+        var endedTail = parseAgentTail(
+          await call('subagent.tail', {'subagent_id': second}),
+        )!;
+        for (var i = 0; i < 50 && endedTail.available; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          endedTail = parseAgentTail(
+            await call('subagent.tail', {'subagent_id': second}),
+          )!;
+        }
+        expect(endedTail.available, isFalse);
         expect(
           parseStopOutcome(
             await call('subagent.interrupt', {'subagent_id': second}),
@@ -4605,13 +4624,42 @@ approvals:
           Map<String, Object?>? p,
         ]) => tap.rpc.request(method, {'session_id': sid, ...?p});
 
-        final running = parseProcessList(await call('process.list'))!;
+        // The program's output is read by a background thread: on a slow
+        // machine the first list can precede it. Wait, bounded, for it.
+        var running = parseProcessList(await call('process.list'))!;
+        for (var i = 0; i < 150; i++) {
+          final tail = running.processes.isEmpty
+              ? null
+              : running.processes.first.outputTail;
+          if (tail != null && tail.contains('ready on demo port')) break;
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          running = parseProcessList(await call('process.list'))!;
+        }
         final row = running.processes.single;
         expect(row.status, ProgramStatus.running);
         expect(row.command, 'echo ready on demo port; sleep 300');
         expect(row.outputTail, contains('ready on demo port'));
         expect(row.exitCode, isNull);
         expect(row.uptime, isNotNull);
+        addTearDown(() async {
+          try {
+            await tap.rpc.request('process.kill', {
+              'session_id': sid,
+              'process_id': row.id,
+            });
+          } on Object {
+            // Already stopped or the connection is gone.
+          }
+        });
+        // No attachment check: a connection that never resumed the chat reads
+        // the same list (design.md; the app still reads only while attached).
+        final reader = await openTap();
+        expect(
+          parseProcessList(
+            await reader.rpc.request('process.list', {'session_id': sid}),
+          )!.processes.single.id,
+          row.id,
+        );
 
         final killed = parseProcessKill(
           await call('process.kill', {'process_id': row.id}),
@@ -4676,10 +4724,12 @@ approvals:
           'source': 'hermes_app',
         });
         final sid = session['session_id'] as String;
+        final clock = Stopwatch()..start();
         await expectLater(
           tap.rpc.request('process.list', {'session_id': sid}),
           rpcError(5032),
         );
+        expect(clock.elapsed, lessThan(const Duration(seconds: 10)));
         await expectLater(
           tap.rpc.request('process.kill', {
             'session_id': sid,
@@ -5167,9 +5217,9 @@ class _GatewayTap {
   }
 
   /// Waits until [condition] holds, and fails naming [what] when it does not
-  /// within two minutes.
+  /// within a minute.
   Future<void> until(bool Function() condition, String what) async {
-    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    final deadline = DateTime.now().add(const Duration(seconds: 60));
     while (!condition()) {
       if (DateTime.now().isAfter(deadline)) {
         fail('timed out waiting for $what');
