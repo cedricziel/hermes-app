@@ -221,6 +221,7 @@ The REST writes change `config.yaml` and `.env` only; they do not reach into run
 - "Install on server" is a filled button exactly when the provider's status is `needs_setup`, its helper says "Needed before this works. The app asks first.", and the switch-started install opens the detail's install section from a "Show" button in the list's banner.
 
 - Mac targets: the pointer is the input, so the Mac uses the app's existing sizes (grouped rows 40 pt, `MacToolbar` buttons and source-list rows 28 pt, `kMacSourceListRowHeight`) with 28 pt as the minimum; touch platforms keep 44 pt / 48 dp, the key form's Replace included.
+- Deviation: the model picker and "What's the difference?" open through `showAdaptiveSheet`, so a Mac and wide windows show a centred dialog, not an anchored popover as the canvas draws it; the app has no popover helper, and one is not worth adding for two sheets.
 
 ## Risks / Trade-offs
 
