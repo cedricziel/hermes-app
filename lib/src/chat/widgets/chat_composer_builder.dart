@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart' as mui;
 import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
+import '../../theme/material_ui_bridge.dart';
 import '../../bot_mode/bot_chat_context.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
@@ -232,22 +233,11 @@ class FlyerMaterialScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Localizations.override(
       context: context,
       delegates: const [mui.DefaultMaterialLocalizations.delegate],
       child: mui.Theme(
-        data: mui.ThemeData(
-          colorScheme:
-              mui.ColorScheme.fromSeed(
-                seedColor: scheme.primary,
-                brightness: scheme.brightness,
-              ).copyWith(
-                primary: scheme.primary,
-                surface: scheme.surface,
-                onSurface: scheme.onSurface,
-              ),
-        ),
+        data: buildMaterialUiTheme(Theme.of(context).colorScheme),
         child: mui.Material(type: mui.MaterialType.transparency, child: child),
       ),
     );

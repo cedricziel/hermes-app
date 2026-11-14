@@ -1,8 +1,13 @@
 import 'dart:convert';
 
+import 'package:cupertino_ui/cupertino_ui.dart' as cui;
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/update/github_release_store.dart';
+import 'package:material_ui/material_ui.dart' as mui;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -81,7 +86,15 @@ void main() {
       );
     });
 
-    Future<void> pump(WidgetTester tester, String tag) async {
+    /// Mounts the alert the way `HermesApp` does: `material_ui` and
+    /// `cupertino_ui` localizations in the app's delegates and the
+    /// `material_ui` theme above the navigator. [bridged] false leaves both out.
+    Future<void> pump(
+      WidgetTester tester,
+      String tag, {
+      bool bridged = true,
+      Brightness brightness = Brightness.light,
+    }) async {
       final upgrader = Upgrader(
         client: _client(200, {'tag_name': tag, 'html_url': _releasePage}),
         storeController: UpgraderStoreController(
@@ -94,6 +107,19 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildHermesLightTheme(),
+          darkTheme: buildHermesDarkTheme(),
+          themeMode: brightness == Brightness.dark
+              ? ThemeMode.dark
+              : ThemeMode.light,
+          localizationsDelegates: [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            if (bridged) ...kMaterialUiLocalizationsDelegates,
+          ],
+          builder: (context, child) =>
+              bridged ? MaterialUiThemeScope(child: child!) : child!,
           home: UpgradeAlert(
             upgrader: upgrader,
             showReleaseNotes: false,
@@ -109,11 +135,56 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('prompts when a newer release exists', (tester) async {
-      await pump(tester, 'v0.2.0');
+    for (final brightness in Brightness.values) {
+      testWidgets('prompts when a newer release exists, ${brightness.name}', (
+        tester,
+      ) async {
+        await pump(tester, 'v0.2.0', brightness: brightness);
 
-      expect(find.text('UPDATE NOW'), findsOneWidget);
-    });
+        expect(tester.takeException(), isNull);
+        expect(find.text('UPDATE NOW'), findsOneWidget);
+      }, variant: TargetPlatformVariant.all());
+    }
+
+    for (final bridged in [true, false]) {
+      testWidgets('material_ui and cupertino_ui localizations are '
+          '${bridged ? 'provided' : 'absent without the bridge'}', (
+        tester,
+      ) async {
+        late BuildContext inside;
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              if (bridged) ...kMaterialUiLocalizationsDelegates,
+            ],
+            home: Builder(
+              builder: (context) {
+                inside = context;
+                return const SizedBox();
+              },
+            ),
+          ),
+        );
+
+        expect(
+          Localizations.of<mui.MaterialLocalizations>(
+            inside,
+            mui.MaterialLocalizations,
+          ),
+          bridged ? isNotNull : isNull,
+        );
+        expect(
+          Localizations.of<cui.CupertinoLocalizations>(
+            inside,
+            cui.CupertinoLocalizations,
+          ),
+          bridged ? isNotNull : isNull,
+        );
+      });
+    }
 
     testWidgets('stays quiet when the app is current', (tester) async {
       await pump(tester, 'v0.1.13');
