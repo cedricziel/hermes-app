@@ -146,6 +146,10 @@
   "@serverCareAgoToday": {
     "description": "Byline of a commit in the update's change list: it was made today. Lower case."
   },
+  "serverCareCancel": "Cancel",
+  "@serverCareCancel": {
+    "description": "Button that dismisses a confirmation without doing anything."
+  },
   "serverCareChannelsConnected": "{connected} of {configured} connected",
   "@serverCareChannelsConnected": {
     "description": "Value of the Channels row: messaging channels that are connected out of those configured.",
@@ -224,6 +228,50 @@
   "@serverCareFailureUpdateCheck": {
     "description": "Message on the Update page when the update check failed for any other reason."
   },
+  "serverCareGatewayBack": "Running again",
+  "@serverCareGatewayBack": {
+    "description": "Status of the gateway row once the gateway reports running again."
+  },
+  "serverCareGatewayConfirmConversations": "{count, plural, =1{1 conversation on a messaging channel will stop.} other{{count} conversations on messaging channels will stop.}}",
+  "@serverCareGatewayConfirmConversations": {
+    "description": "Line of the gateway restart confirmation when conversations on messaging channels are running now.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "serverCareGatewayConfirmKeepRunning": "Chats in this app keep running.",
+  "@serverCareGatewayConfirmKeepRunning": {
+    "description": "First line of the gateway restart confirmation: the app's own chats do not depend on the messaging gateway."
+  },
+  "serverCareGatewayConfirmPause": "Messaging channels and scheduled tasks pause until it's back, usually within a minute.",
+  "@serverCareGatewayConfirmPause": {
+    "description": "Second line of the gateway restart confirmation."
+  },
+  "serverCareGatewayConfirmRestart": "Restart",
+  "@serverCareGatewayConfirmRestart": {
+    "description": "Confirm button of the gateway restart confirmation."
+  },
+  "serverCareGatewayConfirmRestartAll": "Restart for all",
+  "@serverCareGatewayConfirmRestartAll": {
+    "description": "Confirm button of the gateway restart confirmation when the gateway is shared by several profiles."
+  },
+  "serverCareGatewayConfirmRestartTitle": "Restart the messaging gateway?",
+  "@serverCareGatewayConfirmRestartTitle": {
+    "description": "Title of the confirmation before the messaging gateway is restarted."
+  },
+  "serverCareGatewayConfirmShared": "This gateway is shared. The bots of {profiles} reconnect too.",
+  "@serverCareGatewayConfirmShared": {
+    "description": "Line of the gateway restart confirmation when several profiles share the gateway; profiles is a comma-separated list of their names.",
+    "placeholders": {
+      "profiles": {
+        "type": "String",
+        "example": "default, work"
+      }
+    }
+  },
   "serverCareGatewayFooter": "Runs your messaging channels and scheduled tasks. Chats in this app don't depend on it.",
   "@serverCareGatewayFooter": {
     "description": "Footer under the messaging gateway section of the Server screen."
@@ -232,9 +280,45 @@
   "@serverCareGatewayHeader": {
     "description": "Section header on the Server screen: the Hermes process that runs messaging channels and scheduled tasks."
   },
+  "serverCareGatewayHeadlineRestarting": "Restarting the messaging gateway…",
+  "@serverCareGatewayHeadlineRestarting": {
+    "description": "Headline of the Server screen while a gateway restart runs."
+  },
+  "serverCareGatewayHeadlineStarting": "Starting the messaging gateway…",
+  "@serverCareGatewayHeadlineStarting": {
+    "description": "Headline of the Server screen while a gateway start runs."
+  },
+  "serverCareGatewayRestart": "Restart gateway",
+  "@serverCareGatewayRestart": {
+    "description": "Action row and headline button that restarts the messaging gateway."
+  },
+  "serverCareGatewayRestartFailed": "The gateway didn't restart",
+  "@serverCareGatewayRestartFailed": {
+    "description": "Error line of the gateway row when the restart command failed."
+  },
+  "serverCareGatewayRestarting": "Restarting…",
+  "@serverCareGatewayRestarting": {
+    "description": "Status of the gateway row while the restart command runs."
+  },
   "serverCareGatewaySharedWith": "Shared with",
   "@serverCareGatewaySharedWith": {
     "description": "Row label: the other profiles that use the same gateway. The value is a list of profile names."
+  },
+  "serverCareGatewaySlow": "The gateway hasn't come back yet",
+  "@serverCareGatewaySlow": {
+    "description": "Warning line of the gateway row when it did not report running within 90 seconds."
+  },
+  "serverCareGatewayStart": "Start gateway",
+  "@serverCareGatewayStart": {
+    "description": "Action row and headline button that starts the messaging gateway while it is off."
+  },
+  "serverCareGatewayStartFailed": "The gateway didn't start",
+  "@serverCareGatewayStartFailed": {
+    "description": "Error line of the gateway row when the start command failed."
+  },
+  "serverCareGatewayStarting": "Starting…",
+  "@serverCareGatewayStarting": {
+    "description": "Status of the gateway row while the start command runs."
   },
   "serverCareGatewayStateDegraded": "Running, some channels offline",
   "@serverCareGatewayStateDegraded": {
@@ -271,6 +355,10 @@
   "serverCareGatewayStateUnknown": "Unknown",
   "@serverCareGatewayStateUnknown": {
     "description": "Gateway state value when the server did not say."
+  },
+  "serverCareGatewayWaiting": "Waiting for the gateway…",
+  "@serverCareGatewayWaiting": {
+    "description": "Status of the gateway row while the app waits for the gateway to report running again."
   },
   "serverCareHeadlineAllGood": "Everything looks good",
   "@serverCareHeadlineAllGood": {
