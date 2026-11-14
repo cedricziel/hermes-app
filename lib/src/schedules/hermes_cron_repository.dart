@@ -36,6 +36,9 @@ Future<T> _guard<T>(Future<T> Function() run) async {
   }
 }
 
+/// A job listing, and whether it holds every row the server sent.
+typedef CronJobListing = ({List<CronJob> jobs, bool complete});
+
 /// Reads and changes the dashboard's scheduled tasks through the generated
 /// [DefaultApi].
 ///
@@ -66,11 +69,18 @@ class HermesCronRepository {
   }
 
   /// The jobs of [profile], or of every profile for `all`.
-  Future<List<CronJob>> listJobs({String? profile}) => _guard(() async {
+  Future<List<CronJob>> listJobs({String? profile}) async =>
+      (await listJobsChecked(profile: profile)).jobs;
+
+  /// Like [listJobs], and whether the answer held every job: false when the
+  /// body was not a list or a row could not be read. Only a complete listing
+  /// may stand for the set of jobs that exist.
+  Future<CronJobListing> listJobsChecked({String? profile}) => _guard(() async {
     final response = await _api.listCronJobsApiCronJobsGet(profile: profile);
     final data = response.data;
-    if (data is! List) return const <CronJob>[];
-    return [for (final row in data) ?CronJob.fromJson(row)];
+    if (data is! List) return (jobs: const <CronJob>[], complete: false);
+    final jobs = [for (final row in data) ?CronJob.fromJson(row)];
+    return (jobs: jobs, complete: jobs.length == data.length);
   });
 
   Future<CronJob> getJob(String id, {String? profile}) => _guard(() async {

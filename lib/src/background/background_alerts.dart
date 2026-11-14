@@ -213,12 +213,19 @@ class ScheduleAlertsStep extends BackgroundStep {
     if (await repositories.cron.availability().timeout(lookup) != true) {
       return const StepCounts();
     }
-    final jobs = await repositories.cron
-        .listJobs(profile: 'all')
+    final listing = await repositories.cron
+        .listJobsChecked(profile: 'all')
         .timeout(lookup);
-    await settings.forgetMutes({for (final job in jobs) job.key});
+    final jobs = listing.jobs;
+    if (listing.complete) {
+      await settings.forgetMutes({for (final job in jobs) job.key});
+    }
     final account = context.hermes.accountKey;
-    final pass = runsSince(await _baseline.read(account), jobs);
+    final pass = runsSince(
+      await _baseline.read(account),
+      jobs,
+      complete: listing.complete,
+    );
     final unmuted = [
       for (final job in pass.ran)
         if (!settings.isMuted(job.key)) job,

@@ -315,6 +315,60 @@ void main() {
       });
     });
 
+    group('a one-shot job whose time has passed', () {
+      CronJob pastOnce() => CronJob.fromJson(
+        cronJobRow(
+          schedule: {
+            'kind': 'once',
+            'run_at': '2026-09-01T08:00:00Z',
+            'display': 'once',
+          },
+        ),
+      )!;
+
+      JobFormController edit() => JobFormController(
+        repository: repository,
+        editing: pastOnce(),
+        now: () => DateTime(2026, 9, 20, 12),
+      );
+
+      test('saves a change that leaves the schedule alone', () async {
+        server.on('PUT', '/api/cron/jobs/job1', cronJobRow());
+        final form = edit()..draft.name = 'Renamed';
+
+        final job = await form.save();
+
+        expect(job, isNotNull);
+        expect(form.error, isNull);
+        expect(lastBody(), {
+          'updates': {'name': 'Renamed'},
+        });
+      });
+
+      test('still refuses a touched schedule in the past', () async {
+        final form = edit()..draft.name = 'Renamed';
+        form.changed(when: true);
+
+        final job = await form.save();
+
+        expect(job, isNull);
+        expect(form.error, 'That time is in the past');
+        expect(server.requests, isEmpty);
+      });
+    });
+
+    test('a new one-shot job in the past is refused', () async {
+      final form = create()
+        ..draft.prompt = 'Hi'
+        ..draft.spec = OnceSpec(DateTime(2026, 9, 1, 8));
+
+      final job = await form.save();
+
+      expect(job, isNull);
+      expect(form.error, 'That time is in the past');
+      expect(server.requests, isEmpty);
+    });
+
     test('is dirty only once something changed', () {
       final job = CronJob.fromJson(cronJobRow())!;
       final form = JobFormController(repository: repository, editing: job);

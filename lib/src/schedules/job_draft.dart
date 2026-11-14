@@ -55,9 +55,11 @@ class JobDraft {
       if (part.trim().isNotEmpty) part.trim(),
   ];
 
-  /// Why the job cannot be saved yet, or null.
-  String? validate(DateTime now) {
-    final schedule = spec.validate(now);
+  /// Why the job cannot be saved yet, or null. [checkSchedule] is false for
+  /// an edit that does not send the schedule, so a one-shot job whose time
+  /// has passed can still be renamed.
+  String? validate(DateTime now, {bool checkSchedule = true}) {
+    final schedule = checkSchedule ? spec.validate(now) : null;
     if (schedule != null) return schedule;
     if (prompt.trim().isEmpty && skills.isEmpty && script.trim().isEmpty) {
       return 'A task needs a prompt, a skill or a script';

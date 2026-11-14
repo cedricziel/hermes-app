@@ -62,6 +62,26 @@ void main() {
       expect(await repository.listJobs(), isEmpty);
     });
 
+    test('says whether every row could be read', () async {
+      server.on('GET', '/api/cron/jobs', [cronJobRow()]);
+      final whole = await repository.listJobsChecked();
+      expect(whole.jobs.map((j) => j.id), ['job1']);
+      expect(whole.complete, isTrue);
+
+      server.on('GET', '/api/cron/jobs', [
+        cronJobRow(),
+        {'name': 'no id'},
+      ]);
+      final partial = await repository.listJobsChecked();
+      expect(partial.jobs.map((j) => j.id), ['job1']);
+      expect(partial.complete, isFalse);
+
+      server.on('GET', '/api/cron/jobs', {'jobs': []});
+      final unreadable = await repository.listJobsChecked();
+      expect(unreadable.jobs, isEmpty);
+      expect(unreadable.complete, isFalse);
+    });
+
     test('reports the reason the server gave', () async {
       server.on(
         'GET',

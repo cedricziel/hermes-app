@@ -30,8 +30,14 @@ typedef RunPass = ({List<CronJob> ran, Map<String, DateTime> baseline});
 /// first time and sets its baseline without being reported, and so is every
 /// job when there is no [previous] at all, so that opening the app does not
 /// announce runs from before. A run time that moves backwards is not a run.
-RunPass runsSince(Map<String, DateTime>? previous, Iterable<CronJob> current) {
-  final baseline = <String, DateTime>{};
+/// When [current] is not [complete], the jobs it lacks keep their baseline,
+/// since they may still exist.
+RunPass runsSince(
+  Map<String, DateTime>? previous,
+  Iterable<CronJob> current, {
+  bool complete = true,
+}) {
+  final baseline = <String, DateTime>{if (!complete) ...?previous};
   final ran = <CronJob>[];
   for (final job in current) {
     final last = job.lastRunAt ?? _never;
@@ -227,9 +233,9 @@ class ScheduleWatcher with WidgetsBindingObserver {
 
   Future<void> _look(int epoch) async {
     try {
-      final List<CronJob> jobs;
+      final CronJobListing listing;
       try {
-        jobs = await repository.listJobs(profile: 'all');
+        listing = await repository.listJobsChecked(profile: 'all');
       } on Object {
         if (_current(epoch)) _backoff.failed();
         rethrow;
@@ -241,7 +247,8 @@ class ScheduleWatcher with WidgetsBindingObserver {
       final account = _account();
       final baseline = await _baseline.read(account);
       if (!_current(epoch)) return;
-      final pass = runsSince(baseline, jobs);
+      final jobs = listing.jobs;
+      final pass = runsSince(baseline, jobs, complete: listing.complete);
       final unmuted = [
         for (final job in pass.ran)
           if (!settings.isMuted(job.key)) job,
@@ -250,7 +257,9 @@ class ScheduleWatcher with WidgetsBindingObserver {
           ? await _activeProfile()
           : null;
       if (!_current(epoch)) return;
-      unawaited(settings.forgetMutes({for (final j in jobs) j.key}));
+      if (listing.complete) {
+        unawaited(settings.forgetMutes({for (final j in jobs) j.key}));
+      }
       if (!_current(epoch)) return;
       // Before the alerts, so that a baseline that cannot be saved announces
       // nothing now rather than once more at every look.
