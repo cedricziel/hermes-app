@@ -15,6 +15,14 @@ const kNeedsYouBody = 'Waiting for you in Hermes';
 const kAnswerFailedBody = "Couldn't send your answer. Open Hermes to answer.";
 const kOpenToAnswerBody = 'Open Hermes to answer.';
 
+/// What the endings of an inline reply say (see `inline_reply.dart`). Fixed
+/// text, never the reply itself.
+const kReplyNotSentKeptBody = 'Reply not sent. Open Hermes to try again.';
+const kReplyNotSentBody = 'Reply not sent. Open Hermes to write it again.';
+const kReplyUnconfirmedBody =
+    "Couldn't confirm your reply was sent. Open Hermes to check.";
+const kOpenToReplyBody = 'Open Hermes to reply.';
+
 /// The most characters of a command or a question a request notification
 /// shows.
 const kRequestBodyLength = 1000;
@@ -32,6 +40,8 @@ class AttentionNotification {
     this.prompt,
     this.bodyIsPlainText = false,
     this.isMessage = false,
+    this.draft,
+    this.accountHash,
   }) : jobId = null;
 
   /// A scheduled task's run. It replaces an earlier notification for the same
@@ -47,7 +57,9 @@ class AttentionNotification {
        bodyIsPlainText = false,
        isMessage = false,
        needsInput = false,
-       prompt = null;
+       prompt = null,
+       draft = null,
+       accountHash = null;
 
   /// Names the notification: the chat's id, or `job:<id>` for a task, so the
   /// two never replace each other.
@@ -83,6 +95,15 @@ class AttentionNotification {
   /// new chat with it in the composer, unsent. Only the payload holds it, the
   /// notification does not show it.
   final String? prompt;
+
+  /// The text of an inline reply that was not sent, for the chat's composer
+  /// when the notification is tapped; only the payload holds it (`'u'`). Set
+  /// together with [accountHash].
+  final String? draft;
+
+  /// The account [draft] was typed in (`accountHashFor`), the payload's
+  /// `'a'`.
+  final String? accountHash;
 
   /// Whether the agent is blocked on the user, which is what may break
   /// through a Focus.

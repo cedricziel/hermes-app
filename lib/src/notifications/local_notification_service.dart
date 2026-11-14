@@ -53,6 +53,8 @@ String notificationPayload(AttentionNotification notification) {
       't': notification.threadId,
     'p': ?notification.profile,
     'q': ?notification.prompt,
+    'u': ?notification.draft,
+    'a': ?notification.accountHash,
     if (request != null) 'n': notification.title,
     if (request != null) 'r': request.toJson(),
   });
