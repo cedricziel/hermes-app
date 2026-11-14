@@ -12,16 +12,25 @@ class AppAlertDialog extends StatelessWidget {
     this.title,
     this.content,
     this.actions = const [],
+    this.backgroundColor,
   });
 
   final Widget? title;
   final Widget? content;
   final List<Widget> actions;
 
+  /// The surface of the Material dialog; null keeps the theme's.
+  final Color? backgroundColor;
+
   @override
   Widget build(BuildContext context) {
     if (!platformChromeOf(context).isApple) {
-      return AlertDialog(title: title, content: content, actions: actions);
+      return AlertDialog(
+        title: title,
+        content: content,
+        actions: actions,
+        backgroundColor: backgroundColor,
+      );
     }
     // Material fields inside the content still need a Material ancestor.
     return CupertinoAlertDialog(

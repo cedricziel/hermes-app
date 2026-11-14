@@ -454,6 +454,868 @@
 
   "@@x-area-chat/attachments": "",
 
+  "@@x-area-chat/checkpoints": "",
+  "chatCheckpointsChangesBarCount": "{count, plural, =1{1 file differs} other{{count} files differ}}",
+  "@chatCheckpointsChangesBarCount": {
+    "description": "Sticky footer of the Changes page: how many files differ now.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesBarRestoreAll": "Restore all files…",
+  "@chatCheckpointsChangesBarRestoreAll": {
+    "description": "Button in the Changes footer that starts restoring every file of the checkpoint."
+  },
+  "chatCheckpointsChangesBarRestoring": "Restoring…",
+  "@chatCheckpointsChangesBarRestoring": {
+    "description": "Label of the Restore all files button while a restore runs."
+  },
+  "chatCheckpointsChangesBarSome": "Some files differ",
+  "@chatCheckpointsChangesBarSome": {
+    "description": "Changes footer when the number of differing files is not known."
+  },
+  "chatCheckpointsChangesCountsAddedRemoved": "+{added} −{removed}",
+  "@chatCheckpointsChangesCountsAddedRemoved": {
+    "description": "Counts under a changed file: lines added and lines removed. The signs carry the meaning.",
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "removed": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesCountsLinesChanged": "{count, plural, =1{1 line changed} other{{count} lines changed}}",
+  "@chatCheckpointsChangesCountsLinesChanged": {
+    "description": "Count under a changed file when only the total of changed lines is known.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesCountsSemantics": "{added, plural, =1{1 line added} other{{added} lines added}}, {removed} removed",
+  "@chatCheckpointsChangesCountsSemantics": {
+    "description": "Screen reader text for the counts of a changed file.",
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "removed": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesCutCaption": "Hermes cut this diff short",
+  "@chatCheckpointsChangesCutCaption": {
+    "description": "Caption under a changed file whose diff is missing because the server cut the diff."
+  },
+  "chatCheckpointsChangesCutFooter": "Hermes only sends the first part of a large diff. The file list is complete.",
+  "@chatCheckpointsChangesCutFooter": {
+    "description": "Note under the file list when the server cut the diff."
+  },
+  "chatCheckpointsChangesFileLabel": "{name}, {details}",
+  "@chatCheckpointsChangesFileLabel": {
+    "description": "Screen reader text of a changed file row. {name} is the file name, {details} the counts.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsChangesFileSubtitle": "{folder} · {details}",
+  "@chatCheckpointsChangesFileSubtitle": {
+    "description": "Line under a file name: its folder and its counts. {folder} may be \"Top of the folder\".",
+    "placeholders": {
+      "folder": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsChangesHeader": "Files that differ now",
+  "@chatCheckpointsChangesHeader": {
+    "description": "Heading of the file list on the Changes page."
+  },
+  "chatCheckpointsChangesHeaderNote": "Lines added and removed since the checkpoint.",
+  "@chatCheckpointsChangesHeaderNote": {
+    "description": "Note under the heading of the file list."
+  },
+  "chatCheckpointsChangesLoading": "Reading the changes…",
+  "@chatCheckpointsChangesLoading": {
+    "description": "Label of the skeleton while the changes of a checkpoint load."
+  },
+  "chatCheckpointsChangesNone": "No changes since this checkpoint.",
+  "@chatCheckpointsChangesNone": {
+    "description": "Message when no file differs from the checkpoint."
+  },
+  "chatCheckpointsChangesNoneDetail": "The files in this folder are as they were {time}.",
+  "@chatCheckpointsChangesNoneDetail": {
+    "description": "Detail under the no-changes message. {time} is a relative time such as \"12 min ago\".",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsChangesNotText": "Not text, no preview",
+  "@chatCheckpointsChangesNotText": {
+    "description": "Under a binary file: it has no text diff."
+  },
+  "chatCheckpointsChangesReasonDisconnected": "Reconnect to restore files.",
+  "@chatCheckpointsChangesReasonDisconnected": {
+    "description": "Why restoring is disabled while the connection is down."
+  },
+  "chatCheckpointsChangesReasonFileNotOffered": "This file can't be restored one at a time.",
+  "@chatCheckpointsChangesReasonFileNotOffered": {
+    "description": "Why restoring one file is disabled."
+  },
+  "chatCheckpointsChangesReasonLocked": "Unlock the app to restore files.",
+  "@chatCheckpointsChangesReasonLocked": {
+    "description": "Why restoring is disabled while App Lock is on."
+  },
+  "chatCheckpointsChangesReasonReplying": "Wait for the reply to finish.",
+  "@chatCheckpointsChangesReasonReplying": {
+    "description": "Why restoring all files is disabled while the chat replies."
+  },
+  "chatCheckpointsChangesReasonRestoring": "Wait for the restore to finish.",
+  "@chatCheckpointsChangesReasonRestoring": {
+    "description": "Why restoring is disabled while another restore runs."
+  },
+  "chatCheckpointsChangesReasonUnavailable": "This server can't restore files.",
+  "@chatCheckpointsChangesReasonUnavailable": {
+    "description": "Why restoring is disabled when the server has no such feature."
+  },
+  "chatCheckpointsChangesRefused": "Hermes runs this chat in a separate workspace, so it keeps no checkpoints of its files.",
+  "@chatCheckpointsChangesRefused": {
+    "description": "Message on the Changes page when the server runs the chat in a container."
+  },
+  "chatCheckpointsChangesTopOfFolder": "Top of the folder",
+  "@chatCheckpointsChangesTopOfFolder": {
+    "description": "Folder shown under a file that sits directly in the chat's folder."
+  },
+  "chatCheckpointsChangesTryAgain": "Try again",
+  "@chatCheckpointsChangesTryAgain": {
+    "description": "Button under the message that the changes could not be read."
+  },
+  "chatCheckpointsChangesUnreadable": "Couldn't read the changes.",
+  "@chatCheckpointsChangesUnreadable": {
+    "description": "Message when the changes of a checkpoint could not be read."
+  },
+  "chatCheckpointsFileBinary": "This file isn't text, so there is no preview.",
+  "@chatCheckpointsFileBinary": {
+    "description": "Note on the file page for a binary file."
+  },
+  "chatCheckpointsFileCounts": "{added} added, {removed} removed",
+  "@chatCheckpointsFileCounts": {
+    "description": "Counts under the file page heading. {added} and {removed} are numbers of lines.",
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "removed": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsFileCut": "Hermes cut this diff short.",
+  "@chatCheckpointsFileCut": {
+    "description": "Note on the file page when the diff is incomplete."
+  },
+  "chatCheckpointsFileHeading": "Changes in {file}",
+  "@chatCheckpointsFileHeading": {
+    "description": "Heading of the file page. {file} is the file name.",
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsFileNameNotAlone": "This file's name can't be restored one at a time. Use Restore all files.",
+  "@chatCheckpointsFileNameNotAlone": {
+    "description": "Shown instead of the Restore this file button for a name that cannot be sent safely."
+  },
+  "chatCheckpointsFileNameShortened": "Git shortened this name, so Hermes can't be sure which file it is. Use Restore all files.",
+  "@chatCheckpointsFileNameShortened": {
+    "description": "Shown instead of the Restore this file button for a name that git shortened."
+  },
+  "chatCheckpointsFileNoPreview": "There is no preview for this file.",
+  "@chatCheckpointsFileNoPreview": {
+    "description": "Note on the file page when the file has no diff to show and is not binary."
+  },
+  "chatCheckpointsFileRestore": "Restore this file…",
+  "@chatCheckpointsFileRestore": {
+    "description": "Button on the file page that starts restoring one file."
+  },
+  "chatCheckpointsFileRestoring": "Restoring…",
+  "@chatCheckpointsFileRestoring": {
+    "description": "Label of the Restore this file button while the restore runs."
+  },
+  "chatCheckpointsListEmpty": "No checkpoints yet for this chat's folder. Hermes makes one just before it first edits a file in a turn.",
+  "@chatCheckpointsListEmpty": {
+    "description": "Empty state of the checkpoint list."
+  },
+  "chatCheckpointsListFailed": "Couldn't read checkpoints.",
+  "@chatCheckpointsListFailed": {
+    "description": "Message when the checkpoint list could not be read."
+  },
+  "chatCheckpointsListLoading": "Loading checkpoints…",
+  "@chatCheckpointsListLoading": {
+    "description": "Label of the skeleton while the checkpoint list loads."
+  },
+  "chatCheckpointsListLocked": "{count, plural, =1{1 checkpoint} other{{count} checkpoints}}",
+  "@chatCheckpointsListLocked": {
+    "description": "All the checkpoint list shows while App Lock is on.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsListNewestFirst": "Newest first",
+  "@chatCheckpointsListNewestFirst": {
+    "description": "Heading of the checkpoint list."
+  },
+  "chatCheckpointsListNotCovered": "Checkpoints don't cover this chat's workspace.",
+  "@chatCheckpointsListNotCovered": {
+    "description": "Message when the chat runs in a container workspace."
+  },
+  "chatCheckpointsListNote": "Checkpoints belong to this chat's folder, so other chats in it see them too.",
+  "@chatCheckpointsListNote": {
+    "description": "Note above the checkpoint list."
+  },
+  "chatCheckpointsListOff": "File checkpoints are off on your Hermes server. To use them, turn on {setting} in its config.",
+  "@chatCheckpointsListOff": {
+    "description": "Message when checkpoints are disabled on the server. {setting} is the config key, shown as code.",
+    "placeholders": {
+      "setting": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsListRetry": "Try again",
+  "@chatCheckpointsListRetry": {
+    "description": "Button under the message that the checkpoints could not be read."
+  },
+  "chatCheckpointsListStale": "Not up to date · reconnect to restore",
+  "@chatCheckpointsListStale": {
+    "description": "Note above the checkpoint list while the connection is down; the list is kept."
+  },
+  "chatCheckpointsOutcomeBusyCompressing": "Hermes is compressing this chat. Try again when it's done.",
+  "@chatCheckpointsOutcomeBusyCompressing": {
+    "description": "Outcome note when a restore was refused because Hermes is compressing the chat."
+  },
+  "chatCheckpointsOutcomeBusyReplying": "Wait for the reply to finish, then try again.",
+  "@chatCheckpointsOutcomeBusyReplying": {
+    "description": "Outcome note when a full restore was refused because the chat is replying."
+  },
+  "chatCheckpointsOutcomeChatUnchanged": "Your chat isn't changed.",
+  "@chatCheckpointsOutcomeChatUnchanged": {
+    "description": "Detail line of the note after one file was restored: the chat was not touched."
+  },
+  "chatCheckpointsOutcomeFailedMaybeChangedDetail": "Some may have changed.",
+  "@chatCheckpointsOutcomeFailedMaybeChangedDetail": {
+    "description": "Detail line of the note when a restore failed part-way: some files may have been changed. Never say that nothing changed here."
+  },
+  "chatCheckpointsOutcomeFailedTitle": "Hermes couldn't restore the files",
+  "@chatCheckpointsOutcomeFailedTitle": {
+    "description": "Title of the outcome note when a restore failed or was refused."
+  },
+  "chatCheckpointsOutcomeHistoryNotRewoundDetail": "Your messages are unchanged.",
+  "@chatCheckpointsOutcomeHistoryNotRewoundDetail": {
+    "description": "Detail line when files were restored but the chat could not be rewound."
+  },
+  "chatCheckpointsOutcomeHistoryNotRewoundTitle": "Files were restored, but the chat couldn't be rewound",
+  "@chatCheckpointsOutcomeHistoryNotRewoundTitle": {
+    "description": "Title of the warning note when a full restore put the files back but the chat was not rewound."
+  },
+  "chatCheckpointsOutcomeLastMessageNotRemoved": "Your last message in this app wasn't the one removed.",
+  "@chatCheckpointsOutcomeLastMessageNotRemoved": {
+    "description": "Detail line after a full restore that removed a message other than the last one this app showed; the message box is left alone."
+  },
+  "chatCheckpointsOutcomeListAndChatReread": "The list and the chat were read again.",
+  "@chatCheckpointsOutcomeListAndChatReread": {
+    "description": "Detail line saying the checkpoint list and the chat were fetched again after a restore."
+  },
+  "chatCheckpointsOutcomeListReread": "The list was read again.",
+  "@chatCheckpointsOutcomeListReread": {
+    "description": "Detail line saying the checkpoint list was fetched again after a restore."
+  },
+  "chatCheckpointsOutcomeMayHaveHappenedDetail": "The files may have been restored.",
+  "@chatCheckpointsOutcomeMayHaveHappenedDetail": {
+    "description": "Detail line of the warning note when Hermes did not answer a restore."
+  },
+  "chatCheckpointsOutcomeMayHaveHappenedTitle": "Hermes didn't answer",
+  "@chatCheckpointsOutcomeMayHaveHappenedTitle": {
+    "description": "Title of the warning note when a restore got no answer."
+  },
+  "chatCheckpointsOutcomeNothingChanged": "Nothing was changed.",
+  "@chatCheckpointsOutcomeNothingChanged": {
+    "description": "Detail line when a restore was refused before any file was touched."
+  },
+  "chatCheckpointsOutcomeRefusedContainer": "Checkpoints don't cover this chat's workspace",
+  "@chatCheckpointsOutcomeRefusedContainer": {
+    "description": "Title of the note when the chat runs in a separate workspace, so no checkpoints exist for its files."
+  },
+  "chatCheckpointsOutcomeRefusedNested": "This checkpoint includes a project inside the folder that Hermes didn't capture, so it can't restore it",
+  "@chatCheckpointsOutcomeRefusedNested": {
+    "description": "Title of the note when a checkpoint holds a nested repository that was not captured."
+  },
+  "chatCheckpointsOutcomeRefusedNotFound": "That checkpoint is gone",
+  "@chatCheckpointsOutcomeRefusedNotFound": {
+    "description": "Title of the note when the chosen checkpoint no longer exists, for example after another restore."
+  },
+  "chatCheckpointsOutcomeRestoredCount": "{count, plural, =1{Restored 1 file} other{Restored {count} files}}",
+  "@chatCheckpointsOutcomeRestoredCount": {
+    "description": "Success note after a restore whose number of files was read from the checkpoint's changes. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsOutcomeRestoredUnknown": "Files restored",
+  "@chatCheckpointsOutcomeRestoredUnknown": {
+    "description": "Success note after a restore when the number of files is not known."
+  },
+  "chatCheckpointsOutcomeSafetyNone": "No new “Before a restore” checkpoint was added.",
+  "@chatCheckpointsOutcomeSafetyNone": {
+    "description": "Detail line when the re-read list holds no new safety checkpoint. The quoted name is the reason text of that checkpoint."
+  },
+  "chatCheckpointsOutcomeSafetySaved": "Hermes saved the previous state as the top checkpoint, ‘Before a restore’.",
+  "@chatCheckpointsOutcomeSafetySaved": {
+    "description": "Detail line when the re-read list holds a new safety checkpoint taken before the restore."
+  },
+  "chatCheckpointsOutcomeSessionGone": "Hermes lost the connection to this chat. Try again.",
+  "@chatCheckpointsOutcomeSessionGone": {
+    "description": "Outcome note when the chat's session was gone while restoring."
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredCountRemoved": "{count, plural, =1{Restored 1 file · removed your last message} other{Restored {count} files · removed your last message}}",
+  "@chatCheckpointsOutcomeTranscriptRestoredCountRemoved": {
+    "description": "Centred line in the transcript after a full restore that removed the last message. {count} is how many files.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredCountRewound": "{count, plural, =1{Restored 1 file · rewound the chat} other{Restored {count} files · rewound the chat}}",
+  "@chatCheckpointsOutcomeTranscriptRestoredCountRewound": {
+    "description": "Centred line in the transcript after a full restore that removed messages from the chat but not the last message this app showed. {count} is how many files.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredUnknownRemoved": "Files restored · removed your last message",
+  "@chatCheckpointsOutcomeTranscriptRestoredUnknownRemoved": {
+    "description": "Centred line in the transcript after a full restore when the file count is not known."
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredUnknownRewound": "Files restored · rewound the chat",
+  "@chatCheckpointsOutcomeTranscriptRestoredUnknownRewound": {
+    "description": "Like the line above when the file count is not known."
+  },
+  "chatCheckpointsOutcomeTryAgain": "Try again",
+  "@chatCheckpointsOutcomeTryAgain": {
+    "description": "Button on a restore outcome note that asks for the restore again, behind a new confirmation."
+  },
+  "chatCheckpointsRestoreAllConfirm": "Restore all files",
+  "@chatCheckpointsRestoreAllConfirm": {
+    "description": "Destructive button of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllDifferCount": "{count, plural, =1{1 file differs now. Changes made since, by you or Hermes, will be overwritten.} other{{count} files differ now. Changes made since, by you or Hermes, will be overwritten.}}",
+  "@chatCheckpointsRestoreAllDifferCount": {
+    "description": "Line of the Restore all files confirmation: how many files differ from the checkpoint now. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsRestoreAllDifferUnknown": "Some files differ now. Changes made since, by you or Hermes, will be overwritten.",
+  "@chatCheckpointsRestoreAllDifferUnknown": {
+    "description": "Line of the Restore all files confirmation when the number of differing files could not be read."
+  },
+  "chatCheckpointsRestoreAllIntro": "Files in this folder go back to how they were {time}{reason, select, beforeEdit{, before editing a file} beforeTerminal{, before a terminal command} beforeRestore{, before a restore} other{}}.",
+  "@chatCheckpointsRestoreAllIntro": {
+    "description": "First sentence of the Restore all files confirmation. {time} is a relative time such as '12 min ago'; {reason} is the checkpoint's reason kind (beforeEdit, beforeTerminal, beforeRestore, other).",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsRestoreAllLaterFiles": "Files created after that stay where they are.",
+  "@chatCheckpointsRestoreAllLaterFiles": {
+    "description": "Line of the Restore all files confirmation: files created later are not deleted."
+  },
+  "chatCheckpointsRestoreAllNotCaptured": ".env files, logs, node_modules, build output, caches, virtual environments, archives, videos, compiled binaries and files over 10 MB aren't in checkpoints: this leaves them as they are, and no checkpoint can bring them back.",
+  "@chatCheckpointsRestoreAllNotCaptured": {
+    "description": "Line of the Restore all files confirmation naming what checkpoints never hold."
+  },
+  "chatCheckpointsRestoreAllNote": "Chats don't track which message a checkpoint belongs to, so only your last message is removed, whichever checkpoint you pick. Other chats in this folder keep their messages but see the restored files.",
+  "@chatCheckpointsRestoreAllNote": {
+    "description": "Muted note at the end of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllOtherChat": "Another chat working in this folder can change these files again.",
+  "@chatCheckpointsRestoreAllOtherChat": {
+    "description": "Line of the Restore all files confirmation: another chat shares the folder."
+  },
+  "chatCheckpointsRestoreAllQuoteHint": "If this is the message removed, it goes back into the message box, unsent.",
+  "@chatCheckpointsRestoreAllQuoteHint": {
+    "description": "Caption under the quoted last message in the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllQuoteLabel": "Your last message",
+  "@chatCheckpointsRestoreAllQuoteLabel": {
+    "description": "Accessibility label of the quoted last message in the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllRemovesMessages": "This also removes your last message and Hermes' answers after it from this chat.",
+  "@chatCheckpointsRestoreAllRemovesMessages": {
+    "description": "Bold warning line of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllReplying": "Wait for the reply to finish.",
+  "@chatCheckpointsRestoreAllReplying": {
+    "description": "Reason shown under the disabled Restore all files button while the chat replies."
+  },
+  "chatCheckpointsRestoreAllSaveFirst": "Hermes tries to save the current state first.",
+  "@chatCheckpointsRestoreAllSaveFirst": {
+    "description": "Line of the Restore all files confirmation: a safety checkpoint is attempted."
+  },
+  "chatCheckpointsRestoreAllTitle": "Restore all files?",
+  "@chatCheckpointsRestoreAllTitle": {
+    "description": "Title of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreCancel": "Cancel",
+  "@chatCheckpointsRestoreCancel": {
+    "description": "Cancel button of the restore confirmations, the default."
+  },
+  "chatCheckpointsRestoreFileBody": "{file} goes back to how it was {time}{reason, select, beforeEdit{, before editing a file} beforeTerminal{, before a terminal command} beforeRestore{, before a restore} other{}}. Changes made to it since, by you or Hermes, will be overwritten. Hermes tries to save the current version first. Your chat isn't changed. Another chat working in this folder can change this file again.",
+  "@chatCheckpointsRestoreFileBody": {
+    "description": "Body of the Restore this file confirmation. {file} is the file's name, {time} a relative time such as '12 min ago', {reason} the checkpoint's reason kind (beforeEdit, beforeTerminal, beforeRestore, other).",
+    "placeholders": {
+      "file": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsRestoreFileConfirm": "Restore file",
+  "@chatCheckpointsRestoreFileConfirm": {
+    "description": "Destructive button of the Restore this file confirmation."
+  },
+  "chatCheckpointsRestoreFileTitle": "Restore this file?",
+  "@chatCheckpointsRestoreFileTitle": {
+    "description": "Title of the Restore this file confirmation."
+  },
+  "chatCheckpointsRestoreFileWorking": "Hermes is working in this folder right now. It may change the file again.",
+  "@chatCheckpointsRestoreFileWorking": {
+    "description": "Extra line of the Restore this file confirmation while the agent works."
+  },
+  "chatCheckpointsRowBeforeEdit": "Before editing a file",
+  "@chatCheckpointsRowBeforeEdit": {
+    "description": "Title of a checkpoint made before Hermes edited a file."
+  },
+  "chatCheckpointsRowBeforeRestore": "Before a restore",
+  "@chatCheckpointsRowBeforeRestore": {
+    "description": "Title of a checkpoint Hermes made before a restore."
+  },
+  "chatCheckpointsRowBeforeTerminal": "Before a terminal command",
+  "@chatCheckpointsRowBeforeTerminal": {
+    "description": "Title of a checkpoint made before Hermes ran a terminal command."
+  },
+  "chatCheckpointsRowMenuLabel": "Actions for the checkpoint from {time}",
+  "@chatCheckpointsRowMenuLabel": {
+    "description": "Accessible name of the \"…\" button of a checkpoint row. {time} is a relative time.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsRowOther": "Checkpoint",
+  "@chatCheckpointsRowOther": {
+    "description": "Title of a checkpoint with no recognised reason."
+  },
+  "chatCheckpointsRowRestoreAll": "Restore all files…",
+  "@chatCheckpointsRowRestoreAll": {
+    "description": "Menu item of a checkpoint row that starts restoring every file."
+  },
+  "chatCheckpointsRowSeeChanges": "See changes",
+  "@chatCheckpointsRowSeeChanges": {
+    "description": "Menu item of a checkpoint row that opens its changes."
+  },
+  "chatCheckpointsRowUnknownTime": "Unknown time",
+  "@chatCheckpointsRowUnknownTime": {
+    "description": "Shown where the time of a checkpoint is not known."
+  },
+
+  "@@x-area-chat/context": "",
+  "chatContextBarLabel": "Context, {percent} percent used",
+  "@chatContextBarLabel": {
+    "description": "Accessibility label of the context bar. {percent} is a whole number.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextBarLabelEstimated": "Context, {percent} percent used, estimated",
+  "@chatContextBarLabelEstimated": {
+    "description": "Accessibility label of the context bar when the figure is an estimate. {percent} is a whole number.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextCaption": "{used} of {max} tokens",
+  "@chatContextCaption": {
+    "description": "Caption under the context bar. {used} and {max} are short counts such as 124k and 200k.",
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextCaptionEstimated": "about {used} of {max} tokens",
+  "@chatContextCaptionEstimated": {
+    "description": "Caption under the context bar when the used count is an estimate. {used} and {max} are counts such as 124k and 200k.",
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextCategoryFailed": "Couldn't read what fills the context.",
+  "@chatContextCategoryFailed": {
+    "description": "Error line where the list of what fills the context should be."
+  },
+  "chatContextCategoryFooter": "Numbers are tokens. They are estimates.",
+  "@chatContextCategoryFooter": {
+    "description": "Footer under the list of what fills the context window."
+  },
+  "chatContextCategoryHeading": "What's in it",
+  "@chatContextCategoryHeading": {
+    "description": "Heading of the list of what fills the context window."
+  },
+  "chatContextCategoryLoading": "Reading what fills the context…",
+  "@chatContextCategoryLoading": {
+    "description": "Accessibility label of the placeholder rows while the list of what fills the context loads."
+  },
+  "chatContextCategoryNameConversation": "Conversation",
+  "@chatContextCategoryNameConversation": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameMcp": "MCP servers",
+  "@chatContextCategoryNameMcp": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameMemory": "Memory",
+  "@chatContextCategoryNameMemory": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameOther": "Other",
+  "@chatContextCategoryNameOther": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameRules": "Rules files",
+  "@chatContextCategoryNameRules": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameSkills": "Skills",
+  "@chatContextCategoryNameSkills": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameSubagents": "Sub-agents",
+  "@chatContextCategoryNameSubagents": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameSystemPrompt": "System prompt",
+  "@chatContextCategoryNameSystemPrompt": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameTools": "Tools",
+  "@chatContextCategoryNameTools": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryRetry": "Try again",
+  "@chatContextCategoryRetry": {
+    "description": "Button under the error that reloads the list of what fills the context."
+  },
+  "chatContextCategoryTokens": "{tokens} tokens",
+  "@chatContextCategoryTokens": {
+    "description": "Accessibility label for the token count of one category. {tokens} is a number with thousands separators.",
+    "placeholders": {
+      "tokens": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextCompressAdvanced": "Advanced",
+  "@chatContextCompressAdvanced": {
+    "description": "Collapsed section of the compress confirmation that holds the optional focus field."
+  },
+  "chatContextCompressBodyHelper": "A helper model writes the summary and uses tokens on your account.",
+  "@chatContextCompressBodyHelper": {
+    "description": "Second line of the compress confirmation: it costs tokens."
+  },
+  "chatContextCompressBodyReload": "The chat reloads and shows the summary where the older messages were.",
+  "@chatContextCompressBodyReload": {
+    "description": "Fourth line of the compress confirmation."
+  },
+  "chatContextCompressBodyReplace": "Older messages are replaced by a short summary. Your first and latest messages stay word for word.",
+  "@chatContextCompressBodyReplace": {
+    "description": "First line of the compress confirmation."
+  },
+  "chatContextCompressBodyUndo": "This can't be undone.",
+  "@chatContextCompressBodyUndo": {
+    "description": "Third line of the compress confirmation."
+  },
+  "chatContextCompressCancel": "Cancel",
+  "@chatContextCompressCancel": {
+    "description": "Button that closes the compress confirmation without compressing."
+  },
+  "chatContextCompressConfirm": "Compress",
+  "@chatContextCompressConfirm": {
+    "description": "Button that starts compressing the chat."
+  },
+  "chatContextCompressFocusError": "Write a topic, like “the database schema”. Leave out words that start with “-”, and don't start with “here”.",
+  "@chatContextCompressFocusError": {
+    "description": "Error under the focus field when the text would be read as a command by the server. “-” and “here” are literal."
+  },
+  "chatContextCompressFocusHelper": "The summary keeps more about this topic.",
+  "@chatContextCompressFocusHelper": {
+    "description": "Helper text under the focus field."
+  },
+  "chatContextCompressFocusHint": "Keep details about…",
+  "@chatContextCompressFocusHint": {
+    "description": "Placeholder of the focus field."
+  },
+  "chatContextCompressFocusLabel": "Focus on (optional)",
+  "@chatContextCompressFocusLabel": {
+    "description": "Label of the optional text field that tells the summary what to keep."
+  },
+  "chatContextCompressReplyStarted": "Wait for the reply to finish.",
+  "@chatContextCompressReplyStarted": {
+    "description": "Shown in the compress confirmation, with Compress disabled, because the chat started replying."
+  },
+  "chatContextCompressTitle": "Compress this conversation?",
+  "@chatContextCompressTitle": {
+    "description": "Title of the confirmation before Hermes compresses the chat."
+  },
+  "chatContextCompressing": "Compressing the conversation…",
+  "@chatContextCompressing": {
+    "description": "Line on the context row while Hermes compresses the chat."
+  },
+  "chatContextDetailsModel": "Model: {model}",
+  "@chatContextDetailsModel": {
+    "description": "Muted line on the Context details page. {model} is the model's name as the server reports it.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextFull": "Full",
+  "@chatContextFull": {
+    "description": "State word beside the percentage when the context window is full or over. Keep it short."
+  },
+  "chatContextLabel": "Context",
+  "@chatContextLabel": {
+    "description": "Label of the row that shows how full the chat's context window is."
+  },
+  "chatContextNearlyFull": "Nearly full",
+  "@chatContextNearlyFull": {
+    "description": "State word beside the percentage when the context window is 80% or more used. Keep it short."
+  },
+  "chatContextNotUpToDate": "Not up to date",
+  "@chatContextNotUpToDate": {
+    "description": "Marker on the context figures when the connection is closed and they may have changed."
+  },
+  "chatContextOutcomeAborted": "Hermes couldn't write the summary, so nothing changed.",
+  "@chatContextOutcomeAborted": {
+    "description": "Warning note when the summary could not be written."
+  },
+  "chatContextOutcomeBusyCompressing": "Hermes is compressing this chat. Try again when it's done.",
+  "@chatContextOutcomeBusyCompressing": {
+    "description": "Note when another compress of this chat is running."
+  },
+  "chatContextOutcomeBusyReplying": "Wait for the reply to finish, then try again.",
+  "@chatContextOutcomeBusyReplying": {
+    "description": "Note when compressing was refused because the chat is replying."
+  },
+  "chatContextOutcomeCompressed": "Conversation compressed",
+  "@chatContextOutcomeCompressed": {
+    "description": "Title of the note after the chat was compressed."
+  },
+  "chatContextOutcomeCouldntConfirm": "Hermes didn't answer. The conversation may have been compressed.",
+  "@chatContextOutcomeCouldntConfirm": {
+    "description": "Warning title when no answer to the compress request arrived."
+  },
+  "chatContextOutcomeCouldntConfirmDetail": "The chat and its usage were read again. You can try again after a new confirmation.",
+  "@chatContextOutcomeCouldntConfirmDetail": {
+    "description": "Detail under the no-answer warning: the app re-read the chat and offers Try again."
+  },
+  "chatContextOutcomeFailed": "Hermes couldn't compress the conversation.",
+  "@chatContextOutcomeFailed": {
+    "description": "Error note for any other failure of the compress request."
+  },
+  "chatContextOutcomeFallback": "Hermes couldn't summarize the older messages, so it dropped them.",
+  "@chatContextOutcomeFallback": {
+    "description": "Added to the compressed note when the summary failed and the older messages were removed without one."
+  },
+  "chatContextOutcomeJoined": "{first} · {second}",
+  "@chatContextOutcomeJoined": {
+    "description": "Two facts about a compress result on one line, joined by a middle dot.",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "second": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextOutcomeLockHeld": "Hermes is already compressing this chat.",
+  "@chatContextOutcomeLockHeld": {
+    "description": "Note when another compression holds the lock on this chat."
+  },
+  "chatContextOutcomeMessages": "{before} → {after, plural, =1{1 message} other{{after} messages}}",
+  "@chatContextOutcomeMessages": {
+    "description": "How many messages the chat had before and after compressing. {before} and {after} are counts.",
+    "placeholders": {
+      "before": {
+        "type": "int"
+      },
+      "after": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextOutcomeNothing": "There isn't enough to compress yet.",
+  "@chatContextOutcomeNothing": {
+    "description": "Note when the chat is too short to compress."
+  },
+  "chatContextOutcomePending": "Hermes is compressing this chat in the background.",
+  "@chatContextOutcomePending": {
+    "description": "Title of the note when the compress runs on another machine and has not finished."
+  },
+  "chatContextOutcomePendingDetail": "The chat reloads when it is done.",
+  "@chatContextOutcomePendingDetail": {
+    "description": "Detail under the background-compress note."
+  },
+  "chatContextOutcomeTokens": "about {before} → {after} tokens",
+  "@chatContextOutcomeTokens": {
+    "description": "How many tokens the chat used before and after compressing. {before} and {after} are short counts such as 120k.",
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextOutcomeTryAgain": "Try again",
+  "@chatContextOutcomeTryAgain": {
+    "description": "Action in a compress note that opens the confirmation again."
+  },
+  "chatContextOutcomeWouldNotShrink": "Compressing wouldn't make this chat smaller.",
+  "@chatContextOutcomeWouldNotShrink": {
+    "description": "Note when compressing would not reduce the chat."
+  },
+  "chatContextPercent": "{percent}%",
+  "@chatContextPercent": {
+    "description": "The share of the context window in use. {percent} is a whole number from 0 to 100.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextSuggestion": "Compress to make room?",
+  "@chatContextSuggestion": {
+    "description": "Question on the context row that offers to compress the chat when it is nearly full."
+  },
+  "chatContextSuggestionCompress": "Compress…",
+  "@chatContextSuggestionCompress": {
+    "description": "Text button that opens the compress confirmation. The dots mean a confirmation follows."
+  },
+  "chatContextSuggestionDismiss": "Not now",
+  "@chatContextSuggestionDismiss": {
+    "description": "Text button that dismisses the compress suggestion."
+  },
+  "chatContextSummaryFilled": "full",
+  "@chatContextSummaryFilled": {
+    "description": "Word after the large percentage on the Context details page, as in 62% full."
+  },
+  "chatContextTokensMillion": "{count}M",
+  "@chatContextTokensMillion": {
+    "description": "A token count in millions. {count} is a number such as 1.2.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextTokensThousand": "{count}k",
+  "@chatContextTokensThousand": {
+    "description": "A token count in thousands. {count} is a number such as 124 or 8.4.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextTranscriptCompressed": "Conversation compressed · {before} → {after, plural, =1{1 message} other{{after} messages}}",
+  "@chatContextTranscriptCompressed": {
+    "description": "Muted line in the transcript where the chat was compressed. {before} and {after} are message counts.",
+    "placeholders": {
+      "before": {
+        "type": "int"
+      },
+      "after": {
+        "type": "int"
+      }
+    }
+  },
+
   "@@x-area-chat/gateway": "",
 
   "@@x-area-chat/invalidation": "",
@@ -1954,6 +2816,10 @@
   "@serverCareAgoToday": {
     "description": "Byline of a commit in the update's change list: it was made today. Lower case."
   },
+  "serverCareCancel": "Cancel",
+  "@serverCareCancel": {
+    "description": "Button that dismisses a confirmation without doing anything."
+  },
   "serverCareChannelsConnected": "{connected} of {configured} connected",
   "@serverCareChannelsConnected": {
     "description": "Value of the Channels row: messaging channels that are connected out of those configured.",
@@ -2032,6 +2898,50 @@
   "@serverCareFailureUpdateCheck": {
     "description": "Message on the Update page when the update check failed for any other reason."
   },
+  "serverCareGatewayBack": "Running again",
+  "@serverCareGatewayBack": {
+    "description": "Status of the gateway row once the gateway reports running again."
+  },
+  "serverCareGatewayConfirmConversations": "{count, plural, =1{1 conversation on a messaging channel will stop.} other{{count} conversations on messaging channels will stop.}}",
+  "@serverCareGatewayConfirmConversations": {
+    "description": "Line of the gateway restart confirmation when conversations on messaging channels are running now.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "serverCareGatewayConfirmKeepRunning": "Chats in this app keep running.",
+  "@serverCareGatewayConfirmKeepRunning": {
+    "description": "First line of the gateway restart confirmation: the app's own chats do not depend on the messaging gateway."
+  },
+  "serverCareGatewayConfirmPause": "Messaging channels and scheduled tasks pause until it's back, usually within a minute.",
+  "@serverCareGatewayConfirmPause": {
+    "description": "Second line of the gateway restart confirmation."
+  },
+  "serverCareGatewayConfirmRestart": "Restart",
+  "@serverCareGatewayConfirmRestart": {
+    "description": "Confirm button of the gateway restart confirmation."
+  },
+  "serverCareGatewayConfirmRestartAll": "Restart for all",
+  "@serverCareGatewayConfirmRestartAll": {
+    "description": "Confirm button of the gateway restart confirmation when the gateway is shared by several profiles."
+  },
+  "serverCareGatewayConfirmRestartTitle": "Restart the messaging gateway?",
+  "@serverCareGatewayConfirmRestartTitle": {
+    "description": "Title of the confirmation before the messaging gateway is restarted."
+  },
+  "serverCareGatewayConfirmShared": "This gateway is shared. The bots of {profiles} reconnect too.",
+  "@serverCareGatewayConfirmShared": {
+    "description": "Line of the gateway restart confirmation when several profiles share the gateway; profiles is a comma-separated list of their names.",
+    "placeholders": {
+      "profiles": {
+        "type": "String",
+        "example": "default, work"
+      }
+    }
+  },
   "serverCareGatewayFooter": "Runs your messaging channels and scheduled tasks. Chats in this app don't depend on it.",
   "@serverCareGatewayFooter": {
     "description": "Footer under the messaging gateway section of the Server screen."
@@ -2040,9 +2950,45 @@
   "@serverCareGatewayHeader": {
     "description": "Section header on the Server screen: the Hermes process that runs messaging channels and scheduled tasks."
   },
+  "serverCareGatewayHeadlineRestarting": "Restarting the messaging gateway…",
+  "@serverCareGatewayHeadlineRestarting": {
+    "description": "Headline of the Server screen while a gateway restart runs."
+  },
+  "serverCareGatewayHeadlineStarting": "Starting the messaging gateway…",
+  "@serverCareGatewayHeadlineStarting": {
+    "description": "Headline of the Server screen while a gateway start runs."
+  },
+  "serverCareGatewayRestart": "Restart gateway",
+  "@serverCareGatewayRestart": {
+    "description": "Action row and headline button that restarts the messaging gateway."
+  },
+  "serverCareGatewayRestartFailed": "The gateway didn't restart",
+  "@serverCareGatewayRestartFailed": {
+    "description": "Error line of the gateway row when the restart command failed."
+  },
+  "serverCareGatewayRestarting": "Restarting…",
+  "@serverCareGatewayRestarting": {
+    "description": "Status of the gateway row while the restart command runs."
+  },
   "serverCareGatewaySharedWith": "Shared with",
   "@serverCareGatewaySharedWith": {
     "description": "Row label: the other profiles that use the same gateway. The value is a list of profile names."
+  },
+  "serverCareGatewaySlow": "The gateway hasn't come back yet",
+  "@serverCareGatewaySlow": {
+    "description": "Warning line of the gateway row when it did not report running within 90 seconds."
+  },
+  "serverCareGatewayStart": "Start gateway",
+  "@serverCareGatewayStart": {
+    "description": "Action row and headline button that starts the messaging gateway while it is off."
+  },
+  "serverCareGatewayStartFailed": "The gateway didn't start",
+  "@serverCareGatewayStartFailed": {
+    "description": "Error line of the gateway row when the start command failed."
+  },
+  "serverCareGatewayStarting": "Starting…",
+  "@serverCareGatewayStarting": {
+    "description": "Status of the gateway row while the start command runs."
   },
   "serverCareGatewayStateDegraded": "Running, some channels offline",
   "@serverCareGatewayStateDegraded": {
@@ -2079,6 +3025,14 @@
   "serverCareGatewayStateUnknown": "Unknown",
   "@serverCareGatewayStateUnknown": {
     "description": "Gateway state value when the server did not say."
+  },
+  "serverCareGatewayUnconfirmed": "Couldn't confirm the restart",
+  "@serverCareGatewayUnconfirmed": {
+    "description": "Warning line of the gateway row when it kept running and was never seen down, so it is unknown whether the restart happened."
+  },
+  "serverCareGatewayWaiting": "Waiting for the gateway…",
+  "@serverCareGatewayWaiting": {
+    "description": "Status of the gateway row while the app waits for the gateway to report running again."
   },
   "serverCareHeadlineAllGood": "Everything looks good",
   "@serverCareHeadlineAllGood": {

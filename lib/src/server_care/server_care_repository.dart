@@ -116,6 +116,7 @@ class ServerCareRepository {
       _run(
         () => _api.restartGatewayApiGatewayRestartPost(profile: profile),
         _actionStarted,
+        pageMeansMissing: false,
       );
 
   /// `POST /api/gateway/start` for [profile].
@@ -123,6 +124,7 @@ class ServerCareRepository {
       _run(
         () => _api.startGatewayApiGatewayStartPost(profile: profile),
         _actionStarted,
+        pageMeansMissing: false,
       );
 
   /// `POST /api/ops/doctor` for [profile]: the read-only check, without
@@ -186,13 +188,20 @@ class ServerCareRepository {
     T? Function(Object? json) parse, {
     bool noReceipt = false,
     int? storeStatus,
+    bool pageMeansMissing = true,
   }) async {
     try {
       final response = await call();
       final data = response.data;
       // A page or a proxy's error text answered where JSON was expected: the
-      // route is not here.
-      if (data is! Map && data is! List) return const CareUnsupported();
+      // route is not here. A POST that changes something is not served by a
+      // page fallback (that is for GETs), so there the answer is lost: the
+      // action may have run.
+      if (data is! Map && data is! List) {
+        return pageMeansMissing
+            ? const CareUnsupported()
+            : const CareFailed(CareFailureKind.unreadable);
+      }
       final T? value;
       try {
         value = parse(data);
