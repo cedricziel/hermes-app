@@ -435,6 +435,15 @@ abstract final class AppIcons {
     CupertinoIcons.cursor_rays,
   );
 
+  static const warningFilled = AppIconSet(
+    Icons.warning,
+    CupertinoIcons.exclamationmark_triangle_fill,
+  );
+
+  /// SF Symbols has no key, so Apple platforms show the lock.
+  static const key = AppIconSet(Icons.key_outlined, CupertinoIcons.lock);
+  static const cloud = AppIconSet(Icons.cloud_outlined, CupertinoIcons.cloud);
+
   /// Every set by name, for the catalog and for tests.
   static const all = <String, AppIconSet>{
     'error': error,
@@ -555,5 +564,8 @@ abstract final class AppIcons {
     'paste': paste,
     'touch': touch,
     'pointer': pointer,
+    'warningFilled': warningFilled,
+    'key': key,
+    'cloud': cloud,
   };
 }
