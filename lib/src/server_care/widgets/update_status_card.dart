@@ -449,8 +449,16 @@ class UpdateOutcomeCard extends StatelessWidget {
         if (kind == UpdateOutcomeKind.oldServerRunning)
           GroupedSection(
             children: [
-              GroupedRow(title: 'Running now', value: runningVersion),
-              GroupedRow(title: 'Installed', value: installedVersion),
+              GroupedRow(
+                wrapWhenStacked: true,
+                title: 'Running now',
+                value: runningVersion,
+              ),
+              GroupedRow(
+                wrapWhenStacked: true,
+                title: 'Installed',
+                value: installedVersion,
+              ),
             ],
           ),
         if (detailLines.isNotEmpty)
