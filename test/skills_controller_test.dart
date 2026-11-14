@@ -169,6 +169,100 @@ void main() {
       expect(c.skill('zeta')!.enabled, isTrue);
     });
 
+    test(
+      'a reload during a failing toggle keeps the tap, then rolls back',
+      () async {
+        final gate = Completer<void>();
+        server.onRequest('PUT', '/api/skills/toggle', (_) async {
+          await gate.future;
+          return (status: 500, body: {'detail': 'x'});
+        });
+        final c = controller();
+        await c.load();
+
+        final done = c.toggle('zeta', false);
+        await c.load(quiet: true); // reads the value from before the tap
+        expect(c.skill('zeta')!.enabled, isFalse);
+        gate.complete();
+
+        expect(await done, isFalse);
+        expect(c.skill('zeta')!.enabled, isTrue);
+      },
+    );
+
+    test(
+      'a stale reload does not replace the value a failed tap returns to',
+      () async {
+        var gets = 0;
+        final reload = Completer<void>();
+        server.onRequest('GET', '/api/skills', (_) async {
+          if (gets++ > 0) await reload.future;
+          return (
+            status: 200,
+            body: [skillRow(name: 'zeta', category: 'devops')],
+          );
+        });
+        final gateB = Completer<void>();
+        var puts = 0;
+        server.onRequest('PUT', '/api/skills/toggle', (_) async {
+          if (puts++ == 0) return (status: 200, body: {'ok': true});
+          await gateB.future;
+          return (status: 500, body: {'detail': 'x'});
+        });
+        final c = controller();
+        await c.load();
+
+        final stale = c.load(quiet: true);
+        final a = c.toggle('zeta', false);
+        final b = c.toggle('zeta', true);
+        await a;
+        reload.complete();
+        await stale;
+        gateB.complete();
+
+        expect(await b, isFalse);
+        expect(c.skill('zeta')!.enabled, isFalse);
+      },
+    );
+
+    test(
+      'switching profile during a tap leaves the new profile alone',
+      () async {
+        final gate = Completer<void>();
+        server.onRequest('PUT', '/api/skills/toggle', (_) async {
+          await gate.future;
+          return (status: 500, body: {'detail': 'x'});
+        });
+        final c = controller();
+        await c.load();
+
+        final done = c.toggle('zeta', false);
+        await c.selectProfile('other');
+        gate.complete();
+
+        expect(await done, isFalse);
+        expect(c.skill('zeta')!.enabled, isTrue);
+      },
+    );
+
+    test('a reload during a toggle keeps the tapped value on screen', () async {
+      final gate = Completer<void>();
+      server.onRequest('PUT', '/api/skills/toggle', (_) async {
+        await gate.future;
+        return (status: 200, body: {'ok': true});
+      });
+      final c = controller();
+      await c.load();
+
+      final done = c.toggle('zeta', false);
+      await c.load(quiet: true);
+      expect(c.skill('zeta')!.enabled, isFalse);
+      gate.complete();
+
+      expect(await done, isTrue);
+      expect(c.skill('zeta')!.enabled, isFalse);
+    });
+
     test('quick taps are sent in order', () async {
       final sent = <bool>[];
       server.onRequest('PUT', '/api/skills/toggle', (r) async {
@@ -183,6 +277,53 @@ void main() {
       await Future.wait([a, b]);
 
       expect(sent, [false, true]);
+      expect(c.skill('zeta')!.enabled, isTrue);
+    });
+
+    void answer(List<bool> accepted) {
+      var i = 0;
+      server.onRequest('PUT', '/api/skills/toggle', (_) async {
+        return accepted[i++]
+            ? (status: 200, body: {'ok': true})
+            : (status: 500, body: {'detail': 'x'});
+      });
+    }
+
+    test('quick taps that all fail end on what the server holds', () async {
+      answer([false, false]);
+      final c = controller();
+      await c.load();
+
+      final results = await Future.wait([
+        c.toggle('zeta', false),
+        c.toggle('zeta', true),
+      ]);
+
+      expect(results, [false, false]);
+      expect(c.skill('zeta')!.enabled, isTrue);
+    });
+
+    test('a failure after an accepted tap goes back to that tap', () async {
+      answer([true, false, false]);
+      final c = controller();
+      await c.load();
+
+      await Future.wait([
+        c.toggle('zeta', false),
+        c.toggle('zeta', true),
+        c.toggle('zeta', false),
+      ]);
+
+      expect(c.skill('zeta')!.enabled, isFalse);
+    });
+
+    test('an accepted tap after a failure is kept', () async {
+      answer([false, true]);
+      final c = controller();
+      await c.load();
+
+      await Future.wait([c.toggle('zeta', false), c.toggle('zeta', true)]);
+
       expect(c.skill('zeta')!.enabled, isTrue);
     });
 

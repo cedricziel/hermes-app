@@ -16,6 +16,10 @@ import 'request_notifications.dart';
 const _channelId = 'agent_activity';
 const _channelName = 'Agent activity';
 
+/// Tags Android's answerable notifications: its plugin lists no payloads, so
+/// the tag is how they are found again.
+const kAnswerableTag = 'hermes.request';
+
 /// The payload a notification for [target] carries.
 String encodeTarget(NotificationTarget target) => jsonEncode({
   if (target.isMessage) 'm': 1,
@@ -235,7 +239,9 @@ class LocalNotificationService
       ),
       onDidReceiveNotificationResponse: _onResponse,
       onDidReceiveBackgroundNotificationResponse:
-          _background || defaultTargetPlatform != TargetPlatform.iOS
+          _background ||
+              (defaultTargetPlatform != TargetPlatform.iOS &&
+                  defaultTargetPlatform != TargetPlatform.android)
           ? null
           : answerRequestInBackground,
     );
@@ -334,8 +340,16 @@ class LocalNotificationService
       if (permission == false) {
         return const NotificationPostResult(NotificationPostStatus.denied);
       }
-      // Android has no placeholder that hides the text on a locked screen.
+      // Android's categories are not registered with the system; its buttons
+      // come from the category's actions at post time.
       final category = _darwin ? notification.category : null;
+      final androidCategory = !_darwin && notification.request != null
+          ? notification.category
+          : null;
+      // Only with the text on show: the buttons answer what the user sees.
+      final answerable =
+          (androidCategory?.actions.isNotEmpty ?? false) &&
+          notification.body != androidCategory!.placeholder;
       // A background run may be the first thing to start the app since the
       // system last forgot the categories, so it registers its own.
       if (category != null && (category.isDynamic || _background)) {
@@ -351,7 +365,7 @@ class LocalNotificationService
             ? InterruptionLevel.timeSensitive
             : null,
       );
-      final body = _darwin
+      final body = _darwin || answerable
           ? notification.body
           : notification.category?.isRequest == true
           ? notification.category!.placeholder
@@ -359,20 +373,36 @@ class LocalNotificationService
       if (!canDeliver()) {
         return const NotificationPostResult(NotificationPostStatus.failed);
       }
+      final id = notificationIdFor(
+        notification.threadId,
+        profile: notification.profile,
+      );
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        // Android keys a notification by tag and id; keep one per chat.
+        try {
+          await _plugin.cancel(id: id, tag: answerable ? null : kAnswerableTag);
+        } on Object {
+          // Posting still replaces what it can.
+        }
+      }
       await _plugin.show(
-        id: notificationIdFor(
-          notification.threadId,
-          profile: notification.profile,
-        ),
+        id: id,
         title: notification.title,
         body: notification.bodyIsPlainText ? body : notificationPreview(body),
         notificationDetails: NotificationDetails(
-          android: const AndroidNotificationDetails(
+          android: AndroidNotificationDetails(
             _channelId,
             _channelName,
             channelDescription: 'Replies and requests from Hermes',
             importance: Importance.high,
             priority: Priority.high,
+            // The plugin cannot set a public version or require
+            // authentication, so a private notification would show the
+            // command and working buttons on a lock screen that shows all
+            // content. Secret keeps both off it.
+            actions: answerable ? androidCategory.toAndroid() : null,
+            visibility: answerable ? NotificationVisibility.secret : null,
+            tag: answerable ? kAnswerableTag : null,
           ),
           iOS: darwin,
           macOS: darwin,
@@ -394,13 +424,17 @@ class LocalNotificationService
 
   @override
   Future<void> withdrawAnswerable() async {
-    // Only Apple's notifications carry buttons; Android's stay generic.
-    if (!_supported || !_darwin) return;
+    if (!_supported) return;
     try {
       await _initialize();
       for (final active in await _plugin.getActiveNotifications()) {
         final id = active.id;
-        if (id != null && isAnswerablePayload(active.payload)) {
+        if (id == null) continue;
+        if (defaultTargetPlatform == TargetPlatform.android) {
+          if (active.tag == kAnswerableTag) {
+            await _plugin.cancel(id: id, tag: kAnswerableTag);
+          }
+        } else if (isAnswerablePayload(active.payload)) {
           await _plugin.cancel(id: id);
         }
       }

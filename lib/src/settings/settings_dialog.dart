@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../app_lock/app_lock_dialog.dart';
 import '../auth/auth_controller.dart';
@@ -21,45 +22,53 @@ import 'appearance_dialog.dart';
 import 'theme_controller.dart';
 
 enum _Setting {
-  appearance('Appearance'),
-  notifications('Notifications'),
-  dictation('Dictation'),
-  spotlight('Spotlight'),
-  appLock('App Lock'),
-  about('About Hermes'),
-  changeServer('Change Server');
+  appearance,
+  notifications,
+  dictation,
+  spotlight,
+  appLock,
+  about,
+  changeServer;
 
-  const _Setting(this.label);
-
-  final String label;
+  String label(AppLocalizations l10n) => switch (this) {
+    appearance => l10n.settingsAppearanceTitle,
+    notifications => l10n.settingsNotifications,
+    dictation => l10n.settingsDictation,
+    spotlight => l10n.settingsSpotlight,
+    appLock => l10n.settingsAppLock,
+    about => l10n.settingsAboutHermes,
+    changeServer => l10n.settingsChangeServer,
+  };
 }
 
 /// The app's settings in one place, for the Mac account menu's "Settings…":
 /// each entry opens the dialog the sidebar's account menu opens elsewhere.
 Future<void> showSettingsDialog(BuildContext context) async {
+  final l10n = context.l10n;
+  String onOff(bool on) => on ? l10n.commonOn : l10n.commonOff;
   final values = {
     _Setting.appearance: _read<ThemeController>(
       context,
-      (theme) => themeModeLabels[theme.mode]!,
+      (theme) => themeModeLabel(l10n, theme.mode),
     ),
     _Setting.notifications: _read<NotificationSettings>(
       context,
-      (settings) => _onOff(settings.enabled),
+      (settings) => onOff(settings.enabled),
     ),
     _Setting.dictation: _read<DictationSettings>(
       context,
       (settings) => switch (settings.engine) {
-        DictationEngine.hermes => 'Hermes',
-        DictationEngine.device => 'On this device',
+        DictationEngine.hermes => l10n.settingsDictationEngineHermes,
+        DictationEngine.device => l10n.settingsDictationEngineDevice,
       },
     ),
     _Setting.spotlight: _read<SpotlightSettings>(
       context,
-      (settings) => _onOff(settings.enabled),
+      (settings) => onOff(settings.enabled),
     ),
     _Setting.appLock: _read<AppLockController>(
       context,
-      (lock) => _onOff(lock.enabled),
+      (lock) => onOff(lock.enabled),
     ),
   };
   // Provided only on a Mac, where the shortcut exists.
@@ -72,12 +81,12 @@ Future<void> showSettingsDialog(BuildContext context) async {
     builder: (context) {
       GroupedRow row(_Setting setting) => GroupedRow(
         key: ValueKey('setting-${setting.name}'),
-        title: setting.label,
+        title: setting.label(l10n),
         value: values[setting],
         onTap: () => Navigator.of(context).pop(setting),
       );
       return GroupedDialog(
-        title: 'Settings',
+        title: l10n.settingsTitle,
         children: [
           GroupedSection(
             children: [
@@ -122,8 +131,6 @@ Future<void> showSettingsDialog(BuildContext context) async {
       await context.read<AuthController>().changeServer();
   }
 }
-
-String _onOff(bool on) => on ? 'On' : 'Off';
 
 /// What [describe] says about the provided [T], or null where there is none.
 String? _read<T>(BuildContext context, String Function(T value) describe) =>

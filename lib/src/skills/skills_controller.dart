@@ -45,6 +45,18 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
   int _generation = 0;
   final _toggles = <String, Future<bool>>{};
 
+  /// Per skill with taps in flight: the value the server last confirmed, and
+  /// the newest tap, which alone may put that value back.
+  final _confirmed = <String, bool>{};
+  final _latestToggle = <String, int>{};
+  final _pending = <String, bool>{};
+
+  /// The load generation current when a write was last confirmed; a reload
+  /// started before then may have read the value from before that write.
+  final _confirmedAt = <String, int>{};
+  int _toggleCount = 0;
+  int _profileEpoch = 0;
+
   SkillsStatus get status => _status;
   String? get profile => _profile;
   String get query => _query;
@@ -130,7 +142,7 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     try {
       final skills = await repository.list(profile: _profile);
       if (generation != _generation) return;
-      _skills = skills;
+      _skills = _withPendingToggles(skills, generation);
       _status = SkillsStatus.ready;
     } on SkillsUnsupported {
       if (generation != _generation) return;
@@ -158,30 +170,75 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     if (name == _profile) return Future.value();
     _profile = name;
     _skills = const [];
+    _profileEpoch++;
+    _confirmed.clear();
+    _latestToggle.clear();
+    _pending.clear();
+    _confirmedAt.clear();
     return load();
   }
 
   /// Switches a skill at once and tells the server; goes back and returns
   /// false when that fails. Taps on one skill are sent in the order made.
   Future<bool> toggle(String name, bool enabled) {
-    final previous = skill(name)?.enabled;
-    if (previous == null) return Future.value(false);
-    final generation = _generation;
+    final current = skill(name)?.enabled;
+    if (current == null) return Future.value(false);
     final profile = _profile;
+    final tap = ++_toggleCount;
+    final epoch = _profileEpoch;
+    _confirmed.putIfAbsent(name, () => current);
+    _latestToggle[name] = tap;
+    _pending[name] = enabled;
     _set(name, enabled);
     final done = (_toggles[name] ?? Future<bool>.value(true)).then((_) async {
+      bool ok;
       try {
         await repository.setEnabled(name, enabled, profile: profile);
         _log('toggle', 'ok');
-        return true;
+        ok = true;
       } on Object {
         _log('toggle', 'error');
-        if (generation == _generation) _set(name, previous);
-        return false;
+        ok = false;
       }
+      // A tap made for another profile says nothing about this one.
+      if (epoch != _profileEpoch) return ok;
+      if (ok) {
+        _confirmed[name] = enabled;
+        _confirmedAt[name] = _generation;
+      }
+      if (_latestToggle[name] == tap) {
+        _latestToggle.remove(name);
+        _pending.remove(name);
+        _confirmedAt.remove(name);
+        final confirmed = _confirmed.remove(name)!;
+        if (!ok) _set(name, confirmed);
+      }
+      return ok;
     });
     _toggles[name] = done;
     return done;
+  }
+
+  /// A reload that lands while taps are in flight must not undo them on
+  /// screen. What it read becomes the value a failed tap goes back to, unless
+  /// the reload started before a write was confirmed and so may be stale.
+  List<HermesSkill> _withPendingToggles(
+    List<HermesSkill> skills,
+    int generation,
+  ) {
+    if (_pending.isEmpty) return skills;
+    for (final s in skills) {
+      if (_pending.containsKey(s.name) &&
+          generation > (_confirmedAt[s.name] ?? -1)) {
+        _confirmed[s.name] = s.enabled;
+      }
+    }
+    return [
+      for (final s in skills)
+        _pending.containsKey(s.name)
+            ? s.copyWith(enabled: _pending[s.name])
+            : s,
+    ];
   }
 
   void _set(String name, bool enabled) {

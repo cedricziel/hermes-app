@@ -76,6 +76,7 @@ extension _ChatControllerSending on ChatController {
       createdAt: DateTime.now(),
       attachments: attachments,
     );
+    _sentPrompts[thread] = userMessage;
     if (protectedSend == null) {
       thread.messages.add(userMessage);
       for (final flyer in chatMessageToFlyer(userMessage)) {
@@ -442,6 +443,7 @@ extension _ChatControllerSending on ChatController {
                 index: flyerIndex < 0 ? null : flyerIndex,
               );
             }
+            _dropStoredCopy(thread, deferredUser);
           }
           _acceptedQueue(thread, protectedSend);
           return;

@@ -229,6 +229,25 @@ void main() {
       expect((answer as ApprovalChoiceAnswer).choice, 'deny');
     });
 
+    test('answers alone at once with no wait for a port', () async {
+      var alone = 0;
+      final watch = Stopwatch()..start();
+
+      await routeAnswer(
+        _action(kDenyAction),
+        unanswered: (_) async {},
+        pollFor: Duration.zero,
+        lookup: () => null,
+        alone: (_, _) async {
+          alone++;
+          return AnswerOutcome.ok;
+        },
+      );
+
+      expect(alone, 1);
+      expect(watch.elapsedMilliseconds, lessThan(150));
+    });
+
     test("waits a moment for the app's port to appear", () async {
       final app = RequestAnswers(sender)..start();
       addTearDown(app.dispose);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../../l10n/l10n.dart';
 import '../models/auxiliary_models.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
@@ -108,7 +109,11 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
     } on Object {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not change ${slot.label}')),
+          SnackBar(
+            content: Text(
+              context.l10n.settingsHelperModelsChangeFailed(slot.label),
+            ),
+          ),
         );
       }
     } finally {
@@ -133,9 +138,13 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
     } on Object {
       if (!mounted) return;
       setState(() => _saving.remove(slot.task));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not change ${slot.label}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.settingsHelperModelsChangeFailed(slot.label),
+          ),
+        ),
+      );
       return;
     }
     if (!mounted) return;
@@ -154,24 +163,25 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
 
   Future<bool> _confirm(String warning) => showConfirmDialog(
     context,
-    title: 'Use this model?',
+    title: context.l10n.settingsHelperModelsConfirmTitle,
     message: warning,
-    confirmLabel: 'Use it',
+    confirmLabel: context.l10n.settingsHelperModelsConfirmAction,
   );
 
   @override
   Widget build(BuildContext context) {
     final models = _models;
+    final l10n = context.l10n;
     return SettingsScaffold(
-      title: 'Helper models',
+      title: l10n.settingsHelperModelsTitle,
       subtitle: _subtitle(context),
       body: _failed
           ? ContentColumn(
               child: StateMessage(
-                title: 'Could not load the helper models',
+                title: l10n.settingsHelperModelsLoadFailed,
                 action: FilledButton(
                   onPressed: _load,
-                  child: const Text('Retry'),
+                  child: Text(l10n.commonRetry),
                 ),
               ),
             )
@@ -195,7 +205,7 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
     final parts = [
       ?widget.profile,
       if (platformChromeOf(context) == PlatformChrome.macos && main != null)
-        'main model $main',
+        context.l10n.settingsHelperModelsSubtitleMainModel(main),
     ];
     return parts.isEmpty ? null : parts.join(' · ');
   }

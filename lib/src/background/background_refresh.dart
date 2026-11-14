@@ -437,7 +437,31 @@ class OpenRequestsStep extends BackgroundStep {
       for (final w in waiting)
         if (!showing.contains((w.profile, w.key)) && _isNew(w, known)) w,
     ];
-    if (fresh.isEmpty) return 0;
+    // The marks of a request still open are put back last, so newer
+    // announcements do not trim them and announce the request a second time.
+    final open = {
+      for (final w in waiting)
+        for (final mark in [w.requestId, 'a:${w.waitKey}', 'g:${w.waitKey}'])
+          if (known.contains(mark)) mark,
+    };
+    Future<void> renew() async {
+      if (open.isEmpty) return;
+      try {
+        await context.announced.add(open);
+      } on Object catch (error) {
+        marksFailed++;
+        report();
+        recordFailure(
+          'background.request_alert.mark_failed',
+          errorType: error.runtimeType.toString(),
+        );
+      }
+    }
+
+    if (fresh.isEmpty) {
+      await renew();
+      return 0;
+    }
     final lockOn = await context.appLockOn();
     final chats = <(String?, String), List<_Waiting>>{};
     for (final w in fresh) {
@@ -475,6 +499,7 @@ class OpenRequestsStep extends BackgroundStep {
         );
       }
     }
+    await renew();
     return announced;
   }
 

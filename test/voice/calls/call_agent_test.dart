@@ -1,11 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/voice/calls/call_agent.dart';
 
 import '../../support/fake_chat_transport.dart';
+import '../../support/fake_hermes_server.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -121,6 +128,73 @@ void main() {
       transport.stopsRunning = false;
       await agent.interrupt();
       await interrupted;
+    },
+  );
+  test(
+    'speaks the new reply when the history arrives above it mid-turn',
+    () async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final server = FakeHermesServer();
+      final gate = Completer<void>();
+      server
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([sessionRow(id: 's1', title: 'Chat')]),
+        )
+        ..onRequest('GET', '/api/sessions/s1/messages', (_) async {
+          await gate.future;
+          return (
+            status: 200,
+            body: messageListBody('s1', [
+              messageRow(id: 1, role: 'user', content: 'Hi'),
+              messageRow(id: 2, role: 'assistant', content: 'Old answer.'),
+            ]),
+          );
+        });
+      final attention = AttentionNotifier(
+        service: null,
+        settings: null,
+        onOpen: (_) {},
+      );
+      final remote = ChatController(
+        repository: HermesChatRepository(HermesApiClient(server.dio()).raw),
+        transport: transport,
+        attention: attention,
+        report: (_) {},
+      );
+      await remote.loadThreads();
+      remote.select('s1');
+      final caller = ChatCallAgent(remote, onContextLost: () {});
+      addTearDown(() {
+        caller.dispose();
+        remote.dispose();
+        attention.dispose();
+      });
+
+      final spoken = <String>[];
+      final done = caller.reply(
+        'Voice',
+        onText: spoken.add,
+        onAttention: (_) {},
+      );
+      await pumpEventQueue();
+      final send = transport.sends.single;
+      send.emit(const ReplyDelta('New answer.'));
+      await pumpEventQueue();
+
+      // The older turns land above the prompt while the reply streams.
+      gate.complete();
+      await pumpEventQueue();
+      expect(
+        [for (final m in remote.threads.single.messages) m.content],
+        ['Hi', 'Old answer.', 'Voice', 'New answer.'],
+      );
+      send.emit(const ReplyCompleted('New answer.'));
+      await done;
+
+      expect(spoken.join(), 'New answer.');
     },
   );
 }

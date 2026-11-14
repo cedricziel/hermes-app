@@ -1,0 +1,10 @@
+# gen-l10n settings. `flutter pub get` and every build run it (pubspec.yaml
+# sets `generate: true`); the output is not checked in. How strings are added
+# and kept apart per area: docs/architecture/localization.md.
+arb-dir: lib/l10n/arb
+template-arb-file: app_en.arb
+output-dir: lib/l10n/generated
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false
+format: true

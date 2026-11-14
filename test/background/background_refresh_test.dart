@@ -929,6 +929,39 @@ void main() {
       expect(taskSpan().attributes['steps_failed'], 1);
     });
 
+    test('keeps the marks of a request that stays open', () async {
+      sessions = {
+        'work': [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+      };
+      await refresh();
+      expect(notifications.shown, hasLength(1));
+
+      // Newer announcements while chat-a's request stays open.
+      for (final wave in [0, 60]) {
+        sessions = {
+          'work': [
+            _session('chat-a'),
+            for (var i = wave; i < wave + 60; i++) _session('chat-$i'),
+          ],
+        };
+        approvals = {
+          'rt-chat-a': [_approval('r1')],
+          for (var i = wave; i < wave + 60; i++)
+            'rt-chat-$i': [_approval('new-$i')],
+        };
+        await refresh();
+      }
+      final shown = notifications.shown.length;
+
+      await refresh();
+
+      expect(notifications.shown, hasLength(shown));
+      expect(await announced.read(), contains('r1'));
+    });
+
     test('remembers the newest 200 ids', () async {
       await announced.add([for (var i = 0; i < 195; i++) 'old-$i']);
       sessions = {

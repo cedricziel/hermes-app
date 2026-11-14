@@ -36,7 +36,13 @@ class QuickPanelShortcut {
 
   Future<void> _pressed() async {
     _breadcrumbs('panel.shortcut_pressed');
-    if (!await _windows.togglePanel()) await _windows.showMainWindow();
+    try {
+      if (!await _windows.togglePanel()) await _windows.showMainWindow();
+    } on Object catch (error) {
+      _events('panel.shortcut_failed', {
+        'error_type': error.runtimeType.toString(),
+      });
+    }
   }
 
   void dispose() {

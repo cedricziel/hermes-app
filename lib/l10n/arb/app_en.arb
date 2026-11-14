@@ -1,0 +1,307 @@
+{
+  "@@locale": "en",
+
+  "@@x-area-common": "",
+  "commonOff": "Off",
+  "@commonOff": {
+    "description": "A setting or slot that is switched off."
+  },
+  "commonOn": "On",
+  "@commonOn": {
+    "description": "A setting that is switched on."
+  },
+  "commonRetry": "Retry",
+  "@commonRetry": {
+    "description": "Button that tries a failed load again."
+  },
+
+  "@@x-area-agent_messages": "",
+
+  "@@x-area-api": "",
+
+  "@@x-area-app_lock": "",
+
+  "@@x-area-auth": "",
+
+  "@@x-area-background": "",
+
+  "@@x-area-bot_mode": "",
+
+  "@@x-area-bot_screen": "",
+
+  "@@x-area-chat": "",
+
+  "@@x-area-chat/activity": "",
+
+  "@@x-area-chat/attachments": "",
+
+  "@@x-area-chat/gateway": "",
+
+  "@@x-area-chat/invalidation": "",
+
+  "@@x-area-chat/media": "",
+
+  "@@x-area-chat/memory": "",
+
+  "@@x-area-chat/queue_storage": "",
+
+  "@@x-area-chat/reactions": "",
+
+  "@@x-area-chat/session_usage": "",
+
+  "@@x-area-chat/side_results": "",
+
+  "@@x-area-chat/todo_plan": "",
+
+  "@@x-area-chat/widgets": "",
+
+  "@@x-area-core": "",
+
+  "@@x-area-deep_links": "",
+
+  "@@x-area-drag_out": "",
+
+  "@@x-area-handoff": "",
+
+  "@@x-area-intents": "",
+
+  "@@x-area-kanban": "",
+
+  "@@x-area-live_activities": "",
+
+  "@@x-area-macos": "",
+
+  "@@x-area-mcp": "",
+
+  "@@x-area-memory": "",
+
+  "@@x-area-messaging": "",
+
+  "@@x-area-models": "",
+
+  "@@x-area-navigation": "",
+
+  "@@x-area-network": "",
+
+  "@@x-area-notifications": "",
+
+  "@@x-area-platform_hint": "",
+
+  "@@x-area-plugins": "",
+
+  "@@x-area-profiles": "",
+
+  "@@x-area-quick_actions": "",
+
+  "@@x-area-quick_panel": "",
+
+  "@@x-area-schedules": "",
+
+  "@@x-area-screens": "",
+
+  "@@x-area-settings": "",
+  "settingsAboutHermes": "About Hermes",
+  "@settingsAboutHermes": {
+    "description": "Settings row that opens the About dialog."
+  },
+  "settingsAboutTitle": "About",
+  "@settingsAboutTitle": {
+    "description": "Title of the About dialog."
+  },
+  "settingsAboutVersion": "Version",
+  "@settingsAboutVersion": {
+    "description": "About dialog row with the app's version number."
+  },
+  "settingsAboutVersionUnavailable": "Unavailable",
+  "@settingsAboutVersionUnavailable": {
+    "description": "Shown as the version when the platform does not report one."
+  },
+  "settingsAccount": "Account",
+  "@settingsAccount": {
+    "description": "Accessibility label of the account button at the bottom of the Mac sidebar."
+  },
+  "settingsAppLock": "App Lock",
+  "@settingsAppLock": {
+    "description": "Settings row for locking the app with Face ID, Touch ID or the device passcode."
+  },
+  "settingsAppearanceTitle": "Appearance",
+  "@settingsAppearanceTitle": {
+    "description": "The light or dark theme settings: settings row and dialog title."
+  },
+  "settingsChangeServer": "Change Server",
+  "@settingsChangeServer": {
+    "description": "Settings row that leaves this Hermes server for another one."
+  },
+  "settingsConnectedToDashboard": "Connected to the dashboard",
+  "@settingsConnectedToDashboard": {
+    "description": "Account menu heading when the server needs no sign-in."
+  },
+  "settingsConnectionDetails": "Connection Details",
+  "@settingsConnectionDetails": {
+    "description": "Account menu item that opens the connection details page."
+  },
+  "settingsDictation": "Dictation",
+  "@settingsDictation": {
+    "description": "Settings row that picks the speech recognizer."
+  },
+  "settingsDictationEngineDevice": "On this device",
+  "@settingsDictationEngineDevice": {
+    "description": "Dictation runs on the device's own speech recognizer."
+  },
+  "settingsDictationEngineHermes": "Hermes",
+  "@settingsDictationEngineHermes": {
+    "description": "Dictation runs on the Hermes server."
+  },
+  "settingsHelperModelsChangeFailed": "Could not change {slot}",
+  "@settingsHelperModelsChangeFailed": {
+    "description": "Snackbar when saving a helper model slot failed.",
+    "placeholders": {
+      "slot": {
+        "type": "String",
+        "example": "Compression"
+      }
+    }
+  },
+  "settingsHelperModelsConfirmAction": "Use it",
+  "@settingsHelperModelsConfirmAction": {
+    "description": "Confirms an expensive helper model."
+  },
+  "settingsHelperModelsConfirmTitle": "Use this model?",
+  "@settingsHelperModelsConfirmTitle": {
+    "description": "Title of the question Hermes asks before an expensive helper model."
+  },
+  "settingsHelperModelsFooterApply": "Changes apply to new chats.",
+  "@settingsHelperModelsFooterApply": {
+    "description": "Last sentence below the helper model list."
+  },
+  "settingsHelperModelsFooterIntro": "Hermes runs side jobs on these models.",
+  "@settingsHelperModelsFooterIntro": {
+    "description": "First sentence below the helper model list."
+  },
+  "settingsHelperModelsFooterMainModel": "Main model is {model}.",
+  "@settingsHelperModelsFooterMainModel": {
+    "description": "Sentence below the helper model list naming the profile's main model.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "deepseek-v4-pro"
+      }
+    }
+  },
+  "settingsHelperModelsLoadFailed": "Could not load the helper models",
+  "@settingsHelperModelsLoadFailed": {
+    "description": "Shown when the helper models could not be read from the server."
+  },
+  "settingsHelperModelsMainModel": "Main model",
+  "@settingsHelperModelsMainModel": {
+    "description": "A helper slot that runs on the profile's main model."
+  },
+  "settingsHelperModelsMoaHeader": "Mixture of agents",
+  "@settingsHelperModelsMoaHeader": {
+    "description": "Section header for the mixture-of-agents slots."
+  },
+  "settingsHelperModelsMoaPreset": "Preset",
+  "@settingsHelperModelsMoaPreset": {
+    "description": "Row naming the mixture-of-agents preset."
+  },
+  "settingsHelperModelsMoaPresetDefault": "Default",
+  "@settingsHelperModelsMoaPresetDefault": {
+    "description": "The default mixture-of-agents preset."
+  },
+  "settingsHelperModelsMoaPrivacyFooter": "Hermes’ privacy filter is on, and saving here would turn it off. Change these slots on the server.",
+  "@settingsHelperModelsMoaPrivacyFooter": {
+    "description": "Footer of the mixture-of-agents section while the privacy filter is on."
+  },
+  "settingsHelperModelsProviderDefault": "Provider default",
+  "@settingsHelperModelsProviderDefault": {
+    "description": "A helper slot that runs on the provider's default model."
+  },
+  "settingsHelperModelsSubtitleMainModel": "main model {model}",
+  "@settingsHelperModelsSubtitleMainModel": {
+    "description": "Mac toolbar subtitle part naming the main model, after the profile.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "deepseek-v4-pro"
+      }
+    }
+  },
+  "settingsHelperModelsTitle": "Helper models",
+  "@settingsHelperModelsTitle": {
+    "description": "Title of the helper models page."
+  },
+  "settingsMenuSettings": "Settings…",
+  "@settingsMenuSettings": {
+    "description": "Account menu item that opens the settings."
+  },
+  "settingsNotifications": "Notifications",
+  "@settingsNotifications": {
+    "description": "Settings row for notifications."
+  },
+  "settingsReportBug": "Report a bug",
+  "@settingsReportBug": {
+    "description": "Link to the project's issue tracker."
+  },
+  "settingsSignOut": "Sign Out",
+  "@settingsSignOut": {
+    "description": "Signs out of the dashboard: account menu item and the confirmation's button."
+  },
+  "settingsSignOutMessage": "You will need to sign in again to see your chats.",
+  "@settingsSignOutMessage": {
+    "description": "Body of the sign-out confirmation."
+  },
+  "settingsSignOutTitle": "Sign out of the dashboard?",
+  "@settingsSignOutTitle": {
+    "description": "Title of the sign-out confirmation."
+  },
+  "settingsSignedInToDashboard": "Signed in to the dashboard",
+  "@settingsSignedInToDashboard": {
+    "description": "Account menu heading when the user is signed in."
+  },
+  "settingsSpotlight": "Spotlight",
+  "@settingsSpotlight": {
+    "description": "Settings row for adding chats to the system search."
+  },
+  "settingsThemeDark": "Dark",
+  "@settingsThemeDark": {
+    "description": "Theme mode: always dark."
+  },
+  "settingsThemeLight": "Light",
+  "@settingsThemeLight": {
+    "description": "Theme mode: always light."
+  },
+  "settingsThemeSystem": "Follow system",
+  "@settingsThemeSystem": {
+    "description": "Theme mode: follows the system's light or dark setting."
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Title of the settings dialog."
+  },
+
+  "@@x-area-share": "",
+
+  "@@x-area-shell": "",
+
+  "@@x-area-skills": "",
+
+  "@@x-area-spotlight": "",
+
+  "@@x-area-surfaces": "",
+
+  "@@x-area-telemetry": "",
+
+  "@@x-area-theme": "",
+
+  "@@x-area-update": "",
+
+  "@@x-area-voice": "",
+
+  "@@x-area-watch": "",
+
+  "@@x-area-widgets": "",
+
+  "@@x-area-windows": "",
+
+  "@@x-end": ""
+}

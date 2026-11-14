@@ -335,12 +335,16 @@ extension _ChatControllerHistory on ChatController {
 
   Future<void> _readFirstPage(String id) async {
     final generation = _loadGeneration;
+    final reading = _threads.where((t) => t.id == id).firstOrNull;
     try {
       final page = await repository!.loadMessagePage(id, profile: _profile);
       if (!active || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
-      if (thread == null) return;
-      thread.messages.addAll(page.messages);
+      if (thread == null) return _readAgainUnderNewId(reading, id);
+      final merged = _mergedWithPage(thread.messages, id, page.messages);
+      thread.messages
+        ..clear()
+        ..addAll(merged);
       _reactionHistory(thread);
       if (page.hasMore) _olderRows[id] = page.rows;
       notifyListeners();
@@ -350,8 +354,172 @@ extension _ChatControllerHistory on ChatController {
       if (generation != _loadGeneration) return;
       _unloaded.add(id);
       if (!active) return;
+      _readAgainUnderNewId(reading, id);
       report('Could not load this chat');
     }
+  }
+
+  /// [thread] was stored under a new session id while its first page was
+  /// read under [readId]: the page is read again under the new id.
+  void _readAgainUnderNewId(ChatThread? thread, String readId) {
+    if (thread == null ||
+        thread.id == readId ||
+        !_threads.contains(thread) ||
+        _loadingMessages.containsKey(thread.id)) {
+      return;
+    }
+    _unloaded.add(thread.id);
+    if (_selectedId == thread.id) unawaited(_loadMessages(thread.id));
+  }
+
+  /// [page], the newest stored messages of session [sessionId], merged with
+  /// [held], the messages the chat already shows because they were sent or
+  /// run here while the page was read. History goes above them, and a turn
+  /// both hold is shown once.
+  ///
+  /// A held turn is known to be stored only by its prompt's receipt, the row
+  /// id Hermes gave it, which names the same row as the page's message id. A
+  /// matched turn keeps the held copy, which may still be streaming or carry
+  /// what only this app knows (review notes, a stop), unless it failed here
+  /// while Hermes stored an answer: then the stored turn replaces it. A turn
+  /// without a receipt, or one the page does not hold, stays as it is, and so
+  /// does every row only this app has, such as a command's lines.
+  List<ChatMessage> _mergedWithPage(
+    List<ChatMessage> held,
+    String sessionId,
+    List<ChatMessage> page,
+  ) {
+    if (held.isEmpty) return [...page];
+    final ids = {for (final m in held) m.id};
+    final pageTurns = _turns([
+      for (final m in page)
+        if (!ids.contains(m.id)) m,
+    ], stored: true);
+    final heldTurns = _turns(held, stored: false);
+    final byId = {
+      for (final (i, turn) in pageTurns.indexed)
+        if (turn.first case ChatMessage(role: ChatRole.user, displayKind: null))
+          turn.first.id: i,
+    };
+    final matches = [
+      for (final turn in heldTurns)
+        switch (turn.first) {
+          ChatMessage(role: ChatRole.user, canonicalRow: final row?) =>
+            byId['$sessionId-${row.rowId}'],
+          _ => null,
+        },
+    ];
+    final matched = matches.nonNulls.toSet();
+    final merged = <ChatMessage>[];
+    var next = 0;
+    void placeUpTo(int end) {
+      for (; next < end; next++) {
+        if (!matched.contains(next)) merged.addAll(pageTurns[next]);
+      }
+    }
+
+    // What the page holds before the first turn sent here is older than
+    // everything held; what it holds after the last one came from elsewhere
+    // meanwhile, and goes before the held rows that follow.
+    placeUpTo(matched.isEmpty ? pageTurns.length : matched.reduce(min));
+    final last = matches.lastIndexWhere((j) => j != null);
+    for (final (i, turn) in heldTurns.indexed) {
+      final j = matches[i];
+      if (j == null) {
+        merged.addAll(turn);
+      } else {
+        placeUpTo(j);
+        if (next <= j) next = j + 1;
+        final stored = pageTurns[j];
+        final failedHere =
+            !turn.any((m) => m.isPending) &&
+            turn.any(
+              (m) =>
+                  m.role == ChatRole.assistant &&
+                  m.status == MessageStatus.error,
+            );
+        final answered = _endsAnswered(stored);
+        merged.addAll(failedHere && answered ? stored : turn);
+      }
+      if (i == last) placeUpTo(pageTurns.length);
+    }
+    return merged;
+  }
+
+  /// Whether a stored [turn] ends on the final answer: an assistant row with
+  /// text and no tool calls. A row that only calls tools belongs to a turn
+  /// that may still be running.
+  bool _endsAnswered(List<ChatMessage> turn) => switch (turn.lastOrNull) {
+    final ChatMessage last =>
+      last.role == ChatRole.assistant &&
+          last.toolCalls.isEmpty &&
+          last.content.trim().isNotEmpty,
+    null => false,
+  };
+
+  /// Replaces the stored copy of [prompt] in [thread], which the page read
+  /// while it was sent already held, with [prompt] and its reply: the two are
+  /// the same turn, and it stays where Hermes stored it, above what the page
+  /// holds after it. A stored row's id ends in its row id, which is unique
+  /// across the profile's sessions, so a chat stored under a new id since
+  /// still finds it.
+  void _dropStoredCopy(ChatThread thread, ChatMessage prompt) {
+    final rowId = prompt.canonicalRow?.rowId;
+    final messages = thread.messages;
+    if (rowId == null || !messages.contains(prompt)) return;
+    bool local(ChatMessage m) => m.id.contains('-local-');
+    final start = messages.indexWhere(
+      (m) => m.role == ChatRole.user && !local(m) && m.id.endsWith('-$rowId'),
+    );
+    if (start < 0) return;
+    var end = start + 1;
+    while (end < messages.length &&
+        messages[end].role != ChatRole.user &&
+        !local(messages[end])) {
+      end++;
+    }
+    final at = messages.indexOf(prompt);
+    final held = [
+      prompt,
+      if (at + 1 < messages.length &&
+          messages[at + 1].role == ChatRole.assistant &&
+          local(messages[at + 1]))
+        messages[at + 1],
+    ];
+    if (at > start) {
+      messages.removeRange(at, at + held.length);
+      messages.replaceRange(start, end, held);
+    } else {
+      messages.removeRange(start, end);
+    }
+    _reactionHistory(thread);
+    notifyListeners();
+    unawaited(controllerFor(thread).setMessages(chatThreadToFlyer(thread)));
+  }
+
+  /// [messages] split into turns that can be matched: a prompt the user
+  /// wrote with the reply after it, or, for [stored] rows, with every
+  /// assistant row up to the next user row. Each other row is a turn of its
+  /// own and is never matched: a reply streaming in from elsewhere, a note
+  /// Hermes wrote as a user row and what followed it.
+  List<List<ChatMessage>> _turns(
+    List<ChatMessage> messages, {
+    required bool stored,
+  }) {
+    final turns = <List<ChatMessage>>[];
+    var open = false;
+    for (final m in messages) {
+      if (m.role == ChatRole.user) {
+        turns.add([m]);
+        open = m.displayKind == null || stored;
+      } else if (open && (stored || turns.last.length == 1)) {
+        turns.last.add(m);
+      } else {
+        turns.add([m]);
+        open = false;
+      }
+    }
+    return turns;
   }
 
   /// Every message of [thread]: what is loaded, plus the pages the dashboard
@@ -397,6 +565,13 @@ extension _ChatControllerHistory on ChatController {
     final offset = _olderRows[id];
     if (offset == null) return;
     final generation = _loadGeneration;
+    // The oldest message held. A read of the chat's newest page meanwhile
+    // replaces it, and the offset no longer counts from that page.
+    final oldest = _threads
+        .where((t) => t.id == id)
+        .firstOrNull
+        ?.messages
+        .firstOrNull;
     try {
       final page = await repository!.loadMessagePage(
         id,
@@ -405,7 +580,11 @@ extension _ChatControllerHistory on ChatController {
       );
       if (!active || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
-      if (thread == null) return;
+      if (thread == null ||
+          _olderRows[id] != offset ||
+          !identical(thread.messages.firstOrNull, oldest)) {
+        return;
+      }
       final held = {for (final m in thread.messages) m.id};
       final older = [
         for (final m in page.messages)
