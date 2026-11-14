@@ -169,6 +169,10 @@ class AppDialogTextField extends StatelessWidget {
 /// user taps [confirmLabel]. Dismissing or cancelling answers false.
 ///
 /// On Material, [filled] picks a filled over a plain confirm button.
+///
+/// With [cancelIsDefault] Cancel is the default action on Apple platforms
+/// (bold, answered by Return) and the confirm button is not, for a question
+/// whose safe answer is to stop. Material then shows two text buttons.
 Future<bool> showConfirmDialog(
   BuildContext context, {
   required String title,
@@ -177,6 +181,7 @@ Future<bool> showConfirmDialog(
   String cancelLabel = 'Cancel',
   bool destructive = false,
   bool filled = true,
+  bool cancelIsDefault = false,
 }) async =>
     await showAppDialog<bool>(
       context: context,
@@ -185,11 +190,12 @@ Future<bool> showConfirmDialog(
         content: message == null ? null : Text(message),
         actions: [
           AppDialogAction(
+            isDefault: cancelIsDefault && platformChromeOf(dialog).isApple,
             onPressed: () => Navigator.pop(dialog, false),
             child: Text(cancelLabel),
           ),
           AppDialogAction(
-            isDefault: filled,
+            isDefault: filled && !cancelIsDefault,
             isDestructive: destructive,
             onPressed: () => Navigator.pop(dialog, true),
             child: Text(confirmLabel),
