@@ -40,7 +40,7 @@ None as spec deltas: the change reuses `chat-media`, `chat-attachments` and `mac
 
 ## Impact
 
-- Code: `chat/hermes_chat_repository.dart` and `ChatThread` (a `cwd` field), new `lib/src/files/` (repository, `ServerPath`, controller, models, `widgets/`), `lib/src/chat/media/media_store.dart` (a streaming `stageDownload`), `lib/src/api/hermes_api_client.dart` (only if the generated client cannot stream; see design.md), entry points in `chat/widgets/chat_header.dart`, `activity/widgets/activity_panel.dart` and `macos/menu_layout.dart`, Widgetbook use cases, `design/web` if it mirrors the Activity panel.
+- Code: `chat/hermes_chat_repository.dart` and `ChatThread` (a `cwd` field), new `lib/src/files/` (repository, `ServerPath`, controller, models, `widgets/`), `lib/src/chat/media/media_store.dart` (a streaming `stageDownload`), `lib/src/api/hermes_api_client.dart` (only if the generated client cannot stream; see design.md), entry points in `chat/widgets/chat_header.dart`, `chat/activity/widgets/activity_panel.dart` and `macos/menu_layout.dart`, Widgetbook use cases, `design/web` if it mirrors the Activity panel.
 - Dependencies: one syntax highlighter for code colours (task 4.1) and `share_plus` for Share (task 3.4), each chosen under the repo's pub.dev rule. No PDF or SVG package: PDFs open in the platform viewer and SVG shows as text.
 - Backend: no new route and no server change. Uses `GET /api/fs/list`, `GET /api/fs/read-text`, `GET /api/fs/download`, `GET /api/fs/default-cwd`, `GET /api/fs/git-root`, and the session's stored `cwd` from `GET /api/sessions`.
 - Delivery: four PRs (see tasks.md).

@@ -31,7 +31,7 @@ If PR 1 passes about 500 lines, split it after 1.4 (repository) and 1.5 (streami
 - [ ] 3.4 Add `share_plus` (pub.dev rule, iOS and Android) and reuse the existing actions: Save through `saveFile`, Open with…, Quick Look targets on rows and the preview file, `DragOut` of a staged file (`DragOutKind.file`), the image viewer for images.
 - [ ] 3.5 Add a workflow test (`test/workflows/`) on phone and desktop, light and dark: open Files, enter a folder, preview text, image, other file, secret question, empty folder, error. Look at the screenshots (`workflow-screenshots` skill).
 - [ ] 3.6 Add breadcrumbs `files.opened`, `files.preview.opened`, `files.saved`, `files.secret.warned`, `files.hidden.toggled` with tests that they carry no path or name.
-- [ ] 3.7 Update `CLAUDE.md` (a "Server files" paragraph: the two route families and which the app uses, the highest folder, streaming through `MediaStore.stageDownload`, secrets), the `verify-in-app` skill (a throwaway folder with a `.env`, a symlink, a 60 MB file and an image), `design/web` if it mirrors the Activity panel, and the `docs/` architecture area file if it exists on main. Then format, analyze and test.
+- [ ] 3.7 Update `CLAUDE.md` (a "Server files" paragraph: the two route families and which the app uses, the highest folder, streaming through `MediaStore.stageDownload`, secrets), the `verify-in-app` skill (a throwaway folder with a `.env`, a symlink, a 60 MB file and an image), `design/web` if it mirrors the Activity panel, and `docs/architecture/chat.md` (the chat and media paragraphs) plus `gateway.md` if the transport is touched. Then format, analyze and test.
 
 ## 4. PR 4 — `feat(files): code colours and Markdown polish`
 
