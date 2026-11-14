@@ -1437,13 +1437,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     return true;
   }
 
-  /// Loaded messages are keyed `<session>-<row id>`, so a count of the
-  /// thread's messages would collide with them.
   /// The prompt the last send into [thread] added, wherever history read
   /// meanwhile has put it.
   ChatMessage? lastSentPrompt(ChatThread thread) => _sentPrompts[thread];
   final _sentPrompts = Expando<ChatMessage>();
 
+  /// Loaded messages are keyed `<session>-<row id>`, so a count of the
+  /// thread's messages would collide with them.
   String _newMessageId(ChatThread thread) =>
       '${thread.id}-local-${_sentMessages++}';
 
