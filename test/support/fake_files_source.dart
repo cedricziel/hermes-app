@@ -16,6 +16,9 @@ class FakeFilesSource implements FilesSource {
 
   final calls = <String>[];
 
+  /// The cancel token each call was given, by `"<method> <path>"`.
+  final tokens = <String, CancelToken?>{};
+
   Future<FilesResult<ServerPath>> Function()? onDefaultCwd;
   final gitRoots = <String, Future<FilesResult<ServerPath?>> Function()>{};
   final lists = <String, Future<FilesResult<FsListing>> Function()>{};
@@ -40,8 +43,10 @@ class FakeFilesSource implements FilesSource {
     String call,
     Map<String, Future<T> Function()> from,
     String path,
+    CancelToken? token,
   ) {
     calls.add('$call $path');
+    tokens['$call $path'] = token;
     final answer = from[path];
     if (answer == null) throw StateError('no answer scripted for $call $path');
     return answer();
@@ -50,6 +55,7 @@ class FakeFilesSource implements FilesSource {
   @override
   Future<FilesResult<ServerPath>> defaultCwd({CancelToken? cancelToken}) {
     calls.add('defaultCwd');
+    tokens['defaultCwd'] = cancelToken;
     return onDefaultCwd!();
   }
 
@@ -57,19 +63,19 @@ class FakeFilesSource implements FilesSource {
   Future<FilesResult<ServerPath?>> gitRoot(
     ServerPath path, {
     CancelToken? cancelToken,
-  }) => _answer('gitRoot', gitRoots, path.value);
+  }) => _answer('gitRoot', gitRoots, path.value, cancelToken);
 
   @override
   Future<FilesResult<FsListing>> list(
     ServerPath path, {
     CancelToken? cancelToken,
-  }) => _answer('list', lists, path.value);
+  }) => _answer('list', lists, path.value, cancelToken);
 
   @override
   Future<FilesResult<FsTextFile>> readText(
     ServerPath path, {
     CancelToken? cancelToken,
-  }) => _answer('readText', texts, path.value);
+  }) => _answer('readText', texts, path.value, cancelToken);
 
   @override
   Future<FilesResult<FsDownload>> download(

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/media/media_actions.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/files/files_controller.dart';
@@ -22,6 +23,27 @@ import '../support/fake_media_actions.dart';
 import '../support/recording_tracer.dart';
 
 const _mb = 1024 * 1024;
+
+/// A store whose [evict] can be held back, to open the window between a
+/// request deciding to evict and the eviction ending.
+class _GatedEvictStore extends MediaStore {
+  _GatedEvictStore({
+    required super.source,
+    required super.cacheDirectory,
+    required super.actions,
+  });
+
+  Completer<void>? gate;
+  var evicts = 0;
+
+  @override
+  Future<void> evict(String key) async {
+    evicts++;
+    final held = gate;
+    if (held != null) await held.future;
+    await super.evict(key);
+  }
+}
 
 void main() {
   late FakeFilesSource source;
@@ -929,6 +951,382 @@ void main() {
       await controller.start();
       await controller.select(controller.entries.single);
       expect(controller.preview, isA<PreviewText>());
+    });
+  });
+  group('first listing and the highest folder', () {
+    test('an empty folder reached through a link is provisional', () async {
+      source.lists['/tmp/p'] = () => listing([]);
+      source.gitRoots['/tmp/p'] = () => ok<ServerPath?>(null);
+      await build(cwd: '/tmp/p').start();
+      expect(controller.entries, isEmpty);
+      expect(controller.canGoUp, isFalse);
+
+      // The agent writes a file; the server lists the resolved folder.
+      source.lists['/tmp/p'] = () => listing([file('/private/tmp/p/a.txt')]);
+      await controller.refresh();
+
+      expect(controller.folderState, isA<FolderReady>());
+      expect(controller.entries.single.name, 'a.txt');
+      expect(controller.root!.value, '/private/tmp/p');
+      expect(controller.folder!.value, '/private/tmp/p');
+      expect(source.highestFolder!.value, '/private/tmp/p');
+    });
+
+    test('an empty folder takes the git root that answered', () async {
+      folder([], at: '/srv/p/app', git: '/srv/p');
+      await build(cwd: '/srv/p/app').start();
+      expect(controller.root!.value, '/srv/p');
+      expect(controller.canGoUp, isTrue);
+    });
+
+    test('a first listing with rows in different folders is refused', () async {
+      folder([file('/srv/p/a.txt'), file('/etc/passwd')]);
+      await build().start();
+      expect(
+        (controller.folderState as FolderFailed).kind,
+        FilesFailure.unreadable,
+      );
+      expect(controller.root, isNull);
+      expect(controller.entries, isEmpty);
+    });
+
+    test('rows at the filesystem root do not widen the page to /', () async {
+      folder([file('/a.txt'), file('/b.txt')]);
+      await build().start();
+      expect(controller.folderState, isA<FolderFailed>());
+      expect(controller.root, isNull);
+    });
+
+    test('a start folder that is the root may list the root', () async {
+      folder([file('/a.txt')], at: '/');
+      await build(cwd: '/').start();
+      expect(controller.folderState, isA<FolderReady>());
+      expect(controller.root!.value, '/');
+    });
+
+    test('a git root at the filesystem root is ignored', () async {
+      folder([file('/srv/p/a.txt')], git: '/');
+      await build().start();
+      expect(controller.root!.value, '/srv/p');
+      expect(controller.canGoUp, isFalse);
+    });
+
+    test('a git root that is no ancestor of the folder is ignored', () async {
+      folder([file('/srv/p/a.txt')], git: '/srv/other');
+      await build().start();
+      expect(controller.root!.value, '/srv/p');
+    });
+
+    test('the file name comes from its path, not the row name', () async {
+      folder([
+        FsEntry(
+          name: 'notes.md',
+          path: p('/srv/p/shot.png'),
+          isDirectory: false,
+        ),
+      ]);
+      source.downloads['/srv/p/shot.png'] = writes([1], length: 1);
+      await build().start();
+      await controller.select(controller.entries.single);
+      expect(controller.preview, isA<PreviewImage>());
+      await controller.save();
+      expect(actions.savedFiles.single.name, 'shot.png');
+    });
+
+    test('ENOTDIR on a folder lists its parent and opens the file', () async {
+      folder([folderEntry('/srv/p/note.txt')]);
+      await build().start();
+      // The row said folder; the server says it is a file.
+      source.lists['/srv/p/note.txt'] = () => failed(FilesFailure.notAFile);
+      source.lists['/srv/p'] = () => listing([file('/srv/p/note.txt')]);
+      source.texts['/srv/p/note.txt'] = () =>
+          ok(const FsTextFile(text: 'hi', byteSize: 2));
+      await controller.openFolder(controller.entries.single);
+
+      expect(controller.folder!.value, '/srv/p');
+      expect(controller.folderState, isA<FolderReady>());
+      expect((controller.preview as PreviewText).file.text, 'hi');
+      expect(controller.selected!.name, 'note.txt');
+    });
+
+    test(
+      'ENOTDIR for a row the parent still lists as a folder stops',
+      () async {
+        folder([folderEntry('/srv/p/odd')]);
+        await build().start();
+        source.lists['/srv/p/odd'] = () => failed(FilesFailure.notAFile);
+        await controller.openFolder(controller.entries.single);
+        expect(controller.folder!.value, '/srv/p');
+        expect(controller.preview, isA<PreviewIdle>());
+        expect(source.count('list /srv/p/odd'), 1);
+      },
+    );
+
+    test('ending the page cancels the start requests', () async {
+      folder([]);
+      source.lists['/srv/p'] = () => Completer<FilesResult<FsListing>>().future;
+      final starting = build(timeout: const Duration(milliseconds: 100))
+          .start();
+      await until(() => source.count('gitRoot') == 1);
+      controller.cancelAll();
+      expect(source.tokens['list /srv/p']!.isCancelled, isTrue);
+      expect(source.tokens['gitRoot /srv/p']!.isCancelled, isTrue);
+      await starting;
+    });
+  });
+
+  group('actions that fail', () {
+    setUp(() {
+      folder([file('/srv/p/export.zip')]);
+      source.downloads['/srv/p/export.zip'] = writes([1], length: 1);
+    });
+
+    String everything() => [
+      '${controller.preview}',
+      for (final c in trail.recent) ...[
+        c.name,
+        ...c.attributes.values.map((v) => '$v'),
+      ],
+      for (final s in tracer.spans) ...[
+        s.name,
+        ...s.attributes.values.map((v) => '$v'),
+      ],
+    ].join(' ');
+
+    test('a Save that throws is a failure kind and leaks nothing', () async {
+      actions.saveError = FileSystemException('cannot write', cache.path);
+      await build().start();
+      await controller.select(controller.entries.single);
+      await controller.save();
+
+      expect(
+        (controller.preview as PreviewFailed).kind,
+        FilesFailure.unreadable,
+      );
+      expect(trail.recent.where((c) => c.name == 'files.saved'), isEmpty);
+      expect(everything(), isNot(contains(cache.path)));
+      expect(everything(), isNot(contains('export')));
+    });
+
+    test(
+      'an Open with that throws is a failure kind and leaks nothing',
+      () async {
+        actions.openError = FileSystemException('cannot open', cache.path);
+        await build().start();
+        await controller.select(controller.entries.single);
+        await controller.openWith();
+
+        expect(
+          (controller.preview as PreviewFailed).kind,
+          FilesFailure.unreadable,
+        );
+        expect(everything(), isNot(contains(cache.path)));
+        expect(everything(), isNot(contains('export')));
+      },
+    );
+
+    test('a file too large to save says so', () async {
+      actions.saveError = const SaveTooLargeException();
+      await build().start();
+      await controller.select(controller.entries.single);
+      await controller.save();
+      expect(
+        (controller.preview as PreviewFailed).kind,
+        FilesFailure.saveUnavailable,
+      );
+    });
+  });
+
+  group('unknown-length copies', () {
+    test('do not outlive the page that fetched them', () async {
+      folder([file('/srv/p/chart.png')]);
+      source.downloads['/srv/p/chart.png'] = writes([1, 2]);
+      await build().start();
+      await controller.select(controller.entries.single);
+      expect(cached(), hasLength(1));
+      controller.dispose();
+      await until(() => cached().isEmpty);
+
+      // A second page must not take the first one's copy for complete.
+      await build().start();
+      await controller.select(controller.entries.single);
+      expect(source.count('download'), 2);
+    });
+  });
+
+  group('races around eviction', () {
+    late _GatedEvictStore gated;
+
+    setUp(() {
+      gated = _GatedEvictStore(
+        source: HermesMediaSource(() => FakeHermesServer().client()),
+        cacheDirectory: () async => cache,
+        actions: actions,
+      );
+      media = gated;
+      folder([file('/srv/p/chart.png'), file('/srv/p/c.txt')]);
+      source.downloads['/srv/p/chart.png'] = writes([1, 2]);
+    });
+
+    late Future<void> again;
+
+    Future<void> openAgainWhileEvicting() async {
+      await build().start();
+      await controller.select(controller.entries.first);
+      controller.closePreview();
+      gated.gate = Completer<void>();
+      final before = gated.evicts;
+      again = controller.select(controller.entries.first);
+      await until(() => gated.evicts == before + 1);
+    }
+
+    test('a download is not started after the page ended', () async {
+      await openAgainWhileEvicting();
+      controller.cancelAll();
+      gated.gate!.complete();
+      await again;
+
+      expect(source.count('download'), 1);
+      await until(() => cached().isEmpty);
+    });
+
+    test(
+      'a stale fetch does not cancel the request that replaced it',
+      () async {
+        final text = Completer<FilesResult<FsTextFile>>();
+        source.texts['/srv/p/c.txt'] = () => text.future;
+        await openAgainWhileEvicting();
+        final reading = controller.select(controller.entries.last);
+        await until(() => source.count('readText') == 1);
+
+        gated.gate!.complete();
+        await again;
+
+        expect(source.tokens['readText /srv/p/c.txt']!.isCancelled, isFalse);
+        expect(source.count('download'), 1);
+        text.complete(const FilesOk(FsTextFile(text: 'x', byteSize: 1)));
+        await reading;
+        expect(controller.preview, isA<PreviewText>());
+      },
+    );
+  });
+
+  group('questions', () {
+    setUp(() {
+      folder([
+        file('/srv/p/big.png'),
+        file('/srv/p/b.txt'),
+        file('/srv/p/.env'),
+      ]);
+      source.downloads['/srv/p/big.png'] = (sink, token, allow, progress) {
+        if (!allow) {
+          return ok(
+            const FsDownload(bytes: 0, contentLength: 90 * _mb, declined: true),
+          );
+        }
+        sink.add([1]);
+        return ok(const FsDownload(bytes: 1, contentLength: 90 * _mb));
+      };
+      source.texts['/srv/p/b.txt'] = () =>
+          ok(const FsTextFile(text: 'b', byteSize: 1));
+    });
+
+    test(
+      'a stale Download press does not download into another file',
+      () async {
+        await build().start();
+        controller.toggleHidden();
+        final rows = controller.entries;
+        await controller.select(rows.firstWhere((e) => e.name == 'big.png'));
+        expect(controller.preview, isA<PreviewConfirmSize>());
+
+        await controller.select(rows.firstWhere((e) => e.name == 'b.txt'));
+        await controller.confirmSize();
+
+        expect(source.count('download'), 1);
+        expect(controller.preview, isA<PreviewText>());
+      },
+    );
+
+    test('a stale Download press does not skip the secret question', () async {
+      await build().start();
+      controller.toggleHidden();
+      final rows = controller.entries;
+      await controller.select(rows.firstWhere((e) => e.name == 'big.png'));
+      await controller.select(rows.firstWhere((e) => e.name == '.env'));
+      await controller.confirmSize();
+
+      expect(controller.preview, isA<PreviewConfirmSecret>());
+      expect(source.count('download'), 1);
+      expect(source.count('readText'), 0);
+    });
+
+    test('a stale Continue does not answer the size question', () async {
+      await build().start();
+      controller.toggleHidden();
+      final rows = controller.entries;
+      await controller.select(rows.firstWhere((e) => e.name == '.env'));
+      await controller.select(rows.firstWhere((e) => e.name == 'big.png'));
+      await controller.confirmSecret();
+
+      expect(controller.preview, isA<PreviewConfirmSize>());
+      expect(source.count('download'), 1);
+    });
+  });
+
+  group('actions in flight', () {
+    setUp(() => folder([file('/srv/p/app.py')]));
+
+    test('Save while the text preview loads keeps the preview', () async {
+      final text = Completer<FilesResult<FsTextFile>>();
+      source.texts['/srv/p/app.py'] = () => text.future;
+      await build().start();
+      final opening = controller.select(controller.entries.single);
+      await until(() => controller.preview is PreviewLoading);
+
+      await controller.save();
+      expect(source.count('download'), 0);
+
+      text.complete(const FilesOk(FsTextFile(text: 'x', byteSize: 1)));
+      await opening;
+      expect(controller.preview, isA<PreviewText>());
+    });
+
+    test('a second tap while Save downloads is ignored', () async {
+      source.texts['/srv/p/app.py'] = () =>
+          ok(const FsTextFile(text: 'x', byteSize: 1));
+      final gate = Completer<void>();
+      source.downloads['/srv/p/app.py'] = holds(gate);
+      await build().start();
+      await controller.select(controller.entries.single);
+
+      final first = controller.save();
+      await until(() => source.count('download') == 1);
+      await controller.save();
+      expect(source.count('download'), 1);
+
+      gate.complete();
+      await first;
+      expect(controller.preview, isA<PreviewText>());
+      expect(actions.savedFiles, hasLength(1));
+    });
+  });
+
+  group('secret copies', () {
+    test('live under a folder the next launch wipes', () async {
+      folder([file('/srv/p/token.png'), file('/srv/p/chart.png')]);
+      source.downloads['/srv/p/token.png'] = writes([1], length: 1);
+      source.downloads['/srv/p/chart.png'] = writes([2], length: 1);
+      await build().start();
+      await controller.select(controller.entries.last);
+      await controller.select(controller.entries.first);
+      await controller.confirmSecret();
+      expect(cached(), hasLength(2));
+
+      final folders = cached().map((f) => f.parent.path.split('/').last);
+      expect(folders.where((n) => n.startsWith('s')), hasLength(1));
+      await media.wipeSecretCopies();
+      expect(cached(), hasLength(1));
     });
   });
 }

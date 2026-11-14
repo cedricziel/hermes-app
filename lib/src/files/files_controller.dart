@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../chat/media/media_actions.dart' show SaveTooLargeException;
 import '../chat/media/media_store.dart';
 import 'files_failure.dart';
 import 'files_models.dart';
@@ -17,7 +18,10 @@ import 'server_path.dart';
 /// How many rows a folder shows; the rest are counted, not listed.
 const kFilesMaxRows = 2000;
 
-/// How long a request may go unanswered before the page gives up on it.
+/// How long a request may go unanswered before the page gives up on it. It is
+/// the total time for a listing, `git-root`, `default-cwd` and `read-text`; a
+/// download is not bounded by it but by the repository's 30 s idle timeout
+/// (no chunk for that long) and by Cancel.
 const kFilesAnswerTimeout = Duration(seconds: 10);
 
 /// One visit to the Files page of a chat: its folder, listing, selected file
@@ -58,10 +62,17 @@ class FilesController extends ChangeNotifier {
   var _folderGen = 0;
   var _fileGen = 0;
   CancelToken? _listToken;
+  CancelToken? _gitToken;
   CancelToken? _fileToken;
 
   ServerPath? _begin;
   ServerPath? _root;
+
+  /// The first listing was empty, so the folder the server resolved the start
+  /// folder to is not known yet: [_root] is the stored text until a listing
+  /// with rows, or a git root, says better.
+  var _rootProvisional = false;
+  ServerPath? _gitAnswer;
   ServerPath? _folder;
   FsListing? _listing;
   FolderState _folderState = const FolderLoading();
@@ -72,6 +83,8 @@ class FilesController extends ChangeNotifier {
 
   FsEntry? _selected;
   PreviewState _preview = const PreviewIdle();
+  PreviewState? _resting;
+  var _acting = false;
   int? _knownSize;
   Future<void> Function()? _pending;
 
@@ -176,28 +189,26 @@ class FilesController extends ChangeNotifier {
     _begin = begin;
     _folder = begin;
     _notify();
+    _listToken?.cancel();
+    _gitToken?.cancel();
     final listing = _bounded(
       (t) => _source.list(begin!, cancelToken: t),
-      CancelToken(),
+      _newListToken(),
     );
     final git = _bounded(
       (t) => _source.gitRoot(begin!, cancelToken: t),
-      CancelToken(),
+      _gitToken = CancelToken(),
     );
     final listed = await listing;
     final rooted = await git;
     if (_gone(gen, _folderGen)) return;
     switch (listed) {
       case FilesOk(:final value):
-        // The server resolves links (`/tmp` is `/private/tmp` on a Mac), so
-        // the folder it listed, not the stored text, is the one the page is
-        // confined to.
-        final resolved = value.entries.firstOrNull?.path.parent ?? begin;
-        final git = rooted is FilesOk<ServerPath?> ? rooted.value : null;
-        final root = git != null && resolved.isWithin(git) ? git : resolved;
-        _root = root;
-        _source.highestFolder = root;
-        _folder = resolved;
+        _gitAnswer = rooted is FilesOk<ServerPath?> ? rooted.value : null;
+        if (!_setBoundary(begin, value)) {
+          _setFolder(const FolderFailed(FilesFailure.unreadable));
+          return;
+        }
         _listing = value;
         _visible = null;
         _setFolder(const FolderReady());
@@ -206,6 +217,40 @@ class FilesController extends ChangeNotifier {
       case FilesUnsupported():
         _setFolder(const FolderFailed(FilesFailure.unreadable));
     }
+  }
+
+  /// Fixes the highest folder from the first listing [value] of [begin], or
+  /// says the listing cannot be trusted to.
+  ///
+  /// The server resolves links (`/tmp` is `/private/tmp` on a Mac), so the
+  /// folder its rows lie in, not the stored text, is the one the page is
+  /// confined to. That is only believed when every row shares one parent and
+  /// the parent is not the filesystem root (unless that is where the page
+  /// started): a wrong first answer must not widen the page to `/`. With no
+  /// rows nothing is known, so the stored text stands in, provisionally, and
+  /// the next listing with rows decides. A git root is taken only when it
+  /// is not a filesystem root and holds the folder.
+  bool _setBoundary(ServerPath begin, FsListing value) {
+    ServerPath resolved = begin;
+    var provisional = value.entries.isEmpty;
+    if (!provisional) {
+      final parent = value.entries.first.path.parent;
+      if (parent == null ||
+          value.entries.any((e) => e.path.parent != parent) ||
+          (parent.isRoot && !begin.isRoot)) {
+        return false;
+      }
+      resolved = parent;
+    }
+    final git = _gitAnswer;
+    final usable = git != null && !git.isRoot && resolved.isWithin(git);
+    _rootProvisional = provisional && !usable;
+    _root = usable ? git : resolved;
+    // A provisional folder is not yet the one the server resolves, so the
+    // source must not refuse the rows it will list under another name.
+    _source.highestFolder = _rootProvisional ? null : _root;
+    _folder = resolved;
+    return true;
   }
 
   /// Lists the folder again. The list stays while it loads; when that fails
@@ -263,6 +308,12 @@ class FilesController extends ChangeNotifier {
     switch (result) {
       case FilesOk(:final value):
         _stale = false;
+        if (_rootProvisional && !_setBoundary(_begin ?? path, value)) {
+          _listing = null;
+          _visible = null;
+          _setFolder(const FolderFailed(FilesFailure.unreadable));
+          return;
+        }
         if (value.allOutsideBoundary) {
           _listing = null;
           _visible = null;
@@ -278,6 +329,10 @@ class FilesController extends ChangeNotifier {
           _closePreview();
         }
         _setFolder(const FolderReady());
+      case FilesFailed(kind: FilesFailure.notAFile) when !refresh:
+        // ENOTDIR: the row was a file after all. List its folder instead and
+        // open the file there.
+        await _listParentAndOpen(path);
       case FilesFailed(:final kind):
         if (refresh && _listing != null) {
           _stale = true;
@@ -290,6 +345,23 @@ class FilesController extends ChangeNotifier {
       case FilesUnsupported():
         _setFolder(const FolderFailed(FilesFailure.unreadable));
     }
+  }
+
+  Future<void> _listParentAndOpen(ServerPath path) async {
+    final parent = path.parent;
+    final root = _root;
+    if (parent == null || root == null || !parent.isWithin(root)) {
+      _listing = null;
+      _visible = null;
+      _setFolder(const FolderFailed(FilesFailure.notAFile));
+      return;
+    }
+    await _load(parent, refresh: false);
+    if (_closed || _folder != parent || _folderState is! FolderReady) return;
+    final entry = _listing?.entries
+        .where((e) => e.path == path && !e.isDirectory)
+        .firstOrNull;
+    if (entry != null) await _open(entry);
   }
 
   void toggleHidden() {
@@ -320,10 +392,12 @@ class FilesController extends ChangeNotifier {
     _leave(except: entry);
     _cancelFile();
     final gen = ++_fileGen;
+    _pending = null;
+    _resting = null;
     _selected = entry;
     _knownSize = null;
     if (_askSecret(entry, () => _open(entry))) return;
-    final kind = previewKindFor(entry.name);
+    final kind = previewKindFor(entry.path.name);
     _telemetry.previewOpened(kind);
     if (kind.readsText) return _readText(entry, kind, gen);
     if (kind == FilePreviewKind.image) return _showImage(entry, gen);
@@ -338,11 +412,17 @@ class FilesController extends ChangeNotifier {
     return true;
   }
 
-  /// The user chose Continue on the secret question.
+  /// The user chose Continue on the secret question. A press for a question
+  /// no longer on screen does nothing.
   Future<void> confirmSecret() {
     final entry = _selected;
     final next = _pending;
-    if (_closed || entry == null || next == null) return Future.value();
+    if (_closed ||
+        entry == null ||
+        next == null ||
+        _preview is! PreviewConfirmSecret) {
+      return Future.value();
+    }
     _pending = null;
     _secretOk.add(entry.path.value);
     return next();
@@ -359,7 +439,9 @@ class FilesController extends ChangeNotifier {
   /// The user chose Download on the size question.
   Future<void> confirmSize() {
     final next = _pending;
-    if (_closed || next == null) return Future.value();
+    if (_closed || next == null || _preview is! PreviewConfirmSize) {
+      return Future.value();
+    }
     _pending = null;
     return next();
   }
@@ -371,7 +453,8 @@ class FilesController extends ChangeNotifier {
     if (_closed || preview is! PreviewConfirmSize || entry == null) return;
     _pending = null;
     _setPreview(
-      PreviewDetails(previewKindFor(entry.name), size: preview.bytes),
+      _resting ??
+          PreviewDetails(previewKindFor(entry.path.name), size: preview.bytes),
     );
   }
 
@@ -489,13 +572,31 @@ class FilesController extends ChangeNotifier {
 
   Future<void> _act(FileAction action, {bool allowLarge = false}) async {
     final entry = _selected;
-    if (_closed || entry == null) return;
+    // A second tap while a read or download runs would drop the preview it
+    // is about to return to.
+    if (_closed || entry == null || _acting || _preview is PreviewLoading) {
+      return;
+    }
     if (_askSecret(entry, () => _act(action))) return;
-    final resting = switch (_preview) {
-      PreviewLoading() || PreviewConfirmSize() || PreviewConfirmSecret() =>
-        PreviewDetails(previewKindFor(entry.name), size: _knownSize),
-      final other => other,
-    };
+    _acting = true;
+    try {
+      await _actOn(action, entry, allowLarge);
+    } finally {
+      _acting = false;
+    }
+  }
+
+  Future<void> _actOn(FileAction action, FsEntry entry, bool allowLarge) async {
+    final resting =
+        _resting ??
+        switch (_preview) {
+          PreviewConfirmSize() || PreviewConfirmSecret() => PreviewDetails(
+            previewKindFor(entry.path.name),
+            size: _knownSize,
+          ),
+          final other => other,
+        };
+    _resting = resting;
     _cancelFile();
     final gen = ++_fileGen;
     _setPreview(const PreviewLoading());
@@ -503,20 +604,43 @@ class FilesController extends ChangeNotifier {
     if (_gone(gen, _fileGen)) return;
     switch (result) {
       case _Fetched(:final file):
+        _resting = null;
         _setPreview(resting);
-        final done = switch (action) {
-          FileAction.save => await _media.saveFile(entry.name, file),
-          FileAction.openWith => await _media.open(file),
-          FileAction.share => await _shared(file),
-        };
-        if (done) _telemetry.saved(action.slug);
+        final failure = await _finish(action, entry, file);
+        if (_gone(gen, _fileGen)) return;
+        if (failure != null) _setPreview(PreviewFailed(failure));
       case _Declined(:final bytes):
         _pending = () => _act(action, allowLarge: true);
         _setPreview(PreviewConfirmSize(bytes));
       case _FetchFailed(kind: FilesFailure.cancelled):
+        _resting = null;
         _setPreview(resting);
       case _FetchFailed(:final kind):
+        _resting = null;
         _setPreview(PreviewFailed(kind));
+    }
+  }
+
+  /// Hands [file] to the system for [action]. What comes back is the kind of
+  /// failure, if any, and nothing else: an exception from the platform can
+  /// hold the cache path or the file's name, so it is never read.
+  Future<FilesFailure?> _finish(
+    FileAction action,
+    FsEntry entry,
+    File file,
+  ) async {
+    try {
+      final done = switch (action) {
+        FileAction.save => await _media.saveFile(entry.path.name, file),
+        FileAction.openWith => await _media.open(file),
+        FileAction.share => await _shared(file),
+      };
+      if (done) _telemetry.saved(action.slug);
+      return null;
+    } on SaveTooLargeException {
+      return FilesFailure.saveUnavailable;
+    } on Object {
+      return FilesFailure.unreadable;
     }
   }
 
@@ -562,6 +686,7 @@ class FilesController extends ChangeNotifier {
     _cancelFile();
     _fileGen++;
     _pending = null;
+    _resting = null;
     final entry = _selected;
     if (entry != null) _forgetSecret(entry.path);
     _selected = null;
@@ -593,12 +718,19 @@ class FilesController extends ChangeNotifier {
     _folderGen++;
     _fileGen++;
     _listToken?.cancel();
+    _gitToken?.cancel();
     _fileToken?.cancel();
     _pending = null;
     for (final path in _secretOk) {
-      unawaited(_media.evict('fs:$_profile:$path'));
+      unawaited(_media.evict(_keyOf(path)));
     }
     _secretOk.clear();
+    // A copy without a length cannot be told complete, so the next page must
+    // not take it for one.
+    for (final key in _unverified) {
+      unawaited(_media.evict(key));
+    }
+    _unverified.clear();
   }
 
   @override
@@ -611,7 +743,17 @@ class FilesController extends ChangeNotifier {
 
   // -- Plumbing --------------------------------------------------------------
 
-  String _key(ServerPath path) => 'fs:$_profile:${path.value}';
+  String _key(ServerPath path) => _keyOf(path.value);
+
+  /// A copy of a file whose name looks secret goes under a key the next
+  /// launch wipes, in case the app is killed before this page deletes it.
+  String _keyOf(String path) {
+    final secret = ServerPath.tryParse(path);
+    final prefix = secret != null && SecretNames.looksSecret(secret)
+        ? kSecretCopyKeyPrefix
+        : 'fs:';
+    return '$prefix$_profile:$path';
+  }
 
   /// Streams [entry] into the cache and says how it went. A fetch of the same
   /// file still running is awaited first, so two never share one.
@@ -628,7 +770,13 @@ class FilesController extends ChangeNotifier {
         return const _FetchFailed(FilesFailure.cancelled);
       }
     }
-    if (_unverified.remove(key)) await _media.evict(key);
+    if (_unverified.remove(key)) {
+      await _media.evict(key);
+      // The user may have moved on, or the page ended, while it was deleted.
+      if (_gone(gen, _fileGen)) {
+        return const _FetchFailed(FilesFailure.cancelled);
+      }
+    }
     final run = _run(entry, key, gen, allowLarge: allowLarge);
     final tracked = run.then<void>((_) {});
     _fetches[key] = tracked;
@@ -650,7 +798,9 @@ class FilesController extends ChangeNotifier {
     var ran = false;
     int? length;
     try {
-      final file = await _media.stageDownload(key, entry.name, (sink) async {
+      final file = await _media.stageDownload(key, entry.path.name, (
+        sink,
+      ) async {
         ran = true;
         final result = await _source.download(
           entry.path,
@@ -680,6 +830,12 @@ class FilesController extends ChangeNotifier {
         }
       });
       if (ran && length == null) _unverified.add(key);
+      if (_closed) {
+        // Ended while it finished: nothing of it may stay behind.
+        if (_unverified.remove(key) || _secretOk.contains(entry.path.value)) {
+          unawaited(_media.evict(key));
+        }
+      }
       return _Fetched(file, length);
     } on _Stop catch (stop) {
       return stop.result;
@@ -690,10 +846,10 @@ class FilesController extends ChangeNotifier {
 
   CancelToken _newListToken() => _listToken = CancelToken();
 
-  CancelToken _newFileToken() {
-    _fileToken?.cancel();
-    return _fileToken = CancelToken();
-  }
+  /// A token for the request being started. The one it replaces is not
+  /// cancelled here: whoever starts a request has already cancelled what it
+  /// replaces, and this may be a stale call that must not end a newer one.
+  CancelToken _newFileToken() => _fileToken = CancelToken();
 
   void _cancelFile() => _fileToken?.cancel();
 

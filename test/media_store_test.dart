@@ -599,6 +599,31 @@ void main() {
     });
   });
 
+  test('bidi controls in a name become underscores', () async {
+    final file = await newStore().stageBytes(
+      'k',
+      'invoice\u202Efdp.exe\u2066x',
+      pdf,
+    );
+    expect(file.uri.pathSegments.last, 'invoice_fdp.exe_x');
+  });
+
+  group('secret copies', () {
+    test('wipeSecretCopies deletes them and only them', () async {
+      final store = newStore();
+      await store.stageBytes(
+        '${kSecretCopyKeyPrefix}work:/a/.env',
+        '.env',
+        pdf,
+      );
+      final kept = await store.stageBytes('fs:work:/a/b.txt', 'b.txt', pdf);
+
+      await newStore().wipeSecretCopies();
+
+      expect(filesUnder(cache).map((f) => f.path), [kept.path]);
+    });
+  });
+
   group('sweep', () {
     File aged(String folder, String name, Duration age) {
       final file = File('${cache.path}/hermes_media/$folder/$name')

@@ -13,6 +13,12 @@ class FakeMediaActions implements MediaActions {
   /// Whether the user confirms a save.
   bool saves;
 
+  /// Thrown by [saveFile] when set.
+  Exception? saveError;
+
+  /// Thrown by [open] when set.
+  Exception? openError;
+
   /// The paths handed to the system to open.
   final opened = <String>[];
 
@@ -23,6 +29,7 @@ class FakeMediaActions implements MediaActions {
 
   @override
   Future<bool> open(String path) async {
+    if (openError != null) throw openError!;
     opened.add(path);
     return opens;
   }
@@ -36,6 +43,7 @@ class FakeMediaActions implements MediaActions {
 
   @override
   Future<bool> saveFile(String name, File file) async {
+    if (saveError != null) throw saveError!;
     if (!saves) return false;
     savedFiles.add((name: name, path: file.path));
     return true;

@@ -61,12 +61,12 @@ String? sessionFolderPath(Map<String, dynamic> row) {
   return null;
 }
 
-/// The stored `cwd` of a session row, untouched except for surrounding
-/// whitespace; null when it is missing or blank.
+/// The stored `cwd` of a session row exactly as stored (a path may end in
+/// spaces); null when it is missing or blank.
 String? sessionCwd(Map<String, dynamic> row) {
   final value = row['cwd'];
   if (value is! String || value.trim().isEmpty) return null;
-  return value.trim();
+  return value;
 }
 
 typedef FolderThreadSection = ({

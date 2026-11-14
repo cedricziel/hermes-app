@@ -272,7 +272,12 @@ class HermesFilesRepository implements FilesSource {
       final name = row is Map ? row['name'] : null;
       final text = row is Map ? row['path'] : null;
       final path = text is String ? ServerPath.tryParse(text) : null;
-      if (name is! String || name.isEmpty || path == null) {
+      // The name is shown and named in a save dialog, so it must be what the
+      // path says; a row that names one file and points at another is out.
+      if (name is! String ||
+          name.isEmpty ||
+          path == null ||
+          name != path.name) {
         skipped++;
         continue;
       }

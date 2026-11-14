@@ -52,6 +52,13 @@ If PR 1 passes about 500 lines, split it after 1.4 (repository) and 1.5 (streami
 - [ ] 4.2 Write failing tests, then add `CodePreview` using the server's `language` name, an unknown name falling back to plain text, and a size guard (no highlighting above the 512 KB the server sends; highlighting runs off the UI isolate when it exceeds a frame). Update the Widgetbook use cases.
 - [ ] 4.3 Run `/simplify`, then format, analyze and test.
 
+## Known deviations (review of the controller PR)
+
+- Save is capped at 32 MB (`kMaxSaveBytes`): file_picker 13 saves from bytes, so `PlatformMediaActions.saveFile` reads the file into memory, against "SHALL NOT read it into memory" in the spec. A larger file ends as `FilesFailure.saveUnavailable`. Open item for the widget PR: a path-based save (`file_selector` on desktop, a document-export channel on mobile) without a new dependency decision hidden in the controller PR.
+- Recommended for the Open with… PR: on Windows a file opened from the cache should carry the Mark of the Web (zone identifier) so SmartScreen applies. Bidirectional controls in a name are already replaced in `MediaStore`'s safe name.
+- The 10 s `answerTimeout` is the total time for list, `git-root`, `default-cwd` and `read-text`; downloads end on the repository's 30 s idle timeout, not on it.
+- ENOTDIR on a folder request now lists the parent and opens the file (design.md); task 1.1's fixtures for it still need recording.
+
 ## Not verified on a device
 
 These need a device or simulator and a running Hermes, and are listed after the code tasks.

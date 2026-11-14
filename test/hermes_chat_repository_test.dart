@@ -50,6 +50,7 @@ void main() {
             ..['git_repo_root'] = '/srv/project',
           sessionRow(id: 's2', title: 'Only cwd')..['cwd'] = '/srv/other/',
           sessionRow(id: 's3', title: 'Blank')..['cwd'] = '  ',
+          sessionRow(id: 's5', title: 'Spaces')..['cwd'] = '/srv/a b ',
           sessionRow(id: 's4', title: 'Neither'),
         ]),
       );
@@ -60,6 +61,7 @@ void main() {
         '/srv/project/app',
         '/srv/other/',
         null,
+        '/srv/a b ',
         null,
       ]);
       expect(threads.first.folderPath, '/srv/project');
