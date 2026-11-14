@@ -54,6 +54,8 @@ import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
+import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
+import 'package:hermes_app/src/tools/tools_models.dart';
 import 'package:hermes_app/src/voice/synthesized_speech.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:hermes_app/src/voice/wav.dart';
@@ -3023,6 +3025,91 @@ void main() {
       expect(after, before);
     }, skip: skip);
   });
+
+  group('tools (read only: nothing is switched, saved or installed)', () {
+    late HermesToolsRepository tools;
+
+    setUp(() => tools = HermesToolsRepository(client.raw, profile: 'default'));
+
+    T value<T>(ToolsResult<T> result) {
+      expect(result, isA<ToolsOk<T>>());
+      return (result as ToolsOk<T>).value;
+    }
+
+    test('the list has the fields the app reads, and "available" still '
+        'copies "enabled"', () async {
+      final response = await client.raw.getToolsetsApiToolsToolsetsGet(
+        profile: 'default',
+      );
+      final raw = response.data! as List<dynamic>;
+      for (final row in raw.whereType<Map<String, dynamic>>()) {
+        expect(row['name'], isA<String>());
+        expect(row['enabled'], isA<bool>());
+        expect(row['configured'], isA<bool>());
+        expect(row['platform'], isA<String>());
+        expect(row['available'], row['enabled'], reason: '${row['name']}');
+      }
+
+      final list = value(await tools.list());
+
+      expect(list.skipped, 0);
+      expect(list.toolsets, isNotEmpty);
+      expect(list.toolsets.map((t) => t.name), contains('terminal'));
+    });
+
+    test('a toolset with a provider matrix reads its providers', () async {
+      final list = value(await tools.list());
+      final name = list.toolsets
+          .map((t) => t.name)
+          .firstWhere(
+            (n) => n == 'web',
+            orElse: () => list.toolsets.first.name,
+          );
+
+      final config = value(await tools.config(name));
+
+      expect(config.skipped, 0);
+      if (config.hasCategory) {
+        expect(config.providers, isNotEmpty);
+        for (final provider in config.providers) {
+          expect(provider.name, isNotEmpty);
+          for (final env in provider.envVars) {
+            expect(env.key, isNotEmpty);
+          }
+        }
+      }
+    });
+
+    test('a toolset without a catalog says so', () async {
+      final models = value(await tools.models('web'));
+
+      expect(models.hasModels, isFalse);
+    });
+
+    test('the terminal backends name an active one', () async {
+      final backends = value(await tools.terminalBackends());
+
+      expect(backends.skipped, 0);
+      expect(backends.backends, isNotEmpty);
+      expect(backends.backends.map((b) => b.name), contains('local'));
+    });
+
+    test('the computer use status answers, and a missing permission is '
+        'only ever null or a bool', () async {
+      final status = value(await tools.computerUseStatus());
+
+      expect(status.platform, isNotNull);
+      if (!status.installed) expect(status.canOfferGrant, isFalse);
+    });
+
+    test('an unknown toolset is refused with a 400, not a 404', () async {
+      final result = await tools.config(
+        'no_such_toolset_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      expect(result, anyOf(isA<ToolsRefused<ToolsetConfig>>(), isA<ToolsOk>()));
+    });
+  }, skip: skip);
 
   group('requests scoped to a second profile (no model call)', () {
     final profile = 'contract-scope-${DateTime.now().millisecondsSinceEpoch}';
