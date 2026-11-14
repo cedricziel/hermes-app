@@ -65,6 +65,8 @@ import 'package:hermes_app/src/tools/tools_models.dart';
 import 'package:hermes_app/src/voice/synthesized_speech.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:hermes_app/src/voice/wav.dart';
+import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
+import 'package:hermes_app/src/workspaces/workspace_models.dart';
 
 import 'support/attachment_fixtures.dart';
 
@@ -1197,6 +1199,192 @@ void main() {
         MediaFailure.failed,
       );
     }, skip: skip);
+  });
+
+  // The request bodies below were written from the design (read from the
+  // Hermes source), not recorded from a live backend: no `hermes` binary was
+  // available when they were written. Run them against a throwaway backend
+  // and fix the shapes the first run corrects. They write only to a folder
+  // they create in the system temp directory and to chats they create, which
+  // the backend keeps until its home is thrown away. Set
+  // `HERMES_DEV_FILES_ROOT` to the folder the backend was started with via
+  // `HERMES_DASHBOARD_FILES_ROOT` to check the read boundary too.
+  group('working directory (no model call)', () {
+    late GatewayRpcClient rpc;
+    late HermesWorkspacesRepository workspaces;
+    late Directory root;
+    late String inner;
+    final filesRoot = Platform.environment['HERMES_DEV_FILES_ROOT'];
+
+    Map<String, Object?> infoOf(Map<String, Object?> created) =>
+        (created['info'] as Map).cast<String, Object?>();
+
+    Future<Map<String, Object?>> create(Map<String, Object?> extra) async {
+      final created = await rpc.request('session.create', {
+        'profile': 'default',
+        'source': 'hermes_app',
+        ...extra,
+      });
+      addTearDown(
+        () => rpc
+            .request('session.close', {'session_id': created['session_id']})
+            .then((_) {}, onError: (Object _) {}),
+      );
+      return created;
+    }
+
+    setUp(() async {
+      if (url == null) return;
+      rpc = GatewayRpcClient(
+        await hermesGatewayConnect(
+          baseUrl: url,
+          authRequired: false,
+          api: client,
+        )(),
+      );
+      addTearDown(rpc.close);
+      workspaces = HermesWorkspacesRepository(client.raw, rpc.requestWithin);
+      // Under the files root when one is set, so fs/list is not refused for
+      // the folders these tests create. The server reports resolved paths,
+      // so expectations use the resolved ones too (a temp dir can be a
+      // symlink, as on macOS).
+      final parent = filesRoot == null
+          ? Directory.systemTemp
+          : Directory(filesRoot);
+      final made = await parent.createTemp('hermes-workdir-');
+      addTearDown(() => made.delete(recursive: true));
+      root = Directory(made.resolveSymbolicLinksSync());
+      inner = (await Directory('${root.path}/inner').create()).path;
+      await File('${root.path}/note.txt').writeAsString('x');
+    });
+
+    T value<T>(WorkspacesResult<T> result) => switch (result) {
+      WorkspacesOk(:final value) => value,
+      _ => fail('expected a value, got $result'),
+    };
+
+    void failedWith<T>(WorkspacesResult<T> result, WorkspacesFailure kind) =>
+        expect(
+          result,
+          isA<WorkspacesFailed<T>>().having((f) => f.kind, 'kind', kind),
+        );
+
+    test('the workspaces catalog has the fields the app reads', () async {
+      final raw = (await client.raw.getChatWorkspacesApiChatWorkspacesGet(
+        profile: 'default',
+      )).data!;
+      final body = (raw as Map).cast<String, Object?>();
+      expect(body['projects'], isA<List<Object?>>());
+      expect(body['repos'], isA<List<Object?>>());
+      expect(body['default_cwd'], anyOf(isNull, isA<String>()));
+      expect(body['home'], anyOf(isNull, isA<String>()));
+      expect(body['scan_enabled'], isA<bool>());
+
+      value(await workspaces.catalog(profile: 'default'));
+      failedWith(
+        await workspaces.catalog(profile: 'contract-check-missing'),
+        WorkspacesFailure.unknownProfile,
+      );
+    }, skip: skip);
+
+    test('fs/list lists the folders of a temp directory and reports a bad '
+        'one in a 200 with error', () async {
+      final listing = value(await workspaces.listFolders(root.path));
+      expect(listing.folders.map((f) => f.name), ['inner']);
+
+      final raw = (await client.raw.fsListApiFsListGet(
+        path: '${root.path}/missing',
+        profile: 'default',
+      )).data!;
+      expect((raw as Map)['error'], 'ENOENT');
+      failedWith(
+        await workspaces.listFolders('${root.path}/missing'),
+        WorkspacesFailure.notFound,
+      );
+      failedWith(
+        await workspaces.listFolders('${root.path}/note.txt'),
+        WorkspacesFailure.notADirectory,
+      );
+    }, skip: skip);
+
+    test('complete.path with an absolute word lists folders', () async {
+      final got = value(await workspaces.complete('${root.path}/in'));
+      expect(got.folders.map((s) => s.text), ['${root.path}/inner/']);
+    }, skip: skip);
+
+    test('a chat created with cwd and cwd_explicit runs there, and a bad cwd '
+        'falls back', () async {
+      final created = await create({'cwd': root.path, 'cwd_explicit': true});
+      expect(infoOf(created)['cwd'], root.resolveSymbolicLinksSync());
+
+      final bad = '${root.path}/does-not-exist';
+      final fell = await create({'cwd': bad, 'cwd_explicit': true});
+      expect(infoOf(fell)['cwd'], isNot(bad));
+    }, skip: skip);
+
+    test('a draft chat can be moved, a relative path is refused, and it has '
+        'no stored row yet', () async {
+      final created = await create({'cwd': root.path, 'cwd_explicit': true});
+      final stored = created['stored_session_id'] as String;
+
+      expect(value(await workspaces.moveWorkspace(stored, inner)).cwd, inner);
+      // A draft has no stored row until its first message (the server moves
+      // it live: "A draft has no row yet; the live re-home still applies"),
+      // so the stored chat reads as gone, not as a chat in the new folder.
+      failedWith(
+        await workspaces.sessionFolder(stored),
+        WorkspacesFailure.sessionGone,
+      );
+
+      // Not through the repository, which would refuse it without asking.
+      await expectLater(
+        rpc.request('session.workspace.move', {
+          'session_key': stored,
+          'cwd': 'inner',
+          'profile': 'default',
+        }),
+        throwsA(isA<GatewayRpcException>()),
+      );
+      failedWith(
+        await workspaces.moveWorkspace(stored, '${root.path}/missing'),
+        WorkspacesFailure.notFound,
+      );
+    }, skip: skip);
+
+    test('a hermes_app chat created with no cwd stores the folder it '
+        'reports', () async {
+      final created = await create({});
+      final reported = infoOf(created)['cwd'];
+      expect(reported, anyOf(isNull, isA<String>()));
+      final folder = await workspaces.sessionFolder(
+        created['stored_session_id'] as String,
+      );
+      if (reported is String && folder is WorkspacesOk<SessionFolder>) {
+        expect(folder.value.cwd, reported);
+      }
+    }, skip: skip);
+
+    test('with the files root set, outside answers 403 with the boundary '
+        'detail and inside lists', () async {
+      final base = filesRoot!;
+      final outside = Directory(base).parent.path;
+      try {
+        await client.raw.fsListApiFsListGet(path: outside, profile: 'default');
+        fail('expected a 403 outside the files root');
+      } on DioException catch (e) {
+        expect(e.response?.statusCode, 403);
+        final detail = (e.response?.data as Map)['detail'] as String;
+        expect(
+          detail.toLowerCase(),
+          contains('path is outside the managed read boundary'),
+        );
+      }
+      value(await workspaces.listFolders(base));
+      failedWith(
+        await workspaces.listFolders(outside),
+        WorkspacesFailure.outsideBoundary,
+      );
+    }, skip: skip ?? (filesRoot == null ? 'set HERMES_DEV_FILES_ROOT' : null));
   });
 
   group('attachments over the gateway (no model call)', () {
