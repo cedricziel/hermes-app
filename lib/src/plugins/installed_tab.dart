@@ -10,7 +10,9 @@ import 'sheet_host.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
+import '../tools/widgets/tools_difference_sheet.dart';
 import '../widgets/row_actions.dart';
+import '../widgets/whats_the_difference_link.dart';
 
 /// The installed plugins, with a pane on wide layouts and a modal on compact
 /// layouts: a macOS dialog or a bottom sheet elsewhere.
@@ -149,6 +151,9 @@ class _InstalledTabState extends State<InstalledTab>
                         ),
                       ),
                   ],
+                ),
+                WhatsTheDifferenceFooter(
+                  onTap: () => showToolsDifferenceSheet(context),
                 ),
               ],
             ),

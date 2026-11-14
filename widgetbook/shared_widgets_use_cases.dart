@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/command_row.dart';
 import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/loading_skeleton.dart';
+import 'package:hermes_app/src/widgets/whats_the_difference_link.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
@@ -37,6 +40,37 @@ Widget _button({
 WidgetbookNode sharedWidgetsNode() => WidgetbookFolder(
   name: 'Shared widgets',
   children: [
+    WidgetbookComponent(
+      name: 'WhatsTheDifferenceLink',
+      useCases: [
+        ...onEachPlatform(
+          'Link',
+          (_) => frame(WhatsTheDifferenceLink(onTap: () {})),
+        ),
+        ...onEachPlatform(
+          'Under a group footer',
+          (context) => frame(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                GroupedSection(
+                  footer: context.l10n.toolsFooterBody,
+                  children: [GroupedRow(title: context.l10n.toolsEmptyTitle)],
+                ),
+                WhatsTheDifferenceFooter(onTap: () {}),
+              ],
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Largest text',
+          builder: (context) => _largest(
+            context,
+            frame(WhatsTheDifferenceLink(onTap: () {}), maxWidth: 320),
+          ),
+        ),
+      ],
+    ),
     WidgetbookComponent(
       name: 'DestructiveTintButton',
       useCases: [
