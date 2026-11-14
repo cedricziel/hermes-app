@@ -220,6 +220,103 @@ void main() {
     );
   });
 
+  test('a receipt after the page already held the prompt shows it once and '
+      'branches from an earlier reply with one undo', () async {
+    final gate = Completer<void>();
+    gatePage(
+      gate,
+      () => [
+        ...history(),
+        messageRow(id: 3, role: 'user', content: 'More'),
+        messageRow(id: 4, role: 'assistant', content: 'Par'),
+      ],
+    );
+    await open();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+    ack(send, 3);
+    await pumpEventQueue();
+
+    send
+      ..emit(const ReplyCompleted('Partial answer'))
+      ..finish();
+    await pumpEventQueue();
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Partial answer']);
+
+    await chat.branch(thread('s1'), fromMessageId: 's1-2');
+    expect(transport.branches, hasLength(1));
+    expect(transport.branches.single.$3, 1);
+  });
+
+  test('a receipt after the page drops the stored copy and keeps the live '
+      'reply', () async {
+    final gate = Completer<void>();
+    gatePage(
+      gate,
+      () => [
+        ...history(),
+        messageRow(id: 3, role: 'user', content: 'More'),
+        messageRow(id: 4, role: 'assistant', content: 'Par'),
+      ],
+    );
+    await open();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+    final reply = thread('s1').messages.last;
+    send.emit(const ReplyDelta('Partial'));
+    await pumpEventQueue();
+
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+    ack(send, 3);
+    await pumpEventQueue();
+
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Partial']);
+    expect(identical(thread('s1').messages.last, reply), isTrue);
+    expect(thread('s1').messages.map((m) => m.id).toSet(), hasLength(4));
+    send.emit(const ReplyDelta(' more'));
+    await pumpEventQueue();
+    expect(reply.content, 'Partial more');
+  });
+
+  test('a failed turn is kept when its stored turn only calls tools', () async {
+    pageFails();
+    await open();
+    await pumpEventQueue();
+    expect(await chat.submit('More', const []), isTrue);
+    final send = transport.sends.single;
+    ack(send, 3);
+    await pumpEventQueue();
+    send.fail();
+    await pumpEventQueue();
+
+    page([
+      ...history(),
+      messageRow(id: 3, role: 'user', content: 'More'),
+      messageRow(
+        id: 4,
+        role: 'assistant',
+        toolCalls: [functionCall('terminal', '{"command":"ls"}')],
+      ),
+    ]);
+    await reread();
+
+    expect(
+      thread('s1').messages.where(
+        (m) => m.role == ChatRole.assistant && m.status == MessageStatus.error,
+      ),
+      hasLength(1),
+    );
+    expect(thread('s1').messages.where((m) => m.toolCalls.isNotEmpty), isEmpty);
+  });
+
   test('a failed turn without a receipt is kept after the page', () async {
     pageFails();
     await open();

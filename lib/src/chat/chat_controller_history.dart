@@ -438,12 +438,45 @@ extension _ChatControllerHistory on ChatController {
                   m.role == ChatRole.assistant &&
                   m.status == MessageStatus.error,
             );
-        final answered = stored.any((m) => m.role == ChatRole.assistant);
+        final answered = _endsAnswered(stored);
         merged.addAll(failedHere && answered ? stored : turn);
       }
       if (i == last) placeUpTo(pageTurns.length);
     }
     return merged;
+  }
+
+  /// Whether a stored [turn] ends on the final answer: an assistant row with
+  /// text and no tool calls. A row that only calls tools belongs to a turn
+  /// that may still be running.
+  bool _endsAnswered(List<ChatMessage> turn) => switch (turn.lastOrNull) {
+    final ChatMessage last =>
+      last.role == ChatRole.assistant &&
+          last.toolCalls.isEmpty &&
+          last.content.trim().isNotEmpty,
+    null => false,
+  };
+
+  /// Takes out of [thread] the stored copy of the prompt whose receipt just
+  /// named [rowId], with the stored rows that answer it: the page read
+  /// while the prompt was sent already held it, and the prompt shown here
+  /// is the same turn.
+  void _dropStoredCopy(ChatThread thread, int rowId) {
+    final messages = thread.messages;
+    final start = messages.indexWhere(
+      (m) => m.role == ChatRole.user && m.id == '${thread.id}-$rowId',
+    );
+    if (start < 0) return;
+    var end = start + 1;
+    while (end < messages.length &&
+        messages[end].role != ChatRole.user &&
+        !messages[end].id.contains('-local-')) {
+      end++;
+    }
+    messages.removeRange(start, end);
+    _reactionHistory(thread);
+    notifyListeners();
+    unawaited(controllerFor(thread).setMessages(chatThreadToFlyer(thread)));
   }
 
   /// [messages] split into turns that can be matched: a prompt the user
