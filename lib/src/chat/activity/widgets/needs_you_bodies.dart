@@ -9,6 +9,11 @@ import 'needs_you_models.dart';
 double needsYouIconSize(BuildContext context, double size) =>
     MediaQuery.textScalerOf(context).scale(size);
 
+/// From twice the text size a row has no room beside its text: the header
+/// drops its icon and a target's Open goes below the target.
+bool needsYouLargeText(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(1) >= 2;
+
 /// A plain warning line: icon and words in the warning colour, never colour
 /// alone. Not a banner; it sits in the card it belongs to.
 class NeedsYouNoticeLine extends StatelessWidget {
@@ -168,7 +173,8 @@ class _TargetRow extends StatelessWidget {
       ConnectorTargetStatus.signedIn => (AppIcons.checkCircle, colors.success),
       ConnectorTargetStatus.failed => (AppIcons.warning, colors.warning),
     };
-    return Row(
+    final large = needsYouLargeText(context);
+    final row = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
@@ -215,7 +221,7 @@ class _TargetRow extends StatelessWidget {
             ],
           ),
         ),
-        if (target.openable)
+        if (target.openable && !large)
           Padding(
             padding: const EdgeInsets.only(left: 8),
             child: OutlinedButton(
@@ -223,6 +229,21 @@ class _TargetRow extends StatelessWidget {
               child: Text(context.l10n.chatActivityNeedsYouConnectorOpen),
             ),
           ),
+      ],
+    );
+    if (!large || !target.openable) return row;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row,
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: OutlinedButton(
+            onPressed: onOpen,
+            child: Text(context.l10n.chatActivityNeedsYouConnectorOpen),
+          ),
+        ),
       ],
     );
   }

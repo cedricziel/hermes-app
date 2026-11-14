@@ -99,11 +99,17 @@ class MacChatToolbar extends StatelessWidget {
         ],
         MacToolbarButton(
           key: const Key('toolbar-activity'),
-          label: activityOpen
-              ? 'Hide Inspector'
-              : activityWaiting > 0
-              ? context.l10n.chatActivityButtonWaiting(activityWaiting)
-              : 'Show Inspector',
+          label: activityWaiting > 0
+              ? (activityOpen
+                    ? context.l10n.chatActivityInspectorHideWaiting(
+                        activityWaiting,
+                      )
+                    : context.l10n.chatActivityInspectorShowWaiting(
+                        activityWaiting,
+                      ))
+              : (activityOpen
+                    ? context.l10n.chatActivityInspectorHide
+                    : context.l10n.chatActivityInspectorShow),
           shortcut: '⌥⌘I',
           icon: AppIcons.inspector,
           selected: activityOpen,

@@ -32,9 +32,52 @@
   "@@x-area-chat": "",
 
   "@@x-area-chat/activity": "",
-  "chatActivityButtonWaiting": "Activity, {count} need you",
+  "chatActivityButtonHide": "Hide activity",
+  "@chatActivityButtonHide": {
+    "description": "Accessibility label and tooltip of the Activity button while the Activity panel is open."
+  },
+  "chatActivityButtonHideWaiting": "{count, plural, =1{Hide activity, 1 needs you} other{Hide activity, {count} need you}}",
+  "@chatActivityButtonHideWaiting": {
+    "description": "Label of the Activity button while the panel is open and requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityButtonShow": "Activity",
+  "@chatActivityButtonShow": {
+    "description": "Accessibility label and tooltip of the button that opens the Activity panel."
+  },
+  "chatActivityButtonWaiting": "{count, plural, =1{Activity, 1 needs you} other{Activity, {count} need you}}",
   "@chatActivityButtonWaiting": {
     "description": "Accessibility label of the Activity button while requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityInspectorHide": "Hide Inspector",
+  "@chatActivityInspectorHide": {
+    "description": "Mac toolbar button that closes the Activity inspector; macOS View menu wording."
+  },
+  "chatActivityInspectorHideWaiting": "{count, plural, =1{Hide Inspector, 1 needs you} other{Hide Inspector, {count} need you}}",
+  "@chatActivityInspectorHideWaiting": {
+    "description": "Mac toolbar button label that closes the Activity inspector while requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityInspectorShow": "Show Inspector",
+  "@chatActivityInspectorShow": {
+    "description": "Mac toolbar button that opens the Activity inspector; macOS View menu wording."
+  },
+  "chatActivityInspectorShowWaiting": "{count, plural, =1{Show Inspector, 1 needs you} other{Show Inspector, {count} need you}}",
+  "@chatActivityInspectorShowWaiting": {
+    "description": "Mac toolbar button label that opens the Activity inspector while requests wait for the user. {count} is how many.",
     "placeholders": {
       "count": {
         "type": "int"

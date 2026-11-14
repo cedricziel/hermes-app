@@ -179,7 +179,10 @@ String _title(AppLocalizations l10n, NeedsYouItem item) => switch (item.kind) {
       l10n.chatActivityNeedsYouConnectTitle(only.name),
     ConnectorBodyModel(:final targets) =>
       l10n.chatActivityNeedsYouConnectManyTitle(targets.length),
-    _ => l10n.chatActivityNeedsYouBillingTitle,
+    _ => () {
+      assert(false, 'A connector item carries a ConnectorBodyModel.');
+      return '';
+    }(),
   },
 };
 
@@ -215,13 +218,16 @@ class _Header extends StatelessWidget {
     );
     final onShow = model.onShow;
     // Beside a large title the paging controls leave it a word per line, so
-    // from 1.5 times the text size they take their own row.
-    final stackPaging = MediaQuery.textScalerOf(context).scale(1) >= 1.5;
+    // from 1.3 times the text size they take their own row.
+    final stackPaging = MediaQuery.textScalerOf(context).scale(1) >= 1.3;
     final paging = [
-      Text(
-        l10n.chatActivityNeedsYouPosition(index + 1, count),
-        style: Theme.of(context).textTheme.bodySmall
-            ?.copyWith(color: context.hermesColors.subtleText),
+      Flexible(
+        child: Text(
+          l10n.chatActivityNeedsYouPosition(index + 1, count),
+          textAlign: TextAlign.end,
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: context.hermesColors.subtleText),
+        ),
       ),
       NamedIconButton(
         key: const Key('needs-you-previous'),
@@ -245,22 +251,22 @@ class _Header extends StatelessWidget {
           ? CrossAxisAlignment.center
           : CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: AppIcon(
-            _icon(item.kind),
-            size: needsYouIconSize(context, 20),
-            color: context.hermesColors.warning,
+        if (!needsYouLargeText(context)) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: AppIcon(
+              _icon(item.kind),
+              size: needsYouIconSize(context, 20),
+              color: context.hermesColors.warning,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
+          const SizedBox(width: 10),
+        ],
         Expanded(
           child: Semantics(
             header: true,
             child: Text(
               _title(l10n, item),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
@@ -291,6 +297,7 @@ class _Header extends StatelessWidget {
 
 /// Whether more than one target of a connector item has its own Open.
 bool _perTargetOpen(NeedsYouItem item) =>
+    item.actions.contains(NeedsYouAction.open) &&
     item.body is ConnectorBodyModel &&
     (item.body as ConnectorBodyModel).targets.where((t) => t.openable).length >
         1;
@@ -414,10 +421,18 @@ class _Actions extends StatelessWidget {
             ? (item.body as ConnectorBodyModel).targets
             : const <ConnectorTargetModel>[];
         final single = targets.where((t) => t.openable).toList();
+        // Several targets have their own Open in the body; the collapsed card
+        // has no body, so its row keeps one Open for the first waiting target.
         final showOpen =
             _has(NeedsYouAction.open) &&
-            single.length == 1 &&
-            !_perTargetOpen(item);
+            single.isNotEmpty &&
+            (single.length == 1 || model.compact);
+        final openTarget = single.isEmpty
+            ? null
+            : single.firstWhere(
+                (t) => t.status == ConnectorTargetStatus.waiting,
+                orElse: () => single.first,
+              );
         final hasOpen = showOpen;
         if (_has(NeedsYouAction.skip)) {
           buttons.add(
@@ -450,7 +465,7 @@ class _Actions extends StatelessWidget {
               key: const Key('needs-you-open'),
               onPressed: offline || model.onOpen == null
                   ? null
-                  : () => model.onOpen!(item, single.single.name),
+                  : () => model.onOpen!(item, openTarget?.name),
               child: Text(l10n.chatActivityNeedsYouConnectorOpen),
             ),
           );

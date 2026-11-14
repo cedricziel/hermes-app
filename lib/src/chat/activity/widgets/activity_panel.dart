@@ -145,11 +145,13 @@ class ActivityButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final button = NamedIconButton(
       key: const Key('header-activity'),
-      label: open
-          ? 'Hide activity'
-          : waiting > 0
-          ? context.l10n.chatActivityButtonWaiting(waiting)
-          : 'Activity',
+      label: waiting > 0
+          ? (open
+                ? context.l10n.chatActivityButtonHideWaiting(waiting)
+                : context.l10n.chatActivityButtonWaiting(waiting))
+          : (open
+                ? context.l10n.chatActivityButtonHide
+                : context.l10n.chatActivityButtonShow),
       icon: AppIcons.inspector,
       isSelected: open,
       onPressed: onPressed,

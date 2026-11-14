@@ -39,7 +39,7 @@ class _DemoState extends State<_Demo> {
     body: item.body,
     actions: item.actions,
     answer: widget.answer ?? item.answer,
-    offline: widget.offline && item.kind != NeedsYouKind.billing,
+    offline: widget.offline,
   );
 
   @override
@@ -190,6 +190,18 @@ WidgetbookNode needsYouDockNode() => WidgetbookComponent(
       builder: (_) => _dock([needsYouConnectorThree], offline: true),
     ),
     WidgetbookUseCase(
+      name: 'Offline, billing and connector',
+      builder: (_) => frame(
+        Column(
+          children: [
+            _Demo(items: const [needsYouBilling], offline: true),
+            _Demo(items: const [needsYouConnectorOne], offline: true),
+          ],
+        ),
+        maxWidth: 720,
+      ),
+    ),
+    WidgetbookUseCase(
       name: 'Offline, reclaimed',
       builder: (_) => _dock([needsYouReclaimed], offline: true),
     ),
@@ -199,6 +211,10 @@ WidgetbookNode needsYouDockNode() => WidgetbookComponent(
         needsYouConnectorThree,
         needsYouBilling,
       ], collapse: true),
+    ),
+    WidgetbookUseCase(
+      name: 'Keyboard open on a small phone, one target collapsed',
+      builder: (_) => _smallPhone([needsYouConnectorOne], collapse: true),
     ),
     WidgetbookUseCase(
       name: 'Keyboard open on a small phone, billing collapsed',
@@ -219,6 +235,26 @@ WidgetbookNode needsYouDockNode() => WidgetbookComponent(
         name: '$name, largest text',
         builder: (_) => _scaled(
           _dock([item, if (item.id == 'connector-three') needsYouBilling]),
+        ),
+      ),
+    for (final (name, item) in [
+      ('Billing', needsYouBilling),
+      ('Connector, three targets', needsYouConnectorThree),
+      ('Restore failed', needsYouRestoreFailed),
+    ])
+      WidgetbookUseCase(
+        name: '$name, 3x text',
+        builder: (_) => _scaled(
+          _dock([item, if (item.id == 'connector-three') needsYouBilling]),
+          3,
+        ),
+      ),
+    for (final scale in [1.3, 2.0])
+      WidgetbookUseCase(
+        name: 'Restore failed, 1 of 3, ${scale}x text',
+        builder: (_) => _scaled(
+          _dock([needsYouRestoreFailed, needsYouBilling, needsYouReclaimed]),
+          scale,
         ),
       ),
     WidgetbookUseCase(
