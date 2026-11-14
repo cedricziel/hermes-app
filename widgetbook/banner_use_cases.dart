@@ -49,6 +49,21 @@ WidgetbookFolder bannerNode() => WidgetbookFolder(
         ..._tone('Warning', BannerTone.warning, null),
         ..._tone('Error', BannerTone.error, null),
         ..._tone('Neutral', BannerTone.neutral, null),
+        WidgetbookUseCase(
+          name: 'Largest text, with action',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: frame(
+              Banner(
+                tone: BannerTone.neutral,
+                title: 'You are offline',
+                detail: _detail,
+                action: _action(),
+              ),
+            ),
+          ),
+        ),
         _case(
           'Custom icon',
           () => const Banner(

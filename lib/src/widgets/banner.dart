@@ -43,22 +43,36 @@ class Banner extends StatelessWidget {
       BannerTone.success => context.hermesColors.success,
       BannerTone.warning => context.hermesColors.warning,
       BannerTone.error => scheme.error,
-      BannerTone.neutral => scheme.onSurfaceVariant,
+      BannerTone.neutral => context.hermesColors.subtleText,
     };
     final stacked =
         action != null && MediaQuery.textScalerOf(context).scale(14) > 21;
-    final text = Column(
+    final text = ExcludeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          if (detail.isNotEmpty) Text(detail),
+        ],
+      ),
+    );
+    final head = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        if (detail.isNotEmpty) Text(detail),
-        if (stacked)
-          Align(alignment: AlignmentDirectional.centerEnd, child: action),
+        ExcludeSemantics(
+          child: AppIcon(icon ?? defaultIcon(tone), size: 18, color: color),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: text),
+        if (!stacked) ?action,
       ],
     );
+    // The container's own label is what a screen reader announces when the
+    // banner appears; the action keeps its own node so it stays focusable.
     return Semantics(
       container: true,
       liveRegion: true,
+      label: detail.isEmpty ? title : '$title. $detail',
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -66,17 +80,18 @@ class Banner extends StatelessWidget {
           border: Border.all(color: color.withValues(alpha: 0.35)),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ExcludeSemantics(
-              child: AppIcon(icon ?? defaultIcon(tone), size: 18, color: color),
-            ),
-            const SizedBox(width: 10),
-            Expanded(child: text),
-            if (!stacked) ?action,
-          ],
-        ),
+        child: stacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  head,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: action,
+                  ),
+                ],
+              )
+            : head,
       ),
     );
   }

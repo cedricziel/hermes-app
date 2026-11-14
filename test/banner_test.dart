@@ -26,35 +26,79 @@ void main() {
     expect(find.text('Show'), findsOneWidget);
   });
 
-  testWidgets('each tone has its own icon unless one is given', (tester) async {
+  testWidgets('uses the default icon of its tone', (tester) async {
     final icons = {for (final t in BannerTone.values) Banner.defaultIcon(t)};
     expect(icons.length, BannerTone.values.length);
     await tester.pumpWidget(
       _host(const Banner(tone: BannerTone.warning, title: 'Careful')),
     );
-    expect(find.byType(Icon), findsOneWidget);
+    final icon = tester.widget<Icon>(find.byType(Icon));
+    expect(icon.icon, AppIcons.warning.material);
   });
 
-  testWidgets('is a polite live region and its icon is not announced', (
-    tester,
-  ) async {
+  testWidgets('announces title and detail as one live region', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(
       _host(
         const Banner(
           tone: BannerTone.error,
-          icon: AppIcons.error,
           title: "Couldn't save",
+          detail: 'Try again.',
         ),
       ),
     );
-    final node = tester.getSemantics(find.text("Couldn't save"));
-    expect(node.label, contains("Couldn't save"));
     expect(
-      tester.getSemantics(find.byType(Banner)).flagsCollection.isLiveRegion,
-      isTrue,
+      tester.getSemantics(find.byType(Banner)),
+      isSemantics(label: "Couldn't save. Try again.", isLiveRegion: true),
     );
+    expect(find.bySemanticsLabel("Couldn't save"), findsNothing);
     handle.dispose();
+  });
+
+  testWidgets('the action keeps its own tappable node', (tester) async {
+    final handle = tester.ensureSemantics();
+    var taps = 0;
+    await tester.pumpWidget(
+      _host(
+        Banner(
+          tone: BannerTone.neutral,
+          title: 'Offline',
+          action: TextButton(
+            onPressed: () => taps++,
+            child: const Text('Retry'),
+          ),
+        ),
+      ),
+    );
+    expect(find.bySemanticsLabel('Retry'), findsOneWidget);
+    await tester.tap(find.text('Retry'));
+    expect(taps, 1);
+    handle.dispose();
+  });
+
+  testWidgets('the action sits beside the text, and below it at large text', (
+    tester,
+  ) async {
+    Widget build(double scale) => _host(
+      MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+        child: Banner(
+          tone: BannerTone.warning,
+          title: 'Title',
+          action: TextButton(onPressed: () {}, child: const Text('Retry')),
+        ),
+      ),
+    );
+    await tester.pumpWidget(build(1));
+    expect(
+      tester.getTopLeft(find.text('Retry')).dy,
+      lessThan(tester.getBottomLeft(find.text('Title')).dy),
+    );
+    await tester.pumpWidget(build(2));
+    expect(
+      tester.getTopLeft(find.text('Retry')).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(find.text('Title')).dy),
+    );
   });
 
   testWidgets('every tone builds in both themes', (tester) async {
