@@ -82,7 +82,7 @@ dependencies:
   stream_channel: ^2.1.4
   flutter_local_notifications: ^23.0.2
   characters: ^1.4.1
-  upgrader: ^13.8.0
+  upgrader: ^14.0.0
   version: ^3.0.2
   local_auth: ^3.0.2
   file_picker: ^13.3.3
