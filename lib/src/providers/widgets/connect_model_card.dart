@@ -32,13 +32,20 @@ class ConnectModelCard extends StatelessWidget {
       ConnectCardKind.connect => (
         AppIcons.tune,
         l10n.providersCardConnectTitle,
-        l10n.providersCardConnectBody(data.profile),
+        data.profile == 'default'
+            ? l10n.providersCardConnectBodyDefault
+            : l10n.providersCardConnectBody(data.profile),
         l10n.providersCardConnect,
       ),
       ConnectCardKind.reconnect => (
         AppIcons.lock,
         l10n.providersCardReconnectTitle,
-        l10n.providersCardReconnectBody(data.profile, data.modelName ?? ''),
+        data.profile == 'default'
+            ? l10n.providersCardReconnectBodyDefault(data.modelName ?? '')
+            : l10n.providersCardReconnectBody(
+                data.profile,
+                data.modelName ?? '',
+              ),
         l10n.providersCardReconnect,
       ),
       ConnectCardKind.loading => (

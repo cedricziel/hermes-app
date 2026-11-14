@@ -237,7 +237,14 @@ extension _ChatScreenNavigation on _ChatScreenState {
     await _chat.refreshModelOptions();
   }
 
+  /// The composer's "Set up a model": Model providers where the server has it
+  /// (on the lost provider when the default's provider lost its key), the
+  /// terminal command otherwise.
   Future<void> _setupModel() async {
+    if (_providersOffered) {
+      _openProviders(ProvidersEntry.composer, focus: _setupFocus());
+      return;
+    }
     final profile = _chat.profile;
     final owner = _avatarAuth?.ownerGeneration;
     await showModelSetup(context, profile);
@@ -375,7 +382,45 @@ extension _ChatScreenNavigation on _ChatScreenState {
       _providers != null &&
       _chat.modelOptionsState != ModelOptionsState.unsupported;
 
-  void _openProviders(ProvidersEntry source) {
+  /// Where Model providers starts for a profile that cannot chat: on the
+  /// provider that lost its key, else at "Add a provider".
+  ProvidersFocus _setupFocus() =>
+      ProvidersFocus.providerOrAdd(_chat.modelOptions?.missing?.providerId);
+
+  /// The welcome card for a profile with no usable model, or null while the
+  /// starter prompts show.
+  Widget? _welcomeCard() {
+    final data = _providers == null
+        ? null
+        : connectCardFor(
+            _chat.modelOptionsState,
+            _chat.modelOptions,
+            profile: _chat.profile ?? 'default',
+            settled: _chat.settledModelOptionsState,
+            warmingUnchanged: _chat.warmingUnchanged,
+          );
+    if (data == null) return null;
+    return ConnectModelCard(
+      data: data,
+      onPressed: data.kind == ConnectCardKind.loading
+          ? () => unawaited(_chat.checkModelOptionsAgain())
+          : () => _openProviders(
+              ProvidersEntry.welcome,
+              focus: ProvidersFocus.providerOrAdd(data.providerId),
+            ),
+    );
+  }
+
+  /// A failed reply's "Check model providers": the provider of the model the
+  /// chat picked, else the default model's.
+  void _checkProviders() => _openProviders(
+    ProvidersEntry.reply,
+    focus: ProvidersFocus.providerOrAdd(
+      _chat.modelChoice?.providerId ?? _chat.modelOptions?.current?.providerId,
+    ),
+  );
+
+  void _openProviders(ProvidersEntry source, {ProvidersFocus? focus}) {
     final providers = _providers;
     if (providers == null) return;
     _closeDrawerIfNarrow();
@@ -386,6 +431,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
               repository: providers,
               profile: _chat.profile,
               entry: source,
+              focus: focus,
               // The pill and the welcome view follow what the screen did.
               onChanged: () => unawaited(_chat.refreshModelOptions()),
             ),

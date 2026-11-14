@@ -61,6 +61,8 @@ class ChatThreadView extends StatelessWidget {
     this.queueView,
     this.sendTarget,
     this.starterPrompts,
+    this.welcomeCard,
+    this.onCheckProviders,
     required this.onPickStarter,
     required this.latestReplyId,
     this.turnActionStatus,
@@ -128,6 +130,14 @@ class ChatThreadView extends StatelessWidget {
   /// when this changed meanwhile.
   final Object? Function()? sendTarget;
   final List<StarterPrompt>? starterPrompts;
+
+  /// Takes the place of the starter prompts while the profile has no usable
+  /// model.
+  final Widget? welcomeCard;
+
+  /// A reply that failed with the model provider's error offers a way to
+  /// Model providers; none where the chat has no such screen.
+  final VoidCallback? onCheckProviders;
   final ValueChanged<StarterPrompt> onPickStarter;
   final ValueListenable<String?> latestReplyId;
   final ValueListenable<TurnActionStatus>? turnActionStatus;
@@ -189,6 +199,8 @@ class ChatThreadView extends StatelessWidget {
     final builders =
         buildChatBuilders(
           starterPrompts: starterPrompts,
+          welcomeCard: welcomeCard,
+          onCheckProviders: onCheckProviders,
           onPickPrompt: onPickStarter,
           greetingName: greetingName,
           assistantName: botContext?.title,

@@ -474,7 +474,7 @@ When the default model's provider lost its credential (even if another provider 
 
 - **GIVEN** the profile's default model is served by OpenRouter and its key was removed on the server
 - **WHEN** the person opens a new chat
-- **THEN** the card reads "Reconnect your model's provider" and "Reconnect" opens OpenRouter's detail
+- **THEN** the card reads "Reconnect your model's provider" and "Reconnect" opens Model providers on OpenRouter: its key form (or its sign-in or server command), since a provider without a credential has no detail to show; a provider that is still connected but failing opens its detail
 
 #### Scenario: Default provider lost, another ready
 

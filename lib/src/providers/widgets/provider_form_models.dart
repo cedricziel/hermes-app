@@ -350,6 +350,7 @@ class ConnectCardData {
     required this.kind,
     required this.profile,
     this.modelName,
+    this.providerId,
   });
 
   final ConnectCardKind kind;
@@ -357,4 +358,8 @@ class ConnectCardData {
 
   /// The default model that lost its provider ([ConnectCardKind.reconnect]).
   final String? modelName;
+
+  /// The provider that lost its key ([ConnectCardKind.reconnect]): "Reconnect"
+  /// opens its detail.
+  final String? providerId;
 }
