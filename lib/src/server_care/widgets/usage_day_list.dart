@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/grouped_list.dart';
 import 'usage_format.dart';
 
@@ -39,19 +40,20 @@ class _UsageDayListState extends State<UsageDayList> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final sorted = [...widget.days]..sort((a, b) => b.day.compareTo(a.day));
     final visible = sorted.take(_shown).toList();
     final remaining = sorted.length - visible.length;
     final next = remaining < _moreDays ? remaining : _moreDays;
     return GroupedSection(
-      header: 'By day',
+      header: l10n.serverCareUsageByDay,
       children: [
         for (final d in visible)
           GroupedRow(
-            title: formatDayShort(d.day),
+            title: formatDayShort(l10n, d.day),
             subtitle:
-                '${formatTokens(d.tokens)} · ${formatDollars(d.cost)} · '
-                '${formatConversations(d.conversations)}',
+                '${formatTokens(l10n, d.tokens)} · ${formatDollars(l10n, d.cost)} · '
+                '${formatConversations(l10n, d.conversations)}',
             subtitleMaxLines: null,
           ),
         if (remaining > 0)
@@ -60,7 +62,7 @@ class _UsageDayListState extends State<UsageDayList> {
             child: TextButton(
               style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
               onPressed: () => setState(() => _shown += _moreDays),
-              child: Text('Show $next more ${next == 1 ? 'day' : 'days'}'),
+              child: Text(l10n.serverCareUsageShowMoreDays(next)),
             ),
           ),
       ],

@@ -102,6 +102,38 @@ void main() {
     }
   }
 
+  // Waits on what the real I/O is meant to produce. [settle] stays for the
+  // tests that assert nothing happened, where there is nothing to wait for.
+  Future<void> waitForText(WidgetTester tester, String text) => waitUntil(
+    tester,
+    () => find.text(text).evaluate().isNotEmpty,
+    reason: '"$text" to show',
+  );
+
+  Future<void> waitForOpened(WidgetTester tester, int count) => waitUntil(
+    tester,
+    () => actions.opened.length >= count,
+    reason: 'the file to be opened ($count time(s))',
+  );
+
+  Future<void> waitForPreviewed(WidgetTester tester, int count) => waitUntil(
+    tester,
+    () => quickLook.previewed.length >= count,
+    reason: 'Quick Look to be asked to preview ($count time(s))',
+  );
+
+  Future<void> waitForSaved(WidgetTester tester) => waitUntil(
+    tester,
+    () => actions.saved.isNotEmpty,
+    reason: 'the file to be saved',
+  );
+
+  Future<void> waitForShown(WidgetTester tester) => waitUntil(
+    tester,
+    () => quickLook.shown != null,
+    reason: 'Quick Look to show a file',
+  );
+
   Future<void> click(
     WidgetTester tester,
     Finder finder, {
@@ -152,7 +184,7 @@ void main() {
       await pump(tester, const AttachmentCard(attachment: remote));
 
       await doubleClick(tester, find.text('report.pdf'));
-      await settle(tester);
+      await waitForOpened(tester, 1);
 
       expect(downloads(), 1);
       expect(actions.opened.single, endsWith('/report.pdf'));
@@ -166,15 +198,18 @@ void main() {
       await select(tester);
 
       await pressSpace(tester);
-      await waitUntil(tester, () => quickLook.shown != null);
-      await settle(tester);
+      await waitForShown(tester);
       expect(downloads(), 1);
       expect(quickLook.shown, endsWith('/report.pdf'));
       expect(File(quickLook.shown!).readAsBytesSync(), pdf);
 
       await pressSpace(tester);
-      await waitUntil(tester, () => quickLook.shown == null);
-      await settle(tester);
+      await waitUntil(
+        tester,
+        () => quickLook.shown == null,
+        reason: 'the second Space to close Quick Look',
+      );
+      await settle(tester); // a request that must not come
       expect(downloads(), 1);
       expect(quickLook.shown, isNull);
     });
@@ -190,12 +225,18 @@ void main() {
       await select(tester);
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitForText(tester, 'Downloading…');
       expect(find.text('Downloading…'), findsOneWidget);
       await pressSpace(tester);
       await doubleClick(tester, find.text('Downloading…'));
       gate.complete();
-      await settle(tester);
+      await waitForPreviewed(tester, 1);
+      await waitUntil(
+        tester,
+        () => find.text('Downloading…').evaluate().isEmpty,
+        reason: 'Downloading… to go away',
+      );
+      await settle(tester); // a second request or open that must not come
 
       expect(downloads(), 1);
       expect(quickLook.previewed, hasLength(1));
@@ -209,10 +250,10 @@ void main() {
       server.onDownload('/srv/report.pdf', pdf);
       await pump(tester, const AttachmentCard(attachment: remote));
       await doubleClick(tester, find.text('report.pdf'));
-      await settle(tester);
+      await waitForOpened(tester, 1);
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitForShown(tester);
 
       expect(downloads(), 1);
       expect(quickLook.shown, actions.opened.single);
@@ -229,7 +270,7 @@ void main() {
         await select(tester);
 
         await pressSpace(tester);
-        await settle(tester);
+        await waitForText(tester, message);
 
         expect(find.text(message), findsOneWidget);
         expect(quickLook.previewed, isEmpty);
@@ -244,7 +285,7 @@ void main() {
       await select(tester);
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitForText(tester, "Quick Look couldn't preview this file.");
 
       expect(find.text("Quick Look couldn't preview this file."), findsOne);
     });
@@ -258,11 +299,22 @@ void main() {
       await pump(tester, const AttachmentCard(attachment: remote));
       await select(tester);
       await pressSpace(tester);
-      await settle(tester);
+      await waitForText(tester, 'Downloading…');
+      await waitUntil(
+        tester,
+        () => downloads() == 1,
+        reason: 'the download to reach the server',
+      );
 
       await tester.runAsync(store.clear);
       gate.complete();
-      await settle(tester);
+      // The request ends, and the card stops being busy, only after the
+      // download has been staged or dropped.
+      await waitUntil(
+        tester,
+        () => find.text('Downloading…').evaluate().isEmpty,
+        reason: 'the cleared download to finish',
+      );
 
       expect(quickLook.previewed, isEmpty);
       expect(
@@ -287,7 +339,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(selected(tester), isTrue);
       await tester.runAsync(() => tester.tap(find.text('Quick Look')));
-      await settle(tester);
+      await waitForPreviewed(tester, 1);
       expect(quickLook.previewed, hasLength(1));
 
       await click(
@@ -297,7 +349,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.runAsync(() => tester.tap(find.text('Quick Look')));
-      await settle(tester);
+      await waitForPreviewed(tester, 2);
 
       expect(quickLook.previewed, hasLength(2));
       expect(quickLook.shown, isNotNull);
@@ -315,7 +367,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.runAsync(() => tester.tap(find.text('Save…')));
-      await settle(tester);
+      await waitForSaved(tester);
 
       expect(actions.saved.single.name, 'report.pdf');
       expect(actions.saved.single.bytes, pdf);
@@ -364,7 +416,7 @@ void main() {
       await click(tester, find.text('notes.txt'));
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitForShown(tester);
 
       expect(downloads(), 0);
       expect(quickLook.shown, startsWith(cache.path));
@@ -388,7 +440,7 @@ void main() {
       await click(tester, find.text('notes.txt'));
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitForShown(tester);
 
       expect(quickLook.shown, startsWith(cache.path));
       expect(quickLook.shown, isNot(picked.path));
@@ -409,9 +461,9 @@ void main() {
         () =>
             tester.tap(find.text('report.pdf'), kind: PointerDeviceKind.mouse),
       );
-      await settle(tester);
+      await waitForOpened(tester, 1);
       await pressSpace(tester);
-      await settle(tester);
+      await settle(tester); // a preview that must not come
 
       expect(find.byType(QuickLookSelectionFrame), findsNothing);
       expect(actions.opened, hasLength(1));
@@ -432,7 +484,7 @@ void main() {
       await pump(tester, AttachmentCard(attachment: embedded));
 
       await tester.runAsync(() => tester.tap(find.byTooltip('Save')));
-      await settle(tester);
+      await waitForSaved(tester);
 
       expect(actions.saved.single.name, 'notes.txt');
       expect(actions.saved.single.bytes, [104, 105]);
@@ -468,7 +520,7 @@ void main() {
       );
 
       await tester.runAsync(() => tester.tap(find.byTooltip('Save')));
-      await settle(tester);
+      await waitForSaved(tester);
 
       expect(downloads(), 1);
       expect(actions.saved.single.bytes, [1, 2, 3]);
@@ -487,7 +539,7 @@ void main() {
           ),
         ),
       );
-      await settle(tester);
+      await waitForText(tester, 'broken.png');
 
       expect(find.byType(QuickLookTarget), findsOneWidget);
       expect(find.text('broken.png'), findsOneWidget);
@@ -561,12 +613,12 @@ void main() {
       expect(selected(tester), isTrue);
       expect(actions.opened, isEmpty);
       await pressSpace(tester);
-      await waitUntil(tester, () => quickLook.shown != null);
+      await waitForShown(tester);
       expect(quickLook.shown, isNotNull);
       await tester.pump(const Duration(seconds: 1));
       await doubleClick(tester, find.text('report.pdf'));
-      await waitUntil(tester, () => actions.opened.isNotEmpty);
-      await settle(tester);
+      await waitForOpened(tester, 1);
+      await settle(tester); // a second open that must not come
 
       expect(drags, isEmpty);
       expect(actions.opened, hasLength(1));
@@ -583,8 +635,13 @@ void main() {
       await select(tester);
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitForShown(tester);
       await pressSpace(tester);
+      await waitUntil(
+        tester,
+        () => quickLook.shown == null,
+        reason: 'the second Space to close Quick Look',
+      );
       await settle(tester);
 
       expect(
@@ -604,6 +661,7 @@ void main() {
       await waitUntil(
         tester,
         () => events.named('quick_look.failed').isNotEmpty,
+        reason: 'the quick_look.failed event',
       );
 
       expect(events.named('quick_look.failed'), [
@@ -627,6 +685,7 @@ void main() {
       await waitUntil(
         tester,
         () => events.named('quick_look.failed').isNotEmpty,
+        reason: 'the quick_look.failed event',
       );
 
       expect(events.named('quick_look.failed'), [
@@ -640,7 +699,12 @@ void main() {
       await select(tester);
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitUntil(
+        tester,
+        () => events.named('quick_look.failed').isNotEmpty,
+        reason: 'the quick_look.failed event',
+      );
+      await settle(tester); // anything else that would be logged
 
       final everything = [
         for (final c in trail.recent) '${c.name} ${c.attributes}',
@@ -671,7 +735,13 @@ void main() {
     Future<void> pumpImage(WidgetTester tester) async {
       await pump(tester, AttachmentThumbnail(attachment: image));
       // Decoding the picture takes real time.
-      await settle(tester);
+      await waitUntil(
+        tester,
+        () => tester
+            .widgetList<RawImage>(find.byType(RawImage))
+            .any((image) => image.image != null),
+        reason: 'the thumbnail to decode',
+      );
     }
 
     testWidgets('a click selects without opening it full screen', (
@@ -702,7 +772,7 @@ void main() {
       await clickImage(tester);
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitForShown(tester);
 
       expect(File(quickLook.shown!).readAsBytesSync(), kTinyPng);
     });
