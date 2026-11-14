@@ -92,6 +92,9 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   Attention? get attention {
     if (!_supported) return null;
     if (_failure == CareFailureKind.offline) return Attention.offline;
+    // Any other failed read says nothing new: the old status is not shown as
+    // current, and no mark is raised or cleared on it.
+    if (_failure != null) return null;
     final status = _status;
     if (status == null) return null;
     return Attention.of(status, gatewayBusy: _gatewayBusy);

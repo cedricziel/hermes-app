@@ -363,7 +363,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void _careSupportChanged() {
     final supported = _serverCare?.supported ?? true;
     if (supported == _careSupported || !mounted) return;
-    setState(() => _careSupported = supported);
+    setState(() {
+      _careSupported = supported;
+      // The row the person is on is leaving the sidebar: go back to Chat.
+      if (!supported && _current == _Destination.server) {
+        _current = _Destination.chat;
+      }
+    });
   }
 
   /// The server's own default profile, by name; null until read.

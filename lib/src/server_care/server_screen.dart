@@ -139,7 +139,9 @@ class _ServerScreenState extends State<ServerScreen> {
     final showStatus = status != null && care.failure == null;
     return [
       _headline(l10n, care),
-      if (showStatus || !care.supported) ..._hermes(l10n, care, status),
+      // The update check does not depend on the status, so its row stays
+      // when the status could not be read.
+      ..._hermes(l10n, care, showStatus ? status : null),
       if (showStatus) ..._gateway(l10n, status),
       if (showStatus) ..._machine(l10n, status),
       if (care.offers(CarePart.usage))

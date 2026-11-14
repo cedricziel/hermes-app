@@ -200,7 +200,10 @@ class _UsagePageState extends State<UsagePage> {
               ),
             ],
           ),
-          UsageModelList(models: c.modelEntries, footer: kUsageFooter),
+          UsageModelList(
+            models: c.modelEntries,
+            footer: context.l10n.serverCareUsageFooter,
+          ),
         ],
       ],
     );

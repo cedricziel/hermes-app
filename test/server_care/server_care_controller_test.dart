@@ -173,6 +173,20 @@ void main() {
     expect(controller.mark, ServerAttentionMark.needsAttention);
   });
 
+  test('a failed read raises and clears no mark on the old status', () async {
+    server.on('GET', '/api/status', {
+      ...statusHealthy(),
+      'gateway_running': false,
+      'gateway_state': 'stopped',
+    });
+    await controller.refresh();
+    expect(controller.mark.showsDot, isTrue);
+    server.on('GET', '/api/status', {}, status: 500);
+    await controller.refresh();
+    expect(controller.attention, isNull);
+    expect(controller.mark.showsDot, isFalse);
+  });
+
   test('a missing route hides the part and logs it once', () async {
     server.on('GET', '/api/status', {'detail': 'Not Found'}, status: 404);
     await controller.refresh();

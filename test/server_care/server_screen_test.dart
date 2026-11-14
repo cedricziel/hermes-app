@@ -213,6 +213,8 @@ void main() {
       expect(find.text('Everything looks good'), findsNothing);
       expect(find.text("Couldn't read Hermes' status"), findsOneWidget);
       expect(find.text('Messaging gateway'), findsNothing);
+      // The update check does not depend on the status.
+      expect(find.text('Updates'), findsOneWidget);
     });
   });
 

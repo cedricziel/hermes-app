@@ -850,7 +850,12 @@ class AccountFooter extends StatelessWidget {
                 if (serverCareOffered(context))
                   PopupMenuItem(
                     value: 'server',
-                    child: ServerMenuItemLabel(needsAttention: mark.showsDot),
+                    child: ServerMenuItemLabel(
+                      label: mark.showsDot
+                          ? context.l10n.serverCareMenuItemNeedsAttention
+                          : context.l10n.serverCareTitle,
+                      needsAttention: mark.showsDot,
+                    ),
                   ),
                 const PopupMenuItem(value: 'about', child: Text('About')),
                 if (auth.status?.authRequired ?? false)

@@ -203,12 +203,19 @@ void main() {
 
     testWidgets('the menu label says it in words', (tester) async {
       await tester.pumpWidget(
-        _host(const ServerMenuItemLabel(needsAttention: true)),
+        _host(
+          const ServerMenuItemLabel(
+            label: 'Server · needs attention',
+            needsAttention: true,
+          ),
+        ),
       );
       expect(find.text('Server · needs attention'), findsOneWidget);
       expect(find.byType(ServerAttentionDot), findsOneWidget);
       await tester.pumpWidget(
-        _host(const ServerMenuItemLabel(needsAttention: false)),
+        _host(
+          const ServerMenuItemLabel(label: 'Server', needsAttention: false),
+        ),
       );
       expect(find.text('Server'), findsOneWidget);
       expect(find.byType(ServerAttentionDot), findsNothing);

@@ -414,6 +414,10 @@
   "@serverCareMemoryRow": {
     "description": "Row label: the server's memory."
   },
+  "serverCareMenuItemNeedsAttention": "Server · needs attention",
+  "@serverCareMenuItemNeedsAttention": {
+    "description": "The account menu's Server entry while the server has a problem to show; a warning dot follows it."
+  },
   "serverCareOk": "OK",
   "@serverCareOk": {
     "description": "Row value: nothing is wrong (memory, session store)."
@@ -551,6 +555,10 @@
   "serverCareUsageFailedTitle": "Usage can't be loaded",
   "@serverCareUsageFailedTitle": {
     "description": "Title of the Usage page's error state, and of the one for a refused read."
+  },
+  "serverCareUsageFooter": "Days follow the server's time zone. Conversations count chats, messaging and scheduled tasks. Costs are estimates in US dollars.",
+  "@serverCareUsageFooter": {
+    "description": "Footnote under the Usage page's per-model list."
   },
   "serverCareUsageLoading": "Loading usage",
   "@serverCareUsageLoading": {
