@@ -6,6 +6,8 @@ import 'dart:io';
 /// works from a linked worktree (where `.git` is a file) and with
 /// `core.hooksPath`. Worktrees share one hooks directory, so the hook itself
 /// only relies on git running it from the top of the worktree being committed.
+///
+/// After a failing run the hook prints a hint about regenerating `lib/l10n/generated/`.
 Future<void> main() async {
   final result = await Process.run('git', ['rev-parse', '--git-path', 'hooks']);
   if (result.exitCode != 0) {
@@ -24,7 +26,11 @@ Future<void> main() async {
 # Git exports GIT_DIR (and friends) to hooks run from a linked worktree; the
 # Flutter tool shells out to git for its own checkout and breaks on them.
 unset GIT_DIR GIT_WORK_TREE
-exec flutter pub run dart_pre_commit
+flutter pub run dart_pre_commit && exit 0
+status=\$?
+echo >&2 'If the errors mention lib/l10n/generated or missing AppLocalizations getters,'
+echo >&2 'run `flutter pub get` (or `flutter gen-l10n`) after a pull, merge or ARB edit and commit again.'
+exit \$status
 ''');
 
   if (!Platform.isWindows) {

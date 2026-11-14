@@ -265,6 +265,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         service: service,
         settings: settings,
         profiles: _profiles,
+        events: repositories?.telemetry.events ?? noopAppEventLogger,
         account: () => accounts?.accountKey ?? '',
       )..paused = !_sessionAuthorized;
     }
