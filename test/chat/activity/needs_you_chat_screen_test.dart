@@ -229,6 +229,7 @@ void main() {
     expect(find.text('Sending your answer…'), findsOneWidget);
     expect(enabled(tester, 'needs-you-continue'), isFalse);
     expect(enabled(tester, 'needs-you-skip'), isFalse);
+    expect(enabled(tester, 'needs-you-open'), isFalse);
     await settle(tester);
     expect(
       gateway.methods.where((m) => m == 'connection.respond'),

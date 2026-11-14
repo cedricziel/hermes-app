@@ -350,7 +350,10 @@ class _Body extends StatelessWidget {
       onOpen: _perTargetOpen(item) && model.onOpen != null
           ? (target) => model.onOpen!(item, target)
           : null,
-      openEnabled: !offline && item.actions.contains(NeedsYouAction.open),
+      openEnabled:
+          !offline &&
+          item.answer != NeedsYouAnswer.sending &&
+          item.actions.contains(NeedsYouAction.open),
       onSkip: _perTargetSkip(item) && model.onSkip != null
           ? (target) => model.onSkip!(item, target)
           : null,
@@ -507,7 +510,7 @@ class _Actions extends StatelessWidget {
           buttons.add(
             FilledButton(
               key: const Key('needs-you-open'),
-              onPressed: offline || model.onOpen == null
+              onPressed: offline || sending || model.onOpen == null
                   ? null
                   : () => model.onOpen!(item, openTarget?.name),
               child: Text(l10n.chatActivityNeedsYouConnectorOpen),

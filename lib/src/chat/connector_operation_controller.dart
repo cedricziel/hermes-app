@@ -166,10 +166,15 @@ class ConnectorOperationController extends ChangeNotifier {
     if (operation.settled || remaining <= Duration.zero) return;
     final generation = _generation;
     _timers[operation.key] = Timer(remaining, () {
-      if (!_disposed && generation == _generation) {
-        _log('deadline');
-        if (!_disposed && generation == _generation) notifyListeners();
+      if (_disposed || generation != _generation) return;
+      final latest = _state.find(operation.key) ?? operation;
+      if (_now().isBefore(latest.deadlineAt)) {
+        // Early by the clock the card reads: look again at the deadline.
+        _armDeadline(latest);
+        return;
       }
+      _log('deadline');
+      notifyListeners();
     });
   }
 
@@ -298,7 +303,9 @@ class ConnectorOperationController extends ChangeNotifier {
         _report(key, ConnectorAnswer.unconfirmed);
         // The transport ends the call on its own later; a settlement it may
         // still carry is applied, nothing else.
-        unawaited(reply.then((late) => _lateResult(late, key, generation)));
+        unawaited(
+          reply.then((late) => _lateResult(late, key, generation, attempt)),
+        );
         return;
       }
       if (first is _Failed) {
@@ -338,21 +345,22 @@ class ConnectorOperationController extends ChangeNotifier {
     }
   }
 
-  /// Notes that the answer to [key] was refused or left unconfirmed, with
-  /// the words the older cards show and the outcome to log.
+  /// Notes that the answer to [key] was refused or left unconfirmed, and logs
+  /// the outcome. The words are the widget layer's (`answerFor`).
   void _report(ConnectorOperationKey key, ConnectorAnswer answer) {
     _answers[key] = answer;
-    _errors[key] = answer == ConnectorAnswer.refused
-        ? 'The server refused your answer.'
-        : "Couldn't confirm your answer. It may have gone through; check "
-              'before trying again.';
     _log(answer.name);
   }
 
   /// What the call returned after it was reported unconfirmed: a settlement
   /// still settles the operation, anything else changes nothing and logs
   /// nothing.
-  void _lateResult(Object? late, ConnectorOperationKey key, int generation) {
+  void _lateResult(
+    Object? late,
+    ConnectorOperationKey key,
+    int generation,
+    int attempt,
+  ) {
     if (_disposed ||
         generation != _generation ||
         late is! Map ||
@@ -360,9 +368,12 @@ class ConnectorOperationController extends ChangeNotifier {
         late['settled'] is! bool) {
       return;
     }
-    // It did go through: the line that said it might not have is stale.
-    _answers.remove(key);
-    _errors.remove(key);
+    // It did go through: the line that said it might not have is stale, but
+    // only if no later answer of the user's has a line of its own.
+    if (_attempts[key] == attempt && !_pending.contains(key)) {
+      _answers.remove(key);
+      _errors.remove(key);
+    }
     if (late['settled'] == true) {
       _state.markSettled(key);
       _timers.remove(key)?.cancel();

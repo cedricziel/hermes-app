@@ -105,10 +105,7 @@ void main() {
       replies.single.complete({'status': 'denied', 'settled': false});
       async.flushMicrotasks();
       expect(controller.answerFor(operation.key), ConnectorAnswer.refused);
-      expect(
-        controller.errorFor(operation.key),
-        'The server refused your answer.',
-      );
+
       expect(controller.canRespond(operation.key), isTrue);
       expect(outcomes, ['refused']);
     });
@@ -250,6 +247,65 @@ void main() {
       async.flushMicrotasks();
       expect(controller.answerFor(operation.key), ConnectorAnswer.idle);
       expect(outcomes, ['unconfirmed', 'responded']);
+    });
+  });
+
+  test('a late ok from the first answer does not clear the second\'s '
+      'refusal', () {
+    inFakeAsync((async) {
+      continueOn();
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 10));
+      continueOn();
+      async.flushMicrotasks();
+      replies.last.complete({'status': 'denied', 'settled': false});
+      async.flushMicrotasks();
+      expect(controller.answerFor(operation.key), ConnectorAnswer.refused);
+
+      replies.first.complete({'status': 'ok', 'settled': false});
+      async.flushMicrotasks();
+      expect(controller.answerFor(operation.key), ConnectorAnswer.refused);
+    });
+  });
+
+  test('a late settlement from the first answer still settles', () {
+    inFakeAsync((async) {
+      continueOn();
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 10));
+      continueOn();
+      async.flushMicrotasks();
+      replies.first.complete({'status': 'ok', 'settled': true});
+      async.flushMicrotasks();
+      expect(controller.operations.single.settled, isTrue);
+    });
+  });
+
+  test('a deadline timer that fires early arms itself again', () {
+    fakeAsync((async) {
+      final start = DateTime.utc(2030);
+      final seen = <String>[];
+      // A clock that runs slow, as when the device clock was set back.
+      final slow = ConnectorOperationController(
+        now: () => start.add(async.elapsed ~/ 2),
+        events: (name, [attributes = const {}]) =>
+            seen.add(attributes['outcome']! as String),
+      );
+      final scope = Object();
+      slow.bind(scope, profile: 'p', respond: (_) async => {});
+      slow.accept(
+        ConnectorOperationSnapshot.fromUpdate({
+          ...connectionUpdateFixture,
+          'deadline_at': start.millisecondsSinceEpoch / 1000 + 60,
+        })!,
+        attachment: scope,
+      );
+      seen.clear();
+      async.elapse(const Duration(seconds: 61));
+      expect(seen, isNot(contains('deadline')));
+      async.elapse(const Duration(seconds: 70));
+      expect(seen, contains('deadline'));
+      slow.dispose();
     });
   });
 }

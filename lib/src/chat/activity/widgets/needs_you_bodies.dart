@@ -16,12 +16,19 @@ bool needsYouLargeText(BuildContext context) =>
 
 /// The look of the card's outlined buttons: a border that shows on the card in
 /// both themes (the theme's own outline is as dark as the card in dark mode).
-ButtonStyle needsYouOutlinedStyle(BuildContext context) =>
-    OutlinedButton.styleFrom(
-      side: BorderSide(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+ButtonStyle needsYouOutlinedStyle(BuildContext context) {
+  final onSurface = Theme.of(context).colorScheme.onSurface;
+  return OutlinedButton.styleFrom().copyWith(
+    // A disabled button dims its border with its label.
+    side: WidgetStateProperty.resolveWith(
+      (states) => BorderSide(
+        color: onSurface.withValues(
+          alpha: states.contains(WidgetState.disabled) ? 0.12 : 0.4,
+        ),
       ),
-    );
+    ),
+  );
+}
 
 /// A plain warning line: icon and words in the warning colour, never colour
 /// alone. Not a banner; it sits in the card it belongs to.

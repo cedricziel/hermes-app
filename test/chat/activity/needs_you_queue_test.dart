@@ -148,6 +148,19 @@ void main() {
     expect(rig.queue.entries[1].kind, NeedsYouKind.billing);
   });
 
+  test('paging by key lands on the item, not on a shifted index', () {
+    rig.connect('op-1');
+    rig.verify();
+    rig.connect('op-2');
+    final keys = [for (final e in rig.queue.entries) e.key];
+    rig.queue.showKey(keys[2]);
+    expect(rig.queue.shown, 2);
+    rig.queue.showKey('gone');
+    expect(rig.queue.shown, 2);
+    rig.queue.showKey(keys[1]);
+    expect(rig.queue.entries[rig.queue.shown].kind, NeedsYouKind.billing);
+  });
+
   test('the shown item keeps the card while an earlier one leaves', () {
     rig.connect('op-1');
     rig.verify();

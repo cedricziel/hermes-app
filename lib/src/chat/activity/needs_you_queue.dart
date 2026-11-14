@@ -110,6 +110,13 @@ class NeedsYouQueue extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Shows the item with [key], as the user paged to it. Paging by key keeps
+  /// the position right when the dock leaves out an item whose source went.
+  void showKey(String key) {
+    final index = _entries.indexWhere((entry) => entry.key == key);
+    if (index >= 0) show(index);
+  }
+
   /// Reads the sources again.
   void refresh() {
     if (_disposed) return;

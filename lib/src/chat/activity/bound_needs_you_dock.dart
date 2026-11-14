@@ -151,7 +151,9 @@ NeedsYouDockModel needsYouDockModel(
     items: items,
     shown: items.isEmpty ? 0 : queue.shown.clamp(0, items.length - 1),
     compact: compact,
-    onShow: queue.show,
+    onShow: (index) {
+      if (index >= 0 && index < items.length) queue.showKey(items[index].id);
+    },
     onCopy: (item) {
       final billing = chat.billingVerificationIn(thread!);
       final details = billing?.verification;
