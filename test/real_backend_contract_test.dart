@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_api/hermes_api.dart'
     show
         CronJobCreate,
+        CustomEndpointUpdate,
+        EnvVarUpdate,
         MCPCatalogInstall,
         MCPServerCreate,
         MoaConfigPayload,
@@ -44,6 +46,8 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/providers/provider_results.dart';
+import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_draft.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
@@ -91,6 +95,9 @@ import 'support/attachment_fixtures.dart';
 /// the whole `mcp_servers` map back unchanged. The catalog test installs `context7`
 /// (no credentials, no build) and removes it, and the sign-in test starts and
 /// cancels a flow against a minimal OAuth provider on the loopback interface.
+/// The model provider tests only read the five list routes and call both
+/// validate routes with an empty value; they save no key, start no sign-in and
+/// remove nothing.
 /// The media tests write throwaway files under the backend's `images` folder
 /// and the system temp directory, so they need a backend on this machine, and
 /// delete them after. The scripted-model tests create a throwaway profile
@@ -688,6 +695,164 @@ void main() {
 
     expect(bots, isNotEmpty);
     expect(bots.every((b) => b.name.isNotEmpty), isTrue);
+  }, skip: skip);
+
+  group('model providers (read only)', () {
+    // Reads the five list routes and calls both validate routes with an empty
+    // value, so nothing reaches a provider or an endpoint. No key is saved,
+    // no sign-in started and nothing removed here.
+    Map<String, dynamic> object(Object? body, String route) {
+      expect(body, isA<Map<String, dynamic>>(), reason: route);
+      return body! as Map<String, dynamic>;
+    }
+
+    test(
+      'model options with the unconfigured rows carry the provider fields',
+      () async {
+        final body = object(
+          (await client.raw.getModelOptionsApiModelOptionsGet(
+            profile: 'default',
+            includeUnconfigured: true,
+          )).data,
+          'options',
+        );
+        expect(body['model'], anyOf(isNull, isA<String>()));
+        expect(body['provider'], anyOf(isNull, isA<String>()));
+        final rows = (body['providers']! as List).cast<Map<String, dynamic>>();
+        expect(rows, isNotEmpty);
+        for (final row in rows) {
+          expect(row['slug'], isA<String>());
+          expect(row['name'], anyOf(isNull, isA<String>()));
+          expect(row['authenticated'], anyOf(isNull, isA<bool>()));
+          expect(row['is_current'], anyOf(isNull, isA<bool>()));
+          expect(row['models'], anyOf(isNull, isA<List<dynamic>>()));
+          if (row['authenticated'] == false) {
+            expect(row['auth_type'], anyOf(isNull, isA<String>()));
+            expect(row['key_env'], anyOf(isNull, isA<String>()));
+          }
+        }
+      },
+    );
+
+    test('env variables carry the provider key fields', () async {
+      final body = object(
+        (await client.raw.getEnvVarsApiEnvGet(profile: 'default')).data,
+        'env',
+      );
+      final providerKeys = body.values.cast<Map<String, dynamic>>().where(
+        (row) => row['category'] == 'provider',
+      );
+      expect(providerKeys, isNotEmpty);
+      for (final row in providerKeys) {
+        expect(row['provider'], isA<String>());
+        expect(row['is_set'], isA<bool>());
+        expect(row['is_password'], isA<bool>());
+        expect(row['provider_primary'], anyOf(isNull, isA<bool>()));
+        expect(row['url'], anyOf(isNull, isA<String>()));
+        expect(row['redacted_value'], anyOf(isNull, isA<String>()));
+      }
+    });
+
+    test('OAuth providers carry their flow and status', () async {
+      final body = object(
+        (await client.raw.listOauthProvidersApiProvidersOauthGet(
+          profile: 'default',
+        )).data,
+        'oauth',
+      );
+      final rows = (body['providers']! as List).cast<Map<String, dynamic>>();
+      expect(rows, isNotEmpty);
+      for (final row in rows) {
+        expect(row['id'], isA<String>());
+        expect(row['flow'], anyOf('device_code', 'external'));
+        expect(row['disconnectable'], isA<bool>());
+        expect((row['status']! as Map)['logged_in'], isA<bool>());
+      }
+    });
+
+    test('custom endpoints carry the endpoint fields', () async {
+      final body = object(
+        (await client.raw.listCustomEndpointsApiProvidersCustomEndpointsGet(
+          profile: 'default',
+        )).data,
+        'endpoints',
+      );
+      for (final row
+          in (body['endpoints']! as List).cast<Map<String, dynamic>>()) {
+        expect(row['id'], isA<String>());
+        expect(row['base_url'], isA<String>());
+        expect(row['has_api_key'], isA<bool>());
+        expect(row['is_current'], anyOf(isNull, isA<bool>()));
+      }
+    });
+
+    test('the credential pool carries source and auth type', () async {
+      final body = object(
+        (await client.raw.listCredentialPoolApiCredentialsPoolGet(
+          profile: 'default',
+        )).data,
+        'pool',
+      );
+      for (final group
+          in (body['providers']! as List).cast<Map<String, dynamic>>()) {
+        expect(group['provider'], isA<String>());
+        for (final entry
+            in (group['entries']! as List).cast<Map<String, dynamic>>()) {
+          expect(entry['source'], anyOf(isNull, isA<String>()));
+          expect(entry['auth_type'], anyOf(isNull, isA<String>()));
+        }
+      }
+    });
+
+    test('the five routes load and merge without a skipped row', () async {
+      final snapshot = await ProvidersRepository(client.raw).load('default');
+      expect(snapshot, isA<ProvidersLoaded>());
+      final loaded = snapshot as ProvidersLoaded;
+      for (final source in ProviderSource.values) {
+        expect(loaded.state(source), isA<SourceOk>(), reason: source.name);
+      }
+      expect(loaded.catalog.skippedRows, 0);
+      expect(loaded.catalog.entries, isNotEmpty);
+    });
+
+    test('the provider key check answers its three fields, or refuses an '
+        'empty value', () async {
+      final response = await client.raw
+          .validateProviderCredentialApiProvidersValidatePost(
+            envVarUpdate: EnvVarUpdate(key: 'OPENROUTER_API_KEY', value: ''),
+            validateStatus: (_) => true,
+          );
+      if (response.statusCode == 200) {
+        final body = object(response.data, 'validate');
+        expect(body['ok'], isA<bool>());
+        expect(body['reachable'], isA<bool>());
+        expect(body['message'], anyOf(isNull, isA<String>()));
+      } else {
+        expect(response.statusCode, lessThan(500));
+      }
+    });
+
+    test('the endpoint check answers its fields, or refuses an empty '
+        'address', () async {
+      final response = await client.raw
+          .validateCustomEndpointApiProvidersCustomEndpointsValidatePost(
+            customEndpointUpdate: CustomEndpointUpdate(
+              name: '',
+              baseUrl: '',
+              model: '',
+            ),
+            validateStatus: (_) => true,
+          );
+      if (response.statusCode == 200) {
+        final body = object(response.data, 'endpoint validate');
+        expect(body['ok'], isA<bool>());
+        expect(body['reachable'], isA<bool>());
+        expect(body['models'], anyOf(isNull, isA<List<dynamic>>()));
+        expect(body['resolved_base_url'], anyOf(isNull, isA<String>()));
+      } else {
+        expect(response.statusCode, lessThan(500));
+      }
+    });
   }, skip: skip);
 
   group('plugins', () {
