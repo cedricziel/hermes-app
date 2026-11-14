@@ -33,14 +33,41 @@ class _Demo extends StatefulWidget {
 class _DemoState extends State<_Demo> {
   late int shown = widget.shown;
 
+  /// The item whose Skip is on its way, and the targets already skipped.
+  String? _sending;
+  final _skipped = <String>{};
+
   NeedsYouItem _styled(NeedsYouItem item) => NeedsYouItem(
     id: item.id,
     kind: item.kind,
-    body: item.body,
+    body: switch (item.body) {
+      ConnectorBodyModel body => ConnectorBodyModel(
+        targets: [
+          for (final target in body.targets)
+            if (!_skipped.contains(target.name)) target,
+        ],
+        expiresIn: body.expiresIn,
+      ),
+      final other => other,
+    },
     actions: item.actions,
-    answer: widget.answer ?? item.answer,
+    answer: _sending == item.id
+        ? NeedsYouAnswer.sending
+        : widget.answer ?? item.answer,
     offline: widget.offline,
   );
+
+  /// Answers after a moment, as the server does, so the sending state and
+  /// the card without the skipped target can be seen.
+  Future<void> _skip(NeedsYouItem item, String target) async {
+    setState(() => _sending = item.id);
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+    setState(() {
+      _sending = null;
+      _skipped.add(target);
+    });
+  }
 
   @override
   Widget build(BuildContext context) => NeedsYouDock(
@@ -51,7 +78,7 @@ class _DemoState extends State<_Demo> {
       onShow: (index) => setState(() => shown = index),
       onCopy: (_) {},
       onOpen: (_, _) {},
-      onSkip: (_) {},
+      onSkip: _skip,
       onContinue: (_) {},
       onReopen: (_) {},
     ),
@@ -200,10 +227,6 @@ WidgetbookNode needsYouDockNode() => WidgetbookComponent(
         ),
         maxWidth: 720,
       ),
-    ),
-    WidgetbookUseCase(
-      name: 'Offline, reclaimed',
-      builder: (_) => _dock([needsYouReclaimed], offline: true),
     ),
     WidgetbookUseCase(
       name: 'Keyboard open on a small phone, collapsed',

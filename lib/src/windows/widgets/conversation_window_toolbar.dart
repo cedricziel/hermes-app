@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../chat/widgets/thread_actions_menu.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../macos/mac_window.dart';
@@ -14,17 +15,23 @@ class ConversationWindowToolbar extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.subtitleBuilder,
     required this.pinned,
     this.onShowInMain,
     this.onTogglePin,
     this.onShare,
     this.onAction,
     this.activityOpen = false,
+    this.activityWaiting = 0,
     this.onToggleActivity,
   });
 
   final String title;
   final String? subtitle;
+
+  /// Wraps the drawn [subtitle], e.g. to draw a `MacToolbarSubtitle` instead.
+  /// It runs only while [subtitle] is not null.
+  final Widget Function(BuildContext context, Widget subtitle)? subtitleBuilder;
   final bool pinned;
   final VoidCallback? onShowInMain;
   final VoidCallback? onTogglePin;
@@ -36,6 +43,9 @@ class ConversationWindowToolbar extends StatelessWidget {
   /// Called for Rename, Copy Transcript, Archive and Delete in the … menu.
   final ValueChanged<ThreadAction>? onAction;
   final bool activityOpen;
+
+  /// How many requests need the user; marks the Inspector button.
+  final int activityWaiting;
 
   /// Shows or hides the Activity inspector; null while no chat is open.
   final VoidCallback? onToggleActivity;
@@ -50,7 +60,11 @@ class ConversationWindowToolbar extends StatelessWidget {
           children: [
             const SizedBox(width: kMacTrafficLightsWidth + 8),
             Expanded(
-              child: MacToolbarTitle(title: title, subtitle: subtitle),
+              child: MacToolbarTitle(
+                title: title,
+                subtitle: subtitle,
+                subtitleBuilder: subtitleBuilder,
+              ),
             ),
             MacToolbarButton(
               label: 'Show in Main Window',
@@ -68,10 +82,21 @@ class ConversationWindowToolbar extends StatelessWidget {
             const SizedBox(width: 4),
             MacToolbarButton(
               key: const Key('window-activity'),
-              label: activityOpen ? 'Hide Inspector' : 'Show Inspector',
+              label: activityWaiting > 0
+                  ? (activityOpen
+                        ? context.l10n.chatActivityInspectorHideWaiting(
+                            activityWaiting,
+                          )
+                        : context.l10n.chatActivityInspectorShowWaiting(
+                            activityWaiting,
+                          ))
+                  : (activityOpen
+                        ? context.l10n.chatActivityInspectorHide
+                        : context.l10n.chatActivityInspectorShow),
               shortcut: '⌥⌘I',
               icon: AppIcons.inspector,
               selected: activityOpen,
+              marked: activityWaiting > 0,
               onPressed: onToggleActivity,
             ),
             const SizedBox(width: 4),
