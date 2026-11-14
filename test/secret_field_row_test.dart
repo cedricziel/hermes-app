@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
@@ -295,4 +296,45 @@ void main() {
       expect(find.text('END'), findsOneWidget, reason: 'maxLines $lines');
     }
   });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets('the label wraps at word breaks, not per character, at the '
+        'largest text size on $platform', (tester) async {
+      tester.view.physicalSize = const Size(390, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme().copyWith(platform: platform),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: SecretFieldRow(
+                label: 'Brightfetch API key',
+                controller: controller,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text('Brightfetch API key'),
+      );
+      final lines = {
+        for (final box in paragraph.getBoxesForSelection(
+          const TextSelection(baseOffset: 0, extentOffset: 19),
+        ))
+          box.top,
+      };
+      // Whole words per line: far fewer lines than characters, and the
+      // label gets the row's width rather than a sliver beside the field.
+      expect(lines.length, lessThanOrEqualTo(4));
+      expect(paragraph.size.width, greaterThan(200));
+    });
+  }
 }

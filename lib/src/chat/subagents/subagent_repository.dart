@@ -2,10 +2,15 @@ import 'package:flutter_otel/flutter_otel.dart' show Span;
 
 import '../../telemetry/telemetry.dart';
 import '../agent_work_transport.dart';
+import '../gateway/gateway_rpc_client.dart' show GatewayRpcException;
 import 'agent_models.dart';
 import 'agent_work_result.dart';
+import 'process_models.dart';
 
-/// The `subagent.*` calls, parsed leniently. Never throws: every failure is a
+/// The `process.kill` error for a program that is not the session's.
+const _kNoSuchProcess = 4044;
+
+/// The `subagent.*` and `process.*` calls, parsed leniently. Never throws: every failure is a
 /// result. A read never resumes a session; an action attaches it first and is
 /// never sent twice.
 class SubagentRepository {
@@ -45,9 +50,45 @@ class SubagentRepository {
   Future<AgentWorkResult<StopOutcome>> interrupt(AgentKey key) => _act(
     'interrupt',
     'subagent.interrupt',
-    key,
+    key.threadId,
+    key.profile,
     {'subagent_id': key.subagentId},
     parseStopOutcome,
+  );
+
+  /// The chat session's background programs. Read only while the session
+  /// is attached here; 5032 (its agent is still starting) is a failed read.
+  Future<AgentWorkResult<ProcessList>> processList(
+    String threadId, {
+    String? profile,
+  }) => _read(
+    'process_list',
+    'process.list',
+    threadId,
+    profile,
+    {'profile': ?profile},
+    parseProcessList,
+    size: (list) => list.processes.length,
+  );
+
+  /// Stops one program of the chat's session. Sent once, after the user
+  /// confirmed; a 4044 (not this session's, or gone) reads as
+  /// [KillOutcome.notFound].
+  Future<AgentWorkResult<ProcessKill>> processKill(
+    String threadId,
+    String processId, {
+    String? profile,
+  }) => _act(
+    'process_kill',
+    'process.kill',
+    threadId,
+    profile,
+    {'process_id': processId, 'profile': ?profile},
+    parseProcessKill,
+    recover: (error) =>
+        error is GatewayRpcException && error.code == _kNoSuchProcess
+        ? const WorkOk(ProcessKill(outcome: KillOutcome.notFound))
+        : null,
   );
 
   /// Sends [text] trimmed. Blank or over [kMaxNoteLength] is refused here and
@@ -57,7 +98,7 @@ class SubagentRepository {
     if (note.isEmpty || note.runes.length > kMaxNoteLength) {
       return Future.value(const WorkFailed(WorkFailureKind.rejected));
     }
-    return _act('steer', 'subagent.steer', key, {
+    return _act('steer', 'subagent.steer', key.threadId, key.profile, {
       'subagent_id': key.subagentId,
       'text': note,
     }, parseSteerOutcome);
@@ -101,19 +142,24 @@ class SubagentRepository {
     return result;
   }
 
+  /// [recover] reads an error as an answer; the span still records the
+  /// error.
   Future<AgentWorkResult<T>> _act<T>(
     String name,
     String method,
-    AgentKey key,
+    String threadId,
+    String? profile,
     Map<String, Object?> params,
-    T? Function(Map<String, Object?>) parse,
-  ) async {
+    T? Function(Map<String, Object?>) parse, {
+    AgentWorkResult<T>? Function(Object error)? recover,
+  }) async {
     final span = _start(name);
     AgentWorkResult<T> result;
+    AgentWorkResult<T>? recovered;
     try {
       final answer = await _transport.act(
-        key.threadId,
-        profile: key.profile,
+        threadId,
+        profile: profile,
         method: method,
         params: params,
         timeout: timeout,
@@ -124,9 +170,10 @@ class SubagentRepository {
           : WorkOk(value);
     } on Object catch (error) {
       result = workResultOfError(error);
+      recovered = recover?.call(error);
     }
     _finish(span, result);
-    return result;
+    return recovered ?? result;
   }
 
   Span? _start(String method) {

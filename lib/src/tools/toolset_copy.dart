@@ -125,31 +125,33 @@ class ToolsetQuestion {
 ToolsetQuestion? toolsetConfirmQuestion(
   AppLocalizations l10n,
   String name,
-  String profile,
-) {
+  String profile, {
+  bool installsSoftware = false,
+}) {
+  final installs = installsSoftware ? l10n.toolsConfirmInstallsExtra : null;
   final (title, lead, extra, off) = switch (name) {
     'terminal' => (
       l10n.toolsConfirmTerminalTitle,
       l10n.toolsConfirmTerminalLead,
-      null,
+      installs,
       l10n.toolsConfirmOffCommands,
     ),
     'code_execution' => (
       l10n.toolsConfirmCodeExecutionTitle,
       l10n.toolsConfirmCodeExecutionLead,
-      null,
+      installs,
       l10n.toolsConfirmOffCommands,
     ),
     'browser' => (
       l10n.toolsConfirmBrowserTitle,
       l10n.toolsConfirmBrowserLead,
-      null,
+      installs,
       l10n.toolsConfirmOffActions,
     ),
     'computer_use' => (
       l10n.toolsConfirmComputerUseTitle,
       l10n.toolsConfirmComputerUseLead,
-      l10n.toolsConfirmComputerUseDriver,
+      installsSoftware ? l10n.toolsConfirmComputerUseDriver : null,
       l10n.toolsConfirmOffActions,
     ),
     _ => (null, null, null, null),

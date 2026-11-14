@@ -7,6 +7,7 @@ import '../../auth/auth_controller.dart';
 import '../../chat/media/media_source.dart';
 import '../../chat/media/media_store.dart';
 import '../../chat/media/quick_look.dart';
+import '../../files/files_availability.dart';
 import '../../handoff/handoff_bridge.dart';
 import '../../handoff/handoff_controller.dart';
 import '../../network/network_signals.dart';
@@ -27,6 +28,9 @@ List<SingleChildWidget> authProviders(Telemetry telemetry) => [
   ProxyProvider<AuthController, HermesRepositories?>(
     update: (_, auth, previous) => HermesRepositories.forAuth(auth, previous),
   ),
+  // Whether the server has the Files routes: asked once per connection, so
+  // the entry points of Files stay hidden on an older Hermes.
+  filesAvailabilityProvider(),
   // Downloaded files are deleted when the session ends, so this must be
   // listening from the start, not from the first file opened.
   Provider<MediaStore?>(
@@ -47,3 +51,24 @@ List<SingleChildWidget> authProviders(Telemetry telemetry) => [
     dispose: (_, store) => store?.dispose(),
   ),
 ];
+
+/// Whether the server has the Files routes, asked once per connection (a new
+/// API client asks again). A [ChangeNotifier], so it needs a notifier
+/// provider: entry points watch it and appear when the probe answers.
+SingleChildWidget filesAvailabilityProvider() =>
+    ChangeNotifierProxyProvider<HermesRepositories?, FilesAvailability?>(
+      create: (_) => null,
+      update: (_, repositories, previous) {
+        if (repositories == null) {
+          previous?.dispose();
+          return null;
+        }
+        if (previous != null &&
+            identical(previous.connection, repositories.api)) {
+          return previous;
+        }
+        // A probe of the old connection must not answer for the new one.
+        previous?.dispose();
+        return FilesAvailability.forRepositories(repositories);
+      },
+    );

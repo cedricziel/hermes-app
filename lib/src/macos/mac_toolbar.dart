@@ -139,7 +139,11 @@ class MacToolbarTitle extends StatelessWidget {
             color: onSurface,
           ),
         ),
-        if (subtitle != null) _subtitle(context, subtitle, muted),
+        // The toolbar is 52 pt high however large the text is, so from 1.5x
+        // the second line would not fit; the title keeps its one line.
+        if (subtitle != null &&
+            MediaQuery.textScalerOf(context).scale(11) <= 11 * 1.5)
+          _subtitle(context, subtitle, muted),
       ],
     );
   }

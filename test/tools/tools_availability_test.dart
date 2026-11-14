@@ -33,6 +33,7 @@ void main() {
 
     expect(read, ToolsAvailabilityRead.ok);
     expect(availability.offered, isTrue);
+    expect(availability.profile, 'work');
     expect(availability.rowsFor('work').map((t) => t.name), [
       'web',
       'terminal',
@@ -46,6 +47,21 @@ void main() {
     );
     expect(events, ['tools.availability {outcome: ok}']);
   });
+
+  test(
+    'remembers the profile it was last asked for, answered or not',
+    () async {
+      await availability.refresh('work');
+      server.on('GET', '/api/tools/toolsets', {'detail': 'x'}, status: 500);
+
+      await availability.refresh('home');
+
+      expect(availability.requestedProfile, 'home');
+      expect(availability.profile, 'work');
+      availability.clear();
+      expect(availability.requestedProfile, isNull);
+    },
+  );
 
   test('404 hides Tools without a message', () async {
     server.on('GET', '/api/tools/toolsets', {

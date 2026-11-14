@@ -95,13 +95,25 @@ class WorkingSummarySource {
     final state = _scopes[scope] ??= _Scope();
     state.turnEnd = next();
     state.endedSinceStart = true;
+    state.endings++;
   }
+
+  /// Whether a status of [scope] stamped at [arrived] came after the last
+  /// turn ended, so a repeat of its text keeps the stamp.
+  bool stampIsInCurrentTurn(Object scope, int arrived) =>
+      arrived > (_scopes[scope]?.turnEnd ?? 0);
 
   /// The summary of [scope] (the chat's thread) for [inputs]; null when
   /// nothing is working.
   WorkingSummary? read(Object scope, WorkingInputs inputs) {
     final state = _scopes[scope] ??= _Scope();
-    if (inputs.replying && !state.replying) state.endedSinceStart = false;
+    // A read after turnEnded() with a reply still running is a queued turn
+    // that followed at once: it is a new turn whose end is not acknowledged.
+    if (inputs.replying &&
+        (!state.replying || state.endings != state.readEndings)) {
+      state.endedSinceStart = false;
+    }
+    state.readEndings = state.endings;
     if (!inputs.replying && state.replying && !state.endedSinceStart) {
       // A turn ended without anyone saying so: mark it now.
       state.turnEnd = next();
@@ -222,6 +234,9 @@ class _Scope {
   final stamps = <String, (Object, int)>{};
   bool replying = false;
   bool endedSinceStart = true;
+
+  /// How many times turnEnded() ran, and how many a read has seen.
+  int endings = 0, readEndings = 0;
 
   /// When the last turn ended, in the arrival sequence.
   int turnEnd = 0;

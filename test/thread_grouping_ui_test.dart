@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/files/widgets/server_path_text.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -187,12 +188,32 @@ void main() {
               .first,
         );
         await tester.pumpAndSettle();
+        // A path heading is cut in the middle, so the full path is the widget's
+        // value and the tooltip of a long press, not the drawn text.
         expect(
-          find.text('/workspace/very-long-work-directory/app'),
+          find.byWidgetPredicate(
+            (w) =>
+                w is PathCutText &&
+                w.path == '/workspace/very-long-work-directory/app',
+          ),
           findsOneWidget,
         );
         expect(
-          find.text('/workspace/very-long-personal-directory/app'),
+          find.byTooltip('/workspace/very-long-work-directory/app'),
+          findsOneWidget,
+        );
+        // A path heading is cut in the middle, so the full path is the widget's
+        // value and the tooltip of a long press, not the drawn text.
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is PathCutText &&
+                w.path == '/workspace/very-long-personal-directory/app',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byTooltip('/workspace/very-long-personal-directory/app'),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);

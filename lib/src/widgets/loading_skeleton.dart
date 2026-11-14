@@ -6,11 +6,19 @@ import 'busy_bar.dart';
 /// is one node for screen readers, named [label]; the blocks are decorative.
 /// Under reduced motion the blocks do not pulse.
 class LoadingSkeleton extends StatefulWidget {
-  const LoadingSkeleton({super.key, required this.label, this.lines = 3});
+  const LoadingSkeleton({
+    super.key,
+    required this.label,
+    this.lines = 3,
+    this.color,
+  });
 
   /// Read by screen readers, for example "Loading logs".
   final String label;
   final int lines;
+
+  /// The bars' colour, for a surface that is the default's own colour.
+  final Color? color;
 
   @override
   State<LoadingSkeleton> createState() => _LoadingSkeletonState();
@@ -42,7 +50,8 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.surfaceContainerHighest;
+    final color =
+        widget.color ?? Theme.of(context).colorScheme.surfaceContainerHighest;
     return Semantics(
       container: true,
       label: widget.label,
