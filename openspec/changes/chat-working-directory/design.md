@@ -1,0 +1,163 @@
+# Design
+
+## Context
+
+Read from the Hermes source at `d923a5eb` (the revision `openapi/HERMES_REF` pins) and its contracts (`openrpc/hermes-gateway.openrpc.json`, `openapi/hermes-agent.openapi.json`). Paths below are in the Hermes repository. Nothing was run against a live backend; items that need it are in the final verification tasks.
+
+### Model
+
+- A **project** is a named set of folders in a per-profile SQLite file `$HERMES_HOME/projects.db` (`hermes_cli/projects_db.py`). One folder is primary. A project row:
+
+  ```json
+  {
+    "id": "p_1a2b3c4d",
+    "slug": "demo",
+    "name": "Demo",
+    "description": null,
+    "icon": null,
+    "color": null,
+    "board_slug": null,
+    "primary_path": "/home/me/code/demo",
+    "archived": false,
+    "created_at": 1760000000,
+    "folders": [
+      {
+        "path": "/home/me/code/demo",
+        "label": null,
+        "is_primary": true,
+        "added_at": 1760000000
+      }
+    ]
+  }
+  ```
+
+  A chat has no project field: its project is whichever non-archived project has a folder equal to, or an ancestor of, the chat's `cwd` (longest folder wins; `project_for_path`, `projects_db.py:477-492`). "Active project" is only a per-profile pointer that nothing here needs.
+
+- A **chat's working directory** is the `cwd` column of its stored session (with `git_branch` and `git_repo_root`). `GET /api/sessions` rows carry all three (`list_sessions_rich(compact_rows=True)` leaves out only prompt columns; `hermes_state_sessions.py:~1108`). `session.list` and `session.active_list` rows carry none. The app already reads `git_repo_root`/`cwd` into `ChatThread.folderPath` for `chat-folder-grouping`.
+- Paths are on the Hermes host (or, for a profile with an SSH terminal backend, on the remote: `~`-relative or absolute remote paths). The app never resolves them locally.
+
+### Server surface
+
+| Surface                                                                           | Request                                                                                    | Response                                                                                                                                                                               | Errors / notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/chat/workspaces` (`hermes_cli/web_routers/chat_workspaces.py:64`)       | query `profile?`, `scan?` (bool)                                                           | `{"projects":[ProjectInfo],"repos":[{"root":"/home/u/code/bar","label":"bar","sessions":12,"last_active":1731500000.5}],"default_cwd":"/home/u","home":"/home/u","scan_enabled":true}` | no response schema in the spec (hand-parse). Unknown profile 404 `{"detail":"Profile 'x' does not exist."}`; other failure 500 `Failed to list workspaces: …`. Archived projects omitted. `repos` are git roots seen in the profile's sessions plus a cached scan, sorted by `last_active` desc, "junk" roots (`/`, home, Hermes home) removed. `scan=1` walks `desktop.repo_scan_roots` (default `[]`, so a no-op until the user configures roots), capped at 500. `default_cwd` is profile-aware (`_completion_cwd`). Not subject to the managed-files lock.                                                                                                                              |
+| `GET /api/fs/list` (`hermes_cli/web_routers/files.py:762`)                        | query `path` (required), `profile?`                                                        | `{"entries":[{"name":"a_dir","path":"/tmp/project/a_dir","isDirectory":true},{"name":"a.txt","path":"/tmp/project/a.txt","isDirectory":false}]}`                                       | **A bad directory is HTTP 200** `{"entries":[],"error":"ENOENT"}` (also `ENOTDIR`, `EACCES`, `read-error`): read `error`. Real errors: 400 "Path is required"/"Invalid path", 403 "Path is outside the managed read boundary" when `HERMES_DASHBOARD_FILES_ROOT` is set or the Hermes root is `/opt/data` (hosted image). Directories first, then names case-insensitively; hides `.git node_modules .venv build dist target …` and secret names (`.env`, `auth.json`, `config.yaml`…); other dotfiles listed; **a symlink to a directory reports `isDirectory:false`**; no paging or cap. `~` and relative paths accepted (relative to the dashboard's cwd). SSH profiles list the remote. |
+| `session.create` (`tui_gateway/methods_session.py:331`, `session_workdir.py:230`) | existing params plus `cwd?: string`, `cwd_explicit?: bool` (`additionalProperties: false`) | existing result; `info.cwd`, `info.branch`, `info.project` (`{id,slug,name,primary_path}`, explicit projects only)                                                                     | **Never errors on a bad `cwd`**: a path that is not a directory on the host silently falls back to the profile/launch default with `explicit_cwd` false (only source `desktop` has an arm that adopts a path the host cannot see). Without `cwd_explicit: true`, a named profile that has its own `terminal.cwd` ignores the sent `cwd` (`_completion_cwd`, `session_workdir.py:25-60`). For source `hermes_app` an unpicked default is stored as the session's cwd (only `desktop` is exempt, `_LAUNCH_CWD_NOT_A_WORKSPACE`), which is why every phone chat today has some folder.                                                                                                         |
+| `session.workspace.move` (`methods_session.py:1101`)                              | `{session_key: <stored id>, cwd, profile?}`                                                | `{"cwd":"/home/me/code/other","branch":"main","git_repo_root":"/home/me/code/other"}`                                                                                                  | Re-homes the stored row: updates `cwd`, replaces `git_branch`/`git_repo_root`; moves no files, makes no worktree. Works with no live agent; a live agent bound to the key follows, even mid-turn. Errors: `4007` session_key required / not found, `4016` cwd required, `4017` "working directory does not exist: <raw>" (or, on an SSH profile, "remote working directory must be absolute or ~-relative"), `5007` database unavailable / "move failed: …"; `-32601` "unknown method" on an older server.                                                                                                                                                                                  |
+| `session.cwd.set` (`methods_session.py:1086`)                                     | `{session_id: <runtime id>, cwd, profile?}`                                                | refreshed `session.info`                                                                                                                                                               | `4009` "session busy" while running, `4001` stale runtime id. **Not used**: it needs a runtime session the app does not hold for an idle chat.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `complete.path` (`methods_complete.py:233`)                                       | `{word, cwd?, session_id?, profile?}`                                                      | `{"items":[{"text":"src/utils/","display":"utils/","meta":"dir"},{"text":"src/main.py","display":"main.py","meta":""}]}`                                                               | At most 30 items, files and folders (`meta: "dir"` marks a folder; `@folder:` restricts to folders), symlinked dirs shown as dirs, absolute and `~/` words list any host directory (no managed-root check, no secret-name filter), empty `word` gives `[]`, a missing directory gives `[]`, handler failure `5021`.                                                                                                                                                                                                                                                                                                                                                                         |
+| `projects.for_cwd` (`methods_projects.py`)                                        | `{cwd?, profile?}`                                                                         | `{"project":ProjectInfo                                                                                                                                                                | null,"cwd":"<resolved>","branch":"main"}`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Falls back silently like `session.create`, and cannot send `cwd_explicit`, so for a named profile with its own `terminal.cwd` it answers with that folder. **Not used** for validation (see Decisions). |
+| `GET /api/sessions` rows                                                          | existing                                                                                   | `cwd`, `git_branch`, `git_repo_root` (raw strings or null)                                                                                                                             | already requested; `cwd_prefix` filter exists, unused.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+Every `projects.*` method and the REST routes take `profile`; unknown profile gives gateway error `4064` or REST 404. `projects.*` errors are `5061` (generic), `5062` (no such project), `5063` (bad argument); an older server answers `-32601`. `projects.changed` (an empty payload, 2 s poll of `projects.db`) and the rest of `projects.*` are not used in this change.
+
+How the Hermes dashboard does it (`web/src/components/ChatWorkspacePicker.tsx`): one select with "Default · <default_cwd>", then each project folder, then discovered repos by recency, then "Other path…" (a text field), a "Rescan repositories" button, applied only to a fresh chat. The desktop's folder dialog (`RemoteFolderPicker`) browses `/api/fs/list` with a breadcrumb and a ".." row. The app follows the same shape and adds the phone concerns.
+
+### Facts that shape the design
+
+1. `session.create` swallows a bad path, so validating only on the server's answer is not enough: the app checks the path first where it can and always compares `info.cwd` afterwards.
+2. `cwd_explicit: true` is what makes a deliberate pick win over a named profile's configured workspace. A picked folder sends it; "Default" sends neither field.
+3. `session.workspace.move` is non-destructive and has no busy refusal, so it can serve idle chats that have no runtime session. The app still offers it only while no reply runs, because an agent mid-tool-call changing directory under itself is a surprise nobody asked for.
+4. `GET /api/fs/list` is subject to the hosted-files lock and shows symlinked folders as files; `complete.path` is not and follows symlinks. They complement each other.
+5. `info.project` and the tree disagree for auto-discovered repos (only saved projects resolve on `info`). The app resolves a project from `projects` itself, with the server's rule, so it never claims a project the server would not.
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- The user can always tell which server folder a chat runs in, before the first message and afterwards.
+- Choosing a folder for a new chat is one or two taps for a known project or repo.
+- A wrong folder is never silent: not on creation, not after a move.
+- Nothing about the folder is stored or sent anywhere but the user's own server.
+
+**Non-Goals:** the list under "Not in this change".
+
+## Decisions
+
+**Where the folder is shown (decided).**
+
+- A new chat (the welcome view): a `WorkingDirectoryRow` directly above the composer, "Runs in <folder name>" with "<path> · on your server" below and the branch when known; a tap opens the picker. It uses the profile's `default_cwd` while nothing is picked and says "Server default" beside it, so the default is visible, not hidden.
+- An open chat: a second line under the header title with the folder name and branch ("demo · main"), a tap opens a details sheet (full path "on your server", project, "Change folder…" when allowed). The first send is never gated on it.
+- The line is hidden (not an error) when the chat has no folder data and the server lacks the workspace routes.
+- Risky folders get a plain note in the picker and the row ("This is your server's home folder, which holds many projects."): the folder equals `home` or `/`.
+
+**Picker content (decided).** One list, in this order: Server default (path), then a section per source:
+
+1. **Projects**: each non-archived project, one row per folder (project name; the folder label or last path segment when it has several folders; the primary one first). Tapping a project with one folder picks it; several folders show their rows inline, never a hidden second step.
+2. **Recent**: `repos` from the same response not already under a project folder, newest activity first, with a count ("12 chats").
+3. **Browse folders on your server** and **Type a path** rows, which push `FolderBrowser` and `PathEntry`.
+
+A search field filters projects and repos on the device when the list is longer than 8 rows. The workspaces read runs when the picker opens (and again on Rescan, `scan=1`, shown only when `scan_enabled` is true and "Rescan" says "Look for repositories on your server"); a stale list is acceptable while it re-reads. When the list comes back empty the picker says so and offers Browse and Type.
+
+**Browsing (decided).** `FolderBrowser` starts at the server default or the folder's parent, lists folders only (`isDirectory`), keeps a breadcrumb of the path, and shows "Use this folder" as the primary action. It reads `GET /api/fs/list` per level, treating a 200 with `error` as a failure shown in the list ("Couldn't open this folder (no permission)" for `EACCES`, "This folder no longer exists" for `ENOENT`). A 403 (locked server) hides Browse for the rest of the visit and says "This server only lets you browse its own folders. Choose a project or type a path." No creating folders in v1.
+
+**Typing (decided).** `PathEntry` is a text field with the keyboard type URL, autocorrect off, and a suggestion list from `complete.path` for the typed text (debounced 250 ms, only the latest answer kept, `meta == "dir"` rows only; a lone `/` or `~/` lists the roots). Selecting a suggestion extends the text; "Use this folder" is enabled when the path exists as a folder: an `fs/list` read of that path answers without `error` (when `fs/list` is locked, the choice is accepted and the post-create check is the safeguard). Never "device files": the field's label is "Folder on your server".
+
+**Choosing (decided).** The draft holds a `WorkspaceChoice` (`path`, optional project name and branch for display, `source`) on `ChatThread.workspaceChoice` for a not-yet-created chat, like `modelChoice`. It lives in memory, is cleared on sign-out, profile switch (the recipient's profile decides defaults) and once the chat is created, and is never persisted. `ChatTransport.send` gets `WorkspaceChoice? workspace`; `HermesGatewayTransport` adds `cwd` and `cwd_explicit: true` to `session.create` only when the chat is new and a folder was picked. A resume sends nothing (`session.resume` takes no cwd and the stored one is used). Sends that carry no choice behave as today.
+
+**After creation (decided).** The transport returns the session's `info.cwd`, `branch` and `project` through a new `WorkspaceBound` event (alongside `ThreadBound`). The controller sets the thread's working directory from it. When a folder was picked and the resolved path differs from the pick (compared after trimming trailing separators and expanding a leading `~` with `home`; a typed relative path counts as differing), the chat shows an in-transcript notice "Hermes started in <folder> instead of <picked folder>. The folder you chose may not exist on your server." with "Move to <picked>" disabled (it does not exist) and "Choose another folder" opening the picker. The prompt was already sent, which is why the notice is also what the picker's pre-check tries to make rare. The log event `workspace.cwd_mismatch` counts it.
+
+**Moving an existing chat (decided).** From the details sheet (and the Mac thread menu, "Change Working Directory…"), the same picker opens with the chat's current folder marked; picking shows a confirmation: title "Change the folder for this chat?", body "Hermes will use <folder> for new messages. Earlier messages and files stay where they are, and nothing is moved or copied.", actions "Change folder" and "Cancel" (Cancel default). On confirm the app calls `session.workspace.move` with the stored id and profile, shows the new folder from the answer, and updates the list row's folder (the thread regroups under `chat-folder-grouping`). A refused answer (`4017`) says "That folder doesn't exist on your server." and keeps the old one; `-32601` hides the control for the connection; `5007` and a lost answer say "Couldn't change the folder. It may have changed; check below." and re-read the chat's row (`GET /api/sessions/{id}`) instead of resending. The control is disabled with the reason "Wait for the reply to finish" while the chat replies. A chat that is a Bot Chat registry, a branch in progress or another profile's chat that is not open offers no change.
+
+**Why not `session.cwd.set` (decided).** It requires the runtime session id (the app resumes lazily and holds none for an idle chat), refuses a running session with `4009`, and for a stored chat the next `session.resume` reads the stored `cwd` anyway, which `workspace.move` writes.
+
+**Why not validate with `projects.for_cwd` (decided).** It falls back silently, so it cannot say "does not exist", and without `cwd_explicit` it answers with a named profile's own workspace rather than the asked folder. `GET /api/fs/list` says `ENOENT` and `ENOTDIR` directly; `complete.path` supplies the typed suggestions.
+
+**Project resolution (decided).** `WorkspaceProjects.projectFor(path)` is a pure function over the loaded `projects`: the non-archived project with the longest folder that equals the path or is an ancestor (segment-wise, separators and a trailing slash normalised, case-sensitive on POSIX paths). The header and picker use it; when workspaces could not be read there is no project line, not a guess. The server's `info.project` wins on a just-created chat.
+
+**Profile (decided).** Every workspaces, `fs/list`, `complete.path` and move call sends the chat's profile explicitly (`profile` query / param), `default` for none, as the Bot Screen calls do. A new chat picks its recipient profile first (messenger navigation), the folder row follows that profile's `default_cwd` and project list, and a profile switch resets the pick. The Mac profile switcher behaves the same. The server's active profile and CLI default are never changed.
+
+**Layering.** The generated client has `GET /api/chat/workspaces` and `GET /api/fs/list` without response schemas, so `HermesWorkspacesRepository` calls them through `authController.api!.raw` and parses leniently (a project without `id`/`name`, a repo without `root`, an entry without `path` is skipped; unknown fields ignored; `error` in `fs/list` is a typed failure). Gateway methods go through the shared gateway request method (`GatewayRequester`), with method-not-found mapped to `unsupported`.
+
+```dart
+sealed class WorkspacesResult<T> {}
+final class WorkspacesOk<T> extends WorkspacesResult<T> { final T value; }
+final class WorkspacesUnsupported<T> extends WorkspacesResult<T> {}      // 404 / -32601
+final class WorkspacesFailed<T> extends WorkspacesResult<T> { final WorkspacesFailure kind; }
+enum WorkspacesFailure { notFound, notAllowed, notADirectory, unreachable, busy, unknown }
+```
+
+`WorkspaceCatalog { List<WorkspaceProject> projects; List<WorkspaceRepo> repos; String defaultCwd; String home; bool scanEnabled }`. `FolderListing { List<FolderEntry> folders; }`. `PathSuggestion { String text; String display; }`. `MovedWorkspace { String cwd; String? branch; String? gitRepoRoot }`.
+
+**Controllers.**
+
+- `WorkspacePickerController` (one per picker visit, plain `ChangeNotifier`): the catalog read with its state (loading, ready, partial: projects failed but browse works, failed, unsupported, rescanning), the search text, the browse path stack and listing, the typed text and suggestions (latest answer only), and the selection. Late answers after dispose or a profile change are dropped.
+- `ChatController` (new private part `chat_controller_workspace.dart`, per the part convention): holds the working directory of each thread (from the REST row, `WorkspaceBound`, or a move), the draft choice, the mismatch notice, and `moveWorkspace(thread, choice)` with the in-flight guard and the re-read after a lost answer. Thread rows keep `folderPath` for grouping; new `ChatThread.workingDirectory` and `branch` are the display values (raw `cwd`), so the header never shows a repo root when the chat runs in a subfolder.
+
+**Where reached (decided).**
+
+- Phone: the new-chat welcome shows the row above the composer; an open chat shows the line under the title; tapping either opens the picker as an adaptive sheet (`showAdaptiveSheet`) with Browse and Type as pushed pages inside it.
+- iPad and wide Android/desktop: the same row and line; the picker is a dialog (`showAdaptiveSheet` gives a dialog on wide windows), Browse and Type pages are in-dialog navigation.
+- Mac: the chat toolbar shows the folder as a titled button (`MacToolbar`) that opens a popover-style dialog; the thread menu and sidebar row menu gain "Change Working Directory…" (`ThreadAction.changeFolder`, shown only when allowed); File menu gets no new item. No bottom sheet anywhere on the Mac.
+- The conversation windows show the line and the details; they offer the picker for an existing chat only (a window holds a chat, never a draft). The quick panel, Ask Hermes, the watch and links keep the default, which the quick panel's first message shows as it does today (no row).
+
+**Telemetry.** As listed in the proposal; fixed names and outcomes only. The `workspace.list` span carries `hermes.*` server attributes, counts (`projects`, `repos`) and `outcome`; none of the paths, names or branches.
+
+**Old server and hiding.** A catalog `404`/`405` or the `GET /api/chat/workspaces` route missing makes the picker "unsupported": the row still shows the path from `default_cwd` if known, else the row is hidden, and Browse/Type are not offered; the chat header line is driven by the REST row fields and appears whenever they are present. A move that answers `-32601` marks `session.workspace.move` unsupported for this connection and hides "Change folder…". An older server that has the routes but not `cwd_explicit` rejects the unknown param with `4000`; the transport retries `session.create` once without `cwd_explicit` and then relies on the post-create comparison (a named profile with its own workspace then shows the mismatch notice, which is true).
+
+**State, failures and secrets.** Failures are values, never thrown to the UI: unreachable (offline: "You're offline. Reconnect to choose a folder" with the default row still usable), unsupported, permission denied (`EACCES`, 403), not found. A lost answer to a move is "may have happened" and is re-read, never resent. No credentials are involved. Paths and project names are never logged, put in a span or breadcrumb, written to preferences, the surface snapshot, the Spotlight index, Handoff payloads, widgets, the watch bridge or notifications. App Lock covers the app, so the row and sheets are covered with the rest; picker state is dropped when the app locks while a picker is open (the sheet closes), and sign-out clears the draft choice and the cached catalog.
+
+**Accessibility.** The row, line and picker rows are 44 pt / 48 dp targets with labels that read "Working directory: <folder>, <path> on your server, branch <branch>". The selected row exposes `selected`. Text scales: the folder name wraps to two lines and the path middle-truncates with the full path in the semantics label and the details sheet. Project and repo rows do not rely on colour; the "Server default", "Project" and "Recent" labels are text. Reduced motion removes the sheet's slide and the breadcrumb scroll animation. Keyboard (desktop): Tab order is search, list, Browse, Type, primary action; Escape closes; Return picks the focused row; the Mac toolbar button has a tooltip.
+
+## Risks / Trade-offs
+
+- **Silent fallback on create** (mitigated by pre-check and the comparison notice, but the first prompt has then already been sent to the wrong folder). A hard block would need a server change. Mitigation: the picker's choices come from the server's own lists or an `fs/list`-checked path, so a mismatch is rare; and the notice appears immediately.
+- **A moved chat's history refers to the old folder.** The confirmation says so; no attempt to rewrite history.
+- **`/api/fs/list` hides symlinked folders and can be locked on hosted deployments.** Typed paths with `complete.path` cover the first; the locked case still offers projects and recents.
+- **Remote (SSH) profiles** list and complete on the remote but the workspaces `home` is the dashboard host's. The app shows paths as reported and does not compare `~` paths for the mismatch notice (it compares only absolute ones).
+- **Contract drift**: the workspaces and `fs/list` shapes are untyped; the contract test guards them on every real-backend run.
+
+## Migration Plan
+
+None: additive. Existing chats keep showing their folder from the rows they already load.
+
+## Open Questions
+
+1. **Browse with `fs/list` or `complete.path` only?** Recommendation: `fs/list` for browsing (structured folders, "up" and breadcrumbs, same as the desktop app), `complete.path` for typing; accept the symlink gap.
+2. **`session.workspace.move` or `session.cwd.set` for changing a chat?** Recommendation: `workspace.move` (decided above); confirm on a live backend that a chat resumed afterwards runs in the new folder and that a chat idle in the app keeps working.
+3. **Should the move be allowed while a reply runs?** Recommendation: no in v1 (the server allows it; the product reason is surprise).
+4. **Create-folder in the browser (`POST /api/files/mkdir`, no `profile` param, creates parents)?** Recommendation: later; it makes a typo a new directory.
+5. **Remember the last folder on the device?** Recommendation: no; the server's recents already follow use, and storing paths locally adds privacy surface.
+6. **Show a project when the server's `info.project` is null but the client match finds one?** Recommendation: yes, client rule equals the server's, shown on existing chats and the picker.
+7. **Warn for a dirty or non-git folder?** Recommendation: no; `project.facts` is a later, separate change.
+8. **Verify on a live backend that a `hermes_app` chat created with no `cwd` stores the launch directory** (read from `_persisted_session_cwd`, not observed). Tracked in the last tasks.
