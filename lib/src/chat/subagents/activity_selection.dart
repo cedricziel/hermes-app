@@ -35,8 +35,16 @@ class ActivitySelection extends ChangeNotifier {
   /// again (a layout change) does not ask once more.
   void consumeStop() => _stopRequested = false;
 
+  var _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   void clear() {
-    if (_key == null) return;
+    if (_key == null || _disposed) return;
     _key = null;
     _stopRequested = false;
     notifyListeners();

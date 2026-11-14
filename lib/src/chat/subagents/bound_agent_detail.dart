@@ -140,6 +140,8 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
     _watch?.close();
     _noteField.dispose();
     _focus.dispose();
+    // A confirmation still open for this detail closes with it.
+    _ended.value = true;
     _ended.dispose();
     widget.chat.breadcrumbs('subagent.detail.closed');
     super.dispose();
@@ -169,6 +171,14 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
         actions: {
           DismissIntent: CallbackAction<DismissIntent>(
             onInvoke: (_) {
+              // Escape in the note field with text in it only leaves the
+              // field: leaving the detail drops the note.
+              if (_focus.hasFocus &&
+                  !_focus.hasPrimaryFocus &&
+                  _noteField.text.isNotEmpty) {
+                _focus.requestFocus();
+                return null;
+              }
               widget.onBack();
               return null;
             },

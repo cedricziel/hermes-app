@@ -248,6 +248,10 @@ class SubagentDetailController extends ChangeNotifier {
       _timer = null;
       if (_stop == StopPhase.confirming) {
         _stop = StopPhase.ended;
+      } else if (_stop == StopPhase.stopping) {
+        // The stop took effect: the agent's own state says it ended, so no
+        // "Stopping…" stays under it.
+        _stop = StopPhase.idle;
       } else if (_stop == StopPhase.sending) {
         // A completion frame came first: it wins and the answer, when it
         // comes, changes nothing.

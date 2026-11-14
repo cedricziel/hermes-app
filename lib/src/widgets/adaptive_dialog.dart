@@ -274,12 +274,32 @@ class _DismissWhenState extends State<_DismissWhen> {
   void initState() {
     super.initState();
     widget.when?.addListener(_check);
+    // Already true when the dialog opens: it closes at once.
+    _check();
   }
 
+  var _done = false;
+
   void _check() {
-    if (widget.when?.value != true || !mounted) return;
+    if (widget.when?.value != true || _done) return;
+    // Not while the tree is being built or torn down.
+    WidgetsBinding.instance
+      ..addPostFrameCallback((_) => _close())
+      ..scheduleFrame();
+  }
+
+  void _close() {
+    if (_done || !mounted) return;
     final route = ModalRoute.of(context);
-    if (route != null && route.isCurrent) Navigator.of(context).pop(false);
+    if (route == null || !route.isActive) return;
+    _done = true;
+    // A dialog under another route is removed where it is; either way it
+    // answers false once.
+    if (route.isCurrent) {
+      Navigator.of(context).pop(false);
+    } else {
+      Navigator.of(context).removeRoute(route, false);
+    }
   }
 
   @override

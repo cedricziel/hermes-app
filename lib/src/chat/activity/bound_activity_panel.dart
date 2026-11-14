@@ -135,7 +135,7 @@ class BoundActivityPanel extends StatelessWidget {
     if (selection == null || agent == null || roster == null) return null;
     if (agent.threadId != roster.threadId || agent.profile != roster.profile) {
       // Another chat or profile's selection is not this panel's.
-      scheduleMicrotask(selection.clear);
+      WidgetsBinding.instance.addPostFrameCallback((_) => selection.clear());
       return null;
     }
     return BoundAgentDetail(
