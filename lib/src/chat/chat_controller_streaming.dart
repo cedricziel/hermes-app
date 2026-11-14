@@ -309,6 +309,7 @@ extension _ChatControllerStreaming on ChatController {
       case ReviewSummarized():
         _onReviewSummary(thread, event);
       case SubagentUpdated():
+        _ChatControllerSubagents(this)._feedSubagent(thread, event.subagent);
         final owner = _subagentOwner(thread, event);
         if (owner == null) return;
         _updateReply(thread, owner, () => applyReplyEvent(owner, event));
@@ -506,6 +507,7 @@ extension _ChatControllerStreaming on ChatController {
       case ReviewSummarized():
         _onReviewSummary(thread, event, open: reply);
       case SubagentUpdated():
+        _ChatControllerSubagents(this)._feedSubagent(thread, event.subagent);
         final owner = _subagentOwner(thread, event) ?? reply;
         _updateReply(thread, owner, () => applyReplyEvent(owner, event));
       case ReplyErrored() ||

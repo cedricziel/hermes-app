@@ -70,7 +70,9 @@ class SubagentRoster extends ChangeNotifier {
     _seenConnection = _env.connection;
   }
 
-  final String threadId;
+  /// The stored id the list is read under. A new chat gets its id with its
+  /// first reply, so it can change once; see [retarget].
+  String threadId;
   final String? profile;
   final AppEventLogger events;
   final SubagentRepository _repository;
@@ -86,7 +88,7 @@ class SubagentRoster extends ChangeNotifier {
   final _backoff = PollBackoff();
   Object? _seenConnection;
   var _generation = 0;
-  Future<AgentWorkResult<void>>? _inFlight;
+  Future<AgentWorkResult<AgentList>>? _inFlight;
 
   /// Connections whose server answered method-not-found, and those whose
   /// session was not theirs to read (4001).
@@ -168,6 +170,17 @@ class SubagentRoster extends ChangeNotifier {
     unawaited(_read());
   }
 
+  /// The chat's stored id changed (a new chat got its first one). Rows from
+  /// frames stay; answers still in flight are dropped.
+  void retarget(String threadId) {
+    if (_disposed || this.threadId == threadId) return;
+    this.threadId = threadId;
+    _generation++;
+    _inFlight = null;
+    _listed = false;
+    _blockedOn = null;
+  }
+
   /// The session now holds the connection (an action attached it), so list
   /// reads may start again after a 4001.
   void markAttached() {
@@ -178,24 +191,24 @@ class SubagentRoster extends ChangeNotifier {
 
   /// Reads the list now, after any read already in flight, and answers what
   /// the read came to. Used for the re-read after a stop.
-  Future<AgentWorkResult<void>> readNow() async {
+  Future<AgentWorkResult<AgentList>> readNow() async {
     final pending = _inFlight;
     if (pending != null) await pending;
     if (_disposed) return const WorkLost();
     return _read(force: true);
   }
 
-  Future<AgentWorkResult<void>> _read({bool force = false}) {
+  Future<AgentWorkResult<AgentList>> _read({bool force = false}) {
     final running = _inFlight;
     if (!force && running != null) return running;
-    late final Future<AgentWorkResult<void>> read;
+    late final Future<AgentWorkResult<AgentList>> read;
     read = _readOnce(force: force).whenComplete(() {
       if (identical(_inFlight, read)) _inFlight = null;
     });
     return _inFlight = read;
   }
 
-  Future<AgentWorkResult<void>> _readOnce({required bool force}) async {
+  Future<AgentWorkResult<AgentList>> _readOnce({required bool force}) async {
     final connection = _env.connection;
     // A forced read (the re-read after a stop) skips the demand and the
     // backoff, not the rules about the background, App Lock, a missing
@@ -225,7 +238,7 @@ class SubagentRoster extends ChangeNotifier {
         _lastReadFailed = false;
         _backoff.succeeded();
         _changed();
-        return const WorkOk(null);
+        return WorkOk(value);
       case WorkNotAttached():
         // Nothing was sent; frames carry the state until it attaches.
         return const WorkNotAttached();
@@ -465,16 +478,43 @@ class _RosterHost implements AgentDetailHost {
   @override
   bool get unlocked => _roster._env.unlocked;
 
+  /// What the re-read list says of this agent, not what a frame that landed
+  /// meanwhile says: a completion frame counts as an end, but a progress
+  /// frame does not make an agent the list no longer has look alive.
   @override
   Future<AgentWorkResult<AgentView?>> rereadList() async {
     final result = await _roster.readNow();
     return switch (result) {
-      // A row the roster no longer has was removed by the list: gone.
-      WorkOk() => WorkOk(_roster.row(_id)?.toView()),
+      WorkOk(:final value) => WorkOk(_answer(value)),
       WorkNotAttached() => const WorkNotAttached(),
       WorkUnsupported() => const WorkUnsupported(),
       WorkLost() => const WorkLost(),
       WorkFailed(:final kind) => WorkFailed(kind),
     };
+  }
+
+  AgentView? _answer(AgentList list) {
+    final row = _roster.row(_id);
+    if (row == null) return null;
+    if (!row.active && row.completedByFrame) return row.toView();
+    final listed = list.agents.where((agent) => agent.id == _id).firstOrNull;
+    if (listed == null) {
+      // Gone from the list: ended, whatever a frame said since.
+      return AgentView(
+        state: row.active ? AgentState.ended : row.state,
+        goal: row.goal,
+        startedAt: row.startedAt,
+        summary: row.summary,
+        error: row.error,
+      );
+    }
+    return AgentView(
+      state: row.active ? listed.state : row.state,
+      goal: row.goal,
+      startedAt: row.startedAt,
+      acceptingSteer: listed.acceptingSteer,
+      summary: row.summary,
+      error: row.error,
+    );
   }
 }
