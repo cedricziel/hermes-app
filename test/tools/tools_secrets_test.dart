@@ -26,6 +26,7 @@ void main() {
   late _RecordingLogger logger;
   late DefaultApi api;
   late HermesToolsRepository repository;
+  late List<String> events;
 
   setUp(() {
     server = FakeHermesServer();
@@ -33,19 +34,32 @@ void main() {
     logger = _RecordingLogger();
     final dio = server.dio()..interceptors.add(httpInterceptor(logger, tracer));
     api = DefaultApi(dio);
-    repository = HermesToolsRepository(api, profile: 'work');
+    events = [];
+    repository = HermesToolsRepository(
+      api,
+      profile: 'work',
+      telemetry: ConnectionTelemetry(
+        tracer: tracer,
+        events: (name, [attributes = const {}]) =>
+            events.add('$name $attributes'),
+      ),
+    );
   });
 
   String everythingRecorded() => [
     for (final span in tracer.spans)
       '${span.name} ${span.attributes} ${span.events} ${span.statusDescription}',
     for (final record in logger.records) '${record.body} ${record.attributes}',
+    ...events,
   ].join('\n');
 
   Future<ToolsResult<Object?>> save() =>
       repository.saveEnv('web', {'SEARCHCO_API_KEY': _secret});
 
   void expectNoTrace(ToolsResult<Object?> result) {
+    // The interceptor was on the path, so there is something to inspect.
+    expect(tracer.spans, isNotEmpty);
+    expect(logger.records, isNotEmpty);
     expect(everythingRecorded(), isNot(contains(_secret)));
     expect(everythingRecorded(), isNot(contains('SEARCHCO_API_KEY')));
     expect('$result', isNot(contains(_secret)));
@@ -67,8 +81,14 @@ void main() {
     expect(server.requestsTo('PUT', _path), hasLength(1));
     expect(server.requests.single.data.toString(), contains(_secret));
     expect(server.requests.single.uri.toString(), isNot(contains(_secret)));
-    expect(tracer.spans, isNotEmpty);
     expectNoTrace(result);
+  });
+
+  test('the generated request model prints the value, so nothing may print '
+      'it', () {
+    // Documents why the repository never keeps or prints the model.
+    final model = ToolsetEnvUpdate(env: {'K': _secret}, profile: 'work');
+    expect(model.toString(), contains(_secret));
   });
 
   for (final (label, status) in [

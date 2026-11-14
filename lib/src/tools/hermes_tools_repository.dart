@@ -1,3 +1,5 @@
+import 'dart:io' show SocketException;
+
 import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart' show Span;
 import 'package:hermes_api/hermes_api.dart';
@@ -73,7 +75,7 @@ class ToolsFailed<T> extends ToolsResult<T> {
 /// [DefaultApi].
 ///
 /// No `/api/tools/*` route declares a response schema, so the generated
-/// methods return untyped JSON and [tools_models.dart] parses it leniently.
+/// methods return untyped JSON and `tools_models.dart` parses it leniently.
 /// Every call sends [profile], in the query and in the body where the route
 /// takes one, because Hermes answers for its launch profile otherwise. The
 /// action status routes take none.
@@ -107,23 +109,23 @@ class HermesToolsRepository {
         attributes: telemetry.serverAttributes,
       ),
     );
-    final result = await _call(
-      () => _api.getToolsetsApiToolsToolsetsGet(profile: profile),
-      ToolsetList.parse,
-    );
-    final skipped = switch (result) {
-      ToolsOk(:final value) => value.skipped,
-      _ => 0,
-    };
-    _noteSkipped(skipped);
-    _quiet(() {
-      if (result case ToolsOk(:final value)) {
-        span?.setAttribute('count', value.toolsets.length);
-      }
-      span?.setAttribute('outcome', result.outcome);
-      span?.end();
-    });
-    return result;
+    ToolsResult<ToolsetList>? result;
+    try {
+      result = await _call(
+        () => _api.getToolsetsApiToolsToolsetsGet(profile: profile),
+        ToolsetList.parse,
+      );
+      if (result case ToolsOk(:final value)) _noteSkipped(value.skipped);
+      return result;
+    } finally {
+      _quiet(() {
+        if (result case ToolsOk(:final value)) {
+          span?.setAttribute('count', value.toolsets.length);
+        }
+        span?.setAttribute('outcome', result?.outcome ?? 'failed');
+        span?.end();
+      });
+    }
   }
 
   Future<ToolsResult<ToolsetConfig>> config(String name) => _call(
@@ -301,16 +303,28 @@ class HermesToolsRepository {
       return ToolsOk(parse(response.data));
     } on DioException catch (error) {
       return _failure(error, write: write);
+    } on Object {
+      // The answer could not be read: for a write it may still have landed.
+      return ToolsFailed(
+        write ? ToolsFailure.unknownOutcome : ToolsFailure.server,
+      );
     }
   }
 
   static ToolsResult<T> _failure<T>(DioException error, {required bool write}) {
     final status = error.response?.statusCode;
+    // A 2xx whose body could not be read: the write was made.
+    if (write && status != null && status >= 200 && status < 300) {
+      return const ToolsFailed(ToolsFailure.unknownOutcome);
+    }
     if (status == null) {
       // A write that never got an answer may have been made. Only a failure
       // to connect proves nothing was sent.
       return ToolsFailed(switch (error.type) {
         DioExceptionType.connectionTimeout => ToolsFailure.offline,
+        // The socket could not be opened, so nothing was sent.
+        DioExceptionType.connectionError when error.error is SocketException =>
+          ToolsFailure.offline,
         _ when write => ToolsFailure.unknownOutcome,
         DioExceptionType.receiveTimeout ||
         DioExceptionType.sendTimeout => ToolsFailure.timeout,

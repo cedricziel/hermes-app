@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
+import 'package:hermes_app/src/tools/tools_models.dart';
 
 import '../support/fake_hermes_server.dart';
 import '../support/recording_tracer.dart';
@@ -121,8 +123,7 @@ void main() {
           'work',
           reason: request.path,
         );
-        final sent = request.data;
-        if (sent != null) {
+        if (!request.path.endsWith('/permissions/grant')) {
           expect(body(request)['profile'], 'work', reason: request.path);
         }
       }
@@ -251,6 +252,50 @@ void main() {
       expect((result as ToolsFailed).kind, ToolsFailure.unknownOutcome);
       expect(result.outcome, 'unknown');
       expect(server.requestsTo('PUT', '/api/tools/toolsets/web'), hasLength(1));
+    });
+
+    test('a write whose socket could not open is offline, a dropped one '
+        'is unknown', () async {
+      server.onRequest('PUT', '/api/tools/toolsets/web', (r) {
+        throw DioException.connectionError(
+          requestOptions: r,
+          reason: 'refused',
+          error: const SocketException('refused'),
+        );
+      });
+      expect(
+        ((await repository.switchToolset(
+          'web',
+          enabled: true,
+        )) as ToolsFailed).kind,
+        ToolsFailure.offline,
+      );
+
+      server.onRequest('PUT', '/api/tools/toolsets/web', (r) {
+        throw DioException.connectionError(
+          requestOptions: r,
+          reason: 'closed',
+          error: const HttpException('Connection closed before full header'),
+        );
+      });
+      expect(
+        ((await repository.switchToolset(
+          'web',
+          enabled: true,
+        )) as ToolsFailed).kind,
+        ToolsFailure.unknownOutcome,
+      );
+    });
+
+    test('a 2xx answer that cannot be read still counts as sent', () async {
+      server.on('PUT', '/api/tools/toolsets/web', 'not json at all');
+
+      final result = await repository.switchToolset('web', enabled: true);
+
+      expect(result, anyOf(isA<ToolsOk>(), isA<ToolsFailed>()));
+      if (result is ToolsFailed<ToolsetSwitched>) {
+        expect(result.kind, ToolsFailure.unknownOutcome);
+      }
     });
 
     test('a write that never connected is offline, not unknown', () async {

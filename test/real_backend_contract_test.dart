@@ -3098,6 +3098,14 @@ void main() {
         'only ever null or a bool', () async {
       final status = value(await tools.computerUseStatus());
 
+      final raw =
+          (await client.raw.getComputerUseStatusApiToolsComputerUseStatusGet(
+                profile: 'default',
+              )).data!
+              as Map<String, dynamic>;
+      for (final key in ['accessibility', 'screen_recording', 'ready']) {
+        expect(raw[key], anyOf(isNull, isA<bool>()), reason: key);
+      }
       expect(status.platform, isNotNull);
       if (!status.installed) expect(status.canOfferGrant, isFalse);
     });
@@ -3107,7 +3115,16 @@ void main() {
         'no_such_toolset_${DateTime.now().millisecondsSinceEpoch}',
       );
 
-      expect(result, anyOf(isA<ToolsRefused<ToolsetConfig>>(), isA<ToolsOk>()));
+      expect(result, isA<ToolsRefused<ToolsetConfig>>());
+    });
+
+    test('a profile that does not exist is told apart from a missing '
+        'route', () async {
+      final gone = tools.forProfile(
+        'contract-missing-${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      expect(await gone.list(), isA<ToolsProfileGone<ToolsetList>>());
     });
   }, skip: skip);
 

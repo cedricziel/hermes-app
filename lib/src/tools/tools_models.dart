@@ -35,6 +35,7 @@ class Toolset {
     required this.label,
     required this.description,
     required this.platform,
+    required this.platformLabel,
     required this.enabled,
     required this.configured,
     required this.tools,
@@ -48,6 +49,9 @@ class Toolset {
 
   /// The platform list the switch writes: `cli` for nearly everything.
   final String platform;
+
+  /// Hermes' name for [platform], shown for toolsets outside `cli`.
+  final String platformLabel;
   final bool enabled;
 
   /// False when no provider of the toolset has what it needs.
@@ -65,6 +69,7 @@ class Toolset {
       label: label == null || label.isEmpty ? name : label,
       description: _text(row['description']) ?? '',
       platform: platform == null || platform.isEmpty ? 'cli' : platform,
+      platformLabel: _text(row['platform_label']) ?? '',
       enabled: _flag(row['enabled']),
       configured: _flag(row['configured']),
       tools: _strings(row['tools']),
@@ -76,6 +81,7 @@ class Toolset {
     label: label,
     description: description,
     platform: platform,
+    platformLabel: platformLabel,
     enabled: enabled ?? this.enabled,
     configured: configured ?? this.configured,
     tools: tools,
@@ -520,18 +526,31 @@ class ToolsetProviderPicked {
 
 /// The answer to saving keys: names only, never values.
 class ToolsetEnvSaved {
-  const ToolsetEnvSaved({this.saved = const [], this.skipped = const []});
+  const ToolsetEnvSaved({
+    this.saved = const [],
+    this.skipped = const [],
+    this.isSet = const {},
+  });
 
   factory ToolsetEnvSaved.parse(Object? json) {
     final map = json is Map<Object?, Object?> ? json : const {};
     return ToolsetEnvSaved(
       saved: _strings(map['saved']),
       skipped: _strings(map['skipped']),
+      isSet: {
+        if (map['is_set'] case final Map<Object?, Object?> set)
+          for (final e in set.entries)
+            if (e.key is String && e.value is bool)
+              e.key! as String: e.value! as bool,
+      },
     );
   }
 
   final List<String> saved;
   final List<String> skipped;
+
+  /// Whether each key is set now; presence only, never a value.
+  final Map<String, bool> isSet;
 }
 
 /// An install or grant Hermes started on the server.
