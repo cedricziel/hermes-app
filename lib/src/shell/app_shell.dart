@@ -418,6 +418,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _appForeground = AppPresence.foreground(state);
     _syncSchedulesForeground();
     if (state == AppLifecycleState.resumed) {
+      // The default profile's name is still owed when the first lookup failed.
+      if (_serverCare != null &&
+          _defaultProfile == null &&
+          _chatProfiles?.current == null) {
+        unawaited(_resolveServerCareProfile());
+      }
       unawaited(_serverCare?.resumed());
       _installs?.resumed();
       _detect();

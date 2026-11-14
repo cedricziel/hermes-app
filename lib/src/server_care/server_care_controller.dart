@@ -50,6 +50,7 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   String? _profile;
   DateTime? _lastRead;
   int _generation = 0;
+  bool _missedWhileCovered = false;
   final _reportedUnsupported = <CarePart>{};
 
   /// The chat's profile this controller reads for; null until one is known.
@@ -112,6 +113,12 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
     _lastRead = null;
     // The gateway that was busy belonged to the old profile.
     _gatewayBusy = false;
+    if (profile == null) {
+      // Nothing to read, and a read that was running is dropped.
+      _loading = false;
+      notifyListeners();
+      return;
+    }
     refresh();
   }
 
@@ -121,10 +128,13 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
     if (disposed || profile == null) return;
     if (covered?.call() ?? false) {
       // A read that was running is dropped below; do not leave it spinning.
+      // The one that is skipped is made up for on unlock.
       _loading = false;
+      _missedWhileCovered = true;
       notifyListeners();
       return;
     }
+    _missedWhileCovered = false;
     final generation = ++_generation;
     _loading = true;
     notifyListeners();
@@ -154,6 +164,8 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
           outcome = 'unsupported';
           reportUnsupported(CarePart.status);
         case CareFailed(:final kind):
+          // The next resume tries again, also after an earlier success.
+          _lastRead = null;
           _failure = kind;
           outcome = kind.name;
       }
@@ -171,6 +183,8 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   /// timers stop while iOS suspends the app, so this is what catches up.
   Future<void> resumed() async {
     if (_loading) return;
+    // A read skipped under App Lock is owed, however recent the last was.
+    if (_missedWhileCovered) return refresh();
     final last = _lastRead;
     if (last != null && _now().difference(last) < resumeInterval) return;
     await refresh();

@@ -207,6 +207,46 @@ void main() {
     expect(reads(), 2);
   });
 
+  test('a failure after a success does not hold off the next resume', () async {
+    await controller.refresh();
+    server.on('GET', '/api/status', {}, status: 500);
+    await controller.refresh();
+    expect(controller.failure, CareFailureKind.server);
+    server.on('GET', '/api/status', statusHealthy());
+    await controller.resumed();
+    expect(controller.failure, isNull);
+    expect(reads(), 3);
+  });
+
+  test('a read skipped under App Lock is made up for on unlock, throttle '
+      'or not', () async {
+    await controller.refresh();
+    covered = true;
+    await controller.refresh();
+    expect(reads(), 1);
+    covered = false;
+    await controller.resumed();
+    expect(reads(), 2);
+    // Back to the ordinary throttle once it has been made up.
+    await controller.resumed();
+    expect(reads(), 2);
+  });
+
+  test('losing the profile clears loading and tells listeners', () async {
+    final slow = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/status', (_) => slow.future);
+    final read = controller.refresh();
+    expect(controller.loading, isTrue);
+    var told = 0;
+    controller.addListener(() => told++);
+    controller.profileChanged(null);
+    expect(controller.loading, isFalse);
+    expect(told, 1);
+    slow.complete((status: 200, body: statusHealthy()));
+    await read;
+    expect(controller.status, isNull);
+  });
+
   test('a resume while a read runs does not send a second one', () async {
     final slow = Completer<FakeResponse>();
     server.onRequest('GET', '/api/status', (_) => slow.future);
