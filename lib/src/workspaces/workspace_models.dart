@@ -1,7 +1,11 @@
+import '../chat/thread_sections.dart' show sessionFolderPath;
+
 /// Why a workspaces call failed, with nothing of the request in it: no URL,
 /// path, or text from the server. A kind is all a caller may keep or log.
 enum WorkspacesFailure {
-  /// The folder, or for a move the target folder, is not there.
+  /// The folder, or for a move the target folder, is not there. For a move
+  /// this is the server's refusal (`4017`), which can still follow a stored
+  /// update, so read the chat again if the old folder matters.
   notFound,
 
   /// The server would not let Hermes read the folder.
@@ -23,9 +27,14 @@ enum WorkspacesFailure {
   /// it may have happened; read the chat again rather than send it twice.
   unreachable,
 
-  /// The server could not do it right now (a database it needs is
-  /// unavailable). A move that fails this way may have happened as well.
+  /// The server answered with an error of its own (`5xxx`: a database it
+  /// needs is unavailable, "move failed"). A move that fails this way may
+  /// have happened as well, so read the chat again before anything else.
   busy,
+
+  /// The text is not an absolute server path or `~`-led, so nothing was
+  /// sent. Not a statement about the server.
+  notAServerPath,
 
   /// Anything else, including an answer that does not fit.
   unknown,
@@ -176,8 +185,10 @@ class MovedWorkspace {
   final String? branch;
   final String? gitRepoRoot;
 
-  /// The folder the chat is listed under: the git root, else [cwd].
-  String get folderPath => gitRepoRoot ?? cwd;
+  /// The folder the chat is listed under: the git root, else [cwd], written
+  /// as the chat list groups it (a trailing separator does not count).
+  String get folderPath =>
+      sessionFolderPath({'git_repo_root': gitRepoRoot, 'cwd': cwd}) ?? cwd;
 }
 
 /// A stored chat's folder fields, from `GET /api/sessions/{id}`.

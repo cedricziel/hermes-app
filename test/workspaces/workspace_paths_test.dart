@@ -25,6 +25,14 @@ void main() {
       expect(isServerPath(''), isFalse);
       expect(isServerPath(' /srv'), isFalse);
     });
+
+    test('accepts a Windows drive and a UNC path', () {
+      expect(isServerPath(r'C:\Users\me'), isTrue);
+      expect(isServerPath('d:/work'), isTrue);
+      expect(isServerPath(r'\\nas\share\code'), isTrue);
+      expect(isServerPath(r'\\nas'), isFalse);
+      expect(isServerPath('C:'), isFalse);
+    });
   });
 
   group('WorkspaceProjects.projectFor', () {

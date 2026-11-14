@@ -1081,8 +1081,16 @@ void main() {
       );
       addTearDown(rpc.close);
       workspaces = HermesWorkspacesRepository(client.raw, rpc.requestWithin);
-      root = await Directory.systemTemp.createTemp('hermes-workdir-');
-      addTearDown(() => root.delete(recursive: true));
+      // Under the files root when one is set, so fs/list is not refused for
+      // the folders these tests create. The server reports resolved paths,
+      // so expectations use the resolved ones too (a temp dir can be a
+      // symlink, as on macOS).
+      final parent = filesRoot == null
+          ? Directory.systemTemp
+          : Directory(filesRoot);
+      final made = await parent.createTemp('hermes-workdir-');
+      addTearDown(() => made.delete(recursive: true));
+      root = Directory(made.resolveSymbolicLinksSync());
       inner = (await Directory('${root.path}/inner').create()).path;
       await File('${root.path}/note.txt').writeAsString('x');
     });
@@ -1144,7 +1152,7 @@ void main() {
     test('a chat created with cwd and cwd_explicit runs there, and a bad cwd '
         'falls back', () async {
       final created = await create({'cwd': root.path, 'cwd_explicit': true});
-      expect(infoOf(created)['cwd'], root.path);
+      expect(infoOf(created)['cwd'], root.resolveSymbolicLinksSync());
 
       final bad = '${root.path}/does-not-exist';
       final fell = await create({'cwd': bad, 'cwd_explicit': true});

@@ -560,7 +560,7 @@ class HermesChatRepository {
   static String _preview(Map<String, Object?> args) {
     for (final key in const ['command', 'path', 'query', 'url', 'pattern']) {
       if (args[key] case final String value when value.trim().isNotEmpty) {
-        return value;
+        return value.trim();
       }
     }
     for (final value in args.values) {

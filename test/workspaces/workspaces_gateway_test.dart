@@ -56,9 +56,11 @@ void main() {
 
     for (final (code, kind) in <(int, WorkspacesFailure)>[
       (4007, WorkspacesFailure.sessionGone),
+      (4016, WorkspacesFailure.unknown),
       (4017, WorkspacesFailure.notFound),
       (4064, WorkspacesFailure.unknownProfile),
       (5007, WorkspacesFailure.busy),
+      (5021, WorkspacesFailure.busy),
     ]) {
       gateway.handlers['session.workspace.move'] = (_) =>
           throw FakeRpcError(code, 'working directory does not exist: /raw');

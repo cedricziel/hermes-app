@@ -1,11 +1,12 @@
 import '../files/server_path.dart';
 import 'workspace_models.dart';
 
-/// Whether [text] can name a folder for a chat: it starts with `/` or `~`.
-/// A relative path is never accepted, since Hermes would resolve it against
-/// its own directory and the result could not be compared with what was
-/// asked for.
-bool isServerPath(String text) => text.startsWith('/') || text.startsWith('~');
+/// Whether [text] can name a folder for a chat: an absolute POSIX, Windows
+/// drive or UNC path, or one that starts with `~`. A relative path is never
+/// accepted, since Hermes would resolve it against its own directory and the
+/// result could not be compared with what was asked for.
+bool isServerPath(String text) =>
+    ServerPath.tryParse(text) != null || text.startsWith('~');
 
 /// [path] with a leading `~` replaced by [home] when there is one, and with
 /// trailing separators and doubled ones removed. A path that is still

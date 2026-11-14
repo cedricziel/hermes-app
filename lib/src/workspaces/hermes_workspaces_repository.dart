@@ -66,8 +66,9 @@ class HermesWorkspacesRepository {
     ),
     (body) => body is Map ? _catalog(body) : null,
     onStatus: (status, detail) => switch (status) {
-      404 when detail != null && detail.toLowerCase().contains('exist') =>
-        const WorkspacesFailed(WorkspacesFailure.unknownProfile),
+      404 when _profileMissing(detail) => const WorkspacesFailed(
+        WorkspacesFailure.unknownProfile,
+      ),
       404 || 405 => const WorkspacesUnsupported(),
       _ => null,
     },
@@ -103,6 +104,9 @@ class HermesWorkspacesRepository {
     onStatus: (status, detail) => switch (status) {
       400 => const WorkspacesFailed(WorkspacesFailure.notADirectory),
       403 => WorkspacesFailed(_forbidden(detail)),
+      404 when _profileMissing(detail) => const WorkspacesFailed(
+        WorkspacesFailure.unknownProfile,
+      ),
       404 =>
         routeKnown
             ? const WorkspacesFailed(WorkspacesFailure.notFound)
@@ -112,8 +116,9 @@ class HermesWorkspacesRepository {
     },
   );
 
-  /// The folders the server completes the typed [word] to. [word] must start
-  /// with `/` or `~`; anything else answers an empty list without asking.
+  /// The folders the server completes the typed [word] to. [word] must be an
+  /// absolute server path or start with `~`; anything else answers an empty
+  /// list without asking.
   Future<WorkspacesResult<PathSuggestions>> complete(
     String word, {
     String? profile,
@@ -128,7 +133,8 @@ class HermesWorkspacesRepository {
   }
 
   /// Moves the stored chat [storedId] to [cwd], once. Nothing is sent for a
-  /// path that does not start with `/` or `~`. A failure that may still have
+  /// path that is not an absolute server path or `~`-led
+  /// ([WorkspacesFailure.notAServerPath]). A failure that may still have
   /// happened ([WorkspacesFailure.unreachable], [WorkspacesFailure.busy]) is
   /// for the caller to settle by reading the chat with [sessionFolder].
   Future<WorkspacesResult<MovedWorkspace>> moveWorkspace(
@@ -137,7 +143,7 @@ class HermesWorkspacesRepository {
     String? profile,
   }) async {
     if (!isServerPath(cwd)) {
-      return const WorkspacesFailed(WorkspacesFailure.notFound);
+      return const WorkspacesFailed(WorkspacesFailure.notAServerPath);
     }
     return _gateway(
       'session.workspace.move',
@@ -150,8 +156,10 @@ class HermesWorkspacesRepository {
       codes: const {
         4007: WorkspacesFailure.sessionGone,
         4017: WorkspacesFailure.notFound,
-        5007: WorkspacesFailure.busy,
       },
+      // Any 5xxx may follow a stored update (`move failed: ...`), so none of
+      // them says the chat is unchanged.
+      serverErrorsBusy: true,
       // An answer that does not fit may be one the server gave after moving.
       malformed: WorkspacesFailure.unreachable,
     );
@@ -169,14 +177,18 @@ class HermesWorkspacesRepository {
     ),
     (body) => body is Map
         ? SessionFolder(
-            cwd: _text(body['cwd']),
+            cwd: _path(body['cwd']),
             branch: _text(body['git_branch']),
-            gitRepoRoot: _text(body['git_repo_root']),
+            gitRepoRoot: _path(body['git_repo_root']),
           )
         : null,
-    onStatus: (status, detail) => status == 404
-        ? const WorkspacesFailed(WorkspacesFailure.sessionGone)
-        : null,
+    onStatus: (status, detail) => switch (status) {
+      404 when _profileMissing(detail) => const WorkspacesFailed(
+        WorkspacesFailure.unknownProfile,
+      ),
+      404 => const WorkspacesFailed(WorkspacesFailure.sessionGone),
+      _ => null,
+    },
   );
 
   /// The folders the profile scans for projects (`desktop.repo_scan_roots`),
@@ -190,7 +202,7 @@ class HermesWorkspacesRepository {
       if (roots is Map) roots = roots['roots'];
       if (roots == null) return const <String>[];
       if (roots is! List) return null;
-      return [for (final root in roots) ?_text(root)];
+      return [for (final root in roots) ?_path(root)];
     },
     onStatus: (status, detail) => status == 404
         ? const WorkspacesFailed(WorkspacesFailure.unknownProfile)
@@ -244,6 +256,7 @@ class HermesWorkspacesRepository {
     T? Function(Map<String, Object?> result) parse, {
     Map<int, WorkspacesFailure> codes = const {},
     WorkspacesFailure malformed = WorkspacesFailure.unknown,
+    bool serverErrorsBusy = false,
   }) async {
     try {
       final result = await _rpc(method, params, timeout: timeout);
@@ -256,7 +269,12 @@ class HermesWorkspacesRepository {
       if (error.code == kGatewayProfileUnavailable) {
         return const WorkspacesFailed(WorkspacesFailure.unknownProfile);
       }
-      return WorkspacesFailed(codes[error.code] ?? WorkspacesFailure.unknown);
+      return WorkspacesFailed(
+        codes[error.code] ??
+            (error.code >= 5000 && error.code < 6000 && serverErrorsBusy
+                ? WorkspacesFailure.busy
+                : WorkspacesFailure.unknown),
+      );
     } on Object {
       // No answer: a timeout, a closed socket, no connection.
       return const WorkspacesFailed(WorkspacesFailure.unreachable);
@@ -273,6 +291,17 @@ class HermesWorkspacesRepository {
     return text.contains(_unreadableDetail)
         ? WorkspacesFailure.notAllowed
         : WorkspacesFailure.outsideBoundary;
+  }
+
+  /// A path exactly as the server wrote it: it goes back into requests and
+  /// is compared with stored ones, so it is never trimmed. Only an empty or
+  /// blank one is dropped.
+  static String? _path(Object? value) =>
+      value is String && value.trim().isNotEmpty ? value : null;
+
+  static bool _profileMissing(String? detail) {
+    final text = detail?.toLowerCase() ?? '';
+    return text.contains('profile') && text.contains('exist');
   }
 
   static String? _text(Object? value) {
@@ -293,7 +322,7 @@ class HermesWorkspacesRepository {
         if (row['folders'] case final List entries) {
           for (final entry in entries) {
             if (entry is! Map) continue;
-            final path = _text(entry['path']);
+            final path = _path(entry['path']);
             if (path == null) continue;
             folders.add(
               WorkspaceFolder(
@@ -321,7 +350,7 @@ class HermesWorkspacesRepository {
     if (body['repos'] case final List rows) {
       for (final row in rows) {
         if (row is! Map) continue;
-        final root = _text(row['root']);
+        final root = _path(row['root']);
         if (root == null) continue;
         repos.add(
           WorkspaceRepo(
@@ -340,8 +369,8 @@ class HermesWorkspacesRepository {
     return WorkspaceCatalog(
       projects: projects,
       repos: repos,
-      defaultCwd: _text(body['default_cwd']),
-      home: _text(body['home']),
+      defaultCwd: _path(body['default_cwd']),
+      home: _path(body['home']),
       scanEnabled: body['scan_enabled'] == true,
     );
   }
@@ -351,7 +380,7 @@ class HermesWorkspacesRepository {
     if (body['entries'] case final List rows) {
       for (final row in rows) {
         if (row is! Map || row['isDirectory'] != true) continue;
-        final path = _text(row['path']);
+        final path = _path(row['path']);
         if (path == null) continue;
         final name =
             _text(row['name']) ??
@@ -371,7 +400,10 @@ class HermesWorkspacesRepository {
   ) {
     final items = result['items'];
     if (items is! List) return null;
-    final slash = word.lastIndexOf('/');
+    final slash = [
+      word.lastIndexOf('/'),
+      word.lastIndexOf(r'\'),
+    ].reduce((a, b) => a > b ? a : b);
     final directory = slash >= 0
         ? word.substring(0, slash + 1)
         : (word == '~' ? '~/' : '');
@@ -381,7 +413,11 @@ class HermesWorkspacesRepository {
       final display = _text(item['display']);
       if (display == null) continue;
       final shown = display.endsWith('/') ? display : '$display/';
-      folders.add(PathSuggestion(text: '$directory$shown', display: shown));
+      final text = '$directory$shown';
+      // A suggestion never becomes a relative path (`~foo` has no directory
+      // part to build on).
+      if (!isServerPath(text)) continue;
+      folders.add(PathSuggestion(text: text, display: shown));
     }
     return PathSuggestions(
       folders: folders,
@@ -390,12 +426,12 @@ class HermesWorkspacesRepository {
   }
 
   static MovedWorkspace? _moved(Map<String, Object?> result) {
-    final cwd = _text(result['cwd']);
+    final cwd = _path(result['cwd']);
     if (cwd == null) return null;
     return MovedWorkspace(
       cwd: cwd,
       branch: _text(result['branch']),
-      gitRepoRoot: _text(result['git_repo_root']),
+      gitRepoRoot: _path(result['git_repo_root']),
     );
   }
 }

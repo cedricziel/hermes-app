@@ -8,7 +8,18 @@ import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/workspace_models.dart';
 
+import 'package:flutter_otel/flutter_otel.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
+
 import '../support/fake_hermes_server.dart';
+import '../support/recording_tracer.dart';
+
+class _RecordingLogger extends Logger {
+  final records = <LogRecord>[];
+
+  @override
+  void emit(LogRecord record) => records.add(record);
+}
 
 const _catalogBody = {
   'projects': [
@@ -228,6 +239,14 @@ void main() {
         await repository.listFolders('/x'),
         WorkspacesFailure.unreachable,
       );
+
+      server.on('GET', '/api/fs/list', {
+        'detail': "Profile 'x' does not exist.",
+      }, status: 404);
+      expectFailed(
+        await repository.listFolders('/x', routeKnown: true),
+        WorkspacesFailure.unknownProfile,
+      );
     });
   });
 
@@ -281,6 +300,35 @@ void main() {
     test('a relative word is never sent', () async {
       expect(ok(await repository.complete('code/')).folders, isEmpty);
       expect(calls, isEmpty);
+    });
+
+    test('a Windows drive and a UNC word are sent', () async {
+      answer = (_, _) async => {
+        'items': [
+          {'text': 'x', 'display': 'src/', 'meta': 'dir'},
+        ],
+      };
+      expect(
+        ok(await repository.complete(r'C:\code\s')).folders.single.text,
+        r'C:\code\src/',
+      );
+      expect(
+        ok(await repository.complete(r'\\nas\share\s')).folders.single.text,
+        r'\\nas\share\src/',
+      );
+      expect(calls, hasLength(2));
+    });
+
+    test('~foo never becomes a relative suggestion', () async {
+      answer = (_, _) async => {
+        'items': [
+          {'text': 'x', 'display': 'foo/', 'meta': 'dir'},
+          {'text': 'x', 'display': '~foobar/', 'meta': 'dir'},
+        ],
+      };
+      final got = ok(await repository.complete('~foo'));
+      expect(got.folders.map((s) => s.text), ['~foobar/']);
+      expect(calls, hasLength(1));
     });
 
     test('maps the gateway errors', () async {
@@ -353,12 +401,64 @@ void main() {
       expect(calls.single.$2['profile'], 'default');
     });
 
-    test('a path that is not / or ~ led is refused without asking', () async {
-      expectFailed(
-        await repository.moveWorkspace('s', 'relative/dir'),
-        WorkspacesFailure.notFound,
-      );
+    test('a relative path is refused without asking, and is not a missing '
+        'folder', () async {
+      for (final path in ['relative/dir', './x', '', ' /srv', '/srv/../x']) {
+        expectFailed(
+          await repository.moveWorkspace('s', path),
+          WorkspacesFailure.notAServerPath,
+        );
+      }
       expect(calls, isEmpty);
+    });
+
+    test('a Windows drive, a UNC and a ~ folder are sent', () async {
+      for (final path in [r'C:\Users\me\code', r'\\nas\share\code', '~/code']) {
+        answer = (_, params) async => {'cwd': params['cwd']};
+        final moved = ok(await repository.moveWorkspace('s', path));
+        expect(moved.cwd, path);
+      }
+      expect(calls, hasLength(3));
+    });
+
+    test('every 5xxx may have happened, 4016 is a plain unknown', () async {
+      for (final (code, kind) in <(int, WorkspacesFailure)>[
+        (5000, WorkspacesFailure.busy),
+        (5007, WorkspacesFailure.busy),
+        (5021, WorkspacesFailure.busy),
+        (5999, WorkspacesFailure.busy),
+        (4016, WorkspacesFailure.unknown),
+        (4009, WorkspacesFailure.unknown),
+      ]) {
+        answer = (_, _) => Future.error(GatewayRpcException(code, 'x'));
+        expectFailed(await repository.moveWorkspace('s', '/x'), kind);
+      }
+    });
+
+    test('the answer keeps paths raw and groups with or without a trailing '
+        'slash', () async {
+      answer = (_, _) async => {
+        'cwd': ' /srv/demo/sub ',
+        'git_repo_root': '/srv/demo/',
+      };
+      final moved = ok(await repository.moveWorkspace('s', '/srv/demo/sub'));
+      expect(moved.cwd, ' /srv/demo/sub ');
+      expect(moved.gitRepoRoot, '/srv/demo/');
+      expect(moved.folderPath, '/srv/demo');
+
+      answer = (_, _) async => {'cwd': '/srv/demo', 'git_repo_root': null};
+      expect(
+        ok(await repository.moveWorkspace('s', '/srv/demo')).folderPath,
+        ok(
+          await (() async {
+            answer = (_, _) async => {
+              'cwd': '/srv/demo/',
+              'git_repo_root': null,
+            };
+            return repository.moveWorkspace('s', '/srv/demo/');
+          })(),
+        ).folderPath,
+      );
     });
 
     test('maps each error to a kind', () async {
@@ -422,6 +522,26 @@ void main() {
       expect(
         server.requestsTo('GET', '/api/sessions/abc').single.queryParameters,
         containsPair('profile', 'work'),
+      );
+    });
+
+    test('keeps the paths exactly as the server wrote them', () async {
+      server.on('GET', '/api/sessions/raw', {
+        'cwd': '/srv/demo/ ',
+        'git_repo_root': '/srv/demo/',
+      });
+      final folder = ok(await repository.sessionFolder('raw'));
+      expect(folder.cwd, '/srv/demo/ ');
+      expect(folder.gitRepoRoot, '/srv/demo/');
+    });
+
+    test('a 404 naming a missing profile is not a missing chat', () async {
+      server.on('GET', '/api/sessions/abc', {
+        'detail': "Profile 'x' does not exist.",
+      }, status: 404);
+      expectFailed(
+        await repository.sessionFolder('abc', profile: 'x'),
+        WorkspacesFailure.unknownProfile,
       );
     });
 
@@ -518,6 +638,40 @@ void main() {
         expect(show(result), isNot(contains('hermes.test')));
         expect(show(result), isNot(contains('http')));
       }
+    });
+
+    test('a failing fs/list through the real telemetry interceptor leaves '
+        'the path in no span or log record', () async {
+      final tracer = RecordingTracer();
+      final logger = _RecordingLogger();
+      final dio = server.dio()
+        ..interceptors.add(httpInterceptor(logger, tracer));
+      final traced = build(HermesApiClient(dio));
+      for (final status in [403, 404, 500]) {
+        server.on('GET', '/api/fs/list', {
+          'detail': 'Path is outside the managed read boundary: $_secret',
+        }, status: status);
+        await traced.listFolders(_secret, routeKnown: true);
+      }
+
+      expect(tracer.spans, isNotEmpty);
+      expect(logger.records, isNotEmpty);
+      final exported = [
+        for (final s in tracer.spans) ...[
+          ...s.attributes.keys,
+          ...s.attributes.values,
+          ...s.events,
+          s.statusDescription,
+        ],
+        for (final r in logger.records) ...[
+          r.body,
+          ...r.attributes.keys,
+          ...r.attributes.values,
+        ],
+      ].join(' ');
+      expect(exported, isNot(contains(_secret)));
+      expect(exported, isNot(contains('secret-client')));
+      expect(exported, isNot(contains('/api/fs/list?')));
     });
 
     test(
