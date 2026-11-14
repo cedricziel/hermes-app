@@ -142,7 +142,13 @@ Before saving, the app SHALL check the key with `POST /api/providers/validate` (
 
 ### Requirement: Key save failures
 
-A refusal of `PUT /api/env` SHALL show Hermes' reason and SHALL NOT be retried automatically. A save whose answer is lost SHALL NOT be resent; the app SHALL read the providers again and show either the provider as connected or "Couldn't tell whether the key was saved. Check the list, then try again."
+A refusal of `PUT /api/env` SHALL show Hermes' reason and SHALL NOT be retried automatically. A save whose answer is lost SHALL NOT be resent; the app SHALL read the providers again. A replacement SHALL count as saved only when the refreshed key's last four characters match the submitted key's; otherwise the app SHALL say "Couldn't tell whether the key was saved. Check the list, then try again."
+
+#### Scenario: Replacement answer lost
+
+- **GIVEN** OpenRouter is connected with a key ending in "4f2a"
+- **WHEN** the answer to a replacement ending in "9c1d" is lost and the re-read still shows "4f2a"
+- **THEN** the app says "Couldn't tell whether the key was saved. Check the list, then try again." and does not report success
 
 #### Scenario: Locked key
 
@@ -274,6 +280,12 @@ After a provider connects, the app SHALL ask `GET /api/model/recommended-default
 
 The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for the profile. When Hermes answers `confirm_required`, the app SHALL show its message with "Use it anyway" and Cancel and resend with `confirm_expensive_model` only after "Use it anyway". The screen's default-model row SHALL show the model's display name (its id as secondary text when they differ) and open the shared model picker over all connected providers, without reasoning effort.
 
+#### Scenario: Nous moved the default itself
+
+- **GIVEN** a profile still on the free tier's route
+- **WHEN** a Nous Portal sign-in is approved and the poll answer carries `model`
+- **THEN** the step reads "New chats use <model>" with Change, and nothing else is saved
+
 #### Scenario: Expensive model
 
 - **WHEN** `POST /api/model/set` answers `confirm_required` with a message
@@ -281,13 +293,13 @@ The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for 
 
 ### Requirement: Removing credentials
 
-A provider's detail SHALL offer the removal that fits its credential: "Remove key" (`DELETE /api/env`), "Sign out" (`DELETE /api/providers/oauth/{id}`), "Delete endpoint" (`DELETE /api/providers/custom-endpoints/{id}`), and "Remove saved key ending in <last four>" for each key added by hand on the server (pool entries with `source: manual` and `auth_type: api_key` only; sign-in tokens are never listed as keys). A sign-in Hermes cannot remove SHALL show the server command or Hermes' hint instead.
+A provider's detail SHALL offer the removal that fits its credential: "Remove key" (`DELETE /api/env`), "Sign out" (`DELETE /api/providers/oauth/{id}`), "Delete endpoint" (`DELETE /api/providers/custom-endpoints/{id}`), A sign-in Hermes cannot remove SHALL show the server command or Hermes' hint instead. Keys added by hand on the server SHALL be listed read-only (see Hand-added keys).
 
 #### Scenario: Sign-in tokens are not keys
 
 - **GIVEN** a Nous Portal sign-in, which Hermes also keeps as a pool entry with `source: device_code`
 - **WHEN** the detail is shown
-- **THEN** it shows "Signed in" and no "Remove saved key ending in …" row
+- **THEN** it shows "Signed in" and no "Saved key ending in …" row
 
 #### Scenario: Hint that points at the dashboard
 
@@ -309,19 +321,29 @@ Each removal SHALL ask first, naming the provider and the profile, with the dest
 - **WHEN** the person taps Remove key
 - **THEN** the question names OpenRouter and "work", warns that new chats can't start until another model is picked, and Cancel changes nothing
 
+### Requirement: Hand-added keys
+
+Keys added by hand on the server (pool entries with `source: manual` and `auth_type: api_key`) SHALL be listed read-only. The app SHALL NOT call `DELETE /api/credentials/pool/{provider}/{index}`, which removes by position only.
+
+#### Scenario: No pool removal
+
+- **WHEN** the person views a provider with a hand-added key
+- **THEN** no request to the pool DELETE route can be made from the app
+
 ### Requirement: After a removal
 
-Before removing a pool entry the app SHALL read the pool again and delete only when the entry at that index still has the same id. After a removal the app SHALL read the providers again. When the provider is still connected through another credential, the detail SHALL say "Still connected through <N> other saved credentials" and list them. A 404 SHALL count as already removed; a lost answer SHALL be re-read, never resent.
+After a removal the app SHALL read the providers again. When the provider is still connected through another credential, the detail SHALL say "Still connected through <N> other saved credentials" and list them. A 404 SHALL count as already removed; a lost answer SHALL be re-read, never resent.
 
 #### Scenario: Still connected
 
 - **WHEN** the OpenAI key is removed but a manually added OpenAI key remains
-- **THEN** the detail says "Still connected through 1 other saved credential" and offers "Remove saved key ending in <last four>"
+- **THEN** the detail says "Still connected through 1 other saved credential" and lists "Saved key ending in <last four>" read-only
 
-#### Scenario: Pool changed meanwhile
+#### Scenario: Hand-added key
 
-- **WHEN** the entry at the chosen index has another id when re-read
-- **THEN** nothing is deleted and the refreshed list is shown
+- **GIVEN** a key added on the server with `hermes auth`
+- **WHEN** the detail is shown
+- **THEN** it lists "Saved key ending in <last four>" with "Manage this key on your server with `hermes auth`." and no remove button
 
 #### Scenario: Already gone
 
@@ -330,7 +352,7 @@ Before removing a pool entry the app SHALL read the pool again and delete only w
 
 ### Requirement: First run from the chat
 
-When the chat's profile has no usable model, the welcome view SHALL replace its starter prompts with one card: "Reconnect your model's provider" when the configured provider lost its credential, "Hermes is loading your models" when a provider is connected but lists no models yet, else "Connect a model to start chatting", which opens Model providers at "Add a provider". The composer's "Set up a model" SHALL open the screen.
+When the default model's provider lost its credential (even if another provider is ready), the welcome view SHALL show "Reconnect your model's provider". Otherwise, with no usable model, it SHALL show "Hermes is loading your models" when a provider is connected but lists no models yet, else "Connect a model to start chatting", which opens Model providers at "Add a provider". The composer's "Set up a model" SHALL open the screen.
 
 #### Scenario: Fresh server
 
@@ -343,6 +365,12 @@ When the chat's profile has no usable model, the welcome view SHALL replace its 
 - **GIVEN** the profile's default model is served by OpenRouter and its key was removed on the server
 - **WHEN** the person opens a new chat
 - **THEN** the card reads "Reconnect your model's provider" and "Reconnect" opens OpenRouter's detail
+
+#### Scenario: Default provider lost, another ready
+
+- **GIVEN** the default model is served by OpenRouter, whose key was removed, and Nous Portal is still signed in
+- **WHEN** the person opens a new chat
+- **THEN** the card reads "Reconnect your model's provider" instead of the starter prompts
 
 #### Scenario: Models still warming
 
@@ -416,7 +444,7 @@ The app SHALL open an address Hermes sends (key signup page, sign-in verificatio
 
 ### Requirement: Identifiers in request paths
 
-Endpoint ids, provider ids, pool provider slugs and sign-in session ids SHALL be percent-encoded when they are put into a request path.
+Endpoint ids, provider ids and sign-in session ids SHALL be percent-encoded when they are put into a request path.
 
 #### Scenario: Endpoint id with a colon
 
@@ -483,7 +511,7 @@ Screen readers SHALL read a provider row as "<provider>, <state>" and a device c
 
 ### Requirement: Provider setup backend contract
 
-The feature SHALL rely only on the REST routes design.md lists (`/api/model/*`, `/api/env`, `/api/providers/*`, `/api/credentials/pool`), verified at Hermes `d923a5eb` (0.22.2) and all without response schemas. It SHALL NOT use `/api/env/reveal`, `POST /api/credentials/pool`, or the gateway methods `model.save_key`, `model.disconnect`, `setup.*`, `onboarding.*` or `free_tier.*`.
+The feature SHALL rely only on the REST routes design.md lists (`/api/model/*`, `/api/env`, `/api/providers/*`, `GET /api/credentials/pool`), verified at Hermes `d923a5eb` (0.22.2) and all without response schemas. It SHALL NOT use `/api/env/reveal`, `POST /api/credentials/pool`, or the gateway methods `model.save_key`, `model.disconnect`, `setup.*`, `onboarding.*` or `free_tier.*`.
 
 #### Scenario: Contract test
 

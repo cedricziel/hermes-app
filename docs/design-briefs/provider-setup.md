@@ -59,7 +59,7 @@ Principles for this feature:
 2. If it serves the default model: info row "New chats in <profile> use <model>" with "Change".
 3. Section "Credentials": one row per credential: "API key ending in 4f2a" (action "Replace key"), "Signed in" (never Hermes' source label, which can be a file path on the server), "Saved key ending in 7890 · added on the server" (only keys added by hand on the server; sign-in tokens are never listed as keys). For an endpoint: Address, API type, Models (count, expandable list), API key ("Saved" / "None").
 4. Section "Models": count and the first five ids, "Show all" (read-only; picking happens in the default-model row).
-5. Destructive section at the bottom, red text rows: "Remove key", "Sign out", "Delete endpoint", "Remove saved key ending in 7890". When Hermes cannot remove a sign-in: no button; a footer "Hermes can't remove this sign-in from the app. Run this on your server:" + selectable command + Copy.
+5. Destructive section at the bottom, red text rows: "Remove key", "Sign out", "Delete endpoint". Keys added by hand on the server are listed in Credentials read-only with the footer "Manage this key on your server with `hermes auth`." (no button: Hermes can only remove them by position, which is not safe from the app). When Hermes cannot remove a sign-in: no button; a footer "Hermes can't remove this sign-in from the app. Run this on your server:" + selectable command + Copy.
 6. "Still connected" note when a removal left other credentials: "Still connected through 1 other saved credential." above the list of them.
 
 **Primary action:** none forced; "Replace key" / "Edit endpoint" is the main one, Remove is last and red.
@@ -144,7 +144,11 @@ Save enabled when Name, Address and a model (found or typed) are present. Saving
 
 **Purpose:** confirm which model new chats use, without making the person understand model ids.
 
-**First provider (no default before):** title "You're ready", body "New chats in <profile> use <model> from <provider>." Buttons: "Start chatting" (primary; closes everything and returns to the chat when it came from the chat, else to the list) and "Change model" (secondary; opens the picker limited to this provider).
+**First provider, no recommendation:** when Hermes recommends no model, nothing is saved: title "Choose a model for new chats", body "<provider> is connected. Pick the model new chats in <profile> should use.", the picker limited to this provider inline (or "Choose model" opening it), and "Not now" (secondary; the chat then shows the composer pill's "Choose a model"). "You're ready" appears only after a default is saved.
+
+**First provider (no default before, recommendation saved):** title "You're ready", body "New chats in <profile> use <model> from <provider>." Buttons: "Start chatting" (primary; closes everything and returns to the chat when it came from the chat, else to the list) and "Change model" (secondary; opens the picker limited to this provider).
+
+**After a Nous sign-in that moved the default:** Hermes reports the model it switched the profile to (only when the profile was on the free tier's route); show "You're ready" with that model and "Change model".
 
 **Later provider:** title "Use <model> for new chats?" body "<provider> recommends it. You're using <current model> now." Buttons: "Use <model>" (primary), "Keep <current model>" (secondary), "Choose another model…" (text).
 
@@ -159,7 +163,6 @@ Save enabled when Name, Address and a model (found or typed) are present. Saving
 | Remove key         | "Remove the <provider> key?"       | "<profile> can no longer use <provider> models." + when default: "New chats in <profile> can't start until you pick another model." | "Remove Key" (Mac) / "Remove key" |
 | Sign out           | "Sign out of <provider>?"          | same pattern                                                                                                                        | "Sign Out" / "Sign out"           |
 | Delete endpoint    | "Delete <name>?"                   | "Its saved key is deleted too." + default warning                                                                                   | "Delete"                          |
-| Remove pool key    | "Remove saved key ending in 7890?" | "Hermes stops using this key for <provider>."                                                                                       | "Remove"                          |
 | Clear endpoint key | "Remove the saved key for <name>?" | "Hermes will connect without a key."                                                                                                | "Remove"                          |
 | Cancel sign-in     | "Stop signing in to <provider>?"   | "The code stops working."                                                                                                           | "Stop"                            |
 
