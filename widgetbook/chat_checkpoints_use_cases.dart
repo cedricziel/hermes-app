@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_page_scaffold.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_working_line.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoints_state.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/changed_files_list.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/changes_page_message.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/checkpoint_list_body.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/checkpoint_row.dart';
+import 'package:hermes_app/src/chat/checkpoints/widgets/file_checkpoints_row.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/file_diff_view.dart';
+import 'package:hermes_app/src/chat/checkpoints/widgets/restore_outcome_note.dart';
+import 'package:hermes_app/src/chat/context/context_models.dart';
+import 'package:hermes_app/src/chat/context/context_state.dart';
+import 'package:hermes_app/src/chat/context/widgets/compress_outcome_note.dart';
+import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/restore_all_bar.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -249,9 +260,228 @@ Widget _changesPage({
   return fill(scale == null ? page : _scaled(page, scale));
 }
 
+Widget _fileRow(
+  CheckpointsRowState state, {
+  int? count = 3,
+  bool locked = false,
+}) => frame(
+  maxWidth: 380,
+  FileCheckpointsRow(
+    state: state,
+    count: count,
+    locked: locked,
+    onOpen: locked ? null : () {},
+  ),
+);
+
+const _panelFigures = ContextFigures(
+  used: 172000,
+  max: 200000,
+  percent: 86,
+  estimated: false,
+  source: ContextSource.providerUsage,
+);
+
+/// The panel as the chat shows it: Context first, File checkpoints next,
+/// then the outcome notes, and the working lines under Now.
+Widget _panel({
+  bool working = false,
+  bool locked = false,
+  bool suggestion = false,
+}) => Align(
+  alignment: Alignment.topLeft,
+  child: SizedBox(
+    width: 380,
+    height: 640,
+    child: Material(
+      child: ActivityPanel(
+        now: [
+          if (working) ...[_compressingLine(), _restoringLine()],
+        ],
+        session: [
+          ContextRow(
+            figures: _panelFigures,
+            level: ContextLevel.nearlyFull,
+            locked: locked,
+            compressing: working,
+            suggestionVisible: suggestion,
+            onOpen: locked ? null : () {},
+            onCompress: () {},
+            onDismissSuggestion: () {},
+          ),
+          FileCheckpointsRow(
+            state: CheckpointsRowState.count,
+            count: 3,
+            locked: locked,
+            onOpen: locked ? null : () {},
+          ),
+          if (!locked && !working) ...[
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: CompressOutcomeNote(
+                outcome: CompressOutcome(
+                  CompressOutcomeKind.compressed,
+                  beforeMessages: 42,
+                  afterMessages: 9,
+                  beforeTokens: 120000,
+                  afterTokens: 30000,
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: RestoreOutcomeNote(
+                outcome: RestoreOutcome(
+                  RestoreOutcomeKind.restored,
+                  filesRestored: 1,
+                  safetyCheckpoint: true,
+                ),
+                filesWereFile: true,
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  ),
+);
+
+Widget _compressingLine() => Builder(
+  builder: (context) =>
+      ActivityWorkingLine(label: context.l10n.chatContextCompressing),
+);
+
+Widget _restoringLine() => Builder(
+  builder: (context) =>
+      ActivityWorkingLine(label: context.l10n.chatCheckpointsPageRestoring),
+);
+
+/// A page pushed inside the panel, at a phone sheet's or an inspector's size.
+Widget _page({
+  String title = 'Changes',
+  String? subtitle = 'Since 12 min ago · Before editing a file',
+  bool withBottom = false,
+  double width = 380,
+}) => Builder(
+  builder: (context) => Align(
+    alignment: Alignment.topLeft,
+    child: SizedBox(
+      width: width,
+      height: 560,
+      child: ActivityPageScaffold(
+        title: title,
+        subtitle: subtitle,
+        onBack: () {},
+        actions: [
+          ActivityPageAction(
+            label: context.l10n.chatCheckpointsPageRefresh,
+            icon: AppIcons.refresh,
+            onPressed: () {},
+          ),
+        ],
+        body: GroupedListView(
+          children: [ChangedFilesList(files: _fiveFiles, onOpen: (_) {})],
+        ),
+        framedBottom: false,
+        bottom: withBottom
+            ? RestoreAllBar(fileCount: 5, onRestoreAll: () {})
+            : null,
+      ),
+    ),
+  ),
+);
+
 WidgetbookNode chatCheckpointsNode() => WidgetbookFolder(
   name: 'Chat checkpoints',
   children: [
+    WidgetbookComponent(
+      name: 'File checkpoints row',
+      useCases: [
+        ...onEachPlatform('Count', (_) => _fileRow(CheckpointsRowState.count)),
+        WidgetbookUseCase(
+          name: 'Not checked yet',
+          builder: (_) => _fileRow(CheckpointsRowState.notChecked),
+        ),
+        ...onEachPlatform(
+          'Loading',
+          (_) => _fileRow(CheckpointsRowState.loading),
+        ),
+        WidgetbookUseCase(
+          name: 'Off with edits',
+          builder: (_) => _fileRow(CheckpointsRowState.off),
+        ),
+        WidgetbookUseCase(
+          name: 'Failed',
+          builder: (_) => _fileRow(CheckpointsRowState.failed),
+        ),
+        WidgetbookUseCase(
+          name: 'App Lock (count only)',
+          builder: (_) =>
+              _fileRow(CheckpointsRowState.count, count: 3, locked: true),
+        ),
+        WidgetbookUseCase(
+          name: 'Largest text',
+          builder: (_) => _scaled(_fileRow(CheckpointsRowState.count)),
+        ),
+        WidgetbookUseCase(
+          name: 'Largest text, off',
+          builder: (_) => _scaled(_fileRow(CheckpointsRowState.off)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'Panel with Context and File checkpoints',
+      useCases: [
+        ...onEachPlatform('Rows and notes', (_) => _panel()),
+        WidgetbookUseCase(
+          name: 'Suggestion',
+          builder: (_) => _panel(suggestion: true),
+        ),
+        WidgetbookUseCase(
+          name: 'Compress and restore running',
+          builder: (_) => _panel(working: true),
+        ),
+        WidgetbookUseCase(
+          name: 'App Lock',
+          builder: (_) => _panel(locked: true),
+        ),
+        WidgetbookUseCase(
+          name: 'Largest text',
+          builder: (_) => _scaled(_panel(suggestion: true)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'Activity page',
+      useCases: [
+        ...onEachPlatform('Title, subtitle and action', (_) => _page()),
+        ...onEachPlatform(
+          'With the Restore all bar',
+          (_) => _page(withBottom: true),
+        ),
+        WidgetbookUseCase(
+          name: 'No subtitle',
+          builder: (_) => _page(title: 'File checkpoints', subtitle: null),
+        ),
+        WidgetbookUseCase(
+          name: 'Largest text',
+          builder: (_) => _scaled(_page(withBottom: true)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'Working line',
+      useCases: [
+        ...onEachPlatform(
+          'Restoring files',
+          (_) => frame(_restoringLine(), maxWidth: 380),
+        ),
+        WidgetbookUseCase(
+          name: 'Largest text',
+          builder: (_) => _scaled(frame(_compressingLine(), maxWidth: 380)),
+        ),
+      ],
+    ),
     WidgetbookComponent(
       name: 'Checkpoint row',
       useCases: [
@@ -513,6 +743,17 @@ WidgetbookNode chatCheckpointsNode() => WidgetbookFolder(
           builder: (_) => frame(
             _scaled(ChangedFilesList(files: _longNames, onOpen: (_) {})),
             maxWidth: 390,
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'One selected (diff beside the list)',
+          builder: (_) => frame(
+            ChangedFilesList(
+              files: _fiveFiles,
+              selectedPath: _fiveFiles[1].path,
+              onOpen: (_) {},
+            ),
+            maxWidth: 320,
           ),
         ),
         WidgetbookUseCase(

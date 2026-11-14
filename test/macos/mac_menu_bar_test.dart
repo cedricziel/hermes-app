@@ -142,6 +142,7 @@ void main() {
       'Pin',
       'Rename…',
       'Copy Transcript',
+      'Compress Conversation…',
       '-',
       'Archive',
       'Delete…',

@@ -34,11 +34,15 @@ const notifications = <String, (Use, String)>{
   'tool.start': (Use.shown, 'tool call card'),
   'tool.complete': (Use.shown, 'tool call result'),
   'session.title': (Use.shown, 'thread title'),
-  'session.info': (Use.shown, 'settles the turn, re-keys the thread'),
+  'session.info': (
+    Use.shown,
+    'settles the turn, re-keys the thread, feeds the session usage',
+  ),
   'error': (Use.shown, 'reply failure'),
   'status.update': (
     Use.shown,
-    'compacting reply status and inspectable transient session waits',
+    'compacting and compressing reply status, compacted re-reads the '
+        'usage, other kinds inspectable transient session waits',
   ),
   'approval.cancelled': (Use.shown, 'withdraws approval cards'),
   'request.cancel': (Use.shown, 'withdraws an input request card'),

@@ -222,9 +222,14 @@ class _Suggestion extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l10n.chatContextSuggestion,
-            style: const TextStyle(fontSize: 14),
+          // In line with the row's text; the buttons' own padding lines
+          // their labels up with it.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 12),
+            child: Text(
+              l10n.chatContextSuggestion,
+              style: const TextStyle(fontSize: 14),
+            ),
           ),
           Wrap(
             spacing: 4,

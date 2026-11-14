@@ -3,7 +3,9 @@ import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart' show ReplyStatusKind;
 import 'package:hermes_app/src/chat/chat_models.dart'
     show
         ApprovalRequest,
@@ -270,6 +272,54 @@ void main() {
 
       expect(waitingForReasoning, findsOneWidget);
       expect(find.byType(ToolCallCard), findsNothing);
+    });
+
+    testWidgets('a compressing status is worded in the reader\'s language', (
+      tester,
+    ) async {
+      Future<void> pump(Locale locale) async {
+        final controller = InMemoryChatController(
+          messages: [
+            _custom({
+              kMetaKind: kKindThinking,
+              kMetaThinkingStartedAt: DateTime.now(),
+              kMetaThinkingActivity: 'Thinking…',
+              kMetaThinkingActivityKind: ReplyStatusKind.compressing,
+            }),
+          ],
+        );
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: locale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(),
+            home: Scaffold(
+              body: Chat(
+                currentUserId: kUserAuthorId,
+                resolveUser: (id) async => User(id: id),
+                chatController: controller,
+                builders: buildChatBuilders(onPickPrompt: (_) {})
+                    .copyWith(composerBuilder: (_) => const SizedBox.shrink()),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+
+      await pump(const Locale('en'));
+      expect(
+        find.textContaining('Compressing the conversation'),
+        findsOneWidget,
+      );
+      await pump(const Locale('de'));
+      await tester.pump();
+      expect(
+        find.textContaining('Die Unterhaltung wird komprimiert'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('an approval request renders as an ApprovalCard', (

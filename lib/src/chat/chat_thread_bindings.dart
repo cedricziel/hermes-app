@@ -156,6 +156,7 @@ ChatThreadView boundChatThreadView({
   VoidCallback? onSetupModel,
   BotScreenController? screen,
   VoidCallback? onOpenScreen,
+  bool draftHandedBack = false,
   ValueChanged<String>? onShowAgentDetails,
   NeedsYouQueue? needsYou,
   VoidCallback? onOpenActivity,
@@ -163,6 +164,8 @@ ChatThreadView boundChatThreadView({
   final t = thread;
   return ChatThreadView(
     thread: t,
+    sendHeld: t != null && chat.sendHeldIn(t),
+    draftHandedBack: draftHandedBack,
     activityLine: t == null || onOpenActivity == null
         ? null
         : BoundActivityLine(chat: chat, thread: t, onOpen: onOpenActivity),

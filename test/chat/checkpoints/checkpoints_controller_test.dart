@@ -217,6 +217,36 @@ void main() {
       expect(s.controller.beginRestore(_h3), isNull);
     });
 
+    test(
+      'only a full restore that removed history tells the re-read so',
+      () async {
+        Future<List<bool>> flagsAfter(
+          CheckpointRestore result, {
+          String? filePath,
+        }) async {
+          final s = _Setup();
+          await s.openWithChanges();
+          s.transport.restore = result;
+          await s.controller.confirmRestore(
+            s.controller.beginRestore(_h1, filePath: filePath)!,
+          );
+          return s.chat.refetchFlags;
+        }
+
+        expect(await flagsAfter(const Restored(historyRemoved: 2)), [true]);
+        expect(await flagsAfter(const Restored(historyRemoved: 0)), [false]);
+        expect(
+          await flagsAfter(
+            const Restored(historyRemoved: 2),
+            filePath: 'a.txt',
+          ),
+          [false],
+        );
+        expect(await flagsAfter(const RestoredHistoryNotRewound()), [false]);
+        expect(await flagsAfter(const RestoreMayHaveHappened()), [false]);
+      },
+    );
+
     test('a full restore waits for the reply; a file restore goes ahead with a warning', () async {
       final s = _Setup();
       await s.openWithChanges();
@@ -239,6 +269,7 @@ void main() {
         await s.controller.confirmRestore(intent);
         expect(s.transport.count('restore'), 0);
         expect(s.chat.held, isEmpty);
+        expect(s.controller.outcome!.kind, RestoreOutcomeKind.busyReplying);
       },
     );
 
@@ -658,7 +689,8 @@ void main() {
         transport: s.transport,
         bridge: ChatActionBridge(
           isReplying: () => false,
-          refetchChat: () async => throw StateError('offline'),
+          refetchChat: ({bool historyRemoved = false}) async =>
+              throw StateError('offline'),
           lastPrompt: () => failing.quote,
           chatHolds: (_) => true,
           handBackToComposer: failing.handedBack.add,
