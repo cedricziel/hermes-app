@@ -247,26 +247,6 @@ class _PathEntryViewState extends State<PathEntryView> {
     final l10n = context.l10n;
     final muted = context.hermesColors.subtleText;
     final suggestions = widget.suggestions;
-    if (suggestions.isEmpty) {
-      return GroupedListView(
-        children: [
-          ...leading,
-          // Thirty items and none a folder: only the hint to keep typing.
-          if (widget.capped)
-            Semantics(
-              liveRegion: true,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  l10n.workspacesTypeKeepTyping,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: muted),
-                ),
-              ),
-            ),
-        ],
-      );
-    }
     final metrics = GroupedMetrics.of(context);
     final large = isLargeText(context);
     final pathStyle = TextStyle(fontSize: metrics.subtitleSize, color: muted);
@@ -274,6 +254,9 @@ class _PathEntryViewState extends State<PathEntryView> {
       leading: leading,
       dividerIndent: metrics.indentAfterLeading,
       itemCount: suggestions.length,
+      // One list whether or not there are suggestions, so the field above
+      // them is never rebuilt and keeps its focus and selection. With none,
+      // a capped answer is only the hint to keep typing.
       footer: widget.capped ? l10n.workspacesTypeKeepTyping : null,
       itemBuilder: (context, i) {
         final item = suggestions[i];
