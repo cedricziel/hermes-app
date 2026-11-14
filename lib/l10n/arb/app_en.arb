@@ -3390,6 +3390,38 @@
   "@serverCareUpdateCommandHeader": {
     "description": "Header over the command to run on the server, on the Update page."
   },
+  "serverCareUpdateConfirmAction": "Update",
+  "@serverCareUpdateConfirmAction": {
+    "description": "Confirm button of the update question. Plain, not filled: the update restarts Hermes."
+  },
+  "serverCareUpdateConfirmConversations": "{count, plural, =1{1 conversation on messaging channels will stop.} other{{count} conversations on messaging channels will stop.}}",
+  "@serverCareUpdateConfirmConversations": {
+    "description": "Line of the update question when conversations on messaging channels are running now (the status's active agents).",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "serverCareUpdateConfirmReplies": "{count, plural, =1{1 reply in this app is still running and will stop.} other{{count} replies in this app are still running and will stop.}}",
+  "@serverCareUpdateConfirmReplies": {
+    "description": "Line of the update question when replies in this app are running now.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "1"
+      }
+    }
+  },
+  "serverCareUpdateConfirmRestarts": "Hermes restarts during the update, usually for a few minutes. Chats pause until it's back.",
+  "@serverCareUpdateConfirmRestarts": {
+    "description": "First line of the update question."
+  },
+  "serverCareUpdateConfirmTitle": "Update Hermes now?",
+  "@serverCareUpdateConfirmTitle": {
+    "description": "Title of the update question."
+  },
   "serverCareUpdateCouldntCheck": "Couldn't check",
   "@serverCareUpdateCouldntCheck": {
     "description": "Value of the Updates row when the check failed."
@@ -3488,6 +3520,14 @@
       }
     }
   },
+  "serverCareUpdateOutcomeUnauthorizedHint": "Hermes isn't accepting this sign-in right now, so the app can't read the result. The update may still be going.",
+  "@serverCareUpdateOutcomeUnauthorizedHint": {
+    "description": "Body of the result card when the update's status was refused with this sign-in."
+  },
+  "serverCareUpdateOutcomeUnauthorizedTitle": "The app can't read the update's result",
+  "@serverCareUpdateOutcomeUnauthorizedTitle": {
+    "description": "Title of the result card when the update's status was refused with this sign-in."
+  },
   "serverCareUpdatePageTitle": "Update",
   "@serverCareUpdatePageTitle": {
     "description": "Title of the Update page."
@@ -3505,6 +3545,10 @@
         "example": "0.22.0"
       }
     }
+  },
+  "serverCareUpdateRowUpdating": "Updating…",
+  "@serverCareUpdateRowUpdating": {
+    "description": "Value of the Updates row on the Server screen while an update runs."
   },
   "serverCareUpdateStepChecking": "Checking the result",
   "@serverCareUpdateStepChecking": {

@@ -314,6 +314,10 @@ enum UpdateOutcomeKind {
   unconfirmed,
   oldServerRunning,
   notBack,
+
+  /// The update's status was refused with this sign-in; the update may still
+  /// be going.
+  unauthorized,
 }
 
 /// How an update ended: a centred 48 pt icon, a title and a body, then the
@@ -331,6 +335,7 @@ class UpdateOutcomeCard extends StatelessWidget {
     this.runningVersion,
     this.installedVersion,
     this.detailLines = const [],
+    this.detailsInitiallyOpen = false,
     this.onDone,
     this.onTryAgain,
     this.onCheckAgain,
@@ -344,6 +349,7 @@ class UpdateOutcomeCard extends StatelessWidget {
   final String? runningVersion;
   final String? installedVersion;
   final List<String> detailLines;
+  final bool detailsInitiallyOpen;
   final VoidCallback? onDone;
   final VoidCallback? onTryAgain;
   final VoidCallback? onCheckAgain;
@@ -359,6 +365,7 @@ class UpdateOutcomeCard extends StatelessWidget {
       UpdateOutcomeKind.success => (AppIcons.checkCircleFilled, colors.success),
       UpdateOutcomeKind.partial ||
       UpdateOutcomeKind.oldServerRunning ||
+      UpdateOutcomeKind.unauthorized ||
       UpdateOutcomeKind.notBack => (AppIcons.warningRounded, colors.warning),
       UpdateOutcomeKind.failed => (AppIcons.errorFilled, scheme.error),
       UpdateOutcomeKind.unconfirmed => (AppIcons.info, colors.subtleText),
@@ -372,6 +379,8 @@ class UpdateOutcomeCard extends StatelessWidget {
       UpdateOutcomeKind.oldServerRunning =>
         l10n.serverCareUpdateOutcomeOldServerTitle,
       UpdateOutcomeKind.notBack => l10n.serverCareUpdateOutcomeNotBackTitle,
+      UpdateOutcomeKind.unauthorized =>
+        l10n.serverCareUpdateOutcomeUnauthorizedTitle,
     };
     final body = switch (kind) {
       UpdateOutcomeKind.success || UpdateOutcomeKind.unconfirmed =>
@@ -386,6 +395,8 @@ class UpdateOutcomeCard extends StatelessWidget {
       UpdateOutcomeKind.oldServerRunning =>
         l10n.serverCareUpdateOutcomeRestartToFinish,
       UpdateOutcomeKind.notBack => l10n.serverCareUpdateOutcomeNotBackHint,
+      UpdateOutcomeKind.unauthorized =>
+        l10n.serverCareUpdateOutcomeUnauthorizedHint,
     };
     final buttons = <Widget>[
       switch (kind) {
@@ -399,7 +410,8 @@ class UpdateOutcomeCard extends StatelessWidget {
             child: Text(l10n.serverCareUpdateOutcomeDone),
           ),
         ),
-        UpdateOutcomeKind.oldServerRunning => _fullWidth(
+        UpdateOutcomeKind.oldServerRunning ||
+        UpdateOutcomeKind.unauthorized => _fullWidth(
           FilledButton(
             style: _wide(context),
             onPressed: onCheckAgain,
@@ -422,7 +434,8 @@ class UpdateOutcomeCard extends StatelessWidget {
             child: Text(l10n.serverCareTryAgain),
           ),
         ),
-      if (kind == UpdateOutcomeKind.notBack)
+      if (kind == UpdateOutcomeKind.notBack ||
+          kind == UpdateOutcomeKind.unauthorized)
         _fullWidth(
           TextButton(
             style: _wide(context),
@@ -476,7 +489,12 @@ class UpdateOutcomeCard extends StatelessWidget {
           ),
         if (detailLines.isNotEmpty)
           GroupedSection(
-            children: [UpdateDetailsDisclosure(lines: detailLines)],
+            children: [
+              UpdateDetailsDisclosure(
+                lines: detailLines,
+                initiallyOpen: detailsInitiallyOpen,
+              ),
+            ],
           ),
         const SizedBox(height: 24),
         for (final (i, button) in buttons.indexed) ...[
