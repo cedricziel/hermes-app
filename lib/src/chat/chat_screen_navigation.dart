@@ -205,11 +205,8 @@ extension _ChatScreenNavigation on _ChatScreenState {
   );
 
   /// "profile · model" under the chat's title, leaving out what is unknown.
-  String? _toolbarSubtitle() {
-    final model = (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
-    final parts = [?_chat.profile, ?model];
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
+  String? _toolbarModelId() =>
+      (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
 
   void _selectThread(String id) {
     _showDetail();

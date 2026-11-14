@@ -1276,6 +1276,27 @@ Run `flutter test --concurrency=1 test/chat_session_state_test.dart test/gateway
 
 In the isolated client, inspect compact and expanded goal, loop, and heartbeat details with reported counts. Clear a transient wait and check that persistent control remains visible. Show a hydration failure, reopen the session, and check that loaded history remains. Reclaim the owning runtime, check that pending requests expire and actions stop, then reopen and check that queued prompts stay paused until explicit review. Observe a session on an older gateway that refuses `session.control.read`; ordinary chat must remain usable. Synthetic event injection is verification-only and requires a disposable backend.
 
+## Agents of a chat: stop and redirect
+
+The Activity panel lists a chat's delegated agents (Now, This session), opens one agent's detail and can stop it or send it a note (`openspec/changes/subagent-control`, `docs/architecture/chat.md` "Agents of a chat"). Device-free checks first:
+
+```bash
+flutter test test/chat/subagents test/chat/activity test/workflows/subagent_control_workflow_test.dart test/gateway/agent_work_transport_test.dart
+```
+
+The workflow test drives the real `ChatScreen` on an iPhone and a Mac (light and dark) and on an Android phone (light), and writes `build/workflow_screenshots/subagent-control-*`. Look at them: the detail's state line (Running · time · tools), Recent output with its hanging indent, the note field with a visible "Send to agent" label, the tinted Stop agent button, the confirmation (Cancel first, red Stop agent, two text buttons on Android) and, after the stop, "This agent was stopped." with no "Stopping…" under it.
+
+Against a real backend, only the throwaway dashboard from `scripts/dev-backend.sh` (never the real `~/.hermes`):
+
+1. Hermes needs a model that makes the parent call `delegate_task` with two goals, and whose child turns (told apart by their system prompt) run a `terminal` `sleep 30` before answering. `scripts/fake_tool_model.py` has no such turn yet and the contract test's `_serveScriptedModel` only runs one terminal call; add the delegating turn there first. This section was written from the Hermes source in design.md and has not been run against a backend. Use `HERMES_DEV_MODEL_CALLS=1` with a paid model only if the user allows it.
+2. Send a prompt that delegates. Two rows appear under Now with a running dot. Open one (row, or the transcript card's chevron): the detail shows Recent output and refreshes every 2 s.
+3. Stop agent asks first; Cancel sends nothing. Confirm: exactly one `subagent.interrupt`, "Stopping…", then "Stopped" while the parent goes on. Check the lineage case too: a running agent that `subagent.list` still shows after the session's runtime was rebuilt answers `found: false`, and the detail must say "Hermes doesn't let this device stop or redirect this agent. It keeps running." and not "This agent had already finished."
+4. Type a note to the other agent and press Send to agent: one `subagent.steer`, the composer's draft is untouched, and nothing is added to the chat. A note that lands after the agent's last tool batch is reported as "Your note didn't reach the agent. It had finished first."; typed text still unsent when a stop is accepted or the agent ends reads "Not sent" with Copy.
+5. A conversation window (a second window on the same chat) lists the agents but offers no Stop or note, and reads nothing.
+6. An older Hermes without `subagent.*`: rows still come from frames and nothing shows an error. The app never probes, so Stop and the note field are offered; pressing one shows "This server can't stop agents." (or the note equivalent) and removes that control.
+
+Goals, tool names, output and notes must never appear in breadcrumbs, spans or logs; the privacy test in `test/chat/subagents/bound_activity_panel_agents_test.dart` checks this for breadcrumbs and app events, and `subagent_repository_test.dart` checks the `subagent.rpc` span; `Exported telemetry` above shows how to read what was exported.
+
 ## Background request alert retry
 
 Run `flutter test --concurrency=1 test/local_notification_service_test.dart test/background/background_refresh_test.dart`. A posting result records OS acceptance of the attempt, not observed delivery. In the isolated client, leave a synthetic approval pending, simulate one native posting failure, then allow a later live check to post it. Verify that failed or denied attempts remain eligible and that accepted attempts save only the represented request marks. Interrupt after acceptance but before mark persistence; a later check must replace the same notification ID. Resolve the approval before a retry and verify that no stale request is announced. Keep App Lock text generic and use only disposable client state.

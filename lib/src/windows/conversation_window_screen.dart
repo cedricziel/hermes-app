@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../chat/activity/bound_activity_line.dart';
 import '../chat/activity/bound_activity_panel.dart';
 import '../chat/subagents/activity_selection.dart';
 import '../chat/activity/bound_needs_you_dock.dart';
@@ -257,12 +258,6 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     });
   }
 
-  String? _subtitle() {
-    final model = (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
-    final parts = [?_args.profile, ?model];
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
-
   @override
   void dispose() {
     _agentSelection.dispose();
@@ -286,9 +281,17 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     final chat = _chat;
     final thread = _thread;
     _latestReply.follow(chat, thread);
+    // This window's own chat decides, so another window's work never shows.
+    final subtitle = workingToolbarSubtitle(
+      chat,
+      thread,
+      profile: _args.profile,
+      model: (chat.modelChoice ?? chat.modelOptions?.current)?.modelId,
+    );
     final toolbar = ConversationWindowToolbar(
       title: thread?.title ?? _args.title,
-      subtitle: _subtitle(),
+      subtitle: subtitle.subtitle,
+      subtitleBuilder: subtitle.subtitleBuilder,
       pinned: thread?.pinned ?? false,
       onShowInMain: () => _link.showInMain(_args.threadId, _args.profile),
       onTogglePin: thread == null ? null : _togglePin,
