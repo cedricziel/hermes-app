@@ -69,7 +69,7 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 
 ### Requirement: Voice turns
 
-A prompt sent from a voice call SHALL go through the chat's send path and appear in the transcript, but SHALL NOT be queued: it is sent only when the thread has no running reply and an empty queue, else it is dropped with a notice and nothing is sent. Its `prompt.submit` SHALL carry `voice_turn: true`, and `interrupted: true` on the first spoken turn after the user cut off speech (by tapping the orb or speaking over it). Typed prompts SHALL carry neither flag.
+A prompt sent from a voice call SHALL go through the chat's send path and appear in the transcript, but SHALL NOT be queued by the client: `ChatController.submit` for a voice turn SHALL wait for the persisted queue to be restored and SHALL return without sending, and without enqueuing, when the thread has a running reply or a non-empty queue. Its `prompt.submit` SHALL carry `voice_turn: true`. Typed prompts SHALL carry neither flag.
 
 #### Scenario: Spoken prompt
 
@@ -81,19 +81,38 @@ A prompt sent from a voice call SHALL go through the chat's send path and appear
 - **WHEN** the user finishes speaking while a typed reply is still running
 - **THEN** nothing is sent and the call says "Hermes is still answering. Nothing was sent."
 
+#### Scenario: Queue not restored yet
+
+- **WHEN** a spoken turn is finished before the saved queue was read, and the queue holds a prompt
+- **THEN** nothing is sent and nothing is queued by the client
+
 #### Scenario: Typed prompt
 
 - **WHEN** the user types and sends a message
 - **THEN** `prompt.submit` carries neither flag
 
+### Requirement: Interrupted flag
+
+A spoken turn SHALL carry `interrupted: true` only when it is the first one after the user cut off speech (by tapping the orb or speaking over it) and the submit is expected to start at once. The flag SHALL be cleared after that submit, whatever the answer, because Hermes keeps it in a process-wide latch for up to 120 s that annotates the next turn it starts.
+
+#### Scenario: Barge-in prompt
+
+- **WHEN** the user speaks over a reply and the call submits what they said on an idle thread
+- **THEN** `prompt.submit` carries `voice_turn: true` and `interrupted: true`, and the next spoken turn carries only `voice_turn`
+
 ### Requirement: Voice turn outcomes
 
-The result of a spoken `prompt.submit` SHALL be read by `status`. `streaming` starts the turn. `queued`, `steered` or `redirected` mean Hermes was busy: the call SHALL stop waiting for a spoken reply, say "Hermes was busy. Your words are in the chat.", and listen again, and SHALL NOT claim the prompt was withdrawn. A `voice_stopped` answer without a `status`, to a typed or a spoken prompt, SHALL count as consumed: no reply placeholder remains, and a running call ends.
+The result of a spoken `prompt.submit` SHALL be read by `status`. `streaming` starts the turn. `queued`, `steered` or `redirected` mean Hermes was busy: the call SHALL stop waiting for a spoken reply and listen again, and SHALL NOT claim the prompt was withdrawn. The notice SHALL say which status it was. A `voice_stopped` answer without a `status`, to a typed or a spoken prompt, SHALL count as consumed: no reply placeholder remains, and a running call ends.
 
 #### Scenario: Server folds the prompt
 
 - **WHEN** a spoken prompt is answered `steered`
-- **THEN** the call shows the notice and listens again within a second, not after ten minutes
+- **THEN** the call says "Hermes took your words into its current reply." and listens again at once, not after ten minutes
+
+#### Scenario: Other busy answers
+
+- **WHEN** a spoken prompt is answered `queued` or `redirected`
+- **THEN** the call says "Hermes will answer your words after its current reply." or "Hermes stopped its reply to answer you." and listens again
 
 #### Scenario: Server ends voice mode
 

@@ -64,21 +64,30 @@ The user SHALL be able to stop the call at any moment by End, a stop phrase, or 
 
 ### Requirement: Listening turn
 
-The app SHALL detect speech from the microphone level and end the turn after a pause of 0.9 s, or the profile's `voice.silence_duration` when it is neither unset nor Hermes' default 3.0 (limited to 0.5 to 3 s). A turn SHALL end after 60 s. The audio SHALL be transcribed as dictation does. A transcript that is empty or a known Whisper hallucination on silence ("Thank you.", "Bye", repeats of them) SHALL NOT be sent and listening SHALL resume.
+The app SHALL detect speech from the microphone level and end the turn after a pause of 0.9 s, or the profile's `voice.silence_duration` when the profile sets one (limited to 0.5 to 3 s). A turn SHALL end after 60 s. The audio SHALL be transcribed as dictation does.
 
 #### Scenario: Pause ends the turn
 
 - **WHEN** the user says "remind me at five" and stays silent for the pause
 - **THEN** the words are transcribed and sent once
 
+### Requirement: Which transcripts are sent
+
+A transcript SHALL be checked in this order, and the first match decides: empty (dropped), echo of the reply just spoken, similarity 0.6 or more (dropped), a known Whisper hallucination on silence such as "Thank you." or "Bye" (dropped), a stop phrase (ends the call), else sent. A dropped transcript SHALL leave the state Listening and send nothing.
+
 #### Scenario: Near silence
 
 - **WHEN** the recognizer answers "Thank you." for room noise
 - **THEN** nothing is sent and the state stays Listening
 
+#### Scenario: Echoed goodbye
+
+- **WHEN** Hermes says "Goodbye." and the microphone hears it back
+- **THEN** the call does not end and nothing is sent
+
 ### Requirement: Content the user did not say
 
-Where the platform has no echo cancellation (macOS, Windows, Linux), capture SHALL be paused while a tone or the reply plays and SHALL resume 400 ms after the audio drained. On every platform the first transcript after playback that is 0.6 or more similar to the reply just spoken SHALL be treated as echo and not sent.
+Where the platform has no echo cancellation (macOS, Windows, Linux), capture SHALL be paused while a tone or the reply plays and SHALL resume 400 ms after the audio drained. Pausing capture SHALL reset the speech detector, so no half-heard turn survives it.
 
 #### Scenario: Tone and speech are not heard
 
@@ -105,22 +114,27 @@ Each transcript SHALL be compared with the stop phrases before it is sent, after
 
 #### Scenario: Goodbye
 
-- **WHEN** the profile has Hermes' default list and the user says "Hey Hermes, goodbye."
+- **WHEN** the profile sets no list and the user says "Hey Hermes, goodbye."
 - **THEN** the call ends and nothing is sent
 
 ### Requirement: Stop phrase list
 
-The phrases SHALL be the profile's `voice.stop_phrases`, except that an unset list, or exactly Hermes' default `["stop"]` (which `GET /api/config` returns for an unset key), SHALL mean the built-in list: stop, stop listening, stop it, please stop, that is all, never mind, end conversation, end the call, goodbye, bye, cancel, hang up, end call.
+The phrases SHALL be the profile's `voice.stop_phrases` when the profile sets the key, and it replaces the built-in list. Without it the built-in list applies: stop, stop listening, stop it, please stop, that is all, never mind, end conversation, end the call, goodbye, cancel, hang up, end call.
 
 #### Scenario: Profile list
 
 - **WHEN** the profile lists only "enough"
 - **THEN** "enough" ends the call and "goodbye" is sent as a turn
 
-#### Scenario: Default list
+#### Scenario: Built-in list
 
-- **WHEN** the profile's list is `["stop"]` and the user says "end the call"
+- **WHEN** the profile sets no list and the user says "end the call"
 - **THEN** the call ends and nothing is sent
+
+#### Scenario: Profile lists only stop
+
+- **WHEN** the profile sets `["stop"]` and the user says "goodbye"
+- **THEN** "goodbye" is sent as a turn
 
 ### Requirement: Speaking the reply
 
@@ -142,16 +156,16 @@ On `fallback`, or a socket failure before any audio, the app SHALL synthesize th
 
 ### Requirement: Interrupting the agent
 
-Tapping the orb while the agent speaks SHALL stop playback and listen. The first spoken turn after an orb tap or a barge-in SHALL carry `interrupted: true`, and later turns SHALL NOT. Where the platform has no echo cancellation the microphone is closed while Hermes speaks, and the stall watchdog is suspended meanwhile.
+Tapping the orb while the agent speaks SHALL stop playback and listen. The first spoken turn after an orb tap or a barge-in SHALL carry `interrupted: true`, and later turns SHALL NOT; the flag is set only on a submit the app expects to start at once, and cleared after it, whatever the answer. Where the platform has no echo cancellation the microphone is closed while Hermes speaks, and the stall watchdog is suspended meanwhile.
 
 #### Scenario: Tap to interrupt
 
 - **WHEN** the agent speaks and the user taps the orb
-- **THEN** speech stops within 100 ms, the state is Listening, and the next turn carries `interrupted: true`
+- **THEN** speech stops at once, the state is Listening, and the next turn carries `interrupted: true`
 
 ### Requirement: Barge-in
 
-Where the platform cancels echo (iOS, Android) and `voice.barge_in` is not false, speech over the agent SHALL stop playback at its onset. The running reply SHALL be stopped only when the resulting turn is about to be submitted; echo or an empty transcript leaves it running, unspoken, in the chat.
+Where the platform cancels echo and it has been verified (iOS; Android only after its device check) and `voice.barge_in` is not false, speech over the agent SHALL stop playback at its onset. The running reply SHALL be stopped only when the resulting turn is about to be submitted; echo or an empty transcript leaves it running, unspoken, in the chat.
 
 #### Scenario: Echo on a phone
 
@@ -172,9 +186,23 @@ While the agent waits for an approval or question, capture SHALL be paused and n
 - **WHEN** the agent asks to approve a command and the user says "yes"
 - **THEN** the turn is not interrupted, nothing is sent, and nothing is approved
 
+### Requirement: Waiting is tracked on its own
+
+The waiting state SHALL be tracked independently of any turn or barge-in: a request raised by a reply that is still running after speech was stopped SHALL still pause capture. It SHALL be checked again immediately before the app interrupts a reply and before it submits a turn, and a turn that was already being sent when the request arrived SHALL be dropped.
+
+#### Scenario: Approval after a barge-in
+
+- **WHEN** the user spoke over a reply, the reply keeps running, and it then asks for an approval
+- **THEN** the call shows Waiting for you, and the next thing the user says is not sent and cancels nothing
+
+#### Scenario: Approval while sending
+
+- **WHEN** an approval arrives while a turn is still being transcribed
+- **THEN** that turn is dropped and the approval is untouched
+
 ### Requirement: Interruptions
 
-A system interruption SHALL end the call and say so. On Android a permanent or transient audio-focus loss (a call, an alarm, a navigation prompt) ends it, and a request to duck does not. A route change SHALL discard the turn being heard, say "Audio route changed. Please repeat if needed. Nothing was sent.", and resume listening. The call SHALL NOT resume by itself after an interruption. A submitted turn stays in the chat.
+A system interruption SHALL end the call and say so. On Android a permanent or transient audio-focus loss (a call, an alarm) ends it, and a request to duck (a notification sound, a navigation prompt) does not. The call SHALL NOT resume by itself after an interruption. A submitted turn stays in the chat.
 
 #### Scenario: Incoming phone call
 
@@ -186,19 +214,32 @@ A system interruption SHALL end the call and say so. On Android a permanent or t
 - **WHEN** a notification asks the audio to duck
 - **THEN** the call continues
 
+### Requirement: Route change
+
+A route change (headset, Bluetooth, speaker) SHALL discard the turn being heard and the speech, say "Audio route changed. Please repeat if needed. Nothing was sent.", and resume listening, without interrupting a running reply or a pending request.
+
+#### Scenario: Headphones unplugged during an approval
+
+- **WHEN** the route changes while the agent waits for an approval
+- **THEN** the approval and the Waiting for you state stay, and capture stays paused
+
 ### Requirement: Background, lock and idle
 
-Where the platform keeps the call's audio alive in the background (iOS, through its system call), locking or leaving the app SHALL NOT end it. On Android, leaving the foreground or locking SHALL end it. On macOS, Windows and Linux, hiding or minimising the app SHALL end it, but a screen lock is not observed: the call continues until the idle limit, which is a platform limit. On every platform a call SHALL end after 5 minutes without speech and without a running reply, and say so.
+Where the platform keeps the call's audio alive in the background (iOS, through its system call), locking or leaving the app SHALL NOT end it. On Android, leaving the foreground or locking SHALL end it. On macOS, Windows and Linux, hiding or minimising the app SHALL end it, but a screen lock is not observed: the call continues until the idle limit, which is a platform limit.
 
 #### Scenario: Android app backgrounded
 
 - **WHEN** the user switches to another app during a call on Android
 - **THEN** the call ends, the microphone closes, and the thread keeps every submitted turn
 
+### Requirement: Idle limit
+
+Where barge-in is off, capture SHALL be open only while the call is Listening. On every platform a call SHALL end after 5 minutes without speech and without a running reply, and say so.
+
 #### Scenario: Desktop locked
 
-- **WHEN** a Mac is locked during a call and nobody speaks
-- **THEN** the call ends after 5 minutes and says no one spoke
+- **WHEN** a Mac is locked while the call is Listening and nobody speaks
+- **THEN** the call ends after 5 minutes and says no one spoke, and while a reply runs capture is already closed
 
 ### Requirement: Microphone closed on every exit
 
@@ -214,6 +255,17 @@ On every way a call ends (End, stop phrase, interruption, error, sign-out, profi
 - **WHEN** the user ends the call while capture is starting
 - **THEN** capture is closed as soon as it started, and nothing is recorded
 
+
+
+### Requirement: Unconfirmed close
+
+When closing capture could not be confirmed, the screen SHALL say "The call ended, but the microphone may still be open" instead of "The microphone is closed", and the strip SHALL read "microphone may still be open" until capture is closed or the app quits.
+
+#### Scenario: Close not confirmed
+
+- **WHEN** stopping capture times out
+- **THEN** the call ends with the warning, not with "The microphone is closed"
+
 ### Requirement: Platforms
 
 The conversation SHALL run on iOS (system call and native audio engine), Android, macOS, Windows and Linux through one loop and one audio seam for capture, playback, mute, route and end. It SHALL NOT be offered in conversation windows or on watchOS. A platform whose microphone or audio output cannot be opened SHALL fail the matching start-screen check. Speaker routing is iOS and Android; desktop uses the system's output.
@@ -222,6 +274,15 @@ The conversation SHALL run on iOS (system call and native audio engine), Android
 
 - **WHEN** the audio output cannot be opened on Linux
 - **THEN** the start screen's audio output check fails and Start call is unavailable
+
+### Requirement: App Lock
+
+App Lock SHALL NOT end a call, and while it is on the call screen, the strip and notices SHALL show no turn text, caption or reply. The App Lock cover SHALL keep a "Hands-free on" mark with End, so an open microphone is never hidden by it.
+
+#### Scenario: Locked while listening
+
+- **WHEN** App Lock covers the app during an iOS call
+- **THEN** the cover shows "Hands-free on" and End and no words
 
 ### Requirement: GPT-Live profiles
 
@@ -234,12 +295,12 @@ When `GET /api/audio/voice-live/status` reports `mode: "gpt-live"`, the app SHAL
 
 ### Requirement: Backend contract
 
-Voice conversation SHALL rely only on the dictation routes, `GET /api/model/auxiliary`, `GET /api/audio/voice-live/status`, the `/api/audio/speak-stream` socket (`start`, PCM, `end`, `fallback`; `text`, `done`, `stop`), `POST /api/audio/speak`, `POST /api/audio/tts-lease`, the `voice` section of `GET /api/config` (which returns Hermes' defaults for keys the profile did not set), and `prompt.submit` with `voice_turn` and `interrupted`.
+Voice conversation SHALL rely only on the dictation routes, `GET /api/model/auxiliary`, `GET /api/audio/voice-live/status`, the `/api/audio/speak-stream` socket (`start`, PCM, `end`, `fallback`; `text`, `done`, `stop`), `POST /api/audio/speak`, `POST /api/audio/tts-lease`, the `voice` section of `GET /api/config` read with `include_defaults=false`, so a key the profile did not set is absent, and `prompt.submit` with `voice_turn` and `interrupted`.
 
 #### Scenario: Profile without a voice section
 
 - **WHEN** the profile's config has no `voice` section
-- **THEN** the call uses the default pause, the built-in stop phrases, and barge-in where the platform allows it
+- **THEN** the call uses the app's defaults: a 0.9 s pause, the built-in stop phrases, and barge-in where it is allowed
 
 ### Requirement: Telemetry
 
@@ -253,4 +314,4 @@ The call SHALL log `voice_call.readiness`, `voice_call.connected` and one `voice
 #### Scenario: Reason words
 
 - **WHEN** a call ends
-- **THEN** `reason` is one of hang_up, stop_phrase, app, background, idle, transcription, interrupted, focus_lost, prepare, native_start, connect, microphone_stalled, native_error, speech, turn or mute
+- **THEN** `reason` is one of hang_up, stop_phrase, voice_stopped, app, app_failure, background, idle, transcription, interrupted, focus_lost, prepare, audio_focus, native_start, native_events, connect, microphone_stalled, native_error, speech, turn or mute

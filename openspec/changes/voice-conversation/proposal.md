@@ -10,7 +10,7 @@ Since this change was first written, iOS got a native voice call that is not spe
 - **Hands-free consent, per call.** The start screen asks the user to turn on "Send what I say automatically" before the microphone opens. It is never remembered. Without it there is no call; dictation is offered instead.
 - **Migration of the shipped iOS call.** Consent, the stop list, transcription-failure and speech-failure handling, the `voice_chat` readiness row and the model route change for iOS users; design.md's "Migration (iOS)" lists each, and `docs/voice-calls.md` is updated in the same PR.
 - **State you can see and hear.** One orb, a state word with an icon, a "Hands-free on" strip with a recording dot, tones for listening, sent and ended, haptics on mobile and screen-reader announcements.
-- **Stop at any moment.** End, mute, stop phrases (the profile's `voice.stop_phrases`, with Hermes' default `["stop"]` counted as unset so the built-in list applies) and the platform's hang-up. End or mute before `submit` is called sends nothing; a voice turn is never queued.
+- **Stop at any moment.** End, mute, stop phrases (the profile's `voice.stop_phrases`, read with `include_defaults=false`; a profile list replaces the built-in one) and the platform's hang-up. End or mute before `submit` is called sends nothing; the client never queues a voice turn (Hermes may still answer queued, steered or redirected under its busy-input mode, which the call reports).
 - **False turns.** Whisper's silence hallucinations are dropped; on desktop capture pauses during tones and speech, and an echo guard checks the first transcript after playback.
 - **Waiting for you.** While the agent waits for an approval, capture pauses and speech neither interrupts nor sends.
 - **Failed transcription sends nothing.** The turn is dropped with "Couldn't hear that. Nothing was sent."; two in a row end the call. (Today a failure ends the call at once.)
@@ -27,13 +27,13 @@ Since this change was first written, iOS got a native voice call that is not spe
 
 ### Modified Capabilities
 
-- `chat`: `prompt.submit` carries `voice_turn` and `interrupted` on spoken turns (modified backend contract, never queued), and the answer statuses and `voice_stopped` are handled.
+- `chat`: `prompt.submit` carries `voice_turn` and `interrupted` on spoken turns (modified backend contract; the client never queues them), and the answer statuses and `voice_stopped` are handled.
 
 ## Impact
 
 - Code: `lib/src/voice/calls/` gains consent, the stop-phrase matcher, the echo guard, tones, the idle limit, a transcription-failure path and the portable bridge (`record` plus `flutter_soloud`). `ChatController.submit` and `ChatTransport.send` gain `voiceTurn` and `interrupted`. Widgets in `lib/src/voice/widgets/`: `VoiceOrb` and the extended call view, start view and notices.
 - Dependencies: `flutter_soloud` (new, the only one; justified in design.md decision 12: streaming PCM on all five platforms, never initialised on iOS or in conversation windows). `record` and `audio_session` are already in `pubspec.yaml`; stop phrases need no Unicode package.
-- Native: Android needs `MODIFY_AUDIO_SETTINGS`; Linux builds miniaudio (CI may need `libasound2-dev`; the release-please x86_64 and arm64 packages gain `libasound2 | libasound2t64`). iOS needs no change. No new permission beyond dictation's.
+- Native: Android needs `MODIFY_AUDIO_SETTINGS`; `flutter_soloud`'s build hook downloads prebuilt Xiph libraries unless `no_xiph_libs: true` is set (it will be), which touches CI, the release workflows and the Linux arm64 build; on Linux it needs no new system package. iOS needs no change. No new permission beyond dictation's.
 - API: no OpenAPI or OpenRPC change. At the pinned ref (`d923a5e`) `prompt.submit` already takes `voice_turn` and `interrupted` and answers `voice_stopped`; the generated client has `speak`, `tts-lease`, `voice-live/status` and `model/auxiliary`; `speak-stream` is a socket opened like `/api/ws`.
 
 ## Non-goals
@@ -46,7 +46,7 @@ Since this change was first written, iOS got a native voice call that is not spe
 
 ## Security and privacy impact
 
-The microphone is open for the whole call, longer than for dictation, and the transcript is sent without a press of send. That is why consent is per call and explicit, why the open microphone is always visible, why a failed or interrupted turn sends nothing, and why approvals stay in the chat. Audio goes only to the user's Hermes server (or the device recognizer) and is not written to disk; reply text goes back to the same server to be spoken. No new credential is stored.
+The microphone is open for the whole call, longer than for dictation, and the transcript is sent without a press of send. That is why consent is per call and explicit, why the open microphone is always visible, why a failed or interrupted turn sends nothing, and why approvals stay in the chat. Audio goes only to the user's Hermes server (or the device recognizer) and touches disk only in temporary files deleted after use; reply text goes back to the same server to be spoken. No new credential is stored.
 
 ## Telemetry
 
