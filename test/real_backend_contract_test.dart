@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_api/hermes_api.dart'
     show
+        CredentialPoolAdd,
         CronJobCreate,
         CustomEndpointUpdate,
         EnvVarUpdate,
@@ -52,6 +53,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/providers/provider_models.dart';
 import 'package:hermes_app/src/providers/provider_results.dart';
 import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
@@ -67,6 +69,7 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/tools_models.dart';
+import 'package:hermes_app/src/tools/toolset_risk.dart';
 import 'package:hermes_app/src/voice/synthesized_speech.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:hermes_app/src/voice/wav.dart';
@@ -106,6 +109,16 @@ import 'support/attachment_fixtures.dart';
 /// The model provider tests only read the five list routes and call both
 /// validate routes with an empty value; they save no key, start no sign-in and
 /// remove nothing.
+/// The model provider write tests create three throwaway profiles named
+/// `contract-check-key-…`, `-endpoint-…` and `-pool-…`, save fake keys, a
+/// custom endpoint that points at a model served on the loopback interface, a
+/// manual pool entry and a `moa` preset into them, remove a key, and delete
+/// the profiles after; the local-runtime row test stages an empty `.gguf` in
+/// `$HERMES_DEV_HOME/models` (skipped without `HERMES_DEV_HOME`) and removes it.
+/// Nothing reaches a real provider. The tool write tests do the same with a
+/// profile named `contract-check-tools-…`: they switch toolsets, pick a
+/// provider with a fake key, a model and a terminal backend, and chat with a
+/// scripted model; no install step is started.
 /// The media tests write throwaway files under the backend's `images` folder
 /// and the system temp directory, so they need a backend on this machine, and
 /// delete them after. The scripted-model tests create a throwaway profile
@@ -3458,6 +3471,38 @@ void main() {
       expect(list.toolsets.map((t) => t.name), contains('terminal'));
     });
 
+    test('every toolset the server lists has been decided about in the '
+        'risk table, or is on the list still to decide', () async {
+      // Names the server listed on d923a5eb that the app has not decided
+      // about (no risk line, no confirmation). A name outside all three sets
+      // is new: decide it in lib/src/tools/toolset_risk.dart.
+      const stillToDecide = {
+        'vision',
+        'video',
+        'x_search',
+        'skills',
+        'kanban',
+        'memory',
+        'context_engine',
+        'connections',
+        'clarify',
+        'discord',
+        'yuanbao',
+        'a2a',
+      };
+      final names = value(await tools.list()).toolsets.map((t) => t.name);
+
+      expect(names.length, greaterThan(10));
+      expect(names, containsAll(['terminal', 'file', 'web', 'browser']));
+      final unknown = names.where(
+        (n) =>
+            !kToolsetRisks.containsKey(n) &&
+            !kNoRiskToolsets.contains(n) &&
+            !stillToDecide.contains(n),
+      );
+      expect(unknown, isEmpty, reason: 'new toolsets: decide their risk');
+    });
+
     test('a toolset with a provider matrix reads its providers', () async {
       final list = value(await tools.list());
       final name = list.toolsets
@@ -3527,6 +3572,599 @@ void main() {
 
       expect(await gone.list(), isA<ToolsProfileGone<ToolsetList>>());
     });
+  }, skip: skip);
+
+  group('model providers on throwaway profiles (fake keys, no provider call)', () {
+    // Saves FAKE keys into profiles this group creates, adds a custom
+    // endpoint that points at a model served on the loopback interface, a
+    // manual pool entry and an opted-in `moa` preset, and deletes the
+    // profiles after. No key is validated (that would call the provider) and
+    // no provider is ever contacted: the only server reached is the loopback
+    // one. The local-runtime row needs HERMES_DEV_HOME (the backend's home) to
+    // stage an empty model file in; that test is skipped without it.
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final keyProfile = 'contract-check-key-$stamp';
+    final endpointProfile = 'contract-check-endpoint-$stamp';
+    final poolProfile = 'contract-check-pool-$stamp';
+    final devHome = Platform.environment['HERMES_DEV_HOME'];
+    final authorizations = <String?>[];
+    late HttpServer model;
+    late ProvidersRepository providers;
+
+    Future<Map<String, dynamic>> options(
+      String profile, {
+      bool unconfigured = true,
+    }) async {
+      final body = (await client.raw.getModelOptionsApiModelOptionsGet(
+        profile: profile,
+        includeUnconfigured: unconfigured,
+      )).data;
+      expect(body, isA<Map<String, dynamic>>());
+      return body! as Map<String, dynamic>;
+    }
+
+    Map<String, dynamic>? optionsRow(Map<String, dynamic> body, String slug) {
+      for (final row in (body['providers']! as List)) {
+        if ((row as Map)['slug'] == slug) return row.cast<String, dynamic>();
+      }
+      return null;
+    }
+
+    Future<Map<String, dynamic>> read(Future<Response<Object>> call) async {
+      final body = (await call).data;
+      expect(body, isA<Map<String, dynamic>>());
+      return body! as Map<String, dynamic>;
+    }
+
+    Future<ProviderCatalog> catalogOf(String profile) async {
+      final snapshot = await providers.load(profile);
+      expect(snapshot, isA<ProvidersLoaded>());
+      return (snapshot as ProvidersLoaded).catalog;
+    }
+
+    setUpAll(() async {
+      if (url == null) return;
+      providers = ProvidersRepository(client.raw);
+      model = await _serveScriptedModel(
+        command: 'true',
+        onTurn: (authorization, tools) {
+          if (tools.isNotEmpty) authorizations.add(authorization);
+        },
+      );
+      for (final name in [keyProfile, endpointProfile, poolProfile]) {
+        await client.raw.createProfileEndpointApiProfilesPost(
+          profileCreate: ProfileCreate(name: name, noSkills: true),
+        );
+      }
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      for (final name in [keyProfile, endpointProfile, poolProfile]) {
+        await client.raw.deleteProfileEndpointApiProfilesNameDelete(name: name);
+      }
+      await model.close(force: true);
+    });
+
+    HermesGatewayTransport connect() {
+      final transport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        ),
+      );
+      addTearDown(transport.close);
+      return transport;
+    }
+
+    test('an empty profile has every provider as a skeleton, no default, '
+        'no pool entry and no endpoint', () async {
+      final body = await options(keyProfile);
+      expect(body['model'], '');
+      expect(body['provider'], '');
+      final rows = (body['providers']! as List).cast<Map<String, dynamic>>();
+      expect(rows.length, greaterThan(20));
+      final openRouter = optionsRow(body, 'openrouter')!;
+      expect(openRouter['authenticated'], isFalse);
+      expect(openRouter['auth_type'], 'api_key');
+      expect(openRouter['warning'], isA<String>());
+      // The chat picker's read (no flag) lists nothing but a staged local
+      // runtime for a profile with nothing connected.
+      final plain = await options(keyProfile, unconfigured: false);
+      expect(plain['provider'], '');
+      expect(
+        (plain['providers']! as List).cast<Map>().map((r) => r['source']),
+        everyElement('local-runtime'),
+      );
+      // The skeleton may name no key variable; /api/env always does.
+      expect(openRouter['key_env'], anyOf('', 'OPENROUTER_API_KEY'));
+      final openAi = optionsRow(body, 'openai-api')!;
+      expect(openAi['auth_type'], 'api_key');
+      expect(openAi['key_env'], 'OPENAI_API_KEY');
+      expect(optionsRow(body, 'nous')!['auth_type'], 'oauth_device_code');
+
+      final env = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: keyProfile),
+      );
+      final keyRow = env['OPENROUTER_API_KEY'] as Map;
+      expect(keyRow['is_set'], isFalse);
+      expect(keyRow['provider'], 'openrouter');
+      expect(keyRow['provider_primary'], isTrue);
+      final pool = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(profile: keyProfile),
+      );
+      expect(pool['providers'], isEmpty);
+      final endpoints = await read(
+        client.raw.listCustomEndpointsApiProvidersCustomEndpointsGet(
+          profile: keyProfile,
+        ),
+      );
+      expect(endpoints['endpoints'], isEmpty);
+      final oauth = await read(
+        client.raw.listOauthProvidersApiProvidersOauthGet(profile: keyProfile),
+      );
+      expect((oauth['providers']! as List).length, greaterThan(3));
+
+      final catalog = await catalogOf(keyProfile);
+      expect(catalog.connected, isEmpty);
+      expect(catalog.skippedRows, 0);
+      expect(catalog.byId('openrouter')!.keyEnv, 'OPENROUTER_API_KEY');
+    });
+
+    test('a saved key lists the provider with its models at once, and '
+        'removing the default provider\'s key keeps provider and '
+        'model', () async {
+      expect(
+        await providers.saveKey(
+          keyProfile,
+          'OPENROUTER_API_KEY',
+          'sk-or-demo-0000',
+        ),
+        isA<KeySaved>(),
+      );
+
+      final body = await options(keyProfile);
+      final row = optionsRow(body, 'openrouter')!;
+      expect(row['authenticated'], isTrue);
+      expect(row['models'], isNotEmpty);
+      expect(row['total_models'], isA<int>());
+      expect(body['provider'], '');
+      final env = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: keyProfile),
+      );
+      final keyRow = env['OPENROUTER_API_KEY'] as Map;
+      expect(keyRow['is_set'], isTrue);
+      expect(keyRow['redacted_value'], startsWith('«redacted:'));
+      final pool = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(profile: keyProfile),
+      );
+      final group = (pool['providers']! as List).single as Map;
+      expect(group['provider'], 'openrouter');
+      expect(
+        ((group['entries']! as List).single as Map)['source'],
+        isA<String>(),
+      );
+      expect(
+        ((group['entries']! as List).single as Map)['source'],
+        'env:OPENROUTER_API_KEY',
+      );
+      expect(
+        (await catalogOf(keyProfile)).byId('openrouter')!.connected,
+        isTrue,
+      );
+
+      final recommended = await providers.recommendedDefault(
+        keyProfile,
+        'openrouter',
+      );
+      expect(recommended, isNotNull);
+      expect(
+        await providers.setDefaultModel(
+          keyProfile,
+          'openrouter',
+          recommended!.model,
+        ),
+        isA<DefaultModelSaved>(),
+      );
+      expect((await options(keyProfile))['provider'], 'openrouter');
+
+      expect(
+        await providers.removeKey(keyProfile, 'OPENROUTER_API_KEY'),
+        isA<Removed>(),
+      );
+      final after = await options(keyProfile);
+      expect(after['provider'], 'openrouter');
+      expect(after['model'], recommended.model);
+      // With the flag the provider keeps a skeleton row, not authenticated,
+      // that names the saved model; without it (the chat picker) it has none.
+      final missing = optionsRow(after, 'openrouter')!;
+      expect(missing['authenticated'], isFalse);
+      expect(missing['warning'], isA<String>());
+      expect(missing['models'], contains(recommended.model));
+      expect(
+        optionsRow(
+          await options(keyProfile, unconfigured: false),
+          'openrouter',
+        ),
+        isNull,
+      );
+      final gone = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(profile: keyProfile),
+      );
+      expect(gone['providers'], isEmpty);
+      final catalog = await catalogOf(keyProfile);
+      expect(catalog.byId('openrouter')!.connected, isFalse);
+      expect(catalog.byId('openrouter')!.isDefault, isTrue);
+    });
+
+    test('a custom endpoint is checked, saved and made the default as '
+        '`custom:<id>`, and its key reaches a new chat and an open one with no '
+        'reload', () async {
+      final baseUrl = 'http://127.0.0.1:${model.port}/v1';
+      final checked = await providers.checkEndpoint(
+        name: 'Contract endpoint',
+        baseUrl: baseUrl,
+        model: 'scripted',
+        apiKey: 'demo-key-1',
+      );
+      expect(checked, isA<EndpointChecked>());
+      expect((checked as EndpointChecked).models, contains('scripted'));
+
+      final saved = await providers.saveEndpoint(
+        endpointProfile,
+        name: 'Contract endpoint',
+        baseUrl: baseUrl,
+        model: 'scripted',
+        apiKey: 'demo-key-1',
+      );
+      expect(saved, isA<EndpointSaved>());
+      final id = (saved as EndpointSaved).id!;
+      final listed = await read(
+        client.raw.listCustomEndpointsApiProvidersCustomEndpointsGet(
+          profile: endpointProfile,
+        ),
+      );
+      final row = (listed['endpoints']! as List).single as Map;
+      expect(row['id'], id);
+      expect(row['has_api_key'], isTrue);
+      final reference = RegExp(r'^\$\{([A-Z0-9_]+)\}$')
+          .firstMatch('${row['api_key_preview']}');
+      expect(reference, isNotNull, reason: 'a variable reference');
+      final keyVariable = reference!.group(1)!;
+
+      expect(
+        await providers.setDefaultModel(
+          endpointProfile,
+          'custom:$id',
+          'scripted',
+        ),
+        isA<DefaultModelSaved>(),
+      );
+      final body = await options(endpointProfile);
+      expect(body['provider'], 'custom:$id');
+      expect(body['model'], 'scripted');
+      final optionsEntry = optionsRow(body, id)!;
+      expect(optionsEntry['is_user_defined'], isTrue);
+      expect(optionsEntry['aliases'], contains('custom:$id'));
+      final catalog = await catalogOf(endpointProfile);
+      expect(catalog.entries.where((e) => e.id == id), hasLength(1));
+      expect(catalog.byId(id)!.isDefault, isTrue);
+
+      Future<String> chat({String? threadId, required String key}) async {
+        authorizations.clear();
+        final events = await connect()
+            .send(threadId: threadId, profile: endpointProfile, text: 'Hi.')
+            .toList();
+        expect((events.last as ReplyCompleted).failed, isFalse);
+        expect(authorizations, isNotEmpty);
+        expect(authorizations.last, 'Bearer $key');
+        return events.whereType<ThreadBound>().first.threadId;
+      }
+
+      final threadId = await chat(key: 'demo-key-1');
+      expect(
+        await providers.saveKey(endpointProfile, keyVariable, 'demo-key-2'),
+        isA<KeySaved>(),
+      );
+      await chat(key: 'demo-key-2');
+
+      // A chat that is open (here: the same connection) takes a key saved
+      // after it started on its next turn.
+      final open = connect();
+      authorizations.clear();
+      final first = await open
+          .send(profile: endpointProfile, text: 'Open.')
+          .toList();
+      final openThread = first.whereType<ThreadBound>().first.threadId;
+      expect(authorizations.last, 'Bearer demo-key-2');
+      expect(
+        await providers.saveKey(endpointProfile, keyVariable, 'demo-key-3'),
+        isA<KeySaved>(),
+      );
+      authorizations.clear();
+      final again = await open
+          .send(threadId: openThread, profile: endpointProfile, text: 'Again.')
+          .toList();
+      expect((again.last as ReplyCompleted).failed, isFalse);
+      expect(authorizations.last, 'Bearer demo-key-3');
+      expect(threadId, isNot(openThread));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('a manual pool entry connects the provider, read-only, and the '
+        'moa row is opt-in', () async {
+      final added = await read(
+        client.raw.addCredentialPoolEntryApiCredentialsPoolPost(
+          credentialPoolAdd: CredentialPoolAdd(
+            provider: 'openrouter',
+            apiKey: 'sk-or-demo-0001',
+            label: 'manual demo',
+          ),
+          profile: poolProfile,
+        ),
+      );
+      expect(added['ok'], isTrue);
+      final pool = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(
+          profile: poolProfile,
+        ),
+      );
+      final entry =
+          (((pool['providers']! as List).single as Map)['entries']! as List)
+                  .single
+              as Map;
+      expect(entry['source'], 'manual');
+      expect(entry['auth_type'], 'api_key');
+      expect(entry['label'], 'manual demo');
+      expect(entry['token_preview'], endsWith('0001'));
+
+      await client.raw.updateConfigRawApiConfigRawPut(
+        profile: poolProfile,
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText: '''
+moa:
+  presets:
+    contract-mix:
+      enabled: true
+      aggregator:
+        provider: openrouter
+        model: example-model-a
+      reference_models: []
+''',
+        ),
+      );
+      final body = await options(poolProfile);
+      final openRouter = optionsRow(body, 'openrouter')!;
+      expect(openRouter['authenticated'], isTrue);
+      expect(openRouter['models'], isNotEmpty);
+      final env = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: poolProfile),
+      );
+      expect((env['OPENROUTER_API_KEY'] as Map)['is_set'], isFalse);
+      final moa = optionsRow(body, 'moa')!;
+      expect(moa['auth_type'], 'virtual');
+      expect(moa['source'], 'virtual');
+      expect(moa['authenticated'], isTrue);
+      expect(moa['models'], contains('contract-mix'));
+      expect(optionsRow(await options(keyProfile), 'moa'), isNull);
+
+      final catalog = await catalogOf(poolProfile);
+      expect(catalog.skippedRows, 0);
+      expect(catalog.byId('moa'), isNull);
+      final connected = catalog.byId('openrouter')!;
+      expect(connected.connected, isTrue);
+      expect(connected.credentials.single.kind, CredentialKind.poolKey);
+      expect(connected.credentials.single.label, 'manual demo');
+    });
+
+    test(
+      'the managed local runtime is a row with `auth_type: local` and '
+      '`source: local-runtime` that the catalog leaves out',
+      () async {
+        final models = Directory('$devHome/models')
+          ..createSync(recursive: true);
+        final file = File('${models.path}/contract-check-$stamp.gguf')
+          ..writeAsBytesSync(const []);
+        try {
+          final row = optionsRow(await options(keyProfile), 'llamacpp')!;
+          expect(row['source'], 'local-runtime');
+          expect(row['auth_type'], 'local');
+          expect(row['authenticated'], isTrue);
+          expect(row['models'], contains('contract-check-$stamp'));
+          final catalog = await catalogOf(keyProfile);
+          expect(catalog.byId('llamacpp'), isNull);
+          expect(catalog.skippedRows, 0);
+        } finally {
+          file.deleteSync();
+        }
+      },
+      skip: devHome == null ? 'set HERMES_DEV_HOME to the backend home' : null,
+    );
+  }, skip: skip);
+
+  group('tools on a throwaway profile (switches and setup writes, no '
+      'install)', () {
+    // Switches, picks and saves on a profile this group creates, with a fake
+    // key, and deletes the profile after. No install step is started (a
+    // post-setup would install from the network).
+    final profile =
+        'contract-check-tools-${DateTime.now().millisecondsSinceEpoch}';
+    late HttpServer model;
+    late HermesToolsRepository tools;
+    final turns = <List<String>>[];
+
+    setUpAll(() async {
+      if (url == null) return;
+      model = await _serveScriptedModel(
+        command: 'true',
+        onTurn: (_, names) {
+          if (names.isNotEmpty) turns.add(names);
+        },
+      );
+      await client.raw.createProfileEndpointApiProfilesPost(
+        profileCreate: ProfileCreate(name: profile, noSkills: true),
+      );
+      await client.raw.updateConfigRawApiConfigRawPut(
+        profile: profile,
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText:
+              '''
+model:
+  default: "scripted"
+  provider: "custom"
+  base_url: "http://127.0.0.1:${model.port}/v1"
+  api_key: "scripted"
+  context_length: 131072
+''',
+        ),
+      );
+      tools = HermesToolsRepository(client.raw, profile: profile);
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+        name: profile,
+      );
+      await model.close(force: true);
+    });
+
+    T value<T>(ToolsResult<T> result) {
+      expect(result, isA<ToolsOk<T>>(), reason: '$result');
+      return (result as ToolsOk<T>).value;
+    }
+
+    Toolset row(ToolsetList list, String name) =>
+        list.toolsets.singleWhere((t) => t.name == name);
+
+    test('a switch is answered and read back, and "available" follows '
+        '"enabled"', () async {
+      final before = row(value(await tools.list()), 'todo');
+      expect(before.enabled, isTrue);
+
+      final off = value(await tools.switchToolset('todo', enabled: false));
+      expect(off.enabled, isFalse);
+      expect(off.postSetupStarted, isNull);
+      expect(row(value(await tools.list()), 'todo').enabled, isFalse);
+      final raw = (await client.raw.getToolsetsApiToolsToolsetsGet(
+        profile: profile,
+      )).data!;
+      final rawRow = (raw as List).cast<Map<String, dynamic>>().singleWhere(
+        (r) => r['name'] == 'todo',
+      );
+      expect(rawRow['available'], false);
+
+      final on = value(await tools.switchToolset('todo', enabled: true));
+      expect(on.enabled, isTrue);
+      expect(row(value(await tools.list()), 'todo').enabled, isTrue);
+    });
+
+    test('a provider, a key, a model and a terminal backend are answered '
+        'and read back', () async {
+      final config = value(await tools.config('image_gen'));
+      // A provider with one key to save and a model catalog that needs no
+      // network: one with a live catalog lists none offline once its key is
+      // set, so the candidates are tried in order.
+      ToolsetProvider? provider;
+      ToolsetEnvSaved? saved;
+      for (final candidate in config.providers.where(
+        (p) =>
+            p.status == ToolsetProviderStatus.needsKeys &&
+            p.envVars.length == 1,
+      )) {
+        value(await tools.pickProvider('image_gen', candidate.name));
+        final key = candidate.envVars.single.key;
+        saved = value(await tools.saveEnv('image_gen', {key: 'demo-0000'}));
+        if (value(await tools.models('image_gen')).hasModels) {
+          provider = candidate;
+          break;
+        }
+      }
+      expect(provider, isNotNull, reason: 'a provider with a model catalog');
+      final key = provider!.envVars.single.key;
+      expect(saved!.saved, [key]);
+      expect(saved.isSet[key], isTrue);
+      // A blank value is skipped, never cleared.
+      final blank = value(await tools.saveEnv('image_gen', {key: ''}));
+      expect(blank.saved, isEmpty);
+      expect(blank.skipped, [key]);
+      expect(blank.isSet[key], isTrue);
+
+      final after = value(await tools.config('image_gen'));
+      final active = after.providers.singleWhere((p) => p.isActive);
+      expect(active.name, provider.name);
+      expect(active.envVars.single.isSet, isTrue);
+      expect(after.activeProvider, provider.name);
+
+      // The catalog is read again: saving the key can change it.
+      final fresh = value(await tools.models('image_gen'));
+      expect(fresh.hasModels, isTrue);
+      final other = fresh.models.firstWhere((m) => m.id != fresh.current);
+      value(await tools.pickModel('image_gen', other.id));
+      expect(value(await tools.models('image_gen')).current, other.id);
+      expect(
+        await tools.pickModel('image_gen', 'no-such-model'),
+        isA<ToolsRefused<void>>(),
+      );
+
+      value(await tools.pickTerminalBackend('docker'));
+      expect(value(await tools.terminalBackends()).active, 'docker');
+      value(await tools.pickTerminalBackend('local'));
+      expect(value(await tools.terminalBackends()).active, 'local');
+      expect(
+        await tools.pickTerminalBackend('no-such-backend'),
+        isA<ToolsRefused<void>>(),
+      );
+    });
+
+    test(
+      'a switch reaches a chat started after it, and not one already open',
+      () async {
+        HermesGatewayTransport connect() {
+          final transport = HermesGatewayTransport(
+            connect: hermesGatewayConnect(
+              baseUrl: url!,
+              authRequired: false,
+              api: client,
+            ),
+          );
+          addTearDown(transport.close);
+          return transport;
+        }
+
+        Future<(List<String>, String)> send(
+          HermesGatewayTransport transport, {
+          String? threadId,
+        }) async {
+          turns.clear();
+          final events = await transport
+              .send(threadId: threadId, profile: profile, text: 'Hello.')
+              .toList();
+          expect((events.last as ReplyCompleted).failed, isFalse);
+          expect(turns, isNotEmpty);
+          final names = turns.reduce((a, b) => a.length >= b.length ? a : b);
+          final bound = events.whereType<ThreadBound>();
+          return (names, bound.isEmpty ? '' : bound.first.threadId);
+        }
+
+        value(await tools.switchToolset('terminal', enabled: true));
+        final open = connect();
+        final (first, threadId) = await send(open);
+        expect(first, contains('terminal'));
+
+        value(await tools.switchToolset('terminal', enabled: false));
+        final (same, _) = await send(open, threadId: threadId);
+        expect(same, contains('terminal'), reason: 'the open chat keeps it');
+        final (fresh, _) = await send(connect());
+        expect(fresh, isNotEmpty);
+        expect(fresh, isNot(contains('terminal')));
+
+        value(await tools.switchToolset('terminal', enabled: true));
+        final (back, _) = await send(connect());
+        expect(back, contains('terminal'));
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
   }, skip: skip);
 
   group('requests scoped to a second profile (no model call)', () {
@@ -4113,7 +4751,10 @@ Future<HttpServer> _serveMinimalMcp() async {
 /// An OpenAI-compatible model that answers a prompt containing "Clean up"
 /// with one terminal call running [command], and anything else, including the
 /// call's result and Hermes' own side calls, with a plain line.
-Future<HttpServer> _serveScriptedModel({required String command}) async {
+Future<HttpServer> _serveScriptedModel({
+  required String command,
+  void Function(String? authorization, List<String> tools)? onTurn,
+}) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
     final response = request.response;
@@ -4130,9 +4771,20 @@ Future<HttpServer> _serveScriptedModel({required String command}) async {
       await response.close();
       return;
     }
-    final body = jsonDecode(
-      await utf8.decoder.bind(request).join(),
-    ) as Map<String, dynamic>;
+    // Hermes also probes the endpoint (`/models/<id>`, `/api/show`); only a
+    // chat request carries a body.
+    final raw = await utf8.decoder.bind(request).join();
+    final decoded = raw.startsWith('{') ? jsonDecode(raw) : null;
+    if (decoded is! Map<String, dynamic> || decoded['messages'] is! List) {
+      response.statusCode = HttpStatus.notFound;
+      await response.close();
+      return;
+    }
+    final body = decoded;
+    onTurn?.call(request.headers.value('authorization'), [
+      for (final tool in (body['tools'] as List?) ?? const [])
+        ?((tool as Map)['function'] as Map?)?['name'] as String?,
+    ]);
     final messages = (body['messages'] as List).cast<Map<String, dynamic>>();
     final last = messages.last;
     final callTool =
