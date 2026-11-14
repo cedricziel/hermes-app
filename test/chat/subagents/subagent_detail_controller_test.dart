@@ -216,6 +216,56 @@ void main() {
       expect(h.tailReads, 1);
     });
 
+    flow('does not read a not-controllable agent\'s output', (async, h) {
+      h.transport.agentAnswer = (call) =>
+          call.method == 'subagent.interrupt' ? {'found': false} : tail('x');
+      h.host.reread = () async => running();
+      async.flushMicrotasks();
+      h.controller.startStop();
+      unawaited(h.controller.confirmStop());
+      async.flushMicrotasks();
+      expect(h.controller.stopPhase, StopPhase.notControllable);
+      final reads = h.tailReads;
+      async.elapse(const Duration(seconds: 10));
+      expect(h.tailReads, reads);
+    });
+
+    flow('a session not attached reads as no output, not loading forever', (
+      async,
+      h,
+    ) {
+      h.transport.agentSessionAttached = false;
+      async.flushMicrotasks();
+      expect(h.controller.tailPhase, TailPhase.noOutput);
+    });
+
+    flow('a row not in the roster yet does not stop the reads for good', (
+      async,
+      h,
+    ) {
+      h.host.update(() => h.host.current = null);
+      async.flushMicrotasks();
+      h.host.update(() => h.host.online = false);
+      h.host.update(() => h.host.online = true);
+      h.host.update(
+        () => h.host.current = const AgentView(state: AgentState.running),
+      );
+      final before = h.tailReads;
+      async.elapse(const Duration(seconds: 2));
+      expect(h.tailReads, greaterThan(before));
+    });
+
+    flow('a read that began before the lock never lands after it', (async, h) {
+      final gate = Completer<Map<String, Object?>>();
+      h.transport.agentAnswer = (_) => gate.future;
+      async.flushMicrotasks();
+      h.host.update(() => h.host.unlocked = false);
+      h.host.update(() => h.host.unlocked = true);
+      gate.complete(tail('stale secret'));
+      async.flushMicrotasks();
+      expect(h.controller.tail, isNot(contains('stale')));
+    });
+
     flow('dispose drops the output and a late answer is ignored', (async, h) {
       final gate = Completer<Map<String, Object?>>();
       h.transport.agentAnswer = (_) => gate.future;
@@ -353,10 +403,8 @@ void main() {
       expect(h.interrupts, hasLength(1));
     });
 
-    flow('a lost answer and a re-read without the agent shows it finished', (
-      async,
-      h,
-    ) {
+    flow('a lost answer and a re-read without the agent does not claim it '
+        'had already finished', (async, h) {
       h.transport.agentAnswer = (call) => call.method == 'subagent.interrupt'
           ? throw const GatewayRequestTimeout()
           : tail('x');
@@ -364,7 +412,68 @@ void main() {
       h.controller.startStop();
       unawaited(h.controller.confirmStop());
       async.flushMicrotasks();
+      expect(h.controller.stopPhase, StopPhase.idle);
+      expect(h.outcomes, ['unconfirmed']);
+    });
+
+    flow('a completion frame while checking after found false says it had '
+        'already finished', (async, h) {
+      h.transport.agentAnswer = (call) =>
+          call.method == 'subagent.interrupt' ? {'found': false} : tail('x');
+      h.controller.startStop();
+      unawaited(h.controller.confirmStop());
+      async.flushMicrotasks();
+      expect(h.controller.stopPhase, StopPhase.checking);
+      h.host.end();
+      async.flushMicrotasks();
       expect(h.controller.stopPhase, StopPhase.alreadyFinished);
+    });
+
+    flow('a note\'s check does not cut a stop check short', (async, h) {
+      final stopRead = Completer<AgentWorkResult<AgentView?>>();
+      var reads = 0;
+      h.host.reread = () {
+        reads++;
+        return reads == 1 ? stopRead.future : Future.value(running());
+      };
+      h.transport.agentAnswer = (call) => switch (call.method) {
+        'subagent.interrupt' => throw const GatewayRequestTimeout(),
+        'subagent.steer' => {'status': 'rejected'},
+        _ => tail('x'),
+      };
+      h.controller.startStop();
+      unawaited(h.controller.confirmStop());
+      async.flushMicrotasks();
+      expect(h.controller.stopPhase, StopPhase.checking);
+      h.controller.setNote('hi');
+      unawaited(h.controller.sendNote());
+      async.flushMicrotasks();
+      expect(h.controller.stopPhase, StopPhase.checking);
+      stopRead.complete(gone());
+      async.flushMicrotasks();
+      expect(h.controller.stopPhase, StopPhase.idle);
+    });
+
+    flow('a host that throws from the re-read still ends the check', (
+      async,
+      h,
+    ) {
+      h.transport.agentAnswer = (call) =>
+          call.method == 'subagent.interrupt' ? {'found': false} : tail('x');
+      h.host.reread = () => throw StateError('boom');
+      h.controller.startStop();
+      unawaited(h.controller.confirmStop());
+      async.flushMicrotasks();
+      expect(h.controller.stopPhase, StopPhase.unconfirmed);
+    });
+
+    flow('calls after dispose do nothing and do not throw', (async, h) {
+      h.controller.dispose();
+      h.controller.cancelStop();
+      h.controller.jumpToLatest();
+      h.controller.startStop();
+      h.controller.setNote('x');
+      expect(h.controller.note, isEmpty);
     });
 
     flow('checking says so, and losing the connection ends it at once', (
@@ -470,6 +579,20 @@ void main() {
       expect(h.outcomes, ['queued']);
     });
 
+    flow('text typed while a note is in flight is kept', (async, h) {
+      final gate = Completer<Map<String, Object?>>();
+      h.transport.agentAnswer = (call) =>
+          call.method == 'subagent.steer' ? gate.future : tail('x');
+      h.controller.setNote('Only Go');
+      unawaited(h.controller.sendNote());
+      async.flushMicrotasks();
+      h.controller.setNote('Only Go modules, skip npm');
+      gate.complete({'status': 'queued'});
+      async.flushMicrotasks();
+      expect(h.controller.sentNotes, ['Only Go']);
+      expect(h.controller.note, 'Only Go modules, skip npm');
+    });
+
     flow('a blank note cannot be sent', (async, h) {
       h.controller.setNote('  \n ');
       expect(h.controller.canSendNote, isFalse);
@@ -498,7 +621,9 @@ void main() {
           call.method == 'subagent.steer' ? {'status': 'rejected'} : tail('x');
       h.controller.setNote('hello');
       expect(h.controller.canSendNote, isFalse);
-      h.host.current = const AgentView(state: AgentState.running);
+      h.host.update(
+        () => h.host.current = const AgentView(state: AgentState.running),
+      );
       unawaited(h.controller.sendNote());
       async.flushMicrotasks();
       expect(h.controller.notePhase, NotePhase.rejected);

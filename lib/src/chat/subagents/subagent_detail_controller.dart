@@ -114,6 +114,10 @@ class SubagentDetailController extends ChangeNotifier {
   String? _shown;
   var _holding = false;
   var _readInFlight = false;
+
+  /// Counts the times held output was dropped, so a read that began before
+  /// App Lock never lands after it.
+  var _epoch = 0;
   var _answered = false;
   var _available = false;
   var _refreshFailed = false;
@@ -134,6 +138,7 @@ class SubagentDetailController extends ChangeNotifier {
   }
 
   void jumpToLatest() {
+    if (_disposed) return;
     _holding = false;
     _shown = null;
     notifyListeners();
@@ -154,9 +159,20 @@ class SubagentDetailController extends ChangeNotifier {
   }
 
   /// The agent ended, so the output is the last that was read.
+  bool get _notControllable =>
+      _stop == StopPhase.notControllable ||
+      _notePhase == NotePhase.notControllable;
+
   bool get lastOutput => !_agentActive && tail.isNotEmpty;
 
   bool get _agentActive => _host.view?.active ?? false;
+
+  /// The roster's row exists and says the agent ended. A row not yet there
+  /// is not an ended agent.
+  bool get _agentEnded {
+    final view = _host.view;
+    return view != null && !view.active;
+  }
 
   bool get _mayRead =>
       !_disposed &&
@@ -164,16 +180,20 @@ class SubagentDetailController extends ChangeNotifier {
       _host.unlocked &&
       _host.online &&
       _agentActive &&
+      !_notControllable &&
       !_tailUnsupported;
 
   Future<void> _readTail() async {
     if (_readInFlight || !_mayRead) return;
     _readInFlight = true;
+    final epoch = _epoch;
     final result = await _repository.tail(key);
     _readInFlight = false;
     // An answer that lands after the detail closed, the app locked or the
     // agent ended is not shown.
-    if (_disposed || !_host.unlocked || !_agentActive) return;
+    if (_disposed || epoch != _epoch || !_host.unlocked || !_agentActive) {
+      return;
+    }
     switch (result) {
       case WorkOk(:final value):
         _answered = true;
@@ -188,7 +208,8 @@ class SubagentDetailController extends ChangeNotifier {
         _latest = '';
         _shown = null;
       case WorkNotAttached():
-        break;
+        _answered = true;
+        _available = false;
       case WorkLost() || WorkFailed():
         _refreshFailed = _answered && _available;
     }
@@ -196,6 +217,7 @@ class SubagentDetailController extends ChangeNotifier {
   }
 
   void _dropOutput() {
+    _epoch++;
     _latest = '';
     _shown = null;
     _answered = false;
@@ -215,20 +237,28 @@ class SubagentDetailController extends ChangeNotifier {
     final unlockedNow = unlocked && !_wasUnlocked;
     _wasUnlocked = unlocked;
 
-    if (!_agentActive) {
+    if (_agentEnded) {
       _timer?.cancel();
       _timer = null;
       if (_stop == StopPhase.confirming) {
         _stop = StopPhase.ended;
-      } else if (_stop == StopPhase.sending || _stop == StopPhase.checking) {
+      } else if (_stop == StopPhase.sending) {
         // A completion frame came first: it wins and the answer, when it
         // comes, changes nothing.
         _answerIgnored = true;
-        _abortCheck();
         _stop = StopPhase.idle;
+      } else if (_stop == StopPhase.checking) {
+        // The agent is gone: finished when the stop was told it had ended,
+        // otherwise the row's own state says what happened.
+        _abortCheck(_stopCheck);
+        _stop = _foundFalse ? StopPhase.alreadyFinished : StopPhase.idle;
+        _log('subagent.stop', _foundFalse ? 'already_ended' : 'unconfirmed');
       }
     }
-    if (!_host.online) _abortCheck();
+    if (!_host.online) {
+      _abortCheck(_stopCheck);
+      _abortCheck(_noteCheck);
+    }
     notifyListeners();
     if (unlockedNow) unawaited(_readTail());
     _noteMissedIfShown();
@@ -239,7 +269,8 @@ class SubagentDetailController extends ChangeNotifier {
   var _stop = StopPhase.idle;
   var _stopAccepted = false;
   var _answerIgnored = false;
-  Completer<_Reread>? _checking;
+  Completer<_Reread>? _stopCheck, _noteCheck;
+  var _foundFalse = false;
 
   StopPhase get stopPhase => _stop;
 
@@ -266,7 +297,7 @@ class SubagentDetailController extends ChangeNotifier {
   }
 
   void cancelStop() {
-    if (_stop != StopPhase.confirming) return;
+    if (_disposed || _stop != StopPhase.confirming) return;
     _stop = StopPhase.idle;
     notifyListeners();
   }
@@ -329,13 +360,20 @@ class SubagentDetailController extends ChangeNotifier {
   /// words the outcome only from what the re-read showed.
   Future<void> _settleAfterCheck({required bool foundFalse}) async {
     _stop = StopPhase.checking;
+    _foundFalse = foundFalse;
     notifyListeners();
-    final outcome = await _reread();
+    final outcome = await _reread(stop: true);
     if (_disposed || _stop != StopPhase.checking) return;
     switch (outcome) {
-      case _Reread.finished:
+      case _Reread.finished when foundFalse:
         _stop = StopPhase.alreadyFinished;
         _log('subagent.stop', 'already_ended');
+      case _Reread.finished:
+        // The stop's answer was lost and the agent is gone: the row's own
+        // state (Stopped or Finished) says what happened, not a claim that
+        // it had already finished.
+        _stop = StopPhase.idle;
+        _log('subagent.stop', 'unconfirmed');
       case _Reread.running when foundFalse:
         _stop = StopPhase.notControllable;
         _log('subagent.stop', 'not_controllable');
@@ -348,9 +386,15 @@ class SubagentDetailController extends ChangeNotifier {
 
   /// One re-read of the list that always ends: with its answer, after
   /// [kStopCheckLimit], or when the connection is lost.
-  Future<_Reread> _reread() {
-    _abortCheck();
-    final done = _checking = Completer<_Reread>();
+  Future<_Reread> _reread({bool stop = false}) {
+    final slot = stop ? _stopCheck : _noteCheck;
+    _abortCheck(slot);
+    final done = Completer<_Reread>();
+    if (stop) {
+      _stopCheck = done;
+    } else {
+      _noteCheck = done;
+    }
     final timer = Timer(
       kStopCheckLimit,
       () => _finishCheck(done, _Reread.failed),
@@ -358,8 +402,7 @@ class SubagentDetailController extends ChangeNotifier {
     if (!_host.online) {
       _finishCheck(done, _Reread.failed);
     } else {
-      _host
-          .rereadList()
+      Future.sync(_host.rereadList)
           .then((result) {
             _finishCheck(done, switch (result) {
               WorkOk(:final value) =>
@@ -378,8 +421,7 @@ class SubagentDetailController extends ChangeNotifier {
     if (!done.isCompleted) done.complete(outcome);
   }
 
-  void _abortCheck() {
-    final pending = _checking;
+  void _abortCheck(Completer<_Reread>? pending) {
     if (pending != null && !pending.isCompleted) {
       pending.complete(_Reread.failed);
     }
@@ -411,6 +453,7 @@ class SubagentDetailController extends ChangeNotifier {
       _note.isNotEmpty &&
       (_stopAccepted ||
           !_agentActive ||
+          _host.view?.acceptingSteer == false ||
           _stop == StopPhase.notControllable ||
           _notePhase == NotePhase.notControllable);
 
@@ -451,7 +494,8 @@ class SubagentDetailController extends ChangeNotifier {
     if (_disposed) return;
     switch (result) {
       case WorkOk(value: SteerOutcome.queued):
-        _note = '';
+        // Text typed while the note was in flight is never dropped.
+        if (_note.trim() == text) _note = '';
         _sent.add(text);
         _notePhase = NotePhase.queued;
         _log('subagent.redirect', 'queued');
@@ -520,7 +564,9 @@ class SubagentDetailController extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     _timer?.cancel();
-    _abortCheck();
+    _abortCheck(_stopCheck);
+    _abortCheck(_noteCheck);
+    _stop = StopPhase.idle;
     _host.changes.removeListener(_onHostChanged);
     _dropOutput();
     _note = '';
