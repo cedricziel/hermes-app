@@ -203,6 +203,11 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
       }
     } finally {
       _quiet(() => span?.setAttribute('outcome', outcome));
+      if (outcome != 'obsolete') {
+        _quiet(
+          () => span?.setAttribute('attention', attention?.slug ?? 'none'),
+        );
+      }
       _quiet(() => span?.end());
       if (generation == _generation && !disposed) {
         _loading = false;

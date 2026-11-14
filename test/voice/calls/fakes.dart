@@ -14,6 +14,8 @@ class FakeCallBridge implements CallBridge {
   final played = <(List<int>, int)>[];
   int starts = 0, ends = 0, stops = 0, connections = 0;
   int pauses = 0, resumes = 0, captureStops = 0;
+  final startIds = <String>[];
+  final captureStopIds = <String>[];
   Completer<void>? drainGate;
 
   /// Every bridge call in order, for teardown-order tests. A test may point
@@ -40,6 +42,7 @@ class FakeCallBridge implements CallBridge {
   @override
   Future<void> start(String id, String name) async {
     starts++;
+    startIds.add(id);
     log.add('start');
     await startGate?.future;
   }
@@ -103,8 +106,9 @@ class FakeCallBridge implements CallBridge {
   }
 
   @override
-  Future<void> stopCapture() async {
+  Future<void> stopCapture(String id) async {
     captureStops++;
+    captureStopIds.add(id);
     log.add('stopCapture');
     await stopCaptureGate?.future;
     if (stopCaptureError != null) await Future<void>.error(stopCaptureError!);

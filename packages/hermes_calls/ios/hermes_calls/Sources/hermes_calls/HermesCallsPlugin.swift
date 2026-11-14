@@ -96,6 +96,9 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     case "end":
       startGeneration += 1
       audioActive = false
+      // Latches capture off, so a didActivate before CallKit performs the end
+      // cannot install the tap again.
+      if callID != nil { audio.stopCapture() }
       audio.stop()
       guard let id = callID else { result(nil); return }
       controller.request(CXTransaction(action: CXEndCallAction(call: id))) { [weak self] error in
@@ -129,7 +132,13 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     case "resumeCapture": audio.setCapturePaused(false); result(nil)
     // With no live call there is nothing to stop, and a flag set now would
     // outlive the call that Dart is still tearing down.
-    case "stopCapture": if callID != nil { audio.stopCapture() }; result(nil)
+    // An id that names another call (a late stop of an earlier one) is ignored;
+    // a caller that sends none acts on the live call.
+    case "stopCapture":
+      guard let live = callID else { result(nil); return }
+      if let raw = args["id"] as? String, UUID(uuidString: raw) != live { result(nil); return }
+      audio.stopCapture()
+      result(nil)
     case "drain": audio.finish(result)
     case "stopPlayback": audio.stopPlayback(); result(nil)
     default: result(FlutterMethodNotImplemented)
