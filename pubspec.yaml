@@ -30,6 +30,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Localized strings: gen-l10n reads lib/l10n/arb (see l10n.yaml and
+  # docs/architecture/localization.md).
+  flutter_localizations:
+    sdk: flutter
+  intl: any
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -165,6 +170,9 @@ dart_pre_commit:
 
 # The following section is specific to Flutter packages.
 flutter:
+  # Runs gen-l10n (l10n.yaml) on `flutter pub get` and every build.
+  generate: true
+
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

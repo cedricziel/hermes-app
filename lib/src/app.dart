@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:upgrader/upgrader.dart';
 
+import '../l10n/l10n.dart';
 import 'app_lock/app_lock_gate.dart';
 import 'app_lock/app_lock_controller.dart';
 import 'api/hermes_repositories.dart';
@@ -165,6 +166,8 @@ class _HermesAppState extends State<HermesApp> {
       navigatorObservers: [_handoffObserver, _history],
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: widget.lightTheme ?? buildHermesLightTheme(),
       darkTheme: widget.darkTheme ?? buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),

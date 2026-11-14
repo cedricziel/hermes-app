@@ -1,0 +1,136 @@
+{
+  "@@locale": "de",
+
+  "@@x-area-common": "",
+  "commonOff": "Aus",
+  "commonOn": "Ein",
+  "commonRetry": "Erneut versuchen",
+
+  "@@x-area-agent_messages": "",
+
+  "@@x-area-api": "",
+
+  "@@x-area-app_lock": "",
+
+  "@@x-area-auth": "",
+
+  "@@x-area-background": "",
+
+  "@@x-area-bot_mode": "",
+
+  "@@x-area-bot_screen": "",
+
+  "@@x-area-chat": "",
+
+  "@@x-area-core": "",
+
+  "@@x-area-deep_links": "",
+
+  "@@x-area-drag_out": "",
+
+  "@@x-area-handoff": "",
+
+  "@@x-area-intents": "",
+
+  "@@x-area-kanban": "",
+
+  "@@x-area-live_activities": "",
+
+  "@@x-area-macos": "",
+
+  "@@x-area-mcp": "",
+
+  "@@x-area-memory": "",
+
+  "@@x-area-messaging": "",
+
+  "@@x-area-models": "",
+
+  "@@x-area-navigation": "",
+
+  "@@x-area-network": "",
+
+  "@@x-area-notifications": "",
+
+  "@@x-area-platform_hint": "",
+
+  "@@x-area-plugins": "",
+
+  "@@x-area-profiles": "",
+
+  "@@x-area-quick_actions": "",
+
+  "@@x-area-quick_panel": "",
+
+  "@@x-area-schedules": "",
+
+  "@@x-area-screens": "",
+
+  "@@x-area-settings": "",
+  "settingsAboutHermes": "Über Hermes",
+  "settingsAboutTitle": "Über",
+  "settingsAboutVersion": "Version",
+  "settingsAboutVersionUnavailable": "Nicht verfügbar",
+  "settingsAccount": "Konto",
+  "settingsAppLock": "App-Sperre",
+  "settingsAppearanceTitle": "Erscheinungsbild",
+  "settingsChangeServer": "Server wechseln",
+  "settingsConnectedToDashboard": "Mit dem Dashboard verbunden",
+  "settingsConnectionDetails": "Verbindungsdetails",
+  "settingsDictation": "Diktieren",
+  "settingsDictationEngineDevice": "Auf diesem Gerät",
+  "settingsDictationEngineHermes": "Hermes",
+  "settingsHelperModelsChangeFailed": "{slot} konnte nicht geändert werden",
+  "settingsHelperModelsConfirmAction": "Verwenden",
+  "settingsHelperModelsConfirmTitle": "Dieses Modell verwenden?",
+  "settingsHelperModelsFooterApply": "Änderungen gelten für neue Chats.",
+  "settingsHelperModelsFooterIntro": "Hermes erledigt Nebenaufgaben mit diesen Modellen.",
+  "settingsHelperModelsFooterMainModel": "Das Hauptmodell ist {model}.",
+  "settingsHelperModelsLoadFailed": "Die Hilfsmodelle konnten nicht geladen werden",
+  "settingsHelperModelsMainModel": "Hauptmodell",
+  "settingsHelperModelsMoaHeader": "Mixture of Agents",
+  "settingsHelperModelsMoaPreset": "Voreinstellung",
+  "settingsHelperModelsMoaPresetDefault": "Standard",
+  "settingsHelperModelsMoaPrivacyFooter": "Der Datenschutzfilter von Hermes ist an, und Speichern würde ihn hier ausschalten. Ändere diese Plätze auf dem Server.",
+  "settingsHelperModelsProviderDefault": "Standard des Anbieters",
+  "settingsHelperModelsSubtitleMainModel": "Hauptmodell {model}",
+  "settingsHelperModelsTitle": "Hilfsmodelle",
+  "settingsMenuSettings": "Einstellungen…",
+  "settingsNotifications": "Benachrichtigungen",
+  "settingsReportBug": "Fehler melden",
+  "settingsSignOut": "Abmelden",
+  "settingsSignOutMessage": "Du musst dich erneut anmelden, um deine Chats zu sehen.",
+  "settingsSignOutTitle": "Vom Dashboard abmelden?",
+  "settingsSignedInToDashboard": "Beim Dashboard angemeldet",
+  "settingsSpotlight": "Spotlight",
+  "settingsThemeDark": "Dunkel",
+  "settingsThemeLight": "Hell",
+  "settingsThemeSystem": "Wie das System",
+  "settingsTitle": "Einstellungen",
+
+  "@@x-area-share": "",
+
+  "@@x-area-shell": "",
+
+  "@@x-area-skills": "",
+
+  "@@x-area-spotlight": "",
+
+  "@@x-area-surfaces": "",
+
+  "@@x-area-telemetry": "",
+
+  "@@x-area-theme": "",
+
+  "@@x-area-update": "",
+
+  "@@x-area-voice": "",
+
+  "@@x-area-watch": "",
+
+  "@@x-area-widgets": "",
+
+  "@@x-area-windows": "",
+
+  "@@x-end": ""
+}

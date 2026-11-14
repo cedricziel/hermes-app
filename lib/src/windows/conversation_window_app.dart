@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
@@ -79,6 +80,8 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
         builder: (context) => MaterialApp(
           title: args.title,
           debugShowCheckedModeBanner: false,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(),
           darkTheme: buildHermesDarkTheme(),
           themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
