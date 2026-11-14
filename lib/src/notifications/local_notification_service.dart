@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart' show MethodChannel;
@@ -88,6 +89,16 @@ NotificationTarget? targetFromPayload(String? payload) {
     );
   }
   if (decoded['t'] is String) {
+    if (decoded['u'] case final String draft
+        when decoded['a'] is String &&
+            draft.characters.length <= kPreviewLength) {
+      return NotificationTarget.draft(
+        threadId: decoded['t'] as String,
+        draft: draft,
+        accountHash: decoded['a'] as String,
+        profile: profile,
+      );
+    }
     return NotificationTarget(
       threadId: decoded['t'] as String,
       profile: profile,
@@ -120,10 +131,18 @@ NotificationAnswer? answerFromAction(
   );
 }
 
-/// Whether [payload] is that of a notification whose buttons answer a
-/// request.
-bool isAnswerablePayload(String? payload) =>
-    payload != null && PendingRequest.fromJson(_decode(payload)?['r']) != null;
+/// Whether [payload] is that of a notification that App Lock and a sign-out
+/// must withdraw: one whose buttons answer a request, one that offers a reply
+/// (`'y'`), or one that keeps the text of a reply that was not sent (`'u'`).
+/// Found by payload, so this covers iOS and macOS only; Android finds them by
+/// tag (`kAnswerableTag`).
+bool isWithdrawnPayload(String? payload) {
+  if (payload == null) return false;
+  final decoded = _decode(payload);
+  return PendingRequest.fromJson(decoded?['r']) != null ||
+      decoded?['y'] != null ||
+      decoded?['u'] != null;
+}
 
 NotificationAnswer? answerFromResponse(NotificationResponse response) =>
     answerFromAction(response.payload, response.actionId, response.input);
@@ -470,7 +489,7 @@ class LocalNotificationService
           if (active.tag == kAnswerableTag) {
             await _plugin.cancel(id: id, tag: kAnswerableTag);
           }
-        } else if (isAnswerablePayload(active.payload)) {
+        } else if (isWithdrawnPayload(active.payload)) {
           await _plugin.cancel(id: id);
         }
       }

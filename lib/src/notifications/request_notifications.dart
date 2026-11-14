@@ -301,6 +301,11 @@ int fnv1a(String key) {
   return hash;
 }
 
+/// What a notification's payload names its account by: the FNV-1a of the
+/// account key, never the key itself.
+String accountHashFor(String accountKey) =>
+    fnv1a(accountKey).toRadixString(16).padLeft(8, '0');
+
 enum PendingRequestKind { approval, question }
 
 /// What a request notification carries so that an action can be answered
