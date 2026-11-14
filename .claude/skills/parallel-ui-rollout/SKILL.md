@@ -82,6 +82,33 @@ the rework.
   `gh pr list --state merged --search '"needs a design port" in:body'` and plan
   the port as part of the rollout.
 
+## When lead agents cannot spawn agents
+
+Learned from the November 2026 bug-fix and housekeeping run (#897 to #908). In a
+cloud session the lead agents had no Agent tool, so the hierarchy is two levels:
+
+- The orchestrator runs the isolated reviewer for every PR itself, after the
+  lead hands back: a fresh agent that gets only the branch name and what the PR
+  claims, on a model sized to the diff (the larger one for auth, the send path
+  and lease logic). A lead's own "review" of its diff does not count. In this run
+  the isolated reviewers found a real problem in most PRs that their leads had
+  called done.
+- Send the reviewer's findings back to the same lead (it keeps its context),
+  then arm `--auto --squash`. Arm only after the lead's follow-up push, or the PR
+  can merge without the fix.
+- A CodeRabbit "review limit reached" comment is not a review.
+- Pushing a follow-up cancels the previous commit's CI run, and the required
+  check `Analyze & test` then reports **failure** for the old commit. Check the
+  `head_sha` of a failure event against the PR's current head before acting.
+- Give each lead a common brief file plus a stream brief file, with the list of
+  files it must not touch. Name one owner for `CLAUDE.md` and the
+  `docs/architecture/` files; a fix that needs a sentence there waits for that
+  owner's PR to merge, then rebases.
+- Agents' commits may carry a different co-author trailer than the
+  orchestrator's. The squash merge is what lands on `main`.
+- The container had 4 cores: four test-running leads at once, reviewers and
+  docs-only streams on top.
+
 ## Afterwards
 
 - Remove the finished agents' worktrees with `git worktree remove` without
