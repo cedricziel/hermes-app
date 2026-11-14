@@ -28,12 +28,15 @@ List<SettingsBarAction> providerDetailBarActions(
     ),
 ];
 
-String _apiType(AppLocalizations l10n, ProviderApiType type) => switch (type) {
-  ProviderApiType.automatic => l10n.providersApiTypeAutomatic,
-  ProviderApiType.chatCompletions => l10n.providersApiTypeChatCompletions,
-  ProviderApiType.responses => l10n.providersApiTypeResponses,
-  ProviderApiType.anthropicMessages => l10n.providersApiTypeAnthropicMessages,
-};
+/// An endpoint's API type in words.
+String providerApiTypeLabel(AppLocalizations l10n, ProviderApiType type) =>
+    switch (type) {
+      ProviderApiType.automatic => l10n.providersApiTypeAutomatic,
+      ProviderApiType.chatCompletions => l10n.providersApiTypeChatCompletions,
+      ProviderApiType.responses => l10n.providersApiTypeResponses,
+      ProviderApiType.anthropicMessages =>
+        l10n.providersApiTypeAnthropicMessages,
+    };
 
 /// One provider's detail, from a plain [ProviderDetailData]: how it is
 /// connected, the default model with Change, its credentials with their
@@ -226,7 +229,7 @@ class _ProviderDetailViewState extends State<ProviderDetailView> {
           GroupedRow(
             title: l10n.providersEndpointApiType,
             titleMaxLines: null,
-            value: _apiType(l10n, endpoint.apiType),
+            value: providerApiTypeLabel(l10n, endpoint.apiType),
           ),
           GroupedRow(
             title: l10n.providersEndpointKey,
