@@ -216,6 +216,28 @@ void main() {
       expect(c.results.map((s) => s.name), ['new-one']);
     });
 
+    test('a reset during a search does not leave it searching', () async {
+      final gate = Completer<FakeResponse>();
+      server.onRequest('GET', '/api/skills/hub/search', (_) => gate.future);
+      final c = hub(debounce: Duration.zero);
+      await c.load();
+      c.setQuery('scrape');
+      await until(
+        () => server.requestsTo('GET', '/api/skills/hub/search').isNotEmpty,
+      );
+      expect(c.searching, isTrue);
+
+      server.on('GET', '/api/skills/hub/official', {
+        'detail': 'x',
+      }, status: 502);
+      await c.reset();
+      gate.complete((status: 200, body: {'results': []}));
+      await pumpEventQueue();
+
+      expect(c.status, HubStatus.failed);
+      expect(c.searching, isFalse);
+    });
+
     test('clearing the text goes back to the featured list', () async {
       final c = hub();
       await c.load();

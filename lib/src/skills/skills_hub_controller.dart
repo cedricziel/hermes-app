@@ -115,6 +115,7 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
   /// The profile changed: what was shown belongs to the other one.
   Future<void> reset() {
     _searchGeneration++;
+    _searching = false;
     _results = null;
     _overview = const HubOverview();
     return load();
