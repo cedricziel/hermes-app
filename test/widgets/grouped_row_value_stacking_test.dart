@@ -115,6 +115,29 @@ void main() {
     expect(find.byKey(const Key('grouped-row-chevron')), findsOneWidget);
     expect(find.text('Connected'), findsOneWidget);
   });
+
+  testWidgets('a value under half the row stacks when it would squeeze the '
+      'title', (tester) async {
+    // 'Set up' alone is under half the row, but beside this title, with a
+    // leading icon and a chevron, the title would keep too little room.
+    await _pump(
+      tester,
+      const GroupedRow(
+        title: 'A rather long row title that needs room',
+        leading: Icon(Icons.chat),
+        value: 'Set up',
+        onTap: _noop,
+      ),
+      scale: 1.2,
+      width: 314,
+    );
+    final title = tester.getTopLeft(
+      find.text('A rather long row title that needs room'),
+    );
+    final value = tester.getTopLeft(find.text('Set up'));
+    expect(value.dx, title.dx);
+    expect(value.dy, greaterThan(title.dy));
+  });
 }
 
 void _noop() {}

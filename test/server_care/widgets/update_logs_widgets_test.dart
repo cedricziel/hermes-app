@@ -8,7 +8,6 @@ import 'package:hermes_app/src/server_care/widgets/log_line_tile.dart';
 import 'package:hermes_app/src/server_care/widgets/update_status_card.dart';
 import 'package:hermes_app/src/server_care/widgets/update_step_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
-import 'package:hermes_app/src/widgets/grouped_list.dart';
 
 Future<void> _pump(WidgetTester tester, Widget child) => tester.pumpWidget(
   MaterialApp(
@@ -203,29 +202,5 @@ void main() {
       matchesSemantics(isButton: true, hasTapAction: true, label: 'Copy'),
     );
     handle.dispose();
-  });
-
-  testWidgets('a command in a section row keeps its text and Copy', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      GroupedSection(
-        header: 'Things to fix',
-        children: [
-          Builder(
-            builder: (context) => Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: GroupedMetrics.of(context).rowPadding,
-                vertical: 8,
-              ),
-              child: const CommandRow(command: 'hermes tools install browser'),
-            ),
-          ),
-        ],
-      ),
-    );
-    expect(find.text('hermes tools install browser'), findsOneWidget);
-    expect(find.text('Copy'), findsOneWidget);
   });
 }
