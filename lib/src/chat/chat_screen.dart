@@ -451,12 +451,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _finds = _maybeRead<AgentMessageFinds>()?..addListener(_onAgentMessages);
     final liveActivities = _maybeRead<LiveActivities?>();
     final appLock = _maybeRead<AppLockController>();
+    final auth = _maybeRead<AuthController>();
     _attention = AttentionNotifier(
       service: _maybeRead<NotificationService>(),
       settings: _maybeRead<NotificationSettings>(),
       onOpen: _openFromNotification,
       activities: liveActivities,
       appLock: () => appLockHidesRequests(appLock),
+      accountKey: () => auth?.accountKey,
     );
     final repositories = HermesRepositories.maybeOf(context);
     final api = repositories?.api;
@@ -489,7 +491,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         events: repositories?.telemetry.events ?? noopAppEventLogger,
       );
     }
-    final auth = _maybeRead<AuthController>();
     if (transport is HermesGatewayTransport && auth?.baseUrl != null) {
       _avatars = ProfileAvatarRepository(
         transport.request,

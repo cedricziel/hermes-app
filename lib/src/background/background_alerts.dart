@@ -172,6 +172,7 @@ class RunningRepliesStep extends BackgroundStep {
         title: thread?.title ?? kUnnamedChatLabel,
         text: last!.content,
         appLock: await context.appLockOn(),
+        accountKey: context.hermes.accountKey,
       ),
     );
     return _Verdict.announced;

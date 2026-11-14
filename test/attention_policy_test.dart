@@ -148,6 +148,55 @@ void main() {
       expect(n.body, kReplyFailedBody);
       expect(n.category, same(replyFailedCategory));
     });
+
+    group('with someone signed in', () {
+      AttentionNotification signedIn({
+        String threadId = 't1',
+        bool failed = false,
+        bool appLock = false,
+        String? accountKey = 'acct',
+      }) => replyReadyNotification(
+        threadId: threadId,
+        title: 'Release notes',
+        text: '**Done** with it.',
+        profile: 'work',
+        failed: failed,
+        appLock: appLock,
+        accountKey: accountKey,
+      );
+
+      test('a completed reply in a chat offers Reply', () {
+        final n = signedIn();
+
+        expect(n.category, same(replyReadyActionCategory));
+        expect(n.body, 'Done with it.');
+        expect(n.request, isNull);
+        expect(n.timeSensitive, isFalse);
+        expect(jsonDecode(notificationPayload(n)), {
+          't': 't1',
+          'p': 'work',
+          'y': 1,
+          'n': 'Release notes',
+          'a': accountHashFor('acct'),
+        });
+      });
+
+      test('every other case keeps the plain category and payload', () {
+        for (final n in [
+          signedIn(accountKey: null),
+          signedIn(appLock: true),
+          signedIn(failed: true),
+          signedIn(threadId: ''),
+        ]) {
+          expect(n.category?.actions, isEmpty);
+          expect(jsonDecode(notificationPayload(n)), isNot(contains('y')));
+          expect(jsonDecode(notificationPayload(n)), isNot(contains('a')));
+          expect(jsonDecode(notificationPayload(n)), isNot(contains('n')));
+        }
+        expect(signedIn(appLock: true).category, same(replyReadyCategory));
+        expect(signedIn(failed: true).category, same(replyFailedCategory));
+      });
+    });
   });
 
   group('what is said', () {
@@ -160,6 +209,47 @@ void main() {
       expect(n.category?.placeholder, kReplyReadyBody);
       expect(n.category?.actions, isEmpty);
       expect(n.timeSensitive, isFalse);
+    });
+
+    test('a finished reply offers Reply only for a signed-in account', () {
+      AttentionNotification? reply({
+        String? accountKey,
+        bool appLock = false,
+        ChatEvent event = const ReplyCompleted('Done.'),
+      }) => attentionFor(
+        event: event,
+        thread: _thread(),
+        appFocused: false,
+        selectedThreadId: null,
+        enabled: true,
+        profile: 'work',
+        appLock: appLock,
+        accountKey: accountKey,
+      );
+
+      expect(
+        reply(accountKey: 'acct')!.category,
+        same(replyReadyActionCategory),
+      );
+      expect(reply()!.category, same(replyReadyCategory));
+      expect(
+        reply(accountKey: 'acct', appLock: true)!.category,
+        same(replyReadyCategory),
+      );
+      expect(
+        reply(
+          accountKey: 'acct',
+          event: const ReplyCompleted('Done.', failed: true),
+        )!.category,
+        same(replyFailedCategory),
+      );
+      expect(
+        reply(
+          accountKey: 'acct',
+          event: const ReplyCompleted('Done.', stopped: true),
+        ),
+        isNull,
+      );
     });
 
     test('App Lock keeps completed replies generic', () {

@@ -472,6 +472,37 @@ announced again, since a reply notification replaces the chat's earlier one and
 the foreground check reads the same baseline. With Spotlight switched on, the
 launch also refreshes the index.
 
+### Replying to a notification (iOS simulator, macOS)
+
+The Reply button of a finished reply's notification (`hermes.action.reply-chat`)
+needs a Mac with Xcode; nothing here runs on Linux. Start
+`scripts/dev-backend.sh` with the scripted loopback model (no provider), build
+for the simulator (`flutter build ios --simulator -d <udid>`), sign in, allow
+notifications, send a prompt and send the app to the background before it
+finishes. Let the reply finish, run the periodic refresh (above) so the
+"Reply ready" notification appears, then expand it: it has Reply. Type text,
+tap Send, and:
+
+- with the app in the background, then **killed** (swipe it away, or
+  `xcrun simctl terminate <udid> <bundle id>`; the reply notification stays),
+  repeat. The text must reach the chat exactly once (open it and count the
+  user rows), and the answer arrives as a notification after the next refresh
+  and in the chat;
+- stop the backend (`scripts/dev-backend.sh stop`) and reply: "Reply not sent.
+  Open Hermes to try again." appears; tap it and the text is in the composer,
+  unsent. Kill the backend while the prompt is in flight instead and expect
+  "Couldn't confirm your reply was sent." and no text kept;
+- turn App Lock on: the Reply notifications are withdrawn and new replies post
+  without the action; a stale one answers "Open Hermes to reply." under
+  "Hermes". Sign out: they are withdrawn too;
+- on macOS repeat with the app running, hidden and not running (a cold launch
+  must handle the reply once and not open the chat).
+
+Read `xcrun simctl spawn <udid> log stream --predicate 'process == "Runner"'`
+for a second send. Never type text you mind seeing: the kept text is in the
+notification's payload. Restore the `ios/` and `macos/` Xcode files the build
+rewrites and stage files by name.
+
 ## When the screenshot can't be taken
 
 To set up state the screen needs (a second profile, say), use the CLI against

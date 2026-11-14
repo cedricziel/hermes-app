@@ -32,6 +32,15 @@ const replyFailedCategory = RequestCategory(
   placeholder: kReplyFailedBody,
 );
 
+/// A completed reply the user can answer from its notification: one text
+/// action, a new prompt for that chat. Only chosen by
+/// `replyReadyNotification`.
+const replyReadyActionCategory = RequestCategory(
+  'hermes.reply.ready.reply',
+  placeholder: kReplyReadyBody,
+  actions: [_replyChat],
+);
+
 /// A message a Hermes profile delivered; also the summary of several.
 const messageCategory = RequestCategory(
   'hermes.message.new',
@@ -80,6 +89,8 @@ class RequestAction {
     this.destructive = false,
     this.foreground = false,
     this.textInput = false,
+    this.buttonTitle = kReplyButton,
+    this.placeholder = kReplyPlaceholder,
   });
 
   final String id;
@@ -89,8 +100,12 @@ class RequestAction {
   /// Opens the app instead of answering in the background.
   final bool foreground;
 
-  /// Asks for text, sent with [kReplyButton].
+  /// Asks for text, sent with [buttonTitle].
   final bool textInput;
+
+  /// The send button of the text input, and its hint.
+  final String buttonTitle;
+  final String placeholder;
 
   static const kReplyButton = 'Send';
   static const kReplyPlaceholder = 'Your answer';
@@ -105,8 +120,8 @@ class RequestAction {
       ? DarwinNotificationAction.text(
           id,
           title,
-          buttonTitle: kReplyButton,
-          placeholder: kReplyPlaceholder,
+          buttonTitle: buttonTitle,
+          placeholder: placeholder,
           options: _options,
         )
       : DarwinNotificationAction.plain(id, title, options: _options);
@@ -118,7 +133,7 @@ class RequestAction {
     showsUserInterface: foreground,
     cancelNotification: true,
     inputs: textInput
-        ? [AndroidNotificationActionInput(label: kReplyPlaceholder)]
+        ? [AndroidNotificationActionInput(label: placeholder)]
         : const [],
   );
 
@@ -126,8 +141,8 @@ class RequestAction {
     'id': id,
     'title': title,
     'options': _options.fold<int>(0, (all, option) => all | option.value),
-    if (textInput) 'buttonTitle': kReplyButton,
-    if (textInput) 'placeholder': kReplyPlaceholder,
+    if (textInput) 'buttonTitle': buttonTitle,
+    if (textInput) 'placeholder': placeholder,
   };
 }
 
@@ -191,6 +206,12 @@ class RequestCategory {
 }
 
 const _reply = RequestAction(kReplyAction, 'Reply', textInput: true);
+const _replyChat = RequestAction(
+  kReplyChatAction,
+  'Reply',
+  textInput: true,
+  placeholder: 'Reply to Hermes',
+);
 const _other = RequestAction(kOpenAction, 'Other…', foreground: true);
 const _open = RequestAction(kOpenAction, 'Open', foreground: true);
 
@@ -238,6 +259,7 @@ List<RequestCategory> staticRequestCategories() {
     _approvalPlaceholder,
     _questionPlaceholder,
     replyReadyCategory,
+    replyReadyActionCategory,
     replyFailedCategory,
     messageCategory,
   ];

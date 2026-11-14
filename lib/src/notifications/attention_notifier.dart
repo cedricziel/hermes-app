@@ -25,6 +25,7 @@ class AttentionNotifier with WidgetsBindingObserver {
     this.activity,
     this.activities,
     this.appLock = _off,
+    this.accountKey = _nobody,
   }) {
     activity?.addListener(_activityChanged);
     _focused = AppPresence.focused(WidgetsBinding.instance.lifecycleState);
@@ -46,6 +47,12 @@ class AttentionNotifier with WidgetsBindingObserver {
   final bool Function() appLock;
 
   static bool _off() => false;
+
+  /// The key of the signed-in account, or null when nobody is: a finished
+  /// reply offers Reply only for an account.
+  final String? Function() accountKey;
+
+  static String? _nobody() => null;
 
   /// Called with the chat of a notification the user tapped.
   final void Function(NotificationTarget target) onOpen;
@@ -101,6 +108,7 @@ class AttentionNotifier with WidgetsBindingObserver {
       enabled: settings == null || (settings.loaded && settings.enabled),
       profile: profile,
       appLock: appLock(),
+      accountKey: accountKey(),
     );
     if (notification == null) return;
     final pending = _permissionRequest;

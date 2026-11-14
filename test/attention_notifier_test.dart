@@ -9,6 +9,7 @@ import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
+import 'package:hermes_app/src/notifications/request_notifications.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -30,11 +31,13 @@ void main() {
   AttentionNotifier build({
     NotificationSettings? withSettings,
     ValueListenable<bool>? activity,
+    String? Function()? accountKey,
   }) => notifier = AttentionNotifier(
     service: service,
     settings: withSettings ?? settings,
     onOpen: opened.add,
     activity: activity,
+    accountKey: accountKey ?? () => null,
   );
 
   void leaveTheApp() {
@@ -72,6 +75,34 @@ void main() {
       expect(n.title, 'Run failure');
       expect(n.body, 'Nothing new.');
       expect(n.profile, 'work');
+    });
+
+    test('offers Reply on a finished reply while someone is signed in', () {
+      build(accountKey: () => 'acct');
+      leaveTheApp();
+
+      notifier.announce(
+        thread,
+        const ReplyCompleted('Nothing new.'),
+        selectedThreadId: null,
+        profile: 'work',
+      );
+
+      expect(service.shown.single.category, same(replyReadyActionCategory));
+    });
+
+    test('offers no Reply without an account', () {
+      build();
+      leaveTheApp();
+
+      notifier.announce(
+        thread,
+        const ReplyCompleted('Nothing new.'),
+        selectedThreadId: null,
+        profile: 'work',
+      );
+
+      expect(service.shown.single.category, same(replyReadyCategory));
     });
 
     test('keeps a request generic while App Lock is on', () {

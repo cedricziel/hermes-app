@@ -43,6 +43,7 @@ class AttentionNotification {
     this.draft,
     this.accountHash,
     this.payloadProfile = true,
+    this.offersReply = false,
   }) : jobId = null;
 
   /// A scheduled task's run. It replaces an earlier notification for the same
@@ -61,6 +62,7 @@ class AttentionNotification {
        prompt = null,
        draft = null,
        accountHash = null,
+       offersReply = false,
        payloadProfile = true;
 
   /// Names the notification: the chat's id, or `job:<id>` for a task, so the
@@ -106,6 +108,11 @@ class AttentionNotification {
   /// The account [draft] was typed in (`accountHashFor`), the payload's
   /// `'a'`.
   final String? accountHash;
+
+  /// A completed reply that can be answered from the notification: the
+  /// payload carries the `'y'` marker, the chat's title and [accountHash],
+  /// and [category] holds the Reply action.
+  final bool offersReply;
 
   /// Whether the payload names [profile]. [profile] still sets the id, so the
   /// notification replaces the chat's; an ending that must carry no more than
@@ -153,6 +160,7 @@ AttentionNotification? attentionFor({
   required bool enabled,
   String? profile,
   bool appLock = false,
+  String? accountKey,
 }) {
   if (!enabled) return null;
   if (appFocused && selectedThreadId == thread.id) return null;
@@ -164,6 +172,7 @@ AttentionNotification? attentionFor({
       profile: profile,
       failed: failed,
       appLock: appLock,
+      accountKey: accountKey,
     );
   }
   final body = switch (event) {
@@ -213,6 +222,11 @@ AttentionNotification? attentionFor({
 /// [threadId]: the one place that chooses its words, its category and its
 /// payload, for the app in front and for a background check alike. While
 /// [appLock] is on the body stays generic.
+///
+/// A completed reply in a chat offers the Reply action when [accountKey], the
+/// key of the signed-in account (null when nobody is), is given and [appLock]
+/// is off. [appLock] must already count an App Lock that has not loaded as
+/// on. Every other case keeps the plain category and payload.
 AttentionNotification replyReadyNotification({
   required String threadId,
   required String title,
@@ -220,18 +234,29 @@ AttentionNotification replyReadyNotification({
   String? profile,
   bool failed = false,
   bool appLock = false,
-}) => AttentionNotification(
-  threadId: threadId,
-  title: title,
-  body: failed
-      ? kReplyFailedBody
-      : appLock || replyPreview(text).isEmpty
-      ? kReplyReadyBody
-      : replyPreview(text),
-  bodyIsPlainText: true,
-  profile: profile,
-  category: failed ? replyFailedCategory : replyReadyCategory,
-);
+  String? accountKey,
+}) {
+  final offersReply =
+      !failed && !appLock && threadId.isNotEmpty && accountKey != null;
+  return AttentionNotification(
+    threadId: threadId,
+    title: title,
+    body: failed
+        ? kReplyFailedBody
+        : appLock || replyPreview(text).isEmpty
+        ? kReplyReadyBody
+        : replyPreview(text),
+    bodyIsPlainText: true,
+    profile: profile,
+    category: failed
+        ? replyFailedCategory
+        : offersReply
+        ? replyReadyActionCategory
+        : replyReadyCategory,
+    offersReply: offersReply,
+    accountHash: offersReply ? accountHashFor(accountKey) : null,
+  );
+}
 
 /// The first of [texts] that is not blank, cut at [kRequestBodyLength], or
 /// [fallback].

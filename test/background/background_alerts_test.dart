@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
@@ -24,6 +25,10 @@ import 'package:hermes_app/src/intents/intent_shortcuts.dart'
 import 'package:hermes_app/src/intents/ask_hermes.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/badge_controller.dart';
+import 'package:hermes_app/src/notifications/local_notification_service.dart'
+    show notificationPayload;
+import 'package:hermes_app/src/notifications/request_notifications.dart'
+    show accountHashFor, replyReadyActionCategory, replyReadyCategory;
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_alerts.dart';
@@ -258,6 +263,35 @@ void main() {
         ]);
       },
     );
+
+    test('offers Reply on it, naming the account and the chat', () async {
+      await running.replace([left('c1')]);
+      idle('c1');
+      stored('c1');
+
+      await refresh(() => [step()]);
+
+      final shown = notifications.shown.single;
+      expect(shown.category, same(replyReadyActionCategory));
+      expect(shown.accountHash, accountHashFor(_account));
+      final payload = jsonDecode(notificationPayload(shown)) as Map;
+      expect(payload['y'], 1);
+      expect(payload['n'], 'Trip plan');
+      expect(payload['a'], accountHashFor(_account));
+    });
+
+    test('offers no Reply with App Lock on', () async {
+      await running.replace([left('c1')]);
+      idle('c1');
+      stored('c1');
+      replyPreviewsLocked = true;
+
+      await refresh(() => [step()]);
+
+      final shown = notifications.shown.single;
+      expect(shown.category, same(replyReadyCategory));
+      expect(jsonDecode(notificationPayload(shown)), isNot(contains('y')));
+    });
 
     test('background reply previews remain generic with App Lock', () async {
       await running.replace([left('c1')]);
