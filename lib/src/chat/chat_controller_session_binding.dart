@@ -99,6 +99,7 @@ extension _ChatControllerSessionBinding on ChatController {
             _sideResults.remove(entry.key)?.dispose();
             _processOutputs.remove(entry.key)?.clear();
             if (change.retired) {
+              _ChatControllerSubagents(this)._dropSubagents(entry.key.id);
               _ownedBindings.remove(entry.key);
               _usage.remove(entry.key)?.dispose();
               notifyListeners();
