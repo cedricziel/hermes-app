@@ -126,6 +126,7 @@ extension _ChatScreenLayout on _ChatScreenState {
             onSetupModel: _setupModel,
             screen: _screen,
             onOpenScreen: () => _openViewer('preview'),
+            onShowAgentDetails: _showAgentDetails,
             needsYou: _needsYou,
             // The inspector lists the same items, so it replaces the line
             // (a phone's sheet covers the chat, so there the line stays); the
@@ -211,6 +212,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                   thread: selected,
                   screen: _screen,
                   onEnlargeScreen: () => _openViewer('card'),
+                  selection: _agentSelection,
                 ),
                 panelKey: const Key('activity-inspector'),
                 onDismissOverlay: _toggleActivity,

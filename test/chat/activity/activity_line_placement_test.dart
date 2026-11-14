@@ -204,5 +204,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('activity-chip-plan')), findsOneWidget);
+    // Let the panel's read of the chat's agents land, so no request is left in
+    // flight when the test ends.
+    await tester.pump();
+    await tester.runAsync(pumpEventQueue);
+    await tester.pump();
   });
 }

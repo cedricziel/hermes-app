@@ -541,6 +541,13 @@ class FakeGateway {
           'id': id,
           'result': {'detached': true, 'count': queuedImages.length},
         });
+      case 'subagent.list' when !unknownMethods.contains('subagent.list'):
+        // A gateway that has the call and lists nothing, unless a test
+        // answers it through [handlers].
+        _send({
+          'id': id,
+          'result': {'subagents': [], 'delegations': []},
+        });
       case 'prompt.submit' when rejectSubmit:
         _send({
           'id': id,

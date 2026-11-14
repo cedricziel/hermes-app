@@ -118,6 +118,12 @@ dependencies:
   audio_session: ^0.2.4
   flutter_user_certificates_android: ^0.1.0
   sqlite3: ^3.9.1
+  # Save a staged file from its path, so it is never read into memory: the
+  # document picker on iOS and Android (flutter_file_dialog) and the save
+  # panel on desktop (file_selector, then File.copy). file_picker only saves
+  # from bytes.
+  flutter_file_dialog: ^3.3.6
+  file_selector: ^1.1.0
 
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
 # upstream SPM implementation until those packages publish their next release.

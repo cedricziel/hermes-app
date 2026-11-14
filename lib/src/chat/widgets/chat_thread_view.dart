@@ -86,6 +86,7 @@ class ChatThreadView extends StatelessWidget {
     this.greetingName,
     this.welcome = true,
     this.screenPreview,
+    this.onShowAgentDetails,
   });
 
   final ChatThread? thread;
@@ -171,6 +172,10 @@ class ChatThreadView extends StatelessWidget {
   /// window that holds no screen.
   final ScreenPreviewBuilder? screenPreview;
 
+  /// Opens an agent's details in the Activity panel from the reply's agent
+  /// card; none where the chat has no panel (the quick panel).
+  final ValueChanged<String>? onShowAgentDetails;
+
   @override
   Widget build(BuildContext context) {
     final builders =
@@ -192,6 +197,7 @@ class ChatThreadView extends StatelessWidget {
           reactionsFor: reactionsFor,
           onReactionDetails: onReactionDetails,
           screenPreview: screenPreview,
+          onShowAgentDetails: onShowAgentDetails,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,
