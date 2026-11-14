@@ -16,7 +16,7 @@ concurrency:
 jobs:
   # Decides which heavy jobs a pull request needs. Push to main and manual runs
   # always run everything. Only the paths no build or test reads count as
-  # docs-only: docs/, openspec/, .claude/skills/ and Markdown files anywhere
+  # docs-only: docs/, openspec/ and Markdown files anywhere
   # (no test reads such a file from the repository). The watch tests depend on
   # the two Swift packages they run and on this workflow.
   changes:
@@ -37,21 +37,32 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
         run: |
+          set -euo pipefail
           code=true
           watch=true
           if [ "$EVENT_NAME" = pull_request ]; then
-            code=false
-            watch=false
-            while IFS= read -r file; do
-              echo "changed: $file"
-              case "$file" in
-                docs/* | openspec/* | .claude/skills/* | *.md) ;;
-                *) code=true ;;
-              esac
-              case "$file" in
-                ios/HermesWatch/* | ios/HermesSurfaceKit/* | .github/workflows/ci.yml) watch=true ;;
-              esac
-            done < <(git diff --name-only --no-renames HEAD^1 HEAD)
+            # Fail closed: anything unexpected runs everything.
+            if [ "$(git rev-list --parents -n1 HEAD | wc -w)" -ne 3 ]; then
+              echo "::warning::HEAD is not a merge commit; running everything"
+            else
+              files="$(git diff --name-only --no-renames HEAD^1 HEAD)"
+              if [ -z "$files" ]; then
+                echo "::warning::No changed files found; running everything"
+              else
+                code=false
+                watch=false
+                while IFS= read -r file; do
+                  echo "changed: $file"
+                  case "$file" in
+                    docs/* | openspec/* | *.md) ;;
+                    *) code=true ;;
+                  esac
+                  case "$file" in
+                    ios/HermesWatch/* | ios/HermesSurfaceKit/* | .github/workflows/ci.yml) watch=true ;;
+                  esac
+                done <<< "$files"
+              fi
+            fi
           fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "watch=$watch" >> "$GITHUB_OUTPUT"
