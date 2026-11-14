@@ -43,12 +43,12 @@ The Set up section SHALL read `GET /api/tools/toolsets/{name}/config` when first
 
 ### Requirement: Keys
 
-For the selected provider each env var SHALL be a masked field labelled with its `prompt`, with "Already set" when `is_set` and a "Get a key" link from `url`. Save SHALL send only non-blank values to `PUT …/env`, clear every field after the request whether it succeeded or not, and read the config again. Key values SHALL NOT be logged, put in telemetry, exception text or `toString`, or written to storage.
+For the selected provider each env var SHALL be the app-wide secret field (Secret field rule) labelled with its `prompt`, with "Already set" when `is_set` and a "Get a key" link from `url`. Save SHALL send only non-blank values to `PUT …/env` and read the config again; a successful save or a lost answer SHALL clear the fields, a failed save SHALL keep the typed values, hidden. Key values SHALL NOT be logged, put in telemetry, exception text or `toString`, or written to storage.
 
 #### Scenario: Field behaviour
 
 - **WHEN** a key field is shown
-- **THEN** it disables autocorrect, suggestions, keyboard learning and autofill, offers no control that shows the typed value, and says "Saved on your server for <profile>. The app doesn't keep it."
+- **THEN** it is obscured, disables autocorrect, suggestions, keyboard learning and autofill, offers "Show key" / "Hide key", and says "Saved on your server for <profile>. The app doesn't keep it."
 
 #### Scenario: Characters typed
 
@@ -70,10 +70,10 @@ For the selected provider each env var SHALL be a masked field labelled with its
 - **WHEN** the user types a key and saves
 - **THEN** the request carries only that key, the field is empty afterwards, and the row shows "Already set"
 
-#### Scenario: Failure clears too
+#### Scenario: Failure keeps the value
 
 - **WHEN** the save fails
-- **THEN** the field has been cleared (as after every save), the message says "Couldn't save the key. Type it again.", and Save stays disabled until something is typed
+- **THEN** the typed value stays in the field, hidden, the message says "Couldn't save the key. Try again.", and nothing is sent again until the user saves
 
 #### Scenario: Blank is not sent
 
@@ -104,6 +104,29 @@ For the selected provider each env var SHALL be a masked field labelled with its
 
 - **WHEN** a key is saved
 - **THEN** `tools.setup` records `step: env` and a key count only
+
+### Requirement: Secret field rule
+
+Every typed secret SHALL use the shared secret field (`SecretFieldRow`): obscured by default, with a Show/Hide control labelled "Show key" / "Hide key" (44 points on touch, 48 dp on Android, a standard Mac button) and the muted, announced "<N> characters entered" line. A shown value SHALL be hidden again when it is no longer safe to show (Hiding a shown key). A saved value SHALL NOT be revealed.
+
+#### Scenario: Show and hide
+
+- **WHEN** the user taps "Show key"
+- **THEN** the typed value shows and the control reads "Hide key"; going inactive, starting Save, a failed save or closing the form hides it again
+
+#### Scenario: Saved key stays hidden
+
+- **WHEN** a key is "Already set"
+- **THEN** no control shows its value
+
+### Requirement: Hiding a shown key
+
+A shown value SHALL be hidden again when the lifecycle leaves `resumed` (`inactive` included), when a check or save starts, after any failed save, and when the form closes; the shown state SHALL NOT be persisted or restored.
+
+#### Scenario: Reopened form
+
+- **WHEN** the user showed a key, closed the form and opens it again
+- **THEN** the field is obscured
 
 ### Requirement: Install on the server
 
