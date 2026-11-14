@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:hermes_app/src/chat/widgets/transcript_outcome_line.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -24,6 +25,19 @@ WidgetbookFolder transcriptOutcomeLineNode() => WidgetbookFolder(
           'Files restored · removed your last message',
         ),
         _case('Restored 1 file', 'Restored 1 file'),
+        WidgetbookUseCase(
+          name: 'Largest text, no hairlines',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              const TranscriptOutcomeLine(
+                text: 'Conversation compressed · 42 → 9 messages',
+              ),
+              maxWidth: 360,
+            ),
+          ),
+        ),
         _case(
           'Long sentence wraps',
           'Conversation compressed · 4,210 → 912 messages · Hermes could not '

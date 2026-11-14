@@ -14,6 +14,15 @@ import '../checkpoint_models.dart';
       : (path.substring(0, slash), path.substring(slash + 1));
 }
 
+/// [name] with invisible break opportunities after `_` and `-` and before
+/// each `.`, so a long name wraps at word boundaries and its extension stays
+/// whole on one line. Use it for drawing only: copy, search and the screen
+/// reader get the real name.
+String breakableFileName(String name) => name.replaceAllMapped(
+  RegExp(r'[_-]|\.'),
+  (m) => m[0] == '.' ? '\u200B.' : '${m[0]}\u200B',
+);
+
 /// The counts of [file] in words, or null when nothing is known: "+48 −112"
 /// from its diff section, the `stat` total when there is none, and a note
 /// for a file that is not text.
@@ -138,7 +147,7 @@ class _FileRow extends StatelessWidget {
       value: cut ? l10n.chatCheckpointsChangesCutCaption : null,
       onTap: onTap,
       child: GroupedRow(
-        title: name,
+        title: breakableFileName(name),
         titleMaxLines: null,
         subtitle: subtitle,
         subtitleMaxLines: null,

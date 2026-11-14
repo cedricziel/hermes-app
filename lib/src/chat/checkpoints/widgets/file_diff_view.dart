@@ -70,7 +70,7 @@ class FileDiffView extends StatelessWidget {
               Semantics(
                 header: true,
                 child: Text(
-                  l10n.chatCheckpointsFileHeading(name),
+                  l10n.chatCheckpointsFileHeading(breakableFileName(name)),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,

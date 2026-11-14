@@ -27,6 +27,14 @@ Widget _app(Widget child, {double scale = 1, TargetPlatform? platform}) =>
 
 const _longName = 'composer_attachment_preview_tile_with_a_very_long_name.dart';
 
+/// A text whose content is [name] once the invisible break opportunities the
+/// widgets add (`breakableFileName`) are taken out.
+Finder _named(String name) => find.byWidgetPredicate(
+  (w) =>
+      w is Text &&
+      (w.data ?? w.textSpan?.toPlainText())?.replaceAll('\u200B', '') == name,
+);
+
 void main() {
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -56,13 +64,18 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull);
-      final title = tester.widget<Text>(find.text(_longName));
+      final title = tester.widget<Text>(_named(_longName));
       expect(title.maxLines, isNull);
       expect(title.overflow, isNot(TextOverflow.ellipsis));
-      final paragraph = tester.renderObject<RenderParagraph>(
-        find.text(_longName),
-      );
+      final paragraph = tester.renderObject<RenderParagraph>(_named(_longName));
       expect(paragraph.didExceedMaxLines, isFalse);
+      // The extension is never split from its dot: the name only breaks at
+      // underscores, hyphens and before the dot.
+      expect(breakableFileName(_longName), contains('\u200B.'));
+      expect(
+        breakableFileName('a_b-c.dart').replaceAll('\u200B', '|'),
+        'a_|b-|c|.dart',
+      );
       // More than one line: it wrapped instead of being cut.
       expect(
         paragraph.size.height,
@@ -157,7 +170,7 @@ void main() {
       );
       await tester.tap(find.text('Restore this file…'));
       expect(restored, 1);
-      expect(find.text('Changes in a.dart'), findsOneWidget);
+      expect(_named('Changes in a.dart'), findsOneWidget);
       expect(find.text('1 added, 0 removed'), findsOneWidget);
     });
 

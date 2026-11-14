@@ -15,6 +15,9 @@ class TranscriptOutcomeLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtle = context.hermesColors.subtleText;
+    // At large text sizes the hairlines go: the sentence gets the whole width
+    // instead of breaking inside a word.
+    final large = MediaQuery.textScalerOf(context).scale(13) > 20;
     final hairline = Divider(
       height: 1,
       thickness: 1,
@@ -29,11 +32,11 @@ class TranscriptOutcomeLine extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           child: Row(
             children: [
-              Expanded(child: hairline),
+              if (!large) Expanded(child: hairline),
               Flexible(
                 flex: 4,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: EdgeInsets.symmetric(horizontal: large ? 0 : 12),
                   child: Text(
                     text,
                     textAlign: TextAlign.center,
@@ -41,7 +44,7 @@ class TranscriptOutcomeLine extends StatelessWidget {
                   ),
                 ),
               ),
-              Expanded(child: hairline),
+              if (!large) Expanded(child: hairline),
             ],
           ),
         ),
