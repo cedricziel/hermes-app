@@ -54,6 +54,9 @@ class ToolsAvailability extends ChangeNotifier with SafeNotifier {
   /// True after the last read found the profile gone.
   bool get profileGone => _profileGone;
 
+  /// The profile the last answered read was for; null before one.
+  String? get profile => _rowsProfile;
+
   /// The rows read for [profile]; empty when none were read for it.
   List<Toolset> rowsFor(String profile) =>
       profile == _rowsProfile ? _rows : const [];

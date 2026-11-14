@@ -19,6 +19,10 @@ import '../plugins/plugins_screen.dart';
 import '../settings/helper_models_screen.dart';
 import '../skills/skills_screen.dart';
 import '../theme/app_icons.dart';
+import '../tools/hermes_tools_repository.dart';
+import '../tools/tools_availability.dart';
+import '../tools/tools_models.dart';
+import '../tools/tools_screen.dart';
 import '../widgets/state_message.dart';
 import 'chat_profiles.dart';
 import 'widgets/mac_profiles_view.dart';
@@ -58,6 +62,11 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
 
   /// The staged memory changes waiting, by profile.
   final _waiting = <String, int>{};
+
+  /// How many tools are on of how many, by profile, read when a profile is
+  /// selected and only while the server offers Tools.
+  final _tools = <String, ({int on, int total})>{};
+  ToolsAvailability? _availability;
   int _generation = 0;
 
   ChatProfiles get _profiles => widget.profiles;
@@ -66,13 +75,51 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   void initState() {
     super.initState();
     _profiles.addListener(_changed);
+    _availability = _maybeRead<ToolsAvailability>()
+      ?..addListener(_toolsOfferChanged);
     _changed();
+  }
+
+  T? _maybeRead<T>() {
+    try {
+      return context.read<T>();
+    } on ProviderNotFoundException {
+      return null;
+    }
   }
 
   @override
   void dispose() {
     _profiles.removeListener(_changed);
+    _availability?.removeListener(_toolsOfferChanged);
     super.dispose();
+  }
+
+  /// The server's answer about Tools came or changed: show or hide the row,
+  /// and read the count the row waits for.
+  void _toolsOfferChanged() {
+    if (!mounted) return;
+    final name = _selected;
+    if (name != null && (_availability?.offered ?? false)) {
+      unawaited(_loadTools(name, _generation));
+    }
+    setState(() {});
+  }
+
+  /// Counts the selected profile's tools. A failed read leaves no count.
+  Future<void> _loadTools(String name, int generation) async {
+    final repositories = HermesRepositories.maybeOf(context);
+    if (repositories == null || !(_availability?.offered ?? false)) return;
+    final result = await repositories.tools.forProfile(name).list();
+    if (!mounted || generation != _generation) return;
+    if (result is ToolsOk<ToolsetList>) {
+      setState(
+        () => _tools[name] = (
+          on: result.value.toolsets.where((t) => t.enabled).length,
+          total: result.value.toolsets.length,
+        ),
+      );
+    }
   }
 
   void _changed() {
@@ -113,6 +160,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     if (profile != null) put(ProfileSection.skills, profile.skillCount);
     if (repositories == null) return;
     await Future.wait([
+      _loadTools(name, generation),
       _loadWaiting(name, generation, repositories),
       count(
         ProfileSection.memory,
@@ -191,6 +239,11 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         profiles: repositories.profiles,
         profile: name,
       ),
+      ProfileSection.tools => ToolsScreen(
+        repository: repositories.tools.forProfile(name),
+        availability: _availability,
+        onProfileGone: () => unawaited(_profiles.load()),
+      ),
       ProfileSection.helperModels => HelperModelsScreen(
         repository: repositories.models,
         profile: name,
@@ -206,7 +259,12 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
       if (mounted) unawaited(_loadCounts(name));
       return;
     }
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => page));
+    // Switches made on the Tools screen change the count.
+    if (mounted && section == ProfileSection.tools) {
+      unawaited(_loadTools(name, _generation));
+    }
   }
 
   @override
@@ -249,6 +307,8 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                     onSelect: _select,
                     counts: _counts[_selected] ?? const {},
                     memoryWaiting: _waiting[_selected],
+                    toolsOffered: _availability?.offered ?? false,
+                    toolsCount: _tools[_selected],
                     onOpen: _open,
                   ),
           ),

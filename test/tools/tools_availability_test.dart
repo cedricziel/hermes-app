@@ -33,6 +33,7 @@ void main() {
 
     expect(read, ToolsAvailabilityRead.ok);
     expect(availability.offered, isTrue);
+    expect(availability.profile, 'work');
     expect(availability.rowsFor('work').map((t) => t.name), [
       'web',
       'terminal',

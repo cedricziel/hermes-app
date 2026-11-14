@@ -252,6 +252,34 @@ extension _ChatScreenNavigation on _ChatScreenState {
     );
   }
 
+  /// Whether the Tools entry shows: the server has answered a list.
+  bool get _toolsOffered =>
+      _tools != null && (_toolsAvailability?.offered ?? false);
+
+  Future<void> _openTools() async {
+    _closeDrawerIfNarrow();
+    final availability = _toolsAvailability;
+    // A chat on the server's default profile names none: use the profile the
+    // list was read for.
+    final profile = _chat.profile ?? availability?.profile;
+    final tools = profile == null ? null : _tools?.forProfile(profile);
+    if (tools == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ToolsScreen(
+          repository: tools,
+          availability: availability,
+          // A deleted profile: read the list of profiles again.
+          onProfileGone: _profiles == null
+              ? null
+              : () => unawaited(_loadRecipients()),
+        ),
+      ),
+    );
+    // Switches made there change what the entry and the count know.
+    if (mounted) unawaited(availability?.refresh(tools.profile));
+  }
+
   void _openHelperModels() {
     _closeDrawerIfNarrow();
     Navigator.of(context).push(

@@ -95,6 +95,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           memoryWaiting: _memoryWaiting?.waiting,
           onOpenPlugins: _plugins == null ? null : _openPlugins,
           onOpenMcp: _mcp == null ? null : _openMcp,
+          onOpenTools: _toolsOffered ? _openTools : null,
           onOpenHelperModels: _models == null ? null : _openHelperModels,
         );
 
@@ -319,6 +320,12 @@ extension _ChatScreenLayout on _ChatScreenState {
                                 icon: AppIcons.power,
                                 label: 'MCP servers',
                                 onTap: _openMcp,
+                              ),
+                            if (_toolsOffered)
+                              SidebarAction(
+                                icon: AppIcons.wrench,
+                                label: context.l10n.toolsTitle,
+                                onTap: _openTools,
                               ),
                             if (_models != null)
                               SidebarAction(
