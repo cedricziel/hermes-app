@@ -16,7 +16,8 @@ import 'tool_call_card.dart' show formatToolDuration;
 enum ProcessCardStatus { running, stopped, exited, ended }
 
 /// How the last Stop press went. [killed], [alreadyEnded] and [notListed] end
-/// the question; [failed] and [unconfirmed] bring Stop back.
+/// the question; [failed] and [unconfirmed] bring Stop back; [unsupported]
+/// (a server without `process.kill`) says so once and removes Stop.
 enum ProcessStopStatus {
   idle,
   sending,
@@ -26,6 +27,7 @@ enum ProcessStopStatus {
   notListed,
   failed,
   unconfirmed,
+  unsupported,
 }
 
 /// What Hermes' program list says about a card. A card without it keeps the
@@ -222,6 +224,10 @@ class _Controls extends StatelessWidget {
         tone: AppBannerTone.neutral,
         title: l10n.chatWidgetsProgramOutcomeNotListed,
       ),
+      ProcessStopStatus.unsupported => AppBanner(
+        tone: AppBannerTone.neutral,
+        title: l10n.chatWidgetsProgramOutcomeUnsupported,
+      ),
       ProcessStopStatus.failed => AppBanner(
         tone: AppBannerTone.error,
         title: l10n.chatWidgetsProgramOutcomeFailed,
@@ -241,7 +247,8 @@ class _Controls extends StatelessWidget {
     final ended =
         stop == ProcessStopStatus.killed ||
         stop == ProcessStopStatus.alreadyEnded ||
-        stop == ProcessStopStatus.notListed;
+        stop == ProcessStopStatus.notListed ||
+        stop == ProcessStopStatus.unsupported;
     final showStop =
         info.status == ProcessCardStatus.running && onStop != null && !ended;
     if (banner == null && !showStop) return const SizedBox.shrink();

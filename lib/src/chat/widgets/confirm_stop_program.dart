@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../l10n/l10n.dart';
@@ -16,10 +17,12 @@ String confirmCommandLine(String command) {
 
 /// Asks whether to stop the program running [command]. True only when the
 /// user confirmed; Cancel is the default. The caller binds the answer to the
-/// program it asked about.
+/// program it asked about; the dialog closes, answering false, once
+/// [dismissWhen] turns true (the program ended while it was open).
 Future<bool> confirmStopProgram(
   BuildContext context, {
   required String command,
+  ValueListenable<bool>? dismissWhen,
 }) {
   final l10n = context.l10n;
   return showDestructiveConfirm(
@@ -28,5 +31,6 @@ Future<bool> confirmStopProgram(
     message: l10n.chatWidgetsProgramConfirmMessage(confirmCommandLine(command)),
     confirmLabel: l10n.chatWidgetsProgramStopButton,
     cancelLabel: l10n.chatWidgetsProgramConfirmCancel,
+    dismissWhen: dismissWhen,
   );
 }

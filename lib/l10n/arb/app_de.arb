@@ -372,6 +372,7 @@
   "chatWidgetsProgramOutcomeFailed": "Das Programm konnte nicht gestoppt werden.",
   "chatWidgetsProgramOutcomeNotListed": "Dieses Programm wird nicht mehr aufgeführt.",
   "chatWidgetsProgramOutcomeStopped": "Gestoppt",
+  "chatWidgetsProgramOutcomeUnsupported": "Dieser Server kann keine Programme stoppen.",
   "chatWidgetsProgramStateClosed": "Geschlossen",
   "chatWidgetsProgramStateEnded": "Beendet",
   "chatWidgetsProgramStateExited": "Beendet mit Code {code}",

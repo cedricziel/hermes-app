@@ -29,9 +29,9 @@ import '../widgets/agent_notice_card.dart';
 import '../widgets/billing_verification_card.dart';
 import '../widgets/connector_operation_cards.dart';
 import '../widgets/moa_progress_card.dart';
-import '../widgets/process_output_card.dart';
 import '../widgets/session_status_card.dart';
 import 'activity_tier.dart';
+import 'bound_process_card.dart';
 import 'widgets/activity_panel.dart';
 
 /// The [ActivityPanel] of [thread] in [chat]: Working items (the session
@@ -245,10 +245,12 @@ class BoundActivityPanel extends StatelessWidget {
                 onDetails: chat.moaDetailsOpened,
               ),
             for (final process in openProcesses)
-              ProcessOutputCard(
+              BoundProcessCard(
                 key: ValueKey(process.processId),
+                chat: chat,
                 output: process,
-                onDetails: chat.processOutputDetailsOpened,
+                roster: readOnly ? null : roster,
+                readOnly: readOnly,
               ),
             if (openProcesses.isNotEmpty && omitted) omittedNote,
           ],
@@ -270,10 +272,12 @@ class BoundActivityPanel extends StatelessWidget {
                 onDetails: chat.sessionDetailsOpened,
               ),
             for (final process in closedProcesses)
-              ProcessOutputCard(
+              BoundProcessCard(
                 key: ValueKey(process.processId),
+                chat: chat,
                 output: process,
-                onDetails: chat.processOutputDetailsOpened,
+                roster: readOnly ? null : roster,
+                readOnly: readOnly,
               ),
             if (openProcesses.isEmpty && omitted) omittedNote,
             for (final progress

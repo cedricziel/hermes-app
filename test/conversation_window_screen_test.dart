@@ -21,6 +21,7 @@ import 'package:hermes_app/src/windows/conversation_windows.dart'
     show kInspectorWindowCommand;
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -280,6 +281,68 @@ void main() {
     expect(find.byKey(const Key('activity-panel')), findsOneWidget);
     expect(find.byType(BotScreenCard), findsNothing);
     expect(gateway.methods.where((m) => m.startsWith('display.')), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(gatewayTransport.close);
+  });
+
+  testWidgets('a window\'s program cards show what frames said, offer no '
+      'Stop and read or stop nothing', (tester) async {
+    final gateway = FakeGateway()..activeSessions = {};
+    gateway.handlers['session.resume'] = (params) => {
+      'session_id': 'rt-1',
+      'stored_session_id': params['session_id'],
+      'session_key': params['session_id'],
+    };
+    // Invented: a program Hermes would list as running.
+    gateway.handlers['process.list'] = (_) => {
+      'processes': [
+        {
+          'session_id': 'proc_dev',
+          'command': 'npm run dev',
+          'status': 'running',
+        },
+      ],
+    };
+    gateway.handlers['process.kill'] = (_) => {'status': 'killed'};
+    final gatewayTransport = HermesGatewayTransport(connect: gateway.connect);
+    addTearDown(gatewayTransport.close);
+    await pump(tester, withTransport: gatewayTransport);
+
+    await tester.enterText(composerField, 'Start the dev server');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Send'));
+    await tester.pump();
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+    }
+    gateway.event('agent.terminal.output', gateway.lastSessionId, {
+      'process_id': 'proc_dev',
+      'chunk': 'ready on :5173\n',
+    });
+    link.commandsIn.add(kInspectorWindowCommand);
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+    }
+    await tester.pump(const Duration(seconds: 12));
+    final card = find.byType(ProcessOutputCard);
+    expect(card, findsOneWidget, reason: 'the frame made a card');
+    await tester.tap(card);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      tester.widget<ProcessOutputCard>(card).onStop,
+      isNull,
+      reason: 'no Stop in a window',
+    );
+    expect(find.text('Process proc_dev · Output received'), findsOneWidget);
+    expect(find.text('Stop program'), findsNothing);
+    expect(gateway.methods.where((m) => m.startsWith('process.')), isEmpty);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(gatewayTransport.close);
   });

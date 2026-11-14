@@ -1788,6 +1788,10 @@
   "@chatWidgetsProgramOutcomeStopped": {
     "description": "Banner once a program was stopped."
   },
+  "chatWidgetsProgramOutcomeUnsupported": "This server can't stop programs.",
+  "@chatWidgetsProgramOutcomeUnsupported": {
+    "description": "Banner after Stop program was pressed on a server without process.kill; Stop is then gone."
+  },
   "chatWidgetsProgramStateClosed": "Closed",
   "@chatWidgetsProgramStateClosed": {
     "description": "State word of a program card Hermes has no list entry for, once its terminal closed."
