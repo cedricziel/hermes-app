@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/tools/toolset_installs.dart';
+import 'package:hermes_app/src/tools/toolset_setup_panel.dart';
 import 'package:hermes_app/src/tools/widgets/toolset_model_sheet.dart';
 import 'package:hermes_app/src/tools/widgets/tools_switch.dart';
 
@@ -114,6 +115,84 @@ void main() {
         findsOneWidget,
       );
       expect(world.server.requestsTo('PUT', '$web/env'), hasLength(1));
+      await h.close();
+    });
+
+    testWidgets('a lost answer still being checked when the user returns '
+        'shows "May have saved. Checking…" and keeps the switch locked', (
+      tester,
+    ) async {
+      await start(tester);
+      world.loseAnswer('PUT', '$web/env');
+      final gate = Completer<void>();
+      world.server.onRequest('GET', '$web/config', (_) async {
+        await gate.future;
+        return (status: 200, body: world.webConfig());
+      });
+      await h.type(typedKey);
+      await tester.tap(find.text('Save'));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('May have saved. Checking…'), findsOneWidget);
+
+      await openFromList(tester, todoText);
+      await openFromList(tester, webText);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('May have saved. Checking…'), findsOneWidget);
+      expect(locked(tester, 'web'), isTrue);
+      final switches = world.server.requestsTo('PUT', web).length;
+      await tester.tap(rowSwitch('web'), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(world.server.requestsTo('PUT', web).length, switches);
+      expect(
+        world.server.requests.where((r) => r.method == 'PUT' && r.path == web),
+        isEmpty,
+      );
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(locked(tester, 'web'), isFalse);
+      expect(world.server.requestsTo('PUT', '$web/env'), hasLength(1));
+      await h.close();
+    });
+
+    testWidgets('a grant still running when the user returns keeps the lock '
+        'and offers no second Allow access', (tester) async {
+      await start(
+        tester,
+        prepare: (w) => w
+          ..driverInstalled = true
+          ..screenRecording = false,
+      );
+      await openFromList(tester, computerText);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Allow access'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Allow access').last);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(locked(tester, 'computer_use'), isTrue);
+
+      await openFromList(tester, todoText);
+      await openFromList(tester, computerText);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(locked(tester, 'computer_use'), isTrue);
+      expect(find.widgetWithText(FilledButton, 'Allow access'), findsNothing);
+      expect(
+        world.server.requestsTo(
+          'POST',
+          '/api/tools/computer-use/permissions/grant',
+        ),
+        hasLength(1),
+      );
+
+      world
+        ..grantRunning = false
+        ..grantExit = 0
+        ..screenRecording = true;
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(locked(tester, 'computer_use'), isFalse);
       await h.close();
     });
 
@@ -302,6 +381,49 @@ void main() {
         world.server.requestsTo('PUT', '/api/tools/toolsets/image_gen/model'),
         isEmpty,
       );
+      await h.close();
+    });
+  });
+
+  group('an install question that was open while a write started', () {
+    testWidgets('confirming it sends no install', (tester) async {
+      await start(tester);
+      await h.pick('Local Driver');
+      await tester.tap(find.widgetWithText(FilledButton, 'Install on server'));
+      await tester.pumpAndSettle();
+      expect(find.text('Install on your server?'), findsOneWidget);
+
+      // A provider pick starts while the question is open (a key save, the
+      // model or the switch would do the same).
+      final gate = Completer<void>();
+      world.server.onRequest('PUT', '$web/provider', (_) async {
+        await gate.future;
+        return (status: 200, body: {'ok': true, 'provider': 'Search Co'});
+      });
+      final setup = tester
+          .widget<ToolsetSetupPanel>(find.byType(ToolsetSetupPanel))
+          .env
+          .registry
+          .setup('web');
+      final picks = world.server.requestsTo('PUT', '$web/provider').length;
+      unawaited(setup.pickProvider('Search Co'));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        world.server.requestsTo('PUT', '$web/provider'),
+        hasLength(picks + 1),
+      );
+
+      await tester.tap(find.text('Install').last);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        world.server.requestsTo('POST', '$web/post-setup'),
+        isEmpty,
+        reason: 'a write of the toolset is out',
+      );
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(world.server.requestsTo('POST', '$web/post-setup'), isEmpty);
       await h.close();
     });
   });
