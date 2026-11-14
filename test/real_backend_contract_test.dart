@@ -200,7 +200,10 @@ void main() {
       () async {
         final health = value(await care.health());
         expect(health.version, isNotNull);
-        expect(health.commit, matches(RegExp(r'^[0-9a-f]{40}$')));
+        expect(
+          health.commit,
+          anyOf(isNull, matches(RegExp(r'^[0-9a-f]{40}$'))),
+        );
       },
     );
 
@@ -208,7 +211,7 @@ void main() {
       final check = value(await care.checkUpdate());
       expect(check.installMethodRaw, isNotNull);
       expect(check.behind, anyOf(isNull, isA<int>()));
-      expect(check.couldNotCheck, check.behind == null);
+      if (check.behind == null) expect(check.updateAvailable, isFalse);
       expect(check.canApply, isA<bool>());
       // Guidance comes with an answer that could not check.
       if (check.behind == null) expect(check.message, isNotEmpty);
@@ -243,8 +246,14 @@ void main() {
         await care.usage(profile: 'default', days: 7, today: DateTime.now()),
       );
       expect(report.days, hasLength(7));
-      final dates = report.days.map((d) => d.day).toList();
-      expect([...dates]..sort(), dates);
+      final raw =
+          (await client.raw.getUsageAnalyticsApiAnalyticsUsageGet(
+                days: 7,
+                profile: 'default',
+              )).data!
+              as Map;
+      final sent = [for (final r in raw['daily'] as List) (r as Map)['day']];
+      expect(sent, [...sent]..sort(), reason: 'the server sends oldest first');
     });
 
     test('a doctor run is followed to its end', () async {

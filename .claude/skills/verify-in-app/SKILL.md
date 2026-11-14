@@ -66,6 +66,8 @@ recipients, and profile avatars, follow
 
 For the Memory screen, its settings, proposals and the memory tool card, follow [the Memory scenario](scenarios/memory.md).
 
+For the Tools screen, switching a toolset, setting up a provider key and reading `config.yaml` and `.env` back, follow [the Tools scenario](scenarios/tools.md).
+
 For the Bot Screen (the agent's own Linux desktop), a macOS backend can never show one; follow the `verify-bot-screen` skill, which runs a throwaway Linux Hermes in a container.
 
 1. `dart format . && flutter analyze && flutter test`. Fix before going on.
@@ -1375,6 +1377,31 @@ Against a real backend, only the throwaway dashboard from `scripts/dev-backend.s
 6. An older Hermes without `subagent.*`: rows still come from frames and nothing shows an error. The app never probes, so Stop and the note field are offered; pressing one shows "This server can't stop agents." (or the note equivalent) and removes that control.
 
 Goals, tool names, output and notes must never appear in breadcrumbs, spans or logs; the privacy test in `test/chat/subagents/bound_activity_panel_agents_test.dart` checks this for breadcrumbs and app events, and `subagent_repository_test.dart` checks the `subagent.rpc` span; `Exported telemetry` above shows how to read what was exported.
+
+## Server care: restart, update, check
+
+The Server screen (`docs/architecture/app-shell.md`, "Server care") needs a
+throwaway backend from `scripts/dev-backend.sh`, never the real `~/.hermes`.
+Device-free first: `flutter test test/server_care test/workflows/server_care_workflow_test.dart`
+and look at `build/workflow_screenshots/server-care-*`.
+
+1. Restart: open Server, press Restart gateway. The question comes first
+   (Cancel sends nothing); confirm and watch the headline and the row go
+   Restarting, Waiting, Running again. Exactly one `POST /api/gateway/restart`
+   in the backend log. With the gateway off, Start gateway asks nothing.
+2. Update: the backend must be a git checkout behind its remote (clone
+   hermes-agent, reset it a few commits back, point `dev-backend.sh` at it).
+   Updates shows "Update available"; Update Hermes asks first. Watch the four
+   steps, the dashboard restart (the banner above every destination), and the
+   receipt outcome. Leave the page and relaunch the app mid-update: it
+   resumes within an hour. Note whether the bearer session survives the
+   restart (design.md, task 7.3).
+3. Check: Run a check opens the page and runs `hermes doctor` (read-only). Break
+   something in the throwaway `HERMES_HOME` (a bad token in `config.yaml`) to see
+   problems, fixes and the copy button. The result stays when you leave the
+   page and goes on lock, sign-out, server change and profile switch.
+4. Logs and check output can hold paths: on Android the window is secure and
+   on iOS the app switcher shows a blank page while either page is up.
 
 ## Background request alert retry
 

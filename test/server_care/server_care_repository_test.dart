@@ -31,6 +31,13 @@ void main() {
     expect(failed(result).kind, CareFailureKind.unreadable);
   });
 
+  test('a 200 page answering the doctor POST is a lost answer, not a '
+      'missing route', () async {
+    server.on('POST', '/api/ops/doctor', '<html>spa</html>');
+    final result = await repo.startDoctor(profile: 'work');
+    expect(failed(result).kind, CareFailureKind.unreadable);
+  });
+
   group('queries', () {
     test('status sends the explicit profile', () async {
       server.on('GET', '/api/status', statusHealthy());
@@ -197,6 +204,22 @@ void main() {
       expect(await repo.status(profile: 'p'), isA<CareUnsupported<Object?>>());
       server.on('GET', '/api/status', '<html>spa</html>');
       expect(await repo.status(profile: 'p'), isA<CareUnsupported<Object?>>());
+    });
+
+    test('the recorded health and the recorded receipt 404 are read', () async {
+      server
+        ..on('GET', '/api/health', recordedHealth())
+        ..on(
+          'GET',
+          '/api/hermes/update/receipt',
+          recordedReceiptNone,
+          status: 404,
+        );
+      final health = ok(await repo.health());
+      expect(health.commit, 'd923a5eb487a17c0a68801bba9ef0f56c81040a8');
+      final receipt = await repo.updateReceipt();
+      expect(receipt, isA<CareOk<UpdateReceiptSummary?>>());
+      expect(ok(receipt), isNull);
     });
 
     test(

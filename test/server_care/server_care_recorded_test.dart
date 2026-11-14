@@ -13,7 +13,7 @@ void main() {
   test('the recorded status of a stopped gateway', () {
     final s = ServerStatus.parse(recordedStatusGatewayStopped())!;
     expect(s.gatewayRunning, isFalse);
-    expect(s.gatewayState, anyOf(isNull, GatewayState.stopped));
+    expect(s.gatewayState, isNull);
     expect(s.gatewayStateRaw, isNull);
     expect(s.profiles, ['default']);
     expect(s.configVersion, 0);
