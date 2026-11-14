@@ -962,6 +962,52 @@ void main() {
       expect(await announced.read(), contains('r1'));
     });
 
+    test(
+      'renewing a full store does not push out this run\'s new mark',
+      () async {
+        sessions = {
+          'work': [for (var i = 0; i < 200; i++) _session('chat-$i')],
+        };
+        await refresh();
+        expect(await announced.read(), hasLength(kMaxAnnouncedRequests));
+
+        sessions = {
+          'work': [
+            for (var i = 0; i < 200; i++) _session('chat-$i'),
+            _session('fresh'),
+          ],
+        };
+        await refresh();
+
+        final kept = await announced.read();
+        expect(kept.where((id) => id.contains('fresh')), isNotEmpty);
+        final shown = notifications.shown.length;
+
+        await refresh();
+
+        // 201 open requests cannot all be remembered, so an older one is posted
+        // again; the one this run announced is not the one lost.
+        expect(
+          notifications.shown.skip(shown).where((n) => n.threadId == 'fresh'),
+          isEmpty,
+        );
+      },
+    );
+
+    test(
+      'announces nothing while the remembered marks cannot be read',
+      () async {
+        announced = _UnreadableAnnounced();
+        sessions = {
+          'work': [_session('chat-1')],
+        };
+
+        await refresh();
+
+        expect(notifications.shown, isEmpty);
+      },
+    );
+
     test('remembers the newest 200 ids', () async {
       await announced.add([for (var i = 0; i < 195; i++) 'old-$i']);
       sessions = {
@@ -1567,6 +1613,11 @@ class _SpyNotifications extends FakeNotificationService {
     await _onShow();
     await super.show(notification);
   }
+}
+
+class _UnreadableAnnounced extends AnnouncedRequests {
+  @override
+  Future<Set<String>?> tryRead() async => null;
 }
 
 class _UnwritableAnnounced extends AnnouncedRequests {
