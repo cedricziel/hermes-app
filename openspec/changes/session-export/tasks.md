@@ -1,26 +1,31 @@
 # Tasks
 
-Two PRs, each under about 500 changed lines.
+Three PRs, each under about 500 changed lines. The catalog PR comes first; the design pass is done (`docs/design-briefs/session-export.md`, no Claude Design canvas was built).
 
-## 1. PR 1 - `feat(chat): fetch a session export`
+## 1. PR 1 - `feat(chat): session export dialog in the catalog`
 
-- [ ] 1.1 Record fixtures against `scripts/dev-backend.sh` (rules of `verify-in-app`; never the real `~/.hermes`) on Hermes `d923a5eb`: a short chat, a chat with tool calls and reasoning, a rewound or compacted chat (rows with `active` 0 and `compacted` 1), a prefix id, an unknown id (404 `Session not found`), an unknown profile (404) and a bad one (400); keep the response headers (expect no `Content-Length`, no `Content-Disposition`). Add them to `test/real_backend_contract_test.dart` (skips without `HERMES_DEV_URL`) and as JSON under `test/fixtures/`, with the revision noted.
-- [ ] 1.2 Write failing tests against `FakeHermesServer`, then add `HermesApiClient.fetchSessionExport(id, {profile})` on `_getBytes` (id percent-encoded; `profile` always sent when given).
-- [ ] 1.3 Write failing tests, then implement `SessionExportController` (one run at a time): complete body decodes (root object, string `id`, list `messages`; isolate above 1 MB), truncated body and dropped connection are `incomplete`, 404 `Session not found` is `gone`, 404 `Profile '...` is `profile`, 400 is `profile` (invalid name), any other 404 or 405 is `unsupported`, a decode `FormatException` is caught and becomes `incomplete` with no message or body passed on (test: a body with a marker string never reaches the crash reporter, log or error text), 503 `unreadable`, timeout is `lost` (nothing resent), offline, cancel, profile or server change, sign-out and App Lock drop the bytes. The saved bytes equal the received bytes. No request carries a missing profile.
-- [ ] 1.4 Write failing tests that the span `session_export.fetch`, the event `session_export.failed` and the breadcrumbs carry only fixed names, outcomes and buckets (no title, id, profile, name, path or content), then add them.
-- [ ] 1.5 Run `/simplify`, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`.
+Widgets as plain-model use cases only: no controller, no repository, no screen.
 
-## 2. PR 2 - `feat(chat): Export chat as JSON`
+- [ ] 1.1 Build `SessionExportAlert` and the `SessionExportFailure` enum in `lib/src/chat/widgets/` on `AppAlertDialog` (phases confirm, progress with a `stalled` flag, failed(kind); models and callbacks only; `scrollable: true`; the chat's title appears nowhere).
+- [ ] 1.2 Add every string to `lib/l10n/arb/app_en.arb` and `app_de.arb` under `@@x-area-chat` (confirmation, progress, the stalled line, eight failures, "Chat saved", the two menu row labels), run `flutter gen-l10n`, read with `context.l10n`.
+- [ ] 1.3 Add Widgetbook use cases in `widgetbook/` (`component-catalog` skill): confirm, progress, progress stalled, each of the eight failures with and without Try again; both themes, phone and desktop width, largest text, German. Cancel or Close is the default button in each. `flutter test test/widgetbook_test.dart` passes.
+- [ ] 1.4 Run `/simplify`, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`.
 
-- [ ] 2.1 Claude Design pass from the proposal's "Design pass" list, before the widgets.
-- [ ] 2.2 Build plain-model widgets in `lib/src/chat/widgets/` (confirmation, progress, failure message), with Widgetbook use cases in `widgetbook/` before any screen uses them (`component-catalog` skill): both themes, phone and desktop width, largest text, every failure of 1.3, Cancel the default button. `flutter test test/widgetbook_test.dart` passes.
-- [ ] 2.3 Add every string to `lib/l10n/arb/app_en.arb` and `app_de.arb` under `@@x-area-chat`, run `flutter gen-l10n`, read with `context.l10n`.
-- [ ] 2.4 Write failing tests, then add `ThreadAction.exportJson` to `runThreadAction`, the menus (`ThreadActionsButton`, `macThreadMenuItems`, `mac_chat_toolbar.dart`, `conversation_windows_menu.dart`), `MacCommand.exportThread` in `menu_layout.dart` and the handler in `chat_screen_navigation.dart`; hidden for local chats and chats without a profile; saved through `MediaActions.save` with the `.json` name rules; snack bar on save, silence on cancel.
-- [ ] 2.5 Add a workflow test (`test/workflows/`) on phone and desktop, light and dark: menu, confirmation, progress, saved, one failure. Look at the screenshots (`workflow-screenshots` skill).
-- [ ] 2.6 Check with `verify-in-app` on macOS against a throwaway backend: the save panel opens with the name, the file equals the response.
-- [ ] 2.7 Update `docs/architecture/chat.md` (the export action, the byte fetch, the one-session limit) and `docs/architecture/macos.md` (the menu command), and the `verify-in-app` skill if it lists the save check. Then format, analyze and test.
+## 2. PR 2 - `feat(chat): fetch a session export`
 
-- [ ] 2.8 Because `fetchSessionExport` is hand-written, update `CLAUDE.md` "Two API layers" (the hand-written list gains the session export download, with the reason: the generated method decodes the body as JSON) and `docs/architecture/chat.md` (or the API doc it points to). Not edited by this proposal.
+- [ ] 2.1 Record fixtures against `scripts/dev-backend.sh` (rules of `verify-in-app`; never the real `~/.hermes`) on Hermes `d923a5eb`: a short chat, a chat with tool calls and reasoning, a rewound or compacted chat (rows with `active` 0 and `compacted` 1), a prefix id, an unknown id (404 `Session not found`), an unknown profile (404) and a bad one (400); keep the response headers (expect no `Content-Length`, no `Content-Disposition`). Add them to `test/real_backend_contract_test.dart` (skips without `HERMES_DEV_URL`) and as JSON under `test/fixtures/`, with the revision noted.
+- [ ] 2.2 Write failing tests against `FakeHermesServer`, then add `HermesApiClient.fetchSessionExport(id, {profile})` on `_getBytes` (id percent-encoded; `profile` always sent when given).
+- [ ] 2.3 Write failing tests, then implement `SessionExportController` (one run at a time; outcomes are the `SessionExportFailure` kinds of PR 1): complete body decodes (root object, string `id`, list `messages`; isolate above 1 MB), truncated body and dropped connection are `incomplete`, 404 `Session not found` is `gone`, 404 `Profile '...` is `profile`, 400 is `profile` (invalid name), any other 404 or 405 is `unsupported`, a decode `FormatException` is caught and becomes `incomplete` with no message or body passed on (test: a body with a marker string never reaches the crash reporter, log or error text), 503 `unreadable`, timeout is `lost` (nothing resent), offline, cancel, profile or server change, sign-out and App Lock drop the bytes. The saved bytes equal the received bytes. No request carries a missing profile. The controller exposes `stalled` after 10 s without a first byte (a fake clock in the test) and a busy flag that disables the menu rows.
+- [ ] 2.4 Write failing tests that the span `session_export.fetch`, the event `session_export.failed` and the breadcrumbs carry only fixed names, outcomes and buckets (no title, id, profile, name, path or content), then add them.
+- [ ] 2.5 Run `/simplify`, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`.
+
+## 3. PR 3 - `feat(chat): Export chat as JSON`
+
+- [ ] 3.1 Write failing tests, then add `ThreadAction.exportJson` to `runThreadAction`, the menus (`ThreadActionsButton`, `macThreadMenuItems`, `mac_chat_toolbar.dart`, `conversation_windows_menu.dart`), `MacCommand.exportThread` in `menu_layout.dart` and the handler in `chat_screen_navigation.dart`; hidden in context menus for local chats and chats without a profile, present but disabled in the Mac Chat menu; disabled in every menu while an export runs; labels "Export Chat as JSON…" (Mac) and "Export chat as JSON…" (elsewhere), no shortcut, placed directly after Copy Transcript. Show `SessionExportAlert` (PR 1) from the controller of PR 2: Escape and a tap outside cancel only the confirmation; Try again returns to the confirmation. Save through `MediaActions.save` with the `.json` name rules; snack bar "Chat saved" on save, silence on cancel; App Lock closes the alert and shows nothing after unlocking.
+- [ ] 3.2 Add a workflow test (`test/workflows/`) on phone and desktop, light and dark: menu, confirmation, progress, saved, one failure. Look at the screenshots (`workflow-screenshots` skill).
+- [ ] 3.3 Check with `verify-in-app` on macOS against a throwaway backend: the save panel opens with the name, the file equals the response.
+- [ ] 3.4 Update `docs/architecture/chat.md` (the export action, the byte fetch, the one-session limit) and `docs/architecture/macos.md` (the menu command), and the `verify-in-app` skill if it lists the save check. Then format, analyze and test.
+- [ ] 3.5 Because `fetchSessionExport` is hand-written, update `CLAUDE.md` "Two API layers" (the hand-written list gains the session export download, with the reason: the generated method decodes the body as JSON) and `docs/architecture/chat.md` (or the API doc it points to). Not edited by this proposal.
 
 ## Not verified
 

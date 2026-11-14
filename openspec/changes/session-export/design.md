@@ -52,6 +52,18 @@ Auth: the request goes through the managed `Dio`, so a 401 follows the existing 
 - Breadcrumbs `session_export.started`, `.saved`, `.cancelled`, from the controller.
 - None carries a title, id, profile, file name, path or any file content.
 
+## Design pass
+
+Brief: `docs/design-briefs/session-export.md` (no Claude Design canvas was built; written from the design system README and the repo). Decisions that change behaviour:
+
+- One modal alert (`AppAlertDialog`) in three phases, confirm, progress, failure, with no screen and no sheet. It never shows the chat's title, so App Lock has nothing to blank.
+- Progress cannot be dismissed by Escape or a tap outside, only by Cancel; the confirmation can.
+- One export at a time: while one runs, the row is disabled in every menu. The Mac Chat menu keeps the item and disables it for a chat without a profile (open question 2 of the brief; the other menus omit the row).
+- After 10 s without the first byte the progress alert adds "Still waiting for Hermes. Cancel stops it." This is the one exception to the 10-second lost-answer rule; the five-minute deadline and the `lost` outcome stay (open question 1).
+- A timeout is `lost` ("Couldn't confirm the export"); a connection that drops after bytes arrived is `incomplete`. Try again returns to the confirmation, never to a request.
+- Failure kinds are one enum shared by the widget and the controller; `profile` covers both the 404 and the 400, with its own message each.
+- A saved file shows the snack bar "Chat saved" (no path); a cancelled save sheet shows nothing.
+
 ## Not verified
 
 No response was captured; headers and real bodies, the size of a long chat, whether an image part embeds data or a path, the exact 404/405 text on older servers, and `saveFile` on a physical iPhone and in the macOS sandbox are unchecked.
