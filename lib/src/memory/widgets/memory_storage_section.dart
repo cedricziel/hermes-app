@@ -56,12 +56,17 @@ class MemoryStorageSection extends StatelessWidget {
               _providerRow(status)
             else if (providerFailed)
               GroupedRow(
+                wrapWhenStacked: true,
                 title: "Couldn't read the memory provider",
                 value: 'Retry',
                 onTap: onRetry,
               )
             else
-              const GroupedRow(title: 'Memory provider', value: 'Reading…'),
+              const GroupedRow(
+                wrapWhenStacked: true,
+                title: 'Memory provider',
+                value: 'Reading…',
+              ),
           ],
         ),
         if (notice != null)

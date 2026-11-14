@@ -277,8 +277,8 @@ class GroupedSection extends StatelessWidget {
 /// trailing edge a muted [value] with a disclosure chevron, or [trailing]
 /// (a switch) in their place. Above the default text size, a [value] that
 /// would not fit beside the title (or would squeeze it) sits under it instead,
-/// ahead of the subtitle, and the title and subtitle keep the line limits
-/// they were given.
+/// ahead of the subtitle. The title and subtitle keep the line limits they
+/// were given, unless [wrapWhenStacked] lets them wrap there.
 class GroupedRow extends StatelessWidget {
   const GroupedRow({
     super.key,
@@ -287,6 +287,7 @@ class GroupedRow extends StatelessWidget {
     this.meta,
     this.subtitle,
     this.subtitleMaxLines = 1,
+    this.wrapWhenStacked = false,
     this.monospaceSubtitle = false,
     this.caption,
     this.warning,
@@ -316,6 +317,11 @@ class GroupedRow extends StatelessWidget {
   /// How many lines the [subtitle] may take before it ends in an ellipsis;
   /// null lets it wrap, for text with nowhere else to be read.
   final int? subtitleMaxLines;
+
+  /// Lets the title and subtitle wrap in full while the [value] is stacked
+  /// under the title, whatever [titleMaxLines] and [subtitleMaxLines] say.
+  /// Beside the value, and at the default text size, they keep those limits.
+  final bool wrapWhenStacked;
 
   /// Sets [subtitle] in a monospaced font, for a command line.
   final bool monospaceSubtitle;
@@ -460,8 +466,9 @@ class GroupedRow extends StatelessWidget {
                         ),
                     ],
                   ),
-                  maxLines: titleMaxLines,
-                  overflow: titleMaxLines == null
+                  maxLines: stacked && wrapWhenStacked ? null : titleMaxLines,
+                  overflow:
+                      titleMaxLines == null || (stacked && wrapWhenStacked)
                       ? TextOverflow.visible
                       : TextOverflow.ellipsis,
                   style: titleStyle,
@@ -480,8 +487,11 @@ class GroupedRow extends StatelessWidget {
                 if (subtitle != null)
                   Text(
                     subtitle,
-                    maxLines: subtitleMaxLines,
-                    overflow: subtitleMaxLines == null
+                    maxLines: stacked && wrapWhenStacked
+                        ? null
+                        : subtitleMaxLines,
+                    overflow:
+                        subtitleMaxLines == null || (stacked && wrapWhenStacked)
                         ? null
                         : TextOverflow.ellipsis,
                     style: TextStyle(

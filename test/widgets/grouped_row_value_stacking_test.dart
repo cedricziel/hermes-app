@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/plugins/installed_plugin.dart';
+import 'package:hermes_app/src/plugins/widgets/plugin_row.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 
@@ -179,6 +181,86 @@ void main() {
       scale: 2,
     );
     expect(tester.widget<Text>(find.text('Gateway')).maxLines, isNull);
+  });
+
+  testWidgets('a stacked row with the default limit of one line truncates', (
+    tester,
+  ) async {
+    const title = 'a long title that has to wrap somewhere in the row';
+    const subtitle = 'a long subtitle that has to wrap somewhere in the row';
+    await _pump(
+      tester,
+      const GroupedRow(title: title, value: longValue, subtitle: subtitle),
+      scale: 2,
+    );
+    expect(tester.widget<Text>(find.text(title)).maxLines, 1);
+    expect(tester.widget<Text>(find.text(subtitle)).maxLines, 1);
+    // One line each: the rendered height is a line's, not several.
+    expect(
+      tester.getSize(find.text(subtitle)).height,
+      lessThan(tester.getSize(find.text(longValue)).height * 1.5),
+    );
+  });
+
+  testWidgets('wrapWhenStacked lets a stacked row wrap in full', (
+    tester,
+  ) async {
+    const title = 'a long title that has to wrap somewhere in the row';
+    const subtitle = 'a long subtitle that has to wrap somewhere in the row';
+    await _pump(
+      tester,
+      const GroupedRow(
+        title: title,
+        value: longValue,
+        subtitle: subtitle,
+        wrapWhenStacked: true,
+      ),
+      scale: 2,
+    );
+    expect(tester.widget<Text>(find.text(subtitle)).maxLines, isNull);
+    expect(tester.widget<Text>(find.text(title)).maxLines, isNull);
+  });
+
+  testWidgets('a plugin row wraps its description in full once it stacks at '
+      '2x', (tester) async {
+    const description =
+        'Query NetBox for devices, prefixes and addresses, and keep a folder '
+        'of notes in step with what the agent remembers about them';
+    await _pump(
+      tester,
+      const PluginRow(
+        plugin: InstalledPlugin(
+          name: 'a plugin with a rather long name',
+          version: '1.2.0',
+          description: description,
+          status: PluginStatus.inactive,
+        ),
+        onTap: _noop,
+      ),
+      scale: 2,
+      width: 300,
+    );
+    final text = tester.widget<Text>(find.text(description));
+    expect(text.maxLines, isNull);
+    final single = TextPainter(
+      text: TextSpan(text: description, style: text.style),
+      textDirection: TextDirection.ltr,
+      textScaler: const TextScaler.linear(2),
+    )..layout();
+    // Several lines tall, so nothing is cut at the row's width.
+    expect(
+      tester.getSize(find.text(description)).height,
+      greaterThan(single.preferredLineHeight * 2.5),
+    );
+    // Stacked: the value sits under the title, not beside it.
+    expect(
+      tester.getTopLeft(find.text('Inactive')).dy,
+      greaterThan(
+        tester
+            .getTopLeft(find.textContaining('a plugin with a rather long name'))
+            .dy,
+      ),
+    );
   });
 }
 
