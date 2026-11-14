@@ -39,7 +39,7 @@ BorderSide hermesOverlayEdge(ColorScheme scheme) =>
     : BorderSide.none;
 
 /// Corner radius of a Material dialog and the top of a bottom sheet.
-const double kHermesOverlayRadius = 28;
+const double _kOverlayRadius = 28;
 
 /// Border radius used throughout the chat UI (composer, message chips,
 /// suggestion cards, sidebar rows) — assistant-ui leans on one consistent
@@ -146,7 +146,7 @@ ThemeData _buildTheme({
   // effort segment are zinc800 and would vanish on it. Light keeps Material's
   // own surface and scrim.
   final overlaySurface = dark ? HermesColors.zinc900 : null;
-  const overlayRadius = Radius.circular(kHermesOverlayRadius);
+  const overlayRadius = Radius.circular(_kOverlayRadius);
   final fieldRadius = BorderRadius.circular(10);
   final appleFieldBorder = OutlineInputBorder(
     borderRadius: fieldRadius,
@@ -260,6 +260,26 @@ ThemeData _buildTheme({
             modalBarrierColor: const Color(0x99000000),
             shape: RoundedRectangleBorder(
               borderRadius: const BorderRadius.vertical(top: overlayRadius),
+              side: overlayEdge,
+            ),
+          )
+        : null,
+    // Material's pickers take surface and shape from their own themes.
+    datePickerTheme: dark
+        ? DatePickerThemeData(
+            backgroundColor: overlaySurface,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(overlayRadius),
+              side: overlayEdge,
+            ),
+          )
+        : null,
+    timePickerTheme: dark
+        ? TimePickerThemeData(
+            backgroundColor: overlaySurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(overlayRadius),
               side: overlayEdge,
             ),
           )

@@ -23,6 +23,9 @@ Future<void> showKanbanDetentSheet(
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: Colors.transparent,
+  // Its own plain shape: the theme's would draw a second edge round the
+  // transparent layer, and KanbanDetentSheet draws the one that shows.
+  shape: const RoundedRectangleBorder(),
   builder: (context) => KanbanDetentSheet(builder: builder, controller: sheet),
 );
 

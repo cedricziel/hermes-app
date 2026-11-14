@@ -6,6 +6,7 @@ import 'package:hermes_app/src/kanban/kanban_errors.dart';
 import 'package:hermes_app/src/kanban/kanban_files.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
+import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_sheet.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
@@ -118,6 +119,26 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
             options: _surfaceModels,
             selected: const ModelChoice('acme', 'atlas-1', effort: 'medium'),
             onChanged: (_) {},
+          ),
+        ),
+        _material(
+          'Date picker',
+          (context) => showDatePicker(
+            context: context,
+            initialDate: DateTime(2030, 5, 14),
+            firstDate: DateTime(2030),
+            lastDate: DateTime(2031),
+          ),
+        ),
+        _material(
+          'Kanban phone sheet (through its route)',
+          (context) => showKanbanDetentSheet(
+            context,
+            (controller) => ListView(
+              controller: controller,
+              padding: const EdgeInsets.all(24),
+              children: const [Text('Row one'), Text('Row two')],
+            ),
           ),
         ),
         _material(
