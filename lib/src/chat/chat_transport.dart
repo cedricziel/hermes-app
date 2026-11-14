@@ -230,7 +230,8 @@ enum SendStep {
   /// Session open; attaching files. Nothing was submitted.
   attach,
 
-  /// `prompt.submit` was written without an answer: the server may have it.
+  /// `prompt.submit` was written without an answer. Includes a rejection of
+  /// it, since the server may have recorded the prompt.
   submit,
 
   /// `prompt.submit` was answered; the reply broke afterwards.

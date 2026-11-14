@@ -148,6 +148,33 @@ void main() {
       expect(gateway.methods, isNot(contains('prompt.submit')));
     });
 
+    test(
+      'a callback that throws is an attach failure and sends nothing',
+      () async {
+        await expectLater(
+          transport
+              .send(
+                text: 'x',
+                queued: true,
+                onSubmitting: () => throw StateError('boom'),
+              )
+              .toList(),
+          throwsA(_failedAt(SendStep.attach)),
+        );
+        expect(gateway.methods, isNot(contains('prompt.submit')));
+        expect(transport.promptAccepted, isFalse);
+      },
+    );
+
+    test('a rejected prompt.submit is a submit failure', () async {
+      gateway.handlers['prompt.submit'] = (_) => throw const FakeRpcError(5000);
+      await expectLater(
+        send().toList(),
+        throwsA(_failedAt(SendStep.submit, cause: isA<GatewayRpcException>())),
+      );
+      expect(submitting, 1);
+    });
+
     test('a drop after the callback ran is a submit failure', () async {
       gateway.handlers['prompt.submit'] = (_) {
         gateway.drop();
@@ -257,7 +284,7 @@ void main() {
     );
 
     test(
-      'a reclaim while prompt.submit is unanswered leaves it unacknowledged',
+      'a reclaim with prompt.submit then rejected leaves it unacknowledged',
       () async {
         gateway.handlers['prompt.submit'] = (params) {
           gateway.event('session.reclaimed', '', {
