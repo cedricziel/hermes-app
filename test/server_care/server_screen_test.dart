@@ -1,16 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
+import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/navigation/connection_pages.dart';
 import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
+import 'package:hermes_app/src/server_care/server_check_controller.dart';
 import 'package:hermes_app/src/server_care/server_screen.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
@@ -21,6 +28,7 @@ void main() {
   late ServerCareController care;
   late GatewayRestart gateway;
   late HermesUpdateRun update;
+  late ServerCheckController check;
 
   setUp(() {
     server = FakeHermesServer()
@@ -33,7 +41,12 @@ void main() {
     trail = BreadcrumbTrail();
   });
 
-  Future<void> pump(WidgetTester tester, {Size? size, Locale? locale}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    Size? size,
+    Locale? locale,
+    AuthController? auth,
+  }) async {
     tester.view.physicalSize = size ?? const Size(420, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -55,6 +68,21 @@ void main() {
     addTearDown(gateway.dispose);
     update = HermesUpdateRun(repository: repositories.serverCare);
     addTearDown(update.dispose);
+    // Its answers come at once, so it never waits; its clock is the real one
+    // that the page words "checked just now" against.
+    check = ServerCheckController(
+      repository: repositories.serverCare,
+      delay: (d) async {},
+      onUnsupported: () => care.reportUnsupported(CarePart.check),
+    );
+    addTearDown(check.dispose);
+    // As in the app: every page above the home route goes when the
+    // connection ends (navigation/connection_pages.dart).
+    final pushedRoutes = PushedRoutes();
+    if (auth != null) {
+      final closer = ConnectionPageCloser(pushedRoutes)..bind(auth);
+      addTearDown(closer.dispose);
+    }
     // As in the app, the controller is provided below the root Navigator, so
     // a route the screen pushes must carry it along.
     await tester.pumpWidget(
@@ -62,8 +90,11 @@ void main() {
         providers: [
           Provider<HermesRepositories>.value(value: repositories),
           Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
+          if (auth != null)
+            ChangeNotifierProvider<AuthController>.value(value: auth),
         ],
         child: MaterialApp(
+          navigatorObservers: [pushedRoutes],
           locale: locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -73,6 +104,7 @@ void main() {
               ChangeNotifierProvider<ServerCareController>.value(value: care),
               ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
               ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
+              ChangeNotifierProvider<ServerCheckController>.value(value: check),
             ],
             child: const ServerScreen(source: 'test'),
           ),
@@ -131,6 +163,139 @@ void main() {
       await tester.pumpAndSettle();
       expect(server.requestsTo('GET', '/api/status').length, reads + 1);
     });
+  });
+
+  group('server check', () {
+    const header = '=== doctor started 2026-11-14 09:00:00 ===';
+
+    void checkAnswers({List<String> lines = doctorProblems}) => server
+      ..on('POST', '/api/ops/doctor', {'ok': true, 'pid': 1, 'name': 'doctor'})
+      ..on('GET', '/api/actions/doctor/status', {
+        'name': 'doctor',
+        'running': false,
+        'exit_code': 1,
+        'lines': [header, ...lines],
+      });
+
+    void storeUnreadable() => server.on('GET', '/api/status', {
+      ...statusHealthy(),
+      'components': {
+        'gateway': {'status': 'ok', 'state': 'running'},
+        'storage': {'status': 'error', 'reason': 'corrupt'},
+      },
+    });
+
+    int checks() => server.requestsTo('POST', '/api/ops/doctor').length;
+
+    testWidgets('the Run a check row opens the page and runs nothing', (
+      tester,
+    ) async {
+      checkAnswers();
+      await pump(tester);
+      expect(find.text('Hermes looks for problems in its setup'), findsOne);
+      await tester.tap(find.text('Run a check'));
+      await tester.pumpAndSettle();
+      expect(find.text('Check Hermes for problems'), findsOneWidget);
+      expect(checks(), 0);
+    });
+
+    testWidgets('after a run the row says what it found and when', (
+      tester,
+    ) async {
+      checkAnswers();
+      await pump(tester);
+      await tester.runAsync(() => check.run(profile: 'default'));
+      await tester.pumpAndSettle();
+      expect(find.text('1 problem and 1 warning · checked just now'), findsOne);
+    });
+
+    testWidgets("the headline's Run a check opens the page and runs", (
+      tester,
+    ) async {
+      checkAnswers();
+      storeUnreadable();
+      await pump(tester);
+      expect(find.text("Hermes can't read its session store"), findsOne);
+      await tester.tap(find.widgetWithText(FilledButton, 'Run a check'));
+      await tester.pumpAndSettle();
+      expect(checks(), 1);
+      expect(find.text('Server check'), findsWidgets);
+      expect(find.text('Telegram token rejected (401)'), findsOneWidget);
+    });
+
+    testWidgets('the row says Checking… while a run goes on, and a route '
+        'found missing meanwhile removes it with the page closed', (
+      tester,
+    ) async {
+      checkAnswers();
+      final gate = Completer<FakeResponse>();
+      server.onRequest('POST', '/api/ops/doctor', (_) => gate.future);
+      await pump(tester);
+      await tester.tap(find.text('Run a check'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Run check'));
+      await tester.pump();
+      // Leave the page while the request is out.
+      tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+      await tester.pumpAndSettle();
+      expect(find.text('Checking…'), findsOneWidget);
+
+      gate.complete((status: 404, body: {'detail': 'Not Found'}));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      expect(care.offers(CarePart.check), isFalse);
+      expect(find.text('Run a check'), findsNothing);
+      expect(find.text('Checking…'), findsNothing);
+      expect(find.text('Usage'), findsOneWidget);
+    });
+
+    testWidgets('the row is gone on a server without the route', (
+      tester,
+    ) async {
+      await pump(tester);
+      care.reportUnsupported(CarePart.check);
+      await tester.pumpAndSettle();
+      expect(find.text('Run a check'), findsNothing);
+      expect(find.text('Usage'), findsOneWidget);
+    });
+
+    testWidgets('the Usage page offers Run a check when the store is '
+        'unreadable, and it opens the page and runs', (tester) async {
+      checkAnswers();
+      server.on('GET', '/api/analytics/usage', {
+        'detail': 'store',
+      }, status: 503);
+      await pump(tester);
+      await tester.tap(find.text('Usage'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Run a check'));
+      await tester.pumpAndSettle();
+      expect(checks(), 1);
+      expect(find.text('Server check'), findsWidgets);
+    });
+
+    for (final (name, end) in <(String, void Function(_TestAuth))>[
+      ('sign-out', (a) => a.move(state: HermesConnectionState.needsLogin)),
+      (
+        'a server change',
+        (a) => a.move(server: 'https://other.example', owner: 3),
+      ),
+    ]) {
+      testWidgets('$name removes the page from the screen', (tester) async {
+        SharedPreferencesAsyncPlatform.instance =
+            InMemorySharedPreferencesAsync.empty();
+        checkAnswers();
+        final auth = _TestAuth();
+        addTearDown(auth.dispose);
+        await pump(tester, auth: auth);
+        await tester.tap(find.text('Run a check'));
+        await tester.pumpAndSettle();
+        expect(find.text('Check Hermes for problems'), findsOneWidget);
+        end(auth);
+        await tester.pumpAndSettle();
+        expect(find.text('Check Hermes for problems'), findsNothing);
+      });
+    }
   });
 
   group('parts the server lacks', () {
@@ -327,6 +492,7 @@ void main() {
             ChangeNotifierProvider<ServerCareController>.value(value: care),
             ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
             ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
+            ChangeNotifierProvider<ServerCheckController>.value(value: check),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -626,9 +792,12 @@ void main() {
       care.reportUnsupported(CarePart.usage);
       await tester.pumpAndSettle();
       expect(find.text('Usage'), findsNothing);
-      // Logs is still a tool; with neither route the section goes.
+      // Logs is still a tool; with no route at all the section goes.
       expect(find.text('Tools'), findsOneWidget);
       care.reportUnsupported(CarePart.logs);
+      await tester.pumpAndSettle();
+      expect(find.text('Tools'), findsOneWidget);
+      care.reportUnsupported(CarePart.check);
       await tester.pumpAndSettle();
       expect(find.text('Tools'), findsNothing);
     });
@@ -743,4 +912,26 @@ void main() {
       );
     });
   });
+}
+
+class _TestAuth extends AuthController {
+  var _state = HermesConnectionState.ready;
+  String _server = 'https://hermes.example';
+  int _owner = 1;
+
+  @override
+  HermesConnectionState get state => _state;
+  @override
+  bool get protectedRequestsAllowed => true;
+  @override
+  int get ownerGeneration => _owner;
+  @override
+  String? get baseUrl => _server;
+
+  void move({HermesConnectionState? state, String? server, int? owner}) {
+    _state = state ?? _state;
+    _server = server ?? _server;
+    _owner = owner ?? _owner;
+    notifyListeners();
+  }
 }

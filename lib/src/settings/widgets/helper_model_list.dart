@@ -7,6 +7,7 @@ import '../../models/moa_setup.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_form.dart';
 import '../../widgets/grouped_list.dart';
+import '../../widgets/whats_the_difference_link.dart';
 
 /// The last path segment of a model id, such as "deepseek-v4-pro" for
 /// "deepseek/deepseek-v4-pro".
@@ -29,6 +30,7 @@ class HelperModelList extends StatelessWidget {
     this.moa,
     this.onTapMoa,
     this.saving = const {},
+    this.onWhatsTheDifference,
   });
 
   final AuxiliaryModels models;
@@ -37,10 +39,15 @@ class HelperModelList extends StatelessWidget {
   final ValueChanged<MoaSlot>? onTapMoa;
   final Set<String> saving;
 
+  /// Opens the explanation of tools, skills, plugins and MCP servers; the link
+  /// that ends the list. Null leaves it out.
+  final VoidCallback? onWhatsTheDifference;
+
   @override
   Widget build(BuildContext context) {
     final moa = this.moa;
     final onTapMoa = this.onTapMoa;
+    final onWhatsTheDifference = this.onWhatsTheDifference;
     // The Mac names the main model in the toolbar instead.
     final main = platformChromeOf(context) == PlatformChrome.macos
         ? null
@@ -91,6 +98,8 @@ class HelperModelList extends StatelessWidget {
                 ),
             ],
           ),
+        if (onWhatsTheDifference != null)
+          WhatsTheDifferenceFooter(onTap: onWhatsTheDifference),
       ],
     );
   }

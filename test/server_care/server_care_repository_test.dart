@@ -31,6 +31,13 @@ void main() {
     expect(failed(result).kind, CareFailureKind.unreadable);
   });
 
+  test('a 200 page answering the doctor POST is a lost answer, not a '
+      'missing route', () async {
+    server.on('POST', '/api/ops/doctor', '<html>spa</html>');
+    final result = await repo.startDoctor(profile: 'work');
+    expect(failed(result).kind, CareFailureKind.unreadable);
+  });
+
   group('queries', () {
     test('status sends the explicit profile', () async {
       server.on('GET', '/api/status', statusHealthy());
