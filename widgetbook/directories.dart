@@ -42,6 +42,7 @@ import 'mac_sidebar_use_cases.dart';
 import 'mac_toolbar_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
 import 'mcp_use_cases.dart';
+import 'provider_setup_use_cases.dart';
 import 'secret_field_use_cases.dart';
 import 'shared_widgets_use_cases.dart';
 import 'app_banner_use_cases.dart';
@@ -152,6 +153,7 @@ final List<WidgetbookNode> directories = [
   pluginsScreensNode(),
   appBannerNode(),
   secretFieldNode(),
+  providerSetupNode(),
   sharedWidgetsNode(),
   mcpNode(),
   mcpScreensNode(),
