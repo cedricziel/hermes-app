@@ -438,12 +438,63 @@ extension _ChatControllerHistory on ChatController {
                   m.role == ChatRole.assistant &&
                   m.status == MessageStatus.error,
             );
-        final answered = stored.any((m) => m.role == ChatRole.assistant);
+        final answered = _endsAnswered(stored);
         merged.addAll(failedHere && answered ? stored : turn);
       }
       if (i == last) placeUpTo(pageTurns.length);
     }
     return merged;
+  }
+
+  /// Whether a stored [turn] ends on the final answer: an assistant row with
+  /// text and no tool calls. A row that only calls tools belongs to a turn
+  /// that may still be running.
+  bool _endsAnswered(List<ChatMessage> turn) => switch (turn.lastOrNull) {
+    final ChatMessage last =>
+      last.role == ChatRole.assistant &&
+          last.toolCalls.isEmpty &&
+          last.content.trim().isNotEmpty,
+    null => false,
+  };
+
+  /// Replaces the stored copy of [prompt] in [thread], which the page read
+  /// while it was sent already held, with [prompt] and its reply: the two are
+  /// the same turn, and it stays where Hermes stored it, above what the page
+  /// holds after it. A stored row's id ends in its row id, which is unique
+  /// across the profile's sessions, so a chat stored under a new id since
+  /// still finds it.
+  void _dropStoredCopy(ChatThread thread, ChatMessage prompt) {
+    final rowId = prompt.canonicalRow?.rowId;
+    final messages = thread.messages;
+    if (rowId == null || !messages.contains(prompt)) return;
+    bool local(ChatMessage m) => m.id.contains('-local-');
+    final start = messages.indexWhere(
+      (m) => m.role == ChatRole.user && !local(m) && m.id.endsWith('-$rowId'),
+    );
+    if (start < 0) return;
+    var end = start + 1;
+    while (end < messages.length &&
+        messages[end].role != ChatRole.user &&
+        !local(messages[end])) {
+      end++;
+    }
+    final at = messages.indexOf(prompt);
+    final held = [
+      prompt,
+      if (at + 1 < messages.length &&
+          messages[at + 1].role == ChatRole.assistant &&
+          local(messages[at + 1]))
+        messages[at + 1],
+    ];
+    if (at > start) {
+      messages.removeRange(at, at + held.length);
+      messages.replaceRange(start, end, held);
+    } else {
+      messages.removeRange(start, end);
+    }
+    _reactionHistory(thread);
+    notifyListeners();
+    unawaited(controllerFor(thread).setMessages(chatThreadToFlyer(thread)));
   }
 
   /// [messages] split into turns that can be matched: a prompt the user
