@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -132,6 +134,32 @@ void main() {
       find.textContaining('Hands-free on', findRichText: true),
       findsNothing,
     );
+  });
+
+  testWidgets('an unconfirmed close keeps its warning on the cover', (
+    tester,
+  ) async {
+    h.bridge.stopCaptureGate = Completer<void>();
+    final lock = await lockedController(tester);
+    await startCall(tester);
+    await pump(tester, lock);
+    await tester.runAsync(() async {
+      lock.didChangeAppLifecycleState(AppLifecycleState.paused);
+    });
+    await tester.pump();
+    unawaited(registry.end());
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(seconds: 1));
+    }
+    expect(registry.microphoneMayBeOpen, isTrue);
+    expect(
+      find.text('Microphone may still be open', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('End'), findsNothing);
+    expect(find.text('Dismiss'), findsNothing);
+    expect(find.textContaining('Private'), findsNothing);
+    expect(find.text('Hermes is locked'), findsOneWidget);
   });
 
   testWidgets('no call, no mark', (tester) async {

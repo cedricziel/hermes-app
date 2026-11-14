@@ -13,6 +13,7 @@ class ActiveCallRegistry extends ChangeNotifier {
   bool _active = false;
   HandsFreeMicrophone _microphone = HandsFreeMicrophone.opening;
   bool _mayBeOpen = false;
+  bool _dismissed = false;
   bool _disposed = false;
   Object? _screenOwner;
 
@@ -24,7 +25,26 @@ class ActiveCallRegistry extends ChangeNotifier {
   /// Whether the call ended without confirming that the microphone closed,
   /// which the strip says rather than hiding.
   bool get microphoneMayBeOpen =>
-      _call != null && _call!.ended && _call!.microphoneUnconfirmed;
+      !_dismissed &&
+      _call != null &&
+      _call!.ended &&
+      _call!.microphoneUnconfirmed;
+
+  /// What the strip shows now: the running call's microphone, the unconfirmed
+  /// close of a call that ended, or null for no strip.
+  HandsFreeMicrophone? get strip => active
+      ? microphone
+      : microphoneMayBeOpen
+      ? HandsFreeMicrophone.mayBeOpen
+      : null;
+
+  /// The user has read the "may still be open" mark and closed it. It comes
+  /// back with the next call that ends the same way.
+  void dismissMayBeOpen() {
+    if (_dismissed) return;
+    _dismissed = true;
+    notifyListeners();
+  }
 
   /// Whether the call screen is open, so the strip leaves End to it.
   bool get screenOpen => _screenOwner != null;
@@ -39,6 +59,7 @@ class ActiveCallRegistry extends ChangeNotifier {
     call.addListener(_changed);
     _active = false;
     _mayBeOpen = false;
+    _dismissed = false;
     _changed(force: true);
   }
 
@@ -84,7 +105,7 @@ class ActiveCallRegistry extends ChangeNotifier {
         ? HandsFreeMicrophone.opening
         : call.muted
         ? HandsFreeMicrophone.muted
-        : call.capturePaused
+        : call.capturePausedForLong
         ? HandsFreeMicrophone.paused
         : HandsFreeMicrophone.open;
     final mayBeOpen = call != null && call.ended && call.microphoneUnconfirmed;

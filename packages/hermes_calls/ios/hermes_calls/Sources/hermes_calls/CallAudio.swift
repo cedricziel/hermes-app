@@ -20,6 +20,9 @@ final class CallAudio {
   /// Capture paused by Dart (Waiting for you, tones): the tap keeps running but
   /// no audio is sent. CallKit's mute is not involved.
   private(set) var capturePaused = false
+  /// Set by `stopCapture` and kept until the call is over (`endCall`): an
+  /// engine restart after a route change must not bring the microphone back.
+  private(set) var captureStopped = false
   var emit: (([String: Any]) -> Void)?
 
   init() {
@@ -31,6 +34,17 @@ final class CallAudio {
     guard !engine.isRunning else { return }
     let input = engine.inputNode
     try input.setVoiceProcessingEnabled(true)
+    if !captureStopped { try installTap(on: input) }
+    do {
+      engine.prepare()
+      try engine.start()
+    } catch {
+      if tapped { input.removeTap(onBus: 0); tapped = false }
+      throw error
+    }
+  }
+
+  private func installTap(on input: AVAudioInputNode) throws {
     let source = input.outputFormat(forBus: 0)
     guard source.sampleRate > 0,
           let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000,
@@ -59,14 +73,6 @@ final class CallAudio {
       }
     }
     tapped = true
-    do {
-      engine.prepare()
-      try engine.start()
-    } catch {
-      input.removeTap(onBus: 0)
-      tapped = false
-      throw error
-    }
   }
 
   func setCapturePaused(_ paused: Bool) {
@@ -78,6 +84,7 @@ final class CallAudio {
   /// Ends the capture tap only. Playback and the engine keep running so the
   /// call can still say its last tone; `stop()` ends the rest.
   func stopCapture() {
+    captureStopped = true
     generation += 1
     if tapped { engine.inputNode.removeTap(onBus: 0); tapped = false }
   }
@@ -155,7 +162,19 @@ final class CallAudio {
     stopPlayback()
     if tapped { engine.inputNode.removeTap(onBus: 0); tapped = false }
     engine.stop()
+    // A route change restarts the engine inside one call and Dart pauses again
+    // when it still wants capture closed (it treats the reset as reopening it).
     capturePaused = false
+  }
+
+  /// The call is over (or never started): the next one begins with capture
+  /// neither paused nor stopped, also when a pause came before a start that
+  /// then failed. `stop()` keeps `captureStopped`, because a route change
+  /// stops and restarts the engine inside one call and must not bring the
+  /// microphone back after `stopCapture`.
+  func endCall() {
+    capturePaused = false
+    captureStopped = false
   }
 
   enum AudioError: Error { case unavailable, overflow }

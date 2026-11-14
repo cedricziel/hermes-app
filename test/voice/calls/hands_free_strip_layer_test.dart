@@ -141,6 +141,42 @@ void main() {
     );
   });
 
+  testWidgets(
+    'a tone pauses capture for a moment, which the strip calls open',
+    (tester) async {
+      await tester.runAsync(() => h.rebuild(withTones: true));
+      await pump(tester);
+      await startCall(tester);
+      h.tones.gate = Completer<void>();
+      await tester.runAsync(() async {
+        await h.say('Hello');
+      });
+      await tester.pump();
+      expect(
+        h.call.capturePaused,
+        isTrue,
+        reason: 'the tone has capture paused',
+      );
+      expect(
+        find.text('Hands-free on · microphone open', findRichText: true),
+        findsOneWidget,
+      );
+      h.tones.gate!.complete();
+      await tester.runAsync(() => pumpEventQueue());
+    },
+  );
+
+  testWidgets('Waiting for you shows paused', (tester) async {
+    await pump(tester);
+    await startCall(tester);
+    h.agent.setThreadAttention(true);
+    await tester.pump();
+    expect(
+      find.text('Hands-free on · microphone paused', findRichText: true),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('while the call screen is open the strip has no End', (
     tester,
   ) async {
@@ -177,6 +213,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('End'), findsNothing);
+    // It can be dismissed, and a new call that ends the same way shows it
+    // again.
+    await tester.tap(find.text('Dismiss'));
+    await tester.pump();
+    expect(strip, findsNothing);
+    expect(registry.microphoneMayBeOpen, isFalse);
     // A new call replaces the warning.
     final next = h.build();
     addTearDown(() async {

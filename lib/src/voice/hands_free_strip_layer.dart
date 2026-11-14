@@ -40,13 +40,7 @@ class _HandsFreeStripLayerState extends State<HandsFreeStripLayer> {
     } on ProviderNotFoundException {
       registry = null;
     }
-    final microphone = registry == null
-        ? null
-        : registry.active
-        ? registry.microphone
-        : registry.microphoneMayBeOpen
-        ? HandsFreeMicrophone.mayBeOpen
-        : null;
+    final microphone = registry?.strip;
     final shown = microphone != null;
     final colors = Theme.of(context).colorScheme;
     // The window's own inset: the status bar, a notch or the Mac title bar
@@ -68,6 +62,7 @@ class _HandsFreeStripLayerState extends State<HandsFreeStripLayer> {
                   onEnd: registry!.active && !registry.screenOpen
                       ? () => unawaited(registry!.end())
                       : null,
+                  onDismiss: registry.active ? null : registry.dismissMayBeOpen,
                 ),
               ),
             ),

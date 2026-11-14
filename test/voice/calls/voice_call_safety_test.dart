@@ -101,17 +101,36 @@ void main() {
 
   group('sending', () {
     test(
-      'lasts from the end of speech until the prompt is submitted',
+      'lasts from the end of speech until the words are handed to the agent',
       () async {
-        agent.holdSubmit = true;
+        final gate = Completer<StreamChannel<Object?>>();
+        openSocket = () => gate.future;
         await activate();
         await say('What is next?');
-        expect(agent.prompts, ['What is next?']);
+        expect(agent.prompts, isEmpty);
         expect(call.phase, CallPhase.sending);
-        agent.submitted();
-        expect(call.phase, CallPhase.thinking);
+        agent.holdSubmit = true;
+        gate.complete(socket.local);
+        await pumpEventQueue();
+        expect(agent.prompts, ['What is next?']);
+        expect(
+          call.phase,
+          CallPhase.thinking,
+          reason: 'a cancel can no longer withdraw them, so no Sending',
+        );
       },
     );
+
+    test('a mute after the hand-off does not pretend to cancel', () async {
+      agent.holdSubmit = true;
+      await activate();
+      await say('Already on its way');
+      expect(call.phase, CallPhase.thinking);
+      unawaited(call.setMuted(true));
+      await pumpEventQueue();
+      expect(call.phase, CallPhase.thinking);
+      expect(call.caption, 'Already on its way');
+    });
 
     test('End while the speech socket opens sends nothing', () async {
       final gate = Completer<StreamChannel<Object?>>();
@@ -136,6 +155,11 @@ void main() {
         expect(call.phase, CallPhase.sending);
         unawaited(call.setMuted(true));
         expect(call.muted, isFalse, reason: 'the bridge has not confirmed');
+        expect(
+          call.phase,
+          CallPhase.listening,
+          reason: 'Sending is left at once, not when the bridge answers',
+        );
         gate.complete(socket.local);
         await pumpEventQueue();
         expect(agent.prompts, isEmpty);

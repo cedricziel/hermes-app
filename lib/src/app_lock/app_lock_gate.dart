@@ -44,7 +44,7 @@ class AppLockGate extends StatelessWidget {
         if (covered)
           _LockScreen(
             onUnlock: lock.locked ? lock.unlock : null,
-            handsFree: call != null && call.active ? call : null,
+            handsFree: call?.strip == null ? null : call,
           ),
       ],
     );
@@ -74,8 +74,10 @@ class _LockScreen extends StatelessWidget {
             if (handsFree case final call?) ...[
               const SizedBox(height: 16),
               HandsFreeStrip(
-                microphone: call.microphone,
-                onEnd: () => unawaited(call.end()),
+                microphone: call.strip!,
+                // A call that ended has nothing to end, and the cover is no
+                // place to dismiss its warning.
+                onEnd: call.active ? () => unawaited(call.end()) : null,
               ),
             ],
             if (onUnlock != null) ...[

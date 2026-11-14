@@ -1416,6 +1416,7 @@
   "voiceSetupReady": "Bereit zum Anruf",
   "voiceSetupReadyBody": "Sprich mit Hermes, ohne die Hände zu benutzen. Dein Mikrofon bleibt geschlossen, bis du startest.",
   "voiceSetupStart": "Anruf starten",
+  "voiceStripDismiss": "Schließen",
   "voiceStripEnd": "Beenden",
   "voiceStripMicMayBeOpen": "Mikrofon ist vielleicht noch offen",
   "voiceStripMicMuted": "Mikrofon stumm",

@@ -101,7 +101,7 @@ class VoiceCall extends ChangeNotifier {
 
   /// Capture paused by this call (Waiting for you, a tone) and what the
   /// bridge reports; either one means no microphone audio arrives.
-  bool _paused = false, _bridgePaused = false;
+  bool _paused = false, _bridgePaused = false, _bridgeOwnPause = false;
   int _tonesPlaying = 0;
 
   /// Replies of this call still running in the chat, and the epoch of the one
@@ -145,6 +145,11 @@ class VoiceCall extends ChangeNotifier {
   /// Whether no microphone audio is taken right now, by this call's choice or
   /// the bridge's.
   bool get capturePaused => _paused || _bridgePaused;
+
+  /// Whether the microphone is closed for longer than a tone: Waiting for you
+  /// or the bridge's own pause (desktop playback). The strip says "paused"
+  /// for these only; a tone's few hundred milliseconds stay "open".
+  bool get capturePausedForLong => waitingForYou || _bridgeOwnPause;
 
   /// Whether the user can speak over the reply: the platform cancels echo and
   /// the profile did not turn `voice.barge_in` off.
@@ -275,6 +280,8 @@ class VoiceCall extends ChangeNotifier {
         }
       case 'capturePaused':
         _bridgePaused = event['paused'] == true;
+        // The echo of this call's own request is not the bridge's choice.
+        _bridgeOwnPause = _bridgePaused && event['reason'] != 'request';
         _vad.reset();
         _lastPCM = _now();
       case 'audioReset':
@@ -289,6 +296,7 @@ class VoiceCall extends ChangeNotifier {
         _lastPCM = _now();
         // The native reset reopened capture; Waiting for you needs it closed.
         _bridgePaused = false;
+        _bridgeOwnPause = false;
         if (_paused) unawaited(_guard(bridge.pauseCapture));
       case 'muted':
         muted = event['muted'] == true;
@@ -496,8 +504,13 @@ class VoiceCall extends ChangeNotifier {
 
   /// Stops what this call's earlier reply still does in the chat, so the next
   /// turn is not refused as "still answering". At most eight seconds.
-  Future<void> _settleReply() async {
+  ///
+  /// With an [epoch] (a turn about to be sent) it checks again after waiting
+  /// for the playback to stop: an approval or a mute that came meanwhile
+  /// interrupts nothing.
+  Future<void> _settleReply([int? epoch]) async {
     await _interruption;
+    if (epoch != null && _abandoned(epoch)) return;
     if (_running == 0) return;
     try {
       await agent.interrupt().timeout(const Duration(seconds: 8));
@@ -577,7 +590,7 @@ class VoiceCall extends ChangeNotifier {
       caption = text;
       _notify();
       step = 'interrupt';
-      await _settleReply();
+      await _settleReply(epoch);
       if (_abandoned(epoch)) return;
       step = 'speech_open';
       speech = CallSpeechStream(
@@ -613,14 +626,17 @@ class VoiceCall extends ChangeNotifier {
       _running++;
       replying = true;
       _replyEpoch = epoch;
+      // Sending ends here: from this call on, End or mute can no longer
+      // withdraw the words (that comes back with the queue restore and
+      // `authorize`, task 5.0), so the screen stops promising a cancel.
+      phase = CallPhase.thinking;
+      _notify();
       await agent.reply(
         text,
         onSubmitted: () {
-          if (_current(epoch) && phase == CallPhase.sending) {
-            phase = CallPhase.thinking;
+          if (_current(epoch)) {
             haptics?.submit();
             unawaited(_tone(CallTone.sent));
-            _notify();
           }
         },
         onText: (part) {

@@ -202,6 +202,7 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     activationTimer?.invalidate()
     activationTimer = nil
     audio.stop()
+    audio.endCall()
     audio.muted = false
     callID = nil
     if let reason { provider.reportCall(with: id, endedAt: Date(), reason: reason) }

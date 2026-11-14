@@ -24,10 +24,19 @@ enum HandsFreeMicrophone {
 /// screen already has End. At large text sizes the second half is dropped so
 /// the pill stays on one line.
 class HandsFreeStrip extends StatelessWidget {
-  const HandsFreeStrip({super.key, required this.microphone, this.onEnd});
+  const HandsFreeStrip({
+    super.key,
+    required this.microphone,
+    this.onEnd,
+    this.onDismiss,
+  });
 
   final HandsFreeMicrophone microphone;
   final VoidCallback? onEnd;
+
+  /// Closes the strip's "may still be open" warning; the same 44 pt place as
+  /// End, for the state that has no call left to end.
+  final VoidCallback? onDismiss;
 
   static const _largeText = 1.6;
 
@@ -50,7 +59,13 @@ class HandsFreeStrip extends StatelessWidget {
       color: colors.onSurface,
       fontWeight: FontWeight.w600,
     );
-    final onEnd = this.onEnd;
+    final onEnd = this.onEnd ?? onDismiss;
+    final endLabel = this.onEnd == null
+        ? l10n.voiceStripDismiss
+        : l10n.voiceStripEnd;
+    final endSemantics = this.onEnd == null
+        ? l10n.voiceStripDismiss
+        : l10n.voiceCallEnd;
     return Material(
       color: colors.surfaceContainerHigh,
       shape: StadiumBorder(side: BorderSide(color: colors.outlineVariant)),
@@ -109,10 +124,7 @@ class HandsFreeStrip extends StatelessWidget {
                       tapTargetSize: MaterialTapTargetSize.padded,
                       shape: const StadiumBorder(),
                     ),
-                    child: Text(
-                      l10n.voiceStripEnd,
-                      semanticsLabel: l10n.voiceCallEnd,
-                    ),
+                    child: Text(endLabel, semanticsLabel: endSemantics),
                   ),
                 ),
               ],

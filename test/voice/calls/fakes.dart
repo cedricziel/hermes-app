@@ -26,6 +26,9 @@ class FakeCallBridge implements CallBridge {
   Completer<void>? stopCaptureGate;
   Object? stopCaptureError;
   Object? endError, stopPlaybackError, muteError;
+
+  /// Holds `stopPlayback` until completed.
+  Completer<void>? stopPlaybackGate;
   Completer<void>? endGate;
   @override
   bool bargeIn = true;
@@ -80,6 +83,7 @@ class FakeCallBridge implements CallBridge {
   Future<void> stopPlayback() async {
     stops++;
     log.add('stopPlayback');
+    await stopPlaybackGate?.future;
     if (stopPlaybackError != null) await Future<void>.error(stopPlaybackError!);
   }
 

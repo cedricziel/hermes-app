@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/call_config.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 import 'call_harness.dart';
 import 'fakes.dart';
@@ -103,14 +104,17 @@ void main() {
     );
 
     test('a turn in Sending when the approval arrives is dropped', () async {
-      h.agent.holdSubmit = true;
+      final gate = Completer<StreamChannel<Object?>>();
+      h.openSocket = () => gate.future;
       await h.activate();
       await h.say('Hello');
       expect(h.call.phase, CallPhase.sending);
       h.agent.setThreadAttention(true);
       expect(h.call.phase, CallPhase.attention);
       h.agent.setThreadAttention(false);
-      h.agent.submitted();
+      gate.complete(h.socket.local);
+      await pumpEventQueue();
+      expect(h.agent.prompts, isEmpty);
       expect(h.call.phase, CallPhase.listening);
     });
 
@@ -142,6 +146,21 @@ void main() {
         expect(h.agent.prompts, [
           'First',
         ], reason: 'checked again before submit');
+      },
+    );
+
+    test(
+      'an approval that arrives while playback stops interrupts nothing',
+      () async {
+        await speaking();
+        final gate = h.bridge.stopPlaybackGate = Completer<void>();
+        await h.say('Second');
+        expect(h.agent.interrupts, 0, reason: 'still stopping playback');
+        h.agent.setThreadAttention(true);
+        gate.complete();
+        await pumpEventQueue();
+        expect(h.agent.interrupts, 0, reason: 'checked again before it');
+        expect(h.agent.prompts, ['First']);
       },
     );
 

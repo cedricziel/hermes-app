@@ -6916,6 +6916,10 @@
   "@voiceSetupStart": {
     "description": "Filled button that starts the call."
   },
+  "voiceStripDismiss": "Dismiss",
+  "@voiceStripDismiss": {
+    "description": "Short label of the action that closes the Hands-free strip's warning that the microphone may still be open."
+  },
   "voiceStripEnd": "End",
   "@voiceStripEnd": {
     "description": "Short label of the End action in the Hands-free strip."
