@@ -1,3 +1,4 @@
 import 'session_mutex.dart';
 
-SessionMutex createSessionMutex() => MemorySessionMutex();
+SessionMutex createSessionMutex({String name = 'session-lock'}) =>
+    MemorySessionMutex();

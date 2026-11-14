@@ -8,6 +8,7 @@ import 'owned_session_transport.dart';
 import 'gateway_connection_transport.dart';
 import 'connector_operation_transport.dart';
 import 'billing_verification_transport.dart';
+import 'agent_work_transport.dart';
 
 /// Work was blocked or its delegate was invalidated before it completed.
 final class SessionTransportUnavailable extends StateError {
@@ -28,7 +29,8 @@ final class SessionChatTransport
         ConnectorOperationTransport,
         GatewayConnectionTransport,
         QueueSubmissionTransport,
-        BillingVerificationTransport {
+        BillingVerificationTransport,
+        AgentWorkTransport {
   SessionChatTransport(this._create) : _delegate = _create() {
     final delegate = _delegate;
     _acknowledgement = delegate is PromptAcknowledgement
@@ -499,6 +501,46 @@ final class SessionChatTransport
       code: code,
     ),
   );
+
+  @override
+  Future<Map<String, Object?>?> readAttached(
+    String threadId, {
+    String? profile,
+    required String method,
+    Map<String, Object?> params = const {},
+    required Duration timeout,
+  }) => _call((delegate) {
+    if (delegate is! AgentWorkTransport) {
+      throw UnsupportedError('No agent work');
+    }
+    return (delegate as AgentWorkTransport).readAttached(
+      threadId,
+      profile: profile,
+      method: method,
+      params: params,
+      timeout: timeout,
+    );
+  });
+
+  @override
+  Future<Map<String, Object?>> act(
+    String threadId, {
+    String? profile,
+    required String method,
+    Map<String, Object?> params = const {},
+    required Duration timeout,
+  }) => _call((delegate) {
+    if (delegate is! AgentWorkTransport) {
+      throw UnsupportedError('No agent work');
+    }
+    return (delegate as AgentWorkTransport).act(
+      threadId,
+      profile: profile,
+      method: method,
+      params: params,
+      timeout: timeout,
+    );
+  });
 
   @override
   Future<bool> stopReply(String threadId, {String? profile}) =>
