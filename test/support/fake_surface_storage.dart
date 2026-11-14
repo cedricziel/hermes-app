@@ -4,8 +4,27 @@ import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 
 /// A [SurfaceStorage] that keeps every JSON saved and counts the widget
 /// reloads.
-class FakeSurfaceStorage implements SurfaceStorage {
+class FakeSurfaceStorage implements SurfaceStorage, SurfaceReloadMarkStorage {
   final saved = <String>[];
+
+  /// The stored time the widgets were last reloaded for.
+  String? reloadedFor;
+
+  /// Thrown by [loadReloadedFor] and [saveReloadedFor] while set.
+  Error? reloadMarkFailure;
+
+  @override
+  Future<String?> loadReloadedFor() async {
+    if (reloadMarkFailure case final error?) throw error;
+    return reloadedFor;
+  }
+
+  @override
+  Future<void> saveReloadedFor(String value) async {
+    if (reloadMarkFailure case final error?) throw error;
+    reloadedFor = value;
+  }
+
   var reloads = 0;
   final reloaded = <String>[];
 
