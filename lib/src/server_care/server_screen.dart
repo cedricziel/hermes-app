@@ -109,7 +109,9 @@ class _Destination {
 
   /// Whether the server has what the page reads.
   final bool Function() offered;
-  final Widget Function(_Request request) build;
+
+  /// [pane] is true for the page beside the list, false for a pushed one.
+  final Widget Function(_Request request, {required bool pane}) build;
 }
 
 /// Is Hermes OK, and what is it running on: a headline, then the Hermes
@@ -247,8 +249,10 @@ class _ServerScreenState extends State<ServerScreen> {
       _Page.usage,
       offered: () =>
           context.read<ServerCareController>().offers(CarePart.usage),
-      build: (r) => UsagePage(
-        recordOpen: _takeUsageRecord(r),
+      build: (r, {required pane}) => UsagePage(
+        // A pushed page is a new open each time; a pane page rebuilt for the
+        // same pick is not.
+        recordOpen: !pane || _takeUsageRecord(r),
         onRunCheck: context.read<ServerCareController>().offers(CarePart.check)
             ? () => _showCheck(run: true)
             : null,
@@ -257,7 +261,7 @@ class _ServerScreenState extends State<ServerScreen> {
     _Destination(
       _Page.update,
       offered: () => _update.supported,
-      build: (_) {
+      build: (_, {required pane}) {
         // As on the pushed page: a failed status read hides its version.
         final care = context.read<ServerCareController>();
         return UpdatePage(
@@ -270,7 +274,7 @@ class _ServerScreenState extends State<ServerScreen> {
       _Page.logs,
       offered: () => context.read<ServerCareController>().offers(CarePart.logs),
       byDefault: false,
-      build: (r) => ServerLogsPage(
+      build: (r, {required pane}) => ServerLogsPage(
         initialFile: r.file ?? CareLogFile.errors,
         profile: r.profile,
       ),
@@ -280,7 +284,7 @@ class _ServerScreenState extends State<ServerScreen> {
       offered: () =>
           context.read<ServerCareController>().offers(CarePart.check),
       byDefault: false,
-      build: (r) {
+      build: (r, {required pane}) {
         final run = r.run != 0 && r.run != _runBuilt;
         _runBuilt = r.run;
         return ServerCheckPage(runOnOpen: run);
@@ -314,7 +318,9 @@ class _ServerScreenState extends State<ServerScreen> {
 
   /// Shows [request]: beside the list on a wide window, else on its own route.
   void _show(_Request request) {
-    if (!_wide) return _open(_destination(request.page).build(request));
+    if (!_wide) {
+      return _open(_destination(request.page).build(request, pane: false));
+    }
     if (_picked != request) setState(() => _picked = request);
   }
 
@@ -370,9 +376,10 @@ class _ServerScreenState extends State<ServerScreen> {
               isWideLayout(context, width: box.maxWidth);
           _wide = wide;
           // A pick never comes back on another profile.
+          // (A profile that only becomes known keeps a pick made before.)
           if (care.profile != _profileSeen) {
+            if (_profileSeen != null) _picked = null;
             _profileSeen = care.profile;
-            _picked = null;
           }
           // Only a destination hidden behind another in the shell builds no
           // page; a route pushed over this one keeps it, so what it holds is
@@ -402,7 +409,7 @@ class _ServerScreenState extends State<ServerScreen> {
                 // is disposed and lets go of what it holds.
                 : KeyedSubtree(
                     key: ValueKey(shown),
-                    child: _destination(shown.page).build(shown),
+                    child: _destination(shown.page).build(shown, pane: true),
                   ),
             onClose: _closePane,
           );

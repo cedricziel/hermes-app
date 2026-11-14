@@ -641,6 +641,19 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    test('the Mac records every Usage open', (tester) async {
+      await pump(tester, platform: TargetPlatform.macOS);
+      int opened() => trail.recent
+          .where((r) => r.name == 'server_care.usage.opened')
+          .length;
+      for (var i = 1; i <= 2; i++) {
+        await select(tester, 'Usage');
+        expect(opened(), i);
+        Navigator.of(tester.element(find.byType(UsagePage))).pop();
+        await tester.pumpAndSettle();
+      }
+    });
+
     test('the Mac never splits: pages push with the toolbar Back', (
       tester,
     ) async {
@@ -780,14 +793,15 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.runAsync(lock.unlock);
       await settle(tester);
-      // The page followed the switch for the moment before the pane dropped
-      // it; nothing was read for the old profile again, and nothing since.
-      final reads = server
-          .requestsTo('GET', '/api/logs')
-          .map((r) => r.queryParameters['profile'])
-          .toList();
-      expect(reads.where((p) => p == 'default'), hasLength(1));
-      expect(reads.length, lessThanOrEqualTo(2));
+      // The page left instead of following the switch: the one read in all
+      // was for the old profile.
+      expect(
+        server
+            .requestsTo('GET', '/api/logs')
+            .map((r) => r.queryParameters['profile'])
+            .toList(),
+        ['default'],
+      );
     });
 
     test('Usage records its opening once per pick', (tester) async {
@@ -811,7 +825,9 @@ void main() {
       expect(opened(), 2);
     });
 
-    test('a Copy question closes with the Logs page', (tester) async {
+    test('a Copy question closes with the Logs page, with no tap', (
+      tester,
+    ) async {
       await pump(tester);
       await select(tester, 'Logs');
       await tester.tap(find.byKey(const Key('logs-more')));
@@ -819,9 +835,61 @@ void main() {
       await tester.tap(find.text('Copy shown lines'));
       await tester.pumpAndSettle();
       expect(find.text('Copy these log lines?'), findsOneWidget);
-      await select(tester, 'Usage');
+      // The window narrows under the open question: the page is disposed.
+      await resize(tester, 420);
+      expect(find.byType(ServerLogsPage), findsNothing);
       expect(find.text('Copy these log lines?'), findsNothing);
       expect(find.byType(ServerScreen), findsOneWidget);
+      await resize(tester, 1000);
+      expect(find.byType(UsagePage), findsOneWidget);
+    });
+
+    test('a pick made before the profile is known survives its arrival', (
+      tester,
+    ) async {
+      await pump(tester);
+      // Pretend the profile was not known yet, then learned.
+      care.profileChanged(null);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(GroupedRow),
+          matching: find.text('Updates'),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      care.profileChanged('default');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(UpdatePage), findsOneWidget);
+      care.profileChanged('work');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(UpdatePage), findsNothing);
+      // Let the Usage page that took the pane read and finish.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 150)),
+      );
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    test('Usage records every pushed open, and once per pick in the pane', (
+      tester,
+    ) async {
+      int opened() => trail.recent
+          .where((r) => r.name == 'server_care.usage.opened')
+          .length;
+      // Wide: the default records once, a rebuild does not.
+      await pump(tester);
+      expect(opened(), 1);
+      await resize(tester, 1001);
+      expect(opened(), 1);
+      // Narrow after wide: a pushed Usage records.
+      await resize(tester, 420);
+      await select(tester, 'Usage');
+      expect(opened(), 2);
+      Navigator.of(tester.element(find.byType(UsagePage))).pop();
+      await tester.pumpAndSettle();
+      await select(tester, 'Usage');
+      expect(opened(), 3);
     });
 
     test('a restart, an update and a check that ran send nothing again '

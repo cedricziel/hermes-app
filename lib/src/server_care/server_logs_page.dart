@@ -199,8 +199,17 @@ class _ServerLogsPageState extends State<ServerLogsPage>
       }
       return;
     }
+    final before = _careProfile;
     _careProfile = _care.profile;
     _stale();
+    // Beside the list the page leaves instead of following: the screen drops
+    // its pick on a switch, and a read for the new profile would be one nobody
+    // asked for. Only the first profile the page learns of is followed.
+    if (before != null && SettingsPane.maybeOf(context) != null) {
+      _controller.cover();
+      _leave();
+      return;
+    }
     _controller.setProfile(_careProfile);
   }
 
