@@ -27,8 +27,10 @@ enum WorkingSentenceKind {
 
 /// One thing Hermes is doing now, as a typed sentence.
 ///
-/// [at] orders arrival across sources: a larger value is newer. Only sources
-/// that are active now are passed in, so clearing a source is leaving it out.
+/// [at] orders arrival across sources: a larger value is newer. All stamps
+/// come from one controller-wide sequence, and a source keeps its stamp until
+/// its value changes or it clears. Only sources that are active now are passed
+/// in, so clearing a source is leaving it out.
 class WorkingSentence {
   const WorkingSentence(this.kind, {required this.at, this.text, this.count});
 
@@ -139,17 +141,21 @@ class WorkingSummary {
         : null;
     if (newest == null) return null;
 
+    // The newest report of each kind decides, known or not: an older value
+    // must not outlive a newer zero or unknown one.
     final latest = <WorkingCounterKind, WorkingCounter>{};
     for (final counter in counters) {
-      if (!counter._known || _repeats(newest, counter.kind)) continue;
-      if (counter.kind == WorkingCounterKind.plan &&
-          (!planOpen || counter.value! >= counter.total!)) {
-        continue;
-      }
       final old = latest[counter.kind];
       if (old == null || counter.at >= old.at) latest[counter.kind] = counter;
     }
-    final shown = latest.values.toList()..sort((a, b) => b.at.compareTo(a.at));
+    final shown = [
+      for (final counter in latest.values)
+        if (counter._known &&
+            !_repeats(newest, counter.kind) &&
+            (counter.kind != WorkingCounterKind.plan ||
+                (planOpen && counter.value! < counter.total!)))
+          counter,
+    ]..sort((a, b) => b.at.compareTo(a.at));
     return WorkingSummary(
       sentence: newest,
       counters: List.unmodifiable(shown.take(_maxCounters)),

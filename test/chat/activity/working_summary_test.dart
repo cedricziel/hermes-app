@@ -147,6 +147,33 @@ void main() {
       expect(summary.counters.single.value, 2);
     });
 
+    test('a newer zero or unknown value hides an older known one', () {
+      final summary = WorkingSummary.compute(
+        planOpen: true,
+        sentences: [_status('Working', 1)],
+        counters: [
+          WorkingCounter.processes(running: 2, at: 1),
+          WorkingCounter.processes(running: 0, at: 2),
+          WorkingCounter.references(done: 1, total: 3, at: 1),
+          WorkingCounter.references(done: null, total: null, at: 2),
+          WorkingCounter.plan(done: 2, total: 5, at: 1),
+          WorkingCounter.plan(done: null, total: 5, at: 2),
+        ],
+      )!;
+      expect(summary.counters, isEmpty);
+    });
+
+    test('a newer value shows even when listed first', () {
+      final summary = WorkingSummary.compute(
+        sentences: [_status('Working', 1)],
+        counters: [
+          WorkingCounter.processes(running: 0, at: 1),
+          WorkingCounter.processes(running: 3, at: 5),
+        ],
+      )!;
+      expect(summary.counters.single.value, 3);
+    });
+
     test('a counter alone is not work', () {
       expect(
         WorkingSummary.compute(
