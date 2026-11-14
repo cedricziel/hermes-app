@@ -541,7 +541,10 @@ void main() {
       server.on('GET', '/api/profiles/active', {'detail': 'boom'}, status: 500);
       final unknown = await connect();
 
-      await expectLater(unknown.loadRawServers(), throwsA(isA<StateError>()));
+      await expectLater(
+        unknown.loadRawServers(),
+        throwsA(isA<McpProfileUnknown>()),
+      );
       expect(server.requestsTo('GET', '/api/config'), isEmpty);
     });
   });

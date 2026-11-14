@@ -20,6 +20,7 @@ import 'memory_repository.dart';
 import 'memory_screen.dart';
 import 'memory_settings_controller.dart';
 import 'memory_settings_repository.dart';
+import '../telemetry/report_bug.dart';
 
 /// Where Memory was opened from, for the `nav.memory` breadcrumb.
 enum MemoryEntryPoint {
@@ -265,7 +266,8 @@ class _MemoryDestinationState extends State<MemoryDestination> {
       }
       setState(() => _profiles = profiles);
       _show(selected);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportBug(error, stack, 'the memory screen');
       if (mounted && generation == _generation) {
         setState(
           () => _failure = error is MemoryFailure

@@ -14,6 +14,7 @@ import 'mcp_json_check.dart';
 import 'mcp_servers_controller.dart';
 import 'widgets/mcp_json_field.dart';
 import '../widgets/route_dismissal.dart';
+import '../telemetry/report_bug.dart';
 
 /// Edits the profile's whole `mcp_servers` map as JSON and replaces it on
 /// Save. Pops with true once Hermes has saved.
@@ -74,7 +75,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       _original = _indent.convert(loaded);
       _text.text = _original;
       setState(() => _loading = false);
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP JSON editor');
       if (!mounted) return;
       setState(() {
         _loading = false;

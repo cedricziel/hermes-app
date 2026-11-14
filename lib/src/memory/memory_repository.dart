@@ -4,6 +4,7 @@ import 'package:hermes_api/hermes_api.dart';
 
 import '../telemetry/telemetry.dart';
 import 'memory_usage.dart';
+import '../telemetry/report_bug.dart';
 
 enum MemoryFailure implements Exception {
   unsupported('Memory inspection is unavailable on this server.'),
@@ -262,7 +263,8 @@ class MemoryRepository {
       final result = await read();
       _quiet(() => span?.setAttribute('outcome', 'success'));
       return result;
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportBug(error, stack, 'the memory read');
       final failure = _failure(error, operation);
       _quiet(() {
         span?.setAttribute('outcome', failure.name);

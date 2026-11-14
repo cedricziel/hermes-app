@@ -99,7 +99,7 @@ void main() {
 
       await expectLater(
         connect(authRequired: false)(),
-        throwsA(isA<StateError>()),
+        throwsA(isA<GatewayCredentialUnavailable>()),
       );
       expect(opened, isEmpty);
     });
