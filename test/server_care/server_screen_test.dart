@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -70,6 +72,7 @@ void main() {
     check = ServerCheckController(
       repository: repositories.serverCare,
       delay: (d) async {},
+      onUnsupported: () => care.reportUnsupported(CarePart.check),
     );
     addTearDown(check.dispose);
     // As in the app, the controller is provided below the root Navigator, so
@@ -209,6 +212,32 @@ void main() {
       expect(checks(), 1);
       expect(find.text('Server check'), findsWidgets);
       expect(find.text('Telegram token rejected (401)'), findsOneWidget);
+    });
+
+    testWidgets('the row says Checking… while a run goes on, and a route '
+        'found missing meanwhile removes it with the page closed', (
+      tester,
+    ) async {
+      checkAnswers();
+      final gate = Completer<FakeResponse>();
+      server.onRequest('POST', '/api/ops/doctor', (_) => gate.future);
+      await pump(tester);
+      await tester.tap(find.text('Run a check'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Run check'));
+      await tester.pump();
+      // Leave the page while the request is out.
+      tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+      await tester.pumpAndSettle();
+      expect(find.text('Checking…'), findsOneWidget);
+
+      gate.complete((status: 404, body: {'detail': 'Not Found'}));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      expect(care.offers(CarePart.check), isFalse);
+      expect(find.text('Run a check'), findsNothing);
+      expect(find.text('Checking…'), findsNothing);
+      expect(find.text('Usage'), findsOneWidget);
     });
 
     testWidgets('the row is gone on a server without the route', (

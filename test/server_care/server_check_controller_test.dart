@@ -37,6 +37,26 @@ void main() {
     'lines': [head, ...lines],
   };
 
+  /// An earlier run has finished, then a new one goes on and on: the status
+  /// read before the request sees the first, the polls the second.
+  void goesOn(List<String> lines) {
+    var reads = 0;
+    server.onRequest(
+      'GET',
+      '/api/actions/doctor/status',
+      (_) => (
+        status: 200,
+        body: reads++ == 0
+            ? action(exit: 0, lines: const ['◆ Old', '  ✓ old'])
+            : action(
+                running: true,
+                head: '=== doctor started 2026-11-14 09:05:00 ===',
+                lines: lines,
+              ),
+      ),
+    );
+  }
+
   ServerCheckController build() => ServerCheckController(
     repository: ServerCareRepository(server.client()),
     telemetry: ConnectionTelemetry(
@@ -208,11 +228,7 @@ void main() {
   });
 
   test('not finished after 3 minutes: timed out, nothing resent', () async {
-    server.on(
-      'GET',
-      '/api/actions/doctor/status',
-      action(running: true, lines: const ['◆ A', '  ✓ one']),
-    );
+    goesOn(const ['◆ A', '  ✓ one']);
     await check.run(profile: 'work');
     expect(check.phase, CheckPhase.timedOut);
     expect(
@@ -228,11 +244,7 @@ void main() {
   });
 
   test('keep waiting follows the same run for another 3 minutes', () async {
-    server.on(
-      'GET',
-      '/api/actions/doctor/status',
-      action(running: true, lines: const ['◆ A', '  ✓ one']),
-    );
+    goesOn(const ['◆ A', '  ✓ one']);
     await check.run(profile: 'work');
     expect(check.phase, CheckPhase.timedOut);
     final before = clock;
@@ -257,11 +269,7 @@ void main() {
   });
 
   test('keep waiting ends in a timeout again, still without a run', () async {
-    server.on(
-      'GET',
-      '/api/actions/doctor/status',
-      action(running: true, lines: const ['◆ A']),
-    );
+    goesOn(const ['◆ A']);
     await check.run(profile: 'work');
     await check.keepWaiting();
     expect(check.phase, CheckPhase.timedOut);
@@ -452,11 +460,7 @@ void main() {
       expect(check.report, isNull);
       expect(check.phase, CheckPhase.idle);
 
-      server.on(
-        'GET',
-        '/api/actions/doctor/status',
-        action(running: true, lines: const ['◆ A']),
-      );
+      goesOn(const ['◆ A']);
       late final ServerCheckController c;
       var delays = 0;
       c = ServerCheckController(
@@ -489,11 +493,7 @@ void main() {
     });
 
     test('a profile switch ends a run for the old profile', () async {
-      server.on(
-        'GET',
-        '/api/actions/doctor/status',
-        action(running: true, lines: const ['◆ A']),
-      );
+      goesOn(const ['◆ A']);
       late final ServerCheckController c;
       var delays = 0;
       c = ServerCheckController(
@@ -511,11 +511,7 @@ void main() {
     });
 
     test('dispose mid-run stops following', () async {
-      server.on(
-        'GET',
-        '/api/actions/doctor/status',
-        action(running: true, lines: const ['◆ A']),
-      );
+      goesOn(const ['◆ A']);
       late final ServerCheckController c;
       var delays = 0;
       c = ServerCheckController(
@@ -636,6 +632,153 @@ void main() {
       );
       await check.run(profile: 'work');
       expect(check.phase, CheckPhase.finished);
+    });
+  });
+
+  group('review fixes', () {
+    test('an adopted running run is accepted when it finishes', () async {
+      server.onRequest('POST', '/api/ops/doctor', (r) {
+        throw DioException.connectionError(requestOptions: r, reason: 'drop');
+      });
+      var reads = 0;
+      const head = '=== doctor started 2026-11-14 09:05:00 ===';
+      server.onRequest('GET', '/api/actions/doctor/status', (_) {
+        reads++;
+        return (
+          status: 200,
+          body: reads == 1
+              ? action(exit: 0, lines: const ['◆ Old', '  ✓ old'])
+              : reads == 2
+              // The run is going; the baseline header differs from it.
+              ? action(running: true, head: head, lines: const ['◆ A'])
+              : action(exit: 1, head: head, lines: doctorProblems),
+        );
+      });
+      await check.run(profile: 'work');
+      expect(check.phase, CheckPhase.finished);
+    });
+
+    test(
+      'a doctor that is already running is followed, not sent again',
+      () async {
+        var reads = 0;
+        server.onRequest('GET', '/api/actions/doctor/status', (_) {
+          reads++;
+          return (
+            status: 200,
+            body: reads < 3
+                ? action(running: true, lines: const ['◆ A', '  ✓ one'])
+                : action(exit: 1, lines: doctorProblems),
+          );
+        });
+        await check.run(profile: 'work');
+        expect(posts(), 0);
+        expect(check.phase, CheckPhase.finished);
+        expect(check.report!.problems, 1);
+      },
+    );
+
+    test(
+      'Run after Dismiss does not send a second doctor while one runs',
+      () async {
+        goesOn(const ['◆ A']);
+        await check.run(profile: 'work');
+        expect(check.phase, CheckPhase.timedOut);
+        expect(posts(), 1);
+        check.dismiss();
+        var reads = 0;
+        server.onRequest(
+          'GET',
+          '/api/actions/doctor/status',
+          (_) => (
+            status: 200,
+            body: reads++ < 2
+                ? action(running: true, lines: const ['◆ A'])
+                : action(exit: 1, lines: doctorProblems),
+          ),
+        );
+        await check.run(profile: 'work');
+        expect(posts(), 1);
+        expect(check.phase, CheckPhase.finished);
+      },
+    );
+
+    test(
+      'a status read that finds no route ends the run without a request',
+      () async {
+        server.on('GET', '/api/actions/doctor/status', {
+          'detail': 'Not Found',
+        }, status: 404);
+        var reported = 0;
+        check.dispose();
+        check = ServerCheckController(
+          repository: ServerCareRepository(server.client()),
+          now: () => clock,
+          delay: (d) async => clock = clock.add(d),
+          onUnsupported: () => reported++,
+        );
+        await check.run(profile: 'work');
+        expect(check.phase, CheckPhase.failed);
+        expect(check.failure, CheckFailure.unsupported);
+        expect(posts(), 0);
+        expect(reported, 1);
+      },
+    );
+
+    test('a missing route on the request is reported to the shell', () async {
+      server.on('POST', '/api/ops/doctor', {
+        'detail': 'Not Found',
+      }, status: 404);
+      var reported = 0;
+      check.dispose();
+      check = ServerCheckController(
+        repository: ServerCareRepository(server.client()),
+        now: () => clock,
+        delay: (d) async => clock = clock.add(d),
+        onUnsupported: () => reported++,
+      );
+      await check.run(profile: 'work');
+      expect(check.failure, CheckFailure.unsupported);
+      expect(reported, 1);
+    });
+
+    for (final (name, code) in [('non-zero', 2), ('no exit code', null)]) {
+      test('a run that stopped part-way ($name) is not a report', () async {
+        server.on(
+          'GET',
+          '/api/actions/doctor/status',
+          action(
+            exit: code,
+            lines: const ['◆ Configuration', '  ✓ config.yaml found'],
+          ),
+        );
+        await check.run(profile: 'work');
+        expect(check.phase, CheckPhase.failed);
+        expect(check.failure, CheckFailure.exited);
+        expect(check.report, isNull);
+      });
+    }
+
+    test('findings with a non-zero exit are a report', () async {
+      await check.run(profile: 'work');
+      expect(check.phase, CheckPhase.finished);
+    });
+
+    test('a clock set backwards does not wait for ever', () async {
+      goesOn(const ['◆ A']);
+      var waits = 0;
+      check.dispose();
+      check = ServerCheckController(
+        repository: ServerCareRepository(server.client()),
+        now: () => clock,
+        delay: (d) async {
+          waits++;
+          clock = clock.subtract(const Duration(hours: 1));
+        },
+      );
+      await check.run(profile: 'work');
+      expect(check.phase, CheckPhase.timedOut);
+      expect(waits, lessThan(5));
     });
   });
 }

@@ -62,12 +62,17 @@ ServerCheckView serverCheckResultOf(
       unknown.add(CheckUnknownLine(text: line, group: section.title));
     }
   }
-  for (final line in report.trailing) {
-    unknown.add(CheckUnknownLine(text: line));
-  }
-  // Output with no section in it at all is shown whole, as written.
   if (report.sections.isEmpty && !report.allPassed) {
-    unknown.addAll([for (final line in lines) CheckUnknownLine(text: line)]);
+    // Output with no section in it at all is shown whole, as written, minus
+    // what the report already lists as fixes.
+    unknown.addAll([
+      for (final line in DoctorReport.leftover(lines, report))
+        CheckUnknownLine(text: line),
+    ]);
+  } else {
+    for (final line in report.trailing) {
+      unknown.add(CheckUnknownLine(text: line));
+    }
   }
   return ServerCheckView.result(
     problems: problems,
@@ -106,6 +111,7 @@ class ServerCheckPage extends StatefulWidget {
 class _ServerCheckPageState extends State<ServerCheckPage> {
   late final ServerCareController _care;
   late final ServerCheckController _check;
+  late final Listenable _changes;
   void Function()? _releaseSecure;
   bool _left = false;
 
@@ -114,10 +120,17 @@ class _ServerCheckPageState extends State<ServerCheckPage> {
     super.initState();
     _care = context.read<ServerCareController>();
     _check = context.read<ServerCheckController>();
+    _changes = Listenable.merge([_check, _care]);
     _releaseSecure = SecureWindow.instance.hold();
     // Anything that throws from here on must not leave the window secure.
     try {
       _check.addListener(_checkChanged);
+      _care.addListener(_checkChanged);
+      // A route found missing while the page was closed: nothing to show.
+      if (_missing) {
+        _leave();
+        return;
+      }
       if (widget.runOnOpen && _check.phase != CheckPhase.timedOut) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_check.busy) _run();
@@ -134,22 +147,30 @@ class _ServerCheckPageState extends State<ServerCheckPage> {
   void dispose() {
     _releaseSecure?.call();
     _check.removeListener(_checkChanged);
+    _care.removeListener(_checkChanged);
     super.dispose();
   }
 
-  /// The server has no route to run a check: the row on the Server screen
-  /// goes, and the page closes rather than explain a missing part.
+  bool get _missing =>
+      !_care.offers(CarePart.check) ||
+      (_check.phase == CheckPhase.failed &&
+          _check.failure == CheckFailure.unsupported);
+
+  /// The server has no route to run a check: the shell has hidden the row
+  /// (the controller reported it), and the page closes rather than explain a
+  /// missing part.
   void _checkChanged() {
-    if (_left ||
-        _check.phase != CheckPhase.failed ||
-        _check.failure != CheckFailure.unsupported) {
-      return;
-    }
+    if (_left || !_missing) return;
+    _leave();
+  }
+
+  void _leave() {
     _left = true;
-    _care.reportUnsupported(CarePart.check);
-    _check.dismiss();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) dismissRoute(context);
+      if (!mounted) return;
+      _care.reportUnsupported(CarePart.check);
+      _check.dismiss();
+      dismissRoute(context);
     });
   }
 
@@ -196,7 +217,7 @@ class _ServerCheckPageState extends State<ServerCheckPage> {
   @override
   Widget build(BuildContext context) => PrivateSurface(
     child: ListenableBuilder(
-      listenable: Listenable.merge([_check, _care]),
+      listenable: _changes,
       builder: (context, _) {
         final l10n = context.l10n;
         final profile = _check.profile ?? _care.profile;

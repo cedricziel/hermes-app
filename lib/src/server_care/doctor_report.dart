@@ -73,8 +73,34 @@ class DoctorReport {
   /// trailing space.
   static String clean(String line) => line
       .replaceAll(_ansi, '')
-      .replaceAll(RegExp('[\u200D\uFE0E\uFE0F]'), '')
+      // Format characters (bidi controls, zero-width spaces and joiners) and
+      // emoji selectors draw nothing or reorder text, so what is shown and
+      // what is copied could differ.
+      .replaceAll(
+        RegExp(r'[\p{Cf}\u2028\u2029\uFE0E\uFE0F]', unicode: true),
+        '',
+      )
       .trimRight();
+
+  /// The cleaned, non-empty [lines] that [report] does not account for: not
+  /// a rule, not the "Found N issue(s)" line and not a numbered fix it
+  /// listed. Shown as written when the output had no sections to put them in.
+  static List<String> leftover(List<String> lines, DoctorReport report) {
+    final fixes = report.fixes.toSet();
+    final out = <String>[];
+    for (final raw in lines) {
+      final line = clean(raw);
+      final text = line.trim();
+      if (text.isEmpty || _rule.hasMatch(text) || _found.hasMatch(text)) {
+        continue;
+      }
+      final fix = _numbered.firstMatch(line)?.group(1);
+      if (fix != null && fixes.contains(fix)) continue;
+      out.add(text);
+    }
+    return out;
+  }
+
   static final _header = RegExp(r'^=== doctor started\b');
   static final _found = RegExp(r'Found \d+ issue', caseSensitive: false);
   static final _numbered = RegExp(r'^\s*\d+\.\s+(.*\S)\s*$');

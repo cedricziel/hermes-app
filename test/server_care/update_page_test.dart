@@ -9,6 +9,7 @@ import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/replies_in_progress.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
+import 'package:hermes_app/src/server_care/server_check_controller.dart';
 import 'package:hermes_app/src/server_care/server_screen.dart';
 import 'package:hermes_app/src/server_care/update_page.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -92,6 +93,8 @@ void main() {
     addTearDown(care.dispose);
     final gateway = GatewayRestart(repository: repositories.serverCare);
     addTearDown(gateway.dispose);
+    final check = ServerCheckController(repository: repositories.serverCare);
+    addTearDown(check.dispose);
     run = HermesUpdateRun(
       repository: repositories.serverCare,
       care: care,
@@ -111,6 +114,7 @@ void main() {
           Provider<RepliesInProgress>.value(value: replies),
           ChangeNotifierProvider<ServerCareController>.value(value: care),
           ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+          ChangeNotifierProvider<ServerCheckController>.value(value: check),
           ChangeNotifierProvider<HermesUpdateRun>.value(value: run),
         ],
         child: MaterialApp(
@@ -394,6 +398,8 @@ void main() {
         profile: 'default',
       );
       addTearDown(care.dispose);
+      final check = ServerCheckController(repository: repositories.serverCare);
+      addTearDown(check.dispose);
       final gateway = GatewayRestart(repository: repositories.serverCare);
       addTearDown(gateway.dispose);
       run = HermesUpdateRun(repository: repositories.serverCare, care: care);
@@ -415,6 +421,9 @@ void main() {
                 Provider<RepliesInProgress>.value(value: replies),
                 ChangeNotifierProvider<ServerCareController>.value(value: care),
                 ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+                ChangeNotifierProvider<ServerCheckController>.value(
+                  value: check,
+                ),
                 ChangeNotifierProvider<HermesUpdateRun>.value(value: run),
               ],
               child: Builder(builder: opener),

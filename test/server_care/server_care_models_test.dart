@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/action_status.dart';
 import 'package:hermes_app/src/server_care/attention.dart';
 import 'package:hermes_app/src/server_care/doctor_report.dart';
+import 'package:hermes_app/src/server_care/widgets/server_check_body.dart'
+    show commandInFix;
 import 'package:hermes_app/src/server_care/log_line.dart';
 import 'package:hermes_app/src/server_care/server_status.dart';
 import 'package:hermes_app/src/server_care/update_check.dart';
@@ -333,6 +335,30 @@ void main() {
       expect(r.fixes, ['Do this']);
       expect(r.trailing, ['and then something odd']);
       expect(r.unknownLines, 1);
+    });
+
+    test('format characters that reorder or hide text are removed', () {
+      final r = DoctorReport.parse([
+        '◆ A',
+        '  ✗ Bad\u200B thing',
+        '  Found 1 issue(s) to address:',
+        "  1. Run 'hermes \u202Esetup\u202C \u2066telegram\u2069'",
+      ]);
+      expect(r.sections.single.items.single.text, 'Bad thing');
+      expect(r.fixes.single, "Run 'hermes setup telegram'");
+      expect(commandInFix(r.fixes.single), 'hermes setup telegram');
+      expect(DoctorReport.clean('a\u202Eb\u2028c'), 'abc');
+    });
+
+    test('leftover lines are the ones nothing above accounts for', () {
+      final lines = [
+        '────────',
+        '  Found 1 issue(s) to address:',
+        '  1. Do this',
+        'something odd',
+      ];
+      final r = DoctorReport.parse(lines);
+      expect(DoctorReport.leftover(lines, r), ['something odd']);
     });
 
     test('an emoji-presentation warning marker leaves no invisible text', () {

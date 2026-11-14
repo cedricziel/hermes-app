@@ -31,6 +31,7 @@ import 'usage_page.dart';
 import 'widgets/care_row_value.dart';
 import 'widgets/grouped_action_row.dart';
 import 'widgets/server_check_body.dart' show checkSummary;
+import 'widgets/server_check_row.dart';
 import 'widgets/server_status_card.dart';
 
 /// Pushes the Server screen as a settings page. [source] says where the
@@ -293,28 +294,23 @@ class _ServerScreenState extends State<ServerScreen> {
     final check = context.read<ServerCheckController>();
     final report = check.report;
     final at = check.finishedAt;
-    String? value;
-    String? subtitle = l10n.serverCareCheckRowSubtitle;
     if (check.busy) {
-      value = l10n.serverCareCheckRowChecking;
-      subtitle = null;
-    } else if (check.phase == CheckPhase.finished &&
-        report != null &&
-        at != null) {
-      final summary = report.allPassed
+      return ServerCheckRow(
+        state: ServerCheckRowState.running,
+        onTap: _showCheck,
+      );
+    }
+    if (check.phase != CheckPhase.finished || report == null || at == null) {
+      return ServerCheckRow(state: ServerCheckRowState.idle, onTap: _showCheck);
+    }
+    return ServerCheckRow(
+      state: ServerCheckRowState.result,
+      summary: report.allPassed
           ? l10n.serverCareCheckAllPassed
           : report.problems > 0 || report.warnings > 0
           ? checkSummary(l10n, report.problems, report.warnings)
-          : l10n.serverCareCheckSummaryUnreadable;
-      subtitle = l10n.serverCareCheckRowSubtitleResult(
-        summary,
-        elapsedText(l10n, elapsedSince(at, DateTime.now())),
-      );
-    }
-    return CareValueRow(
-      title: l10n.serverCareCheckRun,
-      value: value,
-      subtitle: subtitle,
+          : l10n.serverCareCheckSummaryUnreadable,
+      ago: elapsedText(l10n, elapsedSince(at, DateTime.now())),
       onTap: _showCheck,
     );
   }

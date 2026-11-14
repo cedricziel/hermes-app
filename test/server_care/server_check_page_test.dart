@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
+import 'package:hermes_app/src/server_care/doctor_report.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/server_care/server_check_controller.dart';
@@ -69,6 +70,7 @@ void main() {
       repository: repository,
       now: () => clock,
       delay: (d) async => clock = clock.add(d),
+      onUnsupported: () => care.reportUnsupported(CarePart.check),
     );
   });
 
@@ -199,11 +201,22 @@ void main() {
   });
 
   pageTest('a check that is taking long offers Keep waiting', (tester) async {
-    server.on('GET', '/api/actions/doctor/status', {
-      'name': 'doctor',
-      'running': true,
-      'lines': [header, '◆ A'],
-    });
+    // The earlier run is over when the check starts, then the new one goes on.
+    var reads = 0;
+    server.onRequest(
+      'GET',
+      '/api/actions/doctor/status',
+      (_) => (
+        status: 200,
+        body: reads++ == 0
+            ? finished(const ['◆ Old'], exit: 0)
+            : {
+                'name': 'doctor',
+                'running': true,
+                'lines': [header, '◆ A'],
+              },
+      ),
+    );
     await pump(tester);
     await tester.tap(find.text('Run check'));
     await tester.pumpAndSettle();
@@ -248,6 +261,73 @@ void main() {
     await tester.pump();
     expect(find.text('Telegram token rejected (401)'), findsNothing);
     expect(find.text('Check Hermes for problems'), findsOneWidget);
+  });
+
+  pageTest('a route found missing while the page was closed closes it at '
+      'once, with no error shown', (tester) async {
+    care.reportUnsupported(CarePart.check);
+    await pump(tester, pushed: true);
+    await tester.pumpAndSettle();
+    expect(find.text('open'), findsOneWidget);
+    expect(find.text("Can't reach Hermes"), findsNothing);
+    expect(posts(), 0);
+  });
+
+  pageTest('a failed run that found no route closes the page when it opens', (
+    tester,
+  ) async {
+    server.on('POST', '/api/ops/doctor', {'detail': 'Not Found'}, status: 404);
+    await tester.runAsync(() => check.run(profile: 'default'));
+    expect(care.offers(CarePart.check), isFalse);
+    await pump(tester, pushed: true);
+    expect(find.text('open'), findsOneWidget);
+    expect(find.text("Can't reach Hermes"), findsNothing);
+  });
+
+  group('the result as the page shows it', () {
+    test('lines are listed once', () {
+      final lines = [
+        '────────',
+        '  Found 2 issue(s) to address:',
+        '',
+        "  1. Re-run 'hermes setup telegram'",
+        '  2. Migrate the config',
+        'something odd',
+      ];
+      final view = serverCheckResultOf(DoctorReport.parse(lines), lines);
+      expect(view.fixes.map((f) => f.text), [
+        "Re-run 'hermes setup telegram'",
+        'Migrate the config',
+      ]);
+      expect(view.unknown.map((u) => u.text), ['something odd']);
+    });
+
+    test('with sections the trailing lines are listed once', () {
+      final lines = [
+        '◆ A',
+        '  ✗ Bad',
+        '  Found 1 issue(s) to address:',
+        '  1. Fix it',
+        '  and then this',
+      ];
+      final view = serverCheckResultOf(DoctorReport.parse(lines), lines);
+      expect(view.unknown.map((u) => u.text), ['and then this']);
+    });
+
+    test('the command beside Copy is what Copy copies', () {
+      final lines = [
+        '◆ A',
+        '  ✗ Bad',
+        '  Found 1 issue(s) to address:',
+        "  1. Run 'hermes \u202Esetup\u202C telegram'",
+      ];
+      final fix = serverCheckResultOf(
+        DoctorReport.parse(lines),
+        lines,
+      ).fixes.single;
+      expect(fix.command, 'hermes setup telegram');
+      expect(fix.text.contains('\u202E'), isFalse);
+    });
   });
 
   group('privacy', () {

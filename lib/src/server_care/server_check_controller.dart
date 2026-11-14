@@ -69,7 +69,9 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
     Breadcrumbs breadcrumbs = Breadcrumbs.none,
     DateTime Function()? now,
     Future<void> Function(Duration)? delay,
-  }) : _repository = repository,
+    VoidCallback? onUnsupported,
+  }) : _onUnsupported = onUnsupported,
+       _repository = repository,
        _telemetry = telemetry,
        _breadcrumbs = breadcrumbs,
        _now = now ?? DateTime.now,
@@ -89,6 +91,10 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
   final DateTime Function() _now;
   final Future<void> Function(Duration) _delay;
 
+  /// Called once a run found that the server has no doctor route, so the
+  /// shell can hide the check even while its page is closed.
+  final VoidCallback? _onUnsupported;
+
   CheckPhase _phase = CheckPhase.idle;
   CheckFailure? _failure;
   String? _message;
@@ -107,6 +113,10 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
   bool _lost = false;
   bool _baselineRead = false;
   String? _baselineHeader;
+
+  // The header of a run adopted while it was going, so it is also accepted
+  // when it has finished.
+  String? _adoptedHeader;
 
   CheckPhase get phase => _phase;
 
@@ -226,6 +236,7 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
     _lost = false;
     _baselineRead = false;
     _baselineHeader = null;
+    _adoptedHeader = null;
   }
 
   void _enter(CheckPhase phase) {
@@ -302,9 +313,23 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
       lines: _lines,
     );
     if (_stale(id)) return null;
-    if (before case CareOk(:final value)) {
-      _baselineRead = true;
-      _baselineHeader = value.startHeader;
+    switch (before) {
+      case CareUnsupported():
+        // The run could not be followed, so it is not started.
+        return _fail(CheckFailure.unsupported, null);
+      case CareOk(:final value):
+        _baselineRead = true;
+        _baselineHeader = value.startHeader;
+        if (value.running) {
+          // A doctor is going already (this device earlier, or another
+          // client): follow it instead of starting a second one.
+          _lost = true;
+          _adoptedHeader = value.startHeader;
+          _enter(CheckPhase.running);
+          return _poll(id);
+        }
+      case CareFailed():
+        break;
     }
     final started = await _repository.startDoctor(profile: profile);
     if (_stale(id)) return null;
@@ -364,7 +389,7 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
               break;
           }
       }
-      if (_now().difference(from) >= followWindow) {
+      if (_passed(from, followWindow)) {
         _enter(CheckPhase.timedOut);
         return 'timeout';
       }
@@ -378,9 +403,22 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
   /// only a run going now, or one with a header the log did not have before,
   /// is this one.
   bool _isThisRun(ActionStatus status) {
-    if (!_lost || status.running) return true;
+    if (!_lost) return true;
     final header = status.startHeader;
-    return _baselineRead && header != null && header != _baselineHeader;
+    if (status.running) {
+      _adoptedHeader ??= header;
+      return true;
+    }
+    if (header == null || !_baselineRead) return false;
+    return header != _baselineHeader || header == _adoptedHeader;
+  }
+
+  /// Whether [window] has passed since [since]. A clock set backwards makes
+  /// the difference negative; that counts as passed, so no wait can last for
+  /// ever.
+  bool _passed(DateTime since, Duration window) {
+    final elapsed = _now().difference(since);
+    return elapsed.isNegative || elapsed >= window;
   }
 
   /// Counts the checks of a run that is still going.
@@ -399,11 +437,15 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
           DoctorReport.clean(line),
     ];
     final report = DoctorReport.parse(status.lines);
-    final readable = report.sections.isNotEmpty || report.allPassed;
     final code = status.exitCode;
-    if (!readable && ((code != null && code != 0) || output.isEmpty)) {
-      return _fail(CheckFailure.exited, _tail(output));
-    }
+    // Hermes exits 0 when nothing needs attention and 1 with something to
+    // address, which it lists. Any other end, or none, with nothing found is
+    // a check that stopped part-way, not a report.
+    final found =
+        report.problems > 0 || report.warnings > 0 || report.fixes.isNotEmpty;
+    final complete =
+        report.allPassed || found || (code == 0 && output.isNotEmpty);
+    if (!complete) return _fail(CheckFailure.exited, _tail(output));
     _report = report;
     _output = List.unmodifiable(output);
     _finishedAt = _now();
@@ -412,6 +454,9 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
   }
 
   String _fail(CheckFailure failure, String? message) {
+    if (failure == CheckFailure.unsupported) {
+      _quiet(() => _onUnsupported?.call());
+    }
     _failure = failure;
     _message = message;
     _enter(CheckPhase.failed);

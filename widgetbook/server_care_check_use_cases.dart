@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/widgets/private_surface.dart';
 import 'package:hermes_app/src/server_care/widgets/server_check_body.dart';
+import 'package:hermes_app/src/server_care/widgets/server_check_row.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -113,7 +115,69 @@ ServerCheckView _problemsView() => const ServerCheckView.result(
   checkedAgo: 'just now',
 );
 
+/// The Tools section of the Server screen with the check row in [row]'s state.
+Widget _toolsSection(ServerCheckRow row, {bool largest = false}) => Builder(
+  builder: (context) {
+    final section = GroupedSection(
+      header: 'Tools',
+      children: [
+        GroupedRow(title: 'Usage', onTap: () {}),
+        GroupedRow(title: 'Logs', onTap: () {}),
+        row,
+      ],
+    );
+    return frame(largest ? _largest(context, section) : section);
+  },
+);
+
 List<WidgetbookNode> serverCareCheckNodes() => [
+  WidgetbookComponent(
+    name: 'ServerCheckRow',
+    useCases: [
+      ...onEachPlatform(
+        'Before a run',
+        (_) => _toolsSection(
+          ServerCheckRow(state: ServerCheckRowState.idle, onTap: () {}),
+        ),
+      ),
+      ...onEachPlatform(
+        'Checking…',
+        (_) => _toolsSection(
+          ServerCheckRow(state: ServerCheckRowState.running, onTap: () {}),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Last result',
+        builder: (_) => _toolsSection(
+          ServerCheckRow(
+            state: ServerCheckRowState.result,
+            summary: '2 problems and 3 warnings',
+            ago: '5 minutes ago',
+            onTap: () {},
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Checking…, largest text',
+        builder: (_) => _toolsSection(
+          ServerCheckRow(state: ServerCheckRowState.running, onTap: () {}),
+          largest: true,
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Last result, largest text',
+        builder: (_) => _toolsSection(
+          ServerCheckRow(
+            state: ServerCheckRowState.result,
+            summary: '2 problems and 3 warnings',
+            ago: '5 minutes ago',
+            onTap: () {},
+          ),
+          largest: true,
+        ),
+      ),
+    ],
+  ),
   WidgetbookComponent(
     name: 'Server check page',
     useCases: [
