@@ -45,6 +45,51 @@ void main() {
   });
   tearDown(() => temp.deleteSync(recursive: true));
 
+  group('a boundary 403 with a known root', () {
+    const boundary = {'detail': 'Path is outside the managed read boundary'};
+
+    test('inside the root it is the file\'s own refusal', () async {
+      repository.highestFolder = p('/srv/p');
+      server
+        ..on('GET', '/api/fs/read-text', boundary, status: 403)
+        ..on('GET', '/api/fs/list', boundary, status: 403)
+        ..on('GET', '/api/fs/download', boundary, status: 403);
+
+      expect(
+        failure(await repository.readText(p('/srv/p/.env'))),
+        FilesFailure.notAllowed,
+      );
+      expect(
+        failure(await repository.list(p('/srv/p/secrets'))),
+        FilesFailure.notAllowed,
+      );
+      final sink = File('${temp.path}/out').openWrite();
+      final result = await repository.download(p('/srv/p/.env'), sink: sink);
+      await sink.close();
+      expect(failure(result), FilesFailure.notAllowed);
+    });
+
+    test('without a root it still reads as the boundary', () async {
+      server.on('GET', '/api/fs/read-text', boundary, status: 403);
+
+      expect(
+        failure(await repository.readText(p('/srv/p/.env'))),
+        FilesFailure.fixedFolder,
+      );
+    });
+
+    test('outside the root nothing is asked and it reads outside', () async {
+      repository.highestFolder = p('/srv/p');
+      server.on('GET', '/api/fs/read-text', boundary, status: 403);
+
+      expect(
+        failure(await repository.readText(p('/srv/p-secrets/.env'))),
+        FilesFailure.outside,
+      );
+      expect(server.requests, isEmpty);
+    });
+  });
+
   group('list', () {
     test('reads entries in the server\'s order', () async {
       server.on('GET', '/api/fs/list', {

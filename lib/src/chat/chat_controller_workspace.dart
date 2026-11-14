@@ -151,6 +151,10 @@ extension _ChatControllerWorkspace on ChatController {
     return loader;
   }
 
+  String? get _draftWorkingDirectoryImpl =>
+      _workspaceChoiceImpl?.path ??
+      _workspace.loaders[_profileKey]?.defaultFolder;
+
   NewChatWorkspace _newChatWorkspaceImpl(String? profile) {
     final loader = _catalogFor(profile);
     final choice = _workspaceChoiceImpl;

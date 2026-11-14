@@ -356,6 +356,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   WorkspaceCatalogLoader? workspaceCatalog({String? profile}) =>
       _ChatControllerWorkspace(this)._catalogFor(profile);
 
+  /// The folder a chat that has no stored folder yet runs in, as the catalog
+  /// already read says: the folder picked for it, else the profile's
+  /// `default_cwd`. Null when neither is known. Reads nothing: a catalog not
+  /// read yet answers null.
+  String? get draftWorkingDirectory =>
+      _ChatControllerWorkspace(this)._draftWorkingDirectoryImpl;
+
   /// What the row above a new chat's composer shows.
   NewChatWorkspace newChatWorkspace({String? profile}) =>
       _ChatControllerWorkspace(this)._newChatWorkspaceImpl(profile);
