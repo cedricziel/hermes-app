@@ -363,6 +363,7 @@
   "@@x-area-chat/widgets": "",
   "chatWidgetsProgramConfirmCancel": "Abbrechen",
   "chatWidgetsProgramConfirmMessage": "Hermes beendet {command}\n\nDie bisherige Ausgabe bleibt hier erhalten, und der Agent erfährt nicht, dass es beendet wurde.",
+  "chatWidgetsProgramConfirmThisProgram": "dieses Programm",
   "chatWidgetsProgramConfirmTitle": "Dieses Programm stoppen?",
   "chatWidgetsProgramEarlierOmitted": "Frühere Ausgabe ausgelassen",
   "chatWidgetsProgramLine": "{state} · {time}",

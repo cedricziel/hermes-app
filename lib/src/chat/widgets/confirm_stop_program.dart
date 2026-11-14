@@ -3,16 +3,20 @@ import 'package:flutter/widgets.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../widgets/adaptive_dialog.dart';
+import 'process_output_card.dart' show unbreakableHyphens;
 
 /// The longest command the confirmation's message shows, in characters.
 const kConfirmCommandChars = 80;
 
-/// The command cut to one line for the confirmation's message.
+/// The command cut to one line for the confirmation's message, with
+/// non-breaking hyphens so it wraps only at spaces.
 String confirmCommandLine(String command) {
   final line = command.replaceAll(RegExp(r'\s+'), ' ').trim();
   final runes = line.runes.toList();
-  if (runes.length <= kConfirmCommandChars) return line;
-  return '${String.fromCharCodes(runes.take(kConfirmCommandChars)).trimRight()}…';
+  if (runes.length <= kConfirmCommandChars) return unbreakableHyphens(line);
+  return unbreakableHyphens(
+    '${String.fromCharCodes(runes.take(kConfirmCommandChars)).trimRight()}…',
+  );
 }
 
 /// Asks whether to stop the program running [command]. True only when the
@@ -28,7 +32,11 @@ Future<bool> confirmStopProgram(
   return showDestructiveConfirm(
     context,
     title: l10n.chatWidgetsProgramConfirmTitle,
-    message: l10n.chatWidgetsProgramConfirmMessage(confirmCommandLine(command)),
+    message: l10n.chatWidgetsProgramConfirmMessage(
+      command.trim().isEmpty
+          ? l10n.chatWidgetsProgramConfirmThisProgram
+          : confirmCommandLine(command),
+    ),
     confirmLabel: l10n.chatWidgetsProgramStopButton,
     cancelLabel: l10n.chatWidgetsProgramConfirmCancel,
     dismissWhen: dismissWhen,

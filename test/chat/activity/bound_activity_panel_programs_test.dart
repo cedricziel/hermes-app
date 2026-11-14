@@ -201,7 +201,7 @@ void main() {
       'Stop program', (tester) async {
     await arrange(tester);
     expect(calls('process.list'), isNotEmpty);
-    expect(find.text(_command), findsOneWidget);
+    expect(find.text(unbreakableHyphens(_command)), findsOneWidget);
     expect(find.textContaining('Running'), findsOneWidget);
     expect(stopButton(), findsOneWidget);
     await finish(tester);
@@ -335,7 +335,7 @@ void main() {
   testWidgets('a program the list named runs on, and the same chat drawn '
       'read-only offers no Stop and sends nothing', (tester) async {
     await arrange(tester);
-    expect(find.text(_command), findsOneWidget);
+    expect(find.text(unbreakableHyphens(_command)), findsOneWidget);
     expect(stopButton(), findsOneWidget, reason: 'writable: Stop is there');
     final lists = calls('process.list').length;
 
@@ -344,7 +344,11 @@ void main() {
     await tester.tap(find.byType(ProcessOutputCard));
     await settle(tester);
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(_command), findsOneWidget, reason: 'still named');
+    expect(
+      find.text(unbreakableHyphens(_command)),
+      findsOneWidget,
+      reason: 'still named',
+    );
     expect(find.textContaining('Running'), findsOneWidget);
     expect(stopButton(), findsNothing);
     expect(

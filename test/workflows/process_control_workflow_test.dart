@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/owned_session_transport.dart';
 import 'package:hermes_app/src/chat/process_output_state.dart';
@@ -147,19 +148,34 @@ void main() {
     }
   });
 
-  for (final (name, size, platform, dark) in [
-    ('phone', phoneSize, TargetPlatform.iOS, false),
-    ('phone-android', phoneSize, TargetPlatform.android, false),
-    ('desktop', desktopSize, TargetPlatform.macOS, false),
-    ('desktop', desktopSize, TargetPlatform.macOS, true),
+  for (final (name, size, platform, dark, unsupported) in [
+    ('phone', phoneSize, TargetPlatform.iOS, false, false),
+    ('phone-android', phoneSize, TargetPlatform.android, false, false),
+    ('desktop', desktopSize, TargetPlatform.macOS, false, false),
+    ('desktop', desktopSize, TargetPlatform.macOS, true, false),
+    // A server without process.kill: one sentence, then no Stop.
+    ('phone', phoneSize, TargetPlatform.iOS, false, true),
+    ('desktop', desktopSize, TargetPlatform.macOS, false, true),
   ]) {
     final phone = name.startsWith('phone');
     final mode = dark ? 'dark' : 'light';
     platformTest(
-      '$name ($mode): a program is named by the list and stopped',
+      unsupported
+          ? '$name ($mode): a server that cannot stop programs says so once'
+          : '$name ($mode): a program is named by the list and stopped',
       platform,
       (tester) async {
-        final shots = ScreenshotRecorder('process-control-$name-$mode');
+        final shots = ScreenshotRecorder(
+          unsupported
+              ? 'process-control-unsupported-$name-$mode'
+              : 'process-control-$name-$mode',
+        );
+        if (unsupported) {
+          final answer = transport.agentAnswer!;
+          transport.agentAnswer = (call) => call.method == 'process.kill'
+              ? throw const GatewayRpcException(kGatewayMethodNotFound, 'x')
+              : answer(call);
+        }
         await pumpScreen(
           tester,
           shots,
@@ -213,7 +229,10 @@ void main() {
           transport.agentReads.where((c) => c.method == 'process.list'),
           isNotEmpty,
         );
-        expect(inPanel(find.text(_command)), findsOneWidget);
+        expect(
+          inPanel(find.text(unbreakableHyphens(_command))),
+          findsOneWidget,
+        );
         expect(inPanel(find.textContaining('Running')), findsOneWidget);
 
         await tester.tap(inPanel(find.byType(ProcessOutputCard)));
@@ -223,7 +242,9 @@ void main() {
         // sheet scrolls to the card's top when Stop alone would cut it.
         await tester.ensureVisible(stopButton());
         await settleMotion(tester);
-        await tester.ensureVisible(inPanel(find.text(_command)));
+        await tester.ensureVisible(
+          inPanel(find.text(unbreakableHyphens(_command))),
+        );
         await settleMotion(tester);
         expect(stopButton(), findsOneWidget);
         final screen = Offset.zero & size;
@@ -235,7 +256,9 @@ void main() {
               )
               .first,
         );
-        final command = tester.getRect(inPanel(find.text(_command)));
+        final command = tester.getRect(
+          inPanel(find.text(unbreakableHyphens(_command))),
+        );
         expect(command.top, greaterThanOrEqualTo(header.bottom));
         expect(
           screen.contains(tester.getRect(stopButton()).bottomRight),
@@ -253,6 +276,34 @@ void main() {
         await runFrames(tester);
         await settleMotion(tester);
         expect(kills(), hasLength(1));
+        if (unsupported) {
+          expect(
+            inPanel(find.text("This server can't stop programs.")),
+            findsOneWidget,
+          );
+          expect(stopButton(), findsNothing);
+          expect(inPanel(find.textContaining('Running')), findsOneWidget);
+          // The whole card, from its command to the sentence, in view.
+          final sentence = inPanel(
+            find.text("This server can't stop programs."),
+          );
+          await tester.ensureVisible(sentence);
+          await settleMotion(tester);
+          await tester.ensureVisible(
+            inPanel(find.text(unbreakableHyphens(_command))),
+          );
+          await settleMotion(tester);
+          expect(
+            (Offset.zero & size).contains(tester.getRect(sentence).bottomRight),
+            isTrue,
+          );
+          await shots.capture(tester, 'cannot-stop');
+          reply.emit(const ReplyCompleted('The preview keeps running.'));
+          await runFrames(tester);
+          reply.finish();
+          await runFrames(tester);
+          return;
+        }
         expect(kills().single.params['process_id'], 'proc_web');
         expect(kills().single.threadId, 's1');
         expect(inPanel(find.text('Stopped')), findsWidgets);

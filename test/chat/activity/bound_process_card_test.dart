@@ -144,6 +144,22 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('a chat id that changes while the confirmation is open sends '
+      'no kill', (tester) async {
+    await pumpCard(tester);
+    await pressStop(tester);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    // Compression rotates the id; the roster follows it without notifying.
+    roster.retarget('chat-new');
+    if (find.byType(AlertDialog).evaluate().isNotEmpty) {
+      await tester.tap(dialogText('Stop program'));
+    }
+    await settle(tester);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(kills(), isEmpty);
+    await finish(tester);
+  });
+
   testWidgets('"This server can\'t stop programs." goes with the connection '
       'that said it', (tester) async {
     transport.agentAnswer = (call) => call.method == 'process.kill'

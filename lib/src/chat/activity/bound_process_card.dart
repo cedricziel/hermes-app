@@ -126,6 +126,13 @@ class _BoundProcessCardState extends State<BoundProcessCard> {
     );
     _asking = false;
     if (!mounted || !identical(controller, _controller)) return;
+    if (_stale(widget.roster)) {
+      // The chat's id or connection changed while the dialog was open: the
+      // answer was about a key the roster no longer names. No kill.
+      _dropController();
+      setState(() {});
+      return;
+    }
     if (confirmed) {
       unawaited(controller.confirmStop());
     } else {

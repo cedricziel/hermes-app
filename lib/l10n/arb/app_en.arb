@@ -1744,6 +1744,10 @@
       }
     }
   },
+  "chatWidgetsProgramConfirmThisProgram": "this program",
+  "@chatWidgetsProgramConfirmThisProgram": {
+    "description": "Stands for the command in the stop confirmation's message when Hermes gave none (\"Hermes ends this program\")."
+  },
   "chatWidgetsProgramConfirmTitle": "Stop this program?",
   "@chatWidgetsProgramConfirmTitle": {
     "description": "Title of the confirmation before a background program is stopped."

@@ -55,11 +55,20 @@ class ProcessCardInfo {
 /// Hermes cuts a command at this many characters.
 const kProcessCommandChars = 200;
 
+/// A command as a card shows it: cut with "…" at Hermes' 200 characters, and
+/// with non-breaking hyphens, so it wraps only at spaces and an argument
+/// such as `--port` never splits over two lines. Only the shown text changes.
 String processCommandLine(String command) {
   final runes = command.runes.toList();
-  if (runes.length < kProcessCommandChars) return command;
-  return '${String.fromCharCodes(runes.take(kProcessCommandChars))}…';
+  final cut = runes.length < kProcessCommandChars
+      ? command
+      : '${String.fromCharCodes(runes.take(kProcessCommandChars))}…';
+  return unbreakableHyphens(cut);
 }
+
+/// [text] with each hyphen-minus as a non-breaking hyphen (U+2011), for
+/// command text that is shown, never for what is copied or sent.
+String unbreakableHyphens(String text) => text.replaceAll('-', '\u2011');
 
 class ProcessOutputCard extends StatelessWidget {
   const ProcessOutputCard({
