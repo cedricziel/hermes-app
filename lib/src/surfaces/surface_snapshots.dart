@@ -260,7 +260,11 @@ class SurfaceSnapshots with WidgetsBindingObserver {
         redact: _lockOn,
         budget: budget,
       );
-      _endSpan(span, sourcesFailed: result.sourcesFailed);
+      _endSpan(
+        span,
+        sourcesFailed: result.sourcesFailed,
+        failures: result.failures,
+      );
       return result;
     } on Object {
       _endSpan(span, failed: true);
@@ -302,11 +306,23 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     }
   }
 
-  void _endSpan(Span? span, {int sourcesFailed = 0, bool failed = false}) {
+  /// A source that timed out leaves the span `partial`, not failed: the
+  /// pause build's budget is cut short by design (see [SourceFailures]).
+  void _endSpan(
+    Span? span, {
+    int sourcesFailed = 0,
+    SourceFailures failures = const SourceFailures(),
+    bool failed = false,
+  }) {
     if (span == null) return;
     try {
       span.setAttribute('sources_failed', sourcesFailed);
-      if (failed || sourcesFailed > 0) span.setStatus(StatusCode.error);
+      span.setAttributes(
+        failed ? const {'outcome': 'error'} : failures.attributes,
+      );
+      if (failed || failures.errored.isNotEmpty) {
+        span.setStatus(StatusCode.error);
+      }
       span.end();
     } on Object {
       // Telemetry must not break the app.

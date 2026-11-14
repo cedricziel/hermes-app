@@ -277,7 +277,16 @@ void main() {
         expect(storage.saved, hasLength(2));
         expect(lastWrite().recentChats.single.title, 'Renamed');
         expect(tracer.spans.last.ended, isTrue);
-        expect(tracer.spans.last.status, StatusCode.error);
+        // A source the pause budget cut off is not a failed build.
+        expect(tracer.spans.last.status, isNot(StatusCode.error));
+        expect(
+          tracer.spans.last.attributes,
+          containsPair('outcome', 'partial'),
+        );
+        expect(
+          tracer.spans.last.attributes,
+          containsPair('sources_timed_out', 'profiles'),
+        );
 
         workChat();
         gate.complete((
@@ -711,6 +720,8 @@ void main() {
         'hermes.version': '1.2.3',
         'trigger': 'threads',
         'sources_failed': 1,
+        'outcome': 'error',
+        'sources_errored': 'profiles',
       });
       expect(span.ended, isTrue);
       expect(span.status, StatusCode.error);
@@ -720,6 +731,7 @@ void main() {
       snapshots.chatChanged(SurfaceTrigger.threads, hints());
       await nextWrite();
       expect(tracer.spans.single.status, isNot(StatusCode.error));
+      expect(tracer.spans.single.attributes, containsPair('outcome', 'ok'));
     });
   });
 }

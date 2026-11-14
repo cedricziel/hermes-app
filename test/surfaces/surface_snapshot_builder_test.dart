@@ -159,6 +159,9 @@ void main() {
 
     expect(result, isNotNull);
     expect(result!.sourcesFailed, 3);
+    expect(result!.failures.timedOut, {'profiles', 'kanban', 'schedules'});
+    expect(result!.failures.errored, isEmpty);
+    expect(result!.failures.outcome, 'partial');
     expect(result!.snapshot.profiles, ['default']);
     expect(result!.snapshot.kanban, previous.kanban);
     await tester.pump(const Duration(seconds: 5));
@@ -417,6 +420,11 @@ void main() {
       expect(result.snapshot.profiles, ['default', 'work', 'home']);
       expect(result.snapshot.recentChats.map((c) => c.id), ['h1']);
       expect(result.sourcesFailed, 1);
+      expect(result.failures.errored, {'profiles'});
+      expect(result.failures.attributes, {
+        'outcome': 'error',
+        'sources_errored': 'profiles',
+      });
     });
 
     test('keeps the rows of a profile whose chats fail', () async {

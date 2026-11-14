@@ -404,6 +404,9 @@ class _Run {
       pending: pending,
     );
     annotations['snapshot.sources_failed'] = built.sourcesFailed;
+    for (final MapEntry(:key, :value) in built.failures.attributes.entries) {
+      annotations['snapshot.$key'] = value;
+    }
     return store.writeIfCurrent(
       built.snapshot,
       appLockOn: _deps.appLockOn ?? AppLockController.savedEnabled,
