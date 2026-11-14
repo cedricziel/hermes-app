@@ -73,7 +73,7 @@ void main() {
       profile: 'default',
     );
     device = FakeDeviceAuthenticator();
-    lock = AppLockController(authenticator: device, coverWhenInactive: false);
+    lock = AppLockController(authenticator: device, coverWhenInactive: true);
   });
 
   tearDown(() {
@@ -427,24 +427,140 @@ void main() {
     });
   });
 
-  pageTest('Copy copies the lines that were confirmed, not a later read', (
-    tester,
-  ) async {
-    await pump(tester);
-    await tester.tap(find.byKey(const Key('logs-more')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Copy shown lines'));
-    await tester.pumpAndSettle();
-    // The page reads again for another profile while the question is open.
-    server.on('GET', '/api/logs', {'lines': []});
-    care.profileChanged('work');
-    await tester.pump();
-    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-    await tester.tap(find.text('Copy'));
-    await tester.pumpAndSettle();
-    expect(clipboard, contains('Telegram failed'));
-    expect(clipboard!.split('\n'), hasLength(5));
-    expect(find.text('Log lines copied'), findsOneWidget);
+  group('what sits above the page when its state ends', () {
+    final surfaces = <(String, Future<void> Function(WidgetTester), Finder)>[
+      (
+        'the Copy question',
+        (tester) async {
+          await tester.tap(find.byKey(const Key('logs-more')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Copy shown lines'));
+          await tester.pumpAndSettle();
+        },
+        find.text('Copy these log lines?'),
+      ),
+      (
+        'the More menu',
+        (tester) async {
+          await tester.tap(find.byKey(const Key('logs-more')));
+          await tester.pumpAndSettle();
+        },
+        find.text('Copy shown lines'),
+      ),
+      (
+        'the level menu',
+        (tester) async {
+          await tester.tap(find.text('All levels'));
+          await tester.pumpAndSettle();
+        },
+        find.text('Errors only'),
+      ),
+      (
+        'the profile menu',
+        (tester) async {
+          await tester.tap(find.byKey(const Key('settings-subtitle-menu')));
+          await tester.pumpAndSettle();
+        },
+        find.byType(CheckedPopupMenuItem<String>),
+      ),
+    ];
+
+    final events =
+        <(String, bool, Future<void> Function(WidgetTester, _TestAuth))>[
+          (
+            'sign-out',
+            true,
+            (t, a) async => a.move(state: HermesConnectionState.needsLogin),
+          ),
+          (
+            'session expiry',
+            true,
+            (t, a) async =>
+                a.move(state: HermesConnectionState.needsLogin, allowed: false),
+          ),
+          (
+            'a server change',
+            true,
+            (t, a) async => a.move(server: 'https://other.example'),
+          ),
+          (
+            'a profile switch',
+            false,
+            (t, a) async {
+              care.profileChanged('work');
+            },
+          ),
+          (
+            'the App Lock cover',
+            false,
+            (t, a) async {
+              // Inactive covers on a phone; frames still run, so what was
+              // closed leaves the tree.
+              t.binding.handleAppLifecycleStateChanged(
+                AppLifecycleState.inactive,
+              );
+            },
+          ),
+        ];
+
+    for (final (event, leaves, trigger) in events) {
+      for (final (surfaceName, open, finder) in surfaces) {
+        pageTest('$event closes $surfaceName and copies nothing', (
+          tester,
+        ) async {
+          final auth = _TestAuth();
+          addTearDown(auth.dispose);
+          await tester.runAsync(lock.load);
+          await tester.runAsync(() => lock.setEnabled(true));
+          await pump(tester, pushed: true, auth: auth, withLock: true);
+          await open(tester);
+          expect(finder, findsWidgets);
+          await trigger(tester, auth);
+          // A covered page shows a pulsing placeholder, so it never settles.
+          await tester.pump(const Duration(seconds: 1));
+          await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+          await tester.pump(const Duration(seconds: 1));
+          expect(finder, findsNothing);
+          expect(tester.takeException(), isNull);
+          expect(clipboard, isNull);
+          expect(find.text('Log lines copied'), findsNothing);
+          if (leaves) expect(find.text('open'), findsOneWidget);
+        });
+      }
+    }
+
+    pageTest('a question confirmed after nothing changed still copies', (
+      tester,
+    ) async {
+      await pump(tester);
+      await tester.tap(find.byKey(const Key('logs-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copy shown lines'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copy'));
+      await tester.pumpAndSettle();
+      expect(clipboard!.split('\n'), hasLength(5));
+    });
+
+    pageTest('a search typed before the App Lock cover is gone after it', (
+      tester,
+    ) async {
+      await tester.runAsync(lock.load);
+      await tester.runAsync(() => lock.setEnabled(true));
+      await pump(tester, withLock: true);
+      await tester.enterText(find.byType(TextField), 'secret');
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.runAsync(lock.unlock);
+      await tester.pumpAndSettle();
+      expect(find.text('secret'), findsNothing);
+      expect(reads().last.containsKey('search'), isFalse);
+    });
   });
 
   pageTest('a missing route closes this page, not the question on top', (

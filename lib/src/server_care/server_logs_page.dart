@@ -62,6 +62,11 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   void Function()? _releaseSecure;
   String? _careProfile;
 
+  /// Counts what makes a question asked on this page stale: the connection
+  /// ending, a profile switch, App Lock covering. A question answered after
+  /// one of them copies nothing.
+  int _epoch = 0;
+
   @override
   void initState() {
     super.initState();
@@ -126,8 +131,22 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   /// The connection this page was opened for ended: the lines go at once and
   /// so does the page.
   void _connectionEnded() {
+    _stale();
     _controller.cover();
     _leave();
+  }
+
+  /// What was asked or opened on this page no longer applies: closes the
+  /// questions and menus above it (never a page) and outdates any answer.
+  void _stale() {
+    _epoch++;
+    final navigators = {
+      Navigator.maybeOf(context),
+      Navigator.maybeOf(context, rootNavigator: true),
+    };
+    for (final navigator in navigators) {
+      navigator?.popUntil((route) => route is! PopupRoute);
+    }
   }
 
   /// Removes this page's own route, never whatever is on top of it (the
@@ -142,6 +161,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
 
   void _lockChanged() {
     if (_appLock?.covered ?? false) {
+      _stale();
       _controller.cover();
     } else {
       _controller.uncover();
@@ -157,6 +177,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
       return;
     }
     _careProfile = _care.profile;
+    _stale();
     _controller.setProfile(_careProfile);
   }
 
@@ -174,8 +195,11 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   }
 
   Future<void> _copy() async {
+    // A menu item runs after its menu closed; the page may be gone by then.
+    if (!mounted) return;
     final l10n = context.l10n;
     final messenger = ScaffoldMessenger.maybeOf(context);
+    final epoch = _epoch;
     // Exactly the lines on screen when the question is asked, in the order
     // shown: what is copied is what was confirmed, even if the page reads
     // again while the question is open.
@@ -197,7 +221,9 @@ class _ServerLogsPageState extends State<ServerLogsPage>
           ),
         ) ??
         false;
-    if (!confirmed) return;
+    // Nothing is copied if the page is gone or its lines were replaced or
+    // dropped while the question was open.
+    if (!confirmed || !mounted || epoch != _epoch) return;
     await Clipboard.setData(ClipboardData(text: text));
     messenger?.showSnackBar(SnackBar(content: Text(l10n.serverCareLogsCopied)));
   }

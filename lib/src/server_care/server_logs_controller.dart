@@ -275,6 +275,8 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
   /// [uncover].
   void cover() {
     _coveredHere = true;
+    // What was typed is dropped with the lines: it may name a secret.
+    _search = '';
     _typing?.cancel();
     _typing = null;
     _generation++;

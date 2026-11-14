@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
+import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/replies_in_progress.dart';
@@ -13,6 +14,8 @@ import 'package:hermes_app/src/server_care/update_page.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
@@ -379,8 +382,9 @@ void main() {
     /// only sees what the opener carries along.
     Future<void> pumpBelowNavigator(
       WidgetTester tester,
-      Widget Function(BuildContext) opener,
-    ) async {
+      Widget Function(BuildContext) opener, {
+      AuthController? auth,
+    }) async {
       tester.view.physicalSize = const Size(420, 1600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -396,8 +400,12 @@ void main() {
       addTearDown(run.dispose);
       replies = RepliesInProgress()..attach(() => 1);
       await tester.pumpWidget(
-        Provider<HermesRepositories>.value(
-          value: repositories,
+        MultiProvider(
+          providers: [
+            Provider<HermesRepositories>.value(value: repositories),
+            if (auth != null)
+              ChangeNotifierProvider<AuthController>.value(value: auth),
+          ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
@@ -461,5 +469,43 @@ void main() {
       expect(find.byType(UpdatePage, skipOffstage: false), findsOneWidget);
       await expectReplyLine(tester);
     });
+
+    testWidgets('the page opened from the banner goes when the session ends, '
+        'and the run stays the shell\'s', (tester) async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final auth = _EndingAuth();
+      addTearDown(auth.dispose);
+      await pumpBelowNavigator(
+        tester,
+        (context) => TextButton(
+          onPressed: () => showUpdatePage(context),
+          child: const Text('open update'),
+        ),
+        auth: auth,
+      );
+      await tester.tap(find.text('open update'));
+      await tester.pumpAndSettle();
+      expect(find.byType(UpdatePage), findsOneWidget);
+      final phase = run.phase;
+      auth.end();
+      await tester.pumpAndSettle();
+      expect(find.byType(UpdatePage, skipOffstage: false), findsNothing);
+      expect(find.text('open update'), findsOneWidget);
+      // The run is owned by the shell: the page leaving did not touch it.
+      expect(run.phase, phase);
+    });
   });
+}
+
+class _EndingAuth extends AuthController {
+  var _state = HermesConnectionState.ready;
+
+  @override
+  HermesConnectionState get state => _state;
+
+  void end() {
+    _state = HermesConnectionState.needsLogin;
+    notifyListeners();
+  }
 }
