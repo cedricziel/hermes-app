@@ -7,6 +7,7 @@ import 'package:hermes_api/hermes_api.dart';
 
 import '../agent_messages/agent_delivery.dart';
 import '../api/request_timeout.dart';
+import '../voice/calls/call_config.dart';
 import '../voice/voice_support.dart';
 import '../voice/synthesized_speech.dart';
 import 'chat_models.dart';
@@ -237,6 +238,15 @@ class HermesChatRepository {
     } on Object {
       return VoiceSupport.none;
     }
+  }
+
+  /// The profile's own `voice` keys (defaults left out), for one call.
+  Future<VoiceCallConfig> voiceCallConfig({String? profile}) async {
+    final response = await _api.getConfigApiConfigGet(
+      profile: profile,
+      includeDefaults: false,
+    );
+    return VoiceCallConfig.fromJson(response.data);
   }
 
   /// Explicit speak-stream fallback, on the same authenticated API/profile.
