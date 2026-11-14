@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../files/widgets/safe_path_text.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../chat/chat_workspace_state.dart';
@@ -38,6 +43,7 @@ class WorkingDirectoryDetails extends StatelessWidget {
     this.projectName,
     this.homeFolder = false,
     this.replying = false,
+    this.restoring = false,
     this.offline = false,
     this.canChange = true,
     this.conversationWindow = false,
@@ -63,6 +69,10 @@ class WorkingDirectoryDetails extends StatelessWidget {
 
   /// A reply is running, so the folder cannot change.
   final bool replying;
+
+  /// A full restore or a compression of the chat runs, so the folder cannot
+  /// change.
+  final bool restoring;
   final bool offline;
 
   /// The server can move a chat to another folder. False: no button.
@@ -98,6 +108,7 @@ class WorkingDirectoryDetails extends StatelessWidget {
       return l10n.workspacesReasonChecking;
     }
     if (replying) return l10n.workspacesReasonReplying;
+    if (restoring) return l10n.workspacesReasonRestoring;
     if (offline) return l10n.workspacesReasonOffline;
     return null;
   }
@@ -164,28 +175,49 @@ class WorkingDirectoryDetails extends StatelessWidget {
                 label: l10n.workspacesDetailsFolder,
                 trailing: busy ? const FilesSpinner(size: 18) : null,
                 child: _Value(
-                  Text(folderName),
+                  Text(safePathText(folderName)),
                   warning: homeFolder ? l10n.workspacesHomeFolderNote : null,
                 ),
               ),
               _DetailRow(
                 label: l10n.workspacesDetailsPath,
-                child: ServerPathText.text(
-                  path,
-                  wrap: true,
-                  selectable: mac,
-                  style: TextStyle(fontSize: metrics.subtitleSize),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ServerPathText.text(
+                      path,
+                      wrap: true,
+                      selectable: mac,
+                      style: TextStyle(fontSize: metrics.subtitleSize),
+                    ),
+                    // A path that shows a placeholder cannot be selected;
+                    // this copies the original.
+                    if (safePathText(path) != path)
+                      TextButton(
+                        key: const Key('working-directory-copy-path'),
+                        // A failed copy is dropped: nothing about the path is
+                        // logged, and the Files Copy path gives no feedback.
+                        onPressed: () => unawaited(
+                          Clipboard.setData(ClipboardData(text: path))
+                              .catchError((Object _) {}),
+                        ),
+                        style: files.buttonStyle(),
+                        child: Text(l10n.filesActionCopyPath),
+                      ),
+                  ],
                 ),
               ),
               if (branch != null && branch!.isNotEmpty)
                 _DetailRow(
                   label: l10n.workspacesDetailsBranch,
-                  child: _Value(Text(branch!, style: _mono(metrics))),
+                  child: _Value(
+                    Text(safePathText(branch!), style: _mono(metrics)),
+                  ),
                 ),
               if (projectName != null)
                 _DetailRow(
                   label: l10n.workspacesDetailsProject,
-                  child: _Value(Text(projectName!)),
+                  child: _Value(Text(safePathText(projectName!))),
                 ),
             ],
           ),

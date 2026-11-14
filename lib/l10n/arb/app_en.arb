@@ -1427,6 +1427,10 @@
   "@chatContextPageCompressDisconnected": {
     "description": "Caption under the disabled Compress conversation button while the connection is lost."
   },
+  "chatContextPageCompressFolderMoving": "Wait until the folder change is done.",
+  "@chatContextPageCompressFolderMoving": {
+    "description": "Caption under the disabled Compress conversation button while the chat's working folder is being changed."
+  },
   "chatContextPageCompressReplying": "Wait for the reply to finish.",
   "@chatContextPageCompressReplying": {
     "description": "Caption under the disabled Compress conversation button while the chat replies."
@@ -7272,6 +7276,10 @@
   "@workspacesPickerBrowse": {
     "description": "Row of the folder picker that opens the Browse page."
   },
+  "workspacesPickerDefaultUnknown": "Your server's default folder",
+  "@workspacesPickerDefaultUnknown": {
+    "description": "Title of the Server default row of the folder picker while the profile's default folder is not known (the projects could not be read)."
+  },
   "workspacesPickerEmpty": "No projects or recent folders yet. Browse your server or type a path.",
   "@workspacesPickerEmpty": {
     "description": "Folder picker when the server knows no projects and no recent folders."
@@ -7345,6 +7353,10 @@
   "workspacesReasonReplying": "Wait for the reply to finish.",
   "@workspacesReasonReplying": {
     "description": "Reason shown next to the disabled \"Change folder…\" button while Hermes replies."
+  },
+  "workspacesReasonRestoring": "Wait for the restore or compression to finish.",
+  "@workspacesReasonRestoring": {
+    "description": "Reason shown next to the disabled \"Change folder…\" button while a full restore or a compression of the chat runs."
   },
   "workspacesRowLookingUp": "Looking up your folder…",
   "@workspacesRowLookingUp": {
@@ -7425,6 +7437,15 @@
   "workspacesTypeCouldntCheck": "Couldn't check this folder.",
   "@workspacesTypeCouldntCheck": {
     "description": "Error under the Type a path field when the check had no answer for 10 seconds."
+  },
+  "workspacesTypeEscaped": "The path has hidden characters: {path}",
+  "@workspacesTypeEscaped": {
+    "description": "Note under the Type a path field when the typed or pasted path holds invisible or direction-changing characters, with the path shown so that they are visible.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
   },
   "workspacesTypeFound": "Folder found.",
   "@workspacesTypeFound": {

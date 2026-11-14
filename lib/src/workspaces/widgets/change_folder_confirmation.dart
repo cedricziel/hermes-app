@@ -1,3 +1,7 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
+
+import '../../files/widgets/safe_path_text.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -12,7 +16,7 @@ String changeFolderConfirmationMessage(
   required String path,
 }) =>
     '${l10n.workspacesConfirmBody(workspaceShortName(folderName, max: 40))}'
-    '\n\n$path · ${l10n.workspacesOnYourServer}';
+    '\n\n${safePathText(path)} · ${l10n.workspacesOnYourServer}';
 
 /// "Change the folder for this chat?": the confirmation before a chat is
 /// moved to another folder. It is [showConfirmDialog]: an alert on Apple
@@ -20,12 +24,14 @@ String changeFolderConfirmationMessage(
 ///
 /// Cancel is the default (bold on Apple platforms) and "Change folder" is a
 /// plain action, never filled and never red: nothing is deleted, but the agent
-/// will act somewhere else. On Android both are text buttons, Cancel first.
+/// will act somewhere else. It closes by itself, as a cancel, when [dismissWhen]
+/// turns true (the app locked, the session ended). On Android both are text buttons, Cancel first.
 /// Resolves true only when the person confirms.
 Future<bool> showChangeFolderConfirmation(
   BuildContext context, {
   required String folderName,
   required String path,
+  ValueListenable<bool>? dismissWhen,
 }) {
   final l10n = context.l10n;
   return showConfirmDialog(
@@ -40,5 +46,6 @@ Future<bool> showChangeFolderConfirmation(
     cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,
     filled: false,
     cancelIsDefault: true,
+    dismissWhen: dismissWhen,
   );
 }

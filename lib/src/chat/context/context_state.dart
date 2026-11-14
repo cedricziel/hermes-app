@@ -15,6 +15,9 @@ enum CompressRefusal {
   locked,
   replying,
   compressing,
+
+  /// The chat's working folder is being changed.
+  folderMoving,
 }
 
 enum CompressOutcomeKind {

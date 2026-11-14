@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../workspaces/ui/bound_working_directory.dart'
+    show FolderLineBuilder;
+import '../../workspaces/widgets/working_directory_line.dart'
+    show workingDirectoryLineBelowBar;
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import 'thread_actions_menu.dart';
@@ -24,7 +28,13 @@ class ChatHeader extends StatelessWidget {
     this.activityOpen = false,
     this.activityWaiting = 0,
     this.onToggleActivity,
+    this.folderLine,
   });
+
+  /// The line under the title that names the chat's folder and opens its
+  /// details; null shows none. At a large text size it moves out of the bar
+  /// into a full-width row under it.
+  final FolderLineBuilder? folderLine;
 
   /// The open thread, or null before one is picked.
   final Widget? avatar;
@@ -48,13 +58,22 @@ class ChatHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final thread = this.thread;
+    final line = folderLine;
+    final below = line != null && workingDirectoryLineBelowBar(context);
+    final titleText = Text(
+      displayTitle ?? thread?.title ?? 'Hermes',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+    );
     final title = Expanded(
-      child: Text(
-        displayTitle ?? thread?.title ?? 'Hermes',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-      ),
+      child: line == null || below
+          ? titleText
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [titleText, line(context, belowBar: false)],
+            ),
     );
     final actions = [
       ?callButton,
@@ -78,15 +97,22 @@ class ChatHeader extends StatelessWidget {
     return SafeArea(
       bottom: false,
       left: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
-        child: Row(
-          children: [
-            if (avatar != null) ...[avatar!, const SizedBox(width: 8)],
-            title,
-            ...actions,
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+            child: Row(
+              children: [
+                if (avatar != null) ...[avatar!, const SizedBox(width: 8)],
+                title,
+                ...actions,
+              ],
+            ),
+          ),
+          if (below) line(context, belowBar: true),
+        ],
       ),
     );
   }

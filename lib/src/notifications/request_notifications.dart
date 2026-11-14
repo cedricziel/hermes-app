@@ -47,6 +47,10 @@ const kDenyAction = 'hermes.action.deny';
 const kChoiceActionPrefix = 'hermes.action.choice.';
 const kReplyAction = 'hermes.action.reply';
 
+/// The text action of a finished reply's notification: a new prompt for that
+/// chat, never an answer to a request (that is [kReplyAction]).
+const kReplyChatAction = 'hermes.action.reply-chat';
+
 /// Opens the chat. Titled Other… on a question with more choices than fit,
 /// so that one id is all the plugin has to know opens the app.
 const kOpenAction = 'hermes.action.open';
