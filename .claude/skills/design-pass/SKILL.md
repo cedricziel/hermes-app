@@ -33,7 +33,8 @@ they do not open.
 
 ## Run the pass
 
-Work in a scratch directory outside the repo; call it `S`.
+Work in your scratchpad directory (the folder the Artifact `read` saves into
+by default); call it `S`.
 
 ### 1. Create the canvas
 
@@ -51,7 +52,9 @@ Work in a scratch directory outside the repo; call it `S`.
 4. Write `S/canvas/project/canvas.json` first. It holds `v: 3`,
    `createdOnFiles: {v: 1, at: <now>}`, `title`, `launch: {view: "canvas"}`,
    `pages: []`, `boards`, `order`, `notes` and
-   `designSystems: [{"title": "Hermes App", "namespace": "hermesui", "artifact": "<design system URL>", "version": "1792838541-f89d", "copiedAt": <now>}]`.
+   `designSystems: [{"title": "Hermes App", "namespace": "hermesui", "artifact": "<design system URL>", "version": "1792838541-f89d", "copiedAt": <now>}]`
+   (use the version an existing canvas or the design system's listing shows;
+   this value was current when written).
    - `boards` has one entry per file: `{x, y, w, h, title}`. Sizes: phone 390 x
      844 or taller, iPad 1180 x 820, Mac 1280 x 800, Android 412 wide. Leave 80
      px between frames and about 300 px between rows, for titles and notes.
@@ -130,6 +133,10 @@ class Component extends DCLogic { renderVals() { const noop = () => {};
 
 ### 4. Render locally (headless Chrome)
 
+Needs a Chrome binary (`google-chrome`, or `/opt/pw-browsers/chromium` in a
+cloud session) and ImageMagick `montage` on PATH. If either is missing, skip
+this section and say in the hand-back that nothing was rendered locally.
+
 1. Ask the Artifact tool to read the canvas with `paths`:
    `artifact-type/dc-runtime.js`, `project/ds/hermesui/_ds_bundle.js`,
    `project/ds/hermesui/_ds_bundle.css`, `project/ds/hermesui/styles.css`,
@@ -199,7 +206,9 @@ the brief with its reason.
 - **Text size.** Honour the selected text size with no cap. Check the largest
   size.
 - **Secret fields** follow the "Secret fields" paragraph in
-  `docs/architecture/settings-screens.md` (use `SecretFieldRow`). Point to it;
+  `docs/architecture/settings-screens.md` (use `SecretFieldRow`,
+  `lib/src/widgets/secret_field_row.dart`, once it has landed; until then
+  follow the rule and say in the brief which widget you assume). Point to it;
   do not restate it.
 - **Reuse the shared widgets** in `lib/src/widgets/` instead of drawing new
   copies. Today: `SettingsScaffold`, `GroupedList` and its rows
@@ -223,8 +232,8 @@ The design record lives in the repo, not in the canvas or a chat.
   the copy the design added. Bring the rest of the brief in line with the
   canvas. `docs/design-briefs/server-care.md` is the model.
 
-Design agents do not edit `docs/roadmap.md`. The orchestrator updates it in
-the PR that changes an item's status.
+A design-only PR leaves `docs/roadmap.md` to the orchestrator. Report any item
+whose status your change moves.
 
 ## Hand-back report
 

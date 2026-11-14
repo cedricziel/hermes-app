@@ -50,6 +50,8 @@ the rework.
 
 ## Every PR
 
+- **Screenshots in cloud sessions.** Skip the upload. Describe the change in
+  the PR body and name the workflow test whose screenshots show it.
 - **Screenshots (desktop sessions with a browser).** Agents write combined before/after PNGs plus a `READY` file
   (`<file name> | <caption>` per line, file names relative to that folder) to
   `<orchestrator scratchpad>/shots/<PR number>/`. The orchestrator uploads them
