@@ -239,25 +239,13 @@ Future<bool> showDestructiveConfirm(
   required String message,
   required String confirmLabel,
   required String cancelLabel,
-}) async =>
-    await showAppDialog<bool>(
-      context: context,
-      builder: (dialog) => AppAlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          AppDialogAction(
-            isDefault: true,
-            filledOnMaterial: false,
-            onPressed: () => Navigator.pop(dialog, false),
-            child: Text(cancelLabel),
-          ),
-          AppDialogAction(
-            isDestructive: true,
-            onPressed: () => Navigator.pop(dialog, true),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
-    ) ??
-    false;
+}) => showConfirmDialog(
+  context,
+  title: title,
+  message: message,
+  confirmLabel: confirmLabel,
+  cancelLabel: cancelLabel,
+  destructive: true,
+  filled: false,
+  cancelIsDefault: true,
+);
