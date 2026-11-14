@@ -28,6 +28,7 @@ import '../agent_messages/agent_message_watcher.dart' show AgentMessageFinds;
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
+import 'subagents/activity_selection.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
 import '../bot_screen/bot_screen_controller.dart';
@@ -346,6 +347,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Whether the Activity inspector is open; it stays open across chats.
   bool _activityOpen = false;
+
+  /// The agent whose detail the Activity panel shows; cleared when the chat
+  /// or the profile changes and when the panel closes.
+  final _agentSelection = ActivitySelection();
+
+  /// The sheet of the Activity panel on a phone, while it is open.
+  DraggableScrollableController? _activitySheet;
   bool _detailOpen = false;
   final _conversationNavigator = GlobalKey<NavigatorState>();
 
@@ -662,6 +670,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _wasLoadingThreads = loading;
     final thread = _chat.selectedThread;
     final owner = (_chat.profile, _chat.selectedId);
+    final picked = _agentSelection.key;
+    if (picked != null &&
+        (picked.threadId != _chat.selectedId ||
+            picked.profile != _chat.profile)) {
+      _agentSelection.clear();
+    }
     final savedOwner = _draftOwners[thread];
     if (savedOwner != null &&
         savedOwner != owner &&
@@ -821,6 +835,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _agentSelection.dispose();
     _disposeBotScreen();
     _windowlessChanges?.cancel();
     _listChanges?.controller.removeListener(_invalidationsChanged);

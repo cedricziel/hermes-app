@@ -310,6 +310,26 @@ void main() {
       expect(h.outcomes, ['stopped']);
     });
 
+    flow('leaves Stopping when the agent ends, so no banner stays under '
+        '"Stopped"', (async, h) {
+      h.transport.agentAnswer = (call) => call.method == 'subagent.interrupt'
+          ? Future.value({'found': true})
+          : tail('x');
+      h.controller.startStop();
+      unawaited(h.controller.confirmStop());
+      async.flushMicrotasks();
+      expect(h.controller.stopPhase, StopPhase.stopping);
+      h.host.update(
+        () => h.host.current = const AgentView(
+          state: AgentState.stopped,
+          goal: 'g',
+        ),
+      );
+      async.flushMicrotasks();
+      expect(h.controller.stopPhase, StopPhase.idle);
+      expect(h.interrupts, ['a1']);
+    });
+
     flow('goes to the agent it was started for whatever the list does', (
       async,
       h,

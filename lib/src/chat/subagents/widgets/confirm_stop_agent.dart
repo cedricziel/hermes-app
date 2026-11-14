@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../../l10n/l10n.dart';
@@ -19,7 +20,11 @@ String confirmGoalLine(String goal) {
 /// confirmed; Cancel is the default, "Stop agent" is the destructive button
 /// (a system alert on Apple platforms, two text buttons on Material, Cancel
 /// first). The caller binds the answer to the agent it asked about.
-Future<bool> confirmStopAgent(BuildContext context, {required String goal}) {
+Future<bool> confirmStopAgent(
+  BuildContext context, {
+  required String goal,
+  ValueListenable<bool>? dismissWhen,
+}) {
   final l10n = context.l10n;
   return showDestructiveConfirm(
     context,
@@ -27,5 +32,6 @@ Future<bool> confirmStopAgent(BuildContext context, {required String goal}) {
     message: l10n.chatSubagentsConfirmMessage(confirmGoalLine(goal)),
     confirmLabel: l10n.chatSubagentsStopButton,
     cancelLabel: l10n.chatSubagentsConfirmCancel,
+    dismissWhen: dismissWhen,
   );
 }
