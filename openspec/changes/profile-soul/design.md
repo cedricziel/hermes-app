@@ -20,7 +20,7 @@ Both routes are in `openapi/hermes-agent.openapi.json` (`/api/profiles/{name}/so
 - **Other writers**: the Bots sheet, the agent's own file tools (gated by Hermes' protected-file approval), a shell or editor on the host, and `hermes profile update` for a distribution-owned SOUL.md (`load_soul_md` also treats that file as untrusted and may block it in the prompt; the route does not say so).
 - **Conflicts**: no version, etag, mtime or hash in either response and no precondition on PUT. It is last write wins.
 
-Could not verify: no backend was run for this note, so the 422 body, the plain-text 500 and the BOM and surrogate behaviour come from reading the code. Tasks 1.1 records them from `scripts/dev-backend.sh`.
+Could not verify: no backend was run for this note, so the 422 body, the plain-text 500 and the BOM and surrogate behaviour come from reading the code. Task 2.1 records them from `scripts/dev-backend.sh`.
 
 ## What the app has
 
@@ -28,19 +28,19 @@ Profile list and per-profile destinations: `lib/src/profiles/` (`ChatProfiles`, 
 
 ## Decisions
 
-**Wording.** The screen is "Personality"; a footnote says it is Hermes' SOUL.md file. "Soul" is Hermes' word and means little to most people.
+**Wording.** The screen is "Personality"; a footnote says it is Hermes' SOUL.md file, the only place the file name appears (owner decision). "Soul" is Hermes' word and means little to most people.
 
 **Where it opens.** A Personality row right after Memory in the sidebar drawer and More section (the chat's profile), and a Personality section after Memory on the Mac Profiles page (the selected profile). Both pass the profile name into the path. The row is always shown; a route-missing 404 (detail not starting `Profile '`) or a 405 hides it for the rest of the connection.
 
 **Editor.** One multiline field, no autosave. Autocorrect, suggestions, smart quotes and smart dashes off (the text is instructions and Markdown). A count of characters sits under it. At 20,000 characters a note says "Hermes may shorten text this long when it builds a chat. The limit depends on your server's settings." It does not block, at any length: Hermes has no fixed ceiling (an explicit `context_file_max_chars` has none), so the app never locks the editor.
 
-**Dirty state.** Save and Revert are enabled only when the text differs from the last loaded or saved text. Leaving with unsaved changes asks "Discard changes?", default Keep editing. The text is never persisted, so a crash loses it; that is accepted over writing prompts to disk.
+**Dirty state.** Save and Revert are always visible and enabled only when the text differs from the last loaded or saved text. Leaving with unsaved changes asks "Discard changes?", default Keep editing. The text is never persisted, so a crash loses it; that is accepted over writing prompts to disk. App Lock drops unsaved edits at once, with no grace period and nothing kept in memory (owner decision).
 
-**Save question.** Always asked, on every save, because it replaces the whole file. Title "Replace the personality of <profile>?" (the profile name is shown, never logged). Body: "New chats use it. Chats already running keep the old one." For empty text: "Hermes will use its default personality." Buttons Cancel (default) and Replace.
+**Save question.** Always asked, on every save, because it replaces the whole file. Title "Replace the personality of <profile>?" (the profile name is shown, never logged). Body: "New chats use it. Chats already running usually keep the old one; Bot Chats may pick it up." For empty text: "Hermes will use its default personality. Chats already running usually keep the old one; Bot Chats may pick it up." (Bot Chat sessions rebuild when the file's hash changes; see Server surface.) After a Check that found the earlier text, the question adds "An earlier save may still be pending on the server." Buttons Cancel (default) and Replace.
 
-**Conflicts.** The controller keeps `baseline = (exists, content)` from the last read or save. On Replace it first does a second GET. If it differs from the baseline, nothing is sent and the user sees "Changed on the server": "This file changed since you opened it. Replacing it will lose those changes." with Show server's version (read-only text, copy by tap), Keep editing (default) and Replace anyway (sends, then the baseline is the sent text). If the check read fails, nothing is sent and the error is shown with Try again. The window between the check and the PUT is one round trip and stays open; the screen says nothing about it, the docs here do.
+**Conflicts.** The controller keeps `baseline = (exists, content)` from the last read or save. On Replace it first does a second GET, which gives up after 10 s (a controller-level timeout, like `kFilesAnswerTimeout`); the PUT has the same bound. If the read equals the text about to be sent (an unconfirmed earlier save landed), it reports Saved and moves the baseline without sending. If it differs from the baseline, nothing is sent and the user sees "Changed on the server": "This file changed since you opened it. Replacing it will lose those changes." with Show server's version (read-only text with a Copy button), Keep editing (default) and Replace anyway (sends, then the baseline is the sent text). If the check read fails or times out, nothing is sent and the error is shown with Try again. The window between the check and the PUT is one round trip and stays open; the screen says nothing about it, the docs here do.
 
-**Lost answer.** A timeout or dropped connection on the PUT is "Couldn't confirm the save. It may have gone through." The text stays in the editor, nothing is resent, and Save does not read as done. The row offers Check: a user-tapped GET; if the server's text equals the editor's it reports Saved and resets the baseline, otherwise it shows the conflict question. A 200 without `ok: true` is treated as unconfirmed. Errors 400, 404, 422 and 500 show a fixed line, never the response body (it can hold paths).
+**Lost answer.** A timeout or dropped connection on the PUT is "Couldn't confirm the save. It may have gone through." The text stays in the editor, nothing is resent, and Save does not read as done. The row offers Check: a user-tapped GET compared with the text that was sent (the editor may have changed since); outcomes are in the Design pass section. A PUT that times out after 10 s is this state. A 200 without `ok: true` is treated as unconfirmed. Errors 400, 404, 422 and 500 show a fixed line, never the response body (it can hold paths).
 
 **Profile switch.** The screen is bound to one profile name. Switching the chat's profile while it is open does not change it; its title names the profile. Late answers after close are dropped.
 
@@ -52,3 +52,18 @@ Recorded where the controller calls the repository. None holds text, titles, pro
 - Log event `profile_soul.saved` with `outcome` in `saved`, `conflict_kept`, `conflict_replaced`, `failed`, `unconfirmed`, plus `empty`.
 - Breadcrumbs `profile_soul.opened` (`source`: `sidebar`, `profiles_page`) and `profile_soul.save.confirmed`.
 
+## Design pass
+
+Status: Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC). The full record is `docs/design-briefs/profile-soul.md`; a Design canvas is started and incomplete (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, private, partly published), so no build starts before it exists. Decisions that change behaviour:
+
+- **Check outcomes.** After a lost answer, Check reads the file and compares it with the text that was sent, not the editor. Equal to the sent text (the file exists and its content matches; a missing file never confirms, even when both texts are empty): Saved, the baseline becomes that text and edits made since stay dirty. Equal to the old baseline: the screen says "The server still has the earlier text. Your text is still here." and keeps the text (no conflict question, since nothing changed on the server). It is not a definite failure, because a timed-out PUT can still land later; the next Save asks again with the extra pending-save line. Anything else: the changed-on-server question.
+- **Unconfirmed save that landed.** Save after a lost answer still reads first; if the server's text equals the text about to be sent it reports Saved and moves the baseline without a PUT.
+- **App Lock in flight.** A running check or PUT finishes, its outcome is discarded, and the unlocked screen reloads the server's text.
+- **Read-only while busy.** The editor is read-only while the check read and the PUT run, so the baseline cannot race the text.
+- **Revert asks.** Revert and every leave (back, window close) ask "Discard changes?", default Keep editing.
+- **Read failure shows no editor.** A failed or 500 read never shows an empty editor, so the user cannot save over a file the app could not read.
+- **No locked state.** The proposal's "too long to edit" state does not exist; the editor stays editable at any length.
+- **Changed-on-server is a sheet** (dialog on wide windows) holding the server's text behind a disclosure; if the file is gone on the server, it says so.
+- **Mac Profiles page** row pushes the same page with a bar as on other platforms, so the Discard question is asked on back and window close; there is no profile or section change beside an open editor.
+- **Layout and chrome.** The editor is a filled field (surface-high token) while editable and transparent while read-only; it follows the grouped list's width (about 600 pt on a Mac, 640 pt on an iPad). The `AppBanner` action stacks under the text at the largest text size and in German, aligned to the text's leading edge, and every banner action has a minimum target of 44 pt, 48 dp or 28 pt by construction. Material uses the same grouped-card editor. Revert aligns to the note and status text. A cleared editor shows the default-personality line at once. Material confirmations are two text buttons, Cancel first, through `showConfirmDialog(cancelIsDefault: true)`. The changed-on-server sheet caps the server's text box at 40% of the height, with Copy. The save error banner is title "Couldn't save" with detail "Hermes reported a problem. Nothing was changed on the server."; the failed-check banner is "Couldn't confirm" with "Check again".
+- **Input hardening.** The editor turns off autocorrect, suggestions, smart punctuation, autofill, keyboard learning and restoration.

@@ -165,7 +165,7 @@ class _QuotedPrompt extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: scheme.onSurface.withValues(alpha: 0.06),
-          border: Border.all(color: scheme.onSurface.withValues(alpha: 0.12)),
+          border: Border.all(color: scheme.outline),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(

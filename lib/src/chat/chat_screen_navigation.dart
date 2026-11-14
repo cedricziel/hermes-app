@@ -135,7 +135,10 @@ extension _ChatScreenNavigation on _ChatScreenState {
   }
 
   /// What the menu bar's File and Chat menus do here.
-  Map<MacCommand, MacCommandHandler> _menuCommands({required bool ios}) {
+  Map<MacCommand, MacCommandHandler> _menuCommands({
+    required bool ios,
+    required bool files,
+  }) {
     final thread = _chat.selectedThread;
     final housekeeping = _chat.housekeeping;
     final managed = thread != null && thread.remote && housekeeping != null;
@@ -183,7 +186,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
       MacCommand.deleteThread: MacCommandHandler(
         on(ThreadAction.delete, when: managed),
       ),
+      // Disabled while the server has no Files, or no chat is open.
+      MacCommand.showFiles: MacCommandHandler(
+        files && thread != null ? () => _showFiles(FilesOpenedFrom.menu) : null,
+      ),
     };
+  }
+
+  /// Opens the Files page of the chat in front.
+  void _showFiles(FilesOpenedFrom from) {
+    _closeDrawerIfNarrow();
+    unawaited(openFiles(context, _chat, from: from));
   }
 
   void _copyTranscript(ChatThread thread) => runThreadAction(
@@ -194,11 +207,8 @@ extension _ChatScreenNavigation on _ChatScreenState {
   );
 
   /// "profile · model" under the chat's title, leaving out what is unknown.
-  String? _toolbarSubtitle() {
-    final model = (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
-    final parts = [?_chat.profile, ?model];
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
+  String? _toolbarModelId() =>
+      (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
 
   void _selectThread(String id) {
     _showDetail();
@@ -297,6 +307,33 @@ extension _ChatScreenNavigation on _ChatScreenState {
             McpServersScreen(repository: _mcp!, profiles: _profiles),
       ),
     );
+  }
+
+  /// Whether the Model providers entries show: the server answers the
+  /// model options the screen reads (a 404 there means an older Hermes).
+  bool get _providersOffered =>
+      _providers != null &&
+      _chat.modelOptionsState != ModelOptionsState.unsupported;
+
+  void _openProviders(ProvidersEntry source) {
+    final providers = _providers;
+    if (providers == null) return;
+    _closeDrawerIfNarrow();
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => ProvidersScreen(
+              repository: providers,
+              profile: _chat.profile,
+              entry: source,
+              // The pill and the welcome view follow what the screen did.
+              onChanged: () => unawaited(_chat.refreshModelOptions()),
+            ),
+          ),
+        )
+        .then((_) {
+          if (mounted) unawaited(_chat.refreshModelOptions());
+        });
   }
 
   void _openHelperModels() {

@@ -8,9 +8,15 @@ import '../../theme/hermes_theme.dart';
 import '../../bot_screen/bot_screen_card_model.dart';
 import '../../bot_screen/bot_screen_controller.dart';
 import '../../bot_screen/widgets/bound_bot_screen_card.dart';
+import '../../files/files_telemetry.dart' show FilesOpenedFrom;
+import '../../files/open_files.dart';
+import '../../files/server_path.dart';
+import '../../files/widgets/files_activity_row.dart';
 import '../../memory/memory_destination.dart';
 import '../chat_controller.dart';
 import '../chat_models.dart';
+import '../chat_session_state.dart';
+import '../process_output_state.dart';
 import '../memory/memory_activity_card.dart';
 import '../reactions/reaction_cards.dart';
 import '../session_usage/session_usage_card.dart';
@@ -33,7 +39,8 @@ import 'activity_tier.dart';
 import 'checkpoints_context_panel.dart';
 import 'widgets/activity_panel.dart';
 
-/// The [ActivityPanel] of [thread] in [chat]: Working items under Now, the
+/// The [ActivityPanel] of [thread] in [chat]: Working items (the session
+/// status, process output, live mixture-of-agents progress) under Now, the
 /// plan, and the For reference items under This session.
 ///
 /// With a [screen] (the chat's profile's Bot Screen) the panel also lists the
@@ -115,6 +122,28 @@ class BoundActivityPanel extends StatelessWidget {
     final used = !model.screenRunning && threadUsedScreen(t);
     return model.listed(usedByChat: used) ? model : null;
   }
+
+  /// The chat's folder name, when it has a stored one.
+  String? _folderName(ChatThread t) {
+    final cwd = t.workingDirectory;
+    final path = cwd == null ? null : ServerPath.tryParse(cwd);
+    if (path == null) return null;
+    return path.isRoot ? path.value : path.name;
+  }
+
+  /// Whether the session state is live work: control, a resume, or a wait of
+  /// the turn running now (the rule the activity line uses). A wait of an
+  /// earlier turn, or a plain status, is for reference.
+  bool _working(ChatThread t, ChatSessionState state) =>
+      sessionStateTier(state) == ActivityTier.working &&
+      (state.control?.isEmpty == false ||
+          state.resume != null ||
+          state.waits.keys.any(
+            (kind) =>
+                kind != 'status' &&
+                kind != 'lifecycle' &&
+                chat.workingWaitIsCurrent(t, kind),
+          ));
 
   List<Widget> _agentRows(SubagentRoster roster, List<PlacedAgent> placed) {
     final selection = this.selection;
@@ -198,6 +227,20 @@ class BoundActivityPanel extends StatelessWidget {
         final processes = chat.processOutputsIn(t);
         final acknowledgement = reactions?.acknowledgement;
         final screenModel = _screenCard(t);
+        // A process card is open until it closes; closed ones are history.
+        final openProcesses = [
+          for (final c in processes?.cards ?? const <ProcessOutput>[])
+            if (!c.closed) c,
+        ];
+        final closedProcesses = [
+          for (final c in processes?.cards ?? const <ProcessOutput>[])
+            if (c.closed) c,
+        ];
+        final omitted = processes?.omittedCards ?? false;
+        final omittedNote = Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(context.l10n.chatActivityProcessesOmitted),
+        );
         // The original review remains bound to its reply in the model. Its
         // presentation is reference activity, outside the transcript.
         final reviewNotes = t.messages.reversed
@@ -221,9 +264,7 @@ class BoundActivityPanel extends StatelessWidget {
               ),
             if (roster != null) ..._agentRows(roster, roster.sections.now),
             ...actions.now(context),
-            if (state != null &&
-                state.visible &&
-                sessionStateTier(state) == ActivityTier.working)
+            if (state != null && state.visible && _working(t, state))
               SessionStatusCard(
                 state: state,
                 onDetails: chat.sessionDetailsOpened,
@@ -235,11 +276,29 @@ class BoundActivityPanel extends StatelessWidget {
                 progress: progress,
                 onDetails: chat.moaDetailsOpened,
               ),
+            for (final process in openProcesses)
+              ProcessOutputCard(
+                key: ValueKey(process.processId),
+                output: process,
+                onDetails: chat.processOutputDetailsOpened,
+              ),
+            if (openProcesses.isNotEmpty && omitted) omittedNote,
           ],
           plan: plan != null && plan.hasPlan
               ? TodoPlanCard(state: plan, initiallyOpen: true)
               : null,
           session: [
+            if (filesShown(context))
+              FilesActivityRow(
+                folderName: _folderName(t),
+                onTap: () {
+                  // A sheet closes first; the page then opens over the chat.
+                  onClose?.call();
+                  unawaited(
+                    openFiles(context, chat, from: FilesOpenedFrom.activity),
+                  );
+                },
+              ),
             ...actions.session(context),
             if (roster != null) ...[
               ..._agentRows(roster, roster.sections.session),
@@ -248,25 +307,19 @@ class BoundActivityPanel extends StatelessWidget {
             ],
             if (state != null &&
                 state.visible &&
-                sessionStateTier(state) == ActivityTier.reference)
+                sessionStateTier(state) != ActivityTier.needsYou &&
+                !_working(t, state))
               SessionStatusCard(
                 state: state,
                 onDetails: chat.sessionDetailsOpened,
               ),
-            if (processes != null) ...[
-              for (final process in processes.cards)
-                ProcessOutputCard(
-                  key: ValueKey(process.processId),
-                  output: process,
-                  onDetails: chat.processOutputDetailsOpened,
-                ),
-              if (processes.omittedCards)
-                const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text('Earlier process cards omitted.'),
-                ),
-            ],
-
+            for (final process in closedProcesses)
+              ProcessOutputCard(
+                key: ValueKey(process.processId),
+                output: process,
+                onDetails: chat.processOutputDetailsOpened,
+              ),
+            if (openProcesses.isEmpty && omitted) omittedNote,
             for (final progress
                 in chat.moaIn(t).where((progress) => !progress.live))
               MoaProgressCard(

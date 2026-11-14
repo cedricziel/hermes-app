@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart' as mui;
 import 'package:provider/provider.dart';
 import 'package:upgrader/upgrader.dart';
 
@@ -166,7 +167,12 @@ class _HermesAppState extends State<HermesApp> {
       navigatorObservers: [_handoffObserver, _history],
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: [
+        ...AppLocalizations.localizationsDelegates,
+        // upgrader 14 builds its alert from material_ui, which reads its own
+        // localizations; until the app moves to material_ui's MaterialApp.
+        ...mui.GlobalMaterialLocalizations.delegates,
+      ],
       supportedLocales: kReleasedLocales,
       theme: widget.lightTheme ?? buildHermesLightTheme(),
       darkTheme: widget.darkTheme ?? buildHermesDarkTheme(),

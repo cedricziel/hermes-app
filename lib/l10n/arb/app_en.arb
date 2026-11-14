@@ -468,6 +468,10 @@
     "description": "Warning line on the Needs-you card when no confirmation of an answer arrived in time."
   },
 
+  "chatActivityProcessesOmitted": "Earlier process cards omitted.",
+  "@chatActivityProcessesOmitted": {
+    "description": "Note under the process output cards in the Activity panel when older cards were dropped."
+  },
   "@@x-area-chat/attachments": "",
 
   "@@x-area-chat/checkpoints": "",
@@ -2108,9 +2112,17 @@
       }
     }
   },
+  "filesDragFallbackName": "File",
+  "@filesDragFallbackName": {
+    "description": "Name given to a file dragged out of the window when its own name cannot be used."
+  },
   "filesDragTooltip": "Drag to Finder",
   "@filesDragTooltip": {
     "description": "Hover text of the file tile in a Mac preview header, which can be dragged out of the window."
+  },
+  "filesEntryLabel": "Files",
+  "@filesEntryLabel": {
+    "description": "Name of the Files page in the Activity panel row, the chat header menu and the title when the folder has no name."
   },
   "filesFailureBusy": "This file is open in a database right now. Try again in a moment.",
   "@filesFailureBusy": {
@@ -2275,6 +2287,10 @@
   "filesPickEmpty": "No folders in here.",
   "@filesPickEmpty": {
     "description": "Shown in the folder picker when a folder holds no subfolders."
+  },
+  "filesPreviewLoading": "Opening file…",
+  "@filesPreviewLoading": {
+    "description": "Screen reader label while a text file is read and no progress is known."
   },
   "filesPreviewTypeSize": "{type} · {size}",
   "@filesPreviewTypeSize": {
@@ -2504,6 +2520,14 @@
   "providersAccountsFailed": "Account sign-in isn't available right now.",
   "@providersAccountsFailed": {
     "description": "Warning banner above the recommended providers when the account sign-in list could not be read."
+  },
+  "providersAddAction": "Add provider",
+  "@providersAddAction": {
+    "description": "Label of the toolbar button that scrolls to the providers to add."
+  },
+  "providersAddActionMac": "Add Provider",
+  "@providersAddActionMac": {
+    "description": "Label of the Mac toolbar button that scrolls to the providers to add, in title case."
   },
   "providersAddHeading": "Add a provider",
   "@providersAddHeading": {
@@ -2825,6 +2849,10 @@
         "format": "decimalPattern"
       }
     }
+  },
+  "providersDetailPlaceholder": "Pick one in the list to connect it.",
+  "@providersDetailPlaceholder": {
+    "description": "Text of the pane beside the providers list while nothing is connected."
   },
   "providersDetailReplaceKey": "Replace key",
   "@providersDetailReplaceKey": {
@@ -3254,6 +3282,10 @@
   "@providersKeysFailed": {
     "description": "Warning banner above the connected providers when the saved keys could not be read."
   },
+  "providersLinkFailed": "Couldn't open the link.",
+  "@providersLinkFailed": {
+    "description": "Shown when the browser could not be opened for a provider's page."
+  },
   "providersListTitle": "Model providers",
   "@providersListTitle": {
     "description": "Title of the model providers screen."
@@ -3300,6 +3332,10 @@
       }
     }
   },
+  "providersProfileSectionDetail": "Keys, sign-ins and endpoints",
+  "@providersProfileSectionDetail": {
+    "description": "Detail line of the Model providers section on the Mac Profiles page."
+  },
   "providersRecommendedHeader": "Recommended",
   "@providersRecommendedHeader": {
     "description": "Header of the group of providers Hermes suggests first."
@@ -3307,6 +3343,14 @@
   "providersRemoveKey": "Remove key",
   "@providersRemoveKey": {
     "description": "Red row on a provider's detail that removes its saved key after asking."
+  },
+  "providersRemoveRefusedFallback": "Hermes couldn't remove this.",
+  "@providersRemoveRefusedFallback": {
+    "description": "Shown when Hermes refused to remove a key, sign-in or endpoint and gave no reason."
+  },
+  "providersRemoveUnknown": "Couldn't tell whether it was removed. The list shows what Hermes has now.",
+  "@providersRemoveUnknown": {
+    "description": "Shown when the answer to a removal was lost and the list was read again."
   },
   "providersReplyCheckProviders": "Check model providers",
   "@providersReplyCheckProviders": {
@@ -4403,6 +4447,38 @@
   "@serverCareUpdateCommandHeader": {
     "description": "Header over the command to run on the server, on the Update page."
   },
+  "serverCareUpdateConfirmAction": "Update",
+  "@serverCareUpdateConfirmAction": {
+    "description": "Confirm button of the update question. Plain, not filled: the update restarts Hermes."
+  },
+  "serverCareUpdateConfirmConversations": "{count, plural, =1{1 conversation on messaging channels will stop.} other{{count} conversations on messaging channels will stop.}}",
+  "@serverCareUpdateConfirmConversations": {
+    "description": "Line of the update question when conversations on messaging channels are running now (the status's active agents).",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "serverCareUpdateConfirmReplies": "{count, plural, =1{1 reply in this app is still running and will stop.} other{{count} replies in this app are still running and will stop.}}",
+  "@serverCareUpdateConfirmReplies": {
+    "description": "Line of the update question when replies in this app are running now.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "1"
+      }
+    }
+  },
+  "serverCareUpdateConfirmRestarts": "Hermes restarts during the update, usually for a few minutes. Chats pause until it's back.",
+  "@serverCareUpdateConfirmRestarts": {
+    "description": "First line of the update question."
+  },
+  "serverCareUpdateConfirmTitle": "Update Hermes now?",
+  "@serverCareUpdateConfirmTitle": {
+    "description": "Title of the update question."
+  },
   "serverCareUpdateCouldntCheck": "Couldn't check",
   "@serverCareUpdateCouldntCheck": {
     "description": "Value of the Updates row when the check failed."
@@ -4420,6 +4496,10 @@
         "example": "0.22.0"
       }
     }
+  },
+  "serverCareUpdateNotStartedUnauthorized": "Hermes isn't accepting this sign-in right now, so the update wasn't started. Sign in again, then try again.",
+  "@serverCareUpdateNotStartedUnauthorized": {
+    "description": "Message of the refused page when the update request itself was refused with this sign-in, so nothing was started."
   },
   "serverCareUpdateNow": "Update Hermes",
   "@serverCareUpdateNow": {
@@ -4465,6 +4545,14 @@
   "@serverCareUpdateOutcomeNotBackTitle": {
     "description": "Title of the result card when Hermes has not come back after the update."
   },
+  "serverCareUpdateOutcomeNotConfirmedHint": "It has been running for a long time. Check again to read its result.",
+  "@serverCareUpdateOutcomeNotConfirmedHint": {
+    "description": "Body of the result card when the update has said it is running for a long time and the app cannot tell whether it finished."
+  },
+  "serverCareUpdateOutcomeNotConfirmedTitle": "The app can't tell whether the update finished",
+  "@serverCareUpdateOutcomeNotConfirmedTitle": {
+    "description": "Title of the result card when the update has been running for a long time and may still be going."
+  },
   "serverCareUpdateOutcomeNowRunning": "Now running {version}.",
   "@serverCareUpdateOutcomeNowRunning": {
     "description": "Body of the result card; version is the one Hermes runs now.",
@@ -4501,6 +4589,14 @@
       }
     }
   },
+  "serverCareUpdateOutcomeUnauthorizedHint": "Hermes isn't accepting this sign-in right now, so the app can't read the result. The update may still be going.",
+  "@serverCareUpdateOutcomeUnauthorizedHint": {
+    "description": "Body of the result card when the update's status was refused with this sign-in."
+  },
+  "serverCareUpdateOutcomeUnauthorizedTitle": "The app can't read the update's result",
+  "@serverCareUpdateOutcomeUnauthorizedTitle": {
+    "description": "Title of the result card when the update's status was refused with this sign-in."
+  },
   "serverCareUpdatePageTitle": "Update",
   "@serverCareUpdatePageTitle": {
     "description": "Title of the Update page."
@@ -4518,6 +4614,10 @@
         "example": "0.22.0"
       }
     }
+  },
+  "serverCareUpdateRowUpdating": "Updating…",
+  "@serverCareUpdateRowUpdating": {
+    "description": "Value of the Updates row on the Server screen while an update runs."
   },
   "serverCareUpdateStepChecking": "Checking the result",
   "@serverCareUpdateStepChecking": {
@@ -6030,6 +6130,10 @@
   "@@x-area-watch": "",
 
   "@@x-area-widgets": "",
+  "widgetsCancel": "Cancel",
+  "@widgetsCancel": {
+    "description": "Label of the button that closes a form or dialog in a settings page bar without saving."
+  },
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} character entered} other{{count} characters entered}}",
   "@widgetsSecretCharactersEntered": {
     "description": "Muted line under a secret field, announced to screen readers, with how many characters were typed. The count is never stored.",

@@ -77,6 +77,7 @@ class ThreadSidebar extends StatelessWidget {
     this.memoryWaiting,
     this.onOpenPlugins,
     this.onOpenMcp,
+    this.onOpenProviders,
     this.onOpenHelperModels,
     this.onOpenInNewWindow,
     this.searchProfile,
@@ -110,6 +111,7 @@ class ThreadSidebar extends StatelessWidget {
   final int? memoryWaiting;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
+  final VoidCallback? onOpenProviders;
   final VoidCallback? onOpenHelperModels;
 
   /// Opens a server-backed thread in a window of its own, from its Mac
@@ -240,6 +242,12 @@ class ThreadSidebar extends StatelessWidget {
                     (AppIcons.extension, 'Plugins', onOpenPlugins!),
                   if (onOpenMcp != null)
                     (AppIcons.power, 'MCP servers', onOpenMcp!),
+                  if (onOpenProviders != null)
+                    (
+                      AppIcons.hub,
+                      context.l10n.providersListTitle,
+                      onOpenProviders!,
+                    ),
                   if (onOpenHelperModels != null)
                     (AppIcons.tune, 'Helper models', onOpenHelperModels!),
                 ],

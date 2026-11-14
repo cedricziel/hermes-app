@@ -82,7 +82,7 @@ dependencies:
   stream_channel: ^2.1.4
   flutter_local_notifications: ^23.0.2
   characters: ^1.4.1
-  upgrader: ^13.8.0
+  upgrader: ^14.0.0
   version: ^3.0.2
   local_auth: ^3.0.2
   file_picker: ^13.3.3
@@ -124,6 +124,9 @@ dependencies:
   # from bytes.
   flutter_file_dialog: ^3.3.6
   file_selector: ^1.1.0
+  # The system share sheet for a staged file (iOS and Android; desktop shows
+  # Save and Open with only), by path so the file is never read into memory.
+  share_plus: ^13.3.1
 
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
 # upstream SPM implementation until those packages publish their next release.

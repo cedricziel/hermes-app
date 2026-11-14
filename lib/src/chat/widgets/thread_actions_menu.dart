@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -17,6 +18,7 @@ export '../thread_export.dart' show threadTranscript;
 
 enum ThreadAction {
   openInNewWindow,
+  showFiles,
   copyTranscript,
   branch,
   rename,
@@ -93,9 +95,13 @@ class ThreadActionsButton extends StatefulWidget {
     this.includeCopyTranscript = false,
     this.dense = false,
     this.onOpenInNewWindow,
+    this.onShowFiles,
   });
 
   final ChatThread thread;
+
+  /// Opens the chat's Files page; the menu has no Files item without it.
+  final VoidCallback? onShowFiles;
   final ThreadHousekeeping? housekeeping;
   final bool includeCopyTranscript;
 
@@ -120,13 +126,15 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
 
   ChatThread get _thread => widget.thread;
 
-  Future<void> _run(ThreadAction action) => runThreadAction(
-    context,
-    action,
-    thread: _thread,
-    housekeeping: widget.housekeeping,
-    onOpenInNewWindow: widget.onOpenInNewWindow,
-  );
+  Future<void> _run(ThreadAction action) => action == ThreadAction.showFiles
+      ? Future(() => widget.onShowFiles?.call())
+      : runThreadAction(
+          context,
+          action,
+          thread: _thread,
+          housekeeping: widget.housekeeping,
+          onOpenInNewWindow: widget.onOpenInNewWindow,
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -157,6 +165,11 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
             canBranch: housekeeping?.branch != null && _thread.remote,
           )
         else ...[
+          if (widget.onShowFiles != null)
+            PopupMenuItem(
+              value: ThreadAction.showFiles,
+              child: Text(context.l10n.filesEntryLabel),
+            ),
           if (widget.includeCopyTranscript) ...[
             const PopupMenuItem(
               value: ThreadAction.copyTranscript,
@@ -203,6 +216,8 @@ Future<void> runThreadAction(
   ValueChanged<ChatThread>? onOpenInNewWindow,
 }) async {
   switch ((action, housekeeping)) {
+    case (ThreadAction.showFiles, _):
+      break;
     case (ThreadAction.openInNewWindow, _):
       onOpenInNewWindow?.call(thread);
     case (ThreadAction.copyTranscript, _):

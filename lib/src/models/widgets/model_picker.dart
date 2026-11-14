@@ -281,7 +281,8 @@ class _ModelPickerState extends State<ModelPicker> {
         if (efforts.isNotEmpty)
           DecoratedBox(
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: scheme.outlineVariant)),
+              // `outline`, not `outlineVariant`: that is the dark overlay surface.
+              border: Border(top: BorderSide(color: scheme.outline)),
             ),
             child: Padding(
               padding: EdgeInsets.fromLTRB(gutter, 12, gutter, 16),

@@ -59,6 +59,10 @@ class ConversationWindowsMenu extends StatelessWidget {
               MacCommand.compress: const MacCommandHandler(null),
               MacCommand.archiveThread: run(ThreadAction.archive),
               MacCommand.deleteThread: run(ThreadAction.delete),
+              // Files is not offered in a conversation window: it has no
+              // session of its own to close the page with on a lock or an
+              // expired session.
+              MacCommand.showFiles: const MacCommandHandler(null),
               MacCommand.toggleInspector: MacCommandHandler(
                 windows.toggleKeyWindowInspector,
                 title: 'Show Inspector',

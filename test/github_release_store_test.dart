@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart' as mui;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/update/github_release_store.dart';
 import 'package:http/http.dart' as http;
@@ -94,6 +95,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: mui.GlobalMaterialLocalizations.delegates,
           home: UpgradeAlert(
             upgrader: upgrader,
             showReleaseNotes: false,

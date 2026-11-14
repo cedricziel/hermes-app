@@ -6,6 +6,7 @@ enum DragOutKind {
   attachment('attachment'),
   kanbanAttachment('kanban_attachment'),
   text('text'),
+  file('file'),
   thread('thread');
 
   const DragOutKind(this.slug);

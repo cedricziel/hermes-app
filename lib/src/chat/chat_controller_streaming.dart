@@ -578,6 +578,7 @@ extension _ChatControllerStreaming on ChatController {
     final wasPending = reply.isPending;
     final openBefore = _openRequestIds(reply);
     edit();
+    if (wasPending && !reply.isPending) _workingSource.turnEnded(thread);
     notifyListeners();
     if (!_currentActivity(epoch)) return;
     syncMessage(controllerFor(thread), before, chatMessageToFlyer(reply));

@@ -349,7 +349,12 @@ void _expectChatSideQuiet(WidgetTester tester) {
   if (toolbar.evaluate().isNotEmpty) {
     expect(tester.widget<MacToolbarButton>(toolbar).marked, isFalse);
   }
-  expect(find.byType(ActivityLine), findsNothing);
+  // The line is always built; it says nothing while there is no summary.
+  for (final line in tester.widgetList<ActivityLine>(
+    find.byType(ActivityLine),
+  )) {
+    expect(line.model, isNull);
+  }
 }
 
 ContextLevel _level(WidgetTester tester) =>

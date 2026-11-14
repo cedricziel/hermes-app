@@ -22,12 +22,17 @@ The feature SHALL use only `GET /api/sessions/{session_id}/export?profile=`, ver
 
 ### Requirement: Entry points
 
-The app SHALL offer "Export chat as JSON…" for a chat the server holds, next to Copy Transcript, in the chat header menu, the sidebar row menu, the Mac toolbar "…" menu, the Mac Chat menu and the conversation window menu. It SHALL NOT offer it for a local or mock chat or one without a known profile.
+The app SHALL offer "Export chat as JSON…" for a chat the server holds, next to Copy Transcript, in the chat header menu, the Mac sidebar row menu, the Mac toolbar "…" menu (compact windows), the Chat menu of the Mac and iPad menu bars and the conversation window menu. It SHALL NOT offer it for a local or mock chat or one without a known profile.
 
 #### Scenario: Server chat
 
 - **WHEN** the user opens the menu of a chat listed by the server
 - **THEN** the action is offered in every place that offers Copy Transcript
+
+#### Scenario: Touch list
+
+- **WHEN** the user opens the sidebar row menu off the Mac or the swipe sheet of a touch row
+- **THEN** the action is not offered there, and the chat header menu is the entry
 
 #### Scenario: Local chat
 
@@ -73,11 +78,11 @@ The app SHALL offer the save sheet only for bytes that decode to a JSON object w
 
 ### Requirement: Lost answer and failures
 
-A timeout or dropped connection SHALL NOT read as saved, and the app SHALL NOT resend. Each failure (not found, unsupported, profile 404, invalid profile name 400, unreadable store 503, timeout, incomplete, offline) SHALL have its own message. Try again SHALL ask the user to confirm again.
+A timeout or dropped connection SHALL NOT read as saved, and the app SHALL NOT resend. Each failure (not found, unsupported, profile 404, invalid profile name 400, unreadable store 503, timeout, incomplete, offline, any other error) SHALL have its own message. Try again SHALL ask the user to confirm again.
 
 #### Scenario: Timeout
 
-- **WHEN** the export takes longer than five minutes
+- **WHEN** the export takes longer than five minutes in total, or Hermes sends no byte for 30 seconds
 - **THEN** the message says nothing was saved, and Try again repeats the confirmation
 
 #### Scenario: Chat gone
@@ -96,7 +101,7 @@ A `FormatException` from decoding the body embeds part of the file. The app SHAL
 
 ### Requirement: System save sheet only
 
-The file SHALL leave the app only through the platform save sheet the user completes. The app SHALL NOT write it silently, copy it to the clipboard, stage it in the media cache or keep it after the sheet closes.
+The file SHALL leave the app only through the platform save sheet the user completes. The app SHALL NOT write it silently, copy it to the clipboard, stage it in the media cache or keep it after the sheet closes; the platform plugin's own temporary export copy is deleted when the sheet returns.
 
 #### Scenario: Cancelled sheet
 

@@ -180,34 +180,48 @@ class HermesApiClient {
         error == null ? done.complete() : done.completeError(error);
       }
 
+      // The flush of the last chunk. An IOSink is bound while it runs and
+      // refuses add, flush and close, so nothing touches the sink again until
+      // this has finished, whatever ended the download. It never completes
+      // with an error: a failed flush goes to [end].
+      Future<void> flushing = Future<void>.value();
       late final StreamSubscription<List<int>> subscription;
       subscription = body.stream
           .timeout(idleTimeout)
           .listen(
             (chunk) {
+              // A chunk already queued when the download ended is dropped.
+              if (done.isCompleted) return;
               try {
                 sink.add(chunk);
                 received += chunk.length;
                 onProgress?.call(received, length);
+                // Take no more until the sink has written this one.
+                subscription.pause();
+                flushing = sink.flush().then((_) {
+                  if (!done.isCompleted) subscription.resume();
+                }, onError: end);
               } on Object catch (error) {
                 end(error);
-                return;
               }
-              // Take no more until the sink has written this one.
-              subscription.pause();
-              sink.flush().then((_) {
-                if (!done.isCompleted) subscription.resume();
-              }, onError: end);
             },
             onError: end,
             onDone: end,
             cancelOnError: true,
           );
-      unawaited(request.whenCancel.then(end));
+      unawaited(
+        request.whenCancel.then((_) => end(failed(FilesFailure.cancelled))),
+      );
       try {
         await done.future;
       } finally {
-        await subscription.cancel();
+        try {
+          await subscription.cancel();
+        } finally {
+          // The caller closes the sink next, which a pending flush would
+          // refuse.
+          await flushing;
+        }
       }
       await sink.flush();
       if (length != null && received != length) {

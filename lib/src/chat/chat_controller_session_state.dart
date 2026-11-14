@@ -64,13 +64,32 @@ extension _ChatControllerSessionState on ChatController {
       case SessionControlUnavailable():
         outcome = 'unavailable';
       case SessionWaitUpdated(:final kind, :final text):
-        if (state.recordMemoryRecall(text) || text.isEmpty) {
+        final before = state.recallWaits[kind] ?? state.waits[kind];
+        if (state.recordMemoryRecall(text)) {
           state.waits.remove(kind);
+          state.recallWaits[kind] = text;
+        } else if (text.isEmpty) {
+          state.waits.remove(kind);
+          state.recallWaits.remove(kind);
         } else {
+          state.recallWaits.remove(kind);
           state.waits[kind] = text;
           if (state.waits.length > 16) {
             state.waits.remove(state.waits.keys.first);
           }
+        }
+        final after = state.recallWaits[kind] ?? state.waits[kind];
+        if (after == null) {
+          state.waitAt.remove(kind);
+        } else {
+          final stamp = state.waitAt[kind];
+          // Stamp only when a value changes: the same text again in the same
+          // turn keeps its place among the other sources.
+          final repeated =
+              stamp != null &&
+              before == after &&
+              _workingSource.stampIsInCurrentTurn(thread, stamp);
+          if (!repeated) state.waitAt[kind] = _workingSource.next();
         }
       case SessionResumeProgress(:final progress):
         state.resume = progress;
@@ -80,6 +99,10 @@ extension _ChatControllerSessionState on ChatController {
         _removeMoa(thread);
         _finishQueueBinding(thread, false);
         state.waits.clear();
+        state.recallWaits.clear();
+        state.waitAt.clear();
+        state.resume = null;
+        _processOutputs[thread]?.clear();
         _settleTimers.remove(thread)?.cancel();
         if (_queues[thread]?.isNotEmpty ?? false) {
           _reclaimedQueueReview.add(thread);
