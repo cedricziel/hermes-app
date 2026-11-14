@@ -22,6 +22,7 @@ class GroupedChoiceRow<T> extends StatelessWidget {
     this.subtitleMaxLines = 1,
     this.meta,
     this.warning,
+    this.details = const [],
     this.enabled = true,
   });
 
@@ -34,6 +35,9 @@ class GroupedChoiceRow<T> extends StatelessWidget {
   final int? subtitleMaxLines;
   final String? meta;
   final String? warning;
+
+  /// Widgets under the subtitle, such as a path cut in the middle.
+  final List<Widget> details;
   final bool enabled;
 
   /// Where the separators of a group of choice rows start: past the radio
@@ -61,6 +65,7 @@ class GroupedChoiceRow<T> extends StatelessWidget {
       subtitleMaxLines: subtitleMaxLines,
       meta: meta,
       warning: warning,
+      details: details,
       leading: apple ? null : radio,
       trailing: apple ? radio : null,
       chevron: false,

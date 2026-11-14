@@ -54,6 +54,9 @@ import '../mcp/hermes_mcp_repository.dart';
 import '../files/files_telemetry.dart' show FilesOpenedFrom;
 import '../files/open_files.dart';
 import '../mcp/mcp_servers_screen.dart';
+import '../tools/hermes_tools_repository.dart';
+import '../tools/tools_availability.dart';
+import '../tools/tools_screen.dart';
 import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';
 import '../memory/memory_proposals_repository.dart';
@@ -175,6 +178,8 @@ class ChatScreen extends StatefulWidget {
     this.skills,
     this.plugins,
     this.mcp,
+    this.tools,
+    this.toolsAvailability,
     this.onShowChat,
     this.onExternalNavigation,
     this.onShareEntry,
@@ -205,6 +210,14 @@ class ChatScreen extends StatefulWidget {
   final HermesSkillsRepository? skills;
   final HermesPluginManagerRepository? plugins;
   final HermesMcpRepository? mcp;
+
+  /// The tools routes; the connected dashboard's when null. The Tools entry
+  /// shows only while [toolsAvailability] says the server offers them.
+  final HermesToolsRepository? tools;
+
+  /// Whether the server offers Tools; the shell's when null. Without either
+  /// there is no Tools entry.
+  final ToolsAvailability? toolsAvailability;
 
   /// Reads what the welcome view's starter prompts are built from; the
   /// connected dashboard's when null.
@@ -307,6 +320,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesSkillsRepository? _skills;
   HermesPluginManagerRepository? _plugins;
   HermesMcpRepository? _mcp;
+  HermesToolsRepository? _tools;
+  ToolsAvailability? _toolsAvailability;
   HermesModelsRepository? _models;
   ProvidersRepository? _providers;
   HermesGatewayTransport? _ownedTransport;
@@ -445,6 +460,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _skills = widget.skills ?? repositories?.skills;
     _plugins = widget.plugins ?? repositories?.pluginManager;
     _mcp = widget.mcp ?? repositories?.mcp;
+    _tools = widget.tools ?? repositories?.tools;
+    _toolsAvailability =
+        widget.toolsAvailability ?? _maybeRead<ToolsAvailability>();
+    _toolsAvailability?.addListener(_toolsAvailabilityChanged);
     _models = widget.models ?? repositories?.models;
     _providers = widget.providers ?? repositories?.providers;
     _starterLoader =
@@ -702,6 +721,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
+  void _toolsAvailabilityChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _changed() {
     if (!mounted) return;
     _syncListChanges();
@@ -910,6 +933,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..dispose();
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
+    _toolsAvailability?.removeListener(_toolsAvailabilityChanged);
     _memoryWaiting
       ?..removeListener(_memoryWaitingChanged)
       ..dispose();

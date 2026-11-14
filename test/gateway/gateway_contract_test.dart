@@ -253,6 +253,10 @@ const calledMethods = {
   'subagent.tail': 'the recent output of one agent',
   'subagent.interrupt': 'stops one agent the user confirmed',
   'subagent.steer': 'sends one note to one agent',
+  'process.list':
+      "the chat session's background programs, to name and "
+      'state their cards',
+  'process.kill': 'stops one program the user confirmed',
 };
 
 void main() {
@@ -300,5 +304,12 @@ void main() {
 
   test('every method the app calls is in the contract', () {
     expect(names('methods'), containsAll(calledMethods.keys));
+  });
+
+  test('the server-wide program stop is never called', () {
+    // `process.stop` kills every program in the registry, whatever session
+    // started it; a chat only ever stops one with `process.kill`.
+    expect(names('methods'), contains('process.stop'));
+    expect(calledMethods.keys, isNot(contains('process.stop')));
   });
 }

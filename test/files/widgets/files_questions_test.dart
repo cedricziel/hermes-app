@@ -143,6 +143,9 @@ void main() {
         tester,
         _page((c) => askDownloadLargeFile(c, 222298112), (_) {}),
         textScale: 3,
+        // The harness theme has an iOS device's standard density now, and the
+        // test font is wider than the real one: room for the whole sheet.
+        size: const Size(390, 1100),
       );
 
       await tester.tap(find.text('ask'));

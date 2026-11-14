@@ -54,7 +54,7 @@ class FilesLazyList extends StatelessWidget {
             if (row < itemCount) {
               return Padding(
                 padding: EdgeInsets.only(top: row == 0 ? 8 : 0),
-                child: _Slice(
+                child: CardSlice(
                   first: row == 0,
                   last: row == itemCount - 1,
                   radius: metrics.radius,
@@ -82,8 +82,11 @@ class FilesLazyList extends StatelessWidget {
   }
 }
 
-class _Slice extends StatelessWidget {
-  const _Slice({
+/// One row of a card that is drawn row by row: the card's fill, hairline and
+/// corners for this row's part of it, and a separator above all but the first.
+class CardSlice extends StatelessWidget {
+  const CardSlice({
+    super.key,
     required this.first,
     required this.last,
     required this.radius,
