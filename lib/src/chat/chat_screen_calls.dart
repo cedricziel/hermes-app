@@ -114,7 +114,8 @@ extension _ChatScreenCalls on _ChatScreenState {
               breadcrumbs('voice_call.setup_requested', {'accepted': accepted});
               return accepted;
             },
-            startCall: (readiness) {
+            onConsentGiven: () => breadcrumbs('voice_call.consent'),
+            startCall: (readiness, {required consented}) {
               if (!current() ||
                   thread == null ||
                   thread.isReplying ||
@@ -133,6 +134,8 @@ extension _ChatScreenCalls on _ChatScreenState {
               created = VoiceCall(
                 bridge: AppleCallBridge(),
                 agent: agent,
+                consented: consented,
+                loadConfig: () => repository.voiceCallConfig(profile: profile),
                 profile: profile,
                 connect: connect,
                 events: events,

@@ -13,6 +13,8 @@ import 'fakes.dart';
 class _Flow {
   bool microphone = true, installed = true, configured = true, current = true;
   int requests = 0, settings = 0, starts = 0, asks = 0, probes = 0;
+  int consentGiven = 0, dictations = 0;
+  final consents = <bool>[];
   bool grant = true, accepted = true;
   Completer<bool>? permission;
   Completer<void>? setup;
@@ -51,7 +53,9 @@ class _Flow {
                     openMicrophoneSettings: () async {
                       settings++;
                     },
+                    onConsentGiven: () => consentGiven++,
                     openDictation: () async {
+                      dictations++;
                       installed = true;
                     },
                     askHermes: (report) async {
@@ -60,10 +64,12 @@ class _Flow {
                       await setup?.future;
                       return accepted;
                     },
-                    startCall: (_) {
+                    startCall: (_, {required consented}) {
                       starts++;
+                      consents.add(consented);
                       return call = VoiceCall(
                         bridge: bridge,
+                        consented: consented,
                         agent: FakeCallAgent(),
                         connect: ([_ = const {}]) async =>
                             throw StateError('unused'),
@@ -86,6 +92,14 @@ class _Flow {
     await tester.pump();
   }
 
+  /// Turns the consent switch on and presses Start.
+  Future<void> consentAndStart(WidgetTester tester) async {
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    await tester.tap(find.text('Start call'));
+    await tester.pump();
+  }
+
   Future<void> dispose(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(() async {
@@ -99,17 +113,100 @@ class _Flow {
 
 void main() {
   testWidgets(
-    'ready checks start one call without setup or permission prompts',
+    'ready checks wait for consent and Start, without setup or permission prompts',
     (tester) async {
       final flow = _Flow();
       await flow.open(tester);
+      expect(flow.starts, 0);
+      expect(flow.bridge.starts, 0);
+      await flow.consentAndStart(tester);
       expect(flow.starts, 1);
+      expect(flow.consents, [true]);
+      expect(flow.consentGiven, 1);
       expect(flow.bridge.starts, 1);
       expect(flow.requests, 0);
       expect(flow.asks, 0);
       await flow.dispose(tester);
     },
   );
+
+  testWidgets('Start is disabled until the switch is on', (tester) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    FilledButton start() => tester.widget<FilledButton>(
+      find.ancestor(
+        of: find.text('Start call'),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(start().onPressed, isNull);
+    await tester.tap(find.text('Start call'), warnIfMissed: false);
+    await tester.pump();
+    expect(flow.starts, 0);
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    expect(start().onPressed, isNotNull);
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    expect(start().onPressed, isNull);
+    expect(flow.starts, 0);
+    await flow.dispose(tester);
+  });
+
+  testWidgets('Start a new call reopens the setup with the switch off', (
+    tester,
+  ) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    await flow.consentAndStart(tester);
+    await tester.runAsync(() => flow.call!.end());
+    await tester.pump();
+    await tester.tap(find.text('Start a new call'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Start call'), findsOneWidget);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    expect(flow.starts, 1);
+    await flow.consentAndStart(tester);
+    expect(flow.starts, 2);
+    expect(flow.consents, [true, true]);
+    await flow.dispose(tester);
+  });
+
+  testWidgets('the switch is off again on every open', (tester) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await flow.open(tester);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    await flow.dispose(tester);
+  });
+
+  testWidgets('Use dictation instead opens dictation and closes the screen', (
+    tester,
+  ) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    await tester.tap(find.text('Use dictation instead'));
+    await tester.pumpAndSettle();
+    expect(flow.dictations, 1);
+    expect(flow.starts, 0);
+    expect(find.text('Open'), findsOneWidget);
+    await flow.dispose(tester);
+  });
+
+  testWidgets('End shows the ended notice', (tester) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    await flow.consentAndStart(tester);
+    await tester.runAsync(() => flow.call!.end());
+    await tester.pump();
+    expect(find.text('The microphone is closed.'), findsOneWidget);
+    await flow.dispose(tester);
+  });
 
   testWidgets(
     'microphone and language fixes require explicit taps then recheck',
@@ -127,6 +224,8 @@ void main() {
       await tester.tap(find.text('Open Dictation settings'));
       await tester.pump();
       await tester.pump();
+      expect(flow.starts, 0, reason: 'a fixed check never starts the call');
+      await flow.consentAndStart(tester);
       expect(flow.starts, 1);
       expect(flow.asks, 0);
       await flow.dispose(tester);
@@ -187,6 +286,7 @@ void main() {
   ) async {
     final flow = _Flow();
     await flow.open(tester);
+    await flow.consentAndStart(tester);
     await tester.runAsync(
       () => flow.call!.end('Speech output could not be played.'),
     );
