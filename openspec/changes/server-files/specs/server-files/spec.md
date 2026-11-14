@@ -339,12 +339,17 @@ The page SHALL show a labelled loading state, an empty state with the one action
 
 ### Requirement: Old servers
 
-Files SHALL appear only when the server has the `/api/fs` routes. The first `GET /api/fs/default-cwd` of a connection, sent without `profile` (a missing profile also answers 404), SHALL decide: a 404 or 405 means unsupported, and the Files row, menu item and menu command SHALL NOT be shown and no error SHALL be shown. The result SHALL be logged once per connection. Any other failure SHALL NOT hide the feature.
+Files SHALL appear only when the server has the `/api/fs` routes. The first `GET /api/fs/default-cwd` of a connection, sent without `profile` (a missing profile also answers 404), SHALL decide, and it SHALL be the only Files request without `profile`. Its answer SHALL be used only to tell whether the routes exist: the folder it returns belongs to whichever profile the server has active and SHALL NOT be shown, stored or used as a starting point. Every other request, including the `default-cwd` that gives a new chat its start folder, SHALL send the chat's profile explicitly. a 404 or 405 means unsupported, and the Files row, menu item and menu command SHALL NOT be shown and no error SHALL be shown. The result SHALL be logged once per connection. Any other failure SHALL NOT hide the feature.
 
 #### Scenario: Server without the routes
 
 - **WHEN** `default-cwd` answers 404
 - **THEN** the Activity panel has no Files row, the header menu has no Files item and the Mac menu item is disabled and hidden
+
+#### Scenario: Probe answer not used
+
+- **WHEN** the probe answers `{"cwd": "/home/other"}` and the user then opens Files in a new chat on the profile `work`
+- **THEN** `/home/other` is not shown or kept, and the start folder comes from `GET /api/fs/default-cwd?profile=work`
 
 #### Scenario: Temporary failure
 
