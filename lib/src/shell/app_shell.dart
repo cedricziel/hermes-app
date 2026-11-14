@@ -47,6 +47,7 @@ import '../platform_hint/platform_hint_offer.dart';
 import '../platform_hint/show_platform_hint_prompt.dart';
 import '../profiles/chat_profiles.dart';
 import '../server_care/server_attention_mark.dart';
+import '../server_care/gateway_restart.dart';
 import '../server_care/server_care_controller.dart';
 import '../server_care/server_care_scope.dart';
 import '../server_care/server_screen.dart';
@@ -134,6 +135,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// What the Server screen and the attention mark read; one per shell, so
   /// it ends with the connection.
   ServerCareController? _serverCare;
+
+  /// Restarts and starts the messaging gateway; owned here so a run goes on
+  /// when the Server screen is left.
+  GatewayRestart? _gatewayRun;
 
   /// The sidebar of a Mac window, which a pick in it closes when it lies
   /// over the page.
@@ -255,6 +260,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       );
       _chatProfiles?.addListener(_followServerCareProfile);
       care.lookUpProfile = _resolveServerCareProfile;
+      _gatewayRun = GatewayRestart(
+        covered: () => _appLock?.covered ?? false,
+        repository: repositories.serverCare,
+        care: care,
+        telemetry: repositories.telemetry,
+        breadcrumbs: _breadcrumbs,
+      );
       care.addListener(_careSupportChanged);
       _appLock?.addListener(_readServerCareAfterUnlock);
       // The chat reports its profile after its threads load, and not at all
@@ -398,7 +410,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   /// A status read skipped under App Lock is made up for on unlock.
   void _readServerCareAfterUnlock() {
-    if (!(_appLock?.covered ?? true)) unawaited(_serverCare?.resumed());
+    if (_appLock?.covered ?? true) {
+      // Hermes' own words about a failed run are not kept while covered.
+      _gatewayRun?.forgetText();
+      return;
+    }
+    unawaited(_serverCare?.resumed());
   }
 
   T? _maybeRead<T>() {
@@ -424,6 +441,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _finds.dispose();
     _chatProfiles?.removeListener(_followServerCareProfile);
     _appLock?.removeListener(_readServerCareAfterUnlock);
+    _gatewayRun?.dispose();
     _serverCare
       ?..removeListener(_careSupportChanged)
       ..dispose();
@@ -517,10 +535,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       },
     );
     final care = _serverCare;
-    final provided = care == null
+    final gatewayRun = _gatewayRun;
+    final provided = care == null || gatewayRun == null
         ? built
-        : ChangeNotifierProvider<ServerCareController>.value(
-            value: care,
+        : MultiProvider(
+            providers: [
+              ChangeNotifierProvider<ServerCareController>.value(value: care),
+              ChangeNotifierProvider<GatewayRestart>.value(value: gatewayRun),
+            ],
             child: built,
           );
     final chrome = platformChromeOf(context);

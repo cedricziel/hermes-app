@@ -458,6 +458,868 @@
   },
   "@@x-area-chat/attachments": "",
 
+  "@@x-area-chat/checkpoints": "",
+  "chatCheckpointsChangesBarCount": "{count, plural, =1{1 file differs} other{{count} files differ}}",
+  "@chatCheckpointsChangesBarCount": {
+    "description": "Sticky footer of the Changes page: how many files differ now.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesBarRestoreAll": "Restore all files…",
+  "@chatCheckpointsChangesBarRestoreAll": {
+    "description": "Button in the Changes footer that starts restoring every file of the checkpoint."
+  },
+  "chatCheckpointsChangesBarRestoring": "Restoring…",
+  "@chatCheckpointsChangesBarRestoring": {
+    "description": "Label of the Restore all files button while a restore runs."
+  },
+  "chatCheckpointsChangesBarSome": "Some files differ",
+  "@chatCheckpointsChangesBarSome": {
+    "description": "Changes footer when the number of differing files is not known."
+  },
+  "chatCheckpointsChangesCountsAddedRemoved": "+{added} −{removed}",
+  "@chatCheckpointsChangesCountsAddedRemoved": {
+    "description": "Counts under a changed file: lines added and lines removed. The signs carry the meaning.",
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "removed": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesCountsLinesChanged": "{count, plural, =1{1 line changed} other{{count} lines changed}}",
+  "@chatCheckpointsChangesCountsLinesChanged": {
+    "description": "Count under a changed file when only the total of changed lines is known.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesCountsSemantics": "{added, plural, =1{1 line added} other{{added} lines added}}, {removed} removed",
+  "@chatCheckpointsChangesCountsSemantics": {
+    "description": "Screen reader text for the counts of a changed file.",
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "removed": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesCutCaption": "Hermes cut this diff short",
+  "@chatCheckpointsChangesCutCaption": {
+    "description": "Caption under a changed file whose diff is missing because the server cut the diff."
+  },
+  "chatCheckpointsChangesCutFooter": "Hermes only sends the first part of a large diff. The file list is complete.",
+  "@chatCheckpointsChangesCutFooter": {
+    "description": "Note under the file list when the server cut the diff."
+  },
+  "chatCheckpointsChangesFileLabel": "{name}, {details}",
+  "@chatCheckpointsChangesFileLabel": {
+    "description": "Screen reader text of a changed file row. {name} is the file name, {details} the counts.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsChangesFileSubtitle": "{folder} · {details}",
+  "@chatCheckpointsChangesFileSubtitle": {
+    "description": "Line under a file name: its folder and its counts. {folder} may be \"Top of the folder\".",
+    "placeholders": {
+      "folder": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsChangesHeader": "Files that differ now",
+  "@chatCheckpointsChangesHeader": {
+    "description": "Heading of the file list on the Changes page."
+  },
+  "chatCheckpointsChangesHeaderNote": "Lines added and removed since the checkpoint.",
+  "@chatCheckpointsChangesHeaderNote": {
+    "description": "Note under the heading of the file list."
+  },
+  "chatCheckpointsChangesLoading": "Reading the changes…",
+  "@chatCheckpointsChangesLoading": {
+    "description": "Label of the skeleton while the changes of a checkpoint load."
+  },
+  "chatCheckpointsChangesNone": "No changes since this checkpoint.",
+  "@chatCheckpointsChangesNone": {
+    "description": "Message when no file differs from the checkpoint."
+  },
+  "chatCheckpointsChangesNoneDetail": "The files in this folder are as they were {time}.",
+  "@chatCheckpointsChangesNoneDetail": {
+    "description": "Detail under the no-changes message. {time} is a relative time such as \"12 min ago\".",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsChangesNotText": "Not text, no preview",
+  "@chatCheckpointsChangesNotText": {
+    "description": "Under a binary file: it has no text diff."
+  },
+  "chatCheckpointsChangesReasonDisconnected": "Reconnect to restore files.",
+  "@chatCheckpointsChangesReasonDisconnected": {
+    "description": "Why restoring is disabled while the connection is down."
+  },
+  "chatCheckpointsChangesReasonFileNotOffered": "This file can't be restored one at a time.",
+  "@chatCheckpointsChangesReasonFileNotOffered": {
+    "description": "Why restoring one file is disabled."
+  },
+  "chatCheckpointsChangesReasonLocked": "Unlock the app to restore files.",
+  "@chatCheckpointsChangesReasonLocked": {
+    "description": "Why restoring is disabled while App Lock is on."
+  },
+  "chatCheckpointsChangesReasonReplying": "Wait for the reply to finish.",
+  "@chatCheckpointsChangesReasonReplying": {
+    "description": "Why restoring all files is disabled while the chat replies."
+  },
+  "chatCheckpointsChangesReasonRestoring": "Wait for the restore to finish.",
+  "@chatCheckpointsChangesReasonRestoring": {
+    "description": "Why restoring is disabled while another restore runs."
+  },
+  "chatCheckpointsChangesReasonUnavailable": "This server can't restore files.",
+  "@chatCheckpointsChangesReasonUnavailable": {
+    "description": "Why restoring is disabled when the server has no such feature."
+  },
+  "chatCheckpointsChangesRefused": "Hermes runs this chat in a separate workspace, so it keeps no checkpoints of its files.",
+  "@chatCheckpointsChangesRefused": {
+    "description": "Message on the Changes page when the server runs the chat in a container."
+  },
+  "chatCheckpointsChangesTopOfFolder": "Top of the folder",
+  "@chatCheckpointsChangesTopOfFolder": {
+    "description": "Folder shown under a file that sits directly in the chat's folder."
+  },
+  "chatCheckpointsChangesTryAgain": "Try again",
+  "@chatCheckpointsChangesTryAgain": {
+    "description": "Button under the message that the changes could not be read."
+  },
+  "chatCheckpointsChangesUnreadable": "Couldn't read the changes.",
+  "@chatCheckpointsChangesUnreadable": {
+    "description": "Message when the changes of a checkpoint could not be read."
+  },
+  "chatCheckpointsFileBinary": "This file isn't text, so there is no preview.",
+  "@chatCheckpointsFileBinary": {
+    "description": "Note on the file page for a binary file."
+  },
+  "chatCheckpointsFileCounts": "{added} added, {removed} removed",
+  "@chatCheckpointsFileCounts": {
+    "description": "Counts under the file page heading. {added} and {removed} are numbers of lines.",
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "removed": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsFileCut": "Hermes cut this diff short.",
+  "@chatCheckpointsFileCut": {
+    "description": "Note on the file page when the diff is incomplete."
+  },
+  "chatCheckpointsFileHeading": "Changes in {file}",
+  "@chatCheckpointsFileHeading": {
+    "description": "Heading of the file page. {file} is the file name.",
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsFileNameNotAlone": "This file's name can't be restored one at a time. Use Restore all files.",
+  "@chatCheckpointsFileNameNotAlone": {
+    "description": "Shown instead of the Restore this file button for a name that cannot be sent safely."
+  },
+  "chatCheckpointsFileNameShortened": "Git shortened this name, so Hermes can't be sure which file it is. Use Restore all files.",
+  "@chatCheckpointsFileNameShortened": {
+    "description": "Shown instead of the Restore this file button for a name that git shortened."
+  },
+  "chatCheckpointsFileNoPreview": "There is no preview for this file.",
+  "@chatCheckpointsFileNoPreview": {
+    "description": "Note on the file page when the file has no diff to show and is not binary."
+  },
+  "chatCheckpointsFileRestore": "Restore this file…",
+  "@chatCheckpointsFileRestore": {
+    "description": "Button on the file page that starts restoring one file."
+  },
+  "chatCheckpointsFileRestoring": "Restoring…",
+  "@chatCheckpointsFileRestoring": {
+    "description": "Label of the Restore this file button while the restore runs."
+  },
+  "chatCheckpointsListEmpty": "No checkpoints yet for this chat's folder. Hermes makes one just before it first edits a file in a turn.",
+  "@chatCheckpointsListEmpty": {
+    "description": "Empty state of the checkpoint list."
+  },
+  "chatCheckpointsListFailed": "Couldn't read checkpoints.",
+  "@chatCheckpointsListFailed": {
+    "description": "Message when the checkpoint list could not be read."
+  },
+  "chatCheckpointsListLoading": "Loading checkpoints…",
+  "@chatCheckpointsListLoading": {
+    "description": "Label of the skeleton while the checkpoint list loads."
+  },
+  "chatCheckpointsListLocked": "{count, plural, =1{1 checkpoint} other{{count} checkpoints}}",
+  "@chatCheckpointsListLocked": {
+    "description": "All the checkpoint list shows while App Lock is on.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsListNewestFirst": "Newest first",
+  "@chatCheckpointsListNewestFirst": {
+    "description": "Heading of the checkpoint list."
+  },
+  "chatCheckpointsListNotCovered": "Checkpoints don't cover this chat's workspace.",
+  "@chatCheckpointsListNotCovered": {
+    "description": "Message when the chat runs in a container workspace."
+  },
+  "chatCheckpointsListNote": "Checkpoints belong to this chat's folder, so other chats in it see them too.",
+  "@chatCheckpointsListNote": {
+    "description": "Note above the checkpoint list."
+  },
+  "chatCheckpointsListOff": "File checkpoints are off on your Hermes server. To use them, turn on {setting} in its config.",
+  "@chatCheckpointsListOff": {
+    "description": "Message when checkpoints are disabled on the server. {setting} is the config key, shown as code.",
+    "placeholders": {
+      "setting": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsListRetry": "Try again",
+  "@chatCheckpointsListRetry": {
+    "description": "Button under the message that the checkpoints could not be read."
+  },
+  "chatCheckpointsListStale": "Not up to date · reconnect to restore",
+  "@chatCheckpointsListStale": {
+    "description": "Note above the checkpoint list while the connection is down; the list is kept."
+  },
+  "chatCheckpointsOutcomeBusyCompressing": "Hermes is compressing this chat. Try again when it's done.",
+  "@chatCheckpointsOutcomeBusyCompressing": {
+    "description": "Outcome note when a restore was refused because Hermes is compressing the chat."
+  },
+  "chatCheckpointsOutcomeBusyReplying": "Wait for the reply to finish, then try again.",
+  "@chatCheckpointsOutcomeBusyReplying": {
+    "description": "Outcome note when a full restore was refused because the chat is replying."
+  },
+  "chatCheckpointsOutcomeChatUnchanged": "Your chat isn't changed.",
+  "@chatCheckpointsOutcomeChatUnchanged": {
+    "description": "Detail line of the note after one file was restored: the chat was not touched."
+  },
+  "chatCheckpointsOutcomeFailedMaybeChangedDetail": "Some may have changed.",
+  "@chatCheckpointsOutcomeFailedMaybeChangedDetail": {
+    "description": "Detail line of the note when a restore failed part-way: some files may have been changed. Never say that nothing changed here."
+  },
+  "chatCheckpointsOutcomeFailedTitle": "Hermes couldn't restore the files",
+  "@chatCheckpointsOutcomeFailedTitle": {
+    "description": "Title of the outcome note when a restore failed or was refused."
+  },
+  "chatCheckpointsOutcomeHistoryNotRewoundDetail": "Your messages are unchanged.",
+  "@chatCheckpointsOutcomeHistoryNotRewoundDetail": {
+    "description": "Detail line when files were restored but the chat could not be rewound."
+  },
+  "chatCheckpointsOutcomeHistoryNotRewoundTitle": "Files were restored, but the chat couldn't be rewound",
+  "@chatCheckpointsOutcomeHistoryNotRewoundTitle": {
+    "description": "Title of the warning note when a full restore put the files back but the chat was not rewound."
+  },
+  "chatCheckpointsOutcomeLastMessageNotRemoved": "Your last message in this app wasn't the one removed.",
+  "@chatCheckpointsOutcomeLastMessageNotRemoved": {
+    "description": "Detail line after a full restore that removed a message other than the last one this app showed; the message box is left alone."
+  },
+  "chatCheckpointsOutcomeListAndChatReread": "The list and the chat were read again.",
+  "@chatCheckpointsOutcomeListAndChatReread": {
+    "description": "Detail line saying the checkpoint list and the chat were fetched again after a restore."
+  },
+  "chatCheckpointsOutcomeListReread": "The list was read again.",
+  "@chatCheckpointsOutcomeListReread": {
+    "description": "Detail line saying the checkpoint list was fetched again after a restore."
+  },
+  "chatCheckpointsOutcomeMayHaveHappenedDetail": "The files may have been restored.",
+  "@chatCheckpointsOutcomeMayHaveHappenedDetail": {
+    "description": "Detail line of the warning note when Hermes did not answer a restore."
+  },
+  "chatCheckpointsOutcomeMayHaveHappenedTitle": "Hermes didn't answer",
+  "@chatCheckpointsOutcomeMayHaveHappenedTitle": {
+    "description": "Title of the warning note when a restore got no answer."
+  },
+  "chatCheckpointsOutcomeNothingChanged": "Nothing was changed.",
+  "@chatCheckpointsOutcomeNothingChanged": {
+    "description": "Detail line when a restore was refused before any file was touched."
+  },
+  "chatCheckpointsOutcomeRefusedContainer": "Checkpoints don't cover this chat's workspace",
+  "@chatCheckpointsOutcomeRefusedContainer": {
+    "description": "Title of the note when the chat runs in a separate workspace, so no checkpoints exist for its files."
+  },
+  "chatCheckpointsOutcomeRefusedNested": "This checkpoint includes a project inside the folder that Hermes didn't capture, so it can't restore it",
+  "@chatCheckpointsOutcomeRefusedNested": {
+    "description": "Title of the note when a checkpoint holds a nested repository that was not captured."
+  },
+  "chatCheckpointsOutcomeRefusedNotFound": "That checkpoint is gone",
+  "@chatCheckpointsOutcomeRefusedNotFound": {
+    "description": "Title of the note when the chosen checkpoint no longer exists, for example after another restore."
+  },
+  "chatCheckpointsOutcomeRestoredCount": "{count, plural, =1{Restored 1 file} other{Restored {count} files}}",
+  "@chatCheckpointsOutcomeRestoredCount": {
+    "description": "Success note after a restore whose number of files was read from the checkpoint's changes. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsOutcomeRestoredUnknown": "Files restored",
+  "@chatCheckpointsOutcomeRestoredUnknown": {
+    "description": "Success note after a restore when the number of files is not known."
+  },
+  "chatCheckpointsOutcomeSafetyNone": "No new “Before a restore” checkpoint was added.",
+  "@chatCheckpointsOutcomeSafetyNone": {
+    "description": "Detail line when the re-read list holds no new safety checkpoint. The quoted name is the reason text of that checkpoint."
+  },
+  "chatCheckpointsOutcomeSafetySaved": "Hermes saved the previous state as the top checkpoint, ‘Before a restore’.",
+  "@chatCheckpointsOutcomeSafetySaved": {
+    "description": "Detail line when the re-read list holds a new safety checkpoint taken before the restore."
+  },
+  "chatCheckpointsOutcomeSessionGone": "Hermes lost the connection to this chat. Try again.",
+  "@chatCheckpointsOutcomeSessionGone": {
+    "description": "Outcome note when the chat's session was gone while restoring."
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredCountRemoved": "{count, plural, =1{Restored 1 file · removed your last message} other{Restored {count} files · removed your last message}}",
+  "@chatCheckpointsOutcomeTranscriptRestoredCountRemoved": {
+    "description": "Centred line in the transcript after a full restore that removed the last message. {count} is how many files.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredCountRewound": "{count, plural, =1{Restored 1 file · rewound the chat} other{Restored {count} files · rewound the chat}}",
+  "@chatCheckpointsOutcomeTranscriptRestoredCountRewound": {
+    "description": "Centred line in the transcript after a full restore that removed messages from the chat but not the last message this app showed. {count} is how many files.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredUnknownRemoved": "Files restored · removed your last message",
+  "@chatCheckpointsOutcomeTranscriptRestoredUnknownRemoved": {
+    "description": "Centred line in the transcript after a full restore when the file count is not known."
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredUnknownRewound": "Files restored · rewound the chat",
+  "@chatCheckpointsOutcomeTranscriptRestoredUnknownRewound": {
+    "description": "Like the line above when the file count is not known."
+  },
+  "chatCheckpointsOutcomeTryAgain": "Try again",
+  "@chatCheckpointsOutcomeTryAgain": {
+    "description": "Button on a restore outcome note that asks for the restore again, behind a new confirmation."
+  },
+  "chatCheckpointsRestoreAllConfirm": "Restore all files",
+  "@chatCheckpointsRestoreAllConfirm": {
+    "description": "Destructive button of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllDifferCount": "{count, plural, =1{1 file differs now. Changes made since, by you or Hermes, will be overwritten.} other{{count} files differ now. Changes made since, by you or Hermes, will be overwritten.}}",
+  "@chatCheckpointsRestoreAllDifferCount": {
+    "description": "Line of the Restore all files confirmation: how many files differ from the checkpoint now. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsRestoreAllDifferUnknown": "Some files differ now. Changes made since, by you or Hermes, will be overwritten.",
+  "@chatCheckpointsRestoreAllDifferUnknown": {
+    "description": "Line of the Restore all files confirmation when the number of differing files could not be read."
+  },
+  "chatCheckpointsRestoreAllIntro": "Files in this folder go back to how they were {time}{reason, select, beforeEdit{, before editing a file} beforeTerminal{, before a terminal command} beforeRestore{, before a restore} other{}}.",
+  "@chatCheckpointsRestoreAllIntro": {
+    "description": "First sentence of the Restore all files confirmation. {time} is a relative time such as '12 min ago'; {reason} is the checkpoint's reason kind (beforeEdit, beforeTerminal, beforeRestore, other).",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsRestoreAllLaterFiles": "Files created after that stay where they are.",
+  "@chatCheckpointsRestoreAllLaterFiles": {
+    "description": "Line of the Restore all files confirmation: files created later are not deleted."
+  },
+  "chatCheckpointsRestoreAllNotCaptured": ".env files, logs, node_modules, build output, caches, virtual environments, archives, videos, compiled binaries and files over 10 MB aren't in checkpoints: this leaves them as they are, and no checkpoint can bring them back.",
+  "@chatCheckpointsRestoreAllNotCaptured": {
+    "description": "Line of the Restore all files confirmation naming what checkpoints never hold."
+  },
+  "chatCheckpointsRestoreAllNote": "Chats don't track which message a checkpoint belongs to, so only your last message is removed, whichever checkpoint you pick. Other chats in this folder keep their messages but see the restored files.",
+  "@chatCheckpointsRestoreAllNote": {
+    "description": "Muted note at the end of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllOtherChat": "Another chat working in this folder can change these files again.",
+  "@chatCheckpointsRestoreAllOtherChat": {
+    "description": "Line of the Restore all files confirmation: another chat shares the folder."
+  },
+  "chatCheckpointsRestoreAllQuoteHint": "If this is the message removed, it goes back into the message box, unsent.",
+  "@chatCheckpointsRestoreAllQuoteHint": {
+    "description": "Caption under the quoted last message in the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllQuoteLabel": "Your last message",
+  "@chatCheckpointsRestoreAllQuoteLabel": {
+    "description": "Accessibility label of the quoted last message in the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllRemovesMessages": "This also removes your last message and Hermes' answers after it from this chat.",
+  "@chatCheckpointsRestoreAllRemovesMessages": {
+    "description": "Bold warning line of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllReplying": "Wait for the reply to finish.",
+  "@chatCheckpointsRestoreAllReplying": {
+    "description": "Reason shown under the disabled Restore all files button while the chat replies."
+  },
+  "chatCheckpointsRestoreAllSaveFirst": "Hermes tries to save the current state first.",
+  "@chatCheckpointsRestoreAllSaveFirst": {
+    "description": "Line of the Restore all files confirmation: a safety checkpoint is attempted."
+  },
+  "chatCheckpointsRestoreAllTitle": "Restore all files?",
+  "@chatCheckpointsRestoreAllTitle": {
+    "description": "Title of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreCancel": "Cancel",
+  "@chatCheckpointsRestoreCancel": {
+    "description": "Cancel button of the restore confirmations, the default."
+  },
+  "chatCheckpointsRestoreFileBody": "{file} goes back to how it was {time}{reason, select, beforeEdit{, before editing a file} beforeTerminal{, before a terminal command} beforeRestore{, before a restore} other{}}. Changes made to it since, by you or Hermes, will be overwritten. Hermes tries to save the current version first. Your chat isn't changed. Another chat working in this folder can change this file again.",
+  "@chatCheckpointsRestoreFileBody": {
+    "description": "Body of the Restore this file confirmation. {file} is the file's name, {time} a relative time such as '12 min ago', {reason} the checkpoint's reason kind (beforeEdit, beforeTerminal, beforeRestore, other).",
+    "placeholders": {
+      "file": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsRestoreFileConfirm": "Restore file",
+  "@chatCheckpointsRestoreFileConfirm": {
+    "description": "Destructive button of the Restore this file confirmation."
+  },
+  "chatCheckpointsRestoreFileTitle": "Restore this file?",
+  "@chatCheckpointsRestoreFileTitle": {
+    "description": "Title of the Restore this file confirmation."
+  },
+  "chatCheckpointsRestoreFileWorking": "Hermes is working in this folder right now. It may change the file again.",
+  "@chatCheckpointsRestoreFileWorking": {
+    "description": "Extra line of the Restore this file confirmation while the agent works."
+  },
+  "chatCheckpointsRowBeforeEdit": "Before editing a file",
+  "@chatCheckpointsRowBeforeEdit": {
+    "description": "Title of a checkpoint made before Hermes edited a file."
+  },
+  "chatCheckpointsRowBeforeRestore": "Before a restore",
+  "@chatCheckpointsRowBeforeRestore": {
+    "description": "Title of a checkpoint Hermes made before a restore."
+  },
+  "chatCheckpointsRowBeforeTerminal": "Before a terminal command",
+  "@chatCheckpointsRowBeforeTerminal": {
+    "description": "Title of a checkpoint made before Hermes ran a terminal command."
+  },
+  "chatCheckpointsRowMenuLabel": "Actions for the checkpoint from {time}",
+  "@chatCheckpointsRowMenuLabel": {
+    "description": "Accessible name of the \"…\" button of a checkpoint row. {time} is a relative time.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsRowOther": "Checkpoint",
+  "@chatCheckpointsRowOther": {
+    "description": "Title of a checkpoint with no recognised reason."
+  },
+  "chatCheckpointsRowRestoreAll": "Restore all files…",
+  "@chatCheckpointsRowRestoreAll": {
+    "description": "Menu item of a checkpoint row that starts restoring every file."
+  },
+  "chatCheckpointsRowSeeChanges": "See changes",
+  "@chatCheckpointsRowSeeChanges": {
+    "description": "Menu item of a checkpoint row that opens its changes."
+  },
+  "chatCheckpointsRowUnknownTime": "Unknown time",
+  "@chatCheckpointsRowUnknownTime": {
+    "description": "Shown where the time of a checkpoint is not known."
+  },
+
+  "@@x-area-chat/context": "",
+  "chatContextBarLabel": "Context, {percent} percent used",
+  "@chatContextBarLabel": {
+    "description": "Accessibility label of the context bar. {percent} is a whole number.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextBarLabelEstimated": "Context, {percent} percent used, estimated",
+  "@chatContextBarLabelEstimated": {
+    "description": "Accessibility label of the context bar when the figure is an estimate. {percent} is a whole number.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextCaption": "{used} of {max} tokens",
+  "@chatContextCaption": {
+    "description": "Caption under the context bar. {used} and {max} are short counts such as 124k and 200k.",
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextCaptionEstimated": "about {used} of {max} tokens",
+  "@chatContextCaptionEstimated": {
+    "description": "Caption under the context bar when the used count is an estimate. {used} and {max} are counts such as 124k and 200k.",
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextCategoryFailed": "Couldn't read what fills the context.",
+  "@chatContextCategoryFailed": {
+    "description": "Error line where the list of what fills the context should be."
+  },
+  "chatContextCategoryFooter": "Numbers are tokens. They are estimates.",
+  "@chatContextCategoryFooter": {
+    "description": "Footer under the list of what fills the context window."
+  },
+  "chatContextCategoryHeading": "What's in it",
+  "@chatContextCategoryHeading": {
+    "description": "Heading of the list of what fills the context window."
+  },
+  "chatContextCategoryLoading": "Reading what fills the context…",
+  "@chatContextCategoryLoading": {
+    "description": "Accessibility label of the placeholder rows while the list of what fills the context loads."
+  },
+  "chatContextCategoryNameConversation": "Conversation",
+  "@chatContextCategoryNameConversation": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameMcp": "MCP servers",
+  "@chatContextCategoryNameMcp": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameMemory": "Memory",
+  "@chatContextCategoryNameMemory": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameOther": "Other",
+  "@chatContextCategoryNameOther": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameRules": "Rules files",
+  "@chatContextCategoryNameRules": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameSkills": "Skills",
+  "@chatContextCategoryNameSkills": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameSubagents": "Sub-agents",
+  "@chatContextCategoryNameSubagents": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameSystemPrompt": "System prompt",
+  "@chatContextCategoryNameSystemPrompt": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameTools": "Tools",
+  "@chatContextCategoryNameTools": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryRetry": "Try again",
+  "@chatContextCategoryRetry": {
+    "description": "Button under the error that reloads the list of what fills the context."
+  },
+  "chatContextCategoryTokens": "{tokens} tokens",
+  "@chatContextCategoryTokens": {
+    "description": "Accessibility label for the token count of one category. {tokens} is a number with thousands separators.",
+    "placeholders": {
+      "tokens": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextCompressAdvanced": "Advanced",
+  "@chatContextCompressAdvanced": {
+    "description": "Collapsed section of the compress confirmation that holds the optional focus field."
+  },
+  "chatContextCompressBodyHelper": "A helper model writes the summary and uses tokens on your account.",
+  "@chatContextCompressBodyHelper": {
+    "description": "Second line of the compress confirmation: it costs tokens."
+  },
+  "chatContextCompressBodyReload": "The chat reloads and shows the summary where the older messages were.",
+  "@chatContextCompressBodyReload": {
+    "description": "Fourth line of the compress confirmation."
+  },
+  "chatContextCompressBodyReplace": "Older messages are replaced by a short summary. Your first and latest messages stay word for word.",
+  "@chatContextCompressBodyReplace": {
+    "description": "First line of the compress confirmation."
+  },
+  "chatContextCompressBodyUndo": "This can't be undone.",
+  "@chatContextCompressBodyUndo": {
+    "description": "Third line of the compress confirmation."
+  },
+  "chatContextCompressCancel": "Cancel",
+  "@chatContextCompressCancel": {
+    "description": "Button that closes the compress confirmation without compressing."
+  },
+  "chatContextCompressConfirm": "Compress",
+  "@chatContextCompressConfirm": {
+    "description": "Button that starts compressing the chat."
+  },
+  "chatContextCompressFocusError": "Write a topic, like “the database schema”. Leave out words that start with “-”, and don't start with “here”.",
+  "@chatContextCompressFocusError": {
+    "description": "Error under the focus field when the text would be read as a command by the server. “-” and “here” are literal."
+  },
+  "chatContextCompressFocusHelper": "The summary keeps more about this topic.",
+  "@chatContextCompressFocusHelper": {
+    "description": "Helper text under the focus field."
+  },
+  "chatContextCompressFocusHint": "Keep details about…",
+  "@chatContextCompressFocusHint": {
+    "description": "Placeholder of the focus field."
+  },
+  "chatContextCompressFocusLabel": "Focus on (optional)",
+  "@chatContextCompressFocusLabel": {
+    "description": "Label of the optional text field that tells the summary what to keep."
+  },
+  "chatContextCompressReplyStarted": "Wait for the reply to finish.",
+  "@chatContextCompressReplyStarted": {
+    "description": "Shown in the compress confirmation, with Compress disabled, because the chat started replying."
+  },
+  "chatContextCompressTitle": "Compress this conversation?",
+  "@chatContextCompressTitle": {
+    "description": "Title of the confirmation before Hermes compresses the chat."
+  },
+  "chatContextCompressing": "Compressing the conversation…",
+  "@chatContextCompressing": {
+    "description": "Line on the context row while Hermes compresses the chat."
+  },
+  "chatContextDetailsModel": "Model: {model}",
+  "@chatContextDetailsModel": {
+    "description": "Muted line on the Context details page. {model} is the model's name as the server reports it.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextFull": "Full",
+  "@chatContextFull": {
+    "description": "State word beside the percentage when the context window is full or over. Keep it short."
+  },
+  "chatContextLabel": "Context",
+  "@chatContextLabel": {
+    "description": "Label of the row that shows how full the chat's context window is."
+  },
+  "chatContextNearlyFull": "Nearly full",
+  "@chatContextNearlyFull": {
+    "description": "State word beside the percentage when the context window is 80% or more used. Keep it short."
+  },
+  "chatContextNotUpToDate": "Not up to date",
+  "@chatContextNotUpToDate": {
+    "description": "Marker on the context figures when the connection is closed and they may have changed."
+  },
+  "chatContextOutcomeAborted": "Hermes couldn't write the summary, so nothing changed.",
+  "@chatContextOutcomeAborted": {
+    "description": "Warning note when the summary could not be written."
+  },
+  "chatContextOutcomeBusyCompressing": "Hermes is compressing this chat. Try again when it's done.",
+  "@chatContextOutcomeBusyCompressing": {
+    "description": "Note when another compress of this chat is running."
+  },
+  "chatContextOutcomeBusyReplying": "Wait for the reply to finish, then try again.",
+  "@chatContextOutcomeBusyReplying": {
+    "description": "Note when compressing was refused because the chat is replying."
+  },
+  "chatContextOutcomeCompressed": "Conversation compressed",
+  "@chatContextOutcomeCompressed": {
+    "description": "Title of the note after the chat was compressed."
+  },
+  "chatContextOutcomeCouldntConfirm": "Hermes didn't answer. The conversation may have been compressed.",
+  "@chatContextOutcomeCouldntConfirm": {
+    "description": "Warning title when no answer to the compress request arrived."
+  },
+  "chatContextOutcomeCouldntConfirmDetail": "The chat and its usage were read again. You can try again after a new confirmation.",
+  "@chatContextOutcomeCouldntConfirmDetail": {
+    "description": "Detail under the no-answer warning: the app re-read the chat and offers Try again."
+  },
+  "chatContextOutcomeFailed": "Hermes couldn't compress the conversation.",
+  "@chatContextOutcomeFailed": {
+    "description": "Error note for any other failure of the compress request."
+  },
+  "chatContextOutcomeFallback": "Hermes couldn't summarize the older messages, so it dropped them.",
+  "@chatContextOutcomeFallback": {
+    "description": "Added to the compressed note when the summary failed and the older messages were removed without one."
+  },
+  "chatContextOutcomeJoined": "{first} · {second}",
+  "@chatContextOutcomeJoined": {
+    "description": "Two facts about a compress result on one line, joined by a middle dot.",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "second": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextOutcomeLockHeld": "Hermes is already compressing this chat.",
+  "@chatContextOutcomeLockHeld": {
+    "description": "Note when another compression holds the lock on this chat."
+  },
+  "chatContextOutcomeMessages": "{before} → {after, plural, =1{1 message} other{{after} messages}}",
+  "@chatContextOutcomeMessages": {
+    "description": "How many messages the chat had before and after compressing. {before} and {after} are counts.",
+    "placeholders": {
+      "before": {
+        "type": "int"
+      },
+      "after": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextOutcomeNothing": "There isn't enough to compress yet.",
+  "@chatContextOutcomeNothing": {
+    "description": "Note when the chat is too short to compress."
+  },
+  "chatContextOutcomePending": "Hermes is compressing this chat in the background.",
+  "@chatContextOutcomePending": {
+    "description": "Title of the note when the compress runs on another machine and has not finished."
+  },
+  "chatContextOutcomePendingDetail": "The chat reloads when it is done.",
+  "@chatContextOutcomePendingDetail": {
+    "description": "Detail under the background-compress note."
+  },
+  "chatContextOutcomeTokens": "about {before} → {after} tokens",
+  "@chatContextOutcomeTokens": {
+    "description": "How many tokens the chat used before and after compressing. {before} and {after} are short counts such as 120k.",
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextOutcomeTryAgain": "Try again",
+  "@chatContextOutcomeTryAgain": {
+    "description": "Action in a compress note that opens the confirmation again."
+  },
+  "chatContextOutcomeWouldNotShrink": "Compressing wouldn't make this chat smaller.",
+  "@chatContextOutcomeWouldNotShrink": {
+    "description": "Note when compressing would not reduce the chat."
+  },
+  "chatContextPercent": "{percent}%",
+  "@chatContextPercent": {
+    "description": "The share of the context window in use. {percent} is a whole number from 0 to 100.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextSuggestion": "Compress to make room?",
+  "@chatContextSuggestion": {
+    "description": "Question on the context row that offers to compress the chat when it is nearly full."
+  },
+  "chatContextSuggestionCompress": "Compress…",
+  "@chatContextSuggestionCompress": {
+    "description": "Text button that opens the compress confirmation. The dots mean a confirmation follows."
+  },
+  "chatContextSuggestionDismiss": "Not now",
+  "@chatContextSuggestionDismiss": {
+    "description": "Text button that dismisses the compress suggestion."
+  },
+  "chatContextSummaryFilled": "full",
+  "@chatContextSummaryFilled": {
+    "description": "Word after the large percentage on the Context details page, as in 62% full."
+  },
+  "chatContextTokensMillion": "{count}M",
+  "@chatContextTokensMillion": {
+    "description": "A token count in millions. {count} is a number such as 1.2.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextTokensThousand": "{count}k",
+  "@chatContextTokensThousand": {
+    "description": "A token count in thousands. {count} is a number such as 124 or 8.4.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextTranscriptCompressed": "Conversation compressed · {before} → {after, plural, =1{1 message} other{{after} messages}}",
+  "@chatContextTranscriptCompressed": {
+    "description": "Muted line in the transcript where the chat was compressed. {before} and {after} are message counts.",
+    "placeholders": {
+      "before": {
+        "type": "int"
+      },
+      "after": {
+        "type": "int"
+      }
+    }
+  },
+
   "@@x-area-chat/gateway": "",
 
   "@@x-area-chat/invalidation": "",
@@ -474,9 +1336,491 @@
 
   "@@x-area-chat/side_results": "",
 
+  "@@x-area-chat/subagents": "",
+  "chatSubagentsActionShowDetails": "Show details",
+  "@chatSubagentsActionShowDetails": {
+    "description": "Custom action and swipe or long-press item that opens an agent's details."
+  },
+  "chatSubagentsActionStopAgent": "Stop agent",
+  "@chatSubagentsActionStopAgent": {
+    "description": "Custom action and swipe item that asks whether to stop an agent."
+  },
+  "chatSubagentsBannerAgentEnded": "That agent has ended.",
+  "@chatSubagentsBannerAgentEnded": {
+    "description": "Banner when the agent ended while the stop confirmation was open."
+  },
+  "chatSubagentsBannerAlreadyFinished": "This agent had already finished.",
+  "@chatSubagentsBannerAlreadyFinished": {
+    "description": "Banner when a re-read showed the agent had ended before the stop."
+  },
+  "chatSubagentsBannerCheckingDetail": "Checking…",
+  "@chatSubagentsBannerCheckingDetail": {
+    "description": "Detail of the banner while the app re-reads the list."
+  },
+  "chatSubagentsBannerCheckingTitle": "Couldn't confirm the stop.",
+  "@chatSubagentsBannerCheckingTitle": {
+    "description": "Title of the banner while the app re-reads the list after a lost answer."
+  },
+  "chatSubagentsBannerNotControllable": "Hermes doesn't let this device stop or redirect this agent. It keeps running.",
+  "@chatSubagentsBannerNotControllable": {
+    "description": "Banner for a running agent the server lists but does not let this device control."
+  },
+  "chatSubagentsBannerNoteFailedTitle": "Couldn't send the note.",
+  "@chatSubagentsBannerNoteFailedTitle": {
+    "description": "Title of the banner when sending a note failed."
+  },
+  "chatSubagentsBannerNoteLostDetail": "Sending it again may deliver it twice.",
+  "@chatSubagentsBannerNoteLostDetail": {
+    "description": "Detail of the banner when the answer to a note was lost."
+  },
+  "chatSubagentsBannerNoteLostTitle": "Couldn't confirm the note was sent.",
+  "@chatSubagentsBannerNoteLostTitle": {
+    "description": "Title of the banner when the answer to a note was lost."
+  },
+  "chatSubagentsBannerNoteMissedDetail": "It had finished first.",
+  "@chatSubagentsBannerNoteMissedDetail": {
+    "description": "Detail of the banner when Hermes says the note arrived too late."
+  },
+  "chatSubagentsBannerNoteMissedTitle": "Your note didn't reach the agent.",
+  "@chatSubagentsBannerNoteMissedTitle": {
+    "description": "Title of the banner when Hermes says the note arrived too late."
+  },
+  "chatSubagentsBannerNoteRejected": "This agent isn't taking notes now.",
+  "@chatSubagentsBannerNoteRejected": {
+    "description": "Banner when the server refused the note."
+  },
+  "chatSubagentsBannerNoteUnsupported": "This server can't take notes for agents.",
+  "@chatSubagentsBannerNoteUnsupported": {
+    "description": "Banner when the server has no steer call."
+  },
+  "chatSubagentsBannerOffline": "You're offline. This is the last output read. Stop and notes work again once Hermes is back.",
+  "@chatSubagentsBannerOffline": {
+    "description": "Banner while there is no connection to Hermes."
+  },
+  "chatSubagentsBannerSentDetail": "The agent gets it after its current step.",
+  "@chatSubagentsBannerSentDetail": {
+    "description": "Detail of the banner once a note was queued."
+  },
+  "chatSubagentsBannerSentTitle": "Sent.",
+  "@chatSubagentsBannerSentTitle": {
+    "description": "Title of the banner once a note was queued."
+  },
+  "chatSubagentsBannerStopFailedTitle": "Couldn't stop the agent.",
+  "@chatSubagentsBannerStopFailedTitle": {
+    "description": "Title of the banner when the stop failed."
+  },
+  "chatSubagentsBannerStopUnsupported": "This server can't stop agents.",
+  "@chatSubagentsBannerStopUnsupported": {
+    "description": "Banner when the server has no stop call."
+  },
+  "chatSubagentsBannerStoppingDetail": "A tool that is running may be cut off.",
+  "@chatSubagentsBannerStoppingDetail": {
+    "description": "Detail of the banner once the server accepted the stop."
+  },
+  "chatSubagentsBannerStoppingTitle": "Stopping…",
+  "@chatSubagentsBannerStoppingTitle": {
+    "description": "Title of the banner once the server accepted the stop."
+  },
+  "chatSubagentsBannerTryAgain": "Try again.",
+  "@chatSubagentsBannerTryAgain": {
+    "description": "Detail of a banner after a failure the user may retry."
+  },
+  "chatSubagentsBannerUnconfirmedDetail": "It may still be running.",
+  "@chatSubagentsBannerUnconfirmedDetail": {
+    "description": "Detail of the banner when the stop could not be confirmed; the user may try again."
+  },
+  "chatSubagentsConfirmCancel": "Cancel",
+  "@chatSubagentsConfirmCancel": {
+    "description": "Cancel button of the stop confirmation."
+  },
+  "chatSubagentsConfirmMessage": "{goal}\n\nIt stops as soon as it can, along with any agents it started. A tool that is running may be cut off. What it already did stays, and the reply goes on without the rest. Programs it started keep running.",
+  "@chatSubagentsConfirmMessage": {
+    "description": "Message of the stop confirmation. {goal} is the agent's goal cut to one line.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsConfirmTitle": "Stop this agent?",
+  "@chatSubagentsConfirmTitle": {
+    "description": "Title of the confirmation before an agent is stopped."
+  },
+  "chatSubagentsDelivered": "What it delivered",
+  "@chatSubagentsDelivered": {
+    "description": "Title of the section with the agent's final summary."
+  },
+  "chatSubagentsDetailBack": "Activity",
+  "@chatSubagentsDetailBack": {
+    "description": "Label of the back control of an agent's detail on Apple platforms."
+  },
+  "chatSubagentsDetailBackTooltip": "Back to Activity",
+  "@chatSubagentsDetailBackTooltip": {
+    "description": "Accessible name of the back control of an agent's detail."
+  },
+  "chatSubagentsDetailClose": "Close",
+  "@chatSubagentsDetailClose": {
+    "description": "Accessible name of the close control of an agent's detail in a sheet."
+  },
+  "chatSubagentsDetailTitle": "Agent",
+  "@chatSubagentsDetailTitle": {
+    "description": "Title of an agent's detail."
+  },
+  "chatSubagentsEarlierNotShown": "{count, plural, =1{1 earlier agent not shown} other{{count} earlier agents not shown}}",
+  "@chatSubagentsEarlierNotShown": {
+    "description": "Line under the ended agents when older ones are left out. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatSubagentsEndedFailed": "This agent failed. Stop and notes no longer apply.",
+  "@chatSubagentsEndedFailed": {
+    "description": "Line under the facts of a failed agent."
+  },
+  "chatSubagentsEndedFinished": "This agent has finished. Stop and notes no longer apply.",
+  "@chatSubagentsEndedFinished": {
+    "description": "Line under the facts of a finished agent."
+  },
+  "chatSubagentsEndedStopped": "This agent was stopped.",
+  "@chatSubagentsEndedStopped": {
+    "description": "Line under the facts of a stopped agent."
+  },
+  "chatSubagentsEndedUnknown": "This agent is no longer running.",
+  "@chatSubagentsEndedUnknown": {
+    "description": "Line under the facts of an agent that ended with no known result."
+  },
+  "chatSubagentsMenuShowDetails": "Show Details",
+  "@chatSubagentsMenuShowDetails": {
+    "description": "Mac context menu item that opens an agent's details."
+  },
+  "chatSubagentsMenuStopAgent": "Stop Agent…",
+  "@chatSubagentsMenuStopAgent": {
+    "description": "Mac context menu item that asks whether to stop an agent."
+  },
+  "chatSubagentsNoteCopy": "Copy",
+  "@chatSubagentsNoteCopy": {
+    "description": "Button that copies the unsent note."
+  },
+  "chatSubagentsNoteCounter": "{count} / {limit}",
+  "@chatSubagentsNoteCounter": {
+    "description": "Character counter of the note field. {count} is the length, {limit} the most allowed.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "limit": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatSubagentsNoteHelper": "Goes only to this agent, after the step it's on. It isn't added to the chat. Notes aren't kept once you close this.",
+  "@chatSubagentsNoteHelper": {
+    "description": "Helper text under the note field."
+  },
+  "chatSubagentsNoteLabel": "Note to this agent",
+  "@chatSubagentsNoteLabel": {
+    "description": "Screen-reader name of the note field."
+  },
+  "chatSubagentsNoteNotSent": "Not sent",
+  "@chatSubagentsNoteNotSent": {
+    "description": "Heading of typed text that can no longer be sent."
+  },
+  "chatSubagentsNotePlaceholder": "Tell this agent what to do differently",
+  "@chatSubagentsNotePlaceholder": {
+    "description": "Placeholder of the note field."
+  },
+  "chatSubagentsNoteSend": "Send to agent",
+  "@chatSubagentsNoteSend": {
+    "description": "Button that sends the note to the agent."
+  },
+  "chatSubagentsNoteSending": "Sending…",
+  "@chatSubagentsNoteSending": {
+    "description": "Label of the send button while the note is on its way."
+  },
+  "chatSubagentsNoteTitle": "Redirect this agent",
+  "@chatSubagentsNoteTitle": {
+    "description": "Title of the section where the user writes a note to one agent."
+  },
+  "chatSubagentsNoteTo": "To: {goal}",
+  "@chatSubagentsNoteTo": {
+    "description": "Line naming the agent a note goes to. {goal} is the agent's goal.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsNotesSent": "Your notes",
+  "@chatSubagentsNotesSent": {
+    "description": "Title of the list of notes sent to this agent while the detail stays open."
+  },
+  "chatSubagentsOutputJump": "Jump to latest",
+  "@chatSubagentsOutputJump": {
+    "description": "Button that shows the newest output and resumes following it."
+  },
+  "chatSubagentsOutputLabel": "Agent output",
+  "@chatSubagentsOutputLabel": {
+    "description": "Screen-reader name of the output text area."
+  },
+  "chatSubagentsOutputLoading": "Reading output…",
+  "@chatSubagentsOutputLoading": {
+    "description": "Shown while the first read of an agent's output is pending."
+  },
+  "chatSubagentsOutputNever": "Output isn't available here.",
+  "@chatSubagentsOutputNever": {
+    "description": "Shown when an agent's output stays unavailable long after it started."
+  },
+  "chatSubagentsOutputNone": "No output yet",
+  "@chatSubagentsOutputNone": {
+    "description": "Shown when a running agent has printed nothing yet."
+  },
+  "chatSubagentsOutputPaused": "Paused",
+  "@chatSubagentsOutputPaused": {
+    "description": "Pill over the output while a selection or scroll position holds the refresh."
+  },
+  "chatSubagentsOutputRefreshFailed": "Couldn't refresh the output.",
+  "@chatSubagentsOutputRefreshFailed": {
+    "description": "Line under the output when a refresh failed; the last text stays."
+  },
+  "chatSubagentsOutputTitle": "Recent output",
+  "@chatSubagentsOutputTitle": {
+    "description": "Title of the section that shows what a running agent printed lately."
+  },
+  "chatSubagentsOutputTitleLast": "Last output",
+  "@chatSubagentsOutputTitleLast": {
+    "description": "Title of the output section once the agent ended; the text no longer refreshes."
+  },
+  "chatSubagentsOutputTruncated": "Showing the latest output",
+  "@chatSubagentsOutputTruncated": {
+    "description": "Note under the output title when only the end of the output is shown."
+  },
+  "chatSubagentsRowCurrent": "{tool} · {preview}",
+  "@chatSubagentsRowCurrent": {
+    "description": "Third line of a running agent row: the tool it uses now and what it does with it.",
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      },
+      "preview": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowLine": "{state} · {time}",
+  "@chatSubagentsRowLine": {
+    "description": "Second line of an agent row without tool count: the state word and the run time.",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowLineTools": "{state} · {time} · {tools}",
+  "@chatSubagentsRowLineTools": {
+    "description": "Second line of an agent row: the state word, the run time and the tools used.",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "tools": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowSemantics": "{goal}, {state}, {tools}, {time}",
+  "@chatSubagentsRowSemantics": {
+    "description": "Screen-reader label of an agent row: goal, state, tools used and run time.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      },
+      "tools": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowSemanticsNoTools": "{goal}, {state}, {time}",
+  "@chatSubagentsRowSemanticsNoTools": {
+    "description": "Screen-reader label of an agent row that has used no tool yet.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowShowDetailsHint": "Shows details in Activity",
+  "@chatSubagentsRowShowDetailsHint": {
+    "description": "Screen-reader hint of a row that opens an agent's details in the Activity panel."
+  },
+  "chatSubagentsStartedByAgent": "Started by another agent",
+  "@chatSubagentsStartedByAgent": {
+    "description": "Fact line of an agent that another agent delegated to."
+  },
+  "chatSubagentsStateEnded": "Ended",
+  "@chatSubagentsStateEnded": {
+    "description": "State word of an agent that is no longer running without a known result."
+  },
+  "chatSubagentsStateFailed": "Failed",
+  "@chatSubagentsStateFailed": {
+    "description": "State word of an agent whose work failed."
+  },
+  "chatSubagentsStateFinished": "Finished",
+  "@chatSubagentsStateFinished": {
+    "description": "State word of an agent that completed."
+  },
+  "chatSubagentsStateRunning": "Running",
+  "@chatSubagentsStateRunning": {
+    "description": "State word of an agent that is working."
+  },
+  "chatSubagentsStateStarting": "Starting",
+  "@chatSubagentsStateStarting": {
+    "description": "State word of an agent that was just delegated and has not begun."
+  },
+  "chatSubagentsStateStopped": "Stopped",
+  "@chatSubagentsStateStopped": {
+    "description": "State word of an agent the user stopped."
+  },
+  "chatSubagentsStopBusy": "Stopping…",
+  "@chatSubagentsStopBusy": {
+    "description": "Label of the stop button while the stop is in flight."
+  },
+  "chatSubagentsStopButton": "Stop agent",
+  "@chatSubagentsStopButton": {
+    "description": "Button that asks whether to stop the agent, and the confirmation's destructive button."
+  },
+  "chatSubagentsStopFootnote": "Programs it started keep running.",
+  "@chatSubagentsStopFootnote": {
+    "description": "Line under the stop button."
+  },
+  "chatSubagentsToolCount": "{count, plural, =1{1 tool} other{{count} tools}}",
+  "@chatSubagentsToolCount": {
+    "description": "How many tools an agent has used. {count} is the number.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatSubagentsWentWrong": "What went wrong",
+  "@chatSubagentsWentWrong": {
+    "description": "Title of the section with a failed delegation's error."
+  },
+
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsProgramConfirmCancel": "Cancel",
+  "@chatWidgetsProgramConfirmCancel": {
+    "description": "Cancel button of the program stop confirmation."
+  },
+  "chatWidgetsProgramConfirmMessage": "Hermes ends {command}\n\nIts output so far stays here, and the agent won't be told it finished.",
+  "@chatWidgetsProgramConfirmMessage": {
+    "description": "Message of the program stop confirmation. {command} is the command cut to one line.",
+    "placeholders": {
+      "command": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsProgramConfirmTitle": "Stop this program?",
+  "@chatWidgetsProgramConfirmTitle": {
+    "description": "Title of the confirmation before a background program is stopped."
+  },
+  "chatWidgetsProgramEarlierOmitted": "Earlier output omitted",
+  "@chatWidgetsProgramEarlierOmitted": {
+    "description": "Line above the text of a program card first filled from the list, which holds only the end of the output."
+  },
+  "chatWidgetsProgramLine": "{state} · {time}",
+  "@chatWidgetsProgramLine": {
+    "description": "Second line of a background program card: the state and the run time.",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsProgramNoOutput": "No output received.",
+  "@chatWidgetsProgramNoOutput": {
+    "description": "Text of an expanded background program card that has received no output yet."
+  },
+  "chatWidgetsProgramOmittedCards": "Earlier process cards omitted",
+  "@chatWidgetsProgramOmittedCards": {
+    "description": "Line under the program cards when older cards were dropped to keep the list short."
+  },
+  "chatWidgetsProgramOutcomeAlreadyEnded": "It had already ended.",
+  "@chatWidgetsProgramOutcomeAlreadyEnded": {
+    "description": "Banner when the program had ended before the stop."
+  },
+  "chatWidgetsProgramOutcomeFailed": "Couldn't stop the program.",
+  "@chatWidgetsProgramOutcomeFailed": {
+    "description": "Title of the banner when stopping a program failed."
+  },
+  "chatWidgetsProgramOutcomeNotListed": "This program is no longer listed.",
+  "@chatWidgetsProgramOutcomeNotListed": {
+    "description": "Banner when Hermes no longer knows the program."
+  },
+  "chatWidgetsProgramOutcomeStopped": "Stopped",
+  "@chatWidgetsProgramOutcomeStopped": {
+    "description": "Banner once a program was stopped."
+  },
+  "chatWidgetsProgramStateClosed": "Closed",
+  "@chatWidgetsProgramStateClosed": {
+    "description": "State word of a program card Hermes has no list entry for, once its terminal closed."
+  },
+  "chatWidgetsProgramStateEnded": "Ended",
+  "@chatWidgetsProgramStateEnded": {
+    "description": "State word of a background program that ended without a known code."
+  },
+  "chatWidgetsProgramStateExited": "Exited with code {code}",
+  "@chatWidgetsProgramStateExited": {
+    "description": "State of a background program that ended on its own. {code} is its exit code, which may be 0.",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsProgramStateRunning": "Running",
+  "@chatWidgetsProgramStateRunning": {
+    "description": "State word of a background program that is running."
+  },
+  "chatWidgetsProgramStateStopped": "Stopped",
+  "@chatWidgetsProgramStateStopped": {
+    "description": "State word of a background program Hermes ended on request."
+  },
+  "chatWidgetsProgramStopBusy": "Stopping…",
+  "@chatWidgetsProgramStopBusy": {
+    "description": "Label of the stop button while the stop is in flight."
+  },
+  "chatWidgetsProgramStopButton": "Stop program",
+  "@chatWidgetsProgramStopButton": {
+    "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
+  },
 
   "@@x-area-core": "",
 
@@ -990,6 +2334,156 @@
   "@providersAddHeading": {
     "description": "Heading of the part of the model providers list that offers providers not yet connected."
   },
+  "providersAlertCantUse": "{profile} can no longer use {provider} models.",
+  "@providersAlertCantUse": {
+    "description": "Body of a removal alert.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersAlertCleartextBody": "{address} isn't encrypted. Anyone on the network could read the key on its way.",
+  "@providersAlertCleartextBody": {
+    "description": "Body of the alert shown before a key goes to an address that is not encrypted.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "models.example.net"
+      }
+    }
+  },
+  "providersAlertCleartextTitle": "Send the key unencrypted?",
+  "@providersAlertCleartextTitle": {
+    "description": "Title of the alert shown before a key goes to an address that is not encrypted."
+  },
+  "providersAlertDefaultWarning": "New chats in {profile} can't start until you pick another model.",
+  "@providersAlertDefaultWarning": {
+    "description": "Sentence added to a removal question when the provider serves the default model.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersAlertDeleteAction": "Delete",
+  "@providersAlertDeleteAction": {
+    "description": "Red action of the delete endpoint alert."
+  },
+  "providersAlertDeleteEndpointBody": "{profile} can no longer use it.",
+  "@providersAlertDeleteEndpointBody": {
+    "description": "Body of the delete endpoint alert when the endpoint has no key.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersAlertDeleteEndpointKeyBody": "Its saved key is deleted too.",
+  "@providersAlertDeleteEndpointKeyBody": {
+    "description": "Body of the delete endpoint alert when the endpoint has a saved key."
+  },
+  "providersAlertDeleteEndpointTitle": "Delete {name}?",
+  "@providersAlertDeleteEndpointTitle": {
+    "description": "Title of the alert that asks before deleting a custom endpoint.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My GPU box"
+      }
+    }
+  },
+  "providersAlertKeepWaiting": "Keep waiting",
+  "@providersAlertKeepWaiting": {
+    "description": "Default button of the alert that asks before cancelling a sign-in."
+  },
+  "providersAlertModelAction": "Use it anyway",
+  "@providersAlertModelAction": {
+    "description": "Action of the expensive model alert."
+  },
+  "providersAlertModelTitle": "Use this model?",
+  "@providersAlertModelTitle": {
+    "description": "Title of the alert Hermes asks for before an expensive model becomes the default."
+  },
+  "providersAlertRemoveAction": "Remove",
+  "@providersAlertRemoveAction": {
+    "description": "Red action of the alert that removes an endpoint's saved key."
+  },
+  "providersAlertRemoveKeyAction": "Remove key",
+  "@providersAlertRemoveKeyAction": {
+    "description": "Red action of the remove key alert."
+  },
+  "providersAlertRemoveKeyActionMac": "Remove Key",
+  "@providersAlertRemoveKeyActionMac": {
+    "description": "Red action of the remove key alert on a Mac, where actions are in title case."
+  },
+  "providersAlertRemoveKeyTitle": "Remove the {provider} key?",
+  "@providersAlertRemoveKeyTitle": {
+    "description": "Title of the alert that asks before removing a key.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersAlertRemoveSavedKeyBody": "Hermes will connect without a key.",
+  "@providersAlertRemoveSavedKeyBody": {
+    "description": "Body of the alert that asks before removing an endpoint's saved key."
+  },
+  "providersAlertRemoveSavedKeyTitle": "Remove the saved key for {name}?",
+  "@providersAlertRemoveSavedKeyTitle": {
+    "description": "Title of the alert that asks before removing an endpoint's saved key.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My GPU box"
+      }
+    }
+  },
+  "providersAlertSignOutAction": "Sign out",
+  "@providersAlertSignOutAction": {
+    "description": "Red action of the sign out alert."
+  },
+  "providersAlertSignOutActionMac": "Sign Out",
+  "@providersAlertSignOutActionMac": {
+    "description": "Red action of the sign out alert on a Mac, where actions are in title case."
+  },
+  "providersAlertSignOutTitle": "Sign out of {provider}?",
+  "@providersAlertSignOutTitle": {
+    "description": "Title of the alert that asks before signing out of a provider.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersAlertStopAction": "Stop",
+  "@providersAlertStopAction": {
+    "description": "Red action of the alert that cancels a sign-in."
+  },
+  "providersAlertStopBody": "The code stops working.",
+  "@providersAlertStopBody": {
+    "description": "Body of the alert that asks before cancelling a sign-in."
+  },
+  "providersAlertStopTitle": "Stop signing in to {provider}?",
+  "@providersAlertStopTitle": {
+    "description": "Title of the alert that asks before cancelling a sign-in.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "ChatGPT"
+      }
+    }
+  },
   "providersApiTypeAnthropicMessages": "Anthropic Messages",
   "@providersApiTypeAnthropicMessages": {
     "description": "How a custom endpoint talks to its server: the Anthropic Messages API. A protocol name; usually not translated."
@@ -1005,6 +2499,58 @@
   "providersApiTypeResponses": "Responses",
   "@providersApiTypeResponses": {
     "description": "How a custom endpoint talks to its server: the Responses API. A protocol name; usually not translated."
+  },
+  "providersCardConnect": "Connect a model",
+  "@providersCardConnect": {
+    "description": "Button of the connect card."
+  },
+  "providersCardConnectBody": "Your Hermes server has no model provider for {profile} yet.",
+  "@providersCardConnectBody": {
+    "description": "Body of the connect card.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersCardConnectTitle": "Connect a model to start chatting",
+  "@providersCardConnectTitle": {
+    "description": "Title of the card on the empty chat when no model provider is connected."
+  },
+  "providersCardLoadingBody": "A provider is connected, but its model list isn't ready yet.",
+  "@providersCardLoadingBody": {
+    "description": "Body of the loading card."
+  },
+  "providersCardLoadingTitle": "Hermes is loading your models",
+  "@providersCardLoadingTitle": {
+    "description": "Title of the card while a connected provider's model list is not ready."
+  },
+  "providersCardReconnect": "Reconnect",
+  "@providersCardReconnect": {
+    "description": "Button of the reconnect card."
+  },
+  "providersCardReconnectBody": "New chats in {profile} use {model}, but its provider's key is missing or no longer works.",
+  "@providersCardReconnectBody": {
+    "description": "Body of the reconnect card.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersCardReconnectTitle": "Reconnect your model's provider",
+  "@providersCardReconnectTitle": {
+    "description": "Title of the card when the default model's provider lost its key."
+  },
+  "providersCheckAgain": "Check again",
+  "@providersCheckAgain": {
+    "description": "Button that reads the providers or the sign-in state again."
   },
   "providersConnectedCount": "{count} connected",
   "@providersConnectedCount": {
@@ -1208,25 +2754,326 @@
   "@providersEndpointAddress": {
     "description": "Label of a custom endpoint's web address on its detail."
   },
+  "providersEndpointAddressFooter": "Hermes connects to this address from your server, so localhost means the server itself.",
+  "@providersEndpointAddressFooter": {
+    "description": "Note under the custom endpoint's address field."
+  },
+  "providersEndpointAddressHint": "https://example.com/v1",
+  "@providersEndpointAddressHint": {
+    "description": "Placeholder of the custom endpoint's address field; an example address."
+  },
+  "providersEndpointAdvanced": "Advanced",
+  "@providersEndpointAdvanced": {
+    "description": "Title of the collapsed section with the API type and a typed model."
+  },
   "providersEndpointApiType": "API type",
   "@providersEndpointApiType": {
     "description": "Label of the protocol a custom endpoint uses, on its detail."
+  },
+  "providersEndpointApiTypeFooter": "Automatic works for most servers. Pick another if chats fail with a 404.",
+  "@providersEndpointApiTypeFooter": {
+    "description": "Note under the API type choice."
+  },
+  "providersEndpointCheck": "Check connection",
+  "@providersEndpointCheck": {
+    "description": "Button that asks Hermes to reach the custom endpoint and list its models."
+  },
+  "providersEndpointCheckFailedDetail": "Hermes didn't answer. Try again.",
+  "@providersEndpointCheckFailedDetail": {
+    "description": "Detail when the connection check got no answer from Hermes."
+  },
+  "providersEndpointCheckFailedTitle": "Couldn't check the connection",
+  "@providersEndpointCheckFailedTitle": {
+    "description": "Heading when the connection check got no answer from Hermes."
+  },
+  "providersEndpointChecking": "Checking connection…",
+  "@providersEndpointChecking": {
+    "description": "Status line while Hermes checks the custom endpoint."
+  },
+  "providersEndpointFirstFooter": "New chats in {profile} will use this endpoint, since there is no default model yet.",
+  "@providersEndpointFirstFooter": {
+    "description": "Note shown instead of the switch when the profile has no default model yet.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersEndpointFormTitleEdit": "Edit {name}",
+  "@providersEndpointFormTitleEdit": {
+    "description": "Bar title of the form that edits a custom endpoint.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My GPU box"
+      }
+    }
+  },
+  "providersEndpointFormTitleNew": "Add custom endpoint",
+  "@providersEndpointFormTitleNew": {
+    "description": "Bar title of the form that adds a custom endpoint."
+  },
+  "providersEndpointFound": "{count, plural, =1{Found 1 model} other{Found {count} models}}",
+  "@providersEndpointFound": {
+    "description": "Heading of the success note after a connection check that listed models.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "providersEndpointInsecureDetail": "Your key would be sent to it in plain text.",
+  "@providersEndpointInsecureDetail": {
+    "description": "Detail of the warning when a key would be sent to an unencrypted address."
+  },
+  "providersEndpointInsecureTitle": "This address isn't encrypted",
+  "@providersEndpointInsecureTitle": {
+    "description": "Heading of the warning when a key would be sent to an unencrypted address."
+  },
+  "providersEndpointIssueAddress": "Enter an address",
+  "@providersEndpointIssueAddress": {
+    "description": "Error under the address field when it is empty."
+  },
+  "providersEndpointIssueModel": "Check the connection or type a model",
+  "@providersEndpointIssueModel": {
+    "description": "Error shown when Save was tapped without a model."
+  },
+  "providersEndpointIssueName": "Enter a name",
+  "@providersEndpointIssueName": {
+    "description": "Error under the name field when it is empty."
+  },
+  "providersEndpointIssueScheme": "Address must start with http:// or https://",
+  "@providersEndpointIssueScheme": {
+    "description": "Error under the address field when it has no scheme."
   },
   "providersEndpointKey": "API key",
   "@providersEndpointKey": {
     "description": "Label of a custom endpoint's key on its detail."
   },
+  "providersEndpointKeyFooter": "Leave empty if the server needs none.",
+  "@providersEndpointKeyFooter": {
+    "description": "Note under the custom endpoint's API key field."
+  },
+  "providersEndpointKeyFooterEdit": "Type a new key to replace the saved one.",
+  "@providersEndpointKeyFooterEdit": {
+    "description": "Note under the key field of an endpoint with a saved key."
+  },
+  "providersEndpointKeyHint": "Optional",
+  "@providersEndpointKeyHint": {
+    "description": "Placeholder of the custom endpoint's API key field."
+  },
   "providersEndpointKeyNone": "None",
   "@providersEndpointKeyNone": {
     "description": "Value of a custom endpoint's key row when it has no key."
+  },
+  "providersEndpointKeyNotSentDetail": "The key wasn't sent because the address isn't encrypted.",
+  "@providersEndpointKeyNotSentDetail": {
+    "description": "Detail of the note after a check that left the typed key out."
+  },
+  "providersEndpointKeyNotSentTitle": "Checked without your key",
+  "@providersEndpointKeyNotSentTitle": {
+    "description": "Heading of the note after a check that left the typed key out."
+  },
+  "providersEndpointKeyRemove": "Remove saved key",
+  "@providersEndpointKeyRemove": {
+    "description": "Red row that removes an endpoint's saved key after asking."
   },
   "providersEndpointKeySaved": "Saved",
   "@providersEndpointKeySaved": {
     "description": "Value of a custom endpoint's key row when a key is saved. The key is never shown."
   },
+  "providersEndpointKeySavedHint": "Saved key",
+  "@providersEndpointKeySavedHint": {
+    "description": "Placeholder of the key field of an endpoint that already has a saved key."
+  },
+  "providersEndpointModelFooter": "For servers that list no models.",
+  "@providersEndpointModelFooter": {
+    "description": "Note under the field where a model is typed by hand."
+  },
+  "providersEndpointModelHint": "Model name",
+  "@providersEndpointModelHint": {
+    "description": "Placeholder of the field where a model is typed by hand."
+  },
+  "providersEndpointModelLabel": "Model",
+  "@providersEndpointModelLabel": {
+    "description": "Label of the choice of a model found on the endpoint, and of the field to type one."
+  },
+  "providersEndpointNameFooter": "Shown in the model picker",
+  "@providersEndpointNameFooter": {
+    "description": "Note under the custom endpoint's name field."
+  },
+  "providersEndpointNameHint": "My GPU box",
+  "@providersEndpointNameHint": {
+    "description": "Placeholder of the custom endpoint's name field."
+  },
+  "providersEndpointNameLabel": "Name",
+  "@providersEndpointNameLabel": {
+    "description": "Label of the custom endpoint's name field."
+  },
+  "providersEndpointNoModelsDetail": "Type the model's name under Advanced.",
+  "@providersEndpointNoModelsDetail": {
+    "description": "Detail of the warning when the endpoint listed no models and Hermes gave no sentence."
+  },
+  "providersEndpointNoModelsTitle": "Connected, but no models listed",
+  "@providersEndpointNoModelsTitle": {
+    "description": "Heading of the warning when the endpoint answered and listed no models."
+  },
+  "providersEndpointRefusedFallback": "Hermes couldn't save this endpoint.",
+  "@providersEndpointRefusedFallback": {
+    "description": "Error when Hermes refused to save the endpoint and gave no reason."
+  },
+  "providersEndpointUnknownDetail": "Check the provider list before you save again.",
+  "@providersEndpointUnknownDetail": {
+    "description": "Detail of the warning after the answer to saving an endpoint was lost."
+  },
+  "providersEndpointUnknownTitle": "Couldn't tell whether the endpoint was saved",
+  "@providersEndpointUnknownTitle": {
+    "description": "Heading of the warning after the answer to saving an endpoint was lost."
+  },
+  "providersEndpointUnreachableDetail": "Hermes couldn't reach {address} from your server.",
+  "@providersEndpointUnreachableDetail": {
+    "description": "Detail of the error when Hermes could not reach the endpoint.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "https://gpu-box.example.net:8000/v1"
+      }
+    }
+  },
+  "providersEndpointUnreachableTitle": "Couldn't connect",
+  "@providersEndpointUnreachableTitle": {
+    "description": "Heading of the error when Hermes could not reach the endpoint."
+  },
+  "providersEndpointUseForNew": "Use for new chats",
+  "@providersEndpointUseForNew": {
+    "description": "Switch that makes the new endpoint's model the default for new chats."
+  },
+  "providersEndpointUseForNewFooter": "Keeps {model} for new chats when off. You can change it later.",
+  "@providersEndpointUseForNewFooter": {
+    "description": "Note under the switch that makes the endpoint the default.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersEndpointWillUse": "Hermes will use {address}",
+  "@providersEndpointWillUse": {
+    "description": "Note under the model choice when Hermes resolved a different address.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "https://gpu-box.example.net:8000/v1"
+      }
+    }
+  },
   "providersEndpointsFailed": "Custom endpoints couldn't be read.",
   "@providersEndpointsFailed": {
     "description": "Warning banner above the custom endpoint entry when the endpoints could not be read."
+  },
+  "providersFormSave": "Save",
+  "@providersFormSave": {
+    "description": "Save button in the bar of a provider form."
+  },
+  "providersKeyChecking": "Checking key…",
+  "@providersKeyChecking": {
+    "description": "Status line while Hermes checks the API key."
+  },
+  "providersKeyEditKey": "Edit key",
+  "@providersKeyEditKey": {
+    "description": "Button after a rejected key that puts the cursor back in the field."
+  },
+  "providersKeyEmpty": "Paste the key first",
+  "@providersKeyEmpty": {
+    "description": "Error under the API key field when Save was tapped with nothing typed."
+  },
+  "providersKeyGetLink": "Get a key from {provider}",
+  "@providersKeyGetLink": {
+    "description": "Row that opens the provider's page where keys are issued.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersKeyHelper": "Saved on your Hermes server for {profile}. You won't see it again here.",
+  "@providersKeyHelper": {
+    "description": "Note under the API key field.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersKeyHint": "Paste your key",
+  "@providersKeyHint": {
+    "description": "Placeholder of the API key field."
+  },
+  "providersKeyLabel": "API key",
+  "@providersKeyLabel": {
+    "description": "Label of the field that takes an API key."
+  },
+  "providersKeyProviderErrorFallback": "The provider answered with an error for this key.",
+  "@providersKeyProviderErrorFallback": {
+    "description": "Detail of the provider error warning when Hermes gave no sentence."
+  },
+  "providersKeyProviderErrorTitle": "{provider} didn't answer normally",
+  "@providersKeyProviderErrorTitle": {
+    "description": "Heading of the warning above the key field when the provider answered the check with an error.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersKeyRefusedFallback": "Hermes couldn't save this key.",
+  "@providersKeyRefusedFallback": {
+    "description": "Error under the key field when Hermes refused to save and gave no reason."
+  },
+  "providersKeyRejectedFallback": "That API key was rejected. Double-check it and try again.",
+  "@providersKeyRejectedFallback": {
+    "description": "Error under the key field when the provider rejected the key and Hermes gave no sentence."
+  },
+  "providersKeySaveAnyway": "Save anyway",
+  "@providersKeySaveAnyway": {
+    "description": "Button that saves a key that was not accepted or could not be checked, and the red action of the unencrypted key alert."
+  },
+  "providersKeyTitle": "Connect {provider}",
+  "@providersKeyTitle": {
+    "description": "Bar title of the form that takes an API key.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersKeyTitleReplace": "Replace key",
+  "@providersKeyTitleReplace": {
+    "description": "Bar title of the form that replaces a saved API key."
+  },
+  "providersKeyUnknownDetail": "Paste it again to be sure.",
+  "@providersKeyUnknownDetail": {
+    "description": "Detail of the warning shown after the answer to a save was lost; the field is empty."
+  },
+  "providersKeyUnknownTitle": "Couldn't tell whether the key was saved",
+  "@providersKeyUnknownTitle": {
+    "description": "Heading of the warning shown after the answer to a save was lost."
+  },
+  "providersKeyUseAccount": "Use an {provider} account instead",
+  "@providersKeyUseAccount": {
+    "description": "Text button on the key form of a provider that also signs in with an account.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
   },
   "providersKeysFailed": "Saved keys couldn't be read. You can still add a key.",
   "@providersKeysFailed": {
@@ -1251,6 +3098,10 @@
   "providersMoreHeader": "More providers",
   "@providersMoreHeader": {
     "description": "Header of the alphabetical group of providers that can be added."
+  },
+  "providersNotAccepted": "Hermes didn't accept the request",
+  "@providersNotAccepted": {
+    "description": "Fixed message when Hermes answers 422 to a save; it never repeats what was sent."
   },
   "providersOfflineBannerDetail": "Showing what was last loaded. Check your connection or VPN.",
   "@providersOfflineBannerDetail": {
@@ -1281,6 +3132,14 @@
   "providersRemoveKey": "Remove key",
   "@providersRemoveKey": {
     "description": "Red row on a provider's detail that removes its saved key after asking."
+  },
+  "providersReplyCheckProviders": "Check model providers",
+  "@providersReplyCheckProviders": {
+    "description": "Button under a failed reply that opens the default model's provider."
+  },
+  "providersReplyFailedTitle": "The reply failed",
+  "@providersReplyFailedTitle": {
+    "description": "Heading of the error under a failed reply that came from the model provider."
   },
   "providersRestartDetail": "It was updated. Models can't change until it restarts.",
   "@providersRestartDetail": {
@@ -1404,6 +3263,10 @@
   "@providersRowWaiting": {
     "description": "Subtitle of a provider whose account sign-in has started and is not finished."
   },
+  "providersSaving": "Saving…",
+  "@providersSaving": {
+    "description": "Status line while a form is being saved."
+  },
   "providersSearchHint": "Search providers",
   "@providersSearchHint": {
     "description": "Placeholder of the field that filters the providers that can be added."
@@ -1412,15 +3275,329 @@
   "@providersSearchNoMatch": {
     "description": "Row shown when the search filters out every provider."
   },
+  "providersServerBody": "{provider} is connected from Hermes' own command line. Run this on the computer running Hermes, then check again:",
+  "@providersServerBody": {
+    "description": "Explanation above the command to run on the Hermes server.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersServerChecking": "Checking…",
+  "@providersServerChecking": {
+    "description": "Status line while the page that shows a server command reads the providers again."
+  },
+  "providersServerDone": "Done",
+  "@providersServerDone": {
+    "description": "Button in the bar of the page that shows a server command."
+  },
+  "providersServerFooter": "Applies to the {profile} profile only.",
+  "@providersServerFooter": {
+    "description": "Note under the command saying which profile it is for.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersServerTitle": "Connect {provider} on your server",
+  "@providersServerTitle": {
+    "description": "Heading of the page that shows a command to run on the Hermes server.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersSignInCodeMatch": "Check that this code matches:",
+  "@providersSignInCodeMatch": {
+    "description": "Second step when the sign-in link already carries the code."
+  },
+  "providersSignInCodeSemantics": "Sign-in code: {code}",
+  "@providersSignInCodeSemantics": {
+    "description": "Accessibility label of the device code; the characters are spaced out so they are read one by one.",
+    "placeholders": {
+      "code": {
+        "type": "String",
+        "example": "W D J B, M J H T"
+      }
+    }
+  },
+  "providersSignInCopied": "Copied",
+  "@providersSignInCopied": {
+    "description": "What the copy button says for a moment after copying the code."
+  },
+  "providersSignInCopiedAnnouncement": "Code copied",
+  "@providersSignInCopiedAnnouncement": {
+    "description": "Announced to screen readers after the code was copied."
+  },
+  "providersSignInCopyCode": "Copy code",
+  "@providersSignInCopyCode": {
+    "description": "Button that copies the sign-in code."
+  },
+  "providersSignInDeclined": "The sign-in was declined.",
+  "@providersSignInDeclined": {
+    "description": "Message when the person declined the sign-in on the provider's page."
+  },
+  "providersSignInExpired": "The code expired.",
+  "@providersSignInExpired": {
+    "description": "Message when the sign-in code ran out."
+  },
+  "providersSignInExpires": "{minutes, plural, =0{The code expires in less than a minute.} =1{The code expires in 1 minute.} other{The code expires in {minutes} minutes.}}",
+  "@providersSignInExpires": {
+    "description": "Note under the sign-in code, counted down by the minute.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "providersSignInFailed": "Sign-in failed.",
+  "@providersSignInFailed": {
+    "description": "Message when the sign-in failed and Hermes gave no reason."
+  },
+  "providersSignInOffline": "Can't reach your server. Still waiting…",
+  "@providersSignInOffline": {
+    "description": "Status line when the polls for the sign-in failed; the sign-in is not over."
+  },
+  "providersSignInOpen": "Open {provider}",
+  "@providersSignInOpen": {
+    "description": "Button that opens the provider's sign-in page in the browser.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersSignInProfileNote": "Signs {profile} in. Other profiles stay as they are.",
+  "@providersSignInProfileNote": {
+    "description": "Note saying which profile the sign-in is for.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersSignInStartAgain": "Start again",
+  "@providersSignInStartAgain": {
+    "description": "Button that starts the sign-in over after it ended."
+  },
+  "providersSignInStartFailedDetail": "Hermes didn't answer. Nothing was started.",
+  "@providersSignInStartFailedDetail": {
+    "description": "Detail when the request to start a sign-in got no answer."
+  },
+  "providersSignInStartFailedTitle": "Couldn't start the sign-in",
+  "@providersSignInStartFailedTitle": {
+    "description": "Title when the request to start a sign-in got no answer."
+  },
+  "providersSignInStartRefusedFallback": "Hermes couldn't start the sign-in.",
+  "@providersSignInStartRefusedFallback": {
+    "description": "Message when Hermes refused to start a sign-in and gave no sentence."
+  },
+  "providersSignInStepCode": "2. Enter this code if asked:",
+  "@providersSignInStepCode": {
+    "description": "Second step of the account sign-in, above the code."
+  },
+  "providersSignInStepOpen": "1. Open {provider} and sign in.",
+  "@providersSignInStepOpen": {
+    "description": "First step of the account sign-in.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersSignInTitle": "Sign in to {provider}",
+  "@providersSignInTitle": {
+    "description": "Bar title of the account sign-in step.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersSignInWaiting": "Waiting for you to approve…",
+  "@providersSignInWaiting": {
+    "description": "Status line while the sign-in waits for approval."
+  },
   "providersSignOut": "Sign out",
   "@providersSignOut": {
     "description": "Red row on a provider's detail that signs the account out after asking."
+  },
+  "providersStepChangeModel": "Change model",
+  "@providersStepChangeModel": {
+    "description": "Secondary button of the ready step that opens the picker for this provider."
+  },
+  "providersStepChoose": "Choose model",
+  "@providersStepChoose": {
+    "description": "Primary button of the step that opens the picker for this provider."
+  },
+  "providersStepChooseAnother": "Choose another model…",
+  "@providersStepChooseAnother": {
+    "description": "Text button that opens the picker for this provider."
+  },
+  "providersStepChooseBody": "{provider} is connected. Pick the model new chats in {profile} should use.",
+  "@providersStepChooseBody": {
+    "description": "Body of the step when Hermes recommends no model.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      },
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersStepChooseTitle": "Choose a model for new chats",
+  "@providersStepChooseTitle": {
+    "description": "Title of the step when Hermes recommends no model."
+  },
+  "providersStepFailedDetail": "Nothing was changed. Try again.",
+  "@providersStepFailedDetail": {
+    "description": "Detail of the error when saving the default model failed."
+  },
+  "providersStepFailedTitle": "Couldn't save the default model",
+  "@providersStepFailedTitle": {
+    "description": "Heading of the error when saving the default model failed."
+  },
+  "providersStepKeep": "Keep {model}",
+  "@providersStepKeep": {
+    "description": "Secondary button that keeps the current default model.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersStepLaterBody": "{provider} recommends it. You're using {current} now.",
+  "@providersStepLaterBody": {
+    "description": "Body of the step when a second provider was connected.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      },
+      "current": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersStepLaterTitle": "Use {model} for new chats?",
+  "@providersStepLaterTitle": {
+    "description": "Title of the step when a second provider was connected.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model B"
+      }
+    }
+  },
+  "providersStepLoadingDetail": "Nothing is saved until they are ready.",
+  "@providersStepLoadingDetail": {
+    "description": "Detail of the warning while the provider's models are still loading."
+  },
+  "providersStepLoadingModel": "Hermes recommends {model}.",
+  "@providersStepLoadingModel": {
+    "description": "Line naming the recommended model while the provider's models load.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model B"
+      }
+    }
+  },
+  "providersStepLoadingTitle": "{provider} is connected",
+  "@providersStepLoadingTitle": {
+    "description": "Title of the step while the provider's models are still loading.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersStepLoadingWarning": "Hermes is still loading this provider's models.",
+  "@providersStepLoadingWarning": {
+    "description": "Heading of the warning while the provider's models are still loading."
+  },
+  "providersStepNotNow": "Not now",
+  "@providersStepNotNow": {
+    "description": "Text button that closes the step without choosing a model."
+  },
+  "providersStepNoteSaved": "Saved",
+  "@providersStepNoteSaved": {
+    "description": "Heading of the note above the step after a key was saved without a check."
+  },
+  "providersStepNoteUnchecked": "Your first chat will show whether the key works.",
+  "@providersStepNoteUnchecked": {
+    "description": "Detail of the note after a key was saved without a check."
+  },
+  "providersStepNoteUnreachable": "Saved, but Hermes couldn't reach {provider} to check it.",
+  "@providersStepNoteUnreachable": {
+    "description": "Note above the step when Hermes could not reach the provider to check the key.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersStepReadyBody": "New chats in {profile} use {model} from {provider}.",
+  "@providersStepReadyBody": {
+    "description": "Body of the ready step.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      },
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersStepReadyTitle": "You're ready",
+  "@providersStepReadyTitle": {
+    "description": "Title of the step after a provider was connected and a default model saved."
+  },
+  "providersStepRetry": "Retry",
+  "@providersStepRetry": {
+    "description": "Button that asks again whether the models are ready."
+  },
+  "providersStepStartChatting": "Start chatting",
+  "@providersStepStartChatting": {
+    "description": "Primary button of the ready step."
+  },
+  "providersStepUse": "Use {model}",
+  "@providersStepUse": {
+    "description": "Primary button of the step that offers the recommended model.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model B"
+      }
+    }
   },
   "providersTryAgain": "Try again",
   "@providersTryAgain": {
     "description": "Button that reads the providers again."
   },
-
   "@@x-area-quick_actions": "",
 
   "@@x-area-quick_panel": "",
@@ -1475,6 +3652,10 @@
   "serverCareAgoToday": "today",
   "@serverCareAgoToday": {
     "description": "Byline of a commit in the update's change list: it was made today. Lower case."
+  },
+  "serverCareCancel": "Cancel",
+  "@serverCareCancel": {
+    "description": "Button that dismisses a confirmation without doing anything."
   },
   "serverCareChannelsConnected": "{connected} of {configured} connected",
   "@serverCareChannelsConnected": {
@@ -1554,6 +3735,50 @@
   "@serverCareFailureUpdateCheck": {
     "description": "Message on the Update page when the update check failed for any other reason."
   },
+  "serverCareGatewayBack": "Running again",
+  "@serverCareGatewayBack": {
+    "description": "Status of the gateway row once the gateway reports running again."
+  },
+  "serverCareGatewayConfirmConversations": "{count, plural, =1{1 conversation on a messaging channel will stop.} other{{count} conversations on messaging channels will stop.}}",
+  "@serverCareGatewayConfirmConversations": {
+    "description": "Line of the gateway restart confirmation when conversations on messaging channels are running now.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "serverCareGatewayConfirmKeepRunning": "Chats in this app keep running.",
+  "@serverCareGatewayConfirmKeepRunning": {
+    "description": "First line of the gateway restart confirmation: the app's own chats do not depend on the messaging gateway."
+  },
+  "serverCareGatewayConfirmPause": "Messaging channels and scheduled tasks pause until it's back, usually within a minute.",
+  "@serverCareGatewayConfirmPause": {
+    "description": "Second line of the gateway restart confirmation."
+  },
+  "serverCareGatewayConfirmRestart": "Restart",
+  "@serverCareGatewayConfirmRestart": {
+    "description": "Confirm button of the gateway restart confirmation."
+  },
+  "serverCareGatewayConfirmRestartAll": "Restart for all",
+  "@serverCareGatewayConfirmRestartAll": {
+    "description": "Confirm button of the gateway restart confirmation when the gateway is shared by several profiles."
+  },
+  "serverCareGatewayConfirmRestartTitle": "Restart the messaging gateway?",
+  "@serverCareGatewayConfirmRestartTitle": {
+    "description": "Title of the confirmation before the messaging gateway is restarted."
+  },
+  "serverCareGatewayConfirmShared": "This gateway is shared. The bots of {profiles} reconnect too.",
+  "@serverCareGatewayConfirmShared": {
+    "description": "Line of the gateway restart confirmation when several profiles share the gateway; profiles is a comma-separated list of their names.",
+    "placeholders": {
+      "profiles": {
+        "type": "String",
+        "example": "default, work"
+      }
+    }
+  },
   "serverCareGatewayFooter": "Runs your messaging channels and scheduled tasks. Chats in this app don't depend on it.",
   "@serverCareGatewayFooter": {
     "description": "Footer under the messaging gateway section of the Server screen."
@@ -1562,9 +3787,45 @@
   "@serverCareGatewayHeader": {
     "description": "Section header on the Server screen: the Hermes process that runs messaging channels and scheduled tasks."
   },
+  "serverCareGatewayHeadlineRestarting": "Restarting the messaging gateway…",
+  "@serverCareGatewayHeadlineRestarting": {
+    "description": "Headline of the Server screen while a gateway restart runs."
+  },
+  "serverCareGatewayHeadlineStarting": "Starting the messaging gateway…",
+  "@serverCareGatewayHeadlineStarting": {
+    "description": "Headline of the Server screen while a gateway start runs."
+  },
+  "serverCareGatewayRestart": "Restart gateway",
+  "@serverCareGatewayRestart": {
+    "description": "Action row and headline button that restarts the messaging gateway."
+  },
+  "serverCareGatewayRestartFailed": "The gateway didn't restart",
+  "@serverCareGatewayRestartFailed": {
+    "description": "Error line of the gateway row when the restart command failed."
+  },
+  "serverCareGatewayRestarting": "Restarting…",
+  "@serverCareGatewayRestarting": {
+    "description": "Status of the gateway row while the restart command runs."
+  },
   "serverCareGatewaySharedWith": "Shared with",
   "@serverCareGatewaySharedWith": {
     "description": "Row label: the other profiles that use the same gateway. The value is a list of profile names."
+  },
+  "serverCareGatewaySlow": "The gateway hasn't come back yet",
+  "@serverCareGatewaySlow": {
+    "description": "Warning line of the gateway row when it did not report running within 90 seconds."
+  },
+  "serverCareGatewayStart": "Start gateway",
+  "@serverCareGatewayStart": {
+    "description": "Action row and headline button that starts the messaging gateway while it is off."
+  },
+  "serverCareGatewayStartFailed": "The gateway didn't start",
+  "@serverCareGatewayStartFailed": {
+    "description": "Error line of the gateway row when the start command failed."
+  },
+  "serverCareGatewayStarting": "Starting…",
+  "@serverCareGatewayStarting": {
+    "description": "Status of the gateway row while the start command runs."
   },
   "serverCareGatewayStateDegraded": "Running, some channels offline",
   "@serverCareGatewayStateDegraded": {
@@ -1601,6 +3862,14 @@
   "serverCareGatewayStateUnknown": "Unknown",
   "@serverCareGatewayStateUnknown": {
     "description": "Gateway state value when the server did not say."
+  },
+  "serverCareGatewayUnconfirmed": "Couldn't confirm the restart",
+  "@serverCareGatewayUnconfirmed": {
+    "description": "Warning line of the gateway row when it kept running and was never seen down, so it is unknown whether the restart happened."
+  },
+  "serverCareGatewayWaiting": "Waiting for the gateway…",
+  "@serverCareGatewayWaiting": {
+    "description": "Status of the gateway row while the app waits for the gateway to report running again."
   },
   "serverCareHeadlineAllGood": "Everything looks good",
   "@serverCareHeadlineAllGood": {
@@ -2694,6 +4963,501 @@
   "@@x-area-telemetry": "",
 
   "@@x-area-theme": "",
+
+  "@@x-area-tools": "",
+  "toolsActionCount": "{count, plural, =1{1 action} other{{count} actions}}",
+  "@toolsActionCount": {
+    "description": "Under a tool's sentence: how many separate actions the tool gives Hermes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolsBannerInstallerDetail": "Hermes started an installer on your server. Applies from your next chat.",
+  "@toolsBannerInstallerDetail": {
+    "description": "Detail of the banner shown after switching on a tool started an installer on the server."
+  },
+  "toolsBannerInstallerTitle": "{name} is on.",
+  "@toolsBannerInstallerTitle": {
+    "description": "Title of the banner shown after switching on a tool started an installer on the server.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsBannerLoadFailedDetail": "The list below may be out of date.",
+  "@toolsBannerLoadFailedDetail": {
+    "description": "Detail of the error banner above the tools list when reloading failed; the rows already loaded stay."
+  },
+  "toolsBannerLoadFailedTitle": "Couldn't load tools.",
+  "@toolsBannerLoadFailedTitle": {
+    "description": "Title of the error banner above the tools list when reading it failed."
+  },
+  "toolsBannerOfflineDetail": "Couldn't load tools. Switches show what was last saved.",
+  "@toolsBannerOfflineDetail": {
+    "description": "Detail of the warning banner above the tools list when the device is offline."
+  },
+  "toolsBannerOfflineTitle": "You're offline.",
+  "@toolsBannerOfflineTitle": {
+    "description": "Title of the warning banner above the tools list when the device is offline."
+  },
+  "toolsBannerShow": "Show",
+  "@toolsBannerShow": {
+    "description": "Button in the installer banner that opens the tool's details."
+  },
+  "toolsChipCantUse": "Can't be used",
+  "@toolsChipCantUse": {
+    "description": "Status badge: a tool or backend that cannot work on this server. Keep it short."
+  },
+  "toolsChipNeedsInstall": "Needs install",
+  "@toolsChipNeedsInstall": {
+    "description": "Status badge: the provider needs an installer run on the server. Keep it short."
+  },
+  "toolsChipNeedsKey": "Needs a key",
+  "@toolsChipNeedsKey": {
+    "description": "Status badge: the provider needs an API key. Keep it short."
+  },
+  "toolsChipNeedsSignIn": "Needs a sign-in on the server",
+  "@toolsChipNeedsSignIn": {
+    "description": "Status badge: the provider needs someone to sign in on the Hermes server; the app cannot do it."
+  },
+  "toolsChipReady": "Ready",
+  "@toolsChipReady": {
+    "description": "Status badge: the provider or backend works now. Keep it short."
+  },
+  "toolsConfirmApplies": "It applies to the profile \"{profile}\".",
+  "@toolsConfirmApplies": {
+    "description": "Sentence in a confirmation question: which profile the change applies to.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "toolsConfirmBrowserLead": "It can open web pages, click and type in them, and may install a browser on the server.",
+  "@toolsConfirmBrowserLead": {
+    "description": "First sentence of the question asked before the browser tool is switched on."
+  },
+  "toolsConfirmBrowserTitle": "Let Hermes use a browser?",
+  "@toolsConfirmBrowserTitle": {
+    "description": "Title of the question asked before the browser tool is switched on."
+  },
+  "toolsConfirmCodeExecutionLead": "It can write and run programs on the machine where Hermes runs.",
+  "@toolsConfirmCodeExecutionLead": {
+    "description": "First sentence of the question asked before the code execution tool is switched on."
+  },
+  "toolsConfirmCodeExecutionTitle": "Let Hermes run programs?",
+  "@toolsConfirmCodeExecutionTitle": {
+    "description": "Title of the question asked before the code execution tool is switched on."
+  },
+  "toolsConfirmComputerUseDriver": "It may also install a driver on the server.",
+  "@toolsConfirmComputerUseDriver": {
+    "description": "Sentence added to the computer use question: switching it on may install a driver."
+  },
+  "toolsConfirmComputerUseLead": "It can see everything on the screen of the computer that runs Hermes and use its mouse and keyboard.",
+  "@toolsConfirmComputerUseLead": {
+    "description": "First sentence of the question asked before the computer use tool is switched on."
+  },
+  "toolsConfirmComputerUseTitle": "Let Hermes control a computer?",
+  "@toolsConfirmComputerUseTitle": {
+    "description": "Title of the question asked before the computer use tool is switched on."
+  },
+  "toolsConfirmInstallBody": "Switching {name} on may run an installer on the server. It may download software.",
+  "@toolsConfirmInstallBody": {
+    "description": "Body of the question asked before switching on a tool that may start an installer on the server.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsConfirmInstallTitle": "Install on your server?",
+  "@toolsConfirmInstallTitle": {
+    "description": "Title of the question asked before switching on a tool that may start an installer on the server."
+  },
+  "toolsConfirmOffActions": "Switching it off stops new actions. It doesn't undo what they did.",
+  "@toolsConfirmOffActions": {
+    "description": "Last sentences of a confirmation question for tools that act on web pages or a computer."
+  },
+  "toolsConfirmOffCommands": "Switching it off stops new commands. It doesn't undo what they did.",
+  "@toolsConfirmOffCommands": {
+    "description": "Last sentences of a confirmation question for tools that run commands or programs."
+  },
+  "toolsConfirmTerminalLead": "It can run commands on the machine where Hermes runs.",
+  "@toolsConfirmTerminalLead": {
+    "description": "First sentence of the question asked before the terminal tool is switched on."
+  },
+  "toolsConfirmTerminalTitle": "Let Hermes run commands?",
+  "@toolsConfirmTerminalTitle": {
+    "description": "Title of the question asked before the terminal tool is switched on."
+  },
+  "toolsEmptyDetail": "Tools Hermes offers for this profile will show here.",
+  "@toolsEmptyDetail": {
+    "description": "Detail under the empty state of the tools list."
+  },
+  "toolsEmptyTitle": "This profile has no tools to set up.",
+  "@toolsEmptyTitle": {
+    "description": "Title of the empty state of the tools list."
+  },
+  "toolsErrorFailed": "Couldn't change {name}. Try again.",
+  "@toolsErrorFailed": {
+    "description": "Error line on a tool's row after a change failed for any other reason.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsErrorNotAllowed": "You can't change tools on this server.",
+  "@toolsErrorNotAllowed": {
+    "description": "Error line on a tool's row when the server refused the change as not allowed."
+  },
+  "toolsErrorOffline": "You're offline. Couldn't change {name}.",
+  "@toolsErrorOffline": {
+    "description": "Error line on a tool's row when a change failed because the device is offline.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsFooterBody": "Switching a tool on or off applies from your next chat. A chat that is already open keeps the tools it started with.",
+  "@toolsFooterBody": {
+    "description": "Footer under the tools list."
+  },
+  "toolsFooterLink": "What's the difference?",
+  "@toolsFooterLink": {
+    "description": "Link under the tools list that explains tools, skills, plugins and MCP servers."
+  },
+  "toolsHeaderOffNeedsSetup": "Off · needs setup",
+  "@toolsHeaderOffNeedsSetup": {
+    "description": "State line in a tool's detail header: the tool is off and has not been set up."
+  },
+  "toolsHeaderOnNeedsSetup": "On · needs setup",
+  "@toolsHeaderOnNeedsSetup": {
+    "description": "State line in a tool's detail header: the tool is on but has not been set up."
+  },
+  "toolsLabelBrowser": "Browser",
+  "@toolsLabelBrowser": {
+    "description": "Display name of the built-in tool \"Browser\" in the tools list; keep it short."
+  },
+  "toolsLabelClarify": "Clarifying questions",
+  "@toolsLabelClarify": {
+    "description": "Display name of the built-in tool \"Clarifying questions\" in the tools list; keep it short."
+  },
+  "toolsLabelCodeExecution": "Code execution",
+  "@toolsLabelCodeExecution": {
+    "description": "Display name of the built-in tool \"Code execution\" in the tools list; keep it short."
+  },
+  "toolsLabelComputerUse": "Computer use",
+  "@toolsLabelComputerUse": {
+    "description": "Display name of the built-in tool \"Computer use\" in the tools list; keep it short."
+  },
+  "toolsLabelConnections": "Connections",
+  "@toolsLabelConnections": {
+    "description": "Display name of the built-in tool \"Connections\" in the tools list; keep it short."
+  },
+  "toolsLabelContextEngine": "Context engine",
+  "@toolsLabelContextEngine": {
+    "description": "Display name of the built-in tool \"Context engine\" in the tools list; keep it short."
+  },
+  "toolsLabelCronjob": "Scheduled tasks",
+  "@toolsLabelCronjob": {
+    "description": "Display name of the built-in tool \"Scheduled tasks\" in the tools list; keep it short."
+  },
+  "toolsLabelDelegation": "Delegation",
+  "@toolsLabelDelegation": {
+    "description": "Display name of the built-in tool \"Delegation\" in the tools list; keep it short."
+  },
+  "toolsLabelDiscord": "Discord",
+  "@toolsLabelDiscord": {
+    "description": "Display name of the built-in tool \"Discord\" in the tools list; keep it short."
+  },
+  "toolsLabelDiscordAdmin": "Discord admin",
+  "@toolsLabelDiscordAdmin": {
+    "description": "Display name of the built-in tool \"Discord admin\" in the tools list; keep it short."
+  },
+  "toolsLabelFile": "Files",
+  "@toolsLabelFile": {
+    "description": "Display name of the built-in tool \"Files\" in the tools list; keep it short."
+  },
+  "toolsLabelImageGen": "Image generation",
+  "@toolsLabelImageGen": {
+    "description": "Display name of the built-in tool \"Image generation\" in the tools list; keep it short."
+  },
+  "toolsLabelKanban": "Kanban",
+  "@toolsLabelKanban": {
+    "description": "Display name of the built-in tool \"Kanban\" in the tools list; keep it short."
+  },
+  "toolsLabelMemory": "Memory",
+  "@toolsLabelMemory": {
+    "description": "Display name of the built-in tool \"Memory\" in the tools list; keep it short."
+  },
+  "toolsLabelSessionSearch": "Session search",
+  "@toolsLabelSessionSearch": {
+    "description": "Display name of the built-in tool \"Session search\" in the tools list; keep it short."
+  },
+  "toolsLabelSkills": "Skills",
+  "@toolsLabelSkills": {
+    "description": "Display name of the built-in tool \"Skills\" in the tools list; keep it short."
+  },
+  "toolsLabelStt": "Speech to text",
+  "@toolsLabelStt": {
+    "description": "Display name of the built-in tool \"Speech to text\" in the tools list; keep it short."
+  },
+  "toolsLabelTerminal": "Terminal",
+  "@toolsLabelTerminal": {
+    "description": "Display name of the built-in tool \"Terminal\" in the tools list; keep it short."
+  },
+  "toolsLabelTodo": "Task planning",
+  "@toolsLabelTodo": {
+    "description": "Display name of the built-in tool \"Task planning\" in the tools list; keep it short."
+  },
+  "toolsLabelTts": "Text to speech",
+  "@toolsLabelTts": {
+    "description": "Display name of the built-in tool \"Text to speech\" in the tools list; keep it short."
+  },
+  "toolsLabelVideoAnalysis": "Video analysis",
+  "@toolsLabelVideoAnalysis": {
+    "description": "Display name of the built-in tool \"Video analysis\" in the tools list; keep it short."
+  },
+  "toolsLabelVideoGen": "Video generation",
+  "@toolsLabelVideoGen": {
+    "description": "Display name of the built-in tool \"Video generation\" in the tools list; keep it short."
+  },
+  "toolsLabelVision": "Image analysis",
+  "@toolsLabelVision": {
+    "description": "Display name of the built-in tool \"Image analysis\" in the tools list; keep it short."
+  },
+  "toolsLabelWeb": "Web search and scraping",
+  "@toolsLabelWeb": {
+    "description": "Display name of the built-in tool \"Web search and scraping\" in the tools list; keep it short."
+  },
+  "toolsLabelXSearch": "X search",
+  "@toolsLabelXSearch": {
+    "description": "Display name of the built-in tool \"X search\" in the tools list; keep it short."
+  },
+  "toolsLoading": "Loading tools…",
+  "@toolsLoading": {
+    "description": "Shown with a spinner while the tools list loads."
+  },
+  "toolsNeedsSetup": "Needs setup",
+  "@toolsNeedsSetup": {
+    "description": "Status badge, list section header and a row's state line: the tool has not been set up yet, or its status is unknown."
+  },
+  "toolsOldServerDetail": "Updating Hermes on the server adds them.",
+  "@toolsOldServerDetail": {
+    "description": "Detail under the message that the server has no tools settings."
+  },
+  "toolsOldServerTitle": "This server doesn't offer tools settings.",
+  "@toolsOldServerTitle": {
+    "description": "Title of the state shown when the Hermes server is too old to have tools settings."
+  },
+  "toolsRiskActOnItsOwnSentence": "Hermes can start work later, or hand it to helper agents, without you watching each step.",
+  "@toolsRiskActOnItsOwnSentence": {
+    "description": "Risk note sentence for scheduled tasks and delegation."
+  },
+  "toolsRiskActOnItsOwnTitle": "Can act on its own",
+  "@toolsRiskActOnItsOwnTitle": {
+    "description": "Risk note title for scheduled tasks and delegation."
+  },
+  "toolsRiskActOnWebPagesSentence": "Hermes can open web pages and click and type in them, such as filling in and sending forms.",
+  "@toolsRiskActOnWebPagesSentence": {
+    "description": "Risk note sentence for the browser tool."
+  },
+  "toolsRiskActOnWebPagesTitle": "Can act on web pages for you",
+  "@toolsRiskActOnWebPagesTitle": {
+    "description": "Risk note title for the browser tool."
+  },
+  "toolsRiskAsks": "Hermes asks before you switch it on.",
+  "@toolsRiskAsks": {
+    "description": "Last sentence of the risk note of a tool that asks for confirmation before it is switched on."
+  },
+  "toolsRiskChangeFilesSentence": "Hermes can read, create and change any file on the machine where Hermes runs, with that machine's permissions.",
+  "@toolsRiskChangeFilesSentence": {
+    "description": "Risk note sentence for the files tool."
+  },
+  "toolsRiskChangeThingsTitle": "Can change things on your server",
+  "@toolsRiskChangeThingsTitle": {
+    "description": "Risk note title for the terminal, code execution and files tools."
+  },
+  "toolsRiskControlComputerSentence": "Hermes can see everything on the screen of the computer that runs Hermes, and use its mouse and keyboard. Switch it on only for a profile you trust with that.",
+  "@toolsRiskControlComputerSentence": {
+    "description": "Risk note sentence for the computer use tool."
+  },
+  "toolsRiskControlComputerTitle": "Can see and control a computer",
+  "@toolsRiskControlComputerTitle": {
+    "description": "Risk note title for the computer use tool."
+  },
+  "toolsRiskManageDiscordSentence": "Hermes can change the channels and roles of the Discord server it works in.",
+  "@toolsRiskManageDiscordSentence": {
+    "description": "Risk note sentence for the Discord admin tool."
+  },
+  "toolsRiskManageDiscordTitle": "Can change your Discord server",
+  "@toolsRiskManageDiscordTitle": {
+    "description": "Risk note title for the Discord admin tool."
+  },
+  "toolsRiskRunCommandsSentence": "Hermes can run any command on the machine where Hermes runs, with that machine's permissions.",
+  "@toolsRiskRunCommandsSentence": {
+    "description": "Risk note sentence for the terminal tool."
+  },
+  "toolsRiskRunProgramsSentence": "Hermes can write and run any program on the machine where Hermes runs, with that machine's permissions.",
+  "@toolsRiskRunProgramsSentence": {
+    "description": "Risk note sentence for the code execution tool."
+  },
+  "toolsRowCanChangeThings": "Can change things",
+  "@toolsRowCanChangeThings": {
+    "description": "Line in a tool's row with a shield icon: the tool can change things on the server."
+  },
+  "toolsRowChecking": "May have changed. Checking…",
+  "@toolsRowChecking": {
+    "description": "Under a tool's row while the app checks whether a switch took effect after its answer was lost. Shown with a spinner."
+  },
+  "toolsRowUnconfirmedPull": "Couldn't confirm. Pull to refresh.",
+  "@toolsRowUnconfirmedPull": {
+    "description": "Line in a tool's row when the app could not confirm a switch; on touch screens the list is refreshed by pulling down."
+  },
+  "toolsRowUnconfirmedRetry": "Couldn't confirm. Try again.",
+  "@toolsRowUnconfirmedRetry": {
+    "description": "Line in a tool's row when the app could not confirm a switch; a Try again button follows it where there is no pull to refresh."
+  },
+  "toolsSentenceBrowser": "Open web pages, click and type in them.",
+  "@toolsSentenceBrowser": {
+    "description": "One plain sentence under the name of the built-in tool \"Browser\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceClarify": "Ask you a question when something is unclear.",
+  "@toolsSentenceClarify": {
+    "description": "One plain sentence under the name of the built-in tool \"Clarifying questions\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceCodeExecution": "Write and run programs on the machine where Hermes runs.",
+  "@toolsSentenceCodeExecution": {
+    "description": "One plain sentence under the name of the built-in tool \"Code execution\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceComputerUse": "See a desktop's screen and move its mouse and keyboard.",
+  "@toolsSentenceComputerUse": {
+    "description": "One plain sentence under the name of the built-in tool \"Computer use\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceConnections": "Use accounts you have connected.",
+  "@toolsSentenceConnections": {
+    "description": "One plain sentence under the name of the built-in tool \"Connections\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceContextEngine": "Use the add-on that manages long chats.",
+  "@toolsSentenceContextEngine": {
+    "description": "One plain sentence under the name of the built-in tool \"Context engine\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceCronjob": "Create tasks that run later without you.",
+  "@toolsSentenceCronjob": {
+    "description": "One plain sentence under the name of the built-in tool \"Scheduled tasks\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceDelegation": "Start helper agents that work on their own.",
+  "@toolsSentenceDelegation": {
+    "description": "One plain sentence under the name of the built-in tool \"Delegation\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceDiscord": "Read and join Discord conversations.",
+  "@toolsSentenceDiscord": {
+    "description": "One plain sentence under the name of the built-in tool \"Discord\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceDiscordAdmin": "Manage a Discord server's channels and roles.",
+  "@toolsSentenceDiscordAdmin": {
+    "description": "One plain sentence under the name of the built-in tool \"Discord admin\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceFile": "Read, create and change files on the machine where Hermes runs.",
+  "@toolsSentenceFile": {
+    "description": "One plain sentence under the name of the built-in tool \"Files\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceImageGen": "Make pictures from a description.",
+  "@toolsSentenceImageGen": {
+    "description": "One plain sentence under the name of the built-in tool \"Image generation\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceKanban": "Use the task board.",
+  "@toolsSentenceKanban": {
+    "description": "One plain sentence under the name of the built-in tool \"Kanban\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceMemory": "Remember things between chats.",
+  "@toolsSentenceMemory": {
+    "description": "One plain sentence under the name of the built-in tool \"Memory\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceSessionSearch": "Search your past chats.",
+  "@toolsSentenceSessionSearch": {
+    "description": "One plain sentence under the name of the built-in tool \"Session search\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceSkills": "Find and use the skills you have.",
+  "@toolsSentenceSkills": {
+    "description": "One plain sentence under the name of the built-in tool \"Skills\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceStt": "Turn voice messages into text.",
+  "@toolsSentenceStt": {
+    "description": "One plain sentence under the name of the built-in tool \"Speech to text\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceTerminal": "Run commands on the machine where Hermes runs.",
+  "@toolsSentenceTerminal": {
+    "description": "One plain sentence under the name of the built-in tool \"Terminal\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceTodo": "Keep a to-do list while working.",
+  "@toolsSentenceTodo": {
+    "description": "One plain sentence under the name of the built-in tool \"Task planning\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceTts": "Read answers aloud.",
+  "@toolsSentenceTts": {
+    "description": "One plain sentence under the name of the built-in tool \"Text to speech\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceVideoAnalysis": "Watch videos and describe them.",
+  "@toolsSentenceVideoAnalysis": {
+    "description": "One plain sentence under the name of the built-in tool \"Video analysis\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceVideoGen": "Make short videos from a description.",
+  "@toolsSentenceVideoGen": {
+    "description": "One plain sentence under the name of the built-in tool \"Video generation\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceVision": "Look at pictures and describe them.",
+  "@toolsSentenceVision": {
+    "description": "One plain sentence under the name of the built-in tool \"Image analysis\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceWeb": "Look things up on the web and read pages.",
+  "@toolsSentenceWeb": {
+    "description": "One plain sentence under the name of the built-in tool \"Web search and scraping\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceXSearch": "Search posts on X.",
+  "@toolsSentenceXSearch": {
+    "description": "One plain sentence under the name of the built-in tool \"X search\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSwitchLabel": "{name}, {state, select, on{on} other{off}}",
+  "@toolsSwitchLabel": {
+    "description": "Accessibility label of a tool's switch: the tool's name and whether it is on or off.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "toolsSwitchLabelSaving": "{name}, {state, select, on{on} other{off}}, saving",
+  "@toolsSwitchLabelSaving": {
+    "description": "Accessibility label of a tool's switch while the change is being saved: name, new state, then that it is saving.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "toolsTryAgain": "Try again",
+  "@toolsTryAgain": {
+    "description": "Button that repeats a failed load or a change of a tool."
+  },
 
   "@@x-area-update": "",
 

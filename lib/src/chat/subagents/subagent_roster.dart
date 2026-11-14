@@ -8,7 +8,7 @@ import '../../network/poll_backoff.dart';
 import '../chat_models.dart';
 import 'agent_detail_host.dart';
 import 'agent_models.dart';
-import 'agent_row.dart';
+import 'roster_row.dart';
 import 'agent_work_result.dart';
 import 'subagent_repository.dart';
 
@@ -78,8 +78,8 @@ class SubagentRoster extends ChangeNotifier {
   final SubagentRepository _repository;
   final RosterEnvironment _env;
 
-  final _rows = <String, AgentRow>{};
-  final _delegations = <String, AgentRow>{};
+  final _rows = <String, RosterRow>{};
+  final _delegations = <String, RosterRow>{};
   var _order = 0;
   var _frameSeq = 0;
   var _demand = 0;
@@ -108,7 +108,7 @@ class SubagentRoster extends ChangeNotifier {
     if (_disposed) return;
     final row = _rows.putIfAbsent(
       frame.id,
-      () => AgentRow(id: frame.id, order: _order++),
+      () => RosterRow(id: frame.id, order: _order++),
     );
     row.frameSeq = ++_frameSeq;
     if (frame.goal.isNotEmpty) row.goal = frame.goal;
@@ -272,7 +272,7 @@ class SubagentRoster extends ChangeNotifier {
       listedIds.add(agent.id);
       final row = _rows.putIfAbsent(
         agent.id,
-        () => AgentRow(id: agent.id, order: _order++),
+        () => RosterRow(id: agent.id, order: _order++),
       );
       final newerFrame = row.frameSeq > startSeq;
       if (row.goal.isEmpty) row.goal = agent.goal ?? '';
@@ -317,7 +317,7 @@ class SubagentRoster extends ChangeNotifier {
       }
       final row = _delegations.putIfAbsent(
         failed.key,
-        () => AgentRow(id: failed.key, order: _order++)..delegationOnly = true,
+        () => RosterRow(id: failed.key, order: _order++)..delegationOnly = true,
       );
       row.state = failed.state.active ? AgentState.failed : failed.state;
       row.goal = failed.goal ?? row.goal;
@@ -330,14 +330,14 @@ class SubagentRoster extends ChangeNotifier {
 
   // ---- reading the roster ---------------------------------------------
 
-  AgentRow? row(String id) => _rows[id] ?? _delegations[id];
+  RosterRow? row(String id) => _rows[id] ?? _delegations[id];
 
   /// The agents as the panel lists them: running and starting under Now,
   /// everything else under This session, each ordered by start time, nested
   /// under a parent listed in the same section up to [kMaxNesting] levels.
   AgentSections get sections {
     final all = [..._rows.values, ..._delegations.values];
-    int byStart(AgentRow a, AgentRow b) {
+    int byStart(RosterRow a, RosterRow b) {
       // A row with no start time (seen only by a frame so far) is the newest.
       final left = a.startedAt, right = b.startedAt;
       if (left != null && right != null && left != right) {
@@ -359,10 +359,10 @@ class SubagentRoster extends ChangeNotifier {
     );
   }
 
-  List<PlacedAgent> _place(List<AgentRow> section) {
+  List<PlacedAgent> _place(List<RosterRow> section) {
     final byId = {for (final row in section) row.id: row};
-    final children = <String, List<AgentRow>>{};
-    final tops = <AgentRow>[];
+    final children = <String, List<RosterRow>>{};
+    final tops = <RosterRow>[];
     for (final row in section) {
       final parent = row.parentId;
       if (parent != null && parent != row.id && byId.containsKey(parent)) {
@@ -373,10 +373,10 @@ class SubagentRoster extends ChangeNotifier {
     }
     final placed = <PlacedAgent>[];
     final seen = <String>{};
-    void visit(AgentRow row, int level) {
+    void visit(RosterRow row, int level) {
       if (!seen.add(row.id)) return;
       placed.add(PlacedAgent(row, level));
-      for (final child in children[row.id] ?? const <AgentRow>[]) {
+      for (final child in children[row.id] ?? const <RosterRow>[]) {
         // A fourth level is drawn at the third.
         visit(child, level + 1 < kMaxNesting ? level + 1 : kMaxNesting - 1);
       }
