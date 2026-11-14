@@ -35,6 +35,7 @@ extension _AgentWork on HermesGatewayTransport {
     if (!kAgentActionMethods.contains(method)) {
       throw ArgumentError.value(method, 'method', 'not an agent action');
     }
+    final owner = (profile, threadId);
     final binding = ownedSessionFor(threadId, profile: profile);
     final GatewayRpcClient client;
     final String runtimeId;
@@ -44,19 +45,40 @@ extension _AgentWork on HermesGatewayTransport {
     } else {
       // Not attached on the current connection, whatever an earlier
       // connection knew: attach it, as the server only honours its holder.
-      client = await _client();
-      final session = await _call(client, 'session.resume', {
-        'session_id': threadId,
-        'profile': ?profile,
-        'source': gatewaySessionSource,
-      });
-      final id = session['session_id'];
-      if (id is! String || id.isEmpty) throw StateError('No runtime session');
-      runtimeId = id;
+      // Actions started together share one resume.
+      try {
+        (
+          client,
+          runtimeId,
+        ) = await (_agentResumes[owner] ??= _attachForAgent(owner).whenComplete(
+          () {
+            // A block body: returning the removed future would wait on itself.
+            _agentResumes.remove(owner);
+          },
+        ));
+      } on Object catch (error) {
+        throw AgentActionNotSent(error);
+      }
     }
     return client.requestWithin(method, {
       ...params,
       'session_id': runtimeId,
     }, timeout: timeout);
+  }
+
+  /// Resumes the session on the current connection and records it as held
+  /// here, so reads that follow (the re-read after a stop) see it attached.
+  /// A resume that gets no answer abandons the call and keeps the socket.
+  Future<(GatewayRpcClient, String)> _attachForAgent(_ThreadOwner owner) async {
+    final client = await _client();
+    final session = await client.requestWithin('session.resume', {
+      'session_id': owner.$2,
+      'profile': ?owner.$1,
+      'source': gatewaySessionSource,
+    }, timeout: requestTimeout);
+    final id = session['session_id'];
+    if (id is! String || id.isEmpty) throw StateError('No runtime session');
+    if (_connected() == client) _establishOwned(owner, client, id);
+    return (client, id);
   }
 }

@@ -6,6 +6,16 @@ const kAgentActionMethods = {'subagent.interrupt', 'subagent.steer'};
 /// Calls on a chat's live session that only the connection holding it may
 /// make. The transport adds `session_id` itself, so a caller never addresses
 /// another session.
+/// An action that failed before its request was sent (the session could not
+/// be attached), so it certainly did not happen.
+final class AgentActionNotSent implements Exception {
+  const AgentActionNotSent(this.cause);
+  final Object cause;
+
+  @override
+  String toString() => 'AgentActionNotSent';
+}
+
 abstract interface class AgentWorkTransport {
   /// Reads [method] when the chat's session is attached on the current
   /// connection, and returns null, sending nothing, when it is not. Never

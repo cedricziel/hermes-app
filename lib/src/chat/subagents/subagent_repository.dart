@@ -54,7 +54,7 @@ class SubagentRepository {
   /// nothing is sent.
   Future<AgentWorkResult<SteerOutcome>> steer(AgentKey key, String text) {
     final note = text.trim();
-    if (note.isEmpty || note.length > kMaxNoteLength) {
+    if (note.isEmpty || note.runes.length > kMaxNoteLength) {
       return Future.value(const WorkFailed(WorkFailureKind.rejected));
     }
     return _act('steer', 'subagent.steer', key, {
@@ -169,6 +169,7 @@ class SubagentRepository {
       WorkFailureKind.rejected => 'rejected',
       WorkFailureKind.notOwned => 'not_owned',
       WorkFailureKind.server => 'server',
+      WorkFailureKind.notSent => 'not_sent',
       WorkFailureKind.other => 'other',
     },
   };

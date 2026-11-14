@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import '../agent_work_transport.dart';
 import '../gateway/gateway_rpc_client.dart';
+import '../session_chat_transport.dart' show SessionTransportUnavailable;
 
 /// What a call on a chat's agents came to.
 sealed class AgentWorkResult<T> {
@@ -40,6 +42,9 @@ enum WorkFailureKind {
   /// 5xxx.
   server,
 
+  /// The action never left the device: its session could not be attached.
+  notSent,
+
   /// Any other error, or an answer of a shape the app does not know.
   other,
 }
@@ -51,6 +56,9 @@ final class WorkFailed<T> extends AgentWorkResult<T> {
 
 /// Maps what a call threw to its result. Never throws.
 AgentWorkResult<T> workResultOfError<T>(Object error) {
+  if (error is AgentActionNotSent) {
+    return const WorkFailed(WorkFailureKind.notSent);
+  }
   if (error is GatewayRpcException) {
     final code = error.code;
     if (code == kGatewayMethodNotFound) return const WorkUnsupported();
@@ -67,9 +75,11 @@ AgentWorkResult<T> workResultOfError<T>(Object error) {
   }
   if (error is GatewayRequestTimeout ||
       error is GatewayConnectionClosed ||
-      error is TimeoutException) {
+      error is TimeoutException ||
+      // The chat's transport was replaced while the call ran: whether it
+      // reached the server is not known.
+      error is SessionTransportUnavailable) {
     return const WorkLost();
   }
-  if (error is UnsupportedError) return const WorkUnsupported();
   return const WorkFailed(WorkFailureKind.other);
 }

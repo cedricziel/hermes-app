@@ -220,6 +220,9 @@ class HermesGatewayTransport
   final _modelOf = <_ThreadOwner, ModelChoice>{};
 
   final _ownedBindings = <_ThreadOwner, OwnedSessionBinding>{};
+
+  /// The resumes agent actions wait on, so two at once attach a session once.
+  final _agentResumes = <_ThreadOwner, Future<(GatewayRpcClient, String)>>{};
   final _ownedSessions = StreamController<OwnedSessionChange>.broadcast(
     sync: true,
   );

@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/agent_work_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
+import 'package:hermes_app/src/chat/session_chat_transport.dart';
 import 'package:hermes_app/src/chat/subagents/agent_models.dart';
 import 'package:hermes_app/src/chat/subagents/agent_work_result.dart';
 import 'package:hermes_app/src/chat/subagents/subagent_repository.dart';
@@ -331,6 +333,18 @@ void main() {
       );
     });
 
+    test('the 4,000 limit counts characters, not UTF-16 units', () async {
+      transport.agentAnswer = (_) => {'status': 'queued'};
+      expect(
+        await repository.steer(key, '😀' * kMaxNoteLength),
+        isA<WorkOk<SteerOutcome>>(),
+      );
+      expect(
+        await repository.steer(key, '😀' * (kMaxNoteLength + 1)),
+        isA<WorkFailed<SteerOutcome>>(),
+      );
+    });
+
     test('each error code reads as its kind', () async {
       Future<AgentWorkResult<StopOutcome>> stopWith(Object error) {
         transport.agentAnswer = (_) => Future.error(error);
@@ -365,7 +379,18 @@ void main() {
       expect(await stopWith(const GatewayRequestTimeout()), isA<WorkLost>());
       expect(await stopWith(const GatewayConnectionClosed()), isA<WorkLost>());
       expect(await stopWith(TimeoutException('x')), isA<WorkLost>());
-      expect(await stopWith(UnsupportedError('x')), isA<WorkUnsupported>());
+      expect(
+        (await stopWith(UnsupportedError('x')) as WorkFailed).kind,
+        WorkFailureKind.other,
+      );
+      expect(
+        (await stopWith(const AgentActionNotSent('x')) as WorkFailed).kind,
+        WorkFailureKind.notSent,
+      );
+      expect(
+        await stopWith(SessionTransportUnavailable(retired: true)),
+        isA<WorkLost>(),
+      );
       expect(await stopWith(StateError('x')), isA<WorkFailed>());
     });
 
