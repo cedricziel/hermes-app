@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/memory/memory_decisions.dart';
 import 'package:hermes_app/src/memory/memory_proposals.dart';
@@ -200,7 +201,7 @@ void main() {
     test('a transport error is unreachable and keeps the buttons', () async {
       final unreachable = MemoryDecisions(
         available: () => true,
-        run: (_) => throw StateError('socket'),
+        run: (_) => throw const GatewayConnectionClosed(),
       );
       addTearDown(unreachable.dispose);
       await unreachable.decide(id, approve: true);
@@ -357,7 +358,7 @@ void main() {
           surface: 'inbox',
           run: (command) async {
             runs.add(command);
-            throw StateError('socket');
+            throw const GatewayConnectionClosed();
           },
         );
         addTearDown(broken.dispose);
@@ -406,7 +407,7 @@ void main() {
       final spans = RecordingTracer();
       final unreachable = MemoryDecisions(
         available: () => true,
-        run: (_) => throw StateError('socket'),
+        run: (_) => throw const GatewayConnectionClosed(),
         telemetry: ConnectionTelemetry(tracer: spans),
       );
       addTearDown(unreachable.dispose);

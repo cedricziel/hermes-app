@@ -4,6 +4,7 @@ import 'package:flutter_otel/flutter_otel.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../telemetry/telemetry.dart';
 import 'memory_proposals.dart';
+import '../telemetry/report_bug.dart';
 
 enum MemoryDecisionPhase { idle, running, saved, rejected, failed }
 
@@ -159,7 +160,8 @@ class MemoryDecisions extends ChangeNotifier {
         kind: kind,
       );
       outcome = state.phase.name;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a memory decision');
       outcome = 'unreachable';
       state = const MemoryDecisionState(
         MemoryDecisionPhase.failed,

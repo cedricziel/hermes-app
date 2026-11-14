@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_catalog_controller.dart';
 import 'mcp_servers_controller.dart';
+import '../telemetry/report_bug.dart';
 
 sealed class McpInstallState {
   const McpInstallState();
@@ -114,7 +115,8 @@ class McpInstallController extends ChangeNotifier {
       }
     } on McpRefused catch (e) {
       _set(McpInstallFailed(_couldNotInstall(e.reason)));
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'an MCP install');
       if (isMcpNotFound(e)) {
         await catalog.load();
         _set(const McpInstallGone());
@@ -144,7 +146,8 @@ class McpInstallController extends ChangeNotifier {
     final HermesMcpAction status;
     try {
       status = await servers.repository.actionStatus(action);
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'an MCP install');
       if (_disposed) return;
       if (isMcpNotFound(e) || ++_readFailures >= _maxReadFailures) {
         await _lostTrack();
