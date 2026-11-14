@@ -307,6 +307,215 @@
   "@@x-area-chat/attachments": "",
 
   "@@x-area-chat/checkpoints": "",
+  "chatCheckpointsOutcomeBusyCompressing": "Hermes is compressing this chat. Try again when it's done.",
+  "@chatCheckpointsOutcomeBusyCompressing": {
+    "description": "Outcome note when a restore was refused because Hermes is compressing the chat."
+  },
+  "chatCheckpointsOutcomeBusyReplying": "Wait for the reply to finish, then try again.",
+  "@chatCheckpointsOutcomeBusyReplying": {
+    "description": "Outcome note when a full restore was refused because the chat is replying."
+  },
+  "chatCheckpointsOutcomeChatUnchanged": "Your chat isn't changed.",
+  "@chatCheckpointsOutcomeChatUnchanged": {
+    "description": "Detail line of the note after one file was restored: the chat was not touched."
+  },
+  "chatCheckpointsOutcomeFailedMaybeChangedDetail": "Some may have changed.",
+  "@chatCheckpointsOutcomeFailedMaybeChangedDetail": {
+    "description": "Detail line of the note when a restore failed part-way: some files may have been changed. Never say that nothing changed here."
+  },
+  "chatCheckpointsOutcomeFailedTitle": "Hermes couldn't restore the files",
+  "@chatCheckpointsOutcomeFailedTitle": {
+    "description": "Title of the outcome note when a restore failed or was refused."
+  },
+  "chatCheckpointsOutcomeHistoryNotRewoundDetail": "Your messages are unchanged.",
+  "@chatCheckpointsOutcomeHistoryNotRewoundDetail": {
+    "description": "Detail line when files were restored but the chat could not be rewound."
+  },
+  "chatCheckpointsOutcomeHistoryNotRewoundTitle": "Files were restored, but the chat couldn't be rewound",
+  "@chatCheckpointsOutcomeHistoryNotRewoundTitle": {
+    "description": "Title of the warning note when a full restore put the files back but the chat was not rewound."
+  },
+  "chatCheckpointsOutcomeLastMessageNotRemoved": "Your last message in this app wasn't the one removed.",
+  "@chatCheckpointsOutcomeLastMessageNotRemoved": {
+    "description": "Detail line after a full restore that removed a message other than the last one this app showed; the message box is left alone."
+  },
+  "chatCheckpointsOutcomeListAndChatReread": "The list and the chat were read again.",
+  "@chatCheckpointsOutcomeListAndChatReread": {
+    "description": "Detail line saying the checkpoint list and the chat were fetched again after a restore."
+  },
+  "chatCheckpointsOutcomeListReread": "The list was read again.",
+  "@chatCheckpointsOutcomeListReread": {
+    "description": "Detail line saying the checkpoint list was fetched again after a restore."
+  },
+  "chatCheckpointsOutcomeMayHaveHappenedDetail": "The files may have been restored.",
+  "@chatCheckpointsOutcomeMayHaveHappenedDetail": {
+    "description": "Detail line of the warning note when Hermes did not answer a restore."
+  },
+  "chatCheckpointsOutcomeMayHaveHappenedTitle": "Hermes didn't answer",
+  "@chatCheckpointsOutcomeMayHaveHappenedTitle": {
+    "description": "Title of the warning note when a restore got no answer."
+  },
+  "chatCheckpointsOutcomeNothingChanged": "Nothing was changed.",
+  "@chatCheckpointsOutcomeNothingChanged": {
+    "description": "Detail line when a restore was refused before any file was touched."
+  },
+  "chatCheckpointsOutcomeRefusedContainer": "Checkpoints don't cover this chat's workspace",
+  "@chatCheckpointsOutcomeRefusedContainer": {
+    "description": "Title of the note when the chat runs in a separate workspace, so no checkpoints exist for its files."
+  },
+  "chatCheckpointsOutcomeRefusedNested": "This checkpoint includes a project inside the folder that Hermes didn't capture, so it can't restore it",
+  "@chatCheckpointsOutcomeRefusedNested": {
+    "description": "Title of the note when a checkpoint holds a nested repository that was not captured."
+  },
+  "chatCheckpointsOutcomeRefusedNotFound": "That checkpoint is gone",
+  "@chatCheckpointsOutcomeRefusedNotFound": {
+    "description": "Title of the note when the chosen checkpoint no longer exists, for example after another restore."
+  },
+  "chatCheckpointsOutcomeRestoredCount": "{count, plural, =1{Restored 1 file} other{Restored {count} files}}",
+  "@chatCheckpointsOutcomeRestoredCount": {
+    "description": "Success note after a restore whose number of files was read from the checkpoint's changes. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsOutcomeRestoredUnknown": "Files restored",
+  "@chatCheckpointsOutcomeRestoredUnknown": {
+    "description": "Success note after a restore when the number of files is not known."
+  },
+  "chatCheckpointsOutcomeSafetyNone": "No new “Before a restore” checkpoint was added.",
+  "@chatCheckpointsOutcomeSafetyNone": {
+    "description": "Detail line when the re-read list holds no new safety checkpoint. The quoted name is the reason text of that checkpoint."
+  },
+  "chatCheckpointsOutcomeSafetySaved": "Hermes saved the previous state as the top checkpoint, ‘Before a restore’.",
+  "@chatCheckpointsOutcomeSafetySaved": {
+    "description": "Detail line when the re-read list holds a new safety checkpoint taken before the restore."
+  },
+  "chatCheckpointsOutcomeSessionGone": "Hermes lost the connection to this chat. Try again.",
+  "@chatCheckpointsOutcomeSessionGone": {
+    "description": "Outcome note when the chat's session was gone while restoring."
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredCountRemoved": "{count, plural, =1{Restored 1 file · removed your last message} other{Restored {count} files · removed your last message}}",
+  "@chatCheckpointsOutcomeTranscriptRestoredCountRemoved": {
+    "description": "Centred line in the transcript after a full restore that removed the last message. {count} is how many files.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredUnknownRemoved": "Files restored · removed your last message",
+  "@chatCheckpointsOutcomeTranscriptRestoredUnknownRemoved": {
+    "description": "Centred line in the transcript after a full restore when the file count is not known."
+  },
+  "chatCheckpointsOutcomeTryAgain": "Try again",
+  "@chatCheckpointsOutcomeTryAgain": {
+    "description": "Button on a restore outcome note that asks for the restore again, behind a new confirmation."
+  },
+  "chatCheckpointsRestoreAllConfirm": "Restore all files",
+  "@chatCheckpointsRestoreAllConfirm": {
+    "description": "Destructive button of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllDifferCount": "{count, plural, =1{1 file differs now. Changes made since, by you or Hermes, will be overwritten.} other{{count} files differ now. Changes made since, by you or Hermes, will be overwritten.}}",
+  "@chatCheckpointsRestoreAllDifferCount": {
+    "description": "Line of the Restore all files confirmation: how many files differ from the checkpoint now. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsRestoreAllDifferUnknown": "Some files differ now. Changes made since, by you or Hermes, will be overwritten.",
+  "@chatCheckpointsRestoreAllDifferUnknown": {
+    "description": "Line of the Restore all files confirmation when the number of differing files could not be read."
+  },
+  "chatCheckpointsRestoreAllIntro": "Files in this folder go back to how they were {time}{reason, select, beforeEdit{, before editing a file} beforeTerminal{, before a terminal command} beforeRestore{, before a restore} other{}}.",
+  "@chatCheckpointsRestoreAllIntro": {
+    "description": "First sentence of the Restore all files confirmation. {time} is a relative time such as '12 min ago'; {reason} is the checkpoint's reason kind (beforeEdit, beforeTerminal, beforeRestore, other).",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsRestoreAllLaterFiles": "Files created after that stay where they are.",
+  "@chatCheckpointsRestoreAllLaterFiles": {
+    "description": "Line of the Restore all files confirmation: files created later are not deleted."
+  },
+  "chatCheckpointsRestoreAllNotCaptured": ".env files, logs, node_modules, build output, caches, virtual environments, archives, videos, compiled binaries and files over 10 MB aren't in checkpoints: this leaves them as they are, and no checkpoint can bring them back.",
+  "@chatCheckpointsRestoreAllNotCaptured": {
+    "description": "Line of the Restore all files confirmation naming what checkpoints never hold."
+  },
+  "chatCheckpointsRestoreAllNote": "Chats don't track which message a checkpoint belongs to, so only your last message is removed, whichever checkpoint you pick. Other chats in this folder keep their messages but see the restored files.",
+  "@chatCheckpointsRestoreAllNote": {
+    "description": "Muted note at the end of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllOtherChat": "Another chat working in this folder can change these files again.",
+  "@chatCheckpointsRestoreAllOtherChat": {
+    "description": "Line of the Restore all files confirmation: another chat shares the folder."
+  },
+  "chatCheckpointsRestoreAllQuoteHint": "If this is the message removed, it goes back into the message box, unsent.",
+  "@chatCheckpointsRestoreAllQuoteHint": {
+    "description": "Caption under the quoted last message in the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllQuoteLabel": "Your last message",
+  "@chatCheckpointsRestoreAllQuoteLabel": {
+    "description": "Accessibility label of the quoted last message in the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllRemovesMessages": "This also removes your last message and Hermes' answers after it from this chat.",
+  "@chatCheckpointsRestoreAllRemovesMessages": {
+    "description": "Bold warning line of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreAllReplying": "Wait for the reply to finish.",
+  "@chatCheckpointsRestoreAllReplying": {
+    "description": "Reason shown under the disabled Restore all files button while the chat replies."
+  },
+  "chatCheckpointsRestoreAllSaveFirst": "Hermes tries to save the current state first.",
+  "@chatCheckpointsRestoreAllSaveFirst": {
+    "description": "Line of the Restore all files confirmation: a safety checkpoint is attempted."
+  },
+  "chatCheckpointsRestoreAllTitle": "Restore all files?",
+  "@chatCheckpointsRestoreAllTitle": {
+    "description": "Title of the Restore all files confirmation."
+  },
+  "chatCheckpointsRestoreCancel": "Cancel",
+  "@chatCheckpointsRestoreCancel": {
+    "description": "Cancel button of the restore confirmations, the default."
+  },
+  "chatCheckpointsRestoreFileBody": "{file} goes back to how it was {time}{reason, select, beforeEdit{, before editing a file} beforeTerminal{, before a terminal command} beforeRestore{, before a restore} other{}}. Changes made to it since, by you or Hermes, will be overwritten. Hermes tries to save the current version first. Your chat isn't changed. Another chat working in this folder can change this file again.",
+  "@chatCheckpointsRestoreFileBody": {
+    "description": "Body of the Restore this file confirmation. {file} is the file's name, {time} a relative time such as '12 min ago', {reason} the checkpoint's reason kind (beforeEdit, beforeTerminal, beforeRestore, other).",
+    "placeholders": {
+      "file": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsRestoreFileConfirm": "Restore file",
+  "@chatCheckpointsRestoreFileConfirm": {
+    "description": "Destructive button of the Restore this file confirmation."
+  },
+  "chatCheckpointsRestoreFileTitle": "Restore this file?",
+  "@chatCheckpointsRestoreFileTitle": {
+    "description": "Title of the Restore this file confirmation."
+  },
+  "chatCheckpointsRestoreFileWorking": "Hermes is working in this folder right now. It may change the file again.",
+  "@chatCheckpointsRestoreFileWorking": {
+    "description": "Extra line of the Restore this file confirmation while the agent works."
+  },
 
   "@@x-area-chat/context": "",
 
