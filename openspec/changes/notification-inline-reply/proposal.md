@@ -31,7 +31,7 @@ Security and privacy impact:
 
 Observability:
 
-- Span `background.task` (from `headless-runtime`) with `task: notification.reply`, `engine`, annotated `reply.outcome` (`answered`, `sent`, `failed`, `unavailable`, `unconfirmed`) because the runtime writes the span's own `outcome`; a refusal for App Lock (`locked`) ends a run-less span, as Ask Hermes does. It crosses the gateway.
+- Span `background.task` (from `headless-runtime`) with `task: notification.reply`, `engine`, annotated `reply.outcome` (`answered`, `sent`, `failed`, `unconfirmed`) when the body ran, and keeping the runtime's own `outcome` when the run ended first; a refusal for App Lock (`locked`) ends a run-less span, as Ask Hermes does. It crosses the gateway.
 - Log event `notification.reply` with `outcome` and `route` (`main` or `background`); breadcrumb `notification.reply` with `outcome`.
 - None carries the text, a title, a profile name or an id.
 
@@ -47,7 +47,7 @@ None.
 
 ## Impact
 
-- Dart: `lib/src/notifications/inline_reply.dart` (send through `withHeadlessHermes` and the transport's `send(queued: true)`), the category and action in `request_notifications.dart`, `attentionFor` (category choice by App Lock, a payload marker), a branch in `routeAnswer`/`LoneAnswerer` and in `LocalNotificationService._onResponse`, `withdrawAnswerable` (also withdraws replyable notifications), and one footnote line in the Notifications dialog.
+- Dart: `lib/src/notifications/inline_reply.dart` (send through `withHeadlessHermes` and the transport's `send(queued: true)`, which, unlike `sendQueued`, accepts a chat with no profile), the category and action in `request_notifications.dart`, `attentionFor` (category choice by App Lock, a payload marker), a branch in `routeAnswer`/`LoneAnswerer` and in `LocalNotificationService._onResponse`, `withdrawAnswerable` (also withdraws replyable notifications), and one footnote line in the Notifications dialog.
 - iOS and macOS: no native code or entitlement; `flutter_local_notifications` supports text-input actions and background responses. The categories are re-registered through `registerCategoriesNatively`, which already takes the static list.
 - Dependencies, all on main: #587/#589 (request actions), `headless-runtime`, `deep-links`, `ask-hermes` (running-reply record), `background-refresh`.
 - Backend: no new routes; `session.resume`, `prompt.submit`.

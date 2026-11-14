@@ -16,10 +16,20 @@ On iOS, iPadOS and macOS, a notification for a completed reply in a chat, posted
 - **WHEN** Hermes is running a turn in that chat when the reply is sent
 - **THEN** the prompt is queued behind it and does not redirect it
 
+#### Scenario: Empty reply
+
+- **WHEN** the user sends an empty or whitespace-only reply
+- **THEN** nothing is sent and nothing is posted
+
 #### Scenario: Posted by the background check
 
 - **WHEN** the background check announces a finished reply while App Lock is off
 - **THEN** that notification offers the Reply action like one the app posted
+
+#### Scenario: Two isolates, one reply
+
+- **WHEN** the app is running and the background isolate receives the response
+- **THEN** exactly one of them sends the prompt, once
 
 ### Requirement: Where the reply action is not offered
 
@@ -42,7 +52,7 @@ The reply action SHALL NOT be offered on Android, Windows, Linux or watchOS, on 
 
 ### Requirement: Inline reply respects the device and App Lock
 
-The action SHALL require the device to be unlocked. App Lock SHALL be read again when a reply arrives. If it is on, or not yet loaded, the system SHALL send nothing, keep nothing, and post "Open Hermes to reply." under the title "Hermes". Turning App Lock on, and signing out, SHALL withdraw notifications that carry the action or a kept text.
+The action SHALL require the device to be unlocked. When a reply arrives, App Lock SHALL be read from its saved setting before anything is sent. If it is on, or cannot be read, the system SHALL send nothing, keep nothing, and post "Open Hermes to reply." under the title "Hermes". Turning App Lock on, and signing out, SHALL withdraw notifications that carry the action or a kept text.
 
 #### Scenario: Locked device
 
@@ -59,14 +69,24 @@ The action SHALL require the device to be unlocked. App Lock SHALL be read again
 - **WHEN** a "Reply not sent" notification that holds a kept text is showing and the user turns App Lock on
 - **THEN** that notification is withdrawn and the text is gone
 
+#### Scenario: Withdrawn on sign-out
+
+- **WHEN** the user signs out while a "Reply ready" notification with the action, or a "Reply not sent" with a kept text, is showing
+- **THEN** both are withdrawn
+
 ### Requirement: Answer to an inline reply
 
-The answer to an inline reply SHALL arrive as the notifications this spec already defines for the chat. If it completes within the background window it SHALL be announced at once. On iOS otherwise the chat SHALL be recorded as a running reply so the background check announces it when the system runs it. On macOS, where no background check runs, a slow answer SHALL be seen when the chat is opened. Closing the work SHALL NOT post "Reply failed".
+The answer to an inline reply SHALL arrive as the notifications this spec already defines for the chat. If it completes within the background window it SHALL be announced at once, never while the app is in front and never twice. On iOS otherwise the chat SHALL be recorded as a running reply so the background check announces it. On macOS, where no background check runs, a slow answer SHALL be seen when the chat is opened. Closing the work SHALL NOT post "Reply failed".
 
 #### Scenario: Quick answer
 
 - **WHEN** Hermes answers the inline reply within the window
 - **THEN** a "Reply ready" notification with the answer's preview replaces the earlier one
+
+#### Scenario: Answer while the app is in front
+
+- **WHEN** the answer completes while the app is in front
+- **THEN** no notification is posted, and returning to the app announces nothing again
 
 #### Scenario: Slow answer on iOS
 
@@ -85,40 +105,45 @@ The answer to an inline reply SHALL arrive as the notifications this spec alread
 
 ### Requirement: Reply not sent
 
-When an inline reply cannot be sent (nobody signed in, the stored session unreadable, the server unreachable, the account changed, the chat or profile gone, or the send failed before `prompt.submit` was sent), the system SHALL post a notification for that chat, replacing the earlier one, with the chat's title and the body "Reply not sent. Open Hermes to try again." It SHALL NOT retry, and its title and body SHALL NOT include the typed text.
+When Hermes cannot have received the prompt (nobody signed in, the stored session unreadable, the server unreachable, the account changed, the chat or profile gone, or a failure before `prompt.submit` was sent), the system SHALL post for that chat, replacing its notification, the chat's title and "Reply not sent. Open Hermes to try again." if a text is kept, else "Reply not sent. Open Hermes to write it again." It SHALL NOT retry or put the text in a title or body.
 
 #### Scenario: Server unreachable
 
-- **WHEN** the user replies while the server cannot be reached
+- **WHEN** the user replies of 40 characters while the server cannot be reached
 - **THEN** "Reply not sent. Open Hermes to try again." appears for the chat and nothing is sent later
 
-#### Scenario: Every headless outcome handled
+#### Scenario: Signed out or locked store
 
-- **WHEN** the headless runtime reports signed out, locked or unreachable
-- **THEN** each posts "Reply not sent"; none is dropped silently
+- **WHEN** the headless runtime reports signed out, locked or unreachable before the prompt was sent
+- **THEN** "Reply not sent. Open Hermes to write it again." is posted for signed out and "try again" for the others if the text qualifies; none is dropped silently
 
 #### Scenario: Stale notification after a server switch
 
 - **WHEN** the user replies from a notification posted for another account or server
-- **THEN** nothing is sent, no text is kept, and "Reply not sent" is posted
+- **THEN** nothing is sent, no text is kept, and "Reply not sent. Open Hermes to write it again." is posted
 
 ### Requirement: Reply that may have been sent
 
-When `prompt.submit` was sent but its answer did not arrive, including a connection lost after it and a hand-off to the running app that reports nothing in time, the system SHALL NOT resend. Within the background window it SHALL post for the chat "Couldn't confirm your reply was sent. Open Hermes to check." without the typed text, and SHALL keep no text.
+Once `prompt.submit` was written without an answer, the system SHALL NOT resend. Whatever ends the work after that point, whether a lost connection, a timeout, a headless runtime that reports unreachable, signed out or locked, a stream that ends with no acknowledgement or a hand-off that reports nothing in time, SHALL post "Couldn't confirm your reply was sent. Open Hermes to check." without the text, and keep no text.
 
 #### Scenario: Answer lost
 
 - **WHEN** the connection drops after `prompt.submit` went out and before its result
 - **THEN** "Couldn't confirm your reply was sent. Open Hermes to check." is posted and nothing is resent
 
+#### Scenario: Timeout after submit
+
+- **WHEN** the run's own timeout fires, or the session fails, after `prompt.submit` was written
+- **THEN** "Couldn't confirm" is posted, never "Reply not sent"
+
 #### Scenario: Hand-off timeout
 
 - **WHEN** the background isolate has handed the reply to the running app and no report comes back in time
-- **THEN** "Couldn't confirm your reply was sent. Open Hermes to check." is posted, not "Reply not sent"
+- **THEN** "Couldn't confirm" is posted, and a later report from the app posts nothing that replaces it
 
 ### Requirement: Typed text is not stored
 
-Typed reply text SHALL be held in memory only while it is sent. Except as "Unsent text can be restored" allows, it SHALL NOT be written to preferences, files, logs, telemetry, breadcrumbs, or a notification's title or body, and SHALL NOT be kept when the reply ended `sent`, `unconfirmed`, `locked` or signed out.
+Typed reply text SHALL be held in memory only while it is sent. Except as "Unsent text can be restored" allows, it SHALL NOT be written to preferences, files, logs, telemetry, breadcrumbs, or a notification's title or body, and SHALL NOT be kept when the reply ended `sent`, `unconfirmed` or `locked`, or signed out.
 
 #### Scenario: Reply sent
 
@@ -127,7 +152,7 @@ Typed reply text SHALL be held in memory only while it is sent. Except as "Unsen
 
 ### Requirement: Unsent text can be restored
 
-After "Reply not sent", the text SHALL be kept only if it is at most 120 user-perceived characters, App Lock is off and loaded, and the user is signed in, and only in that notification's payload. Tapping the notification SHALL open the chat, under its own profile, as `hermes://chat?profile=<p>&id=<id>&prompt=<text>` does: the text in the composer, never sent. Longer text SHALL NOT be kept, and the body reads "Reply not sent. Open Hermes to write it again."
+After "Reply not sent", the text MAY be kept only if it is at most 120 user-perceived characters, App Lock is off and loaded, and the user is signed in, and only in that notification's payload with its account marker, for as long as the notification lives. Tapping it SHALL open the chat as `hermes://chat?profile=<p>&id=<id>&prompt=<text>` does, with the text in the composer, never sent. In another account it SHALL put nothing in the composer. Longer text SHALL NOT be kept.
 
 #### Scenario: Unsent text restored
 
@@ -137,7 +162,7 @@ After "Reply not sent", the text SHALL be kept only if it is at most 120 user-pe
 #### Scenario: Other profile
 
 - **WHEN** the chat belongs to a profile other than the one shown
-- **THEN** the tap switches to that profile and opens the chat with the text in the composer
+- **THEN** the tap switches to that profile and opens the chat, as an explicit exception to "Tapping a notification opens its chat"
 
 #### Scenario: Long text not kept
 
@@ -164,16 +189,21 @@ An inline reply SHALL be sent only as a prompt and SHALL NOT be passed to `reque
 
 ### Requirement: Inline reply never signs the user out
 
-Sending an inline reply SHALL run on the headless runtime. A rejected refresh, a locked store, an unreadable session or a timeout SHALL NOT clear the stored session, and SHALL end in a notification as above.
+Sending an inline reply, in either isolate, SHALL run on the headless runtime. A rejected refresh, a locked store, an unreadable session or a timeout SHALL NOT clear the stored session, and SHALL end in a notification as above.
 
 #### Scenario: Refresh rejected
 
-- **WHEN** the refresh is rejected during an inline reply
+- **WHEN** the refresh is rejected before the prompt was sent
 - **THEN** "Reply not sent" is posted and the user stays signed in
 
-### Requirement: An ending is told only when notifications are allowed
+### Requirement: An ending is told only when allowed
 
-The notifications "Reply not sent", "Couldn't confirm" and "Open Hermes to reply." SHALL be posted only while notifications are on and permitted. If they are off or revoked, nothing SHALL be posted and no text kept.
+"Reply not sent", "Couldn't confirm" and "Open Hermes to reply." SHALL be posted only while notifications are on and permitted. App Lock SHALL be read again right before posting; if it is on, the text SHALL be dropped and the ending SHALL be "Open Hermes to reply." under "Hermes". If notifications are off or revoked, nothing SHALL be posted or kept.
+
+#### Scenario: App Lock turned on while sending
+
+- **WHEN** App Lock turns on after the reply was handed over and before the ending is posted
+- **THEN** the ending carries no title and no text
 
 #### Scenario: Permission revoked
 
@@ -182,18 +212,23 @@ The notifications "Reply not sent", "Couldn't confirm" and "Open Hermes to reply
 
 ### Requirement: Telemetry for inline replies
 
-Each inline reply SHALL record a `background.task` span with `task` = `notification.reply` and `engine`, annotated `reply.outcome` (`answered`, `sent`, `failed`, `unavailable`, `unconfirmed`), a log event `notification.reply` with `outcome` and `route`, and a breadcrumb when the running app handled it. A reply refused for App Lock (`locked`) SHALL end its span without a run. None SHALL carry the typed text, a chat title, a profile name, a server address or an id.
+Each inline reply SHALL record a `background.task` span with `task` = `notification.reply` and `engine`. When the body ran it SHALL be annotated `reply.outcome` (`answered`, `sent`, `failed`, `unconfirmed`); when the run ended first, the span keeps the runtime's own outcome. A log event `notification.reply` SHALL carry `outcome` and `route`. A reply refused for App Lock SHALL end a run-less span. None SHALL carry the typed text, a title, a profile name, a server address or an id.
 
 #### Scenario: Failed send recorded
 
-- **WHEN** an inline reply fails with telemetry on
+- **WHEN** an inline reply fails before the prompt was sent, with telemetry on
 - **THEN** a `notification.reply` log event with `outcome: failed` is recorded and holds no text
 
 ### Requirement: Gateway contract for inline replies
 
-An inline reply SHALL use the dashboard's `/api/ws` gateway as the chat does: `session.resume` with `profile` and the stored session id, then `prompt.submit` with `session_id`, `text` and `queued: true`, whose result `status` is `streaming`, `queued`, `steered` or `redirected`. These are in the Hermes OpenRPC contract pinned by `openrpc/HERMES_REF`.
+An inline reply SHALL use the dashboard's `/api/ws` gateway as the chat does: `session.resume` with `profile` when it has one and the stored session id, then `prompt.submit` with `session_id`, `text` and `queued: true`, whose result `status` is `streaming`, `queued`, `steered` or `redirected`. A result with no status SHALL count as sent. These are in the Hermes OpenRPC contract pinned by `openrpc/HERMES_REF`.
 
 #### Scenario: Prompt queued
 
 - **WHEN** an inline reply is sent
 - **THEN** `prompt.submit` carries `queued: true`
+
+#### Scenario: Server without profiles
+
+- **WHEN** the chat has no profile
+- **THEN** the reply is still sent

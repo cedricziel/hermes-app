@@ -20,7 +20,7 @@ Decisions taken in the design pass:
 - One action. "Reply" is the only button on a "Reply ready" notification; no "Open" button, because a tap on the notification opens the chat. This keeps the action row one 44 pt button on iPhone and one 28 pt button on the Mac.
 - Field text: placeholder "Reply to Hermes", button "Send". Not "Your answer" (that is the request question's field) and not "Send reply" (the system's own label stays short for large text).
 - Every ending has fixed text and no buttons: a notification that offers "Try again" would invite a resend of text the app no longer has. Where the text is kept, tapping restores it in the composer; the user presses send.
-- "Reply not sent" has two bodies (text kept, text too long to keep) and a separate "Couldn't confirm" for a lost answer. They must not be merged: the first two say nothing reached Hermes, the third says it may have.
+- "Reply not sent" has two bodies (text kept, no text kept: too long, signed out, account changed or App Lock) and a separate "Couldn't confirm" for a lost answer. They must not be merged: the first two say nothing reached Hermes, the third says it may have.
 - Under App Lock the title is "Hermes", never the chat's title, in line with how App Lock treats titles.
 - Status is words, not colour. No icon beyond the app icon; the notification's text carries the state.
 - Largest text: the system wraps and the field and Send stack; no copy needs truncation (the longest body, "Couldn't confirm your reply was sent. Open Hermes to check.", fits in five lines at the largest size).
@@ -43,7 +43,7 @@ Copy added by the design (all fixed text, none with the typed text):
 | Field placeholder                     | Reply to Hermes                                                                                            |
 | Field button                          | Send                                                                                                       |
 | Not sent, text kept                   | Reply not sent. Open Hermes to try again.                                                                  |
-| Not sent, text too long               | Reply not sent. Open Hermes to write it again.                                                             |
+| Not sent, no text kept                | Reply not sent. Open Hermes to write it again.                                                             |
 | Could not confirm                     | Couldn't confirm your reply was sent. Open Hermes to check.                                                |
 | App Lock on at reply (title "Hermes") | Open Hermes to reply.                                                                                      |
 | Notifications dialog footnote         | On iPhone, iPad and Mac you can reply to a finished reply from its notification. Not while App Lock is on. |

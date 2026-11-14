@@ -11,10 +11,10 @@ What this design relies on, checked against the code on main and the contract pi
 - `attentionFor(appLock: true)` already makes a reply's body the generic "Reply ready" and gives requests no buttons. `RequestAnswers` withdraws answerable notifications when App Lock turns on (`withdrawAnswerable`, found by payload on iOS and macOS, by the `hermes.request` tag on Android) and listens to the sign-out stream.
 - The answer path for buttons: iOS `NotificationActions` (AppDelegate.swift) handles every `hermes.action.*` id except `hermes.action.open`, with the app in front or not. It calls the completion handler at once, holds a `UIBackgroundTask` that Dart ends through `hermes_app/background_task`, starts the plugin's headless engine, and passes the text as `input`. So on iOS `LocalNotificationService._onResponse` never sees a reply button; only macOS uses it. `answerRequestInBackground` runs `routeAnswer`: it offers the response to the running app over `IsolateNameServer` (offer, then confirm), or `LoneAnswerer` answers alone, one at a time, within `kAnswerBudget` (25 s from the button). After `_go`, a missing report by the due time plus `reportGrace` calls `unanswered`. `answerFromResponse` returns null for a payload with no request, so a reply response is today ignored.
 - `prompt.submit` takes `queued` (OpenRPC `PromptSubmitParams.queued`), and its result `status` is `streaming | queued | steered | redirected`. `request.answer` takes `{id, result, profile}` and answers `{status: ok | expired}`.
-- `QueueSubmissionTransport.sendQueued` (the chat's own queue) sends with `queued: true`. It throws `QueueSubmissionNotStarted` only for an unresolved profile, a failed `beforeSubmit` or a refused dispatch. Connect and resume errors (step `connect` or `open`) and errors after `prompt.submit` was written (step `submit`) surface as raw `GatewayConnectionClosed` or `TimeoutException`, so the exception alone does not say whether Hermes may have the prompt. `WatchRequestHandler` does not expose `queued`, so it is not used.
+- `HermesGatewayTransport.send(queued: true)` and `QueueSubmissionTransport.sendQueued` both send with `queued: true`; `sendQueued` refuses a null or blank profile, `send` accepts one. The transport's steps before `prompt.submit` are `connect`, `open`, `attach` and `commit`. It throws `QueueSubmissionNotStarted` only for an unresolved profile, a failed `beforeSubmit` or a refused dispatch. Connect and resume errors (step `connect` or `open`) and errors after `prompt.submit` was written (step `submit`) surface as raw `GatewayConnectionClosed` or `TimeoutException`, so the exception alone does not say whether Hermes may have the prompt. `WatchRequestHandler` does not expose `queued`, so it is not used. The headless runtime maps its own timeout, a throwing body and an `auth_failed` that overrides an unsettled body to `HeadlessUnreachable` or `HeadlessSignedOut`, which can happen after `prompt.submit` was written.
 - `withHeadlessHermes` returns `HeadlessDone`, `HeadlessSignedOut`, `HeadlessLocked` or `HeadlessUnreachable`, never signs the user out and never clears the stored session. It sets the span's own `outcome` when the run ends, so a body's outcome goes in an annotation (`hermes.annotate`), as Ask Hermes does, and a refusal before any run gets a run-less span.
 - `RunningReplies` (`hermes.background.running.v1`) records a chat whose reply still runs, with `fromAsk` for a turn that outlived its sender's answer. `RunningRepliesStep` announces it on positive evidence only and builds its notification by hand (`background_alerts.dart`) with `replyReadyCategory` and no payload marker. The background check runs on iOS and Android only (`BackgroundScheduler._supported`).
-- `appLockOnNow` and `AppLockController.savedEnabled` read App Lock in either isolate; `RequestAnswerSender` refuses to answer past it and posts `kOpenToAnswerBody`. `appLockHidesRequests` counts App Lock as on until its saved setting has loaded; this design uses the same rule.
+- `appLockOnNow` (waits up to 5 s for the setting, then reads the stored one) and `AppLockController.savedEnabled` read App Lock in either isolate; `RequestAnswerSender` refuses to answer past it and posts `kOpenToAnswerBody`. `appLockHidesRequests` counts App Lock as on until its saved setting has loaded; this design uses the same rule.
 - Ask Hermes keeps an unsent question of up to 4,000 characters in its not-sent notification's `'q'` payload and does not withdraw it when App Lock turns on; it only leaves the text out when App Lock is on at that moment. This design is stricter, see "What is kept".
 - `deepLinkUri(OpenChat(profile, threadId, prompt))` builds `hermes://chat?...&prompt=`; `deepLinkPromptLimit` is 4,000 characters; a link's prompt goes under the composer's draft and is never sent. The shell opens it with `ChatOpenRequests.request(target, prompt:, fromLink: true)`.
 
@@ -44,57 +44,69 @@ The category ships together with its handler (PR 2), never alone, so no Reply bu
 
 ### One handler for both paths
 
-`sendInlineReply` in `lib/src/notifications/inline_reply.dart`. `routeAnswer` is generalised from "an answer" to "a response the app handles": it still offers the response to the running app and falls back to the lone isolate, so the offer-then-confirm protocol that stops two isolates sending the same answer also stops two sending the same reply. `LoneAnswerer` queues replies with answers in one chain, so two never refresh the token pair at once. `LocalNotificationService._onResponse` calls it on macOS only (iOS never reaches it, even with the app in front). The branch is on `actionId == kReplyChatAction` and the `'y'` marker, before `answerFromResponse`. On macOS, `launchTarget` gets the same branch behind the `_launchAnswered` once-only guard, so a reply that started the app is handled once and does not open the chat.
+`sendInlineReply` in `lib/src/notifications/inline_reply.dart`, one function for every path, with the sender and the clock passed in. Both isolates build it the same way, on the headless runtime.
 
-Steps, within `kAnswerBudget` from the response (the handover's `_at`):
+- **Background isolate (iOS, iPadOS).** `routeAnswer` is generalised from "an answer" to "a response the app handles": it offers the response to the running app (offer, then confirm) or falls back to `LoneAnswerer`, which queues replies with answers in one chain so two never refresh the token pair at once. The budget is `kAnswerBudget` from the handover's `_at`, which the iOS Runner adds.
+- **Running app, after `_go`.** The sender is `RequestAnswers._onMessage`. Today it calls `answerFromAction`, gets null for a reply, reports `failed` and posts nothing, and its sender is built on `AuthController` (`RequestAnswers.forAuth`). The reply branch goes there: when the message carries `kReplyChatAction` and the `'y'` marker it calls `sendInlineReply` through `withHeadlessHermes` (which coordinates with `AuthController`, Contract 3) and reports the outcome name back on the reply port, as it does for answers.
+- **macOS.** `LocalNotificationService._onResponse` and, at a cold launch, `launchTarget` (behind the `_launchAnswered` once-only guard) call it in the app's isolate, so a reply that started the app is handled once and does not open the chat. There is no handover `_at` on macOS: the budget starts when Dart receives the response.
+- iOS never reaches `_onResponse` (the Runner handles every `hermes.action.*` id but Open, in front or not).
+
+The branch is on `actionId == kReplyChatAction` and the `'y'` marker, before `answerFromResponse`.
+
+**Timing.** Let `due` be the budget end. The body's own cutoff is `due - followUpMargin` (3 s, as `RequestAnswerSender` does), so the run's timeout never ends the body first; `withHeadlessHermes` closes within `closeGrace` (3 s), so the app side has posted and reported by `due`. The background isolate waits until `due + reportGrace` (2 s) for the report and then posts "Couldn't confirm". Rules that keep the two from contradicting each other:
+
+- After the cutoff the app side posts nothing and mutes `announce`; it only reports. A late "Reply not sent" with a kept text, or a late "Reply ready", can never replace the isolate's "Couldn't confirm".
+- Once the app side has posted an ending, it reports; the background isolate posts nothing when a report arrives, whatever it says.
+- Before `_go` a failed hand-off falls back to `alone`, which has sent nothing.
+
+Steps of `sendInlineReply`:
 
 1. Decode the target from the payload. A job target, a missing `'y'` marker or an empty or whitespace-only `input` does nothing and posts nothing.
-2. Read App Lock (`appLockOnNow` in the app, `AppLockController.savedEnabled` in the lone isolate) before any request; on, or not yet loaded, counts as on. Send nothing, keep nothing, post `kOpenToReplyBody` ("Open Hermes to reply.") under the title "Hermes", and end a run-less span (`reply.outcome: locked`).
-3. Run `withHeadlessHermes(body, task: 'notification.reply')` with the time left. `HeadlessSignedOut`, `HeadlessLocked` and `HeadlessUnreachable` each post "Reply not sent". Signed out keeps no text.
-4. In the body, compare the payload's `'a'` with the hash of `HeadlessHermes.accountKey`. A mismatch posts "Reply not sent" with no text and sends nothing.
-5. Send with `transport.sendQueued(...)` (`queued: true`, `beforeSubmit` does nothing) and classify by the transport's step, not by the exception type:
-   - Not sent: an error while the step is `connect` or `open`, a `ProfileUnavailableException`, or `QueueSubmissionNotStarted`. "Reply not sent" (`failed`).
-   - May have been sent: any error or timeout once `prompt.submit` was written (step `submit` or later) before its result. "Couldn't confirm" (`unconfirmed`). Nothing is resent.
+2. Read App Lock from its saved setting, waiting for it to load if needed (`appLockOnNow` in the app, `AppLockController.savedEnabled` in the lone isolate). On, or unreadable, refuses: nothing sent or kept, `kOpenToReplyBody` ("Open Hermes to reply.") under "Hermes", a run-less span. (The post-time rule, unloaded counts as on, is `appLockHidesRequests`; arrival reads the real setting instead of guessing.)
+3. A small `SubmitMark` is created before `withHeadlessHermes` and passed to the body; it records "prompt.submit written" and "acknowledged". It lives outside the body's closure so the mapping below can read it after the run ended.
+4. Run `withHeadlessHermes(body, task: 'notification.reply', timeout: left)`. Map its outcome by the mark: `HeadlessDone` as the body decided. `HeadlessSignedOut`, `HeadlessLocked` and `HeadlessUnreachable` (which is also what its own timeout, a throwing body and an `auth_failed` that overrides an unsettled body after `closeGrace` map to): mark not written, "Reply not sent" (signed out keeps no text); mark written and not acknowledged, `unconfirmed`; acknowledged, `sent`.
+5. In the body, compare the payload's `'a'` with the hash of `HeadlessHermes.accountKey`. A mismatch posts "Reply not sent", no text, and sends nothing.
+6. Send with `transport.send(queued: true, ...)`, not `sendQueued`: `sendQueued` refuses a null or blank profile, which is what a server without profiles gives, so every reply would fail there. The profile is sent when the payload has one. Classify by the transport's step, not the exception type, with the typed `SendFailure(step)`:
+   - Before submit: `connect`, `open`, `attach`, `commit`, or a `ProfileUnavailableException`. "Reply not sent" (`failed`).
+   - Submit or later: `submit` (written, no result) and `reply`. "Couldn't confirm" (`unconfirmed`). Nothing is resent.
+   - A stream that ends cleanly with no error and no `PromptAcknowledged` (a reclaimed watch, a stop) is `unconfirmed`. A `prompt.submit` result with no `status` (the typed stop phrase, `voice_stopped`) counts as `sent` and is not recorded as running.
+7. The prompt was accepted when `prompt.submit` answers (`PromptAcknowledged`, or a `status` in the contract's four). If the reply ends inside the window, it is announced (`answered`), as the notification path does: skipped while the app is in front (`AppPresence` on iOS, the app's own focus on macOS), with `RunningReplies.markAnnounced` before posting, so the chat's replay on return does not announce it again. If the window ends first, the body stops waiting and mutes `announce` (closing the transport would otherwise announce a failed end). On iOS it records the chat in `RunningReplies` so the background check announces it (`sent`); on macOS nothing is recorded, and the answer is seen when the chat is opened. The turn keeps running on the server. `fromAsk` is reused as it is: its documented meaning is a turn that outlived its sender, not a chat the screen was showing; a rename is optional in PR 2.
+8. A prompt Hermes folds into a running turn (`PromptFolded`, status `steered` or `redirected`) produces no `ReplyCompleted`. It counts as `sent`, is recorded as above, and the turn that follows is never announced as the answer.
+9. Every ending goes through one `postEnding` that re-reads App Lock right before posting (it can turn on mid-send) and drops the text and the title if it is on, and posts nothing when notifications are off or not permitted.
 
-   The transport has no typed signal for this today. The first task of PR 2 makes `sendQueued` fail with a typed `SendFailure` that carries the step (a small change under `lib/src/chat/gateway/`, with tests); `QueueSubmissionNotStarted` stays what it is.
+No step retries. `prompt.submit` is never resent (gateway rule). The open chat sees the turn through its normal follow-up stream.
 
-6. The prompt was accepted when `prompt.submit` answers (`PromptAcknowledged`, or a `status` in the contract's four). If the reply ends inside the window, `announce` posts it ("Reply ready", "Reply failed" or a request notification) (`answered`). If the window ends first, the body stops waiting and mutes `announce` (closing the transport would otherwise announce a failed end). On iOS it records the chat in `RunningReplies` so the background check announces it (`sent`). On macOS nothing is recorded because no background check runs; the answer is seen when the chat is opened. The turn keeps running on the server. `fromAsk` is reused as it is: its documented meaning is a turn that outlived its sender, not a chat the screen was showing, which is exactly this; a rename to `fromBackground` is optional in PR 2.
-7. A prompt Hermes folds into a running turn (`PromptFolded`, status `steered` or `redirected`) produces no `ReplyCompleted`. It counts as `sent`, is recorded as above, and the turn that follows is never announced as the answer.
-8. The hand-off: after the background isolate sends `_go` to the running app, `routeAnswer` waits until the due time plus `reportGrace` for a report and then calls `unanswered`. For a reply, `unanswered` posts "Couldn't confirm" (the app may have sent it), never "Reply not sent". Before `_go`, a failed hand-off falls back to `alone`, which has sent nothing.
-
-No step retries. `prompt.submit` is never resent (gateway rule). In the running app `withHeadlessHermes` coordinates with `AuthController` (Contract 3); the open chat sees the turn through its normal follow-up stream.
-
-`queued: true`: the prompt must not steer or redirect a turn that runs in the chat at that moment, so the reply goes out as the chat's own queue sends. If a server runs the prompt as `redirected` anyway, that is the server's behaviour; the live-backend check (first task of PR 2) shows what it does.
+`queued: true`: the prompt must not steer or redirect a turn that runs in the chat at that moment. If a server runs it as `redirected` anyway, that is the server's behaviour; the live-backend check (first task of PR 2) shows what it does.
 
 ### Exactly once
 
-iOS delivers a response once, and the hand-off's offer-then-confirm makes one isolate the sender. There is no retry. The notification is removed by the system after the action. The text is a `String` in the handler's frame; nothing writes it except in the one case below.
+iOS is expected to deliver a response once (unverified, see below), and the hand-off's offer-then-confirm makes one isolate the sender. There is no retry. The text is a `String` in the handler's frame; nothing writes it except in the one case below.
 
 ### What is kept
 
 Decision: the typed text lives in memory while it is sent and is otherwise kept only to let the user get it back after "Reply not sent", and only as much as a notification body could already show.
 
-- Kept in the "Reply not sent" notification's payload under a new key `'u'` (the existing `'q'` key means a new chat, so it cannot be reused) only if it is at most `kPreviewLength` (120) user-perceived characters, App Lock is off and loaded, the outcome is not signed out, and the failure is `failed` or `unavailable`. `targetFromPayload` reads `'u'` into a chat target that carries a draft and a profile. The shell opens it as a link does (`ChatOpenRequests.request(target, prompt:, fromLink: true)`), which switches to the chat's profile, so a tap from another profile works.
-- The payload lives with the notification. iOS and macOS keep delivered notifications in the system's store until they are tapped or cleared. That is on disk, which is why the cap is the preview length, the length a "Reply ready" body already puts there, and why the text is never in preferences, files or logs.
-- Withdrawn: turning App Lock on withdraws notifications with `'y'` or `'u'` (`withdrawAnswerable` extended); signing out withdraws them too (`RequestAnswers` already listens to the sign-out stream).
-- Longer text, `unconfirmed`, `locked`, signed out and `sent` keep nothing.
-- The body, the title, the telemetry and the breadcrumb never hold the text. The tap opens the chat as `deepLinkUri(OpenChat(profile, threadId, prompt: text))` does: composer prefilled, never sent. No URL is stored.
-- If notifications are off or the permission was revoked, the ending notification is not posted and no text is kept.
+- Kept in the "Reply not sent" notification's payload under a new key `'u'` (the existing `'q'` key means a new chat, so it cannot be reused) only if it is at most `kPreviewLength` (120) user-perceived characters, App Lock is off and loaded, the outcome is not signed out, and the failure is before submit. The payload carries the account hash `'a'` too. `targetFromPayload` reads `'u'` into a chat target that carries a draft and a profile. A tap in another account (hash mismatch) puts nothing in the composer and shows "Could not open that chat."; withdrawal on sign-out covers the usual path.
+- The shell opens a `'u'` tap as a link does (`ChatOpenRequests.request(target, prompt:, fromLink: true)`), which switches to the chat's profile. This is an explicit exception to "Tapping a notification opens its chat", which for other notifications keeps the open chat and shows "Could not open that chat." for another profile. The exception is recorded in the spec and the main spec is amended on archive.
+- The payload lives with the notification, on disk in the system's notification store. That is why the cap is the preview length, the length a "Reply ready" body already puts there, and why the text is never in preferences, files or logs.
+- Lifetime: until the notification is tapped, cleared, withdrawn (App Lock, sign-out) or replaced. There is no expiry of its own; accepted, because a notification the user ignores sits in the system's store anyway. If that changes, a sweep on resume can withdraw `'u'` notifications older than a day.
+- Longer text, `unconfirmed`, `locked`, signed out and `sent` keep nothing. The body, title, telemetry and breadcrumb never hold the text. No URL is stored.
+- If notifications are off or the permission was revoked, the ending is not posted and no text is kept.
 
 Why stricter than Ask Hermes: its not-sent notification keeps up to 4,000 characters and is not withdrawn when App Lock turns on or the user signs out. Text typed into a notification of a chat the user may want protected deserves the tighter rule; Ask Hermes should follow it later (roadmap finding).
 
 ### Ending notifications
 
-Each is an `AttentionNotification` for the same chat (same id, so it replaces "Reply ready"), title the chat's title from the original payload, except under App Lock ("Hermes"). Bodies are fixed text:
+Each is an `AttentionNotification` for the same chat (same id, so it replaces "Reply ready"), title the chat's title from the original payload, except under App Lock ("Hermes"). One rule for the two "not sent" bodies: "try again" when a text is kept in the payload, "write it again" in every other case (too long, signed out, account changed, App Lock). Bodies are fixed text:
 
-| Ending                  | Body                                                        | Payload              |
-| ----------------------- | ----------------------------------------------------------- | -------------------- |
-| not sent, text kept     | Reply not sent. Open Hermes to try again.                   | chat, `'u'`          |
-| not sent, text not kept | Reply not sent. Open Hermes to write it again.              | chat                 |
-| could not confirm       | Couldn't confirm your reply was sent. Open Hermes to check. | chat                 |
-| App Lock                | Open Hermes to reply.                                       | none (opens the app) |
+| Ending                 | Body                                                        | Payload              |
+| ---------------------- | ----------------------------------------------------------- | -------------------- |
+| not sent, text kept    | Reply not sent. Open Hermes to try again.                   | chat, `'u'`, `'a'`   |
+| not sent, no text kept | Reply not sent. Open Hermes to write it again.              | chat                 |
+| could not confirm      | Couldn't confirm your reply was sent. Open Hermes to check. | chat                 |
+| App Lock               | Open Hermes to reply.                                       | none (opens the app) |
 
-"Try again" is said only when a text is in the payload; any not-sent without a kept text says "write it again". They are plain default-level notifications with no category, like `kAnswerFailedBody`. Posting goes through a `LocalNotificationService(background: true)` in the lone isolate, and is skipped when notifications are off.
+They are plain default-level notifications with no category, like `kAnswerFailedBody`. Posting goes through a `LocalNotificationService(background: true)` in the lone isolate.
 
 ### Platforms and native changes
 
@@ -107,7 +119,7 @@ Each is an `AttentionNotification` for the same chat (same id, so it replaces "R
 - Auth: the headless runtime's rules (never signs out, gives up quietly on a refresh conflict).
 - Notification bodies: all new bodies are fixed text; the existing App Lock rule is kept (generic "Reply ready", no action), and App Lock not yet loaded counts as on.
 - Requests: `kReplyChatAction` is not `kReplyAction`; `answerFromResponse` never sees a reply, and a request notification's buttons answer only the id in its payload (`inline_reply.dart` never calls `request.answer`, `approval.respond` or `clarify.respond`).
-- Telemetry, in `inline_reply.dart`: span `background.task` (`task: notification.reply`, `engine`) annotated `reply.outcome` (`answered`, `sent`, `failed`, `unavailable`, `unconfirmed`); a run-less span for `locked`. Log event `notification.reply` (`outcome`, `route`), breadcrumb `notification.reply` (`outcome`) in the foreground engine only. No text, title, profile or id.
+- Telemetry, in `inline_reply.dart`: span `background.task` (`task: notification.reply`, `engine`), annotated `reply.outcome` (`answered`, `sent`, `failed`, `unconfirmed`) when the body ran; when the run ended first (signed out, locked store, unreachable, timeout) the span keeps the runtime's own `outcome`, because those are known only after the runtime ended the span (there is no `unavailable` outcome). A run-less span for an App Lock refusal. Log event `notification.reply` (`outcome`: the four, plus `signed_out`, `store_locked`, `unreachable`, `app_locked`; and `route`), breadcrumb in the foreground engine only. No text, title, profile or id.
 - API layering: gateway only, through the existing transport.
 
 ### Settings
@@ -130,7 +142,7 @@ No new switch: the action follows the notification setting and App Lock. The Not
 
 ## Not verified without a device
 
-Everything about the system's notification UI: that the text action shows on the Lock Screen only after unlock, the text field and "Send" button on iOS and macOS, that the Runner's engine finishes `prompt.submit` inside the background window, the hand-off with the running app, delivered-notification persistence of the payload, macOS launching the app for the response (cold launch). The contract (`queued`, the status values) is checked against the pinned OpenRPC; a live backend check is the first task of PR 2. The canvas draws the system UI as a neutral frame and shows only the app's own text.
+That iOS delivers each response once and removes the notification after the action (on the `sent` path nothing replaces it until an answer arrives, so if it is not removed the user sees the old reply). Everything about the system's notification UI: that the text action shows on the Lock Screen only after unlock, the text field and "Send" button on iOS and macOS, that the Runner's engine finishes `prompt.submit` inside the background window, the hand-off with the running app, delivered-notification persistence of the payload, macOS launching the app for the response (cold launch). The contract (`queued`, the status values) is checked against the pinned OpenRPC; a live backend check is the first task of PR 2. The canvas draws the system UI as a neutral frame and shows only the app's own text.
 
 ## Migration Plan
 
