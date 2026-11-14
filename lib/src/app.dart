@@ -245,7 +245,7 @@ class _RootRouterState extends State<_RootRouter> {
     final state = auth.state;
     if (state != HermesConnectionState.ready) {
       _shellOwner = null;
-    } else if (_shellOwner == null || auth.protectedRequestsAllowed) {
+    } else if (auth.protectedRequestsAllowed) {
       _shellOwner = auth.ownerGeneration;
     }
     switch (state) {

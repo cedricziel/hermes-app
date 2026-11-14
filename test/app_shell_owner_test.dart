@@ -1,15 +1,30 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/memory_token_store.dart';
 import 'support/screenshot_recorder.dart';
 import 'support/workflow_app.dart';
+
+/// A token store whose clear waits, which holds an ungated sign-out between
+/// the owner moving and the new API client existing.
+class _HeldStore extends MemoryTokenStore {
+  Completer<void>? hold;
+
+  @override
+  Future<void> clear() async {
+    await hold?.future;
+    return super.clear();
+  }
+}
 
 /// An ungated dashboard on a loopback socket that records its requests.
 Future<(HttpServer, List<String>)> _ungatedDashboard() async {
@@ -69,6 +84,50 @@ void main() {
       await letSocketsIdle(tester);
     },
   );
+
+  testWidgets('the shell is not replaced before the new client exists', (
+    tester,
+  ) async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    final (server, requests) = (await tester.runAsync(_ungatedDashboard))!;
+    addTearDown(() => server.close(force: true));
+    final store = _HeldStore();
+    final auth = AuthController(
+      devServerUrl: 'http://127.0.0.1:${server.port}',
+      tokenStore: store,
+    );
+    addTearDown(auth.dispose);
+    await pumpWorkflowApp(tester, ScreenshotRecorder('owner'), auth: auth);
+    await tester.runAsync(auth.bootstrap);
+    await pumpUntilFound(tester, find.byType(AppShell));
+    final first = tester.state(find.byType(AppShell));
+    final generation = auth.ownerGeneration;
+
+    store.hold = Completer<void>();
+    final signOut = auth.signOut();
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    // The generation moved, the client is still the old one.
+    expect(auth.ownerGeneration, isNot(generation));
+    expect(auth.protectedRequestsAllowed, isFalse);
+    expect(tester.state(find.byType(AppShell)), same(first));
+
+    store.hold!.complete();
+    await tester.runAsync(() => signOut);
+    await pumpUntil(tester, () => auth.protectedRequestsAllowed);
+    await tester.pump(const Duration(milliseconds: 100));
+    final last = tester.state(find.byType(AppShell));
+    expect(last, isNot(same(first)));
+    final repositories = HermesRepositories.maybeOf(
+      tester.element(find.byType(AppShell)),
+    );
+    expect(identical(repositories?.api, auth.api), isTrue);
+    requests.clear();
+    await pumpUntil(tester, () => requests.contains('/api/profiles'));
+    await letSocketsIdle(tester);
+  });
 }
 
 Future<void> pumpUntil(WidgetTester tester, bool Function() done) async {

@@ -172,6 +172,38 @@ void main() {
       expect(bridge.activities.last, isNull);
     },
   );
+
+  test('an old screen cannot unbind the restore a newer one bound', () async {
+    var opened = '';
+    Future<bool> older(HandoffActivity activity, bool Function() valid) async =>
+        true;
+    Future<bool> newer(HandoffActivity activity, bool Function() valid) async {
+      opened = activity.threadId;
+      return true;
+    }
+
+    controller.bind(older);
+    controller.bind(newer);
+    controller.unbind(older);
+    controller.receive(first.payload);
+    ready();
+    await controller.drive();
+    expect(opened, 'first');
+    controller.unbind(newer);
+    controller.receive(second.payload);
+    await controller.drive();
+    expect(opened, 'first', reason: 'nothing is bound any more');
+  });
+
+  test('an old screen cannot withdraw what a newer one advertised', () {
+    final older = Object(), newer = Object();
+    controller.advertise(first, owner: older);
+    controller.advertise(second, owner: newer);
+    controller.withdraw(older);
+    expect(controller.visibleIdentity, second.identity);
+    controller.withdraw(newer);
+    expect(controller.visibleIdentity, isNull);
+  });
 }
 
 class RecordingBridge extends HandoffBridge {

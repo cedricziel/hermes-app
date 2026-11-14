@@ -524,6 +524,7 @@ Signing out SHALL retire old clients, clear the in-memory session and identity, 
 
 - **WHEN** the user signs out on a server that does not require auth
 - **THEN** the state stays ready
+- **AND** once the new API client is in place, the home screen is rebuilt for the new owner, and the old owner's shell, runs and navigations are dropped
 
 #### Scenario: Change server
 
