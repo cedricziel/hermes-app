@@ -151,6 +151,15 @@
   "@chatActivityNeedsYouConnectorSkip": {
     "description": "Button on the Needs-you card that skips a service's sign-in. Keep it short."
   },
+  "chatActivityNeedsYouDockLabel": "{count, plural, =1{1 request needs you} other{{count} requests need you}}",
+  "@chatActivityNeedsYouDockLabel": {
+    "description": "Accessibility label of the Needs-you card above the composer. {count} is how many requests wait.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "chatActivityNeedsYouExpires": "Expires in {minutes} min",
   "@chatActivityNeedsYouExpires": {
     "description": "Line on the Needs-you card saying how long a sign-in stays open. {minutes} is whole minutes, rounded up.",
