@@ -5,10 +5,11 @@ import 'package:hermes_app/src/providers/widgets/provider_detail_view.dart';
 import 'package:hermes_app/src/providers/widgets/provider_list_view.dart';
 import 'package:hermes_app/src/providers/widgets/provider_view_models.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
-import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'provider_form_use_cases.dart';
+import 'provider_use_case_helpers.dart';
 
 // ---- invented sample data: neutral model names, example addresses ----
 
@@ -262,34 +263,6 @@ const _notConnectedDetail = ProviderDetailData(
 
 // ---- layout helpers ----
 
-void _noop() {}
-void _noopId(String _) {}
-
-Widget _scaled(double scale, Widget child) => Builder(
-  builder: (context) => MediaQuery(
-    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
-    child: child,
-  ),
-);
-
-/// A settings page around [body], the way the screen will put it.
-Widget _page({
-  required String Function(AppLocalizations l10n) title,
-  String Function(AppLocalizations l10n)? subtitle,
-  List<SettingsBarAction> Function(AppLocalizations l10n)? actions,
-  required Widget body,
-}) => Builder(
-  builder: (context) {
-    final l10n = context.l10n;
-    return SettingsScaffold(
-      title: title(l10n),
-      subtitle: subtitle?.call(l10n),
-      actions: actions?.call(l10n) ?? const [],
-      body: body,
-    );
-  },
-);
-
 Widget _listView(
   ProviderListData data, {
   String? selectedId,
@@ -300,16 +273,16 @@ Widget _listView(
   selectedId: selectedId,
   searchQuery: searchQuery,
   onSearchChanged: onSearchChanged,
-  onSelect: _noopId,
-  onAdd: _noopId,
-  onAddEndpoint: _noop,
-  onOpenDefaultModel: _noop,
-  onContinueSignIn: _noopId,
-  onStopSignIn: _noopId,
-  onRetry: _noop,
-  onRetryKeys: _noop,
-  onRetryAccounts: _noop,
-  onRetryEndpoints: _noop,
+  onSelect: noopId,
+  onAdd: noopId,
+  onAddEndpoint: noop,
+  onOpenDefaultModel: noop,
+  onContinueSignIn: noopId,
+  onStopSignIn: noopId,
+  onRetry: noop,
+  onRetryKeys: noop,
+  onRetryAccounts: noop,
+  onRetryEndpoints: noop,
 );
 
 Widget _listPage(
@@ -317,7 +290,7 @@ Widget _listPage(
   String? selectedId,
   String searchQuery = '',
   ValueChanged<String>? onSearchChanged,
-}) => _page(
+}) => settingsPage(
   title: (l10n) => l10n.providersListTitle,
   subtitle: (l10n) =>
       providerListSubtitle(l10n, data.profile, data.connectedCount),
@@ -331,15 +304,15 @@ Widget _listPage(
 
 Widget _detailView(ProviderDetailData data) => ProviderDetailView(
   data: data,
-  onChangeDefaultModel: _noop,
-  onReplaceKey: _noopId,
+  onChangeDefaultModel: noop,
+  onReplaceKey: noopId,
   onRemove: (_) {},
 );
 
-Widget _detailPage(ProviderDetailData data) => _page(
+Widget _detailPage(ProviderDetailData data) => settingsPage(
   title: (_) => data.name,
   subtitle: (_) => data.profile,
-  actions: (l10n) => providerDetailBarActions(l10n, data, onEdit: _noop),
+  actions: (l10n) => providerDetailBarActions(l10n, data, onEdit: noop),
   body: _detailView(data),
 );
 
@@ -492,7 +465,7 @@ WidgetbookComponent _listComponent() => WidgetbookComponent(
     ),
     _case(
       'Largest text',
-      (_) => _scaled(
+      (_) => scaled(
         3,
         _listPage(
           _list(connected: const [_openRouter, _pendingChatGpt, _nous]),
@@ -503,7 +476,7 @@ WidgetbookComponent _listComponent() => WidgetbookComponent(
 );
 
 Widget _rows(List<Widget> rows, {double scale = 1}) =>
-    _scaled(scale, frame(maxWidth: 420, GroupedSection(children: rows)));
+    scaled(scale, frame(maxWidth: 420, GroupedSection(children: rows)));
 
 WidgetbookUseCase _rowCase(
   String name,
@@ -516,9 +489,9 @@ WidgetbookUseCase _rowCase(
     ModelProviderRow(
       provider: row,
       selected: selected,
-      onTap: _noop,
-      onContinueSignIn: _noop,
-      onStopSignIn: _noop,
+      onTap: noop,
+      onContinueSignIn: noop,
+      onStopSignIn: noop,
     ),
   ], scale: scale),
 );
@@ -578,8 +551,8 @@ WidgetbookComponent _rowComponent() => WidgetbookComponent(
         const ModelProviderRow(provider: _pendingChatGpt),
         ModelProviderRow(
           provider: _pendingChatGpt,
-          onContinueSignIn: _noop,
-          onStopSignIn: _noop,
+          onContinueSignIn: noop,
+          onStopSignIn: noop,
         ),
       ]),
     ),
@@ -596,7 +569,7 @@ WidgetbookComponent _rowComponent() => WidgetbookComponent(
             ProviderConnection.offerEndpoint,
           ),
         ])
-          ModelProviderRow(provider: r, onTap: _noop),
+          ModelProviderRow(provider: r, onTap: noop),
       ]),
     ),
     _rowCase(
@@ -616,8 +589,8 @@ WidgetbookComponent _rowComponent() => WidgetbookComponent(
       (_) => _rows([
         ModelProviderRow(
           provider: _pendingChatGpt,
-          onContinueSignIn: _noop,
-          onStopSignIn: _noop,
+          onContinueSignIn: noop,
+          onStopSignIn: noop,
         ),
       ], scale: 3),
     ),
@@ -654,19 +627,24 @@ WidgetbookComponent _detailComponent() => WidgetbookComponent(
       (_) => _detailPage(_stillConnectedDetail),
     ),
     _case('Not connected', (_) => _detailPage(_notConnectedDetail)),
-    _case('Largest text', (_) => _scaled(3, _detailPage(_openRouterDetail))),
+    _case('Largest text', (_) => scaled(3, _detailPage(_openRouterDetail))),
     _case(
       "Largest text, sign-in Hermes can't remove",
-      (_) => _scaled(3, _detailPage(_cannotRemoveDetail)),
+      (_) => scaled(3, _detailPage(_cannotRemoveDetail)),
     ),
     _case(
       'Largest text, custom endpoint',
-      (_) => _scaled(3, _detailPage(_endpointDetail)),
+      (_) => scaled(3, _detailPage(_endpointDetail)),
     ),
   ],
 );
 
 WidgetbookNode providerSetupNode() => WidgetbookFolder(
   name: 'Model providers',
-  children: [_listComponent(), _rowComponent(), _detailComponent()],
+  children: [
+    _listComponent(),
+    _rowComponent(),
+    _detailComponent(),
+    ...providerFormComponents(),
+  ],
 );
