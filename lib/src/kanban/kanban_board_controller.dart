@@ -114,6 +114,9 @@ class KanbanBoardController extends ChangeNotifier {
   Set<String> _arrived = const {};
 
   int _generation = 0;
+
+  /// Counts board fetches, so only the newest answer is applied.
+  int _fetches = 0;
   int _cursor = 0;
   // ignore: cancel_subscriptions
   StreamSubscription<String>? _events;
@@ -330,6 +333,8 @@ class KanbanBoardController extends ChangeNotifier {
   Future<void> refresh() async {
     if (!_canWork) return;
     var generation = _generation;
+    final fetch = ++_fetches;
+    bool current() => _current(generation) && fetch == _fetches;
     _loading = _board == null;
     notifyListeners();
     if (!_current(generation)) return;
@@ -339,7 +344,7 @@ class KanbanBoardController extends ChangeNotifier {
         tenant: _tenant,
         includeArchived: _includeArchived,
       );
-      if (!_current(generation)) return;
+      if (!current()) return;
       _arrived = _movedSince(_board, board);
       _board = board;
       _error = null;
@@ -351,7 +356,7 @@ class KanbanBoardController extends ChangeNotifier {
       _cursor = math.max(_cursor, board.latestEventId);
       if (_active && _events == null) unawaited(_listen());
     } on Object catch (e) {
-      if (!_current(generation)) return;
+      if (!current()) return;
       _error = e;
       if (unavailable) {
         _dropBoard();
@@ -360,7 +365,7 @@ class KanbanBoardController extends ChangeNotifier {
         generation = _generation;
       }
     } finally {
-      if (_current(generation)) {
+      if (current()) {
         _loading = false;
         notifyListeners();
       }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_otel/flutter_otel.dart'
@@ -179,6 +180,38 @@ void main() {
       controller.board!.columns.firstWhere((c) => c.name == 'todo').tasks,
       hasLength(1),
     );
+  });
+
+  test('an older refetch answering last does not replace a newer', () async {
+    serveBoard([kanbanTaskRow(id: 't1', status: 'todo')]);
+    await controller.start();
+
+    final older = Completer<void>();
+    var calls = 0;
+    server.onRequest('GET', '/api/plugins/kanban/board', (_) async {
+      if (++calls == 1) {
+        await older.future;
+        return (
+          status: 200,
+          body: kanbanBoardBody([kanbanTaskRow(id: 't1', status: 'todo')]),
+        );
+      }
+      return (
+        status: 200,
+        body: kanbanBoardBody([kanbanTaskRow(id: 't1', status: 'done')]),
+      );
+    });
+    final first = controller.refresh();
+    await until(() => calls == 1);
+    await controller.refresh();
+    older.complete();
+    await first;
+
+    expect(
+      controller.board!.columns.firstWhere((c) => c.name == 'done').tasks,
+      hasLength(1),
+    );
+    expect(controller.loading, isFalse);
   });
 
   test('previewMove ignores unknown tasks and columns', () async {
