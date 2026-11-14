@@ -209,6 +209,11 @@ For a provider listed with `flow: device_code` in `GET /api/providers/oauth`, th
 - **WHEN** the start answers 400 with Hermes' sentence that Nous Portal is already signed in
 - **THEN** the sentence is shown with "Check again" and no code
 
+#### Scenario: Start gets no answer
+
+- **WHEN** the start request gets no answer
+- **THEN** the step reads "Couldn't start the sign-in" and "Hermes didn't answer. Nothing was started." with "Try again", and nothing was started on the server
+
 ### Requirement: Following a sign-in
 
 The app SHALL poll `GET /api/providers/oauth/{id}/poll/{session}` at the server's interval, kept between 2 and 10 seconds. Failed polls SHALL back off and show "Can't reach your server. Still waiting…" without ending the sign-in. Leaving the sign-in page or the app SHALL NOT cancel it; the provider row SHALL read "Waiting for sign-in…" with "Continue" and "Stop" while the screen exists.

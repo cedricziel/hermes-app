@@ -11,6 +11,7 @@ import '../models/hermes_models_repository.dart';
 import '../platform_hint/platform_hint_repository.dart';
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../profiles/hermes_profiles_repository.dart';
+import '../providers/providers_repository.dart';
 import '../schedules/hermes_cron_repository.dart';
 import '../server_care/server_care_repository.dart';
 import '../skills/hermes_skills_hub_repository.dart';
@@ -31,6 +32,7 @@ class HermesRepositories {
       plugins = HermesPluginsRepository(api.raw),
       mcp = HermesMcpRepository(api.raw),
       models = HermesModelsRepository(api.raw),
+      providers = ProvidersRepository(api.raw, telemetry: telemetry),
       cron = HermesCronRepository(api.raw),
       platformHint = PlatformHintRepository(api.raw),
       kanban = KanbanRepository(api),
@@ -50,6 +52,10 @@ class HermesRepositories {
   final HermesPluginsRepository plugins;
   final HermesMcpRepository mcp;
   final HermesModelsRepository models;
+
+  /// The model providers of a profile: what is connected, and connecting,
+  /// changing and removing it.
+  final ProvidersRepository providers;
   final HermesCronRepository cron;
   final PlatformHintRepository platformHint;
   final KanbanRepository kanban;
