@@ -108,7 +108,13 @@ void main() {
           findsOneWidget,
         );
         expect(find.textContaining('Succe'), findsNothing);
-        expect(find.byKey(const ValueKey('agent-glyph-ended')), findsOneWidget);
+        // A non-zero exit has its own shape, apart from a plain end.
+        expect(
+          find.byKey(
+            ValueKey(code == 0 ? 'agent-glyph-ended' : 'agent-glyph-failed'),
+          ),
+          findsOneWidget,
+        );
       }
     });
 
@@ -342,7 +348,8 @@ void main() {
           .data!;
       expect(message, contains('python -m http.server'));
       expect(message, contains('…'));
-      expect(message, isNot(contains('\n')));
+      expect(message, isNot(contains('….')));
+      expect(message.split('\n\n'), hasLength(2));
       expect(
         tester.getTopLeft(find.text('Cancel')).dx,
         lessThan(tester.getTopLeft(find.text('Stop program')).dx),

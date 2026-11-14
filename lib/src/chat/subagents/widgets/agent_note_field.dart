@@ -177,8 +177,8 @@ class _AgentNoteFieldState extends State<AgentNoteField> {
         if (recipient)
           Text.rich(
             TextSpan(text: context.l10n.chatSubagentsNoteTo(m.goal)),
-            // The goal is never cut at the largest text sizes.
-            maxLines: agentLargeText(context) ? null : 1,
+            // At the largest text sizes the goal wraps to two lines.
+            maxLines: agentLargeText(context) ? 2 : 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,

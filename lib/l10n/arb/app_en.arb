@@ -853,7 +853,7 @@
   "@chatWidgetsProgramConfirmCancel": {
     "description": "Cancel button of the program stop confirmation."
   },
-  "chatWidgetsProgramConfirmMessage": "Hermes ends {command}. Its output so far stays here, and the agent won't be told it finished.",
+  "chatWidgetsProgramConfirmMessage": "Hermes ends {command}\n\nIts output so far stays here, and the agent won't be told it finished.",
   "@chatWidgetsProgramConfirmMessage": {
     "description": "Message of the program stop confirmation. {command} is the command cut to one line.",
     "placeholders": {

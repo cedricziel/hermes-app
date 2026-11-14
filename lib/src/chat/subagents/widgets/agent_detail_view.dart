@@ -316,23 +316,42 @@ class _Facts extends StatelessWidget {
     final tools = model.toolCount > 0
         ? l10n.chatSubagentsToolCount(model.toolCount)
         : null;
-    final line = time == null
-        ? word
-        : tools == null
-        ? l10n.chatSubagentsRowLine(word, formatToolDuration(time))
-        : l10n.chatSubagentsRowLineTools(word, formatToolDuration(time), tools);
+    // What follows the state word: the run time and the tools used.
+    final rest = [?time == null ? null : formatToolDuration(time), ?tools];
+    final stacked = agentLargeText(context);
+    // Only the state word is a live region: it is announced once, politely,
+    // when it changes, and a refreshed run time is not.
+    final state = Semantics(liveRegion: true, child: Text(word));
+    final details = rest.isEmpty ? null : Text(rest.join(' · '));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            AgentStateGlyph(state: model.state),
-            const SizedBox(width: 8),
-            // Only the state word is a live region: it is announced once,
-            // politely, when it changes, and a refreshed run time is not.
-            Expanded(child: _liveStateText(word, line)),
-          ],
-        ),
+        if (stacked) ...[
+          Row(
+            children: [
+              AgentStateGlyph(state: model.state),
+              const SizedBox(width: 8),
+              Flexible(child: state),
+            ],
+          ),
+          if (details != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 26, top: 2),
+              child: details,
+            ),
+        ] else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AgentStateGlyph(state: model.state),
+              const SizedBox(width: 8),
+              state,
+              if (details != null) ...[
+                const Text(' · '),
+                Flexible(child: details),
+              ],
+            ],
+          ),
         if (model.active && model.currentTool != null)
           Padding(
             padding: const EdgeInsets.only(left: 26, top: 2),
@@ -346,22 +365,6 @@ class _Facts extends StatelessWidget {
       ],
     );
   }
-}
-
-Widget _liveStateText(String word, String line) {
-  final rest = line.startsWith(word) ? line.substring(word.length) : '';
-  return Text.rich(
-    TextSpan(
-      children: [
-        WidgetSpan(
-          alignment: PlaceholderAlignment.baseline,
-          baseline: TextBaseline.alphabetic,
-          child: Semantics(liveRegion: true, child: Text(word)),
-        ),
-        TextSpan(text: rest),
-      ],
-    ),
-  );
 }
 
 class _StopButton extends StatelessWidget {
