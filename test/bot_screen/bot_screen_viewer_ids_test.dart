@@ -40,6 +40,15 @@ void main() {
     expect(ids.hashes, hasLength(2));
   });
 
+  test('a retired id is not offered as the latest but still names a lease', () {
+    final ids = BotScreenViewerIds()..add('viewer-1');
+
+    ids.retire('viewer-1');
+
+    expect(ids.latest, isNull);
+    expect(ids.holds(BotScreenViewerIds.hashOf('viewer-1')), isTrue);
+  });
+
   test('printing it shows no id and no hash', () {
     final ids = BotScreenViewerIds()..add('viewer-1');
 
