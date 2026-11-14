@@ -108,8 +108,6 @@ void main() {
     });
     await chat.loadThreads('work');
     chat.select('s1');
-    // A send waits for the chat's first page.
-    await pumpEventQueue();
     chat.submit('Current turn', const []);
     chat.submit('Queued prompt', const []);
     final target = chat.selectedThread!;

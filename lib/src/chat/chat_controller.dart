@@ -829,9 +829,6 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// The first page of a thread's messages that is being read, by thread id.
   final _loadingMessages = <String, Future<void>>{};
 
-  /// The threads whose first page waits for their reply to end.
-  final _waitingForReplyEnd = <ChatThread>{};
-
   Future<void> loadOlder(String id) =>
       _ChatControllerHistory(this)._loadOlderImpl(id);
 
@@ -1442,6 +1439,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Loaded messages are keyed `<session>-<row id>`, so a count of the
   /// thread's messages would collide with them.
+  /// The prompt the last send into [thread] added, wherever history read
+  /// meanwhile has put it.
+  ChatMessage? lastSentPrompt(ChatThread thread) => _sentPrompts[thread];
+  final _sentPrompts = Expando<ChatMessage>();
+
   String _newMessageId(ChatThread thread) =>
       '${thread.id}-local-${_sentMessages++}';
 
@@ -1567,17 +1569,6 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _bound.contains(selected) &&
         !_loadedQueues.contains(selected)) {
       return _submitAfterQueueRestore(selected, typed, files, displayText);
-    }
-    // The prompt belongs after the history being read, so it waits for it.
-    if (selected != null) {
-      final firstPage = _loadingMessages[selected.id];
-      if (firstPage != null) {
-        return firstPage.then<bool>(
-          (_) => _threads.contains(selected)
-              ? _submitTo(selected, typed, files, displayText: displayText)
-              : false,
-        );
-      }
     }
     if (_sessionStates[selected]?.reclaimedReason != null) {
       report('Reopen this session before sending another prompt.');

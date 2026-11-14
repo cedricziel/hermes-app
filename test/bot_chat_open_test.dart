@@ -92,7 +92,7 @@ void main() {
   });
   test('unknown mentions and selected handles are preserved without a client handoff', () async {
     await chat.openBot(context('research', 'alpha'));
-    await chat.submit(
+    chat.submit(
       'Ask @writer; preserve unknown@example.com and @unknown.',
       const [],
     );

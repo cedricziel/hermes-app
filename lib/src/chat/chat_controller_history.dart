@@ -340,20 +340,10 @@ extension _ChatControllerHistory on ChatController {
       if (!active || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
       if (thread == null) return;
-      if (thread.messages.isNotEmpty) {
-        // Sent into after an earlier read failed: the page holds those turns
-        // now, so it replaces them, once no reply is streaming in.
-        if (thread.isReplying) {
-          _unloaded.add(id);
-          _readAfterReply(thread, generation);
-          return;
-        }
-        final failed = _failedTurnSince(thread, page.messages);
-        thread.messages
-          ..clear()
-          ..addAll(failed);
-      }
-      thread.messages.insertAll(0, page.messages);
+      final merged = _mergedWithPage(thread.messages, id, page.messages);
+      thread.messages
+        ..clear()
+        ..addAll(merged);
       _reactionHistory(thread);
       if (page.hasMore) _olderRows[id] = page.rows;
       notifyListeners();
@@ -367,46 +357,93 @@ extension _ChatControllerHistory on ChatController {
     }
   }
 
-  /// Reads the first page of [thread] again once its reply ends, if it is
-  /// still the open chat then.
-  void _readAfterReply(ChatThread thread, int generation) {
-    if (!_waitingForReplyEnd.add(thread)) return;
-    void check() {
-      final current = active && generation == _loadGeneration;
-      if (current && thread.isReplying) return;
-      removeListener(check);
-      _waitingForReplyEnd.remove(thread);
-      if (current && _selectedId == thread.id && _threads.contains(thread)) {
-        unawaited(_loadMessages(thread.id));
+  /// [page], the newest stored messages of session [sessionId], merged with
+  /// [held], the messages the chat already shows because they were sent or
+  /// run here while the page was read. History goes above them, and a turn
+  /// both hold is shown once.
+  ///
+  /// A held turn is known to be stored only by its prompt's receipt, the row
+  /// id Hermes gave it, which names the same row as the page's message id. A
+  /// matched turn keeps the held copy, which may still be streaming or carry
+  /// what only this app knows (review notes, a stop), unless it failed here
+  /// while Hermes stored an answer: then the stored turn replaces it. A turn
+  /// without a receipt, or one the page does not hold, stays as it is, and so
+  /// does every row only this app has, such as a command's lines.
+  List<ChatMessage> _mergedWithPage(
+    List<ChatMessage> held,
+    String sessionId,
+    List<ChatMessage> page,
+  ) {
+    if (held.isEmpty) return [...page];
+    final ids = {for (final m in held) m.id};
+    final pageTurns = _turns([
+      for (final m in page)
+        if (!ids.contains(m.id)) m,
+    ]);
+    final heldTurns = _turns(held);
+    final byId = {
+      for (final (i, turn) in pageTurns.indexed)
+        if (turn.first.role == ChatRole.user) turn.first.id: i,
+    };
+    final matches = [
+      for (final turn in heldTurns)
+        switch (turn.first) {
+          ChatMessage(role: ChatRole.user, canonicalRow: final row?) =>
+            byId['$sessionId-${row.rowId}'],
+          _ => null,
+        },
+    ];
+    final matched = matches.nonNulls.toSet();
+    final merged = <ChatMessage>[];
+    var next = 0;
+    void placeUpTo(int end) {
+      for (; next < end; next++) {
+        if (!matched.contains(next)) merged.addAll(pageTurns[next]);
       }
     }
 
-    addListener(check);
+    // What the page holds before the first turn sent here is older than
+    // everything held; what it holds after the last one came from elsewhere
+    // meanwhile, and goes before the held rows that follow.
+    placeUpTo(matched.isEmpty ? pageTurns.length : matched.reduce(min));
+    final last = matches.lastIndexWhere((j) => j != null);
+    for (final (i, turn) in heldTurns.indexed) {
+      final j = matches[i];
+      if (j == null) {
+        merged.addAll(turn);
+      } else {
+        placeUpTo(j);
+        if (next <= j) next = j + 1;
+        final stored = pageTurns[j];
+        final failedHere =
+            !turn.any((m) => m.isPending) &&
+            turn.any(
+              (m) =>
+                  m.role == ChatRole.assistant &&
+                  m.status == MessageStatus.error,
+            );
+        final answered = stored.any((m) => m.role == ChatRole.assistant);
+        merged.addAll(failedHere && answered ? stored : turn);
+      }
+      if (i == last) placeUpTo(pageTurns.length);
+    }
+    return merged;
   }
 
-  /// The failed last turn of [thread], whose messages were all sent after its
-  /// first page could not be read, to keep after [page]. Hermes holds the
-  /// prompt only when the page ends on it unanswered; an earlier prompt with
-  /// the same words cannot be told from it, so the prompt is kept otherwise.
-  List<ChatMessage> _failedTurnSince(
-    ChatThread thread,
-    List<ChatMessage> page,
-  ) {
-    final reply = thread.messages.last;
-    if (reply.role != ChatRole.assistant ||
-        reply.status != MessageStatus.error) {
-      return const [];
+  /// [messages] split into turns: each prompt the user wrote, with what
+  /// followed it up to the next one. Rows before the first prompt are a
+  /// turn of their own.
+  List<List<ChatMessage>> _turns(List<ChatMessage> messages) {
+    final turns = <List<ChatMessage>>[];
+    for (final m in messages) {
+      final starts = m.role == ChatRole.user && m.displayKind == null;
+      if (starts || turns.isEmpty) {
+        turns.add([m]);
+      } else {
+        turns.last.add(m);
+      }
     }
-    final prompt = thread.messages.reversed
-        .where((m) => m.role == ChatRole.user)
-        .firstOrNull;
-    if (prompt == null) return [reply];
-    final last = page.lastOrNull;
-    final stored =
-        last != null &&
-        last.role == ChatRole.user &&
-        last.content == prompt.content;
-    return [if (!stored) prompt, reply];
+    return turns;
   }
 
   /// Every message of [thread]: what is loaded, plus the pages the dashboard

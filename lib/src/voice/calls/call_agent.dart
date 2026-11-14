@@ -34,7 +34,10 @@ class ChatCallAgent implements CallAgent {
   void Function(String)? _text;
   void Function(bool)? _attention;
   String _spoken = '';
-  int _before = 0;
+
+  /// The prompt this call's turn sent, which its reply follows.
+  ChatMessage? _prompt;
+  ChatMessage? _earlierPrompt;
 
   bool get valid =>
       !_disposed &&
@@ -67,22 +70,13 @@ class ChatCallAgent implements CallAgent {
     _attention = onAttention;
     _spoken = '';
     _messageID = null;
-    _before = thread.messages.length;
+    _prompt = null;
+    _earlierPrompt = chat.lastSentPrompt(thread);
     _submitting = true;
     try {
       final accepted = await chat.submit(text, const []);
       if (accepted) {
-        // The send may have waited for the chat's history, which then landed
-        // above it: the reply follows the prompt just sent.
-        final prompt = thread.messages.lastIndexWhere(
-          (m) => m.role == ChatRole.user,
-        );
-        if (prompt >= 0) _before = prompt;
-        _messageID = thread.messages
-            .skip(_before)
-            .where((m) => m.role == ChatRole.assistant)
-            .firstOrNull
-            ?.id;
+        _messageID = _replies(thread).firstOrNull?.id;
       }
       if (!valid || !accepted || done.isCompleted) {
         if (accepted &&
@@ -115,10 +109,9 @@ class ChatCallAgent implements CallAgent {
     if (_submitting) return;
     final done = _reply;
     if (done == null || done.isCompleted) return;
-    final messages = _thread?.messages ?? const <ChatMessage>[];
-    final replies = messages
-        .skip(_before)
-        .where((m) => m.role == ChatRole.assistant);
+    final thread = _thread;
+    if (thread == null) return;
+    final replies = _replies(thread);
     final message = _messageID == null
         ? replies.firstOrNull
         : replies.where((m) => m.id == _messageID).firstOrNull;
@@ -149,6 +142,23 @@ class ChatCallAgent implements CallAgent {
         done.complete();
       }
     }
+  }
+
+  /// The replies that follow this call's prompt. History read while the turn
+  /// runs goes above it, so the prompt is found by identity, not position.
+  Iterable<ChatMessage> _replies(ChatThread thread) {
+    final latest = chat.lastSentPrompt(thread);
+    if (_prompt == null && !identical(latest, _earlierPrompt)) _prompt = latest;
+    final prompt = _prompt;
+    if (prompt == null) return const [];
+    final at = thread.messages.indexOf(prompt);
+    if (at < 0) {
+      return thread.messages.where((m) => m.id == _messageID);
+    }
+    return thread.messages
+        .skip(at + 1)
+        .takeWhile((m) => m.role != ChatRole.user || m.displayKind != null)
+        .where((m) => m.role == ChatRole.assistant);
   }
 
   @override
