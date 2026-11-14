@@ -335,11 +335,12 @@ extension _ChatControllerHistory on ChatController {
 
   Future<void> _readFirstPage(String id) async {
     final generation = _loadGeneration;
+    final reading = _threads.where((t) => t.id == id).firstOrNull;
     try {
       final page = await repository!.loadMessagePage(id, profile: _profile);
       if (!active || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
-      if (thread == null) return;
+      if (thread == null) return _readAgainUnderNewId(reading, id);
       final merged = _mergedWithPage(thread.messages, id, page.messages);
       thread.messages
         ..clear()
@@ -353,8 +354,22 @@ extension _ChatControllerHistory on ChatController {
       if (generation != _loadGeneration) return;
       _unloaded.add(id);
       if (!active) return;
+      _readAgainUnderNewId(reading, id);
       report('Could not load this chat');
     }
+  }
+
+  /// [thread] was stored under a new session id while its first page was
+  /// read under [readId]: the page is read again under the new id.
+  void _readAgainUnderNewId(ChatThread? thread, String readId) {
+    if (thread == null ||
+        thread.id == readId ||
+        !_threads.contains(thread) ||
+        _loadingMessages.containsKey(thread.id)) {
+      return;
+    }
+    _unloaded.add(thread.id);
+    if (_selectedId == thread.id) unawaited(_loadMessages(thread.id));
   }
 
   /// [page], the newest stored messages of session [sessionId], merged with
@@ -379,11 +394,12 @@ extension _ChatControllerHistory on ChatController {
     final pageTurns = _turns([
       for (final m in page)
         if (!ids.contains(m.id)) m,
-    ]);
-    final heldTurns = _turns(held);
+    ], stored: true);
+    final heldTurns = _turns(held, stored: false);
     final byId = {
       for (final (i, turn) in pageTurns.indexed)
-        if (turn.first.role == ChatRole.user) turn.first.id: i,
+        if (turn.first case ChatMessage(role: ChatRole.user, displayKind: null))
+          turn.first.id: i,
     };
     final matches = [
       for (final turn in heldTurns)
@@ -430,17 +446,26 @@ extension _ChatControllerHistory on ChatController {
     return merged;
   }
 
-  /// [messages] split into turns: each prompt the user wrote, with what
-  /// followed it up to the next one. Rows before the first prompt are a
-  /// turn of their own.
-  List<List<ChatMessage>> _turns(List<ChatMessage> messages) {
+  /// [messages] split into turns that can be matched: a prompt the user
+  /// wrote with the reply after it, or, for [stored] rows, with every
+  /// assistant row up to the next user row. Each other row is a turn of its
+  /// own and is never matched: a reply streaming in from elsewhere, a note
+  /// Hermes wrote as a user row and what followed it.
+  List<List<ChatMessage>> _turns(
+    List<ChatMessage> messages, {
+    required bool stored,
+  }) {
     final turns = <List<ChatMessage>>[];
+    var open = false;
     for (final m in messages) {
-      final starts = m.role == ChatRole.user && m.displayKind == null;
-      if (starts || turns.isEmpty) {
+      if (m.role == ChatRole.user) {
         turns.add([m]);
-      } else {
+        open = m.displayKind == null || stored;
+      } else if (open && (stored || turns.last.length == 1)) {
         turns.last.add(m);
+      } else {
+        turns.add([m]);
+        open = false;
       }
     }
     return turns;
