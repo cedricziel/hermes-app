@@ -185,7 +185,7 @@ void main() {
       test('keeps the session and shows an error when ${entry.key}', () async {
         server = await _Dashboard.start(me: entry.value);
         final minted = _storedSession.boundTo(server.url);
-        tokens = MemoryTokenStore(minted);
+        final tokens = MemoryTokenStore(minted);
         final controller = AuthController(tokenStore: tokens);
 
         await controller

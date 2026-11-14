@@ -708,6 +708,42 @@ void main() {
     });
   }
 
+  test('a session stored before the server was recorded follows a redirect '
+      'of its saved address to another port on the same host', () async {
+    final front = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => front.close(force: true));
+    front.listen((request) {
+      request.response
+        ..statusCode = HttpStatus.movedPermanently
+        ..headers.set('Location', '${dashboard.url}${request.uri.path}')
+        ..close();
+    });
+    final saved = 'http://127.0.0.1:${front.port}';
+    await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
+    store = MemoryTokenStore(_session());
+    controller = AuthController(
+      tokenStore: store,
+      telemetry: events.connection,
+    );
+
+    await controller.bootstrap();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(controller.baseUrl, dashboard.url);
+    expect(controller.savedServerUrl, dashboard.url);
+    expect(store.session?.serverUrl, dashboard.url);
+
+    final relaunched = AuthController(
+      tokenStore: store,
+      telemetry: events.connection,
+    );
+    addTearDown(relaunched.dispose);
+    await relaunched.bootstrap();
+
+    expect(relaunched.state, HermesConnectionState.ready);
+    expect(relaunched.baseUrl, dashboard.url);
+  });
+
   test('a session stored before the server was recorded is not sent to a '
       'new address typed while the saved one is unreachable', () async {
     final gone = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
