@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -51,6 +52,22 @@ void main() {
       expect(server.requestsTo('GET', '/api/skills').single.queryParameters, {
         'profile': 'work',
       });
+    });
+
+    test('a bug while listing shows failed and reaches the reporter', () async {
+      final previous = FlutterError.onError;
+      final reported = <FlutterErrorDetails>[];
+      FlutterError.onError = reported.add;
+      addTearDown(() => FlutterError.onError = previous);
+      final c = SkillsController(
+        repository: _BrokenList(server.client().raw),
+        chatProfile: 'work',
+      );
+
+      await c.load();
+
+      expect(c.status, SkillsStatus.failed);
+      expect(reported.single.exception, isA<StateError>());
     });
 
     test('a failure is reported and Retry can recover', () async {
@@ -590,4 +607,12 @@ void main() {
 
     await expectLater(done, completes);
   });
+}
+
+class _BrokenList extends HermesSkillsRepository {
+  _BrokenList(super.api);
+
+  @override
+  Future<List<HermesSkill>> list({String? profile}) =>
+      Future.error(StateError('bug'));
 }
