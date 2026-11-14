@@ -72,6 +72,12 @@ class ChatCallAgent implements CallAgent {
     try {
       final accepted = await chat.submit(text, const []);
       if (accepted) {
+        // The send may have waited for the chat's history, which then landed
+        // above it: the reply follows the prompt just sent.
+        final prompt = thread.messages.lastIndexWhere(
+          (m) => m.role == ChatRole.user,
+        );
+        if (prompt >= 0) _before = prompt;
         _messageID = thread.messages
             .skip(_before)
             .where((m) => m.role == ChatRole.assistant)

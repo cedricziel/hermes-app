@@ -95,6 +95,11 @@ extension _ChatControllerCommands on ChatController {
         await _refreshAfterSlash(thread, profile);
       }
       if (!_currentActivity(epoch)) return false;
+      // The command belongs after the history being read, which replaces
+      // what the chat holds when it lands.
+      await _loadingMessages[thread.id];
+      if (!_currentActivity(epoch)) return false;
+      if (_profile != profile) return true;
       void append(ChatRole role, String content) {
         if (content.isEmpty) return;
         final message = ChatMessage(

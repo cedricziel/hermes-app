@@ -342,12 +342,13 @@ extension _ChatControllerHistory on ChatController {
       if (thread == null) return;
       if (thread.messages.isNotEmpty) {
         // Sent into after an earlier read failed: the page holds those turns
-        // now, so it replaces them, unless a reply is still streaming in.
+        // now, so it replaces them, once no reply is streaming in.
         if (thread.isReplying) {
           _unloaded.add(id);
+          _readAfterReply(thread, generation);
           return;
         }
-        final failed = _failedTurn(thread, page.messages);
+        final failed = _failedTurnSince(thread, page.messages);
         thread.messages
           ..clear()
           ..addAll(failed);
@@ -364,6 +365,48 @@ extension _ChatControllerHistory on ChatController {
       if (!active) return;
       report('Could not load this chat');
     }
+  }
+
+  /// Reads the first page of [thread] again once its reply ends, if it is
+  /// still the open chat then.
+  void _readAfterReply(ChatThread thread, int generation) {
+    if (!_waitingForReplyEnd.add(thread)) return;
+    void check() {
+      final current = active && generation == _loadGeneration;
+      if (current && thread.isReplying) return;
+      removeListener(check);
+      _waitingForReplyEnd.remove(thread);
+      if (current && _selectedId == thread.id && _threads.contains(thread)) {
+        unawaited(_loadMessages(thread.id));
+      }
+    }
+
+    addListener(check);
+  }
+
+  /// The failed last turn of [thread], whose messages were all sent after its
+  /// first page could not be read, to keep after [page]. Hermes holds the
+  /// prompt only when the page ends on it unanswered; an earlier prompt with
+  /// the same words cannot be told from it, so the prompt is kept otherwise.
+  List<ChatMessage> _failedTurnSince(
+    ChatThread thread,
+    List<ChatMessage> page,
+  ) {
+    final reply = thread.messages.last;
+    if (reply.role != ChatRole.assistant ||
+        reply.status != MessageStatus.error) {
+      return const [];
+    }
+    final prompt = thread.messages.reversed
+        .where((m) => m.role == ChatRole.user)
+        .firstOrNull;
+    if (prompt == null) return [reply];
+    final last = page.lastOrNull;
+    final stored =
+        last != null &&
+        last.role == ChatRole.user &&
+        last.content == prompt.content;
+    return [if (!stored) prompt, reply];
   }
 
   /// Every message of [thread]: what is loaded, plus the pages the dashboard

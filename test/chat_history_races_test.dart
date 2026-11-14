@@ -117,6 +117,119 @@ void main() {
   });
 
   test(
+    'a turn that failed after the first page failed keeps its prompt',
+    () async {
+      server.on('GET', '/api/sessions/s1/messages', {
+        'detail': 'boom',
+      }, status: 500);
+      await chat.loadThreads();
+      chat.select('s1');
+      await pumpEventQueue();
+
+      expect(await chat.submit('Continue', const []), isTrue);
+      transport.sends.single
+        ..emit(const ReplyCompleted('', failed: true, error: 'boom'))
+        ..finish();
+      await pumpEventQueue();
+      expect(thread('s1').messages.last.status, MessageStatus.error);
+
+      // Hermes never stored this prompt; an earlier one has the same words.
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', [
+          messageRow(id: 1, role: 'user', content: 'Continue'),
+          messageRow(id: 2, role: 'assistant', content: 'Done'),
+        ]),
+      );
+      chat.select('s2');
+      chat.select('s1');
+      await pumpEventQueue();
+
+      final messages = thread('s1').messages;
+      expect(
+        [for (final m in messages.take(3)) m.content],
+        ['Continue', 'Done', 'Continue'],
+      );
+      expect(messages, hasLength(4));
+      expect(messages.last.status, MessageStatus.error);
+    },
+  );
+
+  test('a command run while the first page loads goes after it', () async {
+    final gate = Completer<void>();
+    server.onRequest('GET', '/api/sessions/s1/messages', (_) async {
+      await gate.future;
+      return (
+        status: 200,
+        body: messageListBody('s1', [
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'assistant', content: 'Hello'),
+        ]),
+      );
+    });
+    await chat.loadThreads();
+    chat.select('s1');
+
+    final ran = chat.runSlashCommand('/usage');
+    await pumpEventQueue();
+    gate.complete();
+    expect(await ran, isTrue);
+    await pumpEventQueue();
+
+    expect(contents('s1'), ['Hi', 'Hello', '/usage', 'Done']);
+  });
+
+  test('a first page that arrives mid-reply is read once it ends', () async {
+    server.on('GET', '/api/sessions/s1/messages', {
+      'detail': 'boom',
+    }, status: 500);
+    await chat.loadThreads();
+    chat.select('s1');
+    await pumpEventQueue();
+    expect(await chat.submit('More', const []), isTrue);
+
+    server.on(
+      'GET',
+      '/api/sessions/s1/messages',
+      messageListBody('s1', [
+        messageRow(id: 1, role: 'user', content: 'Hi'),
+        messageRow(id: 2, role: 'assistant', content: 'Hello'),
+        messageRow(id: 3, role: 'user', content: 'More'),
+        messageRow(id: 4, role: 'assistant', content: 'Answer'),
+      ]),
+    );
+    chat.select('s2');
+    chat.select('s1');
+    await pumpEventQueue();
+    expect(contents('s1'), ['More', '']);
+
+    transport.sends.single
+      ..emit(const ReplyCompleted('Answer'))
+      ..finish();
+    await pumpEventQueue();
+
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Answer']);
+  });
+
+  test('a profile switch while the first page loads drops the send', () async {
+    final gate = Completer<void>();
+    server.onRequest('GET', '/api/sessions/s1/messages', (_) async {
+      await gate.future;
+      return (status: 200, body: messageListBody('s1', []));
+    });
+    await chat.loadThreads();
+    chat.select('s1');
+
+    final sent = chat.submit('More', const []);
+    await chat.loadThreads('work');
+    gate.complete();
+
+    expect(await sent, isFalse);
+    expect(transport.sends, isEmpty);
+  });
+
+  test(
     'an older page read before the chat was read again is dropped',
     () async {
       var total = 130;
