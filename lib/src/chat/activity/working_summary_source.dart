@@ -79,6 +79,14 @@ class WorkingSummarySource {
   /// The next number of the controller-wide arrival sequence.
   int next() => ++_sequence;
 
+  /// Whether a status of [scope] that arrived at [arrived] belongs to the
+  /// turn running now (or to the one about to start): it came after the last
+  /// turn ended and a turn runs. Without a stamp it counts.
+  bool waitIsCurrent(Object scope, int? arrived, {required bool replying}) {
+    final end = _scopes[scope]?.turnEnd ?? 0;
+    return replying && (arrived == null || arrived >= end);
+  }
+
   /// A turn of [scope] ended (its reply settled, was stopped, failed or was
   /// reclaimed). Called where the event is applied, not when a read happens,
   /// so what arrived before it never counts for the turn that follows, even
@@ -158,7 +166,9 @@ class WorkingSummarySource {
     if (processes > 0) {
       sentence('processes', WorkingSentenceKind.processes, count: processes);
     }
-    final moa = inputs.moa;
+    // A card is left live when the turn ends abnormally, so it counts only
+    // while the turn runs.
+    final moa = turn ? inputs.moa : null;
     if (moa != null) {
       sentence(
         'moa',

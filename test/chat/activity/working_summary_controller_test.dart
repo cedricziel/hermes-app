@@ -66,6 +66,12 @@ void main() {
     await pumpEventQueue();
   }
 
+  Future<void> openIdle() async {
+    await chat.loadThreads('work');
+    chat.select('stored-1');
+    await pumpEventQueue();
+  }
+
   Future<void> emit(String type, Map<String, Object?> payload) async {
     gateway.event(type, 'rt-1', payload);
     await pumpEventQueue();
@@ -312,24 +318,80 @@ void main() {
     expect(summary(), isNull);
   });
 
-  test('a lost connection that fails the turn folds the line away', () async {
+  test('a lost connection fails the turn and the line folds away', () async {
     await open();
     final thread = chat.selectedThread!;
     await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
     expect(chat.workingSummaryIn(thread), isNotNull);
     gateway.drop();
-    for (var i = 0; i < 20 && thread.isReplying; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      await pumpEventQueue();
-    }
-    // Whatever the turn did (failed or waits for the reconnect), the line
-    // follows it.
-    expect(
-      chat.workingSummaryIn(thread) == null,
-      !thread.isReplying,
-      reason: 'the line is up exactly while the turn runs',
-    );
+    await pumpEventQueue(times: 200);
+    expect(thread.isReplying, isFalse);
+    expect(chat.workingSummaryIn(thread), isNull);
   });
+
+  test(
+    'a drop in the middle of a resume does not leave Restoring up',
+    () async {
+      await openIdle();
+      final thread = chat.selectedThread!;
+      await emit('session.resume_progress', {
+        'phase': 'history',
+        'status': 'loading',
+      });
+      expect(
+        chat.workingSummaryIn(thread)!.sentence.kind,
+        WorkingSentenceKind.restoring,
+      );
+      gateway.drop();
+      await pumpEventQueue(times: 200);
+      expect(chat.workingSummaryIn(thread), isNull);
+    },
+  );
+
+  test('a reclaim does not leave Restoring up', () async {
+    await openIdle();
+    await emit('session.resume_progress', {
+      'phase': 'history',
+      'status': 'loading',
+    });
+    await emit('session.reclaimed', {
+      'session_id': 'rt-1',
+      'stored_session_id': 'stored-1',
+      'reason': 'Synthetic',
+    });
+    expect(summary(), isNull);
+  });
+
+  test(
+    'a mixture-of-agents card left live does not outlast the turn',
+    () async {
+      await open();
+      await emit('moa.progress', {
+        'label': 'Advisor',
+        'refs_done': 1,
+        'refs_total': 3,
+      });
+      expect(summary()!.sentence.kind, WorkingSentenceKind.askingModels);
+      await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+      expect(summary(), isNull);
+    },
+  );
+
+  test(
+    'a mixture-of-agents card left live by a drop is gone with the turn',
+    () async {
+      await open();
+      final thread = chat.selectedThread!;
+      await emit('moa.progress', {
+        'label': 'Advisor',
+        'refs_done': 1,
+        'refs_total': 3,
+      });
+      gateway.drop();
+      await pumpEventQueue(times: 200);
+      expect(chat.workingSummaryIn(thread), isNull);
+    },
+  );
 
   test('goal and heartbeat notices never feed the line, and a heartbeat '
       'tick does not steal newest', () async {

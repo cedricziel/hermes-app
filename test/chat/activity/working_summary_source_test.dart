@@ -232,8 +232,8 @@ void turnScoped() {
     );
   });
 
-  test('a process counts only while a turn runs; mixture-of-agents and '
-      'restoring outlive it', () {
+  test('a process and a mixture-of-agents card count only while a turn '
+      'runs; restoring has its own lifetime', () {
     final source = WorkingSummarySource();
     // The backend reports no process exit, so an open card does not keep the
     // line up after the turn.
@@ -245,11 +245,11 @@ void turnScoped() {
           .kind,
       WorkingSentenceKind.processes,
     );
+    // A card left live by a failed turn does not outlast it.
+    const moa = MoaInput(combining: false, models: 2);
+    expect(source.read(scope, const WorkingInputs(moa: moa)), isNull);
     expect(
-      source.read(
-        scope,
-        const WorkingInputs(moa: MoaInput(combining: false, models: 2)),
-      ),
+      source.read(scope, const WorkingInputs(replying: true, moa: moa)),
       isNotNull,
     );
     expect(source.read(scope, const WorkingInputs(restoring: true)), isNotNull);

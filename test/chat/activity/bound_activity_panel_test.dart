@@ -224,6 +224,57 @@ void main() {
     expect(inPanel(find.byType(MemoryActivityCard)), findsOneWidget);
   });
 
+  testWidgets('closed process cards and a status of a finished turn are '
+      'under This session, not Now', (tester) async {
+    await tester.runAsync(() async {
+      await open('stored-1');
+      chat.submit('Start', const []);
+      await pumpEventQueue();
+      gateway.event('status.update', 'rt-1', {
+        'kind': 'process',
+        'text': 'Waiting for background process',
+      });
+      gateway.event('agent.terminal.output', 'rt-1', {
+        'process_id': 'done',
+        'chunk': 'finished',
+      });
+      gateway.event('terminal.close', 'rt-1', {'process_id': 'done'});
+      gateway.event('agent.terminal.output', 'rt-1', {
+        'process_id': 'open',
+        'chunk': 'running',
+      });
+      await pumpEventQueue();
+    });
+    await pumpChat(tester);
+    double y(Finder f) => tester.getTopLeft(inPanel(f)).dy;
+    // During the turn: the wait and the open card are Now; the closed card
+    // is history.
+    expect(inPanel(find.byType(SessionStatusCard)), findsOneWidget);
+    final now = y(find.text('NOW')), session = y(find.text('THIS SESSION'));
+    expect(y(find.byType(SessionStatusCard)), inExclusiveRange(now, session));
+    final running = find.byKey(const ValueKey('open'));
+    final done = find.byKey(const ValueKey('done'));
+    expect(y(running), inExclusiveRange(now, session));
+    expect(y(done), greaterThan(session));
+
+    await tester.runAsync(() async {
+      gateway.event('message.complete', 'rt-1', {
+        'text': 'Done',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+    });
+    await tester.pump();
+    // After it: the old wait is for reference; the card that never closed
+    // stays under Now (the backend sends no exit).
+    final session2 = y(find.text('THIS SESSION'));
+    expect(y(find.byType(SessionStatusCard)), greaterThan(session2));
+    expect(y(done), greaterThan(session2));
+    expect(y(running), lessThan(session2));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 30));
+  });
+
   testWidgets('Verify billing access is offered only under This session', (
     tester,
   ) async {
