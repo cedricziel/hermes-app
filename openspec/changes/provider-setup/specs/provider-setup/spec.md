@@ -91,6 +91,17 @@ A failure of `GET /api/model/options` SHALL fail the screen with "Couldn't load 
 - **WHEN** the server cannot be reached
 - **THEN** the screen shows "Can't reach your Hermes server" with "Try again" and keeps any list it already showed
 
+#### Scenario: Offline with a list shown
+
+- **GIVEN** the screen already shows the providers of "work"
+- **WHEN** a refresh cannot reach the server
+- **THEN** a warning banner reads "Can't reach your Hermes server" and "Showing what was last loaded. Check your connection or VPN." with "Try again", and the list stays below it
+
+#### Scenario: Account providers while account sign-in is unavailable
+
+- **WHEN** `GET /api/providers/oauth` fails and the other sources answer
+- **THEN** a warning banner "Account sign-in isn't available right now." with "Try again" sits above the recommended providers, and no provider that connects with an account is offered under "Add a provider"
+
 ### Requirement: Old server
 
 The Model providers entries SHALL be shown only while the chat's model discovery is supported, meaning its `GET /api/model/options` did not answer 404. On a server where it answers 404, the composer's "Set up a model" SHALL keep showing the server command.
@@ -139,6 +150,12 @@ Before saving, the app SHALL check the key with `POST /api/providers/validate` (
 
 - **WHEN** the check times out or answers `reachable: false` with `ok: false`
 - **THEN** the key is saved and the confirmation reads "Saved, but Hermes couldn't reach <provider> to check it."
+
+#### Scenario: One primary action after a rejection
+
+- **GIVEN** Hermes' check rejected the key
+- **WHEN** the form shows the rejection
+- **THEN** the bar's Save is hidden, "Edit key" is the filled button and "Save anyway" the outlined one, and changing the key shows Save again
 
 ### Requirement: Key save failures
 
@@ -194,6 +211,12 @@ The app SHALL poll `GET /api/providers/oauth/{id}/poll/{session}` at the server'
 
 - **WHEN** two polls in a row fail
 - **THEN** the step shows "Can't reach your server. Still waiting…" and keeps the code
+
+#### Scenario: Pending row in the list
+
+- **GIVEN** a pending ChatGPT sign-in and the sign-in step closed
+- **WHEN** the list shows
+- **THEN** the ChatGPT row reads "Waiting for sign-in…" with "Cancel" and "Continue"; Continue reopens the step with the same code, and Cancel asks "Stop signing in to ChatGPT?" with "Keep waiting" as the default and "Stop"
 
 ### Requirement: Ending a sign-in
 
@@ -281,6 +304,12 @@ After a provider connects, the app SHALL ask `GET /api/model/recommended-default
 
 - **WHEN** the new provider lists no models yet
 - **THEN** the step shows the recommended model alone with "Hermes is still loading this provider's models" and Retry
+
+#### Scenario: Choosing without a recommendation
+
+- **GIVEN** the step reads "Choose a model for new chats"
+- **WHEN** the person taps "Choose model"
+- **THEN** the shared model picker opens limited to that provider, and "Not now" closes the step without saving a default
 
 ### Requirement: Saving the default model
 
