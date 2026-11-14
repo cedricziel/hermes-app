@@ -140,6 +140,18 @@ class GroupedMetrics {
   double get indentAfterTile => rowPadding + tileSize + leadingGap;
 }
 
+/// The text scale from which a [GroupedRow] with a value stacks it under the
+/// title: beside the title it would be cut at half the row.
+const double kGroupedRowStackScale = 1.5;
+
+/// Whether rows with a value stack it under the title at [context]'s text
+/// scale.
+bool groupedRowStacksAt(BuildContext context) {
+  final size = GroupedMetrics.of(context).titleSize;
+  return MediaQuery.textScalerOf(context).scale(size) / size >=
+      kGroupedRowStackScale;
+}
+
 /// A scrolling page of [GroupedSection]s: the groups keep the platform's
 /// gutter and stay at [GroupedMetrics.maxWidth], centered on a wide page,
 /// while the whole page width scrolls.
@@ -275,7 +287,8 @@ class GroupedSection extends StatelessWidget {
 /// version), a [subtitle] (one line unless [subtitleMaxLines] says more) and
 /// [warning] and [error] lines under it, which wrap, and at the
 /// trailing edge a muted [value] with a disclosure chevron, or [trailing]
-/// (a switch) in their place.
+/// (a switch) in their place. From [kGroupedRowStackScale] text scale on, a
+/// [value] sits under the title and the title and subtitle wrap.
 class GroupedRow extends StatelessWidget {
   const GroupedRow({
     super.key,
@@ -378,6 +391,7 @@ class GroupedRow extends StatelessWidget {
         : ExcludeSemantics(child: child);
     final leading = mark(this.leading);
     final value = this.value;
+    final stacked = value != null && groupedRowStacksAt(context);
     final trailing = mark(this.trailing);
     final showChevron = chevron ?? (onTap != null && trailing == null);
     // A control beside a row that opens something stays its own node, so a
@@ -420,17 +434,25 @@ class GroupedRow extends StatelessWidget {
                         ),
                     ],
                   ),
-                  maxLines: titleMaxLines,
-                  overflow: titleMaxLines == null
+                  maxLines: stacked ? null : titleMaxLines,
+                  overflow: titleMaxLines == null || stacked
                       ? TextOverflow.visible
                       : TextOverflow.ellipsis,
                   style: titleStyle,
                 ),
+                if (stacked)
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: metrics.subtitleSize,
+                      color: muted,
+                    ),
+                  ),
                 if (subtitle != null)
                   Text(
                     subtitle,
-                    maxLines: subtitleMaxLines,
-                    overflow: subtitleMaxLines == null
+                    maxLines: stacked ? null : subtitleMaxLines,
+                    overflow: subtitleMaxLines == null || stacked
                         ? null
                         : TextOverflow.ellipsis,
                     style: TextStyle(
@@ -469,7 +491,7 @@ class GroupedRow extends StatelessWidget {
             ),
           ),
         ),
-        if (value != null)
+        if (value != null && !stacked)
           // At most half the row, so a long value cannot push the
           // title out.
           ConstrainedBox(
@@ -506,7 +528,7 @@ class GroupedRow extends StatelessWidget {
           start: metrics.rowPadding,
           end: trailingApart ? 0 : metrics.rowPadding,
         ),
-        child: value == null
+        child: value == null || stacked
             ? row()
             : LayoutBuilder(
                 builder: (context, box) => row(valueWidth: box.maxWidth / 2),
