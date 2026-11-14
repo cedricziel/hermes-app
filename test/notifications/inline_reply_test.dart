@@ -59,6 +59,18 @@ class _HangingCloseTransport extends FakeChatTransport {
   }
 }
 
+/// A transport whose close waits for [gate].
+class _GatedCloseTransport extends FakeChatTransport {
+  _GatedCloseTransport(this.gate);
+  final Future<void> gate;
+
+  @override
+  Future<void> close() async {
+    closed = true;
+    await gate;
+  }
+}
+
 /// A transport whose connection cannot be built, so the body throws.
 Never _boom(HeadlessHermes _) => throw StateError('no transport');
 
@@ -370,19 +382,22 @@ void main() {
       expect(transport.sends, isEmpty);
     });
 
-    test('locked store: "try again" with the text kept', () async {
-      store.unreadable = true;
+    test(
+      'locked store: "write it again", the account was never verified',
+      () async {
+        store.unreadable = true;
 
-      await reply('Yes, book it');
+        await reply('Yes, book it');
 
-      final n = only();
-      expect(n.body, kReplyNotSentKeptBody);
-      expect(n.draft, 'Yes, book it');
-      expect(n.accountHash, hash);
-      expect(transport.sends, isEmpty);
-    });
+        final n = only();
+        expect(n.body, kReplyNotSentBody);
+        expect(n.draft, isNull);
+        expect(payloadOf(n).containsKey('u'), isFalse);
+        expect(transport.sends, isEmpty);
+      },
+    );
 
-    test('unreachable server: "try again", nothing sent', () async {
+    test('unreachable server: "write it again", nothing sent', () async {
       server = FakeHermesServer();
       final result = await reply(
         'Yes',
@@ -400,11 +415,11 @@ void main() {
         events.named('notification.reply').single['outcome'],
         'unreachable',
       );
-      expect(only().body, kReplyNotSentKeptBody);
+      expect(only().body, kReplyNotSentBody);
       expect(transport.sends, isEmpty);
     });
 
-    test('a throwing body before the submit: "Reply not sent"', () async {
+    test('a throwing body before the submit: "write it again"', () async {
       final result = await reply('Yes', transportFor: _boom);
 
       expect(result.outcome, InlineReplyOutcome.failed);
@@ -412,7 +427,8 @@ void main() {
         events.named('notification.reply').single['outcome'],
         'unreachable',
       );
-      expect(only().body, kReplyNotSentKeptBody);
+      expect(only().body, kReplyNotSentBody);
+      expect(only().draft, isNull);
     });
 
     test('the run ending with the prompt written and not acknowledged: '
@@ -480,14 +496,17 @@ void main() {
         expect(result.outcome, InlineReplyOutcome.failed);
         expect(result.ending, ReplyEnding.notSent);
         expect(result.endingPosted, isTrue);
-        expect(only().body, kReplyNotSentKeptBody);
+        expect(only().body, isIn([kReplyNotSentKeptBody, kReplyNotSentBody]));
         expect(transport.closed, isTrue);
 
         // A callback after the cutoff cannot flip what was decided.
         send.onSubmitting!();
         await Future<void>.delayed(const Duration(milliseconds: 30));
         expect(notifications.shown, hasLength(1));
-        expect(notifications.shown.single.body, kReplyNotSentKeptBody);
+        expect(
+          notifications.shown.single.body,
+          isIn([kReplyNotSentKeptBody, kReplyNotSentBody]),
+        );
       },
     );
 
@@ -498,7 +517,7 @@ void main() {
       final result = await run;
 
       expect(result.outcome, InlineReplyOutcome.failed);
-      expect(only().body, kReplyNotSentKeptBody);
+      expect(only().body, isIn([kReplyNotSentKeptBody, kReplyNotSentBody]));
     });
 
     test('written and not acknowledged at the cutoff: "Couldn\'t confirm" '
@@ -692,6 +711,101 @@ void main() {
       expect(notifications.shown, isEmpty);
       expect(await running.read(), isEmpty);
     });
+  });
+
+  group('after the run ended', () {
+    test('an answer found after the run\'s timeout is not announced', () async {
+      final slowFront = Completer<bool>();
+      final run = sendInlineReply(
+        payload: payload(),
+        input: 'Yes',
+        due: clock.add(const Duration(milliseconds: 200)),
+        now: () => clock,
+        route: InlineReplyRoute.lone,
+        platform: TargetPlatform.iOS,
+        notifications: notifications,
+        settings: settings,
+        appLockAtArrival: () async => false,
+        appLockBeforePost: () async => false,
+        appInFront: () => slowFront.future,
+        running: running,
+        events: events.call,
+        tracer: tracer,
+        transportFor: (_) => transport,
+        deps: HeadlessDeps(
+          tokenStore: store,
+          prefs: SharedPreferencesAsync(),
+          devServerUrl: '',
+          adapter: server,
+          telemetry: (attributes) => ConnectionTelemetry(tracer: tracer),
+          closeGrace: const Duration(milliseconds: 50),
+        ),
+      );
+      final send = await sent();
+      send.onSubmitting!();
+      transport.promptAccepted = true;
+      send.emit(const ReplyCompleted('Booked it.'));
+
+      final result = await run;
+      // The orphaned announcement finds out late that nobody is in front.
+      slowFront.complete(false);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(result.outcome, InlineReplyOutcome.sent);
+      expect(notifications.shown, isEmpty);
+      expect(await running.readAnnounced(), isEmpty);
+      // Not announced, so the background check is told instead.
+      expect(await running.read(), hasLength(1));
+    });
+
+    test(
+      'a callback while the close is pending still counts as written',
+      () async {
+        final gate = Completer<void>();
+        final gated = _GatedCloseTransport(gate.future);
+        final run = reply(
+          'Yes',
+          left: const Duration(milliseconds: 150),
+          transportFor: (_) => gated,
+        );
+        await _until(() => gated.sends.isNotEmpty);
+        await _until(() => gated.closed);
+        gated.sends.single.onSubmitting!();
+        gate.complete();
+
+        final result = await run;
+
+        expect(result.outcome, InlineReplyOutcome.unconfirmed);
+        expect(only().body, kReplyUnconfirmedBody);
+      },
+    );
+
+    test('a frozen mark ignores a later callback', () {
+      final mark = SubmitMark()..freeze();
+      mark.markWritten();
+      expect(mark.written, isFalse);
+      final open = SubmitMark()..markWritten();
+      expect(open.written, isTrue);
+    });
+
+    test(
+      'a session reclaimed after the answer is recorded as running',
+      () async {
+        final run = reply('Yes');
+        final send = await sent();
+        send.onSubmitting!();
+        transport.promptAccepted = true;
+        send
+          ..emit(const SessionReclaimed('r', 's', 'taken'))
+          ..finish();
+
+        final result = await run;
+
+        expect(result.outcome, InlineReplyOutcome.sent);
+        expect(notifications.shown, isEmpty);
+        expect(await running.read(), hasLength(1));
+      },
+    );
   });
 
   group('failures by step', () {

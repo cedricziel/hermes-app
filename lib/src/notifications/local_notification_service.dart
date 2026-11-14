@@ -51,7 +51,7 @@ String notificationPayload(AttentionNotification notification) {
       'j': job
     else if (!message || notification.threadId.isNotEmpty)
       't': notification.threadId,
-    'p': ?notification.profile,
+    if (notification.payloadProfile) 'p': ?notification.profile,
     'q': ?notification.prompt,
     'u': ?notification.draft,
     'a': ?notification.accountHash,

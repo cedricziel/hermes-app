@@ -42,6 +42,7 @@ class AttentionNotification {
     this.isMessage = false,
     this.draft,
     this.accountHash,
+    this.payloadProfile = true,
   }) : jobId = null;
 
   /// A scheduled task's run. It replaces an earlier notification for the same
@@ -59,7 +60,8 @@ class AttentionNotification {
        needsInput = false,
        prompt = null,
        draft = null,
-       accountHash = null;
+       accountHash = null,
+       payloadProfile = true;
 
   /// Names the notification: the chat's id, or `job:<id>` for a task, so the
   /// two never replace each other.
@@ -104,6 +106,11 @@ class AttentionNotification {
   /// The account [draft] was typed in (`accountHashFor`), the payload's
   /// `'a'`.
   final String? accountHash;
+
+  /// Whether the payload names [profile]. [profile] still sets the id, so the
+  /// notification replaces the chat's; an ending that must carry no more than
+  /// the chat id leaves it out.
+  final bool payloadProfile;
 
   /// Whether the agent is blocked on the user, which is what may break
   /// through a Focus.

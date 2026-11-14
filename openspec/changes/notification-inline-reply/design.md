@@ -117,7 +117,7 @@ Each is an `AttentionNotification` for the same chat (same id, so it replaces "R
 | not sent, text kept    | Reply not sent. Open Hermes to try again.                   | chat, `'u'`, `'a'`   |
 | not sent, no text kept | Reply not sent. Open Hermes to write it again.              | chat                 |
 | could not confirm      | Couldn't confirm your reply was sent. Open Hermes to check. | chat                 |
-| App Lock               | Open Hermes to reply.                                       | none (opens the app) |
+| App Lock               | Open Hermes to reply.                                       | chat id only, so it replaces the Reply notification; no profile, no text |
 
 They are plain default-level notifications with no category, like `kAnswerFailedBody`. Posting goes through a `LocalNotificationService(background: true)` in the lone isolate.
 

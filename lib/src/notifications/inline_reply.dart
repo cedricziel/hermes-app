@@ -170,6 +170,7 @@ Future<bool> postEnding({
         ReplyEnding.appLocked => kOpenToReplyBody,
       },
       bodyIsPlainText: true,
+      payloadProfile: ending != ReplyEnding.appLocked,
       draft: keep ? draft : null,
       accountHash: keep ? accountHash : null,
     ),
@@ -333,6 +334,9 @@ class _InlineReply {
   /// After the cutoff nothing more is announced.
   var _muted = false;
 
+  /// An announcement of the answer is being posted or was.
+  var _announcing = false;
+
   late final String _threadId;
   late final String? _profile;
   late final String _title;
@@ -355,6 +359,8 @@ class _InlineReply {
       timeout: left.isNegative ? Duration.zero : left,
       deps: deps,
     );
+    // Whatever the body still does must not announce: the window is over.
+    _muted = true;
     // The outcome is decided once, from the mark, with the transport closed:
     // nothing it still does can be written to the server any more.
     await _closeTransport();
@@ -365,10 +371,18 @@ class _InlineReply {
         InlineReplyOutcome.signedOut,
         keepText: false,
       ),
-      HeadlessLocked() => _byMark(InlineReplyOutcome.storeLocked),
-      HeadlessUnreachable() => _byMark(InlineReplyOutcome.unreachable),
+      // The body may never have verified the account, so nothing is kept.
+      HeadlessLocked() => _byMark(
+        InlineReplyOutcome.storeLocked,
+        keepText: false,
+      ),
+      HeadlessUnreachable() => _byMark(
+        InlineReplyOutcome.unreachable,
+        keepText: false,
+      ),
     };
-    if (verdict.record) await _record();
+    // An answer already announced (or being) needs no record.
+    if (verdict.record && !_announcing) await _record();
     final posted = await _end(verdict, text);
     _log(logged);
     return InlineReplyResult(
@@ -555,6 +569,16 @@ class _InlineReply {
     } on Object {
       // Announcing goes on; at worst the replay announces it once more.
     }
+    if (_muted) {
+      // The run ended meanwhile and decided without this announcement.
+      try {
+        await running?.takeAnnounced(_profile, _threadId);
+      } on Object {
+        // Nothing more to undo.
+      }
+      return;
+    }
+    _announcing = true;
     await _post(
       notifications,
       settings,
