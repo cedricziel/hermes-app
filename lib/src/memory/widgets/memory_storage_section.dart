@@ -56,12 +56,17 @@ class MemoryStorageSection extends StatelessWidget {
               _providerRow(status)
             else if (providerFailed)
               GroupedRow(
+                wrapWhenStacked: true,
                 title: "Couldn't read the memory provider",
                 value: 'Retry',
                 onTap: onRetry,
               )
             else
-              const GroupedRow(title: 'Memory provider', value: 'Reading…'),
+              const GroupedRow(
+                wrapWhenStacked: true,
+                title: 'Memory provider',
+                value: 'Reading…',
+              ),
           ],
         ),
         if (notice != null)
@@ -114,6 +119,7 @@ class MemoryStorageSection extends StatelessWidget {
   Widget _providerRow(MemoryProviderStatus status) {
     final builtin = status.state == MemoryProviderState.builtin;
     return GroupedRow(
+      wrapWhenStacked: true,
       title: 'Memory provider',
       value: builtin ? null : status.name,
       subtitle: builtin

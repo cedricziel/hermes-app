@@ -12,7 +12,7 @@ import '../widgets/state_message.dart';
 import 'care_result.dart';
 import 'server_care_controller.dart';
 import 'usage_controller.dart';
-import 'widgets/loading_skeleton.dart';
+import '../widgets/loading_skeleton.dart';
 import 'widgets/usage_chart.dart';
 import 'widgets/usage_controls.dart';
 import 'widgets/usage_day_list.dart';

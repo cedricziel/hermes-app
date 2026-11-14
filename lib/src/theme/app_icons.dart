@@ -141,6 +141,11 @@ abstract final class AppIcons {
     Icons.system_update_alt,
     CupertinoIcons.arrow_down_to_line,
   );
+  static const eye = AppIconSet(Icons.visibility_outlined, CupertinoIcons.eye);
+  static const eyeOff = AppIconSet(
+    Icons.visibility_off_outlined,
+    CupertinoIcons.eye_slash,
+  );
   static const checkCircle = AppIconSet(
     Icons.check_circle_outline,
     CupertinoIcons.check_mark_circled,
@@ -301,6 +306,10 @@ abstract final class AppIcons {
     CupertinoIcons.arrow_right_circle,
   );
   static const link = AppIconSet(Icons.link, CupertinoIcons.link);
+  static const billing = AppIconSet(
+    Icons.credit_card_outlined,
+    CupertinoIcons.creditcard,
+  );
   static const waiting = AppIconSet(
     Icons.hourglass_empty,
     CupertinoIcons.hourglass,
@@ -461,6 +470,8 @@ abstract final class AppIcons {
     'edit': edit,
     'download': download,
     'install': install,
+    'eye': eye,
+    'eyeOff': eyeOff,
     'checkCircle': checkCircle,
     'checkCircleFilled': checkCircleFilled,
     'attach': attach,
@@ -507,6 +518,7 @@ abstract final class AppIcons {
     'menu': menu,
     'signIn': signIn,
     'link': link,
+    'billing': billing,
     'waiting': waiting,
     'help': help,
     'shieldWarning': shieldWarning,

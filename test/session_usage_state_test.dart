@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
+import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/session_usage/session_usage_controller.dart';
 import 'package:hermes_app/src/chat/session_usage/usage_snapshot.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -114,6 +115,18 @@ void main() {
       UsageSnapshot.decode({'input': -1, 'output': double.infinity}),
       isNull,
     );
+  });
+
+  test('usage snapshots read where the context figure came from', () {
+    UsageSnapshot? read(Object? source) =>
+        UsageSnapshot.decode({'context_percent': 62, 'context_source': source});
+    expect(read('local_estimate')!.contextSource, ContextSource.localEstimate);
+    expect(
+      read('provider_usage_plus_estimate')!.contextSource,
+      ContextSource.providerUsagePlusEstimate,
+    );
+    expect(read('something new')!.contextSource, isNull);
+    expect(read(null)!.contextSource, isNull);
   });
 
   test(

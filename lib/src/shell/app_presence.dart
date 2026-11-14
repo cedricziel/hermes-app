@@ -6,15 +6,16 @@ import 'package:flutter/widgets.dart';
 ///
 /// On macOS closing the last window leaves the app running, and Flutter then
 /// reports `hidden` (or `inactive` while another app is in front) although
-/// nothing is suspended. Only `paused` means the system stopped the app. On
-/// the other platforms `hidden` and `inactive` are on the way to `paused`, so
+/// nothing is suspended. On Windows and Linux a window that loses focus or is
+/// minimized reports the same. Only `paused` means the system stopped the app.
+/// On the phones `hidden` and `inactive` are on the way to `paused`, so
 /// they count as background there.
 abstract final class AppPresence {
   /// Whether the app is running at full speed: timers and polling go on.
   /// A state not yet reported counts as in front.
   static bool foreground(AppLifecycleState? state, {TargetPlatform? platform}) {
     if (state == null || state == AppLifecycleState.resumed) return true;
-    return _isMac(platform) &&
+    return _runsUnfocused(platform) &&
         (state == AppLifecycleState.hidden ||
             state == AppLifecycleState.inactive);
   }
@@ -23,6 +24,12 @@ abstract final class AppPresence {
   static bool focused(AppLifecycleState? state) =>
       state == null || state == AppLifecycleState.resumed;
 
-  static bool _isMac(TargetPlatform? platform) =>
-      (platform ?? defaultTargetPlatform) == TargetPlatform.macOS;
+  /// A desktop process goes on when its window loses focus or is minimized.
+  static bool _runsUnfocused(TargetPlatform? platform) =>
+      switch (platform ?? defaultTargetPlatform) {
+        TargetPlatform.macOS ||
+        TargetPlatform.windows ||
+        TargetPlatform.linux => true,
+        _ => false,
+      };
 }

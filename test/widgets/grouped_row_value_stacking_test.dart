@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/plugins/catalog_entry.dart';
+import 'package:hermes_app/src/plugins/installed_plugin.dart';
+import 'package:hermes_app/src/plugins/widgets/catalog_row.dart';
+import 'package:hermes_app/src/plugins/widgets/plugin_row.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 
@@ -38,6 +42,14 @@ bool _beside(WidgetTester tester, String title, String value) =>
         8 &&
     tester.getTopLeft(find.text(value)).dx >
         tester.getTopRight(find.text(title)).dx;
+
+/// The height of [text] laid out as one line in [style] at [scale]x, in a
+/// row [width] wide.
+double _oneLine(String text, TextStyle? style, double scale) => (TextPainter(
+  text: TextSpan(text: text, style: style),
+  textDirection: TextDirection.ltr,
+  textScaler: TextScaler.linear(scale),
+)..layout()).preferredLineHeight;
 
 void main() {
   const longValue = 'Running, some channels offline and one restarting';
@@ -137,6 +149,166 @@ void main() {
     final value = tester.getTopLeft(find.text('Set up'));
     expect(value.dx, title.dx);
     expect(value.dy, greaterThan(title.dy));
+  });
+
+  testWidgets(
+    'a stacked row still honours titleMaxLines and subtitleMaxLines',
+    (tester) async {
+      const title = 'a long title that has to wrap somewhere in the row';
+      const subtitle = 'a long subtitle that has to wrap somewhere in the row';
+      await _pump(
+        tester,
+        const GroupedRow(
+          title: title,
+          titleMaxLines: 2,
+          value: longValue,
+          subtitle: subtitle,
+          subtitleMaxLines: 2,
+        ),
+        scale: 2,
+      );
+      final titleText = tester.widget<Text>(find.text(title));
+      expect(titleText.maxLines, 2);
+      expect(titleText.overflow, TextOverflow.ellipsis);
+      final subtitleText = tester.widget<Text>(find.text(subtitle));
+      expect(subtitleText.maxLines, 2);
+      expect(subtitleText.overflow, TextOverflow.ellipsis);
+    },
+  );
+
+  testWidgets('a stacked row with null limits still wraps in full', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const GroupedRow(
+        title: 'State',
+        titleMaxLines: null,
+        value: longValue,
+        subtitle: 'Gateway',
+        subtitleMaxLines: null,
+      ),
+      scale: 2,
+    );
+    expect(tester.widget<Text>(find.text('Gateway')).maxLines, isNull);
+  });
+
+  testWidgets('a stacked row with the default limit of one line truncates', (
+    tester,
+  ) async {
+    const title = 'a long title that has to wrap somewhere in the row';
+    const subtitle = 'a long subtitle that has to wrap somewhere in the row';
+    await _pump(
+      tester,
+      const GroupedRow(title: title, value: longValue, subtitle: subtitle),
+      scale: 2,
+    );
+    expect(tester.widget<Text>(find.text(title)).maxLines, 1);
+    expect(tester.widget<Text>(find.text(subtitle)).maxLines, 1);
+    // One line each: the rendered height is a line's, not several.
+    for (final text in [title, subtitle]) {
+      final shown = tester.widget<Text>(find.text(text));
+      final style = DefaultTextStyle.of(tester.element(find.text(text))).style
+          .merge(shown.style);
+      expect(
+        tester.getSize(find.text(text)).height,
+        closeTo(_oneLine(text, style, 2), 1),
+      );
+    }
+  });
+
+  testWidgets('wrapWhenStacked lets a stacked row wrap in full', (
+    tester,
+  ) async {
+    const title = 'a long title that has to wrap somewhere in the row';
+    const subtitle = 'a long subtitle that has to wrap somewhere in the row';
+    await _pump(
+      tester,
+      const GroupedRow(
+        title: title,
+        value: longValue,
+        subtitle: subtitle,
+        wrapWhenStacked: true,
+      ),
+      scale: 2,
+    );
+    expect(tester.widget<Text>(find.text(subtitle)).maxLines, isNull);
+    expect(tester.widget<Text>(find.text(title)).maxLines, isNull);
+  });
+
+  testWidgets('a plugin row wraps its description in full once it stacks at '
+      '2x', (tester) async {
+    const description =
+        'Query NetBox for devices, prefixes and addresses, and keep a folder '
+        'of notes in step with what the agent remembers about them';
+    await _pump(
+      tester,
+      const PluginRow(
+        plugin: InstalledPlugin(
+          name: 'a plugin with a rather long name',
+          version: '1.2.0',
+          description: description,
+          status: PluginStatus.inactive,
+        ),
+        onTap: _noop,
+      ),
+      scale: 2,
+      width: 300,
+    );
+    final text = tester.widget<Text>(find.text(description));
+    expect(text.maxLines, isNull);
+    final single = TextPainter(
+      text: TextSpan(text: description, style: text.style),
+      textDirection: TextDirection.ltr,
+      textScaler: const TextScaler.linear(2),
+    )..layout();
+    // Several lines tall, so nothing is cut at the row's width.
+    expect(
+      tester.getSize(find.text(description)).height,
+      greaterThan(single.preferredLineHeight * 2.5),
+    );
+    // Stacked: the value sits under the title, not beside it.
+    expect(
+      tester.getTopLeft(find.text('Inactive')).dy,
+      greaterThan(
+        tester
+            .getTopLeft(find.textContaining('a plugin with a rather long name'))
+            .dy,
+      ),
+    );
+  });
+
+  testWidgets('an installed catalog row wraps once its value stacks at 2x', (
+    tester,
+  ) async {
+    const description =
+        'Query NetBox for devices, prefixes and addresses, and keep a folder '
+        'of notes in step with what the agent remembers about them';
+    await _pump(
+      tester,
+      CatalogRow(
+        entry: const CatalogEntry(
+          name: 'a catalog entry with a rather long name',
+          description: description,
+          installed: true,
+          updateAvailable: true,
+        ),
+        onTap: () {},
+        onInstall: () {},
+      ),
+      scale: 2,
+      width: 300,
+    );
+    final text = tester.widget<Text>(find.text(description));
+    expect(text.maxLines, isNull);
+    expect(
+      tester.getSize(find.text(description)).height,
+      greaterThan(_oneLine(description, text.style, 2) * 2.5),
+    );
+    expect(
+      tester.getTopLeft(find.text('Update available')).dy,
+      greaterThan(tester.getTopLeft(find.textContaining('a catalog entry')).dy),
+    );
   });
 }
 

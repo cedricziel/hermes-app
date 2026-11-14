@@ -334,6 +334,7 @@ class _RunRow extends StatelessWidget {
       _ => (AppIcon(AppIcons.checkCircle, color: colors.success), outcome),
     };
     return GroupedRow(
+      wrapWhenStacked: true,
       leading: SizedBox.square(
         dimension: size,
         child: Center(child: icon),

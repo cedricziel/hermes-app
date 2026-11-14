@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_servers_controller.dart';
 import '../widgets/route_dismissal.dart';
+import '../telemetry/report_bug.dart';
 
 /// Waits while the user approves a sign-in to an OAuth server in the browser.
 ///
@@ -152,7 +153,8 @@ class _McpSignInScreenState extends State<McpSignInScreen>
           _flow = flow;
           await _openBrowser();
       }
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'MCP sign-in');
       if (!mounted || _settled) return;
       if (isMcpNotFound(e)) {
         setState(() => _phase = _Phase.expired);

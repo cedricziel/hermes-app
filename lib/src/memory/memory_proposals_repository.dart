@@ -3,6 +3,7 @@ import 'package:flutter_otel/flutter_otel.dart';
 import '../telemetry/telemetry.dart';
 import 'memory_proposal_session.dart';
 import 'memory_proposals.dart';
+import '../telemetry/report_bug.dart';
 
 /// How reading one kind of proposals ended.
 enum ProposalReadStatus {
@@ -99,7 +100,8 @@ class MemoryProposalsRepository {
             ? KindRead(ProposalReadStatus.unreadable, const [], parsed.raw)
             : KindRead(ProposalReadStatus.ok, parsed.proposals);
       }
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the memory proposals');
       read = const KindRead(ProposalReadStatus.failed);
     }
     _quiet(() {

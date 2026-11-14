@@ -45,6 +45,38 @@ void main() {
     expect(task.channels.single.name, 'Ops chat');
   });
 
+  test(
+    'assignees and channels read as none when the server will not say',
+    () async {
+      server
+        ..on('GET', '/api/plugins/kanban/assignees', {
+          'detail': 'no',
+        }, status: 500)
+        ..on('GET', '/api/plugins/kanban/home-channels', {
+          'detail': 'no',
+        }, status: 500);
+      final task = controller();
+      addTearDown(task.dispose);
+      await task.load();
+      await task.loadChannels();
+
+      expect(await task.loadAssignees(), isEmpty);
+      expect(task.channels, isEmpty);
+    },
+  );
+
+  test('a bug in reading the assignees is not hidden as none', () async {
+    final task = KanbanTaskController(
+      repository: _BrokenAssignees(KanbanRepository(server.client())),
+      taskId: 't1',
+      board: 'ops',
+      onChanged: () {},
+    );
+    addTearDown(task.dispose);
+
+    await expectLater(task.loadAssignees(), throwsStateError);
+  });
+
   test('a first load that fails is reported, and retry recovers', () async {
     server.on('GET', _task, {'detail': 'boom'}, status: 500);
     final task = controller();
@@ -119,4 +151,12 @@ void main() {
     await stale;
     expect(task.detail?.task.title, 'Newer title');
   });
+}
+
+class _BrokenAssignees extends KanbanRepository {
+  _BrokenAssignees(KanbanRepository inner) : super(inner.client);
+
+  @override
+  Future<List<String>> loadAssignees({String? board}) async =>
+      throw StateError('bug');
 }

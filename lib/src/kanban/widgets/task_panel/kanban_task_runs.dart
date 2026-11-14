@@ -73,6 +73,7 @@ class KanbanTaskRuns extends StatelessWidget {
               children: [
                 for (final e in events.reversed)
                   GroupedRow(
+                    wrapWhenStacked: true,
                     title: e.kind.replaceAll('_', ' '),
                     titleMaxLines: null,
                     value: e.createdAt == null

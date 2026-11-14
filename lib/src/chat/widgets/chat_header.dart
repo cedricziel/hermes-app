@@ -21,6 +21,7 @@ class ChatHeader extends StatelessWidget {
     required this.onShowConnection,
     required this.onNewChat,
     this.activityOpen = false,
+    this.activityWaiting = 0,
     this.onToggleActivity,
   });
 
@@ -33,6 +34,9 @@ class ChatHeader extends StatelessWidget {
   final VoidCallback onShowConnection;
   final VoidCallback onNewChat;
   final bool activityOpen;
+
+  /// How many requests need the user; marks the Activity button.
+  final int activityWaiting;
 
   /// Opens or closes the Activity panel; null while no chat is open.
   final VoidCallback? onToggleActivity;
@@ -58,7 +62,11 @@ class ChatHeader extends StatelessWidget {
           includeCopyTranscript: true,
         ),
       if (onToggleActivity case final toggle?)
-        ActivityButton(open: activityOpen, onPressed: toggle),
+        ActivityButton(
+          open: activityOpen,
+          waiting: activityWaiting,
+          onPressed: toggle,
+        ),
       ConnectionInfoButton(onPressed: onShowConnection),
       NewChatButton(onPressed: onNewChat),
     ];

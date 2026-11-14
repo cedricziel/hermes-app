@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../telemetry/report_bug.dart';
 import 'kanban_repository.dart';
 
 /// Runs a write, and tells the user why when the plugin refuses it. Returns
@@ -17,7 +18,8 @@ Future<bool> runKanbanAction(
     if (context.mounted) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     }
-  } on Object catch (_) {
+  } on Object catch (e, stack) {
+    reportBug(e, stack, 'a Kanban action');
     if (context.mounted) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Something went wrong. Try again.')),

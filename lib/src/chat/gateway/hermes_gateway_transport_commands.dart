@@ -46,9 +46,9 @@ extension _Commands on HermesGatewayTransport {
           })
         : null;
     final runtimeId = threadId == null
-        ? session!['session_id'] as String
+        ? _requiredText(session!['session_id'])
         : await _commandRuntime(client, threadId, profile);
-    final storedId = threadId ?? session!['stored_session_id'] as String;
+    final storedId = threadId ?? _requiredText(session!['stored_session_id']);
     var current = command.trim().replaceFirst(RegExp(r'^/'), '');
     for (var depth = 0; depth < 5; depth++) {
       Map<String, Object?> result;
@@ -77,19 +77,25 @@ extension _Commands on HermesGatewayTransport {
         continue;
       }
       final prompt = (type == 'send' || type == 'skill')
-          ? result['message'] as String?
+          ? _text(result['message'])
           : null;
       return SlashCommandResult(
         threadId: storedId,
-        output:
-            result['output'] as String? ?? result['notice'] as String? ?? '',
+        output: _text(result['output']) ?? _text(result['notice']) ?? '',
         prompt: prompt,
-        display: result['display'] as String?,
-        prefill: type == 'prefill' ? result['message'] as String? : null,
+        display: _text(result['display']),
+        prefill: type == 'prefill' ? _text(result['message']) : null,
       );
     }
-    throw StateError('Could not resolve slash command');
+    throw const FormatException('Could not resolve slash command');
   }
+
+  /// A string field of a gateway answer; null when the server sent another type.
+  static String? _text(Object? value) => value is String ? value : null;
+
+  /// Like [_text], for a field the answer cannot do without.
+  static String _requiredText(Object? value) =>
+      value is String ? value : throw const FormatException('Missing id');
 
   Future<String> _commandRuntime(
     GatewayRpcClient client,

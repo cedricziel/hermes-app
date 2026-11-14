@@ -217,11 +217,16 @@ void main() {
     const background = 'or when the system lets it check in the background';
 
     for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
-      testWidgets('is hidden on $platform, which cannot look', (tester) async {
+      testWidgets('is shown on $platform without a background check', (
+        tester,
+      ) async {
         await openOn(tester, platform);
 
-        expect(row, findsNothing);
-        expect(find.textContaining('Hermes profile starts'), findsNothing);
+        expect(row, findsOneWidget);
+        expect(find.textContaining('Hermes profile starts'), findsOneWidget);
+        expect(find.textContaining(background), findsNothing);
+        expect(find.textContaining('open the app to answer'), findsOneWidget);
+        expect(find.textContaining('can be answered from'), findsNothing);
       });
     }
 
