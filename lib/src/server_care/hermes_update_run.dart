@@ -163,6 +163,23 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   /// When the run started; null when idle.
   DateTime? get startedAt => _startedAt;
 
+  /// Drops Hermes' own words (the log tail, the reasons, a refusal and its
+  /// command), for when the app is covered; the page then says only how the
+  /// run ended.
+  void forgetText() {
+    if (_lines.isEmpty &&
+        _reasons.isEmpty &&
+        _refusalMessage == null &&
+        _refusalCommand == null) {
+      return;
+    }
+    _lines = const [];
+    _reasons = const [];
+    _refusalMessage = null;
+    _refusalCommand = null;
+    notifyListeners();
+  }
+
   /// The confirmation is open: nothing is sent until [start].
   void beginConfirmation() {
     if (busy || disposed) return;

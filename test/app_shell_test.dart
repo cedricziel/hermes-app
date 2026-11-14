@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
@@ -27,6 +28,7 @@ import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/widgets/chat_thread_view.dart';
 import 'package:hermes_app/src/server_care/gateway_restart.dart';
+import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/skills/skill_editor_screen.dart';
@@ -195,6 +197,173 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  group('update run', () {
+    const banner =
+        "Hermes is restarting after the update. Chats continue when it's back.";
+    var stage = 'down';
+
+    Map<String, dynamic> health(String commit, String version) => {
+      'ok': true,
+      'version': version,
+      'commit': commit,
+      'auth_required': true,
+    };
+
+    setUp(() {
+      stage = 'down';
+      server
+        ..on('GET', '/api/status', {'version': '0.22.2'})
+        ..on('POST', '/api/hermes/update', {
+          'ok': true,
+          'pid': 1,
+          'name': 'hermes-update',
+          'action_id': 'a' * 32,
+        })
+        ..on('GET', '/api/hermes/update/receipt', {
+          'summary': {
+            'outcome': 'success',
+            'action_id': 'a' * 32,
+            'post_version': '0.23.0',
+            'followups': <Object>[],
+          },
+        })
+        ..onRequest('GET', '/api/health', (o) {
+          if (stage == 'down') {
+            throw DioException.connectionError(
+              requestOptions: o,
+              reason: 'down',
+            );
+          }
+          return (
+            status: 200,
+            body: stage == 'up'
+                ? health('new2222', '0.23.0')
+                : health('old1111', '0.22.2'),
+          );
+        })
+        ..onRequest('GET', '/api/actions/hermes-update/status', (o) {
+          if (stage == 'down') {
+            throw DioException.connectionError(
+              requestOptions: o,
+              reason: 'down',
+            );
+          }
+          return (
+            status: 200,
+            body: {
+              'name': 'hermes-update',
+              'running': stage == 'running',
+              'exit_code': stage == 'running' ? null : 0,
+              'lines': <String>[],
+            },
+          );
+        });
+    });
+
+    Future<HermesUpdateRun> pumpWithRun(WidgetTester tester) async {
+      kanbanPlugin(on: true);
+      final auth = FakeSessionAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      return tester.element(find.byType(ChatScreen)).read<HermesUpdateRun>();
+    }
+
+    Future<void> startRestarting(
+      WidgetTester tester,
+      HermesUpdateRun run,
+    ) async {
+      run.start().ignore();
+      await tester.pump(const Duration(seconds: 3));
+      expect(run.phase, UpdatePhase.restarting);
+    }
+
+    Future<void> stop(WidgetTester tester, HermesUpdateRun run) async {
+      await run.reset();
+      await tester.pump(const Duration(seconds: 30));
+    }
+
+    testWidgets('the banner shows above every destination while Hermes '
+        'restarts, and tapping it opens the Update page', (tester) async {
+      final run = await pumpWithRun(tester);
+      expect(find.text(banner), findsNothing);
+      await startRestarting(tester, run);
+      expect(find.text(banner), findsOneWidget);
+
+      await openTab(tester, 'Kanban');
+      expect(find.text('the board'), findsOneWidget);
+      expect(find.text(banner), findsOneWidget);
+      // It sits above the page, not over it.
+      expect(
+        tester.getBottomLeft(find.text(banner)).dy,
+        lessThan(tester.getTopLeft(find.text('the board')).dy),
+      );
+
+      await tester.tap(find.text(banner));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Update'), findsWidgets);
+      expect(find.text('Restarting Hermes'), findsOneWidget);
+      await stop(tester, run);
+    });
+
+    testWidgets('the banner is not shown while the child still runs or '
+        'after the update ended', (tester) async {
+      final run = await pumpWithRun(tester);
+      stage = 'running';
+      run.start().ignore();
+      await tester.pump(const Duration(seconds: 3));
+      expect(run.phase, UpdatePhase.updating);
+      expect(find.text(banner), findsNothing);
+      await stop(tester, run);
+      expect(find.text(banner), findsNothing);
+    });
+
+    testWidgets('after a success it says Hermes is ready, then goes away '
+        'after 6 seconds', (tester) async {
+      final run = await pumpWithRun(tester);
+      await startRestarting(tester, run);
+      stage = 'up';
+      for (var i = 0; i < 6 && run.phase != UpdatePhase.finished; i++) {
+        await tester.pump(const Duration(seconds: 2));
+      }
+      expect(run.result, UpdateResult.success);
+      expect(find.text('Hermes 0.23.0 is ready'), findsOneWidget);
+      expect(find.text(banner), findsNothing);
+      await tester.pump(const Duration(seconds: 7));
+      expect(find.text('Hermes 0.23.0 is ready'), findsNothing);
+      await stop(tester, run);
+    });
+
+    testWidgets('a sign-out drops the update and the banner goes', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final auth = FakeSessionAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      final run = tester
+          .element(find.byType(ChatScreen))
+          .read<HermesUpdateRun>();
+      await startRestarting(tester, run);
+      expect(find.text(banner), findsOneWidget);
+      auth.generation++;
+      auth.notifyListeners();
+      await tester.pump(const Duration(seconds: 30));
+      expect(run.phase, UpdatePhase.idle);
+      expect(find.text(banner), findsNothing);
+    });
+  });
 
   group('breadcrumbs', () {
     testWidgets('record each destination the user moves to', (tester) async {

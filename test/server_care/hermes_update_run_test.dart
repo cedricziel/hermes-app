@@ -259,6 +259,23 @@ void main() {
     expect(probes, 1);
   });
 
+  test('forgetText drops Hermes\' own words and keeps the outcome', () async {
+    server.on('POST', '/api/hermes/update', updateRefused());
+    await run.start();
+    expect(run.refusalMessage, isNotNull);
+    var notified = 0;
+    run.addListener(() => notified++);
+    run.forgetText();
+    expect(run.phase, UpdatePhase.refused);
+    expect(run.refusalMessage, isNull);
+    expect(run.refusalCommand, isNull);
+    expect(run.lines, isEmpty);
+    expect(run.reasons, isEmpty);
+    expect(notified, 1);
+    run.forgetText();
+    expect(notified, 1);
+  });
+
   test('refused with an HTTP error carries Hermes\' detail', () async {
     server.on('POST', '/api/hermes/update', {'detail': 'busy'}, status: 409);
     await run.start();

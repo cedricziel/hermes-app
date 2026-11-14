@@ -73,6 +73,7 @@ import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
 import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
+import '../server_care/replies_in_progress.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
@@ -245,6 +246,12 @@ class ChatScreen extends StatefulWidget {
 /// Owns resources and lifecycle; private parts group feature behavior and layout.
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
+
+  /// Tells the update question how many replies this chat has running.
+  RepliesInProgress? _repliesCount;
+  int _runningReplies() => _chat.threads
+      .where((thread) => thread.remote && thread.isReplying)
+      .length;
 
   /// The requests that wait on the user in the open chat, which dock above
   /// the composer and mark the Activity button.
@@ -469,6 +476,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       onDraft: _draftFromLink,
     )..addListener(_changed);
+    _repliesCount = _maybeRead<RepliesInProgress>()?..attach(_runningReplies);
     _needsYou = needsYouQueueFor(
       _chat,
       breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
@@ -845,6 +853,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _voiceCall?.removeListener(_callChanged);
     _voiceCall?.dispose();
     _needsYou.dispose();
+    _repliesCount?.detach(_runningReplies);
     _chat
       ..removeListener(_changed)
       ..dispose();
