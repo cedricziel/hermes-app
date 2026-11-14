@@ -9,7 +9,7 @@ One PR, `feat(notifications): answer agent requests from Android notifications`.
 - [x] 1.5 Cancel the notification when an answering action is tapped (`cancelNotification`), and re-post the follow-up on failure.
 - [x] 1.6 Write a failing test that turning App Lock on withdraws answerable request notifications on Android (by the `hermes.request` tag, since Android returns no payload); implement it, keeping one notification per chat.
 - [x] 1.7 Declare `ActionBroadcastReceiver` (not exported) in `AndroidManifest.xml`.
-- [ ] 1.8 Update `CLAUDE.md` (Notifications paragraph: Android shows the body and actions). Left out of this PR, which may not edit `CLAUDE.md`; to be done by the maintainer.
+- [x] 1.8 Update `docs/architecture/notifications-and-background.md` (Android shows the body and actions), which now holds the Notifications text that was in `CLAUDE.md`.
 - [x] 1.9 Run `dart format`, `flutter analyze` and `flutter test`; CI builds the release APK.
 
 ## Not verified on a device
