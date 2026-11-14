@@ -100,7 +100,10 @@ class DoctorReport {
     for (final raw in lines) {
       final line = clean(raw);
       final text = line.trim();
-      if (text.isEmpty || _rule.hasMatch(text) || _found.hasMatch(text)) {
+      if (text.isEmpty ||
+          _rule.hasMatch(text) ||
+          _chatter.hasMatch(text) ||
+          _found.hasMatch(text)) {
         continue;
       }
       final fix = _numbered.firstMatch(line)?.group(1);
@@ -113,6 +116,14 @@ class DoctorReport {
   static final _header = RegExp(r'^=== doctor started\b');
   static final _found = RegExp(r'Found \d+ issue', caseSensitive: false);
   static final _numbered = RegExp(r'^\s*\d+\.\s+(.*\S)\s*$');
+
+  /// Lines that say nothing about the setup: the progress line of the
+  /// connectivity checks and the closing tip about `hermes doctor --fix`,
+  /// which the page explains itself (the app never runs it).
+  static final _chatter = RegExp(
+    r'^(Tip:|Running \d+ .*checks?\b)',
+    caseSensitive: false,
+  );
   static final _rule = RegExp(r'^[\s─━═\-=_*│|┌┐└┘├┤┬┴┼╔╗╚╝╠╣╦╩╬+]+$');
 
   /// Reads the lines of a doctor run: only those after the last
@@ -144,7 +155,9 @@ class DoctorReport {
     for (final raw in run) {
       final line = clean(raw);
       final text = line.trim();
-      if (text.isEmpty || _rule.hasMatch(text)) continue;
+      if (text.isEmpty || _rule.hasMatch(text) || _chatter.hasMatch(text)) {
+        continue;
+      }
       if (text.toLowerCase().contains('all checks passed')) {
         allPassed = true;
         continue;

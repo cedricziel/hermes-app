@@ -70,7 +70,7 @@ class ServerCareRepository {
         final root = readMap(json);
         if (root == null || readBool(root['ok']) != true) return null;
         return ServerHealth(
-          version: readString(root['version']),
+          version: readVersion(root['version']),
           commit: readString(root['commit']),
         );
       });
