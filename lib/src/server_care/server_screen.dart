@@ -174,6 +174,7 @@ class _ServerScreenState extends State<ServerScreen> {
     _update = UpdateCheckController(
       repository: HermesRepositories.of(context).serverCare,
       onUnsupported: () => care.reportUnsupported(CarePart.update),
+      telemetry: HermesRepositories.of(context).telemetry,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

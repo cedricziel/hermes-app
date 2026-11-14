@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -84,6 +87,47 @@ void main() {
       await letSocketsIdle(tester);
     },
   );
+
+  testWidgets('an owner change drops the server status of the old owner', (
+    tester,
+  ) async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    final (server, requests) = (await tester.runAsync(_ungatedDashboard))!;
+    addTearDown(() => server.close(force: true));
+    final auth = AuthController(
+      devServerUrl: 'http://127.0.0.1:${server.port}',
+    );
+    addTearDown(auth.dispose);
+    await pumpWorkflowApp(tester, ScreenshotRecorder('owner'), auth: auth);
+    await tester.runAsync(auth.bootstrap);
+    await pumpUntilFound(tester, find.byType(AppShell));
+    await pumpUntil(tester, () => requests.contains('/api/status'));
+    ServerCareController careOf() => tester
+        .element(
+          find
+              .descendant(
+                of: find.byType(AppShell),
+                matching: find.byType(Scaffold),
+              )
+              .first,
+        )
+        .read<ServerCareController>();
+    final first = careOf();
+    expect(first.disposed, isFalse);
+
+    await tester.runAsync(auth.signOut);
+    await pumpUntil(tester, () => auth.protectedRequestsAllowed);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // The old owner's controller, and the status it holds, is gone with its
+    // shell; the new shell starts from nothing.
+    expect(first.disposed, isTrue);
+    final second = careOf();
+    expect(second, isNot(same(first)));
+    expect(second.disposed, isFalse);
+    await letSocketsIdle(tester);
+  });
 
   testWidgets('the shell is not replaced before the new client exists', (
     tester,
