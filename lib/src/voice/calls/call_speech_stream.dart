@@ -86,7 +86,8 @@ class CallSpeechStream {
       if (_finishRequested) socket.sink.add(jsonEncode({'done': true}));
     } on Object catch (error, stack) {
       _fail(error, stack);
-      rethrow;
+      // A failed open before any audio falls back instead of failing.
+      if (!_fallback) rethrow;
     }
   }
 
@@ -145,16 +146,7 @@ class CallSpeechStream {
         case {'type': 'end'}:
           _ended = true;
           unawaited(_drain());
-        case {'type': 'fallback'}:
-          if (_produced || fallback == null) {
-            _fail(StateError('The server could not produce call audio'));
-            return;
-          }
-          _fallback = true;
-          _pending.clear();
-          unawaited(_close().catchError((Object _) {}));
-          _startFallback();
-        case {'type': 'error'}:
+        case {'type': 'fallback'} || {'type': 'error'}:
           _fail(StateError('The server could not produce call audio'));
         default:
           _fail(StateError('Unsupported speech frame'));
@@ -210,14 +202,46 @@ class CallSpeechStream {
     }
   }
 
+  /// A failure before any audio falls back once to the whole reply as one
+  /// piece; after audio began the reply counts as spoken, because repeating
+  /// it would say it twice. Only a failed fallback, or a failure with none to
+  /// try, reaches [onFailure].
   void _fail(Object error, [StackTrace? stack]) {
     if (_stopped) return;
+    if (_produced) {
+      _finishAfterAudio();
+      return;
+    }
+    if (fallback != null && !_fallback && !_fallbackStarted) {
+      _fallback = true;
+      _pending.clear();
+      unawaited(_close().catchError((Object _) {}));
+      _startFallback();
+      return;
+    }
     _stopped = true;
     _cancellation.cancel();
     _text.clear();
     if (!_done.isCompleted) _done.completeError(error, stack);
     unawaited(_close().catchError((Object _) {}));
     onFailure?.call(error);
+  }
+
+  void _finishAfterAudio() {
+    _stopped = true;
+    _cancellation.cancel();
+    _text.clear();
+    unawaited(_close().catchError((Object _) {}));
+    unawaited(
+      _writes
+          .catchError((Object _) {})
+          .then<void>((_) => output.drain())
+          .timeout(const Duration(minutes: 3))
+          .catchError((Object _) {})
+          .whenComplete(() {
+            if (!_done.isCompleted) _done.complete();
+          }),
+    );
   }
 
   Future<void> close() async {
