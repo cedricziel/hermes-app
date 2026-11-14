@@ -1,6 +1,37 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/hermes_theme.dart';
+import '../checkpoints/checkpoints_state.dart';
+import '../checkpoints/transcript_outcome.dart';
+import '../checkpoints/widgets/restore_outcome_note.dart';
+import '../context/context_state.dart';
+import '../context/widgets/compress_outcome_note.dart';
+
+/// The sentence a [TranscriptOutcomeLine] shows for [outcome]: counts only.
+/// A compress says nothing of a placeholder summary (the panel note does).
+String transcriptOutcomeText(
+  AppLocalizations l10n,
+  TranscriptOutcome outcome,
+) => switch (outcome.kind) {
+  TranscriptOutcomeKind.compressed => transcriptLineForCompress(
+    l10n,
+    CompressOutcome(
+      CompressOutcomeKind.compressed,
+      beforeMessages: outcome.beforeMessages,
+      afterMessages: outcome.afterMessages,
+    ),
+  )!,
+  TranscriptOutcomeKind.restored => transcriptLineForRestore(
+    l10n,
+    RestoreOutcome(
+      RestoreOutcomeKind.restored,
+      filesRestored: outcome.files,
+      lastMessageNotRemoved: outcome.lastMessageNotRemoved,
+    ),
+    removedMessages: outcome.removedMessages,
+  )!,
+};
 
 /// A muted, centred line with a hairline on each side, between messages of the
 /// transcript: "Conversation compressed · 42 → 9 messages". It takes the

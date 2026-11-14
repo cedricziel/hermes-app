@@ -13,6 +13,7 @@ class TranscriptOutcome {
     this.afterMessages,
     this.files,
     this.removedMessages = false,
+    this.lastMessageNotRemoved = false,
     this.fallbackUsed = false,
   });
 
@@ -26,6 +27,10 @@ class TranscriptOutcome {
 
   /// A full restore also removed the chat's last turn.
   final bool removedMessages;
+
+  /// The restore removed messages, but not the prompt this app expected to
+  /// lose: the line says the chat was rewound instead of naming a message.
+  final bool lastMessageNotRemoved;
 
   /// Hermes used a placeholder summary for the compress.
   final bool fallbackUsed;

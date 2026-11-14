@@ -155,6 +155,17 @@ void main() {
 
     expect(registry.handlerFor(MacCommand.openInNewWindow)?.enabled, isFalse);
   });
+  testWidgets('Compress Conversation… is off while a conversation window is '
+      'key', (tester) async {
+    await pump(tester);
+    await windows.open('s1', profile: null, title: 'A');
+    await focus(tester, 'w0');
+
+    expect(registry.handlerFor(MacCommand.compress)?.enabled, isFalse);
+    expect(registry.invoke(MacCommand.compress), isFalse);
+    expect(host.commands, isEmpty);
+  });
+
   testWidgets('key conversation disables root Back and Forward', (
     tester,
   ) async {

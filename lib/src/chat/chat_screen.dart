@@ -1,6 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
+
+import '../../l10n/l10n.dart';
+import 'context/compress_entry.dart';
+import 'context/context_controller.dart';
 
 import '../voice/calls/call_bridge.dart';
 import '../voice/calls/call_audio_decoder.dart';
@@ -135,6 +140,7 @@ part 'chat_screen_layout.dart';
 part 'chat_screen_calls.dart';
 part 'chat_screen_bot_screen.dart';
 part 'chat_screen_read_aloud.dart';
+part 'chat_screen_checkpoints.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -171,6 +177,7 @@ class ChatScreen extends StatefulWidget {
     this.voiceMessageRecorder,
     this.displaySocketOpener,
     this.takeoverSetting,
+    this.onCompressConversation,
   });
 
   final HermesChatRepository? repository;
@@ -235,6 +242,10 @@ class ChatScreen extends StatefulWidget {
   /// Whether to ask before taking over the Bot Screen; the signed-in
   /// account's own unless a test supplies one.
   final TakeoverSetting? takeoverSetting;
+
+  /// Opens the compress confirmation for Chat > Compress Conversation…; the
+  /// item stays off without it.
+  final CompressConversationEntry? onCompressConversation;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -346,6 +357,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The reply of the open thread that can be asked again: its last message,
   /// once that is a finished reply.
   final _latestReply = LatestReply();
+
+  /// The composer text and owner right after a restore put the last prompt
+  /// back, while the line saying so shows.
+  ({(String?, String?) owner, String text})? _handedBack;
+
+  /// The selected chat's context controller, listened to so Chat > Compress
+  /// Conversation… follows it.
+  ContextController? _menuContext;
 
   StarterContextLoader? _starterLoader;
 
@@ -462,6 +481,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         selection: TextSelection.collapsed(offset: draft.length),
       ),
       onDraft: _draftFromLink,
+      onHandBack: _handBackFromRestore,
     )..addListener(_changed);
     if (transport != null && _skills != null) {
       _memoryWaiting = MemoryWaitingCount(
@@ -831,6 +851,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _sessionActivity?.removeListener(_callOwnerChanged);
     _voiceCall?.removeListener(_callChanged);
     _voiceCall?.dispose();
+    _menuContext?.removeListener(_menuContextChanged);
     _chat
       ..removeListener(_changed)
       ..dispose();
@@ -856,6 +877,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // retain callback identity across addListener/removeListener calls.
   void _checkAvatarOwner() => _ChatScreenRecipients(this)._checkAvatarOwner();
   void _onComposerText() => _ChatScreenComposer(this)._onComposerText();
+  void _handBackFromRestore(String text) =>
+      _ChatScreenCheckpoints(this)._handBackFromRestore(text);
+  void _menuContextChanged() =>
+      _ChatScreenCheckpoints(this)._menuContextChanged();
   void _onOpenRequest({bool initial = false}) =>
       _ChatScreenExternalOpenings(this)._onOpenRequest(initial: initial);
   void _onShared() => _ChatScreenSharing(this)._onShared();

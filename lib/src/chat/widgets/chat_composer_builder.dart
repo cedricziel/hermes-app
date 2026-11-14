@@ -33,6 +33,8 @@ WidgetBuilder buildChatComposer({
   Widget? queueView,
   BotChatContext? botContext,
   Object? Function()? sendTarget,
+  bool sendHeld = false,
+  bool draftHandedBack = false,
 }) {
   Widget composer(
     ValueChanged<String> onSend,
@@ -57,6 +59,8 @@ WidgetBuilder buildChatComposer({
     queueView: queueView,
     dictation: dictationView,
     recording: voiceRecording?.view,
+    sendHeld: sendHeld,
+    draftHandedBack: draftHandedBack,
   );
   return (context) => _ComposerSlot(
     builder: (onSend, onAttach) => ListenableBuilder(

@@ -7,7 +7,7 @@ import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
-    show InMemoryChatController;
+    show InMemoryChatController, Message;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -169,6 +169,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onSurfaceChange,
     this.readSnapshot,
     this.onDraft,
+    this.onHandBack,
     this.breadcrumbs = Breadcrumbs.none,
     this.events = noopAppEventLogger,
     this.connectorBrowser,
@@ -511,6 +512,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Adds text from a link to the composer, under what is typed there. It is
   /// never sent.
   final ValueChanged<String>? onDraft;
+
+  /// Puts a prompt a full restore removed back into the composer, so the
+  /// screen can say so; [onDraft] does it when this is not set.
+  final ValueChanged<String>? onHandBack;
 
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.
@@ -1218,7 +1223,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (thread.unread) selected.unread = true;
       _selectedId = selected.id;
       _markRead(selected);
-      await controllerFor(selected).setMessages(chatThreadToFlyer(selected));
+      await controllerFor(selected)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(selected));
       if (!current()) return false;
       notifyListeners();
       if (!current()) return false;
@@ -1408,7 +1414,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (thread == null) return _emptyController;
     return _chatControllers.putIfAbsent(
       thread.id,
-      () => InMemoryChatController(messages: chatThreadToFlyer(thread)),
+      () => InMemoryChatController(
+        messages: _ChatControllerCheckpoints(this)._flyerOf(thread),
+      ),
     );
   }
 

@@ -65,6 +65,11 @@ extension _ChatControllerCheckpoints on ChatController {
     return List.unmodifiable(actions.outcomes);
   }
 
+  /// [thread]'s flyer messages with its outcome lines among them, for every
+  /// full rewrite of its message list, so a re-read keeps them.
+  List<Message> _flyerOf(ChatThread thread) =>
+      withOutcomeLines(chatThreadToFlyer(thread), _outcomeLinesInImpl(thread));
+
   /// Whether Send is held for [thread] by a full restore.
   bool _actionHolds(ChatThread? thread) =>
       thread != null && (_actionsOf(thread)?.sendHeld ?? false);
@@ -358,7 +363,7 @@ extension _ChatControllerCheckpoints on ChatController {
   void _handBack(_ThreadActions actions, String text) {
     if (!active || actions.disposed || text.isEmpty) return;
     if (_selectedId == actions.threadId && _threadOf(actions) != null) {
-      onDraft?.call(text);
+      (onHandBack ?? onDraft)?.call(text);
       return;
     }
     // The composer shows another chat: the text waits for this one.
@@ -379,7 +384,7 @@ extension _ChatControllerCheckpoints on ChatController {
       if (_currentActivity(epoch) &&
           !actions.disposed &&
           _selectedId == actions.threadId) {
-        onDraft?.call(text);
+        (onHandBack ?? onDraft)?.call(text);
       } else if (!actions.disposed) {
         actions.handBack ??= text;
       }
@@ -402,6 +407,7 @@ extension _ChatControllerCheckpoints on ChatController {
             at: _clock(),
             files: restore.filesRestored,
             removedMessages: restore.historyRemoved > 0,
+            lastMessageNotRemoved: restore.lastMessageNotRemoved,
           ),
         );
         added = true;
@@ -425,7 +431,24 @@ extension _ChatControllerCheckpoints on ChatController {
         added = true;
       }
     }
-    if (added && !disposed) notifyListeners();
+    if (!added || disposed) return;
+    // One settle adds at most one line of each kind; each goes in by itself.
+    _showOutcomeLines(actions);
+    notifyListeners();
+  }
+
+  void _showOutcomeLines(_ThreadActions actions) {
+    final thread = _threadOf(actions);
+    if (thread == null || !active) return;
+    final flyer = controllerFor(thread);
+    for (final (index, outcome) in actions.outcomes.indexed) {
+      final line = outcomeLineMessage(index, outcome);
+      if (flyer.messages.any((m) => m.id == line.id)) continue;
+      flyer.insertMessage(
+        line,
+        index: outcomeLineIndex(flyer.messages, outcome.at),
+      );
+    }
   }
 
   /// Compression gave the chat a new stored id: its controllers follow it.

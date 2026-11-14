@@ -34,6 +34,8 @@
   "@@x-area-bot_screen": "",
 
   "@@x-area-chat": "",
+  "chatComposerHoldHandedBack": "Deine letzte Nachricht ist wieder im Nachrichtenfeld.",
+  "chatComposerHoldRestoring": "Dateien werden wiederhergestellt …",
 
   "@@x-area-chat/activity": "",
   "chatActivityButtonHide": "Aktivität ausblenden",
@@ -293,6 +295,7 @@
   "@@x-area-live_activities": "",
 
   "@@x-area-macos": "",
+  "macosCompressConversation": "Unterhaltung komprimieren …",
 
   "@@x-area-mcp": "",
 

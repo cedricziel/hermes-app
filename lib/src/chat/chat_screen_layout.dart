@@ -121,6 +121,7 @@ extension _ChatScreenLayout on _ChatScreenState {
             screen: _screen,
             onOpenScreen: () => _openViewer('preview'),
             thread: selected,
+            draftHandedBack: _ChatScreenCheckpoints(this)._showsHandBack,
             greetingName: context.select<AuthController, String?>(
               (auth) => auth.identity?.displayName,
             ),

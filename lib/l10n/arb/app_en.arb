@@ -82,6 +82,14 @@
   "@@x-area-bot_screen": "",
 
   "@@x-area-chat": "",
+  "chatComposerHoldHandedBack": "Your last message is back in the box.",
+  "@chatComposerHoldHandedBack": {
+    "description": "Line above the message box after restoring files removed the user's last message and put it back into the box, unsent. Disappears on the next edit."
+  },
+  "chatComposerHoldRestoring": "Restoring files…",
+  "@chatComposerHoldRestoring": {
+    "description": "Line above the message box while files are restored from a checkpoint; Send is off until it finishes, typing is not."
+  },
 
   "@@x-area-chat/activity": "",
   "chatActivityButtonHide": "Hide activity",
@@ -1335,6 +1343,10 @@
   "@@x-area-live_activities": "",
 
   "@@x-area-macos": "",
+  "macosCompressConversation": "Compress Conversation…",
+  "@macosCompressConversation": {
+    "description": "Mac menu bar, Chat menu item: asks to summarize the open chat's earlier messages to free up context; opens a confirmation. Title case, keep it short."
+  },
 
   "@@x-area-mcp": "",
 

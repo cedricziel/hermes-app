@@ -426,7 +426,8 @@ extension _ChatControllerHistory on ChatController {
       if (page.hasMore) _olderRows[id] = page.rows;
       notifyListeners();
       if (!active || generation != _loadGeneration) return;
-      await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+      await controllerFor(thread)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
     } on Object {
       if (generation != _loadGeneration) return;
       _unloaded.add(id);
@@ -585,7 +586,10 @@ extension _ChatControllerHistory on ChatController {
     }
     _reactionHistory(thread);
     notifyListeners();
-    unawaited(controllerFor(thread).setMessages(chatThreadToFlyer(thread)));
+    unawaited(
+      controllerFor(thread)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread)),
+    );
   }
 
   /// [messages] split into turns that can be matched: a prompt the user
@@ -752,7 +756,8 @@ extension _ChatControllerHistory on ChatController {
       }
       notifyListeners();
       if (stale()) return strict ? notRead() : null;
-      await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+      await controllerFor(thread)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
     } on Object catch (e, stack) {
       if (strict) rethrow;
       reportBug(e, stack, 'a history re-read');

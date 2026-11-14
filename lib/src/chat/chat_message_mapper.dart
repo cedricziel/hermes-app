@@ -1,6 +1,7 @@
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show CustomMessage, FileMessage, ImageMessage, Message, TextMessage;
 
+import 'checkpoints/transcript_outcome.dart';
 import 'chat_message_kinds.dart';
 import 'chat_models.dart';
 import 'chat_reply.dart' show kReplyFailedMessage;
@@ -225,6 +226,42 @@ List<Message> chatMessageToFlyer(
 
 List<Message> chatThreadToFlyer(ChatThread t) =>
     chatMessagesToFlyer(t.messages);
+
+/// [messages] with an outcome line for each of [outcomes] (oldest first),
+/// each placed by [outcomeLineIndex].
+List<Message> withOutcomeLines(
+  List<Message> messages,
+  List<TranscriptOutcome> outcomes,
+) {
+  final result = [...messages];
+  for (final (i, outcome) in outcomes.indexed) {
+    result.insert(
+      outcomeLineIndex(result, outcome.at),
+      outcomeLineMessage(i, outcome),
+    );
+  }
+  return result;
+}
+
+/// The [kKindOutcomeLine] row for the [index]th outcome of a chat. Its id
+/// holds `-local-` and the settle time, so it never matches a message.
+Message outcomeLineMessage(int index, TranscriptOutcome outcome) =>
+    CustomMessage(
+      id: 'outcome-local-${outcome.at.microsecondsSinceEpoch}-$index',
+      authorId: kOutcomeAuthorId,
+      createdAt: outcome.at.toUtc(),
+      metadata: {kMetaKind: kKindOutcomeLine, kMetaOutcome: outcome},
+    );
+
+/// Where a line that settled [at] goes among [messages]: after the last one
+/// from no later than [at], or at the end when every message is later (a
+/// server clock ahead of this device's).
+int outcomeLineIndex(List<Message> messages, DateTime at) {
+  final last = messages.lastIndexWhere(
+    (m) => !(m.createdAt?.isAfter(at) ?? false),
+  );
+  return last < 0 ? messages.length : last + 1;
+}
 
 /// Stored tool calls and their final reply are separate assistant rows.
 /// Carry TTS results only within the same turn when restoring history.

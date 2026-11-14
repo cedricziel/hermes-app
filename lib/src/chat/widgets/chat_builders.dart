@@ -10,6 +10,8 @@ import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/hermes_theme.dart';
 import '../../widgets/markdown_links.dart';
 import '../chat_message_kinds.dart';
+import '../../../l10n/l10n.dart';
+import '../checkpoints/transcript_outcome.dart';
 import '../reactions/reaction_state.dart';
 import '../reactions/reaction_cards.dart';
 import '../chat_models.dart'
@@ -38,6 +40,7 @@ import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
 import 'subagent_card.dart';
 import 'tool_call_group.dart';
+import 'transcript_outcome_line.dart';
 import 'unsupported_request_card.dart';
 import 'vault_request_card.dart';
 import 'welcome_view.dart';
@@ -366,6 +369,12 @@ Widget _buildCustom(
     case kKindReviewSummary:
       return ReviewSummaryNote(
         items: metadata![kMetaReviewItems] as List<String>,
+      );
+    case kKindOutcomeLine:
+      final outcome = metadata![kMetaOutcome];
+      if (outcome is! TranscriptOutcome) return const SizedBox.shrink();
+      return TranscriptOutcomeLine(
+        text: transcriptOutcomeText(context.l10n, outcome),
       );
     case kKindReasoning:
       return ReasoningBlock(

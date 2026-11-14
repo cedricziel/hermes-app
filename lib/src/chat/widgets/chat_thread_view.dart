@@ -103,6 +103,8 @@ class ChatThreadView extends StatelessWidget {
     this.greetingName,
     this.welcome = true,
     this.screenPreview,
+    this.sendHeld = false,
+    this.draftHandedBack = false,
   });
 
   final ChatThread? thread;
@@ -188,6 +190,12 @@ class ChatThreadView extends StatelessWidget {
   /// window that holds no screen.
   final ScreenPreviewBuilder? screenPreview;
 
+  /// A full restore of this chat is settling: Send is off until it ends.
+  final bool sendHeld;
+
+  /// A restore just put the last message back into the composer.
+  final bool draftHandedBack;
+
   @override
   Widget build(BuildContext context) {
     final builders =
@@ -228,6 +236,8 @@ class ChatThreadView extends StatelessWidget {
             commandRunning: commandRunning,
             queueView: queueView,
             sendTarget: sendTarget,
+            sendHeld: sendHeld,
+            draftHandedBack: draftHandedBack,
           ),
         );
     // copyWith takes a null builder as "none", so only the panel's case

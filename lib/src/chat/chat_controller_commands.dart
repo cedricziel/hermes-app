@@ -161,7 +161,8 @@ extension _ChatControllerCommands on ChatController {
       } else {
         _olderRows.remove(thread.id);
       }
-      await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+      await controllerFor(thread)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
       if (!_currentActivity(epoch)) return;
       notifyListeners();
     } on Object {
@@ -477,7 +478,8 @@ extension _ChatControllerCommands on ChatController {
     final start = thread.messages.lastIndexWhere((m) => m.isPrompt);
     if (start < 0) return true;
     thread.messages.removeRange(start, thread.messages.length);
-    await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+    await controllerFor(thread)
+        .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
     if (!_currentActivity(epoch) ||
         !_sessionActionCurrent(thread, generation) ||
         _sessionStates[thread]?.reclaimedReason != null) {
