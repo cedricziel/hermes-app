@@ -423,6 +423,113 @@ void main() {
       },
     );
 
+    test('a synchronously throwing stop ends in failed and a later start '
+        'works', () async {
+      final failing = _SyncStopFailingRecorder();
+      recorder = failing;
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        try {
+          final dictation = controller(support: _uploadOnly);
+          addTearDown(dictation.dispose);
+          await dictation.start();
+          await dictation.stop();
+          await pumpEventQueue();
+          expect(dictation.phase, DictationPhase.failed);
+          expect(inserted, isEmpty);
+
+          failing.failStop = false;
+          dictation.dismiss();
+          await dictation.start();
+          expect(dictation.phase, DictationPhase.recording);
+        } on Object catch (e) {
+          errors.add(e);
+        }
+      }, (error, _) => errors.add(error));
+      expect(errors, isEmpty);
+    });
+
+    test(
+      'a synchronously throwing stop after a failed start is contained',
+      () async {
+        final failing = _StartFailingRecorder()..syncStop = true;
+        recorder = failing;
+        final errors = <Object>[];
+        await runZonedGuarded(() async {
+          try {
+            final dictation = controller(support: _uploadOnly);
+            addTearDown(dictation.dispose);
+            await dictation.start();
+            await pumpEventQueue();
+            expect(dictation.phase, DictationPhase.failed);
+          } on Object catch (e) {
+            errors.add(e);
+          }
+        }, (error, _) => errors.add(error));
+        expect(errors, isEmpty);
+      },
+    );
+
+    test(
+      'a start that throws on a superseded run closes the microphone',
+      () async {
+        final gate = Completer<void>();
+        final failing = _GatedStartFailingRecorder(gate);
+        recorder = failing;
+        final dictation = controller(support: _uploadOnly);
+        addTearDown(dictation.dispose);
+        final starting = dictation.start();
+        await pumpEventQueue();
+        await dictation.cancel();
+
+        gate.complete();
+        await starting;
+        await pumpEventQueue();
+
+        expect(failing.stops, greaterThan(0));
+        expect(dictation.phase, DictationPhase.idle);
+        expect(inserted, isEmpty);
+      },
+    );
+
+    test('cancel with a throwing stop ends once, releases the lease and '
+        'lets a later start work', () async {
+      final failing = _StopFailingRecorder(Completer<void>()..complete());
+      recorder = failing;
+      final dictation = controller(support: _uploadOnly);
+      addTearDown(dictation.dispose);
+      await dictation.start();
+
+      await dictation.cancel();
+      await pumpEventQueue();
+
+      expect(
+        trail.recent.where((b) => b.name == 'voice.dictation.ended'),
+        hasLength(1),
+      );
+      expect(leases().map((l) => l['active']), [true, false]);
+      await dictation.start();
+      expect(dictation.phase, DictationPhase.recording);
+    });
+
+    test(
+      'a recorder whose start throws ends once with the lease released',
+      () async {
+        recorder = _StartFailingRecorder();
+        final dictation = controller(support: _uploadOnly);
+        addTearDown(dictation.dispose);
+
+        await dictation.start();
+        await pumpEventQueue();
+
+        expect(
+          trail.recent.where((b) => b.name == 'voice.dictation.ended'),
+          hasLength(1),
+        );
+        expect(leases().map((l) => l['active']), [true, false]);
+      },
+    );
+
     test('a recorder whose start throws is stopped', () async {
       final failing = _StartFailingRecorder();
       recorder = failing;
@@ -1115,6 +1222,17 @@ class _ListenedStreamRecorder extends FakeVoiceRecorder {
 }
 
 class _StartFailingRecorder extends FakeVoiceRecorder {
+  var syncStop = false;
+
+  @override
+  Future<void> stop() {
+    if (syncStop) throw PlatformException(code: 'stop');
+    return super.stop();
+  }
+
+  @override
+  Future<void> dispose() async {}
+
   @override
   Future<Stream<Uint8List>> start({required int sampleRate}) async {
     starts++;
@@ -1131,5 +1249,27 @@ class _GatedListenedRecorder extends _ListenedStreamRecorder {
   Future<Stream<Uint8List>> start({required int sampleRate}) async {
     await gate.future;
     return super.start(sampleRate: sampleRate);
+  }
+}
+
+class _GatedStartFailingRecorder extends _StartFailingRecorder {
+  _GatedStartFailingRecorder(this.gate);
+
+  final Completer<void> gate;
+
+  @override
+  Future<Stream<Uint8List>> start({required int sampleRate}) async {
+    await gate.future;
+    return super.start(sampleRate: sampleRate);
+  }
+}
+
+class _SyncStopFailingRecorder extends FakeVoiceRecorder {
+  var failStop = true;
+
+  @override
+  Future<void> stop() {
+    if (failStop) throw PlatformException(code: 'stop');
+    return super.stop();
   }
 }

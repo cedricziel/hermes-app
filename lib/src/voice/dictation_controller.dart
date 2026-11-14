@@ -525,7 +525,7 @@ class DictationController extends ChangeNotifier {
     if (pcm == null) return Future.value();
     return _closing = () async {
       try {
-        await _recorder.stop();
+        await Future.sync(_recorder.stop);
         await done?.future;
       } finally {
         // A recorder that failed to stop must not leave its listener behind.
@@ -549,7 +549,7 @@ class DictationController extends ChangeNotifier {
   }
 
   void _stopRecorderQuietly() =>
-      unawaited(_recorder.stop().catchError((Object _) {}));
+      unawaited(Future.sync(_recorder.stop).catchError((Object _) {}));
 
   void _discardPcm() {
     unawaited(_pcm?.cancel());
