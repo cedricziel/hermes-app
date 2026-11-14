@@ -137,6 +137,36 @@ void main() {
     expect(find.text('nested page'), findsOneWidget);
   });
 
+  testWidgets('nothing closes while the state is not ready, nor on entering '
+      'ready', (tester) async {
+    final root = await pumpApp(tester);
+    unawaited(root.push(page('setup guide')));
+    await tester.pumpAndSettle();
+    // A page the setup screen opens, such as the VPN guide or the cleartext
+    // question, while the app was never ready.
+    auth.currentState = HermesConnectionState.connectionError;
+    closer.dispose();
+    final fresh = ConnectionPageCloser(pushed)
+      ..breadcrumbs = Breadcrumbs.of(trail)
+      ..bind(auth);
+    addTearDown(fresh.dispose);
+
+    for (final state in [
+      HermesConnectionState.connectionError,
+      HermesConnectionState.connecting,
+      HermesConnectionState.connectionError,
+      HermesConnectionState.ready,
+    ]) {
+      auth.currentState = state;
+      auth.poke();
+      auth.poke();
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('setup guide'), findsOneWidget, reason: state.name);
+    }
+    expect(trail.recent, isEmpty);
+  });
+
   testWidgets('the handoff cover is not stale after a route is removed', (
     tester,
   ) async {

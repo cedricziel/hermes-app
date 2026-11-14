@@ -351,7 +351,8 @@ void main() {
     });
   }
 
-  /// Presses the Save callback of the page that is already gone.
+  /// Presses the Save callback of the page that is already gone. This guards
+  /// that the old Dio is the real stop for a late callback, not the closer.
   Future<void> expectLateWriteSendsNothing(_Probe probe) async {
     final before = dashboard.requests.length;
     probe.save();

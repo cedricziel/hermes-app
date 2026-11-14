@@ -91,7 +91,10 @@ class ConnectionPageCloser {
     _open = open;
     _owner = owner;
     if (!ended) return;
-    // Before the frame that builds the new home, so a page never meets it.
+    // Before the frame that builds the new home, so a page never meets it. A
+    // notification that lands during a build is swept after that frame
+    // instead, so one frame of the new home may build with the pages still
+    // above it (harmless).
     if (SchedulerBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {
       SchedulerBinding.instance.addPostFrameCallback((_) => _close());
