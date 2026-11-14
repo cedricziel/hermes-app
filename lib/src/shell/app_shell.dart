@@ -335,6 +335,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         breadcrumbs: _breadcrumbs,
         // Hidden even while the check's page is closed.
         onUnsupported: () => care.reportUnsupported(CarePart.check),
+        covered: () => _appLock?.covered ?? false,
       );
       care.addListener(_careSupportChanged);
       _appLock?.addListener(_readServerCareAfterUnlock);

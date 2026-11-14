@@ -75,7 +75,9 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
     DateTime Function()? now,
     Future<void> Function(Duration)? delay,
     VoidCallback? onUnsupported,
+    bool Function()? covered,
   }) : _onUnsupported = onUnsupported,
+       _covered = covered ?? _never,
        _repository = repository,
        _telemetry = telemetry,
        _breadcrumbs = breadcrumbs,
@@ -99,6 +101,11 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
   /// Called once a run found that the server has no doctor route, so the
   /// shell can hide the check even while its page is closed.
   final VoidCallback? _onUnsupported;
+
+  /// True while App Lock covers the app: no check starts, so none prints
+  /// output that outlives the cover.
+  final bool Function() _covered;
+  static bool _never() => false;
 
   CheckPhase _phase = CheckPhase.idle;
   CheckFailure? _failure;
@@ -160,7 +167,9 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
   Future<void> run({required String profile}) {
     final running = _running;
     if (running != null && busy) return running;
-    if (disposed || _phase == CheckPhase.timedOut) return Future.value();
+    if (disposed || _phase == CheckPhase.timedOut || _covered()) {
+      return Future.value();
+    }
     final id = ++_runId;
     _clear();
     late final Future<void> done;

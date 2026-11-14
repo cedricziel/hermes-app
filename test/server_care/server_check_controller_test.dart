@@ -57,7 +57,10 @@ void main() {
     );
   }
 
+  var covered = false;
+
   ServerCheckController build() => ServerCheckController(
+    covered: () => covered,
     repository: ServerCareRepository(server.client()),
     telemetry: ConnectionTelemetry(
       events: (name, [attributes = const {}]) => events(name, attributes),
@@ -89,6 +92,7 @@ void main() {
     tracer = RecordingTracer();
     waits = [];
     crumbs = [];
+    covered = false;
     check = build();
   });
 
@@ -117,6 +121,17 @@ void main() {
     expect(check.finishedAt, clock);
     expect(check.busy, isFalse);
     expect(posts(), 1);
+  });
+
+  test('no check starts while App Lock covers the app', () async {
+    covered = true;
+    await check.run(profile: 'work');
+    expect(check.phase, CheckPhase.idle);
+    expect(check.report, isNull);
+    expect(posts(), 0);
+    covered = false;
+    await check.run(profile: 'work');
+    expect(check.phase, CheckPhase.finished);
   });
 
   test('every call that can names the profile', () async {
