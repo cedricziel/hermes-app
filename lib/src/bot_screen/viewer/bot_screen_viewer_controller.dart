@@ -464,7 +464,7 @@ class BotScreenViewerController extends ChangeNotifier {
     final id = observation.viewerId;
     _viewerId = id;
     _connection = observation.connection;
-    _ids.add(id);
+    _remember(id);
     // The answer carries the screen's status and so the lease.
     screen.adoptStatus(observation.status);
     final lease = observation.status.lease;
@@ -922,15 +922,30 @@ class BotScreenViewerController extends ChangeNotifier {
     _coverTimer = null;
     _dropInput();
     if (screen.inControlHere) {
+      var released = false;
       try {
-        await handBack(reason: reason)
+        released = await handBack(reason: reason)
             .timeout(kViewerReleaseBudget, onTimeout: () => false);
       } on Object {
         // The close below hands the lease back as well.
       }
+      _forgetOnDispose = !released;
     }
     dispose();
   }
+
+  /// Notes that this viewer uses [id], which the app's set then holds.
+  void _remember(String id) {
+    _ids.add(id);
+    if (_mine.add(id)) _ids.retain(id);
+  }
+
+  /// The ids this viewer used, for [dispose] to let go of.
+  final _mine = <String>{};
+
+  /// Set when a shut-down release did not get through: [dispose] then forgets
+  /// this viewer's ids unless another viewer uses them.
+  var _forgetOnDispose = false;
 
   /// Forgets the notice that this device lost control.
   void dismissLost() {
@@ -974,12 +989,25 @@ class BotScreenViewerController extends ChangeNotifier {
     final fresh = result.value;
     final id = fresh.viewerId, connection = fresh.connection;
     if (connection == null) return _Step.refused;
-    _ids.add(id);
+    final hash = BotScreenViewerIds.hashOf(id);
+    // Past the budget the id is not added: a failed release then leaves a lease
+    // that names no id of this app.
+    if (!_disposed) _remember(id);
     final lease = fresh.status.lease;
-    if (_holdsLease(lease) &&
-        lease.viewerHash != BotScreenViewerIds.hashOf(id)) {
+    if (_holdsLease(lease) && lease.viewerHash != hash) {
       if (_disposed) return _Step.refused;
-      if (await _acquire(id, connection) != _Step.done) return _Step.refused;
+      final taken = await repository.acquire(
+        profile,
+        viewerId: id,
+        connection: connection,
+      );
+      // Judged by the id this call minted: it may be forgotten by now, but an
+      // acquire that took the lease is always released.
+      if (taken case BotScreenOk(:final value) when value.viewerHash == hash) {
+        if (!_disposed) screen.adoptLease(value);
+      } else {
+        return _Step.refused;
+      }
     }
     return _release(id, connection);
   }
@@ -1079,6 +1107,10 @@ class BotScreenViewerController extends ChangeNotifier {
     // behind; the 1000 below frees it as well, this makes it explicit.
     if (!_closing) unawaited(handBack(reason: 'close'));
     _disposed = true;
+    for (final id in _mine) {
+      _ids.letGo(id, forget: _forgetOnDispose);
+    }
+    _mine.clear();
     _run++;
     _retry?.cancel();
     _retry = null;

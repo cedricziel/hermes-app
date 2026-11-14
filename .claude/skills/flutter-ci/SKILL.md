@@ -41,7 +41,7 @@ with `scripts/build-widgetbook.sh` locally or the catalog build in CI.
 
 `ci.yml` starts with a `Changes` job. On a pull request it diffs the merge
 commit against its base (`HEAD^1`) and outputs `code` (anything besides
-`docs/**`, `openspec/**`, `.claude/skills/**` and `*.md`) and `watch` (anything
+`docs/**`, `openspec/**` and `*.md`) and `watch` (anything
 under `ios/HermesWatch`, `ios/HermesSurfaceKit` or `ci.yml`). Push to main and
 `workflow_dispatch` set both to true. The shards, coverage and all platform
 builds need `code`; `Test watch core` needs `watch`. `Analyze & test` expects

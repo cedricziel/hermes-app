@@ -57,6 +57,21 @@ void main() {
     expect(trail.recent.map((c) => c.name), contains('panel.shortcut_pressed'));
   });
 
+  test('a press whose toggle throws is logged, not left unhandled', () async {
+    shortcut.press();
+    await pumpEventQueue();
+    await host.present('p0');
+    host.onTogglePanel = () async => throw StateError('native');
+
+    shortcut.press();
+    await pumpEventQueue();
+
+    expect(
+      [for (final (name, attributes) in events) '$name $attributes'],
+      ['panel.shortcut_failed {error_type: StateError}'],
+    );
+  });
+
   test('a press without a connection brings the main window forward', () async {
     connection = null;
 

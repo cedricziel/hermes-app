@@ -65,3 +65,6 @@ design/web/dist/
 
 # fvm
 .fvm/
+
+# gen-l10n output, rebuilt by `flutter pub get` from lib/l10n/arb (l10n.yaml)
+/lib/l10n/generated/

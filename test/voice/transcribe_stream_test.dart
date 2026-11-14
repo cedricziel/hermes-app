@@ -54,6 +54,24 @@ void main() {
         query: query,
       );
 
+  test(
+    'a connector that throws synchronously fails the stream quietly',
+    () async {
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        final stream = TranscribeStream.start(
+          connect: ([q = const {}]) => throw StateError('no socket'),
+          sampleRate: 16000,
+        );
+        await pumpEventQueue();
+        expect(stream.failed, isTrue);
+        stream.add(_pcm(1));
+        expect(await stream.finish(), isNull);
+      }, (error, _) => errors.add(error));
+      expect(errors, isEmpty);
+    },
+  );
+
   test('announces the sample rate, then sends PCM buffered before the socket '
       'opened', () async {
     final stream = start(query: {'profile': 'work'});
