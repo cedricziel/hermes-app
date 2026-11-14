@@ -76,9 +76,18 @@ enum _Page { usage, update, logs }
 typedef _Request = ({_Page page, CareLogFile? file, String? profile});
 
 class _Destination {
-  const _Destination(this.page, {required this.offered, required this.build});
+  const _Destination(
+    this.page, {
+    required this.offered,
+    required this.build,
+    this.byDefault = true,
+  });
 
   final _Page page;
+
+  /// Whether the pane may open on it by itself. A page that reads something
+  /// private (Logs) opens only when the person picks it.
+  final bool byDefault;
 
   /// Whether the server has what the page reads.
   final bool Function() offered;
@@ -212,14 +221,19 @@ class _ServerScreenState extends State<ServerScreen> {
     _Destination(
       _Page.update,
       offered: () => _update.supported,
-      build: (_) => UpdatePage(
-        controller: _update,
-        version: context.read<ServerCareController>().status?.version,
-      ),
+      build: (_) {
+        // As on the pushed page: a failed status read hides its version.
+        final care = context.read<ServerCareController>();
+        return UpdatePage(
+          controller: _update,
+          version: care.failure == null ? care.status?.version : null,
+        );
+      },
     ),
     _Destination(
       _Page.logs,
       offered: () => context.read<ServerCareController>().offers(CarePart.logs),
+      byDefault: false,
       build: (r) => ServerLogsPage(
         initialFile: r.file ?? CareLogFile.errors,
         profile: r.profile,
@@ -231,12 +245,15 @@ class _ServerScreenState extends State<ServerScreen> {
       _destinations.firstWhere((d) => d.page == page);
 
   /// The page beside the list: the one picked while the server still offers
-  /// it, else the first it offers (Usage), else none.
+  /// it, else the first offered one that may open by itself (Usage, then
+  /// Update, never Logs), else none.
   _Request? _shown() {
     final picked = _picked;
     if (picked != null && _destination(picked.page).offered()) return picked;
     for (final d in _destinations) {
-      if (d.offered()) return (page: d.page, file: null, profile: null);
+      if (d.byDefault && d.offered()) {
+        return (page: d.page, file: null, profile: null);
+      }
     }
     return null;
   }
@@ -287,9 +304,15 @@ class _ServerScreenState extends State<ServerScreen> {
           final overview = _overview(context, care);
           if (!wide) return overview;
           final shown = _shown();
+          // A destination the shell keeps alive behind the visible one builds
+          // no page, so a Logs page lets go of its lines and the window.
+          final visible =
+              Visibility.of(context) && TickerMode.valuesOf(context).enabled;
           return ServerSplitView(
             list: overview,
-            detail: shown == null
+            detail: !visible
+                ? const SizedBox.shrink()
+                : shown == null
                 ? null
                 // A page of another request is another element: the old one
                 // is disposed and lets go of what it holds.

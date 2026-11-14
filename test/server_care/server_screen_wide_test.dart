@@ -100,6 +100,7 @@ void main() {
     _Auth? auth,
     double height = 1600,
     double textScale = 1,
+    ValueNotifier<int>? stack,
   }) async {
     debugDefaultTargetPlatformOverride = platform;
     tester.view.physicalSize = Size(width, height);
@@ -137,18 +138,33 @@ void main() {
                 .copyWith(textScaler: TextScaler.linear(textScale)),
             child: child!,
           ),
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () => showServerScreen(context, source: 'test'),
-                child: const Text('open'),
-              ),
-            ),
-          ),
+          // As the Mac shell keeps it: a destination kept alive behind another.
+          home: stack != null
+              ? ValueListenableBuilder<int>(
+                  valueListenable: stack,
+                  builder: (context, index, _) => Scaffold(
+                    body: IndexedStack(
+                      index: index,
+                      children: const [
+                        ServerScreen(source: 'test'),
+                        SizedBox.expand(),
+                      ],
+                    ),
+                  ),
+                )
+              : Builder(
+                  builder: (context) => Scaffold(
+                    body: TextButton(
+                      onPressed: () =>
+                          showServerScreen(context, source: 'test'),
+                      child: const Text('open'),
+                    ),
+                  ),
+                ),
         ),
       ),
     );
-    await tester.tap(find.text('open'));
+    if (stack == null) await tester.tap(find.text('open'));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
@@ -346,6 +362,94 @@ void main() {
         findsOneWidget,
       );
       expect(find.byType(ServerScreen), findsOneWidget);
+    });
+
+    test('never opens Logs by itself, even when it is all the server has', (
+      tester,
+    ) async {
+      server
+        ..on('GET', '/api/analytics/usage', null, status: 404)
+        ..on('GET', '/api/hermes/update/check', null, status: 404);
+      await pump(tester);
+      await settle(tester);
+      expect(
+        find.text('Nothing more to show for this server.'),
+        findsOneWidget,
+      );
+      expect(find.byType(ServerLogsPage), findsNothing);
+      expect(server.requestsTo('GET', '/api/logs'), isEmpty);
+      expect(secureCalls, isEmpty);
+      // The row is still there for the person to pick.
+      await select(tester, 'Logs');
+      expect(find.byType(ServerLogsPage), findsOneWidget);
+      expect(secureCalls, [true]);
+    });
+
+    test('a picked Logs page that the server stops offering never gives way '
+        'to Logs, only to the empty state', (tester) async {
+      server
+        ..on('GET', '/api/analytics/usage', null, status: 404)
+        ..on('GET', '/api/hermes/update/check', null, status: 404);
+      await pump(tester);
+      await select(tester, 'Logs');
+      care.reportUnsupported(CarePart.logs);
+      await settle(tester);
+      expect(find.byType(ServerLogsPage), findsNothing);
+      expect(secureCalls, [true, false]);
+    });
+
+    test('a destination kept alive behind another builds no page', (
+      tester,
+    ) async {
+      final stack = ValueNotifier<int>(0);
+      addTearDown(stack.dispose);
+      await pump(tester, stack: stack);
+      await select(tester, 'Logs');
+      expect(find.byType(ServerLogsPage), findsOneWidget);
+      expect(secureCalls, [true]);
+      stack.value = 1;
+      await settle(tester);
+      expect(find.byType(ServerLogsPage, skipOffstage: false), findsNothing);
+      expect(find.text('Telegram failed', skipOffstage: false), findsNothing);
+      expect(secureCalls, [true, false]);
+      stack.value = 0;
+      await settle(tester);
+      // The pick stayed: the page is rebuilt and reads again.
+      expect(find.byType(ServerLogsPage), findsOneWidget);
+      expect(find.text('Telegram failed'), findsOneWidget);
+      expect(server.requestsTo('GET', '/api/logs'), hasLength(2));
+      expect(secureCalls, [true, false, true]);
+    });
+
+    test('a failed status read hides the version the Update page falls back '
+        'to', (tester) async {
+      server.on('GET', '/api/hermes/update/check', {
+        ...updateCheckBehind(),
+        'current_version': null,
+        'behind': 0,
+        'update_available': false,
+      });
+      await pump(tester);
+      await select(tester, 'Updates');
+      expect(
+        find.descendant(
+          of: find.byType(UpdatePage),
+          matching: find.textContaining('0.22.2'),
+        ),
+        findsOneWidget,
+      );
+      server.on('GET', '/api/status', {}, status: 500);
+      await tester.runAsync(care.refresh);
+      await settle(tester);
+      expect(care.failure, isNotNull);
+      expect(find.byType(UpdatePage), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(UpdatePage),
+          matching: find.textContaining('0.22.2'),
+        ),
+        findsNothing,
+      );
     });
 
     test('an iPad counts as wide from 700 points', (tester) async {
