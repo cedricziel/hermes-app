@@ -53,6 +53,10 @@ List<ReadinessItem> readinessItems(
   ComputerUseStatus status,
 ) {
   final mac = status.canGrant || status.platform?.toLowerCase() == 'darwin';
+  final system = _systemName(status.platform);
+  // A Mac always shows its system; any other server only when Computer use
+  // does not support it, with the name the server gave.
+  final showSystem = mac || (!status.platformSupported && system != null);
   ReadinessItem permission(String label, bool? value) => ReadinessItem(
     label: label,
     value: switch (value) {
@@ -67,12 +71,12 @@ List<ReadinessItem> readinessItems(
     },
   );
   return [
-    if (mac)
+    if (showSystem)
       ReadinessItem(
         label: l10n.toolsReadinessServerSystem,
         value: status.platformSupported
-            ? l10n.toolsReadinessSystemSupported('macOS')
-            : l10n.toolsReadinessSystemNotSupported('macOS'),
+            ? l10n.toolsReadinessSystemSupported(system ?? 'macOS')
+            : l10n.toolsReadinessSystemNotSupported(system ?? 'macOS'),
         tone: status.platformSupported ? ReadinessTone.ok : ReadinessTone.bad,
       ),
     ReadinessItem(
@@ -100,6 +104,19 @@ List<ReadinessItem> readinessItems(
       },
     ),
   ];
+}
+
+/// The server's system as people call it, or the server's own word when it
+/// is one this app does not know; null when it gave none.
+String? _systemName(String? platform) {
+  final value = platform?.trim();
+  if (value == null || value.isEmpty) return null;
+  return switch (value.toLowerCase()) {
+    'darwin' => 'macOS',
+    'linux' => 'Linux',
+    'win32' || 'windows' => 'Windows',
+    _ => value,
+  };
 }
 
 /// A readiness row: the label at the start and the value with its icon at

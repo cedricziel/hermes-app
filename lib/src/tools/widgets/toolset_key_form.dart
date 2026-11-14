@@ -168,7 +168,10 @@ class ToolsetKeyForm extends StatelessWidget {
                   start: metrics.rowPadding - 8,
                   top: 4,
                 ),
-                child: _GetKeyLink(onPressed: () => onGetKey(field)),
+                child: _GetKeyLink(
+                  label: field.label,
+                  onPressed: () => onGetKey(field),
+                ),
               ),
             ),
         if (status != null)
@@ -271,18 +274,20 @@ class _AlreadySetRow extends StatelessWidget {
 /// "Get a key": the link colour and an external-link icon, at the platform's
 /// target height. It only calls back; the screen opens the page.
 class _GetKeyLink extends StatelessWidget {
-  const _GetKeyLink({required this.onPressed});
+  const _GetKeyLink({required this.label, required this.onPressed});
 
+  final String label;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final label = context.l10n.toolsKeyGet;
+    final l10n = context.l10n;
     final link = context.hermesColors.link;
     return Semantics(
       button: true,
       link: true,
-      label: label,
+      // The link names its key, so several of them are told apart.
+      label: l10n.toolsKeyGetNamed(label),
       onTap: onPressed,
       excludeSemantics: true,
       child: TextButton.icon(
@@ -291,7 +296,7 @@ class _GetKeyLink extends StatelessWidget {
             .copyWith(foregroundColor: WidgetStatePropertyAll(link)),
         icon: AppIcon(AppIcons.openExternal, size: 18, color: link),
         iconAlignment: IconAlignment.end,
-        label: Text(label),
+        label: Text(l10n.toolsKeyGet),
       ),
     );
   }
@@ -308,8 +313,8 @@ class _SaveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final onPrimary = Theme.of(context).colorScheme.onPrimary;
-    final reduced = MediaQuery.disableAnimationsOf(context);
+    // The disabled button's own colours stay, so the spinner (the text
+    // colour) stays visible on them.
     return Semantics(
       liveRegion: saving,
       child: FilledButton(
@@ -320,21 +325,7 @@ class _SaveButton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 spacing: 8,
                 children: [
-                  ExcludeSemantics(
-                    child: SizedBox.square(
-                      dimension: 16,
-                      child: reduced
-                          ? AppIcon(
-                              AppIcons.waiting,
-                              size: 16,
-                              color: onPrimary,
-                            )
-                          : CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: onPrimary,
-                            ),
-                    ),
-                  ),
+                  const ToolsSpinner(),
                   Flexible(child: Text(l10n.toolsKeySaving)),
                 ],
               )

@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_card_model.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/install/install_state.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 
 import 'bot_screen_card_test.dart' show pumpCard;
@@ -91,6 +93,25 @@ void main() {
         findsOne,
       );
       expect(find.text(_install), findsNothing);
+    });
+
+    testWidgets('with reduced motion the spinner is a still hourglass', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: MaterialApp(
+            home: Scaffold(
+              body: BotScreenCard(model: const BotScreenInstalling()),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byIcon(AppIcons.waiting.material), findsOne);
+      expect(find.text('Installing the desktop on the server…'), findsOne);
     });
 
     testWidgets('with no line yet shows only the spinner and the note', (

@@ -2548,6 +2548,16 @@
   "@toolsKeyGet": {
     "description": "Link that opens the page where an API key can be obtained."
   },
+  "toolsKeyGetNamed": "Get a key for {label}",
+  "@toolsKeyGetNamed": {
+    "description": "Accessibility label of the Get a key link, naming the key it is for.",
+    "placeholders": {
+      "label": {
+        "type": "String",
+        "example": "Firecrawl API key"
+      }
+    }
+  },
   "toolsKeyHeader": "Key for {provider}",
   "@toolsKeyHeader": {
     "description": "Header of the section with a provider's key fields.",

@@ -86,6 +86,38 @@ void main() {
     },
   );
 
+  test('a server that is not supported shows its system, whatever it is', () {
+    final en = lookupAppLocalizations(const Locale('en'));
+    final rows = readinessItems(
+      en,
+      const ComputerUseStatus(platform: 'win32', platformSupported: false),
+    );
+    expect(rows.first.label, 'Server system');
+    expect(rows.first.value, 'Windows, not supported');
+    expect(rows.first.tone, ReadinessTone.bad);
+    final odd = readinessItems(
+      en,
+      const ComputerUseStatus(platform: 'freebsd', platformSupported: false),
+    );
+    expect(odd.first.value, 'freebsd, not supported');
+    // A supported Linux server still shows only Driver and Ready.
+    expect(
+      [for (final i in readinessItems(en, _linux)) i.label],
+      ['Driver', 'Ready'],
+    );
+    // Nothing to name: no row.
+    expect(
+      [
+        for (final i in readinessItems(
+          en,
+          const ComputerUseStatus(platformSupported: false),
+        ))
+          i.label,
+      ],
+      ['Driver', 'Ready'],
+    );
+  });
+
   test('tones: check, cross, question mark', () {
     final en = lookupAppLocalizations(const Locale('en'));
     final rows = {

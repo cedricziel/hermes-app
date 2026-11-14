@@ -111,7 +111,7 @@ class ProviderRow extends StatelessWidget {
               onChanged: (_) => onPick?.call(),
               child: Radio<bool>(
                 value: true,
-                enabled: enabled,
+                enabled: enabled && onPick != null,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),

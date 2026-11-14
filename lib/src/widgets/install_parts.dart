@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
+import 'motion_spinner.dart';
 
-const _mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
+/// The monospace style of an installer's lines and commands.
+const kInstallMono = TextStyle(
+  fontFamily: 'monospace',
+  fontSize: 12,
+  height: 1.4,
+);
 
 /// The surface-high box an install command or an installer's lines sit in.
 class InstallCodeBox extends StatelessWidget {
@@ -43,11 +48,11 @@ class InstallLogLines extends StatelessWidget {
       children: [
         for (final line in lines)
           if (selectable)
-            SelectableText(line, style: _mono)
+            SelectableText(line, style: kInstallMono)
           else
             Text(
               line,
-              style: _mono,
+              style: kInstallMono,
               maxLines: maxLines,
               overflow: TextOverflow.ellipsis,
             ),
@@ -56,9 +61,7 @@ class InstallLogLines extends StatelessWidget {
   );
 }
 
-/// A 16 pt spinner beside a line of text. With reduced motion the spinner is
-/// a still hourglass, since a progress animation is what that setting turns
-/// off.
+/// A spinner beside a line of text (see [MotionSpinner] for reduced motion).
 class InstallSpinnerRow extends StatelessWidget {
   const InstallSpinnerRow(this.text, {super.key});
 
@@ -67,16 +70,7 @@ class InstallSpinnerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      SizedBox.square(
-        dimension: 16,
-        child: MediaQuery.disableAnimationsOf(context)
-            ? AppIcon(
-                AppIcons.waiting,
-                size: 16,
-                color: context.hermesColors.subtleText,
-              )
-            : const CircularProgressIndicator.adaptive(strokeWidth: 2),
-      ),
+      const MotionSpinner(),
       const SizedBox(width: 10),
       Expanded(child: Text(text)),
     ],
@@ -84,8 +78,11 @@ class InstallSpinnerRow extends StatelessWidget {
 }
 
 /// An install in progress: [title] with a spinner, the latest [lines] when
-/// there are any, and a muted [note]. [selectableLines] and [liveRegion] are
-/// for screens that want the lines copyable and the block announced.
+/// there are any, and a muted [note], under the lines or, with [noteFirst],
+/// right under the title. [selectableLines] makes the lines copyable.
+/// [liveRegion] announces the title (and the note when it is first) as one
+/// polite live region; the lines are not part of it, so each new line does
+/// not interrupt a screen reader.
 class InstallRunningBody extends StatelessWidget {
   const InstallRunningBody({
     super.key,
@@ -94,6 +91,7 @@ class InstallRunningBody extends StatelessWidget {
     required this.note,
     this.selectableLines = false,
     this.liveRegion = false,
+    this.noteFirst = false,
   });
 
   final String title;
@@ -101,25 +99,40 @@ class InstallRunningBody extends StatelessWidget {
   final String note;
   final bool selectableLines;
   final bool liveRegion;
+  final bool noteFirst;
 
   @override
   Widget build(BuildContext context) {
-    final body = Column(
+    final noteText = Text(
+      note,
+      style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(color: context.hermesColors.subtleText),
+    );
+    Widget head = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         InstallSpinnerRow(title),
+        if (noteFirst) ...[const SizedBox(height: 4), noteText],
+      ],
+    );
+    if (liveRegion) {
+      head = Semantics(
+        liveRegion: true,
+        container: true,
+        label: noteFirst ? '$title. $note' : title,
+        child: ExcludeSemantics(child: head),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        head,
         if (lines.isNotEmpty) ...[
           const SizedBox(height: 8),
           InstallLogLines(lines, selectable: selectableLines),
         ],
-        const SizedBox(height: 6),
-        Text(
-          note,
-          style: Theme.of(context).textTheme.bodySmall
-              ?.copyWith(color: context.hermesColors.subtleText),
-        ),
+        if (!noteFirst) ...[const SizedBox(height: 6), noteText],
       ],
     );
-    return liveRegion ? Semantics(liveRegion: true, child: body) : body;
   }
 }

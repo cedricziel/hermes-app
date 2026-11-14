@@ -720,6 +720,11 @@ const _linuxReady = ComputerUseStatus(
   ready: true,
 );
 
+const _windowsServer = ComputerUseStatus(
+  platform: 'win32',
+  platformSupported: false,
+);
+
 const _unknown = ComputerUseStatus(
   platform: 'linux',
   platformSupported: true,
@@ -766,6 +771,10 @@ WidgetbookNode _readinessComponent() => WidgetbookComponent(
     WidgetbookUseCase(
       name: 'Linux server, ready',
       builder: (c) => _readiness(c, _linuxReady),
+    ),
+    WidgetbookUseCase(
+      name: 'Server system not supported',
+      builder: (c) => _readiness(c, _windowsServer, install: true),
     ),
     WidgetbookUseCase(
       name: 'Unknown readiness, Hermes\' error',

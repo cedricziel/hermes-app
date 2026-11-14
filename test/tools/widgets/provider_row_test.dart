@@ -176,6 +176,45 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('Material: one radio node, checked, in a group', (t) async {
+    final handle = t.ensureSemantics();
+    await pumpTools(
+      t,
+      _row(picked: true, nous: true),
+      platform: TargetPlatform.android,
+    );
+    final node = t.getSemantics(find.textContaining('Brightfetch'));
+    expect(node.label, contains('Needs a key'));
+    expect(node.label, contains('Nous Portal'));
+    expect(
+      node,
+      isSemantics(
+        hasCheckedState: true,
+        isChecked: true,
+        isInMutuallyExclusiveGroup: true,
+      ),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('a row that cannot be picked has a disabled radio', (t) async {
+    await pumpTools(
+      t,
+      GroupedSection(
+        children: [
+          ProviderRow(
+            name: 'Brightfetch',
+            status: ToolsStatus.ready,
+            picked: false,
+            onPick: null,
+          ),
+        ],
+      ),
+      platform: TargetPlatform.android,
+    );
+    expect(t.widget<Radio<bool>>(find.byType(Radio<bool>)).enabled, isFalse);
+  });
+
   for (final scale in [2.0, 3.0]) {
     testWidgets('wraps without overflow at ${scale}x', (t) async {
       await pumpTools(

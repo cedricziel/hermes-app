@@ -12,8 +12,6 @@ import '../bot_screen_card_model.dart';
 import '../bot_screen_models.dart';
 import '../install/install_state.dart';
 
-const _mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
-
 /// The Bot screen card of the Activity panel: what the agent's own desktop
 /// shows, who is in control, and why there is no picture when there is none.
 ///
@@ -186,7 +184,7 @@ class _BotScreenCardState extends State<BotScreenCard> {
         ),
         if (command != null) ...[
           const SizedBox(height: 8),
-          InstallCodeBox(child: SelectableText(command, style: _mono)),
+          InstallCodeBox(child: SelectableText(command, style: kInstallMono)),
           if (widget.onCopyCommand != null)
             Align(
               alignment: Alignment.centerLeft,

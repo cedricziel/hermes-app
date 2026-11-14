@@ -247,7 +247,7 @@ void main() {
       expect(
         t.getSemantics(find.text('Get a key')),
         isSemantics(
-          label: 'Get a key',
+          label: 'Get a key for Brightfetch API key',
           isButton: true,
           isLink: true,
           hasTapAction: true,
@@ -256,6 +256,50 @@ void main() {
       handle.dispose();
     },
   );
+
+  testWidgets('with several keys each link names its own key', (t) async {
+    final handle = t.ensureSemantics();
+    final a = TextEditingController();
+    final b = TextEditingController();
+    addTearDown(a.dispose);
+    addTearDown(b.dispose);
+    await pumpTools(
+      t,
+      ToolsetKeyForm(
+        provider: 'Brightfetch',
+        profile: 'work',
+        phase: ToolsetKeyFormPhase.idle,
+        hideSignal: 0,
+        fields: [
+          ToolsetKeyField(label: 'API key', controller: a, hasLink: true),
+          ToolsetKeyField(label: 'Project key', controller: b, hasLink: true),
+        ],
+        onSave: null,
+        onReplace: (_) {},
+        onGetKey: (_) {},
+      ),
+    );
+    expect(find.text('Get a key'), findsNWidgets(2));
+    expect(find.bySemanticsLabel('Get a key for API key'), findsOneWidget);
+    expect(find.bySemanticsLabel('Get a key for Project key'), findsOneWidget);
+    handle.dispose();
+  });
+
+  testWidgets('the spinner while saving is the text colour, in both themes', (
+    t,
+  ) async {
+    await pumpTools(
+      t,
+      const _Form(phase: ToolsetKeyFormPhase.saving, text: 'x'),
+    );
+    final spinner = t.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator),
+    );
+    // No colour of its own on top of the disabled button, whose label colour
+    // it follows through the theme.
+    expect(spinner.color, isNull);
+    expect(spinner.valueColor, isNull);
+  });
 
   testWidgets('no link, no Get a key', (t) async {
     await pumpTools(t, const _Form(hasLink: false));

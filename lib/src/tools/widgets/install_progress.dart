@@ -72,6 +72,7 @@ class InstallProgress extends StatelessWidget {
         note: l10n.toolsInstallLeave,
         selectableLines: true,
         liveRegion: true,
+        noteFirst: true,
       ),
       InstallPhase.done => status(
         AppIcons.checkCircleFilled,

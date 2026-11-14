@@ -116,6 +116,18 @@ void main() {
     expect(answers, [false]);
   });
 
+  testWidgets('the Android back button dismisses and answers false', (t) async {
+    final answers = <bool>[];
+    await pumpTools(t, _asker(answers), platform: TargetPlatform.android);
+    await t.tap(find.text('ask'));
+    await t.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await t.binding.handlePopRoute();
+    await t.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(answers, [false]);
+  });
+
   testWidgets('Cancel follows the language', (t) async {
     await pumpTools(
       t,

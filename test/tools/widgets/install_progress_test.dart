@@ -51,15 +51,36 @@ void main() {
       }
     });
 
-    testWidgets('running is one live region', (t) async {
+    testWidgets('the live region is the title and the note, not the lines', (
+      t,
+    ) async {
       final handle = t.ensureSemantics();
       await pumpTools(t, _progress(InstallPhase.running));
       final node = t.getSemantics(find.text('Installing on your server…'));
       expect(node, isSemantics(isLiveRegion: true));
-      expect(node.label, contains('Installing on your server…'));
-      // The lines stay separate nodes, each one readable and selectable.
-      expect(t.getSemantics(find.text('line 8')).value, 'line 8');
+      expect(
+        node.label,
+        'Installing on your server…. '
+        'You can leave this screen. The install keeps going.',
+        reason: 'a fixed label, so a new line never re-announces it',
+      );
+      expect(node.label, isNot(contains('line')));
+      // The lines stay separate nodes, each one readable and selectable and
+      // none of them a live region.
+      final line = t.getSemantics(find.text('line 8'));
+      expect(line.value, 'line 8');
+      expect(line, isSemantics(isLiveRegion: false, value: 'line 8'));
       handle.dispose();
+    });
+
+    testWidgets('the note sits right under the title, above the lines', (
+      t,
+    ) async {
+      await pumpTools(t, _progress(InstallPhase.running));
+      final note = t.getTopLeft(
+        find.text('You can leave this screen. The install keeps going.'),
+      );
+      expect(note.dy, lessThan(t.getTopLeft(find.text('line 3')).dy));
     });
 
     testWidgets('started by a switch names the driver', (t) async {
