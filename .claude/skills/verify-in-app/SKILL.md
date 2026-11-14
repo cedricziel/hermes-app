@@ -66,6 +66,8 @@ recipients, and profile avatars, follow
 
 For the Memory screen, its settings, proposals and the memory tool card, follow [the Memory scenario](scenarios/memory.md).
 
+For the Tools screen, switching a toolset, setting up a provider key and reading `config.yaml` and `.env` back, follow [the Tools scenario](scenarios/tools.md).
+
 For the Bot Screen (the agent's own Linux desktop), a macOS backend can never show one; follow the `verify-bot-screen` skill, which runs a throwaway Linux Hermes in a container.
 
 1. `dart format . && flutter analyze && flutter test`. Fix before going on.
