@@ -88,7 +88,10 @@ _dashboardSocketConnect<T>({
   Future<Map<String, String>> credential() async {
     if (authRequired) {
       final response = await api.raw.authWsTicketApiAuthWsTicketPost();
-      return {'ticket': (response.data as Map)['ticket'] as String};
+      final data = response.data;
+      final ticket = data is Map ? data['ticket'] : null;
+      if (ticket is! String) throw const GatewayCredentialUnavailable();
+      return {'ticket': ticket};
     }
     final token = await api.fetchSessionToken();
     if (token == null) {

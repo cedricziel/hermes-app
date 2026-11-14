@@ -217,7 +217,8 @@ class MemoryRepository {
           data['message'] as String? ?? 'The server rejected the change.',
         );
       }
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportBug(error, stack, 'a memory change');
       final MemoryWriteFailure failure;
       if (error is MemoryWriteFailure) {
         failure = error;

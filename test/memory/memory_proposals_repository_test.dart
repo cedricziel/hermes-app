@@ -125,7 +125,7 @@ void main() {
   group('telemetry', () {
     test('a read is one span per kind with counts only', () async {
       transport.script['/memory pending'] = mixedMemoryPending;
-      transport.script['/skills pending'] = StateError('private socket text');
+      transport.script['/skills pending'] = const GatewayConnectionClosed();
       await repository.load('private-profile');
       final spans = tracer.spans;
       expect(spans.map((s) => s.name), everyElement('memory.proposals.fetch'));
