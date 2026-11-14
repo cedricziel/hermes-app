@@ -53,7 +53,7 @@ Requires `connected`, else 409 "WhatsApp setup is not connected yet." Unknown or
 
 ### Not verified
 
-Baileys' QR interval; the exact text a failing bridge sends; behaviour on Windows hosts (`windows_hide_flags` exists); no live run was made (needs Node and a phone). The fixtures task records the shapes from `scripts/dev-backend.sh`, with the bridge replaced by a stub where Node is absent.
+Baileys' QR interval; the exact text a failing bridge sends; behaviour on Windows hosts (`windows_hide_flags` exists); no live run was made (needs Node and a phone). The fixtures task (2.1) records the shapes from `scripts/dev-backend.sh`, with the bridge replaced by a stub where Node is absent.
 
 ## The phone question
 
@@ -62,7 +62,7 @@ WhatsApp links a device when the phone that holds the account scans the QR. On a
 ## Decisions
 
 - The QR payload and pairing id are secrets by the "Secret fields" rule in `docs/architecture/settings-screens.md`, adapted: they are never typed, so no Show/Hide field; the code is hidden on handsets until tapped, and hidden again when the lifecycle leaves `resumed` or App Lock locks, and dropped on close. After such a hide a handset needs the tap again; a tablet or computer shows the code again when the app is in front and unlocked. No Copy button, no share sheet, no preferences, no state restoration.
-- The request span path contains the pairing id. `DioOTelInterceptor.privacy` (`lib/src/telemetry/telemetry.dart`) is not verified to template paths: task 1 adds a test, and if the id reaches a span the repository records its own spans with the fixed route.
+- The request span path contains the pairing id. `DioOTelInterceptor.privacy` (`lib/src/telemetry/telemetry.dart`) is not verified to template paths: task 2.4 adds a test, and if the id reaches a span the repository records its own spans with the fixed route.
 - Start, Finish and Cancel are user actions only. Nothing starts on opening the setup form; "Link WhatsApp" is a button.
 - Finish shows a confirmation: "Save the WhatsApp setup and ask the messaging gateway to restart? Conversations on messaging channels will be interrupted." Buttons: Cancel (the default) and Save and restart.
 - A lost answer on start: the screen says it does not know whether a pairing began and offers Start again (which supersedes any earlier one). A lost answer on Finish: "Could not confirm the setup was saved." with Check, which reads `GET /api/messaging/platforms?profile=`; apply is never resent, because the record is gone once it succeeds (a resend would 404). A 404 on apply: the record is gone (dropped 900 s after start, a dashboard restart, or an apply that already succeeded). The screen says the setup is no longer on the server and the settings may not be saved, and offers Start again.
@@ -75,12 +75,12 @@ Spans: `whatsapp.pair.start`, `whatsapp.pair.apply` (they cross the network; att
 
 ## Design pass
 
-No Claude Design canvas was built; the brief `docs/design-briefs/whatsapp-onboarding.md` was written from the design system README, the merged briefs and the shared widgets. Decisions that change behaviour:
+Design (written, no canvas): no Claude Design canvas was built; the brief `docs/design-briefs/whatsapp-onboarding.md` was written from the design system README, the merged briefs and the shared widgets. Decisions that change behaviour:
 
-- One pushed screen whose body follows the phase, like the Telegram screen; Finish closes both screens to the Bots list, which shows a banner with the outcome (success when a restart was requested and `needs_restart` is false, warning otherwise; never "restarted").
-- Polling also pauses while App Lock is locked, not only in the background (the code is hidden then, so a stale poll has nothing to show). On unlock a handset needs the "Show QR code" tap again.
-- The countdown is the setup's 600 s ("Setup closes in 8:42"), not the code's rotation, which is not verified. A last-minute warning is shown; it is announced at the minute, 30 s and 10 s only.
+- One pushed screen whose body follows the phase, like the Telegram screen; Finish closes both screens to the Messaging list, which shows a banner with the outcome (success when a restart was requested and `needs_restart` is false, warning otherwise; never "restarted").
+- Polling follows the spec: it runs while the app is in front and resumes on return. Whether it should also pause while App Lock is locked is an open question for the owner in the brief; the spec is not changed here. On unlock a handset needs the "Show QR code" tap again.
+- The countdown is the setup's 600 s ("Setup closes in 8:42"), not the code's rotation, which is not verified. A last-minute warning is shown; it is announced at 60, 30 and 10 seconds left only.
 - A failed poll keeps the last state and adds an offline or unreachable banner ("This code may be out of date."); polling continues every 2 s.
-- Back is disabled while apply is in flight (at most 10 s); no Cancel is sent then. After 10 s with no answer the lost-answer state shows, and Check ends within 10 s with "Couldn't confirm".
+- While apply is in flight (at most 10 s) the route cannot be popped (system back and the iOS swipe included) and no Cancel is sent; the Mac back chord goes through `MacCommandScope` and is disabled, never a key handler. Leaving after the lost-apply state sends nothing new; the `DELETE` is not sent either: the record is most likely gone, `DELETE` is idempotent but would not unlink anything, and a surviving record is dropped by the server after 900 s. After 10 s with no answer the lost-answer state shows, and Check ends within 10 s with "Couldn't confirm".
 - Start again returns to the setup form with the earlier mode and numbers.
 - The QR tile is black on white in both themes and does not scale with text size.

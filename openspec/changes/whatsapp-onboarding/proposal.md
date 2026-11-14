@@ -2,7 +2,7 @@
 
 ## Why
 
-The Bots screen can switch WhatsApp on and take its settings, but the account has to be linked first, and only the web dashboard does that: it starts a bridge on the server, shows a QR code and waits for a scan. The app already pairs Telegram this way (`profiles-and-bots`). WhatsApp has the same routes and nothing in the app uses them.
+The Messaging screen can switch WhatsApp on and take its settings, but the account has to be linked first, and only the web dashboard does that: it starts a bridge on the server, shows a QR code and waits for a scan. The app already pairs Telegram this way (`profiles-and-bots`). WhatsApp has the same routes and nothing in the app uses them.
 
 ## What Changes
 
