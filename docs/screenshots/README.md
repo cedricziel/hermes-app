@@ -120,3 +120,11 @@ bundle exec fastlane sync_screenshots platform:ios # only one
 This needs the App Store Connect key described in `fastlane/.env.default`. It
 replaces the screenshots on the editable version and uploads no build. Like
 `sync_metadata`, it moves that version to the number in `pubspec.yaml`.
+
+## Catalog screenshots
+
+`provider-setup/` holds Widgetbook use cases of the model-provider screens
+(`ProviderListView`, `ApiKeyForm`, `SignInCodeView`) rendered in a throwaway
+widget test: phone (390 x 844, iPhone), desktop (1000 x 800, Mac), the largest
+text size (3x) and dark, at 1.5x. They are not part of the README or the App
+Store. File names read `<widget>-<phone|desktop|largest-text-phone>[-light|-dark]`.
