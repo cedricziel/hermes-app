@@ -232,14 +232,17 @@ class SurfaceSnapshotStore {
       // Past the hourly rule every kind reloads; otherwise only the kinds
       // that failed last time are tried again.
       final kinds = reload
-          ? [
+          ? {
               for (final kind in widgetKinds)
                 if (signedInChanged || !signedInOnlyKinds.contains(kind)) kind,
-            ]
+              // A signed-in-only kind that failed is not left out again.
+              ..._failedKinds,
+            }.toList()
           : _failedKinds.toList();
       if (kinds.isNotEmpty) {
         final results = await Future.wait([for (final k in kinds) _reload(k)]);
         _failedKinds = {
+          ..._failedKinds.difference(kinds.toSet()),
           for (var i = 0; i < kinds.length; i++)
             if (!results[i]) kinds[i],
         };
