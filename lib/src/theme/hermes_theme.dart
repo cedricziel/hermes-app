@@ -136,11 +136,6 @@ ThemeData _buildTheme({
     ),
     textTheme: isIos ? iosTextTheme(base.textTheme) : null,
     scaffoldBackgroundColor: scaffoldBackground,
-    // Material dialogs on the dark scaffold: the default surface is almost the
-    // scrim's black, so the dialog's edge vanished.
-    dialogTheme: scheme.brightness == Brightness.dark
-        ? DialogThemeData(backgroundColor: scheme.surfaceContainerHighest)
-        : null,
     splashFactory: apple ? NoSplash.splashFactory : null,
     adaptations: [_AppleSwitchAdaptation(scheme)],
     extensions: [

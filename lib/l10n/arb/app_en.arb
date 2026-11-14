@@ -1199,6 +1199,10 @@
   "@serverCareGatewayStateUnknown": {
     "description": "Gateway state value when the server did not say."
   },
+  "serverCareGatewayUnconfirmed": "Couldn't confirm the restart",
+  "@serverCareGatewayUnconfirmed": {
+    "description": "Warning line of the gateway row when it kept running and was never seen down, so it is unknown whether the restart happened."
+  },
   "serverCareGatewayWaiting": "Waiting for the gateway…",
   "@serverCareGatewayWaiting": {
     "description": "Status of the gateway row while the app waits for the gateway to report running again."

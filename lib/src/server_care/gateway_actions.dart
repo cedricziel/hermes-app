@@ -111,7 +111,9 @@ GroupedActionStatus? gatewayRowStatus(
     ),
     GatewayPhase.slow => GroupedActionStatus(
       phase: GroupedActionPhase.warning,
-      text: l10n.serverCareGatewaySlow,
+      text: run.unconfirmed
+          ? l10n.serverCareGatewayUnconfirmed
+          : l10n.serverCareGatewaySlow,
       buttons: [
         GroupedActionButton(
           label: l10n.serverCareTryAgain,

@@ -25,7 +25,14 @@ class GatewayRestartDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final apple = platformChromeOf(context).isApple;
+    final scheme = Theme.of(context).colorScheme;
     return AppAlertDialog(
+      // On the dark scaffold the default dialog surface is almost the scrim's
+      // black and its edge vanishes. Only this dialog sets its own: a dialog
+      // theme for the whole app would hide anything zinc800 inside others.
+      backgroundColor: !apple && scheme.brightness == Brightness.dark
+          ? scheme.surfaceContainerHighest
+          : null,
       title: Text(title),
       // Four lines at the largest text size outgrow a phone: scroll them.
       content: SingleChildScrollView(

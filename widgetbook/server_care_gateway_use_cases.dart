@@ -6,6 +6,7 @@ import 'package:hermes_app/src/server_care/widgets/gateway_restart_dialog.dart';
 import 'package:hermes_app/src/server_care/widgets/grouped_action_row.dart';
 import 'package:hermes_app/src/server_care/widgets/server_status_card.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -66,6 +67,15 @@ WidgetbookComponent _confirmation() => WidgetbookComponent(
     WidgetbookUseCase(
       name: 'Shared gateway, largest text',
       builder: (_) => _largest(_dialog(_shared)),
+    ),
+    // The Material dialog sets its own surface on the dark scaffold, so its
+    // edge shows against the scrim; forced dark here whatever the toolbar says.
+    WidgetbookUseCase(
+      name: 'Material dark, edge visible',
+      builder: (_) => Theme(
+        data: buildHermesDarkTheme(platform: TargetPlatform.android),
+        child: _dialog(_shared),
+      ),
     ),
   ],
 );
@@ -221,7 +231,16 @@ get _rowStates => [
     ),
   ),
   (
-    "Couldn't confirm, hasn't come back",
+    "Couldn't confirm the restart (kept running, never seen down)",
+    true,
+    (c) => GroupedActionStatus(
+      phase: GroupedActionPhase.warning,
+      text: c.l10n.serverCareGatewayUnconfirmed,
+      buttons: [_tryAgain(c)],
+    ),
+  ),
+  (
+    "Hasn't come back",
     true,
     (c) => GroupedActionStatus(
       phase: GroupedActionPhase.warning,

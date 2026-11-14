@@ -201,6 +201,84 @@ void main() {
     },
   );
 
+  test('a 200 with a body that is not an answer is a lost answer, not a '
+      'refusal', () async {
+    server.onRequest(
+      'POST',
+      '/api/gateway/restart',
+      (_) => (status: 200, body: '<html>proxy</html>'),
+    );
+    server.on('GET', '/api/status', status(running: false, state: 'stopped'));
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.failure, isNull);
+    expect(gateway.phase, GatewayPhase.slow);
+    expect(posts('restart'), 1);
+  });
+
+  test('a restart never seen down while the gateway kept running ends '
+      'unconfirmed, not "not back"', () async {
+    server.onRequest('POST', '/api/gateway/restart', (r) {
+      throw DioException.connectionError(requestOptions: r, reason: 'dropped');
+    });
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.phase, GatewayPhase.slow);
+    expect(gateway.unconfirmed, isTrue);
+  });
+
+  test('a gateway that is not running after the wait ends slow, not '
+      'unconfirmed', () async {
+    server.on('GET', '/api/status', status(running: false, state: 'stopped'));
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.phase, GatewayPhase.slow);
+    expect(gateway.unconfirmed, isFalse);
+  });
+
+  test('a finished run does not clear the busy mark of a newer run', () async {
+    final care = ServerCareController(
+      repository: ServerCareRepository(server.client()),
+      profile: 'work',
+    );
+    addTearDown(care.dispose);
+    gateway.dispose();
+    gateway = build(care: care);
+    final refreshHeld = Completer<void>();
+    final releaseRefresh = Completer<void>();
+    final releaseSecondPost = Completer<void>();
+    var statusReads = 0;
+    server.onRequest('GET', '/api/status', (_) async {
+      // Read 1 ends the run; read 2 is its refresh: hold it.
+      if (++statusReads == 2) {
+        refreshHeld.complete();
+        await releaseRefresh.future;
+      }
+      return (status: 200, body: status());
+    });
+    var posts = 0;
+    server.onRequest('POST', '/api/gateway/restart', (_) async {
+      if (++posts == 2) await releaseSecondPost.future;
+      return (
+        status: 200,
+        body: {'ok': true, 'pid': 1, 'name': 'gateway-restart'},
+      );
+    });
+    server.on(
+      'GET',
+      '/api/actions/gateway-restart/status',
+      action('gateway-restart', exit: 0),
+    );
+    final first = gateway.run(GatewayAction.restart, profile: 'work');
+    await refreshHeld.future;
+    expect(gateway.phase, GatewayPhase.done);
+    // The outcome is in and its refresh still runs: a new press starts a run.
+    final second = gateway.run(GatewayAction.restart, profile: 'work');
+    releaseRefresh.complete();
+    await first;
+    expect(care.gatewayBusy, isTrue, reason: 'the newer run is still going');
+    releaseSecondPost.complete();
+    await second;
+    expect(care.gatewayBusy, isFalse);
+  });
+
   test('a press after the outcome starts a new run', () async {
     await gateway.run(GatewayAction.restart, profile: 'work');
     expect(gateway.busy, isFalse);

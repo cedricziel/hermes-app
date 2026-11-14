@@ -336,6 +336,29 @@ void main() {
       expect(find.text('Running again'), findsNothing);
     });
 
+    testWidgets('a lost restart that never showed the gateway down says it '
+        'could not confirm it', (tester) async {
+      answers();
+      server.onRequest(
+        'POST',
+        '/api/gateway/restart',
+        (_) => throw DioException.connectionError(
+          requestOptions: RequestOptions(),
+          reason: 'dropped',
+        ),
+      );
+      await pump(tester);
+      await tester.tap(find.text('Restart gateway'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restart for all'));
+      await tester.pump();
+      await settle(tester);
+      expect(find.text("Couldn't confirm the restart"), findsOneWidget);
+      expect(find.text("The gateway hasn't come back yet"), findsNothing);
+      expect(find.text('Running again'), findsNothing);
+      expect(server.requestsTo('POST', '/api/gateway/restart'), hasLength(1));
+    });
+
     testWidgets('a refusal shows Hermes\' own text and sends nothing again', (
       tester,
     ) async {

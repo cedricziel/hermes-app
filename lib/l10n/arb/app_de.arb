@@ -291,6 +291,7 @@
   "serverCareGatewayStateRunning": "Läuft",
   "serverCareGatewayStateStarting": "Startet",
   "serverCareGatewayStateUnknown": "Unbekannt",
+  "serverCareGatewayUnconfirmed": "Neustart konnte nicht bestätigt werden",
   "serverCareGatewayWaiting": "Warte auf das Gateway…",
   "serverCareHeadlineAllGood": "Alles in Ordnung",
   "serverCareHeadlineAllGoodDetail": "Hermes {version}",

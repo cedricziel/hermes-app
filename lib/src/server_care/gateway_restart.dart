@@ -63,12 +63,18 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   GatewayFailure? _failure;
   String? _message;
   Future<void>? _running;
+  int _runId = 0;
+  bool _unconfirmed = false;
   String? _profile;
 
   /// The profile of the run in progress or just finished; null when idle.
   String? get profile => _profile;
 
   GatewayPhase get phase => _phase;
+
+  /// With [GatewayPhase.slow]: the gateway never read as not running, so the
+  /// run could not tell whether the restart happened at all.
+  bool get unconfirmed => _unconfirmed;
 
   /// Null when idle.
   GatewayAction? get action => _action;
@@ -97,8 +103,9 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     if (running != null && busy) return running;
     if (disposed) return Future.value();
     dismiss();
+    final id = ++_runId;
     late final Future<void> done;
-    done = _execute(action, profile, shared).whenComplete(() {
+    done = _execute(action, profile, shared, id).whenComplete(() {
       if (identical(_running, done)) _running = null;
     });
     _running = done;
@@ -109,6 +116,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   void dismiss() {
     if (busy || _phase == GatewayPhase.idle) return;
     _phase = GatewayPhase.idle;
+    _unconfirmed = false;
     _action = null;
     _profile = null;
     _failure = null;
@@ -148,7 +156,9 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     GatewayAction action,
     String profile,
     bool shared,
+    int id,
   ) async {
+    _unconfirmed = false;
     _action = action;
     _profile = profile;
     _failure = null;
@@ -189,7 +199,8 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     final care = _care;
     if (care == null) return;
     await care.refresh();
-    if (!disposed) care.gatewayBusy = false;
+    // A newer run (Try again) owns the mark by now.
+    if (!disposed && id == _runId) care.gatewayBusy = false;
   }
 
   /// Runs to the end and returns the outcome name; null when disposed.
@@ -297,6 +308,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     // A restart found the old gateway running; "running" alone proves
     // nothing until it has been seen down. A start has no such old state.
     var sawDown = name == CareAction.gatewayStart;
+    var lastBack = false;
     while (true) {
       final action = await _repository.actionStatus(name, lines: 40);
       if (disposed) return null;
@@ -314,13 +326,16 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       final gateway = await _repository.status(profile: profile);
       if (disposed) return null;
       if (gateway case CareOk(:final value)) {
-        if (_isBack(value)) {
+        lastBack = _isBack(value);
+        if (lastBack) {
           if (sawDown) return _done();
         } else {
           sawDown = true;
         }
       }
-      if (_now().difference(started) >= returnWindow) return _slow();
+      if (_now().difference(started) >= returnWindow) {
+        return _slow(gatewayRunning: !sawDown && lastBack);
+      }
       await _delay(_actionPoll);
       if (disposed) return null;
     }
@@ -337,6 +352,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     CareAction? watch,
   }) async {
     _enter(GatewayPhase.returning);
+    var lastBack = false;
     while (true) {
       if (watch != null && !sawDown) {
         final action = await _repository.actionStatus(watch, lines: 40);
@@ -352,13 +368,16 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       final gateway = await _repository.status(profile: profile);
       if (disposed) return null;
       if (gateway case CareOk(:final value)) {
-        if (_isBack(value)) {
+        lastBack = _isBack(value);
+        if (lastBack) {
           if (sawDown) return _done();
         } else {
           sawDown = true;
         }
       }
-      if (_now().difference(from) >= window) return _slow();
+      if (_now().difference(from) >= window) {
+        return _slow(gatewayRunning: !sawDown && lastBack);
+      }
       await _delay(_statusPoll);
       if (disposed) return null;
     }
@@ -374,7 +393,8 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     return 'back';
   }
 
-  String _slow() {
+  String _slow({required bool gatewayRunning}) {
+    _unconfirmed = gatewayRunning;
     _enter(GatewayPhase.slow);
     return 'slow';
   }
