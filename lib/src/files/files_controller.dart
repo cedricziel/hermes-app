@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import '../chat/media/media_actions.dart' show SaveTooLargeException;
 import '../chat/media/media_store.dart';
 import 'files_failure.dart';
 import 'files_models.dart';
@@ -637,8 +636,6 @@ class FilesController extends ChangeNotifier {
       };
       if (done) _telemetry.saved(action.slug);
       return null;
-    } on SaveTooLargeException {
-      return FilesFailure.saveUnavailable;
     } on Object {
       return FilesFailure.unreadable;
     }

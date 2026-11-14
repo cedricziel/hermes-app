@@ -38,10 +38,10 @@ class MediaStore {
   MediaStore({
     required this._source,
     required this._cacheDirectory,
-    this._actions = const PlatformMediaActions(),
+    MediaActions? actions,
     this._quickLook = const NoQuickLook(),
     this._imageBudget = 32 * 1024 * 1024,
-  });
+  }) : _actions = actions ?? PlatformMediaActions();
 
   final MediaSource _source;
   final Future<Directory> Function() _cacheDirectory;
