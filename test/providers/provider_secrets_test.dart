@@ -1,17 +1,22 @@
 import 'package:dio/dio.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/providers/provider_results.dart';
+import 'package:hermes_app/src/providers/provider_setup_controller.dart';
 import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../support/fake_hermes_server.dart';
 import '../support/recording_tracer.dart';
+import 'fake_provider_backend.dart';
 import 'provider_fixtures.dart';
 
 const _secret = 'sk-test-SECRET-123456';
 const _lastFour = '3456';
+const _endpointSecret = 'ek-test-ENDPOINT-778899';
+const _deviceCode = 'WXYZ-7391';
 
 class _RecordingLogger extends Logger {
   final records = <LogRecord>[];
@@ -221,6 +226,8 @@ void main() {
     }
   });
 
+  controllerSecrets();
+
   test('removing a key and reading providers leave nothing either', () async {
     h.server
       ..on('GET', '/api/model/options', connectedOptions())
@@ -230,6 +237,228 @@ void main() {
     final result = await h.repository.removeKey('work', 'OPENROUTER_API_KEY');
     h.keep(result, result is RemoveRefused ? result.message : null);
     _expectClean(h.exported());
+  });
+}
+
+/// The controller with every signal on: spans (with the request interceptor),
+/// logs, app events and breadcrumbs.
+class _ControllerHarness {
+  _ControllerHarness() {
+    final dio = backend.server.dio()
+      ..interceptors.add(httpInterceptor(logger, tracer));
+    controller = ProviderSetupController(
+      repository: ProvidersRepository(
+        HermesApiClient(dio).raw,
+        checkBudget: const Duration(milliseconds: 200),
+        recommendBudget: const Duration(milliseconds: 200),
+        telemetry: ConnectionTelemetry(
+          tracer: tracer,
+          serverAttributes: const {'hermes.version': 'test'},
+          events: (name, [attributes = const {}]) {
+            events.add('$name $attributes');
+            trail.record(name, attributes);
+          },
+        ),
+      ),
+      profile: 'work',
+      observeLifecycle: false,
+    );
+    backend.server.on('POST', '/api/providers/oauth/nous/start', {
+      'session_id': 's-1',
+      'flow': 'device_code',
+      'user_code': _deviceCode,
+      'verification_url': 'https://portal.example.com/device?code=$_deviceCode',
+      'expires_in': 900,
+      'poll_interval': 5,
+    });
+  }
+
+  final backend = FakeProviderBackend();
+  final tracer = RecordingTracer();
+  final logger = _RecordingLogger();
+  final trail = BreadcrumbTrail();
+  final events = <String>[];
+  late final ProviderSetupController controller;
+
+  /// What a person or an exporter could read afterwards, the controller's
+  /// own state included.
+  String exported() {
+    final c = controller;
+    return [
+      for (final span in tracer.spans)
+        '${span.name} ${span.attributes} ${span.events} ${span.statusDescription}',
+      for (final r in logger.records) '${r.body} ${r.attributes}',
+      ...events,
+      for (final b in trail.recent) '${b.name} ${b.attributes}',
+      c.toString(),
+      '${c.keyForm?.message} ${c.keyForm?.phase} ${c.keyForm?.note}',
+      '${c.step?.model} ${c.step?.kind} ${c.confirmation?.message}',
+      '${c.endpointForm.message} ${c.endpointForm.warning}',
+      '${c.endpointForm.resolvedBaseUrl} ${c.endpointForm.models}',
+      '${c.lastRemoval?.message}',
+    ].join('\n');
+  }
+}
+
+void _expectControllerClean(String exported) {
+  _expectClean(exported);
+  expect(exported, isNot(contains(_endpointSecret)));
+  expect(exported, isNot(contains('778899')));
+  expect(exported, isNot(contains(_deviceCode)));
+  expect(exported, isNot(contains('7391')));
+}
+
+void controllerSecrets() {
+  group('through the controller', () {
+    late _ControllerHarness h;
+    setUp(() => h = _ControllerHarness());
+    tearDown(() => h.controller.dispose());
+
+    Future<void> keyFlows() async {
+      final c = h.controller;
+      await c.load();
+      c.openKeyForm('openrouter');
+      await c.submitKey(_secret);
+      await c.saveKeyAnyway(_secret);
+      c.openKeyForm('anthropic');
+      await c.pressReturn(_secret);
+      await c.checkEndpoint(
+        name: 'Lab',
+        address: 'http://models.example.net/v1',
+        apiKey: _endpointSecret,
+      );
+      await c.saveEndpoint(
+        name: 'Lab',
+        address: 'http://models.example.net/v1',
+        model: 'example-model-a',
+        apiKey: _endpointSecret,
+      );
+      await c.saveEndpoint(
+        name: 'Lab',
+        address: 'http://models.example.net/v1',
+        model: 'example-model-a',
+        apiKey: _endpointSecret,
+        confirmedCleartext: true,
+      );
+      await c.remove(
+        c.catalog!.byId('openrouter')!,
+        const RemoveKeyAction('OPENROUTER_API_KEY'),
+      );
+    }
+
+    test(
+      'a key and an endpoint key leave no trace on the happy path',
+      () async {
+        h.backend
+          ..validate = {'ok': true, 'reachable': true, 'message': ''}
+          ..expensiveModel = 'example-model-a';
+        await keyFlows();
+        await h.controller.confirmExpensiveModel();
+        expect(
+          h.tracer.spans.where((s) => s.name == 'providers.key.save'),
+          isNotEmpty,
+        );
+        expect(h.logger.records, isNotEmpty);
+        _expectControllerClean(h.exported());
+      },
+    );
+
+    test('a rejection, a refusal and a lost answer leave no trace', () async {
+      h.backend
+        ..validate = {
+          'ok': false,
+          'reachable': true,
+          'message': 'rejected $_secret',
+        }
+        ..saveStatus = 400
+        ..saveDetail = 'locked $_secret $_endpointSecret';
+      await keyFlows();
+      h.backend
+        ..saveStatus = null
+        ..keys['ANTHROPIC_API_KEY'] = FakeProviderBackend.redact(
+          'ak-old-key-0000',
+        )
+        ..lostSave = LostAnswer.afterWrite;
+      await h.controller.load();
+      h.controller.openKeyForm('anthropic');
+      await h.controller.saveKeyAnyway(_secret);
+      expect(h.controller.keyForm!.phase, KeyFormPhase.unknown);
+      _expectControllerClean(h.exported());
+    });
+
+    test('a 422 that echoes the keys leaves no trace', () async {
+      for (final (method, path) in [
+        ('POST', '/api/providers/validate'),
+        ('PUT', '/api/env'),
+        ('POST', '/api/providers/custom-endpoints/validate'),
+        ('POST', '/api/providers/custom-endpoints'),
+      ]) {
+        h.backend.server.on(method, path, {
+          'detail': [
+            {'input': _secret, 'ctx': _endpointSecret},
+          ],
+        }, status: 422);
+      }
+      await keyFlows();
+      _expectControllerClean(h.exported());
+    });
+
+    test(
+      'a device code leaves no trace and is dropped when the sign-in ends',
+      () {
+        fakeAsync((async) {
+          void settle() {
+            for (var i = 0; i < 20; i++) {
+              async.flushMicrotasks();
+              async.elapse(Duration.zero);
+            }
+          }
+
+          final c = h.controller;
+          c.load();
+          settle();
+          final signIn = c.startSignIn('nous');
+          settle();
+          // Shown while it waits: that is what the code is for.
+          expect(signIn.userCode, _deviceCode);
+          h.backend.pollAnswer = {'session_id': 's-1', 'status': 'approved'};
+          async.elapse(const Duration(seconds: 5));
+          settle();
+          expect(signIn.userCode, isNull);
+          expect(signIn.verificationLink, isNull);
+          expect(
+            h.tracer.spans.any((s) => s.name == 'providers.signin'),
+            isTrue,
+          );
+          _expectControllerClean(h.exported());
+          c.dispose();
+        });
+      },
+    );
+
+    test('a cancelled and an abandoned sign-in leave no trace', () {
+      fakeAsync((async) {
+        void settle() {
+          for (var i = 0; i < 20; i++) {
+            async.flushMicrotasks();
+            async.elapse(Duration.zero);
+          }
+        }
+
+        final c = h.controller;
+        c.load();
+        settle();
+        c.startSignIn('nous');
+        settle();
+        c.cancelSignIn('nous');
+        settle();
+        c.dismissSignIn('nous');
+        c.startSignIn('nous');
+        settle();
+        c.dispose();
+        _expectControllerClean(h.exported());
+      });
+    });
   });
 }
 
