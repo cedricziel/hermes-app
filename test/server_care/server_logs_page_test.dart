@@ -436,6 +436,20 @@ void main() {
       });
     }
 
+    pageTest('a rescued expiry reads the lines again', (tester) async {
+      final auth = _TestAuth();
+      addTearDown(auth.dispose);
+      await pump(tester, auth: auth);
+      auth.move(state: HermesConnectionState.needsLogin, allowed: false);
+      await tester.pump();
+      expect(find.text('Telegram failed'), findsNothing);
+      final before = reads().length;
+      auth.move(state: HermesConnectionState.ready, allowed: true);
+      await tester.pumpAndSettle();
+      expect(reads().length, greaterThan(before));
+      expect(find.text('Telegram failed'), findsOneWidget);
+    });
+
     pageTest('the lines are gone even if the route lingers', (tester) async {
       final auth = _TestAuth();
       addTearDown(auth.dispose);
@@ -704,26 +718,26 @@ void main() {
     });
   });
 
-  pageTest('a missing route closes this page, not the question on top', (
-    tester,
-  ) async {
-    await pump(tester, pushed: true);
-    await tester.tap(find.byKey(const Key('logs-more')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Copy shown lines'));
-    await tester.pumpAndSettle();
-    server.on('GET', '/api/logs', {'detail': 'Not Found'}, status: 404);
-    care.profileChanged('work');
-    await tester.pump();
-    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-    await tester.pump();
-    await tester.pump();
-    expect(find.text('Copy these log lines?'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(find.text('Logs'), findsNothing);
-    expect(find.text('open'), findsOneWidget);
-  });
+  pageTest(
+    'a profile switch closes the Copy question, and a missing route the page',
+    (tester) async {
+      await pump(tester, pushed: true);
+      await tester.tap(find.byKey(const Key('logs-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copy shown lines'));
+      await tester.pumpAndSettle();
+      server.on('GET', '/api/logs', {'detail': 'Not Found'}, status: 404);
+      care.profileChanged('work');
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(find.text('Copy these log lines?'), findsNothing);
+      expect(find.text('Logs'), findsNothing);
+      expect(find.text('open'), findsOneWidget);
+    },
+  );
 
   pageTest('a page that fails to start does not leave the window secure', (
     tester,

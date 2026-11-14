@@ -33,6 +33,12 @@ class _Auth extends AuthController {
     _allowed = false;
     notifyListeners();
   }
+
+  void rescue() {
+    _state = HermesConnectionState.ready;
+    _allowed = true;
+    notifyListeners();
+  }
 }
 
 void main() {
@@ -79,6 +85,38 @@ void main() {
     expect(ended, 0);
     auth.otherOwner();
     expect(ended, 1);
+  });
+
+  test('an expiry that is rescued for the same owner is restored', () {
+    final auth = _Auth();
+    addTearDown(auth.dispose);
+    var ended = 0;
+    var restored = 0;
+    final guard = ConnectionGuard(
+      auth,
+      () => ended++,
+      onRestored: () => restored++,
+    );
+    addTearDown(guard.dispose);
+    auth.close();
+    auth.leave();
+    expect((ended, restored), (1, 0));
+    auth.rescue();
+    expect((ended, restored), (1, 1));
+    expect(guard.ended, isFalse);
+    // It watches again.
+    auth.leave();
+    expect(ended, 2);
+  });
+
+  test('another owner never comes back', () {
+    final auth = _Auth();
+    addTearDown(auth.dispose);
+    var restored = 0;
+    ConnectionGuard(auth, () {}, onRestored: () => restored++);
+    auth.otherOwner();
+    auth.rescue();
+    expect(restored, 0);
   });
 
   test('without an auth controller nothing ends', () {

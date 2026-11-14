@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
-import '../../widgets/disclosure_tile.dart';
 import '../../widgets/grouped_list.dart';
+import '../../widgets/output_lines_tile.dart';
 
 enum UpdateStepState {
   pending,
@@ -249,8 +249,8 @@ class _StepRow extends StatelessWidget {
   }
 }
 
-/// A "Show details" row that opens the last lines Hermes wrote, in monospace
-/// and selectable. Shared by the step list and a failed update's outcome.
+/// A "Show details" row that opens the last lines Hermes wrote. Shared by the
+/// step list and a failed update's outcome.
 class UpdateDetailsDisclosure extends StatelessWidget {
   const UpdateDetailsDisclosure({
     super.key,
@@ -262,47 +262,9 @@ class UpdateDetailsDisclosure extends StatelessWidget {
   final bool initiallyOpen;
 
   @override
-  Widget build(BuildContext context) {
-    final metrics = GroupedMetrics.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return DisclosureTile(
-      initiallyExpanded: initiallyOpen,
-      shape: const Border(),
-      collapsedShape: const Border(),
-      minTileHeight: metrics.rowMinHeight,
-      tilePadding: EdgeInsets.symmetric(horizontal: metrics.rowPadding),
-      childrenPadding: EdgeInsets.fromLTRB(
-        metrics.rowPadding,
-        0,
-        metrics.rowPadding,
-        metrics.rowPadding,
-      ),
-      title: Text(
-        context.l10n.serverCareUpdateDetailsShow,
-        style: TextStyle(fontSize: metrics.titleSize),
-      ),
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: SizedBox(
-              width: double.infinity,
-              child: SelectableText(
-                lines.join('\n'),
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: metrics.footerSize,
-                  color: scheme.onSurface,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => OutputLinesTile(
+    label: context.l10n.serverCareUpdateDetailsShow,
+    lines: lines,
+    initiallyOpen: initiallyOpen,
+  );
 }

@@ -133,7 +133,10 @@ void main() {
 
     expect(find.text('root page', skipOffstage: false), findsNothing);
     expect(auth.state, HermesConnectionState.ready);
-    // The documented gap: only the root navigator is swept.
+    // The closer alone only sweeps the root navigator, and this test has a
+    // fake auth and no shell. In the app `_RootRouter` also replaces the
+    // shell once the new client is in place, which takes its nested
+    // navigator with it; only the token-clear window keeps it.
     expect(find.text('nested page'), findsOneWidget);
   });
 

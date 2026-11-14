@@ -3,11 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
 import '../widgets/dialog_presentation.dart';
+import '../widgets/grouped_action_row.dart';
 import 'gateway_restart.dart';
 import 'server_care_controller.dart';
 import 'server_status.dart';
 import 'widgets/gateway_restart_dialog.dart';
-import 'widgets/grouped_action_row.dart';
 
 /// The lines of the restart confirmation, from what the status says: the app's
 /// chats keep running, messaging pauses, how many messaging conversations

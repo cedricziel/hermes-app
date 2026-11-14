@@ -86,6 +86,7 @@ void main() {
     ConversationWindows? windows,
     AuthController? auth,
     HermesRepositories? repositories,
+    Key? shellKey,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -123,6 +124,7 @@ void main() {
             return lock == null ? content : AppLockGate(child: content);
           },
           home: AppShell(
+            key: shellKey,
             plugins: HermesPluginsRepository(server.client().raw),
             cron: HermesCronRepository(server.client().raw),
             kanbanBuilder: kanbanBuilder ?? (_) => _Board(boardLog),
@@ -727,6 +729,25 @@ void main() {
     if (auth != null) windows.bindSession(auth);
     return (host: host, windows: windows);
   }
+
+  testWidgets('a replaced shell leaves the windows profile source to the new '
+      'one', (tester) async {
+    final (:host, :windows) = windowHost();
+    await pumpShell(
+      tester,
+      size: const Size(400, 800),
+      windows: windows,
+      shellKey: const ValueKey(1),
+    );
+    await pumpShell(
+      tester,
+      size: const Size(400, 800),
+      windows: windows,
+      shellKey: const ValueKey(2),
+    );
+
+    expect(windows.currentProfile, isNotNull);
+  });
 
   group('guarded notification navigation', () {
     testWidgets('retains the editor and delivers only the latest tap', (

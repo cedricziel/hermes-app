@@ -143,7 +143,7 @@ void main() {
   ) async {
     await pumpTools(t, _row(_view(phase: ToolsetRowPhase.checking)));
     expect(find.text('May have changed. Checking…'), findsOneWidget);
-    expect(find.text('2 actions'), findsNothing);
+    expect(find.text('2 actions'), findsOneWidget);
     expect(t.widget<Switch>(find.byType(Switch)).onChanged, isNull);
   });
 
@@ -159,7 +159,9 @@ void main() {
         onTryAgain: () => again++,
       ),
     );
-    expect(find.text("Couldn't confirm. Try again."), findsOneWidget);
+    // One request, not two: the line says what happened, the button what to do.
+    expect(find.text("Couldn't confirm."), findsOneWidget);
+    expect(find.textContaining('Try again'), findsOneWidget);
     await t.tap(find.widgetWithText(TextButton, 'Try again'));
     expect(again, 1);
   });
@@ -223,17 +225,17 @@ void main() {
     expect(order.toSet().length, order.length);
   });
 
-  testWidgets('"Checking…" replaces the count in place, at the end', (t) async {
-    await pumpTools(t, _row(_view(risk: true)));
-    final count = t.getTopLeft(find.text('2 actions')).dy;
+  testWidgets('"Checking…" follows the count, so the lines keep their order', (
+    t,
+  ) async {
     await pumpTools(
       t,
       _row(_view(risk: true, phase: ToolsetRowPhase.checking)),
     );
-    expect(find.text('2 actions'), findsNothing);
+    final count = t.getTopLeft(find.text('2 actions')).dy;
     final checking = t.getTopLeft(find.text('May have changed. Checking…')).dy;
-    expect(checking, closeTo(count, 3));
-    expect(checking, greaterThan(t.getTopLeft(find.text('Needs setup')).dy));
+    expect(checking, greaterThan(count));
+    expect(count, greaterThan(t.getTopLeft(find.text('Needs setup')).dy));
   });
 
   testWidgets('preparing: saved position, disabled, spinner, not "saving"', (

@@ -130,7 +130,7 @@ void main() {
     );
 
     expect(find.text('Planning is locked.'), findsOneWidget);
-    expect(find.text('Couldn\'t confirm. Try again.'), findsOneWidget);
+    expect(find.text('Couldn\'t confirm.'), findsOneWidget);
     await t.tap(find.text('Try again'));
     expect(tried, 1);
   });

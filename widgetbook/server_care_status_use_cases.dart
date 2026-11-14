@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/macos/mac_source_list.dart';
 import 'package:hermes_app/src/server_care/widgets/care_row_value.dart';
-import 'package:hermes_app/src/server_care/widgets/grouped_action_row.dart';
+import 'package:hermes_app/src/widgets/grouped_action_row.dart';
 import 'package:hermes_app/src/server_care/widgets/server_attention_dot.dart';
 import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
 import 'package:hermes_app/src/server_care/widgets/server_status_card.dart';

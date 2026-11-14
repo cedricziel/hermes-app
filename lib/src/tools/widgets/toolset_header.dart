@@ -23,6 +23,7 @@ class ToolsetHeader extends StatelessWidget {
     required this.onChanged,
     this.needsSetup = false,
     this.phase = ToolsetHeaderPhase.idle,
+    this.locked = false,
   });
 
   final String name;
@@ -34,6 +35,10 @@ class ToolsetHeader extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final bool needsSetup;
   final ToolsetHeaderPhase phase;
+
+  /// A setup write of this toolset is out: the switch is disabled, with no
+  /// spinner, until it ends.
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +90,9 @@ class ToolsetHeader extends StatelessWidget {
       value: enabled,
       saving: phase == ToolsetHeaderPhase.saving,
       preparing: phase == ToolsetHeaderPhase.preparing,
-      onChanged: phase == ToolsetHeaderPhase.checking ? null : onChanged,
+      onChanged: phase == ToolsetHeaderPhase.checking || locked
+          ? null
+          : onChanged,
     );
     final heading = Semantics(
       header: true,

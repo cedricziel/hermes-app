@@ -217,7 +217,9 @@ the brief with its reason.
   `NamedIconButton`, `NamedPopupMenuButton`, `AdaptiveTabBar`,
   `AdaptiveDialog` and `AdaptiveSheet`, `AdaptivePickers`,
   `AdaptiveBackButton`, `SettingsSearchField`, `ContentColumn`,
-  `InspectorLayout`, `RowActions`, `DestructiveTintButton`, `LoadingSkeleton`, `CommandRow`, `AppBanner` (the "Banner" of the wave 4
+  `InspectorLayout`, `RowActions`, `DestructiveTintButton`, `LoadingSkeleton`, `CommandRow`,
+  `GroupedActionRow` (with its `subtitle`), `OutputLinesTile`, `AppBanner`
+  (the "Banner" of the wave 4
   design records; Material owns the name `Banner`). Run `ls lib/src/widgets/` for the current
   list. A new piece goes under "New components needed" and gets built once.
 

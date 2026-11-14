@@ -104,6 +104,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
       _connection = ConnectionGuard(
         _maybeRead<AuthController>(),
         _connectionEnded,
+        onRestored: _connectionRestored,
       );
       // Only the file: no profile, no lines, no search.
       (_maybeRead<Breadcrumbs>() ?? Breadcrumbs.none)(
@@ -143,6 +144,13 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   void _connectionEnded() {
     _stale();
     _controller.cover();
+  }
+
+  /// The same connection is ready again (an expiry another engine rescued):
+  /// read the lines again, unless App Lock still covers.
+  void _connectionRestored() {
+    if (_appLock?.covered ?? false) return;
+    _controller.uncover();
   }
 
   /// What was asked or opened on this page no longer applies: closes the
