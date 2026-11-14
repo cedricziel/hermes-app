@@ -10,6 +10,7 @@ import '../telemetry/breadcrumbs.dart';
 import '../telemetry/telemetry.dart';
 import 'care_result.dart';
 import 'server_care_controller.dart';
+import 'resumable_sleep.dart';
 import 'server_care_repository.dart';
 import 'update_receipt.dart';
 import 'update_run_record.dart';
@@ -188,35 +189,18 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   /// check. The person dismisses and asks again; the request is never resent.
   bool get nothingStarted => _nothingStarted;
 
-  Completer<void>? _wake;
-  bool _resumeOwed = false;
+  late final _pause = ResumableSleep(_delay, covered: _covered);
 
-  /// Waits [duration], or less when [appResumed] wakes it.
-  Future<void> _sleep(Duration duration) {
-    final wake = _wake = Completer<void>();
-    return Future.any([_delay(duration), wake.future]).whenComplete(() {
-      if (identical(_wake, wake)) _wake = null;
-    });
-  }
+  Future<void> _sleep(Duration duration) => _pause.sleep(duration);
 
   /// The app came back to the front: a poll that waits for a timer the
   /// suspended app never ran reads now instead. Nothing is sent; the run only
   /// reads. While App Lock covers the app nothing is read, and the wake is
   /// owed until [appUnlocked].
-  void appResumed() {
-    if (_covered?.call() ?? false) {
-      _resumeOwed = true;
-      return;
-    }
-    _resumeOwed = false;
-    final wake = _wake;
-    if (wake != null && !wake.isCompleted) wake.complete();
-  }
+  void appResumed() => _pause.resumed();
 
   /// App Lock lifted: makes up for a resume it held back.
-  void appUnlocked() {
-    if (_resumeOwed) appResumed();
-  }
+  void appUnlocked() => _pause.unlocked();
 
   bool get _isCovered => _covered?.call() ?? false;
 
@@ -341,8 +325,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   void dispose() {
     _endOpenSpan();
     _generation++;
-    final wake = _wake;
-    if (wake != null && !wake.isCompleted) wake.complete();
+    _pause.release();
     super.dispose();
   }
 
