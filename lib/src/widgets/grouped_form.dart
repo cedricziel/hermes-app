@@ -242,6 +242,7 @@ class GroupedTextFieldRow extends StatelessWidget {
     required this.label,
     this.hint,
     this.controller,
+    this.focusNode,
     this.initialValue,
     this.minLines,
     this.maxLines = 1,
@@ -270,6 +271,7 @@ class GroupedTextFieldRow extends StatelessWidget {
   final String label;
   final String? hint;
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final String? initialValue;
   final int? minLines;
   final int? maxLines;
@@ -335,6 +337,7 @@ class GroupedTextFieldRow extends StatelessWidget {
     }
     final field = TextFormField(
       controller: controller,
+      focusNode: focusNode,
       enabled: enabled,
       readOnly: readOnly,
       obscureText: obscureText,
@@ -361,7 +364,31 @@ class GroupedTextFieldRow extends StatelessWidget {
       onFieldSubmitted: onSubmitted,
     );
     final Widget content;
-    if (apple && oneLine) {
+    // At a large text size the label would leave the field a sliver, so it
+    // sits above the field instead.
+    final stackLabel = MediaQuery.textScalerOf(context).scale(14) > 21;
+    if (apple && oneLine && stackLabel) {
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: metrics.titleSize,
+              color: scheme.onSurface,
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Semantics(label: label, child: field),
+              ),
+              ?trailing,
+            ],
+          ),
+        ],
+      );
+    } else if (apple && oneLine) {
       content = Row(
         children: [
           Flexible(
