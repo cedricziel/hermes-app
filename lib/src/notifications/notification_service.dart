@@ -22,6 +22,8 @@ class NotificationTarget {
   const NotificationTarget({required this.threadId, this.profile})
     : jobId = null,
       prompt = null,
+      draft = null,
+      accountHash = null,
       isMessage = false;
 
   /// A message a Hermes profile delivered. It is fetched when it is not among
@@ -29,6 +31,8 @@ class NotificationTarget {
   const NotificationTarget.message({required this.threadId, this.profile})
     : jobId = null,
       prompt = null,
+      draft = null,
+      accountHash = null,
       isMessage = true;
 
   /// The summary of several messages: it has no chat to open.
@@ -37,19 +41,36 @@ class NotificationTarget {
       profile = null,
       jobId = null,
       prompt = null,
+      draft = null,
+      accountHash = null,
       isMessage = true;
 
   /// A new chat with [prompt] in the composer, unsent.
   const NotificationTarget.newChat({required String this.prompt, this.profile})
     : threadId = '',
       jobId = null,
+      draft = null,
+      accountHash = null,
       isMessage = false;
 
   /// A scheduled task. It has no chat, so [threadId] is empty.
   const NotificationTarget.job({required String this.jobId, this.profile})
     : threadId = '',
       prompt = null,
+      draft = null,
+      accountHash = null,
       isMessage = false;
+
+  /// A chat with [draft] to put in its composer, unsent: a reply that did not
+  /// get sent. [accountHash] is that of the account it was typed in.
+  const NotificationTarget.draft({
+    required this.threadId,
+    required String this.draft,
+    required String this.accountHash,
+    this.profile,
+  }) : jobId = null,
+       prompt = null,
+       isMessage = false;
 
   final String threadId;
   final String? jobId;
@@ -57,6 +78,12 @@ class NotificationTarget {
 
   /// The question of a [NotificationTarget.newChat].
   final String? prompt;
+
+  /// The text of a [NotificationTarget.draft].
+  final String? draft;
+
+  /// The account a [draft] was typed in (`accountHashFor`).
+  final String? accountHash;
 
   /// Whether it is about a message from Hermes, or the summary of several.
   final bool isMessage;

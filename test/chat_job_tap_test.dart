@@ -5,6 +5,7 @@ import 'package:hermes_app/src/chat/chat_open_requests.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
+import 'package:hermes_app/src/notifications/request_notifications.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -34,16 +35,48 @@ void main() {
     requests = ChatOpenRequests();
     service = FakeNotificationService();
     server = FakeHermesServer()
+      ..on(
+        'GET',
+        '/api/profiles',
+        profileListBody([
+          profileRow(name: 'work', isDefault: true),
+          profileRow(name: 'home'),
+        ]),
+      )
       ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
       ..on(
         'GET',
         '/api/sessions',
         sessionListBody([sessionRow(id: 'recent', title: 'Recent chat')]),
         query: {'profile': 'work'},
+      )
+      ..on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 'away', title: 'Away chat')]),
+        query: {'profile': 'home'},
+      )
+      ..on(
+        'GET',
+        '/api/sessions/away',
+        sessionRow(id: 'away', title: 'Away chat'),
+        query: {'profile': 'home'},
+      )
+      ..on(
+        'GET',
+        '/api/sessions/away/messages',
+        messageListBody('away', [
+          messageRow(id: 1, role: 'assistant', content: 'the away transcript'),
+        ]),
+        query: {'profile': 'home'},
       );
   });
 
-  Future<void> pumpChat(WidgetTester tester) async {
+  Future<void> pumpChat(
+    WidgetTester tester, {
+    AuthController? auth,
+    FakeChatTransport? transport,
+  }) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -51,7 +84,7 @@ void main() {
       MultiProvider(
         providers: [
           ChangeNotifierProvider<AuthController>(
-            create: (_) => AuthController(),
+            create: (_) => auth ?? AuthController(),
           ),
           ChangeNotifierProvider<ShareController>(
             create: (_) => ShareController(FakeShareInbox()),
@@ -63,7 +96,7 @@ void main() {
           home: ChatScreen(
             repository: HermesChatRepository(server.client().raw),
             profiles: HermesProfilesRepository(server.client().raw),
-            transport: FakeChatTransport(),
+            transport: transport ?? FakeChatTransport(),
             onShowChat: () => shown++,
             onOpenJob: opened.add,
             openRequests: requests,
@@ -139,4 +172,90 @@ void main() {
     expect(opened, isEmpty);
     expect(find.text('What is C++?'), findsOneWidget);
   });
+
+  group('a tap on a reply that was not sent', () {
+    NotificationTarget draft({
+      String account = 'acct',
+      String thread = 'recent',
+      String profile = 'work',
+    }) => NotificationTarget.draft(
+      threadId: thread,
+      draft: 'Try again',
+      accountHash: accountHashFor(account),
+      profile: profile,
+    );
+
+    testWidgets('puts the text in the composer of its chat, sending nothing', (
+      tester,
+    ) async {
+      final transport = FakeChatTransport();
+      await pumpChat(tester, auth: _Account('acct'), transport: transport);
+
+      service.tapTarget(draft());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Try again'), findsOneWidget);
+      expect(find.text('Could not open that chat.'), findsNothing);
+      expect(shown, greaterThan(0));
+      expect(transport.sends, isEmpty);
+    });
+
+    testWidgets('opens a chat of another profile under it, text unsent', (
+      tester,
+    ) async {
+      final transport = FakeChatTransport();
+      await pumpChat(tester, auth: _Account('acct'), transport: transport);
+
+      service.tapTarget(draft(thread: 'away', profile: 'home'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('the away transcript'), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      expect(find.text('Could not open that chat.'), findsNothing);
+      expect(transport.sends, isEmpty);
+    });
+
+    testWidgets('ignores a profile the server lacks, as a link does', (
+      tester,
+    ) async {
+      await pumpChat(tester, auth: _Account('acct'));
+
+      service.tapTarget(draft(profile: 'ghost'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Try again'), findsOneWidget);
+      expect(find.text('Could not open that chat.'), findsNothing);
+    });
+
+    testWidgets('puts nothing anywhere in another account', (tester) async {
+      final transport = FakeChatTransport();
+      await pumpChat(tester, auth: _Account('other'), transport: transport);
+
+      service.tapTarget(draft());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Try again'), findsNothing);
+      expect(find.text('Could not open that chat.'), findsOneWidget);
+      expect(transport.sends, isEmpty);
+    });
+
+    testWidgets('puts nothing anywhere when nobody is signed in', (
+      tester,
+    ) async {
+      await pumpChat(tester);
+
+      service.tapTarget(draft());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Try again'), findsNothing);
+      expect(find.text('Could not open that chat.'), findsOneWidget);
+    });
+  });
+}
+
+class _Account extends AuthController {
+  _Account(this._key);
+  final String _key;
+  @override
+  String? get accountKey => _key;
 }

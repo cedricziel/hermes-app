@@ -4,6 +4,7 @@ import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/adaptive_popup_menu_button.dart';
+import 'closes_with.dart';
 
 enum LogLevelFilter {
   all,
@@ -25,10 +26,14 @@ class LogLevelMenuButton extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.closeWith,
   });
 
   final LogLevelFilter value;
   final ValueChanged<LogLevelFilter> onChanged;
+
+  /// Closes the open menu when it fires.
+  final Listenable? closeWith;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +55,10 @@ class LogLevelMenuButton extends StatelessWidget {
               CheckedPopupMenuItem<LogLevelFilter>(
                 value: option,
                 checked: option == value,
-                child: Text(option.label(l10n)),
+                child: ClosesWith(
+                  closer: closeWith,
+                  child: Text(option.label(l10n)),
+                ),
               ),
           ],
           child: ExcludeSemantics(
