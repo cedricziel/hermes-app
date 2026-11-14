@@ -733,7 +733,8 @@ extension _ChatControllerHistory on ChatController {
       notifyListeners();
       if (stale()) return;
       await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a history re-read');
       // Keeps what it shows; the next refresh or open reads it again.
     }
   }

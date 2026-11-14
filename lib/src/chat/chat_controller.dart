@@ -77,6 +77,7 @@ import 'thread_housekeeping.dart';
 import 'thread_search.dart';
 import 'thread_sections.dart' show sessionFolderPath;
 import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
+import '../telemetry/report_bug.dart';
 
 part 'chat_controller_billing.dart';
 part 'chat_controller_subagents.dart';
@@ -836,7 +837,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           threadListInvalidationBlocked) {
         _listRefreshPending = true;
       }
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the chat list refresh');
       // The next find, or opening the screen again, reads the list.
     }
   }
@@ -1040,8 +1042,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final known = await profiles.list();
       if (!_currentActivity(epoch)) return null;
       if (known.any((p) => p.name == profile)) return profile;
-    } on Object {
+    } on Object catch (e, stack) {
       // Falls through: an unreadable list cannot vouch for the profile.
+      reportBug(e, stack, 'the profile check of a link');
     }
     if (!_currentActivity(epoch)) return null;
     breadcrumbs('deeplink.ignored', {'reason': 'unknown_profile'});
@@ -1063,7 +1066,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final SurfaceSnapshot? snapshot;
     try {
       snapshot = await read();
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the stored request read');
       return false;
     }
     if (!_currentActivity(epoch)) return false;

@@ -323,7 +323,7 @@ class BotScreenController extends ChangeNotifier {
     final BotScreenResult<BotScreenStatus> result;
     try {
       result = await _repository.start(profile);
-    } catch (_) {
+    } on Object {
       _logStart('error');
       if (!_disposed) {
         starting = false;

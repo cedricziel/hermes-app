@@ -131,6 +131,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       setState(() => _call = call);
       unawaited(call.start());
     } on Object {
+      // startCall throws a StateError when the chat changed, an ordinary case.
       setState(
         () => _error =
             'This chat changed. Close this screen and start the call again.',
