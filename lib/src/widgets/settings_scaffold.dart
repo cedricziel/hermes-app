@@ -387,7 +387,7 @@ class SettingsScaffold extends StatelessWidget {
         fontSize: 17,
         fontWeight: FontWeight.w400,
       ),
-      child: const Text('Cancel'),
+      child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
     );
   }
 
