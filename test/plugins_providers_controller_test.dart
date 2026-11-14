@@ -265,7 +265,8 @@ void main() {
         'memory.changed': true,
         'context.changed': true,
       });
-      expect(events.single.$2.values.join(' '), isNot(contains('lossless')));
+      expect(events.single.$2.keys, isNot(contains('memory.provider')));
+      expect(events.single.$2.keys, isNot(contains('context.engine')));
     });
   });
 

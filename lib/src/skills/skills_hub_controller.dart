@@ -203,8 +203,12 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
       'install',
       () => repository.install(skill.identifier, profile: skills.profile),
       {
-        'source': skill.source,
-        'trust_level': skill.trustLevel,
+        'source': _bucket(skill.source, const {'official', 'github'}),
+        'trust_level': _bucket(skill.trustLevel, const {
+          'builtin',
+          'trusted',
+          'community',
+        }),
         'policy': scan!.policy.name,
       },
     );
@@ -269,8 +273,13 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
-  /// Never carries an identifier, a name, search text or a log line, and never
-  /// breaks the job.
+  /// The value when it is one of the fixed [known] words, else `other`, so a
+  /// custom source (an `owner/repo` or a URL) never reaches an event.
+  static String _bucket(String value, Set<String> known) =>
+      known.contains(value) ? value : 'other';
+
+  /// Attributes are fixed words from the caller, never an identifier, a name,
+  /// search text or a log line; never breaks the job.
   void _log(Map<String, Object> attributes) {
     try {
       events('skills.job', attributes);
