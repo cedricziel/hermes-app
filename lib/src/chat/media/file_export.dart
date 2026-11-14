@@ -39,17 +39,25 @@ class FileExport {
     if (_mobile) return await _exportFromPath(name, source.path) != null;
     final destination = await _pickDestination(name);
     if (destination == null) return false;
-    // Copied beside the destination and renamed over it, so a failed or
-    // interrupted copy never leaves a half-written file where the user chose.
-    final temp = File('$destination.hermes-$pid.part');
+    // Copied straight onto the file the panel granted. The macOS app is
+    // sandboxed and the panel grants that one file only: a temp file beside
+    // it, or a rename, is not allowed there. The staged source is already
+    // whole and in the app's own container, so nothing needs staging twice.
+    // A failure never reads as done. A copy that fails before it writes leaves
+    // an existing file as it was; one that fails after writing leaves a
+    // partial file, which is deleted when the panel made it (the file did not
+    // exist before) and otherwise cannot be restored.
+    final existed = await File(destination).exists();
     try {
-      await source.copy(temp.path);
-      await temp.rename(destination);
+      await source.copy(destination);
     } on Object {
-      try {
-        if (await temp.exists()) await temp.delete();
-      } on Object {
-        // Best effort.
+      if (!existed) {
+        try {
+          final partial = File(destination);
+          if (await partial.exists()) await partial.delete();
+        } on Object {
+          // Best effort.
+        }
       }
       rethrow;
     }

@@ -45,7 +45,7 @@ List<SingleChildWidget> authProviders(Telemetry telemetry) => [
         ..clearOnSignOut(auth.signedOut)
         // Copies of files that looked secret, which an app killed on the Files
         // page never got to delete, and files nobody opened again.
-        ..wipeSecretCopies()
+        ..wipeFileDownloads()
         ..sweep(mediaCacheMaxAge);
     },
     dispose: (_, store) => store?.dispose(),

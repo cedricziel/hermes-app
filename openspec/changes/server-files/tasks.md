@@ -66,10 +66,14 @@ If PR 1 passes about 500 lines, split it after 1.4 (repository) and 1.5 (streami
 - The test for `filesAvailabilityProvider` uses the real provider definition, not the whole `authProviders` list (which needs a signed-in `AuthController`).
 - The new chat header item shows only for a chat the dashboard holds (`ThreadActionsButton`); a draft is reached through the Activity row and the Mac menu.
 
+## Roadmap (not done in this change)
+
+- The Quick Look panels of other Mac conversation windows and of the quick panel do not close when App Lock locks (only the main window's `MediaStore` is cleared).
+
 ## Known limits of path-based Save (not patched; the plugin is not ours)
 
 - Android: when the copy fails after the picker returned, `flutter_file_dialog` leaves an empty destination document the user chose.
-- The plugin writes the source path or URI to logcat in release builds. Paths are inside the app cache; no server path is among them.
+- Android: `flutter_file_dialog` logs, at debug level and also in release builds, the source file path (which ends in the server's file name) and the destination URI path (`FileDialog.kt`, `DocumentSaver.kt`). A neutral-named staged copy would hide the source path but not the destination, which carries the display name the plugin is given as `EXTRA_TITLE`, and would cost a second copy of the file on disk. So the server's file name can reach logcat on Android; not fixed here, to go on the roadmap (replace the plugin or patch its logging).
 - `file_selector` bundles mobile implementations the app does not use (a PR line, no action).
 - Follow-up: chat attachments' `openWithSystem` (`attachment_file_actions.dart`) gets neither the runnable-file block nor the Mark of the Web on Windows.
 - iOS: `fileName` is not passed to the plugin, because with it the plugin copies the whole file to `NSTemporaryDirectory()` outside the media cache; the document is named after the staged (sanitised) file.
@@ -93,7 +97,9 @@ These need a device or simulator and a running Hermes, and are listed after the 
 - 5.4 A profile whose terminal is an SSH workspace (a second container): the folder shown is the SSH machine's, the download shows an indeterminate progress, a `.env` there still asks before it is read, a symlinked folder lists as a folder, and an unreadable file fails instead of caching an empty file.
 - 5.8 iPhone, iPad and Android device: the Files export dialog (`flutter_file_dialog`) saves a 60 MB file without the app's memory growing, and Share (`share_plus`) opens the system sheet; on an iPad the popover anchors at the bar's top right.
 - 5.9 Windows: Open with… is absent for `.exe`, `.bat` and the other runnable types, and a staged file has the `Zone.Identifier` stream (`Get-Content -Stream Zone.Identifier`).
-- 5.10 A conversation window on a Mac: View > Show Files with it key opens the page in that window.
+- 5.10 A conversation window on a Mac: View > Show Files is disabled while it is key.
+
+- 5.11 macOS, the real sandboxed app (fake-picker tests cannot see the sandbox): Save of a small and of a 60 MB file from the Files page writes the chosen file; Save over an existing file replaces it; Save to a folder where the panel created the file and then cancel leaves nothing; no sibling `.part` file appears next to the destination.
 - 5.7 macOS with `/tmp` as the chat's folder (resolves to `/private/tmp`): entries are shown.
 - 5.5 A server older than `/api/fs` (or a stub answering 404): no Files row, no menu item, no error.
 - 5.6 A locked deployment (`HERMES_DASHBOARD_FILES_ROOT` set to a folder that excludes the chat's folder): the page shows "Hermes only shares files from a fixed folder on this server."

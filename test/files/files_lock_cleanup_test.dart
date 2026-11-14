@@ -64,12 +64,10 @@ void main() {
 
       lock.didChangeAppLifecycleState(AppLifecycleState.paused);
       expect(lock.locked, isTrue);
+      await cleanup.pending;
       bool leftOver() => cache
           .listSync(recursive: true)
           .any((e) => e.path.endsWith('.zip') || e.path.endsWith('.env'));
-      for (var i = 0; i < 100 && leftOver(); i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
 
       expect(quickLook.closes, greaterThan(0));
       expect(leftOver(), isFalse);

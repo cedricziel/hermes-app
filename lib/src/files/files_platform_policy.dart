@@ -4,6 +4,11 @@ import 'package:flutter/foundation.dart';
 
 import '../chat/media/media_store.dart' show stagedFileName;
 
+/// Extensions Windows runs or installs when opened, from Microsoft's list of
+/// blocked attachment types (Outlook and Office) plus script hosts and
+/// installers that are not on it. The `PATHEXT` of the machine is added at
+/// runtime.
+///
 /// Extensions Windows runs or installs when opened. A downloaded file with one
 /// of these is never offered Open with…, on any server and for any file name
 /// the server sends.
@@ -50,6 +55,33 @@ const kWindowsRunnableExtensions = {
   'scf',
   // Disk images mount without the Mark of the Web, so what is inside runs
   // unchecked.
+  'rdp',
+  'msu',
+  'mst',
+  'ps1xml',
+  'psd1',
+  'psc1',
+  'msh',
+  'msh1',
+  'msh2',
+  'mshxml',
+  'gadget',
+  'library-ms',
+  'search-ms',
+  'searchconnector-ms',
+  'wsb',
+  'py',
+  'pyw',
+  'pyz',
+  'mde',
+  'ade',
+  'adp',
+  'accde',
+  'hlp',
+  'shb',
+  'shs',
+  'xbap',
+  'cab',
   'iso',
   'img',
   'vhd',
@@ -68,15 +100,36 @@ Future<void> _writeZoneIdentifier(File file) =>
 /// Only Windows has rules: no Open with… for a file that runs, and the Mark
 /// of the Web on every file that can be opened.
 class FilesPlatformPolicy {
-  FilesPlatformPolicy({bool? windows, MarkFile? mark})
-    : windows = windows ?? defaultTargetPlatform == TargetPlatform.windows,
-      _mark = mark ?? _writeZoneIdentifier;
+  FilesPlatformPolicy({
+    bool? windows,
+    MarkFile? mark,
+    Map<String, String>? environment,
+  }) : windows = windows ?? defaultTargetPlatform == TargetPlatform.windows,
+       _mark = mark ?? _writeZoneIdentifier,
+       _pathExt = _pathExtOf(environment);
 
   /// No rules: for tests and for platforms other than Windows.
-  const FilesPlatformPolicy.none() : windows = false, _mark = null;
+  const FilesPlatformPolicy.none()
+    : windows = false,
+      _mark = null,
+      _pathExt = const {};
 
   final bool windows;
   final MarkFile? _mark;
+
+  /// The machine's `PATHEXT` extensions, which it runs by name.
+  final Set<String> _pathExt;
+
+  static Set<String> _pathExtOf(Map<String, String>? environment) {
+    final value = (environment ?? Platform.environment)['PATHEXT'];
+    if (value == null) return const {};
+    return {
+      for (final part in value.split(';'))
+        if (part.trim().replaceFirst('.', '').toLowerCase() case final e
+            when e.isNotEmpty)
+          e,
+    };
+  }
 
   /// Whether the file called [name] may be offered Open with….
   ///
@@ -89,9 +142,9 @@ class FilesPlatformPolicy {
     final trimmed = stagedFileName(name).replaceFirst(RegExp(r'[. ]+$'), '');
     final dot = trimmed.lastIndexOf('.');
     if (dot < 0) return true;
-    return !kWindowsRunnableExtensions.contains(
-      trimmed.substring(dot + 1).toLowerCase(),
-    );
+    final extension = trimmed.substring(dot + 1).toLowerCase();
+    return !kWindowsRunnableExtensions.contains(extension) &&
+        !_pathExt.contains(extension);
   }
 
   /// Marks [file] as downloaded where that is a thing. Throws when the mark
