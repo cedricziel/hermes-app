@@ -168,6 +168,8 @@ WidgetbookNode processOutputNode() => WidgetbookComponent(
             ProcessStopStatus.notListed => 'Stop: no longer listed',
             ProcessStopStatus.failed => 'Stop: failed',
             ProcessStopStatus.unconfirmed => 'Stop: unconfirmed',
+            ProcessStopStatus.unsupported =>
+              'Stop: server can\'t stop programs',
             ProcessStopStatus.idle => '',
           },
           (_) => _listed(

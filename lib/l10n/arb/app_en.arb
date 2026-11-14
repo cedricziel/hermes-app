@@ -1919,6 +1919,10 @@
       }
     }
   },
+  "chatWidgetsProgramConfirmThisProgram": "this program",
+  "@chatWidgetsProgramConfirmThisProgram": {
+    "description": "Stands for the command in the stop confirmation's message when Hermes gave none (\"Hermes ends this program\")."
+  },
   "chatWidgetsProgramConfirmTitle": "Stop this program?",
   "@chatWidgetsProgramConfirmTitle": {
     "description": "Title of the confirmation before a background program is stopped."
@@ -1962,6 +1966,10 @@
   "chatWidgetsProgramOutcomeStopped": "Stopped",
   "@chatWidgetsProgramOutcomeStopped": {
     "description": "Banner once a program was stopped."
+  },
+  "chatWidgetsProgramOutcomeUnsupported": "This server can't stop programs.",
+  "@chatWidgetsProgramOutcomeUnsupported": {
+    "description": "Banner after Stop program was pressed on a server without process.kill; Stop is then gone."
   },
   "chatWidgetsProgramStateClosed": "Closed",
   "@chatWidgetsProgramStateClosed": {
@@ -3909,9 +3917,213 @@
   "@serverCareChannelsRow": {
     "description": "Row label on the Server screen: the gateway's messaging channels (Telegram, Discord and the like)."
   },
+  "serverCareCheckAllPassed": "All checks passed",
+  "@serverCareCheckAllPassed": {
+    "description": "Summary of a finished Server check in which nothing was found."
+  },
+  "serverCareCheckChecked": "Checked {ago}",
+  "@serverCareCheckChecked": {
+    "description": "Under the summary of a Server check: when it ran. {ago} is 'just now', '5 minutes ago' or 'today'.",
+    "placeholders": {
+      "ago": {
+        "type": "String",
+        "example": "just now"
+      }
+    }
+  },
+  "serverCareCheckDismiss": "Dismiss",
+  "@serverCareCheckDismiss": {
+    "description": "Button that forgets a Server check that took too long."
+  },
+  "serverCareCheckFailedExitedDetail": "Hermes ended it before it finished.",
+  "@serverCareCheckFailedExitedDetail": {
+    "description": "Body of the Server check page when the check stopped and Hermes said nothing readable."
+  },
+  "serverCareCheckFailedExitedTitle": "The check stopped early",
+  "@serverCareCheckFailedExitedTitle": {
+    "description": "Title of the Server check page when the check stopped before it finished."
+  },
+  "serverCareCheckFailedStartDetail": "Hermes didn't say why.",
+  "@serverCareCheckFailedStartDetail": {
+    "description": "Body of the Server check page when the server refused to start a check without giving a reason."
+  },
+  "serverCareCheckFailedStartTitle": "The check couldn't start",
+  "@serverCareCheckFailedStartTitle": {
+    "description": "Title of the Server check page when the server refused to start a check."
+  },
+  "serverCareCheckFixesHeader": "Things to fix",
+  "@serverCareCheckFixesHeader": {
+    "description": "Header of the list of fixes Hermes suggested after a Server check."
+  },
+  "serverCareCheckFooter": "To fix what can be fixed automatically, run 'hermes doctor --fix' on the server.",
+  "@serverCareCheckFooter": {
+    "description": "Footnote under a Server check result."
+  },
+  "serverCareCheckIncompleteDetail": "Hermes ended it early. What it had read is shown below.",
+  "@serverCareCheckIncompleteDetail": {
+    "description": "Second line of the Server check summary when the check ended without finishing; what it had read follows."
+  },
+  "serverCareCheckIncompleteTitle": "The check did not finish",
+  "@serverCareCheckIncompleteTitle": {
+    "description": "Title of the Server check summary when the check ended without finishing."
+  },
+  "serverCareCheckIntroDetail": "Hermes checks its configuration, connections and storage. It changes nothing and takes up to a minute.",
+  "@serverCareCheckIntroDetail": {
+    "description": "Body of the Server check page before a run."
+  },
+  "serverCareCheckIntroTitle": "Check Hermes for problems",
+  "@serverCareCheckIntroTitle": {
+    "description": "Title of the Server check page before a run."
+  },
+  "serverCareCheckKeepWaiting": "Keep waiting",
+  "@serverCareCheckKeepWaiting": {
+    "description": "Button on a Server check that is taking long: keep reading its progress without starting another."
+  },
   "serverCareCheckNow": "Check now",
   "@serverCareCheckNow": {
     "description": "Bar button on the Update page that asks the server whether an update exists. Also its accessibility label."
+  },
+  "serverCareCheckOtherHeader": "Other output",
+  "@serverCareCheckOtherHeader": {
+    "description": "Header of the lines of a Server check the app did not recognise, shown as Hermes wrote them."
+  },
+  "serverCareCheckPageTitle": "Server check",
+  "@serverCareCheckPageTitle": {
+    "description": "Title of the Server check page."
+  },
+  "serverCareCheckPassedTitle": "{count} passed",
+  "@serverCareCheckPassedTitle": {
+    "description": "Title of the folded list of checks that passed.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "18"
+      }
+    }
+  },
+  "serverCareCheckProblemsHeader": "Problems",
+  "@serverCareCheckProblemsHeader": {
+    "description": "Header of the problems found by a Server check."
+  },
+  "serverCareCheckRowChecking": "Checking…",
+  "@serverCareCheckRowChecking": {
+    "description": "Value of the Run a check row on the Server screen while a check runs."
+  },
+  "serverCareCheckRowSubtitle": "Hermes looks for problems in its setup",
+  "@serverCareCheckRowSubtitle": {
+    "description": "Subtitle of the Run a check row on the Server screen before a run."
+  },
+  "serverCareCheckRowSubtitleResult": "{summary} · checked {ago}",
+  "@serverCareCheckRowSubtitleResult": {
+    "description": "Subtitle of the Run a check row after a run. {summary} is 'All checks passed' or '2 problems'; {ago} is 'just now' or '5 minutes ago'.",
+    "placeholders": {
+      "summary": {
+        "type": "String",
+        "example": "2 problems"
+      },
+      "ago": {
+        "type": "String",
+        "example": "5 minutes ago"
+      }
+    }
+  },
+  "serverCareCheckRun": "Run a check",
+  "@serverCareCheckRun": {
+    "description": "Title of the row on the Server screen that opens the Server check, and the headline button that runs it."
+  },
+  "serverCareCheckRunAgain": "Run again",
+  "@serverCareCheckRunAgain": {
+    "description": "Button that runs the Server check again."
+  },
+  "serverCareCheckRunButton": "Run check",
+  "@serverCareCheckRunButton": {
+    "description": "Button on the Server check page that starts a check."
+  },
+  "serverCareCheckRunning": "Checking…",
+  "@serverCareCheckRunning": {
+    "description": "Title of the Server check page while Hermes checks."
+  },
+  "serverCareCheckRunningCount": "{count, plural, =1{1 check so far} other{{count} checks so far}}",
+  "@serverCareCheckRunningCount": {
+    "description": "How many checks Hermes has reported while a Server check runs.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "14"
+      }
+    }
+  },
+  "serverCareCheckSeverityPassed": "Passed",
+  "@serverCareCheckSeverityPassed": {
+    "description": "Screen reader word for a check that passed."
+  },
+  "serverCareCheckSeverityProblem": "Problem",
+  "@serverCareCheckSeverityProblem": {
+    "description": "Screen reader word for a problem found by a Server check."
+  },
+  "serverCareCheckSeverityWarning": "Warning",
+  "@serverCareCheckSeverityWarning": {
+    "description": "Screen reader word for a warning found by a Server check."
+  },
+  "serverCareCheckSummaryProblems": "{count, plural, =1{1 problem} other{{count} problems}}",
+  "@serverCareCheckSummaryProblems": {
+    "description": "Summary of a Server check that found problems and no warnings.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "2"
+      }
+    }
+  },
+  "serverCareCheckSummaryProblemsAndWarnings": "{problems, plural, =1{1 problem} other{{problems} problems}} and {warnings, plural, =1{1 warning} other{{warnings} warnings}}",
+  "@serverCareCheckSummaryProblemsAndWarnings": {
+    "description": "Summary of a Server check that found problems and warnings.",
+    "placeholders": {
+      "problems": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "2"
+      },
+      "warnings": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "3"
+      }
+    }
+  },
+  "serverCareCheckSummaryUnreadable": "The check finished",
+  "@serverCareCheckSummaryUnreadable": {
+    "description": "Summary of a Server check whose output the app could not sort into problems and warnings."
+  },
+  "serverCareCheckSummaryUnreadableDetail": "Its output is shown below as Hermes wrote it.",
+  "@serverCareCheckSummaryUnreadableDetail": {
+    "description": "Second line of the summary when the Server check's output is shown as written."
+  },
+  "serverCareCheckSummaryWarnings": "{count, plural, =1{1 warning} other{{count} warnings}}",
+  "@serverCareCheckSummaryWarnings": {
+    "description": "Summary of a Server check that found warnings and no problems.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "3"
+      }
+    }
+  },
+  "serverCareCheckTimeoutDetail": "It may still finish.",
+  "@serverCareCheckTimeoutDetail": {
+    "description": "Body of the Server check page when the check is taking long."
+  },
+  "serverCareCheckTimeoutTitle": "The check is taking longer than expected",
+  "@serverCareCheckTimeoutTitle": {
+    "description": "Title of the Server check page when the check is taking long."
+  },
+  "serverCareCheckWarningsHeader": "Warnings",
+  "@serverCareCheckWarningsHeader": {
+    "description": "Header of the warnings found by a Server check."
   },
   "serverCareCommandCopied": "Command copied",
   "@serverCareCommandCopied": {
@@ -5446,6 +5658,14 @@
   "@toolsBannerShow": {
     "description": "Button in the installer banner that opens the tool's details."
   },
+  "toolsCheckAgain": "Check again",
+  "@toolsCheckAgain": {
+    "description": "Button next to a note that the app lost track of an install or a permission window; reads its state again."
+  },
+  "toolsChecking": "Checking…",
+  "@toolsChecking": {
+    "description": "Shown with a spinner while the app reads what the server has after an install or a permission window ended."
+  },
   "toolsChipCantUse": "Can't be used",
   "@toolsChipCantUse": {
     "description": "Status badge: a tool or backend that cannot work on this server. Keep it short."
@@ -5654,6 +5874,26 @@
   "@toolsFooterLink": {
     "description": "Link under the tools list that explains tools, skills, plugins and MCP servers."
   },
+  "toolsGrantFailed": "Couldn't open the permission window. Try again.",
+  "@toolsGrantFailed": {
+    "description": "Error when asking the server's Mac to open its permission window failed."
+  },
+  "toolsGrantFollowLost": "Couldn't follow the permission window. Check again.",
+  "@toolsGrantFollowLost": {
+    "description": "Warning when the app lost track of the permission window on the server's Mac."
+  },
+  "toolsGrantFollowRetrying": "Couldn't follow the permission window. Trying again…",
+  "@toolsGrantFollowRetrying": {
+    "description": "Warning while the app retries reading the progress of the permission window."
+  },
+  "toolsGrantHeader": "Allow access",
+  "@toolsGrantHeader": {
+    "description": "Header of the block that shows the permission window opened on the server's Mac."
+  },
+  "toolsGrantRunning": "Waiting for approval on the Mac that runs Hermes…",
+  "@toolsGrantRunning": {
+    "description": "Title while the permission window is open on the server's Mac and someone there has to approve it."
+  },
   "toolsHeaderOffNeedsSetup": "Off · needs setup",
   "@toolsHeaderOffNeedsSetup": {
     "description": "State line in a tool's detail header: the tool is off and has not been set up."
@@ -5700,6 +5940,14 @@
   "@toolsInstallFailedNothing": {
     "description": "Sentence after a failed install, introducing the installer's last lines."
   },
+  "toolsInstallFollowLost": "Couldn't follow the install. Check again.",
+  "@toolsInstallFollowLost": {
+    "description": "Warning when the app gave up reading how an install on the server is going."
+  },
+  "toolsInstallFollowRetrying": "Couldn't follow the install. Trying again…",
+  "@toolsInstallFollowRetrying": {
+    "description": "Warning while the app retries reading how an install on the server is going."
+  },
   "toolsInstallHeader": "Install on server",
   "@toolsInstallHeader": {
     "description": "Header of the section that shows an install running on the server."
@@ -5711,6 +5959,14 @@
   "toolsInstallLeave": "You can leave this screen. The install keeps going.",
   "@toolsInstallLeave": {
     "description": "Muted line while an install runs on the server."
+  },
+  "toolsInstallMayHaveStarted": "The install may have started. Checking…",
+  "@toolsInstallMayHaveStarted": {
+    "description": "Title while an install is followed after the answer to starting it was lost."
+  },
+  "toolsInstallNotStarted": "Couldn't start the install. Try again.",
+  "@toolsInstallNotStarted": {
+    "description": "Error when starting an install on the server failed and nothing is known to run."
   },
   "toolsInstallRunning": "Installing on your server…",
   "@toolsInstallRunning": {
@@ -5811,6 +6067,10 @@
   "toolsKeyUnconfirmed": "Couldn't confirm. Pull to refresh.",
   "@toolsKeyUnconfirmed": {
     "description": "Shown when the app could not find out whether a key was saved."
+  },
+  "toolsKeyUnconfirmedRetry": "Couldn't confirm.",
+  "@toolsKeyUnconfirmedRetry": {
+    "description": "Under a key field when the answer to saving was lost and reading again failed, where nothing pulls to refresh."
   },
   "toolsLabelBrowser": "Browser",
   "@toolsLabelBrowser": {
@@ -5982,6 +6242,10 @@
   "@toolsProviderNeedsSignInNote": {
     "description": "Note on a provider that needs a sign-in on the Hermes server."
   },
+  "toolsReadFailed": "Couldn't read this.",
+  "@toolsReadFailed": {
+    "description": "Shown in a section of a tool's details when reading it failed; Try again is next to it."
+  },
   "toolsReadinessAccessibility": "Accessibility",
   "@toolsReadinessAccessibility": {
     "description": "Row label in the Computer use readiness section: the macOS accessibility permission."
@@ -6017,6 +6281,10 @@
   "toolsReadinessInstalled": "Installed",
   "@toolsReadinessInstalled": {
     "description": "Value of the Driver row when the driver is installed."
+  },
+  "toolsReadinessLoading": "Checking readiness…",
+  "@toolsReadinessLoading": {
+    "description": "Shown with a spinner while the readiness of Computer use is read from the server."
   },
   "toolsReadinessNo": "No",
   "@toolsReadinessNo": {
@@ -6134,7 +6402,7 @@
   "@toolsRowUnconfirmedPull": {
     "description": "Line in a tool's row when the app could not confirm a switch; on touch screens the list is refreshed by pulling down."
   },
-  "toolsRowUnconfirmedRetry": "Couldn't confirm. Try again.",
+  "toolsRowUnconfirmedRetry": "Couldn't confirm.",
   "@toolsRowUnconfirmedRetry": {
     "description": "Line in a tool's row when the app could not confirm a switch; a Try again button follows it where there is no pull to refresh."
   },
@@ -6242,9 +6510,17 @@
   "@toolsSetupAdvancedFooter": {
     "description": "Footer of the Advanced part of Web setup, where search and extract get different providers."
   },
+  "toolsSetupAdvancedGeneric": "Advanced",
+  "@toolsSetupAdvancedGeneric": {
+    "description": "Title of the row that opens the less common options of a tool's setup."
+  },
   "toolsSetupAdvancedTitle": "Use different providers for search and extract",
   "@toolsSetupAdvancedTitle": {
     "description": "Last row of the Web Set up section; opens the choices for search and for extract."
+  },
+  "toolsSetupChange": "Change setup",
+  "@toolsSetupChange": {
+    "description": "Row in the details of a tool that is already set up; opens its providers, keys and install step. The value is the active provider."
   },
   "toolsSetupExtractHeader": "Extract",
   "@toolsSetupExtractHeader": {
@@ -6343,6 +6619,26 @@
         "example": "Discord"
       }
     }
+  },
+  "toolsWriteFailedBackend": "Couldn't change where commands run. Try again.",
+  "@toolsWriteFailedBackend": {
+    "description": "Error under the terminal backends when picking one failed."
+  },
+  "toolsWriteFailedModel": "Couldn't change the model. Try again.",
+  "@toolsWriteFailedModel": {
+    "description": "Error under the Model row when picking a model failed."
+  },
+  "toolsWriteFailedSetup": "Couldn't change the setup. Try again.",
+  "@toolsWriteFailedSetup": {
+    "description": "Error under the providers of a tool when picking one failed."
+  },
+  "toolsWriteNotApplied": "That didn't change. Try again.",
+  "@toolsWriteNotApplied": {
+    "description": "Shown when the answer to a pick was lost and reading again shows it did not land."
+  },
+  "toolsWriteSaving": "Saving…",
+  "@toolsWriteSaving": {
+    "description": "Shown with a spinner while a pick of a provider, model or backend is being saved."
   },
 
   "@@x-area-update": "",

@@ -11,11 +11,14 @@ import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
+import 'package:hermes_app/src/server_care/server_check_controller.dart';
+import 'package:hermes_app/src/server_care/server_check_page.dart';
 import 'package:hermes_app/src/server_care/server_logs_page.dart';
 import 'package:hermes_app/src/server_care/server_screen.dart';
 import 'package:hermes_app/src/server_care/update_page.dart';
 import 'package:hermes_app/src/server_care/usage_page.dart';
 import 'package:hermes_app/src/server_care/widgets/server_split_view.dart';
+import 'package:hermes_app/src/navigation/connection_pages.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_back_button.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -55,6 +58,7 @@ void main() {
   late FakeHermesServer server;
   late ServerCareController care;
   late GatewayRestart gateway;
+  late ServerCheckController check;
   late HermesUpdateRun update;
   late AppLockController lock;
   final secureCalls = <Object?>[];
@@ -116,6 +120,19 @@ void main() {
     addTearDown(gateway.dispose);
     update = HermesUpdateRun(repository: repositories.serverCare);
     addTearDown(update.dispose);
+    check = ServerCheckController(
+      repository: repositories.serverCare,
+      delay: (d) async {},
+      onUnsupported: () => care.reportUnsupported(CarePart.check),
+    );
+    addTearDown(check.dispose);
+    // As in the app: every page above the home route goes when the
+    // connection ends (navigation/connection_pages.dart).
+    final pushedRoutes = PushedRoutes();
+    if (auth != null) {
+      final closer = ConnectionPageCloser(pushedRoutes)..bind(auth);
+      addTearDown(closer.dispose);
+    }
     await tester.runAsync(lock.load);
     await tester.pumpWidget(
       MultiProvider(
@@ -124,12 +141,13 @@ void main() {
           ChangeNotifierProvider<ServerCareController>.value(value: care),
           ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
           ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
+          ChangeNotifierProvider<ServerCheckController>.value(value: check),
           ChangeNotifierProvider<AppLockController>.value(value: lock),
           if (auth != null)
             ChangeNotifierProvider<AuthController>.value(value: auth),
         ],
         child: MaterialApp(
-          navigatorObservers: [pushes],
+          navigatorObservers: [pushes, pushedRoutes],
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: platform),
@@ -450,6 +468,147 @@ void main() {
         ),
         findsNothing,
       );
+    });
+
+    group('server check', () {
+      const header = '=== doctor started 2026-11-14 09:00:00 ===';
+
+      void checkAnswers() => server
+        ..on('POST', '/api/ops/doctor', {
+          'ok': true,
+          'pid': 1,
+          'name': 'doctor',
+        })
+        ..on('GET', '/api/actions/doctor/status', {
+          'name': 'doctor',
+          'running': false,
+          'exit_code': 1,
+          'lines': [header, ...doctorProblems],
+        });
+
+      void storeUnreadable() => server.on('GET', '/api/status', {
+        ...statusHealthy(),
+        'components': {
+          'gateway': {'status': 'ok', 'state': 'running'},
+          'storage': {'status': 'error', 'reason': 'corrupt'},
+        },
+      });
+
+      int runs() => server.requestsTo('POST', '/api/ops/doctor').length;
+
+      test('the row selects the page beside the list and runs nothing', (
+        tester,
+      ) async {
+        checkAnswers();
+        await pump(tester);
+        expect(find.byType(ServerCheckPage), findsNothing);
+        final before = pushes.count;
+        await select(tester, 'Run a check');
+        expect(find.byType(ServerCheckPage), findsOneWidget);
+        expect(find.byType(UsagePage), findsNothing);
+        expect(pushes.count, before);
+        expect(runs(), 0);
+        expect(secureCalls, [true]);
+        expect(find.byType(AdaptiveBackButton), findsOneWidget);
+      });
+
+      test('switching away releases the secure window', (tester) async {
+        checkAnswers();
+        await pump(tester);
+        await select(tester, 'Run a check');
+        expect(secureCalls, [true]);
+        await select(tester, 'Logs');
+        expect(find.byType(ServerCheckPage), findsNothing);
+        // Logs holds it before Check lets go, so it never opens in between.
+        expect(secureCalls, [true]);
+        await select(tester, 'Usage');
+        expect(secureCalls, [true, false]);
+      });
+
+      test('is never the default, even when it is all the server has', (
+        tester,
+      ) async {
+        server
+          ..on('GET', '/api/analytics/usage', null, status: 404)
+          ..on('GET', '/api/hermes/update/check', null, status: 404);
+        checkAnswers();
+        await pump(tester);
+        await settle(tester);
+        expect(
+          find.text('Nothing more to show for this server.'),
+          findsOneWidget,
+        );
+        expect(find.byType(ServerCheckPage), findsNothing);
+        expect(runs(), 0);
+        expect(secureCalls, isEmpty);
+      });
+
+      test("the headline's Run a check selects it and starts a run", (
+        tester,
+      ) async {
+        checkAnswers();
+        storeUnreadable();
+        await pump(tester);
+        final before = pushes.count;
+        await tester.tap(find.widgetWithText(FilledButton, 'Run a check'));
+        await settle(tester);
+        expect(find.byType(ServerCheckPage), findsOneWidget);
+        expect(runs(), 1);
+        expect(pushes.count, before);
+        expect(find.text('Telegram token rejected (401)'), findsOneWidget);
+      });
+
+      test('a Usage page in the pane offers Run a check', (tester) async {
+        checkAnswers();
+        storeUnreadable();
+        server.on('GET', '/api/analytics/usage', null, status: 503);
+        await pump(tester);
+        await tester.tap(
+          find.descendant(
+            of: find.byType(UsagePage),
+            matching: find.widgetWithText(FilledButton, 'Run a check'),
+          ),
+        );
+        await settle(tester);
+        expect(find.byType(ServerCheckPage), findsOneWidget);
+        expect(runs(), 1);
+      });
+
+      test('a missing route empties the pane instead of popping the screen', (
+        tester,
+      ) async {
+        checkAnswers();
+        await pump(tester);
+        await select(tester, 'Run a check');
+        care.reportUnsupported(CarePart.check);
+        await settle(tester);
+        expect(find.byType(ServerCheckPage), findsNothing);
+        expect(find.byType(ServerScreen), findsOneWidget);
+        expect(find.byType(UsagePage), findsOneWidget);
+        expect(secureCalls, [true, false]);
+      });
+
+      test('hidden behind another destination it is dropped, and shown '
+          'again it does not run a second check', (tester) async {
+        checkAnswers();
+        storeUnreadable();
+        final stack = ValueNotifier<int>(0);
+        addTearDown(stack.dispose);
+        await pump(tester, stack: stack);
+        await tester.tap(find.widgetWithText(FilledButton, 'Run a check'));
+        await settle(tester);
+        expect(runs(), 1);
+        expect(secureCalls, [true]);
+        stack.value = 1;
+        await settle(tester);
+        expect(find.byType(ServerCheckPage, skipOffstage: false), findsNothing);
+        expect(secureCalls, [true, false]);
+        stack.value = 0;
+        await settle(tester);
+        expect(find.byType(ServerCheckPage), findsOneWidget);
+        expect(secureCalls, [true, false, true]);
+        expect(runs(), 1);
+      });
     });
 
     test('an iPad counts as wide from 700 points', (tester) async {

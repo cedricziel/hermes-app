@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
 import '../app_lock/app_lock_controller.dart';
+import '../auth/auth_controller.dart';
 import '../theme/app_icons.dart';
 import '../theme/breakpoints.dart';
 import '../theme/platform_chrome.dart';
@@ -12,12 +13,19 @@ import '../widgets/app_banner.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
+import 'computer_use_panel.dart';
 import 'hermes_tools_repository.dart';
+import 'terminal_backends_panel.dart';
 import 'toolset_copy.dart';
+import 'toolset_installs.dart';
+import 'toolset_setup_panel.dart';
+import 'tools_asker.dart';
 import 'tools_availability.dart';
 import 'tools_controller.dart';
 import 'tools_models.dart';
+import 'tools_panel_env.dart';
 import 'tools_row_mapping.dart';
+import 'tools_setup_registry.dart';
 import 'widgets/toolset_detail_body.dart';
 import 'widgets/toolset_row.dart';
 import 'widgets/tools_confirmation.dart';
@@ -25,16 +33,8 @@ import 'widgets/tools_difference_sheet.dart';
 import 'widgets/tools_list_footer.dart';
 import 'widgets/tools_target.dart';
 
-/// Whether there is no pull to refresh: on a desktop platform (macOS,
-/// Windows, Linux) or in a window wide enough for the details beside the
-/// list. "Couldn't confirm" then offers Try again.
-bool toolsOnDesktop(BuildContext context) =>
-    const {
-      TargetPlatform.macOS,
-      TargetPlatform.windows,
-      TargetPlatform.linux,
-    }.contains(Theme.of(context).platform) ||
-    isWideLayout(context);
+export 'tools_panel_env.dart'
+    show ToolsBotScreenLink, ToolsLinkLauncher, toolsOnDesktop;
 
 /// The width of the list when the detail sits beside it.
 const double _listPaneWidth = 420;
@@ -49,12 +49,23 @@ const double _listPaneWidth = 420;
 /// list is still read again. A switch that asks first (a risky toolset, or
 /// one that can start an installer) sends nothing until the question is
 /// answered, and App Lock engaging cancels an open question.
+///
+/// The details of a toolset hold its setup (providers, keys, install, model),
+/// and Terminal and Computer use add their own sections; see
+/// `toolset_setup_panel.dart`, `terminal_backends_panel.dart` and
+/// `computer_use_panel.dart`. Keys typed there are cleared when the screen
+/// closes, App Lock locks and the profile changes. The install step runs on the connection's
+/// [ToolsetInstalls] (provided by the shell; the screen makes its own when
+/// there is none) and survives leaving the screen.
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({
     super.key,
     required this.repository,
     this.availability,
     this.onProfileGone,
+    this.installs,
+    this.botScreen,
+    this.launchLink = launchToolsLink,
   });
 
   final HermesToolsRepository repository;
@@ -65,6 +76,17 @@ class ToolsScreen extends StatefulWidget {
   /// Called once when the server says the profile no longer exists, so the
   /// caller reads the profile list again.
   final VoidCallback? onProfileGone;
+
+  /// The connection's install follower; null reads it from the provider, and
+  /// when there is none the screen makes its own.
+  final ToolsetInstalls? installs;
+
+  /// The profile's Bot Screen, for "Open the bot's screen" in the Computer
+  /// use details. Null where the caller has none: the row is then absent.
+  final ToolsBotScreenLink? botScreen;
+
+  /// Opens a "Get a key" page in the system browser.
+  final ToolsLinkLauncher launchLink;
 
   @override
   State<ToolsScreen> createState() => _ToolsScreenState();
@@ -81,6 +103,15 @@ class _ToolsScreenState extends State<ToolsScreen> {
   Route<dynamic>? _questionRoute;
   NavigatorState? _questionNavigator;
   var _goneReported = false;
+  late ToolsetInstalls _installs;
+  var _ownsInstalls = false;
+  late ToolsAsker _asker;
+  final _panelRefresh = ToolsRefresh();
+  late final ToolsSetupRegistry _registry;
+  final _pages = <Route<void>>[];
+  AuthController? _auth;
+  int? _authGeneration;
+  String? _followedInstall;
 
   @override
   void initState() {
@@ -88,6 +119,24 @@ class _ToolsScreenState extends State<ToolsScreen> {
     _controller = _newController();
     unawaited(_controller.load());
     _lock = _maybeRead<AppLockController>()?..addListener(_onLock);
+    _watchAuth();
+    final provided = widget.installs ?? _maybeRead<ToolsetInstalls>();
+    _ownsInstalls = provided == null;
+    _installs =
+        provided ??
+        ToolsetInstalls(
+          requestReread: (_) => unawaited(_controller.load()),
+          telemetry: widget.repository.telemetry,
+        );
+    _asker = ToolsAsker(context: () => context, lock: _lock);
+    _registry = ToolsSetupRegistry(
+      repository: widget.repository,
+      confirmLocal: () => _asker.ask(toolsetLocalBackendQuestion(context.l10n)),
+      confirmGrant: () => _asker.ask(toolsetAllowAccessQuestion(context.l10n)),
+      onWritten: () => unawaited(_controller.load()),
+      onBusyChanged: (name, {required busy}) =>
+          _controller.setSetupBusy(name, busy: busy),
+    );
   }
 
   ToolsController _newController() => ToolsController(
@@ -115,18 +164,54 @@ class _ToolsScreenState extends State<ToolsScreen> {
       _goneReported = false;
       // Cancel first, so the question for the old profile goes with it.
       _controller.cancel();
-      _controller.switchProfile(widget.repository);
-      unawaited(_controller.load());
+      // A setup question and the details pages for the old profile go with it.
+      _asker.cancel();
+      _closePages();
+      // Building now: the listeners (the details page above this screen
+      // included) are told, and the list read, after the frame.
+      _controller.switchProfile(widget.repository, notify: false);
+      _followedInstall = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // The setup controllers notify their panels, so not while building.
+        _registry.switchProfile(widget.repository);
+        _controller.announce();
+        unawaited(_controller.load());
+      });
+    }
+  }
+
+  /// Signing out or moving to another server drops every typed key of the
+  /// open details. Closing the screen is not this screen's job.
+  void _watchAuth() {
+    final auth = _maybeRead<AuthController>();
+    if (auth == null) return;
+    _auth = auth;
+    _authGeneration = auth.ownerGeneration;
+    auth.addListener(_onAuth);
+  }
+
+  void _onAuth() {
+    final auth = _auth;
+    if (auth == null) return;
+    if (auth.state != HermesConnectionState.ready ||
+        auth.ownerGeneration != _authGeneration) {
+      _panelRefresh.clearAll();
+      _registry.clearKeys();
     }
   }
 
   @override
   void dispose() {
+    _auth?.removeListener(_onAuth);
     _lock?.removeListener(_onLock);
     _takeQuestionDown();
+    _asker.dispose();
+    _registry.dispose();
     _controller
       ..removeListener(_onChanged)
       ..dispose();
+    if (_ownsInstalls) _installs.dispose();
     super.dispose();
   }
 
@@ -154,6 +239,30 @@ class _ToolsScreenState extends State<ToolsScreen> {
     if (_controller.loadState == ToolsLoadState.profileGone && !_goneReported) {
       _goneReported = true;
       widget.onProfileGone?.call();
+    }
+    _followSwitchStarted();
+  }
+
+  /// An installer Hermes started because a switch turned a toolset on is
+  /// followed from the moment the answer arrives, whether or not the user
+  /// taps Show.
+  void _followSwitchStarted() {
+    final key = _controller.postSetupStarted;
+    if (key == null) {
+      _followedInstall = null;
+      return;
+    }
+    final toolset = _controller.postSetupToolset;
+    final id = '$toolset/$key';
+    if (_followedInstall == id) return;
+    // Only remembered when the follow started: while another install runs it
+    // did not, and a later change may try again.
+    if (_installs.followSwitchStarted(
+      widget.repository,
+      key,
+      toolset: toolset,
+    )) {
+      _followedInstall = id;
     }
   }
 
@@ -214,18 +323,50 @@ class _ToolsScreenState extends State<ToolsScreen> {
       setState(() => _selected = toolset.name);
       return;
     }
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => _ToolsetPage(
-            controller: _controller,
-            name: toolset.name,
-            onSwitch: _switch,
-          ),
-        ),
+    // The page keeps the profile it was opened for, so it goes when the
+    // profile changes; a page for another profile would show (and keep typed
+    // keys of) the old one.
+    final route = MaterialPageRoute<void>(
+      builder: (_) => _ToolsetPage(
+        controller: _controller,
+        name: toolset.name,
+        onSwitch: _switch,
+        env: _env(),
       ),
     );
+    _pages.add(route);
+    unawaited(
+      Navigator.of(context)
+          .push(route)
+          .whenComplete(() => _pages.remove(route)),
+    );
   }
+
+  /// Closes the details pages that are open, after the frame.
+  void _closePages() {
+    final routes = [..._pages];
+    _pages.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final route in routes) {
+        if (route.isActive && route.navigator != null) {
+          route.navigator!.removeRoute(route);
+        }
+      }
+    });
+  }
+
+  /// What the details' panels share, for the profile the screen shows now.
+  ToolsPanelEnv _env() => ToolsPanelEnv(
+    repository: widget.repository,
+    installs: _installs,
+    ask: _asker.ask,
+    launchLink: widget.launchLink,
+    refresh: _panelRefresh,
+    botScreen: widget.botScreen,
+    lock: _lock,
+    registry: _registry,
+    onWritten: () => unawaited(_controller.load()),
+  );
 
   /// "Show" on the installer banner: the details of the toolset whose switch
   /// started it.
@@ -345,6 +486,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 controller: _controller,
                 name: selected.name,
                 onSwitch: _switch,
+                env: _env(),
               ),
             ),
           ],
@@ -431,6 +573,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
               _controller.rowState(toolset.name),
               selected: toolset.name == selected,
               desktop: desktop,
+              locked: _controller.switchLocked(toolset.name),
             ),
             onOpen: () => _open(toolset),
             onChanged: (on) => _switch(toolset.name, on),
@@ -458,54 +601,84 @@ class _ToolsScreenState extends State<ToolsScreen> {
 }
 
 /// A toolset's details, rebuilt with the controller.
-class _ToolsetDetail extends StatelessWidget {
+class _ToolsetDetail extends StatefulWidget {
   const _ToolsetDetail({
     super.key,
     required this.controller,
     required this.name,
     required this.onSwitch,
+    required this.env,
     this.showNote = false,
   });
 
   final ToolsController controller;
   final String name;
   final void Function(String name, bool on) onSwitch;
+  final ToolsPanelEnv env;
 
   /// Whether the details carry the "Applies from your next chat" note; beside
   /// the list it already shows it.
   final bool showNote;
 
   @override
+  State<_ToolsetDetail> createState() => _ToolsetDetailState();
+}
+
+class _ToolsetDetailState extends State<_ToolsetDetail> {
+  Future<void> _refresh() =>
+      Future.wait([widget.controller.load(), widget.env.refresh.run()]);
+
+  @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: controller,
+    listenable: widget.controller,
     builder: (context, _) {
+      final controller = widget.controller;
+      final name = widget.name;
       final toolset = controller.toolsets
           .where((t) => t.name == name)
           .firstOrNull;
       if (toolset == null) return const SizedBox.shrink();
       final l10n = context.l10n;
       final desktop = toolsOnDesktop(context);
+      final mac = platformChromeOf(context) == PlatformChrome.macos;
       final started = controller.postSetupStarted != null;
-      return ToolsetDetailBody(
+      final env = widget.env.withLocked(
+        busy: controller.switchLocked(name) || controller.rowState(name).busy,
+      );
+      final body = ToolsetDetailBody(
+        physics: mac ? null : const AlwaysScrollableScrollPhysics(),
         view: toolsetDetailView(
           l10n,
           toolset,
           controller.rowState(name),
           desktop: desktop,
+          locked: controller.switchLocked(name),
         ),
-        onChanged: (on) => onSwitch(name, on),
+        onChanged: (on) => widget.onSwitch(name, on),
         onTryAgain: controller.load,
-        note: showNote && controller.changedSinceOpen && !started
+        note: widget.showNote && controller.changedToolset(name) && !started
             ? AppBanner(
                 tone: AppBannerTone.success,
                 title: l10n.toolsAppliedTitle,
                 detail: l10n.toolsAppliedDetail,
               )
             : null,
-        // The setup sections (providers, keys, install, model, terminal and
-        // Computer use) are added here.
-        setup: const [],
+        setup: [
+          ToolsetSetupPanel(
+            key: ValueKey('setup-$name'),
+            toolset: toolset,
+            env: env,
+          ),
+          if (name == 'terminal')
+            TerminalBackendsPanel(
+              key: const Key('terminal-backends'),
+              env: env,
+            ),
+          if (name == 'computer_use')
+            ComputerUsePanel(key: const Key('computer-use'), env: env),
+        ],
       );
+      return mac ? body : RefreshIndicator(onRefresh: _refresh, child: body);
     },
   );
 }
@@ -517,11 +690,13 @@ class _ToolsetPage extends StatelessWidget {
     required this.controller,
     required this.name,
     required this.onSwitch,
+    required this.env,
   });
 
   final ToolsController controller;
   final String name;
   final void Function(String name, bool on) onSwitch;
+  final ToolsPanelEnv env;
 
   @override
   Widget build(BuildContext context) {
@@ -545,6 +720,7 @@ class _ToolsetPage extends StatelessWidget {
             controller: controller,
             name: name,
             onSwitch: onSwitch,
+            env: env,
             showNote: true,
           ),
         );

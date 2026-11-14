@@ -3,9 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profiles_view.dart';
+import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/tools/tools_availability.dart';
 import 'package:hermes_app/src/tools/tools_screen.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -14,6 +17,26 @@ import '../support/fake_hermes_server.dart';
 import '../support/protected_catalog_auth.dart';
 import '../support/pump_chat.dart' show openSidebarMore;
 import 'tools_screen_fixtures.dart';
+
+/// A connection the test can sign out of or move to another server.
+class _MovableAuth extends ProtectedCatalogAuth {
+  _MovableAuth(super.server);
+
+  var signedIn = true;
+  var generation = 0;
+
+  @override
+  HermesConnectionState get state =>
+      signedIn ? HermesConnectionState.ready : HermesConnectionState.needsLogin;
+
+  @override
+  bool get protectedRequestsAllowed => signedIn;
+
+  @override
+  int get ownerGeneration => generation;
+
+  void change() => notifyListeners();
+}
 
 /// Where Tools is offered: the chat sidebar and the phone drawer after MCP
 /// servers and before Helper models, and the Mac Profiles page; nowhere on a
@@ -285,6 +308,82 @@ void main() {
       expect(find.byKey(const ValueKey('profile-section-tools')), findsNothing);
       expect(tester.takeException(), isNull);
     });
+  });
+
+  group('a sign-out and a server change', () {
+    late _MovableAuth auth;
+
+    Future<void> pump(WidgetTester tester, {TargetPlatform? platform}) async {
+      tester.view
+        ..physicalSize = const Size(1200, 800)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      auth = _MovableAuth(server);
+      addTearDown(auth.dispose);
+      await tester.pumpWidget(
+        withAppProviders(
+          auth,
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(
+              platform: platform ?? TargetPlatform.android,
+            ),
+            home: const AppShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    ToolsAvailability availability(WidgetTester tester) =>
+        tester.element(find.byType(ThreadSidebar)).read<ToolsAvailability>();
+
+    for (final (label, leave) in <(String, void Function(_MovableAuth))>[
+      ('sign-out', (a) => a.signedIn = false),
+      ('server change', (a) => a.generation++),
+    ]) {
+      testWidgets('$label clears the Tools availability and the entry', (
+        tester,
+      ) async {
+        await pump(tester);
+        await openSidebarMore(tester);
+        expect(find.text('Tools'), findsOneWidget);
+        final tools = availability(tester);
+        expect(tools.offered, isTrue);
+        expect(tools.rowsFor('default'), isNotEmpty);
+
+        leave(auth);
+        auth.change();
+        await tester.pumpAndSettle();
+
+        expect(tools.offered, isFalse);
+        expect(tools.rowsFor('default'), isEmpty);
+        expect(find.text('Tools'), findsNothing);
+      });
+
+      testWidgets('$label clears the Mac Profiles count', (tester) async {
+        await pump(tester, platform: TargetPlatform.macOS);
+        await tester.tap(
+          find.descendant(
+            of: find.byType(ThreadSidebar),
+            matching: find.text('Profiles'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('3 of 6 on'), findsOneWidget);
+
+        leave(auth);
+        auth.change();
+        await tester.pumpAndSettle();
+
+        expect(find.text('3 of 6 on'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('profile-section-tools')),
+          findsNothing,
+        );
+      });
+    }
   });
 
   test(
