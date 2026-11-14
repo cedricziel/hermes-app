@@ -172,6 +172,7 @@ extension _ChatScreenCalls on _ChatScreenState {
                       ),
               );
               _voiceCall = created;
+              _maybeRead<ActiveCallRegistry>()?.attach(created);
               breadcrumbs('voice_call.ready', {
                 'device_speech': readiness.useDeviceSpeech,
               });

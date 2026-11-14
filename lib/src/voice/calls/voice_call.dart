@@ -171,6 +171,7 @@ class VoiceCall extends ChangeNotifier {
       return;
     }
     var step = 'prepare';
+    var opened = false;
     try {
       await prepare().timeout(const Duration(seconds: 20));
       if (!_current(epoch)) return;
@@ -196,6 +197,7 @@ class VoiceCall extends ChangeNotifier {
       _nativeStarted = true;
       step = 'native_start';
       await bridge.start(const Uuid().v4(), 'Hermes');
+      opened = true;
     } on CallPreparationException catch (failure) {
       if (_current(epoch)) await _end('prepare', failure.message);
     } on PlatformException catch (error) {
@@ -219,7 +221,7 @@ class VoiceCall extends ChangeNotifier {
     } finally {
       // A start that resolves after the call ended may have opened capture
       // behind the teardown's back.
-      if (_nativeStarted && !_current(epoch)) unawaited(_closeLate());
+      if (opened && !_current(epoch)) unawaited(_closeLate());
     }
   }
 

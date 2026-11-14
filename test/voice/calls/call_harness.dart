@@ -151,9 +151,11 @@ class CallHarness {
       logged.singleWhere((e) => e.$1 == 'voice_call.ended').$2;
 
   Future<void> dispose() async {
-    await call.end();
+    // A widget test may have ended the call in its fake time; a future made
+    // there never completes once the test is over, so it is not awaited.
+    if (!call.ended) await call.end();
     call.dispose();
-    await bridge.controller.close();
+    unawaited(bridge.controller.close());
   }
 }
 
