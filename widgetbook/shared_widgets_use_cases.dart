@@ -55,7 +55,7 @@ WidgetbookNode sharedWidgetsNode() => WidgetbookFolder(
               children: [
                 GroupedSection(
                   footer: context.l10n.toolsFooterBody,
-                  children: [GroupedRow(title: context.l10n.toolsEmptyTitle)],
+                  children: [const GroupedRow(title: 'Sample row')],
                 ),
                 WhatsTheDifferenceFooter(onTap: () {}),
               ],

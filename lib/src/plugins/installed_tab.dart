@@ -8,9 +8,9 @@ import 'widgets/plugin_row.dart';
 import 'plugins_controller.dart';
 import 'sheet_host.dart';
 import '../theme/platform_chrome.dart';
+import '../tools/widgets/tools_difference_sheet.dart';
 import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
-import '../tools/widgets/tools_difference_sheet.dart';
 import '../widgets/row_actions.dart';
 import '../widgets/whats_the_difference_link.dart';
 

@@ -28,6 +28,8 @@ grep -c '' "$H/.env"; cut -d= -f1 "$H/.env"   # key names only; never print valu
    unchanged; Cancel sends nothing. Choose "Switch on", then check the row says
    "Applies from your next chat" and `config.yaml` now lists the toolset. Switch
    it off again: no question.
+Requires the setup sections (PR #1053); on an older checkout stop after step 2.
+
 3. **Provider and key.** Open a toolset that needs a key and pick a provider.
    Type an invented key (for example `fc-test-0000000000`); never a real one.
    The field hides it until the eye is tapped, and it hides again after the

@@ -121,4 +121,31 @@ void main() {
     );
     await expectLinkOpensTheSheet(t);
   });
+
+  testWidgets('Plugins without plugins have no link', (t) async {
+    server.on('GET', '/api/dashboard/plugins/hub', hubBody([]));
+    await pumpScreen(
+      t,
+      PluginsScreen(
+        repository: HermesPluginManagerRepository(server.client().raw),
+      ),
+    );
+    expect(find.text('No plugins installed'), findsOneWidget);
+    expect(find.text("What's the difference?"), findsNothing);
+  });
+
+  testWidgets('MCP servers without servers have no link', (t) async {
+    server
+      ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+      ..on('GET', '/api/mcp/servers', mcpServerListBody([]));
+    await pumpScreen(
+      t,
+      McpServersScreen(
+        repository: HermesMcpRepository(server.client().raw),
+        profiles: HermesProfilesRepository(server.client().raw),
+      ),
+    );
+    expect(find.text('No MCP servers on "work"'), findsOneWidget);
+    expect(find.text("What's the difference?"), findsNothing);
+  });
 }

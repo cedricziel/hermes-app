@@ -21,19 +21,23 @@ class WhatsTheDifferenceLink extends StatelessWidget {
       PlatformChrome.material => 48.0,
       PlatformChrome.macos => 28.0,
     };
-    return Semantics(
-      link: true,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: target),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              context.l10n.toolsFooterLink,
-              style: TextStyle(
-                fontSize: metrics.footerSize,
-                color: context.hermesColors.link,
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Semantics(
+        link: true,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: target),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              widthFactor: 1,
+              child: Text(
+                context.l10n.toolsFooterLink,
+                style: TextStyle(
+                  fontSize: metrics.footerSize,
+                  color: context.hermesColors.link,
+                ),
               ),
             ),
           ),
