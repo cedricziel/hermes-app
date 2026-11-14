@@ -4,7 +4,7 @@
 
 ### Requirement: Needs-you items dock above the composer
 
-The app SHALL show Needs-you items as a single card docked directly above the composer of the open chat, inside the chat column, in the main chat window in every layout, in macOS conversation windows and in the quick panel. The card SHALL move with the composer and SHALL be counted in the transcript's bottom padding. Needs-you items SHALL NOT also be drawn between the chat header and the transcript.
+The app SHALL show Needs-you items as a single card docked directly above the composer of the open chat, inside the chat column, in the main chat window in every layout, in macOS conversation windows and in the expanded quick panel (the compact one-line panel shows none and the item waits until it is expanded). The card SHALL move with the composer and SHALL be counted in the transcript's bottom padding. Needs-you items SHALL NOT also be drawn between the chat header and the transcript.
 
 #### Scenario: A reclaimed session in the quick panel
 
@@ -36,7 +36,7 @@ When more than one item waits, the card SHALL show the oldest first, with its po
 
 ### Requirement: Each Needs-you item offers its own actions
 
-The card SHALL offer Copy code and Open verification page for billing details; the browser, Skip and Continue actions a connector operation offers under its capability rules, with its deadline; Reopen for a reclaimed session and for one whose restore failed. An item SHALL leave the card when it is resolved, settles, expires, or its owning scope retires. No action of the card SHALL be a filled destructive button.
+The card SHALL offer Copy code and Open verification page for billing details; the browser, Skip and Continue actions a connector operation offers under its capability rules, with its deadline; Reopen for a reclaimed session and for one whose restore failed. Skip SHALL be per target: one Skip in the action row when exactly one target can be skipped, otherwise one under each skippable target. An item SHALL leave the card when it is resolved, settles, expires, or its owning scope retires. No action of the card SHALL be a filled destructive button.
 
 #### Scenario: A connector sign-in expires
 
@@ -75,7 +75,7 @@ While the gateway connection is lost and its scope is not retired, a connector s
 
 ### Requirement: Billing details follow the connection, Reopen reconnects
 
-Billing verification details SHALL leave the card when the connection is lost. Reopen SHALL stay available while the connection is lost, because selecting the chat reconnects it. Every item SHALL leave for the retirements its capability defines.
+Billing verification details SHALL leave the card when the connection is lost. Reopen SHALL stay enabled while the connection is lost, and a reclaimed or failed-restore card SHALL NOT show the Offline line, because selecting the chat reconnects it. Every item SHALL leave for the retirements its capability defines.
 
 #### Scenario: The network drops with billing details shown
 
@@ -84,7 +84,12 @@ Billing verification details SHALL leave the card when the connection is lost. R
 
 ### Requirement: Needs-you items are announced
 
-When an item reaches the card, the app SHALL announce it to assistive technology by its kind (for example "Billing access needs approval"), without reading a verification code, URL, target name or server-supplied reason, once per item. The card's actions SHALL be reachable by keyboard and screen reader in the order they are drawn.
+When an item becomes the one the card shows, the app SHALL announce it to assistive technology by its kind (for example "Billing access needs approval"), without reading a verification code, URL, target name or server-supplied reason, once per item. Items waiting behind the shown one, items a chat already held when it opened, and any item while the dock is not drawn (the compact quick panel) SHALL NOT be announced. The card's actions SHALL be reachable by keyboard and screen reader in the order they are drawn.
+
+#### Scenario: A second item waits behind the first
+
+- **WHEN** a billing verification arrives while a connector sign-in is the shown item
+- **THEN** only the connector sign-in has been announced and the billing item is announced when it becomes the shown one
 
 #### Scenario: A screen-reader user gets a billing verification
 
