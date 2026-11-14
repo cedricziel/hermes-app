@@ -101,8 +101,8 @@ class FileSizeSheet extends StatelessWidget {
 
 /// The secret question, asked before preview, Save, Share and Open with…:
 /// the file's name as the title, "This file may contain passwords or keys.
-/// Continue anyway?", Cancel (the default, so Return stops) and Continue. On
-/// Android two text buttons, Cancel first. Answers true only for Continue.
+/// Continue anyway?", Cancel (the emphasised default on Apple platforms) and
+/// Continue. On Android two text buttons, Cancel first. Answers true only for Continue.
 Future<bool> askOpenSecretFile(BuildContext context, String name) {
   final l10n = context.l10n;
   return showConfirmDialog(
@@ -112,20 +112,21 @@ Future<bool> askOpenSecretFile(BuildContext context, String name) {
     confirmLabel: l10n.filesActionContinue,
     cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,
     cancelIsDefault: true,
-    filled: false,
   );
 }
 
-/// "Open example.com?" with Cancel and Open, before a Markdown link opens.
-Future<bool> confirmOpenLink(BuildContext context, String host) {
+/// "Open example.com?" with Cancel and Open, before a Markdown link opens;
+/// "Write to me@example.org?" for a mail address ([target] has an `@`).
+Future<bool> confirmOpenLink(BuildContext context, String target) {
   final l10n = context.l10n;
   return showConfirmDialog(
     context,
-    title: l10n.filesOpenLinkTitle(host),
+    title: target.contains('@')
+        ? l10n.filesOpenMailTitle(target)
+        : l10n.filesOpenLinkTitle(target),
     confirmLabel: l10n.filesActionOpen,
     cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,
     cancelIsDefault: true,
-    filled: false,
   );
 }
 

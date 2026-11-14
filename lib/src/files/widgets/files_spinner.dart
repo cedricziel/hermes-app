@@ -10,11 +10,19 @@ class FilesSpinner extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: size,
-    child: CircularProgressIndicator(
-      strokeWidth: size > 24 ? 3 : 2,
-      value: reduceMotionOf(context) ? 0.7 : null,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final still = reduceMotionOf(context);
+    // A drawn arc of a fixed length would be read out as "70 percent"; the
+    // words next to the spinner say what is going on.
+    return ExcludeSemantics(
+      excluding: still,
+      child: SizedBox.square(
+        dimension: size,
+        child: CircularProgressIndicator(
+          strokeWidth: size > 24 ? 3 : 2,
+          value: still ? 0.7 : null,
+        ),
+      ),
+    );
+  }
 }

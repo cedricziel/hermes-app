@@ -115,7 +115,7 @@ class _FilePathBarState extends State<FilePathBar> {
           ExcludeSemantics(
             child: AppIcon(
               AppIcons.chevronRight,
-              size: 16,
+              size: MediaQuery.textScalerOf(context).scale(16),
               color: colors.subtleText,
             ),
           ),
@@ -305,6 +305,8 @@ class _CurrentSegment extends StatelessWidget {
 
   final String label;
   final String path;
+
+  /// The least height; the segment grows with the text.
   final double height;
   final double fontSize;
 
@@ -316,7 +318,7 @@ class _CurrentSegment extends StatelessWidget {
       label: context.l10n.filesPathCurrentLabel(path),
       excludeSemantics: true,
       child: Container(
-        height: height,
+        constraints: BoxConstraints(minHeight: height),
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Text(

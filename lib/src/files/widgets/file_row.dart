@@ -135,22 +135,28 @@ class _FileRowState extends State<FileRow> {
           else
             name,
           if (secret)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (large)
-                  Padding(
-                    padding: EdgeInsetsDirectional.only(
-                      end: 4,
-                      top: (grouped.subtitleSize * 0.25).clamp(0, 6),
+            large
+                // The lock is part of the text line, level with it.
+                ? Text.rich(
+                    TextSpan(
+                      children: [
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.only(end: 4),
+                            child: AppIcon(
+                              AppIcons.lock,
+                              size: lockSize,
+                              color: muted,
+                            ),
+                          ),
+                        ),
+                        TextSpan(text: l10n.filesRowSecretHint),
+                      ],
                     ),
-                    child: AppIcon(AppIcons.lock, size: lockSize, color: muted),
-                  ),
-                Flexible(
-                  child: Text(l10n.filesRowSecretHint, style: hintStyle),
-                ),
-              ],
-            ),
+                    style: hintStyle,
+                  )
+                : Text(l10n.filesRowSecretHint, style: hintStyle),
         ],
       ),
     );

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/state_message.dart';
-import '../files_failure.dart';
 import 'files_metrics.dart';
 
 /// Why a folder shows no list. Each has its words, an icon and at most one
@@ -52,30 +51,6 @@ enum FileProblem {
   /// A download that ended early.
   incomplete,
 }
-
-/// The problem a folder failure shows. [lockedDeployment] says a 403 is the
-/// boundary of a server shared from one folder.
-FolderProblem folderProblemFor(
-  FilesFailure kind, {
-  bool lockedDeployment = false,
-}) => switch (kind) {
-  FilesFailure.missing => FolderProblem.gone,
-  FilesFailure.notAllowed =>
-    lockedDeployment ? FolderProblem.fixedFolder : FolderProblem.noPermission,
-  FilesFailure.workspaceDown => FolderProblem.workspaceDown,
-  FilesFailure.outside => FolderProblem.outside,
-  FilesFailure.badRequest => FolderProblem.notAccepted,
-  _ => FolderProblem.unreachable,
-};
-
-/// The problem a file failure shows.
-FileProblem fileProblemFor(FilesFailure kind) => switch (kind) {
-  FilesFailure.notAllowed => FileProblem.notShared,
-  FilesFailure.missing => FileProblem.gone,
-  FilesFailure.busy => FileProblem.busy,
-  FilesFailure.notAFile => FileProblem.notAFile,
-  _ => FileProblem.couldntOpen,
-};
 
 Widget _action(BuildContext context, String label, VoidCallback? onPressed) =>
     OutlinedButton(
@@ -149,12 +124,12 @@ class FolderProblemView extends StatelessWidget {
       FolderProblem.fixedFolder => (
         AppIcons.shield,
         l10n.filesProblemFixedFolder,
-        null,
+        l10n.filesProblemFixedFolderDetail,
       ),
       FolderProblem.workspaceDown => (
         AppIcons.server,
         l10n.filesProblemWorkspaceDown,
-        null,
+        l10n.filesProblemWorkspaceDownDetail,
       ),
       FolderProblem.outside => (
         AppIcons.blocked,

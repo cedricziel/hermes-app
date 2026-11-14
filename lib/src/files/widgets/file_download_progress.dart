@@ -6,6 +6,24 @@ import 'file_size.dart';
 import 'files_metrics.dart';
 import 'files_spinner.dart';
 
+/// What a screen reader is told of a download of [total] bytes of which
+/// [received] arrived: the figure rounded down to a tenth of the whole, so the
+/// live region speaks about ten times in a download, not on every chunk.
+int announcedProgressBytes(int received, int total) {
+  if (total <= 0) return 0;
+  final tenths = (received.clamp(0, total) * 10 ~/ total);
+  return total * tenths ~/ 10;
+}
+
+/// The same for a download of unknown length: whole megabytes up to 10 MB,
+/// then steps of 10 MB.
+int announcedReceivedBytes(int received) {
+  const mb = 1024 * 1024;
+  if (received < mb) return 0;
+  final step = received < 10 * mb ? mb : 10 * mb;
+  return received ~/ step * step;
+}
+
 /// A download under way. With a length it is a [BusyBar] with a value and
 /// "Downloading… 14 of 30 MB"; without one a spinner and "Downloaded 12 MB".
 /// Both end in a text Cancel. The status is a live region, so a screen reader
@@ -33,6 +51,17 @@ class FileDownloadProgress extends StatelessWidget {
     final label = known
         ? formatDownloadProgress(l10n, received, total)
         : l10n.filesDownloadDownloaded(formatByteSize(l10n, received));
+    // The line changes with every chunk; a screen reader gets it only when
+    // the figure moves a coarse step, so it is not read out all the time.
+    final announced = known
+        ? formatDownloadProgress(
+            l10n,
+            announcedProgressBytes(received, total),
+            total,
+          )
+        : l10n.filesDownloadDownloaded(
+            formatByteSize(l10n, announcedReceivedBytes(received)),
+          );
     final cancel = TextButton(
       onPressed: onCancel,
       style: files.buttonStyle(),
@@ -41,7 +70,7 @@ class FileDownloadProgress extends StatelessWidget {
     final text = Semantics(
       container: true,
       liveRegion: true,
-      label: label,
+      label: announced,
       excludeSemantics: true,
       child: Text(label, textAlign: TextAlign.center),
     );
@@ -54,7 +83,13 @@ class FileDownloadProgress extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (known)
-                BusyBar(value: (received / total).clamp(0.0, 1.0), minHeight: 6)
+                BusyBar(
+                  value: (received / total).clamp(0.0, 1.0),
+                  minHeight: 6,
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest,
+                )
               else
                 const FilesSpinner(size: 28),
               const SizedBox(height: 12),

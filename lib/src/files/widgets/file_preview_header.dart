@@ -29,8 +29,8 @@ enum FilePreviewMenuChoice { openWith, reload }
 /// buttons). The … menu holds Open with… and Reload.
 ///
 /// On the Mac the tile is the drag-out handle: pass [wrapTile] to put the
-/// screen's `DragOut` around it. At a large text size the actions drop under
-/// the name and nothing is cut off.
+/// screen's `DragOut` around it. At a large text size the header stacks: the
+/// tile, then the name and its type, then the actions.
 class FilePreviewHeader extends StatelessWidget {
   const FilePreviewHeader({
     super.key,
@@ -170,7 +170,7 @@ class FilePreviewHeader extends StatelessWidget {
         tile,
         SizedBox(width: mac ? 10 : 12),
         Expanded(child: text),
-        if (!large) ...actions,
+        ...actions,
       ],
     );
     return DecoratedBox(
@@ -184,10 +184,15 @@ class FilePreviewHeader extends StatelessWidget {
           vertical: mac ? 8 : 10,
         ),
         child: large
+            // Stacked: the tile, then the name with its type and size, then
+            // the actions, each with the whole width.
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  head,
+                  tile,
+                  const SizedBox(height: 8),
+                  text,
+                  const SizedBox(height: 4),
                   Row(children: actions),
                 ],
               )

@@ -171,8 +171,9 @@ class AppDialogTextField extends StatelessWidget {
 /// On Material, [filled] picks a filled over a plain confirm button.
 ///
 /// With [cancelIsDefault] Cancel is the default action on Apple platforms
-/// (bold, answered by Return) and the confirm button is not, for a question
-/// whose safe answer is to stop. Material then shows two text buttons.
+/// (drawn bold) and the confirm button is not, for a question whose safe
+/// answer is to stop; Material then shows two text buttons. This only picks
+/// what is emphasised: nothing here binds the Return key to it.
 Future<bool> showConfirmDialog(
   BuildContext context, {
   required String title,

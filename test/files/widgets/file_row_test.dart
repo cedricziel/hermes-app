@@ -210,11 +210,15 @@ void main() {
         );
 
         final name = tester.getTopLeft(find.text('api_token.txt'));
-        final hint = tester.getTopLeft(find.text('May contain secrets'));
-        final lock = tester.getTopLeft(find.byIcon(AppIcons.lock.apple));
-        expect(hint.dy, greaterThan(name.dy));
-        expect(lock.dy, greaterThanOrEqualTo(hint.dy - 12));
-        expect(lock.dx, lessThan(hint.dx));
+        final hint = tester.getRect(
+          find.textContaining('May contain secrets', findRichText: true),
+        );
+        final lock = tester.getRect(find.byIcon(AppIcons.lock.apple));
+        expect(hint.top, greaterThan(name.dy));
+        // The lock is level with the line it begins.
+        expect(lock.center.dy, greaterThan(hint.top));
+        expect(lock.center.dy, lessThan(hint.bottom));
+        expect(lock.left, lessThanOrEqualTo(hint.left + 1));
         expect(tester.takeException(), isNull);
       },
     );

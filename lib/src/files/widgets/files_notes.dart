@@ -77,9 +77,10 @@ class FilesTruncatedNote extends StatelessWidget {
 /// A refresh that failed after a listing: the list stays under this warning,
 /// so files already downloaded still open.
 class FilesOfflineBanner extends StatelessWidget {
-  const FilesOfflineBanner({super.key, required this.onRetry});
+  const FilesOfflineBanner({super.key, this.onRetry});
 
-  final VoidCallback onRetry;
+  /// Without it the banner still says the list may be out of date.
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +89,9 @@ class FilesOfflineBanner extends StatelessWidget {
       tone: AppBannerTone.warning,
       title: l10n.filesProblemUnreachable,
       detail: l10n.filesOfflineDetail,
-      action: _noteAction(context, l10n.filesActionTryAgain, onRetry),
+      action: onRetry == null
+          ? null
+          : _noteAction(context, l10n.filesActionTryAgain, onRetry!),
     );
   }
 }

@@ -469,7 +469,7 @@ WidgetbookComponent _fileRowComponent() => WidgetbookComponent(
       'Two-line name, elided in the middle',
       (_) => _rowSection(
         _row(
-          'quarterly-soil-moisture-survey-results-final-reviewed-2026-v3.pdf',
+          'quarterly-soil-moisture-survey-results-final-reviewed-by-the-north-district-team-and-signed-off-2026-v3-with-appendix-b.pdf',
         ),
       ),
     ),
@@ -1205,7 +1205,8 @@ WidgetbookUseCase _ask(
   name: name,
   builder: (_) {
     final page = openOnShow(open, behind: _askBehind());
-    return wrap == null ? page : wrap(page);
+    // Under an iOS theme unless a wrap says otherwise, so the Apple dialogs show.
+    return _on(TargetPlatform.iOS, wrap == null ? page : wrap(page));
   },
 );
 

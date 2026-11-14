@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/files_failure.dart';
+import 'package:hermes_app/src/files/files_problems.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/files/widgets/file_row.dart';
 import 'package:hermes_app/src/files/widgets/files_browser_view.dart';

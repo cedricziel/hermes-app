@@ -8,6 +8,7 @@ import '../../widgets/state_message.dart';
 import '../server_path.dart';
 import 'file_row.dart';
 import 'files_failures.dart';
+import 'files_lazy_list.dart';
 import 'files_metrics.dart';
 import 'files_notes.dart';
 import 'files_spinner.dart';
@@ -129,37 +130,34 @@ class _FolderList extends StatelessWidget {
     final l10n = context.l10n;
     final metrics = GroupedMetrics.of(context);
     final total = ready.totalCount;
-    return GroupedListView(
-      children: [
-        if (ready.stale && onTryAgain != null)
+    return FilesLazyList(
+      dividerIndent: metrics.indentAfterLeading,
+      leading: [
+        if (ready.stale)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: FilesOfflineBanner(onRetry: onTryAgain!),
+            child: FilesOfflineBanner(onRetry: onTryAgain),
           ),
         if (ready.showServerFolderNote)
           const Padding(
             padding: EdgeInsets.only(top: 12),
             child: FilesServerFolderNote(),
           ),
-        GroupedSection(
-          dividerIndent: metrics.indentAfterLeading,
-          footer: total != null && total > ready.rows.length
-              ? l10n.filesListCapFooter(ready.rows.length, total)
-              : null,
-          children: [
-            for (final row in ready.rows)
-              FileRow(
-                key: row.path == null ? null : ValueKey(row.path),
-                model: row,
-                selected:
-                    selected != null &&
-                    row.path != null &&
-                    row.path == selected,
-                onTap: () => onOpen(row),
-              ),
-          ],
-        ),
       ],
+      footer: total != null && total > ready.rows.length
+          ? l10n.filesListCapFooter(ready.rows.length, total)
+          : null,
+      itemCount: ready.rows.length,
+      itemBuilder: (context, i) {
+        final row = ready.rows[i];
+        return FileRow(
+          key: row.path == null ? null : ValueKey(row.path),
+          model: row,
+          selected:
+              selected != null && row.path != null && row.path == selected,
+          onTap: () => onOpen(row),
+        );
+      },
     );
   }
 }

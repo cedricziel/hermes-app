@@ -571,6 +571,16 @@
       }
     }
   },
+  "filesOpenMailTitle": "Write to {address}?",
+  "@filesOpenMailTitle": {
+    "description": "Title of the question before a mail link in a Markdown file opens the mail app.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "me@example.org"
+      }
+    }
+  },
   "filesPathBarLabel": "Folder path",
   "@filesPathBarLabel": {
     "description": "Accessibility label of the path bar above the file list."
@@ -617,6 +627,10 @@
   "@filesProblemFixedFolder": {
     "description": "Failure of a folder on a server locked to one folder."
   },
+  "filesProblemFixedFolderDetail": "This chat's folder is outside it.",
+  "@filesProblemFixedFolderDetail": {
+    "description": "Detail under filesProblemFixedFolder: the chat works in a folder the server does not share."
+  },
   "filesProblemGone": "This folder no longer exists.",
   "@filesProblemGone": {
     "description": "Failure of a folder the server cannot find."
@@ -644,6 +658,10 @@
   "filesProblemWorkspaceDown": "Can't reach this profile's workspace.",
   "@filesProblemWorkspaceDown": {
     "description": "Failure of a folder whose SSH workspace is down."
+  },
+  "filesProblemWorkspaceDownDetail": "The machine this profile works on didn't answer.",
+  "@filesProblemWorkspaceDownDetail": {
+    "description": "Detail under filesProblemWorkspaceDown."
   },
   "filesRowLabelFile": "{name}, file",
   "@filesRowLabelFile": {

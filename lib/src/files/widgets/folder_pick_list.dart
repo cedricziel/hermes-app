@@ -5,6 +5,7 @@ import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
 import '../server_path.dart';
 import 'file_row.dart';
+import 'files_lazy_list.dart';
 
 /// The folders of a folder, for choosing one (the working-folder picker): only
 /// folders, no files and no menu, in the same rows as the file list. The row
@@ -32,9 +33,9 @@ class FolderPickList extends StatelessWidget {
         if (row.isFolder) row,
     ];
     final metrics = GroupedMetrics.of(context);
-    return GroupedListView(
-      children: [
-        if (folders.isEmpty)
+    if (folders.isEmpty) {
+      return GroupedListView(
+        children: [
           Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
@@ -42,25 +43,24 @@ class FolderPickList extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(color: context.hermesColors.subtleText),
             ),
-          )
-        else
-          GroupedSection(
-            dividerIndent: metrics.indentAfterLeading,
-            children: [
-              for (final row in folders)
-                FileRow(
-                  key: row.path == null ? null : ValueKey(row.path),
-                  model: row,
-                  mode: FileRowMode.pick,
-                  selected:
-                      selected != null &&
-                      row.path != null &&
-                      row.path == selected,
-                  onTap: () => onTap(row),
-                ),
-            ],
           ),
-      ],
+        ],
+      );
+    }
+    return FilesLazyList(
+      dividerIndent: metrics.indentAfterLeading,
+      itemCount: folders.length,
+      itemBuilder: (context, i) {
+        final row = folders[i];
+        return FileRow(
+          key: row.path == null ? null : ValueKey(row.path),
+          model: row,
+          mode: FileRowMode.pick,
+          selected:
+              selected != null && row.path != null && row.path == selected,
+          onTap: () => onTap(row),
+        );
+      },
     );
   }
 }

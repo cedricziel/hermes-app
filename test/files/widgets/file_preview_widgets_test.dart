@@ -446,7 +446,8 @@ void main() {
     test('a link names its host, a relative link has none', () {
       expect(markdownLinkHost('https://example.org/a?b=1'), 'example.org');
       expect(markdownLinkHost('http://docs.example.org'), 'docs.example.org');
-      expect(markdownLinkHost('mailto:me@example.org'), 'example.org');
+      expect(markdownLinkHost('mailto:me@example.org'), 'me@example.org');
+      expect(markdownLinkHost('mailto:nobody'), isNull);
       expect(markdownLinkHost('./notes.md'), isNull);
       expect(markdownLinkHost('notes.md'), isNull);
       expect(markdownLinkHost('#top'), isNull);
@@ -465,7 +466,10 @@ void main() {
         ),
         'a chart b',
       );
-      expect(inertMarkdown('![](img/a.png)', notLoaded: notLoaded), notLoaded);
+      expect(
+        inertMarkdown('![](img/a.png)', notLoaded: notLoaded),
+        '*Image not loaded*',
+      );
       expect(
         inertMarkdown(
           '![x](https://e.org/a_(1).png "title")',
@@ -646,7 +650,7 @@ void main() {
       );
 
       expect(
-        find.semantics.byLabel('Downloading… 14 of 30 MB'),
+        find.semantics.byLabel('Downloading… 12 of 30 MB'),
         findsOneWidget,
       );
       expect(

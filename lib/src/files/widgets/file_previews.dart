@@ -56,8 +56,11 @@ class MarkdownContent extends FilePreviewContent {
 
 /// A picture, already on this device.
 class ImageContent extends FilePreviewContent {
-  const ImageContent(this.image, {required this.label});
+  const ImageContent(this.image, {required this.label})
+    : assert(image is! NetworkImage, 'A preview fetches nothing itself');
 
+  /// A picture already on this device (`MemoryImage`, `FileImage`). Never a
+  /// `NetworkImage`: a preview fetches nothing itself.
   final ImageProvider image;
 
   /// The accessible name of the picture, its file name.
@@ -278,23 +281,75 @@ class MarkdownPreview extends StatelessWidget {
       body: (note) => _Scrolling(
         note: note,
         child: SelectionArea(
-          // The headings take their colour from the text theme, which is not
-          // light on dark by itself.
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              textTheme: Theme.of(context).textTheme.apply(
-                bodyColor: Theme.of(context).colorScheme.onSurface,
-                displayColor: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            child: GptMarkdown(
+          child: _themed(
+            context,
+            GptMarkdown(
               inertMarkdown(text, notLoaded: notLoaded),
+              // Markdown here comes from the agent: HTML in it is text, never
+              // a tag that renders (an <img> would be a request).
+              html: false,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               onLinkTap: (url, _) => unawaited(_tap(context, url)),
-              imageBuilder: (context, url, width, height) => Text(notLoaded),
+              imageBuilder: (context, url, width, height) => Text(
+                notLoaded,
+                style: const TextStyle(fontStyle: FontStyle.italic),
+              ),
+              codeBuilder: (context, name, code, closed) =>
+                  _MarkdownCodeBlock(code: code),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// [markdown] under a markdown theme from the app's: headings in the on-
+/// surface colour (the package takes them from its own light or dark text
+/// theme, which is near-invisible on a dark page) and links in the app's link
+/// colour.
+Widget _themed(BuildContext context, Widget markdown) {
+  final theme = Theme.of(context);
+  final ink = theme.colorScheme.onSurface;
+  TextStyle heading(double size, FontWeight weight) =>
+      TextStyle(fontSize: size, fontWeight: weight, color: ink, height: 1.3);
+  final link = context.hermesColors.link;
+  return GptMarkdownTheme(
+    gptThemeData: GptMarkdownThemeData(
+      brightness: theme.brightness,
+      h1: heading(26, FontWeight.w700),
+      h2: heading(22, FontWeight.w700),
+      h3: heading(19, FontWeight.w600),
+      h4: heading(17, FontWeight.w600),
+      h5: heading(15, FontWeight.w600),
+      h6: heading(14, FontWeight.w600),
+      hrLineColor: theme.colorScheme.outline,
+      linkColor: link,
+      linkHoverColor: link,
+    ),
+    child: markdown,
+  );
+}
+
+/// A fenced code block: monospace on the highest surface of the theme, in the
+/// text colour, so it reads in both themes.
+class _MarkdownCodeBlock extends StatelessWidget {
+  const _MarkdownCodeBlock({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(code.trimRight(), style: filesCodeStyle(context)),
     );
   }
 }
@@ -366,8 +421,11 @@ class MarkdownModeControl extends StatelessWidget {
 /// through transparency, drawn only inside the picture's bounds, on a page
 /// background that follows the theme.
 class ImagePreview extends StatefulWidget {
-  const ImagePreview({super.key, required this.image, required this.label});
+  const ImagePreview({super.key, required this.image, required this.label})
+    : assert(image is! NetworkImage, 'A preview fetches nothing itself');
 
+  /// A picture already on this device (`MemoryImage`, `FileImage`). Never a
+  /// `NetworkImage`: a preview fetches nothing itself.
   final ImageProvider image;
 
   /// The accessible name of the picture, its file name.
