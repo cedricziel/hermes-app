@@ -76,7 +76,7 @@ Before changing an area, read its file under `docs/architecture/` ([index](docs/
 **Two API layers.**
 
 - `packages/hermes_api` is a generated `dart-dio` client for the backend's OpenAPI spec (`openapi/hermes-agent.openapi.json`). Reach it through `authController.api!.raw`, which shares the managed `Dio`, instead of adding hand-rolled calls.
-- `lib/src/api/hermes_api_client.dart` hand-writes only `/api/status`, `/api/auth/providers` and `/api/auth/me`, because the spec has no response schemas for them. It also hand-writes the Kanban attachment download (`fetchKanbanAttachment`), because the generated method decodes the body as JSON and cannot return a file's bytes.
+- `lib/src/api/hermes_api_client.dart` hand-writes only `/api/status`, `/api/auth/providers` and `/api/auth/me`, because the spec has no response schemas for them. It also hand-writes the Kanban attachment download (`fetchKanbanAttachment`), because the generated method decodes the body as JSON and cannot return a file's bytes. `downloadFsFile` (`/api/fs/download`) streams a server file into a sink for the same reason: the generated method decodes JSON and cannot stream bytes.
 - Many routes (sessions, profiles, messaging, skills, plugins) also lack response schemas, so the generated methods return untyped JSON. The repositories (`chat/hermes_chat_repository.dart`, `profiles/`, `messaging/`, `skills/`, `plugins/`, `schedules/hermes_cron_repository.dart`) parse those rows leniently and skip rows that don't fit. The contract test above guards these shapes.
 
 ## Testing conventions

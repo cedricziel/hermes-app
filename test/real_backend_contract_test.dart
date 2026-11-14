@@ -36,6 +36,10 @@ import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
+import 'package:hermes_app/src/files/files_failure.dart';
+import 'package:hermes_app/src/files/files_models.dart';
+import 'package:hermes_app/src/files/hermes_files_repository.dart';
+import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -110,6 +114,8 @@ import 'support/attachment_fixtures.dart';
 /// made in the system temp directory, and the profile is deleted after. Hermes
 /// keeps the deleted profile's state open, so a second run against the same
 /// backend fails ("Named profile home does not exist") until it restarts.
+/// The server files tests only read: they list, read and download files in
+/// the folder the dashboard runs in, and write nothing on the backend.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -3549,6 +3555,126 @@ void main() {
       expect(hidden(await plugins.load(), plugin.name), isFalse);
     }, skip: skip);
   });
+
+  group('server files (read only)', () {
+    // Only GETs on /api/fs: nothing is written or deleted on the backend. The
+    // checks read the folder the dashboard itself runs in, so they hold on
+    // whatever files it has. The shapes are from the spec and Hermes' own
+    // tests (`test_web_server_fs.py`), not yet recorded against a live
+    // backend: cases that need a particular file (a `.env` for 403, a locked
+    // database for 409, an SSH workspace) are not covered here.
+    late HermesFilesRepository files;
+    late ServerPath cwd;
+
+    T value<T>(FilesResult<T> r) {
+      expect(r, isA<FilesOk<T>>(), reason: 'the route answered: $r');
+      return (r as FilesOk<T>).value;
+    }
+
+    setUp(() async {
+      files = HermesFilesRepository(client, profile: 'default');
+      cwd = value(await files.defaultCwd());
+      // The page never leaves the start folder's repository; here the start
+      // folder itself stands in, so the boundary is exercised on real rows.
+      files.highestFolder = cwd;
+    });
+
+    test(
+      'the probe finds the routes, and the start folder is absolute',
+      () async {
+        expect(await files.probe(), isA<FilesOk<void>>());
+      },
+    );
+
+    test('git-root answers a folder or null', () async {
+      value(await files.gitRoot(cwd));
+    });
+
+    test('the listing parses, with no row skipped', () async {
+      final listing = value(await files.list(cwd));
+      expect(listing.skipped, 0);
+      final firstFile = listing.entries.indexWhere((e) => !e.isDirectory);
+      final lastFolder = listing.entries.lastIndexWhere((e) => e.isDirectory);
+      if (firstFile >= 0 && lastFolder >= 0) {
+        expect(lastFolder, lessThan(firstFile), reason: 'folders come first');
+      }
+    });
+
+    test(
+      'a missing folder and a file asked for as a folder are failures',
+      () async {
+        final missing = ServerPath.tryParse(
+          '${cwd.value}/contract-check-missing',
+        )!;
+        final answer = await files.list(missing);
+        expect(
+          answer,
+          isA<FilesFailed<FsListing>>(),
+          reason: 'a 200 with ENOENT is not an empty folder',
+        );
+        expect((answer as FilesFailed<FsListing>).kind, FilesFailure.missing);
+
+        final listing = value(await files.list(cwd));
+        final file = listing.entries.where((e) => !e.isDirectory).firstOrNull;
+        if (file != null) {
+          final asFolder = await files.list(file.path);
+          expect(
+            asFolder,
+            isA<FilesFailed<FsListing>>().having(
+              (f) => f.kind,
+              'kind',
+              FilesFailure.notAFile,
+            ),
+          );
+        }
+      },
+    );
+
+    test('a profile the server does not have is badRequest', () async {
+      final other = HermesFilesRepository(
+        client,
+        profile: 'contract-check-missing-profile',
+      );
+      final answer = await other.list(cwd);
+      expect(answer, isA<FilesFailed<FsListing>>());
+      expect((answer as FilesFailed<FsListing>).kind, FilesFailure.badRequest);
+    });
+
+    test('a file reads as text and downloads with its length', () async {
+      final listing = value(await files.list(cwd));
+      final file = listing.entries.where((e) => !e.isDirectory).firstOrNull;
+      if (file == null) {
+        markTestSkipped('the backend folder holds no file to read');
+        return;
+      }
+      final text = await files.readText(file.path);
+      if (text case FilesOk(:final value)) {
+        expect(value.byteSize, greaterThanOrEqualTo(0));
+        expect(value.truncated, isA<bool>());
+      } else {
+        // A secret name or a database in use: a kind, not an exception.
+        expect(text, isA<FilesFailed<FsTextFile>>());
+      }
+
+      final dir = Directory.systemTemp.createTempSync('contract-files');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final out = File('${dir.path}/download');
+      final sink = out.openWrite();
+      final result = await files.download(file.path, sink: sink);
+      await sink.close();
+      if (result case FilesOk(:final value) when value.declined) {
+        // From 50 MB the repository stops after the headers and asks.
+        expect(out.lengthSync(), 0);
+        expect(value.contentLength, greaterThanOrEqualTo(kLargeDownloadBytes));
+      } else if (result case FilesOk(:final value)) {
+        expect(out.lengthSync(), value.bytes);
+        // A local profile answers a Content-Length; an SSH workspace none.
+        expect(value.contentLength, anyOf(isNull, value.bytes));
+      } else {
+        expect(result, isA<FilesFailed<FsDownload>>());
+      }
+    });
+  }, skip: skip);
 
   group('a throwaway profile on a scripted model (no paid model call)', () {
     final profile = 'contract-check-${DateTime.now().millisecondsSinceEpoch}';
