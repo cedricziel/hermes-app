@@ -14,13 +14,19 @@ class FakeDeviceAuthenticator implements DeviceAuthenticator {
   /// When set, the prompt stays up until this completes.
   Future<bool>? answer;
 
+  /// Whether the prompt reports that the device cannot confirm anyone.
+  bool unavailable = false;
+
   @override
   Future<bool?> isAvailable() async => available;
 
   @override
-  Future<bool> authenticate(String reason) async {
+  Future<DeviceAuthResult> authenticate(String reason) async {
     reasons.add(reason);
     onAuthenticate?.call();
-    return answer ?? succeeds;
+    if (unavailable) return DeviceAuthResult.unavailable;
+    return await (answer ?? Future.value(succeeds))
+        ? DeviceAuthResult.confirmed
+        : DeviceAuthResult.failed;
   }
 }

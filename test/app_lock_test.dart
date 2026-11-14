@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
@@ -229,6 +230,42 @@ void main() {
       expect(lock.locked, isFalse);
     });
 
+    test('a device that could not tell is not offered the switch', () async {
+      authenticator.available = null;
+      final lock = await relaunched();
+
+      expect(lock.available, isFalse);
+      expect(await lock.setEnabled(true), isFalse);
+      expect(authenticator.reasons, isEmpty);
+    });
+
+    test('a device that cannot tell and reports that it cannot confirm '
+        'anyone does not lock the user out', () async {
+      await enabledLock();
+      authenticator
+        ..available = null
+        ..unavailable = true;
+
+      final lock = await relaunched();
+
+      expect(lock.locked, isFalse);
+      expect(authenticator.reasons.last, 'Unlock Hermes');
+    });
+
+    test('a device that cannot confirm anyone but says it is supported '
+        'stays locked', () async {
+      await enabledLock();
+      authenticator
+        ..available = null
+        ..unavailable = true;
+      final lock = controller();
+      final loading = lock.load();
+      authenticator.available = true;
+      await loading;
+
+      expect(lock.locked, isTrue);
+    });
+
     test('a device that could not tell is asked again by unlock, and one '
         'that now has no support is not locked', () async {
       await enabledLock();
@@ -434,31 +471,104 @@ void main() {
 
   group('LocalDeviceAuthenticator', () {
     test('cannot tell when the support check throws', () async {
-      final device = LocalDeviceAuthenticator(auth: _ThrowingLocalAuth());
+      final device = LocalDeviceAuthenticator(auth: _FakeLocalAuth());
 
       expect(await device.isAvailable(), isNull);
     });
 
     test('reports what the support check answers', () async {
       expect(
-        await LocalDeviceAuthenticator(
-          auth: _ThrowingLocalAuth(supported: false),
-        ).isAvailable(),
+        await LocalDeviceAuthenticator(auth: _FakeLocalAuth(supported: false))
+            .isAvailable(),
         isFalse,
       );
     });
+
+    test('is not supported where the platform has no implementation', () async {
+      for (final error in [
+        MissingPluginException('no local_auth on Linux'),
+        UnimplementedError(),
+      ]) {
+        expect(
+          await LocalDeviceAuthenticator(
+            auth: _FakeLocalAuth(supportError: error),
+          ).isAvailable(),
+          isFalse,
+          reason: '$error',
+        );
+      }
+    });
+
+    test(
+      'tells a device that cannot confirm anyone from a failed confirm',
+      () async {
+        Future<DeviceAuthResult> result(Object answer) =>
+            LocalDeviceAuthenticator(auth: _FakeLocalAuth(answer: answer))
+                .authenticate('Unlock Hermes');
+
+        expect(await result(true), DeviceAuthResult.confirmed);
+        expect(await result(false), DeviceAuthResult.failed);
+        expect(
+          await result(
+            const LocalAuthException(code: LocalAuthExceptionCode.userCanceled),
+          ),
+          DeviceAuthResult.failed,
+        );
+        expect(
+          await result(
+            const LocalAuthException(
+              code: LocalAuthExceptionCode.temporaryLockout,
+            ),
+          ),
+          DeviceAuthResult.failed,
+        );
+        expect(
+          await result(
+            const LocalAuthException(
+              code: LocalAuthExceptionCode.noCredentialsSet,
+            ),
+          ),
+          DeviceAuthResult.unavailable,
+        );
+        expect(
+          await result(MissingPluginException()),
+          DeviceAuthResult.unavailable,
+        );
+        expect(await result(StateError('boom')), DeviceAuthResult.failed);
+      },
+    );
   });
 }
 
-/// Answers the support check with [supported], or throws when it is null.
-class _ThrowingLocalAuth implements LocalAuthentication {
-  _ThrowingLocalAuth({this.supported});
+/// Answers the support check with [supported], or throws [supportError]
+/// (a `StateError` when both are null); [authenticate] answers or throws
+/// [answer].
+class _FakeLocalAuth implements LocalAuthentication {
+  _FakeLocalAuth({this.supported, this.supportError, this.answer = true});
 
   final bool? supported;
+  final Object? supportError;
+  final Object answer;
 
   @override
-  Future<bool> isDeviceSupported() async =>
-      supported ?? (throw StateError('no keyguard service'));
+  Future<bool> isDeviceSupported() async {
+    if (supportError case final error?) {
+      Error.throwWithStackTrace(error, StackTrace.current);
+    }
+    return supported ?? (throw StateError('no keyguard service'));
+  }
+
+  @override
+  Future<bool> authenticate({
+    required String localizedReason,
+    Iterable<Object> authMessages = const [],
+    bool biometricOnly = false,
+    bool sensitiveTransaction = true,
+    bool persistAcrossBackgrounding = false,
+  }) async {
+    if (answer case final bool confirmed) return confirmed;
+    Error.throwWithStackTrace(answer, StackTrace.current);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
