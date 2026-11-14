@@ -55,12 +55,17 @@ class GroupedActionRow extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.onPressed,
+    this.subtitle,
     this.status,
   });
 
   final String title;
   final AppIconSet icon;
   final VoidCallback onPressed;
+
+  /// A muted line under the title, wrapping, above the status line. It stays
+  /// while the action runs or is done, and is read with the title.
+  final String? subtitle;
   final GroupedActionStatus? status;
 
   @override
@@ -70,6 +75,7 @@ class GroupedActionRow extends StatelessWidget {
     final colors = context.hermesColors;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final status = this.status;
+    final subtitle = this.subtitle;
     final working = status?.phase == GroupedActionPhase.working;
     final done = status?.phase == GroupedActionPhase.done;
     final accent = mac ? scheme.onSurface : colors.link;
@@ -115,12 +121,25 @@ class GroupedActionRow extends StatelessWidget {
                         SizedBox(width: metrics.leadingGap),
                       ],
                       Expanded(
-                        child: Text(
-                          shownTitle,
-                          style: TextStyle(
-                            fontSize: metrics.titleSize,
-                            color: done ? colors.success : accent,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              shownTitle,
+                              style: TextStyle(
+                                fontSize: metrics.titleSize,
+                                color: done ? colors.success : accent,
+                              ),
+                            ),
+                            if (subtitle != null)
+                              Text(
+                                subtitle,
+                                style: TextStyle(
+                                  fontSize: metrics.subtitleSize,
+                                  color: colors.subtleText,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ],
