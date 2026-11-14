@@ -50,8 +50,8 @@ Copy added by the design:
 - Start: "Ready to call", "Talk to Hermes without using your hands. Your microphone is closed until you start.", "Hermes sends each thing you say after a pause, without you pressing send. It can use its tools to act on it.", "Send what I say automatically", "Off again for the next call", "Turn on the switch to start. Nothing is recorded until you do.", "You can end the call at any moment.", "The call ends if you leave Hermes." (Android), "The call ends if you hide or minimise Hermes." (desktop start screen and call page).
 - GPT-Live: "This profile uses GPT-Live on the web. This app uses the standard voice chat: it listens, sends, then speaks."
 - Checks: "Voice model · The voice chat model follows your main model." and "Hermes speech · Your server has no text-to-speech provider with credentials."
-- States: "Connecting…", "Listening", "Muted", "Sending", "Thinking", "Speaking", "Waiting for you", "Stopped", "Call ended"; hints "Speak, then pause. Hermes sends what you said.", "Nothing is captured or sent. Unmute to talk.", "Hermes is getting your words ready. End or mute now to cancel.", "Hermes is working on your request.", "Tap the orb, or just talk, to interrupt.", "Microphone paused while Hermes speaks. Tap the orb to interrupt.", "Hermes asks to approve a command. Answer in the chat. Capture is paused; saying yes does nothing."
-- Notices (the first four are not drawn on the canvas): "Hermes is still answering. Nothing was sent.", "Hermes will answer your words after its current reply.", "Hermes took your words into its current reply.", "Hermes stopped its reply to answer you.", "Couldn't hear that. Nothing was sent.", "Audio route changed. Please repeat if needed. Nothing was sent.", "The call was interrupted. Another call or app took the audio. The microphone is closed. Your earlier turns are in the chat.", "The call ended. You left Hermes, so the microphone was closed. Your turns are in the chat.", "No one spoke for 5 minutes. The microphone is closed.", "The microphone is closed. Every turn of this call is in the chat.", "Hermes could not speak this reply. Check your speech provider on the server. The reply is in the chat."
+- States: "Connecting…", "Listening", "Muted", "Sending", "Thinking", "Speaking", "Waiting for you", "Stopped", "Call ended"; hints "Speak, then pause. Hermes sends what you said.", "Nothing is captured or sent. Unmute to talk.", "Hermes is getting your words ready. End or mute now to cancel.", "Hermes is working on your request.", "Tap the orb, or just talk, to interrupt." (iPhone) or "Tap the orb to interrupt." (Android until barge-in is verified, desktop uses the paused hint), "Microphone paused while Hermes speaks. Tap the orb to interrupt.", "Hermes needs your answer (an approval or a question). Answer in the chat. Capture is paused; speaking does nothing."
+- Notices (the first five are not drawn on the canvas): "Hermes is still answering. Nothing was sent.", "Hermes will answer your words after its current reply.", "Hermes took your words into its current reply.", "Hermes is adjusting its current reply to your words.", "Couldn't send. Nothing was sent.", "Couldn't hear that. Nothing was sent.", "Audio route changed. Please repeat if needed. Nothing was sent.", "The call was interrupted. Another call or app took the audio. The microphone is closed. Your earlier turns are in the chat.", "The call ended. You left Hermes, so the microphone was closed. Your turns are in the chat.", "No one spoke for 5 minutes. The microphone is closed.", "The microphone is closed. Every turn of this call is in the chat.", "Hermes could not speak this reply. Check your speech provider on the server. The reply is in the chat."
 - Tones (no copy): rising on listening, a soft tick on sent, falling on stopped.
 
 What the canvas could not show: the tones, haptics, screen-reader announcements and reduce-motion; they are in design.md and need a device.
@@ -72,11 +72,11 @@ Someone who wants to talk to their agent while their hands are busy: walking, co
 
 1. `VoiceOrb`: `state`, `amplitude`, `onTap` (non-null only while speaking), `reduceMotion`.
 2. `HandsFreeStrip`: `microphone` (open, paused, muted, opening), `onEnd` (null on the call page).
-3. `VoiceCallView` (extended): orb, state word and icon, hint, caption, `VoiceTurnList`, controls, "Speak replies" switch, `VoiceCallNotice` slot.
-4. `VoiceTurnList`: the last two turns.
+3. `VoiceCallView` (extended): orb, state word and icon, hint, caption, controls, `VoiceCallNotice` slot (PR 1); `VoiceTurnList` and the "Speak replies" switch are added in PR 5.
+4. `VoiceTurnList`: the last two turns (PR 5).
 5. `VoiceCallNotice`: icon, title, detail; info and warning tones.
 6. `VoiceConsentRow`: the card with the sentence and the switch; used by `VoiceCallSetupView` (extended with the voice model row, the GPT-Live note, the platform footer).
-7. Use cases: every one of the 26 states above, phone and 480 pt desktop width, light and dark, text scale 1x and 2x, plus the chat header's three states.
+7. Use cases: every state above except 13 (speak replies off, PR 5), phone and 480 pt desktop width, light and dark, text scale 1x and 2x, plus the chat header's three states. The tones are core, not a catalog widget.
 
 ## Navigation
 
@@ -102,3 +102,11 @@ After the second review:
 - A route change during an approval keeps the approval and the Waiting for you state.
 - The desktop footer says "The call ends if you hide or minimise Hermes."; the Android one says "leave Hermes".
 - A close that could not be confirmed shows "The call ended, but the microphone may still be open" and the strip says "microphone may still be open" (not drawn).
+
+After the third review:
+
+- The orb tap also interrupts the running reply, so the next turn is not refused as "still answering".
+- Waiting for you covers questions as well as approvals, whoever's reply raised them.
+- The strip is drawn by the main window only; a macOS conversation window or the quick panel shows none (stated limit).
+- A failed speech fallback ends the call (state 20); a refusal other than "busy" says "Couldn't send. Nothing was sent."
+- The tones are core scope (the only audible cue for Listening and Sending); the turn list and the "Speak replies" switch are PR 5.

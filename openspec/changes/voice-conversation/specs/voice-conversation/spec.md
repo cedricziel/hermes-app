@@ -50,7 +50,7 @@ The call screen SHALL show the state in words and an icon, never by colour or mo
 
 ### Requirement: Stopping at any moment
 
-The user SHALL be able to stop the call at any moment by End, a stop phrase, or the platform's hang-up. Mute SHALL stop capture without ending the call. "Sending" lasts from the end of speech until `ChatController.submit` is called; End or mute in that time SHALL discard the turn and send nothing, and the mute SHALL be checked again just before the submit. After the submit the prompt stays in the chat; End then stops speech and this turn's reply.
+The user SHALL be able to stop the call at any moment by End, a stop phrase, or the platform's hang-up. Mute SHALL stop capture without ending the call. "Sending" lasts from the end of speech until `submit` hands the prompt to the transport, which is after its queue restore; End or mute in that time SHALL discard the turn, the requested mute counting at once and not when the bridge confirms it. After the send the prompt stays in the chat; End then stops speech and this turn's reply.
 
 #### Scenario: End while sending
 
@@ -119,7 +119,7 @@ Each transcript SHALL be compared with the stop phrases before it is sent, after
 
 ### Requirement: Stop phrase list
 
-The phrases SHALL be the profile's `voice.stop_phrases` when the profile sets the key, and it replaces the built-in list. Without it the built-in list applies: stop, stop listening, stop it, please stop, that is all, never mind, end conversation, end the call, goodbye, cancel, hang up, end call.
+The phrases SHALL be the profile's `voice.stop_phrases` when the profile sets the key, and it replaces the built-in list. Without it, or when it is malformed (not a list or a string), the built-in list applies: stop, stop listening, stop it, please stop, that is all, never mind, end conversation, end the call, goodbye, cancel, hang up, end call. A string counts as one phrase, and only an explicit empty list turns phrases off.
 
 #### Scenario: Profile list
 
@@ -147,7 +147,7 @@ With "Speak replies" on (the default), the app SHALL speak this call's reply whi
 
 ### Requirement: Speech fallback
 
-On `fallback`, or a socket failure before any audio, the app SHALL synthesize the reply once with `POST /api/audio/speak` and play it. A failure after audio began SHALL count as finished speaking, not as a call failure.
+On `fallback`, or a socket failure before any audio, the app SHALL synthesize the reply once with `POST /api/audio/speak` and play it. A failure after audio began SHALL count as finished speaking. When the fallback also fails, the call SHALL end saying "Hermes could not speak this reply" with the reply left in the chat.
 
 #### Scenario: Server cannot stream
 
@@ -156,7 +156,7 @@ On `fallback`, or a socket failure before any audio, the app SHALL synthesize th
 
 ### Requirement: Interrupting the agent
 
-Tapping the orb while the agent speaks SHALL stop playback and listen. The first spoken turn after an orb tap or a barge-in SHALL carry `interrupted: true`, and later turns SHALL NOT; the flag is set only on a submit the app expects to start at once, and cleared after it, whatever the answer. Where the platform has no echo cancellation the microphone is closed while Hermes speaks, and the stall watchdog is suspended meanwhile.
+Tapping the orb while the agent speaks SHALL stop playback and the running reply, wait until the session has settled, and listen. The first spoken turn after it carries `interrupted: true` under the chat spec's rules. Where the platform has no echo cancellation the microphone is closed while Hermes speaks, and the stall watchdog is suspended whenever capture is closed by design.
 
 #### Scenario: Tap to interrupt
 
@@ -165,7 +165,7 @@ Tapping the orb while the agent speaks SHALL stop playback and listen. The first
 
 ### Requirement: Barge-in
 
-Where the platform cancels echo and it has been verified (iOS; Android only after its device check) and `voice.barge_in` is not false, speech over the agent SHALL stop playback at its onset. The running reply SHALL be stopped only when the resulting turn is about to be submitted; echo or an empty transcript leaves it running, unspoken, in the chat.
+Where the platform cancels echo and it has been verified (iOS; Android only after its device check) and `voice.barge_in` is not false, speech over the agent SHALL stop playback at its onset. The running reply SHALL be stopped only when the resulting turn is about to be submitted, and the turn SHALL wait for the session to settle; echo or an empty transcript leaves it running, unspoken, in the chat.
 
 #### Scenario: Echo on a phone
 
@@ -188,7 +188,7 @@ While the agent waits for an approval or question, capture SHALL be paused and n
 
 ### Requirement: Waiting is tracked on its own
 
-The waiting state SHALL be tracked independently of any turn or barge-in: a request raised by a reply that is still running after speech was stopped SHALL still pause capture. It SHALL be checked again immediately before the app interrupts a reply and before it submits a turn, and a turn that was already being sent when the request arrived SHALL be dropped.
+The waiting state SHALL be read from the chat, not only from the call's own reply, and tracked independently of any turn or barge-in: a request raised by a typed reply, a server-queued reply or a reply still running after speech was stopped SHALL still pause capture. It SHALL be checked again immediately before the app interrupts a reply and before it submits a turn, and a turn that was already being sent when the request arrived SHALL be dropped.
 
 #### Scenario: Approval after a barge-in
 
@@ -255,8 +255,6 @@ On every way a call ends (End, stop phrase, interruption, error, sign-out, profi
 - **WHEN** the user ends the call while capture is starting
 - **THEN** capture is closed as soon as it started, and nothing is recorded
 
-
-
 ### Requirement: Unconfirmed close
 
 When closing capture could not be confirmed, the screen SHALL say "The call ended, but the microphone may still be open" instead of "The microphone is closed", and the strip SHALL read "microphone may still be open" until capture is closed or the app quits.
@@ -274,6 +272,15 @@ The conversation SHALL run on iOS (system call and native audio engine), Android
 
 - **WHEN** the audio output cannot be opened on Linux
 - **THEN** the start screen's audio output check fails and Start call is unavailable
+
+### Requirement: Strip in other windows
+
+The Hands-free strip is drawn by the main window. On macOS a focused conversation window or the quick panel is a separate engine and SHALL be documented as showing none while capture runs, a stated limit; the OS microphone indicator remains.
+
+#### Scenario: Conversation window in front
+
+- **WHEN** a conversation window is focused during a call on a Mac
+- **THEN** it shows no strip, and the main window's strip still has End
 
 ### Requirement: App Lock
 
