@@ -67,7 +67,8 @@ class HermesMediaSource implements MediaSource {
         413 => MediaFailure.tooLarge,
         _ => MediaFailure.failed,
       });
-    } on Object {
+    } on Exception {
+      // Not a response the app can read; a bug is not hidden.
       throw const MediaFetchException(MediaFailure.failed);
     }
   }

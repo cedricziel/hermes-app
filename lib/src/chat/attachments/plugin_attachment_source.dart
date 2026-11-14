@@ -133,7 +133,7 @@ class PluginAttachmentSource implements AttachmentSource {
       final (image, paths) = await _desktopClipboard();
       if (image != null) return [await _pastedImage(image)];
       return paths.map(sharedFileFromPath).toList();
-    } on Object {
+    } on Exception {
       return const [];
     }
   }

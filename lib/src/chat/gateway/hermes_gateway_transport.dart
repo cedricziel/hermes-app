@@ -444,7 +444,8 @@ class HermesGatewayTransport
       result = await _call(client, 'session.active_list', {
         'profile': ?profile,
       });
-    } on Object {
+    } on Exception {
+      // Offline or an older server: no statuses. A bug is not hidden.
       return const {};
     }
     return _statusesOf(result);

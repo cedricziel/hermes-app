@@ -7,6 +7,7 @@ import 'calls/call_readiness_checker.dart';
 import 'calls/voice_call.dart';
 import 'widgets/voice_call_setup_view.dart';
 import 'widgets/voice_call_view.dart';
+import '../telemetry/report_bug.dart';
 
 /// One route from checking to an active call. Closing checks never starts a
 /// call or sends a setup prompt; minimizing an active call keeps it running.
@@ -130,7 +131,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       final call = widget.startCall(_readiness);
       setState(() => _call = call);
       unawaited(call.start());
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'starting a voice call');
       setState(
         () => _error =
             'This chat changed. Close this screen and start the call again.',

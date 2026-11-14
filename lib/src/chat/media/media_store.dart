@@ -100,7 +100,7 @@ class MediaStore {
     final bytes = await fetch();
     try {
       await part.writeAsBytes(bytes, flush: true);
-    } on Object {
+    } on FileSystemException {
       throw const MediaFetchException(MediaFailure.failed);
     }
   });
@@ -117,7 +117,7 @@ class MediaStore {
     final FileStat stat;
     try {
       stat = await source.stat();
-    } on Object {
+    } on FileSystemException {
       throw const MediaFetchException(MediaFailure.failed);
     }
     if (stat.type != FileSystemEntityType.file) {
@@ -129,7 +129,7 @@ class MediaStore {
     ) async {
       try {
         await source.copy(part.path);
-      } on Object {
+      } on FileSystemException {
         throw const MediaFetchException(MediaFailure.failed);
       }
     });

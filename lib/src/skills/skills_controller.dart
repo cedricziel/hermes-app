@@ -7,6 +7,7 @@ import 'package:flutter_otel/flutter_otel.dart'
 import '../core/safe_notifier.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_skills_repository.dart';
+import '../telemetry/report_bug.dart';
 
 enum SkillsStatus { loading, ready, failed, unsupported }
 
@@ -158,7 +159,8 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     } on SkillsUnsupported {
       if (generation != _generation) return;
       _status = SkillsStatus.unsupported;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the skills list');
       if (generation != _generation) return;
       if (quiet && _status == SkillsStatus.ready) return;
       _status = SkillsStatus.failed;
@@ -171,7 +173,8 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
       final overview = await profiles?.load();
       if (overview == null) return;
       _profiles = overview.profiles;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the skills list');
       _profiles = const [];
     }
     notifyListeners();
@@ -294,7 +297,8 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     } on SkillsRejected catch (e) {
       _log(op, 'rejected');
       return e.message;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the skills list');
       _log(op, 'error');
       return 'Could not reach the server';
     }

@@ -14,6 +14,7 @@ import 'skills_controller.dart';
 import 'skills_hub_controller.dart';
 import 'widgets/skill_badges.dart';
 import '../widgets/route_dismissal.dart';
+import '../telemetry/report_bug.dart';
 
 /// What the chat composer is given when the user asks the agent to delete a
 /// skill. The server has no delete route, so the agent does it.
@@ -66,7 +67,8 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
         profile: widget.controller.profile,
       );
       if (mounted) setState(() => _content = text);
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a skill');
       if (mounted) setState(() => _failed = true);
     }
   }
