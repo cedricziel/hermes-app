@@ -266,6 +266,12 @@ get _rowStates => [
   ),
 ];
 
+/// A row state by its name, so the largest-text cases cannot drift when a
+/// state is added to the list.
+(String, bool, GroupedActionStatus? Function(BuildContext)) _rowState(
+  String name,
+) => _rowStates.firstWhere((state) => state.$1 == name);
+
 WidgetbookComponent _gatewayRow() => WidgetbookComponent(
   name: 'Gateway row',
   useCases: [
@@ -276,18 +282,35 @@ WidgetbookComponent _gatewayRow() => WidgetbookComponent(
       ),
     WidgetbookUseCase(
       name: "Refused, largest text",
-      builder: (c) =>
-          _largest(_row(c, restart: true, status: _rowStates[8].$3(c))),
+      builder: (c) => _largest(
+        _row(
+          c,
+          restart: true,
+          status: _rowState("Refused, Hermes' own text").$3(c),
+        ),
+      ),
     ),
     WidgetbookUseCase(
       name: 'Exited, five-line log tail, largest text',
-      builder: (c) =>
-          _largest(_row(c, restart: true, status: _rowStates[10].$3(c))),
+      builder: (c) => _largest(
+        _row(
+          c,
+          restart: true,
+          status: _rowState('Exited, five-line log tail').$3(c),
+        ),
+      ),
     ),
     WidgetbookUseCase(
       name: "Couldn't confirm, largest text",
-      builder: (c) =>
-          _largest(_row(c, restart: true, status: _rowStates[9].$3(c))),
+      builder: (c) => _largest(
+        _row(
+          c,
+          restart: true,
+          status: _rowState(
+            "Couldn't confirm the restart (kept running, never seen down)",
+          ).$3(c),
+        ),
+      ),
     ),
   ],
 );
