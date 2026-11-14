@@ -114,6 +114,10 @@ class SurfaceSnapshotStore {
   /// a [SurfaceReloadMarkStorage] also keeps it for other stores.
   DateTime? _reloadedFor;
 
+  /// The widget kinds whose last reload failed; only these are tried again by
+  /// a refresh inside the hour. Kept in memory only.
+  Set<String> _failedKinds = {};
+
   /// Writes run one after another, in the order they were asked for, so an
   /// older snapshot is never stored over a newer one.
   Future<void> _tail = Future.value();
@@ -224,16 +228,27 @@ class SurfaceSnapshotStore {
       _log('surface.snapshot.write_failed', error);
       if (unchanged) return written;
     }
-    if (_written != null && reload) {
-      final results = await Future.wait([
-        for (final kind in widgetKinds)
-          if (signedInChanged || !signedInOnlyKinds.contains(kind))
-            _reload(kind),
-      ]);
-      // A reload that failed leaves no mark, so the next refresh tries again.
-      if (results.every((reloaded) => reloaded)) {
-        _reloadedFor = next.updatedAt;
-        await _saveReloadedFor(next.updatedAt);
+    if (_written != null) {
+      // Past the hourly rule every kind reloads; otherwise only the kinds
+      // that failed last time are tried again.
+      final kinds = reload
+          ? [
+              for (final kind in widgetKinds)
+                if (signedInChanged || !signedInOnlyKinds.contains(kind)) kind,
+            ]
+          : _failedKinds.toList();
+      if (kinds.isNotEmpty) {
+        final results = await Future.wait([for (final k in kinds) _reload(k)]);
+        _failedKinds = {
+          for (var i = 0; i < kinds.length; i++)
+            if (!results[i]) kinds[i],
+        };
+        // The mark is left unsaved when every kind failed, so the next
+        // refresh reloads them all again.
+        if (reload && results.any((ok) => ok)) {
+          _reloadedFor = next.updatedAt;
+          await _saveReloadedFor(next.updatedAt);
+        }
       }
     }
     if (!unchanged && !_writes.isClosed) _writes.add(next);

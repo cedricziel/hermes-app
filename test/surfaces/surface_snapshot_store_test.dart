@@ -334,6 +334,28 @@ void main() {
       );
     });
 
+    test('when one kind fails, a refresh within the hour retries only that '
+        'kind', () async {
+      final several = SurfaceSnapshotStore(
+        storage: storage,
+        widgetKinds: const ['Recent', 'Needs'],
+      );
+      addTearDown(several.dispose);
+      storage.failingKinds.add('Recent');
+      await several.write(snapshot());
+      expect(storage.reloaded, ['Needs']);
+
+      await several.write(snapshot(minute: 30));
+      expect(storage.reloaded, ['Needs'], reason: 'Recent still fails');
+
+      storage.failingKinds.clear();
+      await several.write(snapshot(minute: 40));
+      expect(storage.reloaded, ['Needs', 'Recent']);
+
+      await several.write(snapshot(minute: 50));
+      expect(storage.reloaded, ['Needs', 'Recent'], reason: 'back to hourly');
+    });
+
     test('content already stored is only refreshed after a start', () async {
       await store.write(snapshot());
       final restarted = SurfaceSnapshotStore(
