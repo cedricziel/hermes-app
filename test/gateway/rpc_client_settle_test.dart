@@ -31,13 +31,27 @@ void main() {
   void answer(Map<String, Object?> frame) =>
       wire.foreign.sink.add(jsonEncode({'jsonrpc': '2.0', ...frame}));
 
-  test('A result that is not an object settles the request as empty', () async {
-    final call = client.request('session.active_list', const {});
+  test(
+    'A result that is not an object settles the request as an error',
+    () async {
+      final call = client.request('session.active_list', const {});
+      final id = await nextRequestId();
+      answer({
+        'id': id,
+        'result': ['not', 'an', 'object'],
+      });
+
+      await expectLater(
+        call.timeout(const Duration(seconds: 1)),
+        throwsA(isA<GatewayRpcException>()),
+      );
+    },
+  );
+
+  test('A missing result settles the request as empty', () async {
+    final call = client.request('gateway.ping', const {});
     final id = await nextRequestId();
-    answer({
-      'id': id,
-      'result': ['not', 'an', 'object'],
-    });
+    answer({'id': id});
 
     expect(await call.timeout(const Duration(seconds: 1)), isEmpty);
   });

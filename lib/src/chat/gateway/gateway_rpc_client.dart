@@ -401,11 +401,22 @@ class GatewayRpcClient {
         ),
       );
     } else {
-      _telemetry?.finishRequest(pending.span);
-      final result = message['result'];
-      pending.completer.complete(
-        result is Map<String, Object?> ? result : const {},
-      );
+      switch (message['result']) {
+        case null:
+          _telemetry?.finishRequest(pending.span);
+          pending.completer.complete(const {});
+        case final Map<String, Object?> result:
+          _telemetry?.finishRequest(pending.span);
+          pending.completer.complete(result);
+        case _:
+          // A result that is not an object cannot be read; callers must not
+          // take it for a valid empty answer.
+          const code = -32603;
+          _telemetry?.finishRequest(pending.span, errorCode: code);
+          pending.completer.completeError(
+            const GatewayRpcException(code, 'malformed result'),
+          );
+      }
     }
   }
 

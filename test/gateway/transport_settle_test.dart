@@ -312,6 +312,28 @@ void main() {
       );
     }
 
+    test('A silent live turn: an unreadable session.active_list answer keeps the reply waiting', () {
+      fakeAsync((async) {
+        final gateway = FakeGateway();
+        gateway.handlers['session.active_list'] = (_) => 'not an object';
+        final transport = HermesGatewayTransport(
+          connect: () async => gateway.channel,
+        );
+        gateway.turn = (g, sid) => g.event('message.start', sid);
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        async.elapse(const Duration(seconds: 45));
+        async.flushMicrotasks();
+        expect(
+          gateway.methods.where((m) => m == 'session.active_list'),
+          hasLength(1),
+        );
+        expect(seen.done, isFalse);
+        expect(seen.error, isNull);
+      });
+    });
+
     test(
       'A silent live turn: a session no longer listed ends the reply as broken',
       () {
