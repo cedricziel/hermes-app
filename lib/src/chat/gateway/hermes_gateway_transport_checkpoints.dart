@@ -32,8 +32,10 @@ extension _Checkpoints on HermesGatewayTransport {
         : CheckpointFailureKind.transport;
   }
 
+  /// A reply in progress also names `/compress` ("…then run /compress."), so
+  /// only the server's "a /compress is running" wording means compressing.
   CheckpointBusyReason _busyReason(GatewayRpcException error) =>
-      error.message.toLowerCase().contains('compress')
+      error.message.toLowerCase().contains('a /compress is running')
       ? CheckpointBusyReason.compressing
       : CheckpointBusyReason.replying;
 
@@ -183,6 +185,7 @@ extension _Checkpoints on HermesGatewayTransport {
       return const RestoreRefused(CheckpointFailureKind.notFound);
     }
     if (error.startsWith('File path escapes') ||
+        error.startsWith('File path must be relative') ||
         error.startsWith('Restore selection matched no files')) {
       return const RestoreRefused(CheckpointFailureKind.pathRejected);
     }

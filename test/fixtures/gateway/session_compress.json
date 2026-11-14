@@ -1,62 +1,207 @@
 {
   "source_ref": "d923a5eb",
-  "note": "Invented content in the shapes of the Hermes gateway handlers and tests named in openspec/changes/chat-checkpoints-and-context/design.md. No real paths, hashes or messages.",
+  "note": "Recorded from a throwaway Hermes (see source_ref) on a scripted model, then scrubbed: invented paths, hashes and times. Cases marked invented could not be reached over the RPC and stay hand-built.",
   "source": "tui_gateway/methods_session.py::session.compress",
   "cases": {
     "compressed": {
       "result": {
         "status": "compressed",
-        "removed": 33,
-        "before_messages": 42,
-        "after_messages": 9,
-        "before_tokens": 120000,
-        "after_tokens": 30000,
+        "removed": 12,
+        "before_messages": 36,
+        "after_messages": 24,
+        "before_tokens": 16585,
+        "after_tokens": 15767,
         "summary": {
           "noop": false,
           "aborted": false,
           "refused_would_grow": false,
           "fallback_used": false,
-          "headline": "Compressed: 42 → 9 messages",
-          "token_line": "Approx request size: ~120,000 → ~30,000 tokens",
+          "headline": "Compressed: 36 → 24 messages",
+          "token_line": "Approx request size: ~16,585 → ~15,767 tokens",
           "note": null
         },
         "usage": {
-          "context_used": 30000,
-          "context_max": 200000,
-          "context_percent": 15
+          "model": "example-model",
+          "input": 1200000,
+          "output": 100,
+          "reasoning": 0,
+          "prompt": 1200000,
+          "completion": 100,
+          "total": 1200100,
+          "calls": 10,
+          "compressions": 1,
+          "avg_latency_s": 0.0,
+          "avg_tps": 876.8,
+          "active_subagents": 0
         },
         "info": {},
         "messages": []
-      }
+      },
+      "source": "recorded"
     },
     "noop": {
       "result": {
         "status": "compressed",
         "removed": 0,
-        "before_messages": 3,
-        "after_messages": 3,
+        "before_messages": 2,
+        "after_messages": 2,
+        "before_tokens": 12838,
+        "after_tokens": 12838,
         "summary": {
           "noop": true,
-          "headline": "No changes from compression: 3 messages"
-        }
-      }
+          "aborted": false,
+          "refused_would_grow": false,
+          "fallback_used": false,
+          "headline": "No changes from compression: 2 messages",
+          "token_line": "Approx request size: ~12,838 tokens (unchanged)",
+          "note": null
+        },
+        "usage": {
+          "model": "example-model",
+          "input": 10,
+          "output": 10,
+          "reasoning": 0,
+          "prompt": 10,
+          "completion": 10,
+          "total": 20,
+          "calls": 1,
+          "context_used": 10,
+          "context_max": 131072,
+          "context_percent": 0,
+          "context_source": "provider_usage",
+          "context_estimated": false,
+          "compressions": 0,
+          "avg_latency_s": 0.0,
+          "avg_tps": 857.1,
+          "active_subagents": 0
+        },
+        "info": {},
+        "messages": []
+      },
+      "source": "recorded"
     },
     "aborted": {
       "result": {
         "status": "aborted",
+        "removed": 0,
+        "before_messages": 36,
+        "after_messages": 36,
+        "before_tokens": 16577,
+        "after_tokens": 16577,
         "summary": {
+          "noop": true,
           "aborted": true,
-          "note": "The summary could not be written."
-        }
-      }
+          "refused_would_grow": false,
+          "fallback_used": false,
+          "headline": "Compression aborted: 36 messages preserved",
+          "token_line": "Approx request size: ~16,577 tokens (unchanged)",
+          "note": "Summary generation failed; no messages were removed. Reason: Error code: 401 - {'error': {'message': 'provider failure'}}"
+        },
+        "usage": {
+          "model": "example-model",
+          "input": 100,
+          "output": 100,
+          "reasoning": 0,
+          "prompt": 100,
+          "completion": 100,
+          "total": 200,
+          "calls": 10,
+          "context_used": 10,
+          "context_max": 131072,
+          "context_percent": 0,
+          "context_source": "provider_usage",
+          "context_estimated": false,
+          "compressions": 0,
+          "avg_latency_s": 0.0,
+          "avg_tps": 814.2,
+          "active_subagents": 0
+        },
+        "info": {},
+        "messages": []
+      },
+      "source": "recorded"
     },
     "refused_would_grow": {
       "result": {
         "status": "compressed",
+        "removed": 0,
+        "before_messages": 36,
+        "after_messages": 36,
+        "before_tokens": 16577,
+        "after_tokens": 16577,
         "summary": {
-          "refused_would_grow": true
-        }
-      }
+          "noop": true,
+          "aborted": false,
+          "refused_would_grow": true,
+          "fallback_used": false,
+          "headline": "Compression refused (summary would grow the conversation): 36 messages preserved",
+          "token_line": "Approx request size: ~16,577 tokens (unchanged)",
+          "note": "The generated summary was larger than what it would replace; no messages were removed."
+        },
+        "usage": {
+          "model": "example-model",
+          "input": 100,
+          "output": 100,
+          "reasoning": 0,
+          "prompt": 100,
+          "completion": 100,
+          "total": 200,
+          "calls": 10,
+          "context_used": 10,
+          "context_max": 131072,
+          "context_percent": 0,
+          "context_source": "provider_usage",
+          "context_estimated": false,
+          "compressions": 1,
+          "avg_latency_s": 0.0,
+          "avg_tps": 878.7,
+          "active_subagents": 0
+        },
+        "info": {},
+        "messages": []
+      },
+      "source": "recorded"
+    },
+    "refused_with_fallback": {
+      "result": {
+        "status": "compressed",
+        "removed": 0,
+        "before_messages": 18,
+        "after_messages": 18,
+        "before_tokens": 14682,
+        "after_tokens": 14682,
+        "summary": {
+          "noop": true,
+          "aborted": false,
+          "refused_would_grow": true,
+          "fallback_used": true,
+          "headline": "Compression refused (summary would grow the conversation): 18 messages preserved",
+          "token_line": "Approx request size: ~14,682 tokens (unchanged)",
+          "note": "The generated summary was larger than what it would replace; no messages were removed. Reason: Error code: 500 - {'error': {'message': 'provider failure'}}"
+        },
+        "usage": {
+          "model": "example-model",
+          "input": 50,
+          "output": 50,
+          "reasoning": 0,
+          "prompt": 50,
+          "completion": 50,
+          "total": 100,
+          "calls": 5,
+          "context_used": 10,
+          "context_max": 131072,
+          "context_percent": 0,
+          "context_source": "provider_usage",
+          "context_estimated": false,
+          "compressions": 1,
+          "avg_latency_s": 0.0,
+          "avg_tps": 754.6,
+          "active_subagents": 0
+        },
+        "info": {},
+        "messages": []
+      },
+      "source": "recorded"
     },
     "fallback_used": {
       "result": {
@@ -66,27 +211,38 @@
         "summary": {
           "fallback_used": true
         }
-      }
+      },
+      "source": "invented: a failing summary always came back refused or aborted here; the flag alone needs a summary that fails yet shrinks"
     },
     "lock_held": {
       "result": {
         "compressed": false,
         "lock_held": true,
         "message": "Another compression is running."
-      }
+      },
+      "source": "invented: a second compress on the same session answers 4009 first (busy_while_compressing)"
     },
     "pending": {
       "result": {
         "status": "pending",
         "turn_isolation": true,
         "message": "Compression will apply shortly."
-      }
+      },
+      "source": "invented: only a compute-host session answers it"
     },
-    "busy_4009": {
+    "busy_while_replying_4009": {
       "error": {
         "code": 4009,
-        "message": "session busy — compression already running"
-      }
+        "message": "session busy — Hermes is still replying. Stop the current reply first (Stop button, or Ctrl+C in a terminal), then run /compress."
+      },
+      "source": "recorded"
+    },
+    "busy_while_compressing_4009": {
+      "error": {
+        "code": 4009,
+        "message": "session busy — a /compress is running; run /compress when it finishes."
+      },
+      "source": "recorded"
     }
   }
 }
