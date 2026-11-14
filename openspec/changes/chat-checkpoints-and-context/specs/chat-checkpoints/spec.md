@@ -44,7 +44,7 @@ The app SHALL list File checkpoints under "For reference" when `rollback.list` a
 #### Scenario: Stored chat without a live session
 
 - **WHEN** a chat was opened from history and nothing was sent
-- **THEN** the row reads "File checkpoints · Tap to check" and only a tap resumes the session and lists
+- **THEN** the row reads "File checkpoints" with "Not checked yet" under it, and only opening it resumes the session and lists
 
 #### Scenario: List fails
 
@@ -187,6 +187,16 @@ The checkpoint page SHALL list checkpoints newest first, each with a plain sente
 - **WHEN** the server answers 4001
 - **THEN** the app re-establishes the chat's session as it does for a send and asks the user to try again; it never retries the restore by itself
 
+#### Scenario: The confirmation shows what is removed
+
+- **WHEN** the Restore all files confirmation opens and the chat's last prompt is "Split the token refresh out"
+- **THEN** it quotes that message, says it goes back into the message box unsent, and its buttons are Cancel (the default) and a red outlined "Restore all files", not a filled button
+
+#### Scenario: Where the panel goes after a restore
+
+- **WHEN** a Restore all files succeeds from the Changes page
+- **THEN** the panel returns to the re-read checkpoint list with the outcome note on top, and after a Restore this file it returns to the re-read Changes page with "Restored 1 file"
+
 #### Scenario: Undoing a restore
 
 - **WHEN** the user restores all files from the "Before a restore" checkpoint
@@ -224,6 +234,11 @@ Rows, file entries and buttons SHALL have 44 pt or 48 dp targets and WCAG AA con
 
 - **WHEN** a screen reader reads a file row
 - **THEN** it hears the file name, "12 lines added, 3 removed" and the Restore action
+
+#### Scenario: Long file names
+
+- **WHEN** a changed file's name is wider than the row at any text size
+- **THEN** the name wraps to more lines instead of being cut, so its extension and the "+N −N" counts stay visible
 
 #### Scenario: Keyboard on Mac and desktop
 

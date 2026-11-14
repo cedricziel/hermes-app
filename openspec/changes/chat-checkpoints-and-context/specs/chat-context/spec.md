@@ -9,7 +9,7 @@ The app SHALL show a Context row under "For reference" in the Activity panel whe
 #### Scenario: Normal context
 
 - **WHEN** usage reports 62% of 200,000 tokens with an estimate
-- **THEN** the row reads "Context 62% · about 124k of 200k" and has a bar at 62%
+- **THEN** the row reads "Context 62% · about 124k of 200k tokens" and has a bar at 62%
 
 #### Scenario: Not measured yet
 
@@ -33,12 +33,17 @@ The app SHALL show a Context row under "For reference" in the Activity panel whe
 
 ### Requirement: The meter does not nag
 
-The Context row SHALL be neutral below 80%, SHALL add the words "Nearly full" at 80% or more and SHALL be emphasised at 95% or more. It SHALL NOT add a dot to the Activity button, a line to the strip above the transcript, a banner, a toast, a notification, a haptic, a badge, a widget or an App Intent entry, at any percentage.
+The Context row SHALL be neutral below 80%, SHALL add the words "Nearly full" with a warning icon at 80% or more, SHALL be emphasised in the error colour at 95% or more, and SHALL say "Full" at 100% or when more is used than the window. It SHALL NOT add a dot to the Activity button, a line to the strip above the transcript, a banner, a toast, a notification, a haptic, a badge, a widget or an App Intent entry, at any percentage.
 
 #### Scenario: Fill rises past 95%
 
 - **WHEN** the context reaches 97% during a reply
 - **THEN** only the row in the Activity panel changes its wording and emphasis, and no other surface changes
+
+#### Scenario: Over the window
+
+- **WHEN** usage reports 212,000 used of a 200,000 window (the percentage clamped at 100)
+- **THEN** the row reads "Full", "100%" and "about 212k of 200k tokens", with no motion
 
 #### Scenario: Reduced motion
 
@@ -71,7 +76,7 @@ Tapping the row SHALL open Context details: the model, the percentage and counts
 
 ### Requirement: Compression is offered at the right moment
 
-The app SHALL show a one-line suggestion on the Context row ("Nearly full. Compress to make room?", Compress… and Not now) only at 85% or more, with the chat idle and no request waiting, and not when the percentage is a local estimate below 95. After Not now or a compress it SHALL show again only after the percentage fell below 60 and rose again. State is per thread, in memory.
+The app SHALL show a one-line suggestion on the Context row ("Compress to make room?", Compress… and Not now) only at 85% or more, with the chat idle and no request waiting, and not when the percentage is a local estimate below 95. After Not now or a compress it SHALL show again only after the percentage fell below 60 and rose again. State is per thread, in memory.
 
 #### Scenario: First time at 86% while idle
 
@@ -96,6 +101,16 @@ The app SHALL show a one-line suggestion on the Context row ("Nearly full. Compr
 ### Requirement: Manual compression
 
 Context details SHALL offer "Compress conversation…" while the chat is idle and its runtime session is confirmed. A confirmation SHALL say older messages are replaced by a summary, a helper model writes it at the user's token cost, it cannot be undone, and the chat reloads. It SHALL offer an optional "Focus on" field behind Advanced and refuse a focus starting with `-` or `here`. The app SHALL send `session.compress` and SHALL NOT store or log the focus.
+
+#### Scenario: The confirmation's buttons
+
+- **WHEN** the compress confirmation opens
+- **THEN** Cancel is the default and Compress is an outlined button, neither filled nor red
+
+#### Scenario: A reply starts while the confirmation is open
+
+- **WHEN** the chat starts replying while the compress confirmation is open
+- **THEN** Compress is disabled with "Wait for the reply to finish." and nothing is sent
 
 #### Scenario: Compress succeeds
 
