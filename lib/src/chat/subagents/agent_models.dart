@@ -203,7 +203,9 @@ AgentState _stateOf(Object? status, AgentState fallback) {
 /// Rows without an id are skipped, and a row that is not a map is too.
 AgentList? parseAgentList(Map<String, Object?> result) {
   final rows = result['subagents'], delegations = result['delegations'];
-  if (rows != null && rows is! List) return null;
+  // An answer without its agents is not an empty list: reading it as one
+  // would end every running row.
+  if (rows is! List) return null;
   if (delegations != null && delegations is! List) return null;
   final agents = <ListedAgent>[];
   for (final row in rows as List? ?? const []) {

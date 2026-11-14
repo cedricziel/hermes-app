@@ -14,7 +14,6 @@ import 'package:hermes_api/hermes_api.dart'
         MCPServerCreate,
         MoaConfigPayload,
         ProfileCreate,
-        ProfileModelUpdate,
         RawConfigUpdate,
         SessionRename,
         TTSSpeakRequest;
@@ -589,20 +588,14 @@ void main() {
       return;
     }
 
-    final raw = await client.raw
-        .updateProfileModelEndpointApiProfilesNameModelPut(
-          name: Uri.encodeComponent(profile),
-          profileModelUpdate: ProfileModelUpdate(
-            provider: current.providerId,
-            model: current.modelId,
-          ),
-        );
+    final warning = await HermesModelsRepository(client.raw)
+        .assignMain(current, profile: profile);
 
-    expect(raw.data, {
-      'ok': true,
-      'provider': current.providerId,
-      'model': current.modelId,
-    });
+    expect(warning, isNull);
+    final after = (await HermesModelsRepository(
+      client.raw,
+    ).load(profile: profile)).current;
+    expect(after, current);
   }, skip: skip);
 
   test('the app hint is saved per profile without touching the rest', () async {
