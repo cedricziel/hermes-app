@@ -139,7 +139,11 @@ jobs:
         run: flutter pub get
 
       - name: Test
-        run: scripts/test-shard.sh ${{ matrix.shard }} 4 --coverage
+        run: scripts/test-shard.sh ${{ matrix.shard }} 4 --coverage --file-reporter json:build/test-report.json
+
+      - name: List failed tests
+        if: failure()
+        run: python3 scripts/summarize_test_failures.py build/test-report.json
 
       - name: Upload coverage
         if: always()
