@@ -103,6 +103,8 @@ class ModelProviderRow extends StatelessWidget {
             : null,
         warning: warning,
         selected: selected,
+        // The detail beside the list is already open for this row.
+        chevron: selected ? false : null,
         onTap: onTap,
       ),
     );

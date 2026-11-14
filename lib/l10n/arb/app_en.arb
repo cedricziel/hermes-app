@@ -490,6 +490,16 @@
   "@providersDetailReplaceKey": {
     "description": "Button on a saved API key's row that opens the form to paste a new key."
   },
+  "providersDetailReplaceKeySemantics": "Replace key for {provider}",
+  "@providersDetailReplaceKeySemantics": {
+    "description": "Accessibility label of the Replace key button, naming the provider.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
   "providersDetailSavedKey": "Saved key",
   "@providersDetailSavedKey": {
     "description": "Row of a key added on the server when no characters of it are known."

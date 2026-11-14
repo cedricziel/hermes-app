@@ -766,4 +766,201 @@ void main() {
       expect(find.text('Schlüssel entfernen'), findsOneWidget);
     });
   });
+  group('search', () {
+    List<ModelProviderRowData> offers(int n) => [
+      for (var i = 0; i < n; i++)
+        ModelProviderRowData(
+          id: 'p$i',
+          name: 'Provider ${String.fromCharCode(65 + i)}',
+          connection: ProviderConnection.offerKey,
+        ),
+    ];
+    ProviderListData data(int n) => ProviderListData(
+      profile: 'work',
+      more: offers(n),
+      endpointOffered: false,
+    );
+    const field = Key('settings-search-field');
+
+    testWidgets('shows only above twelve entries', (tester) async {
+      await _pump(
+        tester,
+        ProviderListView(data: data(12), onSearchChanged: (_) {}),
+      );
+      expect(find.byKey(field), findsNothing);
+      await _pump(
+        tester,
+        ProviderListView(data: data(13), onSearchChanged: (_) {}),
+      );
+      expect(find.byKey(field), findsOneWidget);
+      expect(find.text('Search providers'), findsOneWidget);
+    });
+
+    testWidgets('counts the custom endpoint entry', (tester) async {
+      await _pump(
+        tester,
+        ProviderListView(
+          data: ProviderListData(profile: 'work', more: offers(12)),
+          onSearchChanged: (_) {},
+        ),
+      );
+      expect(find.byKey(field), findsOneWidget);
+    });
+
+    testWidgets('filters by name and says when nothing matches', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        ProviderListView(
+          data: data(13),
+          searchQuery: 'provider c',
+          onSearchChanged: (_) {},
+        ),
+      );
+      expect(find.text('Provider C'), findsOneWidget);
+      expect(find.text('Provider D'), findsNothing);
+      await _pump(
+        tester,
+        ProviderListView(
+          data: data(13),
+          searchQuery: 'zzz',
+          onSearchChanged: (_) {},
+        ),
+      );
+      expect(find.text('No provider matches your search.'), findsOneWidget);
+      expect(find.text('Provider C'), findsNothing);
+    });
+
+    testWidgets('typing reports the query', (tester) async {
+      String? query;
+      await _pump(
+        tester,
+        ProviderListView(data: data(13), onSearchChanged: (q) => query = q),
+      );
+      await tester.enterText(find.byKey(field), 'prov');
+      expect(query, 'prov');
+    });
+
+    testWidgets('is left to the toolbar on a Mac, which still filters', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        ProviderListView(
+          data: data(13),
+          searchQuery: 'provider c',
+          onSearchChanged: (_) {},
+        ),
+        platform: TargetPlatform.macOS,
+      );
+      expect(find.byKey(field), findsNothing);
+      expect(find.text('Provider C'), findsOneWidget);
+      expect(find.text('Provider D'), findsNothing);
+    });
+  });
+
+  group('accessibility', () {
+    testWidgets('Replace key names the provider, the key is spelled out', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _pump(
+        tester,
+        ProviderDetailView(
+          data: const ProviderDetailData(
+            name: 'OpenRouter',
+            profile: 'work',
+            status: ProviderStatusKind.key,
+            credentials: [
+              ProviderCredentialData(
+                kind: ProviderCredentialKind.apiKey,
+                id: 'K',
+                lastFour: '4f2a',
+              ),
+            ],
+          ),
+          onReplaceKey: (_) {},
+        ),
+      );
+      expect(
+        find.bySemanticsLabel('Replace key for OpenRouter'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('API key ending in 4 f 2 a'),
+        findsOneWidget,
+      );
+      handle.dispose();
+    });
+
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets('buttons are named and big enough on $platform', (
+        tester,
+      ) async {
+        final handle = tester.ensureSemantics();
+        await _pump(
+          tester,
+          Column(
+            children: [
+              Expanded(
+                child: ProviderDetailView(
+                  data: const ProviderDetailData(
+                    name: 'OpenRouter',
+                    profile: 'work',
+                    status: ProviderStatusKind.key,
+                    credentials: [
+                      ProviderCredentialData(
+                        kind: ProviderCredentialKind.apiKey,
+                        id: 'K',
+                        lastFour: '4f2a',
+                      ),
+                    ],
+                    removals: [
+                      ProviderRemovalData(ProviderRemovalKind.removeKey),
+                    ],
+                  ),
+                  onReplaceKey: (_) {},
+                  onRemove: (_) {},
+                ),
+              ),
+              SizedBox(
+                height: 200,
+                child: ModelProviderRow(
+                  provider: _pending,
+                  onStopSignIn: () {},
+                  onContinueSignIn: () {},
+                ),
+              ),
+            ],
+          ),
+          platform: platform,
+        );
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+        await expectLater(
+          tester,
+          meetsGuideline(
+            platform == TargetPlatform.iOS
+                ? iOSTapTargetGuideline
+                : androidTapTargetGuideline,
+          ),
+        );
+        handle.dispose();
+      });
+    }
+
+    testWidgets('a selected row has no chevron', (tester) async {
+      await _pump(
+        tester,
+        _inList(
+          ModelProviderRow(
+            provider: _row(ProviderConnection.key, lastFour: '4f2a'),
+            selected: true,
+            onTap: () {},
+          ),
+        ),
+      );
+      expect(find.byKey(const Key('grouped-row-chevron')), findsNothing);
+    });
+  });
 }

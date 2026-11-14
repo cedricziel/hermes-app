@@ -38,7 +38,9 @@ class ProviderRowButton extends StatelessWidget {
       PlatformChrome.macos => 28.0,
     };
     final size = Size(fullWidth ? double.infinity : (mac ? 0 : height), height);
-    final padding = mac ? const EdgeInsets.symmetric(horizontal: 10) : null;
+    final padding = mac
+        ? const EdgeInsets.symmetric(horizontal: 10)
+        : EdgeInsets.symmetric(horizontal: outlined ? 16 : 12, vertical: 8);
     final textStyle = mac
         ? Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 12)
         : null;
@@ -65,6 +67,7 @@ class ProviderRowButton extends StatelessWidget {
             child: child,
           );
     return Semantics(
+      container: true,
       button: true,
       enabled: onPressed != null,
       label: semanticsLabel ?? label,
@@ -85,31 +88,55 @@ class ProviderActionRow extends StatelessWidget {
     super.key,
     required this.row,
     required this.actions,
+    this.textLabel,
   });
 
   final GroupedRow Function(Widget? trailing) row;
   final List<Widget> Function(bool stacked) actions;
 
+  /// What a screen reader says for the text beside the buttons, when the
+  /// visible words need spelling out (a key's last four characters).
+  final String? textLabel;
+
   @override
   Widget build(BuildContext context) {
     final metrics = GroupedMetrics.of(context);
+    final label = textLabel;
+    Widget text() => label == null
+        ? row(null)
+        : Semantics(
+            container: true,
+            label: label,
+            excludeSemantics: true,
+            child: row(null),
+          );
     if (!providerLargeText(context)) {
-      final buttons = actions(false);
-      return row(
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 8,
-            children: buttons,
-          ),
+      final buttons = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 8,
+          children: actions(false),
         ),
+      );
+      if (label == null) return row(buttons);
+      return Row(
+        children: [
+          Expanded(child: text()),
+          Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: 8,
+              end: metrics.rowPadding,
+            ),
+            child: buttons,
+          ),
+        ],
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        row(null),
+        text(),
         Padding(
           padding: EdgeInsets.fromLTRB(
             metrics.rowPadding,

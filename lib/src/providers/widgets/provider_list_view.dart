@@ -212,14 +212,6 @@ class ProviderListView extends StatelessWidget {
             title: l10n.providersEmptyTitle,
             detail: l10n.providersEmptyDetail(data.profile),
           ),
-        if (data.keysFailed)
-          _banner(
-            AppBanner(
-              tone: AppBannerTone.warning,
-              title: l10n.providersKeysFailed,
-              action: _retry(l10n, onRetryKeys),
-            ),
-          ),
         if (defaultModel != null && data.connected.isNotEmpty)
           GroupedSection(
             header: l10n.providersDefaultModelHeader,
@@ -234,6 +226,14 @@ class ProviderListView extends StatelessWidget {
                 onTap: onOpenDefaultModel,
               ),
             ],
+          ),
+        if (data.keysFailed)
+          _banner(
+            AppBanner(
+              tone: AppBannerTone.warning,
+              title: l10n.providersKeysFailed,
+              action: _retry(l10n, onRetryKeys),
+            ),
           ),
         if (data.connected.isNotEmpty)
           GroupedSection(

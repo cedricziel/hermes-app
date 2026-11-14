@@ -162,6 +162,9 @@ class _ProviderDetailViewState extends State<ProviderDetailView> {
       case ProviderCredentialKind.apiKey:
         final onReplace = widget.onReplaceKey;
         return ProviderActionRow(
+          textLabel: known
+              ? l10n.providersRowKeyEnding(lastFour.split('').join(' '))
+              : null,
           row: (trailing) => GroupedRow(
             title: known
                 ? l10n.providersRowKeyEnding(lastFour)
@@ -173,6 +176,9 @@ class _ProviderDetailViewState extends State<ProviderDetailView> {
           actions: (stacked) => [
             ProviderRowButton(
               label: l10n.providersDetailReplaceKey,
+              semanticsLabel: l10n.providersDetailReplaceKeySemantics(
+                _data.name,
+              ),
               onPressed: onReplace == null ? null : () => onReplace(c.id),
               outlined: true,
               fullWidth: stacked,

@@ -98,26 +98,32 @@ ProviderListData _list({
   bool keysFailed = false,
   bool accountsFailed = false,
   bool endpointsFailed = false,
-}) => ProviderListData(
-  profile: 'work',
-  status: status,
-  failureReason: failureReason,
-  staleOffline: staleOffline,
-  restartRequired: restartRequired,
-  defaultModel: connected.isEmpty ? null : defaultModel,
-  connected: connected,
-  recommended:
-      recommended ??
-      [
-        for (final r in _recommended)
-          if (!connected.any((c) => c.id == r.id)) r,
-      ],
-  more: more ?? _more,
-  endpointOffered: endpointOffered,
-  keysFailed: keysFailed,
-  accountsFailed: accountsFailed,
-  endpointsFailed: endpointsFailed,
-);
+}) {
+  // Nothing is loaded yet while loading, failed or offline with no list.
+  final loaded = status == ProviderListStatus.loaded;
+  final rows = loaded ? connected : const <ModelProviderRowData>[];
+  // A provider that is connected, or waiting for sign-in, leaves "Add a
+  // provider".
+  List<ModelProviderRowData> addable(List<ModelProviderRowData> list) => [
+    for (final r in list)
+      if (!rows.any((c) => c.id == r.id)) r,
+  ];
+  return ProviderListData(
+    profile: 'work',
+    status: status,
+    failureReason: failureReason,
+    staleOffline: staleOffline,
+    restartRequired: restartRequired,
+    defaultModel: rows.isEmpty ? null : defaultModel,
+    connected: rows,
+    recommended: addable(recommended ?? _recommended),
+    more: addable(more ?? _more),
+    endpointOffered: endpointOffered,
+    keysFailed: keysFailed,
+    accountsFailed: accountsFailed,
+    endpointsFailed: endpointsFailed,
+  );
+}
 
 final _models = [
   for (final letter in 'abcdefghijkl'.split('')) 'example-model-$letter',
@@ -135,7 +141,16 @@ const _openRouterDetail = ProviderDetailData(
       lastFour: '4f2a',
     ),
   ],
-  modelCount: 12,
+  models: [
+    'example-model-a',
+    'example-model-b',
+    'example-model-c',
+    'example-model-d',
+    'example-model-e',
+    'example-model-f',
+    'example-model-g',
+  ],
+  modelCount: 7,
   removals: [
     ProviderRemovalData(
       ProviderRemovalKind.removeKey,
@@ -570,12 +585,16 @@ WidgetbookComponent _rowComponent() => WidgetbookComponent(
     ),
     _case(
       'How each provider connects',
-      (_) => _rows([
+      (context) => _rows([
         for (final r in [
           _offer('openrouter', 'OpenRouter', ProviderConnection.offerKey),
           _offer('nous', 'Nous Portal', ProviderConnection.offerAccount),
           _offer('copilot', 'GitHub Copilot', ProviderConnection.offerOnServer),
-          _offer('', 'Custom endpoint', ProviderConnection.offerEndpoint),
+          _offer(
+            '',
+            context.l10n.providersCustomEndpointTitle,
+            ProviderConnection.offerEndpoint,
+          ),
         ])
           ModelProviderRow(provider: r, onTap: _noop),
       ]),
