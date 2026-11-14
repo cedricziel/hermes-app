@@ -12,11 +12,11 @@ No OpenAPI or OpenRPC change. Never hand-edit `packages/hermes_api`. Strings go 
 
 ## 1. Catalog widgets (plain models, no controller)
 
-- [ ] 1.1 `VoiceOrb` (`lib/src/voice/widgets/voice_orb.dart`): states connecting, listening, muted, sending, thinking, speaking, waiting, stopped; `amplitude`; reduce-motion static; `onTap` ("Interrupt the assistant") non-null only while speaking. Tests and use cases for each state, both themes, text 1x and 2x.
-- [ ] 1.2 `HandsFreeStrip` (open, paused, muted, opening; End action): used in the shell and the call view. Use cases, phone and desktop width, 2x text (drops its second half).
-- [ ] 1.3 Extend `VoiceCallView`: orb, state word with icon, caption, `VoiceCallNotice`, controls (Speaker on iOS and Android only), the "Waiting for you in the chat" text and the Sending hint "Hermes is getting your words ready. End or mute now to cancel." Existing `test/voice/calls/voice_call_view_test.dart` stays green.
-- [ ] 1.4 Extend `VoiceCallSetupView` (scrolling body, consent row and Start call pinned at the bottom) with `VoiceConsentRow`, the GPT-Live note, the `voice_chat` and audio output rows, "Use dictation instead", "The call ends if you leave Hermes." on Android and "The call ends if you hide or minimise Hermes." on desktop.
-- [ ] 1.5 Move the existing call views' strings to ARB (en, de) with the new ones; the states of the canvas as use cases in `widgetbook/voice_call_use_cases.dart` at phone and 480 pt width, except state 13 (speak replies off) and the turn list, which come with PR 5; `test/widgetbook_test.dart` passes, one run at a time.
+- [x] 1.1 `VoiceOrb` (`lib/src/voice/widgets/voice_orb.dart`): states connecting, listening, muted, sending, thinking, speaking, waiting, stopped; `amplitude`; reduce-motion static; `onTap` ("Interrupt the assistant") non-null only while speaking. Tests and use cases for each state, both themes, text 1x and 2x.
+- [x] 1.2 `HandsFreeStrip` (open, paused, muted, opening; End action): used in the shell and the call view. Use cases, phone and desktop width, 2x text (drops its second half).
+- [x] 1.3 Extend `VoiceCallView`: orb, state word with icon, caption, `VoiceCallNotice`, controls (Speaker on iOS and Android only), the "Waiting for you in the chat" text and the Sending hint "Hermes is getting your words ready. End or mute now to cancel." Existing `test/voice/calls/voice_call_view_test.dart` stays green.
+- [x] 1.4 Extend `VoiceCallSetupView` (scrolling body, consent row and Start call pinned at the bottom) with `VoiceConsentRow`, the GPT-Live note, the `voice_chat` and audio output rows, "Use dictation instead", "The call ends if you leave Hermes." on Android and "The call ends if you hide or minimise Hermes." on desktop.
+- [x] 1.5 Move the existing call views' strings to ARB (en, de) with the new ones; the states of the canvas as use cases in `widgetbook/voice_call_use_cases.dart` at phone and 480 pt width, except state 13 (speak replies off) and the turn list, which come with PR 5; `test/widgetbook_test.dart` passes, one run at a time.
 
 ## 2. Consent, stopping, teardown (TDD, iOS call first)
 
