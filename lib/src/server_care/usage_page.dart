@@ -23,11 +23,15 @@ import 'widgets/usage_totals_card.dart';
 /// "How much is Hermes using, and on what?": the window's totals, a bar per
 /// day, and the models behind it.
 class UsagePage extends StatefulWidget {
-  const UsagePage({super.key, this.onRunCheck});
+  const UsagePage({super.key, this.onRunCheck, this.recordOpen = true});
 
   /// Opens the server check. The store-unreadable state offers "Run a check"
   /// only when this is given.
   final VoidCallback? onRunCheck;
+
+  /// Whether opening the page is recorded as a breadcrumb. A pane page that
+  /// is built again for the same pick says no.
+  final bool recordOpen;
 
   @override
   State<UsagePage> createState() => _UsagePageState();
@@ -74,7 +78,9 @@ class _UsagePageState extends State<UsagePage> {
       crumbs = Breadcrumbs.none;
     }
     // Only the window: no profile, no figures.
-    crumbs('server_care.usage.opened', {'days': _controller.window.days});
+    if (widget.recordOpen) {
+      crumbs('server_care.usage.opened', {'days': _controller.window.days});
+    }
     _controller.load();
   }
 

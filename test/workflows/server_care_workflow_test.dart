@@ -8,9 +8,12 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
+import 'package:hermes_app/src/server_care/server_check_page.dart';
 import 'package:hermes_app/src/server_care/server_logs_page.dart';
+import 'package:hermes_app/src/server_care/widgets/server_split_view.dart';
 import 'package:hermes_app/src/server_care/update_page.dart';
 import 'package:hermes_app/src/server_care/usage_page.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -136,6 +139,41 @@ void main() {
     await tester.ensureVisible(find.text(label));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text(label));
+    await tester.pump(const Duration(milliseconds: 600));
+    await answered(tester);
+  }
+
+  /// Opens the Server screen from the account menu, as on a phone-less
+  /// shell with a sidebar footer.
+  Future<void> openServerFromAccount(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Account'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.tap(find.textContaining('Server').first);
+    await tester.pump(const Duration(milliseconds: 600));
+    await answered(tester);
+  }
+
+  /// Taps a row of the Server list beside its page.
+  Future<void> tapRow(WidgetTester tester, String label) async {
+    final row = find.descendant(
+      of: find.byType(GroupedRow),
+      matching: find.text(label),
+    );
+    await tester.scrollUntilVisible(
+      row,
+      300,
+      // The list on the left: the first one in the tree.
+      scrollable: find
+          .descendant(
+            of: find.byType(GroupedListView).first,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.ensureVisible(row);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(row);
     await tester.pump(const Duration(milliseconds: 600));
     await answered(tester);
   }
@@ -595,54 +633,65 @@ void main() {
   }
 
   // A window wide enough for the Server screen to show its list beside the
-  // selected page.
-  for (final (name, brightness) in [
-    ('mac-wide', Brightness.light),
-    ('mac-wide-dark', Brightness.dark),
+  // selected page: Windows and an iPad, light and dark. The Mac pushes its
+  // pages at every width (see the `mac` tests above).
+  for (final (name, platform, size, brightness) in [
+    (
+      'windows-wide',
+      TargetPlatform.windows,
+      const Size(1500, 800),
+      Brightness.light,
+    ),
+    (
+      'windows-wide-dark',
+      TargetPlatform.windows,
+      const Size(1500, 800),
+      Brightness.dark,
+    ),
+    ('ipad-wide', TargetPlatform.iOS, const Size(1180, 820), Brightness.light),
+    (
+      'ipad-wide-dark',
+      TargetPlatform.iOS,
+      const Size(1180, 820),
+      Brightness.dark,
+    ),
   ]) {
-    testWidgets('$name: the list beside Usage, Updates and Logs', (
+    testWidgets('$name: the list beside Usage, Updates, Logs and the check', (
       tester,
     ) async {
-      server.on('GET', '/api/logs', {'file': 'errors', 'lines': logsErrors});
       final shots = ScreenshotRecorder('server-care-$name');
       await pumpShell(
         tester,
         shots,
-        size: const Size(1500, 800),
-        platform: TargetPlatform.macOS,
+        size: size,
+        platform: platform,
         brightness: brightness,
       );
-      await tester.tap(find.text('Server').first);
-      await tester.pump(const Duration(milliseconds: 600));
-      await answered(tester);
+      // Windows and an iPad show the Server entry in the account menu.
+      await openServerFromAccount(tester);
       await shots.capture(tester, 'usage-default');
       expect(find.text('The messaging gateway is off'), findsOneWidget);
       expect(find.byType(UsagePage), findsOneWidget);
+      expect(find.byType(ServerSplitView), findsOneWidget);
 
-      await tester.tap(find.text('Updates'));
-      await tester.pump(const Duration(milliseconds: 600));
-      await answered(tester);
+      await tapRow(tester, 'Updates');
       await shots.capture(tester, 'update');
       expect(find.byType(UpdatePage), findsOneWidget);
 
-      await tester.scrollUntilVisible(
-        find.text('Logs'),
-        300,
-        scrollable: find
-            .ancestor(
-              of: find.text('Messaging gateway'),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.ensureVisible(find.text('Logs'));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text('Logs'));
-      await tester.pump(const Duration(milliseconds: 600));
-      await answered(tester);
+      await tapRow(tester, 'Logs');
       await shots.capture(tester, 'logs');
       expect(find.byType(ServerLogsPage), findsOneWidget);
       expect(find.byType(UpdatePage), findsNothing);
+
+      await tapRow(tester, 'Run a check');
+      await shots.capture(tester, 'check-before');
+      expect(find.byType(ServerCheckPage), findsOneWidget);
+      expect(find.text('Check Hermes for problems'), findsOneWidget);
+      await tester.tap(find.text('Run check'));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'check-result');
+      expect(find.text('1 problem and 1 warning'), findsWidgets);
       await letSocketsIdle(tester);
     });
   }

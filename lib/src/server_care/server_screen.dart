@@ -141,6 +141,13 @@ class _ServerScreenState extends State<ServerScreen> {
   int _runBuilt = 0;
   int _runCount = 0;
 
+  /// The profile the pick was made for: a pick never comes back on another.
+  String? _profileSeen;
+
+  /// The request whose Usage page has recorded its opening, so a page rebuilt
+  /// for the same pick records nothing more.
+  _Request? _usageRecorded;
+
   @override
   void initState() {
     super.initState();
@@ -240,7 +247,8 @@ class _ServerScreenState extends State<ServerScreen> {
       _Page.usage,
       offered: () =>
           context.read<ServerCareController>().offers(CarePart.usage),
-      build: (_) => UsagePage(
+      build: (r) => UsagePage(
+        recordOpen: _takeUsageRecord(r),
         onRunCheck: context.read<ServerCareController>().offers(CarePart.check)
             ? () => _showCheck(run: true)
             : null,
@@ -279,6 +287,13 @@ class _ServerScreenState extends State<ServerScreen> {
       },
     ),
   ];
+
+  /// Whether a Usage page built for [r] is the first of its pick.
+  bool _takeUsageRecord(_Request r) {
+    final first = _usageRecorded != r;
+    _usageRecorded = r;
+    return first;
+  }
 
   _Destination _destination(_Page page) =>
       _destinations.firstWhere((d) => d.page == page);
@@ -348,15 +363,35 @@ class _ServerScreenState extends State<ServerScreen> {
       listenable: _update,
       builder: (context, _) => LayoutBuilder(
         builder: (context, box) {
-          final wide = isWideLayout(context, width: box.maxWidth);
+          // The Mac pushes pages inside its destination, with the toolbar's
+          // Back, at every width; the split is for the other platforms.
+          final wide =
+              platformChromeOf(context) != PlatformChrome.macos &&
+              isWideLayout(context, width: box.maxWidth);
           _wide = wide;
+          // A pick never comes back on another profile.
+          if (care.profile != _profileSeen) {
+            _profileSeen = care.profile;
+            _picked = null;
+          }
+          // Only a destination hidden behind another in the shell builds no
+          // page; a route pushed over this one keeps it, so what it holds is
+          // not read again when the route goes.
+          final visible = Visibility.of(context);
+          if (!wide || !visible) {
+            // The pane is gone for real: what it showed is not read again
+            // by showing it, so a Logs or Check pick is forgotten.
+            final picked = _picked;
+            if (picked != null &&
+                (picked.page == _Page.logs || picked.page == _Page.check)) {
+              _picked = null;
+            }
+          }
           final overview = _overview(context, care);
           if (!wide) return overview;
           final shown = _shown();
-          // A destination the shell keeps alive behind the visible one builds
-          // no page, so a Logs page lets go of its lines and the window.
-          final visible =
-              Visibility.of(context) && TickerMode.valuesOf(context).enabled;
+          // Another page has taken the pane: Usage picked again is a new pick.
+          if (visible && shown?.page != _Page.usage) _usageRecorded = null;
           return ServerSplitView(
             list: overview,
             detail: !visible
@@ -426,6 +461,7 @@ class _ServerScreenState extends State<ServerScreen> {
                 title: l10n.serverCareUsageTitle,
                 subtitle: l10n.serverCareUsageRowSubtitle,
                 selected: shown == _Page.usage,
+                chevron: _wide ? false : null,
                 onTap: () => _showPage(_Page.usage),
               ),
             if (care.offers(CarePart.logs))
@@ -433,6 +469,7 @@ class _ServerScreenState extends State<ServerScreen> {
                 title: l10n.serverCareLogsTitle,
                 subtitle: l10n.serverCareLogsRowSubtitle,
                 selected: shown == _Page.logs,
+                chevron: _wide ? false : null,
                 onTap: () => _showPage(_Page.logs),
               ),
             if (care.offers(CarePart.check))
@@ -461,6 +498,7 @@ class _ServerScreenState extends State<ServerScreen> {
         state: ServerCheckRowState.running,
         onTap: _showCheck,
         selected: selected,
+        chevron: _wide ? false : null,
       );
     }
     if (check.phase != CheckPhase.finished || report == null || at == null) {
@@ -468,6 +506,7 @@ class _ServerScreenState extends State<ServerScreen> {
         state: ServerCheckRowState.idle,
         onTap: _showCheck,
         selected: selected,
+        chevron: _wide ? false : null,
       );
     }
     return ServerCheckRow(
@@ -480,6 +519,7 @@ class _ServerScreenState extends State<ServerScreen> {
       ago: elapsedText(l10n, elapsedSince(at, DateTime.now())),
       onTap: _showCheck,
       selected: selected,
+      chevron: _wide ? false : null,
     );
   }
 
@@ -686,6 +726,7 @@ class _ServerScreenState extends State<ServerScreen> {
           value: update.value,
           subtitle: update.subtitle,
           selected: shown == _Page.update,
+          chevron: _wide ? false : null,
           onTap: () => _showPage(_Page.update),
         ),
     ];

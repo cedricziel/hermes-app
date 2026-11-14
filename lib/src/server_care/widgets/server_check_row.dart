@@ -26,6 +26,7 @@ class ServerCheckRow extends StatelessWidget {
     this.ago,
     this.onTap,
     this.selected = false,
+    this.chevron,
   });
 
   final ServerCheckRowState state;
@@ -39,6 +40,9 @@ class ServerCheckRow extends StatelessWidget {
 
   /// Highlights the row whose page shows beside the list.
   final bool selected;
+
+  /// False leaves the disclosure chevron out (a row beside its page).
+  final bool? chevron;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +62,7 @@ class ServerCheckRow extends StatelessWidget {
       },
       onTap: onTap,
       selected: selected,
+      chevron: chevron,
     );
   }
 }

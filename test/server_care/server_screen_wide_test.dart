@@ -3,6 +3,7 @@ import 'dart:ui' show Tristate;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
@@ -19,6 +20,7 @@ import 'package:hermes_app/src/server_care/update_page.dart';
 import 'package:hermes_app/src/server_care/usage_page.dart';
 import 'package:hermes_app/src/server_care/widgets/server_split_view.dart';
 import 'package:hermes_app/src/navigation/connection_pages.dart';
+import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_back_button.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -63,6 +65,7 @@ void main() {
   late AppLockController lock;
   final secureCalls = <Object?>[];
   late _Pushes pushes;
+  late BreadcrumbTrail trail;
   const secureChannel = MethodChannel('hermes_app/secure_window');
 
   setUp(() {
@@ -70,6 +73,7 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
     secureCalls.clear();
     pushes = _Pushes();
+    trail = BreadcrumbTrail();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(secureChannel, (call) async {
           secureCalls.add(call.arguments);
@@ -138,6 +142,7 @@ void main() {
       MultiProvider(
         providers: [
           Provider<HermesRepositories>.value(value: repositories),
+          Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
           ChangeNotifierProvider<ServerCareController>.value(value: care),
           ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
           ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
@@ -352,6 +357,10 @@ void main() {
       await tester.runAsync(lock.unlock);
       await settle(tester);
       expect(find.text('Telegram failed'), findsOneWidget);
+      // The page reads again after unlocking, as it always did, and holds the
+      // window throughout.
+      expect(server.requestsTo('GET', '/api/logs'), hasLength(2));
+      expect(secureCalls, [true]);
     });
 
     test('a page for a part the server lacks gives way to the next one', (
@@ -432,11 +441,12 @@ void main() {
       expect(secureCalls, [true, false]);
       stack.value = 0;
       await settle(tester);
-      // The pick stayed: the page is rebuilt and reads again.
-      expect(find.byType(ServerLogsPage), findsOneWidget);
-      expect(find.text('Telegram failed'), findsOneWidget);
-      expect(server.requestsTo('GET', '/api/logs'), hasLength(2));
-      expect(secureCalls, [true, false, true]);
+      // The pane was torn down for real: showing it again does not read the
+      // logs by itself, it lands on the default.
+      expect(find.byType(ServerLogsPage), findsNothing);
+      expect(find.byType(UsagePage), findsOneWidget);
+      expect(server.requestsTo('GET', '/api/logs'), hasLength(1));
+      expect(secureCalls, [true, false]);
     });
 
     test('a failed status read hides the version the Update page falls back '
@@ -605,8 +615,9 @@ void main() {
         expect(secureCalls, [true, false]);
         stack.value = 0;
         await settle(tester);
-        expect(find.byType(ServerCheckPage), findsOneWidget);
-        expect(secureCalls, [true, false, true]);
+        expect(find.byType(ServerCheckPage), findsNothing);
+        expect(find.byType(UsagePage), findsOneWidget);
+        expect(secureCalls, [true, false]);
         expect(runs(), 1);
       });
     });
@@ -630,12 +641,21 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    test('the Mac keeps its toolbars, one over each pane', (tester) async {
-      await pump(tester, platform: TargetPlatform.macOS);
-      expect(tester.takeException(), isNull);
-      expect(find.byType(UsagePage), findsOneWidget);
-      await select(tester, 'Logs');
-      expect(find.byType(ServerLogsPage), findsOneWidget);
+    test('the Mac never splits: pages push with the toolbar Back', (
+      tester,
+    ) async {
+      for (final width in [1000.0, 1500.0]) {
+        await pump(tester, platform: TargetPlatform.macOS, width: width);
+        expect(find.byType(ServerSplitView), findsNothing);
+        expect(find.byType(UsagePage), findsNothing);
+        final before = pushes.count;
+        await select(tester, 'Logs');
+        expect(find.byType(ServerLogsPage), findsOneWidget);
+        expect(pushes.count, before + 1);
+        Navigator.of(tester.element(find.byType(ServerLogsPage))).pop();
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox());
+      }
     });
   });
 
@@ -654,6 +674,239 @@ void main() {
     test('an iPad in Split View is narrow', (tester) async {
       await pump(tester, width: 600, platform: TargetPlatform.iOS);
       expect(find.byType(ServerSplitView), findsNothing);
+    });
+  });
+
+  group('a kept pick', () {
+    int logReads() => server.requestsTo('GET', '/api/logs').length;
+
+    Future<void> resize(WidgetTester tester, double width) async {
+      tester.view.physicalSize = Size(width, 1600);
+      await tester.pumpAndSettle();
+      await settle(tester);
+    }
+
+    test('a route pushed over the screen keeps the pane page as it was', (
+      tester,
+    ) async {
+      await pump(tester);
+      await select(tester, 'Logs');
+      final state = tester.state(find.byType(ServerLogsPage));
+      final navigator = Navigator.of(tester.element(find.byType(ServerScreen)));
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('over it')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('over it'), findsOneWidget);
+      navigator.pop();
+      await settle(tester);
+      expect(tester.state(find.byType(ServerLogsPage)), same(state));
+      expect(logReads(), 1);
+      expect(secureCalls, [true]);
+    });
+
+    test('narrowing drops a Logs pick, widening lands on the default', (
+      tester,
+    ) async {
+      await pump(tester);
+      await select(tester, 'Logs');
+      await resize(tester, 420);
+      expect(find.byType(ServerLogsPage), findsNothing);
+      expect(secureCalls, [true, false]);
+      await resize(tester, 1000);
+      expect(find.byType(ServerLogsPage), findsNothing);
+      expect(find.byType(UsagePage), findsOneWidget);
+      expect(logReads(), 1);
+      expect(secureCalls, [true, false]);
+    });
+
+    test('narrowing keeps an Update pick for when the window widens', (
+      tester,
+    ) async {
+      await pump(tester);
+      await select(tester, 'Updates');
+      await resize(tester, 420);
+      expect(find.byType(UpdatePage), findsNothing);
+      await resize(tester, 1000);
+      expect(find.byType(UpdatePage), findsOneWidget);
+    });
+
+    test('a Check pick is forgotten too, with no second check', (tester) async {
+      server
+        ..on('POST', '/api/ops/doctor', {
+          'ok': true,
+          'pid': 1,
+          'name': 'doctor',
+        })
+        ..on('GET', '/api/actions/doctor/status', {
+          'name': 'doctor',
+          'running': false,
+          'exit_code': 1,
+          'lines': [
+            '=== doctor started 2026-11-14 09:00:00 ===',
+            ...doctorProblems,
+          ],
+        });
+      await pump(tester);
+      await select(tester, 'Run a check');
+      check.run(profile: 'default').ignore();
+      await settle(tester);
+      for (final width in [420.0, 1000.0, 420.0, 1000.0]) {
+        await resize(tester, width);
+      }
+      expect(find.byType(ServerCheckPage), findsNothing);
+      expect(server.requestsTo('POST', '/api/ops/doctor'), hasLength(1));
+      expect(secureCalls, [true, false]);
+    });
+
+    test('a pick does not come back on another profile', (tester) async {
+      await pump(tester);
+      await select(tester, 'Logs');
+      expect(logReads(), 1);
+      care.profileChanged('work');
+      await settle(tester);
+      expect(find.byType(ServerLogsPage), findsNothing);
+      expect(find.byType(UsagePage), findsOneWidget);
+      await resize(tester, 420);
+      await resize(tester, 1000);
+      await tester.runAsync(lock.load);
+      await tester.runAsync(() => lock.setEnabled(true));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.runAsync(lock.unlock);
+      await settle(tester);
+      // The page followed the switch for the moment before the pane dropped
+      // it; nothing was read for the old profile again, and nothing since.
+      final reads = server
+          .requestsTo('GET', '/api/logs')
+          .map((r) => r.queryParameters['profile'])
+          .toList();
+      expect(reads.where((p) => p == 'default'), hasLength(1));
+      expect(reads.length, lessThanOrEqualTo(2));
+    });
+
+    test('Usage records its opening once per pick', (tester) async {
+      final stack = ValueNotifier<int>(0);
+      addTearDown(stack.dispose);
+      await pump(tester, stack: stack);
+      int opened() => trail.recent
+          .where((r) => r.name == 'server_care.usage.opened')
+          .length;
+      expect(opened(), 1);
+      stack.value = 1;
+      await settle(tester);
+      stack.value = 0;
+      await settle(tester);
+      await resize(tester, 420);
+      await resize(tester, 1000);
+      expect(opened(), 1);
+      // Another page and then Usage again is a new pick.
+      await select(tester, 'Logs');
+      await select(tester, 'Usage');
+      expect(opened(), 2);
+    });
+
+    test('a Copy question closes with the Logs page', (tester) async {
+      await pump(tester);
+      await select(tester, 'Logs');
+      await tester.tap(find.byKey(const Key('logs-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copy shown lines'));
+      await tester.pumpAndSettle();
+      expect(find.text('Copy these log lines?'), findsOneWidget);
+      await select(tester, 'Usage');
+      expect(find.text('Copy these log lines?'), findsNothing);
+      expect(find.byType(ServerScreen), findsOneWidget);
+    });
+
+    test('a restart, an update and a check that ran send nothing again '
+        'when the window changes size', (tester) async {
+      server
+        ..on('POST', '/api/gateway/start', {
+          'ok': true,
+          'pid': 2,
+          'name': 'gateway-start',
+        })
+        ..on('GET', '/api/actions/gateway-start/status', {
+          'name': 'gateway-start',
+          'running': false,
+          'exit_code': 0,
+          'lines': <String>[],
+        })
+        ..on('POST', '/api/hermes/update', {
+          'ok': true,
+          'pid': 1,
+          'name': 'hermes-update',
+          'action_id': 'a' * 32,
+        })
+        ..on('GET', '/api/actions/hermes-update/status', {
+          'name': 'hermes-update',
+          'running': false,
+          'exit_code': 0,
+          'lines': <String>[],
+        })
+        ..on('POST', '/api/ops/doctor', {
+          'ok': true,
+          'pid': 1,
+          'name': 'doctor',
+        })
+        ..on('GET', '/api/actions/doctor/status', {
+          'name': 'doctor',
+          'running': false,
+          'exit_code': 0,
+          'lines': ['=== doctor started 2026-11-14 09:00:00 ==='],
+        })
+        ..on('GET', '/api/status', {
+          ...statusHealthy(),
+          'gateway_running': false,
+          'gateway_state': 'stopped',
+        });
+      Future<void> quiet(WidgetTester tester) async {
+        // An update that restarts animates for ever: settle by time.
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 500));
+      }
+
+      await pump(tester);
+      await tester.tap(find.text('Start gateway').first);
+      // The gateway is up by the time its run reads the status again.
+      server.on('GET', '/api/status', statusHealthy());
+      await quiet(tester);
+      update.start().ignore();
+      await quiet(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(GroupedRow),
+          matching: find.text('Run a check'),
+        ),
+      );
+      await quiet(tester);
+      check.run(profile: 'default').ignore();
+      await quiet(tester);
+      int posts(String path) => server.requestsTo('POST', path).length;
+      expect(posts('/api/gateway/start'), 1);
+      expect(posts('/api/hermes/update'), 1);
+      expect(posts('/api/ops/doctor'), 1);
+      for (final width in [420.0, 1000.0, 420.0, 1000.0]) {
+        tester.view.physicalSize = Size(width, 1600);
+        await quiet(tester);
+      }
+      expect(posts('/api/gateway/start'), 1);
+      expect(posts('/api/hermes/update'), 1);
+      expect(posts('/api/ops/doctor'), 1);
+      update.reset().ignore();
+      // The gateway waits up to 90 s for the status to say it is back.
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(seconds: 10));
+      }
     });
   });
 }

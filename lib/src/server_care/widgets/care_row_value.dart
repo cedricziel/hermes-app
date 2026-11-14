@@ -51,6 +51,7 @@ class CareValueRow extends StatelessWidget {
     this.error,
     this.onTap,
     this.selected = false,
+    this.chevron,
   });
 
   final String title;
@@ -62,6 +63,9 @@ class CareValueRow extends StatelessWidget {
 
   /// Highlights the row whose page shows beside the list.
   final bool selected;
+
+  /// False leaves the disclosure chevron out (a row beside its page).
+  final bool? chevron;
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +95,7 @@ class CareValueRow extends StatelessWidget {
           error: error,
           onTap: onTap,
           selected: selected,
+          chevron: chevron,
         );
       },
     );

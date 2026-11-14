@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/server_care/log_line.dart';
 import 'package:hermes_app/src/server_care/widgets/care_row_value.dart';
 import 'package:hermes_app/src/server_care/widgets/log_level_menu_button.dart';
+import 'package:hermes_app/src/server_care/widgets/server_check_body.dart';
+import 'package:hermes_app/src/server_care/widgets/server_check_row.dart';
 import 'package:hermes_app/src/server_care/widgets/server_logs_body.dart';
 import 'package:hermes_app/src/server_care/widgets/server_split_view.dart';
 import 'package:hermes_app/src/server_care/widgets/server_status_card.dart';
@@ -13,8 +15,10 @@ import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'frame.dart';
+
 /// The pages a wide Server screen can show beside its list.
-enum _Pick { usage, update, logs }
+enum _Pick { usage, update, logs, check }
 
 Widget _largest(Widget child) => Builder(
   builder: (context) => MediaQuery(
@@ -26,55 +30,88 @@ Widget _largest(Widget child) => Builder(
 
 /// The overview as the screen builds it: a headline, then rows, with [picked]
 /// highlighted and [onPick] called by the rows that open a page.
-Widget _overview(_Pick? picked, ValueChanged<_Pick> onPick) => SettingsScaffold(
-  title: 'Server',
-  subtitle: 'default · 2 profiles',
-  body: GroupedListView(
-    children: [
-      const ServerStatusCard(
-        tone: ServerStatusTone.healthy,
-        title: 'Everything looks good',
-        detail: 'Hermes 0.22.2',
-      ),
-      GroupedSection(
-        header: 'Hermes',
-        children: [
-          const CareValueRow(
-            title: 'Version',
-            value: '0.22.2',
-            subtitle: 'Released 2 Nov 2026',
-          ),
-          CareValueRow(
-            title: 'Updates',
-            value: 'Up to date',
-            selected: picked == _Pick.update,
-            onTap: () => onPick(_Pick.update),
-          ),
-        ],
-      ),
-      GroupedSection(
-        header: 'Tools',
-        children: [
-          GroupedRow(
-            title: 'Usage',
-            subtitle: 'Tokens, cost and conversations',
-            selected: picked == _Pick.usage,
-            onTap: () => onPick(_Pick.usage),
-          ),
-          GroupedRow(
-            title: 'Logs',
-            subtitle: "Recent lines from Hermes' logs",
-            selected: picked == _Pick.logs,
-            onTap: () => onPick(_Pick.logs),
-          ),
-        ],
-      ),
-      GroupedSection(
-        children: [GroupedRow(title: 'Connection details', onTap: () {})],
-      ),
-    ],
-  ),
-);
+Widget _overview(
+  _Pick? picked,
+  ValueChanged<_Pick> onPick, {
+  required bool split,
+  required bool german,
+}) {
+  String t(String en, String de) => german ? de : en;
+  // No chevron beside a page: the fill and the selected state say it.
+  final bool? chevron = split ? false : null;
+  return SettingsScaffold(
+    title: t('Server', 'Server'),
+    subtitle: t('default · 2 profiles', 'default · 2 Profile'),
+    body: GroupedListView(
+      children: [
+        ServerStatusCard(
+          tone: ServerStatusTone.healthy,
+          title: t('Everything looks good', 'Alles in Ordnung'),
+          detail: 'Hermes 0.22.2',
+        ),
+        GroupedSection(
+          header: 'Hermes',
+          children: [
+            CareValueRow(
+              title: 'Version',
+              value: '0.22.2',
+              subtitle: t(
+                'Released 2 Nov 2026',
+                'Veröffentlicht am 2. Nov. 2026',
+              ),
+            ),
+            CareValueRow(
+              title: 'Updates',
+              value: t('Up to date', 'Auf dem neuesten Stand'),
+              selected: picked == _Pick.update,
+              chevron: chevron,
+              onTap: () => onPick(_Pick.update),
+            ),
+          ],
+        ),
+        GroupedSection(
+          header: t('Tools', 'Werkzeuge'),
+          children: [
+            GroupedRow(
+              title: t('Usage', 'Nutzung'),
+              subtitle: t(
+                'Tokens, cost and conversations',
+                'Tokens, Kosten und Unterhaltungen nach Tag und Modell',
+              ),
+              selected: picked == _Pick.usage,
+              chevron: chevron,
+              onTap: () => onPick(_Pick.usage),
+            ),
+            GroupedRow(
+              title: t('Logs', 'Protokolle'),
+              subtitle: t(
+                "Recent lines from Hermes' logs",
+                'Aktuelle Zeilen aus den Protokollen von Hermes',
+              ),
+              selected: picked == _Pick.logs,
+              chevron: chevron,
+              onTap: () => onPick(_Pick.logs),
+            ),
+            ServerCheckRow(
+              state: ServerCheckRowState.idle,
+              selected: picked == _Pick.check,
+              chevron: chevron,
+              onTap: () => onPick(_Pick.check),
+            ),
+          ],
+        ),
+        GroupedSection(
+          children: [
+            GroupedRow(
+              title: t('Connection details', 'Verbindungsdetails'),
+              onTap: () {},
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
 const _lines = [
   LogLine(
@@ -129,6 +166,16 @@ Widget _page(_Pick pick) => switch (pick) {
       ],
     ),
   ),
+  _Pick.check => SettingsScaffold(
+    title: 'Server check',
+    subtitle: 'default',
+    body: ServerCheckBody(
+      view: const ServerCheckView.intro(),
+      onRun: () {},
+      onKeepWaiting: () {},
+      onDismiss: () {},
+    ),
+  ),
   _Pick.logs => DefaultTabController(
     length: 3,
     child: SettingsScaffold(
@@ -153,9 +200,12 @@ Widget _page(_Pick pick) => switch (pick) {
 /// What the Server screen does with the width: beside each other from the
 /// wide breakpoint, else the list alone (a row then pushes its page).
 class _Demo extends StatefulWidget {
-  const _Demo({this.initial, this.empty = false});
+  const _Demo({this.initial, this.empty = false, this.german = false});
 
   final _Pick? initial;
+
+  /// The overview in German, whose words are longer.
+  final bool german;
 
   /// The server offers no page.
   final bool empty;
@@ -178,9 +228,14 @@ class _DemoState extends State<_Demo> {
     builder: (context, box) {
       final wide = isWideLayout(context, width: box.maxWidth);
       final shown = widget.empty ? null : _picked ?? _Pick.usage;
-      final list = _overview(wide ? shown : null, (p) {
-        if (wide) setState(() => _picked = p);
-      });
+      final list = _overview(
+        wide ? shown : null,
+        (p) {
+          if (wide) setState(() => _picked = p);
+        },
+        split: wide,
+        german: widget.german,
+      );
       if (!wide) return list;
       return ServerSplitView(
         list: list,
@@ -208,6 +263,22 @@ List<WidgetbookNode> serverCareSplitNodes() => [
       WidgetbookUseCase(
         name: 'Logs selected',
         builder: (_) => const _Demo(initial: _Pick.logs),
+      ),
+      WidgetbookUseCase(
+        name: 'Server check selected',
+        builder: (_) => const _Demo(initial: _Pick.check),
+      ),
+      WidgetbookUseCase(
+        name: 'German, long strings, Logs selected',
+        builder: (_) => const _Demo(initial: _Pick.logs, german: true),
+      ),
+      WidgetbookUseCase(
+        name: 'German, long strings, largest text',
+        builder: (_) => _largest(const _Demo(german: true)),
+      ),
+      WidgetbookUseCase(
+        name: 'Narrow: the list alone, rows push their page',
+        builder: (_) => fill(const _Demo(), width: 390),
       ),
       WidgetbookUseCase(
         name: 'No page offered',

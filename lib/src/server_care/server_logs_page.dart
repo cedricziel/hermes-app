@@ -207,7 +207,10 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   @override
   void dispose() {
     _releaseSecure?.call();
-    _staleSignal.dispose();
+    // An open Copy question or menu goes with the page.
+    _staleSignal
+      ..fire()
+      ..dispose();
     _connection?.dispose();
     _appLock?.removeListener(_lockChanged);
     _care.removeListener(_followChatProfile);
