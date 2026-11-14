@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart' hide Banner;
+import 'package:flutter/material.dart';
 
-import '../../widgets/banner.dart';
+import '../../widgets/app_banner.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/grouped_list.dart';
 import '../memory_settings.dart';
@@ -74,8 +74,8 @@ class MemoryLearningSection extends StatelessWidget {
         if (message != null)
           Padding(
             padding: const EdgeInsets.only(top: 16),
-            child: Banner(
-              tone: BannerTone.error,
+            child: AppBanner(
+              tone: AppBannerTone.error,
               icon: AppIcons.error,
               title: message!,
             ),

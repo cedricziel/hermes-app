@@ -4,10 +4,10 @@ import '../theme/app_icons.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/grouped_list.dart';
 
-import 'package:flutter/material.dart' hide Banner;
+import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
-import '../widgets/banner.dart';
+import '../widgets/app_banner.dart';
 import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_json_check.dart';
@@ -230,8 +230,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Banner(
-            tone: BannerTone.warning,
+          const AppBanner(
+            tone: AppBannerTone.warning,
             icon: AppIcons.warning,
             title: 'Replaces all servers of this profile.',
             detail:

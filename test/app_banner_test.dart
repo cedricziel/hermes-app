@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart' hide Banner;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
-import 'package:hermes_app/src/widgets/banner.dart';
+import 'package:hermes_app/src/widgets/app_banner.dart';
 
 Widget _host(Widget child, {ThemeData? theme}) => MaterialApp(
   theme: theme ?? buildHermesLightTheme(),
@@ -13,8 +13,8 @@ void main() {
   testWidgets('shows title, detail and action', (tester) async {
     await tester.pumpWidget(
       _host(
-        Banner(
-          tone: BannerTone.neutral,
+        AppBanner(
+          tone: AppBannerTone.neutral,
           title: 'Working folder',
           detail: 'Of the server.',
           action: TextButton(onPressed: () {}, child: const Text('Show')),
@@ -27,10 +27,12 @@ void main() {
   });
 
   testWidgets('uses the default icon of its tone', (tester) async {
-    final icons = {for (final t in BannerTone.values) Banner.defaultIcon(t)};
-    expect(icons.length, BannerTone.values.length);
+    final icons = {
+      for (final t in AppBannerTone.values) AppBanner.defaultIcon(t),
+    };
+    expect(icons.length, AppBannerTone.values.length);
     await tester.pumpWidget(
-      _host(const Banner(tone: BannerTone.warning, title: 'Careful')),
+      _host(const AppBanner(tone: AppBannerTone.warning, title: 'Careful')),
     );
     final icon = tester.widget<Icon>(find.byType(Icon));
     expect(icon.icon, AppIcons.warning.material);
@@ -40,15 +42,15 @@ void main() {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(
       _host(
-        const Banner(
-          tone: BannerTone.error,
+        const AppBanner(
+          tone: AppBannerTone.error,
           title: "Couldn't save",
           detail: 'Try again.',
         ),
       ),
     );
     expect(
-      tester.getSemantics(find.byType(Banner)),
+      tester.getSemantics(find.byType(AppBanner)),
       isSemantics(label: "Couldn't save. Try again.", isLiveRegion: true),
     );
     expect(find.bySemanticsLabel("Couldn't save"), findsNothing);
@@ -60,8 +62,8 @@ void main() {
     var taps = 0;
     await tester.pumpWidget(
       _host(
-        Banner(
-          tone: BannerTone.neutral,
+        AppBanner(
+          tone: AppBannerTone.neutral,
           title: 'Offline',
           action: TextButton(
             onPressed: () => taps++,
@@ -82,8 +84,8 @@ void main() {
     Widget build(double scale) => _host(
       MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-        child: Banner(
-          tone: BannerTone.warning,
+        child: AppBanner(
+          tone: AppBannerTone.warning,
           title: 'Title',
           action: TextButton(onPressed: () {}, child: const Text('Retry')),
         ),
@@ -103,10 +105,10 @@ void main() {
 
   testWidgets('every tone builds in both themes', (tester) async {
     for (final theme in [buildHermesLightTheme(), buildHermesDarkTheme()]) {
-      for (final tone in BannerTone.values) {
+      for (final tone in AppBannerTone.values) {
         await tester.pumpWidget(
           _host(
-            Banner(tone: tone, title: 'T', detail: 'D'),
+            AppBanner(tone: tone, title: 'T', detail: 'D'),
             theme: theme,
           ),
         );
