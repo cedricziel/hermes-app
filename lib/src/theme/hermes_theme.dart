@@ -62,7 +62,7 @@ ThemeData buildHermesLightTheme({TargetPlatform? platform}) {
     subtleText: const Color(0xFF6B6B74),
     success: const Color(0xFF166534),
     warning: const Color(0xFF92400E),
-    link: const Color(0xFF1D4ED8),
+    link: const Color(0xFF1565C0),
     platform: platform,
   );
 }
@@ -89,7 +89,7 @@ ThemeData buildHermesDarkTheme({TargetPlatform? platform}) {
     subtleText: HermesColors.zinc400,
     success: const Color(0xFF4ADE80),
     warning: const Color(0xFFFBBF24),
-    link: const Color(0xFF60A5FA),
+    link: const Color(0xFF90CAF9),
     platform: platform,
   );
 }
@@ -261,6 +261,9 @@ class HermesChatColors extends ThemeExtension<HermesChatColors> {
   final Color success;
   final Color warning;
 
+  /// Mirrors `--h-link` in `design/web/src/styles/tokens.css` (#1565c0 light,
+  /// #90caf9 dark); change both together.
+  ///
   /// Text and icons that read as a link or as information: the one hue in an
   /// otherwise neutral palette, because `colorScheme.primary` is near-black
   /// (near-white in dark) and does not look like a link. Not for primary
