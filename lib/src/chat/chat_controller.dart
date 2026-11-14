@@ -48,6 +48,8 @@ import 'chat_transport.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
 import 'owned_session_transport.dart';
+import 'activity/working_summary.dart' show WorkingSummary;
+import 'activity/working_summary_source.dart';
 import 'todo_plan/todo_plan_state.dart';
 import 'moa_progress_state.dart';
 import 'session_usage/session_usage_controller.dart';
@@ -94,6 +96,7 @@ part 'chat_controller_session_state.dart';
 part 'chat_controller_streaming.dart';
 part 'chat_controller_surfaces.dart';
 part 'chat_controller_workspace.dart';
+part 'chat_controller_working.dart';
 
 const couldNotOpenChat = 'Could not open that chat.';
 
@@ -607,6 +610,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ChatSessionState? sessionStateIn(ChatThread thread) =>
       _ChatControllerSessionState(this)._sessionStateInImpl(thread);
 
+  final _workingSource = WorkingSummarySource();
+
+  /// What [thread] is doing now, for the activity line and the Mac toolbar's
+  /// subtitle; null when nothing is working.
+  WorkingSummary? workingSummaryIn(ChatThread thread) =>
+      _workingSource.read(thread, workingInputsOf(this, thread));
+
+  /// Whether the status [kind] of [thread] belongs to the turn running now.
+  bool workingWaitIsCurrent(ChatThread thread, String kind) =>
+      _ChatControllerWorking(this)._waitIsCurrentImpl(thread, kind);
+
   void sessionDetailsOpened() =>
       _ChatControllerSessionState(this)._sessionDetailsOpenedImpl();
 
@@ -848,6 +862,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   @override
   void notifyListeners() {
+    if (!disposed) _ChatControllerWorking(this)._refreshImpl();
     super.notifyListeners();
     if (_listRefreshPending && !threadListInvalidationBlocked) {
       _listRefreshPending = false;

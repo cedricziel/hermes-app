@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/server_care/gateway_restart.dart';
+import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/server_care/server_screen.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
@@ -19,6 +20,7 @@ void main() {
   late BreadcrumbTrail trail;
   late ServerCareController care;
   late GatewayRestart gateway;
+  late HermesUpdateRun update;
 
   setUp(() {
     server = FakeHermesServer()
@@ -51,6 +53,8 @@ void main() {
       delay: (d) async => clock = clock.add(d),
     );
     addTearDown(gateway.dispose);
+    update = HermesUpdateRun(repository: repositories.serverCare);
+    addTearDown(update.dispose);
     // As in the app, the controller is provided below the root Navigator, so
     // a route the screen pushes must carry it along.
     await tester.pumpWidget(
@@ -68,6 +72,7 @@ void main() {
             providers: [
               ChangeNotifierProvider<ServerCareController>.value(value: care),
               ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+              ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
             ],
             child: const ServerScreen(source: 'test'),
           ),
@@ -321,6 +326,7 @@ void main() {
             ),
             ChangeNotifierProvider<ServerCareController>.value(value: care),
             ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+            ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
