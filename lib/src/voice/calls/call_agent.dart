@@ -10,8 +10,18 @@ abstract interface class CallAgent {
     String text, {
     required void Function(String) onText,
     required void Function(bool) onAttention,
+
+    /// Called once the prompt reached the chat, which ends the call's Sending.
+    void Function()? onSubmitted,
   });
   Future<void> interrupt();
+
+  /// Whether the thread waits for the user (an approval, a question), whoever
+  /// raised it: this call's reply, a typed one or a server-queued one.
+  bool get attention;
+
+  /// Calls [listener] whenever [attention] changes, until [dispose].
+  void watchAttention(void Function(bool waiting) listener);
   void dispose();
 }
 
@@ -34,10 +44,22 @@ class ChatCallAgent implements CallAgent {
   void Function(String)? _text;
   void Function(bool)? _attention;
   String _spoken = '';
+  void Function(bool)? _watcher;
+  bool _lastAttention = false;
 
   /// The prompt this call's turn sent, which its reply follows.
   ChatMessage? _prompt;
   ChatMessage? _earlierPrompt;
+
+  @override
+  bool get attention =>
+      _thread?.messages.any((m) => m.isPending && m.awaitingInput) ?? false;
+
+  @override
+  void watchAttention(void Function(bool waiting) listener) {
+    _watcher = listener;
+    _lastAttention = attention;
+  }
 
   bool get valid =>
       !_disposed &&
@@ -50,6 +72,7 @@ class ChatCallAgent implements CallAgent {
     String text, {
     required void Function(String) onText,
     required void Function(bool) onAttention,
+    void Function()? onSubmitted,
   }) async {
     final thread = chat.selectedThread;
     if (!valid ||
@@ -77,6 +100,7 @@ class ChatCallAgent implements CallAgent {
       final accepted = await chat.submit(text, const []);
       if (accepted) {
         _messageID = _replies(thread).firstOrNull?.id;
+        onSubmitted?.call();
       }
       if (!valid || !accepted || done.isCompleted) {
         if (accepted &&
@@ -105,6 +129,11 @@ class ChatCallAgent implements CallAgent {
     if (!valid) {
       onContextLost();
       return;
+    }
+    final waiting = attention;
+    if (waiting != _lastAttention) {
+      _lastAttention = waiting;
+      _watcher?.call(waiting);
     }
     if (_submitting) return;
     final done = _reply;
@@ -193,6 +222,7 @@ class ChatCallAgent implements CallAgent {
     if (_disposed) return;
     unawaited(interrupt().catchError((Object _) {}));
     _disposed = true;
+    _watcher = null;
     chat.removeListener(_changed);
   }
 }

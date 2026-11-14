@@ -1,5 +1,6 @@
 import 'package:hermes_api/hermes_api.dart';
 
+import '../voice/calls/voice_model_route.dart';
 import 'auxiliary_models.dart';
 import 'model_provider_option.dart';
 import 'moa_setup.dart';
@@ -24,6 +25,15 @@ class HermesModelsRepository {
       profile: profile,
     );
     return AuxiliaryModels.fromJson(response.data);
+  }
+
+  /// What the profile's `voice_chat` slot resolves to, for a call's start
+  /// screen. A failed read throws: the caller says "couldn't check".
+  Future<VoiceModelRoute> loadVoiceRoute({String? profile}) async {
+    final response = await _api.getAuxiliaryModelsApiModelAuxiliaryGet(
+      profile: profile,
+    );
+    return VoiceModelRoute.fromJson(response.data);
   }
 
   /// Null when the profile has no usable mixture-of-agents preset.

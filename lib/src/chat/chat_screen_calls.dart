@@ -31,6 +31,10 @@ extension _ChatScreenCalls on _ChatScreenState {
   Future<void> _openVoiceCall() async {
     if (_callRouteOpen || !_canCall) return;
     _callRouteOpen = true;
+    // Read before the first await: the finally below runs after the route
+    // closed, when this screen may be gone. The mark is closed by this
+    // screen only, never by one that replaced it.
+    final registry = _maybeRead<ActiveCallRegistry>()?..screenOpened(this);
     final breadcrumbs = _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none;
     breadcrumbs('voice_call.opened');
     try {
@@ -56,6 +60,7 @@ extension _ChatScreenCalls on _ChatScreenState {
           _chat.modelSendAllowed;
       bool current() => _callRouteOpen && ownerValid();
       final telemetry = HermesRepositories.maybeOf(context)?.telemetry;
+      final models = HermesRepositories.maybeOf(context)?.models;
       final events = telemetry?.events ?? noopAppEventLogger;
       // A tracer per socket: each turn and the readiness probe open their own,
       // and a tracer links its messages to the last upgrade it traced.
@@ -91,6 +96,10 @@ extension _ChatScreenCalls on _ChatScreenState {
         },
         configuration: () => repository.voiceConfiguration(profile: profile),
         connection: () => probeCallSpeech(connect, profile, isCurrent: current),
+        voiceModel: () async => models == null
+            ? VoiceModelRoute.unknown
+            : models.loadVoiceRoute(profile: profile),
+        gptLive: () => repository.voiceLiveIsGptLive(profile: profile),
         events: events,
       );
       await Navigator.of(context).push<void>(
@@ -114,7 +123,8 @@ extension _ChatScreenCalls on _ChatScreenState {
               breadcrumbs('voice_call.setup_requested', {'accepted': accepted});
               return accepted;
             },
-            startCall: (readiness) {
+            onConsentGiven: () => breadcrumbs('voice_call.consent'),
+            startCall: (readiness, {required consented}) {
               if (!current() ||
                   thread == null ||
                   thread.isReplying ||
@@ -130,9 +140,14 @@ extension _ChatScreenCalls on _ChatScreenState {
                 _chat,
                 onContextLost: () => unawaited(created.end()),
               );
+              final bridge = AppleCallBridge();
               created = VoiceCall(
-                bridge: AppleCallBridge(),
+                bridge: bridge,
+                tones: BridgeCallTones(bridge),
+                haptics: SystemCallHaptics(),
                 agent: agent,
+                consented: consented,
+                loadConfig: () => repository.voiceCallConfig(profile: profile),
                 profile: profile,
                 connect: connect,
                 events: events,
@@ -166,6 +181,8 @@ extension _ChatScreenCalls on _ChatScreenState {
                       ),
               );
               _voiceCall = created;
+              registry?.attach(created);
+              _callRegistry = registry;
               breadcrumbs('voice_call.ready', {
                 'device_speech': readiness.useDeviceSpeech,
               });
@@ -179,6 +196,7 @@ extension _ChatScreenCalls on _ChatScreenState {
         ),
       );
     } finally {
+      registry?.screenClosed(this);
       _callRouteOpen = false;
       if (mounted) _rebuild(() {});
     }

@@ -30,6 +30,7 @@ import 'settings/theme_controller.dart';
 import 'shell/app_shell.dart';
 import 'theme/hermes_theme.dart';
 import 'theme/material_ui_bridge.dart';
+import 'voice/hands_free_strip_layer.dart';
 
 class HermesApp extends StatefulWidget {
   /// Prompts to update when [updateChecker] finds a newer release. Left off in
@@ -194,7 +195,11 @@ class _HermesAppState extends State<HermesApp> {
                   builder: (context) {
                     final content = MacWindowChrome(
                       child: AppLockGate(
-                        child: DockMenuGate(child: HandoffGate(child: child!)),
+                        child: DockMenuGate(
+                          child: HandoffGate(
+                            child: HandsFreeStripLayer(child: child!),
+                          ),
+                        ),
                       ),
                     );
                     return switch (Theme.of(context).platform) {

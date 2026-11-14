@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/call_readiness_checker.dart';
 import 'package:hermes_app/src/voice/calls/call_telemetry.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
+import 'package:hermes_app/src/voice/calls/voice_model_route.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -77,6 +78,8 @@ void main() {
       connection: () async => throw WebSocketChannelException.from(
         const WebSocketException('wss://host/?ticket=secret', 403),
       ),
+      voiceModel: () async => VoiceModelRoute.named,
+      gptLive: () async => false,
       isCurrent: () => true,
       events: (name, [attributes = const {}]) => logged.add((name, attributes)),
     );
@@ -91,6 +94,7 @@ void main() {
       'microphone': 'ready',
       'input': 'ready',
       'output': 'ready',
+      'voiceModel': 'ready',
       'connection': 'unavailable',
       'connection_error': 'upgrade_403',
     });
@@ -108,6 +112,8 @@ void main() {
       input: () async => const CallInput(useDevice: true),
       configuration: () async => throw StateError('unused'),
       connection: () async {},
+      voiceModel: () async => VoiceModelRoute.named,
+      gptLive: () async => false,
       isCurrent: () => current,
       events: (name, [_ = const {}]) => logged.add(name),
     );
@@ -127,6 +133,7 @@ void main() {
       Future<void> Function()? prepare,
     }) => VoiceCall(
       bridge: bridge,
+      consented: true,
       agent: agent,
       connect: ([_ = const {}]) async => socket.local,
       prepare: prepare ?? () async {},
@@ -187,26 +194,34 @@ void main() {
       });
     });
 
-    test('a failed transcription names its step and error kind', () async {
-      call.dispose();
-      logged.clear();
-      call = build(transcribe: () async => throw TimeoutException('slow'));
-      await call.start();
-      bridge.emit('activated');
-      utterance();
-      await pumpEventQueue();
-      expect(call.phase, CallPhase.failed);
-      expect(ended(), containsPair('reason', 'turn'));
-      expect(ended(), containsPair('step', 'transcribe'));
-      expect(ended(), containsPair('error_type', 'timeout'));
-      expect(ended(), containsPair('outcome', 'failed'));
-    });
+    test(
+      'one failed transcription is no end; the second names its step and kind',
+      () async {
+        call.dispose();
+        logged.clear();
+        call = build(transcribe: () async => throw TimeoutException('slow'));
+        await call.start();
+        bridge.emit('activated');
+        utterance();
+        await pumpEventQueue();
+        expect(call.phase, CallPhase.listening);
+        expect(logged.where((e) => e.$1 == 'voice_call.ended'), isEmpty);
+        utterance();
+        await pumpEventQueue();
+        expect(call.phase, CallPhase.failed);
+        expect(ended(), containsPair('reason', 'transcription'));
+        expect(ended(), containsPair('step', 'transcribe'));
+        expect(ended(), containsPair('error_type', 'timeout'));
+        expect(ended(), containsPair('outcome', 'failed'));
+      },
+    );
 
     test('a refused speech socket is logged as the speech step', () async {
       call.dispose();
       logged.clear();
       call = VoiceCall(
         bridge: bridge,
+        consented: true,
         agent: agent,
         connect: ([_ = const {}]) async => throw WebSocketChannelException.from(
           const WebSocketException('not upgraded', 403),

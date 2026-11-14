@@ -81,20 +81,12 @@ void main() {
         "Hermes can't hear you. Unmute to talk.",
       ),
       (
-        CallPhase.transcribing,
+        CallPhase.sending,
         false,
-        true,
+        false,
         VoiceOrbState.sending,
         'Sending',
         'Hermes is getting your words ready. End or mute now to cancel.',
-      ),
-      (
-        CallPhase.transcribing,
-        false,
-        false,
-        VoiceOrbState.thinking,
-        'Thinking',
-        'Hermes is working on your request.',
       ),
       (
         CallPhase.thinking,
@@ -340,8 +332,7 @@ void main() {
     await pumpVoice(
       tester,
       VoiceCallView(
-        phase: CallPhase.transcribing,
-        sending: true,
+        phase: CallPhase.sending,
         caption: 'What is on today?',
         elapsed: Duration.zero,
         muted: false,
@@ -439,7 +430,7 @@ void main() {
             (CallPhase.connecting, false, false),
             (CallPhase.listening, false, false),
             (CallPhase.listening, true, false),
-            (CallPhase.transcribing, false, true),
+            (CallPhase.sending, false, false),
             (CallPhase.thinking, false, false),
             (CallPhase.speaking, false, false),
             (CallPhase.attention, false, false),
