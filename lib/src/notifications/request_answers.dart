@@ -311,6 +311,7 @@ class RequestAnswers {
     this._forgetCategories = forgetQuestionCategories,
     this._appLock,
     this._reply,
+    this._settings,
   });
 
   /// Answers on a fresh connection of whoever is signed in on [auth].
@@ -334,6 +335,7 @@ class RequestAnswers {
     service: service,
     signedOut: auth.signedOut,
     appLock: appLock == null ? null : _AppLockOn(appLock),
+    settings: settings,
     // On the headless runtime, which coordinates with [auth], not on its
     // transport.
     reply: ({required payload, required input, required due, required route}) =>
@@ -366,6 +368,7 @@ class RequestAnswers {
   /// would answer past it are withdrawn.
   final ValueListenable<bool>? _appLock;
   final InlineReplyRunner? _reply;
+  final NotificationSettings? _settings;
   var _wasLocked = false;
   StreamSubscription<NotificationReply>? _replies;
   StreamSubscription<NotificationAnswer>? _answers;
@@ -411,13 +414,16 @@ class RequestAnswers {
     if (go != _go) return;
     if (actionId == kReplyChatAction) {
       // Never an answer: no request is looked for, none is answered.
+      final result = await _runReply(
+        payload as String?,
+        input as String?,
+        due,
+        InlineReplyRoute.app,
+      );
       reply.send(
-        await _runReply(
-          payload as String?,
-          input as String?,
-          due,
-          InlineReplyRoute.app,
-        ),
+        result == null
+            ? '${ReplyEnding.unconfirmed.name}:$_none'
+            : replyReport(result),
       );
       return;
     }
@@ -434,32 +440,46 @@ class RequestAnswers {
 
   /// A reply typed into a notification that reached this isolate (macOS):
   /// its budget starts when Dart received it.
-  void _onReply(NotificationReply reply) {
+  Future<void> _onReply(NotificationReply reply) async {
     if (_reply == null) return;
-    unawaited(
-      _runReply(
-        reply.payload,
-        reply.input,
-        reply.receivedAt.add(kAnswerBudget),
-        InlineReplyRoute.mac,
-      ),
+    final result = await _runReply(
+      reply.payload,
+      reply.input,
+      reply.receivedAt.add(kAnswerBudget),
+      InlineReplyRoute.mac,
     );
+    // Nobody reads a report here: an ending that was due and not posted, or a
+    // reply that could not be told, is said by "Couldn't confirm" right now.
+    if (result == null || (result.ending != null && !result.endingPosted)) {
+      try {
+        await postReplyUnconfirmed(
+          payload: reply.payload,
+          notifications: _service,
+          settings: _settings,
+        );
+      } on Object {
+        // Nothing more can be told.
+      }
+    }
   }
 
-  /// Sends the reply and says how it went as [replyReport] does. A reply that
-  /// cannot be told is reported as one that may not have been sent.
-  Future<String> _runReply(
+  /// Sends the reply; null when it threw, which is a reply that may not have
+  /// been sent.
+  Future<InlineReplyResult?> _runReply(
     String? payload,
     String? input,
     DateTime due,
     InlineReplyRoute route,
   ) async {
     try {
-      return replyReport(
-        await _reply!(payload: payload, input: input, due: due, route: route),
+      return await _reply!(
+        payload: payload,
+        input: input,
+        due: due,
+        route: route,
       );
     } on Object {
-      return '${ReplyEnding.unconfirmed.name}:$_none';
+      return null;
     }
   }
 

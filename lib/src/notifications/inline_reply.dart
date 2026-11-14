@@ -268,8 +268,9 @@ Future<bool> _lockedNow(Future<bool> Function() appLockOn) async {
 Future<bool> _post(
   NotificationService? service,
   NotificationSettings? settings,
-  AttentionNotification notification,
-) async {
+  AttentionNotification notification, {
+  bool Function()? stillWanted,
+}) async {
   if (service == null) return false;
   try {
     if (settings != null) {
@@ -277,6 +278,7 @@ Future<bool> _post(
       if (!settings.enabled) return false;
     }
     if (await service.allowed() == false) return false;
+    if (stillWanted != null && !stillWanted()) return false;
     if (service is NotificationPoster) {
       final result = await (service as NotificationPoster).post(notification);
       return result.status == NotificationPostStatus.accepted;
@@ -444,16 +446,20 @@ class _InlineReply {
     // Whatever the body still does must not announce: the window is over.
     _muted = true;
     // The outcome is decided once, from the mark, with the transport closed:
-    // nothing it still does can be written to the server any more.
-    await _closeTransport();
-    _mark.freeze();
-    // An announcement under way gets to finish, so that a reply is never left
-    // neither recorded nor announced when the process is suspended.
+    // nothing it still does can be written to the server any more. An
+    // announcement under way gets to finish, so that a reply is never left
+    // neither recorded nor announced when the process is suspended. Both
+    // share one grace, so the decision is never later than the design's
+    // timing allows.
     try {
-      await _announcement?.timeout(_closeGrace);
+      await Future.wait<void>([
+        _closeTransport(),
+        _announcement?.catchError((Object _) {}) ?? Future<void>.value(),
+      ]).timeout(_closeGrace);
     } on Object {
-      // Gave up waiting; it goes on, or is dropped with the process.
+      // Gave up waiting; they go on, or are dropped with the process.
     }
+    _mark.freeze();
     final (verdict, logged) = switch (outcome) {
       HeadlessDone(:final value) => (value, value.outcome),
       HeadlessSignedOut() => _byMark(
@@ -653,7 +659,7 @@ class _InlineReply {
       return;
     }
     _announcing = true;
-    await _post(
+    final posted = await _post(
       notifications,
       settings,
       replyReadyNotification(
@@ -663,7 +669,12 @@ class _InlineReply {
         profile: _profile,
         appLock: locked,
       ),
+      stillWanted: () => !_muted,
     );
+    // Posted late, after the ending was decided and posted: the ending goes
+    // out again, so the last word is the ending, never "Reply ready".
+    final ending = _repostEnding;
+    if (posted && ending != null) await ending();
   }
 
   /// The verdict for a failed send, by the step it reached.
@@ -742,7 +753,7 @@ class _InlineReply {
         verdict.keepText &&
         text.characters.length <= kPreviewLength &&
         _accountHash != null;
-    return postEnding(
+    Future<bool> post() => postEnding(
       notifications: notifications,
       settings: settings,
       appLockOn: appLockBeforePost,
@@ -753,7 +764,13 @@ class _InlineReply {
       draft: keep ? text : null,
       accountHash: keep ? _accountHash : null,
     );
+    final posted = await post();
+    if (posted) _repostEnding = post;
+    return posted;
   }
+
+  /// Posts the ending again, once it was posted.
+  Future<bool> Function()? _repostEnding;
 
   /// Remembers the chat for the background check, on iOS only.
   Future<void> _record() async {
@@ -772,7 +789,11 @@ class _InlineReply {
     }
   }
 
-  Future<void> _closeTransport() async {
+  /// Closed once, whoever asks first; later callers share the same wait.
+  Future<void> _closeTransport() => _closing ??= _close();
+  Future<void>? _closing;
+
+  Future<void> _close() async {
     final transport = _transport;
     if (transport == null) return;
     try {

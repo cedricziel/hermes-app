@@ -666,6 +666,233 @@ void main() {
     });
   });
 
+  group('a reply that cannot be told', () {
+    test('on the mac route says "Couldn\'t confirm" once', () async {
+      final app = RequestAnswers(
+        sender,
+        service: notifications,
+        settings: settings,
+        reply: ({
+          required payload,
+          required input,
+          required due,
+          required route,
+        }) async => throw StateError('boom'),
+      )..start();
+      addTearDown(app.dispose);
+
+      notifications.reply(
+        NotificationReply(
+          payload: payload(),
+          input: 'Yes',
+          receivedAt: DateTime.now(),
+        ),
+      );
+      await _until(() => notifications.shown.isNotEmpty);
+      await pumpEventQueue();
+
+      expect(notifications.shown.single.body, kReplyUnconfirmedBody);
+      expect(notifications.shown.single.title, 'Trip plan');
+    });
+
+    test(
+      'on the mac route an ending that was not posted is said once',
+      () async {
+        var first = true;
+        final app = RequestAnswers(
+          sender,
+          service: notifications,
+          settings: settings,
+          reply:
+              ({
+                required payload,
+                required input,
+                required due,
+                required route,
+              }) async {
+                if (!first) fail('sent twice');
+                first = false;
+                return const InlineReplyResult(
+                  InlineReplyOutcome.failed,
+                  ending: ReplyEnding.notSent,
+                );
+              },
+        )..start();
+        addTearDown(app.dispose);
+
+        notifications.reply(
+          NotificationReply(
+            payload: payload(),
+            input: 'Yes',
+            receivedAt: DateTime.now(),
+          ),
+        );
+        await _until(() => notifications.shown.isNotEmpty);
+
+        expect(notifications.shown.single.body, kReplyUnconfirmedBody);
+      },
+    );
+
+    test('on the mac route a posted ending stands alone', () async {
+      final app = RequestAnswers(
+        sender,
+        service: notifications,
+        settings: settings,
+        reply:
+            ({
+              required payload,
+              required input,
+              required due,
+              required route,
+            }) async => const InlineReplyResult(
+              InlineReplyOutcome.unconfirmed,
+              ending: ReplyEnding.unconfirmed,
+              endingPosted: true,
+            ),
+      )..start();
+      addTearDown(app.dispose);
+
+      notifications.reply(
+        NotificationReply(
+          payload: payload(),
+          input: 'Yes',
+          receivedAt: DateTime.now(),
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(notifications.shown, isEmpty);
+    });
+  });
+
+  group('the app route when everything hangs', () {
+    test(
+      'a hung close and a slow announcement: reported in time, and the ending '
+      'is the last word',
+      () async {
+        final slow = _SlowFirstPost(const Duration(milliseconds: 900));
+        final hung = _HangingClose();
+        final app = RequestAnswers(
+          sender,
+          reply:
+              ({
+                required payload,
+                required input,
+                required due,
+                required route,
+              }) => sendInlineReply(
+                payload: payload,
+                input: input,
+                due: due,
+                route: route,
+                platform: TargetPlatform.iOS,
+                notifications: slow,
+                settings: settings,
+                appLockAtArrival: () async => false,
+                appLockBeforePost: () async => false,
+                appInFront: () async => false,
+                running: running,
+                transportFor: (_) => hung,
+                deps: deps(),
+              ),
+        )..start();
+        addTearDown(app.dispose);
+        var told = 0;
+        // The cutoff is 0.4 s from now.
+        final due = DateTime.now().add(const Duration(milliseconds: 6400));
+        final started = DateTime.now();
+
+        final run = routeAnswer(
+          response(),
+          deadline: due,
+          reportGrace: const Duration(seconds: 2),
+          unanswered: (_) async {},
+          alone: (_, _) async => fail('a reply is not an answer'),
+          aloneReply: (_, _) async => fail('the app took it'),
+          unansweredReply: (_) async => told++,
+        );
+        await _until(() => hung.sends.isNotEmpty);
+        // Written, never acknowledged, and the answer arrives: announcing
+        // starts and is slow.
+        hung.sends.single
+          ..onSubmitting!()
+          ..emit(const ReplyCompleted('Booked.'));
+        await run;
+
+        // The report came well before due + grace, from the ending.
+        expect(
+          DateTime.now().difference(started),
+          lessThan(const Duration(seconds: 6)),
+        );
+        expect(told, 0);
+        // The slow "Reply ready" lands later: the ending goes out again.
+        await _until(
+          () => slow.shown.any((n) => n.body != kReplyUnconfirmedBody),
+        );
+        await _until(() => slow.shown.last.body == kReplyUnconfirmedBody);
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        expect(slow.shown.last.body, kReplyUnconfirmedBody);
+        expect(hung.sends, hasLength(1));
+      },
+    );
+
+    test(
+      'an announcement not yet posted at the cutoff is never posted',
+      () async {
+        final slowAllowed = _SlowAllowed(const Duration(milliseconds: 600));
+        final app = RequestAnswers(
+          sender,
+          reply:
+              ({
+                required payload,
+                required input,
+                required due,
+                required route,
+              }) => sendInlineReply(
+                payload: payload,
+                input: input,
+                due: due,
+                route: route,
+                platform: TargetPlatform.iOS,
+                notifications: slowAllowed,
+                settings: settings,
+                appLockAtArrival: () async => false,
+                appLockBeforePost: () async => false,
+                appInFront: () async => false,
+                running: running,
+                transportFor: (_) => transport,
+                deps: deps(),
+              ),
+        )..start();
+        addTearDown(app.dispose);
+
+        final run = routeAnswer(
+          response(),
+          deadline: DateTime.now().add(const Duration(milliseconds: 6300)),
+          unanswered: (_) async {},
+          alone: (_, _) async => fail('a reply is not an answer'),
+          aloneReply: (_, _) async => fail('the app took it'),
+          unansweredReply: (_) async {},
+        );
+        await _until(() => transport.sends.isNotEmpty);
+        transport.sends.single
+          ..onSubmitting!()
+          ..emit(const ReplyCompleted('Booked.'));
+        await run;
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+
+        expect(
+          slowAllowed.shown.where((n) => n.body == kReplyUnconfirmedBody),
+          hasLength(1),
+        );
+        expect(
+          slowAllowed.shown.where((n) => n.body != kReplyUnconfirmedBody),
+          isEmpty,
+        );
+      },
+    );
+  });
+
   group('LocalNotificationService on macOS', () {
     late _Plugin plugin;
     late LocalNotificationService service;
@@ -941,9 +1168,52 @@ void main() {
     );
   });
 
-  test('a stale offer port is not mistaken for the app', () {
+  test('disposing the app takes its offer port away', () {
+    final app = RequestAnswers(sender)..start();
+    expect(IsolateNameServer.lookupPortByName(kRequestAnswersPort), isNotNull);
+
+    app.dispose();
+
     expect(IsolateNameServer.lookupPortByName(kRequestAnswersPort), isNull);
   });
+}
+
+/// Delays only its first post, like an announcement that is slow to land.
+class _SlowFirstPost extends FakeNotificationService {
+  _SlowFirstPost(this.delay);
+  final Duration delay;
+  var _posts = 0;
+
+  @override
+  Future<NotificationPostResult> post(AttentionNotification n) async {
+    if (_posts++ == 0) await Future<void>.delayed(delay);
+    return super.post(n);
+  }
+}
+
+/// Answers `allowed` only after [delay], the first time.
+class _SlowAllowed extends FakeNotificationService {
+  _SlowAllowed(this.delay);
+  final Duration delay;
+  var _asked = false;
+
+  @override
+  Future<bool?> allowed() async {
+    if (!_asked) {
+      _asked = true;
+      await Future<void>.delayed(delay);
+    }
+    return super.allowed();
+  }
+}
+
+/// A transport whose close never answers.
+class _HangingClose extends FakeChatTransport {
+  @override
+  Future<void> close() {
+    closed = true;
+    return Completer<void>().future;
+  }
 }
 
 class _Plugin implements FlutterLocalNotificationsPlugin {
