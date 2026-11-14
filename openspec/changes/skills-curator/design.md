@@ -75,10 +75,14 @@ Spans carry the connection's `hermes.*` attributes. None holds a skill name, out
 
 ## Design pass
 
-The brief is `docs/design-briefs/skills-curator.md`; the design record is written, with no canvas: the design tool was not run, and the design system README was not read (the decisions come from the merged briefs and the existing widgets). Decisions that change behaviour:
+Status: Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC).
 
-- The section shows on the Installed tab only while no search text or filter is active.
+The brief is `docs/design-briefs/skills-curator.md`; the design record is written and reviewed, with no canvas yet: the design tool was not run, no build starts before the canvas exists, and the design system README was not read (the decisions come from the merged briefs and the existing widgets). Decisions that change behaviour:
+
+- The section shows on the Installed tab only while no search text or filter is active (decided by the owner), or on the only list when the server has no hub.
 - Output lines are shown only when a run ends, not while it goes, in a closed "Show output" tile (last 30 lines, not selectable, a footnote that the log is shared by every profile). They are blank under App Lock and while the app is inactive on a phone.
+- A run's result stays until the next run or until the person leaves the list (closes the screen or switches profile); no Dismiss button (decided).
+- The restore command is `hermes curator restore <name> -p <profile>` with both placeholders left for the person to fill in and a line telling them to add their profile; no profile name goes to the clipboard (decided).
 - The installed skills list is read again when a run ends, because archived skills leave it.
 - Following a run stops when the screen closes; the pass keeps going on the server. Reopening shows the last run time only, plus one read of the action status's `running` flag (no lines): while it is true Run now is disabled with "A pass is running on this server". Check status that finds a run restarts polling with a new 15-minute limit.
 - Every request that gets no answer within 10 s, or whose connection drops after it was sent, ends in "Couldn't confirm" wording (a lost answer to a pause or run, never "Can't reach Hermes", which is only for a request that never left the device); only reads (status, action status) are repeated, by Try again or Check status. Polling that fails for 10 s shows "Couldn't confirm how the pass is going."
@@ -87,7 +91,7 @@ The brief is `docs/design-briefs/skills-curator.md`; the design record is writte
 - `enabled` null counts as on; any other unknown field reads "Unknown".
 - Run now is a `GroupedActionRow` (disabled while running); the confirmation is an adaptive sheet with Cancel first and default, and Run now outlined, not red, not filled.
 
-Client additions: `OutputLinesTile` extracted from `UpdateDetailsDisclosure` (`update_step_list.dart`; it has no line cap, footnote or blank mode today, and the lines are not selectable); `GroupedActionRow` moves to `lib/src/widgets/` and is extended (a subtitle slot, a tappable done phase, a neutral line with a Check status button, a Mac leading icon or spinner while working); blanking output while the app is inactive on a phone is new (no helper exists; App Lock blanking is free via `AppLockGate`). Status codes: PUT 400, 422 and 500 are section errors with Try again; PUT 404 `Profile '` adds a pause state. The section sits above the `StateMessage` in the Skills screen's empty and failed states, above the spinner while loading, and is hidden when skills are unsupported; a server with no hub has no tabs.
+Client additions: `OutputLinesTile` extracted from `UpdateDetailsDisclosure` (`update_step_list.dart`; it has no line cap, footnote or blank mode today, and the lines are not selectable); `GroupedActionRow` moves to `lib/src/widgets/` and is extended (a subtitle slot, a tappable done phase, a neutral line with a Check status button, a Mac leading icon or spinner while working); blanking output while the app is inactive on a phone is new (no helper exists; App Lock blanking is free via `AppLockGate`). Status codes: PUT 400, 422 and 500 are section errors with Try again; PUT 404 `Profile '` adds a pause state (the switch stays, the profile list reloads). The section sits above the `StateMessage` in the Skills screen's empty and failed states, above the spinner while loading, and is hidden when skills are unsupported; a server with no hub has no tabs.
 
 ## Risks
 
@@ -98,5 +102,5 @@ Client additions: `OutputLinesTile` extracted from `UpdateDetailsDisclosure` (`u
 
 ## Open questions
 
-1. Ask Hermes to return `last_run_summary`, `last_report_path` and `run_count` from `GET /api/curator` and to expose restore and rollback. Recommendation: raise upstream; until then the app shows only what it can. Show last run's report when it exists. The restore command's `-p <profile>` for a non-default profile: recommendation, keep the placeholder command and add a line telling the person to add `-p <profile>`, so no profile name reaches the clipboard (the spec's privacy rule stays); an owner decision if the real name should be allowed.
+1. Ask Hermes to return `last_run_summary`, `last_report_path` and `run_count` from `GET /api/curator` and to expose restore and rollback. Recommendation: raise upstream; until then the app shows only what it can. Show last run's report when it exists. (The restore command's profile is decided: see Design pass.)
 2. Should Run now be offered at all while consolidation is on? Recommendation: yes with the stronger wording; revisit when restore exists.

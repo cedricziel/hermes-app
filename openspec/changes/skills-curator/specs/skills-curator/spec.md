@@ -77,6 +77,11 @@ The Pause switch SHALL send `PUT /api/curator/paused` with the new value and sho
 - **WHEN** the request times out or the connection drops
 - **THEN** the switch returns to its last known value, the section says it could not tell whether it changed, status is read again, and nothing is resent automatically
 
+#### Scenario: Profile missing
+
+- **WHEN** the PUT answers 404 with detail `Profile 'x' does not exist.`
+- **THEN** the switch stays at its last value, the section says the profile no longer exists, the profile list reloads, and the section is not hidden as an old server
+
 ### Requirement: Run needs a confirmation
 
 Run now SHALL open a confirmation whose default button is Cancel. It SHALL say that a pass may archive unused skills recorded as agent-made, may also include bundled skills when `curator.prune_builtins` is on, may merge and rewrite skills when `curator.consolidate` is on, skips pinned and hub-installed skills, keeps archived skills, and that the app cannot undo a pass.
@@ -94,7 +99,7 @@ Run now SHALL open a confirmation whose default button is Cancel. It SHALL say t
 #### Scenario: Undo is not offered
 
 - **WHEN** the confirmation is shown
-- **THEN** it says to restore an archived skill with `hermes curator restore <name>` on the server and offers Copy for the command, and the app has no undo control
+- **THEN** it says to restore an archived skill with `hermes curator restore <name> -p <profile>` on the server, offers Copy for that command with both placeholders as typed, tells the person to add their profile, copies no profile name, and the app has no undo control
 
 ### Requirement: Following a run
 
@@ -117,12 +122,69 @@ After the user confirms, the app SHALL send `POST /api/curator/run?profile=`, th
 
 ### Requirement: One run at a time, no resend
 
-While a run is shown as running, Run now SHALL be disabled, because Hermes does not guard against a second concurrent run. A lost answer to the POST SHALL read "We couldn't tell if it started" with a Check status action and SHALL never be resent automatically.
+While a run is shown as running, Run now SHALL be disabled, because Hermes does not guard against a second concurrent run. On open the app SHALL read the action status once for `running` only. A lost answer to the POST SHALL read "We couldn't tell if it started" with a Check status action and SHALL never be resent automatically.
 
 #### Scenario: Lost answer
 
 - **WHEN** the POST times out
 - **THEN** no new POST is sent; Check status reads `last_run_at` and the action status, and a new run needs a new confirmation
+
+#### Scenario: A pass is already running
+
+- **WHEN** the section opens and the action status says `running: true`
+- **THEN** Run now is disabled with "A pass is running on this server" and no output lines are shown
+
+### Requirement: Finish proof
+
+The app SHALL call a pass finished only when `running` is false and the log has a `=== curator-run started` header after this app's POST. A newer `last_run_at` alone does not prove it, because Hermes saves it before consolidation ends.
+
+#### Scenario: Newer last run time only
+
+- **WHEN** `last_run_at` is newer than the POST and `running` is true or unknown
+- **THEN** the app says "A pass started at <time>" and "Couldn't confirm it finished", not that it finished
+
+#### Scenario: Proof present
+
+- **WHEN** `running` is false and the log has a start header after the POST
+- **THEN** the app says the pass finished
+
+### Requirement: Result lifetime
+
+A run's result SHALL stay until the next run starts or the person leaves the Skills list (closes the screen or switches profile), and SHALL have no Dismiss button.
+
+#### Scenario: Result stays
+
+- **WHEN** a run has finished and the person searches, which hides the section
+- **THEN** the result is still there when the section is shown again
+
+### Requirement: Section placement
+
+The section SHALL sit at the top of the Installed list, or on the only list when the server has no skills hub, and SHALL be hidden on Discover, while a search or filter is active, and when skills are unsupported.
+
+#### Scenario: Loading
+
+- **WHEN** the skills are loading
+- **THEN** the section shows above the spinner and loads on its own
+
+#### Scenario: Empty or failed
+
+- **WHEN** the screen shows "This profile has no skills yet." or "Could not load skills"
+- **THEN** the section shows above that message
+
+#### Scenario: Unsupported
+
+- **WHEN** the server does not support skills
+- **THEN** no curator section is shown
+
+#### Scenario: No hub
+
+- **WHEN** the server has no skills hub and so no tabs
+- **THEN** the section shows on the only list
+
+#### Scenario: Searching
+
+- **WHEN** search text or a filter is active
+- **THEN** the section is hidden
 
 ### Requirement: Shared action log
 
@@ -135,7 +197,7 @@ The action log is per server, not per profile, so the app SHALL show output only
 
 ### Requirement: Privacy and observability
 
-Skill names and output lines SHALL stay on screen only: never written to logs, spans, breadcrumbs, preferences, the surface snapshot or the clipboard (except the restore command the user copies), and blanked under App Lock. Telemetry SHALL carry only the names, flags and counts in the proposal.
+Skill names and output lines SHALL stay on screen only: never written to logs, spans, breadcrumbs, preferences, the surface snapshot or the clipboard (except the restore command, with its placeholders, that the user copies), and blanked under App Lock. Telemetry SHALL carry only the names, flags and counts in the proposal.
 
 #### Scenario: Telemetry content
 

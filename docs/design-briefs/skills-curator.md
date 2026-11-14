@@ -2,21 +2,21 @@
 
 Change: `openspec/changes/skills-curator/`. Read its design.md for the server facts (what each route returns, what a pass does, the 404 and 500 traps); this brief is the visual and copy pass. Roadmap item 4.8.
 
-## Design (written, no canvas)
+## Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC)
 
-No Claude Design canvas was built for this change, and there is no canvas link: the pass was written as docs only and the design tool was not run. The Hermes App design system README was not read for it, so nothing here is checked against its tokens; the decisions were taken from the merged briefs for Server care and Tools and from the widgets in `lib/src/widgets/` and `lib/src/server_care/widgets/`. Nothing was rendered; the screens are described, not drawn. The Widgetbook use cases (task group 1 in tasks.md) are the first place anyone will see them, so look at every state there in both themes, at phone and desktop width and at the largest text size before wiring the screen.
+The brief has been reviewed. No Claude Design canvas exists for this change yet and there is no canvas link: the publish quota is used up and the canvas resumes after 2026-11-15 00:00 UTC. No build starts before the canvas exists; the design tool was not run for this pass. The Hermes App design system README was not read for it, so nothing here is checked against its tokens; the decisions were taken from the merged briefs for Server care and Tools and from the widgets in `lib/src/widgets/` and `lib/src/server_care/widgets/`. Nothing was rendered; the screens are described, not drawn. Once the canvas exists, check it against this brief, then build the Widgetbook use cases (task group 1 in tasks.md) and look at every state there in both themes, at phone and desktop width and at the largest text size before wiring the screen.
 
 Screens and states decided:
 
 - Skills screen, Installed tab, "Skill curator" section: loading, never run, ran, paused, off in config, unknown fields, refreshing, offline, curator could not load, profile gone, old server (absent), dark, largest text, German.
-- Run now row: idle, running, finished, finished with no output, failed, stopped with no exit code, not started (profile gone, refused as unnamed, spawn failure), lost answer, progress lost, still running after 15 minutes, checked and nothing running.
-- Pause switch: idle, saving, failed, lost answer.
-- Run confirmation: three wordings (prune only, may also merge and rewrite, unknown config), phone sheet, wide and Mac dialog, Android, largest text, dark.
+- Run now row: idle, running, a pass already running on the server, finished, finished with no output, failed, stopped with no exit code, not started (profile gone, refused as unnamed, spawn failure), lost answer, progress lost, still running after 15 minutes, checked and nothing running.
+- Pause switch: idle, saving, failed, profile gone, lost answer.
+- Run confirmation: three wordings (prune only, may also merge and rewrite, unknown config), the restore command with a profile placeholder, phone sheet, wide and Mac dialog, Android, largest text, dark.
 
 Decisions, one line each:
 
 - The curator is one `GroupedSection` headed "Skill curator" at the top of the Installed list, not a screen and not a pane. Its rows: Status, Last ran, Schedule, Unused skills, a Pause switch, Run now. The footer says passes also start by themselves on the server. Last ran carries a footnote line (see the table).
-- The section is shown only on the Installed list and only while no search text or filter is active, so a search never has a curator section above its results. It is also not shown on Discover. A server with no skills hub has no Installed and Discover tabs (`tabs` is null); the section then sits on the only list.
+- Decided: the section is shown only on the Installed list and only while no search text or filter is active, so a search never has a curator section above its results (hiding it does not clear a result). It is also not shown on Discover. A server with no skills hub has no Installed and Discover tabs (`tabs` is null); the section then sits on the only list.
 - Run now is a `GroupedActionRow` (the gateway action row of Server care) extended for this feature: link-coloured text with a play icon, never red, never a filled button. As it stands it has a working phase (status text as the title, `BusyBar`; on a Mac no leading icon or spinner, only the `BusyBar`), a done phase (check mark, not tappable), failed and warning lines with outlined buttons. It has no subtitle slot, no tappable done phase, and no neutral line with a button. The extension is listed under New components needed.
 - The confirmation is an adaptive sheet (bottom sheet on a phone, dialog on wide windows and every Mac width), because it holds a list and a copyable command that an alert cannot. Cancel is first, default and the only emphasised button. "Run now" is an outlined button in the link colour, not red (archived skills are kept, and the text says so) and not filled (it moves skills out of the list). On Android the two buttons are text buttons, Cancel first.
 - Output lines are not shown while the run goes, only when it ends. A live-updating box of skill names would make a screen reader read the log; the row announces "Curator pass started" and the result once.
@@ -25,7 +25,7 @@ Decisions, one line each:
 - The installed skills list is read again when a run ends, because archived skills leave it.
 - A running pass keeps going when the screen closes; the app stops following it. Reopening the screen shows the last run time only, as the spec says.
 - Pause is immediate and needs no confirmation. Its subtitle always says "Run now still works."
-- No next-run time, no counts, no report, no Undo control and no dry run, because the server offers none. The only restore help is a copyable command in the confirmation.
+- No next-run time, no counts, no report, no Undo control and no dry run, because the server offers none. The only restore help is a copyable command, with a profile placeholder, in the confirmation.
 - Every unknown field is "Unknown" in muted text, never a guess and never hidden, except `enabled`, where null counts as on (the server's default).
 
 Copy added by the design: "Skill curator", "Run the curator now?", "Curator pass started", "The pass finished", "See Hermes' output for what changed.", "Show output", "N earlier lines not shown", "No pass is running now", "Leaving this screen doesn't stop it" and the strings in the tables below.
@@ -49,7 +49,7 @@ Facts the design must not blur:
 
 - **Passes start by themselves.** From the messaging gateway, or from the dashboard's own hourly check. The app need not be open. The footer says so.
 - **Pause stops scheduled passes only.** Run now still works while paused. The Pause row says it.
-- **Archived is not deleted, and the app cannot bring a skill back.** Only `hermes curator restore <name>` on the server does. The confirmation says it and offers the command to copy.
+- **Archived is not deleted, and the app cannot bring a skill back.** Only `hermes curator restore <name> -p <profile>` on the server does. The confirmation says it, offers the command to copy with `<name>` and `<profile>` left as placeholders, and tells the person to add their profile.
 - **The action log is shared by every profile on the server.** Output lines are shown only for a run this app started, with a footnote.
 
 ## Shared kit (reuse, do not invent)
@@ -70,7 +70,7 @@ Nothing new. The Skills screen is reached as today (the chat sidebar's Skills ro
 
 - **iPhone, Android phone:** the section is the first group of the Installed list. It scrolls away with the list; no sticky header.
 - **iPad, wide Android, Windows, Linux:** the same single column in the Skills screen's `ContentColumn`. There is no list-beside-detail layout on Skills, so there is none here. The confirmation is a centred dialog.
-- **Skills screen states** (`_body` in `skills_screen.dart`): loading (centred spinner): the section shows above it and loads on its own; empty ("This profile has no skills yet."): the section shows above the `StateMessage`, since Run now still works on a profile with no list; failed ("Could not load skills" with Retry): the section shows above the `StateMessage`; unsupported ("The connected Hermes does not support skills."): the section is hidden. The screen's body is today a single widget per state, so showing the section above a `StateMessage` means wrapping it in a column.
+- **Skills screen states** (`_body` in `skills_screen.dart`; a spec requirement): loading (centred spinner): the section shows above it and loads on its own; empty ("This profile has no skills yet."): the section shows above the `StateMessage`, since Run now still works on a profile with no list; failed ("Could not load skills" with Retry): the section shows above the `StateMessage`; unsupported ("The connected Hermes does not support skills."): the section is hidden; a server with no skills hub has no tabs, and the section sits on the only list. The screen's body is today a single widget per state, so showing the section above a `StateMessage` means wrapping it in a column.
 - **Mac:** the same list under the `MacToolbar`. Rows are 28 pt minimum with a hover state; Return or Space on the focused Run now row opens the confirmation; Escape closes it with Cancel; ⌘[ goes back as on every Skills page. The confirmation is a dialog, never a bottom sheet.
 - **Profile:** the section follows the profile the Skills screen shows (its profile menu). Switching profile reads the status again and drops any result, banner or running state of the old profile; a run for the old profile is not shown against the new one.
 
@@ -120,15 +120,15 @@ The Last ran value reads relative; the screen-reader label always carries both (
 - Idle: switch reads on or off. Turning it sends the new value at once, no confirmation.
 - Saving: the switch is disabled, the subtitle says "Saving…", a `BusyBar` under the row. Screen reader: "Pause scheduled passes, on, saving".
 - Done: the switch shows what Hermes answered (`paused`). The Status value follows. The section announces "Paused" or "Resumed".
-- Failed: the switch returns to its old value; an error line under the row, "Couldn't change it" with Hermes' text when it sent one, or "Can't reach Hermes" when the request never left the device. The line stays until the next change. By status: 422, 400 and 500 (`Curator unavailable`) are section errors: the section shows the "Couldn't load the curator" or "The server's curator could not load" banner with Try again (per the spec scenario), and no switch changes. A 404 whose detail starts `Profile '` adds a pause state, "This profile no longer exists", as for the section's profile-gone state.
+- Failed: the switch returns to its old value; an error line under the row, "Couldn't change it" with Hermes' text when it sent one, or "Can't reach Hermes" when the request never left the device. The line stays until the next change. By status: 422, 400 and 500 (`Curator unavailable`) are section errors: the section shows the "Couldn't load the curator" or "The server's curator could not load" banner with Try again (per the spec scenario), and no switch changes. A 404 whose detail starts `Profile '` (a spec scenario) adds a pause state: the switch stays at its last value, a line says "This profile no longer exists", and the profile list reloads, as for the section's profile-gone state.
 - Lost answer (no answer within 10 seconds, or the connection dropped after the request was sent, since the write may have landed): the switch returns to its last known value and a warning line says "Couldn't confirm whether this changed." Status is read again, which settles the switch on the real value and clears the line if it can. Nothing is resent automatically.
 
 ### Run now row
 
 - Idle: "Run now", play icon, link colour, 44 pt / 48 dp / Mac 28 pt. Tapping opens the confirmation; nothing is sent until its Run now button.
-- Open while a pass runs elsewhere: on open the app reads the action status once (`running` only, no lines are shown for a run this app did not start). When `running` is true the Run now row is disabled with the subtitle "A pass is running on this server", because Hermes does not guard a second run. This needs the subtitle slot of the extended row. When Check status finds a run in progress it becomes the running state and restarts polling with a new 15-minute limit counted from that check (open question 6).
+- Open while a pass runs elsewhere: on open the app reads the action status once (`running` only, no lines are shown for a run this app did not start). When `running` is true the Run now row is disabled with the subtitle "A pass is running on this server", because Hermes does not guard a second run. This needs the subtitle slot of the extended row. When Check status finds a run in progress it becomes the running state and restarts polling with a new 15-minute limit counted from that check (open question 3).
 - Running: the row is disabled with a spinner (on a Mac only the `BusyBar`, until the extension adds one), subtitle "Running on the server…", a `BusyBar` under it. Under it a muted line: "Leaving this screen doesn't stop it." Pause stays usable. Announced once: "Curator pass started".
-- Finished: the row's status text "The pass finished" with a check mark, and the line "See Hermes' output for what changed." Under it the "Show output" tile. Announced once: "Curator pass finished". The Last ran row has refreshed. The skill list has been read again. The status text stays until the profile changes, the screen closes or the next run starts.
+- Finished: the row's status text "The pass finished" with a check mark, and the line "See Hermes' output for what changed." Under it the "Show output" tile. Announced once: "Curator pass finished". The Last ran row has refreshed. The skill list has been read again. The status text stays until the next run starts or the person leaves the list (closes the Skills screen or switches profile). Decided: there is no Dismiss button.
 - Finished with no output: same, and the tile is replaced by the muted line "Hermes printed no output."
 - Failed (non-zero exit): error line with an error icon and the word "Failed", then Hermes' last line verbatim; per the Hermes source the full line reads "curator: disabled via config; enable with `curator.enabled: true`" (shown in full, wrapping). "Show output" under it. The Run now row is tappable again; there is no separate retry, a new run needs a new confirmation.
 - Stopped, no exit code (the dashboard restarted): neutral line "Hermes stopped, but the app can't tell whether the pass finished." Button "Check status" (needs the neutral line with a button of the extended row).
@@ -157,7 +157,7 @@ Sheet on a phone (bottom sheet, drag handle, 16 pt gutters); dialog on iPad, wid
   - Only if `curator.prune_builtins` is true or unreadable: "Include skills that came with Hermes." Unreadable reads "May include skills that came with Hermes."
   - Only if `curator.consolidate` is true or unreadable: "Merge and rewrite skills, and update scheduled tasks that use them." Unreadable reads "May also merge and rewrite skills, and update scheduled tasks that use them." Add "Merged or rewritten skills can only be rolled back on the server." to that item, because restore does not undo a merge or rewrite. If consolidate is false the item is replaced by the line "It archives unused skills only."
 - Then, as plain lines: "Pinned skills, skills a scheduled task uses and skills installed from the hub are skipped." and "Archived skills are moved aside on the server, not deleted. This app can't undo a pass." (hedged: per the Hermes source nothing is deleted, not verified on a live server)
-- "To bring an archived skill back, run this on the server:" then a `CommandRow` with `hermes curator restore <name>` and Copy. Per the Hermes source `restore` only moves an archived folder back; merges and rewrites need `hermes curator rollback`.
+- "To bring an archived skill back, run this on the server:" then a `CommandRow` with `hermes curator restore <name> -p <profile>` and Copy, and under it the line "Replace <name> with the skill and add your profile in place of <profile>." Decided: the placeholders stay as typed; no profile name is put on the clipboard. Per the Hermes source `restore` only moves an archived folder back; merges and rewrites need `hermes curator rollback`.
 - Buttons, in this order: "Cancel" (default and focused, emphasised) then "Run now" (outlined, link colour, not red). On Apple phones they are stacked full width, Cancel on top; in a dialog and on Android they sit side by side, Cancel left, both text buttons on Android. The system back action, Escape and Return on the default all cancel and send nothing.
 - At the largest text size the buttons stack on every platform, Cancel on top.
 
@@ -198,7 +198,7 @@ Nothing here resends a pause or a run. Only reads (status, action status) are re
 ## Privacy
 
 - Skill names appear only in Hermes' output lines. Those are on screen only, never cached, logged, in telemetry (the span and log event carry the outcome and, if kept, the parsed `archived=` count), in the surface snapshot or on the clipboard, never selectable, and are blank under App Lock and while the app is inactive on a phone.
-- The only text this feature puts on the clipboard is the restore command the person copies, with the placeholder `<name>`.
+- The only text this feature puts on the clipboard is the restore command the person copies, with the placeholders `<name>` and `<profile>`. No real profile name is ever copied (decided).
 - No content goes into a notification, the Lock Screen, Siri or a complication. The curator adds no notification.
 - Nothing is stored: no secret is involved, and no preference is written.
 
@@ -227,6 +227,7 @@ Nothing here resends a pause or a run. Only reads (status, action status) are re
 | Status: Off in config                            | Section state "Off in config", no Pause row, no Run now row                                                                |
 | Pause and resume: Pause                          | Pause switch "Done" (value from Hermes' answer)                                                                            |
 | Pause and resume: Lost answer                    | Pause switch "Lost answer"                                                                                                 |
+| Pause and resume: Profile missing (PUT 404 `Profile '`) | Pause switch "Failed": switch stays, "This profile no longer exists", profile list reloads                          |
 | Run needs a confirmation: Cancel is the default  | Confirmation buttons, focus and back action                                                                                |
 | Run needs a confirmation: Consolidation unknown  | Confirmation items (false, true, unreadable)                                                                               |
 | Run needs a confirmation: Undo is not offered    | Confirmation: the restore line and `CommandRow`; no undo control anywhere                                                  |
@@ -234,19 +235,27 @@ Nothing here resends a pause or a run. Only reads (status, action status) are re
 | Following a run: Failed                          | Run now row "Failed" with Hermes' last line                                                                                |
 | Following a run: Spawn failure                   | Run now row "Not started, spawn failure", Try again opens the confirmation                                                 |
 | One run at a time: Lost answer                   | Run now row "Lost answer to the start" and "Check status"                                                                  |
+| One run at a time: A pass is already running     | Run now row "Open while a pass runs elsewhere": disabled, "A pass is running on this server"                               |
+| Finish proof: Proof present                      | Run now row, Check status: "The pass finished" needs `running` false and a start header after this app's POST              |
+| Finish proof: Newer last run time only           | Check status: "A pass started at <time>" and "Couldn't confirm it finished" unless `running` is false                      |
+| Result lifetime: Result stays                    | Run now row "Finished": stays until the next run or until the person leaves the list; no Dismiss                           |
+| Section placement: each Skills screen state      | Navigation, "Skills screen states": above the spinner, above the empty and failed `StateMessage`, hidden when unsupported, on the only list with no hub, hidden while searching or filtering |
 | Shared action log: Opening the screen            | Section shows the last run time only; the output tile exists only for a run this app started, with the shared-log footnote |
 | Privacy and observability: Telemetry content     | Not visible; the design adds no text to any signal                                                                         |
 | Strings: German                                  | German risks listed under the section, the confirmation and Accessibility; every string in both ARB files                  |
 
-Spec requirement "Run now SHALL be disabled while a run is shown as running" is met by the Run now row's disabled running state and, after reopening the screen, by the one-time `running` read on open.
+Spec requirement "Run now SHALL be disabled while a run is shown as running" is met by the Run now row's disabled running state and, after reopening the screen, by the one-time `running` read on open (its own scenario in the spec).
+
+## Decided by the owner
+
+1. **Restore command and profiles.** The command is shown as `hermes curator restore <name> -p <profile>` with both placeholders left for the person to fill in, plus a line telling them to add their profile. No profile name goes to the clipboard, so the spec's privacy requirement stands.
+2. **Dismissing a result.** A result stays until the next run or until the person leaves the list. There is no Dismiss button.
+3. **Hiding the section while searching.** The section stays hidden while a search or filter is active.
+4. **Spec scenarios.** The spec has a scenario each for PUT 404 `Profile '`, the one-time `running` read on open, the finish proof and the section's place in each Skills screen state (coverage table above).
 
 ## Open questions for the owner
 
-1. **Restore command and profiles.** The spec says the command is `hermes curator restore <name>`. For a profile other than the server's default, restore would need `-p <profile>`. Recommendation: keep the spec's placeholder command and add the line "For another profile, add `-p <profile>` after `hermes`", so no profile name is put on the clipboard and the spec's privacy requirement stays as written. The owner decides whether the command may carry the real profile name instead (needs a spec change).
-2. **Hedged "last ran".** `last_run_at` can be a first-seen seed, not a pass, and the route drops `run_count` and `last_run_summary`, which would tell them apart. Raise upstream to return them (design.md open question 1); until then the copy is "Last pass or first check" with a footnote.
-3. **Counts in the output.** Per the Hermes source the output has counts (`auto: checked=N stale=N archived=N reactivated=N`, `curator: auto: ... | no changes; llm: ...`, "consolidation is off - running prune-only") but no per-skill archived lines. Decided here: the app never says "nothing changed", because lines can be missing or reworded, and the telemetry attribute `archived_lines` becomes `archived` (the parsed `archived=` count, absent when no such line is found). The owner may drop the attribute instead.
-4. **Dismissing a result.** The result stays until the profile changes, the screen closes or the next run. There is no Dismiss button. Say so if a person should be able to clear it.
-5. **Hiding the section while searching.** Chosen so results are not pushed down. If the owner wants it always visible, the Installed list's empty-search state needs a curator-only variant.
-6. **Check status finding a run.** This brief restarts polling with a new 15-minute limit counted from that check, since the route does not say when the pass began. Confirm.
-7. **Spec scenarios still to add.** The spec is not changed here. It needs a scenario each for: PUT 404 `Profile '` (a pause state), the one-time `running` read on open, the finish proof (`running` false plus a start header after this app's POST), and the section's place in each Skills screen state.
-8. **Unverified server claims.** The Hermes source readings (`last_run_at` saved after the prune step, first-seen seeding, the printed lines, `restore` versus `rollback`) come from a reviewer's reading of `agent/curator.py` and `hermes_cli/curator.py`, not from a run; confirm them on a live backend (tasks 2.1).
+1. **Hedged "last ran".** `last_run_at` can be a first-seen seed, not a pass, and the route drops `run_count` and `last_run_summary`, which would tell them apart. Raise upstream to return them (design.md open question 1); until then the copy is "Last pass or first check" with a footnote.
+2. **Counts in the output.** Per the Hermes source the output has counts (`auto: checked=N stale=N archived=N reactivated=N`, `curator: auto: ... | no changes; llm: ...`, "consolidation is off - running prune-only") but no per-skill archived lines. Proposed here: the app never says "nothing changed", because lines can be missing or reworded, and the telemetry attribute `archived_lines` becomes `archived` (the parsed `archived=` count, absent when no such line is found). The owner may drop the attribute instead.
+3. **Check status finding a run.** This brief restarts polling with a new 15-minute limit counted from that check, since the route does not say when the pass began. Confirm.
+4. **Unverified server claims.** The Hermes source readings (`last_run_at` saved after the prune step, first-seen seeding, the printed lines, `restore` versus `rollback`) come from a reviewer's reading of `agent/curator.py` and `hermes_cli/curator.py`, not from a run; confirm them on a live backend (tasks 2.1).
