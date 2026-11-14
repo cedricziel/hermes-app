@@ -47,7 +47,8 @@ reported_home() {
 
 # A dashboard behind its password gate leaves hermes_home out of /api/status;
 # on Linux the listening process's own environment still says which home it
-# uses.
+# was given. That is a weaker check than the server's own answer: it reads the
+# environment this script set, not where the server actually writes.
 process_home() {
   local environ="/proc/$(cat "$PID_FILE")/environ"
   [[ -r "$environ" ]] || return 0

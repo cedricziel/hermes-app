@@ -5,18 +5,29 @@ the app, as a person in a browser would.
 
     python3 -I scripts/verify_browser.py <url>
 
-Credentials come from HERMES_VERIFY_USER and HERMES_VERIFY_PASSWORD (synthetic
-values verify.sh sets). It only talks to loopback addresses and writes one
-line per step, never the credentials, to $HERMES_VERIFY_BROWSER_LOG.
+HERMES_VERIFY_ORIGIN is the throwaway dashboard's exact origin
+(http://127.0.0.1:<port>). The authorize URL and every redirect must stay on
+that origin, and the login's redirect must go to the app's listener on
+http://127.0.0.1:<port>/; anything else is refused before credentials are
+sent, or before the code is handed on. Credentials come from
+HERMES_VERIFY_USER and HERMES_VERIFY_PASSWORD (synthetic values verify.sh
+sets). One line per step, never the credentials, goes to
+$HERMES_VERIFY_BROWSER_LOG.
 """
 
 import http.cookiejar
-import ipaddress
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
+
+MAX_REDIRECTS = 5
+
+
+class Refused(Exception):
+    pass
 
 
 def log(message):
@@ -26,50 +37,91 @@ def log(message):
             f.write(message + "\n")
 
 
-def loopback(url):
-    host = urllib.parse.urlsplit(url).hostname or ""
+def origin_of(url):
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "http" or parts.port is None:
+        return None
+    return f"http://{parts.hostname}:{parts.port}"
+
+
+def check_origin(url, expected):
+    if origin_of(url) != expected:
+        raise Refused(
+            f"{urllib.parse.urlsplit(url).scheme}:// URL off the dashboard origin"
+        )
+
+
+def check_listener(url):
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "http" or parts.hostname != "127.0.0.1" or parts.port is None:
+        raise Refused(
+            "login redirect is not the app's listener on http://127.0.0.1:<port>/"
+        )
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def sign_in(url, expected, user, password, opener):
+    check_origin(url, expected)
+    for _ in range(MAX_REDIRECTS + 1):
+        try:
+            with opener.open(url, timeout=30):
+                break
+        except urllib.error.HTTPError as e:
+            if e.code not in (301, 302, 303, 307, 308):
+                raise
+            url = urllib.parse.urljoin(url, e.headers.get("Location", ""))
+            check_origin(url, expected)
+    else:
+        raise Refused("too many redirects")
+    log(f"opened authorize url, landed on {urllib.parse.urlsplit(url).path}")
+    body = json.dumps(
+        {"provider": "basic", "username": user, "password": password, "next": ""}
+    ).encode()
+    request = urllib.request.Request(
+        f"{expected}/auth/password-login",
+        data=body,
+        method="POST",
+        headers={"Content-Type": "application/json", "Origin": expected},
+    )
+    with opener.open(request, timeout=30) as response:
+        target = json.load(response)["next"]
+    check_listener(target)
+    log("password login accepted, following the loopback redirect")
     try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return host == "localhost"
+        with opener.open(target, timeout=30) as done:
+            status = done.status
+    except urllib.error.HTTPError as e:
+        status = e.code  # a redirect to a "done" page is not followed
+    log(f"app listener answered {status}")
 
 
 def main():
-    url = sys.argv[1]
-    if not loopback(url):
-        log("refused: not a loopback address")
-        return 1
+    expected = os.environ.get("HERMES_VERIFY_ORIGIN", "")
+    if origin_of(expected) != expected.rstrip("/") or not expected:
+        log("refused: HERMES_VERIFY_ORIGIN is not an http://host:port origin")
+        return 2
     # The proxy must not see loopback traffic.
     opener = urllib.request.build_opener(
         urllib.request.ProxyHandler({}),
         urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+        NoRedirect(),
     )
-    with opener.open(url, timeout=30) as page:
-        landed = page.geturl()
-    log(f"opened authorize url, landed on {urllib.parse.urlsplit(landed).path}")
-    origin = "{0.scheme}://{0.netloc}".format(urllib.parse.urlsplit(landed))
-    body = json.dumps(
-        {
-            "provider": "basic",
-            "username": os.environ["HERMES_VERIFY_USER"],
-            "password": os.environ["HERMES_VERIFY_PASSWORD"],
-            "next": "",
-        }
-    ).encode()
-    request = urllib.request.Request(
-        f"{origin}/auth/password-login",
-        data=body,
-        method="POST",
-        headers={"Content-Type": "application/json", "Origin": origin},
-    )
-    with opener.open(request, timeout=30) as response:
-        target = json.load(response)["next"]
-    if not loopback(target):
-        log("refused: login redirect is not a loopback address")
+    try:
+        sign_in(
+            sys.argv[1],
+            expected.rstrip("/"),
+            os.environ["HERMES_VERIFY_USER"],
+            os.environ["HERMES_VERIFY_PASSWORD"],
+            opener,
+        )
+    except Refused as e:
+        log(f"refused: {e}")
+        print(f"verify_browser: refused: {e}", file=sys.stderr)
         return 1
-    log("password login accepted, following the loopback redirect")
-    with opener.open(target, timeout=30) as done:
-        log(f"app listener answered {done.status}")
     return 0
 
 

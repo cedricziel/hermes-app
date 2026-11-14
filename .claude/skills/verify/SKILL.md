@@ -123,6 +123,12 @@ Then add a row to "Covered behaviour" below and run `scripts/verify.sh` twice.
   `HERMES_VERIFY_RUN` marker, and deletes the temp dir. After SIGKILL no trap
   runs: the next `verify.sh` (or `verify.sh clean`) sweeps runs whose owner
   is gone.
+- One run per checkout at a time: runs share `build/linux` and the mimalloc
+  seed. For a second run in parallel, use another worktree.
+- The Linux build can rewrite tracked `linux/flutter/generated_plugin*`
+  files: check `git status` and `git restore` them.
+- The first run installs Hermes with `npm ci`, which runs third-party install
+  scripts (as root in a container), as CI does.
 - If isolation is unavailable (no `/proc`, cannot write `/tmp`, not Linux),
   do not run it; use `verify-in-app` on a Mac or report the check as not run.
 

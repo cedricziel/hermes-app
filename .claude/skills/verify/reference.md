@@ -50,13 +50,16 @@ fails the run if a marked process survives.
 
 ## How the pieces fit
 
-- **Hermes install.** `install-hermes.sh` takes a lock per revision, fetches
-  the source tarball (falls back to `git fetch` of the commit when
-  codeload.github.com is refused, as behind some proxies), builds the web UI
-  (`npm ci` + `npm run build --workspace web`; the dashboard injects its
-  session token into that page), then `uv venv --python 3.14` and
-  `uv pip install -e .[mcp]`. A marker file marks a finished install; a
-  half-finished one is removed and redone.
+- **Hermes install.** `install-hermes.sh` checks the pinned revision is a
+  40-hex commit id, takes a `flock` per revision (and fails without `flock`),
+  and `git fetch`es that commit id, so git checks the tree against it. It then
+  builds the web UI (`npm ci` + `npm run build --workspace web`; the
+  dashboard injects its session token into that page) and deletes
+  `node_modules`. Note that `npm ci` runs the packages' install scripts, as
+  root in a container, exactly as CI runs them. Then `uv venv --python 3.14`
+  and `uv pip install -e .[mcp]`. A marker file marks a finished install; a
+  half-finished one is removed and redone. Older revisions under
+  `~/.cache/hermes-agent/` are not pruned; delete them by hand.
 - **Backends.** `start_backend` writes `config.yaml` into the run's home and
   calls `dev-backend.sh start` under `setsid` with `HERMES_DEV_STATE_DIR`,
   `HOME` and (for the app tier) the basic-auth env. `dev-backend.sh` waits for
@@ -75,8 +78,12 @@ fails the run if a marked process survives.
   run's `mimeapps.list` points that at `verify_browser.py`, which GETs the
   authorize URL (cookie jar; it redirects to `/login`), POSTs
   `/auth/password-login` with the synthetic credentials and follows the
-  returned loopback `next` URL to the app's listener. It refuses any
-  non-loopback URL and logs steps, never credentials.
+  returned `next` URL to the app's listener. The authorize URL and every
+  redirect must be on exactly the dashboard's origin (`HERMES_VERIFY_ORIGIN`,
+  scheme, host and port), and `next` must be `http://127.0.0.1:<port>/...`;
+  anything else is refused before credentials or the code leave.
+  `python3 -I scripts/test_verify_browser.py` tests that. It logs steps,
+  never credentials.
 - **Secure storage.** `flutter_secure_storage` on Linux talks to the Secret
   Service over the session bus. The app tier runs inside `dbus-run-session`
   and starts `gnome-keyring-daemon --unlock --components=secrets` there; with
@@ -99,6 +106,9 @@ fails the run if a marked process survives.
 
 - `Woah! You appear to be trying to run flutter as root`: harmless in a
   container.
+- `git status` shows `linux/flutter/generated_plugin*` changed: the Linux
+  build regenerated them. `git restore` them; never stage them by accident
+  (stage files by name).
 - Dart ignores `SSL_CERT_FILE`; behind a TLS-intercepting proxy `pub get`
   hangs until the proxy CA is in `/etc/ssl/certs/ca-certificates.crt`.
   `verify.sh` runs Flutter with `--no-pub`: run `flutter pub get` first.
@@ -126,9 +136,14 @@ fails the run if a marked process survives.
 
 ```bash
 scripts/verify.sh app & V=$!
-# once the app window is up, kill this run's app (and only this run's):
-until P=$(pgrep -x hermes_app); do sleep 1; done
-grep -qz HERMES_VERIFY_RUN= /proc/$P/environ && kill -9 "$P"
+# once the app is up, kill this run's app and no other run's:
+# the run whose owner file holds this verify.sh's PID
+until OWNER=$(grep -lx "$V" /tmp/hermes-verify.*/owner 2>/dev/null); do sleep 1; done
+RUN=$(cd "$(dirname "$OWNER")" && pwd -P)
+until P=$(for p in $(pgrep -x hermes_app); do
+  tr '\0' '\n' </proc/$p/environ | grep -qx "HERMES_VERIFY_RUN=$RUN" && echo "$p"
+done) && [[ -n $P ]]; do sleep 1; done
+kill -9 $P
 wait $V                                                         # non-zero: app tier failed
 # or instead: kill -TERM $V  (the trap stops everything at once)
 pgrep -af 'hermes|Xvfb|gnome-keyring|dbus-daemon|hermes_app'    # nothing of the run

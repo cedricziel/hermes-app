@@ -75,6 +75,8 @@ cmd_clean() {
       [[ "$(tr '\0' ' ' <"/proc/$owner/cmdline" 2>/dev/null)" == *verify.sh* ]]; then
       continue # still running
     fi
+    # Runs mark their processes with the resolved path.
+    dir="$(cd "$dir" && pwd -P)"
     log "cleaning stale run $dir"
     kill_marked "$dir"
     rm -rf "$dir"
@@ -227,7 +229,7 @@ run_app() {
 [Desktop Entry]
 Type=Application
 Name=Hermes verify browser
-Exec=python3 -I $ROOT_DIR/scripts/verify_browser.py %u
+Exec=python3 -I "$ROOT_DIR/scripts/verify_browser.py" %u
 MimeType=x-scheme-handler/http;x-scheme-handler/https;
 NoDisplay=true
 EOF
@@ -256,7 +258,7 @@ EOF
     PUB_CACHE="${PUB_CACHE:-$ORIG_HOME/.pub-cache}" DISPLAY="$display" \
     GIT_CONFIG_GLOBAL="${GIT_CONFIG_GLOBAL:-$ORIG_HOME/.gitconfig}" \
     HERMES_VERIFY_USER="$VERIFY_USER" HERMES_VERIFY_PASSWORD="$VERIFY_PASSWORD" \
-    HERMES_VERIFY_BROWSER_LOG="$RUN_DIR/browser.log" NM_LOG="$RUN_DIR/fake-nm.log" KEYRING_PASSWORD="$VERIFY_SECRET" \
+    HERMES_VERIFY_ORIGIN="$url" HERMES_VERIFY_BROWSER_LOG="$RUN_DIR/browser.log" NM_LOG="$RUN_DIR/fake-nm.log" KEYRING_PASSWORD="$VERIFY_SECRET" \
     timeout -k 10 "$APP_TIMEOUT" dbus-run-session -- bash -c '
       set -e
       printf %s "$KEYRING_PASSWORD" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
