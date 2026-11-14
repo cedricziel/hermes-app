@@ -307,6 +307,31 @@ void main() {
     expect(summary()!.sentence.text, 'Second turn');
   });
 
+  test('a status that repeats its text does not displace a newer process '
+      'sentence', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    expect(summary()!.sentence.kind, WorkingSentenceKind.processes);
+    expect(summary()!.sentence.count, 1);
+    // A changed text is newer again.
+    await emit('status.update', {'kind': 'status', 'text': 'Reading'});
+    expect(summary()!.sentence.text, 'Reading');
+  });
+
+  test('the same status text in a new turn becomes current again', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+    chat.submit('Next', const []);
+    await pumpEventQueue();
+    expect(summary(), isNull);
+    await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    expect(summary()!.sentence.text, 'Thinking');
+  });
+
   test('stopping the reply folds the line away', () async {
     await open();
     await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
