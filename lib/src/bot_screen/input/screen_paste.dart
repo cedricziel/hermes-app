@@ -54,7 +54,7 @@ class ScreenPaste {
     final String? text;
     try {
       text = await readClipboard();
-    } on Object {
+    } on Exception {
       // A refused clipboard permission is no text.
       return PasteOutcome.empty;
     }

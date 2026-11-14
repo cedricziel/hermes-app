@@ -9,6 +9,7 @@ import 'hermes_skills_hub_repository.dart';
 import 'hermes_skills_repository.dart';
 import 'skill_job.dart';
 import 'skills_controller.dart';
+import '../telemetry/report_bug.dart';
 
 enum HubStatus { loading, ready, failed, unsupported }
 
@@ -104,7 +105,8 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
     } on SkillsUnsupported {
       if (generation != _loadGeneration) return;
       _status = HubStatus.unsupported;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the skills hub');
       if (generation != _loadGeneration) return;
       if (quiet && _status == HubStatus.ready) return;
       _status = HubStatus.failed;
@@ -163,7 +165,8 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
       );
       if (generation != _searchGeneration) return;
       _results = found;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the skills hub');
       if (generation != _searchGeneration) return;
       _results = null;
       _searchFailed = true;
