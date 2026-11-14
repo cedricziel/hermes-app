@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/toolset_installs.dart';
@@ -30,9 +31,11 @@ class SetupHarness {
   /// Replaces the repository, for a test that watches the pipeline.
   HermesToolsRepository? repositoryOverride;
 
-  HermesToolsRepository get repository =>
+  HermesToolsRepository get repository => repositoryFor('work');
+
+  HermesToolsRepository repositoryFor(String profile) =>
       repositoryOverride ??
-      HermesToolsRepository(world.server.client().raw, profile: 'work');
+      HermesToolsRepository(world.server.client().raw, profile: profile);
 
   Future<void> pump({
     Size size = phone,
@@ -42,7 +45,8 @@ class SetupHarness {
     ToolsBotScreenLink? botScreen,
     Locale locale = const Locale('en'),
     Brightness brightness = Brightness.light,
-    List<Provider<Object>> providers = const [],
+    AuthController? auth,
+    ValueNotifier<String>? profile,
   }) async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
@@ -61,10 +65,15 @@ class SetupHarness {
       home: const Scaffold(body: Text('home')),
     );
     await tester.pumpWidget(
-      lock == null
+      lock == null && auth == null
           ? app
-          : ChangeNotifierProvider<AppLockController>.value(
-              value: lock,
+          : MultiProvider(
+              providers: [
+                if (lock != null)
+                  ChangeNotifierProvider<AppLockController>.value(value: lock),
+                if (auth != null)
+                  ChangeNotifierProvider<AuthController>.value(value: auth),
+              ],
               child: app,
             ),
     );
@@ -73,14 +82,17 @@ class SetupHarness {
           .state<NavigatorState>(find.byType(Navigator))
           .push(
             MaterialPageRoute<void>(
-              builder: (_) => ToolsScreen(
-                repository: repository,
-                installs: installs,
-                botScreen: botScreen,
-                launchLink: (uri) async {
-                  links.add(uri);
-                  return true;
-                },
+              builder: (_) => ValueListenableBuilder<String>(
+                valueListenable: profile ?? ValueNotifier('work'),
+                builder: (_, name, _) => ToolsScreen(
+                  repository: repositoryFor(name),
+                  installs: installs,
+                  botScreen: botScreen,
+                  launchLink: (uri) async {
+                    links.add(uri);
+                    return true;
+                  },
+                ),
               ),
             ),
           ),

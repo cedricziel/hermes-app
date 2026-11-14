@@ -18,6 +18,10 @@ class RecordingSpan implements Span {
 
   final Map<String, Object?> attributes = {};
   final List<String> events = [];
+
+  /// Everything an event or an exception carried, as text, for tests that
+  /// check nothing secret was recorded.
+  final List<String> eventDetails = [];
   StatusCode? status;
   String? statusDescription;
   bool ended = false;
@@ -37,7 +41,10 @@ class RecordingSpan implements Span {
     String name, {
     Map<String, Object?>? attributes,
     DateTime? timestamp,
-  }) => events.add(name);
+  }) {
+    events.add(name);
+    eventDetails.add('$name $attributes');
+  }
 
   @override
   void setStatus(StatusCode code, {String? description}) {
@@ -50,7 +57,10 @@ class RecordingSpan implements Span {
     Object exception, {
     StackTrace? stackTrace,
     Map<String, Object?>? attributes,
-  }) => events.add('exception');
+  }) {
+    events.add('exception');
+    eventDetails.add('exception $exception $attributes');
+  }
 
   @override
   void end([DateTime? endTime]) => ended = true;

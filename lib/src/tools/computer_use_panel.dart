@@ -37,6 +37,7 @@ class ComputerUsePanel extends StatefulWidget {
 class _ComputerUsePanelState extends State<ComputerUsePanel> {
   late ComputerUseController _controller;
   ToolsInstallState? _handledEnd;
+  var _busy = false;
 
   @override
   void initState() {
@@ -47,9 +48,18 @@ class _ComputerUsePanelState extends State<ComputerUsePanel> {
       confirmGrant: () =>
           widget.env.ask(toolsetAllowAccessQuestion(context.l10n)),
     );
+    _controller.addListener(_onChanged);
     unawaited(_controller.load());
     widget.env.refresh.add(_controller.load);
     widget.env.installs.addListener(_onInstalls);
+  }
+
+  /// The grant locks the toolset's switch while the permission window is out.
+  void _onChanged() {
+    final busy = _controller.grantBusy;
+    if (busy == _busy) return;
+    _busy = busy;
+    widget.env.onBusyChanged(_computerUse, busy: busy);
   }
 
   @override
@@ -65,7 +75,12 @@ class _ComputerUsePanelState extends State<ComputerUsePanel> {
   void dispose() {
     widget.env.refresh.remove(_controller.load);
     widget.env.installs.removeListener(_onInstalls);
-    _controller.dispose();
+    final onBusy = widget.env.onBusyChanged;
+    final wasBusy = _busy;
+    _controller
+      ..removeListener(_onChanged)
+      ..dispose();
+    if (wasBusy) scheduleMicrotask(() => onBusy(_computerUse, busy: false));
     super.dispose();
   }
 
@@ -124,7 +139,7 @@ class _ComputerUsePanelState extends State<ComputerUsePanel> {
               ],
               errorText: status.error,
               onOpenBotScreen: offered ? link.open : null,
-              onAllowAccess: _controller.canOfferGrant
+              onAllowAccess: _controller.canOfferGrant && !widget.env.switchBusy
                   ? () => unawaited(_controller.grant())
                   : null,
             ),
@@ -167,21 +182,23 @@ class _ComputerUsePanelState extends State<ComputerUsePanel> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // One line, one action: the lost follow has its own.
             if (_controller.followLost)
               ToolsNote(
                 tone: ToolsNoteTone.warning,
                 text: l10n.toolsGrantFollowLost,
                 actionLabel: l10n.toolsCheckAgain,
                 onAction: _controller.checkAgain,
+              )
+            else
+              ToolsNote(
+                tone: ToolsNoteTone.warning,
+                text: desktop
+                    ? l10n.toolsRowUnconfirmedRetry
+                    : l10n.toolsRowUnconfirmedPull,
+                actionLabel: desktop ? l10n.toolsTryAgain : null,
+                onAction: desktop ? () => unawaited(_controller.load()) : null,
               ),
-            ToolsNote(
-              tone: ToolsNoteTone.warning,
-              text: desktop
-                  ? l10n.toolsRowUnconfirmedRetry
-                  : l10n.toolsRowUnconfirmedPull,
-              actionLabel: desktop ? l10n.toolsTryAgain : null,
-              onAction: desktop ? () => unawaited(_controller.load()) : null,
-            ),
           ],
         );
       case ComputerUseGrantPhase.refused:

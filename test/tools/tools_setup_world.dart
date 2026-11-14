@@ -27,6 +27,9 @@ class SetupWorld {
   var webNeedsNous = false;
   var webInstalled = false;
 
+  /// Search Co also has an install step that never ran.
+  var searchCoInstall = false;
+
   // Image generation.
   var imageModel = 'fast-1';
 
@@ -75,7 +78,7 @@ class SetupWorld {
             'is_set': webKeySet,
           },
         ],
-        'post_setup': null,
+        'post_setup': searchCoInstall ? 'searchco_driver' : null,
         'requires_nous_auth': false,
         'is_active': webActive == 'Search Co',
         'status': webKeySet ? 'ready' : 'needs_keys',

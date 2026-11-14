@@ -62,6 +62,20 @@ class ToolsRefresh {
   Future<void> run() => Future.wait([
     for (final hook in {..._hooks}) hook(),
   ]);
+
+  final _clears = <VoidCallback>{};
+
+  /// Registers what drops a panel's typed secrets.
+  void addClear(VoidCallback hook) => _clears.add(hook);
+
+  void removeClear(VoidCallback hook) => _clears.remove(hook);
+
+  /// Drops every typed secret of the open details: the user signed out.
+  void clearAll() {
+    for (final hook in {..._clears}) {
+      hook();
+    }
+  }
 }
 
 /// What the panels of one open detail share with the screen.
@@ -76,6 +90,7 @@ class ToolsPanelEnv {
     required this.onBusyChanged,
     this.botScreen,
     this.lock,
+    this.switchBusy = false,
   });
 
   /// Bound to the profile whose toolset this is.
@@ -98,4 +113,22 @@ class ToolsPanelEnv {
 
   /// App Lock, which clears typed keys when it locks.
   final AppLockController? lock;
+
+  /// The toolset's own switch is being written (or checked): the panels take
+  /// no pick, save or grant until it ends, so a switch and a setup write
+  /// never overlap.
+  final bool switchBusy;
+
+  ToolsPanelEnv withSwitchBusy({required bool busy}) => ToolsPanelEnv(
+    repository: repository,
+    installs: installs,
+    ask: ask,
+    launchLink: launchLink,
+    refresh: refresh,
+    onWritten: onWritten,
+    onBusyChanged: onBusyChanged,
+    botScreen: botScreen,
+    lock: lock,
+    switchBusy: busy,
+  );
 }

@@ -33,11 +33,13 @@ class TerminalBackendsPanel extends StatefulWidget {
 
 class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
   late TerminalBackendsController _controller;
+  var _busy = false;
+  var _wasWriting = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = _newController();
+    _controller = _newController()..addListener(_onChanged);
     unawaited(_controller.load());
     widget.env.refresh.add(_controller.load);
   }
@@ -48,6 +50,26 @@ class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
     confirmLocal: () =>
         widget.env.ask(toolsetLocalBackendQuestion(context.l10n)),
   );
+
+  bool get _writing =>
+      _controller.pickState == ToolsWriteState.saving ||
+      _controller.pickState == ToolsWriteState.checking;
+
+  /// The pick locks the toolset's switch while it is out, and the list is read
+  /// again once it landed.
+  void _onChanged() {
+    final writing = _writing;
+    if (writing != _busy) {
+      _busy = writing;
+      widget.env.onBusyChanged('terminal', busy: writing);
+    }
+    if (_wasWriting &&
+        !writing &&
+        _controller.pickState == ToolsWriteState.idle) {
+      widget.env.onWritten();
+    }
+    _wasWriting = writing;
+  }
 
   @override
   void didUpdateWidget(TerminalBackendsPanel old) {
@@ -61,7 +83,12 @@ class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
   @override
   void dispose() {
     widget.env.refresh.remove(_controller.load);
-    _controller.dispose();
+    final onBusy = widget.env.onBusyChanged;
+    final wasBusy = _busy;
+    _controller
+      ..removeListener(_onChanged)
+      ..dispose();
+    if (wasBusy) scheduleMicrotask(() => onBusy('terminal', busy: false));
     super.dispose();
   }
 
@@ -89,9 +116,7 @@ class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
           ],
         );
       }
-      final writing =
-          _controller.pickState == ToolsWriteState.saving ||
-          _controller.pickState == ToolsWriteState.checking;
+      final writing = _writing || widget.env.switchBusy;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -103,7 +128,9 @@ class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
               for (final backend in _controller.backends)
                 _choice(backend, picked: backend.name == _controller.active),
             ],
-            onPick: (name) => unawaited(_controller.pick(name)),
+            onPick: (name) {
+              if (!widget.env.switchBusy) unawaited(_controller.pick(name));
+            },
           ),
           ?_note(context),
         ],

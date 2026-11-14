@@ -183,11 +183,17 @@ class ToolsInstallButton extends StatelessWidget {
     required this.needsSetup,
     required this.onPressed,
     this.anotherRunning = false,
+    this.again = true,
   });
 
   final bool needsSetup;
   final VoidCallback? onPressed;
   final bool anotherRunning;
+
+  /// For the quiet form: the step has run before ("Run the install step
+  /// again"). False for a provider that is not ready yet, where it reads
+  /// "Install on server".
+  final bool again;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +209,9 @@ class ToolsInstallButton extends StatelessWidget {
           child: Text(
             anotherRunning
                 ? l10n.toolsInstallAnotherRunning
-                : l10n.toolsInstallAgain,
+                : again
+                ? l10n.toolsInstallAgain
+                : l10n.toolsInstallButton,
           ),
         ),
       );

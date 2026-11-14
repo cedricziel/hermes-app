@@ -156,7 +156,13 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
     final result = await _repository.config(toolset);
     if (_stale(epoch)) return;
     if (_applyConfig(result)) {
-      if (_keys == ToolsetKeysState.unconfirmed) _keys = ToolsetKeysState.idle;
+      if (_keys == ToolsetKeysState.unconfirmed) {
+        // The read worked: a key that was being checked and is still not set
+        // was not saved; otherwise the keys show what Hermes says.
+        _keys = _unsavedAfterCheck
+            ? ToolsetKeysState.notSaved
+            : ToolsetKeysState.idle;
+      }
       if (_provider == ToolsWriteState.unconfirmed ||
           _provider == ToolsWriteState.notApplied) {
         _provider = ToolsWriteState.idle;
@@ -226,6 +232,7 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
     _epoch++;
     _repository = repository;
     _typed.clear();
+    _checkedKeys = const {};
     _config = null;
     _loadFailure = null;
     _keys = ToolsetKeysState.idle;
@@ -536,11 +543,19 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
         if (env.isSet && keys.contains(env.key)) env.key,
   };
 
+  /// The keys of the last lost-answer check, to judge a later refresh.
+  var _checkedKeys = const <String>{};
+
+  bool get _unsavedAfterCheck =>
+      _checkedKeys.isNotEmpty &&
+      _setKeys(_checkedKeys).length < _checkedKeys.length;
+
   Future<void> _check(
     int epoch,
     Iterable<String> keys,
     Set<String> wasSet,
   ) async {
+    _checkedKeys = {...keys};
     final result = await _readConfigWithin();
     if (_stale(epoch)) return;
     if (result == null || !_applyConfig(result)) {

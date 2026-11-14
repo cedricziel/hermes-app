@@ -187,6 +187,26 @@ void main() {
       hang.complete();
     });
 
+    test('a key that was being checked and is still not set is not saved '
+        'after a refresh', () async {
+      lose('$_web/env');
+      final hang = Completer<void>();
+      server.onRequest('GET', '$_web/config', (_) async {
+        await hang.future;
+        return (status: 200, body: _webConfig());
+      });
+      web.setKey('SEARCHCO_API_KEY', 'sk-test-1');
+      await web.saveKeys();
+      expect(web.keysState, ToolsetKeysState.unconfirmed);
+      hang.complete();
+      server.on('GET', '$_web/config', _webConfig());
+
+      await web.refresh();
+
+      expect(web.keysState, ToolsetKeysState.notSaved);
+      expect(bodies('$_web/env'), hasLength(1));
+    });
+
     test(
       'refresh ends the unconfirmed state without sending anything',
       () async {

@@ -326,6 +326,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
     // (no frames) while the Tools screen is open, so the link follows whether
     // the profile has one; a chat with no Bot Screen controller offers none.
     final screen = _screen;
+    final screenProfile = _screenProfile;
     final watch = screen?.watch(frames: false);
     try {
       await Navigator.of(context).push(
@@ -341,8 +342,20 @@ extension _ChatScreenNavigation on _ChatScreenState {
                 ? null
                 : ToolsBotScreenLink(
                     changes: screen,
-                    offered: () => screen.status != null && !screen.unsupported,
-                    open: () => _openViewer('tools'),
+                    // The chat may have moved to another profile since: the
+                    // viewer always opens the current one, so the link is
+                    // only for the profile it was made for.
+                    offered: () =>
+                        identical(_screen, screen) &&
+                        _screenProfile == screenProfile &&
+                        screen.status != null &&
+                        !screen.unsupported,
+                    open: () {
+                      if (identical(_screen, screen) &&
+                          _screenProfile == screenProfile) {
+                        _openViewer('tools');
+                      }
+                    },
                   ),
           ),
         ),

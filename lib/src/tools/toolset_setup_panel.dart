@@ -73,6 +73,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     _lockWatch = SecretFieldsLock(widget.env.lock, () => _setup.clearKeys());
     unawaited(_setup.load());
     widget.env.refresh.add(_refresh);
+    widget.env.refresh.addClear(_clearTyped);
     _installs.addListener(_onInstalls);
     // An install that ended with no screen open shows its result now.
     WidgetsBinding.instance.addPostFrameCallback((_) => _onInstalls());
@@ -102,6 +103,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
   @override
   void dispose() {
     widget.env.refresh.remove(_refresh);
+    widget.env.refresh.removeClear(_clearTyped);
     _installs.removeListener(_onInstalls);
     _lockWatch?.dispose();
     final onBusy = widget.env.onBusyChanged;
@@ -131,6 +133,8 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
 
   Future<void> _refresh() => _setup.refresh();
 
+  void _clearTyped() => _setup.clearKeys();
+
   /// A write of this toolset's setup is out. Read from the states, not from
   /// the controller's `writing`, which is still true when the write's last
   /// notification arrives.
@@ -142,6 +146,10 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
         _setup.keysState == ToolsetKeysState.saving ||
         _setup.keysState == ToolsetKeysState.checking;
   }
+
+  /// Nothing may be picked, saved or installed: a setup write is out, or the
+  /// toolset's own switch is being written.
+  bool get _locked => _writing || widget.env.switchBusy;
 
   TextEditingController _field(String key) =>
       _fields.putIfAbsent(key, TextEditingController.new);
@@ -203,12 +211,15 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
   }
 
   Future<void> _install(String key) async {
-    if (_installs.busy) return;
+    if (_installs.busy || widget.env.switchBusy) return;
+    final repository = widget.env.repository;
     final confirmed = await widget.env.ask(
       toolsetInstallStepQuestion(context.l10n),
     );
     if (!confirmed || !mounted) return;
-    await _installs.startConfirmed(widget.env.repository, _name, key);
+    // The answer was for the profile the question was asked about.
+    if (widget.env.repository.profile != repository.profile) return;
+    await _installs.startConfirmed(repository, _name, key);
   }
 
   Future<void> _openLink(String? url) async {
@@ -238,7 +249,9 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
               current: models.current,
               defaultModel: models.defaultModel,
               provider: provider,
-              onPick: (id) => unawaited(_setup.pickModel(id)),
+              onPick: (id) {
+                if (!widget.env.switchBusy) unawaited(_setup.pickModel(id));
+              },
               onDone: () => Navigator.of(sheet).pop(),
             ),
           );
@@ -314,7 +327,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
   }) {
     final l10n = context.l10n;
     final selected = _selected(config);
-    final writing = _writing;
+    final writing = _locked;
     ProviderChoice choice(
       ToolsetProvider p, {
       required bool picked,
@@ -347,7 +360,9 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
         enabled: !writing,
         // The selection moves only when Hermes accepted the pick, so a
         // refusal leaves the old provider and its keys on screen.
-        onPick: (id) => unawaited(_setup.pickProvider(id)),
+        onPick: (id) {
+          if (!_locked) unawaited(_setup.pickProvider(id));
+        },
       ),
       ?_writeNote(
         context,
@@ -389,7 +404,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
               _setup.setKey(env.key, _field(env.key).text);
             }
           },
-          onSave: _setup.hasTypedKeys
+          onSave: _setup.hasTypedKeys && !widget.env.switchBusy
               ? () => unawaited(_setup.saveKeys())
               : null,
           onReplace: (field) => setState(() {
@@ -411,8 +426,16 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     }
 
     final step = selected?.postSetup;
-    final mine = _installs.state?.toolset == _name;
-    final active = mine && (_installs.state?.active ?? false);
+    // This toolset's install shows its own block (running, failed with its
+    // Try again, checking, unknown); the setup area's button is only for when
+    // there is none, so two buttons never do the same thing.
+    final installState = _installs.state;
+    final mine = installState?.toolset == _name;
+    final active =
+        mine &&
+        installState != null &&
+        installState.phase != ToolsInstallPhase.refused &&
+        installState.phase != ToolsInstallPhase.notStarted;
     final fillInstall =
         selected?.status == ToolsetProviderStatus.needsSetup && !editableKeys;
     if (step != null && fillInstall && !active) {
@@ -422,7 +445,9 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
           child: ToolsInstallButton(
             needsSetup: true,
             anotherRunning: _installs.busy,
-            onPressed: () => unawaited(_install(step)),
+            onPressed: widget.env.switchBusy
+                ? null
+                : () => unawaited(_install(step)),
           ),
         ),
       );
@@ -435,6 +460,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
       config,
       selected,
       showInstallAgain: step != null && !fillInstall && !active,
+      installRan: selected?.status == ToolsetProviderStatus.ready,
     );
     if (advanced.isNotEmpty) {
       out.add(
@@ -466,9 +492,10 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     ToolsetConfig config,
     ToolsetProvider? selected, {
     required bool showInstallAgain,
+    required bool installRan,
   }) {
     final l10n = context.l10n;
-    final writing = _writing;
+    final writing = _locked;
     final out = <Widget>[];
     if (_name == 'web') {
       ProviderChoiceSection pickers(
@@ -492,8 +519,11 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
                 line: p.tag,
               ),
         ],
-        onPick: (id) =>
-            unawaited(_setup.pickProvider(id, capability: capability)),
+        onPick: (id) {
+          if (!_locked) {
+            unawaited(_setup.pickProvider(id, capability: capability));
+          }
+        },
       );
       if (config.providers.any(_splits)) {
         out
@@ -521,8 +551,11 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
           padding: const EdgeInsets.only(top: 12),
           child: ToolsInstallButton(
             needsSetup: false,
+            again: installRan,
             anotherRunning: _installs.busy,
-            onPressed: () => unawaited(_install(step)),
+            onPressed: widget.env.switchBusy
+                ? null
+                : () => unawaited(_install(step)),
           ),
         ),
       );
@@ -615,7 +648,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
         phase: ToolsetModelRowPhase.ready,
         provider: provider,
         value: (current ?? defaultModel)?.display ?? l10n.toolsModelDefault,
-        enabled: !_writing,
+        enabled: !_locked,
         onOpen: () => unawaited(_openModels(provider)),
       ),
       ?_writeNote(

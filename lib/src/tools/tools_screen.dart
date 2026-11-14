@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
 import '../app_lock/app_lock_controller.dart';
+import '../auth/auth_controller.dart';
 import '../theme/app_icons.dart';
 import '../theme/breakpoints.dart';
 import '../theme/platform_chrome.dart';
@@ -105,6 +106,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
   var _ownsInstalls = false;
   late ToolsAsker _asker;
   final _panelRefresh = ToolsRefresh();
+  final _pages = <Route<void>>[];
+  AuthController? _auth;
+  int? _authGeneration;
   String? _followedInstall;
 
   @override
@@ -113,6 +117,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     _controller = _newController();
     unawaited(_controller.load());
     _lock = _maybeRead<AppLockController>()?..addListener(_onLock);
+    _watchAuth();
     final provided = widget.installs ?? _maybeRead<ToolsetInstalls>();
     _ownsInstalls = provided == null;
     _installs =
@@ -149,14 +154,43 @@ class _ToolsScreenState extends State<ToolsScreen> {
       _goneReported = false;
       // Cancel first, so the question for the old profile goes with it.
       _controller.cancel();
-      _controller.switchProfile(widget.repository);
+      // A setup question and the details pages for the old profile go with it.
+      _asker.cancel();
+      _closePages();
+      // Building now: the listeners (the details page above this screen
+      // included) are told, and the list read, after the frame.
+      _controller.switchProfile(widget.repository, notify: false);
       _followedInstall = null;
-      unawaited(_controller.load());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _controller.announce();
+        unawaited(_controller.load());
+      });
+    }
+  }
+
+  /// Signing out or moving to another server drops every typed key of the
+  /// open details. Closing the screen is not this screen's job.
+  void _watchAuth() {
+    final auth = _maybeRead<AuthController>();
+    if (auth == null) return;
+    _auth = auth;
+    _authGeneration = auth.ownerGeneration;
+    auth.addListener(_onAuth);
+  }
+
+  void _onAuth() {
+    final auth = _auth;
+    if (auth == null) return;
+    if (auth.state != HermesConnectionState.ready ||
+        auth.ownerGeneration != _authGeneration) {
+      _panelRefresh.clearAll();
     }
   }
 
   @override
   void dispose() {
+    _auth?.removeListener(_onAuth);
     _lock?.removeListener(_onLock);
     _takeQuestionDown();
     _asker.dispose();
@@ -207,8 +241,15 @@ class _ToolsScreenState extends State<ToolsScreen> {
     final toolset = _controller.postSetupToolset;
     final id = '$toolset/$key';
     if (_followedInstall == id) return;
-    _followedInstall = id;
-    _installs.followSwitchStarted(widget.repository, key, toolset: toolset);
+    // Only remembered when the follow started: while another install runs it
+    // did not, and a later change may try again.
+    if (_installs.followSwitchStarted(
+      widget.repository,
+      key,
+      toolset: toolset,
+    )) {
+      _followedInstall = id;
+    }
   }
 
   /// Removes the open question's route, after the frame: the caller may be
@@ -268,18 +309,36 @@ class _ToolsScreenState extends State<ToolsScreen> {
       setState(() => _selected = toolset.name);
       return;
     }
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => _ToolsetPage(
-            controller: _controller,
-            name: toolset.name,
-            onSwitch: _switch,
-            env: _env(),
-          ),
-        ),
+    // The page keeps the profile it was opened for, so it goes when the
+    // profile changes; a page for another profile would show (and keep typed
+    // keys of) the old one.
+    final route = MaterialPageRoute<void>(
+      builder: (_) => _ToolsetPage(
+        controller: _controller,
+        name: toolset.name,
+        onSwitch: _switch,
+        env: _env(),
       ),
     );
+    _pages.add(route);
+    unawaited(
+      Navigator.of(context)
+          .push(route)
+          .whenComplete(() => _pages.remove(route)),
+    );
+  }
+
+  /// Closes the details pages that are open, after the frame.
+  void _closePages() {
+    final routes = [..._pages];
+    _pages.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final route in routes) {
+        if (route.isActive && route.navigator != null) {
+          route.navigator!.removeRoute(route);
+        }
+      }
+    });
   }
 
   /// What the details' panels share, for the profile the screen shows now.
@@ -570,7 +629,9 @@ class _ToolsetDetailState extends State<_ToolsetDetail> {
       final desktop = toolsOnDesktop(context);
       final mac = platformChromeOf(context) == PlatformChrome.macos;
       final started = controller.postSetupStarted != null;
-      final env = widget.env;
+      final env = widget.env.withSwitchBusy(
+        busy: controller.rowState(name).busy,
+      );
       final body = ToolsetDetailBody(
         physics: mac ? null : const AlwaysScrollableScrollPhysics(),
         view: toolsetDetailView(

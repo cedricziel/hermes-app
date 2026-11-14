@@ -150,7 +150,7 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
   var _changed = false;
   final _changedNames = <String>{};
   var _toolVanished = false;
-  final _setupBusy = <String>{};
+  final _setupBusy = <String, int>{};
 
   /// The profile the list is for.
   String get profile => _repository.profile;
@@ -187,12 +187,21 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
 
   /// A setup write (a provider, a key, a model) of [name] is out. Its switch
   /// is disabled meanwhile, so a switch and a setup write never overlap.
-  bool switchLocked(String name) => _setupBusy.contains(name);
+  bool switchLocked(String name) => (_setupBusy[name] ?? 0) > 0;
 
   /// Tells the controller that the setup of [name] is [busy] with a write.
+  ///
+  /// Several panels of one toolset (setup, backends, grant) may each report;
+  /// the switch stays locked until all of them ended.
   void setSetupBusy(String name, {required bool busy}) {
-    if (busy ? !_setupBusy.add(name) : !_setupBusy.remove(name)) return;
-    notifyListeners();
+    final count = _setupBusy[name] ?? 0;
+    final next = busy ? count + 1 : (count > 0 ? count - 1 : 0);
+    if (next == 0) {
+      _setupBusy.remove(name);
+    } else {
+      _setupBusy[name] = next;
+    }
+    if ((count > 0) != (next > 0)) notifyListeners();
   }
 
   /// The position of [toolset]'s switch.
@@ -233,7 +242,11 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
 
   /// Hands the controller to another profile. Answers still on their way for
   /// the old one are dropped.
-  void switchProfile(HermesToolsRepository repository) {
+  ///
+  /// With [notify] false the listeners are not told, for a caller that is
+  /// building (a screen whose profile changed); it calls [announce] after the
+  /// frame.
+  void switchProfile(HermesToolsRepository repository, {bool notify = true}) {
     _epoch++;
     _repository = repository;
     _toolsets = const [];
@@ -249,8 +262,11 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
     _changed = false;
     _changedNames.clear();
     _toolVanished = false;
-    notifyListeners();
+    if (notify) notifyListeners();
   }
+
+  /// Tells the listeners after a [switchProfile] that did not.
+  void announce() => notifyListeners();
 
   void clearPostSetupStarted() {
     _postSetupStarted = null;
@@ -313,7 +329,7 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
     if (toolset == null || _confirmation != null) return;
     // The switch is disabled while a setup write runs; a request that still
     // arrives is dropped, not queued, so nothing is sent behind the write.
-    if (_setupBusy.contains(name)) return;
+    if (switchLocked(name)) return;
     if (rowState(name).busy) {
       _queued[name] = enabled;
       return;

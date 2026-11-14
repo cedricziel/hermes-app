@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/tools/widgets/toolset_header.dart';
+import 'package:hermes_app/src/tools/widgets/tools_switch.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -308,6 +312,62 @@ void main() {
         await tester.pumpAndSettle();
       });
     }
+  }
+
+  for (final (name, size) in [('phone', phoneSize), ('desktop', desktopSize)]) {
+    testWidgets('$name: the setup is locked while the switch is saving', (
+      tester,
+    ) async {
+      final shots = ScreenshotRecorder('tools-setup-busy-$name');
+      await pumpShell(tester, shots, size: size);
+      await openTools(tester);
+      await openRow(tester, webText);
+      await typeKey(tester);
+      final gate = Completer<void>();
+      world.server.onRequest('PUT', web, (_) async {
+        await gate.future;
+        return (
+          status: 200,
+          body: {'ok': true, 'name': 'web', 'enabled': false},
+        );
+      });
+      final switchOf = find.descendant(
+        of: find.byType(ToolsetHeader).first,
+        matching: find.byType(ToolsSwitch),
+      );
+      if (name == 'phone') {
+        await tester.drag(find.byType(ListView).last, const Offset(0, 3000));
+        await tester.pump(const Duration(milliseconds: 400));
+      } else {
+        await tester.drag(find.byType(ListView).last, const Offset(0, 3000));
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      await tester.tap(switchOf);
+      await tester.pump(const Duration(milliseconds: 300));
+      await shots.capture(tester, 'header-saving');
+      await reveal(tester, find.byType(TextField));
+      await shots.capture(tester, 'save-disabled');
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('$name: keys and an install step that never ran', (
+      tester,
+    ) async {
+      final shots = ScreenshotRecorder('tools-setup-combo-$name');
+      world.searchCoInstall = true;
+      await pumpShell(tester, shots, size: size);
+      await openTools(tester);
+      await openRow(tester, webText);
+      final toggle = find.text(
+        'Use different providers for search and extract',
+      );
+      await reveal(tester, toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      await reveal(tester, find.text('Install on server'));
+      await shots.capture(tester, 'advanced');
+    });
   }
 
   testWidgets('phone, German: Web setup and Terminal', (tester) async {

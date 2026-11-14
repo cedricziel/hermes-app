@@ -47,6 +47,10 @@ void main() {
       final logger = _Logger();
       final events = <String>[];
       final printed = <String>[];
+      final errors = <String>[];
+      final oldOnError = FlutterError.onError;
+      FlutterError.onError = (details) =>
+          errors.add('${details.exception}\n${details.stack}');
       final dio = world.server.dio()
         ..interceptors.add(httpInterceptor(logger, tracer));
       final h = SetupHarness(tester, world)
@@ -72,6 +76,7 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 1));
       await tester.pump(const Duration(seconds: 30));
       debugPrint = oldPrint;
+      FlutterError.onError = oldOnError;
 
       // The value was sent once, in the body, and nowhere else.
       final sent = world.server.requestsTo(
@@ -84,11 +89,12 @@ void main() {
 
       final recorded = [
         for (final span in tracer.spans)
-          '${span.name} ${span.attributes} ${span.events} ${span.statusDescription}',
+          '${span.name} ${span.attributes} ${span.events} ${span.eventDetails} ${span.statusDescription}',
         for (final record in logger.records)
           '${record.body} ${record.attributes}',
         ...events,
         ...printed,
+        ...errors,
       ].join('\n');
       expect(tracer.spans, isNotEmpty);
       expect(recorded, isNot(contains(typedKey)));

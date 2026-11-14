@@ -24,19 +24,33 @@ class ToolsAsker {
   Route<dynamic>? _route;
   NavigatorState? _navigator;
   var _disposed = false;
+  var _asking = false;
+  var _cancelPending = false;
 
   Future<bool> ask(ToolsetQuestion question) async {
-    if (_disposed || _route != null || (lock?.covered ?? false)) return false;
+    if (_disposed || _asking || (lock?.covered ?? false)) return false;
     final host = context();
     if (!host.mounted) return false;
+    // Set before anything is awaited: the route arrives a frame later, and a
+    // second ask in that window must not open a second dialog.
+    _asking = true;
     _navigator = Navigator.of(host, rootNavigator: true);
-    final confirmed = await showToolsetConfirmation(
-      host,
-      question,
-      onRoute: (route) => _route = route,
-    );
-    _route = null;
-    _navigator = null;
+    final bool confirmed;
+    try {
+      confirmed = await showToolsetConfirmation(
+        host,
+        question,
+        onRoute: (route) {
+          _route = route;
+          if (_cancelPending) _takeDown();
+        },
+      );
+    } finally {
+      _asking = false;
+      _cancelPending = false;
+      _route = null;
+      _navigator = null;
+    }
     return confirmed && !_disposed && !(lock?.covered ?? false);
   }
 
@@ -53,6 +67,13 @@ class ToolsAsker {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (navigator.mounted && route.isActive) navigator.removeRoute(route);
     });
+  }
+
+  /// Takes the open question down, answering no: the profile it was asked for
+  /// changed.
+  void cancel() {
+    if (_asking && _route == null) _cancelPending = true;
+    _takeDown();
   }
 
   void dispose() {
