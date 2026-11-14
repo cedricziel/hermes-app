@@ -15,7 +15,6 @@ import '../agent_messages/message_alerts.dart';
 import '../chat/chat_models.dart';
 import '../notifications/attention_policy.dart';
 import '../notifications/notification_settings.dart';
-import '../notifications/request_notifications.dart';
 import '../schedules/schedule_alerts.dart';
 import '../schedules/schedule_baseline.dart';
 import '../surfaces/chat_hints.dart' show kUnnamedChatLabel;
@@ -167,13 +166,12 @@ class RunningRepliesStep extends BackgroundStep {
     // Before the notification, so that the app finds it whenever it returns.
     await _running.markAnnounced([reply]);
     await context.notifications.show(
-      AttentionNotification(
+      replyReadyNotification(
         threadId: reply.threadId,
         profile: reply.profile,
         title: thread?.title ?? kUnnamedChatLabel,
-        body: await context.appLockOn() ? kReplyReadyBody : preview,
-        bodyIsPlainText: true,
-        category: replyReadyCategory,
+        text: last!.content,
+        appLock: await context.appLockOn(),
       ),
     );
     return _Verdict.announced;

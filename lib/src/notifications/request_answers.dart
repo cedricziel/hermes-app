@@ -299,7 +299,10 @@ class RequestAnswers {
 
   void start() {
     _answers = _service?.answers.listen((answer) => _sender.send(answer));
-    _signOuts = _signedOut?.listen((_) => _forgetCategories());
+    _signOuts = _signedOut?.listen((_) {
+      unawaited(_service?.withdrawAnswerable());
+      unawaited(_forgetCategories());
+    });
     _wasLocked = _appLock?.value ?? false;
     _appLock?.addListener(_onAppLock);
     final port = _port = ReceivePort();
