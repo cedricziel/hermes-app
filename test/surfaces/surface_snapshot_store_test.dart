@@ -332,9 +332,51 @@ void main() {
       expect(storage.saved, hasLength(3));
       expect(
         storage.reloads,
-        3,
-        reason: 'a new start does not know when the widgets last reloaded',
+        2,
+        reason: 'the stored reload time outlives the store that wrote it',
       );
+    });
+
+    test('another store, as a background run has, keeps to the hour of the '
+        'last reload', () async {
+      await store.write(snapshot());
+      SurfaceSnapshotStore run() =>
+          SurfaceSnapshotStore(storage: storage, widgetKinds: const ['Recent'])
+            ..writes.listen((_) {});
+
+      await run().write(snapshot(minute: 15));
+      await run().write(snapshot(minute: 30));
+      expect(storage.reloaded, ['Recent']);
+
+      await run().write(snapshot(hour: 13));
+      expect(storage.reloaded, ['Recent', 'Recent']);
+
+      await store.write(snapshot(hour: 13, minute: 45));
+      expect(storage.reloaded, [
+        'Recent',
+        'Recent',
+      ], reason: 'the app keeps to a reload another store made');
+    });
+
+    test('a stored reload time from the future does not hold reloads back '
+        'for good', () async {
+      await store.write(snapshot());
+      storage.reloaded.clear();
+      storage.reloadedFor = DateTime.utc(2027).toIso8601String();
+
+      await store.write(snapshot(minute: 10));
+
+      expect(storage.reloaded, ['Recent']);
+    });
+
+    test('a reload time that cannot be read or stored still reloads and '
+        'stores the snapshot', () async {
+      storage.reloadMarkFailure = StateError('no group');
+
+      await store.write(snapshot());
+
+      expect(storage.saved, hasLength(1));
+      expect(storage.reloaded, ['Recent']);
     });
 
     test('writes land in the order they were asked for', () async {
