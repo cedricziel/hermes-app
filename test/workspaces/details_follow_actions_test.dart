@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
@@ -164,5 +165,28 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text(_reason), findsNothing);
+  });
+
+  testWidgets('a slash command that runs shows why Change folder waits', (
+    tester,
+  ) async {
+    await showDetails(tester);
+    source.slashGate = Completer<SlashCommandResult>();
+    expect(find.text('Wait for the reply to finish.'), findsNothing);
+
+    final running = chat.runSlashCommand('/compress');
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Wait for the reply to finish.'), findsOneWidget);
+
+    source.slashGate!.complete(
+      const SlashCommandResult(threadId: 'stored-1', output: 'Done'),
+    );
+    unawaited(running);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Wait for the reply to finish.'), findsNothing);
   });
 }

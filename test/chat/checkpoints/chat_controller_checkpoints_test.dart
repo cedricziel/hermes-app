@@ -1200,6 +1200,62 @@ void main() {
       },
     );
 
+    test(
+      'two overlapping commands keep a move waiting until both end',
+      () async {
+        withMoves();
+        final opened = await open();
+        source.own('stored-1');
+        final first = Completer<SlashCommandResult>();
+        final second = Completer<SlashCommandResult>();
+        const done = SlashCommandResult(threadId: 'stored-1', output: 'Done');
+
+        source.slashGate = first;
+        final one = chat.runSlashCommand('/help');
+        await pumpEventQueue();
+        source.slashGate = second;
+        final two = chat.runSlashCommand('/usage');
+        await pumpEventQueue();
+        expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.replying);
+
+        first.complete(done);
+        await one;
+        await pumpEventQueue();
+        expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.replying);
+        expect(
+          await chat.moveWorkspace(opened, '/srv/other'),
+          WorkspaceMoveBlock.replying,
+        );
+        expect(moves, isEmpty);
+
+        second.complete(done);
+        await two;
+        await pumpEventQueue();
+        expect(chat.workspaceMoveBlock(opened), isNull);
+      },
+    );
+
+    test('a Retry in flight makes a move wait', () async {
+      withMoves();
+      final opened = await open();
+      source.own('stored-1');
+      source.undoGate = Completer<void>();
+
+      final retrying = chat.retry(opened);
+      await pumpEventQueue();
+
+      expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.replying);
+      expect(
+        await chat.moveWorkspace(opened, '/srv/other'),
+        WorkspaceMoveBlock.replying,
+      );
+      expect(moves, isEmpty);
+
+      source.undoGate!.complete();
+      await retrying;
+      await pumpEventQueue();
+    });
+
     test('a slash command that runs makes a move wait, and nothing is '
         'sent', () async {
       withMoves();

@@ -195,8 +195,11 @@ class WorkingDirectoryDetails extends StatelessWidget {
                     if (safePathText(path) != path)
                       TextButton(
                         key: const Key('working-directory-copy-path'),
+                        // A failed copy is dropped: nothing about the path is
+                        // logged, and the Files Copy path gives no feedback.
                         onPressed: () => unawaited(
-                          Clipboard.setData(ClipboardData(text: path)),
+                          Clipboard.setData(ClipboardData(text: path))
+                              .catchError((Object _) {}),
                         ),
                         style: files.buttonStyle(),
                         child: Text(l10n.filesActionCopyPath),

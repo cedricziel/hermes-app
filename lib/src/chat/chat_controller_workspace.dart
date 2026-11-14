@@ -25,7 +25,10 @@ class _WorkspaceData {
 
   /// Chats (profile, stored id) a slash command is running in: a move waits
   /// for it, as it does for a reply.
-  final slashRunning = <(String, String)>{};
+  ///
+  /// A count: two commands at once (Retry of a command and another from the
+  /// composer) release the hold only when both have ended.
+  final slashRunning = <(String, String), int>{};
 
   /// Counts the times everything was dropped, for a picker or confirmation
   /// that must close when it changes.
@@ -307,7 +310,8 @@ extension _ChatControllerWorkspace on ChatController {
             actions.context?.compressing == true)) {
       return WorkspaceMoveBlock.restoring;
     }
-    if (_workspace.slashRunning.contains(_moveKey(thread))) {
+    if (_workspace.slashRunning.containsKey(_moveKey(thread)) ||
+        _retrying.contains(thread)) {
       return WorkspaceMoveBlock.replying;
     }
     if (_moveStateImpl(thread).inFlight) return WorkspaceMoveBlock.moving;

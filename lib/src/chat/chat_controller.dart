@@ -1709,12 +1709,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final key = selected != null && selected.remote
         ? _ChatControllerWorkspace(this)._moveKey(selected)
         : null;
-    if (key != null) _workspace.slashRunning.add(key);
+    if (key != null) {
+      _workspace.slashRunning.update(key, (n) => n + 1, ifAbsent: () => 1);
+      // An open details sheet or menu command shows the wait at once.
+      notifyListeners();
+    }
     try {
       return await _ChatControllerCommands(this)._runSlashCommandImpl(command);
     } finally {
       if (key != null) {
-        _workspace.slashRunning.remove(key);
+        final left = (_workspace.slashRunning[key] ?? 1) - 1;
+        if (left <= 0) {
+          _workspace.slashRunning.remove(key);
+        } else {
+          _workspace.slashRunning[key] = left;
+        }
         if (!disposed) notifyListeners();
       }
     }

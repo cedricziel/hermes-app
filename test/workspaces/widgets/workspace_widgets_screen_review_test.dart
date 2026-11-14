@@ -170,4 +170,34 @@ void main() {
     await pumpFiles(tester, const PathEntryView(text: '/srv/ok'));
     expect(find.textContaining('hidden characters'), findsNothing);
   });
+
+  testWidgets('a failed copy of the path is dropped quietly', (tester) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          throw PlatformException(code: 'unavailable');
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await pumpFiles(
+      tester,
+      WorkingDirectoryDetails(
+        folderName: 'api',
+        path: '/srv/${String.fromCharCode(0x202E)}evil',
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('working-directory-copy-path')));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
 }
