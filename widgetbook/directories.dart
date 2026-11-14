@@ -20,6 +20,10 @@ import 'activity_line_use_cases.dart';
 import 'moa_progress_use_cases.dart';
 import 'background_check_status_use_cases.dart';
 import 'queue_recovery_use_cases.dart';
+import 'chat_checkpoints_use_cases.dart';
+import 'chat_checkpoint_restore_use_cases.dart';
+import 'chat_context_use_cases.dart';
+import 'transcript_outcome_line_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
@@ -127,6 +131,10 @@ final List<WidgetbookNode> directories = [
   memoryProposalsNode(),
   memoryToolNode(),
   sessionUsageNode(),
+  chatContextNode(),
+  chatCheckpointsNode(),
+  chatCheckpointRestoreNode(),
+  transcriptOutcomeLineNode(),
   connectorOperationNode(),
   sideResultNode(),
   processOutputNode(),
