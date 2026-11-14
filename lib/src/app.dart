@@ -8,6 +8,7 @@ import '../l10n/l10n.dart';
 import 'app_lock/app_lock_gate.dart';
 import 'app_lock/app_lock_controller.dart';
 import 'api/hermes_repositories.dart';
+import 'navigation/connection_pages.dart';
 import 'navigation/desktop_history_owner.dart';
 import 'navigation/desktop_navigation_history.dart';
 import 'navigation/desktop_navigation_commands.dart';
@@ -54,6 +55,8 @@ class HermesApp extends StatefulWidget {
 class _HermesAppState extends State<HermesApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   final _handoffObserver = HandoffNavigationObserver();
+  final _pushedRoutes = PushedRoutes();
+  late final _connectionPages = ConnectionPageCloser(_pushedRoutes);
   late final _history = DesktopNavigationHistory(
     canNavigate: _canNavigate,
     resolve: _resolve,
@@ -150,6 +153,7 @@ class _HermesAppState extends State<HermesApp> {
   void dispose() {
     _windows?.removeListener(_windowOwnershipChanged);
     unawaited(_windowlessChanges?.cancel());
+    _connectionPages.dispose();
     _history.dispose();
     super.dispose();
   }
@@ -161,10 +165,13 @@ class _HermesAppState extends State<HermesApp> {
     context.watch<AppLockController?>();
     context.watch<HandoffController?>();
     _bindWindows(context.watch<ConversationWindows?>());
+    _connectionPages
+      ..bind(auth)
+      ..breadcrumbs = _read<Breadcrumbs>() ?? Breadcrumbs.none;
     _syncHistory(auth);
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      navigatorObservers: [_handoffObserver, _history],
+      navigatorObservers: [_handoffObserver, _history, _pushedRoutes],
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: [
