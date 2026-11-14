@@ -162,6 +162,9 @@ class ServerCareRepository {
       if (root == null) return null;
       return LogLine.parseAll(readStrings(root['lines']));
     },
+    // An unknown profile answers 404 with Hermes' own reason; only the
+    // framework's bare "Not Found" says the route is missing.
+    namedNotFoundIsRefusal: true,
   );
 
   /// `GET /api/analytics/usage` for a window of [days] ending [today] (the
@@ -194,6 +197,7 @@ class ServerCareRepository {
     bool noReceipt = false,
     int? storeStatus,
     bool pageMeansMissing = true,
+    bool namedNotFoundIsRefusal = false,
   }) async {
     try {
       final response = await call();
@@ -218,7 +222,12 @@ class ServerCareRepository {
       }
       return CareOk(value);
     } on DioException catch (e) {
-      return _failure<T>(e, noReceipt: noReceipt, storeStatus: storeStatus);
+      return _failure<T>(
+        e,
+        noReceipt: noReceipt,
+        storeStatus: storeStatus,
+        namedNotFoundIsRefusal: namedNotFoundIsRefusal,
+      );
     } on TimeoutException {
       return const CareFailed(CareFailureKind.offline);
     }
@@ -228,6 +237,7 @@ class ServerCareRepository {
     DioException e, {
     required bool noReceipt,
     int? storeStatus,
+    bool namedNotFoundIsRefusal = false,
   }) {
     final status = e.response?.statusCode;
     if (status == null) return const CareFailed(CareFailureKind.offline);
@@ -236,6 +246,12 @@ class ServerCareRepository {
         noReceipt &&
         (detail?.startsWith('No update receipt') ?? false)) {
       return CareOk<T>(null as T);
+    }
+    if (namedNotFoundIsRefusal &&
+        status == 404 &&
+        detail != null &&
+        detail.toLowerCase() != 'not found') {
+      return CareFailed(CareFailureKind.refused, message: detail);
     }
     if (status == 404 || status == 405) return const CareUnsupported();
     if (status == storeStatus) {

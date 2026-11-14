@@ -35,6 +35,7 @@ export * from "./components/ThinkingIndicator/ThinkingIndicator";
 export * from "./components/ThreadSidebar/ThreadSidebar";
 export * from "./components/ChatHeader/ChatHeader";
 export * from "./components/WelcomeView/WelcomeView";
+export * from "./components/ConnectModelCard/ConnectModelCard";
 export * from "./components/AppShell/AppShell";
 export * from "./components/ConnectScreen/ConnectScreen";
 export * from "./components/ScheduleJobRow/ScheduleJobRow";

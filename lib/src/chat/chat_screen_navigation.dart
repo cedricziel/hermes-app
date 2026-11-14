@@ -103,6 +103,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
           scrollController: controller,
           selection: _agentSelection,
           onClose: () => Navigator.of(context).pop(),
+          checkpointsAndContext: true,
         ),
       ),
     );
@@ -177,6 +178,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
       MacCommand.archiveThread: MacCommandHandler(
         on(ThreadAction.archive, when: managed),
       ),
+      if (!ios) MacCommand.compress: _ChatScreenCheckpoints(this)._compress(),
       MacCommand.toggleInspector: MacCommandHandler(
         thread == null ? null : () => _toggleActivity(source: 'menu'),
         title: _activityOpen ? 'Hide Inspector' : 'Show Inspector',
@@ -235,7 +237,14 @@ extension _ChatScreenNavigation on _ChatScreenState {
     await _chat.refreshModelOptions();
   }
 
+  /// The composer's "Set up a model": Model providers where the server has it
+  /// (on the lost provider when the default's provider lost its key), the
+  /// terminal command otherwise.
   Future<void> _setupModel() async {
+    if (_providersOffered) {
+      _openProviders(ProvidersEntry.composer, focus: _setupFocus());
+      return;
+    }
     final profile = _chat.profile;
     final owner = _avatarAuth?.ownerGeneration;
     await showModelSetup(context, profile);
@@ -322,18 +331,47 @@ extension _ChatScreenNavigation on _ChatScreenState {
         availability?.profile;
     final tools = profile == null ? null : _tools?.forProfile(profile);
     if (tools == null) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ToolsScreen(
-          repository: tools,
-          availability: availability,
-          // A deleted profile: read the list of profiles again.
-          onProfileGone: _profiles == null
-              ? null
-              : () => unawaited(_loadRecipients()),
+    // The Computer use details link to the bot's screen. The status is read
+    // (no frames) while the Tools screen is open, so the link follows whether
+    // the profile has one; a chat with no Bot Screen controller offers none.
+    final screen = _screen;
+    final screenProfile = _screenProfile;
+    final watch = screen?.watch(frames: false);
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ToolsScreen(
+            repository: tools,
+            availability: availability,
+            // A deleted profile: read the list of profiles again.
+            onProfileGone: _profiles == null
+                ? null
+                : () => unawaited(_loadRecipients()),
+            botScreen: screen == null
+                ? null
+                : ToolsBotScreenLink(
+                    changes: screen,
+                    // The chat may have moved to another profile since: the
+                    // viewer always opens the current one, so the link is
+                    // only for the profile it was made for.
+                    offered: () =>
+                        identical(_screen, screen) &&
+                        _screenProfile == screenProfile &&
+                        screen.status != null &&
+                        !screen.unsupported,
+                    open: () {
+                      if (identical(_screen, screen) &&
+                          _screenProfile == screenProfile) {
+                        _openViewer('tools');
+                      }
+                    },
+                  ),
+          ),
         ),
-      ),
-    );
+      );
+    } finally {
+      watch?.release();
+    }
     // Switches made there change what the entry and the count know.
     if (mounted) unawaited(availability?.refresh(tools.profile));
   }
@@ -344,7 +382,45 @@ extension _ChatScreenNavigation on _ChatScreenState {
       _providers != null &&
       _chat.modelOptionsState != ModelOptionsState.unsupported;
 
-  void _openProviders(ProvidersEntry source) {
+  /// Where Model providers starts for a profile that cannot chat: on the
+  /// provider that lost its key, else at "Add a provider".
+  ProvidersFocus _setupFocus() =>
+      ProvidersFocus.providerOrAdd(_chat.modelOptions?.missing?.providerId);
+
+  /// The welcome card for a profile with no usable model, or null while the
+  /// starter prompts show.
+  Widget? _welcomeCard() {
+    final data = _providers == null
+        ? null
+        : connectCardFor(
+            _chat.modelOptionsState,
+            _chat.modelOptions,
+            profile: _chat.profile ?? 'default',
+            settled: _chat.settledModelOptionsState,
+            warmingUnchanged: _chat.warmingUnchanged,
+          );
+    if (data == null) return null;
+    return ConnectModelCard(
+      data: data,
+      onPressed: data.kind == ConnectCardKind.loading
+          ? () => unawaited(_chat.checkModelOptionsAgain())
+          : () => _openProviders(
+              ProvidersEntry.welcome,
+              focus: ProvidersFocus.providerOrAdd(data.providerId),
+            ),
+    );
+  }
+
+  /// A failed reply's "Check model providers": the provider of the model the
+  /// chat picked, else the default model's.
+  void _checkProviders() => _openProviders(
+    ProvidersEntry.reply,
+    focus: ProvidersFocus.providerOrAdd(
+      _chat.modelChoice?.providerId ?? _chat.modelOptions?.current?.providerId,
+    ),
+  );
+
+  void _openProviders(ProvidersEntry source, {ProvidersFocus? focus}) {
     final providers = _providers;
     if (providers == null) return;
     _closeDrawerIfNarrow();
@@ -355,6 +431,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
               repository: providers,
               profile: _chat.profile,
               entry: source,
+              focus: focus,
               // The pill and the welcome view follow what the screen did.
               onChanged: () => unawaited(_chat.refreshModelOptions()),
             ),

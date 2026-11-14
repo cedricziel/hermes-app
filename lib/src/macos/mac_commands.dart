@@ -24,6 +24,7 @@ enum MacCommand {
   pinThread,
   renameThread,
   copyTranscript,
+  compress,
   archiveThread,
   deleteThread,
   showMainWindow,

@@ -434,6 +434,7 @@ void main() {
     tester,
   ) async {
     final probe = await openStack(tester);
+    final shell = tester.state(find.byType(AppShell, skipOffstage: false));
     final generation = auth.ownerGeneration;
     // The access token is rejected once; the refresh mints a new pair.
     dashboard.validAccess = 'rotated-away';
@@ -450,6 +451,10 @@ void main() {
     );
     expect(probe.disposed, isFalse);
     expect(find.byType(AppShell, skipOffstage: false), findsOneWidget);
+    expect(
+      tester.state(find.byType(AppShell, skipOffstage: false)),
+      same(shell),
+    );
     await letSocketsIdle(tester);
   });
 
@@ -476,6 +481,7 @@ void main() {
     tester,
   ) async {
     final probe = await openStack(tester);
+    final shell = tester.state(find.byType(AppShell, skipOffstage: false));
     final generation = auth.ownerGeneration;
     final notifications = await expireAndRescue(tester, probe);
     expect(notifications, greaterThanOrEqualTo(2));
@@ -489,6 +495,11 @@ void main() {
       findsOneWidget,
     );
     expect(probe.disposed, isFalse);
+    expect(
+      tester.state(find.byType(AppShell, skipOffstage: false)),
+      same(shell),
+      reason: 'an expiry that does not move the owner keeps the shell',
+    );
     await letSocketsIdle(tester);
   });
 

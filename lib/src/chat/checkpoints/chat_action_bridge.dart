@@ -46,8 +46,10 @@ class ChatActionBridge {
   /// A reply is running or a request is waiting.
   final bool Function() isReplying;
 
-  /// Re-reads the chat over REST.
-  final Future<void> Function() refetchChat;
+  /// Re-reads the chat over REST. [historyRemoved] says a full restore took
+  /// history away: a failed turn whose prompt the server no longer holds is
+  /// then gone with it, not kept for a Retry.
+  final Future<void> Function({bool historyRemoved}) refetchChat;
   final Future<void> Function() refreshUsage;
 
   /// Disables Send and holds the send queue while true.

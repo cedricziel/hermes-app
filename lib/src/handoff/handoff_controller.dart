@@ -29,10 +29,15 @@ class HandoffController extends ChangeNotifier {
   int _generation = 0, _userGeneration = 0;
   HandoffRestore? _restore;
   HandoffActivity? _visible;
+  Object? _visibleOwner;
   String? _published;
   Future<void> _publishing = Future.value();
 
   bool get unlocked => _unlocked;
+
+  /// What the screen in front offers for Handoff, if anything.
+  @visibleForTesting
+  String? get visibleIdentity => _visible?.identity;
   bool get needsConnection =>
       !_initializing &&
       pending != null &&
@@ -101,16 +106,29 @@ class HandoffController extends ChangeNotifier {
     _restore = restore;
   }
 
+  /// Drops [restore] if it is still the bound one. A screen that replaces
+  /// another builds before the old one is disposed, so the old one must not
+  /// clear what the new one bound.
+  void unbind(HandoffRestore restore) {
+    if (identical(_restore, restore)) _restore = null;
+  }
+
   void cover(bool value) {
     if (_disposed) return;
     covered = value;
     _publish();
   }
 
-  void advertise(HandoffActivity? activity) {
+  void advertise(HandoffActivity? activity, {Object? owner}) {
     if (_disposed) return;
     _visible = activity;
+    _visibleOwner = owner;
     _publish();
+  }
+
+  /// Stops advertising what [owner] advertised last; a newer owner's stays.
+  void withdraw(Object owner) {
+    if (identical(_visibleOwner, owner)) advertise(null);
   }
 
   void _publish() {

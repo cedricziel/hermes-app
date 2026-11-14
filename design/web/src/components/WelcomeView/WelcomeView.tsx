@@ -1,9 +1,14 @@
+import type { ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
 import "./WelcomeView.css";
 
 /** Where a starter prompt came from; it picks the card's icon. */
 export type StarterSource =
-  "generic" | "schedule" | "kanban" | "chat" | "skill";
+  | "generic"
+  | "schedule"
+  | "kanban"
+  | "chat"
+  | "skill";
 
 /** One starter prompt card on the welcome view. */
 export interface StarterPromptItem {
@@ -41,6 +46,8 @@ export interface WelcomeViewProps {
   greetingName?: string | null;
   /** The starter prompt cards, normally four: context ones first, then generic ones. */
   prompts?: StarterPromptItem[];
+  /** Replaces the prompt cards while the profile has no usable model: a `ConnectModelCard`, centred. */
+  card?: ReactNode;
   /** Room left at the bottom for whatever overlays it (the composer), in px. */
   bottomPadding?: number;
   /** A starter prompt card was clicked. */
@@ -55,6 +62,7 @@ export interface WelcomeViewProps {
 export function WelcomeView({
   greetingName,
   prompts = GENERIC_STARTER_PROMPTS,
+  card,
   bottomPadding = 0,
   onPick,
 }: WelcomeViewProps) {
@@ -72,25 +80,29 @@ export function WelcomeView({
           Ask Hermes Agent about your server, your codebase, or anything it has
           tools for.
         </p>
-        <div className="h-welcome-view__grid">
-          {prompts.map((p) => (
-            <button
-              key={p.text}
-              type="button"
-              className="h-welcome-view__card"
-              onClick={() => onPick?.(p)}
-            >
-              <Icon
-                name={icons[p.source ?? "generic"]}
-                size={16}
-                className="h-welcome-view__card-icon"
-              />
-              <span className="h-welcome-view__card-text">
-                {p.text.endsWith(" ") ? `${p.text.trimEnd()}…` : p.text}
-              </span>
-            </button>
-          ))}
-        </div>
+        {card ? (
+          <div className="h-welcome-view__card-slot">{card}</div>
+        ) : (
+          <div className="h-welcome-view__grid">
+            {prompts.map((p) => (
+              <button
+                key={p.text}
+                type="button"
+                className="h-welcome-view__card"
+                onClick={() => onPick?.(p)}
+              >
+                <Icon
+                  name={icons[p.source ?? "generic"]}
+                  size={16}
+                  className="h-welcome-view__card-icon"
+                />
+                <span className="h-welcome-view__card-text">
+                  {p.text.endsWith(" ") ? `${p.text.trimEnd()}…` : p.text}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

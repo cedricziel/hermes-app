@@ -3,11 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
 import '../widgets/dialog_presentation.dart';
+import '../widgets/grouped_action_row.dart';
 import 'gateway_restart.dart';
 import 'server_care_controller.dart';
 import 'server_status.dart';
 import 'widgets/gateway_restart_dialog.dart';
-import 'widgets/grouped_action_row.dart';
 
 /// The lines of the restart confirmation, from what the status says: the app's
 /// chats keep running, messaging pauses, how many messaging conversations
@@ -73,11 +73,22 @@ Future<void> runGatewayAction(
 
 /// What the gateway row says about a run: the progress while it goes, the
 /// outcome after, with Hermes' own text for a refusal. Null when idle.
+/// [onShowLogs], when given, adds Show logs beside Try again where the logs
+/// can explain something: a child that exited with an error, and a gateway
+/// that is slow or could not be confirmed. A refusal started nothing, so
+/// there is nothing to read.
 GroupedActionStatus? gatewayRowStatus(
   AppLocalizations l10n,
   GatewayRestart run, {
   required VoidCallback onTryAgain,
+  VoidCallback? onShowLogs,
 }) {
+  final showLogs = onShowLogs == null
+      ? null
+      : GroupedActionButton(
+          label: l10n.serverCareShowLogs,
+          onPressed: onShowLogs,
+        );
   final starting = run.action == GatewayAction.start;
   return switch (run.phase) {
     GatewayPhase.idle => null,
@@ -103,6 +114,7 @@ GroupedActionStatus? gatewayRowStatus(
               ? l10n.serverCareGatewayStartFailed
               : l10n.serverCareGatewayRestartFailed),
       buttons: [
+        if (run.failure == GatewayFailure.exited) ?showLogs,
         GroupedActionButton(
           label: l10n.serverCareTryAgain,
           onPressed: onTryAgain,
@@ -115,6 +127,7 @@ GroupedActionStatus? gatewayRowStatus(
           ? l10n.serverCareGatewayUnconfirmed
           : l10n.serverCareGatewaySlow,
       buttons: [
+        ?showLogs,
         GroupedActionButton(
           label: l10n.serverCareTryAgain,
           onPressed: onTryAgain,

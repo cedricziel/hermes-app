@@ -197,7 +197,7 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('a row that cannot be picked has a disabled radio', (t) async {
+  testWidgets('a picked row with no action is not drawn disabled', (t) async {
     await pumpTools(
       t,
       GroupedSection(
@@ -205,15 +205,47 @@ void main() {
           ProviderRow(
             name: 'Brightfetch',
             status: ToolsStatus.ready,
-            picked: false,
+            picked: true,
             onPick: null,
           ),
         ],
       ),
       platform: TargetPlatform.android,
     );
-    expect(t.widget<Radio<bool>>(find.byType(Radio<bool>)).enabled, isFalse);
+    expect(t.widget<Radio<bool>>(find.byType(Radio<bool>)).enabled, isTrue);
+    expect(find.byType(Opacity), findsNothing);
   });
+
+  for (final platform in [
+    TargetPlatform.android,
+    TargetPlatform.iOS,
+    TargetPlatform.macOS,
+  ]) {
+    testWidgets('a locked row is dimmed on $platform and ignores taps', (
+      t,
+    ) async {
+      var picks = 0;
+      await pumpTools(
+        t,
+        GroupedSection(
+          children: [
+            ProviderRow(
+              name: 'Brightfetch',
+              status: ToolsStatus.ready,
+              picked: false,
+              enabled: false,
+              onPick: () => picks++,
+            ),
+          ],
+        ),
+        platform: platform,
+      );
+      final dim = t.widget<Opacity>(find.byType(Opacity));
+      expect(dim.opacity, lessThan(1));
+      await t.tap(find.text('Brightfetch'));
+      expect(picks, 0);
+    });
+  }
 
   for (final scale in [2.0, 3.0]) {
     testWidgets('wraps without overflow at ${scale}x', (t) async {

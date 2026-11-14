@@ -54,6 +54,11 @@ class ProviderRow extends StatelessWidget {
   /// Warns that picking this backend leaves commands failing, for a picked
   /// backend that is not ready.
   final bool commandsWillFail;
+
+  /// False while the choice cannot be changed (a write is out): the whole row
+  /// is dimmed on every platform, the picked mark included, and taps do
+  /// nothing. A picked row of an enabled group is not dimmed, even though a
+  /// tap on it sends nothing.
   final bool enabled;
 
   /// Where the separators of a group of provider rows start.
@@ -79,7 +84,7 @@ class ProviderRow extends StatelessWidget {
         ),
       ),
     );
-    return GroupedRow(
+    final row = GroupedRow(
       title: name,
       titleMaxLines: null,
       titleBadge: badge == null || badge.isEmpty ? null : _Tag(badge),
@@ -108,10 +113,13 @@ class ProviderRow extends StatelessWidget {
           ? null
           : RadioGroup<bool>(
               groupValue: picked,
+              // Never drawn disabled: Material draws a disabled radio grey,
+              // which reads as unavailable. A locked row is dimmed as a whole
+              // (and its [onPick] is null), so the radio is not dimmed twice.
               onChanged: (_) => onPick?.call(),
               child: Radio<bool>(
                 value: true,
-                enabled: enabled && onPick != null,
+                enabled: true,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
@@ -129,6 +137,7 @@ class ProviderRow extends StatelessWidget {
       enabled: enabled,
       onTap: onPick,
     );
+    return enabled ? row : Opacity(opacity: 0.5, child: row);
   }
 }
 

@@ -471,7 +471,7 @@ void main() {
       await tapSwitch(tester, 'todo');
       await tester.pump(const Duration(seconds: 11));
 
-      expect(find.text('Couldn\'t confirm. Try again.'), findsWidgets);
+      expect(find.text('Couldn\'t confirm.'), findsWidgets);
       expect(find.text('Pull to refresh'), findsNothing);
       gate.complete();
       server.on('GET', '/api/tools/toolsets', toolsCatalog(on: {'todo'}));
@@ -730,6 +730,30 @@ void main() {
     });
   });
 
+  group('the note on the details', () {
+    testWidgets('shows only for a toolset that changed, not one whose '
+        'question was cancelled', (tester) async {
+      await pumpTools(tester);
+      await tapSwitch(tester, 'todo');
+      await tester.pumpAndSettle();
+      await tapSwitch(tester, 'terminal');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      await scrollToTop(tester);
+      // The list says it after any change.
+      expect(find.text('Applies from your next chat.'), findsOneWidget);
+
+      await openRow(tester, 'Run commands on the machine where Hermes runs.');
+      expect(find.text('Applies from your next chat.'), findsNothing);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await openRow(tester, 'Keep a to-do list while working.');
+      expect(find.text('Applies from your next chat.'), findsWidgets);
+    });
+  });
+
   group('App Lock', () {
     testWidgets('dismisses an open question as cancelled', (tester) async {
       late AppLockController lock;
@@ -864,7 +888,7 @@ void main() {
         await tapSwitch(tester, 'todo');
         await tester.pump(const Duration(seconds: 11));
 
-        expect(find.text('Couldn\'t confirm. Try again.'), findsOneWidget);
+        expect(find.text('Couldn\'t confirm.'), findsOneWidget);
         expect(find.text('Try again'), findsOneWidget);
         expect(puts(), hasLength(1));
       });
@@ -887,7 +911,7 @@ void main() {
       holdAnswer(server, 'GET', '/api/tools/toolsets');
       await tapSwitch(tester, 'todo');
       await tester.pump(const Duration(seconds: 11));
-      expect(find.text('Couldn\'t confirm. Try again.'), findsWidgets);
+      expect(find.text('Couldn\'t confirm.'), findsWidgets);
     });
   });
 }

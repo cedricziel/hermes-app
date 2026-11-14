@@ -20,6 +20,10 @@ extension _ChatControllerCommands on ChatController {
   /// Runs a gateway command without putting it through prompt.submit or the
   /// reply queue. Display-only command output stays in this visit's chat.
   Future<bool> _runSlashCommandImpl(String command) async {
+    if (_ChatControllerCheckpoints(this)._actionHolds(selectedThread)) {
+      // The composer's status line already says the files are restoring.
+      return false;
+    }
     if (_sessionStates[selectedThread]?.reclaimedReason != null) {
       report('Reopen this session before running another command.');
       return false;
@@ -161,7 +165,8 @@ extension _ChatControllerCommands on ChatController {
       } else {
         _olderRows.remove(thread.id);
       }
-      await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+      await controllerFor(thread)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
       if (!_currentActivity(epoch)) return;
       notifyListeners();
     } on Object {
@@ -230,6 +235,7 @@ extension _ChatControllerCommands on ChatController {
     return transport != null &&
         _bound.contains(thread) &&
         !_undoing.containsKey(thread) &&
+        !_ChatControllerCheckpoints(this)._actionHolds(thread) &&
         !thread.isReplying &&
         !_queues.containsKey(thread) &&
         prompt != null &&
@@ -242,6 +248,9 @@ extension _ChatControllerCommands on ChatController {
   /// undo get a new turn instead.
   Future<void> _retryImpl(ChatThread thread) async {
     if (_sessionStates[thread]?.reclaimedReason != null) return;
+    // A full restore is rewinding the chat: another undo would take a second
+    // turn.
+    if (_ChatControllerCheckpoints(this)._actionHolds(thread)) return;
     final epoch = _activityEpoch;
     final generation = _sessionActionGeneration(thread);
     if (!_currentActivity(epoch) ||
@@ -249,11 +258,29 @@ extension _ChatControllerCommands on ChatController {
       return;
     }
     final prompt = lastPromptText(thread);
-    if (prompt == null || _undoing.containsKey(thread)) return;
+    if (prompt == null ||
+        _undoing.containsKey(thread) ||
+        _retrying.contains(thread)) {
+      return;
+    }
     if (prompt.startsWith('/')) {
       unawaited(runSlashCommand(prompt));
       return;
     }
+    _retrying.add(thread);
+    try {
+      await _retryTurn(thread, prompt, epoch, generation);
+    } finally {
+      _retrying.remove(thread);
+    }
+  }
+
+  Future<void> _retryTurn(
+    ChatThread thread,
+    String prompt,
+    int epoch,
+    int generation,
+  ) async {
     if (canEditLastPrompt(thread) && _lastPrompt(thread)!.attachments.isEmpty) {
       try {
         await _undoLastTurn(thread, TurnAction.retry);
@@ -315,6 +342,7 @@ extension _ChatControllerCommands on ChatController {
       _bound.contains(thread) &&
       _sessionStates[thread]?.reclaimedReason == null &&
       !_undoing.containsKey(thread) &&
+      !_ChatControllerCheckpoints(this)._actionHolds(thread) &&
       !thread.isReplying &&
       !_queues.containsKey(thread);
 
@@ -477,7 +505,8 @@ extension _ChatControllerCommands on ChatController {
     final start = thread.messages.lastIndexWhere((m) => m.isPrompt);
     if (start < 0) return true;
     thread.messages.removeRange(start, thread.messages.length);
-    await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+    await controllerFor(thread)
+        .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
     if (!_currentActivity(epoch) ||
         !_sessionActionCurrent(thread, generation) ||
         _sessionStates[thread]?.reclaimedReason != null) {

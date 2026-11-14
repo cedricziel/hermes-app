@@ -43,6 +43,7 @@ class ToolsetRowView {
     this.error,
     this.selected = false,
     this.unknownPlugin = false,
+    this.locked = false,
   });
 
   final String name;
@@ -76,6 +77,10 @@ class ToolsetRowView {
   /// since the app knows nothing about what it does.
   final bool unknownPlugin;
 
+  /// A setup write of this toolset is out: the switch is disabled, with no
+  /// spinner, until it ends.
+  final bool locked;
+
   ToolsetRowView copyWith({
     bool? enabled,
     ToolsetRowPhase? phase,
@@ -93,6 +98,7 @@ class ToolsetRowView {
     error: error ?? this.error,
     selected: selected ?? this.selected,
     unknownPlugin: unknownPlugin,
+    locked: locked,
   );
 }
 
@@ -164,7 +170,18 @@ class ToolsetRow extends StatelessWidget {
           scaleIcon: true,
           liveRegion: true,
         ),
-      // The count, which "Checking…" replaces in place.
+      // The count stays, so the lines keep their order; "Checking…" follows.
+      if (view.actionCount > 0)
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            l10n.toolsActionCount(view.actionCount),
+            style: TextStyle(
+              fontSize: metrics.footerSize,
+              color: colors.subtleText,
+            ),
+          ),
+        ),
       if (phase == ToolsetRowPhase.checking)
         Semantics(
           liveRegion: true,
@@ -186,17 +203,6 @@ class ToolsetRow extends StatelessWidget {
               ],
             ),
           ),
-        )
-      else if (view.actionCount > 0)
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Text(
-            l10n.toolsActionCount(view.actionCount),
-            style: TextStyle(
-              fontSize: metrics.footerSize,
-              color: colors.subtleText,
-            ),
-          ),
         ),
     ];
 
@@ -206,7 +212,9 @@ class ToolsetRow extends StatelessWidget {
       saving: phase == ToolsetRowPhase.saving,
       preparing: phase == ToolsetRowPhase.preparing,
       showStateWord: large,
-      onChanged: phase == ToolsetRowPhase.checking ? null : onChanged,
+      onChanged: phase == ToolsetRowPhase.checking || view.locked
+          ? null
+          : onChanged,
     );
     final trailing = tryAgain
         ? Wrap(

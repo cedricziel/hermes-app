@@ -536,6 +536,27 @@ void main() {
       ]);
     });
 
+    test('Queued by the server: the usage a settle report carries still '
+        'reaches the meter, without settling the queued reply', () async {
+      gateway.turn = (g, sid) {
+        g.event('message.delta', sid, {'text': 'old'});
+        g.event('session.info', sid, {
+          'running': false,
+          'usage': {'total': 321},
+        });
+        g.event('message.start', sid);
+        g.event('message.complete', sid, {
+          'text': 'new done',
+          'status': 'complete',
+        });
+      };
+
+      final events = await reply();
+
+      expect(events.whereType<SessionUsageUpdated>(), hasLength(1));
+      expect(events.whereType<ReplyCompleted>().single.text, 'new done');
+    });
+
     test('Queued by the server: what the running turn asks of the user still '
         'reaches the screen', () async {
       gateway.turn = (g, sid) {
