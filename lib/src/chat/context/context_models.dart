@@ -208,8 +208,10 @@ CompressionResult parseCompression(Map<String, Object?> result) {
   }
   if (flag('refused_would_grow')) return const WouldNotShrink();
   if (flag('noop')) return const NothingToCompress();
+  // An answer this app does not recognise may still be a compress that ran
+  // (a compute host passes its own result through).
   if (result['status'] != 'compressed') {
-    return const CompressFailed(CheckpointFailureKind.other);
+    return const CompressMayHaveHappened();
   }
   return Compressed(
     beforeMessages: _count(result['before_messages']),
@@ -227,10 +229,15 @@ CompressionResult parseCompression(Map<String, Object?> result) {
 /// with any word starting `-`, a first word `here` (any case) or starting
 /// `up to here` is refused.
 bool isAcceptableFocus(String focus) {
-  final text = focus.trim().toLowerCase();
-  if (text.isEmpty) return true;
-  final words = text.split(RegExp(r'\s+'));
+  // Split the way Python's str.split() does: U+001C to U+001F and U+0085
+  // separate words there too.
+  final words = focus
+      .toLowerCase()
+      .split(RegExp(r'[\s\x1c-\x1f\x85]+'))
+      .where((word) => word.isNotEmpty)
+      .toList();
+  if (words.isEmpty) return true;
   if (words.any((word) => word.startsWith('-'))) return false;
   if (words.first == 'here') return false;
-  return !text.startsWith('up to here');
+  return !words.join(' ').startsWith('up to here');
 }

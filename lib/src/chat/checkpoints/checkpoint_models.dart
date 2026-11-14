@@ -192,11 +192,14 @@ final class RestoreFailed extends CheckpointRestore {
 final _hex = RegExp(r'^[0-9a-fA-F]+$');
 final _digits = RegExp(r'^[0-9]+$');
 
-bool _usableHash(String hash) {
-  if (hash.length < 4 || hash.length > 64 || !_hex.hasMatch(hash)) return false;
-  // A short all-digit hash is read by the server as a 1-based index.
-  return !_digits.hasMatch(hash) || hash.length >= 20;
-}
+/// Whether [hash] can be sent back: hex, 4 to 64 characters, and never all
+/// digits (the server reads an all-digit reference of any length as a
+/// 1-based index).
+bool isUsableCheckpointHash(String hash) =>
+    hash.length >= 4 &&
+    hash.length <= 64 &&
+    _hex.hasMatch(hash) &&
+    !_digits.hasMatch(hash);
 
 /// Reads `rollback.list`; null when the answer does not look like one.
 CheckpointList? parseCheckpointList(Map<String, Object?> result) {
@@ -209,7 +212,7 @@ CheckpointList? parseCheckpointList(Map<String, Object?> result) {
     for (final row in rows) {
       if (row is! Map) continue;
       final hash = row['hash'];
-      if (hash is! String || !_usableHash(hash)) continue;
+      if (hash is! String || !isUsableCheckpointHash(hash)) continue;
       final message = row['message'];
       final (reason, restoredFrom) = _readReason(message);
       final stamp = row['timestamp'];
@@ -263,20 +266,27 @@ CheckpointChanges parseCheckpointChanges(Map<String, Object?> result) {
   final sections = parseDiff(diff);
   final listed = parseStat(stat);
   final files = <ChangedFile>[];
-  final seen = <String>{};
+  final used = <String>{};
   for (final entry in listed) {
-    seen.add(entry.path);
-    files.add(_withSection(entry, sections[entry.path]));
+    var key = entry.path;
+    if (!sections.containsKey(key) && key.startsWith('...')) {
+      // git shortens long names in `stat`; match the unique section that ends
+      // the same way. Such a name is never offered for a one-file restore.
+      final tail = key.substring(3);
+      final matches = [
+        for (final path in sections.keys)
+          if (path.endsWith(tail)) path,
+      ];
+      if (matches.length == 1) key = matches.single;
+    }
+    used.add(key);
+    files.add(_withSection(entry, sections[key]));
   }
-  // A diff with no stat still lists its files.
+  // A diff with no stat still lists its files, but a path that did not come
+  // from `stat` is never offered for a one-file restore.
   for (final entry in sections.entries) {
-    if (seen.add(entry.key)) {
-      files.add(
-        _withSection(
-          ChangedFile(path: entry.key, restorable: _exactPath(entry.key)),
-          entry.value,
-        ),
-      );
+    if (used.add(entry.key)) {
+      files.add(_withSection(ChangedFile(path: entry.key), entry.value));
     }
   }
   return Changes(

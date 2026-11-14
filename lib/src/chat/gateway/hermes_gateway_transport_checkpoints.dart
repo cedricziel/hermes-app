@@ -73,6 +73,9 @@ extension _Checkpoints on HermesGatewayTransport {
     OwnedSessionBinding binding,
     String hash,
   ) async {
+    if (!isUsableCheckpointHash(hash)) {
+      return const ChangesFailed(CheckpointFailureKind.notFound);
+    }
     try {
       return parseCheckpointChanges(
         await _readBound(binding, 'rollback.diff', {'hash': hash}, longTimeout),
@@ -91,6 +94,9 @@ extension _Checkpoints on HermesGatewayTransport {
     String hash,
     String? filePath,
   ) async {
+    if (!isUsableCheckpointHash(hash)) {
+      return const RestoreRefused(CheckpointFailureKind.notFound);
+    }
     final Map<String, Object?> result;
     final GatewayRpcClient client;
     final String runtimeId;
@@ -220,7 +226,7 @@ extension _Checkpoints on HermesGatewayTransport {
   ) async {
     final topic = focus?.trim();
     if (topic != null && !isAcceptableFocus(topic)) {
-      throw ArgumentError.value(focus, 'focus', 'would be read as a command');
+      throw ArgumentError('focus would be read as a command');
     }
     final GatewayRpcClient client;
     final String runtimeId;

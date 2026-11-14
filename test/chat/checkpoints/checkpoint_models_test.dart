@@ -176,6 +176,27 @@ void main() {
       expect(result.files.skip(1).every((f) => f.restorable), isTrue);
     });
 
+    test('a shortened stat name takes its diff and is not restorable', () {
+      final result = parseCheckpointChanges({
+        'stat': ' .../deep/shortened.txt | 2 +-\n',
+        'diff': 'diff --git a/very/long/deep/shortened.txt b/very/long/deep/shortened.txt\n@@ -1 +1 @@\n-x\n+y\n',
+      }) as Changes;
+      expect(result.files, hasLength(1));
+      expect(result.files.single.diff, isNotNull);
+      expect(result.files.single.restorable, isFalse);
+    });
+
+    test(
+      'a path only the diff names is not offered for a one-file restore',
+      () {
+        final result = parseCheckpointChanges({
+          'stat': '',
+          'diff': 'diff --git a/a.txt b/a.txt\n@@ -1 +1 @@\n-x\n+y\n',
+        }) as Changes;
+        expect(result.files.single.restorable, isFalse);
+      },
+    );
+
     test('a listed file without a section has no diff, not an empty one', () {
       final result = parseCheckpointChanges({
         'stat': ' a.txt | 2 +-\n b.txt | 1 +\n',
@@ -292,8 +313,9 @@ void main() {
         isA<CompressLockHeld>(),
       );
       expect(read({'status': 'pending'}), isA<CompressPending>());
-      expect(read({'status': 'weird'}), isA<CompressFailed>());
-      expect(read({}), isA<CompressFailed>());
+      // Unrecognised answers may still be a compress that ran.
+      expect(read({'status': 'weird'}), isA<CompressMayHaveHappened>());
+      expect(read({'compressed': true}), isA<CompressMayHaveHappened>());
     });
 
     test('a before < after result is shown as returned', () {
@@ -339,6 +361,8 @@ void main() {
         'HERE',
         'here',
         'up to here',
+        'up  to\there',
+        'schema\u0085--preview',
         'Up To Here 4',
         '  --aggressive',
       ]) {
