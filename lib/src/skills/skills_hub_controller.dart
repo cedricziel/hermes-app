@@ -46,7 +46,8 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
   bool _searchFailed = false;
   String _query = '';
   String _source = allSources;
-  int _generation = 0;
+  int _loadGeneration = 0;
+  int _searchGeneration = 0;
   Timer? _timer;
   SkillJob? _job;
 
@@ -89,22 +90,22 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
       : all.where((s) => s.source == _source).toList();
 
   Future<void> load({bool quiet = false}) async {
-    final generation = ++_generation;
+    final generation = ++_loadGeneration;
     if (!quiet) {
       _status = HubStatus.loading;
       notifyListeners();
     }
     try {
       final overview = await repository.overview(profile: skills.profile);
-      if (generation != _generation) return;
+      if (generation != _loadGeneration) return;
       _overview = overview;
       _status = HubStatus.ready;
       if (isSearch) unawaited(_search());
     } on SkillsUnsupported {
-      if (generation != _generation) return;
+      if (generation != _loadGeneration) return;
       _status = HubStatus.unsupported;
     } on Object {
-      if (generation != _generation) return;
+      if (generation != _loadGeneration) return;
       if (quiet && _status == HubStatus.ready) return;
       _status = HubStatus.failed;
     }
@@ -113,6 +114,7 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
 
   /// The profile changed: what was shown belongs to the other one.
   Future<void> reset() {
+    _searchGeneration++;
     _results = null;
     _overview = const HubOverview();
     return load();
@@ -122,7 +124,7 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
     _query = value;
     _timer?.cancel();
     if (!isSearch) {
-      _generation++;
+      _searchGeneration++;
       _results = null;
       _searching = false;
       _searchFailed = false;
@@ -146,7 +148,7 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
   Future<void> retrySearch() => _search();
 
   Future<void> _search() async {
-    final generation = ++_generation;
+    final generation = ++_searchGeneration;
     final text = _query.trim();
     if (text.isEmpty) return;
     _searching = true;
@@ -158,10 +160,10 @@ class SkillsHubController extends ChangeNotifier with SafeNotifier {
         source: _source == allSources ? null : _source,
         profile: skills.profile,
       );
-      if (generation != _generation) return;
+      if (generation != _searchGeneration) return;
       _results = found;
     } on Object {
-      if (generation != _generation) return;
+      if (generation != _searchGeneration) return;
       _results = null;
       _searchFailed = true;
     }

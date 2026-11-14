@@ -125,6 +125,28 @@ void main() {
       expect(c.status, HubStatus.ready);
     });
 
+    test('typing and clearing a query while it loads still loads', () async {
+      final gate = Completer<void>();
+      server.onRequest('GET', '/api/skills/hub/official', (_) async {
+        await gate.future;
+        return (
+          status: 200,
+          body: {
+            'skills': [hubSkillRow(name: 'web-research', source: 'official')],
+          },
+        );
+      });
+      final c = hub();
+      final loading = c.load();
+      c.setQuery('scr');
+      c.setQuery('');
+      gate.complete();
+      await loading;
+
+      expect(c.status, HubStatus.ready);
+      expect(c.official.map((s) => s.name), ['web-research']);
+    });
+
     test('a server without the hub is told so', () async {
       server = FakeHermesServer();
       final c = SkillsHubController(
