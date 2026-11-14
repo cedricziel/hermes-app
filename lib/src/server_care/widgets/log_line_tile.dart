@@ -120,6 +120,11 @@ class _LogLineTileState extends State<LogLineTile> {
                                 style: TextButton.styleFrom(
                                   minimumSize: Size(0, minTarget),
                                   padding: EdgeInsets.zero,
+                                  // The theme has no link colour; primary is
+                                  // what an action is set in.
+                                  foregroundColor: Theme.of(context)
+                                      .colorScheme
+                                      .primary,
                                 ),
                                 onPressed: () =>
                                     setState(() => _showAll = true),

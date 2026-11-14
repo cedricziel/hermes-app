@@ -64,9 +64,9 @@ class UpdateStepList extends StatelessWidget {
   Widget build(BuildContext context) {
     final metrics = GroupedMetrics.of(context);
     return GroupedSection(
-      header: title,
       dividerIndent: metrics.indentAfterLeading,
       children: [
+        _CardTitle(title: title),
         for (final step in steps) _StepRow(step: step),
         if (detailLines.isNotEmpty)
           UpdateDetailsDisclosure(
@@ -74,6 +74,38 @@ class UpdateStepList extends StatelessWidget {
             initiallyOpen: detailsInitiallyOpen,
           ),
       ],
+    );
+  }
+}
+
+/// The card's own title, not a section header: it is part of the card.
+class _CardTitle extends StatelessWidget {
+  const _CardTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
+    return Semantics(
+      header: true,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: metrics.rowPadding,
+          vertical: metrics.rowVerticalPadding + 4,
+        ),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: metrics.titleSize + 2,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -150,6 +182,16 @@ class _StepRow extends StatelessWidget {
                           color: scheme.onSurface,
                         ),
                       ),
+                      // A failure is said in words as well as by its icon.
+                      if (step.state == UpdateStepState.failed)
+                        Text(
+                          UpdateStepState.failed.word,
+                          style: TextStyle(
+                            fontSize: metrics.subtitleSize,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.error,
+                          ),
+                        ),
                       if (subtitle != null)
                         Text(
                           subtitle,

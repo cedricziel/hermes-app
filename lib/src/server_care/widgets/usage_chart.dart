@@ -231,7 +231,9 @@ class _UsageChartState extends State<UsageChart>
     final axisScaler = large
         ? TextScaler.noScaling
         : scaler.clamp(maxScaleFactor: 1.3);
-    final axisStyle = TextStyle(fontSize: 11, color: muted);
+    // The theme's own style, so the labels use its font like the rest.
+    final axisStyle = Theme.of(context).textTheme.bodySmall!
+        .copyWith(fontSize: 11, color: muted);
     final metric = widget.metric;
     final window = widget.window;
 

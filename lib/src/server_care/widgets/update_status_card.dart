@@ -257,9 +257,12 @@ class UpdateStatusCard extends StatelessWidget {
           GroupedSection(
             header: 'Command',
             children: [
-              GroupedTile(
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
+              Builder(
+                builder: (context) => Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: GroupedMetrics.of(context).rowPadding,
+                    vertical: 8,
+                  ),
                   child: CommandRow(command: command, onCopied: onCopied),
                 ),
               ),

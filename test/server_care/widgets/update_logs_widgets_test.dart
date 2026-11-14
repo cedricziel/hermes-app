@@ -8,6 +8,7 @@ import 'package:hermes_app/src/server_care/widgets/log_line_tile.dart';
 import 'package:hermes_app/src/server_care/widgets/update_status_card.dart';
 import 'package:hermes_app/src/server_care/widgets/update_step_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 
 Future<void> _pump(WidgetTester tester, Widget child) => tester.pumpWidget(
   MaterialApp(
@@ -87,6 +88,9 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Show details'), findsOneWidget);
+    // The card is titled "Updating…" and a failed step says Failed in words.
+    expect(find.text('Updating…'), findsOneWidget);
+    expect(find.text('Failed'), findsOneWidget);
     expect(find.text('one\ntwo'), findsNothing);
     await tester.tap(find.text('Show details'));
     // The running step's spinner never settles.
@@ -177,5 +181,51 @@ void main() {
     await tester.tap(find.text('Done'));
     await tester.tap(find.text('Try again'));
     expect(pressed, ['done', 'again']);
+  });
+
+  testWidgets('the cannot-apply card shows its command and a reachable Copy', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _pump(
+      tester,
+      const UpdateStatusCard(
+        status: UpdateCannotApply(
+          message: 'Update Hermes on the server.',
+          command: 'hermes update --yes',
+        ),
+      ),
+    );
+    expect(find.text('hermes update --yes'), findsOneWidget);
+    expect(find.text('Copy'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.text('Copy')),
+      matchesSemantics(isButton: true, hasTapAction: true, label: 'Copy'),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('a command in a section row keeps its text and Copy', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      GroupedSection(
+        header: 'Things to fix',
+        children: [
+          Builder(
+            builder: (context) => Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: GroupedMetrics.of(context).rowPadding,
+                vertical: 8,
+              ),
+              child: const CommandRow(command: 'hermes tools install browser'),
+            ),
+          ),
+        ],
+      ),
+    );
+    expect(find.text('hermes tools install browser'), findsOneWidget);
+    expect(find.text('Copy'), findsOneWidget);
   });
 }

@@ -418,12 +418,7 @@ List<WidgetbookNode> serverCareUpdateLogsNodes() => [
                 subtitle: 'Run this on the server, then check again.',
                 subtitleMaxLines: null,
               ),
-              GroupedTile(
-                child: Padding(
-                  padding: EdgeInsets.all(8),
-                  child: CommandRow(command: 'hermes tools install browser'),
-                ),
-              ),
+              _CommandBox(command: 'hermes tools install browser'),
             ],
           ),
         ),
@@ -714,5 +709,21 @@ class _LevelDemoState extends State<_LevelDemo> {
       value: _value,
       onChanged: (v) => setState(() => _value = v),
     ),
+  );
+}
+
+/// A command under a row of a section, as the Server check page places one.
+class _CommandBox extends StatelessWidget {
+  const _CommandBox({required this.command});
+
+  final String command;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.symmetric(
+      horizontal: GroupedMetrics.of(context).rowPadding,
+      vertical: 8,
+    ),
+    child: CommandRow(command: command),
   );
 }
