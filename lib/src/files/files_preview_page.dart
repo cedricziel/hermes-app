@@ -16,6 +16,7 @@ import 'widgets/file_preview_header.dart';
 import 'widgets/file_preview_cover.dart';
 import 'widgets/file_glyph.dart';
 import 'widgets/files_preview_body.dart';
+import 'widgets/safe_path_text.dart';
 
 /// What the preview's buttons do, as the screen wires them to the controller.
 class FilesPreviewActions {
@@ -182,7 +183,7 @@ class FilesPreviewPage extends StatelessWidget {
       final l10n = context.l10n;
       final ios = platformChromeOf(context) == PlatformChrome.ios;
       final entry = controller.selected;
-      final name = entry?.path.name ?? '';
+      final name = safePathText(entry?.path.name ?? '');
       final subtitle = entry == null
           ? null
           : filePreviewSubtitle(l10n, name, controller.knownSize);

@@ -39,6 +39,7 @@ import '../workspaces/hermes_workspaces_repository.dart';
 import '../workspaces/workspace_catalog_loader.dart';
 import '../workspaces/workspace_models.dart';
 import '../workspaces/workspace_paths.dart';
+import '../workspaces/workspace_telemetry.dart' show WorkspaceMoveOutcome;
 import 'chat_workspace_state.dart';
 import 'checkpoints/action_telemetry.dart';
 import 'checkpoints/chat_action_bridge.dart';
@@ -210,6 +211,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _activeActivity = activity?.value ?? true;
     activity?.addListener(_activityChanged);
     appLock?.addListener(_billingLockChanged);
+    appLock?.addListener(_workspaceLockChanged);
     appLock?.addListener(_actionsLockChanged);
     _listenOwnedSessions();
     search?.setActivity(_activeActivity);
@@ -356,6 +358,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   WorkspaceCatalogLoader? workspaceCatalog({String? profile}) =>
       _ChatControllerWorkspace(this)._catalogFor(profile);
 
+  /// The folder a new chat (not sent yet) runs in, as the catalog already
+  /// read says: the folder picked for it, else the profile's
+  /// `default_cwd`. Null for any other chat or when neither is known. Reads nothing: a catalog not
+  /// read yet answers null.
+  String? get draftWorkingDirectory =>
+      _ChatControllerWorkspace(this)._draftWorkingDirectoryImpl;
+
   /// What the row above a new chat's composer shows.
   NewChatWorkspace newChatWorkspace({String? profile}) =>
       _ChatControllerWorkspace(this)._newChatWorkspaceImpl(profile);
@@ -400,6 +409,40 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Server, after which nothing of the folders is left for the next account.
   void clearWorkspaceState() {
     _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
+    notifyListeners();
+  }
+
+  /// The server's home folder, when the profile's catalog was read.
+  String? get workspaceHome => _ChatControllerWorkspace(this)._homeImpl;
+
+  /// Whether Change folder is offered for [thread]: see the details sheet, the
+  /// Mac command and the thread menu.
+  bool workspaceChangeOffered(ChatThread thread) =>
+      _ChatControllerWorkspace(this)._changeOfferedImpl(thread);
+
+  /// Whether the profile's folders were last asked for with no answer from
+  /// the server. Never starts a read.
+  bool get workspaceOffline => _ChatControllerWorkspace(this)._offlineImpl;
+
+  /// The project that holds the folder [path] of [thread], when known.
+  String? workspaceProjectNameOf(ChatThread thread, String path) =>
+      _ChatControllerWorkspace(this)._projectNameOfImpl(thread, path);
+
+  /// Bumped whenever the folders are dropped (sign-out, Change Server, App
+  /// Lock): an open picker or confirmation closes when it changes.
+  int get workspaceEpoch => _workspace.epoch;
+
+  var _wasLocked = false;
+
+  /// App Lock engaged: the draft pick, the catalogs and the notices go, and
+  /// an open picker or confirmation closes. A move that is still being
+  /// settled stays, so its outcome is not lost.
+  void _workspaceLockChanged() {
+    final locked = appLock?.locked ?? false;
+    final engaged = locked && !_wasLocked;
+    _wasLocked = locked;
+    if (!engaged || disposed) return;
+    _ChatControllerWorkspace(this)._workspaceLocked();
     notifyListeners();
   }
 
@@ -1429,6 +1472,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _cancelQueueBindings();
     activity?.removeListener(_activityChanged);
     appLock?.removeListener(_billingLockChanged);
+    appLock?.removeListener(_workspaceLockChanged);
     appLock?.removeListener(_actionsLockChanged);
     _activityEpoch++;
     _ChatControllerSubagents(this)._clearSubagents();
@@ -1663,8 +1707,34 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Runs a gateway command without putting it through prompt.submit or the
   /// reply queue. Display-only command output stays in this visit's chat.
-  Future<bool> runSlashCommand(String command) =>
-      _ChatControllerCommands(this)._runSlashCommandImpl(command);
+  Future<bool> runSlashCommand(String command) async {
+    final selected = selectedThread;
+    // Hermes lets a live agent follow a folder move: no command (a /compress
+    // rewrites the chat) goes to a chat while its move is being settled.
+    if (_ChatControllerWorkspace(this)._moveHolds(selected)) return false;
+    // A command that runs makes a move wait, as a reply does.
+    final key = selected != null && selected.remote
+        ? _ChatControllerWorkspace(this)._moveKey(selected)
+        : null;
+    if (key != null) {
+      _workspace.slashRunning.update(key, (n) => n + 1, ifAbsent: () => 1);
+      // An open details sheet or menu command shows the wait at once.
+      notifyListeners();
+    }
+    try {
+      return await _ChatControllerCommands(this)._runSlashCommandImpl(command);
+    } finally {
+      if (key != null) {
+        final left = (_workspace.slashRunning[key] ?? 1) - 1;
+        if (left <= 0) {
+          _workspace.slashRunning.remove(key);
+        } else {
+          _workspace.slashRunning[key] = left;
+        }
+        if (!disposed) notifyListeners();
+      }
+    }
+  }
 
   /// The text of the last prompt of [thread], or null when it had none (it
   /// was only files) or there is no prompt.

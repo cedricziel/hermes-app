@@ -549,4 +549,22 @@ void main() {
       }
     });
   });
+
+  test('acknowledge while a grant runs changes nothing', () {
+    fakeAsync((async) {
+      open(async);
+      server.on('GET', _log, _action(running: true, lines: ['one']));
+      _settle(async, controller.grant());
+      _advance(async, poll);
+      expect(controller.grantPhase, ComputerUseGrantPhase.running);
+      expect(controller.grantBusy, isTrue);
+
+      controller.acknowledge();
+
+      expect(controller.grantPhase, ComputerUseGrantPhase.running);
+      expect(controller.grantBusy, isTrue);
+      expect(controller.grantLines, ['one']);
+      expect(controller.canOfferGrant, isFalse);
+    });
+  });
 }

@@ -113,6 +113,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
   int? _authGeneration;
   String? _followedInstall;
 
+  /// The toolset the running install holds locked, if any.
+  String? _installLocked;
+
   @override
   void initState() {
     super.initState();
@@ -137,6 +140,23 @@ class _ToolsScreenState extends State<ToolsScreen> {
       onBusyChanged: (name, {required busy}) =>
           _controller.setSetupBusy(name, busy: busy),
     );
+    _installs.addListener(_syncInstallLock);
+    // The connection's install may be running already (the screen was left
+    // and opened again): counted once the screen is built.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncInstallLock());
+  }
+
+  /// A running install of a toolset locks that toolset's other writers like
+  /// any write of its own (`hermes tools post-setup` may write the config),
+  /// until it ends. The lock is counted next to the setup writes.
+  void _syncInstallLock() {
+    if (!mounted) return;
+    final next = _installs.busy ? _installs.state?.toolset : null;
+    final previous = _installLocked;
+    if (next == previous) return;
+    _installLocked = next;
+    if (previous != null) _controller.setSetupBusy(previous, busy: false);
+    if (next != null) _controller.setSetupBusy(next, busy: true);
   }
 
   ToolsController _newController() => ToolsController(
@@ -175,6 +195,10 @@ class _ToolsScreenState extends State<ToolsScreen> {
         if (!mounted) return;
         // The setup controllers notify their panels, so not while building.
         _registry.switchProfile(widget.repository);
+        // The controller dropped every lock with the profile; the install
+        // still runs on the connection.
+        _installLocked = null;
+        _syncInstallLock();
         _controller.announce();
         unawaited(_controller.load());
       });
@@ -204,6 +228,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
   @override
   void dispose() {
     _auth?.removeListener(_onAuth);
+    _installs.removeListener(_syncInstallLock);
     _lock?.removeListener(_onLock);
     _takeQuestionDown();
     _asker.dispose();

@@ -73,8 +73,9 @@ resumes listening on the new route.
 - This is Hermes' chained STT → agent → TTS conversation, not the separately
   configured GPT-Live/WebRTC service. Prompt text is not augmented with hidden
   system instructions, and the normal selected model remains in use.
-- `UIBackgroundModes=audio` keeps an active conversation running. There is no
-  PushKit registration, incoming-call simulation, or microphone use before
+- The iOS app declares `audio` and `voip` in `UIBackgroundModes`. `audio` keeps
+  an active conversation running; CallKit requires `voip` to start a call. There
+  is still no PushKit registration, incoming call, or microphone use before
   native audio activation. Calls are excluded from Recents.
 
 Protocol reference: NousResearch/hermes-agent, commit
@@ -95,7 +96,12 @@ when CallKit activates its audio and exactly one `voice_call.ended` with
 `prepare`, `native_start`, `connect`, `microphone_stalled`, `interrupted`,
 `native_error`, `speech`, `turn`, `mute`), the failing `step` (`transcribe`,
 `speech_open`, `agent`, `speech`, `speech_fallback`), `error_type`, whether
-it ever connected, and buckets of turns, fallbacks and duration. Each
+it ever connected, and buckets of turns, fallbacks and duration.
+A native failure's `voice_call.ended` carries `step` set to the native code
+(`start_request`, `start_action`, `activation_timeout`, `audio_start`,
+`audio_reset`, `provider_reset`, `action_timeout`, `end_request`, `detached`),
+and for `start_request` an `error_type` of `callkit_<n>`, where n is CallKit's
+fixed request-transaction error number. Each
 `/api/audio/speak-stream` socket is traced like the gateway's. Nothing spoken,
 transcribed or replied, and no URL, ticket or id, is recorded.
 

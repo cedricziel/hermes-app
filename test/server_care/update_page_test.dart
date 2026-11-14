@@ -5,10 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/navigation/connection_pages.dart';
 import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/replies_in_progress.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
+import 'package:hermes_app/src/server_care/server_check_controller.dart';
 import 'package:hermes_app/src/server_care/server_screen.dart';
 import 'package:hermes_app/src/server_care/update_page.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -92,6 +94,8 @@ void main() {
     addTearDown(care.dispose);
     final gateway = GatewayRestart(repository: repositories.serverCare);
     addTearDown(gateway.dispose);
+    final check = ServerCheckController(repository: repositories.serverCare);
+    addTearDown(check.dispose);
     run = HermesUpdateRun(
       repository: repositories.serverCare,
       care: care,
@@ -111,6 +115,7 @@ void main() {
           Provider<RepliesInProgress>.value(value: replies),
           ChangeNotifierProvider<ServerCareController>.value(value: care),
           ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+          ChangeNotifierProvider<ServerCheckController>.value(value: check),
           ChangeNotifierProvider<HermesUpdateRun>.value(value: run),
         ],
         child: MaterialApp(
@@ -394,11 +399,20 @@ void main() {
         profile: 'default',
       );
       addTearDown(care.dispose);
+      final check = ServerCheckController(repository: repositories.serverCare);
+      addTearDown(check.dispose);
       final gateway = GatewayRestart(repository: repositories.serverCare);
       addTearDown(gateway.dispose);
       run = HermesUpdateRun(repository: repositories.serverCare, care: care);
       addTearDown(run.dispose);
       replies = RepliesInProgress()..attach(() => 1);
+      // As in the app: every page above the home route goes when the
+      // connection ends (navigation/connection_pages.dart).
+      final pushedRoutes = PushedRoutes();
+      if (auth != null) {
+        final closer = ConnectionPageCloser(pushedRoutes)..bind(auth);
+        addTearDown(closer.dispose);
+      }
       await tester.pumpWidget(
         MultiProvider(
           providers: [
@@ -407,6 +421,7 @@ void main() {
               ChangeNotifierProvider<AuthController>.value(value: auth),
           ],
           child: MaterialApp(
+            navigatorObservers: [pushedRoutes],
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
@@ -415,6 +430,9 @@ void main() {
                 Provider<RepliesInProgress>.value(value: replies),
                 ChangeNotifierProvider<ServerCareController>.value(value: care),
                 ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+                ChangeNotifierProvider<ServerCheckController>.value(
+                  value: check,
+                ),
                 ChangeNotifierProvider<HermesUpdateRun>.value(value: run),
               ],
               child: Builder(builder: opener),

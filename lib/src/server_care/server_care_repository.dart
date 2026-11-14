@@ -70,7 +70,7 @@ class ServerCareRepository {
         final root = readMap(json);
         if (root == null || readBool(root['ok']) != true) return null;
         return ServerHealth(
-          version: readString(root['version']),
+          version: readVersion(root['version']),
           commit: readString(root['commit']),
         );
       });
@@ -138,6 +138,10 @@ class ServerCareRepository {
       _run(
         () => _api.runDoctorApiOpsDoctorPost(profile: profile),
         _actionStarted,
+        // A POST is not served by a page fallback: a page or a proxy's text
+        // answering it is a lost answer (the run may have started), never a
+        // missing route.
+        pageMeansMissing: false,
       );
 
   /// `GET /api/logs`: up to [lines] entries of [file], oldest first, grouped

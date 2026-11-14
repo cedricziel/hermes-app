@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_api/hermes_api.dart'
     show
+        CredentialPoolAdd,
         CronJobCreate,
         CustomEndpointUpdate,
         EnvVarUpdate,
@@ -52,6 +53,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/providers/provider_models.dart';
 import 'package:hermes_app/src/providers/provider_results.dart';
 import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
@@ -61,12 +63,15 @@ import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/server_care/action_status.dart';
 import 'package:hermes_app/src/server_care/care_result.dart';
 import 'package:hermes_app/src/server_care/doctor_report.dart';
+import 'package:hermes_app/src/server_care/log_line.dart';
+import 'package:hermes_app/src/server_care/server_status.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/tools_models.dart';
+import 'package:hermes_app/src/tools/toolset_risk.dart';
 import 'package:hermes_app/src/voice/synthesized_speech.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:hermes_app/src/voice/wav.dart';
@@ -104,8 +109,23 @@ import 'support/attachment_fixtures.dart';
 /// (no credentials, no build) and removes it, and the sign-in test starts and
 /// cancels a flow against a minimal OAuth provider on the loopback interface.
 /// The model provider tests only read the five list routes and call both
-/// validate routes with an empty value; they save no key, start no sign-in and
-/// remove nothing.
+/// validate routes with an empty value; the read-only group saves no key,
+/// starts no sign-in and removes nothing.
+/// The model provider write tests create three throwaway profiles named
+/// `contract-check-key-…`, `-endpoint-…` and `-pool-…`, save fake keys, a
+/// custom endpoint that points at a model served on the loopback interface, a
+/// manual pool entry and a `moa` preset into them, remove a key, and delete
+/// the profiles after; the local-runtime row test stages an empty `.gguf` in
+/// `$HERMES_DEV_HOME/models` (skipped without `HERMES_DEV_HOME`) and removes it.
+/// Nothing reaches a real provider. The tool write tests do the same with a
+/// profile named `contract-check-tools-…`: they switch toolsets, pick a
+/// provider with a fake key, a model and a terminal backend, and chat with a
+/// scripted model; no install step is started. These write groups create and
+/// delete profiles, so a second run against the same backend fails until it
+/// restarts. Fake keys go only to the backend, and no test saves a key for a
+/// hosted provider (Hermes would fetch that provider's catalog with it): the
+/// provider tests use LM Studio pointed at the loopback server, the tool test
+/// FAL.ai, whose catalog is built in.
 /// The media tests write throwaway files under the backend's `images` folder
 /// and the system temp directory, so they need a backend on this machine, and
 /// delete them after. The scripted-model tests create a throwaway profile
@@ -116,7 +136,19 @@ import 'support/attachment_fixtures.dart';
 /// keeps the deleted profile's state open, so a second run against the same
 /// backend fails ("Named profile home does not exist") until it restarts.
 /// The server files tests only read: they list, read and download files in
-/// the folder the dashboard runs in, and write nothing on the backend.
+/// the folder the dashboard runs in, and in a folder they make in the system
+/// temp directory (or under `HERMES_DEV_FILES_ROOT`), and write nothing on
+/// the backend. `HERMES_DEV_HOME` (the backend's state folder) enables the
+/// live-database check, which opens a gateway session and closes it. The
+/// working directory tests create a project over the gateway and delete it.
+/// The checkpoint and context tests run a scripted model on the default
+/// profile (and put its config back); they write throwaway folders under the
+/// system temp directory, and with `HERMES_DEV_CHECKPOINTS=1` (the backend
+/// started with `HERMES_TUI_CHECKPOINTS=1`) they restore files there. They
+/// need a fresh backend, and `HERMES_DEV_HOME` for the memory and
+/// first-checkpoint checks. `HERMES_DEV_RECORD=<dir>` writes their raw answers
+/// to `recorded-on.json` or `recorded-off.json` there, for refreshing
+/// `test/fixtures/gateway/` after scrubbing.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -127,6 +159,7 @@ void main() {
           : 'set HERMES_DEV_MODEL_CALLS=1 to make real model calls');
 
   late HermesApiClient client;
+  String? sessionToken;
 
   setUpAll(() async {
     if (url == null) return;
@@ -134,6 +167,7 @@ void main() {
     final token = RegExp(r'__HERMES_SESSION_TOKEN__="([^"]+)"')
         .firstMatch(page.data ?? '')
         ?.group(1);
+    sessionToken = token;
     client = HermesApiClient(
       Dio(
         BaseOptions(baseUrl: url, headers: {'X-Hermes-Session-Token': ?token}),
@@ -182,36 +216,80 @@ void main() {
 
     test('status carries the fields the headline reads', () async {
       final status = value(await care.status(profile: 'default'));
-      expect(status.version, isNotNull);
-      expect(status.profiles, isNotEmpty);
+      // A checkout without version metadata answers "unknown", which reads
+      // as no version.
+      expect(status.version, anyOf(isNull, isNot(isEmpty)));
+      expect(status.version?.toLowerCase(), isNot('unknown'));
+      expect(status.profiles, contains('default'));
+      expect(status.configVersion, isA<int>());
+      expect(status.latestConfigVersion, isA<int>());
+      expect(status.activeAgents, greaterThanOrEqualTo(0));
       // Null until a gateway has run on this backend.
       expect(status.gatewayStateRaw, anyOf(isNull, isA<String>()));
+      expect(status.disk.pressure, isNot(Pressure.unknown));
+      expect(status.storageOk, isTrue);
     });
 
-    test('health answers ok with a commit', () async {
-      final health = value(await care.health());
-      expect(health.version, isNotNull);
-      expect(health.commit, anyOf(isNull, isA<String>()));
-    });
+    test(
+      'health answers ok with the commit the dashboard booted from',
+      () async {
+        final health = value(await care.health());
+        expect(health.version, anyOf(isNull, isNot(isEmpty)));
+        expect(health.version?.toLowerCase(), isNot('unknown'));
+        expect(
+          health.commit,
+          anyOf(isNull, matches(RegExp(r'^[0-9a-f]{40}$'))),
+        );
+      },
+    );
 
     test('the update check answers, not forced', () async {
       final check = value(await care.checkUpdate());
       expect(check.installMethodRaw, isNotNull);
       expect(check.behind, anyOf(isNull, isA<int>()));
+      if (check.behind == null) expect(check.updateAvailable, isFalse);
+      expect(check.canApply, isA<bool>());
+      // Guidance comes with an answer that could not check.
+      if (check.behind == null) expect(check.message, isNotEmpty);
     });
 
-    test('each log file answers lines', () async {
+    test('each log file answers lines the parser can read', () async {
       for (final file in CareLogFile.values) {
         final lines = value(await care.logs(profile: 'default', file: file));
-        expect(lines, isA<List<Object>>(), reason: file.name);
+        expect(lines, isA<List<LogLine>>(), reason: file.name);
+        // No entry stands without a time except possibly the first (a tail
+        // cut inside a traceback).
+        expect(
+          lines.skip(1).where((l) => l.isHeaderless),
+          isEmpty,
+          reason: '${file.name}: every entry after the first has a header',
+        );
       }
+      // Booting the dashboard writes to the agent log, so the real line
+      // format is exercised and not an empty list.
+      final agent = value(
+        await care.logs(profile: 'default', file: CareLogFile.agent),
+      );
+      expect(agent, isNotEmpty);
+      expect(agent.first.time, isNotNull);
+      expect(agent.first.level, isNotNull);
+      expect(agent.first.source, isNotNull);
+      expect(agent.first.message, isNot(endsWith('\n')));
     });
 
-    test('usage for 7 days has one row per day', () async {
+    test('usage for 7 days has one row per day, oldest first', () async {
       final report = value(
         await care.usage(profile: 'default', days: 7, today: DateTime.now()),
       );
       expect(report.days, hasLength(7));
+      final raw =
+          (await client.raw.getUsageAnalyticsApiAnalyticsUsageGet(
+                days: 7,
+                profile: 'default',
+              )).data!
+              as Map;
+      final sent = [for (final r in raw['daily'] as List) (r as Map)['day']];
+      expect(sent, [...sent]..sort(), reason: 'the server sends oldest first');
     });
 
     test('a doctor run is followed to its end', () async {
@@ -220,15 +298,22 @@ void main() {
       final deadline = DateTime.now().add(const Duration(minutes: 3));
       while (DateTime.now().isBefore(deadline)) {
         final status = value(await care.actionStatus(CareAction.doctor));
-        if (!status.running && status.lines.isNotEmpty) {
+        if (!status.running && status.exitCode != null) {
           done = status;
           break;
         }
         await Future<void>.delayed(const Duration(seconds: 1));
       }
       expect(done, isNotNull, reason: 'the doctor run finished');
-      final report = DoctorReport.parse(done!.lines);
-      expect(report.sections.isNotEmpty || report.allPassed, isTrue);
+      // Exit 1 is a finished check that found something to fix.
+      expect(done!.exitCode, anyOf(0, 1));
+      expect(done.lines, isNotEmpty);
+      final report = DoctorReport.parse(done.lines);
+      expect(report.sections, isNotEmpty);
+      expect(report.passed + report.warnings + report.problems, greaterThan(0));
+      if (report.problems > 0) {
+        expect(report.fixes, isNotEmpty, reason: 'problems list what to fix');
+      }
     });
   }, skip: skip);
 
@@ -1314,6 +1399,110 @@ void main() {
       );
     }, skip: skip);
 
+    test('fs/list hides what Hermes hides, shows a symlinked folder as a file '
+        'and still lists through it; complete.path follows the link', () async {
+      await Link('${root.path}/linked').create(inner);
+      await Directory('${root.path}/.git').create();
+      await Directory('${root.path}/node_modules').create();
+      await Directory('${root.path}/.hiddendir').create();
+      await File('${root.path}/.env').writeAsString('SECRET=1');
+      await File('${root.path}/.dotnote').writeAsString('x');
+
+      final raw =
+          ((await client.raw.fsListApiFsListGet(
+                    path: root.path,
+                    profile: 'default',
+                  )).data!
+                  as Map)
+              .cast<String, Object?>();
+      final rows = {
+        for (final row in (raw['entries'] as List).cast<Map>())
+          row['name'] as String: row.cast<String, Object?>(),
+      };
+      expect(
+        rows.keys,
+        containsAll(['inner', 'linked', 'note.txt', '.dotnote', '.hiddendir']),
+      );
+      for (final hidden in ['.git', 'node_modules', '.env']) {
+        expect(rows.keys, isNot(contains(hidden)));
+      }
+      expect(rows['inner']!['isDirectory'], isTrue);
+      expect(rows['linked']!['isDirectory'], isFalse, reason: 'the symlink');
+      expect(rows['inner']!['path'], '${root.path}/inner');
+
+      final folders = value(await workspaces.listFolders(root.path)).folders
+          .map((f) => f.name);
+      expect(folders, unorderedEquals(['inner', '.hiddendir']));
+      // The link's own path lists its target: a file put there shows, with
+      // the target's resolved path. It is no folder, so the folder listing
+      // stays empty.
+      await File('$inner/inside.txt').writeAsString('x');
+      final through =
+          ((await client.raw.fsListApiFsListGet(
+                    path: '${root.path}/linked',
+                    profile: 'default',
+                  )).data!
+                  as Map)
+              .cast<String, Object?>();
+      expect((through['entries'] as List).cast<Map>().map((e) => e['name']), [
+        'inside.txt',
+      ]);
+      expect(
+        value(await workspaces.listFolders('${root.path}/linked')).folders,
+        isEmpty,
+      );
+      final typed = value(await workspaces.complete('${root.path}/lin'));
+      expect(typed.folders.map((s) => s.text), ['${root.path}/linked/']);
+    }, skip: skip);
+
+    test('a project made over the gateway is in the catalog with its folders '
+        'and a chat started inside it reports it', () async {
+      final made = await rpc.request('projects.create', {
+        'profile': 'default',
+        'name': 'contract-check-project',
+        'folders': [root.path, inner],
+      });
+      final id = ((made['project']! as Map)['id']) as String;
+      addTearDown(
+        () => rpc
+            .request('projects.delete', {'profile': 'default', 'id': id})
+            .then((_) {}, onError: (Object _) {}),
+      );
+
+      final raw =
+          ((await client.raw.getChatWorkspacesApiChatWorkspacesGet(
+                    profile: 'default',
+                  )).data!
+                  as Map)
+              .cast<String, Object?>();
+      final row = (raw['projects'] as List).cast<Map>().singleWhere(
+        (p) => p['id'] == id,
+      );
+      expect(row['name'], 'contract-check-project');
+      expect(row['slug'], isA<String>());
+      expect(row['archived'], isFalse);
+      expect(row['primary_path'], root.path);
+      expect((row['folders'] as List).cast<Map>().map((f) => f['path']), [
+        root.path,
+        inner,
+      ]);
+      expect((row['folders'] as List).cast<Map>().first['is_primary'], isTrue);
+
+      final catalog = value(await workspaces.catalog(profile: 'default'));
+      final project = catalog.projects.singleWhere((p) => p.id == id);
+      expect(project.folders.map((f) => f.path), [root.path, inner]);
+      expect(project.folders.first.isPrimary, isTrue);
+
+      final created = await create({'cwd': inner, 'cwd_explicit': true});
+      final info = infoOf(created);
+      expect(info['cwd'], inner);
+      expect(info['branch'], isA<String>());
+      final bound = (info['project']! as Map).cast<String, Object?>();
+      expect(bound['id'], id);
+      expect(bound['name'], 'contract-check-project');
+      expect(bound['primary_path'], root.path);
+    }, skip: skip);
+
     test('complete.path with an absolute word lists folders', () async {
       final got = value(await workspaces.complete('${root.path}/in'));
       expect(got.folders.map((s) => s.text), ['${root.path}/inner/']);
@@ -1344,31 +1533,77 @@ void main() {
       );
 
       // Not through the repository, which would refuse it without asking.
+      // The server reads a relative path against its own folder: 4017.
       await expectLater(
         rpc.request('session.workspace.move', {
           'session_key': stored,
           'cwd': 'inner',
           'profile': 'default',
         }),
-        throwsA(isA<GatewayRpcException>()),
+        throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', 4017)),
       );
       failedWith(
         await workspaces.moveWorkspace(stored, '${root.path}/missing'),
         WorkspacesFailure.notFound,
       );
+      failedWith(
+        await workspaces.moveWorkspace('20200101_000000_ffffff', inner),
+        WorkspacesFailure.sessionGone,
+      );
+      failedWith(
+        await workspaces.moveWorkspace(
+          stored,
+          inner,
+          profile: 'contract-check-missing',
+        ),
+        WorkspacesFailure.unknownProfile,
+      );
+      // Outside a repository the answer's branch and git_repo_root are empty
+      // strings, which the app reads as none; inside one (a temp folder under
+      // a checkout) they name it.
+      String? ancestor;
+      for (var d = root; d.parent.path != d.path; d = d.parent) {
+        if (Directory('${d.path}/.git').existsSync()) {
+          ancestor = d.path;
+          break;
+        }
+      }
+      final rawMoved = await rpc.request('session.workspace.move', {
+        'session_key': stored,
+        'cwd': root.path,
+        'profile': 'default',
+      });
+      expect(rawMoved['cwd'], root.path);
+      final rawRoot = rawMoved['git_repo_root']! as String;
+      final rawBranch = rawMoved['branch']! as String;
+      final moved = value(await workspaces.moveWorkspace(stored, root.path));
+      if (ancestor == null) {
+        expect(rawRoot, isEmpty);
+        expect(rawBranch, isEmpty);
+        expect(moved.gitRepoRoot, isNull);
+        expect(moved.branch, isNull);
+      } else {
+        expect(rawRoot, ancestor);
+        expect(moved.gitRepoRoot, ancestor);
+      }
     }, skip: skip);
 
-    test('a hermes_app chat created with no cwd stores the folder it '
-        'reports', () async {
+    test('a hermes_app chat created with no cwd runs in the folder the '
+        'server starts a chat in, and has no stored row until its first '
+        'message', () async {
       final created = await create({});
-      final reported = infoOf(created)['cwd'];
-      expect(reported, anyOf(isNull, isA<String>()));
-      final folder = await workspaces.sessionFolder(
-        created['stored_session_id'] as String,
+      final start =
+          ((await client.raw.fsDefaultCwdApiFsDefaultCwdGet(profile: 'default'))
+                  .data!
+              as Map)['cwd'];
+      expect(start, isA<String>());
+      expect(infoOf(created)['cwd'], start);
+      // The stored folder after a first message is read in the scripted-model
+      // group below.
+      failedWith(
+        await workspaces.sessionFolder(created['stored_session_id'] as String),
+        WorkspacesFailure.sessionGone,
       );
-      if (reported is String && folder is WorkspacesOk<SessionFolder>) {
-        expect(folder.value.cwd, reported);
-      }
     }, skip: skip);
 
     test('with the files root set, outside answers 403 with the boundary '
@@ -3458,6 +3693,40 @@ void main() {
       expect(list.toolsets.map((t) => t.name), contains('terminal'));
     });
 
+    test('every toolset the server lists has been decided about in the '
+        'risk table, or is on the list still to decide', () async {
+      // When a Hermes bump (update-hermes-contracts.yml) adds a toolset, this
+      // fails: decide it in toolset_risk.dart, or add it here on purpose.
+      // Names the server listed on d923a5eb that the app has not decided
+      // about (no risk line, no confirmation). A name outside all three sets
+      // is new: decide it in lib/src/tools/toolset_risk.dart.
+      const stillToDecide = {
+        'vision',
+        'video',
+        'x_search',
+        'skills',
+        'kanban',
+        'memory',
+        'context_engine',
+        'connections',
+        'clarify',
+        'discord',
+        'yuanbao',
+        'a2a',
+      };
+      final names = value(await tools.list()).toolsets.map((t) => t.name);
+
+      expect(names.length, greaterThan(10));
+      expect(names, containsAll(['terminal', 'file', 'web', 'browser']));
+      final unknown = names.where(
+        (n) =>
+            !kToolsetRisks.containsKey(n) &&
+            !kNoRiskToolsets.contains(n) &&
+            !stillToDecide.contains(n),
+      );
+      expect(unknown, isEmpty, reason: 'new toolsets: decide their risk');
+    });
+
     test('a toolset with a provider matrix reads its providers', () async {
       final list = value(await tools.list());
       final name = list.toolsets
@@ -3529,6 +3798,613 @@ void main() {
     });
   }, skip: skip);
 
+  group('model providers on throwaway profiles (fake keys, no provider call)', () {
+    // Saves FAKE keys into profiles this group creates, adds a custom
+    // endpoint that points at a model served on the loopback interface, a
+    // manual pool entry and an opted-in `moa` preset, and deletes the
+    // profiles after. No key is validated (that would call the provider) and
+    // no provider is ever contacted: the only server reached is the loopback
+    // one. The local-runtime row needs HERMES_DEV_HOME (the backend's home) to
+    // stage an empty model file in; that test is skipped without it.
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final emptyProfile = 'contract-check-empty-$stamp';
+    final keyProfile = 'contract-check-key-$stamp';
+    final endpointProfile = 'contract-check-endpoint-$stamp';
+    final poolProfile = 'contract-check-pool-$stamp';
+    final devHome = Platform.environment['HERMES_DEV_HOME'];
+    final authorizations = <String?>[];
+    late HttpServer model;
+    late ProvidersRepository providers;
+
+    Future<Map<String, dynamic>> options(
+      String profile, {
+      bool unconfigured = true,
+    }) async {
+      final body = (await client.raw.getModelOptionsApiModelOptionsGet(
+        profile: profile,
+        includeUnconfigured: unconfigured,
+      )).data;
+      expect(body, isA<Map<String, dynamic>>());
+      return body! as Map<String, dynamic>;
+    }
+
+    Map<String, dynamic>? optionsRow(Map<String, dynamic> body, String slug) {
+      for (final row in (body['providers']! as List)) {
+        if ((row as Map)['slug'] == slug) return row.cast<String, dynamic>();
+      }
+      return null;
+    }
+
+    Future<Map<String, dynamic>> read(Future<Response<Object>> call) async {
+      final body = (await call).data;
+      expect(body, isA<Map<String, dynamic>>());
+      return body! as Map<String, dynamic>;
+    }
+
+    Future<ProviderCatalog> catalogOf(String profile) async {
+      final snapshot = await providers.load(profile);
+      expect(snapshot, isA<ProvidersLoaded>());
+      return (snapshot as ProvidersLoaded).catalog;
+    }
+
+    setUpAll(() async {
+      if (url == null) return;
+      providers = ProvidersRepository(client.raw);
+      model = await _serveScriptedModel(
+        command: 'true',
+        onTurn: (authorization, tools) {
+          if (tools.isNotEmpty) authorizations.add(authorization);
+        },
+      );
+      for (final name in [
+        emptyProfile,
+        keyProfile,
+        endpointProfile,
+        poolProfile,
+      ]) {
+        await client.raw.createProfileEndpointApiProfilesPost(
+          profileCreate: ProfileCreate(name: name, noSkills: true),
+        );
+      }
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      try {
+        for (final name in [
+          emptyProfile,
+          keyProfile,
+          endpointProfile,
+          poolProfile,
+        ]) {
+          await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+            name: name,
+          );
+        }
+      } finally {
+        await model.close(force: true);
+      }
+    });
+
+    HermesGatewayTransport connect() {
+      final transport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        ),
+      );
+      addTearDown(transport.close);
+      return transport;
+    }
+
+    test('an empty profile has every provider as a skeleton, no default, '
+        'no pool entry and no endpoint', () async {
+      final body = await options(emptyProfile);
+      expect(body['model'], '');
+      expect(body['provider'], '');
+      final rows = (body['providers']! as List).cast<Map<String, dynamic>>();
+      expect(rows.length, greaterThan(20));
+      final openRouter = optionsRow(body, 'openrouter')!;
+      expect(openRouter['authenticated'], isFalse);
+      expect(openRouter['auth_type'], 'api_key');
+      expect(openRouter['warning'], isA<String>());
+      // The chat picker's read (no flag) lists nothing but a staged local
+      // runtime for a profile with nothing connected.
+      final plain = await options(emptyProfile, unconfigured: false);
+      expect(plain['provider'], '');
+      final plainRows = (plain['providers']! as List).cast<Map>();
+      expect(
+        plainRows.where((r) => r['source'] != 'local-runtime'),
+        isEmpty,
+        reason: 'only a staged local runtime can be listed',
+      );
+      // The skeleton may name no key variable; /api/env always does.
+      expect(openRouter['key_env'], anyOf('', 'OPENROUTER_API_KEY'));
+      final openAi = optionsRow(body, 'openai-api')!;
+      expect(openAi['auth_type'], 'api_key');
+      expect(openAi['key_env'], 'OPENAI_API_KEY');
+      expect(optionsRow(body, 'nous')!['auth_type'], 'oauth_device_code');
+
+      final env = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: emptyProfile),
+      );
+      final keyRow = env['OPENROUTER_API_KEY'] as Map;
+      expect(keyRow['is_set'], isFalse);
+      expect(keyRow['provider'], 'openrouter');
+      expect(keyRow['provider_primary'], isTrue);
+      final pool = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(
+          profile: emptyProfile,
+        ),
+      );
+      expect(pool['providers'], isEmpty);
+      final endpoints = await read(
+        client.raw.listCustomEndpointsApiProvidersCustomEndpointsGet(
+          profile: emptyProfile,
+        ),
+      );
+      expect(endpoints['endpoints'], isEmpty);
+      final oauth = await read(
+        client.raw.listOauthProvidersApiProvidersOauthGet(
+          profile: emptyProfile,
+        ),
+      );
+      expect((oauth['providers']! as List).length, greaterThan(3));
+
+      final catalog = await catalogOf(emptyProfile);
+      expect(catalog.connected, isEmpty);
+      expect(catalog.skippedRows, 0);
+      expect(catalog.byId('openrouter')!.keyEnv, 'OPENROUTER_API_KEY');
+    });
+
+    test('a saved key connects the provider, and removing it keeps the '
+        'default', () async {
+      // Only the loopback server is ever reached: LM Studio is a local
+      // provider, and its base URL is pointed at the scripted model before
+      // any key is saved. (A key for a hosted provider would let Hermes fetch
+      // that provider's catalog with it.)
+      await client.raw.setEnvVarApiEnvPut(
+        envVarUpdate: EnvVarUpdate(
+          key: 'LM_BASE_URL',
+          value: 'http://127.0.0.1:${model.port}/v1',
+          apiKey: null,
+          providerSetup: null,
+        ),
+        profile: keyProfile,
+      );
+      expect(
+        await providers.saveKey(keyProfile, 'LM_API_KEY', 'demo-lm-0000'),
+        isA<KeySaved>(),
+      );
+
+      final body = await options(keyProfile);
+      final row = optionsRow(body, 'lmstudio')!;
+      expect(row['authenticated'], isTrue);
+      expect(row['total_models'], isA<int>());
+      expect(body['provider'], '');
+      final env = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: keyProfile),
+      );
+      final keyRow = env['LM_API_KEY'] as Map;
+      expect(keyRow['is_set'], isTrue);
+      expect(keyRow['redacted_value'], startsWith('«redacted:'));
+      final pool = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(profile: keyProfile),
+      );
+      final group = (pool['providers']! as List).single as Map;
+      expect(group['provider'], 'lmstudio');
+      expect(
+        ((group['entries']! as List).single as Map)['source'],
+        isA<String>(),
+      );
+      expect(
+        ((group['entries']! as List).single as Map)['source'],
+        'env:LM_API_KEY',
+      );
+      expect((await catalogOf(keyProfile)).byId('lmstudio')!.connected, isTrue);
+
+      expect(
+        await providers.setDefaultModel(keyProfile, 'lmstudio', 'scripted'),
+        isA<DefaultModelSaved>(),
+      );
+      expect((await options(keyProfile))['provider'], 'lmstudio');
+
+      expect(
+        await providers.removeKey(keyProfile, 'LM_API_KEY'),
+        isA<Removed>(),
+      );
+      // The key is gone and so is its pool mirror, and the default stays.
+      // (LM Studio is a local provider and stays "authenticated" without a
+      // key, so the hosted-provider case of a removed key, recorded in
+      // design.md and the fixtures, is not run here: it would need a key
+      // saved for a hosted provider.)
+      final after = await options(keyProfile);
+      expect(after['provider'], 'lmstudio');
+      expect(after['model'], 'scripted');
+      final gone = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(profile: keyProfile),
+      );
+      expect(gone['providers'], isEmpty);
+      final env2 = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: keyProfile),
+      );
+      expect((env2['LM_API_KEY'] as Map)['is_set'], isFalse);
+      expect(
+        (await catalogOf(keyProfile)).byId('lmstudio')!.credentials,
+        isEmpty,
+      );
+    });
+
+    test('a custom endpoint is checked, saved and made the default as '
+        '`custom:<id>`, and its key reaches a new chat and an open one with no '
+        'reload', () async {
+      final baseUrl = 'http://127.0.0.1:${model.port}/v1';
+      final checked = await providers.checkEndpoint(
+        name: 'Contract endpoint',
+        baseUrl: baseUrl,
+        model: 'scripted',
+        apiKey: 'demo-key-1',
+      );
+      expect(checked, isA<EndpointChecked>());
+      expect((checked as EndpointChecked).models, contains('scripted'));
+
+      final saved = await providers.saveEndpoint(
+        endpointProfile,
+        name: 'Contract endpoint',
+        baseUrl: baseUrl,
+        model: 'scripted',
+        apiKey: 'demo-key-1',
+      );
+      expect(saved, isA<EndpointSaved>());
+      final id = (saved as EndpointSaved).id!;
+      final listed = await read(
+        client.raw.listCustomEndpointsApiProvidersCustomEndpointsGet(
+          profile: endpointProfile,
+        ),
+      );
+      final row = (listed['endpoints']! as List).single as Map;
+      expect(row['id'], id);
+      expect(row['has_api_key'], isTrue);
+      final reference = RegExp(r'^\$\{([A-Z0-9_]+)\}$')
+          .firstMatch('${row['api_key_preview']}');
+      expect(reference, isNotNull, reason: 'a variable reference');
+      final keyVariable = reference!.group(1)!;
+
+      expect(
+        await providers.setDefaultModel(
+          endpointProfile,
+          'custom:$id',
+          'scripted',
+        ),
+        isA<DefaultModelSaved>(),
+      );
+      final body = await options(endpointProfile);
+      expect(body['provider'], 'custom:$id');
+      expect(body['model'], 'scripted');
+      final optionsEntry = optionsRow(body, id)!;
+      expect(optionsEntry['is_user_defined'], isTrue);
+      expect(optionsEntry['aliases'], contains('custom:$id'));
+      final catalog = await catalogOf(endpointProfile);
+      expect(catalog.entries.where((e) => e.id == id), hasLength(1));
+      expect(catalog.byId(id)!.isDefault, isTrue);
+
+      Future<String> chat({String? threadId, required String key}) async {
+        authorizations.clear();
+        final events = await connect()
+            .send(threadId: threadId, profile: endpointProfile, text: 'Hi.')
+            .toList();
+        expect((events.last as ReplyCompleted).failed, isFalse);
+        expect(authorizations, isNotEmpty);
+        expect(authorizations.last, 'Bearer $key');
+        return events.whereType<ThreadBound>().first.threadId;
+      }
+
+      final threadId = await chat(key: 'demo-key-1');
+      expect(
+        await providers.saveKey(endpointProfile, keyVariable, 'demo-key-2'),
+        isA<KeySaved>(),
+      );
+      await chat(key: 'demo-key-2');
+
+      // A chat that is open (here: the same connection) takes a key saved
+      // after it started on its next turn.
+      final open = connect();
+      authorizations.clear();
+      final first = await open
+          .send(profile: endpointProfile, text: 'Open.')
+          .toList();
+      final openThread = first.whereType<ThreadBound>().first.threadId;
+      expect(authorizations.last, 'Bearer demo-key-2');
+      expect(
+        await providers.saveKey(endpointProfile, keyVariable, 'demo-key-3'),
+        isA<KeySaved>(),
+      );
+      authorizations.clear();
+      final again = await open
+          .send(threadId: openThread, profile: endpointProfile, text: 'Again.')
+          .toList();
+      expect((again.last as ReplyCompleted).failed, isFalse);
+      expect(authorizations.last, 'Bearer demo-key-3');
+      expect(threadId, isNot(openThread));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('a manual pool entry connects the provider, read-only, and the '
+        'moa row is opt-in', () async {
+      final added = await read(
+        client.raw.addCredentialPoolEntryApiCredentialsPoolPost(
+          credentialPoolAdd: CredentialPoolAdd(
+            provider: 'lmstudio',
+            apiKey: 'demo-lm-0001',
+            label: 'manual demo',
+          ),
+          profile: poolProfile,
+        ),
+      );
+      expect(added['ok'], isTrue);
+      final pool = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(
+          profile: poolProfile,
+        ),
+      );
+      final entry =
+          (((pool['providers']! as List).single as Map)['entries']! as List)
+                  .single
+              as Map;
+      expect(entry['source'], 'manual');
+      expect(entry['auth_type'], 'api_key');
+      expect(entry['label'], 'manual demo');
+      expect(entry['token_preview'], endsWith('0001'));
+
+      await client.raw.updateConfigRawApiConfigRawPut(
+        profile: poolProfile,
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText: '''
+moa:
+  presets:
+    contract-mix:
+      enabled: true
+      aggregator:
+        provider: lmstudio
+        model: scripted
+      reference_models: []
+''',
+        ),
+      );
+      final body = await options(poolProfile);
+      final lmStudio = optionsRow(body, 'lmstudio')!;
+      expect(lmStudio['authenticated'], isTrue);
+      final env = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: poolProfile),
+      );
+      expect((env['LM_API_KEY'] as Map)['is_set'], isFalse);
+      final moa = optionsRow(body, 'moa')!;
+      expect(moa['auth_type'], 'virtual');
+      expect(moa['source'], 'virtual');
+      expect(moa['authenticated'], isTrue);
+      expect(moa['models'], contains('contract-mix'));
+      expect(optionsRow(await options(keyProfile), 'moa'), isNull);
+
+      final catalog = await catalogOf(poolProfile);
+      expect(catalog.skippedRows, 0);
+      expect(catalog.byId('moa'), isNull);
+      final connected = catalog.byId('lmstudio')!;
+      expect(connected.connected, isTrue);
+      expect(connected.credentials.single.kind, CredentialKind.poolKey);
+      expect(connected.credentials.single.label, 'manual demo');
+    });
+
+    test(
+      'the managed local runtime is a row with `auth_type: local` and '
+      '`source: local-runtime` that the catalog leaves out',
+      () async {
+        final models = Directory('$devHome/models')
+          ..createSync(recursive: true);
+        final file = File('${models.path}/contract-check-$stamp.gguf')
+          ..writeAsBytesSync(const []);
+        try {
+          final row = optionsRow(await options(keyProfile), 'llamacpp')!;
+          expect(row['source'], 'local-runtime');
+          expect(row['auth_type'], 'local');
+          expect(row['authenticated'], isTrue);
+          expect(row['models'], contains('contract-check-$stamp'));
+          final catalog = await catalogOf(keyProfile);
+          expect(catalog.byId('llamacpp'), isNull);
+          expect(catalog.skippedRows, 0);
+        } finally {
+          file.deleteSync();
+        }
+      },
+      skip: devHome == null ? 'set HERMES_DEV_HOME to the backend home' : null,
+    );
+  }, skip: skip);
+
+  group('tools on a throwaway profile (switches and setup writes, no '
+      'install)', () {
+    // Switches, picks and saves on a profile this group creates, with a fake
+    // key, and deletes the profile after. No install step is started (a
+    // post-setup would install from the network).
+    final profile =
+        'contract-check-tools-${DateTime.now().millisecondsSinceEpoch}';
+    late HttpServer model;
+    late HermesToolsRepository tools;
+    final turns = <List<String>>[];
+
+    setUpAll(() async {
+      if (url == null) return;
+      model = await _serveScriptedModel(
+        command: 'true',
+        onTurn: (_, names) {
+          if (names.isNotEmpty) turns.add(names);
+        },
+      );
+      await client.raw.createProfileEndpointApiProfilesPost(
+        profileCreate: ProfileCreate(name: profile, noSkills: true),
+      );
+      await client.raw.updateConfigRawApiConfigRawPut(
+        profile: profile,
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText:
+              '''
+model:
+  default: "scripted"
+  provider: "custom"
+  base_url: "http://127.0.0.1:${model.port}/v1"
+  api_key: "scripted"
+  context_length: 131072
+''',
+        ),
+      );
+      tools = HermesToolsRepository(client.raw, profile: profile);
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      try {
+        await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+          name: profile,
+        );
+      } finally {
+        await model.close(force: true);
+      }
+    });
+
+    T value<T>(ToolsResult<T> result) {
+      expect(result, isA<ToolsOk<T>>(), reason: '$result');
+      return (result as ToolsOk<T>).value;
+    }
+
+    Toolset row(ToolsetList list, String name) =>
+        list.toolsets.singleWhere((t) => t.name == name);
+
+    test('a switch is answered and read back, and "available" follows '
+        '"enabled"', () async {
+      final before = row(value(await tools.list()), 'todo');
+      expect(before.enabled, isTrue);
+
+      final off = value(await tools.switchToolset('todo', enabled: false));
+      expect(off.enabled, isFalse);
+      expect(off.postSetupStarted, isNull);
+      expect(row(value(await tools.list()), 'todo').enabled, isFalse);
+      final raw = (await client.raw.getToolsetsApiToolsToolsetsGet(
+        profile: profile,
+      )).data!;
+      final rawRow = (raw as List).cast<Map<String, dynamic>>().singleWhere(
+        (r) => r['name'] == 'todo',
+      );
+      expect(rawRow['available'], false);
+
+      final on = value(await tools.switchToolset('todo', enabled: true));
+      expect(on.enabled, isTrue);
+      expect(row(value(await tools.list()), 'todo').enabled, isTrue);
+    });
+
+    test('a provider, a key, a model and a terminal backend are answered '
+        'and read back', () async {
+      final config = value(await tools.config('image_gen'));
+      // The provider is chosen by name, with a built-in catalog: a row whose
+      // tag speaks of a live catalog would make Hermes call the provider with
+      // the fake key on a machine with a network. The check comes before
+      // anything is saved.
+      final provider = config.providers.singleWhere(
+        (p) => p.name == 'FAL.ai',
+        orElse: () => throw TestFailure('image_gen has no FAL.ai provider'),
+      );
+      expect(provider.tag ?? '', isNot(contains('live catalog')));
+      expect(provider.envVars, hasLength(1));
+      value(await tools.pickProvider('image_gen', provider.name));
+      final saved = value(
+        await tools.saveEnv('image_gen', {
+          provider.envVars.single.key: 'demo-0000',
+        }),
+      );
+      expect(value(await tools.models('image_gen')).hasModels, isTrue);
+      final key = provider.envVars.single.key;
+      expect(saved.saved, [key]);
+      expect(saved.isSet[key], isTrue);
+      // A blank value is skipped, never cleared.
+      final blank = value(await tools.saveEnv('image_gen', {key: ''}));
+      expect(blank.saved, isEmpty);
+      expect(blank.skipped, [key]);
+      expect(blank.isSet[key], isTrue);
+
+      final after = value(await tools.config('image_gen'));
+      final active = after.providers.singleWhere((p) => p.isActive);
+      expect(active.name, provider.name);
+      expect(active.envVars.single.isSet, isTrue);
+      expect(after.activeProvider, provider.name);
+
+      // The catalog is read again: saving the key can change it.
+      final fresh = value(await tools.models('image_gen'));
+      expect(fresh.hasModels, isTrue);
+      final other = fresh.models.firstWhere((m) => m.id != fresh.current);
+      value(await tools.pickModel('image_gen', other.id));
+      expect(value(await tools.models('image_gen')).current, other.id);
+      expect(
+        await tools.pickModel('image_gen', 'no-such-model'),
+        isA<ToolsRefused<void>>(),
+      );
+
+      value(await tools.pickTerminalBackend('docker'));
+      expect(value(await tools.terminalBackends()).active, 'docker');
+      value(await tools.pickTerminalBackend('local'));
+      expect(value(await tools.terminalBackends()).active, 'local');
+      expect(
+        await tools.pickTerminalBackend('no-such-backend'),
+        isA<ToolsRefused<void>>(),
+      );
+    });
+
+    test(
+      'a switch reaches a chat started after it, and not one already open',
+      () async {
+        HermesGatewayTransport connect() {
+          final transport = HermesGatewayTransport(
+            connect: hermesGatewayConnect(
+              baseUrl: url!,
+              authRequired: false,
+              api: client,
+            ),
+          );
+          addTearDown(transport.close);
+          return transport;
+        }
+
+        Future<(List<String>, String)> send(
+          HermesGatewayTransport transport, {
+          String? threadId,
+        }) async {
+          turns.clear();
+          final events = await transport
+              .send(threadId: threadId, profile: profile, text: 'Hello.')
+              .toList();
+          expect((events.last as ReplyCompleted).failed, isFalse);
+          expect(turns, isNotEmpty);
+          final names = turns.reduce((a, b) => a.length >= b.length ? a : b);
+          final bound = events.whereType<ThreadBound>();
+          return (names, bound.isEmpty ? '' : bound.first.threadId);
+        }
+
+        value(await tools.switchToolset('terminal', enabled: true));
+        final open = connect();
+        final (first, threadId) = await send(open);
+        expect(first, contains('terminal'));
+
+        value(await tools.switchToolset('terminal', enabled: false));
+        final (same, _) = await send(open, threadId: threadId);
+        expect(same, contains('terminal'), reason: 'the open chat keeps it');
+        final (fresh, _) = await send(connect());
+        expect(fresh, isNotEmpty);
+        expect(fresh, isNot(contains('terminal')));
+
+        value(await tools.switchToolset('terminal', enabled: true));
+        final (back, _) = await send(connect());
+        expect(back, contains('terminal'));
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+  }, skip: skip);
+
   group('requests scoped to a second profile (no model call)', () {
     final profile = 'contract-scope-${DateTime.now().millisecondsSinceEpoch}';
     late HermesPluginManagerRepository plugins;
@@ -3589,10 +4465,9 @@ void main() {
   group('server files (read only)', () {
     // Only GETs on /api/fs: nothing is written or deleted on the backend. The
     // checks read the folder the dashboard itself runs in, so they hold on
-    // whatever files it has. The shapes are from the spec and Hermes' own
-    // tests (`test_web_server_fs.py`), not yet recorded against a live
-    // backend: cases that need a particular file (a `.env` for 403, a locked
-    // database for 409, an SSH workspace) are not covered here.
+    // whatever files it has. The cases that need a particular file (a `.env`
+    // for 403, a locked database for 409) are in the group on a made-up
+    // folder below; an SSH workspace is not covered (no second machine).
     late HermesFilesRepository files;
     late ServerPath cwd;
 
@@ -3706,6 +4581,300 @@ void main() {
     });
   }, skip: skip);
 
+  group('server files on a made-up folder (local backend)', () {
+    // Writes only into a folder this test creates (and deletes) under the
+    // system temp directory, or under HERMES_DEV_FILES_ROOT when the backend
+    // is locked to one. Needs a backend on this machine; the live-database
+    // cases also need HERMES_DEV_HOME, the backend's state folder.
+    late Directory dir;
+    late Directory proj;
+    late HermesFilesRepository files;
+    late Dio raw;
+    final filesRoot = Platform.environment['HERMES_DEV_FILES_ROOT'];
+    final home = Platform.environment['HERMES_DEV_HOME'];
+
+    T value<T>(FilesResult<T> r) {
+      expect(r, isA<FilesOk<T>>(), reason: 'the route answered: $r');
+      return (r as FilesOk<T>).value;
+    }
+
+    FilesFailure kind<T>(FilesResult<T> r) {
+      expect(r, isA<FilesFailed<T>>(), reason: 'the route answered: $r');
+      return (r as FilesFailed<T>).kind;
+    }
+
+    ServerPath at(String path) => ServerPath.tryParse(path)!;
+
+    setUp(() async {
+      if (url == null) return;
+      final parent = filesRoot == null
+          ? Directory.systemTemp
+          : Directory(filesRoot);
+      final made = await parent.createTemp('hermes-files-');
+      addTearDown(() => made.delete(recursive: true));
+      dir = Directory(made.resolveSymbolicLinksSync());
+      proj = await Directory('${dir.path}/proj').create();
+      await Directory('${proj.path}/src').create();
+      await Directory('${proj.path}/empty').create();
+      await Directory('${proj.path}/real').create();
+      await Link('${proj.path}/link').create('${proj.path}/real');
+      await Directory('${dir.path}/plain').create();
+      await File('${proj.path}/src/main.py').writeAsString('print(1)\n');
+      await File('${proj.path}/README.md').writeAsString('hi\n');
+      await File('${proj.path}/.env').writeAsString('SECRET=1\n');
+      await File('${proj.path}/blob.bin')
+          .writeAsBytes([for (var i = 0; i < 2000; i++) i % 256]);
+      await File('${proj.path}/big.txt').writeAsString('line\n' * 150000);
+      files = HermesFilesRepository(client, profile: 'default')
+        ..highestFolder = at(dir.path);
+      raw = Dio(
+        BaseOptions(
+          baseUrl: url,
+          headers: {'X-Hermes-Session-Token': ?sessionToken},
+          validateStatus: (_) => true,
+        ),
+      );
+    });
+
+    test('a listing puts folders first, shows a symlinked folder as a file, '
+        'keeps dot entries and hides secret names', () async {
+      await Directory('${proj.path}/.git').create();
+      await File('${proj.path}/.dotnote').writeAsString('x');
+      final listing = value(await files.list(at(proj.path)));
+      expect(listing.skipped, 0);
+      final byName = {for (final e in listing.entries) e.name: e};
+      expect(
+        byName.keys,
+        containsAll(['src', 'empty', 'real', 'link', 'README.md', '.dotnote']),
+      );
+      expect(byName.keys, isNot(contains('.env')));
+      expect(byName.keys, isNot(contains('.git')));
+      expect(byName['link']!.isDirectory, isFalse, reason: 'the symlink');
+      expect(byName['real']!.isDirectory, isTrue);
+      final names = listing.entries.map((e) => e.name).toList();
+      final lastFolder = listing.entries.lastIndexWhere((e) => e.isDirectory);
+      final firstFile = listing.entries.indexWhere((e) => !e.isDirectory);
+      expect(lastFolder, lessThan(firstFile), reason: '$names');
+      expect(byName['README.md']!.path.value, '${proj.path}/README.md');
+    });
+
+    test('an empty folder is an empty listing, a symlink path lists its '
+        'target, a missing folder and a file are failures', () async {
+      expect(
+        value(await files.list(at('${proj.path}/empty'))).entries,
+        isEmpty,
+      );
+      await File('${proj.path}/real/inside.txt').writeAsString('x');
+      expect(
+        value(await files.list(at('${proj.path}/link'))).entries
+            .map((e) => e.name),
+        ['inside.txt'],
+      );
+      expect(
+        kind(await files.list(at('${proj.path}/nope'))),
+        FilesFailure.missing,
+      );
+      expect(
+        kind(await files.list(at('${proj.path}/README.md'))),
+        FilesFailure.notAFile,
+      );
+    });
+
+    test('read-text: text, truncated, binary, and every refusal', () async {
+      final md = value(await files.readText(at('${proj.path}/README.md')));
+      expect(md.text, 'hi\n');
+      expect(md.language, 'markdown');
+      expect(md.byteSize, 3);
+      expect(md.truncated, isFalse);
+      expect(md.binary, isFalse);
+
+      final big = value(await files.readText(at('${proj.path}/big.txt')));
+      expect(big.byteSize, 750000);
+      expect(big.truncated, isTrue);
+      expect(utf8.encode(big.text), hasLength(512 * 1024));
+
+      final bin = value(await files.readText(at('${proj.path}/blob.bin')));
+      expect(bin.binary, isTrue);
+      expect(bin.byteSize, 2000);
+
+      expect(
+        kind(await files.readText(at('${proj.path}/src'))),
+        FilesFailure.notAFile,
+      );
+      expect(
+        kind(await files.readText(at('${proj.path}/link'))),
+        FilesFailure.notAFile,
+        reason: 'a symlinked folder is a directory to stat',
+      );
+      expect(
+        kind(await files.readText(at('${proj.path}/.env'))),
+        // A locked deployment answers a secret name with the boundary 403.
+        filesRoot == null ? FilesFailure.notAllowed : FilesFailure.fixedFolder,
+      );
+      expect(
+        kind(await files.readText(at('${proj.path}/nope.txt'))),
+        FilesFailure.missing,
+      );
+    });
+
+    test('download names the file and its length, and refuses a secret, a '
+        'folder and a missing file', () async {
+      final out = File('${dir.path}/out');
+      final sink = out.openWrite();
+      final result = await files.download(
+        at('${proj.path}/README.md'),
+        sink: sink,
+      );
+      await sink.close();
+      final done = value(result);
+      expect(done.declined, isFalse);
+      expect(out.readAsStringSync(), 'hi\n');
+      expect(done.contentLength, 3);
+
+      final headers = await raw.get<List<int>>(
+        '/api/fs/download',
+        queryParameters: {
+          'path': '${proj.path}/README.md',
+          'profile': 'default',
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+      expect(headers.statusCode, 200);
+      expect(headers.headers.value('content-length'), '3');
+      expect(
+        headers.headers.value('content-disposition'),
+        'attachment; filename="README.md"',
+      );
+
+      for (final (name, status) in [
+        ('.env', 403),
+        ('src', 400),
+        ('nope', 404),
+      ]) {
+        final r = await raw.get<Object>(
+          '/api/fs/download',
+          queryParameters: {'path': '${proj.path}/$name', 'profile': 'default'},
+        );
+        expect(r.statusCode, status, reason: name);
+        expect((r.data as Map)['detail'], isA<String>());
+      }
+    });
+
+    test(
+      'a database a live connection holds is 409 on read-text and '
+      'download',
+      () async {
+        final db = '$home/state.db';
+        final rpc = GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          )(),
+        );
+        addTearDown(rpc.close);
+        final created = await rpc.request('session.create', {
+          'profile': 'default',
+          'source': 'hermes_app',
+        });
+        addTearDown(
+          () => rpc
+              .request('session.close', {'session_id': created['session_id']})
+              .then((_) {}, onError: (Object _) {}),
+        );
+
+        final any = HermesFilesRepository(client, profile: 'default');
+        expect(kind(await any.readText(at(db))), FilesFailure.busy);
+        final sink = File('${dir.path}/db').openWrite();
+        final download = await any.download(at(db), sink: sink);
+        await sink.close();
+        expect(kind(download), FilesFailure.busy);
+        final r = await raw.get<Object>(
+          '/api/fs/download',
+          queryParameters: {'path': db, 'profile': 'default'},
+        );
+        expect(r.statusCode, 409);
+        expect((r.data as Map)['detail'], contains('connection'));
+      },
+      skip: home == null
+          ? 'set HERMES_DEV_HOME'
+          : filesRoot != null
+          ? 'the state folder is outside the files root'
+          : null,
+    );
+
+    test('with the files root set, the start folder is outside it: its first '
+        'list is the fixed-folder 403, git-root and default-cwd still answer, '
+        'and a folder inside lists', () async {
+      final any = HermesFilesRepository(client, profile: 'default');
+      final start = value(await any.defaultCwd());
+      expect(start.isWithin(at(filesRoot!)), isFalse);
+      expect(kind(await any.list(start)), FilesFailure.fixedFolder);
+      expect(kind(await any.readText(start)), FilesFailure.fixedFolder);
+      expect(value(await any.gitRoot(start)), anyOf(isNull, isA<ServerPath>()));
+      expect(value(await any.list(at(proj.path))).entries, isNotEmpty);
+    }, skip: filesRoot == null ? 'set HERMES_DEV_FILES_ROOT' : null);
+
+    test('a profile the server does not have is 404 with the profile in the '
+        'detail, an invalid name is 400', () async {
+      Future<Response<Object>> list(String profile) => raw.get<Object>(
+        '/api/fs/list',
+        queryParameters: {'path': proj.path, 'profile': profile},
+      );
+      final missing = await list('contract-check-missing-profile');
+      expect(missing.statusCode, 404);
+      expect(
+        (missing.data as Map)['detail'],
+        startsWith("Profile 'contract-check-missing-profile'"),
+      );
+      final invalid = await list('../bad name');
+      expect(invalid.statusCode, 400);
+      expect((invalid.data as Map)['detail'], isA<String>());
+
+      final other = HermesFilesRepository(client, profile: '../bad name');
+      expect(kind(await other.list(at(proj.path))), FilesFailure.badRequest);
+      final ghost = HermesFilesRepository(
+        client,
+        profile: 'contract-check-missing-profile',
+      );
+      expect(kind(await ghost.defaultCwd()), FilesFailure.badRequest);
+    });
+
+    test('default-cwd is the same with or without a profile, git-root finds '
+        'the nearest repository and answers null outside one', () async {
+      final start = value(await files.defaultCwd());
+      final bare =
+          ((await client.raw.fsDefaultCwdApiFsDefaultCwdGet()).data! as Map)
+              .cast<String, Object?>();
+      expect(bare['cwd'], start.value);
+      expect(bare['branch'], isA<String>());
+
+      await Directory('${proj.path}/.git').create();
+      expect(
+        value(await files.gitRoot(at('${proj.path}/src')))?.value,
+        proj.path,
+      );
+      expect(value(await files.gitRoot(at(proj.path)))?.value, proj.path);
+      // A path that does not exist still answers its nearest repository.
+      expect(
+        value(await files.gitRoot(at('${proj.path}/nope')))?.value,
+        proj.path,
+      );
+      var outside = Directory('${dir.path}/plain');
+      String? ancestor;
+      for (var d = outside; d.parent.path != d.path; d = d.parent) {
+        if (Directory('${d.path}/.git').existsSync()) {
+          ancestor = d.path;
+          break;
+        }
+      }
+      expect(
+        value(await files.gitRoot(at('${dir.path}/plain')))?.value,
+        ancestor,
+      );
+    });
+  }, skip: skip);
+
   group('a throwaway profile on a scripted model (no paid model call)', () {
     final profile = 'contract-check-${DateTime.now().millisecondsSinceEpoch}';
     late Directory scratch;
@@ -3760,6 +4929,77 @@ approvals:
     }
 
     test(
+      'a hermes_app chat sent with no folder stores the folder it ran in, '
+      'and moving the stored chat shows in its row',
+      () async {
+        final transport = connect();
+        final rpc = GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          )(),
+        );
+        addTearDown(rpc.close);
+        final workspaces = HermesWorkspacesRepository(
+          client.raw,
+          rpc.requestWithin,
+        );
+
+        final events = await transport
+            .send(profile: profile, text: 'Say hello.')
+            .toList();
+        expect((events.last as ReplyCompleted).failed, isFalse);
+        final id = events.whereType<ThreadBound>().single.threadId;
+        final bound = events.whereType<WorkspaceBound>().single;
+
+        // The catalog's default_cwd is where the profile's chats run. For a
+        // named profile that is its own folder, while fs/default-cwd (the
+        // Files page's start for a chat without a stored folder) answers the
+        // dashboard's launch folder: a gap noted in the change's design.
+        final catalog = await workspaces.catalog(profile: profile);
+        expect(
+          catalog,
+          isA<WorkspacesOk<WorkspaceCatalog>>(),
+          reason: '$catalog',
+        );
+        final defaultCwd =
+            (catalog as WorkspacesOk<WorkspaceCatalog>).value.defaultCwd;
+        final stored = await workspaces.sessionFolder(id, profile: profile);
+        expect(stored, isA<WorkspacesOk<SessionFolder>>(), reason: '$stored');
+        final folder = (stored as WorkspacesOk<SessionFolder>).value;
+        expect(folder.cwd, isNotNull);
+        expect(folder.cwd, endsWith('/profiles/$profile'));
+        final launch =
+            ((await client.raw.fsDefaultCwdApiFsDefaultCwdGet(profile: profile))
+                    .data!
+                as Map)['cwd'];
+        expect(launch, isA<String>());
+        expect(launch, isNot(folder.cwd), reason: 'fs/default-cwd ignores it');
+        expect(folder.cwd, bound.cwd);
+        expect(
+          folder.cwd,
+          defaultCwd,
+          reason: 'the folder the profile runs in',
+        );
+
+        final target = Directory('${scratch.path}/moved')..createSync();
+        final resolved = target.resolveSymbolicLinksSync();
+        final moved = await workspaces.moveWorkspace(
+          id,
+          resolved,
+          profile: profile,
+        );
+        expect(moved, isA<WorkspacesOk<MovedWorkspace>>(), reason: '$moved');
+        final after = await workspaces.sessionFolder(id, profile: profile);
+        expect(after, isA<WorkspacesOk<SessionFolder>>(), reason: '$after');
+        expect((after as WorkspacesOk<SessionFolder>).value.cwd, resolved);
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
       'an approval offers choices the card can show, and Allow once runs '
       'the command',
       () async {
@@ -3794,6 +5034,380 @@ approvals:
         expect(accepted, [isTrue]);
         expect((events.last as ReplyCompleted).failed, isFalse);
         expect(doomed.existsSync(), isFalse);
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    Future<_GatewayTap> openTap() async {
+      final tap = _GatewayTap(
+        GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          )(),
+        ),
+      );
+      addTearDown(tap.close);
+      return tap;
+    }
+
+    Matcher rpcError(int code) =>
+        throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', code));
+
+    test(
+      'a delegation lists two running agents the app parses, which can be '
+      'read, steered and stopped, and which only the attached connection '
+      'controls',
+      () async {
+        final tap = await openTap();
+        final session = await tap.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final sid = session['session_id'] as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Delegate the crate counting.',
+        });
+        await tap.until(
+          () =>
+              tap
+                  .eventsOf(sid)
+                  .where((e) => e.type == 'subagent.tool')
+                  .length >=
+              2,
+          'two subagent.tool frames',
+        );
+        final ids = <String>{
+          for (final e in tap.eventsOf(sid))
+            if (e.type == 'subagent.start') e.payload['subagent_id']! as String,
+        };
+        expect(ids, hasLength(2));
+        // A failed assertion must not leave the children sleeping.
+        addTearDown(() async {
+          for (final id in ids) {
+            try {
+              await tap.rpc.request('subagent.interrupt', {
+                'session_id': sid,
+                'subagent_id': id,
+              });
+            } on Object {
+              // Already ended or the connection is gone.
+            }
+          }
+        });
+        Future<Map<String, Object?>> call(
+          String method, [
+          Map<String, Object?>? p,
+        ]) => tap.rpc.request(method, {'session_id': sid, ...?p});
+
+        // subagent.list: both children, running, steerable.
+        final list = parseAgentList(await call('subagent.list'))!;
+        expect(list.agents.map((a) => a.id).toSet(), ids);
+        expect(list.delegations, isEmpty);
+        for (final agent in list.agents) {
+          expect(agent.state, AgentState.running);
+          expect(agent.acceptingSteer, isTrue);
+          expect(agent.goal, startsWith('Count the '));
+          expect(agent.toolCount, 1);
+          expect(agent.lastTool, 'terminal');
+          expect(agent.startedAt, isNotNull);
+          expect(agent.delegationId, isNotNull);
+        }
+        final [first, second] = ids.toList();
+
+        // subagent.tail: the child's transcript, with its tool line.
+        final tail = parseAgentTail(
+          await call('subagent.tail', {'subagent_id': first}),
+        )!;
+        expect(tail.available, isTrue);
+        expect(tail.truncated, isFalse);
+        expect(tail.text, contains('terminal(sleep 30)'));
+
+        // subagent.steer: queued for a running child, rejected for an
+        // unknown one, and the two request errors.
+        expect(
+          parseSteerOutcome(
+            await call('subagent.steer', {
+              'subagent_id': first,
+              'text': 'Use the small crate.',
+            }),
+          ),
+          SteerOutcome.queued,
+        );
+        expect(
+          parseSteerOutcome(
+            await call('subagent.steer', {
+              'subagent_id': 'sa-9-unknown',
+              'text': 'Hello',
+            }),
+          ),
+          SteerOutcome.rejected,
+        );
+        await expectLater(
+          call('subagent.steer', {'subagent_id': first, 'text': '  '}),
+          rpcError(4002),
+        );
+        await expectLater(
+          call('subagent.steer', {'text': 'x'}),
+          rpcError(4000),
+        );
+        await expectLater(call('subagent.tail'), rpcError(4000));
+
+        // A connection that never resumed the chat: reads and interrupts are
+        // 4001, a note is rejected (not 4001).
+        final other = await openTap();
+        await expectLater(
+          other.rpc.request('subagent.list', {'session_id': sid}),
+          rpcError(4001),
+        );
+        await expectLater(
+          other.rpc.request('subagent.tail', {
+            'session_id': sid,
+            'subagent_id': first,
+          }),
+          rpcError(4001),
+        );
+        await expectLater(
+          other.rpc.request('subagent.interrupt', {
+            'session_id': sid,
+            'subagent_id': first,
+          }),
+          rpcError(4001),
+        );
+        expect(
+          parseSteerOutcome(
+            await other.rpc.request('subagent.steer', {
+              'session_id': sid,
+              'subagent_id': first,
+              'text': 'x',
+            }),
+          ),
+          SteerOutcome.rejected,
+        );
+
+        // subagent.interrupt: found for a running child, not for an unknown
+        // one; the child then completes as interrupted and is gone.
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': second}),
+          ),
+          StopOutcome.stopped,
+        );
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': 'sa-9-unknown'}),
+          ),
+          StopOutcome.alreadyEnded,
+        );
+        await tap.until(
+          () => tap
+              .eventsOf(sid)
+              .any(
+                (e) =>
+                    e.type == 'subagent.complete' &&
+                    e.payload['subagent_id'] == second,
+              ),
+          'the interrupted child to complete',
+        );
+        final complete = tap
+            .eventsOf(sid)
+            .firstWhere(
+              (e) =>
+                  e.type == 'subagent.complete' &&
+                  e.payload['subagent_id'] == second,
+            );
+        expect(complete.payload['status'], 'interrupted');
+        // The record is dropped when the child ends; allow a short race.
+        var endedTail = parseAgentTail(
+          await call('subagent.tail', {'subagent_id': second}),
+        )!;
+        for (var i = 0; i < 50 && endedTail.available; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          endedTail = parseAgentTail(
+            await call('subagent.tail', {'subagent_id': second}),
+          )!;
+        }
+        expect(endedTail.available, isFalse);
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': second}),
+          ),
+          StopOutcome.alreadyEnded,
+        );
+        expect(
+          parseSteerOutcome(
+            await call('subagent.steer', {
+              'subagent_id': second,
+              'text': 'late',
+            }),
+          ),
+          SteerOutcome.rejected,
+        );
+
+        // Stop the other child too, so nothing runs on after the test, and
+        // see the interrupted delegations listed once they are recorded.
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': first}),
+          ),
+          StopOutcome.stopped,
+        );
+        AgentList? after;
+        for (var i = 0; i < 100; i++) {
+          after = parseAgentList(await call('subagent.list'));
+          if (after!.agents.isEmpty && after.delegations.length == 2) break;
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        expect(after!.agents, isEmpty);
+        expect(after.delegations, hasLength(2));
+        for (final row in after.delegations) {
+          expect(row.state, AgentState.stopped);
+          expect(row.goal, startsWith('Count the '));
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'a background program is listed, stopped once, and reads as stopped '
+      'afterwards (a program of the test itself; process.stop is never sent)',
+      () async {
+        final tap = await openTap();
+        final session = await tap.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final sid = session['session_id'] as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Run background server.',
+        });
+        await tap.until(
+          () => tap.eventsOf(sid).any((e) => e.type == 'message.complete'),
+          'the reply',
+        );
+        Future<Map<String, Object?>> call(
+          String method, [
+          Map<String, Object?>? p,
+        ]) => tap.rpc.request(method, {'session_id': sid, ...?p});
+
+        // The program's output is read by a background thread: on a slow
+        // machine the first list can precede it. Wait, bounded, for it.
+        var running = parseProcessList(await call('process.list'))!;
+        for (var i = 0; i < 150; i++) {
+          final tail = running.processes.isEmpty
+              ? null
+              : running.processes.first.outputTail;
+          if (tail != null && tail.contains('ready on demo port')) break;
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          running = parseProcessList(await call('process.list'))!;
+        }
+        final row = running.processes.single;
+        expect(row.status, ProgramStatus.running);
+        expect(row.command, 'echo ready on demo port; sleep 300');
+        expect(row.outputTail, contains('ready on demo port'));
+        expect(row.exitCode, isNull);
+        expect(row.uptime, isNotNull);
+        addTearDown(() async {
+          try {
+            await tap.rpc.request('process.kill', {
+              'session_id': sid,
+              'process_id': row.id,
+            });
+          } on Object {
+            // Already stopped or the connection is gone.
+          }
+        });
+        // No attachment check: a connection that never resumed the chat reads
+        // the same list (design.md; the app still reads only while attached).
+        final reader = await openTap();
+        expect(
+          parseProcessList(
+            await reader.rpc.request('process.list', {'session_id': sid}),
+          )!.processes.single.id,
+          row.id,
+        );
+
+        final killed = parseProcessKill(
+          await call('process.kill', {'process_id': row.id}),
+        )!;
+        expect(killed.outcome, KillOutcome.killed);
+        expect(killed.completionReason, 'killed');
+        expect(killed.output, contains('ready on demo port'));
+
+        final after = parseProcessList(await call('process.list'))!;
+        final ended = after.processes.single;
+        expect(ended.id, row.id);
+        expect(ended.running, isFalse);
+        expect(ended.completionReason, 'killed');
+        expect(ended.exitCode, isNegative);
+        expect(ended.status, ProgramStatus.stopped);
+
+        final again = parseProcessKill(
+          await call('process.kill', {'process_id': row.id}),
+        )!;
+        expect(again.outcome, KillOutcome.alreadyExited);
+        expect(again.completionReason, 'killed');
+        expect(again.exitCode, isNegative);
+
+        await expectLater(
+          call('process.kill', {'process_id': 'proc_000000000000'}),
+          rpcError(4044),
+        );
+        await expectLater(call('process.kill'), rpcError(4012));
+        await expectLater(call('process.nope'), rpcError(-32601));
+        await expectLater(
+          tap.rpc.request('process.list', {'session_id': 'not-a-session'}),
+          rpcError(4001),
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'process.list and process.kill answer 5032 at once when the chat\'s '
+      'agent could not be built',
+      () async {
+        final broken = '$profile-broken';
+        await client.raw.createProfileEndpointApiProfilesPost(
+          profileCreate: ProfileCreate(name: broken, noSkills: true),
+        );
+        addTearDown(
+          () => client.raw.deleteProfileEndpointApiProfilesNameDelete(
+            name: broken,
+          ),
+        );
+        await client.raw.updateConfigRawApiConfigRawPut(
+          profile: broken,
+          rawConfigUpdate: RawConfigUpdate(
+            yamlText:
+                'model:\n  default: "none"\n  provider: "no-such-provider"\n',
+          ),
+        );
+        final tap = await openTap();
+        final session = await tap.rpc.request('session.create', {
+          'profile': broken,
+          'source': 'hermes_app',
+        });
+        final sid = session['session_id'] as String;
+        final clock = Stopwatch()..start();
+        await expectLater(
+          tap.rpc.request('process.list', {'session_id': sid}),
+          rpcError(5032),
+        );
+        expect(clock.elapsed, lessThan(const Duration(seconds: 10)));
+        await expectLater(
+          tap.rpc.request('process.kill', {
+            'session_id': sid,
+            'process_id': 'proc_000000000000',
+          }),
+          rpcError(5032),
+        );
       },
       timeout: const Timeout(Duration(minutes: 2)),
       skip: skip,
@@ -3980,6 +5594,1275 @@ approvals:
       skip: skip,
     );
   });
+
+  // The checkpoint and context tests run a scripted model on the default
+  // profile: Hermes writes a chat's checkpoints into the HERMES_HOME of the
+  // profile it runs in but `rollback.*` reads the server's own, so a chat of
+  // another profile lists none (found at this backend revision). The
+  // `file checkpoints` tests need a backend started with
+  // `HERMES_TUI_CHECKPOINTS=1` and `HERMES_DEV_CHECKPOINTS=1` here; without it
+  // the `checkpoints off` test runs instead. Run them against a fresh backend.
+  final checkpointsOn = Platform.environment['HERMES_DEV_CHECKPOINTS'] == '1';
+  final onSkip =
+      skip ??
+      (checkpointsOn
+          ? null
+          : 'set HERMES_DEV_CHECKPOINTS=1 and start the backend with '
+                'HERMES_TUI_CHECKPOINTS=1');
+  final offSkip =
+      skip ?? (checkpointsOn ? 'checkpoints are on in this backend' : null);
+  final devHome = Platform.environment['HERMES_DEV_HOME'];
+
+  group('file checkpoints and context on a scripted model (no paid model call)', () {
+    late HttpServer model;
+    late String originalYaml;
+    final control = _ScriptControl();
+    final longNote = [
+      for (var i = 0; i < 400; i++) 'line $i of the long invented note',
+    ].join('\n');
+    final recorded = <String, Object?>{};
+
+    late _GatewayTap tap;
+    late Directory scratch;
+    late String sid;
+
+    /// The scripted model for the default profile, plus [extra] config.
+    Future<void> setConfig(String extra) =>
+        client.raw.updateConfigRawApiConfigRawPut(
+          rawConfigUpdate: RawConfigUpdate(
+            yamlText:
+                '''
+model:
+  default: "scripted"
+  provider: "custom"
+  base_url: "http://127.0.0.1:${model.port}/v1"
+  api_key: "scripted"
+  context_length: 131072
+$extra''',
+          ),
+        );
+
+    /// A throwaway project folder the chats work in.
+    Future<Directory> makeScratch() async {
+      final made = await Directory.systemTemp.createTemp('hermes-ckpt-');
+      addTearDown(() => made.delete(recursive: true));
+      final dir = Directory(made.resolveSymbolicLinksSync());
+      File('${dir.path}/package.json').writeAsStringSync('{}');
+      File('${dir.path}/notes.md')
+          .writeAsStringSync('# Plan\nWater the beans\n');
+      File('${dir.path}/garden.txt').writeAsStringSync('tomatoes: 4\n');
+      return dir;
+    }
+
+    Future<String> open({String? cwd}) async {
+      final created = await tap.rpc.request('session.create', {
+        'profile': 'default',
+        'source': 'hermes_app',
+        'cwd': cwd ?? scratch.path,
+        'cwd_explicit': true,
+      });
+      final id = created['session_id'] as String;
+      addTearDown(
+        () => tap.rpc
+            .request('session.close', {'session_id': id})
+            .then((_) {}, onError: (Object _) {}),
+      );
+      return id;
+    }
+
+    setUpAll(() async {
+      if (url == null) return;
+      model = await _serveScriptedModel(
+        control: control,
+        scripts: {
+          'Edit one': [
+            [
+              {
+                'name': 'read_file',
+                'args': {'path': 'notes.md'},
+              },
+            ],
+            [
+              {
+                'name': 'patch',
+                'args': {
+                  'path': 'notes.md',
+                  'old_string': 'Water the beans',
+                  'new_string': 'Water the beans twice\nPlant the onions',
+                },
+              },
+            ],
+          ],
+          'Edit two': [
+            [
+              {
+                'name': 'patch',
+                'args': {
+                  'path': 'notes.md',
+                  'old_string': 'Plant the onions',
+                  'new_string': 'Plant the leeks',
+                },
+              },
+            ],
+            [
+              {
+                'name': 'write_file',
+                'args': {'path': 'long.md', 'content': longNote},
+              },
+            ],
+          ],
+          'Many reads': [
+            for (var step = 0; step < 4; step++)
+              [
+                for (var i = 0; i < 3; i++)
+                  {
+                    'name': 'read_file',
+                    'args': {
+                      'path': 'notes.md',
+                      'offset': step * 3 + i + 1,
+                      'limit': 1,
+                    },
+                  },
+              ],
+          ],
+          'Edit slow': [
+            [
+              {
+                'name': 'terminal',
+                'args': {'command': 'sleep 6'},
+              },
+            ],
+          ],
+        },
+      );
+      originalYaml =
+          ((await client.raw.getConfigRawApiConfigRawGet()).data!
+                  as Map)['yaml']
+              as String;
+      await setConfig('');
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      final dir = Platform.environment['HERMES_DEV_RECORD'];
+      if (dir != null) {
+        File('$dir/recorded-${checkpointsOn ? 'on' : 'off'}.json')
+            .writeAsStringSync(
+              const JsonEncoder.withIndent('  ').convert(recorded),
+            );
+      }
+      // A fresh home's config is only comments, which the dashboard refuses
+      // to save back; an empty mapping is the same configuration.
+      final hadSettings = originalYaml
+          .split('\n')
+          .any((l) => l.trim().isNotEmpty && !l.trimLeft().startsWith('#'));
+      await client.raw.updateConfigRawApiConfigRawPut(
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText: hadSettings ? originalYaml : '{}\n',
+        ),
+      );
+      await model.close(force: true);
+    });
+
+    setUp(() async {
+      if (url == null) return;
+      tap = _GatewayTap(
+        GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url,
+            authRequired: false,
+            api: client,
+          )(),
+        ),
+      );
+      addTearDown(tap.close);
+      scratch = await makeScratch();
+      control
+        ..failSummaries = false
+        ..failStatus = HttpStatus.internalServerError
+        ..summaryDelay = Duration.zero
+        ..summary = 'Earlier turns: files were written and answered.'
+        ..sideCalls.clear();
+      sid = await open();
+    });
+
+    int completed(String id) =>
+        tap.eventsOf(id).where((e) => e.type == 'message.complete').length;
+
+    Future<void> turn(String text, {String? on}) async {
+      final id = on ?? sid;
+      final before = completed(id);
+      await tap.rpc.request('prompt.submit', {'session_id': id, 'text': text});
+      await tap.until(
+        () => completed(id) > before && tap.idleAfterComplete(id),
+        'the turn "$text" to finish',
+      );
+    }
+
+    /// The raw answer of [method], or `{'error': {code, message}}`, kept under
+    /// [rec] for the fixtures when `HERMES_DEV_RECORD` is set.
+    Future<Map<String, Object?>> ask(
+      String method, {
+      Map<String, Object?> params = const {},
+      String? on,
+      String? rec,
+    }) async {
+      Map<String, Object?> out;
+      try {
+        out = {
+          'result': await tap.rpc.request(method, {
+            'session_id': on ?? sid,
+            'profile': 'default',
+            ...params,
+          }),
+        };
+      } on GatewayRpcException catch (e) {
+        out = {
+          'error': {'code': e.code, 'message': e.message},
+        };
+      }
+      if (rec != null) recorded[rec] = out;
+      return out;
+    }
+
+    Map<String, Object?> ok(Map<String, Object?> answer) {
+      expect(answer, contains('result'), reason: '$answer');
+      return (answer['result']! as Map).cast<String, Object?>();
+    }
+
+    ({int code, String message}) refused(Map<String, Object?> answer) {
+      expect(answer, contains('error'), reason: '$answer');
+      final error = (answer['error']! as Map).cast<String, Object?>();
+      return (
+        code: error['code']! as int,
+        message: error['message']! as String,
+      );
+    }
+
+    Future<List<Map<String, Object?>>> rows({String? on, String? rec}) async {
+      final list = ok(await ask('rollback.list', on: on, rec: rec));
+      expect(list['enabled'], isTrue);
+      return [
+        for (final row in list['checkpoints']! as List)
+          (row as Map).cast<String, Object?>(),
+      ];
+    }
+
+    test('a folder that was never checkpointed has nothing to list, diff or '
+        'restore', () async {
+      final bare = await makeScratch();
+      final id = await open(cwd: bare.path);
+      expect(await rows(on: id, rec: 'list_empty'), isEmpty);
+
+      final diff = ok(
+        await ask(
+          'rollback.diff',
+          params: {'hash': 'abc12345'},
+          on: id,
+          rec: 'diff_empty_failure',
+        ),
+      );
+      expect(diff['stat'], '');
+      expect(diff['diff'], '');
+
+      // The very first checkpoint of a backend creates the store; before
+      // it every restore says so, after it an unknown hash is "not found".
+      final storeMade =
+          devHome != null &&
+          File('$devHome/checkpoints/store/HEAD').existsSync();
+      for (final params in [
+        {'hash': 'abc12345'},
+        {'hash': 'abc12345', 'file_path': 'notes.md'},
+      ]) {
+        final answer = ok(
+          await ask(
+            'rollback.restore',
+            params: params,
+            on: id,
+            rec: params.length == 1 ? 'restore_bare_full' : 'restore_bare_file',
+          ),
+        );
+        expect(answer['success'], isFalse);
+        expect(
+          answer['error'],
+          devHome != null && !storeMade
+              ? 'No checkpoints exist for this directory'
+              : anyOf(
+                  'No checkpoints exist for this directory',
+                  "Checkpoint 'abc12345' not found",
+                ),
+        );
+      }
+    }, skip: onSkip);
+
+    test(
+      'two edit turns leave checkpoints at each model step, newest first, '
+      'and a diff reads against the working tree',
+      () async {
+        await turn('Edit one');
+        final one = await rows(rec: 'list_one');
+        expect(one, hasLength(1));
+        expect(
+          one.single.keys,
+          unorderedEquals(['hash', 'timestamp', 'message']),
+        );
+        expect(one.single['hash'], matches(RegExp(r'^[0-9a-f]{40}$')));
+        expect(one.single['message'], 'before patch');
+        expect(
+          DateTime.tryParse(one.single['timestamp']! as String),
+          isNotNull,
+        );
+
+        final small = ok(
+          await ask(
+            'rollback.diff',
+            params: {'hash': one.single['hash']},
+            rec: 'diff_normal',
+          ),
+        );
+        expect(small.keys, containsAll(['stat', 'diff']));
+        expect(small['stat'], contains('notes.md'));
+        expect(small['stat'], contains('1 file changed'));
+        expect(small['diff'] as String, startsWith('diff --git a/notes.md'));
+        expect((small['diff'] as String).length, lessThan(4000));
+        expect(small['rendered'], anyOf(isNull, isA<String>()));
+
+        await turn('Edit two');
+        // One checkpoint per model step that writes a file, not per turn: the
+        // patch and the later write_file of the second turn each made one.
+        final three = await rows(rec: 'list_three');
+        expect(three.map((r) => r['message']), [
+          'before write_file',
+          'before patch',
+          'before patch',
+        ]);
+        expect(three.last['hash'], one.single['hash']);
+
+        final cut = ok(
+          await ask(
+            'rollback.diff',
+            params: {'hash': three.last['hash']},
+            rec: 'diff_cut',
+          ),
+        );
+        expect(cut['diff'] as String, hasLength(4000));
+        expect(cut['stat'], contains('long.md'));
+        expect(cut['stat'], contains('notes.md'));
+        expect(cut['stat'], contains('2 files changed'));
+
+        // Only the file the newest checkpoint lacks: long.md, 400 lines.
+        final newest = ok(
+          await ask('rollback.diff', params: {'hash': three.first['hash']}),
+        );
+        expect(newest['stat'], isNot(contains('notes.md')));
+        expect(newest['stat'], contains('1 file changed, 400 insertions(+)'));
+
+        // A 1-based index is read as a position in the list.
+        final byIndex = ok(await ask('rollback.diff', params: {'hash': '1'}));
+        expect(byIndex['diff'], newest['diff']);
+        final tooFar = refused(
+          await ask(
+            'rollback.diff',
+            params: {'hash': '9'},
+            rec: 'diff_bad_index',
+          ),
+        );
+        expect(tooFar.code, 5022);
+        expect(tooFar.message, 'Invalid checkpoint number. Use 1-3.');
+
+        // The engine swallows a bad hash into an empty diff.
+        final bad = ok(
+          await ask('rollback.diff', params: {'hash': 'deadbeefdeadbeef'}),
+        );
+        expect(bad, {'stat': '', 'diff': ''});
+        expect(refused(await ask('rollback.diff', rec: 'diff_hash_required')), (
+          code: 4014,
+          message: 'hash required',
+        ));
+
+        // The list belongs to the folder: a second chat in it sees it all.
+        final other = await open();
+        expect(
+          (await rows(on: other)).map((r) => r['hash']),
+          three.map((r) => r['hash']),
+        );
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'restoring one file brings it back, leaves the chat alone and saves '
+      'the state it replaced',
+      () async {
+        await turn('Edit one');
+        await turn('Edit two');
+        final before = await rows();
+        final oldest = before.last['hash']! as String;
+        final historyBefore = ok(await ask('session.history'))['count'];
+
+        final restored = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': oldest, 'file_path': 'notes.md'},
+            rec: 'restore_file',
+          ),
+        );
+        expect(restored['success'], isTrue);
+        expect(restored['restored_to'], oldest.substring(0, 8));
+        expect(restored['reason'], 'before patch');
+        expect(restored['file'], 'notes.md');
+        expect(restored['directory'], scratch.path);
+        expect(restored, isNot(contains('history_removed')));
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          '# Plan\nWater the beans\n',
+        );
+        expect(File('${scratch.path}/long.md').existsSync(), isTrue);
+        expect(ok(await ask('session.history'))['count'], historyBefore);
+
+        final after = await rows(rec: 'list_after_restore');
+        expect(after, hasLength(before.length + 1));
+        expect(
+          after.first['message'],
+          'pre-rollback snapshot (restoring to ${oldest.substring(0, 8)})',
+        );
+        expect(
+          after.skip(1).map((r) => r['hash']),
+          before.map((r) => r['hash']),
+        );
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'restoring everything also removes the last turn from the chat',
+      () async {
+        await turn('Edit one');
+        await turn('Edit two');
+        final oldest = (await rows()).last['hash']! as String;
+        final historyBefore = ok(await ask('session.history'))['count'] as int;
+
+        final restored = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': oldest},
+            rec: 'restore_full',
+          ),
+        );
+        expect(restored['success'], isTrue);
+        expect(restored['restored_to'], oldest.substring(0, 8));
+        expect(restored['directory'], scratch.path);
+        final removed = restored['history_removed'];
+        expect(removed, isA<int>());
+        expect(removed as int, greaterThan(0));
+        expect(
+          ok(await ask('session.history'))['count'],
+          historyBefore - removed,
+        );
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          '# Plan\nWater the beans\n',
+        );
+        // Files created after the checkpoint stay.
+        expect(File('${scratch.path}/long.md').existsSync(), isTrue);
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'a restore that cannot run answers success false with a reason',
+      () async {
+        await turn('Edit one');
+        final hash = (await rows()).single['hash']! as String;
+
+        Future<String> error(Map<String, Object?> params, String rec) async {
+          final answer = ok(
+            await ask('rollback.restore', params: params, rec: rec),
+          );
+          expect(answer['success'], isFalse);
+          return answer['error']! as String;
+        }
+
+        expect(
+          await error({'hash': 'deadbeefdeadbeef'}, 'restore_not_found'),
+          "Checkpoint 'deadbeefdeadbeef' not found",
+        );
+        expect(
+          await error({
+            'hash': hash,
+            'file_path': '../x',
+          }, 'restore_path_escapes'),
+          startsWith('File path escapes the working directory via traversal'),
+        );
+        expect(
+          await error({
+            'hash': hash,
+            'file_path': '/etc/passwd',
+          }, 'restore_absolute_path'),
+          startsWith('File path must be relative'),
+        );
+        // The RPC restores with git checkout, so a name the checkpoint lacks is
+        // a git error, not "matched no files".
+        expect(
+          await error({
+            'hash': hash,
+            'file_path': 'missing.md',
+          }, 'restore_failed'),
+          startsWith('Restore failed: error: pathspec'),
+        );
+        expect(
+          refused(await ask('rollback.restore', rec: 'restore_hash_required')),
+          (code: 4014, message: 'hash required'),
+        );
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          contains('Water the beans twice'),
+        );
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'a nested repository is named in the reason, blocks a full restore '
+      'and not a one-file restore',
+      () async {
+        final nested = Directory('${scratch.path}/vendor/lib')
+          ..createSync(recursive: true);
+        File('${nested.path}/a.txt').writeAsStringSync('x\n');
+        for (final args in [
+          ['init', '-q'],
+          ['add', '.'],
+          [
+            '-c',
+            'user.name=Demo',
+            '-c',
+            'user.email=demo@example.invalid',
+            'commit',
+            '-q',
+            '-m',
+            'init',
+          ],
+        ]) {
+          final run = await Process.run('git', ['-C', nested.path, ...args]);
+          expect(run.exitCode, 0, reason: '${run.stderr}');
+        }
+        await turn('Edit one');
+        final list = await rows(rec: 'list_nested');
+        expect(
+          list.single['message'],
+          'before patch [nested git repos not captured: vendor/lib]',
+        );
+        final hash = list.single['hash']! as String;
+
+        final full = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash},
+            rec: 'restore_nested',
+          ),
+        );
+        expect(full['success'], isFalse);
+        expect(
+          full['error'],
+          'Checkpoint contains nested git repositories that were not '
+          'captured (vendor/lib); rollback was not performed',
+        );
+        expect(full['nested_repositories'], ['vendor/lib']);
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          contains('Water the beans twice'),
+        );
+
+        final file = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash, 'file_path': 'notes.md'},
+          ),
+        );
+        expect(file['success'], isTrue);
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'while a reply runs a full restore and a compress answer 4009, a '
+      'one-file restore does not, and the breakdown still reads',
+      () async {
+        await turn('Edit one');
+        final hash = (await rows()).single['hash']! as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Edit slow',
+        });
+        await tap.until(
+          () =>
+              tap.types(sid).contains('tool.start') &&
+              tap
+                  .eventsOf(sid)
+                  .any(
+                    (e) =>
+                        e.type == 'tool.start' &&
+                        e.payload['name'] == 'terminal',
+                  ),
+          'the slow command to start',
+        );
+        final full = refused(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash},
+            rec: 'restore_busy',
+          ),
+        );
+        expect(full.code, 4009);
+        expect(full.message, startsWith('session busy'));
+        final compress = refused(
+          await ask('session.compress', rec: 'compress_busy_replying'),
+        );
+        expect(compress.code, 4009);
+        expect(compress.message, startsWith('session busy'));
+
+        final file = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash, 'file_path': 'notes.md'},
+          ),
+        );
+        expect(file['success'], isTrue);
+        expect(
+          ok(await ask('session.context_breakdown')),
+          contains('categories'),
+        );
+        await tap.until(
+          () => completed(sid) > 1 && tap.idleAfterComplete(sid),
+          'the slow turn to end',
+        );
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'with checkpoints off, edits leave nothing and every call says so',
+      () async {
+        await turn('Edit one');
+        final list = ok(await ask('rollback.list', rec: 'list_off'));
+        expect(list, {'enabled': false, 'checkpoints': <Object?>[]});
+        if (devHome != null) {
+          expect(File('$devHome/checkpoints/store/HEAD').existsSync(), isFalse);
+        }
+        final diff = await ask(
+          'rollback.diff',
+          params: {'hash': 'abc12345'},
+          rec: 'diff_off',
+        );
+        final restore = await ask(
+          'rollback.restore',
+          params: {'hash': 'abc12345', 'file_path': 'notes.md'},
+          rec: 'restore_off',
+        );
+        // What the server answers with the feature off, recorded as it is.
+        expect(ok(diff), {'stat': '', 'diff': ''});
+        expect(ok(restore), {
+          'success': false,
+          'error': 'No checkpoints exist for this directory',
+        });
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          contains('Water the beans twice'),
+        );
+      },
+      skip: offSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'the context breakdown is empty before the agent is built and lists '
+      'the categories that hold something afterwards',
+      () async {
+        final early = ok(
+          await ask('session.context_breakdown', rec: 'breakdown_early'),
+        );
+        expect(early['categories'], isEmpty);
+        expect(early['estimated_total'], 0);
+        expect(early['context_used'], 0);
+        expect(early['context_percent'], 0);
+
+        await turn('Say hi');
+        final breakdown = ok(
+          await ask('session.context_breakdown', rec: 'breakdown_four'),
+        );
+        final categories = [
+          for (final c in breakdown['categories']! as List)
+            (c as Map).cast<String, Object?>(),
+        ];
+        for (final c in categories) {
+          expect(c['id'], isA<String>());
+          expect(c['label'], isA<String>());
+          expect(c['color'], isA<String>());
+          expect(c['tokens'], isA<int>());
+        }
+        // A bare profile fills four of the eight; the rest are dropped at 0.
+        expect(categories.map((c) => c['id']), [
+          'system_prompt',
+          'tool_definitions',
+          'subagent_definitions',
+          'conversation',
+        ]);
+        expect(breakdown['context_max'], 131072);
+        expect(breakdown['model'], 'scripted');
+        expect(breakdown['context_source'], isA<String>());
+        expect(breakdown['context_estimated'], isA<bool>());
+        expect(breakdown['estimated_total'], isA<int>());
+        expect(breakdown['context_percent'], inInclusiveRange(0, 100));
+        expect(breakdown['context_files'], isA<List<Object?>>());
+        expect(breakdown['context_files'] as List, isNotEmpty);
+        for (final file in breakdown['context_files']! as List) {
+          expect(
+            (file as Map).keys,
+            containsAll([
+              'label',
+              'path',
+              'chars',
+              'est_tokens',
+              'loaded',
+              'status',
+            ]),
+          );
+        }
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'rules, memory and MCP tools add their own categories',
+      () async {
+        final mcp = await _serveMinimalMcp();
+        addTearDown(() => mcp.close(force: true));
+        final memories = Directory('$devHome/memories')
+          ..createSync(recursive: true);
+        final memoryFile = File('${memories.path}/MEMORY.md');
+        final original = memoryFile.existsSync()
+            ? memoryFile.readAsStringSync()
+            : null;
+        memoryFile.writeAsStringSync(
+          'The demo garden has six tomato plants.\n',
+        );
+        addTearDown(() {
+          if (original == null) {
+            memoryFile.deleteSync();
+          } else {
+            memoryFile.writeAsStringSync(original);
+          }
+        });
+        File('${scratch.path}/AGENTS.md').writeAsStringSync(
+          '# Rules\nAlways water the beans before planting the onions.\n',
+        );
+        addTearDown(() => setConfig(''));
+        // Tool search would defer the MCP tools out of the request.
+        await setConfig(
+          'tools:\n  tool_search:\n    enabled: "off"\n'
+          'mcp_servers:\n  contract-check-ctx:\n'
+          '    url: "http://127.0.0.1:${mcp.port}/mcp"\n',
+        );
+
+        Map<String, Object?>? last;
+        final deadline = DateTime.now().add(const Duration(seconds: 40));
+        while (DateTime.now().isBefore(deadline)) {
+          final id = await open();
+          await turn('Say hi', on: id);
+          last = ok(
+            await ask(
+              'session.context_breakdown',
+              on: id,
+              rec: 'breakdown_seven',
+            ),
+          );
+          final ids = [
+            for (final c in last['categories']! as List) (c as Map)['id'],
+          ];
+          if (ids.contains('mcp')) break;
+          await Future<void>.delayed(const Duration(seconds: 2));
+        }
+        final ids = [
+          for (final c in last!['categories']! as List) (c as Map)['id'],
+        ];
+        // The skills index never showed up here (see the task notes).
+        expect(
+          ids,
+          containsAll([
+            'system_prompt',
+            'tool_definitions',
+            'rules',
+            'mcp',
+            'subagent_definitions',
+            'memory',
+            'conversation',
+          ]),
+        );
+        final files = [
+          for (final f in last['context_files']! as List) (f as Map)['label'],
+        ];
+        expect(files, contains('AGENTS.md'));
+      },
+      skip: skip ?? (devHome == null ? 'set HERMES_DEV_HOME' : null),
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    group('compress', () {
+      Future<String> longChat({int turns = 2, String suffix = ''}) async {
+        final id = await open();
+        for (var i = 0; i < turns; i++) {
+          await turn('Many reads $i$suffix', on: id);
+        }
+        return id;
+      }
+
+      test(
+        'too few messages is a no-op, with or without any',
+        () async {
+          final none = ok(
+            await ask('session.compress', rec: 'compress_noop_empty'),
+          );
+          expect(none['status'], 'compressed');
+          expect(none['removed'], 0);
+          expect(none['summary'], containsPair('noop', true));
+          expect(
+            (none['summary']! as Map)['headline'],
+            'No changes from compression: 0 messages',
+          );
+          await turn('Say hi');
+          final two = ok(await ask('session.compress', rec: 'compress_noop'));
+          expect(two['before_messages'], 2);
+          expect(two['after_messages'], 2);
+          expect(two['summary'], containsPair('noop', true));
+          expect(
+            (two['summary']! as Map)['headline'],
+            'No changes from compression: 2 messages',
+          );
+          expect(
+            (two['summary']! as Map)['token_line'],
+            matches(
+              RegExp(r'^Approx request size: ~[\d,]+ tokens \(unchanged\)$'),
+            ),
+          );
+          await turn('Say hi');
+          await turn('Say hi');
+          final six = ok(await ask('session.compress'));
+          expect(six['before_messages'], 6);
+          expect(six['summary'], containsPair('noop', true));
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 3)),
+      );
+
+      test(
+        'a long chat compresses in place: status updates, the summary, a '
+        'usage that drops, and the compacted rows kept for include_compacted',
+        () async {
+          final created = await tap.rpc.request('session.create', {
+            'profile': 'default',
+            'source': 'hermes_app',
+            'cwd': scratch.path,
+            'cwd_explicit': true,
+          });
+          final id = created['session_id'] as String;
+          final stored = created['stored_session_id'] as String;
+          addTearDown(
+            () => tap.rpc
+                .request('session.close', {'session_id': id})
+                .then((_) {}, onError: (Object _) {}),
+          );
+          // 91% of the 131,072-token window, as the provider reports it.
+          await turn('Many reads 0 [[tokens=120000]]', on: id);
+          await turn('Many reads 1 [[tokens=120000]]', on: id);
+          final usage = ok(
+            await ask('session.usage', on: id, rec: 'usage_high'),
+          );
+          expect(usage['context_percent'], inInclusiveRange(85, 100));
+          expect(usage['context_max'], 131072);
+          final pushed = [
+            for (final e in tap.eventsOf(id))
+              if (e.type == 'session.usage' || e.type == 'message.complete')
+                ((e.payload['usage'] as Map?)?['context_percent']),
+          ].whereType<int>();
+          expect(pushed.any((p) => p >= 85), isTrue);
+          final breakdown = ok(
+            await ask(
+              'session.context_breakdown',
+              on: id,
+              rec: 'breakdown_high',
+            ),
+          );
+          expect(breakdown['context_percent'], inInclusiveRange(85, 100));
+          final historyBefore = ok(
+            await ask('session.history', on: id),
+          )['count'];
+          final statusBefore = tap.eventsOf(id).length;
+
+          final answer = ok(
+            await ask(
+              'session.compress',
+              params: {'focus_topic': 'the garden notes'},
+              on: id,
+              rec: 'compress_compressed',
+            ),
+          );
+          expect(answer['status'], 'compressed');
+          expect(answer['removed'], greaterThan(0));
+          expect(answer['before_messages'], historyBefore);
+          expect(answer['after_messages'], lessThan(historyBefore as int));
+          expect(answer['before_tokens'], isA<int>());
+          expect(answer['after_tokens'], isA<int>());
+          final summary = (answer['summary']! as Map).cast<String, Object?>();
+          expect(summary['noop'], isFalse);
+          expect(summary['aborted'], isFalse);
+          expect(summary['refused_would_grow'], isFalse);
+          expect(summary['fallback_used'], isFalse);
+          expect(
+            summary['headline'],
+            'Compressed: $historyBefore → ${answer['after_messages']} messages',
+          );
+          expect(
+            summary['token_line'],
+            matches(RegExp(r'^Approx request size: ~[\d,]+ → ~[\d,]+ tokens$')),
+          );
+          expect(answer['messages'], isA<List<Object?>>());
+          expect(answer['info'], isA<Map<String, Object?>>());
+          expect((answer['usage']! as Map)['compressions'], 1);
+
+          // The focus reaches the summarizer.
+          expect(
+            control.sideCalls.any((c) => c.contains('summarization agent')),
+            isTrue,
+          );
+          // Hermes pins `compressing`, reports its own compaction progress
+          // and ends with a plain `status` whose text is `ready`.
+          final statuses = [
+            for (final e in tap.eventsOf(id).skip(statusBefore))
+              if (e.type == 'status.update')
+                (kind: e.payload['kind'], text: e.payload['text']),
+          ];
+          recorded['status_updates'] = [
+            for (final s in statuses) {'kind': s.kind, 'text': s.text},
+          ];
+          expect(statuses.first.kind, 'compressing');
+          expect(statuses.last, (kind: 'status', text: 'ready'));
+          expect(statuses.map((s) => s.kind), contains('compacted'));
+
+          // Right after, the provider's anchor is gone: no context figure
+          // until the next turn, and the breakdown is a local estimate.
+          final after = ok(
+            await ask('session.usage', on: id, rec: 'usage_after'),
+          );
+          expect(after, isNot(contains('context_used')));
+          expect(after['compressions'], 1);
+          final local = ok(
+            await ask(
+              'session.context_breakdown',
+              on: id,
+              rec: 'breakdown_after',
+            ),
+          );
+          expect(local['context_source'], 'local_estimate');
+          expect(local['context_percent'], lessThan(85));
+
+          await turn('Say hi', on: id);
+          final next = ok(await ask('session.usage', on: id));
+          expect(next['context_percent'], lessThan(85));
+
+          // In place: the same stored chat, its default view the compressed
+          // one, the replaced rows only with include_compacted.
+          Future<int> count(bool compacted) async {
+            final response = await client.raw
+                .getSessionMessagesApiSessionsSessionIdMessagesGet(
+                  sessionId: stored,
+                  includeCompacted: compacted,
+                );
+            final data = response.data;
+            final list = data is Map ? data['messages'] ?? data['items'] : data;
+            return (list! as List).length;
+          }
+
+          final compressed = await count(false);
+          final everything = await count(true);
+          expect(compressed, lessThan(everything));
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 4)),
+      );
+
+      test(
+        'a second compress while one runs answers 4009',
+        () async {
+          final id = await longChat();
+          control.summaryDelay = const Duration(seconds: 4);
+          final first = ask('session.compress', on: id);
+          await Future<void>.delayed(const Duration(seconds: 1));
+          final second = refused(
+            await ask(
+              'session.compress',
+              on: id,
+              rec: 'compress_busy_compressing',
+            ),
+          );
+          expect(second.code, 4009);
+          expect(second.message, contains('/compress is running'));
+          // A prompt sent meanwhile is queued, not refused.
+          final prompt = ok(
+            await ask(
+              'prompt.submit',
+              params: {'text': 'Say hi'},
+              on: id,
+              rec: 'prompt_while_compressing',
+            ),
+          );
+          expect(prompt['status'], 'queued');
+          expect(ok(await first)['status'], 'compressed');
+          await tap.until(() => tap.idleAfterComplete(id), 'the queued prompt');
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 4)),
+      );
+
+      test(
+        'a summary that cannot be written aborts, one that is empty aborts, '
+        'one that is larger is refused',
+        () async {
+          var id = await longChat();
+          control
+            ..failSummaries = true
+            ..failStatus = HttpStatus.unauthorized;
+          final denied = ok(
+            await ask('session.compress', on: id, rec: 'compress_aborted'),
+          );
+          control.failSummaries = false;
+          expect(denied['status'], 'aborted');
+          expect(denied['removed'], 0);
+          expect(denied['before_messages'], denied['after_messages']);
+          expect(denied['summary'], containsPair('aborted', true));
+          expect((denied['summary']! as Map)['note'], contains('Reason:'));
+
+          id = await longChat();
+          control.summary = '';
+          final empty = ok(await ask('session.compress', on: id));
+          expect(empty['status'], 'aborted');
+          expect(empty['summary'], containsPair('aborted', true));
+
+          id = await longChat();
+          control.summary = 'x' * 200000;
+          final grown = ok(
+            await ask(
+              'session.compress',
+              on: id,
+              rec: 'compress_refused_would_grow',
+            ),
+          );
+          expect(grown['status'], 'compressed');
+          expect(grown['removed'], 0);
+          expect(grown['summary'], containsPair('refused_would_grow', true));
+          expect(grown['summary'], containsPair('noop', true));
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 5)),
+      );
+
+      test(
+        'a failing summary on a short chat is refused with the fallback '
+        'flagged',
+        () async {
+          final id = await longChat(turns: 1);
+          control.failSummaries = true;
+          final answer = ok(
+            await ask(
+              'session.compress',
+              on: id,
+              rec: 'compress_fallback_refused',
+            ),
+          );
+          expect(answer['status'], 'compressed');
+          expect(answer['removed'], 0);
+          final summary = (answer['summary']! as Map).cast<String, Object?>();
+          expect(summary['refused_would_grow'], isTrue);
+          expect(summary['fallback_used'], isTrue);
+          expect(summary['note'], contains('Reason:'));
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 3)),
+      );
+    });
+
+    test(
+      'the app reads the real answers: list, changes, restore, breakdown and '
+      'compress through the gateway transport',
+      () async {
+        final transport = HermesGatewayTransport(
+          connect: hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          ),
+        );
+        addTearDown(transport.close);
+        final workspace = WorkspaceChoice(path: scratch.path);
+        Future<String> send(String text, [String? thread]) async {
+          final events = await transport
+              .send(
+                profile: 'default',
+                text: text,
+                threadId: thread,
+                workspace: workspace,
+              )
+              .toList();
+          return thread ?? events.whereType<ThreadBound>().first.threadId;
+        }
+
+        final thread = await send('Edit one');
+        addTearDown(
+          () =>
+              HermesChatRepository(client.raw)
+                  .deleteThread(thread, profile: 'default'),
+        );
+        final binding = transport.ownedSessionFor(thread, profile: 'default')!;
+
+        final early = await transport.contextBreakdown(binding);
+        expect(early, isA<Breakdown>());
+        final breakdown = early as Breakdown;
+        expect(breakdown.categories, isNotEmpty);
+        expect(breakdown.max, 131072);
+        expect(breakdown.model, 'scripted');
+        final sizes = breakdown.categories.map((c) => c.tokens).toList();
+        expect(
+          sizes,
+          orderedEquals(<int>[...sizes]..sort((a, b) => b.compareTo(a))),
+        );
+
+        if (checkpointsOn) {
+          await send('Edit two', thread);
+          final list = await transport.listCheckpoints(binding);
+          expect(list, isA<CheckpointsOn>());
+          final on = list as CheckpointsOn;
+          expect(on.checkpoints, hasLength(3));
+          expect(on.checkpoints.map((c) => c.reason), [
+            CheckpointReason.beforeEdit,
+            CheckpointReason.beforeEdit,
+            CheckpointReason.beforeEdit,
+          ]);
+          expect(on.checkpoints.every((c) => c.timestamp != null), isTrue);
+
+          final changes = await transport.checkpointChanges(
+            binding,
+            on.checkpoints.last.hash,
+          );
+          expect(changes, isA<Changes>());
+          final files = (changes as Changes).files;
+          expect(
+            files.map((f) => f.path),
+            unorderedEquals(['long.md', 'notes.md']),
+          );
+          expect(changes.truncated, isTrue);
+          expect(files.every((f) => f.restorable), isTrue);
+          expect(
+            files.firstWhere((f) => f.path == 'notes.md').changes,
+            isNotNull,
+          );
+
+          final one = await transport.restoreCheckpoint(
+            thread,
+            profile: 'default',
+            hash: on.checkpoints.last.hash,
+            filePath: 'notes.md',
+          );
+          expect(one, isA<Restored>());
+          expect((one as Restored).historyRemoved, 0);
+
+          final all = await transport.restoreCheckpoint(
+            thread,
+            profile: 'default',
+            hash: on.checkpoints.last.hash,
+          );
+          expect(all, isA<Restored>());
+          expect((all as Restored).historyRemoved, greaterThan(0));
+
+          final snapshots =
+              ((await transport.listCheckpoints(binding)) as CheckpointsOn)
+                  .checkpoints
+                  .where((c) => c.reason == CheckpointReason.beforeRestore)
+                  .toList();
+          expect(snapshots, isNotEmpty);
+          expect(
+            snapshots.map((c) => c.restoredFrom),
+            everyElement(on.checkpoints.last.hash.substring(0, 8)),
+          );
+        } else {
+          expect(
+            await transport.listCheckpoints(binding),
+            isA<CheckpointsOff>(),
+          );
+        }
+
+        await send('Many reads a', thread);
+        await send('Many reads b', thread);
+        final compressed = await transport.compressSession(
+          thread,
+          profile: 'default',
+          focus: 'the garden notes',
+        );
+        expect(compressed, isA<Compressed>());
+        expect((compressed as Compressed).beforeMessages, isNotNull);
+        expect(compressed.afterMessages, lessThan(compressed.beforeMessages!));
+        expect(compressed.fallbackUsed, isFalse);
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 6)),
+    );
+
+    // Last: Hermes keeps the terminal backend of the first docker session in
+    // its environment for the life of the process, so later chats of this
+    // backend would not be checkpointed.
+    test(
+      'a container backend lists, but refuses a diff with 5022 and a restore '
+      'with success false',
+      () async {
+        await turn('Edit one');
+        final hash = (await rows()).single['hash']! as String;
+        addTearDown(() => setConfig(''));
+        await setConfig('terminal:\n  backend: docker\n');
+        final id = await open();
+        expect(await rows(on: id), hasLength(greaterThanOrEqualTo(1)));
+        const refusal =
+            'Checkpoints are not taken for terminal.backend=docker: file '
+            'paths belong to the container, not this host.';
+        expect(
+          refused(
+            await ask(
+              'rollback.diff',
+              params: {'hash': hash},
+              on: id,
+              rec: 'diff_container',
+            ),
+          ),
+          (code: 5022, message: refusal),
+        );
+        final restore = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash},
+            on: id,
+            rec: 'restore_container',
+          ),
+        );
+        expect(restore, {'success': false, 'error': refusal});
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+  });
 }
 
 /// Just enough of an OAuth provider for Hermes to start a sign-in against: an
@@ -4110,10 +6993,47 @@ Future<HttpServer> _serveMinimalMcp() async {
   return server;
 }
 
+/// What a scripted model does next, and what it was asked, for the tests that
+/// change it between turns.
+class _ScriptControl {
+  /// Answer Hermes' own summary calls (no tools) with a server error, so a
+  /// compression cannot write its summary.
+  bool failSummaries = false;
+
+  /// The HTTP status a failing summary call answers with.
+  int failStatus = HttpStatus.internalServerError;
+
+  /// What the model answers a summary call with.
+  String summary = 'Earlier turns: files were written and answered.';
+
+  /// How long a summary call waits before it answers.
+  Duration summaryDelay = Duration.zero;
+
+  /// The first 200 characters of the last message of each request that
+  /// carried no tools, in order.
+  final sideCalls = <String>[];
+}
+
 /// An OpenAI-compatible model that answers a prompt containing "Clean up"
-/// with one terminal call running [command], and anything else, including the
-/// call's result and Hermes' own side calls, with a plain line.
-Future<HttpServer> _serveScriptedModel({required String command}) async {
+/// with one terminal call running [command], a prompt containing a key of
+/// [scripts] with that key's steps (each a list of tool calls,
+/// `{'name': …, 'args': {…}}`, answered one step per model request of the
+/// turn), and anything else, including the call's result and Hermes' own
+/// side calls, with a plain line. A `[[tokens=N]]` in the newest user message
+/// makes the answer report N prompt tokens, which is what Hermes anchors its
+/// context meter to.
+///
+/// Two more prompts script the agent-control checks: "Delegate" answers with
+/// a `delegate_task` call holding two goals, and "Run background" with a
+/// background `terminal` call (`sleep 300`). A delegated child, told apart by
+/// its system prompt ("focused subagent"), runs `terminal` `sleep 30` on its
+/// first turn and answers plainly after the tool's result.
+Future<HttpServer> _serveScriptedModel({
+  String? command,
+  Map<String, List<List<Map<String, Object?>>>> scripts = const {},
+  _ScriptControl? control,
+  void Function(String? authorization, List<String> tools)? onTurn,
+}) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
     final response = request.response;
@@ -4122,6 +7042,10 @@ Future<HttpServer> _serveScriptedModel({required String command}) async {
       response.write(
         jsonEncode({
           'object': 'list',
+          // LM Studio's own listing (`/api/v1/models`) reads `models`.
+          'models': [
+            {'key': 'scripted', 'type': 'llm'},
+          ],
           'data': [
             {'id': 'scripted', 'object': 'model', 'context_length': 131072},
           ],
@@ -4130,32 +7054,116 @@ Future<HttpServer> _serveScriptedModel({required String command}) async {
       await response.close();
       return;
     }
-    final body = jsonDecode(
-      await utf8.decoder.bind(request).join(),
-    ) as Map<String, dynamic>;
+    // Hermes also probes the endpoint (`/models/<id>`, `/api/show`); only a
+    // chat request carries a body.
+    final raw = await utf8.decoder.bind(request).join();
+    final decoded = raw.startsWith('{') ? jsonDecode(raw) : null;
+    if (decoded is! Map<String, dynamic> || decoded['messages'] is! List) {
+      response.statusCode = HttpStatus.notFound;
+      await response.close();
+      return;
+    }
+    final body = decoded;
+    onTurn?.call(request.headers.value('authorization'), [
+      for (final tool in (body['tools'] as List?) ?? const [])
+        ?((tool as Map)['function'] as Map?)?['name'] as String?,
+    ]);
     final messages = (body['messages'] as List).cast<Map<String, dynamic>>();
     final last = messages.last;
+    final userTurn = last['role'] == 'user';
+    final lastText = jsonEncode(last['content']);
+    final isChild = jsonEncode(messages.first['content'])
+        .contains('focused subagent');
+    final childFirstTurn = isChild && !messages.any((m) => m['role'] == 'tool');
+    final canCall = body['tools'] != null;
+    final cleanUp =
+        command != null && canCall && userTurn && lastText.contains('Clean up');
+    final delegate =
+        canCall && !isChild && userTurn && lastText.contains('Delegate');
+    final background =
+        canCall && !isChild && userTurn && lastText.contains('Run background');
+    final userAt = messages.lastIndexWhere((m) => m['role'] == 'user');
+    final stepsDone = messages
+        .skip(userAt + 1)
+        .where((m) => m['role'] == 'assistant')
+        .length;
+    final userText = userAt < 0 ? '' : jsonEncode(messages[userAt]['content']);
+    if (!canCall) {
+      final head = lastText.length > 200
+          ? lastText.substring(0, 200)
+          : lastText;
+      control?.sideCalls.add(head);
+      if (control != null && control.summaryDelay > Duration.zero) {
+        await Future<void>.delayed(control.summaryDelay);
+      }
+      if (control != null && control.failSummaries) {
+        response.statusCode = control.failStatus;
+        response.headers.contentType = ContentType.json;
+        response.write(
+          jsonEncode({
+            'error': {'message': 'provider failure'},
+          }),
+        );
+        await response.close();
+        return;
+      }
+    }
+    var scripted = <Map<String, Object?>>[];
+    if (canCall && !isChild && userAt >= 0) {
+      for (final MapEntry(:key, :value) in scripts.entries) {
+        if (userText.contains(key) && stepsDone < value.length) {
+          scripted = value[stepsDone];
+        }
+      }
+    }
     final callTool =
-        body['tools'] != null &&
-        last['role'] == 'user' &&
-        jsonEncode(last['content']).contains('Clean up');
+        cleanUp ||
+        delegate ||
+        background ||
+        (canCall && childFirstTurn) ||
+        scripted.isNotEmpty;
+    Map<String, Object?> call(String id, String name, Object arguments) => {
+      'id': id,
+      'type': 'function',
+      'function': {'name': name, 'arguments': jsonEncode(arguments)},
+    };
     final calls = [
-      if (callTool)
-        {
-          'id': 'call_scripted',
-          'type': 'function',
-          'function': {
-            'name': 'terminal',
-            'arguments': jsonEncode({'command': command}),
-          },
-        },
+      if (cleanUp) call('call_scripted', 'terminal', {'command': command}),
+      if (delegate)
+        call('call_delegate', 'delegate_task', {
+          'tasks': [
+            {'goal': 'Count the apples in the demo crate'},
+            {'goal': 'Count the pears in the demo crate'},
+          ],
+        }),
+      if (background)
+        call('call_background', 'terminal', {
+          'command': 'echo ready on demo port; sleep 300',
+          'background': true,
+        }),
+      if (canCall && childFirstTurn)
+        call('call_child', 'terminal', {'command': 'sleep 30'}),
+      for (final (i, step) in scripted.indexed)
+        call('call_scripted_$i', step['name']! as String, step['args']!),
     ];
-    final content = callTool ? null : 'Done.';
+    final content = callTool
+        ? null
+        : body['tools'] == null
+        ? control?.summary ?? 'Done.'
+        : 'Done.';
     final finish = callTool ? 'tool_calls' : 'stop';
-    const usage = {
-      'prompt_tokens': 10,
+    final newestUser = messages.lastWhere(
+      (m) => m['role'] == 'user',
+      orElse: () => const {},
+    );
+    final tokens = RegExp(r'\[\[tokens=(\d+)\]\]')
+        .firstMatch(jsonEncode(newestUser['content']))
+        ?.group(1);
+    final promptTokens = tokens == null ? 10 : int.parse(tokens);
+    final usage = {
+      'prompt_tokens': promptTokens,
       'completion_tokens': 10,
-      'total_tokens': 20,
+      'total_tokens': promptTokens + 10,
     };
     if (body['stream'] != true) {
       response.headers.contentType = ContentType.json;
@@ -4248,9 +7256,9 @@ class _GatewayTap {
   }
 
   /// Waits until [condition] holds, and fails naming [what] when it does not
-  /// within two minutes.
+  /// within a minute.
   Future<void> until(bool Function() condition, String what) async {
-    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    final deadline = DateTime.now().add(const Duration(seconds: 60));
     while (!condition()) {
       if (DateTime.now().isAfter(deadline)) {
         fail('timed out waiting for $what');

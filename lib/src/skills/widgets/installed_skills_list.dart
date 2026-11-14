@@ -4,6 +4,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/state_message.dart';
+import '../../widgets/whats_the_difference_link.dart';
 import '../hermes_skills_repository.dart';
 import '../skills_controller.dart';
 import 'skill_badges.dart';
@@ -20,6 +21,7 @@ class InstalledSkillsList extends StatelessWidget {
     required this.onClearFilters,
     this.onCheckForUpdates,
     this.updating = false,
+    this.onWhatsTheDifference,
   });
 
   final List<SkillGroup> groups;
@@ -33,6 +35,10 @@ class InstalledSkillsList extends StatelessWidget {
   /// Whether a hub job runs, which keeps the update row closed.
   final bool updating;
 
+  /// Opens the explanation of tools, skills, plugins and MCP servers; the link
+  /// that ends the list. Null leaves it out.
+  final VoidCallback? onWhatsTheDifference;
+
   @override
   Widget build(BuildContext context) {
     if (groups.isEmpty) {
@@ -45,6 +51,7 @@ class InstalledSkillsList extends StatelessWidget {
       );
     }
     final onCheckForUpdates = this.onCheckForUpdates;
+    final onWhatsTheDifference = this.onWhatsTheDifference;
     return GroupedListView(
       children: [
         for (final group in groups)
@@ -65,6 +72,8 @@ class InstalledSkillsList extends StatelessWidget {
           ),
         if (onCheckForUpdates != null)
           SkillUpdatesSection(onPressed: updating ? null : onCheckForUpdates),
+        if (onWhatsTheDifference != null)
+          WhatsTheDifferenceFooter(onTap: onWhatsTheDifference),
       ],
     );
   }

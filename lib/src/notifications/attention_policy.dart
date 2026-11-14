@@ -1,4 +1,6 @@
 import 'package:characters/characters.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
@@ -14,6 +16,14 @@ const kQuestionBody = 'Has a question for you';
 const kNeedsYouBody = 'Waiting for you in Hermes';
 const kAnswerFailedBody = "Couldn't send your answer. Open Hermes to answer.";
 const kOpenToAnswerBody = 'Open Hermes to answer.';
+
+/// What the endings of an inline reply say (see `inline_reply.dart`). Fixed
+/// text, never the reply itself.
+const kReplyNotSentKeptBody = 'Reply not sent. Open Hermes to try again.';
+const kReplyNotSentBody = 'Reply not sent. Open Hermes to write it again.';
+const kReplyUnconfirmedBody =
+    "Couldn't confirm your reply was sent. Open Hermes to check.";
+const kOpenToReplyBody = 'Open Hermes to reply.';
 
 /// The most characters of a command or a question a request notification
 /// shows.
@@ -32,6 +42,10 @@ class AttentionNotification {
     this.prompt,
     this.bodyIsPlainText = false,
     this.isMessage = false,
+    this.draft,
+    this.accountHash,
+    this.payloadProfile = true,
+    this.offersReply = false,
   }) : jobId = null;
 
   /// A scheduled task's run. It replaces an earlier notification for the same
@@ -47,7 +61,11 @@ class AttentionNotification {
        bodyIsPlainText = false,
        isMessage = false,
        needsInput = false,
-       prompt = null;
+       prompt = null,
+       draft = null,
+       accountHash = null,
+       offersReply = false,
+       payloadProfile = true;
 
   /// Names the notification: the chat's id, or `job:<id>` for a task, so the
   /// two never replace each other.
@@ -83,6 +101,25 @@ class AttentionNotification {
   /// new chat with it in the composer, unsent. Only the payload holds it, the
   /// notification does not show it.
   final String? prompt;
+
+  /// The text of an inline reply that was not sent, for the chat's composer
+  /// when the notification is tapped; only the payload holds it (`'u'`). Set
+  /// together with [accountHash].
+  final String? draft;
+
+  /// The account [draft] was typed in (`accountHashFor`), the payload's
+  /// `'a'`.
+  final String? accountHash;
+
+  /// A completed reply that can be answered from the notification: the
+  /// payload carries the `'y'` marker, the chat's title and [accountHash],
+  /// and [category] holds the Reply action.
+  final bool offersReply;
+
+  /// Whether the payload names [profile]. [profile] still sets the id, so the
+  /// notification replaces the chat's; an ending that must carry no more than
+  /// the chat id leaves it out.
+  final bool payloadProfile;
 
   /// Whether the agent is blocked on the user, which is what may break
   /// through a Focus.
@@ -125,17 +162,24 @@ AttentionNotification? attentionFor({
   required bool enabled,
   String? profile,
   bool appLock = false,
+  String? accountKey,
+  TargetPlatform? platform,
 }) {
   if (!enabled) return null;
   if (appFocused && selectedThreadId == thread.id) return null;
+  if (event case ReplyCompleted(stopped: false, :final text, :final failed)) {
+    return replyReadyNotification(
+      threadId: thread.id,
+      title: thread.title,
+      text: text,
+      profile: profile,
+      failed: failed,
+      appLock: appLock,
+      accountKey: accountKey,
+      platform: platform,
+    );
+  }
   final body = switch (event) {
-    ReplyCompleted(stopped: true) => null,
-    ReplyCompleted(:final text, :final failed) =>
-      failed
-          ? kReplyFailedBody
-          : appLock || replyPreview(text).isEmpty
-          ? kReplyReadyBody
-          : replyPreview(text),
     ApprovalRequested() when appLock => kApprovalBody,
     ClarifyRequested() when appLock => kQuestionBody,
     ApprovalRequested(:final request) => _requestBody([
@@ -160,15 +204,11 @@ AttentionNotification? attentionFor({
     threadId: thread.id,
     title: thread.title,
     body: body,
-    bodyIsPlainText: event is ReplyCompleted,
     profile: profile,
     needsInput: event is VaultRequested || event is UnsupportedRequested,
-    category: switch (event) {
-      ReplyCompleted(failed: true) => replyFailedCategory,
-      ReplyCompleted() => replyReadyCategory,
-      _ =>
-        request == null ? null : requestCategoryFor(request, appLock: appLock),
-    },
+    category: request == null
+        ? null
+        : requestCategoryFor(request, appLock: appLock),
     request: request == null || appLock
         ? null
         : pendingRequestFor(
@@ -179,6 +219,53 @@ AttentionNotification? attentionFor({
               _ => false,
             },
           ),
+  );
+}
+
+/// The notification for a reply that ended, [failed] or not, in the chat
+/// [threadId]: the one place that chooses its words, its category and its
+/// payload, for the app in front and for a background check alike. While
+/// [appLock] is on the body stays generic.
+///
+/// A completed reply in a chat offers the Reply action when [accountKey], the
+/// key of the signed-in account (null when nobody is), is given and [appLock]
+/// is off. [appLock] must already count an App Lock that has not loaded as
+/// on, and only on iOS and macOS ([platform] defaults to the running one).
+/// Every other case keeps the plain category and payload.
+AttentionNotification replyReadyNotification({
+  required String threadId,
+  required String title,
+  required String text,
+  String? profile,
+  bool failed = false,
+  bool appLock = false,
+  String? accountKey,
+  TargetPlatform? platform,
+}) {
+  final target = platform ?? defaultTargetPlatform;
+  final offersReply =
+      (target == TargetPlatform.iOS || target == TargetPlatform.macOS) &&
+      !failed &&
+      !appLock &&
+      threadId.isNotEmpty &&
+      accountKey != null;
+  return AttentionNotification(
+    threadId: threadId,
+    title: title,
+    body: failed
+        ? kReplyFailedBody
+        : appLock || replyPreview(text).isEmpty
+        ? kReplyReadyBody
+        : replyPreview(text),
+    bodyIsPlainText: true,
+    profile: profile,
+    category: failed
+        ? replyFailedCategory
+        : offersReply
+        ? replyReadyActionCategory
+        : replyReadyCategory,
+    offersReply: offersReply,
+    accountHash: offersReply ? accountHashFor(accountKey) : null,
   );
 }
 

@@ -12,7 +12,7 @@ The app SHALL offer a Files page for a chat from the Activity panel's "This sess
 #### Scenario: New chat without a session
 
 - **WHEN** the user opens Files in a new chat that has not been sent yet
-- **THEN** the page lists the folder `GET /api/fs/default-cwd` returned
+- **THEN** the page lists the folder picked for it, else the one the workspace catalog's `default_cwd` names for the chat's profile when the catalog is already read (a `~` pick expanded with the catalog's home), else the folder `GET /api/fs/default-cwd` returned
 
 #### Scenario: Go into a folder and back
 
@@ -41,7 +41,7 @@ The app SHALL offer a Files page for a chat from the Activity panel's "This sess
 
 #### Scenario: Local profile without its own folder
 
-- **WHEN** a new chat on a local profile gets the dashboard's folder from `default-cwd`
+- **WHEN** a new chat on a local profile gets the dashboard's folder from `default-cwd` because the catalog has no `default_cwd`
 - **THEN** the page says "Working folder of the server" above the list
 
 ### Requirement: Highest folder
@@ -266,6 +266,11 @@ The page SHALL show a labelled loading state, an empty state with the one action
 
 - **WHEN** the folder cannot be read
 - **THEN** the page says "Can't reach your Hermes server." with Try again, "This folder no longer exists." with Up, "Hermes can't read this folder." (EACCES or 403), or on a locked deployment "Hermes only shares files from a fixed folder on this server."
+
+#### Scenario: Boundary refusal below a folder that listed
+
+- **WHEN** the server answers 403 "outside the managed read boundary" for a path inside a folder that has listed successfully
+- **THEN** it reads as "not allowed" (the file's own refusal); a path outside every listed folder, such as a git root above the files root, still reads as the fixed folder. A path outside the highest folder is never requested and reads as outside
 
 #### Scenario: File failures
 

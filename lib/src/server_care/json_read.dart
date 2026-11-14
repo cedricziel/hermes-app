@@ -11,6 +11,17 @@ Map<String, dynamic>? readMap(Object? value) {
 
 String? readString(Object? value) => value is String ? value : null;
 
+/// A version string, or null when Hermes reports none: an empty text or the
+/// word "unknown" (what a checkout without version metadata answers) is not
+/// a version to show.
+String? readVersion(Object? value) {
+  final text = readString(value)?.trim();
+  if (text == null || text.isEmpty || text.toLowerCase() == 'unknown') {
+    return null;
+  }
+  return text;
+}
+
 bool? readBool(Object? value) => value is bool ? value : null;
 
 int? readInt(Object? value) {

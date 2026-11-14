@@ -41,6 +41,7 @@ class DoctorReport {
   const DoctorReport({
     this.sections = const [],
     this.fixes = const [],
+    this.trailing = const [],
     this.allPassed = false,
     this.unknownLines = 0,
   });
@@ -49,6 +50,9 @@ class DoctorReport {
 
   /// The numbered lines after "Found N issue(s) to address:".
   final List<String> fixes;
+
+  /// Lines after "Found N issue(s)" that are not numbered fixes, as written.
+  final List<String> trailing;
   final bool allPassed;
 
   /// How many lines no rule matched.
@@ -63,10 +67,70 @@ class DoctorReport {
     (n, s) => n + s.items.where((i) => i.kind == kind).length,
   );
 
-  static final _ansi = RegExp(r'\x1B\[[0-9;?]*[ -/]*[@-~]');
+  // Escape sequences: strings that end at BEL or ST (OSC such as hyperlinks;
+  // DCS, SOS, PM, APC), then CSI, then any other ESC and one character. An
+  // unterminated string runs to the end of the line.
+  static final _escapes = RegExp(
+    r'\x1B\][^\x07\x1B]*(?:\x07|\x1B\\|$)'
+    r'|\x1B[PX^_][^\x1B]*(?:\x1B\\|$)'
+    r'|\x1B\[[0-9;?]*[ -/]*[@-~]'
+    r'|\x1B[@-Z\\-_=>]',
+  );
+
+  /// [line] as the report reads it: no escape sequences, no control
+  /// characters (a tab stays), no emoji selectors, no trailing space. What a
+  /// person sees and what is copied from it is this one string.
+  static String clean(String line) => line
+      .replaceAll(_escapes, '')
+      // Controls move or hide text; format characters (bidi controls,
+      // zero-width spaces and joiners) and emoji selectors draw nothing or
+      // reorder it, so what is shown and what is copied could differ.
+      .replaceAll(
+        RegExp(r'[\x00-\x08\x0A-\x1F\x7F-\x9F\p{Cf}  ︎️]', unicode: true),
+        '',
+      )
+      .trimRight();
+
+  /// The cleaned, non-empty [lines] that [report] does not account for: not
+  /// a rule, not the "Found N issue(s)" line and not a numbered fix it
+  /// listed. Shown as written when the output had no sections to put them in.
+  static List<String> leftover(List<String> lines, DoctorReport report) {
+    final fixes = report.fixes.toSet();
+    final out = <String>[];
+    var afterFound = false;
+    for (final raw in lines) {
+      final line = clean(raw);
+      final text = line.trim();
+      if (text.isEmpty || _rule.hasMatch(text) || _chatter.hasMatch(text)) {
+        continue;
+      }
+      if (_found.hasMatch(text)) {
+        afterFound = true;
+        continue;
+      }
+      if (afterFound && _tip.hasMatch(text)) continue;
+      final fix = _numbered.firstMatch(line)?.group(1);
+      if (fix != null && fixes.contains(fix)) continue;
+      out.add(text);
+    }
+    return out;
+  }
+
   static final _header = RegExp(r'^=== doctor started\b');
   static final _found = RegExp(r'Found \d+ issue', caseSensitive: false);
   static final _numbered = RegExp(r'^\s*\d+\.\s+(.*\S)\s*$');
+
+  /// The progress line of the connectivity checks, which says nothing about
+  /// the setup.
+  static final _chatter = RegExp(
+    r'^Running \d+ (connectivity )?checks?\b',
+    caseSensitive: false,
+  );
+
+  /// The closing tip about `hermes doctor --fix`, which the page explains
+  /// itself (the app never runs it). Dropped only after the "Found N
+  /// issue(s)" line: a `Tip:` line inside a section is output to show.
+  static final _tip = RegExp(r'^Tip:', caseSensitive: false);
   static final _rule = RegExp(r'^[\s─━═\-=_*│|┌┐└┘├┤┬┴┼╔╗╚╝╠╣╦╩╬+]+$');
 
   /// Reads the lines of a doctor run: only those after the last
@@ -77,6 +141,7 @@ class DoctorReport {
 
     final sections = <DoctorSection>[];
     final fixes = <String>[];
+    final trailing = <String>[];
     var allPassed = false;
     var unknown = 0;
     var inFixes = false;
@@ -95,12 +160,11 @@ class DoctorReport {
     }
 
     for (final raw in run) {
-      final line = raw
-          .replaceAll(_ansi, '')
-          .replaceAll(RegExp('[\u200D\uFE0E\uFE0F]'), '')
-          .trimRight();
+      final line = clean(raw);
       final text = line.trim();
-      if (text.isEmpty || _rule.hasMatch(text)) continue;
+      if (text.isEmpty || _rule.hasMatch(text) || _chatter.hasMatch(text)) {
+        continue;
+      }
       if (text.toLowerCase().contains('all checks passed')) {
         allPassed = true;
         continue;
@@ -109,11 +173,13 @@ class DoctorReport {
         inFixes = true;
         continue;
       }
+      if (inFixes && _tip.hasMatch(text)) continue;
       if (inFixes) {
         final m = _numbered.firstMatch(line);
         if (m != null) {
           fixes.add(m.group(1)!);
         } else {
+          trailing.add(text);
           unknown++;
         }
         continue;
@@ -158,6 +224,7 @@ class DoctorReport {
     return DoctorReport(
       sections: sections,
       fixes: fixes,
+      trailing: trailing,
       allPassed: allPassed,
       unknownLines: unknown,
     );

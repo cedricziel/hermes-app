@@ -8,6 +8,7 @@ import '../models/model_provider_option.dart';
 import '../models/moa_setup.dart';
 import '../models/widgets/model_picker.dart';
 import '../theme/platform_chrome.dart';
+import '../tools/widgets/tools_difference_sheet.dart';
 import '../widgets/content_column.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
@@ -193,6 +194,7 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
               onTap: _open,
               moa: _moa,
               onTapMoa: _moa?.privacyFilterOn ?? false ? null : _openMoa,
+              onWhatsTheDifference: () => showToolsDifferenceSheet(context),
             ),
     );
   }

@@ -63,6 +63,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
   SecretFieldsLock? _lockWatch;
 
   String get _name => widget.toolset.name;
+  String get _ownerKey => 'setup:$_name';
 
   @override
   void initState() {
@@ -70,15 +71,25 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     // Open when the toolset needs setup, and it stays open when what the
     // user does there sets it up.
     _setup = widget.env.registry.setup(_name)..addListener(_onSetup);
+    // The layout may have built this panel before the one it replaces is
+    // disposed: from here on this one owns what the controller shows.
+    widget.env.registry.claim(_ownerKey, this);
+    _prevKeys = _setup.keysState;
     // A result that waited for the user (a save that ended while another
     // toolset was open) shows open.
     _expanded =
         !widget.toolset.configured ||
         _setup.keysState != ToolsetKeysState.idle ||
         _setup.providerState != ToolsWriteState.idle ||
-        _setup.modelState != ToolsWriteState.idle;
+        _setup.modelState != ToolsWriteState.idle ||
+        _setup.hasTypedKeys;
     _lockWatch = SecretFieldsLock(widget.env.lock, () => _setup.clearKeys());
-    unawaited(_setup.load());
+    // After this frame: the read tells every panel that shows the controller
+    // (the one this replaces may still be mounted), and a panel cannot be
+    // rebuilt while another builds.
+    scheduleMicrotask(() {
+      if (mounted) unawaited(_setup.load());
+    });
     widget.env.refresh.add(_refresh);
     widget.env.refresh.addClear(_clearTyped);
     _installs.addListener(_onInstalls);
@@ -94,15 +105,20 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     _lockWatch?.dispose();
     _closeModelSheet();
     final state = _installs.state;
-    final showed = _handledEnd != null && identical(state, _handledEnd);
+    // A panel that another one replaced does not own the controller any
+    // more: what it shows now belongs to the new panel.
+    final owner = widget.env.registry.release(_ownerKey, this);
+    final showed =
+        owner && _handledEnd != null && identical(state, _handledEnd);
     // The controller stays with the screen: a write goes on and its result
     // waits here. What was typed goes.
-    _setup
-      ..removeListener(_onSetup)
-      ..clearKeys(notify: false);
-    // Seen: a later visit starts clean. A write still running keeps its
-    // result for the user's return.
-    if (!_writing) _setup.acknowledge();
+    _setup.removeListener(_onSetup);
+    if (owner) {
+      _setup.clearKeys(notify: false);
+      // Seen: a later visit starts clean. A write still running keeps its
+      // result for the user's return.
+      if (!_writing) _setup.acknowledge();
+    }
     for (final field in _fields.values) {
       field
         ..clear()
@@ -138,8 +154,12 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
   /// toolset's own switch is being written.
   bool get _locked => _writing || widget.env.locked;
 
-  TextEditingController _field(String key) =>
-      _fields.putIfAbsent(key, TextEditingController.new);
+  /// A field starts with what the controller holds for it, which is only
+  /// something when this panel replaced one that had it typed.
+  TextEditingController _field(String key) => _fields.putIfAbsent(
+    key,
+    () => TextEditingController(text: _setup.typedValue(key)),
+  );
 
   void _onSetup() {
     if (!mounted) return;
@@ -201,6 +221,9 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     if (!confirmed || !mounted) return;
     // The answer was for the profile the question was asked about.
     if (widget.env.repository.profile != repository.profile) return;
+    // A write may have started while the question was open (a key save, a
+    // switch, a pick or an install from elsewhere): nothing runs on top.
+    if (_installs.busy || _locked) return;
     await _installs.startConfirmed(repository, _name, key);
   }
 
@@ -399,7 +422,8 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
             label: env.prompt,
             controller: _field(env.key),
             isSet: env.isSet,
-            replacing: _replacing.contains(env.key),
+            replacing:
+                _replacing.contains(env.key) || _setup.typedLength(env.key) > 0,
             hasLink: toolsWebLink(env.url) != null,
           ),
       ];

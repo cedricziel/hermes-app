@@ -78,3 +78,13 @@ abstract final class WorkspaceProjects {
     return best;
   }
 }
+
+/// Whether [path] is the server's home folder or `/`: a folder that holds
+/// many projects, which the row and the details say a word about.
+bool isRiskyWorkspaceFolder(String path, {String? home}) {
+  final text = _tidy(path, home);
+  if (text == '/') return true;
+  return home != null &&
+      home.isNotEmpty &&
+      sameServerFolder(path, home, home: home);
+}

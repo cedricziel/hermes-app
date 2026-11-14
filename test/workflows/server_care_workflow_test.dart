@@ -8,6 +8,12 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
+import 'package:hermes_app/src/server_care/server_check_page.dart';
+import 'package:hermes_app/src/server_care/server_logs_page.dart';
+import 'package:hermes_app/src/server_care/widgets/server_split_view.dart';
+import 'package:hermes_app/src/server_care/update_page.dart';
+import 'package:hermes_app/src/server_care/usage_page.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -24,7 +30,7 @@ import '../support/workflow_app.dart' show letSocketsIdle;
 
 /// Server care through the real shell: the account menu's Server entry with
 /// its attention dot (phone) or the sidebar row with its caption (Mac), the
-/// status, the Update page and Usage, in light and dark.
+/// status, the Update page, Usage, Logs and the server check, in light and dark.
 void main() {
   late FakeHermesServer server;
 
@@ -51,7 +57,19 @@ void main() {
         'disk': {'pressure': 'elevated', 'free_mb': 8600, 'used_percent': 91.0},
       })
       ..on('GET', '/api/hermes/update/check', updateCheckBehind())
-      ..on('GET', '/api/analytics/usage', usage30());
+      ..on('GET', '/api/analytics/usage', usage30())
+      ..on('GET', '/api/logs', {'file': 'errors', 'lines': logsErrors})
+      ..on('POST', '/api/ops/doctor', {'ok': true, 'pid': 1, 'name': 'doctor'})
+      ..on('GET', '/api/actions/doctor/status', {
+        'name': 'doctor',
+        'running': false,
+        'exit_code': 1,
+        'pid': 1,
+        'lines': [
+          '=== doctor started 2026-11-14 09:00:00 ===',
+          ...doctorProblems.where((l) => !l.contains('something unexpected')),
+        ],
+      });
   });
 
   /// Lets the fake server answer (it runs on real time) and the screen draw.
@@ -106,9 +124,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
   }
 
-  Future<void> openUsage(WidgetTester tester, ScreenshotRecorder shots) async {
+  /// Opens the Server screen's [label] row from the middle of the screen.
+  Future<void> openTool(WidgetTester tester, String label) async {
     await tester.scrollUntilVisible(
-      find.text('Usage'),
+      find.text(label),
       300,
       scrollable: find
           .ancestor(
@@ -117,12 +136,79 @@ void main() {
           )
           .first,
     );
-    await tester.ensureVisible(find.text('Usage'));
+    await tester.ensureVisible(find.text(label));
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Usage'));
+    await tester.tap(find.text(label));
     await tester.pump(const Duration(milliseconds: 600));
     await answered(tester);
+  }
+
+  /// Opens the Server screen from the account menu, as on a phone-less
+  /// shell with a sidebar footer.
+  Future<void> openServerFromAccount(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Account'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.tap(find.textContaining('Server').first);
+    await tester.pump(const Duration(milliseconds: 600));
+    await answered(tester);
+  }
+
+  /// Taps a row of the Server list beside its page.
+  Future<void> tapRow(WidgetTester tester, String label) async {
+    final row = find.descendant(
+      of: find.byType(GroupedRow),
+      matching: find.text(label),
+    );
+    await tester.scrollUntilVisible(
+      row,
+      300,
+      // The list on the left: the first one in the tree.
+      scrollable: find
+          .descendant(
+            of: find.byType(GroupedListView).first,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.ensureVisible(row);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(row);
+    await tester.pump(const Duration(milliseconds: 600));
+    await answered(tester);
+  }
+
+  Future<void> openUsage(WidgetTester tester, ScreenshotRecorder shots) async {
+    await openTool(tester, 'Usage');
     await shots.capture(tester, 'usage');
+  }
+
+  /// Logs and the server check, each opened from the Server screen and left
+  /// again.
+  Future<void> logsAndCheck(
+    WidgetTester tester,
+    ScreenshotRecorder shots,
+  ) async {
+    await openTool(tester, 'Logs');
+    await shots.capture(tester, 'logs');
+    expect(find.text('Telegram failed'), findsOneWidget);
+    await back(tester);
+
+    await openTool(tester, 'Run a check');
+    await shots.capture(tester, 'check-before');
+    expect(find.text('Check Hermes for problems'), findsOneWidget);
+    await tester.tap(find.text('Run check'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await answered(tester);
+    await shots.capture(tester, 'check-result');
+    expect(find.text('1 problem and 1 warning'), findsOneWidget);
+    await back(tester);
+    // The row now says what the check found.
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(
+      find.text('1 problem and 1 warning · checked just now'),
+      findsOneWidget,
+    );
   }
 
   for (final (name, brightness) in [
@@ -167,6 +253,8 @@ void main() {
       await back(tester);
 
       await openUsage(tester, shots);
+      await back(tester);
+      await logsAndCheck(tester, shots);
       await letSocketsIdle(tester);
     });
   }
@@ -538,6 +626,72 @@ void main() {
       expect(find.text('The messaging gateway is off'), findsOneWidget);
 
       await openUsage(tester, shots);
+      await back(tester);
+      await logsAndCheck(tester, shots);
+      await letSocketsIdle(tester);
+    });
+  }
+
+  // A window wide enough for the Server screen to show its list beside the
+  // selected page: Windows and an iPad, light and dark. The Mac pushes its
+  // pages at every width (see the `mac` tests above).
+  for (final (name, platform, size, brightness) in [
+    (
+      'windows-wide',
+      TargetPlatform.windows,
+      const Size(1500, 800),
+      Brightness.light,
+    ),
+    (
+      'windows-wide-dark',
+      TargetPlatform.windows,
+      const Size(1500, 800),
+      Brightness.dark,
+    ),
+    ('ipad-wide', TargetPlatform.iOS, const Size(1180, 820), Brightness.light),
+    (
+      'ipad-wide-dark',
+      TargetPlatform.iOS,
+      const Size(1180, 820),
+      Brightness.dark,
+    ),
+  ]) {
+    testWidgets('$name: the list beside Usage, Updates, Logs and the check', (
+      tester,
+    ) async {
+      final shots = ScreenshotRecorder('server-care-$name');
+      await pumpShell(
+        tester,
+        shots,
+        size: size,
+        platform: platform,
+        brightness: brightness,
+      );
+      // Windows and an iPad show the Server entry in the account menu.
+      await openServerFromAccount(tester);
+      await shots.capture(tester, 'usage-default');
+      expect(find.text('The messaging gateway is off'), findsOneWidget);
+      expect(find.byType(UsagePage), findsOneWidget);
+      expect(find.byType(ServerSplitView), findsOneWidget);
+
+      await tapRow(tester, 'Updates');
+      await shots.capture(tester, 'update');
+      expect(find.byType(UpdatePage), findsOneWidget);
+
+      await tapRow(tester, 'Logs');
+      await shots.capture(tester, 'logs');
+      expect(find.byType(ServerLogsPage), findsOneWidget);
+      expect(find.byType(UpdatePage), findsNothing);
+
+      await tapRow(tester, 'Run a check');
+      await shots.capture(tester, 'check-before');
+      expect(find.byType(ServerCheckPage), findsOneWidget);
+      expect(find.text('Check Hermes for problems'), findsOneWidget);
+      await tester.tap(find.text('Run check'));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'check-result');
+      expect(find.text('1 problem and 1 warning'), findsWidgets);
       await letSocketsIdle(tester);
     });
   }

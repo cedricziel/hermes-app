@@ -332,7 +332,7 @@ Run a check SHALL send `POST /api/ops/doctor?profile=<chat profile>`, follow `GE
 #### Scenario: Timeout
 
 - **WHEN** the run has not ended after 3 minutes
-- **THEN** the page reads "The check is taking longer than expected" and offers Check again later, without sending another run
+- **THEN** the page reads "The check is taking longer than expected" and offers Keep waiting (read the same run for another 3 minutes) and Dismiss, without sending another run
 
 ### Requirement: Usage
 

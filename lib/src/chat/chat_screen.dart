@@ -53,6 +53,12 @@ import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../files/files_telemetry.dart' show FilesOpenedFrom;
 import '../files/open_files.dart';
+import '../workspaces/hermes_workspaces_repository.dart';
+import '../workspaces/ui/bound_working_directory.dart';
+import '../workspaces/ui/workspace_flows.dart';
+import '../workspaces/widgets/working_directory_line.dart'
+    show workingDirectoryLineBelowBar;
+import '../workspaces/workspace_telemetry.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../tools/hermes_tools_repository.dart';
 import '../tools/tools_availability.dart';
@@ -70,6 +76,7 @@ import '../network/poll_backoff.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
+import '../notifications/request_notifications.dart' show accountHashFor;
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../plugins/plugins_screen.dart';
 import '../profiles/chat_profiles.dart';
@@ -198,10 +205,15 @@ class ChatScreen extends StatefulWidget {
     this.voiceMessageRecorder,
     this.displaySocketOpener,
     this.takeoverSetting,
+    this.workspaces,
     this.onCompressConversation,
   });
 
   final HermesChatRepository? repository;
+
+  /// Reads the server's projects and folders and moves a chat to another
+  /// folder; the connected dashboard's unless a test supplies its own.
+  final HermesWorkspacesRepository? workspaces;
   final ChatTransport? transport;
   final HermesProfilesRepository? profiles;
   final HermesModelsRepository? models;
@@ -450,12 +462,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _finds = _maybeRead<AgentMessageFinds>()?..addListener(_onAgentMessages);
     final liveActivities = _maybeRead<LiveActivities?>();
     final appLock = _maybeRead<AppLockController>();
+    final auth = _maybeRead<AuthController>();
     _attention = AttentionNotifier(
       service: _maybeRead<NotificationService>(),
       settings: _maybeRead<NotificationSettings>(),
       onOpen: _openFromNotification,
       activities: liveActivities,
       appLock: () => appLockHidesRequests(appLock),
+      accountKey: () => signedInAccountKey(auth),
     );
     final repositories = HermesRepositories.maybeOf(context);
     final api = repositories?.api;
@@ -488,7 +502,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         events: repositories?.telemetry.events ?? noopAppEventLogger,
       );
     }
-    final auth = _maybeRead<AuthController>();
     if (transport is HermesGatewayTransport && auth?.baseUrl != null) {
       _avatars = ProfileAvatarRepository(
         transport.request,
@@ -504,7 +517,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _sessionActivity = SessionActivity(auth!);
     }
     final queues = _maybeRead<QueuePersistence>();
+    final breadcrumbs = _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none;
+    // Only the main window reads folders: the repository needs the gateway
+    // this screen owns.
+    final workspaces =
+        widget.workspaces ??
+        (api != null && transport is HermesGatewayTransport
+            ? HermesWorkspacesRepository(
+                api.raw,
+                transport.requestKeepingConnection,
+                telemetry: WorkspaceTelemetry(
+                  repositories!.telemetry,
+                  breadcrumbs,
+                ),
+              )
+            : null);
     _chat = ChatController(
+      workspaces: workspaces,
       activity: _sessionActivity,
       queueStore: queues?.open,
       queueScope: queues == null

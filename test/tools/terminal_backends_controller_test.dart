@@ -413,4 +413,46 @@ void main() {
     expect(recorded, isNot(contains('/secret/path')));
     expect(recorded, isNot(contains('work')));
   });
+
+  group('acknowledge while a pick runs changes nothing', () {
+    test('a pick in flight', () async {
+      final gate = Completer<void>();
+      server.onRequest('PUT', _put, (_) async {
+        await gate.future;
+        return (status: 400, body: {'detail': 'Unknown backend.'});
+      });
+      unawaited(controller.pick('local'));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.pickState, ToolsWriteState.saving);
+      answer = true;
+
+      controller.acknowledge();
+
+      expect(controller.pickState, ToolsWriteState.saving);
+      gate.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.pickState, ToolsWriteState.refused);
+      expect(controller.refusalDetail, 'Unknown backend.');
+      controller.acknowledge();
+      expect(controller.pickState, ToolsWriteState.idle);
+    });
+
+    test('a lost answer being checked', () async {
+      lose();
+      final gate = Completer<void>();
+      server.onRequest('GET', _list, (_) async {
+        await gate.future;
+        return (status: 200, body: _backends('docker'));
+      });
+      final picking = controller.pick('local');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.pickState, ToolsWriteState.checking);
+
+      controller.acknowledge();
+
+      expect(controller.pickState, ToolsWriteState.checking);
+      gate.complete();
+      await picking;
+    });
+  });
 }

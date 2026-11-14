@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/tools/toolset_setup_controller.dart';
+import 'package:hermes_app/src/tools/tools_write.dart';
 
 import '../support/fake_hermes_server.dart';
 import '../support/recording_tracer.dart';
@@ -292,5 +293,77 @@ void main() {
     expect(controller.typedLength(_key), 0);
     gate.complete();
     await saving;
+  });
+
+  group('acknowledge while a write runs changes nothing', () {
+    test('a key save in flight', () async {
+      final gate = Completer<void>();
+      server.onRequest('PUT', _env, (_) async {
+        await gate.future;
+        return (
+          status: 200,
+          body: {
+            'ok': true,
+            'saved': [_key],
+          },
+        );
+      });
+      server.on('GET', '/api/tools/toolsets/web/config', _config(isSet: true));
+      controller.setKey(_key, _secret);
+      final saving = controller.saveKeys();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.keysState, ToolsetKeysState.saving);
+      final selected = controller.selectedProvider;
+
+      controller.acknowledge();
+
+      expect(controller.keysState, ToolsetKeysState.saving);
+      expect(controller.selectedProvider, selected);
+      gate.complete();
+      await saving;
+      expect(controller.keysState, ToolsetKeysState.saved);
+    });
+
+    test('a lost answer being checked', () async {
+      server.onRequest('PUT', _env, (r) {
+        throw DioException.receiveTimeout(
+          timeout: const Duration(seconds: 1),
+          requestOptions: r,
+        );
+      });
+      final gate = Completer<void>();
+      server.onRequest('GET', '/api/tools/toolsets/web/config', (_) async {
+        await gate.future;
+        return (status: 200, body: _config(isSet: false));
+      });
+      controller.setKey(_key, _secret);
+      final saving = controller.saveKeys();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.keysState, ToolsetKeysState.checking);
+
+      controller.acknowledge();
+
+      expect(controller.keysState, ToolsetKeysState.checking);
+      gate.complete();
+      await saving;
+      expect(controller.keysState, isNot(ToolsetKeysState.checking));
+    });
+
+    test('a provider pick in flight', () async {
+      final gate = Completer<void>();
+      server.onRequest('PUT', '/api/tools/toolsets/web/provider', (_) async {
+        await gate.future;
+        return (status: 200, body: {'ok': true});
+      });
+      final picking = controller.pickProvider('Local Driver');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.providerState, ToolsWriteState.saving);
+
+      controller.acknowledge();
+
+      expect(controller.providerState, ToolsWriteState.saving);
+      gate.complete();
+      await picking;
+    });
   });
 }

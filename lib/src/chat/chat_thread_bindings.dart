@@ -163,9 +163,13 @@ ChatThreadView boundChatThreadView({
   ValueChanged<String>? onShowAgentDetails,
   NeedsYouQueue? needsYou,
   VoidCallback? onOpenActivity,
+  Widget? workingDirectoryRow,
+  Widget? workspaceNotice,
 }) {
   final t = thread;
   return ChatThreadView(
+    workingDirectoryRow: workingDirectoryRow,
+    workspaceNotice: workspaceNotice,
     thread: t,
     sendHeld: t != null && chat.sendHeldIn(t),
     draftHandedBack: draftHandedBack,

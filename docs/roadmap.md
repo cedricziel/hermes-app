@@ -257,6 +257,9 @@ Things the work itself turned up. Each is verified before it is built. A small o
 | F.157 | Subagent and process control: the German strings were not checked by a translator | #1054 | open |
 | F.158 | `design/web` has no React port yet of the Tools screens and the "What's the difference?" link, subagent and process control, or server care | review of #1044, #1054, #1055 | open (same family as F.14 and F.105) |
 | F.159 | `AppShell` fixed `_ownerGeneration` at `initState`, so an ungated sign-out kept the old shell over the old repositories; the shell is now rebuilt per owner generation | review of #1052 | done #1057 |
+| F.160 | Tools setup panels: when a pane and a pushed page show the same toolset at once (iPad portrait, page open, rotate past 900 pt, Back), the pane claims ownership, so closing the page keeps the typed key and result in the pane instead of clearing them. Decide whether to keep or to clear on Back | isolated review of the lifetime PR | queued |
+| F.161 | Tools: the running-install lock carries no profile, so after a profile switch the same-named toolset of the new profile is locked for the running install (over-locks only, ends at the 22 min limit). Needs the profile in `ToolsInstallState` if `post-setup` proves per profile | isolated review of the lifetime PR | queued |
+| F.162 | `docs/architecture/settings-screens.md` holds the "Tools widgets" paragraph twice (lines 25 and 27, not identical); merge them into one | isolated review of the lifetime PR | queued |
 
 ## Blocked
 

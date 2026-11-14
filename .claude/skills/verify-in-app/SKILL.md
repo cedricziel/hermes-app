@@ -66,6 +66,8 @@ recipients, and profile avatars, follow
 
 For the Memory screen, its settings, proposals and the memory tool card, follow [the Memory scenario](scenarios/memory.md).
 
+For the Tools screen, switching a toolset, setting up a provider key and reading `config.yaml` and `.env` back, follow [the Tools scenario](scenarios/tools.md).
+
 For the Bot Screen (the agent's own Linux desktop), a macOS backend can never show one; follow the `verify-bot-screen` skill, which runs a throwaway Linux Hermes in a container.
 
 1. `dart format . && flutter analyze && flutter test`. Fix before going on.
@@ -470,6 +472,37 @@ announced again, since a reply notification replaces the chat's earlier one and
 the foreground check reads the same baseline. With Spotlight switched on, the
 launch also refreshes the index.
 
+### Replying to a notification (iOS simulator, macOS)
+
+The Reply button of a finished reply's notification (`hermes.action.reply-chat`)
+needs a Mac with Xcode; nothing here runs on Linux. Start
+`scripts/dev-backend.sh` with the scripted loopback model (no provider), build
+for the simulator (`flutter build ios --simulator -d <udid>`), sign in, allow
+notifications, send a prompt and send the app to the background before it
+finishes. Let the reply finish, run the periodic refresh (above) so the
+"Reply ready" notification appears, then expand it: it has Reply. Type text,
+tap Send, and:
+
+- with the app in the background, then **killed** (swipe it away, or
+  `xcrun simctl terminate <udid> <bundle id>`; the reply notification stays),
+  repeat. The text must reach the chat exactly once (open it and count the
+  user rows), and the answer arrives as a notification after the next refresh
+  and in the chat;
+- stop the backend (`scripts/dev-backend.sh stop`) and reply: "Reply not sent.
+  Open Hermes to try again." appears; tap it and the text is in the composer,
+  unsent. Kill the backend while the prompt is in flight instead and expect
+  "Couldn't confirm your reply was sent." and no text kept;
+- turn App Lock on: the Reply notifications are withdrawn and new replies post
+  without the action; a stale one answers "Open Hermes to reply." under
+  "Hermes". Sign out: they are withdrawn too;
+- on macOS repeat with the app running, hidden and not running (a cold launch
+  must handle the reply once and not open the chat).
+
+Read `xcrun simctl spawn <udid> log stream --predicate 'process == "Runner"'`
+for a second send. Never type text you mind seeing: the kept text is in the
+notification's payload. Restore the `ios/` and `macos/` Xcode files the build
+rewrites and stage files by name.
+
 ## When the screenshot can't be taken
 
 To set up state the screen needs (a second profile, say), use the CLI against
@@ -625,28 +658,55 @@ For the Activity panel's checkpoint and context rows. Only the throwaway dev
 backend (`scripts/dev-backend.sh`): never the real `~/.hermes`, and never
 `hermes dashboard --stop`. A restore writes real files and a compress calls a
 helper model, so the chat's folder is a throwaway and the model scripted or
-local; never a real project. Nobody has run these steps end to end: every
-step below is unverified unless it says otherwise.
+local; never a real project. The backend half is run by
+`test/real_backend_contract_test.dart` (group "file checkpoints and context on
+a scripted model"); the app half has not been driven by hand.
 
-- Checkpoints are off by default (`checkpoints.enabled: false`, from the
-  design notes of the change). Turn them on in the throwaway home's
-  `config.yaml` before `dev-backend.sh start`:
+- Checkpoints are off by default (`checkpoints.enabled: false`); with them off
+  `rollback.list` answers `enabled:false`. Verified: start the backend with
+  `HERMES_TUI_CHECKPOINTS=1` in its environment (`HERMES_TUI_CHECKPOINTS=1
+  scripts/dev-backend.sh start`; the variable wins over the config). Setting
+  `checkpoints.enabled: true` in the throwaway home's `config.yaml` is the
+  documented alternative and was not tried. To run the contract group:
+  `HERMES_DEV_CHECKPOINTS=1 HERMES_DEV_HOME=<home> HERMES_DEV_URL=<url> flutter
+  test test/real_backend_contract_test.dart --plain-name 'file checkpoints and
+  context'`, against a fresh backend each time (the container test leaves the
+  process on a docker terminal backend).
+- Use the **default** profile. A chat of another profile writes its
+  checkpoints into that profile's folder but the list reads the server's own
+  home, so it always looks empty.
+- Checkpoints come at most once per folder per model step, before a
+  `write_file`, `patch` or destructive `terminal` command, so a turn with two
+  edit steps leaves two. Hermes refuses to overwrite or patch a file the chat
+  has not read first, so a scripted edit turn reads the file in an earlier
+  step (the contract test does).
+- With checkpoints off an edited chat lists nothing and a restore answers
+  "No checkpoints exist for this directory"; a server before `rollback.*`
+  draws neither row (design notes, not run: needs an older Hermes).
 
-  ```yaml
-  checkpoints:
-    enabled: true
-  ```
+## A chat's folder: projects, repos and a locked root
 
-- Unverified: the design notes say the environment variable
-  `HERMES_TUI_CHECKPOINTS` overrides the config for gateway sessions.
-  `dev-backend.sh` does not set it; the script starts `hermes` from your
-  shell, so `HERMES_TUI_CHECKPOINTS=1 scripts/dev-backend.sh start` should
-  pass it on.
-- Unverified: a checkpoint is made before a file tool or a terminal command
-  runs, so the patch turn of `scripts/fake_tool_model.py` should give one, and
-  a second turn a second.
-- With checkpoints off, an edited chat reads "off"; a server before
-  `rollback.*` draws neither row (design notes, unverified here).
+Checked against Hermes `d923a5eb`. In the dev backend's own `HERMES_HOME`
+(never the real one), a project and a repo for the folder picker:
+
+```bash
+H="$PWD/.dart_tool/hermes-dev/home"; D=$(mktemp -d); mkdir -p "$D/app" "$D/docs" && git -C "$D/app" init -q
+printf 'desktop:\n  repo_scan_roots:\n    - %s\n' "$D" >> "$H/config.yaml"
+HERMES_HOME="$H" HOME="$H/../userhome" hermes project create "Demo" "$D/app" "$D/docs"
+```
+
+`GET /api/chat/workspaces?profile=default&scan=1` then lists the project (two
+folders, the first primary) and `$D/app` as a scanned repo; without `scan=1`
+the repo only shows once a chat has run in it. A project can also be made over
+the gateway (`projects.create`, `projects.delete`), as the contract test does.
+
+For the locked case start the backend with `HERMES_DASHBOARD_FILES_ROOT=$D`
+in its environment (`scripts/dev-backend.sh` passes it on): every `/api/fs/*`
+route except `default-cwd` and `git-root` answers 403 "Path is outside the
+managed read boundary" outside it, a secret name inside it too, and the
+dashboard's launch folder is outside, so the first list of a chat with no
+folder is that 403. The contract tests read `HERMES_DEV_FILES_ROOT` (the same
+folder) and `HERMES_DEV_HOME` (the state folder, for the live-database 409).
 
 ## Scripted tool calls
 
@@ -1376,6 +1436,58 @@ Against a real backend, only the throwaway dashboard from `scripts/dev-backend.s
 
 Goals, tool names, output and notes must never appear in breadcrumbs, spans or logs; the privacy test in `test/chat/subagents/bound_activity_panel_agents_test.dart` checks this for breadcrumbs and app events, and `subagent_repository_test.dart` checks the `subagent.rpc` span; `Exported telemetry` above shows how to read what was exported.
 
+## Server care: restart, update, check
+
+The Server screen (`docs/architecture/app-shell.md`, "Server care") needs a
+throwaway backend from `scripts/dev-backend.sh`, never the real `~/.hermes`.
+Device-free first: `flutter test test/server_care test/workflows/server_care_workflow_test.dart`
+and look at `build/workflow_screenshots/server-care-*`.
+
+1. Restart: open Server, press Restart gateway. The question comes first
+   (Cancel sends nothing); confirm and watch the headline and the row go
+   Restarting, Waiting, Running again. Exactly one `POST /api/gateway/restart`
+   in the backend log. With the gateway off, Start gateway asks nothing.
+2. Update: the backend must be a git checkout behind its remote (clone
+   hermes-agent, reset it a few commits back, point `dev-backend.sh` at it).
+   Updates shows "Update available"; Update Hermes asks first. Watch the four
+   steps, the dashboard restart (the banner above every destination), and the
+   receipt outcome. Leave the page and relaunch the app mid-update: it
+   resumes within an hour. Note whether the bearer session survives the
+   restart (design.md, task 7.3).
+3. Check: Run a check opens the page and runs `hermes doctor` (read-only). Break
+   something in the throwaway `HERMES_HOME` (a bad token in `config.yaml`) to see
+   problems, fixes and the copy button. The result stays when you leave the
+   page and goes on lock, sign-out, server change and profile switch.
+4. Logs and check output can hold paths: on Android the window is secure and
+   on iOS the app switcher shows a blank page while either page is up.
+
 ## Background request alert retry
 
 Run `flutter test --concurrency=1 test/local_notification_service_test.dart test/background/background_refresh_test.dart`. A posting result records OS acceptance of the attempt, not observed delivery. In the isolated client, leave a synthetic approval pending, simulate one native posting failure, then allow a later live check to post it. Verify that failed or denied attempts remain eligible and that accepted attempts save only the represented request marks. Interrupt after acceptance but before mark persistence; a later check must replace the same notification ID. Resolve the approval before a retry and verify that no stale request is announced. Keep App Lock text generic and use only disposable client state.
+
+## Chat working directory
+
+The row above a new chat's composer, the header line, the picker and Change Folder (`openspec/changes/chat-working-directory`, `docs/architecture/chat.md` "Working directory"). Device-free first: `flutter test test/workspaces test/workflows/working_directory_workflow_test.dart`, then read `build/workflow_screenshots/working-directory-*` (phone/Android, iPad, desktop, Mac, light and dark, a German pass, loading, offline, error, an older server).
+
+Against the throwaway backend from `scripts/dev-backend.sh` (its own `HERMES_HOME`, never `~/.hermes`):
+
+1. Make folders and repos on the machine the dashboard runs on: `mkdir -p /tmp/wd/{alpha,beta} /tmp/wd/repo-one /tmp/wd/repo-two && git -C /tmp/wd/repo-one init && git -C /tmp/wd/repo-two init`. A repo shows under Recent only after a chat ran in it (or a scan found it); a project is a row of `$HERMES_HOME/projects.db`: create it with the dashboard's Projects page, or `HERMES_HOME=<dev home> hermes projects create` (unverified: this command was not checked against a Hermes; look at `hermes --help` first), with `/tmp/wd/alpha` and `/tmp/wd/beta` as its two folders. Set `desktop.repo_scan_roots: [/tmp/wd]` in the dev profile's `config.yaml` to get "Look for projects on your server" working; leave it empty to see "No folders to scan. Scan folders are set on the server."
+2. New chat: the row says "Runs in <default folder>" with "Server default". Pick the project folder, send a message, then `GET /api/sessions` must show that `cwd`, and the header line must name it. Remove the folder between pick and send to see the "Hermes started in … instead of …" notice.
+3. Browse and Type a path: a folder with no read permission (`chmod 000`) leaves "Use" enabled with "Hermes may not be able to work here."
+4. `HERMES_DASHBOARD_FILES_ROOT=/tmp/wd scripts/dev-backend.sh restart` (the variable locks `/api/fs/*` to that root): the first Browse read outside it answers 403 and Browse hides itself; projects and Type a path still work; going up past the root inside Browse says "outside what this server lets you browse".
+5. Move: details > Change folder… > pick another folder > the confirmation (Cancel first) > "Folder changed to …" and the chat regroups under the new folder in the list with the selection kept. Send is held while the move is in flight.
+6. A profile with its own `terminal.cwd`: a pick still wins (`cwd_explicit`) and the default row shows the profile's folder.
+
+Folder paths, project names and branches must not appear in breadcrumbs, spans, logs or the surface snapshot; `test/workspaces/workspace_telemetry_test.dart` checks them.
+
+## Server care: status, logs, usage and the server check
+
+`openspec/changes/server-care`. Device-free first: `flutter test test/server_care`. Its `recorded*` fixtures are real answers of Hermes `d923a5eb`; re-record them from a throwaway backend (`scripts/dev-backend.sh start`, never the real `~/.hermes`) when the pin moves, and replace paths, the install id and model ids.
+
+Against the throwaway dashboard, with the page token from its `index.html` in `X-Hermes-Session-Token`:
+
+1. Reads the contract test makes (`HERMES_DEV_URL=… flutter test test/real_backend_contract_test.dart --plain-name 'server care'`): `/api/status`, `/api/health`, `/api/hermes/update/check`, `/api/logs?file=agent|errors|gateway`, `/api/analytics/usage?days=7`. A fresh backend has `gateway_state: null`, `overall: "degraded"`, `version: "unknown"` (a git checkout) and an update check with `behind: null`.
+2. The server check: `POST /api/ops/doctor?profile=default`, then poll `/api/actions/doctor/status?lines=400` until `running` is false. Takes about 5 s, exits 1 when it found something, and its log is plain text without ANSI escapes. It never passes `--fix`.
+3. Usage with a turn: run one scripted-model turn (`_serveScriptedModel` in the contract test) and read `/api/analytics/usage?days=7&profile=<that profile>` before the profile is deleted.
+
+Not run offline, so not reproducible here: `POST /api/hermes/update` (on a git install it updates the checkout the backend runs from, so never call it against the pinned install; an update needs a throwaway git clone that is behind its remote), and gateway restart or start (`hermes gateway restart` may touch a service manager outside the throwaway home). Treat the update and restart steps of `openspec/changes/server-care/tasks.md` 7.1 and 7.3 as open until someone runs them on a disposable machine.

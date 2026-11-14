@@ -244,8 +244,10 @@ void main() {
         call = build();
         await call.start();
         expect(call.phase, CallPhase.failed);
-        expect(ended(), containsPair('reason', 'native_start'));
-        expect(ended(), containsPair('error_type', 'platform_start'));
+        expect(ended(), containsPair('reason', 'native_error'));
+        expect(ended(), containsPair('step', 'start_request'));
+        expect(ended().containsKey('error_type'), isFalse);
+        expect(call.error, _iosStartText);
         expect(ended(), containsPair('connected', false));
         expect(
           logged.map((e) => e.$1),
@@ -253,11 +255,128 @@ void main() {
         );
       },
     );
+
+    test('another start failure keeps the generic text and reason', () async {
+      call.dispose();
+      logged.clear();
+      bridge = _RefusingBridge(PlatformException(code: 'other'));
+      call = build();
+      await call.start();
+      expect(ended(), containsPair('reason', 'native_start'));
+      expect(ended(), containsPair('error_type', 'platform_other'));
+      expect(call.error, startsWith('Could not start the call.'));
+    });
+
+    group('native error event', () {
+      Future<void> fail(Map<String, Object?> data) async {
+        await call.start();
+        bridge.emit('error', data);
+        await pumpEventQueue();
+      }
+
+      for (final (code, text) in <(String, String)>[
+        ('start_request', _iosStartText),
+        ('start_action', _iosStartText),
+        (
+          'activation_timeout',
+          'Call audio did not become available. Try again.',
+        ),
+        ('audio_start', _unavailableText),
+        ('audio_reset', _unavailableText),
+        ('provider_reset', _unavailableText),
+        ('action_timeout', _unavailableText),
+        ('end_request', _unavailableText),
+        ('detached', _unavailableText),
+      ]) {
+        test('$code is logged as the step with its text', () async {
+          await fail({'code': code});
+          expect(call.phase, CallPhase.failed);
+          expect(call.error, text);
+          expect(ended(), containsPair('reason', 'native_error'));
+          expect(ended(), containsPair('step', code));
+          expect(ended().containsKey('error_type'), isFalse);
+        });
+      }
+
+      test('an unknown code is never logged', () async {
+        await fail({'code': 'https://secret.example/x'});
+        expect(ended(), containsPair('step', 'unknown'));
+        expect(call.error, _unavailableText);
+        expect(ended().values.join(' '), isNot(contains('secret')));
+      });
+
+      test('a missing code is unknown', () async {
+        await fail({});
+        expect(ended(), containsPair('step', 'unknown'));
+      });
+
+      test('a CallKit code becomes the error type', () async {
+        await fail({'code': 'start_request', 'callkit': 1});
+        expect(ended(), containsPair('error_type', 'callkit_1'));
+        expect(ended(), containsPair('step', 'start_request'));
+      });
+
+      test('a non-integer callkit value is ignored', () async {
+        await fail({'code': 'start_request', 'callkit': 'x'});
+        expect(ended().containsKey('error_type'), isFalse);
+      });
+    });
+
+    test('start exception and error event end the same way, once', () async {
+      call.dispose();
+      logged.clear();
+      final refusing = _RefusingBridge();
+      bridge = refusing;
+      call = build();
+      // Event first: it ends the call before the exception surfaces.
+      refusing.beforeThrow = () =>
+          refusing.emit('error', {'code': 'start_request'});
+      await call.start();
+      await pumpEventQueue();
+      expect(logged.where((e) => e.$1 == 'voice_call.ended'), hasLength(1));
+      expect(ended(), containsPair('step', 'start_request'));
+      expect(call.error, _iosStartText);
+    });
+
+    test(
+      'an error event after the start exception logs nothing more',
+      () async {
+        call.dispose();
+        logged.clear();
+        bridge = _RefusingBridge();
+        call = build();
+        await call.start();
+        bridge.emit('error', {'code': 'start_request', 'callkit': 1});
+        await pumpEventQueue();
+        expect(logged.where((e) => e.$1 == 'voice_call.ended'), hasLength(1));
+        expect(ended().containsKey('error_type'), isFalse);
+      },
+    );
+  });
+
+  test('callNativeErrorStep only passes the plugin codes', () {
+    expect(callNativeErrorStep('audio_start'), 'audio_start');
+    expect(callNativeErrorStep('nope'), 'unknown');
+    expect(callNativeErrorStep(null), 'unknown');
+    expect(callNativeErrorStep(3), 'unknown');
+    expect(callNativeErrorType(1), 'callkit_1');
+    expect(callNativeErrorType('1'), isNull);
+    expect(callNativeErrorType(null), isNull);
   });
 }
 
+const _iosStartText =
+    'iOS could not start the call. Try again, and restart your iPhone if it keeps happening.';
+const _unavailableText = 'Call audio became unavailable.';
+
 class _RefusingBridge extends FakeCallBridge {
+  _RefusingBridge([PlatformException? failure])
+    : failure = failure ?? PlatformException(code: 'start', message: 'private');
+  final PlatformException failure;
+  void Function()? beforeThrow;
   @override
-  Future<void> start(String id, String name) async =>
-      throw PlatformException(code: 'start', message: 'private detail');
+  Future<void> start(String id, String name) async {
+    beforeThrow?.call();
+    throw failure;
+  }
 }

@@ -99,17 +99,21 @@ const _groups = [
   ]),
 ];
 
-Widget _list({List<SkillGroup> groups = _groups, bool updating = false}) =>
-    Scaffold(
-      body: InstalledSkillsList(
-        groups: groups,
-        onOpen: (_) {},
-        onToggle: (_, _) {},
-        onClearFilters: () {},
-        onCheckForUpdates: () {},
-        updating: updating,
-      ),
-    );
+Widget _list({
+  List<SkillGroup> groups = _groups,
+  bool updating = false,
+  bool link = false,
+}) => Scaffold(
+  body: InstalledSkillsList(
+    groups: groups,
+    onOpen: (_) {},
+    onToggle: (_, _) {},
+    onClearFilters: () {},
+    onCheckForUpdates: () {},
+    updating: updating,
+    onWhatsTheDifference: link ? () {} : null,
+  ),
+);
 
 WidgetbookNode skillsNode() => WidgetbookFolder(
   name: 'Skills',
@@ -128,6 +132,7 @@ WidgetbookNode skillsNode() => WidgetbookFolder(
       useCases: [
         ..._onEach('Categories', (_) => _list()),
         ..._onEach('Updating', (_) => _list(updating: true)),
+        ..._onEach('With the difference link', (_) => _list(link: true)),
         ..._onEach('Nothing matches', (_) => _list(groups: const [])),
       ],
     ),

@@ -187,6 +187,14 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ),
         ),
         ...onEachPlatform(
+          'With the difference link',
+          (_) => HelperModelList(
+            models: helperModels,
+            onTap: (_) {},
+            onWhatsTheDifference: () {},
+          ),
+        ),
+        ...onEachPlatform(
           'Main model unknown',
           (_) => HelperModelList(
             models: AuxiliaryModels(slots: helperModels.slots.sublist(1, 3)),

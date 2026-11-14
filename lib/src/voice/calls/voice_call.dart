@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:uuid/uuid.dart';
@@ -93,13 +94,23 @@ class VoiceCall extends ChangeNotifier {
       await bridge.start(const Uuid().v4(), 'Hermes');
     } on CallPreparationException catch (failure) {
       if (_current(epoch)) await _end('prepare', failure.message);
+    } on PlatformException catch (error) {
+      if (!_current(epoch)) return;
+      if (step == 'native_start' && error.code == 'start') {
+        // Natively the failed start also sends an `error` event; both orders
+        // must end the same way.
+        await _end(
+          'native_error',
+          _nativeErrorText('start_request'),
+          null,
+          'start_request',
+        );
+      } else {
+        await _end(step, _startFailureText, error);
+      }
     } on Object catch (error) {
       if (_current(epoch)) {
-        await _end(
-          step,
-          'Could not start the call. Check microphone access and your speech providers in Settings.',
-          error,
-        );
+        await _end(step, _startFailureText, error);
       }
     }
   }
@@ -169,7 +180,16 @@ class VoiceCall extends ChangeNotifier {
       case 'deactivated':
         unawaited(_end('interrupted', 'The call was interrupted.'));
       case 'error':
-        unawaited(_end('native_error', 'Call audio became unavailable.'));
+        final step = callNativeErrorStep(event['code']);
+        unawaited(
+          _end(
+            'native_error',
+            _nativeErrorText(step),
+            null,
+            step,
+            callNativeErrorType(event['callkit']),
+          ),
+        );
     }
     _notify();
   }
@@ -333,13 +353,15 @@ class VoiceCall extends ChangeNotifier {
     String? failure,
     Object? cause,
     String? step,
+    String? errorType,
   ]) async {
     if (ended) return;
     _log('voice_call.ended', {
       'outcome': failure == null ? 'ended' : 'failed',
       'reason': reason,
       'step': ?step,
-      'error_type': ?(cause == null ? null : callErrorKind(cause)),
+      'error_type':
+          ?(errorType ?? (cause == null ? null : callErrorKind(cause))),
       'connected': _connectedOnce,
       'turns': callTurnsBucket(_turns),
       'speech_fallbacks': callTurnsBucket(_fallbacks),
@@ -385,6 +407,15 @@ class VoiceCall extends ChangeNotifier {
     super.dispose();
   }
 }
+
+const _startFailureText =
+    'Could not start the call. Check microphone access and your speech providers in Settings.';
+
+String _nativeErrorText(String step) => switch (step) {
+  'start_request' || 'start_action' => 'iOS could not start the call. Try again, and restart your iPhone if it keeps happening.',
+  'activation_timeout' => 'Call audio did not become available. Try again.',
+  _ => 'Call audio became unavailable.',
+};
 
 /// Actionable, fixed application text for preflight failures.
 class CallPreparationException implements Exception {

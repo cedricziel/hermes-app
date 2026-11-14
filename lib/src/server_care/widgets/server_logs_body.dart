@@ -69,6 +69,7 @@ class ServerLogsBody extends StatelessWidget {
     this.onClearFilters,
     this.onRetry,
     this.now,
+    this.closeMenusWith,
   });
 
   final ServerLogsStatus status;
@@ -90,6 +91,9 @@ class ServerLogsBody extends StatelessWidget {
   final VoidCallback? onClearFilters;
   final VoidCallback? onRetry;
 
+  /// Closes the level menu when it fires.
+  final Listenable? closeMenusWith;
+
   /// Today, for "Today" and "Yesterday"; the clock when null.
   final DateTime? now;
 
@@ -101,7 +105,11 @@ class ServerLogsBody extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Align(
           alignment: AlignmentDirectional.centerStart,
-          child: LogLevelMenuButton(value: level, onChanged: onLevel),
+          child: LogLevelMenuButton(
+            value: level,
+            onChanged: onLevel,
+            closeWith: closeMenusWith,
+          ),
         ),
       ),
     );

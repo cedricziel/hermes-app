@@ -220,6 +220,11 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  /// What is typed for [key], so a panel that takes over from one the layout
+  /// replaced fills its fields again. Only for a field's own text: never
+  /// logged, shown or copied anywhere else.
+  String typedValue(String key) => _typed[key] ?? '';
+
   /// Drops every typed value: App Lock, the form closing, a profile switch.
   ///
   /// With [notify] false the listeners are not told, for a caller that is

@@ -30,6 +30,7 @@ import 'package:hermes_app/src/chat/widgets/chat_thread_view.dart';
 import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
+import 'package:hermes_app/src/server_care/server_check_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/skills/skill_editor_screen.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
@@ -2737,6 +2738,73 @@ void main() {
       expect(lock.covered, isTrue);
       expect(run.phase, GatewayPhase.failed);
       expect(run.message, isNull);
+    });
+
+    void checkAnswers() => server
+      ..on('POST', '/api/ops/doctor', {'ok': true, 'pid': 1, 'name': 'doctor'})
+      ..on('GET', '/api/actions/doctor/status', {
+        'name': 'doctor',
+        'running': false,
+        'exit_code': 1,
+        'lines': [
+          '=== doctor started 2026-11-14 09:00:00 ===',
+          '◆ Messaging',
+          '  ✗ Telegram token rejected (401)',
+        ],
+      });
+
+    testWidgets('a server check result is kept when its page is left and '
+        'goes when App Lock covers the app', (tester) async {
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+        await lock.load();
+        await lock.setEnabled(true);
+        await lock.unlock();
+      });
+      addTearDown(lock.dispose);
+      checkAnswers();
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        lock: lock,
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      final check = tester
+          .element(find.byType(Scaffold).first)
+          .read<ServerCheckController>();
+      await tester.runAsync(() => check.run(profile: 'work'));
+      expect(check.report?.problems, 1);
+      // Nothing about leaving a page touches it.
+      await tester.pump();
+      expect(check.report?.problems, 1);
+
+      lock.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await tester.pump();
+      expect(lock.covered, isTrue);
+      expect(check.report, isNull);
+      expect(check.lines, isEmpty);
+    });
+
+    testWidgets('a server check result goes on sign-out or a server change', (
+      tester,
+    ) async {
+      checkAnswers();
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      final check = tester
+          .element(find.byType(Scaffold).first)
+          .read<ServerCheckController>();
+      await tester.runAsync(() => check.run(profile: 'work'));
+      expect(check.report, isNotNull);
+      auth.depart();
+      await tester.pump();
+      expect(check.report, isNull);
     });
   });
 }

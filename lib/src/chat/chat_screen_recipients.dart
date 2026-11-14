@@ -20,6 +20,9 @@ extension _ChatScreenRecipients on _ChatScreenState {
     _draftFiles.clear();
     _composerThread = null;
     _draftOwners.clear();
+    // Sign-out and Change Server: the draft folder, the catalogs and what is
+    // open about them go with the account.
+    _chat.clearWorkspaceState();
     if (mounted) _rebuild(() {});
   }
 

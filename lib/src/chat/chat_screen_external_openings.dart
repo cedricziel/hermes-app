@@ -30,6 +30,7 @@ extension _ChatScreenExternalOpenings on _ChatScreenState {
     _handoff?.cancel();
     if (target.isJob) return widget.onOpenJob?.call(target);
     if (target.prompt != null) return _openNewChatFromNotification(target);
+    if (target.draft != null) return _openDraftFromNotification(target);
     if (target.isMessageSummary) return widget.onShowChat?.call();
     _chat.open(target, fetchMissing: target.isMessage);
   }
@@ -40,6 +41,24 @@ extension _ChatScreenExternalOpenings on _ChatScreenState {
     widget.openRequests?.requestNew(
       profile: target.profile,
       prompt: target.prompt,
+    );
+  }
+
+  /// A reply that was not sent: its chat opens as a link opens it, under its
+  /// profile, with the text in the composer, unsent. Typed in another account
+  /// it stays out of this one.
+  void _openDraftFromNotification(NotificationTarget target) {
+    final key = _maybeRead<AuthController>()?.accountKey;
+    final requests = widget.openRequests;
+    if (key == null ||
+        accountHashFor(key) != target.accountHash ||
+        requests == null) {
+      return _showMessage(couldNotOpenChat);
+    }
+    requests.request(
+      NotificationTarget(threadId: target.threadId, profile: target.profile),
+      prompt: target.draft,
+      fromLink: true,
     );
   }
 

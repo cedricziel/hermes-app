@@ -14,6 +14,7 @@ import 'adaptive_popup_menu_button.dart';
 import 'adaptive_tab_bar.dart';
 import 'named_icon_button.dart';
 import 'named_popup_menu_button.dart';
+import 'settings_pane.dart';
 import 'settings_search_field.dart';
 
 /// A button in a settings page's bar: an action, or with [SettingsBarAction.menu]
@@ -232,7 +233,8 @@ class SettingsScaffold extends StatelessWidget {
   Widget _mac(BuildContext context) {
     final tabs = this.tabs;
     final search = this.search;
-    final canPop = Navigator.canPop(context);
+    // A page in a detail pane has no route of its own to go back from.
+    final canPop = Navigator.canPop(context) && !inSettingsPane(context);
     void back() {
       final history = DesktopNavigationHistoryScope.maybeOf(context);
       if (history == null) {
@@ -258,7 +260,9 @@ class SettingsScaffold extends StatelessWidget {
               subtitleBuilder: subtitleMenu?._button,
               // A page pushed over the whole window sits under the title bar.
               clearTrafficLights:
-                  MacWindow.enabled && MediaQuery.paddingOf(context).top > 0,
+                  MacWindow.enabled &&
+                  MediaQuery.paddingOf(context).top > 0 &&
+                  !inSettingsPane(context),
               leading: macCancel
                   ? TextButton(
                       key: const Key('settings-cancel'),
@@ -356,8 +360,11 @@ class SettingsScaffold extends StatelessWidget {
             ? 0
             : SettingsSearchField.heightFor(ios: ios) + _searchBottomGap);
     // A page the shell shows at the top level opens the shell's drawer.
-    final back = Navigator.canPop(context);
-    final leading = back
+    final pane = inSettingsPane(context);
+    final back = Navigator.canPop(context) && !pane;
+    final leading = pane
+        ? null
+        : back
         ? AdaptiveBackButton(previousTitle: previousTitle)
         : ShellMenu.button(context);
     return Scaffold(

@@ -24,6 +24,9 @@ enum RestoreRefusal {
   replying,
   restoring,
 
+  /// The chat's working folder is being changed: a restore of any kind waits.
+  folderMoving,
+
   /// Only a path read back exactly from this checkpoint's `stat` is offered.
   fileNotOffered,
 }

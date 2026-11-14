@@ -44,6 +44,24 @@ class ToolsSetupRegistry {
   var _backendWriting = false;
   var _disposed = false;
 
+  /// The panel that shows each controller now, by key. A panel the layout
+  /// rebuilds (the pane becoming a page, a details page opened again during
+  /// the pop animation) is built before the old one is disposed, so the old
+  /// one must not drop what the new one shows: only the owner at dispose
+  /// time acknowledges a result, drops typed keys or the shown install.
+  final _owners = <String, Object>{};
+
+  /// Makes [panel] the owner of [key]'s controller: the panel's initState.
+  void claim(String key, Object panel) => _owners[key] = panel;
+
+  /// Gives [key] up: the panel's dispose. True when [panel] was the owner and
+  /// may therefore clean up; false when another panel took over meanwhile.
+  bool release(String key, Object panel) {
+    if (!identical(_owners[key], panel)) return false;
+    _owners.remove(key);
+    return true;
+  }
+
   ToolsetSetupController setup(String toolset) =>
       _setups.putIfAbsent(toolset, () {
         final controller = ToolsetSetupController(
@@ -123,6 +141,7 @@ class ToolsSetupRegistry {
 
   void dispose() {
     _disposed = true;
+    _owners.clear();
     // Disposing drops what was typed without telling the panels, which are
     // being torn down with the screen.
     for (final controller in _setups.values) {
