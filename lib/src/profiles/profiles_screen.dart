@@ -136,7 +136,11 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
         return false;
       }
       if (warning == null) return true;
-      if (!mounted || confirmed) return false;
+      if (!mounted) return false;
+      if (confirmed) {
+        _say('Could not change the default model');
+        return false;
+      }
       confirmed = await showConfirmDialog(
         context,
         title: context.l10n.settingsHelperModelsConfirmTitle,

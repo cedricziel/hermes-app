@@ -454,6 +454,28 @@ void main() {
         );
       });
 
+      testWidgets('says so when Hermes asks again after confirming', (
+        tester,
+      ) async {
+        server.on('POST', set, {
+          'ok': false,
+          'scope': 'main',
+          'confirm_required': true,
+          'confirm_message': 'gpt-5 costs \$120 per million tokens.',
+        });
+        await pumpProfiles(tester);
+
+        await tester.tap(changeWork);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('gpt-5'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Use it'));
+        await tester.pumpAndSettle();
+
+        expect(server.requestsTo('POST', set), hasLength(2));
+        expect(find.text('Could not change the default model'), findsOneWidget);
+      });
+
       testWidgets('saves nothing when the person declines', (tester) async {
         askFirst();
         await pumpProfiles(tester);
