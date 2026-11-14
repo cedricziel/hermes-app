@@ -1,6 +1,6 @@
 {
   "source_ref": "d923a5eb",
-  "note": "Recorded from a throwaway Hermes (GET /api/fs/*) on a made-up folder; invented names, paths rewritten to /srv/demo. Source: hermes_cli/web_routers/files.py. Large and binary bodies are shortened.",
+  "note": "Recorded from a throwaway Hermes (GET /api/fs/*) on a made-up folder; invented names, paths rewritten to /srv/demo. Source: hermes_cli/web_routers/files.py. Large and binary bodies are shortened. content-length is kept only for the file download; the other recorded lengths described the full bodies and are dropped.",
   "cases": {
     "list_folder": {
       "request": {
@@ -12,7 +12,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "1331",
         "content-type": "application/json"
       },
       "body": {
@@ -75,14 +74,16 @@
         }
       },
       "status": 200,
-      "headers": {
-        "content-length": "14",
-        "content-type": "application/json"
-      },
       "body": {
-        "entries": []
+        "entries": [
+          {
+            "name": "inside.txt",
+            "path": "/srv/demo/proj/real/inside.txt",
+            "isDirectory": false
+          }
+        ]
       },
-      "note": "the symlink path itself lists its target"
+      "note": "the symlink path itself lists its target; the entry paths are the target's (resolved), not under the link"
     },
     "list_empty": {
       "request": {
@@ -94,7 +95,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "14",
         "content-type": "application/json"
       },
       "body": {
@@ -111,7 +111,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "31",
         "content-type": "application/json"
       },
       "body": {
@@ -130,7 +129,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "32",
         "content-type": "application/json"
       },
       "body": {
@@ -149,7 +147,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "221",
         "content-type": "application/json"
       },
       "textBytes": 3,
@@ -173,7 +170,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "629357",
         "content-type": "application/json"
       },
       "textBytes": 524288,
@@ -198,7 +194,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "4876",
         "content-type": "application/json"
       },
       "textBytes": 3576,
@@ -223,7 +218,6 @@
       },
       "status": 400,
       "headers": {
-        "content-length": "39",
         "content-type": "application/json"
       },
       "body": {
@@ -240,7 +234,6 @@
       },
       "status": 400,
       "headers": {
-        "content-length": "39",
         "content-type": "application/json"
       },
       "body": {
@@ -258,7 +251,6 @@
       },
       "status": 403,
       "headers": {
-        "content-length": "53",
         "content-type": "application/json"
       },
       "body": {
@@ -275,7 +267,6 @@
       },
       "status": 404,
       "headers": {
-        "content-length": "27",
         "content-type": "application/json"
       },
       "body": {
@@ -308,7 +299,6 @@
       },
       "status": 403,
       "headers": {
-        "content-length": "53",
         "content-type": "application/json"
       },
       "body": {
@@ -325,7 +315,6 @@
       },
       "status": 404,
       "headers": {
-        "content-length": "27",
         "content-type": "application/json"
       },
       "body": {
@@ -342,7 +331,6 @@
       },
       "status": 400,
       "headers": {
-        "content-length": "39",
         "content-type": "application/json"
       },
       "body": {
@@ -359,7 +347,6 @@
       },
       "status": 404,
       "headers": {
-        "content-length": "52",
         "content-type": "application/json"
       },
       "body": {
@@ -376,7 +363,6 @@
       },
       "status": 400,
       "headers": {
-        "content-length": "221",
         "content-type": "application/json"
       },
       "body": {
@@ -392,7 +378,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "72",
         "content-type": "application/json"
       },
       "body": {
@@ -409,7 +394,6 @@
       },
       "status": 404,
       "headers": {
-        "content-length": "52",
         "content-type": "application/json"
       },
       "body": {
@@ -426,7 +410,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "102",
         "content-type": "application/json"
       },
       "body": {
@@ -443,7 +426,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "13",
         "content-type": "application/json"
       },
       "body": {
@@ -460,7 +442,6 @@
       },
       "status": 200,
       "headers": {
-        "content-length": "102",
         "content-type": "application/json"
       },
       "body": {
@@ -478,7 +459,6 @@
       },
       "status": 409,
       "headers": {
-        "content-length": "328",
         "content-type": "application/json"
       },
       "body": {
@@ -496,7 +476,6 @@
       },
       "status": 409,
       "headers": {
-        "content-length": "328",
         "content-type": "application/json"
       },
       "body": {
@@ -590,6 +569,20 @@
         "detail": "Path is outside the managed read boundary"
       },
       "note": "a secret name inside the root reads as outside the boundary, not as the unlocked \"sensitive files\" 403"
+    },
+    "default_cwd_named_profile": {
+      "request": {
+        "route": "/api/fs/default-cwd",
+        "query": {
+          "profile": "demo-profile"
+        }
+      },
+      "status": 200,
+      "body": {
+        "cwd": "/srv/demo/launch",
+        "branch": "main"
+      },
+      "note": "a named local profile: still the dashboard launch folder"
     }
   }
 }

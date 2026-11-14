@@ -1354,7 +1354,20 @@ void main() {
       final folders = value(await workspaces.listFolders(root.path)).folders
           .map((f) => f.name);
       expect(folders, unorderedEquals(['inner', '.hiddendir']));
-      // The link's own path lists its target.
+      // The link's own path lists its target: a file put there shows, with
+      // the target's resolved path. It is no folder, so the folder listing
+      // stays empty.
+      await File('$inner/inside.txt').writeAsString('x');
+      final through =
+          ((await client.raw.fsListApiFsListGet(
+                    path: '${root.path}/linked',
+                    profile: 'default',
+                  )).data!
+                  as Map)
+              .cast<String, Object?>();
+      expect((through['entries'] as List).cast<Map>().map((e) => e['name']), [
+        'inside.txt',
+      ]);
       expect(
         value(await workspaces.listFolders('${root.path}/linked')).folders,
         isEmpty,
@@ -1467,20 +1480,33 @@ void main() {
         WorkspacesFailure.unknownProfile,
       );
       // Outside a repository the answer's branch and git_repo_root are empty
-      // strings, which the app reads as none.
+      // strings, which the app reads as none; inside one (a temp folder under
+      // a checkout) they name it.
+      String? ancestor;
+      for (var d = root; d.parent.path != d.path; d = d.parent) {
+        if (Directory('${d.path}/.git').existsSync()) {
+          ancestor = d.path;
+          break;
+        }
+      }
       final rawMoved = await rpc.request('session.workspace.move', {
         'session_key': stored,
         'cwd': root.path,
         'profile': 'default',
       });
       expect(rawMoved['cwd'], root.path);
-      expect(rawMoved['branch'], isA<String>());
-      expect(rawMoved['git_repo_root'], isA<String>());
-      final moved = value(await workspaces.moveWorkspace(stored, root.path));
       final rawRoot = rawMoved['git_repo_root']! as String;
-      expect(moved.gitRepoRoot, rawRoot.isEmpty ? isNull : rawRoot);
       final rawBranch = rawMoved['branch']! as String;
-      expect(moved.branch, rawBranch.isEmpty ? isNull : rawBranch);
+      final moved = value(await workspaces.moveWorkspace(stored, root.path));
+      if (ancestor == null) {
+        expect(rawRoot, isEmpty);
+        expect(rawBranch, isEmpty);
+        expect(moved.gitRepoRoot, isNull);
+        expect(moved.branch, isNull);
+      } else {
+        expect(rawRoot, ancestor);
+        expect(moved.gitRepoRoot, ancestor);
+      }
     }, skip: skip);
 
     test('a hermes_app chat created with no cwd runs in the folder the '
@@ -4223,6 +4249,13 @@ approvals:
         expect(stored, isA<WorkspacesOk<SessionFolder>>(), reason: '$stored');
         final folder = (stored as WorkspacesOk<SessionFolder>).value;
         expect(folder.cwd, isNotNull);
+        expect(folder.cwd, endsWith('/profiles/$profile'));
+        final launch =
+            ((await client.raw.fsDefaultCwdApiFsDefaultCwdGet(profile: profile))
+                    .data!
+                as Map)['cwd'];
+        expect(launch, isA<String>());
+        expect(launch, isNot(folder.cwd), reason: 'fs/default-cwd ignores it');
         expect(folder.cwd, bound.cwd);
         expect(
           folder.cwd,

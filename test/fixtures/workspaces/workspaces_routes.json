@@ -218,7 +218,7 @@
       }
     },
     "create_cwd": {
-      "rpc": "create",
+      "rpc": "session.create",
       "response": {
         "jsonrpc": "2.0",
         "id": 5,
@@ -247,7 +247,7 @@
       }
     },
     "create_bad": {
-      "rpc": "create",
+      "rpc": "session.create",
       "response": {
         "jsonrpc": "2.0",
         "id": 6,
@@ -272,7 +272,7 @@
       "note": "a cwd that does not exist falls back to the launch folder with no error"
     },
     "create_none": {
-      "rpc": "create",
+      "rpc": "session.create",
       "response": {
         "jsonrpc": "2.0",
         "id": 7,
@@ -297,7 +297,7 @@
       "note": "a draft chat: info.cwd is the launch folder; the stored row appears with the first message"
     },
     "move_ok": {
-      "rpc": "move",
+      "rpc": "session.workspace.move",
       "response": {
         "jsonrpc": "2.0",
         "id": 8,
@@ -310,7 +310,7 @@
       "note": "branch and git_repo_root are empty strings, not null, for a folder outside a repository"
     },
     "move_rel": {
-      "rpc": "move",
+      "rpc": "session.workspace.move",
       "response": {
         "jsonrpc": "2.0",
         "id": 9,
@@ -322,7 +322,7 @@
       "note": "a relative path is resolved against the dashboard folder"
     },
     "move_missing": {
-      "rpc": "move",
+      "rpc": "session.workspace.move",
       "response": {
         "jsonrpc": "2.0",
         "id": 10,
@@ -333,7 +333,7 @@
       }
     },
     "move_unknown_session": {
-      "rpc": "move",
+      "rpc": "session.workspace.move",
       "response": {
         "jsonrpc": "2.0",
         "id": 11,
@@ -344,7 +344,7 @@
       }
     },
     "move_bad_profile": {
-      "rpc": "move",
+      "rpc": "session.workspace.move",
       "response": {
         "jsonrpc": "2.0",
         "id": 12,
@@ -360,6 +360,18 @@
       "status": 404,
       "body": {
         "detail": "Session not found"
+      }
+    },
+    "catalog_named_profile": {
+      "request": "GET /api/chat/workspaces?profile=demo-profile",
+      "note": "default_cwd is the profile's own folder, not the launch folder fs/default-cwd answers",
+      "status": 200,
+      "body": {
+        "projects": [],
+        "repos": [],
+        "default_cwd": "/srv/hermes-home/profiles/demo-profile",
+        "home": "/home/demo",
+        "scan_enabled": true
       }
     }
   }

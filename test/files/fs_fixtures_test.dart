@@ -52,7 +52,43 @@ void main() {
   });
 
   test('the fixture holds every case these tests name', () {
-    expect(_cases.keys, hasLength(greaterThanOrEqualTo(25)));
+    expect(
+      _cases.keys,
+      containsAll([
+        'list_folder',
+        'list_through_symlink',
+        'list_empty',
+        'list_missing',
+        'list_file',
+        'list_profile_missing',
+        'list_profile_invalid',
+        'read_text_markdown',
+        'read_text_truncated',
+        'read_text_binary',
+        'read_text_directory',
+        'read_text_symlinked_folder',
+        'read_text_secret',
+        'read_text_missing',
+        'read_text_live_database',
+        'download_markdown',
+        'download_secret',
+        'download_missing',
+        'download_directory',
+        'download_live_database',
+        'default_cwd',
+        'default_cwd_named_profile',
+        'default_cwd_profile_missing',
+        'git_root_inside',
+        'git_root_outside',
+        'git_root_missing_path',
+        'locked_list_outside',
+        'locked_list_inside',
+        'locked_read_text_outside',
+        'locked_read_text_secret',
+        'locked_default_cwd',
+        'locked_git_root',
+      ]),
+    );
   });
 
   group('list', () {
@@ -73,6 +109,18 @@ void main() {
       for (final hidden in ['.git', '.env', 'node_modules']) {
         expect(byName, isNot(contains(hidden)));
       }
+    });
+
+    test('a symlink path lists its target, whose entries carry the resolved '
+        'path', () async {
+      serve('list_through_symlink');
+      final listing = ok(await files.list(_p('/srv/demo/proj/link')));
+      expect(listing.entries.map((e) => e.name), ['inside.txt']);
+      expect(
+        listing.entries.single.path.value,
+        '/srv/demo/proj/real/inside.txt',
+      );
+      expect(listing.skipped, 0);
     });
 
     test('an empty folder is a listing, not a failure', () async {
@@ -164,6 +212,11 @@ void main() {
       expect(ok(await files.gitRoot(_p('/srv/demo/plain'))), isNull);
     });
 
+    test('a named profile still gets the launch folder, not its own', () async {
+      serve('default_cwd_named_profile');
+      expect(ok(await files.defaultCwd()).value, '/srv/demo/launch');
+    });
+
     test('a profile the server does not have is badRequest', () async {
       serve('default_cwd_profile_missing');
       expect(failure(await files.defaultCwd()), FilesFailure.badRequest);
@@ -191,12 +244,12 @@ void main() {
       );
       serve('locked_read_text_secret');
       expect(
-        failure(await any.readText(_p('/srv/demo/inside/.env'))),
+        failure(await any.readText(_p('/srv/locked/inside/.env'))),
         FilesFailure.fixedFolder,
         reason: 'a secret name in the root reads as outside it',
       );
       serve('locked_list_inside');
-      final listing = ok(await any.list(_p('/srv/demo/inside')));
+      final listing = ok(await any.list(_p('/srv/locked/inside')));
       expect(listing.entries.map((e) => e.name), ['a.txt']);
     });
 
@@ -213,8 +266,23 @@ void main() {
     final headers = (ok['headers']! as Map).cast<String, String>();
     expect(headers['content-length'], '3');
     expect(headers['content-disposition'], 'attachment; filename="README.md"');
-    final live = _cases['download_live_database']!;
-    expect(live['status'], 409);
-    expect((live['body']! as Map)['detail'], isA<String>());
+  });
+
+  test('a download maps each recorded refusal to its kind', () async {
+    final temp = Directory.systemTemp.createTempSync('fs_fixture_download');
+    addTearDown(() => temp.deleteSync(recursive: true));
+    final kinds = {
+      'download_live_database': FilesFailure.busy,
+      'download_secret': FilesFailure.notAllowed,
+      'download_missing': FilesFailure.missing,
+      'download_directory': FilesFailure.notAFile,
+    };
+    for (final MapEntry(:key, :value) in kinds.entries) {
+      serve(key);
+      final sink = File('${temp.path}/$key').openWrite();
+      final result = await files.download(_p('/srv/demo/proj/x'), sink: sink);
+      await sink.close();
+      expect(failure(result), value, reason: key);
+    }
   });
 }

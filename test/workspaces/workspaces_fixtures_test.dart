@@ -22,14 +22,20 @@ void main() {
   late FakeHermesServer server;
   late HermesWorkspacesRepository repository;
   var rpcCase = '';
+  final calls = <(String, Map<String, Object?>)>[];
 
   setUp(() {
     server = FakeHermesServer();
+    calls.clear();
     repository = HermesWorkspacesRepository(server.client().raw, (
       method,
       params, {
       required timeout,
     }) async {
+      calls.add((method, params));
+      // The recorded case names the method it answered.
+      final expected = _cases[rpcCase]!['rpc'];
+      expect(method, expected, reason: rpcCase);
       final response = ((_cases[rpcCase]!['response']) as Map)
           .cast<String, Object?>();
       if (response['error'] case final Map error) {
@@ -143,9 +149,47 @@ void main() {
     }
   });
 
-  test('the draft chat answers carry the folder fields the app reads', () {
+  test('the rpc requests carry the word, the stored id, the path and the '
+      'profile', () async {
+    rpcCase = 'complete_abs';
+    await repository.complete('/srv/demo/proj/s');
+    expect(calls.last.$1, 'complete.path');
+    expect(calls.last.$2, {'word': '/srv/demo/proj/s', 'profile': 'default'});
+    rpcCase = 'move_ok';
+    await repository.moveWorkspace('20260101_090000_a1b2c3', '/srv/demo/plain');
+    expect(calls.last.$1, 'session.workspace.move');
+    expect(calls.last.$2, {
+      'session_key': '20260101_090000_a1b2c3',
+      'cwd': '/srv/demo/plain',
+      'profile': 'default',
+    });
+  });
+
+  test('a draft chat has no stored row: the read is sessionGone', () async {
+    final c = _cases['session_read_draft']!;
+    server.on(
+      'GET',
+      '/api/sessions/20260101_090000_a1b2c3',
+      c['body'],
+      status: c['status']! as int,
+    );
+    failed(
+      await repository.sessionFolder('20260101_090000_a1b2c3'),
+      WorkspacesFailure.sessionGone,
+    );
+  });
+
+  test('a named profile\'s catalog default folder is its own', () async {
+    final c = _cases['catalog_named_profile']!;
+    server.on('GET', '/api/chat/workspaces', c['body']);
+    final catalog = ok(await repository.catalog(profile: 'demo-profile'));
+    expect(catalog.defaultCwd, '/srv/hermes-home/profiles/demo-profile');
+  });
+
+  test('the draft chat answers carry the folder the app reads', () async {
+    rpcCase = 'create_cwd';
     final bound =
-        (((_cases['create_cwd']!['response'] as Map)['result'] as Map)['info']
+        (((_cases[rpcCase]!['response'] as Map)['result'] as Map)['info']
                 as Map)
             .cast<String, Object?>();
     expect(bound['cwd'], '/srv/demo/proj');
@@ -156,6 +200,5 @@ void main() {
             as Map;
     expect(fell['cwd'], '/srv/demo/launch');
     expect(fell['project'], isNull);
-    expect(_cases['session_read_draft']!['status'], 404);
   });
 }
