@@ -283,6 +283,7 @@ abstract final class AppIcons {
     CupertinoIcons.pin,
   );
   static const power = AppIconSet(Icons.power_outlined, CupertinoIcons.power);
+  static const wrench = AppIconSet(Icons.build_outlined, CupertinoIcons.wrench);
   static const photoLibrary = AppIconSet(
     Icons.photo_library_outlined,
     CupertinoIcons.photo_on_rectangle,
