@@ -7,7 +7,7 @@ import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
-    show InMemoryChatController;
+    show InMemoryChatController, Message;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -40,6 +40,12 @@ import '../workspaces/workspace_catalog_loader.dart';
 import '../workspaces/workspace_models.dart';
 import '../workspaces/workspace_paths.dart';
 import 'chat_workspace_state.dart';
+import 'checkpoints/action_telemetry.dart';
+import 'checkpoints/chat_action_bridge.dart';
+import 'checkpoints/checkpoints_controller.dart';
+import 'checkpoints/checkpoints_transport.dart';
+import 'checkpoints/transcript_outcome.dart';
+import 'context/context_controller.dart';
 import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
@@ -82,6 +88,7 @@ import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
 import '../telemetry/report_bug.dart';
 
 part 'chat_controller_billing.dart';
+part 'chat_controller_checkpoints.dart';
 part 'chat_controller_subagents.dart';
 part 'chat_controller_commands.dart';
 part 'chat_controller_connectors.dart';
@@ -165,6 +172,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onSurfaceChange,
     this.readSnapshot,
     this.onDraft,
+    this.onHandBack,
     this.breadcrumbs = Breadcrumbs.none,
     this.events = noopAppEventLogger,
     this.connectorBrowser,
@@ -202,6 +210,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _activeActivity = activity?.value ?? true;
     activity?.addListener(_activityChanged);
     appLock?.addListener(_billingLockChanged);
+    appLock?.addListener(_actionsLockChanged);
     _listenOwnedSessions();
     search?.setActivity(_activeActivity);
     housekeeping?.setActivity(_activeActivity);
@@ -269,6 +278,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
     _suspendedQueues.addAll(_queues.keys);
     _undoing.clear();
+    _retrying.clear();
     _interrupts.clear();
     _holds.clear();
     for (final subscription in _replies) {
@@ -279,6 +289,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _sending.clear();
     _cancelSettleWaits();
     _replayEnds?.cancel();
+    _ChatControllerCheckpoints(this)._actionsSuspended();
     notifyListeners();
   }
 
@@ -506,6 +517,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// never sent.
   final ValueChanged<String>? onDraft;
 
+  /// Puts a prompt a full restore removed back into the composer, so the
+  /// screen can say so; [onDraft] does it when this is not set.
+  final ValueChanged<String>? onHandBack;
+
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.
   final Breadcrumbs breadcrumbs;
@@ -547,6 +562,27 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   SessionUsageController? usageIn(ChatThread thread) =>
       _ChatControllerSessionBinding(this)._usageInImpl(thread);
+
+  final _threadActions = <String, _ThreadActions>{};
+
+  /// The File checkpoints of [thread], one controller per chat; null when the
+  /// controller is not active, the transport has no checkpoints, or the chat
+  /// is not stored on the server yet.
+  CheckpointsController? checkpointsIn(ChatThread thread) =>
+      _ChatControllerCheckpoints(this)._checkpointsInImpl(thread);
+
+  /// The Context row of [thread], with the same rules as [checkpointsIn].
+  ContextController? contextIn(ChatThread thread) =>
+      _ChatControllerCheckpoints(this)._contextInImpl(thread);
+
+  /// Whether Send is held for [thread]: from the confirmation of a full
+  /// restore until it settles. A prompt submitted meanwhile is queued.
+  bool sendHeldIn(ChatThread thread) =>
+      _ChatControllerCheckpoints(this)._sendHeldInImpl(thread);
+
+  /// The compress and restore outcome lines of [thread], oldest first.
+  List<TranscriptOutcome> outcomeLinesIn(ChatThread thread) =>
+      _ChatControllerCheckpoints(this)._outcomeLinesInImpl(thread);
 
   final _reactions = <ChatThread, ReactionState>{};
 
@@ -1206,7 +1242,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (thread.unread) selected.unread = true;
       _selectedId = selected.id;
       _markRead(selected);
-      await controllerFor(selected).setMessages(chatThreadToFlyer(selected));
+      await controllerFor(selected)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(selected));
       if (!current()) return false;
       notifyListeners();
       if (!current()) return false;
@@ -1302,6 +1339,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _removeBilling((_profile, thread.id));
     _ownedBindings.remove(thread);
     _usage.remove(thread)?.dispose();
+    _ChatControllerCheckpoints(this)._dropActions(thread);
     _ChatControllerSubagents(this)._dropSubagents(thread.id);
     _reactions.remove(thread)?.dispose();
     _sideResults.remove(thread)?.dispose();
@@ -1347,6 +1385,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _ChatControllerQueues(this)._queueIdentityChanged();
   void _billingLockChanged() =>
       _ChatControllerBilling(this)._billingLockChanged();
+  void _actionsLockChanged() =>
+      _ChatControllerCheckpoints(this)._actionsLockChanged();
 
   void _cancelOwnedSubscription() {
     unawaited(_ownedSubscription?.cancel());
@@ -1364,6 +1404,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _cancelQueueBindings();
     activity?.removeListener(_activityChanged);
     appLock?.removeListener(_billingLockChanged);
+    appLock?.removeListener(_actionsLockChanged);
     _activityEpoch++;
     _ChatControllerSubagents(this)._clearSubagents();
     _subagentEnvironment?.dispose();
@@ -1384,13 +1425,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
     super.dispose();
+    // After dispose: a restore's hold ends without sending anything.
+    _ChatControllerCheckpoints(this)._clearActions();
   }
 
   InMemoryChatController controllerFor(ChatThread? thread) {
     if (thread == null) return _emptyController;
     return _chatControllers.putIfAbsent(
       thread.id,
-      () => InMemoryChatController(messages: chatThreadToFlyer(thread)),
+      () => InMemoryChatController(
+        messages: _ChatControllerCheckpoints(this)._flyerOf(thread),
+      ),
     );
   }
 
@@ -1467,6 +1512,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         }),
       );
     }
+    _ChatControllerCheckpoints(this)._actionsSelected(id);
     unawaited(refreshActive());
   }
 
@@ -1516,6 +1562,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// through its pending reply.
   final _active = <String>{};
   var _activeRefresh = 0;
+
+  /// Whether [_active] was read since the thread list was last read; a list
+  /// read empties it until the next answer, and a restore or compress does
+  /// not go ahead on an empty guess about other clients' turns.
+  var _activeKnown = true;
   Set<String> get activeThreads => Set.unmodifiable(_active);
 
   /// Asks the transport which sessions are mid-turn and marks their threads,
@@ -1526,6 +1577,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (transport == null || !active) return true;
     final generation = _loadGeneration;
     final refresh = ++_activeRefresh;
+    try {
+      return await _applyActive(transport, generation, refresh);
+    } finally {
+      // The newest read's answer, or its failure (the poll goes on), ends
+      // not knowing.
+      if (refresh == _activeRefresh) _activeKnown = true;
+    }
+  }
+
+  Future<bool> _applyActive(
+    ChatTransport transport,
+    int generation,
+    int refresh,
+  ) async {
     final Map<String, String> statuses;
     try {
       statuses = await transport.activeStatuses();
@@ -1619,6 +1684,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// tap does not drop the turn before it too.
   final _undoing = <ChatThread, TurnAction>{};
 
+  /// Threads where a Retry runs from taking the turn back to sending the
+  /// prompt again. A full restore waits for it: between the two the chat is
+  /// neither undoing nor replying.
+  final _retrying = <ChatThread>{};
+
   /// Why the last retry or edit of a thread failed, until the next one or the
   /// next prompt.
   final _turnProblems = <ChatThread, String>{};
@@ -1699,18 +1769,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       return false;
     }
     _turnProblems.remove(selected);
+    // A full restore is settling: the prompt waits in the queue for it.
+    final held = _ChatControllerCheckpoints(this)._actionHolds(selected);
     if (selected == null ||
-        !selected.isReplying && !_queues.containsKey(selected)) {
+        !held && !selected.isReplying && !_queues.containsKey(selected)) {
       return _send(selected, typed, files, displayText: displayText);
     }
     if (_sizesOrExplain(files) == null) return false;
+    _ChatControllerCheckpoints(this)._queuedDuringHold(selected);
     if (queueStore != null) {
       return _enqueueProtected(selected, typed, files, displayText);
     }
     (_queues[selected] ??= []).add(
       QueuedPrompt(typed, files, displayText: displayText),
     );
-    (selected.isReplying || _settleTimers.containsKey(selected))
+    (selected.isReplying || _settleTimers.containsKey(selected) || held)
         ? notifyListeners()
         : _drainQueue(selected);
     return true;
@@ -1752,6 +1825,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     final controller = _chatControllers.remove(thread.id);
     if (_selectedId == thread.id) _selectedId = id;
+    _ChatControllerCheckpoints(this)._rekeyActions(thread.id, id);
     thread.id = id;
     thread.remote = true;
     _ChatControllerWorkspace(this)._workspaceCreated(thread);
@@ -1776,6 +1850,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_active.remove(previousId)) _active.add(id);
     thread.id = id;
     _ChatControllerSubagents(this)._rekeySubagents(previousId, id);
+    _ChatControllerCheckpoints(this)._rekeyActions(previousId, id);
     if (controller != null) _chatControllers[id] = controller;
     _syncTodo(thread, _profile);
     notifyListeners();

@@ -52,7 +52,9 @@ Future<void> openFiles(
   final threadId = thread.id;
   final telemetry = FilesTelemetry(repositories.telemetry, breadcrumbs);
   final cwd = thread.workingDirectory;
-  await Navigator.of(context).push(
+  // The root navigator: from the Activity panel the nearest one is the
+  // panel's own, which closes with it.
+  await Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute<void>(
       builder: (_) => FilesScreen(
         source: HermesFilesRepository(
