@@ -97,12 +97,20 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
     _status = null;
     _failure = null;
     _lastRead = null;
+    // The gateway that was busy belonged to the old profile.
+    _gatewayBusy = false;
     refresh();
   }
 
   /// Reads the status now.
   Future<void> refresh() async {
-    if (disposed || (covered?.call() ?? false)) return;
+    if (disposed) return;
+    if (covered?.call() ?? false) {
+      // A read that was running is dropped below; do not leave it spinning.
+      _loading = false;
+      notifyListeners();
+      return;
+    }
     final generation = ++_generation;
     final profile = _profile;
     _loading = true;
@@ -118,14 +126,15 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
     try {
       final result = await repository.status(profile: profile);
       if (generation != _generation || disposed) return;
-      _lastRead = _now();
       switch (result) {
         case CareOk(:final value):
+          _lastRead = _now();
           _status = value;
           _failure = null;
           _supported = true;
           outcome = 'success';
         case CareUnsupported():
+          _lastRead = _now();
           _status = null;
           _failure = null;
           _supported = false;
@@ -148,6 +157,7 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   /// The app came back to the front: read again unless a read is recent. Dart
   /// timers stop while iOS suspends the app, so this is what catches up.
   Future<void> resumed() async {
+    if (_loading) return;
     final last = _lastRead;
     if (last != null && _now().difference(last) < resumeInterval) return;
     await refresh();
@@ -160,19 +170,6 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
     _quiet(
       () => telemetry.events('server_care.unsupported', {'part': part.name}),
     );
-  }
-
-  /// Forgets everything: sign-out, a server change, or an App Lock that now
-  /// covers the app. A read still on its way is dropped.
-  void clear() {
-    _generation++;
-    _status = null;
-    _failure = null;
-    _lastRead = null;
-    _loading = false;
-    _supported = true;
-    _gatewayBusy = _updating = _restarting = false;
-    notifyListeners();
   }
 
   static void _quiet(void Function() action) {

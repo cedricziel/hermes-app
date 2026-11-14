@@ -164,20 +164,50 @@ void main() {
     expect(controller.status?.version, '9.9.9');
   });
 
-  test('clear forgets the status and drops a read in flight', () async {
+  test('a failed read does not hold off the next resume', () async {
+    server.on('GET', '/api/status', {}, status: 500);
     await controller.refresh();
-    controller.clear();
-    expect(controller.status, isNull);
-    expect(controller.attention, isNull);
-    expect(controller.mark, ServerAttentionMark.none);
+    server.on('GET', '/api/status', statusHealthy());
+    await controller.resumed();
+    expect(controller.failure, isNull);
+    expect(reads(), 2);
+  });
 
+  test('a resume while a read runs does not send a second one', () async {
+    final slow = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/status', (_) => slow.future);
+    final first = controller.refresh();
+    await controller.resumed();
+    slow.complete((status: 200, body: statusHealthy()));
+    await first;
+    expect(reads(), 1);
+  });
+
+  test('a read dropped under App Lock does not leave loading on', () async {
     final slow = Completer<FakeResponse>();
     server.onRequest('GET', '/api/status', (_) => slow.future);
     final read = controller.refresh();
-    controller.clear();
+    expect(controller.loading, isTrue);
+    covered = true;
+    controller.profileChanged('other');
     slow.complete((status: 200, body: statusHealthy()));
     await read;
+    expect(controller.loading, isFalse);
     expect(controller.status, isNull);
+  });
+
+  test('a busy gateway of the old profile does not carry over', () async {
+    await controller.refresh();
+    controller.gatewayBusy = true;
+    controller.profileChanged('other');
+    await pumpEventQueue();
+    server.on('GET', '/api/status', {
+      ...statusHealthy(),
+      'gateway_running': false,
+      'gateway_state': 'stopped',
+    });
+    await controller.refresh();
+    expect(controller.attention, Attention.gatewayOff);
   });
 
   test('the span carries only its fixed attributes, not the profile', () async {

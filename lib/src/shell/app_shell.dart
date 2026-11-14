@@ -251,6 +251,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       );
       _chatProfiles?.addListener(_followServerCareProfile);
       _appLock?.addListener(_readServerCareAfterUnlock);
+      // The chat reports its profile after its threads load, and not at all
+      // when it works in the server's default: read now, and again if a
+      // profile is reported.
       unawaited(care.refresh());
     }
     final service = _maybeRead<NotificationService>();
