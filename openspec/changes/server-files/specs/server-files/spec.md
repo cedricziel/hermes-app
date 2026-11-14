@@ -68,19 +68,23 @@ The page SHALL NOT go above the chat's git root (`GET /api/fs/git-root`), or abo
 - **WHEN** the highest folder is `/srv/app` and an entry's path is `/srv/app-secrets/key`
 - **THEN** the path is treated as outside
 
-### Requirement: Hidden files and secrets
+### Requirement: Hidden files
 
-Names starting with a dot SHALL be hidden until the user turns on "Show hidden files", for that visit only. A file whose name looks like a secret (the list in design.md, matched case-insensitively) SHALL be listed with a lock icon and the words "May contain secrets", and SHALL ask, in an alert titled with the file's name, "This file may contain passwords or keys. Continue anyway?" with "Cancel" (the default) and "Continue" before any request for its content: before a preview, Save, Share and Open with…, on every profile, because Hermes skips its own check for text previews on an SSH workspace. Nothing SHALL be requested by focus, hover or selection alone.
-
-#### Scenario: Secret-looking names
-
-- **WHEN** the folder holds `.env`, `.envrc`, `.netrc`, `.npmrc`, `.pypirc`, `.git-credentials`, `credentials.json`, `key.pem`, `id_rsa`, `vault.kdbx`, `api_token.txt`, `.htpasswd`, `.pgpass`, `AuthKey.p8`, `release.jks`, `upload.keystore`, `office.ovpn`, `terraform.tfstate`, `prod.tfvars`, `kubeconfig`, `.docker/config.json` or a file under `.ssh/`, in any letter case
-- **THEN** each is treated as secret-looking
+Names starting with a dot SHALL be hidden until the user turns on "Show hidden files", for that visit only. Nothing SHALL be requested by focus, hover or selection alone.
 
 #### Scenario: Hidden files off
 
 - **WHEN** the folder contains `.gitignore` and `notes.md` and Show hidden files is off
 - **THEN** only `notes.md` is listed
+
+### Requirement: Secret-looking files
+
+A file whose name looks like a secret (the list in design.md, matched case-insensitively) SHALL be listed with a lock icon and the words "May contain secrets", and SHALL ask, in an alert titled with the file's name, "This file may contain passwords or keys. Continue anyway?" with "Cancel" (the default) and "Continue" before any request for its content: before a preview, Save, Share and Open with…, on every profile (Hermes skips its own check for text previews on an SSH workspace).
+
+#### Scenario: Secret-looking names
+
+- **WHEN** the folder holds `.env`, `.envrc`, `.netrc`, `.npmrc`, `.pypirc`, `.git-credentials`, `credentials.json`, `key.pem`, `id_rsa`, `vault.kdbx`, `api_token.txt`, `.htpasswd`, `.pgpass`, `AuthKey.p8`, `release.jks`, `upload.keystore`, `office.ovpn`, `terraform.tfstate`, `prod.tfvars`, `kubeconfig`, `.docker/config.json` or a file under `.ssh/`, in any letter case
+- **THEN** each is treated as secret-looking
 
 #### Scenario: Secret file
 
@@ -105,16 +109,6 @@ A text file (a known extension, or a `language` the server names) SHALL be read 
 
 - **WHEN** the user opens `app.py` and the server answers `language: "python"`, `byteSize: 1834`, `truncated: false`
 - **THEN** the code is shown with Python colours and the header says "1.8 KB"
-
-#### Scenario: Large text
-
-- **WHEN** `read-text` answers `truncated: true` for a 3.2 MB log
-- **THEN** the view shows the first part, "Showing the first 512 KB of 3.2 MB." and Download full file
-
-#### Scenario: Markdown
-
-- **WHEN** the user opens `report.md`
-- **THEN** it is rendered, and the Source toggle shows the Markdown text
 
 #### Scenario: Binary after all
 
@@ -147,7 +141,7 @@ A rendered Markdown file SHALL NOT fetch anything from the network: an image ele
 
 ### Requirement: Image and PDF preview
 
-An image file (png, jpg, jpeg, gif, webp, bmp, svg) SHALL be downloaded to the cache and shown with pinch and pan, decoded at the size drawn. A PDF SHALL be downloaded and opened in Quick Look on iOS and macOS, and in the system's viewer elsewhere; its preview screen SHALL show the name, "PDF document", the size and the primary action Open. A file that finished downloading SHALL NOT download again until sign-out or App Lock unless the user chooses Reload, except on an SSH workspace, where it downloads again on each open.
+An image file (png, jpg, jpeg, gif, webp, bmp, svg) SHALL be downloaded to the cache and shown with pinch and pan, decoded at the size drawn. A PDF SHALL be downloaded and opened in Quick Look on iOS and macOS, and in the system's viewer elsewhere; its preview screen SHALL show the name, "PDF document", the size and the primary action Open.
 
 #### Scenario: SVG
 
@@ -163,6 +157,10 @@ An image file (png, jpg, jpeg, gif, webp, bmp, svg) SHALL be downloaded to the c
 
 - **WHEN** the user taps Open on `report.pdf`
 - **THEN** it opens in Quick Look
+
+### Requirement: Downloaded files are reused
+
+A file that finished downloading SHALL NOT download again until sign-out or App Lock unless the user chooses Reload, except on an SSH workspace, where it downloads again on each open.
 
 #### Scenario: Reload
 
@@ -367,9 +365,9 @@ The page SHALL belong to one chat and one profile. Switching the chat's profile,
 - **WHEN** the user signs out while a file downloads
 - **THEN** the download is cancelled and the staged files are deleted
 
-### Requirement: App Lock and cached files
+### Requirement: App Lock
 
-While App Lock covers the app, no file name, list or preview SHALL be visible, and the Quick Look panel opened from Files SHALL close. Files downloaded for Files SHALL live in the `MediaStore` cache in the application cache directory (not indexed by Spotlight, not backed up) under the sanitizing rule of other downloads. A file fetched after the secret question SHALL be deleted when its preview closes. All Files downloads SHALL be deleted on sign-out and when App Lock locks; other cached files are removed by the 24-hour sweep at launch, as today. Names from the server SHALL NOT be able to leave the cache folder.
+While App Lock covers the app, no file name, list or preview SHALL be visible, and the Quick Look panel opened from Files SHALL close.
 
 #### Scenario: Lock while previewing
 
@@ -380,6 +378,10 @@ While App Lock covers the app, no file name, list or preview SHALL be visible, a
 
 - **WHEN** App Lock locks the app while a file downloads
 - **THEN** the download is cancelled, its partial file and every other Files download are deleted, and after unlock the file is fetched again when opened
+
+### Requirement: Cached files
+
+Files downloaded for Files SHALL live in the `MediaStore` cache in the application cache directory (not indexed by Spotlight, not backed up) under the sanitizing rule of other downloads. A file fetched after the secret question SHALL be deleted when its preview closes. All Files downloads SHALL be deleted on sign-out and when App Lock locks; other cached files are removed by the 24-hour sweep at launch, as today. Names from the server SHALL NOT be able to leave the cache folder.
 
 #### Scenario: Secret file closed
 
@@ -402,7 +404,7 @@ While a Files preview is on screen and the app becomes inactive, the preview SHA
 
 ### Requirement: Layouts and platform behaviour
 
-On a phone the list SHALL be one page with the preview pushed over it. On iPad at 700 pt and on desktop at 900 pt the list SHALL sit beside the preview. On macOS the page SHALL use the Mac toolbar and the keyboard (arrows, Enter, ⌘↑, Space, ⌘R) and SHALL NOT use a bottom sheet. Android's back SHALL go up one folder, then close the page.
+On a phone the list SHALL be one page with the preview pushed over it. On iPad at 700 pt and on desktop at 900 pt the list SHALL sit beside the preview. On macOS the page SHALL use the Mac toolbar and the keyboard (arrows, Enter, ⌘↑, Space, ⌘R) and SHALL NOT use a bottom sheet. Android's back SHALL go up one folder, then close the page. Each path-bar segment SHALL be a keyboard-focusable button whose label is its full path.
 
 #### Scenario: iPhone
 
@@ -421,7 +423,7 @@ On a phone the list SHALL be one page with the preview pushed over it. On iPad a
 
 ### Requirement: Accessibility
 
-Every touch row, action and toggle SHALL be at least 44 pt (iOS, iPadOS) or 48 dp (Android) high. On macOS, where rows are pointer targets, file rows SHALL be 32 pt and every other target at least 28 pt. Rows SHALL read as "<name>, folder" or "<name>, file" with "may contain secrets" where it applies (the text equivalent of the lock), with no meaning carried by colour or icon alone. Each path-bar segment SHALL be a keyboard-focusable button whose label is its full path. Text SHALL scale to the largest accessibility size: names wrap at word boundaries and break inside a word only when nothing else fits, and buttons scale with the text. Contrast SHALL meet WCAG AA in both themes including code colours, progress and failures SHALL be announced, and reduced motion SHALL remove the list-to-preview transition and the spinner's animation.
+Every touch row, action and toggle SHALL be at least 44 pt (iOS, iPadOS) or 48 dp (Android) high. On macOS, where rows are pointer targets, file rows SHALL be 32 pt and every other target at least 28 pt. Rows SHALL read as "<name>, folder" or "<name>, file" with "may contain secrets" where it applies (the text equivalent of the lock), with no meaning carried by colour or icon alone. Contrast SHALL meet WCAG AA in both themes including code colours, and progress and failures SHALL be announced.
 
 #### Scenario: Large text
 
@@ -442,6 +444,20 @@ Every touch row, action and toggle SHALL be at least 44 pt (iOS, iPadOS) or 48 d
 
 - **WHEN** a screen reader focuses a row for `.env`
 - **THEN** it reads ".env, file, may contain secrets"
+
+### Requirement: Large text and reduced motion
+
+Text SHALL scale to the largest accessibility size: names wrap at word boundaries and break inside a word only when nothing else fits, and buttons scale with the text. Reduced motion SHALL remove the list-to-preview transition and the spinner's animation.
+
+#### Scenario: Large text
+
+- **WHEN** `read-text` answers `truncated: true` for a 3.2 MB log
+- **THEN** the view shows the first part, "Showing the first 512 KB of 3.2 MB." and Download full file
+
+#### Scenario: Markdown
+
+- **WHEN** the user opens `report.md`
+- **THEN** it is rendered, and the Source toggle shows the Markdown text
 
 ### Requirement: Observability
 
