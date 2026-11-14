@@ -134,7 +134,7 @@ class _Dashboard {
         await duringRefresh?.call();
         if (refreshFailure case final DioException error) throw error;
         if (refreshStatus case final status?) {
-          return (status: status, body: {'detail': 'invalid refresh token'});
+          return (status: status, body: refreshStatusBody);
         }
         if ((request.data as Map)['refresh_token'] != validRefresh) {
           return (status: 401, body: {'detail': 'spent refresh token'});
@@ -160,6 +160,9 @@ class _Dashboard {
   String validRefresh = 'refresh-1';
   int refreshes = 0;
   int? refreshStatus;
+
+  /// The body sent with [refreshStatus].
+  Object refreshStatusBody = {'detail': 'invalid refresh token'};
   DioException? refreshFailure;
   bool rotateAccess = true;
   Duration refreshDelay = Duration.zero;
@@ -650,6 +653,21 @@ void main() {
         expect(spanOutcome(), 'auth_failed');
       },
     );
+
+    test('a refresh refused with a 403 by a proxy is unreachable and '
+        'leaves storage as it was', () async {
+      store.session = _session(expiresAt: 1);
+      final before = store.session;
+      dashboard
+        ..refreshStatus = 403
+        ..refreshStatusBody = {'detail': 'Forbidden'};
+
+      final outcome = await run(readProfiles);
+
+      expect(outcome, isA<HeadlessUnreachable<List<String?>>>());
+      expect(store.session, same(before));
+      expect(dashboard.refreshes, 1);
+    });
 
     test('a network error during the refresh is unreachable', () async {
       store.session = _session(expiresAt: 1);
