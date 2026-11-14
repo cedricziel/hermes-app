@@ -147,6 +147,10 @@ class BotScreenController extends ChangeNotifier {
   bool get handingBack => _handingBack;
   var _handingBack = false;
 
+  /// Tells listeners that [viewerIds] dropped ids, which changes whether the
+  /// lease names this device ([inControlHere]) with no status read behind it.
+  void viewerIdsChanged() => _notify();
+
   /// Takes [lease], which an acquire or release answered, at once instead of
   /// waiting for the broadcast, unless the status already holds a newer one.
   /// Reads asked for before it are dropped as older.

@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/owned_session_transport.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/live_activities/live_activities.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
@@ -517,6 +518,123 @@ void main() {
     await pumpEventQueue();
 
     expect(contents('s1'), ['Hi', 'Hello', '/usage', 'Done']);
+  });
+
+  test('a command that re-reads the chat keeps a reply still streaming and '
+      'the lines only this app has', () async {
+    page(history());
+    await open();
+    await pumpEventQueue();
+    await chat.runSlashCommand('/usage');
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+    ack(send, 3);
+    send.emit(const ReplyDelta('Par'));
+    await pumpEventQueue();
+    final reply = thread('s1').messages.last;
+    transport.slashResult = const SlashCommandResult(
+      threadId: 's1',
+      output: 'Undid',
+      prefill: 'draft',
+    );
+
+    await chat.runSlashCommand('/undo');
+    await pumpEventQueue();
+
+    expect(contents('s1'), [
+      'Hi',
+      'Hello',
+      '/usage',
+      'Done',
+      'More',
+      'Par',
+      '/undo',
+      'Undid',
+    ]);
+    expect(identical(thread('s1').messages[5], reply), isTrue);
+    send
+      ..emit(const ReplyCompleted('Partial'))
+      ..finish();
+    await sent;
+    await pumpEventQueue();
+    expect(thread('s1').messages[5].content, 'Partial');
+  });
+
+  test('a command that undid a turn sent here removes it, and one older '
+      'than the page is not shown twice', () async {
+    page(history());
+    await open();
+    await pumpEventQueue();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+    ack(send, 3);
+    send
+      ..emit(const ReplyCompleted('Answer'))
+      ..finish();
+    await sent;
+    await pumpEventQueue();
+    transport.slashResult = const SlashCommandResult(
+      threadId: 's1',
+      output: 'Undid',
+      prefill: 'More',
+    );
+
+    await chat.runSlashCommand('/undo');
+    await pumpEventQueue();
+    expect(contents('s1'), ['Hi', 'Hello', '/undo', 'Undid']);
+  });
+
+  test('a command that re-reads a chat whose page starts after a turn sent '
+      'here does not keep that turn out of place', () async {
+    page(history());
+    await open();
+    await pumpEventQueue();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+    ack(send, 3);
+    send
+      ..emit(const ReplyCompleted('Answer'))
+      ..finish();
+    await sent;
+    await pumpEventQueue();
+    server.on(
+      'GET',
+      '/api/sessions/s1/messages',
+      messageListBody('s1', [
+        messageRow(id: 50, role: 'user', content: 'Later'),
+        messageRow(id: 51, role: 'assistant', content: 'Reply'),
+      ]),
+    );
+    transport.slashResult = const SlashCommandResult(
+      threadId: 's1',
+      output: 'Done',
+      prefill: 'x',
+    );
+
+    await chat.runSlashCommand('/undo');
+    await pumpEventQueue();
+
+    expect(contents('s1'), ['Later', 'Reply', '/undo', 'Done']);
+  });
+
+  test('a command that undid a turn removes it from the chat', () async {
+    page(history());
+    await open();
+    await pumpEventQueue();
+    page([messageRow(id: 1, role: 'user', content: 'Hi')]);
+    transport.slashResult = const SlashCommandResult(
+      threadId: 's1',
+      output: 'Undid',
+      prefill: 'Hello',
+    );
+
+    await chat.runSlashCommand('/undo');
+    await pumpEventQueue();
+
+    expect(contents('s1'), ['Hi', '/undo', 'Undid']);
   });
 
   test('listing the chats again keeps the turn that is running', () async {
