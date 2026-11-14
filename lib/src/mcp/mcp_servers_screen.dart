@@ -4,11 +4,13 @@ import '../profiles/hermes_profiles_repository.dart';
 import '../theme/app_icons.dart';
 import '../theme/breakpoints.dart';
 import '../theme/platform_chrome.dart';
+import '../tools/widgets/tools_difference_sheet.dart';
 import '../widgets/adaptive_popup_menu_button.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/row_actions.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
+import '../widgets/whats_the_difference_link.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_add_server_screen.dart';
 import 'mcp_catalog_screen.dart';
@@ -321,6 +323,9 @@ class _ServerList extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+        WhatsTheDifferenceFooter(
+          onTap: () => showToolsDifferenceSheet(context),
         ),
       ],
     );
