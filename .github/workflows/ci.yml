@@ -21,8 +21,8 @@ jobs:
   # the two Swift packages they run and on this workflow. The platform builds
   # on a pull request run only when a path they read changed (native folders,
   # packages, dependencies, assets, the packaging script, fastlane or this
-  # workflow): Dart under lib/ and test/ is already compiled by analyze and the
-  # tests. A path a build starts to depend on must be added to `builds` below.
+  # workflow): Dart under lib/ and test/ is analyzed and tested on every code
+  # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to `builds` below.
   changes:
     name: Changes
     runs-on: ubuntu-latest
@@ -51,14 +51,18 @@ jobs:
             if [ "$(git rev-list --parents -n1 HEAD | wc -w)" -ne 3 ]; then
               echo "::warning::HEAD is not a merge commit; running everything"
             else
-              files="$(git diff --name-only --no-renames HEAD^1 HEAD)"
-              if [ -z "$files" ]; then
+              # NUL-separated and unquoted, so a name with non-ASCII or control
+              # characters reaches the patterns below unchanged. A failed diff
+              # aborts the step (set -e).
+              list="$(mktemp)"
+              git -c core.quotePath=false diff --name-only -z --no-renames HEAD^1 HEAD > "$list"
+              if [ ! -s "$list" ]; then
                 echo "::warning::No changed files found; running everything"
               else
                 code=false
                 watch=false
                 builds=false
-                while IFS= read -r file; do
+                while IFS= read -r -d '' file; do
                   echo "changed: $file"
                   case "$file" in
                     docs/* | openspec/* | *.md) ;;
@@ -69,11 +73,11 @@ jobs:
                   esac
                   case "$file" in
                     packages/hermes_api/lib/*) ;;
-                    android/* | ios/* | macos/* | linux/* | windows/* | web/* | packages/* | assets/* | fastlane/* | .github/actions/*) builds=true ;;
+                    android/* | ios/* | macos/* | linux/* | windows/* | web/* | packages/* | assets/* | fastlane/*) builds=true ;;
                     pubspec.yaml | pubspec.lock | */pubspec.yaml | */pubspec.lock | .fvmrc) builds=true ;;
-                    scripts/package-linux.sh | .github/workflows/ci.yml) builds=true ;;
+                    scripts/package-linux.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
                   esac
-                done <<< "$files"
+                done < "$list"
               fi
             fi
           fi
@@ -359,6 +363,32 @@ jobs:
       - name: Build debug app with share extension
         run: flutter build macos --debug
 
+  # The only test of the real libmpv decoder path in lib/src/voice/. It runs
+  # for every code pull request, not only when a platform build does.
+  native-audio-test:
+    name: Test native audio (Linux)
+    runs-on: ubuntu-22.04
+    needs: [changes, analyze-and-test]
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install native audio dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev libmpv-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Test native voice codecs
+        run: flutter test test/voice/native_voice_player_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
+
   # Builds the release bundle and packages it exactly as the release workflow
   # does, so a broken tarball or .deb shows up on the PR instead of at release.
   build-linux:
@@ -383,9 +413,6 @@ jobs:
 
       - name: flutter pub get
         run: flutter pub get
-
-      - name: Test native voice codecs
-        run: flutter test test/voice/native_voice_player_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
 
       - name: Build release bundle
         run: flutter build linux --release

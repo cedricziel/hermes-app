@@ -54,12 +54,17 @@ that path from the `case` in the `Changes` job.
 `Changes` also outputs `builds`, which the five platform builds need besides
 `code`. On a pull request it is true when a changed file is under `android/`,
 `ios/`, `macos/`, `linux/`, `windows/`, `web/`, `assets/`, `fastlane/`,
-`.github/actions/` or `packages/` (except `packages/hermes_api/lib/`), is any
-`pubspec.yaml` or `pubspec.lock`, `.fvmrc`, `scripts/package-linux.sh` or
-`ci.yml`. Dart under `lib/` and `test/`, ARB files, `analysis_options.yaml` and
-`l10n.yaml` do not trigger builds, since analyze and the tests already cover
-them. Push to main and `workflow_dispatch` build everything, so a build break
-that only a platform compiler sees shows on main. When a build starts to read a
+or `packages/` (except `packages/hermes_api/lib/`), is any
+`pubspec.yaml` or `pubspec.lock`, `.fvmrc`, `scripts/package-linux.sh`,
+`design/icon-512.png` (which that script copies) or `ci.yml`. Dart under `lib/`
+and `test/`, ARB files, `analysis_options.yaml` and `l10n.yaml` do not trigger
+builds. Analyze and the tests cover them, but release-mode problems a Dart-only
+change can cause (icon tree shaking on a non-const `IconData`, AOT-only or
+conditional-import problems, a platform-only plugin call) are caught on main's
+run only, since push to main and `workflow_dispatch` build everything. The
+native audio test (`test/voice/native_voice_player_test.dart`, real libmpv)
+runs for every code PR in its own job, `Test native audio (Linux)`, which
+`Analyze & test` does not wait for. When a build starts to read a
 new path (a script it calls, a new asset folder), add it to the `builds` case in
 the `Changes` job, or PRs that touch only that path will skip the build.
 
