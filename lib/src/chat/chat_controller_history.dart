@@ -18,6 +18,7 @@ extension _ChatControllerHistory on ChatController {
         if (!_sending.containsKey(thread))
           thread: thread.messages.where((message) => message.isPending).toSet(),
     };
+    final sendingAtStart = _threads.where(_sending.containsKey).toSet();
     final generation = ++_loadGeneration;
     // This load reads the list itself.
     _listRefreshPending = false;
@@ -98,18 +99,25 @@ extension _ChatControllerHistory on ChatController {
           : sameProfile
           ? _threads
                 .where(
-                  (thread) => !thread.remote && _sending.containsKey(thread),
+                  (thread) =>
+                      !thread.remote &&
+                      (_sending.containsKey(thread) ||
+                          sendingAtStart.contains(thread)),
                 )
                 .toList()
           : const <ChatThread>[];
       final live = sameProfile
           ? _threads
                 .where(
-                  (thread) => thread.remote && _sending.containsKey(thread),
+                  (thread) =>
+                      thread.remote &&
+                      (_sending.containsKey(thread) ||
+                          sendingAtStart.contains(thread)),
                 )
                 .toList()
           : const <ChatThread>[];
       final liveIds = {for (final thread in live) thread.id};
+      final kept = {...live, ...local};
       final currentRecoveries = recoveredQueues
           .where(
             (entry) =>
@@ -157,7 +165,15 @@ extension _ChatControllerHistory on ChatController {
         ),
       );
       // Another profile can hold a different session under the same id.
+      final keptState = (
+        bindings: {for (final t in kept) t: ?_ownedBindings[t]},
+        sessions: {for (final t in kept) t: ?_sessionStates[t]},
+        actions: {for (final t in kept) t: ?_sessionActionGenerations[t]},
+      );
       _stopFollowing();
+      _ownedBindings.addAll(keptState.bindings);
+      _sessionStates.addAll(keptState.sessions);
+      _sessionActionGenerations.addAll(keptState.actions);
       _active.clear();
       for (final controller in _chatControllers.values) {
         controller.dispose();
@@ -190,12 +206,36 @@ extension _ChatControllerHistory on ChatController {
               .map((t) => t.id),
         );
       _olderRows.clear();
-      _loadedQueues.clear();
-      _restoredQueues.clear();
+      // What a kept thread's turn and queue stand on carries over; the rest
+      // is rebuilt for the list that was just read.
+      bool inKept(ChatThread t) => kept.contains(t);
+      final carried = (
+        loaded: _loadedQueues.where(inKept).toSet(),
+        restored: _restoredQueues.where(inKept).toSet(),
+        suspended: _suspendedQueues.where(inKept).toSet(),
+        ready: _queueTurnReady.where(inKept).toSet(),
+        settled: _queueSettled.where(inKept).toSet(),
+        restoring: {
+          for (final e in _queueRestoring.entries)
+            if (inKept(e.key)) e.key: e.value,
+        },
+      );
+      _loadedQueues
+        ..clear()
+        ..addAll(carried.loaded);
+      _restoredQueues
+        ..clear()
+        ..addAll(carried.restored);
       _queueEpoch++;
-      _queueRestoring.clear();
-      _queueTurnReady.clear();
-      _queueSettled.clear();
+      _queueRestoring
+        ..clear()
+        ..addAll(carried.restoring);
+      _queueTurnReady
+        ..clear()
+        ..addAll(carried.ready);
+      _queueSettled
+        ..clear()
+        ..addAll(carried.settled);
       _queues
         ..clear()
         ..addAll({
@@ -203,13 +243,23 @@ extension _ChatControllerHistory on ChatController {
         });
       _restoredQueues.addAll(
         _queues.keys.where(
-          (thread) => _queues[thread]!.any((prompt) => prompt.durable != null),
+          (thread) =>
+              !inKept(thread) &&
+              _queues[thread]!.any((prompt) => prompt.durable != null),
         ),
       );
       _suspendedQueues
         ..clear()
-        ..addAll(_queues.keys);
-      _cancelSettleWaits();
+        ..addAll(_queues.keys.where((t) => !inKept(t)))
+        ..addAll(carried.suspended);
+      _cancelSettleWaits(except: kept);
+      for (final thread in kept) {
+        if (_protectedSends[thread] case final send?) {
+          send
+            ..epoch = _queueEpoch
+            ..carriedGeneration = _loadGeneration;
+        }
+      }
       _bound
         ..clear()
         ..addAll(threads.where((thread) => thread.remote));

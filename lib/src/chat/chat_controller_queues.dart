@@ -471,7 +471,8 @@ extension _ChatControllerQueues on ChatController {
       queuesVisible &&
       send.epoch == _queueEpoch &&
       profile == _profile &&
-      generation == _loadGeneration &&
+      (generation == _loadGeneration ||
+          send.carriedGeneration == _loadGeneration) &&
       _threads.contains(thread) &&
       _sameQueueOwner(queueScope?.call(thread, profile), send.scope) &&
       send.scope.conversationId == thread.id &&
@@ -584,6 +585,7 @@ extension _ChatControllerQueues on ChatController {
         activityEpoch,
         sessionGeneration,
       );
+      _protectedSends[thread] = send;
       final attachments = <ChatAttachment>[];
       final outgoing = <OutgoingAttachment>[];
       for (final file in prompt.durable!.attachments) {
@@ -667,12 +669,13 @@ extension _ChatControllerQueues on ChatController {
     _drainQueue(thread);
   }
 
-  void _cancelSettleWaits() {
-    for (final timer in _settleTimers.values) {
-      timer.cancel();
+  void _cancelSettleWaits({Set<ChatThread> except = const {}}) {
+    for (final entry in _settleTimers.entries.toList()) {
+      if (except.contains(entry.key)) continue;
+      entry.value.cancel();
+      _settleTimers.remove(entry.key);
     }
-    _settleTimers.clear();
-    _refetch.clear();
+    if (except.isEmpty) _refetch.clear();
   }
 
   Future<bool> _enqueueProtected(
@@ -790,7 +793,12 @@ class _ProtectedQueuedSend {
   final QueuedPrompt prompt;
   final QueueScope scope;
   final PromptQueueStore store;
-  final int epoch;
+
+  /// Where the send stands in the queue's epoch and the thread list's
+  /// generation. A list read again that keeps this send's thread moves both
+  /// on, so the send stays current (`_carryProtectedSends`).
+  int epoch;
+  int? carriedGeneration;
   final int activityEpoch;
   final int sessionGeneration;
   final String claim;
