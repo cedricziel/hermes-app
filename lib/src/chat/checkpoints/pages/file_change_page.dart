@@ -125,7 +125,8 @@ class _FileChangePageState extends State<FileChangePage>
     void back() => Navigator.of(context).maybePop();
     if (file == null) {
       return ActivityPageScaffold(
-        title: splitChangedPath(_path).$2,
+        title: breakableFileName(splitChangedPath(_path).$2),
+        titleLabel: splitChangedPath(_path).$2,
         onBack: back,
         body: ChangesPageMessage(
           status: controller.loadingChanges || controller.restoring
@@ -137,7 +138,8 @@ class _FileChangePageState extends State<FileChangePage>
     final (folder, name) = splitChangedPath(file.path);
     final hasPrevious = at > 0, hasNext = at < files.length - 1;
     return ActivityPageScaffold(
-      title: name,
+      title: breakableFileName(name),
+      titleLabel: name,
       subtitle: folder.isEmpty
           ? l10n.chatCheckpointsChangesTopOfFolder
           : folder,

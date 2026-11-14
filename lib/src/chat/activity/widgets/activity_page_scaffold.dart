@@ -36,6 +36,7 @@ class ActivityPageScaffold extends StatelessWidget {
   const ActivityPageScaffold({
     super.key,
     required this.title,
+    this.titleLabel,
     this.subtitle,
     required this.onBack,
     this.actions = const [],
@@ -46,6 +47,10 @@ class ActivityPageScaffold extends StatelessWidget {
   });
 
   final String title;
+
+  /// What a screen reader says instead of [title], when [title] carries
+  /// invisible break characters for wrapping.
+  final String? titleLabel;
   final String? subtitle;
   final VoidCallback onBack;
   final List<ActivityPageAction> actions;
@@ -88,6 +93,7 @@ class ActivityPageScaffold extends StatelessWidget {
                       header: true,
                       child: Text(
                         title,
+                        semanticsLabel: titleLabel,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
