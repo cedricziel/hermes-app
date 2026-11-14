@@ -47,6 +47,7 @@ class ProfileTile extends StatelessWidget {
           );
     final trailing = [?check, ?button];
     final row = GroupedRow(
+      wrapWhenStacked: true,
       title: profile.label,
       subtitle: profile.description.isNotEmpty
           ? profile.description

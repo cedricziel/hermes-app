@@ -17,6 +17,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../widgets/content_column.dart';
 import 'hermes_messaging_repository.dart';
 import '../widgets/route_dismissal.dart';
+import '../telemetry/report_bug.dart';
 
 typedef LinkLauncher = Future<bool> Function(Uri uri);
 
@@ -157,7 +158,8 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
       });
       _syncChanges();
       _scheduleNextPoll();
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a messaging screen');
       if (generation == _generation &&
           (owner == null || _changes!.ownsPeriod(owner))) {
         _fail(e);
@@ -234,7 +236,8 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
         return;
       }
       _applyStatus(status);
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a messaging screen');
       if (mounted &&
           generation == _generation &&
           (owner == null || _changes!.ownsPeriod(owner))) {
@@ -285,7 +288,8 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
       await widget.repository.applyTelegramPairing(_pairing!.id, _userIds);
       _pairing = null;
       if (mounted) dismissRoute(context, true);
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a messaging screen');
       if (!mounted) return;
       setState(() {
         _saving = false;

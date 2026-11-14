@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../telemetry/report_bug.dart';
+
 /// Asks the dashboard which of its optional plugins are switched on.
 ///
 /// `GET /api/dashboard/plugins` only lists plugins that are enabled and not
@@ -28,7 +30,9 @@ class HermesPluginsRepository {
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       return status == null || status >= 500 ? null : false;
-    } on Object catch (_) {
+    } on Object catch (e, stack) {
+      // Anything else reads as off, as it always did; a bug is also reported.
+      reportBug(e, stack, 'the plugin list probe');
       return false;
     }
   }

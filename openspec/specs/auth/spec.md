@@ -440,7 +440,7 @@ Every request made through the authenticated client on a gated server SHALL carr
 
 ### Requirement: A 401 triggers one refresh and one retry
 
-When a request on a gated server is answered with 401 and a session exists, the system SHALL refresh the session and retry that request once with the new access token. If the retried request also gets 401, the system SHALL treat the session as expired. If the session has no refresh token, the system SHALL treat it as expired immediately. If the refresh endpoint answers 400, 401 or 403, the system SHALL treat the session as expired. If the refresh fails for any other reason, such as a network error or a 5xx answer, the system SHALL keep the session and let the original request fail. A 401 while no session exists SHALL NOT change the connection state.
+When a request on a gated server is answered with 401 and a session exists, the system SHALL refresh the session and retry that request once with the new access token. If the retried request also gets 401, the system SHALL treat the session as expired. If the session has no refresh token, the system SHALL treat it as expired immediately. If the refresh endpoint answers 400 or 401, or answers 403 with Hermes' own error body (a JSON object whose `error` is `session_expired`), the system SHALL treat the session as expired. Hermes refuses a refresh token with 401 `session_expired` and never answers the refresh with 403, so any other 403 comes from something in front of it, such as a proxy or firewall, and SHALL NOT end the session. If the refresh fails for any other reason, such as a network error, a 403 without that body or a 5xx answer, the system SHALL keep the session and let the original request fail. A 401 while no session exists SHALL NOT change the connection state.
 
 Treating the session as expired SHALL immediately disable protected requests and clear the in-memory session and identity, attempt stored-token deletion, announce account cleanup, and set the state to needs login. Successful deletion SHALL set the message "Your session expired. Please sign in again." Failed deletion SHALL report that the saved sign-in could not be removed while preserving recovery through fresh sign-in.
 
@@ -457,6 +457,19 @@ Treating the session as expired SHALL immediately disable protected requests and
 - **THEN** the stored tokens are cleared
 - **AND** the state is needs login
 - **AND** the request fails
+
+#### Scenario: Refresh refused by a proxy
+
+- **WHEN** a request gets 401 and the refresh endpoint answers 403 without an `error` of `session_expired`
+- **THEN** the request fails
+- **AND** the stored tokens are kept
+- **AND** the state stays ready
+
+#### Scenario: Refresh refused with 403 by Hermes
+
+- **WHEN** a request gets 401 and the refresh endpoint answers 403 with an `error` of `session_expired`
+- **THEN** the stored tokens are cleared
+- **AND** the state is needs login
 
 #### Scenario: Refresh endpoint unavailable
 

@@ -335,6 +335,22 @@ void main() {
     },
   );
 
+  test('reports a stored session that cannot be parsed', () async {
+    final events = RecordedEvents();
+    final storage = _FakeStorage(value: '["private details"]');
+
+    final read = await TokenStore(
+      storage: storage,
+      events: events.call,
+    ).readState();
+
+    expect(read, isA<SessionEmpty>());
+    expect(events.named('auth.session.corrupt'), hasLength(1));
+    expect(events.named('auth.session.corrupt').single, {
+      'error.type': 'FormatException',
+    });
+  });
+
   test(
     'telemetry failure leaves an unreadable stored session untouched',
     () async {

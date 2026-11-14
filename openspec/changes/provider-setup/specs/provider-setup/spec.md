@@ -323,6 +323,16 @@ When the address is `http://` to a host that is not local by the app's `isLocalH
 - **WHEN** the person taps Save
 - **THEN** no warning is shown and the endpoint is saved, since Hermes reaches localhost on its own machine
 
+### Requirement: Check connection keeps the key off unencrypted addresses
+
+"Check connection" SHALL NOT send the typed key to an `http://` address that is not local to the Hermes server, since Hermes would pass it on in plain text; the check runs without the key and the form says that the key was not sent.
+
+#### Scenario: Check connection to an unencrypted address
+
+- **GIVEN** the address "http://models.example.net/v1" and a typed API key
+- **WHEN** the person taps "Check connection"
+- **THEN** the request carries no API key and the form says the key was not sent because the address isn't encrypted
+
 ### Requirement: Default model after connecting
 
 After a provider connects, the app SHALL ask `GET /api/model/recommended-default` for it. With no usable default before, it SHALL save the recommended model at once and say "New chats use <model>". Otherwise it SHALL ask "Use <model> for new chats?" with "Choose another model…" and "Keep <current model>". With no recommendation it SHALL save nothing and ask the person to choose, never taking the provider's first listed model.
@@ -347,7 +357,7 @@ After a provider connects, the app SHALL ask `GET /api/model/recommended-default
 #### Scenario: Models still loading
 
 - **WHEN** the new provider lists no models yet
-- **THEN** the step shows the recommended model alone with "Hermes is still loading this provider's models" and Retry
+- **THEN** the step shows the recommended model alone with "Hermes is still loading this provider's models" and Retry, and nothing is saved until Retry finds the models, also when this is the profile's first provider
 
 #### Scenario: Choosing without a recommendation
 

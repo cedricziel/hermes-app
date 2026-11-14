@@ -8,11 +8,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_api/hermes_api.dart'
     show
         CronJobCreate,
+        CustomEndpointUpdate,
+        EnvVarUpdate,
         MCPCatalogInstall,
         MCPServerCreate,
         MoaConfigPayload,
         ProfileCreate,
-        ProfileModelUpdate,
         RawConfigUpdate,
         SessionRename,
         TTSSpeakRequest;
@@ -27,7 +28,10 @@ import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
+import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
+import 'package:hermes_app/src/chat/subagents/agent_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -43,6 +47,8 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/providers/provider_results.dart';
+import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_draft.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
@@ -90,6 +96,9 @@ import 'support/attachment_fixtures.dart';
 /// the whole `mcp_servers` map back unchanged. The catalog test installs `context7`
 /// (no credentials, no build) and removes it, and the sign-in test starts and
 /// cancels a flow against a minimal OAuth provider on the loopback interface.
+/// The model provider tests only read the five list routes and call both
+/// validate routes with an empty value; they save no key, start no sign-in and
+/// remove nothing.
 /// The media tests write throwaway files under the backend's `images` folder
 /// and the system temp directory, so they need a backend on this machine, and
 /// delete them after. The scripted-model tests create a throwaway profile
@@ -581,20 +590,14 @@ void main() {
       return;
     }
 
-    final raw = await client.raw
-        .updateProfileModelEndpointApiProfilesNameModelPut(
-          name: Uri.encodeComponent(profile),
-          profileModelUpdate: ProfileModelUpdate(
-            provider: current.providerId,
-            model: current.modelId,
-          ),
-        );
+    final warning = await HermesModelsRepository(client.raw)
+        .assignMain(current, profile: profile);
 
-    expect(raw.data, {
-      'ok': true,
-      'provider': current.providerId,
-      'model': current.modelId,
-    });
+    expect(warning, isNull);
+    final after = (await HermesModelsRepository(
+      client.raw,
+    ).load(profile: profile)).current;
+    expect(after, current);
   }, skip: skip);
 
   test('the app hint is saved per profile without touching the rest', () async {
@@ -687,6 +690,164 @@ void main() {
 
     expect(bots, isNotEmpty);
     expect(bots.every((b) => b.name.isNotEmpty), isTrue);
+  }, skip: skip);
+
+  group('model providers (read only)', () {
+    // Reads the five list routes and calls both validate routes with an empty
+    // value, so nothing reaches a provider or an endpoint. No key is saved,
+    // no sign-in started and nothing removed here.
+    Map<String, dynamic> object(Object? body, String route) {
+      expect(body, isA<Map<String, dynamic>>(), reason: route);
+      return body! as Map<String, dynamic>;
+    }
+
+    test(
+      'model options with the unconfigured rows carry the provider fields',
+      () async {
+        final body = object(
+          (await client.raw.getModelOptionsApiModelOptionsGet(
+            profile: 'default',
+            includeUnconfigured: true,
+          )).data,
+          'options',
+        );
+        expect(body['model'], anyOf(isNull, isA<String>()));
+        expect(body['provider'], anyOf(isNull, isA<String>()));
+        final rows = (body['providers']! as List).cast<Map<String, dynamic>>();
+        expect(rows, isNotEmpty);
+        for (final row in rows) {
+          expect(row['slug'], isA<String>());
+          expect(row['name'], anyOf(isNull, isA<String>()));
+          expect(row['authenticated'], anyOf(isNull, isA<bool>()));
+          expect(row['is_current'], anyOf(isNull, isA<bool>()));
+          expect(row['models'], anyOf(isNull, isA<List<dynamic>>()));
+          if (row['authenticated'] == false) {
+            expect(row['auth_type'], anyOf(isNull, isA<String>()));
+            expect(row['key_env'], anyOf(isNull, isA<String>()));
+          }
+        }
+      },
+    );
+
+    test('env variables carry the provider key fields', () async {
+      final body = object(
+        (await client.raw.getEnvVarsApiEnvGet(profile: 'default')).data,
+        'env',
+      );
+      final providerKeys = body.values.cast<Map<String, dynamic>>().where(
+        (row) => row['category'] == 'provider',
+      );
+      expect(providerKeys, isNotEmpty);
+      for (final row in providerKeys) {
+        expect(row['provider'], isA<String>());
+        expect(row['is_set'], isA<bool>());
+        expect(row['is_password'], isA<bool>());
+        expect(row['provider_primary'], anyOf(isNull, isA<bool>()));
+        expect(row['url'], anyOf(isNull, isA<String>()));
+        expect(row['redacted_value'], anyOf(isNull, isA<String>()));
+      }
+    });
+
+    test('OAuth providers carry their flow and status', () async {
+      final body = object(
+        (await client.raw.listOauthProvidersApiProvidersOauthGet(
+          profile: 'default',
+        )).data,
+        'oauth',
+      );
+      final rows = (body['providers']! as List).cast<Map<String, dynamic>>();
+      expect(rows, isNotEmpty);
+      for (final row in rows) {
+        expect(row['id'], isA<String>());
+        expect(row['flow'], anyOf('device_code', 'external'));
+        expect(row['disconnectable'], isA<bool>());
+        expect((row['status']! as Map)['logged_in'], isA<bool>());
+      }
+    });
+
+    test('custom endpoints carry the endpoint fields', () async {
+      final body = object(
+        (await client.raw.listCustomEndpointsApiProvidersCustomEndpointsGet(
+          profile: 'default',
+        )).data,
+        'endpoints',
+      );
+      for (final row
+          in (body['endpoints']! as List).cast<Map<String, dynamic>>()) {
+        expect(row['id'], isA<String>());
+        expect(row['base_url'], isA<String>());
+        expect(row['has_api_key'], isA<bool>());
+        expect(row['is_current'], anyOf(isNull, isA<bool>()));
+      }
+    });
+
+    test('the credential pool carries source and auth type', () async {
+      final body = object(
+        (await client.raw.listCredentialPoolApiCredentialsPoolGet(
+          profile: 'default',
+        )).data,
+        'pool',
+      );
+      for (final group
+          in (body['providers']! as List).cast<Map<String, dynamic>>()) {
+        expect(group['provider'], isA<String>());
+        for (final entry
+            in (group['entries']! as List).cast<Map<String, dynamic>>()) {
+          expect(entry['source'], anyOf(isNull, isA<String>()));
+          expect(entry['auth_type'], anyOf(isNull, isA<String>()));
+        }
+      }
+    });
+
+    test('the five routes load and merge without a skipped row', () async {
+      final snapshot = await ProvidersRepository(client.raw).load('default');
+      expect(snapshot, isA<ProvidersLoaded>());
+      final loaded = snapshot as ProvidersLoaded;
+      for (final source in ProviderSource.values) {
+        expect(loaded.state(source), isA<SourceOk>(), reason: source.name);
+      }
+      expect(loaded.catalog.skippedRows, 0);
+      expect(loaded.catalog.entries, isNotEmpty);
+    });
+
+    test('the provider key check answers its three fields, or refuses an '
+        'empty value', () async {
+      final response = await client.raw
+          .validateProviderCredentialApiProvidersValidatePost(
+            envVarUpdate: EnvVarUpdate(key: 'OPENROUTER_API_KEY', value: ''),
+            validateStatus: (_) => true,
+          );
+      if (response.statusCode == 200) {
+        final body = object(response.data, 'validate');
+        expect(body['ok'], isA<bool>());
+        expect(body['reachable'], isA<bool>());
+        expect(body['message'], anyOf(isNull, isA<String>()));
+      } else {
+        expect(response.statusCode, lessThan(500));
+      }
+    });
+
+    test('the endpoint check answers its fields, or refuses an empty '
+        'address', () async {
+      final response = await client.raw
+          .validateCustomEndpointApiProvidersCustomEndpointsValidatePost(
+            customEndpointUpdate: CustomEndpointUpdate(
+              name: '',
+              baseUrl: '',
+              model: '',
+            ),
+            validateStatus: (_) => true,
+          );
+      if (response.statusCode == 200) {
+        final body = object(response.data, 'endpoint validate');
+        expect(body['ok'], isA<bool>());
+        expect(body['reachable'], isA<bool>());
+        expect(body['models'], anyOf(isNull, isA<List<dynamic>>()));
+        expect(body['resolved_base_url'], anyOf(isNull, isA<String>()));
+      } else {
+        expect(response.statusCode, lessThan(500));
+      }
+    });
   }, skip: skip);
 
   group('plugins', () {
@@ -1056,6 +1217,22 @@ void main() {
           (await rpc.request('session.create', const {}))['session_id']
               as String;
     });
+
+    test('subagent.list answers rows the app parses, for a session with none '
+        '(read-only: nothing is stopped or steered)', () async {
+      final answer = await rpc.request('subagent.list', {
+        'session_id': sessionId,
+      });
+      final list = parseAgentList(answer);
+      expect(list, isNotNull);
+      expect(list!.agents, isEmpty);
+      expect(list.delegations, isEmpty);
+      // A runtime id this connection does not hold is refused, not listed.
+      await expectLater(
+        rpc.request('subagent.list', {'session_id': 'not-a-session'}),
+        throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', 4001)),
+      );
+    }, skip: skip);
 
     const liveStatuses = {
       'idle',
@@ -3408,6 +3585,52 @@ approvals:
           prompts(await repository.loadMessages(whole!.id, profile: profile)),
           ['First question.', 'Second question.'],
         );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'checkpoints and the context breakdown answer in the shapes the app '
+      'reads (reads only: nothing is restored or compressed)',
+      () async {
+        final repository = HermesChatRepository(client.raw);
+        final transport = connect();
+        final events = await transport
+            .send(profile: profile, text: 'Contract check.')
+            .toList();
+        final thread = (events.first as ThreadBound).threadId;
+        addTearDown(() => repository.deleteThread(thread, profile: profile));
+        final binding = transport.ownedSessionFor(thread, profile: profile)!;
+
+        // Checkpoints are off unless the backend turned them on; an old
+        // backend has no `rollback.*`. Neither is a failure.
+        final list = await transport.listCheckpoints(binding);
+        expect(list, isNot(isA<CheckpointsFailed>()));
+        if (list is CheckpointsOn && list.checkpoints.isNotEmpty) {
+          expect(list.checkpoints.first.hash, hasLength(greaterThan(6)));
+          expect(
+            await transport.checkpointChanges(
+              binding,
+              list.checkpoints.first.hash,
+            ),
+            isNot(isA<ChangesFailed>()),
+          );
+        }
+
+        final breakdown = await transport.contextBreakdown(binding);
+        expect(breakdown, isNot(isA<BreakdownFailed>()));
+        if (breakdown is Breakdown) {
+          final percent = breakdown.percent;
+          if (percent != null) expect(percent, inInclusiveRange(0, 100));
+          expect(
+            breakdown.categories.map((c) => c.tokens),
+            orderedEquals(
+              breakdown.categories.map((c) => c.tokens).toList()
+                ..sort((a, b) => b.compareTo(a)),
+            ),
+          );
+        }
       },
       timeout: const Timeout(Duration(minutes: 2)),
       skip: skip,
