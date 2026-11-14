@@ -202,6 +202,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _activeActivity = activity?.value ?? true;
     activity?.addListener(_activityChanged);
     appLock?.addListener(_billingLockChanged);
+    appLock?.addListener(_workspaceLockChanged);
     _listenOwnedSessions();
     search?.setActivity(_activeActivity);
     housekeeping?.setActivity(_activeActivity);
@@ -389,6 +390,31 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Server, after which nothing of the folders is left for the next account.
   void clearWorkspaceState() {
     _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
+    notifyListeners();
+  }
+
+  /// The server's home folder, when the profile's catalog was read.
+  String? get workspaceHome => _ChatControllerWorkspace(this)._homeImpl;
+
+  /// The project that holds the folder [path] of [thread], when known.
+  String? workspaceProjectNameOf(ChatThread thread, String path) =>
+      _ChatControllerWorkspace(this)._projectNameOfImpl(thread, path);
+
+  /// Bumped whenever the folders are dropped (sign-out, Change Server, App
+  /// Lock): an open picker or confirmation closes when it changes.
+  int get workspaceEpoch => _workspace.epoch;
+
+  var _wasLocked = false;
+
+  /// App Lock engaged: the draft pick, the catalogs and the notices go, and
+  /// an open picker or confirmation closes. A move that is still being
+  /// settled stays, so its outcome is not lost.
+  void _workspaceLockChanged() {
+    final locked = appLock?.locked ?? false;
+    final engaged = locked && !_wasLocked;
+    _wasLocked = locked;
+    if (!engaged || disposed) return;
+    _ChatControllerWorkspace(this)._workspaceLocked();
     notifyListeners();
   }
 
@@ -1364,6 +1390,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _cancelQueueBindings();
     activity?.removeListener(_activityChanged);
     appLock?.removeListener(_billingLockChanged);
+    appLock?.removeListener(_workspaceLockChanged);
     _activityEpoch++;
     _ChatControllerSubagents(this)._clearSubagents();
     _subagentEnvironment?.dispose();

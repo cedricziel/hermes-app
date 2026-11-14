@@ -58,7 +58,7 @@ enum WorkspaceMovePhase {
 }
 
 class WorkspaceMoveState {
-  const WorkspaceMoveState(this.phase, {this.folder});
+  const WorkspaceMoveState(this.phase, {this.folder, this.timedOut = false});
 
   static const idle = WorkspaceMoveState(WorkspaceMovePhase.idle);
 
@@ -66,6 +66,10 @@ class WorkspaceMoveState {
 
   /// The folder the server reported, for [WorkspaceMovePhase.changed].
   final String? folder;
+
+  /// For [WorkspaceMovePhase.checking]: the move itself had no answer for
+  /// 10 s (rather than failing outright).
+  final bool timedOut;
 
   /// Whether the chat must not be sent to: Hermes lets a live agent follow a
   /// move, even mid-turn.

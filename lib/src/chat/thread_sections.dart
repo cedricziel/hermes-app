@@ -1,3 +1,4 @@
+import '../workspaces/folder_labels.dart';
 import 'chat_models.dart';
 
 /// The sections a Mac sidebar sorts its threads into.
@@ -80,21 +81,13 @@ List<FolderThreadSection> groupThreadsByFolder(Iterable<ChatThread> threads) {
       unassigned.add(thread);
     }
   }
-  String basename(String path) =>
-      path.split(RegExp(r'[/\\]')).where((s) => s.isNotEmpty).lastOrNull ??
-      path;
-  final names = <String, int>{};
-  for (final path in folders.keys) {
-    names.update(basename(path), (n) => n + 1, ifAbsent: () => 1);
-  }
+  final labels = folderLabels(folders.keys);
   return [
     if (pinned.isNotEmpty) (id: 'pinned', label: 'Pinned', threads: pinned),
     for (final entry in folders.entries)
       (
         id: 'folder:${entry.key}',
-        label: names[basename(entry.key)]! > 1
-            ? entry.key
-            : basename(entry.key),
+        label: labels[entry.key]!,
         threads: entry.value,
       ),
     if (unassigned.isNotEmpty)

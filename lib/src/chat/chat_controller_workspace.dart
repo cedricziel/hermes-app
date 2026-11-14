@@ -23,9 +23,14 @@ class _WorkspaceData {
   /// connection.
   var moveUnsupported = false;
 
+  /// Counts the times everything was dropped, for a picker or confirmation
+  /// that must close when it changes.
+  var epoch = 0;
+
   /// What a profile switch drops: everything about the chats of the profile
   /// before, except a move that is still being settled.
   void profileSwitched() {
+    epoch++;
     pending = null;
     sent.clear();
     projects.clear();
@@ -135,9 +140,22 @@ extension _ChatControllerWorkspace on ChatController {
 
   String get _profileKey => _profile ?? kDefaultProfile;
 
+  /// The server's home folder, when the profile's catalog was read.
+  String? get _homeImpl => _workspace.loaders[_profileKey]?.catalog?.home;
+
+  /// The project that holds [thread]'s folder: the server's own answer for a
+  /// chat just created, else the catalog's by the server's rule. Never reads
+  /// the catalog; null when it was not read.
+  String? _projectNameOfImpl(ChatThread thread, String path) =>
+      _workspace.projects[thread]?.name ??
+      _workspace.loaders[_profileKey]?.projectFor(path)?.name;
+
   WorkspaceCatalogLoader? _catalogFor(String? profile) {
     final repository = workspaces;
-    if (repository == null || !active) return null;
+    // Nothing is read for a locked app: the folders are dropped with it.
+    if (repository == null || !active || (appLock?.locked ?? false)) {
+      return null;
+    }
     final key = profile ?? _profileKey;
     var loader = _workspace.loaders[key];
     if (loader == null) {
@@ -177,7 +195,24 @@ extension _ChatControllerWorkspace on ChatController {
     _workspace.profileSwitched();
   }
 
+  /// App Lock engaged: like sign-out, except that a move still being
+  /// settled keeps its record.
+  void _workspaceLocked() {
+    _workspace.epoch++;
+    _workspace.pending = null;
+    for (final thread in _threads) {
+      thread.workspaceChoice = null;
+    }
+    _workspace
+      ..sent.clear()
+      ..projects.clear()
+      ..mismatches.clear()
+      ..moves.removeWhere((_, record) => !record.state.inFlight)
+      ..clearLoaders();
+  }
+
   void _clearWorkspaceStateImpl() {
+    _workspace.epoch++;
     _workspace.pending = null;
     for (final thread in _threads) {
       thread.workspaceChoice = null;
@@ -250,8 +285,22 @@ extension _ChatControllerWorkspace on ChatController {
     WorkspaceMoveState state,
   ) {
     final wasInFlight = record.state.inFlight;
+    final before = record.state.phase;
     record.state = state;
     if (disposed) return;
+    // How a move ended, as a fixed name: never the folder.
+    final outcome = switch (state.phase) {
+      WorkspaceMovePhase.changed => 'changed',
+      WorkspaceMovePhase.unchanged => 'unchanged',
+      WorkspaceMovePhase.couldNotConfirm => 'could_not_confirm',
+      WorkspaceMovePhase.folderMissing => 'folder_missing',
+      WorkspaceMovePhase.chatGone => 'chat_gone',
+      WorkspaceMovePhase.profileGone => 'profile_gone',
+      _ => null,
+    };
+    if (outcome != null && before != state.phase) {
+      events('workspace.move_outcome', {'outcome': outcome});
+    }
     notifyListeners();
     if (!wasInFlight || state.inFlight) return;
     // Whatever waited for the move goes on.
@@ -294,6 +343,7 @@ extension _ChatControllerWorkspace on ChatController {
     final epoch = _activityEpoch;
     final profile = _profile;
     final key = _moveKey(thread);
+    breadcrumbs('workspace.move.confirmed');
     final record = _workspace.moves.putIfAbsent(key, _MoveRecord.new);
     final run = ++record.moveRun;
     record
@@ -314,6 +364,7 @@ extension _ChatControllerWorkspace on ChatController {
       case WorkspacesUnsupported():
         _workspace.moveUnsupported = true;
         _workspace.moves.remove(key);
+        events('workspace.move_outcome', {'outcome': 'unsupported'});
         notifyListeners();
       case WorkspacesFailed(:final kind)
           when kind == WorkspacesFailure.notFound:
@@ -350,7 +401,7 @@ extension _ChatControllerWorkspace on ChatController {
             }),
           );
         }
-        await _recheck(key, record, epoch, profile);
+        await _recheck(key, record, epoch, profile, timedOut: answer == null);
     }
     return null;
   }
@@ -388,14 +439,15 @@ extension _ChatControllerWorkspace on ChatController {
     (String, String) key,
     _MoveRecord record,
     int epoch,
-    String? profile,
-  ) async {
+    String? profile, {
+    bool timedOut = false,
+  }) async {
     final repository = workspaces!;
     final generation = ++record.readGen;
     _setMove(
       key,
       record,
-      const WorkspaceMoveState(WorkspaceMovePhase.checking),
+      WorkspaceMoveState(WorkspaceMovePhase.checking, timedOut: timedOut),
     );
     final read = repository.sessionFolder(key.$2, profile: profile);
     final result = await _within(read);
