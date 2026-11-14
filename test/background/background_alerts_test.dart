@@ -883,6 +883,42 @@ void main() {
       expect(await baseline.read(_account), isNotNull);
     });
 
+    test('keeps the mute and baseline of a job it cannot read', () async {
+      await NotificationSettings().setMuted('work/other', true);
+      await baseline.write(_account, {
+        ...seen,
+        'work/other': DateTime.utc(2026, 9, 20, 8),
+      });
+      jobs([
+        ran('2026-09-21T08:00:00+00:00'),
+        {'id': 42, 'name': 'Other'},
+      ]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, hasLength(1));
+      final settings = NotificationSettings();
+      await settings.load();
+      expect(settings.isMuted('work/other'), isTrue);
+      expect(await baseline.read(_account), {
+        'work/job1': DateTime.utc(2026, 9, 21, 8),
+        'work/other': DateTime.utc(2026, 9, 20, 8),
+      });
+    });
+
+    test('a body that is not a list changes nothing', () async {
+      await NotificationSettings().setMuted('work/job1', true);
+      await baseline.write(_account, seen);
+      server.on('GET', '/api/cron/jobs', {'jobs': []});
+
+      await refresh(() => [step()]);
+
+      final settings = NotificationSettings();
+      await settings.load();
+      expect(settings.isMuted('work/job1'), isTrue);
+      expect(await baseline.read(_account), seen);
+    });
+
     test('announces nothing when the jobs cannot be read', () async {
       await baseline.write(_account, seen);
       server.on('GET', '/api/cron/jobs', {'detail': 'down'}, status: 500);

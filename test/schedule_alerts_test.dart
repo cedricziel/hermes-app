@@ -126,6 +126,23 @@ void main() {
 
       expect(next.baseline, isEmpty);
     });
+
+    test('an incomplete listing keeps the baseline of the jobs it lacks', () {
+      final first = runsSince(null, [
+        job(ran('2026-09-20T08:00:00+00:00')),
+        job(ran('2026-09-20T08:00:00+00:00', id: 'other')),
+      ]);
+
+      final next = runsSince(first.baseline, [
+        job(ran('2026-09-21T08:00:00+00:00')),
+      ], complete: false);
+
+      expect(next.ran.map((j) => j.key), ['work/job1']);
+      expect(next.baseline, {
+        'work/job1': DateTime.utc(2026, 9, 21, 8),
+        'work/other': DateTime.utc(2026, 9, 20, 8),
+      });
+    });
   });
 
   group('alertsFor', () {
@@ -581,6 +598,62 @@ void main() {
         await pumpEventQueue();
 
         expect(settings.isMuted('work/gone'), isFalse);
+      });
+    });
+
+    group('a listing with a row it cannot read', () {
+      testWidgets('keeps the mute and baseline of the unreadable job', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          await settings.setMuted('work/other', true);
+          jobs([
+            ran('2026-09-20T08:00:00+00:00'),
+            ran('2026-09-20T08:00:00+00:00', id: 'other'),
+          ]);
+          watcher.available = true;
+          await look();
+
+          jobs([
+            ran('2026-09-21T08:00:00+00:00'),
+            {'id': 42, 'name': 'Other'},
+          ]);
+          await look();
+          await pumpEventQueue();
+
+          expect(settings.isMuted('work/other'), isTrue);
+          expect(service.shown.single.title, 'Morning brief');
+          expect(await ScheduleBaseline().read('acct'), {
+            'work/job1': DateTime.utc(2026, 9, 21, 8),
+            'work/other': DateTime.utc(2026, 9, 20, 8),
+          });
+
+          jobs([
+            ran('2026-09-21T08:00:00+00:00'),
+            ran('2026-09-22T08:00:00+00:00', id: 'other'),
+          ]);
+          await look();
+
+          expect(service.shown, hasLength(1));
+        });
+      });
+
+      testWidgets('a body that is not a list changes nothing', (tester) async {
+        await tester.runAsync(() async {
+          await settings.setMuted('work/job1', true);
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+
+          server.on('GET', '/api/cron/jobs', {'jobs': []});
+          await look();
+          await pumpEventQueue();
+
+          expect(settings.isMuted('work/job1'), isTrue);
+          expect(await ScheduleBaseline().read('acct'), {
+            'work/job1': DateTime.utc(2026, 9, 20, 8),
+          });
+        });
       });
     });
 
