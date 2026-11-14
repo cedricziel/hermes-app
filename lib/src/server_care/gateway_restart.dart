@@ -117,6 +117,14 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  /// Drops Hermes' own words about a failed run, for when the app is covered;
+  /// the row then says only that it failed.
+  void forgetText() {
+    if (_message == null) return;
+    _message = null;
+    notifyListeners();
+  }
+
   /// The person confirmed in the UI.
   void confirmed(GatewayAction action) =>
       _breadcrumbs('server_care.gateway.confirmed', {'verb': action.name});
@@ -230,8 +238,16 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       return _settleLostAnswer(name, profile, started);
     }
 
-    // The child runs. Exit 0, or still running when the window ends, is
-    // success of the command.
+    // The child runs. Exit 0 is success of the command; a child still
+    // running when the window ends is too (without a service manager it
+    // becomes the gateway and never exits).
+    //
+    // For a restart the old gateway is running when the run starts, so
+    // "running" alone proves nothing: it counts only after the gateway was
+    // seen down, or the child exited 0 (the command itself finished). The
+    // status is read beside the action to catch the short gap.
+    var sawDown = action == GatewayAction.start;
+    var exitedClean = false;
     final waitStart = _now();
     while (true) {
       final status = await _repository.actionStatus(name, lines: 40);
@@ -242,14 +258,27 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
           if (code != null && code != 0) {
             return _fail(GatewayFailure.exited, _tail(value.lines));
           }
+          exitedClean = code == 0;
           break;
+        }
+      }
+      if (!sawDown) {
+        final gateway = await _repository.status(profile: profile);
+        if (disposed) return null;
+        if (gateway case CareOk(:final value) when !_isBack(value)) {
+          sawDown = true;
         }
       }
       if (_now().difference(waitStart) >= waitWindow) break;
       await _delay(_actionPoll);
       if (disposed) return null;
     }
-    return _awaitReturn(profile, started, returnWindow);
+    return _awaitReturn(
+      profile,
+      started,
+      returnWindow,
+      sawDown: sawDown || exitedClean,
+    );
   }
 
   /// The POST's answer was lost. Read the action and the gateway until one
@@ -272,7 +301,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       if (disposed) return null;
       if (action case CareOk(:final value)) {
         if (value.running) {
-          return _awaitReturn(profile, started, returnWindow);
+          return _awaitReturn(profile, started, returnWindow, sawDown: sawDown);
         }
       }
       final gateway = await _repository.status(profile: profile);
@@ -293,14 +322,19 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   Future<String?> _awaitReturn(
     String profile,
     DateTime from,
-    Duration window,
-  ) async {
+    Duration window, {
+    required bool sawDown,
+  }) async {
     _enter(GatewayPhase.returning);
     while (true) {
       final gateway = await _repository.status(profile: profile);
       if (disposed) return null;
-      if (gateway case CareOk(:final value) when _isBack(value)) {
-        return _done();
+      if (gateway case CareOk(:final value)) {
+        if (_isBack(value)) {
+          if (sawDown) return _done();
+        } else {
+          sawDown = true;
+        }
       }
       if (_now().difference(from) >= window) return _slow();
       await _delay(_statusPoll);

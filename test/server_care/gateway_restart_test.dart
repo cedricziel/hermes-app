@@ -123,18 +123,52 @@ void main() {
         '/api/actions/gateway-restart/status',
         action('gateway-restart', running: true),
       );
+      var statusReads = 0;
+      server.onRequest(
+        'GET',
+        '/api/status',
+        (_) => (
+          status: 200,
+          body: statusReads++ == 0
+              ? status(running: false, state: 'stopped')
+              : status(),
+        ),
+      );
       await gateway.run(GatewayAction.restart, profile: 'work');
       expect(gateway.phase, GatewayPhase.done);
       final reads = server.requestsTo(
         'GET',
         '/api/actions/gateway-restart/status',
       );
-      expect(reads.length, greaterThan(15));
-      expect(
-        clock.difference(DateTime(2026, 11, 14, 9)).inSeconds,
-        inInclusiveRange(30, 33),
-      );
       expect(reads.first.queryParameters['lines'], 40);
+    },
+  );
+
+  test('a child still running with the old gateway never seen down is slow, '
+      'not done', () async {
+    server.on(
+      'GET',
+      '/api/actions/gateway-restart/status',
+      action('gateway-restart', running: true),
+    );
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.phase, GatewayPhase.slow);
+    expect(
+      clock.difference(DateTime(2026, 11, 14, 9)).inSeconds,
+      inInclusiveRange(90, 93),
+    );
+  });
+
+  test(
+    'a start with a child still running is done once the gateway runs',
+    () async {
+      server.on(
+        'GET',
+        '/api/actions/gateway-start/status',
+        action('gateway-start', running: true),
+      );
+      await gateway.run(GatewayAction.start, profile: 'work');
+      expect(gateway.phase, GatewayPhase.done);
     },
   );
 
@@ -203,7 +237,38 @@ void main() {
   }
 
   test('a lost answer to the POST reads, never resends, and settles when the '
-      'gateway runs', () async {
+      'gateway was seen down and runs again', () async {
+    server.onRequest('POST', '/api/gateway/restart', (r) {
+      throw DioException.connectionError(requestOptions: r, reason: 'dropped');
+    });
+    server.on(
+      'GET',
+      '/api/actions/gateway-restart/status',
+      action('gateway-restart', running: true),
+    );
+    var statusReads = 0;
+    server.onRequest(
+      'GET',
+      '/api/status',
+      (_) => (
+        status: 200,
+        body: statusReads++ == 0
+            ? status(running: false, state: 'stopped')
+            : status(),
+      ),
+    );
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(posts('restart'), 1);
+    expect(
+      server.requestsTo('GET', '/api/actions/gateway-restart/status'),
+      isNotEmpty,
+    );
+    expect(server.requestsTo('GET', '/api/status'), isNotEmpty);
+    expect(gateway.phase, GatewayPhase.done);
+  });
+
+  test('a lost answer with a running child is not done while the old gateway '
+      'still runs', () async {
     server.onRequest('POST', '/api/gateway/restart', (r) {
       throw DioException.connectionError(requestOptions: r, reason: 'dropped');
     });
@@ -214,12 +279,7 @@ void main() {
     );
     await gateway.run(GatewayAction.restart, profile: 'work');
     expect(posts('restart'), 1);
-    expect(
-      server.requestsTo('GET', '/api/actions/gateway-restart/status'),
-      isNotEmpty,
-    );
-    expect(server.requestsTo('GET', '/api/status'), isNotEmpty);
-    expect(gateway.phase, GatewayPhase.done);
+    expect(gateway.phase, GatewayPhase.slow);
   });
 
   test('a lost restart is not done while the old gateway still runs', () async {

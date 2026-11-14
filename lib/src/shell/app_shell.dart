@@ -409,7 +409,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   /// A status read skipped under App Lock is made up for on unlock.
   void _readServerCareAfterUnlock() {
-    if (!(_appLock?.covered ?? true)) unawaited(_serverCare?.resumed());
+    if (_appLock?.covered ?? true) {
+      // Hermes' own words about a failed run are not kept while covered.
+      _gatewayRun?.forgetText();
+      return;
+    }
+    unawaited(_serverCare?.resumed());
   }
 
   T? _maybeRead<T>() {
