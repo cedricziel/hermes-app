@@ -236,7 +236,7 @@ Every provider, OIDC or password, SHALL sign in through the same RFC 8252 flow. 
 
 #### Scenario: The page shown after the redirect
 
-- **WHEN** the loopback listener receives any request on a platform that uses the external browser
+- **WHEN** the loopback listener receives a request it does not refuse on a platform that uses the external browser
 - **THEN** it answers 200 with a small page telling the user they can close the tab, containing no tokens
 
 #### Scenario: The sheet closes itself after the redirect
@@ -255,16 +255,15 @@ Every provider, OIDC or password, SHALL sign in through the same RFC 8252 flow. 
 - **WHEN** the listener receives a request that carries neither a `code` nor an `error`, such as a favicon probe
 - **THEN** the flow keeps waiting
 
-#### Scenario: State mismatch
+#### Scenario: A callback without the app's state is refused
 
-- **WHEN** the callback state differs from the state the app sent
-- **THEN** the sign-in fails with a message naming a state mismatch
-- **AND** no token request is made
-- **AND** the browser sheet is closed
+- **WHEN** the listener receives a request carrying a `code` or an `error` whose state is missing or differs from the state the app sent, or that is not on the `/callback` path
+- **THEN** it answers 400 (404 for another path) and the flow keeps waiting for the real callback until the timeout
+- **AND** no token request is made for it and no error from it is shown
 
 #### Scenario: Identity provider error
 
-- **WHEN** the callback carries an `error` parameter
+- **WHEN** the callback carries an `error` parameter and the state the app sent
 - **THEN** the sign-in fails with "Sign-in was rejected: " followed by the error and, when present, its description in parentheses
 
 #### Scenario: Missing code

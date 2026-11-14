@@ -16,7 +16,6 @@ enum NativeLoginFailure {
   refresh,
   idpError,
   missingCode,
-  stateMismatch,
   listenerClosed,
   other,
 }
@@ -291,6 +290,19 @@ Future<String> _awaitCallback(
     // Stray requests (favicon probes, etc.) carry neither.
     final isCallback =
         params.containsKey('code') || params.containsKey('error');
+    // Any page in a browser on this device can reach the listener. Only the
+    // redirect carrying the state sent to Hermes may end the sign-in; anything
+    // else is refused and the listener keeps waiting for it.
+    if (isCallback &&
+        (request.uri.path != '/callback' ||
+            expectedState.isEmpty ||
+            params['state'] != expectedState)) {
+      request.response.statusCode = request.uri.path != '/callback'
+          ? HttpStatus.notFound
+          : HttpStatus.badRequest;
+      await request.response.close();
+      continue;
+    }
     final redirect = isCallback ? finishedRedirect() : null;
     if (redirect != null) {
       request.response
@@ -320,14 +332,6 @@ Future<String> _awaitCallback(
       throw NativeLoginException(
         'Sign-in callback missing authorization code.',
         reason: NativeLoginFailure.missingCode,
-      );
-    }
-
-    final returnedState = params['state'];
-    if (expectedState.isEmpty || returnedState != expectedState) {
-      throw NativeLoginException(
-        'Sign-in callback state mismatch (possible CSRF); please try again.',
-        reason: NativeLoginFailure.stateMismatch,
       );
     }
 
