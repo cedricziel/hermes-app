@@ -136,6 +136,138 @@
       }
     }
   },
+  "chatActivityLineAsking": "{count, plural, =1{Asking 1 model} other{Asking {count} models}}",
+  "@chatActivityLineAsking": {
+    "description": "Activity line sentence while a mixture-of-agents turn collects answers from several models. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineAskingUnknown": "Asking models",
+  "@chatActivityLineAskingUnknown": {
+    "description": "Activity line sentence while a mixture-of-agents turn collects answers and the number of models is not known."
+  },
+  "chatActivityLineCombining": "Combining answers",
+  "@chatActivityLineCombining": {
+    "description": "Activity line sentence while a mixture-of-agents turn combines the models' answers."
+  },
+  "chatActivityLineLabel": "Hermes is working: {sentence}. Opens activity.",
+  "@chatActivityLineLabel": {
+    "description": "Accessible name of the activity line without counters. {sentence} is what Hermes is doing.",
+    "placeholders": {
+      "sentence": {
+        "type": "String",
+        "example": "Running 2 processes"
+      }
+    }
+  },
+  "chatActivityLineLabelCounters": "Hermes is working: {sentence}, {counters}. Opens activity.",
+  "@chatActivityLineLabelCounters": {
+    "description": "Accessible name of the activity line with counters. {sentence} is what Hermes is doing, {counters} the spoken counters joined by commas.",
+    "placeholders": {
+      "sentence": {
+        "type": "String",
+        "example": "Running 2 processes"
+      },
+      "counters": {
+        "type": "String",
+        "example": "plan 2 of 5, 1 process running"
+      }
+    }
+  },
+  "chatActivityLinePlan": "Working on the plan",
+  "@chatActivityLinePlan": {
+    "description": "Activity line sentence while a plan has an open task and nothing else reports what Hermes is doing."
+  },
+  "chatActivityLinePlanCounter": "{done}/{total}",
+  "@chatActivityLinePlanCounter": {
+    "description": "Counter chip on the activity line: plan tasks done out of all tasks.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "2"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLinePlanCounterLabel": "plan {done} of {total}",
+  "@chatActivityLinePlanCounterLabel": {
+    "description": "Spoken form of the plan counter on the activity line.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "2"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineProcesses": "{count, plural, =1{Process running} other{Running {count} processes}}",
+  "@chatActivityLineProcesses": {
+    "description": "Activity line sentence while background processes run. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineProcessesCounter": "{count, plural, =1{1 running} other{{count} running}}",
+  "@chatActivityLineProcessesCounter": {
+    "description": "Counter chip on the activity line: how many background processes run.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineProcessesCounterLabel": "{count, plural, =1{1 process running} other{{count} processes running}}",
+  "@chatActivityLineProcessesCounterLabel": {
+    "description": "Spoken form of the processes counter on the activity line.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineReferencesCounter": "{done}/{total}",
+  "@chatActivityLineReferencesCounter": {
+    "description": "Counter chip on the activity line: models that have answered out of all asked in a mixture-of-agents turn.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineReferencesCounterLabel": "{done} of {total} models answered",
+  "@chatActivityLineReferencesCounterLabel": {
+    "description": "Spoken form of the models counter on the activity line.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineRestoring": "Restoring the chat…",
+  "@chatActivityLineRestoring": {
+    "description": "Activity line sentence while a chat is being restored on the server."
+  },
   "chatActivityNeedsYouAnnounceBilling": "Billing access needs approval",
   "@chatActivityNeedsYouAnnounceBilling": {
     "description": "Screen reader announcement when a billing verification request reaches the Needs-you card. Never includes the code or the link."
@@ -455,6 +587,18 @@
   "@serverCareCheckNow": {
     "description": "Bar button on the Update page that asks the server whether an update exists. Also its accessibility label."
   },
+  "serverCareCommandCopied": "Command copied",
+  "@serverCareCommandCopied": {
+    "description": "Screen reader announcement after the command was copied."
+  },
+  "serverCareCommandCopiedButton": "Copied",
+  "@serverCareCommandCopiedButton": {
+    "description": "Label of the copy button for a moment after the command was copied."
+  },
+  "serverCareCommandCopy": "Copy",
+  "@serverCareCommandCopy": {
+    "description": "Button that copies a shell command."
+  },
   "serverCareConnectionDetails": "Connection details",
   "@serverCareConnectionDetails": {
     "description": "Row on the Server screen that opens the connection details."
@@ -685,6 +829,58 @@
   "@serverCareHeadlineUnsupportedDetail": {
     "description": "Detail under the unsupported-server headline."
   },
+  "serverCareLogLevelCritical": "Critical",
+  "@serverCareLogLevelCritical": {
+    "description": "Name of the critical log level, in a log line's chip."
+  },
+  "serverCareLogLevelDebug": "Debug",
+  "@serverCareLogLevelDebug": {
+    "description": "Name of the debug log level, in a log line's chip."
+  },
+  "serverCareLogLevelError": "Error",
+  "@serverCareLogLevelError": {
+    "description": "Name of the error log level, in a log line's chip."
+  },
+  "serverCareLogLevelFilterAll": "All levels",
+  "@serverCareLogLevelFilterAll": {
+    "description": "Log level filter choice that shows every line."
+  },
+  "serverCareLogLevelFilterErrors": "Errors only",
+  "@serverCareLogLevelFilterErrors": {
+    "description": "Log level filter choice that shows errors and critical lines only."
+  },
+  "serverCareLogLevelFilterWarnings": "Warnings and errors",
+  "@serverCareLogLevelFilterWarnings": {
+    "description": "Log level filter choice that shows warnings, errors and critical lines."
+  },
+  "serverCareLogLevelInfo": "Info",
+  "@serverCareLogLevelInfo": {
+    "description": "Name of the info log level, in a log line's chip."
+  },
+  "serverCareLogLevelMenuLabel": "Level, {value}",
+  "@serverCareLogLevelMenuLabel": {
+    "description": "Screen reader label of the log level filter button; value is the chosen filter.",
+    "placeholders": {
+      "value": {
+        "type": "String",
+        "example": "All levels"
+      }
+    }
+  },
+  "serverCareLogLevelWarning": "Warning",
+  "@serverCareLogLevelWarning": {
+    "description": "Name of the warning log level, in a log line's chip."
+  },
+  "serverCareLogShowMoreLines": "{count, plural, =1{Show 1 more line} other{Show {count} more lines}}",
+  "@serverCareLogShowMoreLines": {
+    "description": "Button that unfolds the rest of a log entry's continuation lines, such as a traceback.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
   "serverCareMachineHeader": "Server",
   "@serverCareMachineHeader": {
     "description": "Section header on the Server screen for the machine (disk, memory, session store)."
@@ -743,6 +939,24 @@
       }
     }
   },
+  "serverCareRestartBannerClose": "Close",
+  "@serverCareRestartBannerClose": {
+    "description": "Tooltip of the button that closes the 'Hermes is ready' banner."
+  },
+  "serverCareRestartBannerReady": "Hermes {version} is ready",
+  "@serverCareRestartBannerReady": {
+    "description": "Banner shown once Hermes is back after an update.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.23.0"
+      }
+    }
+  },
+  "serverCareRestartBannerRestarting": "Hermes is restarting after the update. Chats continue when it's back.",
+  "@serverCareRestartBannerRestarting": {
+    "description": "Banner under the app bar while Hermes restarts after an update."
+  },
   "serverCareSessionStoreRow": "Session store",
   "@serverCareSessionStoreRow": {
     "description": "Row label: Hermes' database of chats."
@@ -783,6 +997,34 @@
   "@serverCareUpdateAvailable": {
     "description": "Value of the Updates row when a newer Hermes exists."
   },
+  "serverCareUpdateBodyChangesSince": "{changes} since your version ({version}).",
+  "@serverCareUpdateBodyChangesSince": {
+    "description": "Body of the Update page's status card; changes is the count, such as '12 changes'.",
+    "placeholders": {
+      "changes": {
+        "type": "String",
+        "example": "12 changes"
+      },
+      "version": {
+        "type": "String",
+        "example": "0.22.0"
+      }
+    }
+  },
+  "serverCareUpdateBodyUpToDate": "Version {version}. Checked {checkedAgo}.",
+  "@serverCareUpdateBodyUpToDate": {
+    "description": "Body of the Update page's status card when Hermes is current; checkedAgo is such as 'just now' or '2 hours ago'.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.23.0"
+      },
+      "checkedAgo": {
+        "type": "String",
+        "example": "2 hours ago"
+      }
+    }
+  },
   "serverCareUpdateChanges": "{count, plural, =1{1 change} other{{count} changes}}",
   "@serverCareUpdateChanges": {
     "description": "Subtitle of the Updates row: how many changes the update brings.",
@@ -801,25 +1043,332 @@
   "@serverCareUpdateChecking": {
     "description": "Value of the Updates row while a check runs."
   },
+  "serverCareUpdateCommandHeader": "Command",
+  "@serverCareUpdateCommandHeader": {
+    "description": "Header over the command to run on the server, on the Update page."
+  },
   "serverCareUpdateCouldntCheck": "Couldn't check",
   "@serverCareUpdateCouldntCheck": {
     "description": "Value of the Updates row when the check failed."
+  },
+  "serverCareUpdateDetailsShow": "Show details",
+  "@serverCareUpdateDetailsShow": {
+    "description": "Row that opens the last lines Hermes wrote during an update."
+  },
+  "serverCareUpdateMoveTo": "Move to {version}",
+  "@serverCareUpdateMoveTo": {
+    "description": "Button that moves a build newer than the stable release back to the stable one.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.22.0"
+      }
+    }
+  },
+  "serverCareUpdateNow": "Update Hermes",
+  "@serverCareUpdateNow": {
+    "description": "Button that starts the update."
   },
   "serverCareUpdateOnServer": "Update Hermes on the server.",
   "@serverCareUpdateOnServer": {
     "description": "Message on the Update page when the app cannot apply the update and Hermes gave no text of its own."
   },
+  "serverCareUpdateOutcomeBackNotConfirmedTitle": "Hermes is back, but the app can't confirm the update",
+  "@serverCareUpdateOutcomeBackNotConfirmedTitle": {
+    "description": "Title of the result card when Hermes answers again but the new version could not be confirmed."
+  },
+  "serverCareUpdateOutcomeCheckAgain": "Check again",
+  "@serverCareUpdateOutcomeCheckAgain": {
+    "description": "Button on the result card that checks the server's version again."
+  },
+  "serverCareUpdateOutcomeDismiss": "Dismiss",
+  "@serverCareUpdateOutcomeDismiss": {
+    "description": "Button on the result card that closes it when Hermes has not come back."
+  },
+  "serverCareUpdateOutcomeDone": "Done",
+  "@serverCareUpdateOutcomeDone": {
+    "description": "Button that closes the update's result card."
+  },
+  "serverCareUpdateOutcomeFailedTitle": "The update didn't finish",
+  "@serverCareUpdateOutcomeFailedTitle": {
+    "description": "Title of the result card when the update failed."
+  },
+  "serverCareUpdateOutcomeInstalled": "Installed",
+  "@serverCareUpdateOutcomeInstalled": {
+    "description": "Row label for the installed version on the result card, when the server still runs the old one."
+  },
+  "serverCareUpdateOutcomeKeepWaiting": "Keep waiting",
+  "@serverCareUpdateOutcomeKeepWaiting": {
+    "description": "Button on the result card that waits longer for Hermes to come back."
+  },
+  "serverCareUpdateOutcomeNotBackHint": "If you started Hermes by hand, it may need to be started again on the server.",
+  "@serverCareUpdateOutcomeNotBackHint": {
+    "description": "Body of the result card when Hermes has not come back after the update."
+  },
+  "serverCareUpdateOutcomeNotBackTitle": "Hermes hasn't come back yet",
+  "@serverCareUpdateOutcomeNotBackTitle": {
+    "description": "Title of the result card when Hermes has not come back after the update."
+  },
+  "serverCareUpdateOutcomeNowRunning": "Now running {version}.",
+  "@serverCareUpdateOutcomeNowRunning": {
+    "description": "Body of the result card; version is the one Hermes runs now.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.23.0"
+      }
+    }
+  },
+  "serverCareUpdateOutcomeOldServerTitle": "Hermes updated, but the server is still running the old version",
+  "@serverCareUpdateOutcomeOldServerTitle": {
+    "description": "Title of the result card when the new version is installed but the old one still runs."
+  },
+  "serverCareUpdateOutcomePartialTitle": "Hermes updated, with one thing left to do",
+  "@serverCareUpdateOutcomePartialTitle": {
+    "description": "Title of the result card when the update worked and some follow-up remains."
+  },
+  "serverCareUpdateOutcomeRestartToFinish": "Restart Hermes on the server to finish.",
+  "@serverCareUpdateOutcomeRestartToFinish": {
+    "description": "Body of the result card when the server must be restarted by hand."
+  },
+  "serverCareUpdateOutcomeRunningNow": "Running now",
+  "@serverCareUpdateOutcomeRunningNow": {
+    "description": "Row label for the version that runs now, on the result card."
+  },
+  "serverCareUpdateOutcomeStillRunning": "Hermes is still running {version}.",
+  "@serverCareUpdateOutcomeStillRunning": {
+    "description": "Body of the failed result card; version is the one Hermes still runs.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.22.0"
+      }
+    }
+  },
   "serverCareUpdatePageTitle": "Update",
   "@serverCareUpdatePageTitle": {
     "description": "Title of the Update page."
+  },
+  "serverCareUpdateRestartNote": "Hermes restarts during the update. It usually takes a few minutes.",
+  "@serverCareUpdateRestartNote": {
+    "description": "Note under the update button."
+  },
+  "serverCareUpdateRollbackWarning": "This build is newer than stable release v{version}. Updating moves it back to that release.",
+  "@serverCareUpdateRollbackWarning": {
+    "description": "Warning on the Update page when the server runs a build newer than the stable release.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.22.0"
+      }
+    }
+  },
+  "serverCareUpdateStepChecking": "Checking the result",
+  "@serverCareUpdateStepChecking": {
+    "description": "Name of the last step of a running update."
+  },
+  "serverCareUpdateStepInstalling": "Downloading and installing",
+  "@serverCareUpdateStepInstalling": {
+    "description": "Name of the second step of a running update."
+  },
+  "serverCareUpdateStepLabelState": "{label}, {state}",
+  "@serverCareUpdateStepLabelState": {
+    "description": "Screen reader label of an update step: its name and state.",
+    "placeholders": {
+      "label": {
+        "type": "String",
+        "example": "Restarting Hermes"
+      },
+      "state": {
+        "type": "String",
+        "example": "In progress"
+      }
+    }
+  },
+  "serverCareUpdateStepLabelStateNote": "{label}, {state}. {note}",
+  "@serverCareUpdateStepLabelStateNote": {
+    "description": "Screen reader label of an update step that has a note under it.",
+    "placeholders": {
+      "label": {
+        "type": "String",
+        "example": "Restarting Hermes"
+      },
+      "state": {
+        "type": "String",
+        "example": "Waiting"
+      },
+      "note": {
+        "type": "String",
+        "example": "Chats continue when it's back."
+      }
+    }
+  },
+  "serverCareUpdateStepListTitle": "Updating…",
+  "@serverCareUpdateStepListTitle": {
+    "description": "Title of the card that shows the update's steps."
+  },
+  "serverCareUpdateStepRestarting": "Restarting Hermes",
+  "@serverCareUpdateStepRestarting": {
+    "description": "Name of the third step of a running update."
+  },
+  "serverCareUpdateStepRestartingNote": "Chats continue when it's back.",
+  "@serverCareUpdateStepRestartingNote": {
+    "description": "Note under the restart step."
+  },
+  "serverCareUpdateStepStarting": "Starting the update",
+  "@serverCareUpdateStepStarting": {
+    "description": "Name of the first step of a running update."
+  },
+  "serverCareUpdateStepStateDone": "Done",
+  "@serverCareUpdateStepStateDone": {
+    "description": "State of an update step that finished. Read by screen readers."
+  },
+  "serverCareUpdateStepStateFailed": "Failed",
+  "@serverCareUpdateStepStateFailed": {
+    "description": "State of an update step that failed. Shown and read by screen readers."
+  },
+  "serverCareUpdateStepStateInProgress": "In progress",
+  "@serverCareUpdateStepStateInProgress": {
+    "description": "State of the update step that runs now. Read by screen readers."
+  },
+  "serverCareUpdateStepStateWaiting": "Waiting",
+  "@serverCareUpdateStepStateWaiting": {
+    "description": "State of an update step that has not begun. Read by screen readers."
+  },
+  "serverCareUpdateTitleChecking": "Checking for updates…",
+  "@serverCareUpdateTitleChecking": {
+    "description": "Title of the Update page's status card while a check runs."
+  },
+  "serverCareUpdateTitleOnServer": "Update Hermes on the server",
+  "@serverCareUpdateTitleOnServer": {
+    "description": "Title of the Update page's status card when the app cannot apply the update."
+  },
+  "serverCareUpdateTitleUpToDate": "Hermes is up to date",
+  "@serverCareUpdateTitleUpToDate": {
+    "description": "Title of the Update page's status card and of the result card when Hermes is current."
   },
   "serverCareUpdateUpToDate": "Up to date",
   "@serverCareUpdateUpToDate": {
     "description": "Value of the Updates row when Hermes is current."
   },
+  "serverCareUpdateWhatsNew": "What's new",
+  "@serverCareUpdateWhatsNew": {
+    "description": "Header of the list of changes an update brings."
+  },
   "serverCareUpdatesRow": "Updates",
   "@serverCareUpdatesRow": {
     "description": "Row label on the Server screen that opens the Update page."
+  },
+  "serverCareUsageBilled": "Billed {amount}",
+  "@serverCareUsageBilled": {
+    "description": "Usage totals line: what the provider billed for the window; the amount is a formatted dollar value.",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "$12.40"
+      }
+    }
+  },
+  "serverCareUsageByDay": "By day",
+  "@serverCareUsageByDay": {
+    "description": "Header of the Usage page's table of days."
+  },
+  "serverCareUsageByModel": "By model",
+  "@serverCareUsageByModel": {
+    "description": "Header of the Usage page's list of models."
+  },
+  "serverCareUsageChartBar": "{day}: {value}, {conversations}",
+  "@serverCareUsageChartBar": {
+    "description": "Screen reader label of one day's bar in the usage chart.",
+    "placeholders": {
+      "day": {
+        "type": "String",
+        "example": "12 November"
+      },
+      "value": {
+        "type": "String",
+        "example": "812 thousand tokens"
+      },
+      "conversations": {
+        "type": "String",
+        "example": "9 conversations"
+      }
+    }
+  },
+  "serverCareUsageChartHead": "{metric, select, tokens{Tokens per day} other{Estimated cost per day}}, {period}.",
+  "@serverCareUsageChartHead": {
+    "description": "First sentence of the usage chart's screen reader summary: what it shows and over which period.",
+    "placeholders": {
+      "metric": {
+        "type": "String",
+        "example": "tokens"
+      },
+      "period": {
+        "type": "String",
+        "example": "last 30 days"
+      }
+    }
+  },
+  "serverCareUsageChartNoUsage": "No usage.",
+  "@serverCareUsageChartNoUsage": {
+    "description": "Last sentence of the usage chart's screen reader summary when no day has any usage."
+  },
+  "serverCareUsageChartTotalHighest": "Total {total}. Highest {highest} on {day}.",
+  "@serverCareUsageChartTotalHighest": {
+    "description": "Rest of the usage chart's screen reader summary: the window's total and its highest day.",
+    "placeholders": {
+      "total": {
+        "type": "String",
+        "example": "8.4 million"
+      },
+      "highest": {
+        "type": "String",
+        "example": "1.2 million"
+      },
+      "day": {
+        "type": "String",
+        "example": "5 November"
+      }
+    }
+  },
+  "serverCareUsageConversations": "{count, plural, =1{1 conversation} other{{count} conversations}}",
+  "@serverCareUsageConversations": {
+    "description": "How many conversations a day, a model or the window held.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "9"
+      }
+    }
+  },
+  "serverCareUsageDayLong": "{day} {month}",
+  "@serverCareUsageDayLong": {
+    "description": "A day with the month spelled out, for screen readers. Both placeholders are the same date.",
+    "placeholders": {
+      "day": {
+        "type": "DateTime",
+        "format": "d"
+      },
+      "month": {
+        "type": "DateTime",
+        "format": "MMMM"
+      }
+    }
+  },
+  "serverCareUsageDayShort": "{day} {month}",
+  "@serverCareUsageDayShort": {
+    "description": "A day with the month abbreviated, in the usage table and chart. Both placeholders are the same date.",
+    "placeholders": {
+      "day": {
+        "type": "DateTime",
+        "format": "d"
+      },
+      "month": {
+        "type": "DateTime",
+        "format": "MMM"
+      }
+    }
   },
   "serverCareUsageEmptyDetail": "Usage appears here after Hermes answers a chat, a message or a scheduled task.",
   "@serverCareUsageEmptyDetail": {
@@ -835,6 +1384,16 @@
       }
     }
   },
+  "serverCareUsageEstimatedAmount": "{amount} estimated",
+  "@serverCareUsageEstimatedAmount": {
+    "description": "The window's estimated cost as the big number of the usage totals.",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "$12.40"
+      }
+    }
+  },
   "serverCareUsageFailedDetail": "Hermes did not answer as expected.",
   "@serverCareUsageFailedDetail": {
     "description": "Detail of the Usage page's error state for an unexpected answer."
@@ -847,6 +1406,16 @@
   "@serverCareUsageFooter": {
     "description": "Footnote under the Usage page's per-model list."
   },
+  "serverCareUsageLastDays": "{days, plural, =1{last day} other{last {days} days}}",
+  "@serverCareUsageLastDays": {
+    "description": "The period a chart covers, lower case, inside a sentence for screen readers.",
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "example": "30"
+      }
+    }
+  },
   "serverCareUsageLoading": "Loading usage",
   "@serverCareUsageLoading": {
     "description": "Accessibility label of the Usage page's loading skeleton."
@@ -858,6 +1427,78 @@
   "serverCareUsageMetricTokens": "Tokens",
   "@serverCareUsageMetricTokens": {
     "description": "Usage metric choice: tokens used."
+  },
+  "serverCareUsageModelSpoken": "{model}, {tokens}, {cost}, {conversations}, {share} of tokens",
+  "@serverCareUsageModelSpoken": {
+    "description": "Screen reader label of one model row in the usage list. The model name is Hermes' own text.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "claude-sonnet-5"
+      },
+      "tokens": {
+        "type": "String",
+        "example": "812 thousand tokens"
+      },
+      "cost": {
+        "type": "String",
+        "example": "$12.40"
+      },
+      "conversations": {
+        "type": "String",
+        "example": "9 conversations"
+      },
+      "share": {
+        "type": "String",
+        "example": "92%"
+      }
+    }
+  },
+  "serverCareUsagePartsSpoken": "Input {input}, output {output}, cache reads {cache}",
+  "@serverCareUsagePartsSpoken": {
+    "description": "Screen reader form of the usage totals' parts line; the values are spoken numbers.",
+    "placeholders": {
+      "input": {
+        "type": "String",
+        "example": "1.2 million"
+      },
+      "output": {
+        "type": "String",
+        "example": "812 thousand"
+      },
+      "cache": {
+        "type": "String",
+        "example": "4 million"
+      }
+    }
+  },
+  "serverCareUsagePartsText": "Input {input} · Output {output} · Cache reads {cache}",
+  "@serverCareUsagePartsText": {
+    "description": "Usage totals line: the token parts of the window, as compact numbers.",
+    "placeholders": {
+      "input": {
+        "type": "String",
+        "example": "1.2M"
+      },
+      "output": {
+        "type": "String",
+        "example": "812K"
+      },
+      "cache": {
+        "type": "String",
+        "example": "4M"
+      }
+    }
+  },
+  "serverCareUsagePeriodLast": "{days, plural, =1{Last day} other{Last {days} days}}",
+  "@serverCareUsagePeriodLast": {
+    "description": "The period the usage totals cover, at the start of a line.",
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "example": "30"
+      }
+    }
   },
   "serverCareUsageRefreshFailed": "Couldn't refresh usage",
   "@serverCareUsageRefreshFailed": {
@@ -875,9 +1516,30 @@
   "@serverCareUsageRunCheck": {
     "description": "Button in the Usage page's store-unreadable state that opens the server check."
   },
+  "serverCareUsageShareLessThanOne": "<{percent}",
+  "@serverCareUsageShareLessThanOne": {
+    "description": "A model's share of tokens that is not zero but would round to it; the percent is 1% formatted for the locale.",
+    "placeholders": {
+      "percent": {
+        "type": "String",
+        "example": "1%"
+      }
+    }
+  },
   "serverCareUsageShowAsTable": "Show as table",
   "@serverCareUsageShowAsTable": {
     "description": "Switch on the Usage page that swaps the chart for a table."
+  },
+  "serverCareUsageShowMoreDays": "{count, plural, =1{Show 1 more day} other{Show {count} more days}}",
+  "@serverCareUsageShowMoreDays": {
+    "description": "Button under the usage table that reveals more days.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "20"
+      }
+    }
   },
   "serverCareUsageStoreUnreadableDetail": "The server's session store needs repair.",
   "@serverCareUsageStoreUnreadableDetail": {
@@ -890,6 +1552,20 @@
   "serverCareUsageTitle": "Usage",
   "@serverCareUsageTitle": {
     "description": "Title of the Usage page and of its row on the Server screen: tokens and cost."
+  },
+  "serverCareUsageTokens": "{count, plural, =1{{amount} token} other{{amount} tokens}}",
+  "@serverCareUsageTokens": {
+    "description": "A token count: the amount is already formatted (compact or spoken), the count only picks the plural.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "812000"
+      },
+      "amount": {
+        "type": "String",
+        "example": "812K"
+      }
+    }
   },
   "serverCareUsageUnavailableDetail": "This Hermes server doesn't report usage.",
   "@serverCareUsageUnavailableDetail": {
