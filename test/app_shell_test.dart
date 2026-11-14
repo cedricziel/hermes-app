@@ -26,6 +26,7 @@ import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/widgets/chat_thread_view.dart';
+import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/skills/skill_editor_screen.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
@@ -2343,6 +2344,93 @@ void main() {
             .where((r) => r.queryParameters['source'] == 'hermes_app'),
         isEmpty,
       );
+    });
+  });
+
+  group('server care status', () {
+    int statusReads() => server.requestsTo('GET', '/api/status').length;
+
+    late FakeSessionAuth auth;
+
+    setUp(() {
+      auth = FakeSessionAuth();
+      addTearDown(auth.dispose);
+      kanbanPlugin(on: false);
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work'),
+      );
+      server.on('GET', '/api/status', {
+        'version': '0.22.2',
+        'gateway_running': true,
+        'gateway_state': 'running',
+      });
+    });
+
+    testWidgets('is read when the shell opens and provided to its screens', (
+      tester,
+    ) async {
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      expect(statusReads(), greaterThanOrEqualTo(1));
+      // The server's default profile is named, never left to the server.
+      for (final request in server.requestsTo('GET', '/api/status')) {
+        expect(request.queryParameters['profile'], isNotEmpty);
+      }
+      final care = tester
+          .element(find.byType(ChatScreen))
+          .read<ServerCareController>();
+      expect(care.status?.version, '0.22.2');
+    });
+
+    testWidgets('is read again when the app resumes, at most every 5 minutes', (
+      tester,
+    ) async {
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      final before = statusReads();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(statusReads(), before);
+    });
+
+    testWidgets('is not read while App Lock covers the app, then on unlock', (
+      tester,
+    ) async {
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      lock.didChangeAppLifecycleState(AppLifecycleState.paused);
+      expect(lock.covered, isTrue);
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        lock: lock,
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      expect(statusReads(), 0);
+
+      await tester.runAsync(() async {
+        await lock.unlock();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pumpAndSettle();
+      expect(lock.covered, isFalse);
+      expect(statusReads(), 1);
     });
   });
 }

@@ -12,6 +12,9 @@ controller or a workflow test. Whole flows stay in `test/workflows/`
 
 ## Iterate here first
 
+A new screen or a redesign gets a design pass before this step (`design-pass`
+skill), and the catalog work follows its recorded decisions.
+
 UI work starts in the catalog, not in a screen. Build or change the widget as
 a use case, get every state and both themes and viewports right there, and only
 then wire it into a screen. A component that takes plain models and callbacks
@@ -60,7 +63,9 @@ lower-cased names with `-` for spaces.
    component in `widgetbook/directories.dart`. Wrap the widget in `frame(...)`.
 3. Cover the states a user can see: empty, running, failed, answered, expired.
    Pass callbacks that resolve (`Future.delayed`) or throw, so the buttons work.
-4. `flutter test test/widgetbook_test.dart`. It builds every use case in each
+4. `flutter test test/widgetbook_test.dart -j 1`. Run it with `-j 1`: the
+   catalog test is heavy and times out when it runs in parallel with other
+   tests. It builds every use case in each
    theme and viewport of `widgetbook/environment.dart` and fails on an
    exception or an overflow. The test font is wider than the real one, so
    check text scale in the catalog (Addons panel), not in the test.
