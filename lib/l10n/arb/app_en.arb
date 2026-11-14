@@ -309,6 +309,341 @@
   "@@x-area-chat/checkpoints": "",
 
   "@@x-area-chat/context": "",
+  "chatContextBarLabel": "Context, {percent} percent used",
+  "@chatContextBarLabel": {
+    "description": "Accessibility label of the context bar. {percent} is a whole number.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextBarLabelEstimated": "Context, {percent} percent used, estimated",
+  "@chatContextBarLabelEstimated": {
+    "description": "Accessibility label of the context bar when the figure is an estimate. {percent} is a whole number.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextCaption": "{used} of {max} tokens",
+  "@chatContextCaption": {
+    "description": "Caption under the context bar. {used} and {max} are short counts such as 124k and 200k.",
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextCaptionEstimated": "about {used} of {max} tokens",
+  "@chatContextCaptionEstimated": {
+    "description": "Caption under the context bar when the used count is an estimate. {used} and {max} are counts such as 124k and 200k.",
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextCategoryFailed": "Couldn't read what fills the context.",
+  "@chatContextCategoryFailed": {
+    "description": "Error line where the list of what fills the context should be."
+  },
+  "chatContextCategoryFooter": "Numbers are tokens. They are estimates.",
+  "@chatContextCategoryFooter": {
+    "description": "Footer under the list of what fills the context window."
+  },
+  "chatContextCategoryHeading": "What's in it",
+  "@chatContextCategoryHeading": {
+    "description": "Heading of the list of what fills the context window."
+  },
+  "chatContextCategoryLoading": "Reading what fills the context…",
+  "@chatContextCategoryLoading": {
+    "description": "Accessibility label of the placeholder rows while the list of what fills the context loads."
+  },
+  "chatContextCategoryNameConversation": "Conversation",
+  "@chatContextCategoryNameConversation": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameMcp": "MCP servers",
+  "@chatContextCategoryNameMcp": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameMemory": "Memory",
+  "@chatContextCategoryNameMemory": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameOther": "Other",
+  "@chatContextCategoryNameOther": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameRules": "Rules files",
+  "@chatContextCategoryNameRules": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameSkills": "Skills",
+  "@chatContextCategoryNameSkills": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameSubagents": "Sub-agents",
+  "@chatContextCategoryNameSubagents": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameSystemPrompt": "System prompt",
+  "@chatContextCategoryNameSystemPrompt": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryNameTools": "Tools",
+  "@chatContextCategoryNameTools": {
+    "description": "Name of one part of the context window in the list of what fills it. Keep it short."
+  },
+  "chatContextCategoryRetry": "Try again",
+  "@chatContextCategoryRetry": {
+    "description": "Button under the error that reloads the list of what fills the context."
+  },
+  "chatContextCategoryTokens": "{tokens} tokens",
+  "@chatContextCategoryTokens": {
+    "description": "Accessibility label for the token count of one category. {tokens} is a number with thousands separators.",
+    "placeholders": {
+      "tokens": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextCompressAdvanced": "Advanced",
+  "@chatContextCompressAdvanced": {
+    "description": "Collapsed section of the compress confirmation that holds the optional focus field."
+  },
+  "chatContextCompressBodyHelper": "A helper model writes the summary and uses tokens on your account.",
+  "@chatContextCompressBodyHelper": {
+    "description": "Second line of the compress confirmation: it costs tokens."
+  },
+  "chatContextCompressBodyReload": "The chat reloads and shows the summary where the older messages were.",
+  "@chatContextCompressBodyReload": {
+    "description": "Fourth line of the compress confirmation."
+  },
+  "chatContextCompressBodyReplace": "Older messages are replaced by a short summary. Your first and latest messages stay word for word.",
+  "@chatContextCompressBodyReplace": {
+    "description": "First line of the compress confirmation."
+  },
+  "chatContextCompressBodyUndo": "This can't be undone.",
+  "@chatContextCompressBodyUndo": {
+    "description": "Third line of the compress confirmation."
+  },
+  "chatContextCompressCancel": "Cancel",
+  "@chatContextCompressCancel": {
+    "description": "Button that closes the compress confirmation without compressing."
+  },
+  "chatContextCompressConfirm": "Compress",
+  "@chatContextCompressConfirm": {
+    "description": "Button that starts compressing the chat."
+  },
+  "chatContextCompressFocusError": "Write a topic, like “the database schema”. Leave out words that start with “-”, and don't start with “here”.",
+  "@chatContextCompressFocusError": {
+    "description": "Error under the focus field when the text would be read as a command by the server. “-” and “here” are literal."
+  },
+  "chatContextCompressFocusHelper": "The summary keeps more about this topic.",
+  "@chatContextCompressFocusHelper": {
+    "description": "Helper text under the focus field."
+  },
+  "chatContextCompressFocusHint": "Keep details about…",
+  "@chatContextCompressFocusHint": {
+    "description": "Placeholder of the focus field."
+  },
+  "chatContextCompressFocusLabel": "Focus on (optional)",
+  "@chatContextCompressFocusLabel": {
+    "description": "Label of the optional text field that tells the summary what to keep."
+  },
+  "chatContextCompressReplyStarted": "Wait for the reply to finish.",
+  "@chatContextCompressReplyStarted": {
+    "description": "Shown in the compress confirmation, with Compress disabled, because the chat started replying."
+  },
+  "chatContextCompressTitle": "Compress this conversation?",
+  "@chatContextCompressTitle": {
+    "description": "Title of the confirmation before Hermes compresses the chat."
+  },
+  "chatContextCompressing": "Compressing the conversation…",
+  "@chatContextCompressing": {
+    "description": "Line on the context row while Hermes compresses the chat."
+  },
+  "chatContextDetailsModel": "Model: {model}",
+  "@chatContextDetailsModel": {
+    "description": "Muted line on the Context details page. {model} is the model's name as the server reports it.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextFull": "Full",
+  "@chatContextFull": {
+    "description": "State word beside the percentage when the context window is full or over. Keep it short."
+  },
+  "chatContextLabel": "Context",
+  "@chatContextLabel": {
+    "description": "Label of the row that shows how full the chat's context window is."
+  },
+  "chatContextNearlyFull": "Nearly full",
+  "@chatContextNearlyFull": {
+    "description": "State word beside the percentage when the context window is 80% or more used. Keep it short."
+  },
+  "chatContextNotUpToDate": "Not up to date",
+  "@chatContextNotUpToDate": {
+    "description": "Marker on the context figures when the connection is closed and they may have changed."
+  },
+  "chatContextOutcomeAborted": "Hermes couldn't write the summary, so nothing changed.",
+  "@chatContextOutcomeAborted": {
+    "description": "Warning note when the summary could not be written."
+  },
+  "chatContextOutcomeBusyCompressing": "Hermes is compressing this chat. Try again when it's done.",
+  "@chatContextOutcomeBusyCompressing": {
+    "description": "Note when another compress of this chat is running."
+  },
+  "chatContextOutcomeBusyReplying": "Wait for the reply to finish, then try again.",
+  "@chatContextOutcomeBusyReplying": {
+    "description": "Note when compressing was refused because the chat is replying."
+  },
+  "chatContextOutcomeCompressed": "Conversation compressed",
+  "@chatContextOutcomeCompressed": {
+    "description": "Title of the note after the chat was compressed."
+  },
+  "chatContextOutcomeCouldntConfirm": "Hermes didn't answer. The conversation may have been compressed.",
+  "@chatContextOutcomeCouldntConfirm": {
+    "description": "Warning title when no answer to the compress request arrived."
+  },
+  "chatContextOutcomeCouldntConfirmDetail": "The chat and its usage were read again. You can try again after a new confirmation.",
+  "@chatContextOutcomeCouldntConfirmDetail": {
+    "description": "Detail under the no-answer warning: the app re-read the chat and offers Try again."
+  },
+  "chatContextOutcomeFailed": "Hermes couldn't compress the conversation.",
+  "@chatContextOutcomeFailed": {
+    "description": "Error note for any other failure of the compress request."
+  },
+  "chatContextOutcomeFallback": "Hermes couldn't summarize the older messages, so it dropped them.",
+  "@chatContextOutcomeFallback": {
+    "description": "Added to the compressed note when the summary failed and the older messages were removed without one."
+  },
+  "chatContextOutcomeJoined": "{first} · {second}",
+  "@chatContextOutcomeJoined": {
+    "description": "Two facts about a compress result on one line, joined by a middle dot.",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "second": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextOutcomeLockHeld": "Hermes is already compressing this chat.",
+  "@chatContextOutcomeLockHeld": {
+    "description": "Note when another compression holds the lock on this chat."
+  },
+  "chatContextOutcomeMessages": "{before} → {after, plural, =1{1 message} other{{after} messages}}",
+  "@chatContextOutcomeMessages": {
+    "description": "How many messages the chat had before and after compressing. {before} and {after} are counts.",
+    "placeholders": {
+      "before": {
+        "type": "int"
+      },
+      "after": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextOutcomeNothing": "There isn't enough to compress yet.",
+  "@chatContextOutcomeNothing": {
+    "description": "Note when the chat is too short to compress."
+  },
+  "chatContextOutcomePending": "Hermes is compressing this chat in the background.",
+  "@chatContextOutcomePending": {
+    "description": "Title of the note when the compress runs on another machine and has not finished."
+  },
+  "chatContextOutcomePendingDetail": "The chat reloads when it is done.",
+  "@chatContextOutcomePendingDetail": {
+    "description": "Detail under the background-compress note."
+  },
+  "chatContextOutcomeTokens": "about {before} → {after} tokens",
+  "@chatContextOutcomeTokens": {
+    "description": "How many tokens the chat used before and after compressing. {before} and {after} are short counts such as 120k.",
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextOutcomeTryAgain": "Try again",
+  "@chatContextOutcomeTryAgain": {
+    "description": "Action in a compress note that opens the confirmation again."
+  },
+  "chatContextOutcomeWouldNotShrink": "Compressing wouldn't make this chat smaller.",
+  "@chatContextOutcomeWouldNotShrink": {
+    "description": "Note when compressing would not reduce the chat."
+  },
+  "chatContextPercent": "{percent}%",
+  "@chatContextPercent": {
+    "description": "The share of the context window in use. {percent} is a whole number from 0 to 100.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatContextSuggestion": "Compress to make room?",
+  "@chatContextSuggestion": {
+    "description": "Question on the context row that offers to compress the chat when it is nearly full."
+  },
+  "chatContextSuggestionCompress": "Compress…",
+  "@chatContextSuggestionCompress": {
+    "description": "Text button that opens the compress confirmation. The dots mean a confirmation follows."
+  },
+  "chatContextSuggestionDismiss": "Not now",
+  "@chatContextSuggestionDismiss": {
+    "description": "Text button that dismisses the compress suggestion."
+  },
+  "chatContextSummaryFilled": "full",
+  "@chatContextSummaryFilled": {
+    "description": "Word after the large percentage on the Context details page, as in 62% full."
+  },
+  "chatContextTokensMillion": "{count}M",
+  "@chatContextTokensMillion": {
+    "description": "A token count in millions. {count} is a number such as 1.2.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextTokensThousand": "{count}k",
+  "@chatContextTokensThousand": {
+    "description": "A token count in thousands. {count} is a number such as 124 or 8.4.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "chatContextTranscriptCompressed": "Conversation compressed · {before} → {after, plural, =1{1 message} other{{after} messages}}",
+  "@chatContextTranscriptCompressed": {
+    "description": "Muted line in the transcript where the chat was compressed. {before} and {after} are message counts.",
+    "placeholders": {
+      "before": {
+        "type": "int"
+      },
+      "after": {
+        "type": "int"
+      }
+    }
+  },
 
   "@@x-area-chat/gateway": "",
 
