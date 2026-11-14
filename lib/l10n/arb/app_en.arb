@@ -1102,6 +1102,26 @@
       }
     }
   },
+  "toolsBackendCommandsFail": "Commands will fail until this is set up on your server.",
+  "@toolsBackendCommandsFail": {
+    "description": "Warning under a picked terminal backend that is not ready."
+  },
+  "toolsBackendsFooter": "Applies from your next chat. Settings for Docker, SSH and the others are changed on your server.",
+  "@toolsBackendsFooter": {
+    "description": "Footer of the section that picks where the Terminal tool runs commands."
+  },
+  "toolsBackendsHeader": "Where commands run",
+  "@toolsBackendsHeader": {
+    "description": "Header of the section that picks where the Terminal tool runs commands (local, Docker, SSH and so on)."
+  },
+  "toolsBackendsLoadFailed": "Couldn't read where commands run.",
+  "@toolsBackendsLoadFailed": {
+    "description": "Error line when the list of terminal backends could not be read. Shown with a Try again button."
+  },
+  "toolsBackendsLoading": "Checking where commands can run…",
+  "@toolsBackendsLoading": {
+    "description": "Shown with a spinner while the terminal backends are read."
+  },
   "toolsBannerInstallerDetail": "Hermes started an installer on your server. Applies from your next chat.",
   "@toolsBannerInstallerDetail": {
     "description": "Detail of the banner shown after switching on a tool started an installer on the server."
@@ -1156,6 +1176,18 @@
   "@toolsChipReady": {
     "description": "Status badge: the provider or backend works now. Keep it short."
   },
+  "toolsConfirmAllowAction": "Allow access",
+  "@toolsConfirmAllowAction": {
+    "description": "Confirming button of the question before the permission window opens on the server's Mac."
+  },
+  "toolsConfirmAllowBody": "A permission window will open on the computer that runs Hermes. Someone there has to approve it.",
+  "@toolsConfirmAllowBody": {
+    "description": "Body of the question before the macOS permission grant starts on the server."
+  },
+  "toolsConfirmAllowTitle": "Allow access on the server's Mac?",
+  "@toolsConfirmAllowTitle": {
+    "description": "Title of the question before the macOS permission grant starts on the server."
+  },
   "toolsConfirmApplies": "It applies to the profile \"{profile}\".",
   "@toolsConfirmApplies": {
     "description": "Sentence in a confirmation question: which profile the change applies to.",
@@ -1204,9 +1236,29 @@
       }
     }
   },
+  "toolsConfirmInstallStepAction": "Install",
+  "@toolsConfirmInstallStepAction": {
+    "description": "Confirming button of the question before an install step runs on the server."
+  },
+  "toolsConfirmInstallStepBody": "Hermes will run an installer on the server. It may download software.",
+  "@toolsConfirmInstallStepBody": {
+    "description": "Body of the question before an install step runs on the server."
+  },
   "toolsConfirmInstallTitle": "Install on your server?",
   "@toolsConfirmInstallTitle": {
     "description": "Title of the question asked before switching on a tool that may start an installer on the server."
+  },
+  "toolsConfirmLocalBody": "Commands will run on the same machine as Hermes, with full access to that machine's files, not in a container.",
+  "@toolsConfirmLocalBody": {
+    "description": "Body of the question before the Local terminal backend is picked."
+  },
+  "toolsConfirmLocalTitle": "Run commands directly on your server?",
+  "@toolsConfirmLocalTitle": {
+    "description": "Title of the question before the Local terminal backend is picked."
+  },
+  "toolsConfirmLocalUse": "Use local",
+  "@toolsConfirmLocalUse": {
+    "description": "Confirming button of the question before the Local terminal backend is picked."
   },
   "toolsConfirmOffActions": "Switching it off stops new actions. It doesn't undo what they did.",
   "@toolsConfirmOffActions": {
@@ -1216,6 +1268,10 @@
   "@toolsConfirmOffCommands": {
     "description": "Last sentences of a confirmation question for tools that run commands or programs."
   },
+  "toolsConfirmSwitchOn": "Switch on",
+  "@toolsConfirmSwitchOn": {
+    "description": "Confirming button of the questions asked before a tool is switched on."
+  },
   "toolsConfirmTerminalLead": "It can run commands on the machine where Hermes runs.",
   "@toolsConfirmTerminalLead": {
     "description": "First sentence of the question asked before the terminal tool is switched on."
@@ -1223,6 +1279,46 @@
   "toolsConfirmTerminalTitle": "Let Hermes run commands?",
   "@toolsConfirmTerminalTitle": {
     "description": "Title of the question asked before the terminal tool is switched on."
+  },
+  "toolsDifferenceMcpTerm": "MCP servers:",
+  "@toolsDifferenceMcpTerm": {
+    "description": "Bold term at the start of a paragraph in the What's the difference sheet; keep the colon."
+  },
+  "toolsDifferenceMcpText": "outside programs or services that give Hermes extra tools.",
+  "@toolsDifferenceMcpText": {
+    "description": "Explanation after the term MCP servers in the What's the difference sheet. Starts lower case: it follows the term."
+  },
+  "toolsDifferencePluginsTerm": "Plugins:",
+  "@toolsDifferencePluginsTerm": {
+    "description": "Bold term at the start of a paragraph in the What's the difference sheet; keep the colon."
+  },
+  "toolsDifferencePluginsText": "add-ons installed on the server. Some bring their own tools.",
+  "@toolsDifferencePluginsText": {
+    "description": "Explanation after the term Plugins in the What's the difference sheet. Starts lower case: it follows the term."
+  },
+  "toolsDifferenceSkillsTerm": "Skills:",
+  "@toolsDifferenceSkillsTerm": {
+    "description": "Bold term at the start of a paragraph in the What's the difference sheet; keep the colon."
+  },
+  "toolsDifferenceSkillsText": "written instructions Hermes follows for a kind of job.",
+  "@toolsDifferenceSkillsText": {
+    "description": "Explanation after the term Skills in the What's the difference sheet. Starts lower case: it follows the term."
+  },
+  "toolsDifferenceTitle": "Tools, skills, plugins and MCP servers",
+  "@toolsDifferenceTitle": {
+    "description": "Title of the What's the difference sheet."
+  },
+  "toolsDifferenceToolsTerm": "Tools:",
+  "@toolsDifferenceToolsTerm": {
+    "description": "Bold term at the start of a paragraph in the What's the difference sheet; keep the colon."
+  },
+  "toolsDifferenceToolsText": "what Hermes can do by itself, such as run commands, search the web or make images. You switch them on or off here.",
+  "@toolsDifferenceToolsText": {
+    "description": "Explanation after the term Tools in the What's the difference sheet. Starts lower case: it follows the term."
+  },
+  "toolsDone": "Done",
+  "@toolsDone": {
+    "description": "Button that closes a sheet of the Tools screens."
   },
   "toolsEmptyDetail": "Tools Hermes offers for this profile will show here.",
   "@toolsEmptyDetail": {
@@ -1271,6 +1367,132 @@
   "toolsHeaderOnNeedsSetup": "On · needs setup",
   "@toolsHeaderOnNeedsSetup": {
     "description": "State line in a tool's detail header: the tool is on but has not been set up."
+  },
+  "toolsInstallAgain": "Run the install step again",
+  "@toolsInstallAgain": {
+    "description": "Quiet button that runs a provider's install step again, under Advanced."
+  },
+  "toolsInstallAnotherRunning": "Another install is running",
+  "@toolsInstallAnotherRunning": {
+    "description": "Label of the disabled install button while another install runs on the server."
+  },
+  "toolsInstallButton": "Install on server",
+  "@toolsInstallButton": {
+    "description": "Button that runs a provider's install step on the Hermes server."
+  },
+  "toolsInstallDone": "Installed.",
+  "@toolsInstallDone": {
+    "description": "Shown when an install on the server finished."
+  },
+  "toolsInstallFailed": "The install didn't finish.",
+  "@toolsInstallFailed": {
+    "description": "Error line when an install on the server failed."
+  },
+  "toolsInstallFailedNothing": "Nothing changed on your server. The last lines from the installer:",
+  "@toolsInstallFailedNothing": {
+    "description": "Sentence after a failed install, introducing the installer's last lines."
+  },
+  "toolsInstallHeader": "Install on server",
+  "@toolsInstallHeader": {
+    "description": "Header of the section that shows an install running on the server."
+  },
+  "toolsInstallHelper": "Needed before this works. The app asks first.",
+  "@toolsInstallHelper": {
+    "description": "Helper under the Install on server button."
+  },
+  "toolsInstallLeave": "You can leave this screen. The install keeps going.",
+  "@toolsInstallLeave": {
+    "description": "Muted line while an install runs on the server."
+  },
+  "toolsInstallRunning": "Installing on your server…",
+  "@toolsInstallRunning": {
+    "description": "Title while an install runs on the server, next to a spinner."
+  },
+  "toolsInstallStartedBySwitch": "Hermes is installing the driver on your server.",
+  "@toolsInstallStartedBySwitch": {
+    "description": "Title while an install that switching a tool on started runs on the server."
+  },
+  "toolsInstallUnknown": "Couldn't tell whether it finished.",
+  "@toolsInstallUnknown": {
+    "description": "Shown when the app lost track of an install and could not read how it ended."
+  },
+  "toolsKeyAlreadySet": "Already set",
+  "@toolsKeyAlreadySet": {
+    "description": "Shown under a key's name when the server already has a value for it. The value is never shown."
+  },
+  "toolsKeyChecking": "May have saved. Checking…",
+  "@toolsKeyChecking": {
+    "description": "Shown with a spinner in place of Save when the answer to saving a key was lost."
+  },
+  "toolsKeyFailed": "Couldn't save the key. Try again.",
+  "@toolsKeyFailed": {
+    "description": "Error under a key field when saving failed. The typed value stays in the field."
+  },
+  "toolsKeyGet": "Get a key",
+  "@toolsKeyGet": {
+    "description": "Link that opens the page where an API key can be obtained."
+  },
+  "toolsKeyHeader": "Key for {provider}",
+  "@toolsKeyHeader": {
+    "description": "Header of the section with a provider's key fields.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Firecrawl"
+      }
+    }
+  },
+  "toolsKeyHelper": "Saved on your server for {profile}. The app doesn't keep it.",
+  "@toolsKeyHelper": {
+    "description": "Helper under the key fields: where the key goes and that the app does not keep it.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "toolsKeyNotSaved": "The key wasn't saved. Paste it again.",
+  "@toolsKeyNotSaved": {
+    "description": "Shown when asking the server again showed that a key was not saved."
+  },
+  "toolsKeyRemoveHint": "To remove a key, edit it on your server.",
+  "@toolsKeyRemoveHint": {
+    "description": "Quiet line under the key form: the app cannot remove a key."
+  },
+  "toolsKeyReplace": "Replace",
+  "@toolsKeyReplace": {
+    "description": "Button next to a key that is already set; it shows the field to type a new one. Keep it short."
+  },
+  "toolsKeyReplaceNamed": "Replace {label}",
+  "@toolsKeyReplaceNamed": {
+    "description": "Accessibility label of the Replace button, naming the key.",
+    "placeholders": {
+      "label": {
+        "type": "String",
+        "example": "Firecrawl API key"
+      }
+    }
+  },
+  "toolsKeySave": "Save",
+  "@toolsKeySave": {
+    "description": "The one filled button of the key form."
+  },
+  "toolsKeySaved": "Saved.",
+  "@toolsKeySaved": {
+    "description": "Title of the banner after a key was saved."
+  },
+  "toolsKeySavedDetail": "Applies from your next chat.",
+  "@toolsKeySavedDetail": {
+    "description": "Detail of the banner after a key was saved."
+  },
+  "toolsKeySaving": "Saving…",
+  "@toolsKeySaving": {
+    "description": "Label of the Save button while the key is being sent."
+  },
+  "toolsKeyUnconfirmed": "Couldn't confirm. Pull to refresh.",
+  "@toolsKeyUnconfirmed": {
+    "description": "Shown when the app could not find out whether a key was saved."
   },
   "toolsLabelBrowser": "Browser",
   "@toolsLabelBrowser": {
@@ -1376,6 +1598,24 @@
   "@toolsLoading": {
     "description": "Shown with a spinner while the tools list loads."
   },
+  "toolsModelDefault": "Default",
+  "@toolsModelDefault": {
+    "description": "Muted word after the name of a provider's default model."
+  },
+  "toolsModelFooter": "Prices come from the provider, {provider}, as it gives them. Applies from your next chat.",
+  "@toolsModelFooter": {
+    "description": "Footer of the model picker for image and video generation.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "FAL"
+      }
+    }
+  },
+  "toolsModelTitle": "Model",
+  "@toolsModelTitle": {
+    "description": "Title of the model picker for image and video generation."
+  },
   "toolsNeedsSetup": "Needs setup",
   "@toolsNeedsSetup": {
     "description": "Status badge, list section header and a row's state line: the tool has not been set up yet, or its status is unknown."
@@ -1387,6 +1627,108 @@
   "toolsOldServerTitle": "This server doesn't offer tools settings.",
   "@toolsOldServerTitle": {
     "description": "Title of the state shown when the Hermes server is too old to have tools settings."
+  },
+  "toolsProviderFromHermes": "From Hermes: {text}",
+  "@toolsProviderFromHermes": {
+    "description": "Note on a provider or backend: Hermes' own words, shown as given.",
+    "placeholders": {
+      "text": {
+        "type": "String",
+        "example": "Docker isn't running"
+      }
+    }
+  },
+  "toolsProviderNeedsSignInNote": "This needs a sign-in to Nous Portal on your server. The app can't do that for you.",
+  "@toolsProviderNeedsSignInNote": {
+    "description": "Note on a provider that needs a sign-in on the Hermes server."
+  },
+  "toolsReadinessAccessibility": "Accessibility",
+  "@toolsReadinessAccessibility": {
+    "description": "Row label in the Computer use readiness section: the macOS accessibility permission."
+  },
+  "toolsReadinessAllowAccess": "Allow access",
+  "@toolsReadinessAllowAccess": {
+    "description": "Button that opens the macOS permission window on the server's Mac."
+  },
+  "toolsReadinessAllowHelper": "A permission window opens on the Mac that runs Hermes. Someone there has to approve it.",
+  "@toolsReadinessAllowHelper": {
+    "description": "Helper under the Allow access button."
+  },
+  "toolsReadinessAllowed": "Allowed",
+  "@toolsReadinessAllowed": {
+    "description": "Value of a permission row that is granted."
+  },
+  "toolsReadinessCouldntTell": "Couldn't tell",
+  "@toolsReadinessCouldntTell": {
+    "description": "Value of a readiness row when the server could not say."
+  },
+  "toolsReadinessDetails": "Details",
+  "@toolsReadinessDetails": {
+    "description": "Last row of the readiness section: opens the checks Hermes ran."
+  },
+  "toolsReadinessDriver": "Driver",
+  "@toolsReadinessDriver": {
+    "description": "Row label in the Computer use readiness section: the software that controls the computer."
+  },
+  "toolsReadinessHeader": "Readiness",
+  "@toolsReadinessHeader": {
+    "description": "Header of the Computer use readiness section."
+  },
+  "toolsReadinessInstalled": "Installed",
+  "@toolsReadinessInstalled": {
+    "description": "Value of the Driver row when the driver is installed."
+  },
+  "toolsReadinessNo": "No",
+  "@toolsReadinessNo": {
+    "description": "Value of the Ready row when Computer use is not ready."
+  },
+  "toolsReadinessNotAllowed": "Not allowed",
+  "@toolsReadinessNotAllowed": {
+    "description": "Value of a permission row that is not granted."
+  },
+  "toolsReadinessNotInstalled": "Not installed",
+  "@toolsReadinessNotInstalled": {
+    "description": "Value of the Driver row when the driver is missing."
+  },
+  "toolsReadinessOpenScreen": "Open the bot's screen",
+  "@toolsReadinessOpenScreen": {
+    "description": "Row that opens the live view of the profile's bot screen."
+  },
+  "toolsReadinessReady": "Ready",
+  "@toolsReadinessReady": {
+    "description": "Row label in the Computer use readiness section: whether Computer use can work now."
+  },
+  "toolsReadinessScreenRecording": "Screen recording",
+  "@toolsReadinessScreenRecording": {
+    "description": "Row label in the Computer use readiness section: the macOS screen recording permission."
+  },
+  "toolsReadinessServerSystem": "Server system",
+  "@toolsReadinessServerSystem": {
+    "description": "Row label in the Computer use readiness section: the operating system of the Hermes server."
+  },
+  "toolsReadinessSystemNotSupported": "{system}, not supported",
+  "@toolsReadinessSystemNotSupported": {
+    "description": "Value of the Server system row when Computer use does not support the server's system.",
+    "placeholders": {
+      "system": {
+        "type": "String",
+        "example": "macOS"
+      }
+    }
+  },
+  "toolsReadinessSystemSupported": "{system}, supported",
+  "@toolsReadinessSystemSupported": {
+    "description": "Value of the Server system row when Computer use supports the server's system.",
+    "placeholders": {
+      "system": {
+        "type": "String",
+        "example": "macOS"
+      }
+    }
+  },
+  "toolsReadinessYes": "Yes",
+  "@toolsReadinessYes": {
+    "description": "Value of the Ready row when Computer use is ready."
   },
   "toolsRiskActOnItsOwnSentence": "Hermes can start work later, or hand it to helper agents, without you watching each step.",
   "@toolsRiskActOnItsOwnSentence": {
@@ -1555,6 +1897,42 @@
   "toolsSentenceXSearch": "Search posts on X.",
   "@toolsSentenceXSearch": {
     "description": "One plain sentence under the name of the built-in tool \"X search\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSetupAdvancedFooter": "Most people use one provider for both.",
+  "@toolsSetupAdvancedFooter": {
+    "description": "Footer of the Advanced part of Web setup, where search and extract get different providers."
+  },
+  "toolsSetupAdvancedTitle": "Use different providers for search and extract",
+  "@toolsSetupAdvancedTitle": {
+    "description": "Last row of the Web Set up section; opens the choices for search and for extract."
+  },
+  "toolsSetupExtractHeader": "Extract",
+  "@toolsSetupExtractHeader": {
+    "description": "Header of the provider choice for reading pages (extract) in Web's Advanced part."
+  },
+  "toolsSetupFooter": "Hermes uses the one you choose. Applies from your next chat.",
+  "@toolsSetupFooter": {
+    "description": "Footer of the Set up section that lists a tool's providers."
+  },
+  "toolsSetupHeader": "Set up",
+  "@toolsSetupHeader": {
+    "description": "Header of the section where a tool's provider and keys are set."
+  },
+  "toolsSetupLoadFailed": "Couldn't load setup.",
+  "@toolsSetupLoadFailed": {
+    "description": "Error line when a tool's providers could not be read. Shown with a Try again button."
+  },
+  "toolsSetupLoading": "Loading setup…",
+  "@toolsSetupLoading": {
+    "description": "Shown with a spinner while a tool's providers are read."
+  },
+  "toolsSetupNothing": "Nothing to set up.",
+  "@toolsSetupNothing": {
+    "description": "Shown when a tool has no providers or keys to set."
+  },
+  "toolsSetupSearchHeader": "Search",
+  "@toolsSetupSearchHeader": {
+    "description": "Header of the provider choice for searching the web in Web's Advanced part."
   },
   "toolsSwitchLabel": "{name}, {state, select, on{on} other{off}}",
   "@toolsSwitchLabel": {

@@ -70,8 +70,8 @@ class StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = status.color(context);
     final label = status.label(context.l10n);
+    // Not a container, so a row that reads as one element includes it.
     return Semantics(
-      container: true,
       label: label,
       child: ExcludeSemantics(
         child: Container(

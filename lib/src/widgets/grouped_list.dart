@@ -294,6 +294,7 @@ class GroupedRow extends StatelessWidget {
     this.error,
     this.details = const [],
     this.titleWeight,
+    this.titleBadge,
     this.leading,
     this.value,
     this.trailing,
@@ -344,6 +345,10 @@ class GroupedRow extends StatelessWidget {
 
   /// Overrides the title's weight, for a row whose name leads its lines.
   final FontWeight? titleWeight;
+
+  /// A small tag after the title, such as an outlined "paid". It sits in the
+  /// title's line and wraps with it.
+  final Widget? titleBadge;
 
   /// An icon, or a [GroupedTile].
   final Widget? leading;
@@ -486,6 +491,14 @@ class GroupedRow extends StatelessWidget {
                           style: TextStyle(
                             fontSize: metrics.subtitleSize,
                             color: muted,
+                          ),
+                        ),
+                      if (titleBadge != null)
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.only(start: 8),
+                            child: titleBadge,
                           ),
                         ),
                     ],

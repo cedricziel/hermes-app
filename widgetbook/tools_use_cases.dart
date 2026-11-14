@@ -14,6 +14,7 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'tools_setup_use_cases.dart';
 
 Widget _at(double scale, Widget Function() child) => Builder(
   builder: (context) => MediaQuery(
@@ -642,5 +643,6 @@ WidgetbookNode toolsNode() => WidgetbookFolder(
     _riskComponent(),
     _chipComponent(),
     _listComponent(),
+    ...toolsSetupComponents(),
   ],
 );
