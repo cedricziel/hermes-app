@@ -396,7 +396,12 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
   @override
   void didUpdateWidget(MarkdownPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text) _budget = CodeHighlightBudget();
+    // A new text, or the same one shown again after the Source view: every
+    // fence is built anew and takes its share again.
+    if (oldWidget.text != widget.text ||
+        oldWidget.showSource != widget.showSource) {
+      _budget = CodeHighlightBudget();
+    }
   }
 
   Future<void> _tap(BuildContext context, String url) async {

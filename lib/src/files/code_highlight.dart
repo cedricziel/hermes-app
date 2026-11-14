@@ -76,6 +76,36 @@ class CodeHighlightBudget {
   }
 }
 
+/// The most spans a coloured text may have. A span costs layout and paint
+/// time in one text widget, and the cost grows faster than the count: 100,000
+/// runs of a dense file took 39 s to lay out. Beyond this the rest of the text
+/// is one plain span.
+const int kCodeHighlightMaxRuns = 1000;
+
+/// [runs] with at most [max] spans: adjacent runs of one token are merged, and
+/// what follows the last span that fits becomes one plain run. The text,
+/// joined, is unchanged.
+List<CodeRun> capRuns(List<CodeRun> runs, {int max = kCodeHighlightMaxRuns}) {
+  final out = <CodeRun>[];
+  for (var i = 0; i < runs.length; i++) {
+    final run = runs[i];
+    if (out.isNotEmpty && out.last.$2 == run.$2) {
+      out[out.length - 1] = (out.last.$1 + run.$1, run.$2);
+      continue;
+    }
+    if (out.length == max - 1) {
+      final rest = StringBuffer();
+      for (var j = i; j < runs.length; j++) {
+        rest.write(runs[j].$1);
+      }
+      out.add((rest.toString(), null));
+      return out;
+    }
+    out.add(run);
+  }
+  return out;
+}
+
 /// Every grammar `val_highlight` ships, by name and alias (`python`, `py`,
 /// `shell`, `sh`, `yml` ...). The server's `language` is a name from its own
 /// fixed map; a name not here is shown plain. There is no fallback grammar.
@@ -128,7 +158,7 @@ List<CodeRun> highlightCode(String text, String? language) {
       }
     }
     // A grammar that drops or repeats text is worse than none.
-    return runs.map((run) => run.$1).join() == text ? runs : plain;
+    return runs.map((run) => run.$1).join() == text ? capRuns(runs) : plain;
   } on Object {
     return plain;
   }
