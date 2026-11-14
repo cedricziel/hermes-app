@@ -350,6 +350,33 @@ void main() {
       expect(DoctorReport.clean('a\u202Eb\u2028c'), 'abc');
     });
 
+    test('escape sequences and control characters never reach the text', () {
+      const raw =
+          '\x1B]8;;https://evil.example\x07link\x1B]8;;\x07 \x1B]0;title\x1B\\ok'
+          '\x1BP1;2|x\x1B\\ \x1B=\x07a\bb\rc\x00d\x7Fe\tf\x9Bg';
+      final cleaned = DoctorReport.clean(raw);
+      expect(cleaned, 'link ok abcde\tfg');
+      expect(
+        RegExp(r'[\x00-\x08\x0A-\x1F\x7F-\x9F]').hasMatch(cleaned),
+        isFalse,
+      );
+    });
+
+    test('a quoted command is the same text shown and copied, without a '
+        'newline', () {
+      final lines = [
+        '◆ A',
+        '  ✗ Bad',
+        '  Found 1 issue(s) to address:',
+        "  1. Run 'hermes \x1B]8;;http://x\x07setup\x1B]8;;\x07\b telegram\r\n'",
+      ];
+      final fix = DoctorReport.parse(lines).fixes.single;
+      final command = commandInFix(fix)!;
+      expect(command, 'hermes setup telegram');
+      expect(fix, contains(command));
+      expect(command.contains('\n'), isFalse);
+    });
+
     test('leftover lines are the ones nothing above accounts for', () {
       final lines = [
         '────────',

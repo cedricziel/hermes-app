@@ -67,17 +67,26 @@ class DoctorReport {
     (n, s) => n + s.items.where((i) => i.kind == kind).length,
   );
 
-  static final _ansi = RegExp(r'\x1B\[[0-9;?]*[ -/]*[@-~]');
+  // Escape sequences: strings that end at BEL or ST (OSC such as hyperlinks;
+  // DCS, SOS, PM, APC), then CSI, then any other ESC and one character. An
+  // unterminated string runs to the end of the line.
+  static final _escapes = RegExp(
+    r'\x1B\][^\x07\x1B]*(?:\x07|\x1B\\|$)'
+    r'|\x1B[PX^_][^\x1B]*(?:\x1B\\|$)'
+    r'|\x1B\[[0-9;?]*[ -/]*[@-~]'
+    r'|\x1B[@-Z\\-_=>]',
+  );
 
-  /// [line] as the report reads it: no ANSI escapes, no emoji selectors, no
-  /// trailing space.
+  /// [line] as the report reads it: no escape sequences, no control
+  /// characters (a tab stays), no emoji selectors, no trailing space. What a
+  /// person sees and what is copied from it is this one string.
   static String clean(String line) => line
-      .replaceAll(_ansi, '')
-      // Format characters (bidi controls, zero-width spaces and joiners) and
-      // emoji selectors draw nothing or reorder text, so what is shown and
-      // what is copied could differ.
+      .replaceAll(_escapes, '')
+      // Controls move or hide text; format characters (bidi controls,
+      // zero-width spaces and joiners) and emoji selectors draw nothing or
+      // reorder it, so what is shown and what is copied could differ.
       .replaceAll(
-        RegExp(r'[\p{Cf}\u2028\u2029\uFE0E\uFE0F]', unicode: true),
+        RegExp(r'[\x00-\x08\x0A-\x1F\x7F-\x9F\p{Cf}  ︎️]', unicode: true),
         '',
       )
       .trimRight();
