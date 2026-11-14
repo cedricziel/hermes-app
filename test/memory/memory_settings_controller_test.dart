@@ -125,6 +125,52 @@ void main() {
     await controller.whenIdle;
   });
 
+  test('a read that lands during a write keeps the change', () async {
+    final controller = await bound();
+    final write = Completer<void>();
+    server.onRequest('PUT', '/api/config', (_) async {
+      await write.future;
+      return (status: 200, body: {'ok': true});
+    });
+    controller.change(MemorySetting.writeApproval, true);
+    await pumpEventQueue();
+    // The server still holds the old value when this read is answered.
+    await controller.load();
+    expect(controller.settings!.writeApproval, isTrue);
+    write.complete();
+    await controller.whenIdle;
+    expect(controller.settings!.writeApproval, isTrue);
+    expect(writes().map((w) => (w as Map)['config']), [
+      {
+        'memory': {'write_approval': true},
+      },
+    ]);
+  });
+
+  test('a read that fails during a write does not strand the key', () async {
+    final controller = await bound();
+    final write = Completer<void>();
+    server.onRequest('PUT', '/api/config', (_) async {
+      if (server.requestsTo('PUT', '/api/config').length == 1) {
+        await write.future;
+      }
+      return (status: 200, body: {'ok': true});
+    });
+    controller.change(MemorySetting.writeApproval, true);
+    await pumpEventQueue();
+    server.on('GET', '/api/config', {'detail': 'x'}, status: 500);
+    await controller.load();
+    expect(controller.unreadable, isTrue);
+    write.complete();
+    await controller.whenIdle;
+    server.on('GET', '/api/config', memorySettingsConfig(writeApproval: true));
+    await controller.load();
+    controller.change(MemorySetting.writeApproval, false);
+    await controller.whenIdle;
+    expect(writes(), hasLength(2));
+    expect(controller.settings!.writeApproval, isFalse);
+  });
+
   test('a value the app does not offer is kept', () async {
     server.on(
       'GET',
