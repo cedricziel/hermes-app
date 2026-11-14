@@ -33,6 +33,9 @@ class _ThreadActions {
 
   bool sendHeld = false;
 
+  /// How many prompts held the text of the last quote when it was taken.
+  int quoteTextCount = 0;
+
   /// A prompt was queued while Send was held, so the queue goes on once the
   /// hold ends. A queue that was already paused stays paused.
   bool drainAfterHold = false;
@@ -69,6 +72,15 @@ extension _ChatControllerCheckpoints on ChatController {
   /// full rewrite of its message list, so a re-read keeps them.
   List<Message> _flyerOf(ChatThread thread) =>
       withOutcomeLines(chatThreadToFlyer(thread), _outcomeLinesInImpl(thread));
+
+  /// Whether a full restore holds [thread]'s queue; if it does and a prompt
+  /// waits, the queue goes on once the hold ends.
+  bool _deferForHold(ChatThread thread) {
+    final actions = _actionsOf(thread);
+    if (actions == null || !actions.sendHeld) return false;
+    if (_queues[thread]?.isNotEmpty ?? false) actions.drainAfterHold = true;
+    return true;
+  }
 
   /// Whether Send is held for [thread] by a full restore.
   bool _actionHolds(ChatThread? thread) =>
@@ -137,6 +149,12 @@ extension _ChatControllerCheckpoints on ChatController {
       return thread != null &&
           (thread.isReplying ||
               _sending.containsKey(thread) ||
+              // A Retry or Edit is taking back a turn, a queued prompt is
+              // being sent, or a full restore holds Send: the server could
+              // rewind a second turn or lose the one in flight.
+              _undoing.containsKey(thread) ||
+              _queueDispatching.contains(thread) ||
+              _actionHolds(thread) ||
               thread.messages.any((m) => m.awaitingInput));
     },
     refetchChat: () async {
@@ -157,23 +175,32 @@ extension _ChatControllerCheckpoints on ChatController {
       for (final message in thread.messages.reversed) {
         if (!_countsAsPrompt(message)) continue;
         final text = message.submittedText ?? message.content;
-        return text.isEmpty
-            ? null
-            : PromptQuote(messageId: message.id, text: text);
+        if (text.isEmpty) return null;
+        actions.quoteTextCount = thread.messages
+            .where(
+              (m) =>
+                  _countsAsPrompt(m) && (m.submittedText ?? m.content) == text,
+            )
+            .length;
+        return PromptQuote(messageId: message.id, text: text);
       }
       return null;
     },
     chatHolds: (quote) {
       final thread = _threadOf(actions);
       if (thread == null) throw StateError('The chat is gone');
-      // A prompt sent in this visit has a local id that the re-read replaces,
-      // so the same prompt text also counts as the message still being there.
-      // Wrong only in the safe direction: the text is then not handed back.
-      return thread.messages.any(
-        (m) =>
-            m.id == quote.messageId ||
-            (m.isPrompt && (m.submittedText ?? m.content) == quote.text),
-      );
+      if (thread.messages.any((m) => m.id == quote.messageId)) return true;
+      // A prompt sent in this visit has a local id that the re-read replaces.
+      // It still counts as held when no prompt with its text was lost: the
+      // same text only counts as many times as it was there before.
+      var now = 0;
+      for (final m in thread.messages) {
+        if (_countsAsPrompt(m) &&
+            (m.submittedText ?? m.content) == quote.text) {
+          now++;
+        }
+      }
+      return now >= actions.quoteTextCount;
     },
     handBackToComposer: (text) => _handBack(actions, text),
     hasEditToolCall: () {
@@ -482,8 +509,6 @@ extension _ChatControllerCheckpoints on ChatController {
 
   void _disposeActions(_ThreadActions actions) {
     if (actions.disposed) return;
-    final thread = _threadOf(actions);
-    final drain = actions.sendHeld && actions.drainAfterHold;
     final wasHeld = actions.sendHeld;
     actions.disposed = true;
     actions.sendHeld = false;
@@ -500,10 +525,9 @@ extension _ChatControllerCheckpoints on ChatController {
     }
     actions.checkpoints?.dispose();
     actions.context?.dispose();
+    // Clearing is not settling: a restore may still be running on the server,
+    // so a queued prompt is not sent here. The queue stays for the user.
     if (!wasHeld || disposed) return;
     notifyListeners();
-    if (drain && thread != null && active && _queues[thread] != null) {
-      _drainQueue(thread);
-    }
   }
 }

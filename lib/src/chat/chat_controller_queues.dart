@@ -427,8 +427,6 @@ extension _ChatControllerQueues on ChatController {
     if (!active || _queueUnavailable.contains(thread)) return;
     // A move of the folder is being settled: the queue goes on after it.
     if (_moveHolds(thread)) return;
-    // A full restore is settling: the queue goes on after it.
-    if (_ChatControllerCheckpoints(this)._actionHolds(thread)) return;
     if (_sessionStates[thread]?.reclaimedReason != null ||
         _reclaimedQueueReview.contains(thread)) {
       return;
@@ -444,6 +442,8 @@ extension _ChatControllerQueues on ChatController {
     if (_restoredQueues.contains(thread) || _queueRemoving.contains(thread)) {
       return;
     }
+    // A full restore is settling: the queue goes on after it.
+    if (_ChatControllerCheckpoints(this)._deferForHold(thread)) return;
     final first = queue.first;
     if (first.durable != null) {
       if (!first.uncertain) unawaited(_dispatchProtected(thread, first));
@@ -567,7 +567,7 @@ extension _ChatControllerQueues on ChatController {
     QueuedPrompt prompt,
   ) async {
     if (_moveHolds(thread) ||
-        _ChatControllerCheckpoints(this)._actionHolds(thread) ||
+        _ChatControllerCheckpoints(this)._deferForHold(thread) ||
         !_queueDispatching.add(thread)) {
       return;
     }

@@ -618,7 +618,8 @@ void main() {
       });
     }
 
-    test('a hold ended by clearing the chat lets the queue go on', () async {
+    test('clearing the chat ends the hold but never sends the queued prompt: '
+        'the restore may still be running on the server', () async {
       final (opened, checkpoints) = await listed();
       source.fake.restoreGate = Completer<void>();
       final sends = source.sends.length;
@@ -630,15 +631,54 @@ void main() {
       await source.changes.close();
       await pumpEventQueue();
       expect(chat.sendHeldIn(opened), isFalse);
-      expect(source.sends.length, sends + 1);
+      expect(source.sends.length, sends);
+      expect(chat.queuedIn(opened), isNotEmpty);
     });
 
-    test('a queue already paused stays paused after the hold', () async {
+    test('Retry, Edit and Branch wait for a full restore: a second undo would '
+        'take a second turn', () async {
       final (opened, checkpoints) = await listed();
-      final sends = source.sends.length;
-      await checkpoints.confirmRestore(checkpoints.beginRestore(_hash)!);
-      expect(chat.sendHeldIn(opened), isFalse);
-      expect(source.sends.length, sends);
+      expect(chat.canEditLastPrompt(opened), isTrue);
+      expect(chat.canBranch(opened), isTrue);
+      source.fake.restoreGate = Completer<void>();
+      final confirming = checkpoints.confirmRestore(
+        checkpoints.beginRestore(_hash)!,
+      );
+      expect(chat.canEditLastPrompt(opened), isFalse);
+      expect(chat.canBranch(opened), isFalse);
+      await chat.retry(opened);
+      await pumpEventQueue();
+      expect(source.undos, isEmpty);
+      source.fake.restoreGate!.complete();
+      await confirming;
+      expect(chat.canEditLastPrompt(opened), isTrue);
+    });
+
+    test('a full restore and a compress are refused while a Retry or Edit '
+        'undo is in flight', () async {
+      final (opened, checkpoints) = await listed();
+      final context = chat.contextIn(opened)!;
+      source.undoGate = Completer<void>();
+      unawaited(chat.retry(opened));
+      await pumpEventQueue();
+      expect(checkpoints.restoreRefusal(), RestoreRefusal.replying);
+      expect(context.compressRefusal, CompressRefusal.replying);
+      source.undoGate!.complete();
+      await pumpEventQueue();
+    });
+
+    test('a compress waits while a full restore runs', () async {
+      final (opened, checkpoints) = await listed();
+      final context = chat.contextIn(opened)!;
+      source.fake.restoreGate = Completer<void>();
+      final confirming = checkpoints.confirmRestore(
+        checkpoints.beginRestore(_hash)!,
+      );
+      expect(context.compressRefusal, CompressRefusal.replying);
+      expect(context.beginCompress(), isNull);
+      source.fake.restoreGate!.complete();
+      await confirming;
+      expect(context.compressRefusal, isNull);
     });
   });
 

@@ -20,6 +20,10 @@ extension _ChatControllerCommands on ChatController {
   /// Runs a gateway command without putting it through prompt.submit or the
   /// reply queue. Display-only command output stays in this visit's chat.
   Future<bool> _runSlashCommandImpl(String command) async {
+    if (_ChatControllerCheckpoints(this)._actionHolds(selectedThread)) {
+      report('Wait for the files to be restored, then try again.');
+      return false;
+    }
     if (_sessionStates[selectedThread]?.reclaimedReason != null) {
       report('Reopen this session before running another command.');
       return false;
@@ -231,6 +235,7 @@ extension _ChatControllerCommands on ChatController {
     return transport != null &&
         _bound.contains(thread) &&
         !_undoing.containsKey(thread) &&
+        !_ChatControllerCheckpoints(this)._actionHolds(thread) &&
         !thread.isReplying &&
         !_queues.containsKey(thread) &&
         prompt != null &&
@@ -243,6 +248,9 @@ extension _ChatControllerCommands on ChatController {
   /// undo get a new turn instead.
   Future<void> _retryImpl(ChatThread thread) async {
     if (_sessionStates[thread]?.reclaimedReason != null) return;
+    // A full restore is rewinding the chat: another undo would take a second
+    // turn.
+    if (_ChatControllerCheckpoints(this)._actionHolds(thread)) return;
     final epoch = _activityEpoch;
     final generation = _sessionActionGeneration(thread);
     if (!_currentActivity(epoch) ||
@@ -316,6 +324,7 @@ extension _ChatControllerCommands on ChatController {
       _bound.contains(thread) &&
       _sessionStates[thread]?.reclaimedReason == null &&
       !_undoing.containsKey(thread) &&
+      !_ChatControllerCheckpoints(this)._actionHolds(thread) &&
       !thread.isReplying &&
       !_queues.containsKey(thread);
 

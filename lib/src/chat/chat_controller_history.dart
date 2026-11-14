@@ -740,7 +740,10 @@ extension _ChatControllerHistory on ChatController {
       housekeeping?.adopt(thread, fresh);
       notifyListeners();
       if (stale()) return strict ? notRead() : null;
-      if (unchanged || _unloaded.contains(id)) return;
+      if (unchanged || _unloaded.contains(id)) {
+        // A strict read that read nothing is not a re-read.
+        return strict ? notRead() : null;
+      }
       final page = await repository.loadMessagePage(id, profile: _profile);
       if (stale()) return strict ? notRead() : null;
       final failed = _failedTurn(thread, page.messages);
