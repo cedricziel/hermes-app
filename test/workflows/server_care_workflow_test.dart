@@ -22,7 +22,7 @@ import '../support/workflow_app.dart' show letSocketsIdle;
 
 /// Server care through the real shell: the account menu's Server entry with
 /// its attention dot (phone) or the sidebar row with its caption (Mac), the
-/// status, the Update page and Usage, in light and dark.
+/// status, the Update page, Usage, Logs and the server check, in light and dark.
 void main() {
   late FakeHermesServer server;
 
@@ -49,7 +49,19 @@ void main() {
         'disk': {'pressure': 'elevated', 'free_mb': 8600, 'used_percent': 91.0},
       })
       ..on('GET', '/api/hermes/update/check', updateCheckBehind())
-      ..on('GET', '/api/analytics/usage', usage30());
+      ..on('GET', '/api/analytics/usage', usage30())
+      ..on('GET', '/api/logs', {'file': 'errors', 'lines': logsErrors})
+      ..on('POST', '/api/ops/doctor', {'ok': true, 'pid': 1, 'name': 'doctor'})
+      ..on('GET', '/api/actions/doctor/status', {
+        'name': 'doctor',
+        'running': false,
+        'exit_code': 1,
+        'pid': 1,
+        'lines': [
+          '=== doctor started 2026-11-14 09:00:00 ===',
+          ...doctorProblems.where((l) => !l.contains('something unexpected')),
+        ],
+      });
   });
 
   /// Lets the fake server answer (it runs on real time) and the screen draw.
@@ -102,9 +114,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
   }
 
-  Future<void> openUsage(WidgetTester tester, ScreenshotRecorder shots) async {
+  /// Opens the Server screen's [label] row from the middle of the screen.
+  Future<void> openTool(WidgetTester tester, String label) async {
     await tester.scrollUntilVisible(
-      find.text('Usage'),
+      find.text(label),
       300,
       scrollable: find
           .ancestor(
@@ -113,12 +126,44 @@ void main() {
           )
           .first,
     );
-    await tester.ensureVisible(find.text('Usage'));
+    await tester.ensureVisible(find.text(label));
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Usage'));
+    await tester.tap(find.text(label));
     await tester.pump(const Duration(milliseconds: 600));
     await answered(tester);
+  }
+
+  Future<void> openUsage(WidgetTester tester, ScreenshotRecorder shots) async {
+    await openTool(tester, 'Usage');
     await shots.capture(tester, 'usage');
+  }
+
+  /// Logs and the server check, each opened from the Server screen and left
+  /// again.
+  Future<void> logsAndCheck(
+    WidgetTester tester,
+    ScreenshotRecorder shots,
+  ) async {
+    await openTool(tester, 'Logs');
+    await shots.capture(tester, 'logs');
+    expect(find.text('Telegram failed'), findsOneWidget);
+    await back(tester);
+
+    await openTool(tester, 'Run a check');
+    await shots.capture(tester, 'check-before');
+    expect(find.text('Check Hermes for problems'), findsOneWidget);
+    await tester.tap(find.text('Run check'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await answered(tester);
+    await shots.capture(tester, 'check-result');
+    expect(find.text('1 problem and 1 warning'), findsOneWidget);
+    await back(tester);
+    // The row now says what the check found.
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(
+      find.text('1 problem and 1 warning · checked just now'),
+      findsOneWidget,
+    );
   }
 
   for (final (name, brightness) in [
@@ -163,6 +208,8 @@ void main() {
       await back(tester);
 
       await openUsage(tester, shots);
+      await back(tester);
+      await logsAndCheck(tester, shots);
       await letSocketsIdle(tester);
     });
   }
@@ -534,6 +581,8 @@ void main() {
       expect(find.text('The messaging gateway is off'), findsOneWidget);
 
       await openUsage(tester, shots);
+      await back(tester);
+      await logsAndCheck(tester, shots);
       await letSocketsIdle(tester);
     });
   }
