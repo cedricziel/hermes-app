@@ -386,12 +386,14 @@ class AuthController extends ChangeNotifier {
       return;
     }
     final storedSession = stored.session;
-    // A session another dashboard minted is no use here. The address the
-    // connect started from counts as well as the one it was redirected to:
-    // a proxy that starts redirecting elsewhere is still the same dashboard.
-    final minter = storedSession?.serverUrl;
+    // A session another dashboard minted is no use here. One stored before
+    // the minter was recorded is taken as the typed address's.
     if (storedSession == null ||
-        (minter != null && minter != normalized && minter != typed)) {
+        !sessionServes(
+          storedSession.serverUrl ?? typed,
+          typed: typed,
+          redirectedTo: normalized,
+        )) {
       _protectedRequestsAllowed = false;
       _setState(HermesConnectionState.needsLogin);
       return;
@@ -1228,6 +1230,23 @@ const cleartextRefusedMessage =
 const cleartextRedirectMessage =
     'The server redirected to an unencrypted http:// address. Use its '
     'https:// address instead.';
+
+/// Whether a session [minter] issued may be used at [redirectedTo], where a
+/// connect to [typed] ended up. The address the connect started from counts
+/// as well as the one it was redirected to, since a proxy that starts
+/// redirecting is still the same dashboard, but only while the redirect
+/// stays on the same host: the tokens never go to a host that did not
+/// issue them.
+bool sessionServes(
+  String minter, {
+  required String typed,
+  required String redirectedTo,
+}) {
+  if (minter == redirectedTo) return true;
+  return minter == typed &&
+      Uri.parse(typed).host.toLowerCase() ==
+          Uri.parse(redirectedTo).host.toLowerCase();
+}
 
 /// [raw] as a dashboard base URL (no trailing slash), or null when it is not
 /// an http(s) address. A missing scheme becomes `http://` for a local,

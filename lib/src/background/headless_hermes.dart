@@ -54,15 +54,19 @@ enum SignedOutReason {
   /// The server needs a sign-in and no session is stored.
   noSession,
 
+  /// The stored session was issued by another server than the one the saved
+  /// address leads to now (a redirect to another host, say). It stays stored.
+  otherServer,
+
   /// The server rejected the refresh token. The stored session is untouched:
   /// the app in front may have rotated it meanwhile, so this is a lost
   /// race as often as it is a sign-out.
   rejected,
 }
 
-/// Nobody is signed in: no server saved, no session stored, or the server
-/// rejected the refresh token. Stored state is untouched, even in the last
-/// case.
+/// Nobody is signed in: no server saved, no session stored, a session another
+/// server issued, or the server rejected the refresh token. Stored state is
+/// untouched, even in the last two cases.
 final class HeadlessSignedOut<T> extends HeadlessOutcome<T> {
   const HeadlessSignedOut([this.reason = SignedOutReason.rejected]);
 
@@ -70,7 +74,8 @@ final class HeadlessSignedOut<T> extends HeadlessOutcome<T> {
 
   /// Whether storage itself holds no server or session, which no other
   /// isolate's write can contradict.
-  bool get nothingStored => reason != SignedOutReason.rejected;
+  bool get nothingStored =>
+      reason == SignedOutReason.noServer || reason == SignedOutReason.noSession;
 }
 
 /// Secure storage cannot be read yet (on iOS: before the first unlock after
@@ -361,6 +366,7 @@ class _Run {
   _Ended<T> _refused<T>(String outcome) => _Ended(outcome, switch (outcome) {
     'no_server' => const HeadlessSignedOut(SignedOutReason.noServer),
     'no_session' => const HeadlessSignedOut(SignedOutReason.noSession),
+    'other_server' => const HeadlessSignedOut(SignedOutReason.otherServer),
     'locked' => const HeadlessLocked(),
     _ => const HeadlessUnreachable(),
   });
@@ -505,12 +511,15 @@ class _Connection {
     HermesSession? held;
     if (status.authRequired) {
       final session = stored.session;
-      // A session another dashboard minted is no use here (see
-      // AuthController.connect for why the typed address counts too).
-      final minter = session?.serverUrl;
-      if (session == null ||
-          (minter != null && minter != normalized && minter != typed)) {
-        return _Opened.refused('no_session', attributes);
+      // A session another dashboard minted is no use here. One stored before
+      // the minter was recorded is taken as the saved address's.
+      if (session == null) return _Opened.refused('no_session', attributes);
+      if (!sessionServes(
+        session.serverUrl ?? typed,
+        typed: typed,
+        redirectedTo: normalized,
+      )) {
+        return _Opened.refused('other_server', attributes);
       }
       held = session.boundTo(normalized);
     }
