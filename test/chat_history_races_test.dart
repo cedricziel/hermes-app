@@ -368,6 +368,67 @@ void main() {
     );
   });
 
+  test('a failed turn is kept when its stored turn ends on a checkpoint a '
+      'stop gate wrote and the turn went on', () async {
+    pageFails();
+    await open();
+    await pumpEventQueue();
+    expect(await chat.submit('More', const []), isTrue);
+    final send = transport.sends.single;
+    ack(send, 3);
+    await pumpEventQueue();
+    send.fail();
+    await pumpEventQueue();
+
+    page([
+      ...history(),
+      messageRow(id: 3, role: 'user', content: 'More'),
+      messageRow(
+        id: 4,
+        role: 'assistant',
+        content: 'Draft answer',
+        finishReason: 'verification_required',
+      ),
+    ]);
+    await reread();
+
+    expect(
+      thread('s1').messages.where(
+        (m) => m.role == ChatRole.assistant && m.status == MessageStatus.error,
+      ),
+      hasLength(1),
+    );
+  });
+
+  test(
+    'a failed turn is replaced by a stored answer that ended normally',
+    () async {
+      pageFails();
+      await open();
+      await pumpEventQueue();
+      expect(await chat.submit('More', const []), isTrue);
+      final send = transport.sends.single;
+      ack(send, 3);
+      await pumpEventQueue();
+      send.fail();
+      await pumpEventQueue();
+
+      page([
+        ...history(),
+        messageRow(id: 3, role: 'user', content: 'More'),
+        messageRow(
+          id: 4,
+          role: 'assistant',
+          content: 'Answer',
+          finishReason: 'stop',
+        ),
+      ]);
+      await reread();
+
+      expect(contents('s1'), ['Hi', 'Hello', 'More', 'Answer']);
+    },
+  );
+
   test('a failed turn is kept when its stored turn only calls tools', () async {
     pageFails();
     await open();

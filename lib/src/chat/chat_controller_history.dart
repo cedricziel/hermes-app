@@ -446,14 +446,25 @@ extension _ChatControllerHistory on ChatController {
     return merged;
   }
 
+  /// Why Hermes stores a candidate answer and goes on with the turn: a stop
+  /// gate (verify-on-stop, the `pre_verify` hook, the kanban terminal-tool
+  /// guard) keeps the answer as an assistant row and nudges the model again.
+  static const _continuingFinishReasons = {
+    'verification_required',
+    'verify_hook_continue',
+    'kanban_terminal_required',
+  };
+
   /// Whether a stored [turn] ends on the final answer: an assistant row with
-  /// text and no tool calls. A row that only calls tools belongs to a turn
-  /// that may still be running.
+  /// text, no tool calls, and not a checkpoint a stop gate wrote mid-turn. A
+  /// row that only calls tools or is such a checkpoint belongs to a turn that
+  /// may still be running.
   bool _endsAnswered(List<ChatMessage> turn) => switch (turn.lastOrNull) {
     final ChatMessage last =>
       last.role == ChatRole.assistant &&
           last.toolCalls.isEmpty &&
-          last.content.trim().isNotEmpty,
+          last.content.trim().isNotEmpty &&
+          !_continuingFinishReasons.contains(last.finishReason),
     null => false,
   };
 

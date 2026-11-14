@@ -542,6 +542,7 @@ class ChatMessage {
     this.submittedText,
     this.displayText,
     this.displayKind,
+    this.finishReason,
     required this.createdAt,
     this.status = MessageStatus.sent,
     this.toolCalls = const [],
@@ -576,6 +577,10 @@ class ChatMessage {
   /// kind Hermes wrote itself, such as `auto_continue` (the note that resumes
   /// an interrupted turn) or `model_switch`.
   final String? displayKind;
+
+  /// Why Hermes ended a stored assistant row (`finish_reason`), null for a
+  /// row from this app's own turns or one without it.
+  final String? finishReason;
 
   /// Whether this is a prompt the user wrote, the rows Hermes counts as turns
   /// when it undoes one: a user message that Hermes did not type, or a steer.
