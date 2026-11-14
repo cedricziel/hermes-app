@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/named_icon_button.dart';
 import '../calls/call_phase.dart';
+import 'voice_call_footer.dart';
+import 'voice_orb.dart';
+
+/// Which hint Speaking shows: where speaking over the reply interrupts it, the
+/// tap alone does, or (desktop) the microphone is paused meanwhile.
+enum VoiceSpeakingHint { tapOrTalk, tapOnly, micPaused }
 
 /// Foreground presentation of an ongoing call. Leaving this view keeps the
 /// call alive; ending it always uses the explicit end-call action.
+///
+/// The orb and the state word under it say what the call is doing; the hint
+/// says what the user can do. Controls are round, with a label under each, and
+/// End is a filled neutral circle, never red.
 class VoiceCallView extends StatelessWidget {
   const VoiceCallView({
     super.key,
@@ -22,6 +33,16 @@ class VoiceCallView extends StatelessWidget {
     this.error,
     this.onAskHermes,
     this.helpBusy = false,
+    this.sending = false,
+    this.amplitude = 0,
+    this.reduceMotion = false,
+    this.showSpeaker = true,
+    this.speakingHint = VoiceSpeakingHint.tapOrTalk,
+    this.onInterrupt,
+    this.notice,
+    this.endedByUser = false,
+    this.onStartNew,
+    this.footer = VoiceCallFooter.none,
   });
   final CallPhase phase;
   final Duration elapsed;
@@ -37,23 +58,81 @@ class VoiceCallView extends StatelessWidget {
   final VoidCallback onEnd;
   final VoidCallback onShowChat;
 
+  /// The user's words are being prepared for Hermes. It is not a phase yet, so
+  /// the caller says so; until then [CallPhase.transcribing] reads as thinking.
+  final bool sending;
+
+  /// The input level while listening, the output level while speaking.
+  final double amplitude;
+  final bool reduceMotion;
+
+  /// Speaker routing exists on iOS and Android only.
+  final bool showSpeaker;
+  final VoiceSpeakingHint speakingHint;
+
+  /// Taps the orb while Hermes speaks; null leaves the orb inert.
+  final VoidCallback? onInterrupt;
+
+  /// A [VoiceCallNotice] for what just happened, above the controls.
+  final Widget? notice;
+
+  /// The call stopped because the user ended it: a check and "Call ended"
+  /// instead of the stop square and "Stopped".
+  final bool endedByUser;
+
+  /// Offers "Start a new call" once stopped.
+  final VoidCallback? onStartNew;
+  final VoiceCallFooter footer;
+
+  VoiceOrbState _orb(bool ended) {
+    if (ended) return VoiceOrbState.stopped;
+    if (sending) return VoiceOrbState.sending;
+    return switch (phase) {
+      CallPhase.connecting => VoiceOrbState.connecting,
+      CallPhase.listening =>
+        muted ? VoiceOrbState.muted : VoiceOrbState.listening,
+      CallPhase.transcribing || CallPhase.thinking => VoiceOrbState.thinking,
+      CallPhase.speaking => VoiceOrbState.speaking,
+      CallPhase.attention => VoiceOrbState.waiting,
+      CallPhase.ended || CallPhase.failed => VoiceOrbState.stopped,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final l10n = context.l10n;
     final ended = phase == CallPhase.ended || phase == CallPhase.failed;
-    final status = switch (phase) {
-      CallPhase.connecting => 'Connecting…',
-      CallPhase.listening => muted ? 'Microphone muted' : 'Listening',
-      CallPhase.transcribing => 'Understanding…',
-      CallPhase.thinking => 'Hermes is thinking…',
-      CallPhase.speaking => 'Hermes is speaking',
-      CallPhase.attention => 'Hermes needs your input in chat',
-      CallPhase.ended => 'Call ended',
-      CallPhase.failed => 'Call interrupted',
+    final orb = _orb(ended);
+    final word = switch (orb) {
+      VoiceOrbState.connecting => l10n.voiceCallStateConnecting,
+      VoiceOrbState.listening => l10n.voiceCallStateListening,
+      VoiceOrbState.muted => l10n.voiceCallStateMuted,
+      VoiceOrbState.sending => l10n.voiceCallStateSending,
+      VoiceOrbState.thinking => l10n.voiceCallStateThinking,
+      VoiceOrbState.speaking => l10n.voiceCallStateSpeaking,
+      VoiceOrbState.waiting => l10n.voiceCallStateWaiting,
+      VoiceOrbState.stopped =>
+        endedByUser ? l10n.voiceCallStateEnded : l10n.voiceCallStateStopped,
+    };
+    final hint = switch (orb) {
+      VoiceOrbState.connecting || VoiceOrbState.stopped => null,
+      VoiceOrbState.listening => l10n.voiceCallHintListening,
+      VoiceOrbState.muted => l10n.voiceCallHintMuted,
+      VoiceOrbState.sending => l10n.voiceCallHintSending,
+      VoiceOrbState.thinking => l10n.voiceCallHintThinking,
+      VoiceOrbState.speaking => switch (speakingHint) {
+        VoiceSpeakingHint.tapOrTalk => l10n.voiceCallHintSpeakingTalk,
+        VoiceSpeakingHint.tapOnly => l10n.voiceCallHintSpeakingTap,
+        VoiceSpeakingHint.micPaused => l10n.voiceCallHintSpeakingPaused,
+      },
+      VoiceOrbState.waiting => l10n.voiceCallHintWaiting,
     };
     final time =
         '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
+    final shown = error ?? caption;
+    final connecting = phase == CallPhase.connecting;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
@@ -62,62 +141,68 @@ class VoiceCallView extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 440),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
                     onPressed: onShowChat,
                     icon: Icon(AppIcons.expandMore.of(context)),
-                    label: const Text('Show chat'),
+                    label: Text(l10n.voiceCallShowChat),
                   ),
                 ),
-                const SizedBox(height: 44),
-                Container(
-                  width: 104,
-                  height: 104,
-                  decoration: BoxDecoration(
-                    color: colors.primaryContainer,
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Icon(
-                    AppIcons.mic.of(context),
-                    size: 44,
-                    color: colors.onPrimaryContainer,
+                const SizedBox(height: 16),
+                Center(
+                  child: VoiceOrb(
+                    state: orb,
+                    amplitude: amplitude,
+                    reduceMotion: reduceMotion,
+                    stoppedCheck: endedByUser,
+                    onTap: orb == VoiceOrbState.speaking ? onInterrupt : null,
                   ),
                 ),
-                const SizedBox(height: 24),
-                Text('Hermes', style: theme.textTheme.headlineMedium),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 Semantics(
                   liveRegion: true,
                   child: Text(
-                    status,
+                    word,
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (hint != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    hint,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: colors.onSurfaceVariant,
                     ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 8),
                 Text(
                   time,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  height: 120,
-                  child: Center(
-                    child: Text(
-                      error ?? caption,
-                      textAlign: TextAlign.center,
-                      maxLines: 5,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge,
-                    ),
+                if (shown.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    shown,
+                    textAlign: TextAlign.center,
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyLarge,
                   ),
-                ),
+                ],
+                if (notice != null) ...[const SizedBox(height: 16), notice!],
+                const SizedBox(height: 24),
                 if (!ended) ...[
                   Text(
                     route,
@@ -129,51 +214,57 @@ class VoiceCallView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 28,
+                    runSpacing: 16,
                     children: [
                       _Control(
-                        label: muted ? 'Unmute' : 'Mute',
+                        label: muted
+                            ? l10n.voiceCallUnmute
+                            : l10n.voiceCallMute,
                         icon: muted ? AppIcons.micOff : AppIcons.mic,
                         selected: muted,
-                        onPressed: phase == CallPhase.connecting
-                            ? null
-                            : onMute,
+                        onPressed: connecting ? null : onMute,
                       ),
+                      if (showSpeaker)
+                        _Control(
+                          label: l10n.voiceCallSpeaker,
+                          icon: AppIcons.speaker,
+                          selected: speaker,
+                          onPressed: connecting ? null : onSpeaker,
+                        ),
                       _Control(
-                        label: 'Speaker',
-                        icon: AppIcons.speaker,
-                        selected: speaker,
-                        onPressed: phase == CallPhase.connecting
-                            ? null
-                            : onSpeaker,
-                      ),
-                      _Control(
-                        label: 'End call',
+                        label: l10n.voiceCallEnd,
                         icon: AppIcons.endCall,
-                        destructive: true,
+                        filled: true,
                         onPressed: onEnd,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Speak naturally. Pause to send. You can interrupt Hermes.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
+                  if (footer != VoiceCallFooter.none) ...[
+                    const SizedBox(height: 24),
+                    VoiceCallFooterText(footer),
+                  ],
                 ] else ...[
-                  if (error != null && onAskHermes != null)
-                    FilledButton(
-                      onPressed: helpBusy ? null : onAskHermes,
-                      child: const Text('Ask Hermes for help'),
-                    ),
-                  TextButton(
+                  FilledButton(
                     onPressed: onShowChat,
-                    child: const Text('Back to chat'),
+                    child: Text(l10n.voiceCallBackToChat),
                   ),
+                  if (error != null && onAskHermes != null) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: helpBusy ? null : onAskHermes,
+                      child: Text(l10n.voiceCallAskHermes),
+                    ),
+                  ],
+                  if (onStartNew != null) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: onStartNew,
+                      child: Text(l10n.voiceCallStartNew),
+                    ),
+                  ],
                 ],
               ],
             ),
@@ -190,45 +281,55 @@ class _Control extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.selected = false,
-    this.destructive = false,
+    this.filled = false,
   });
   final String label;
   final AppIconSet icon;
   final VoidCallback? onPressed;
   final bool selected;
-  final bool destructive;
+
+  /// The End circle: filled in the neutral inverse colours, never red.
+  final bool filled;
+
+  static const _size = 56.0;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final background = filled
+        ? colors.inverseSurface
+        : selected
+        ? colors.primaryContainer
+        : colors.surfaceContainerHighest;
+    final foreground = filled
+        ? colors.onInverseSurface
+        : selected
+        ? colors.onPrimaryContainer
+        : colors.onSurface;
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: 64,
-          height: 64,
+        SizedBox.square(
+          dimension: _size,
           child: DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: destructive
-                  ? colors.error
-                  : selected
-                  ? colors.primaryContainer
-                  : colors.surfaceContainerHighest,
+              color: onPressed == null
+                  ? colors.surfaceContainerHighest
+                  : background,
             ),
             child: NamedIconButton(
               label: label,
               icon: icon,
               onPressed: onPressed,
-              isSelected: destructive ? null : selected,
-              color: destructive
-                  ? colors.onError
-                  : selected
-                  ? colors.onPrimaryContainer
-                  : colors.onSurface,
+              isSelected: filled ? null : selected,
+              visualDensity: VisualDensity.standard,
+              color: foreground,
             ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(label),
+        ExcludeSemantics(child: Text(label)),
       ],
     );
   }

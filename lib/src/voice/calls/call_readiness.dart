@@ -5,18 +5,24 @@ enum CallCheckStatus { checking, ready, needsSetup, unavailable }
 enum CallSetupAction { microphone, dictation, hermes }
 
 class CallCheck {
-  const CallCheck(this.id, this.status, this.detail, {this.action});
+  const CallCheck(this.id, this.status, this.detail, {this.action, this.label});
   final CallCheckId id;
   final CallCheckStatus status;
   final String detail;
   final CallSetupAction? action;
 
-  String get title => switch (id) {
-    CallCheckId.microphone => 'Microphone',
-    CallCheckId.input => 'Speech recognition',
-    CallCheckId.output => 'Spoken replies',
-    CallCheckId.connection => 'Voice connection',
-  };
+  /// A row name that replaces the id's own, for a check the catalog shows
+  /// before it has an id of its own (the voice model).
+  final String? label;
+
+  String get title =>
+      label ??
+      switch (id) {
+        CallCheckId.microphone => 'Microphone',
+        CallCheckId.input => 'Speech recognition',
+        CallCheckId.output => 'Spoken replies',
+        CallCheckId.connection => 'Voice connection',
+      };
 }
 
 class CallReadiness {
