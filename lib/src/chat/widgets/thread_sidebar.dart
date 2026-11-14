@@ -34,6 +34,7 @@ import 'mac_thread_row.dart';
 import 'relative_time.dart';
 import 'sidebar_row.dart';
 import 'swipeable_thread_row.dart';
+import '../../../l10n/l10n.dart';
 import '../../server_care/server_care_scope.dart';
 import '../../server_care/server_screen.dart';
 import '../../server_care/widgets/server_attention_dot.dart';
@@ -792,7 +793,7 @@ class AccountFooter extends StatelessWidget {
       child: MergeSemantics(
         child: Semantics(
           button: true,
-          label: mark.accountLabel,
+          label: serverMarkAccountLabel(context.l10n, mark),
           child: Tooltip(
             message: 'Account',
             excludeFromSemantics: true,

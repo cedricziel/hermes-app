@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../agent_messages/agent_message_watcher.dart';
 import '../api/hermes_repositories.dart';
 import '../app_lock/app_lock_controller.dart';
@@ -45,7 +46,9 @@ import '../notifications/notification_settings.dart';
 import '../platform_hint/platform_hint_offer.dart';
 import '../platform_hint/show_platform_hint_prompt.dart';
 import '../profiles/chat_profiles.dart';
+import '../server_care/server_attention_mark.dart';
 import '../server_care/server_care_controller.dart';
+import '../server_care/server_care_scope.dart';
 import '../server_care/server_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/mac_profiles_page.dart';
@@ -485,11 +488,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       label: 'Profiles',
       caption: null,
     ),
-    // The caption is the attention mark's, filled in where it is listed.
+    // The label and the caption are filled in where it is listed.
     _Destination.server: (
       icon: AppIcons.server,
       selected: AppIcons.server,
-      label: 'Server',
+      label: '',
       caption: null,
     ),
   };
@@ -582,10 +585,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         void select(int i) => _selectByUser(destinations[i]);
         final switcher = mac ? _profileSwitcher() : null;
         // Only a Mac sidebar shows the caption; others need not rebuild.
+        final l10n = context.l10n;
         final serverCaption = !mac || _serverCare == null
             ? null
-            : context.select<ServerCareController, String?>(
-                (care) => care.mark.caption,
+            : serverMarkCaption(
+                l10n,
+                context.select<ServerCareController, ServerAttentionMark>(
+                  (care) => care.mark,
+                ),
               );
         final shellNavigation = ShellNavigation(
           destinations: [
@@ -594,7 +601,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   ? (
                       icon: _labels[d]!.icon,
                       selected: _labels[d]!.selected,
-                      label: _labels[d]!.label,
+                      label: l10n.serverCareTitle,
                       caption: serverCaption,
                     )
                   : _labels[d]!,

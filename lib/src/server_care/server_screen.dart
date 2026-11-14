@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
 import '../settings/account_actions.dart';
 import '../telemetry/breadcrumbs.dart';
@@ -17,7 +18,6 @@ import 'update_page.dart';
 import 'usage_page.dart';
 import 'widgets/care_row_value.dart';
 import 'widgets/server_status_card.dart';
-import 'widgets/usage_format.dart';
 
 /// Pushes the Server screen as a settings page. [source] says where the
 /// person came from (a fixed name such as `menu`), for the breadcrumb.
@@ -95,16 +95,19 @@ class _ServerScreenState extends State<ServerScreen> {
     );
   }
 
-  String? _subtitle(ServerCareController care) {
+  String? _subtitle(AppLocalizations l10n, ServerCareController care) {
     final profile = care.profile;
     if (profile == null) return null;
     final count = care.status?.profiles.length ?? 0;
-    return count > 1 ? '$profile · $count profiles' : profile;
+    return count > 1
+        ? l10n.serverCareProfilesSubtitle(profile, count)
+        : profile;
   }
 
   @override
   Widget build(BuildContext context) {
     final care = context.watch<ServerCareController>();
+    final l10n = context.l10n;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final body = ListenableBuilder(
       listenable: _update,
@@ -114,12 +117,12 @@ class _ServerScreenState extends State<ServerScreen> {
       ),
     );
     return SettingsScaffold(
-      title: 'Server',
-      subtitle: _subtitle(care),
+      title: l10n.serverCareTitle,
+      subtitle: _subtitle(l10n, care),
       actions: [
         SettingsBarAction(
           key: const Key('server-refresh'),
-          label: 'Refresh',
+          label: l10n.serverCareRefresh,
           icon: AppIcons.refresh,
           onPressed: care.loading ? null : _refresh,
         ),
@@ -129,22 +132,23 @@ class _ServerScreenState extends State<ServerScreen> {
   }
 
   List<Widget> _children(BuildContext context, ServerCareController care) {
+    final l10n = context.l10n;
     final status = care.status;
     // A failed read hides what the status said earlier: it may be out of
     // date.
     final showStatus = status != null && care.failure == null;
     return [
-      _headline(care),
-      if (showStatus || !care.supported) ..._hermes(care, status),
-      if (showStatus) ..._gateway(status),
-      if (showStatus) ..._machine(status),
+      _headline(l10n, care),
+      if (showStatus || !care.supported) ..._hermes(l10n, care, status),
+      if (showStatus) ..._gateway(l10n, status),
+      if (showStatus) ..._machine(l10n, status),
       if (care.offers(CarePart.usage))
         GroupedSection(
-          header: 'Tools',
+          header: l10n.serverCareToolsHeader,
           children: [
             GroupedRow(
-              title: 'Usage',
-              subtitle: 'Tokens and cost by day and model',
+              title: l10n.serverCareUsageTitle,
+              subtitle: l10n.serverCareUsageRowSubtitle,
               onTap: () => _open(const UsagePage()),
             ),
           ],
@@ -152,7 +156,7 @@ class _ServerScreenState extends State<ServerScreen> {
       GroupedSection(
         children: [
           GroupedRow(
-            title: 'Connection details',
+            title: l10n.serverCareConnectionDetails,
             onTap: () => showConnectionDetails(context),
           ),
         ],
@@ -160,33 +164,36 @@ class _ServerScreenState extends State<ServerScreen> {
     ];
   }
 
-  Widget _headline(ServerCareController care) {
+  Widget _headline(AppLocalizations l10n, ServerCareController care) {
     final status = care.status;
     final attention = care.attention;
-    final retry = ServerStatusButton(label: 'Try again', onPressed: _refresh);
+    final retry = ServerStatusButton(
+      label: l10n.serverCareTryAgain,
+      onPressed: _refresh,
+    );
     // A read that failed for any reason but a missing connection says so
     // instead of keeping an older, cheerful answer.
     final failed =
         care.failure != null && care.failure != CareFailureKind.offline;
     if (attention == null || failed || care.profileLookupFailed) {
       if (!care.supported) {
-        return const ServerStatusCard(
+        return ServerStatusCard(
           tone: ServerStatusTone.info,
-          title: "This server can't report its status",
-          detail: 'Update Hermes on the server to see more here.',
+          title: l10n.serverCareHeadlineUnsupported,
+          detail: l10n.serverCareHeadlineUnsupportedDetail,
         );
       }
       if (care.failure != null || care.profileLookupFailed) {
         return ServerStatusCard(
           tone: ServerStatusTone.warning,
-          title: "Couldn't read Hermes' status",
-          detail: 'Try again in a moment.',
+          title: l10n.serverCareHeadlineReadFailed,
+          detail: l10n.serverCareHeadlineReadFailedDetail,
           button: retry,
         );
       }
-      return const ServerStatusCard(
+      return ServerStatusCard(
         tone: ServerStatusTone.loading,
-        title: 'Checking Hermes…',
+        title: l10n.serverCareHeadlineChecking,
       );
     }
     ServerStatusCard card(
@@ -200,84 +207,87 @@ class _ServerScreenState extends State<ServerScreen> {
       detail: detail,
       button: button,
     );
+    final free = _free(status?.disk.freeMb);
     return switch (attention) {
       Attention.offline => card(
         ServerStatusTone.warning,
-        "Can't reach Hermes",
-        "Check that the server is on and that you're connected to its "
-            'network.',
+        l10n.serverCareHeadlineOffline,
+        l10n.serverCareHeadlineOfflineDetail,
         retry,
       ),
       Attention.storageUnreadable => card(
         ServerStatusTone.error,
-        "Hermes can't read its session store",
-        "Chats and usage may be missing until it's repaired.",
+        l10n.serverCareHeadlineStorageUnreadable,
+        l10n.serverCareStorageMissingDetail,
       ),
       Attention.gatewayFailed => card(
         ServerStatusTone.error,
-        'The messaging gateway stopped with an error',
-        'Messaging channels and scheduled tasks are paused.',
+        l10n.serverCareHeadlineGatewayFailed,
+        l10n.serverCareHeadlineGatewayFailedDetail,
       ),
       Attention.gatewayUnresponsive => card(
         ServerStatusTone.warning,
-        "The messaging gateway isn't responding",
-        _staleDetail(status),
+        l10n.serverCareHeadlineGatewayUnresponsive,
+        _staleDetail(l10n, status),
       ),
       Attention.gatewayOff => card(
         ServerStatusTone.warning,
-        'The messaging gateway is off',
-        "Messaging channels and scheduled tasks don't run while it's off.",
+        l10n.serverCareHeadlineGatewayOff,
+        l10n.serverCareHeadlineGatewayOffDetail,
       ),
       Attention.diskCritical => card(
         ServerStatusTone.error,
-        'Disk almost full: ${_free(status?.disk.freeMb) ?? 'little'} free',
-        'Hermes may stop saving chats. Free up space on the server.',
+        free == null
+            ? l10n.serverCareHeadlineDiskCriticalUnknown
+            : l10n.serverCareHeadlineDiskCritical(free),
+        l10n.serverCareHeadlineDiskCriticalDetail,
       ),
       Attention.unexpectedRestart => card(
         ServerStatusTone.warning,
-        'Hermes restarted unexpectedly, probably out of memory',
+        l10n.serverCareHeadlineRestarted,
       ),
       Attention.channelsOffline => card(
         ServerStatusTone.warning,
-        _channelsOffline(status),
+        _channelsOffline(l10n, status),
       ),
       Attention.memoryLow => card(
         ServerStatusTone.info,
-        'Memory is low on the server',
+        l10n.serverCareHeadlineMemoryLow,
       ),
       Attention.diskLow => card(
         ServerStatusTone.info,
-        'Disk space is getting low: ${_free(status?.disk.freeMb) ?? 'little'} '
-        'free',
+        free == null
+            ? l10n.serverCareHeadlineDiskLowUnknown
+            : l10n.serverCareHeadlineDiskLow(free),
       ),
       Attention.allGood => card(
         ServerStatusTone.healthy,
-        'Everything looks good',
+        l10n.serverCareHeadlineAllGood,
         switch (status?.version) {
-          final v? => 'Hermes $v',
+          final v? => l10n.serverCareHeadlineAllGoodDetail(v),
           null => null,
         },
       ),
     };
   }
 
-  static String _staleDetail(ServerStatus? status) {
+  static String _staleDetail(AppLocalizations l10n, ServerStatus? status) {
     final seconds = status?.gatewayHeartbeatStaleSeconds;
-    if (seconds == null) return "It's running but hasn't checked in.";
+    if (seconds == null) return l10n.serverCareHeadlineGatewayStale;
     final minutes = (seconds / 60).round().clamp(1, 1 << 30);
-    final unit = minutes == 1 ? 'minute' : 'minutes';
-    return "It's running but hasn't checked in for $minutes $unit.";
+    return l10n.serverCareHeadlineGatewayStaleFor(minutes);
   }
 
-  static String _channelsOffline(ServerStatus? status) {
+  static String _channelsOffline(AppLocalizations l10n, ServerStatus? status) {
     final configured = status?.platformsConfigured;
     final connected = status?.platformsConnected;
     if (configured == null || connected == null || connected >= configured) {
-      return 'Some messaging channels are offline';
+      return l10n.serverCareHeadlineChannelsOffline;
     }
-    final offline = configured - connected;
-    return '$offline of $configured messaging channels are '
-        'offline';
+    return l10n.serverCareHeadlineChannelsOfflineCount(
+      configured - connected,
+      configured,
+    );
   }
 
   /// "8.4 GB", "52 GB", "512 MB".
@@ -291,16 +301,24 @@ class _ServerScreenState extends State<ServerScreen> {
     return '$text GB';
   }
 
-  List<Widget> _hermes(ServerCareController care, ServerStatus? status) {
+  List<Widget> _hermes(
+    AppLocalizations l10n,
+    ServerCareController care,
+    ServerStatus? status,
+  ) {
     final version = status?.version;
-    final released = _released(status?.releaseDate);
-    final update = _update.rowText(fallbackVersion: version);
+    final released = _released(l10n, status?.releaseDate);
+    final update = _updateRow(l10n, fallbackVersion: version);
     final rows = [
       if (version != null)
-        CareValueRow(title: 'Version', value: version, subtitle: released),
+        CareValueRow(
+          title: l10n.serverCareVersionRow,
+          value: version,
+          subtitle: released,
+        ),
       if (_update.supported)
         CareValueRow(
-          title: 'Updates',
+          title: l10n.serverCareUpdatesRow,
           value: update.value,
           subtitle: update.subtitle,
           onTap: () => _open(UpdatePage(controller: _update, version: version)),
@@ -311,87 +329,117 @@ class _ServerScreenState extends State<ServerScreen> {
         : [GroupedSection(header: 'Hermes', children: rows)];
   }
 
-  static String? _released(String? date) {
-    final parsed = date == null ? null : DateTime.tryParse(date);
-    if (parsed == null) return null;
-    return 'Released ${formatDayShort(parsed)} ${parsed.year}';
+  CareRowText _updateRow(AppLocalizations l10n, {String? fallbackVersion}) {
+    final row = _update.rowState(fallbackVersion: fallbackVersion);
+    return (
+      value: switch (row.kind) {
+        UpdateRowKind.none => null,
+        UpdateRowKind.checking => l10n.serverCareUpdateChecking,
+        UpdateRowKind.upToDate => l10n.serverCareUpdateUpToDate,
+        UpdateRowKind.failed => l10n.serverCareUpdateCouldntCheck,
+        UpdateRowKind.available => l10n.serverCareUpdateAvailable,
+      },
+      subtitle: switch (row.changeCount) {
+        final count? when row.kind == UpdateRowKind.available =>
+          l10n.serverCareUpdateChanges(count),
+        _ => null,
+      },
+    );
   }
 
-  List<Widget> _gateway(ServerStatus status) {
+  static String? _released(AppLocalizations l10n, String? date) {
+    final parsed = date == null ? null : DateTime.tryParse(date);
+    if (parsed == null) return null;
+    return l10n.serverCareReleased(parsed);
+  }
+
+  List<Widget> _gateway(AppLocalizations l10n, ServerStatus status) {
     final configured = status.platformsConfigured ?? 0;
     final connected = status.platformsConnected;
     final shared = status.gatewaySharedWith;
     final state = status.gatewayHeartbeatStaleSeconds != null
-        ? 'Not responding'
+        ? l10n.serverCareGatewayStateNotResponding
         : switch (status.gatewayState) {
-            GatewayState.running => 'Running',
-            GatewayState.starting => 'Starting',
-            GatewayState.degraded => 'Running, some channels offline',
-            GatewayState.draining => 'Draining',
-            GatewayState.stopped => 'Off',
-            GatewayState.startupFailed => 'Failed to start',
-            GatewayState.other => status.gatewayStateRaw ?? 'Unknown',
-            null => status.gatewayRunning ? 'Running' : 'Off',
+            GatewayState.running => l10n.serverCareGatewayStateRunning,
+            GatewayState.starting => l10n.serverCareGatewayStateStarting,
+            GatewayState.degraded => l10n.serverCareGatewayStateDegraded,
+            GatewayState.draining => l10n.serverCareGatewayStateDraining,
+            GatewayState.stopped => l10n.serverCareGatewayStateOff,
+            GatewayState.startupFailed => l10n.serverCareGatewayStateFailed,
+            GatewayState.other =>
+              status.gatewayStateRaw ?? l10n.serverCareGatewayStateUnknown,
+            null =>
+              status.gatewayRunning
+                  ? l10n.serverCareGatewayStateRunning
+                  : l10n.serverCareGatewayStateOff,
           };
     return [
       GroupedSection(
-        header: 'Messaging gateway',
-        footer:
-            'Runs your messaging channels and scheduled tasks. Chats in this '
-            "app don't depend on it.",
+        header: l10n.serverCareGatewayHeader,
+        footer: l10n.serverCareGatewayFooter,
         children: [
-          CareValueRow(title: 'State', value: state),
+          CareValueRow(title: l10n.serverCareGatewayStateRow, value: state),
           // While the gateway is off, how many channels are connected says
           // nothing a person can use next to "Off".
           if (status.gatewayRunning && configured > 0 && connected != null)
             CareValueRow(
-              title: 'Channels',
-              value: '$connected of $configured connected',
+              title: l10n.serverCareChannelsRow,
+              value: l10n.serverCareChannelsConnected(connected, configured),
             ),
           if (shared.length > 1)
-            CareValueRow(title: 'Shared with', value: shared.join(', ')),
+            CareValueRow(
+              title: l10n.serverCareGatewaySharedWith,
+              value: shared.join(', '),
+            ),
         ],
       ),
     ];
   }
 
-  List<Widget> _machine(ServerStatus status) {
+  List<Widget> _machine(AppLocalizations l10n, ServerStatus status) {
     final disk = status.disk;
     final free = _free(disk.freeMb);
     final used = disk.usedPercent;
     final memory = switch (status.memory.pressure) {
-      Pressure.ok => 'OK',
-      Pressure.elevated => 'Getting low',
-      Pressure.critical => 'Low',
+      Pressure.ok => l10n.serverCareOk,
+      Pressure.elevated => l10n.serverCareMemoryGettingLow,
+      Pressure.critical => l10n.serverCareMemoryLow,
       Pressure.unknown => null,
     };
     final rows = [
       if (free != null)
         CareValueRow(
-          title: 'Disk',
-          value: '$free free',
-          subtitle: used == null ? null : '${used.round()}% used',
+          title: l10n.serverCareDiskRow,
+          value: l10n.serverCareDiskFree(free),
+          subtitle: used == null
+              ? null
+              : l10n.serverCareDiskPercentUsed(used.round()),
           warning: switch (disk.pressure) {
-            Pressure.elevated => 'Disk space is getting low.',
-            Pressure.critical =>
-              'Disk is almost full. Hermes may stop saving chats.',
+            Pressure.elevated => l10n.serverCareDiskWarningLow,
+            Pressure.critical => l10n.serverCareDiskWarningCritical,
             _ => null,
           },
         ),
-      if (memory != null) CareValueRow(title: 'Memory', value: memory),
+      if (memory != null)
+        CareValueRow(title: l10n.serverCareMemoryRow, value: memory),
       if (status.storageOk != null || status.storageCorrupt)
         CareValueRow(
-          title: 'Session store',
+          title: l10n.serverCareSessionStoreRow,
           value: status.storageOk == true && !status.storageCorrupt
-              ? 'OK'
-              : "Can't be read",
+              ? l10n.serverCareOk
+              : l10n.serverCareSessionStoreUnreadable,
           error: status.storageOk == true && !status.storageCorrupt
               ? null
-              : "Chats and usage may be missing until it's repaired.",
+              : l10n.serverCareStorageMissingDetail,
         ),
     ];
     return rows.isEmpty
         ? []
-        : [GroupedSection(header: 'Server', children: rows)];
+        : [
+            GroupedSection(
+              header: l10n.serverCareMachineHeader,
+              children: rows,
+            ),
+          ];
   }
 }

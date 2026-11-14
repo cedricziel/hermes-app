@@ -4,7 +4,6 @@ import '../core/safe_notifier.dart';
 import 'care_result.dart';
 import 'server_care_repository.dart';
 import 'update_check.dart';
-import 'widgets/update_status_card.dart';
 
 /// The state of `GET /api/hermes/update/check`, shared by the Server screen's
 /// Updates row and the Update page. Owned by the screen that opens the page.
@@ -68,24 +67,29 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
-  /// The card's state, or null when the server has no update route or the
-  /// first check is not back and nothing is known.
-  UpdateStatus? status({String? fallbackVersion}) {
+  /// What the check says, or null when the server has no update route or the
+  /// first check is not back and nothing is known. The widget layer words it.
+  UpdateState? state({String? fallbackVersion}) {
     if (!_supported) return null;
-    if (_loading && _check == null) return const UpdateChecking();
+    if (_loading && _check == null) return const UpdateStateChecking();
     final failure = _failure;
     // A failed check is said even when an earlier one succeeded: the old
     // answer is not what the server says now.
     if (failure != null && !_loading) {
-      return UpdateCheckFailed(message: _failureText(failure));
+      return UpdateStateFailed(
+        message: failure.message,
+        reason: failure.kind == CareFailureKind.offline
+            ? UpdateFailureReason.offline
+            : UpdateFailureReason.checkFailed,
+      );
     }
     final check = _check;
     if (check == null) return null;
-    if (_loading) return const UpdateChecking();
-    return _statusOf(check, fallbackVersion);
+    if (_loading) return const UpdateStateChecking();
+    return _stateOf(check, fallbackVersion);
   }
 
-  UpdateStatus _statusOf(UpdateCheck check, String? fallbackVersion) {
+  UpdateState _stateOf(UpdateCheck check, String? fallbackVersion) {
     final version = check.currentVersion ?? fallbackVersion ?? '';
     final behind = check.behind;
     if (check.updateAvailable) {
@@ -94,91 +98,160 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
           ? check.commits.length
           : behind;
       if (stable != null) {
-        return UpdateRollback(
+        return UpdateStateRollback(
           stableVersion: stable,
           changeCount: count,
           currentVersion: version.isEmpty ? null : version,
         );
       }
       if (!check.canApply) {
-        return UpdateCannotApply(
-          message: check.message ?? 'Update Hermes on the server.',
+        return UpdateStateCannotApply(
+          message: check.message,
           command: check.updateCommand,
         );
       }
-      return UpdateAvailable(changeCount: count, currentVersion: version);
+      return UpdateStateAvailable(changeCount: count, currentVersion: version);
     }
     if (behind == null) {
       // Managed installs have nothing to check; they say so in their message.
       if (check.installMethod == InstallMethod.managedRuntime &&
           check.message != null) {
-        return UpdateCannotApply(message: check.message!);
+        return UpdateStateCannotApply(message: check.message);
       }
-      return UpdateCheckFailed(
-        message: check.message ?? "Couldn't check for updates.",
+      return UpdateStateFailed(
+        message: check.message,
+        reason: UpdateFailureReason.noResult,
       );
     }
-    return UpdateUpToDate(version: version, checkedAgo: _ago());
+    return UpdateStateUpToDate(version: version, checkedAgo: _ago());
   }
 
-  String _ago() {
+  Elapsed _ago() {
     final at = _checkedAt;
-    if (at == null) return 'just now';
+    if (at == null) return const Elapsed(ElapsedUnit.justNow);
     final minutes = _now().difference(at).inMinutes;
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) {
-      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
-    }
-    final hours = minutes ~/ 60;
-    return hours == 1 ? '1 hour ago' : '$hours hours ago';
+    if (minutes < 1) return const Elapsed(ElapsedUnit.justNow);
+    if (minutes < 60) return Elapsed(ElapsedUnit.minutes, minutes);
+    return Elapsed(ElapsedUnit.hours, minutes ~/ 60);
   }
 
-  static String _failureText(CareFailed<UpdateCheck> failure) =>
-      failure.message ??
-      switch (failure.kind) {
-        CareFailureKind.offline => "Can't reach Hermes.",
-        _ => "Couldn't check for updates. Try again later.",
-      };
-
-  /// The Updates row's value and subtitle; null value when there is nothing
-  /// to say (a managed install).
-  ({String? value, String? subtitle}) rowText({String? fallbackVersion}) =>
-      switch (status(fallbackVersion: fallbackVersion)) {
-        null => (value: null, subtitle: null),
-        UpdateChecking() => (value: 'Checking…', subtitle: null),
-        UpdateUpToDate() => (value: 'Up to date', subtitle: null),
-        UpdateCheckFailed() => (value: "Couldn't check", subtitle: null),
-        UpdateAvailable(:final changeCount) ||
-        UpdateRollback(:final changeCount?) => (
-          value: 'Update available',
-          subtitle: changeCount == 1 ? '1 change' : '$changeCount changes',
-        ),
-        UpdateRollback() => (value: 'Update available', subtitle: null),
-        UpdateCannotApply() => (
-          value: _check?.updateAvailable ?? false ? 'Update available' : null,
-          subtitle: null,
-        ),
-      };
+  /// The Updates row's state; [UpdateRowKind.none] when there is nothing to
+  /// say (a managed install).
+  ({UpdateRowKind kind, int? changeCount}) rowState({
+    String? fallbackVersion,
+  }) => switch (state(fallbackVersion: fallbackVersion)) {
+    null => (kind: UpdateRowKind.none, changeCount: null),
+    UpdateStateChecking() => (kind: UpdateRowKind.checking, changeCount: null),
+    UpdateStateUpToDate() => (kind: UpdateRowKind.upToDate, changeCount: null),
+    UpdateStateFailed() => (kind: UpdateRowKind.failed, changeCount: null),
+    UpdateStateAvailable(:final changeCount) ||
+    UpdateStateRollback(
+      :final changeCount?,
+    ) => (kind: UpdateRowKind.available, changeCount: changeCount),
+    UpdateStateRollback() => (kind: UpdateRowKind.available, changeCount: null),
+    UpdateStateCannotApply() => (
+      kind: _check?.updateAvailable ?? false
+          ? UpdateRowKind.available
+          : UpdateRowKind.none,
+      changeCount: null,
+    ),
+  };
 
   /// The version a check last reported, for the status card.
   String? get version => _check?.currentVersion;
 
-  List<UpdateChange> get changes => [
+  List<UpdateCommitEntry> get changes => [
     for (final c in _check?.commits.take(20) ?? const <UpdateCommit>[])
-      UpdateChange(summary: c.summary, byline: _byline(c)),
+      UpdateCommitEntry(
+        summary: c.summary,
+        author: c.author,
+        when: c.at == null ? null : _since(c.at!),
+      ),
   ];
 
-  String _byline(UpdateCommit c) {
-    final at = c.at;
-    final when = at == null ? null : _since(at);
-    return [?c.author, ?when].join(' · ');
-  }
-
-  String _since(int unixSeconds) {
+  Elapsed _since(int unixSeconds) {
     final days = _now()
         .difference(DateTime.fromMillisecondsSinceEpoch(unixSeconds * 1000))
         .inDays;
-    if (days < 1) return 'today';
-    return days == 1 ? '1 day ago' : '$days days ago';
+    return days < 1
+        ? const Elapsed(ElapsedUnit.today)
+        : Elapsed(ElapsedUnit.days, days);
   }
+}
+
+/// A span of time as a unit and a count, worded by the widget layer.
+enum ElapsedUnit { justNow, minutes, hours, today, days }
+
+class Elapsed {
+  const Elapsed(this.unit, [this.count = 0]);
+
+  final ElapsedUnit unit;
+  final int count;
+}
+
+/// Why a check has nothing to report, when Hermes gave no text of its own.
+enum UpdateFailureReason { offline, checkFailed, noResult }
+
+enum UpdateRowKind { none, checking, upToDate, failed, available }
+
+/// One commit of the update's change list: Hermes' own summary and author.
+class UpdateCommitEntry {
+  const UpdateCommitEntry({required this.summary, this.author, this.when});
+
+  final String summary;
+  final String? author;
+  final Elapsed? when;
+}
+
+/// What an update check says, without wording. [message] is Hermes' own
+/// text where a case has one.
+sealed class UpdateState {
+  const UpdateState();
+}
+
+class UpdateStateChecking extends UpdateState {
+  const UpdateStateChecking();
+}
+
+class UpdateStateUpToDate extends UpdateState {
+  const UpdateStateUpToDate({required this.version, required this.checkedAgo});
+
+  final String version;
+  final Elapsed checkedAgo;
+}
+
+class UpdateStateFailed extends UpdateState {
+  const UpdateStateFailed({this.message, required this.reason});
+
+  final String? message;
+  final UpdateFailureReason reason;
+}
+
+class UpdateStateAvailable extends UpdateState {
+  const UpdateStateAvailable({
+    required this.changeCount,
+    required this.currentVersion,
+  });
+
+  final int changeCount;
+  final String currentVersion;
+}
+
+class UpdateStateRollback extends UpdateState {
+  const UpdateStateRollback({
+    required this.stableVersion,
+    this.changeCount,
+    this.currentVersion,
+  });
+
+  final String stableVersion;
+  final int? changeCount;
+  final String? currentVersion;
+}
+
+class UpdateStateCannotApply extends UpdateState {
+  const UpdateStateCannotApply({this.message, this.command});
+
+  final String? message;
+  final String? command;
 }

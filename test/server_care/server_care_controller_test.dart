@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/attention.dart';
 import 'package:hermes_app/src/server_care/care_result.dart';
 import 'package:hermes_app/src/server_care/server_attention_mark.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
+import 'package:hermes_app/src/server_care/server_care_scope.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
@@ -123,9 +126,13 @@ void main() {
     await controller.refresh();
     expect(controller.attention, Attention.gatewayOff);
     expect(controller.mark, ServerAttentionMark.needsAttention);
-    expect(controller.mark.accountLabel, 'Account, server needs attention');
-    expect(controller.mark.menuLabel, 'Server · needs attention');
-    expect(controller.mark.caption, 'Needs attention');
+    expect(controller.mark.showsDot, isTrue);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    expect(
+      serverMarkAccountLabel(l10n, controller.mark),
+      'Account, server needs attention',
+    );
+    expect(serverMarkCaption(l10n, controller.mark), 'Needs attention');
   });
 
   test('a running restart hides the gateway rows of the headline', () async {
@@ -142,10 +149,13 @@ void main() {
   });
 
   test('updating and restarting outrank the problem mark', () async {
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
     controller.restarting = true;
-    expect(controller.mark.caption, 'Restarting…');
+    expect(controller.mark, ServerAttentionMark.restarting);
+    expect(serverMarkCaption(l10n, controller.mark), 'Restarting…');
     controller.updating = true;
-    expect(controller.mark.caption, 'Updating…');
+    expect(controller.mark, ServerAttentionMark.updating);
+    expect(serverMarkCaption(l10n, controller.mark), 'Updating…');
     expect(controller.mark.showsDot, isFalse);
   });
 

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import 'server_attention_mark.dart';
 import 'server_care_controller.dart';
 
@@ -25,3 +26,22 @@ bool serverCareOffered(BuildContext context) {
     return false;
   }
 }
+
+/// The Mac sidebar row's caption for [mark]; null when there is nothing to
+/// say.
+String? serverMarkCaption(AppLocalizations l10n, ServerAttentionMark mark) =>
+    switch (mark) {
+      ServerAttentionMark.none => null,
+      ServerAttentionMark.needsAttention =>
+        l10n.serverCareSidebarCaptionNeedsAttention,
+      ServerAttentionMark.updating => l10n.serverCareSidebarCaptionUpdating,
+      ServerAttentionMark.restarting => l10n.serverCareSidebarCaptionRestarting,
+    };
+
+/// The account button's accessible label for [mark].
+String serverMarkAccountLabel(
+  AppLocalizations l10n,
+  ServerAttentionMark mark,
+) => mark == ServerAttentionMark.needsAttention
+    ? l10n.serverCareAccountButtonLabelNeedsAttention
+    : l10n.serverCareAccountButtonLabel;

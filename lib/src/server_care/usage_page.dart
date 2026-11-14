@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/app_icons.dart';
@@ -89,12 +90,12 @@ class _UsagePageState extends State<UsagePage> {
     super.dispose();
   }
 
-  SettingsSubtitleMenu<String>? _profileMenu() {
+  SettingsSubtitleMenu<String>? _profileMenu(AppLocalizations l10n) {
     final profile = _controller.profile;
     final profiles = _care.status?.profiles ?? const <String>[];
     if (profile == null || profiles.length < 2) return null;
     return SettingsSubtitleMenu<String>(
-      label: 'Profile',
+      label: l10n.serverCareProfile,
       onSelected: _controller.setProfile,
       itemBuilder: (_) => [
         for (final p in profiles)
@@ -107,14 +108,14 @@ class _UsagePageState extends State<UsagePage> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _controller,
     builder: (context, _) => SettingsScaffold(
-      title: 'Usage',
+      title: context.l10n.serverCareUsageTitle,
       subtitle: _controller.profile,
-      subtitleMenu: _profileMenu(),
-      previousTitle: 'Server',
+      subtitleMenu: _profileMenu(context.l10n),
+      previousTitle: context.l10n.serverCareTitle,
       actions: [
         SettingsBarAction(
           key: const Key('usage-refresh'),
-          label: 'Refresh',
+          label: context.l10n.serverCareRefresh,
           icon: AppIcons.refresh,
           onPressed: _controller.loading ? null : _controller.load,
         ),
@@ -124,10 +125,11 @@ class _UsagePageState extends State<UsagePage> {
   );
 
   Widget _body(BuildContext context) {
+    final l10n = context.l10n;
     final c = _controller;
     final report = c.report;
     if (report == null && !c.loading) {
-      final state = _failureState(context);
+      final state = _failureState(context, l10n);
       if (state != null) return state;
     }
     final list = GroupedListView(
@@ -141,11 +143,11 @@ class _UsagePageState extends State<UsagePage> {
         ),
         // A refresh that failed leaves the last answer up, and says so.
         if (report != null && c.failure != null)
-          const GroupedSection(
+          GroupedSection(
             children: [
               GroupedRow(
-                title: "Couldn't refresh usage",
-                warning: 'Showing the last answer. Try again in a moment.',
+                title: l10n.serverCareUsageRefreshFailed,
+                warning: l10n.serverCareUsageRefreshFailedDetail,
                 titleMaxLines: null,
               ),
             ],
@@ -157,10 +159,8 @@ class _UsagePageState extends State<UsagePage> {
             height: 280,
             child: StateMessage(
               icon: AppIcons.info,
-              title: 'No usage in the last ${c.window.days} days',
-              detail:
-                  'Usage appears here after Hermes answers a chat, a '
-                  'message or a scheduled task.',
+              title: l10n.serverCareUsageEmptyTitle(c.window.days),
+              detail: l10n.serverCareUsageEmptyDetail,
             ),
           )
         else ...[
@@ -194,7 +194,7 @@ class _UsagePageState extends State<UsagePage> {
           GroupedSection(
             children: [
               GroupedSwitchRow(
-                title: 'Show as table',
+                title: l10n.serverCareUsageShowAsTable,
                 value: _asTable,
                 onChanged: (v) => setState(() => _asTable = v),
               ),
@@ -211,13 +211,13 @@ class _UsagePageState extends State<UsagePage> {
   }
 
   /// The whole-page states for a read that gave nothing to show.
-  Widget? _failureState(BuildContext context) {
+  Widget? _failureState(BuildContext context, AppLocalizations l10n) {
     final c = _controller;
     if (c.unsupported) {
-      return const StateMessage(
+      return StateMessage(
         icon: AppIcons.info,
-        title: "Usage isn't available",
-        detail: "This Hermes server doesn't report usage.",
+        title: l10n.serverCareUsageUnavailableTitle,
+        detail: l10n.serverCareUsageUnavailableDetail,
       );
     }
     final failure = c.failure;
@@ -226,35 +226,35 @@ class _UsagePageState extends State<UsagePage> {
     // only a tap does that, never the page by itself.
     final retry = FilledButton(
       onPressed: c.profile == null ? _care.refresh : c.load,
-      child: const Text('Try again'),
+      child: Text(l10n.serverCareTryAgain),
     );
     return switch (failure) {
       CareFailureKind.storeUnreadable => StateMessage(
         icon: AppIcons.error,
-        title: "Usage can't be read",
-        detail: "The server's session store needs repair.",
+        title: l10n.serverCareUsageStoreUnreadableTitle,
+        detail: l10n.serverCareUsageStoreUnreadableDetail,
         action: widget.onRunCheck == null
             ? null
             : FilledButton(
                 onPressed: widget.onRunCheck,
-                child: const Text('Run a check'),
+                child: Text(l10n.serverCareUsageRunCheck),
               ),
       ),
       CareFailureKind.offline => StateMessage(
         icon: AppIcons.error,
-        title: "Can't reach Hermes",
+        title: l10n.serverCareHeadlineOffline,
         action: retry,
       ),
       CareFailureKind.refused => StateMessage(
         icon: AppIcons.error,
-        title: "Usage can't be loaded",
+        title: l10n.serverCareUsageFailedTitle,
         detail: c.failureMessage,
         action: retry,
       ),
       _ => StateMessage(
         icon: AppIcons.error,
-        title: "Usage can't be loaded",
-        detail: 'Hermes did not answer as expected.',
+        title: l10n.serverCareUsageFailedTitle,
+        detail: l10n.serverCareUsageFailedDetail,
         action: retry,
       ),
     };
@@ -267,11 +267,11 @@ class _Skeleton extends StatelessWidget {
   const _Skeleton();
 
   @override
-  Widget build(BuildContext context) => const Column(
+  Widget build(BuildContext context) => Column(
     children: [
-      LoadingSkeleton(label: 'Loading usage', lines: 2),
-      SizedBox(height: 16),
-      UsageChartSkeleton(),
+      LoadingSkeleton(label: context.l10n.serverCareUsageLoading, lines: 2),
+      const SizedBox(height: 16),
+      const UsageChartSkeleton(),
     ],
   );
 }
