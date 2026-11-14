@@ -286,6 +286,32 @@ void main() {
       });
     });
 
+    for (final status in ['streaming', 'resuming']) {
+      test(
+        'A silent live turn: a session listed as $status keeps the reply waiting',
+        () {
+          fakeAsync((async) {
+            final gateway = FakeGateway()
+              ..activeSessions = {'stored-1': status};
+            final transport = HermesGatewayTransport(
+              connect: () async => gateway.channel,
+            );
+            gateway.turn = (g, sid) => g.event('message.start', sid);
+            final seen = _listen(transport.send(text: 'hi'));
+            int probes() =>
+                gateway.methods.where((m) => m == 'session.active_list').length;
+            async.flushMicrotasks();
+
+            async.elapse(const Duration(seconds: 45));
+            async.flushMicrotasks();
+            expect(probes(), 1);
+            expect(seen.done, isFalse);
+            expect(seen.error, isNull);
+          });
+        },
+      );
+    }
+
     test(
       'A silent live turn: a session no longer listed ends the reply as broken',
       () {
