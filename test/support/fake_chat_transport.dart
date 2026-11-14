@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:hermes_app/src/chat/agent_work_transport.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
     show ApprovalRequest, UnsupportedKind, VaultKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -9,9 +10,50 @@ import 'package:hermes_app/src/workspaces/workspace_models.dart';
 
 /// A [ChatTransport] the test drives by hand: every [send] is recorded and
 /// its reply stream is fed through the returned [FakeSend].
-class FakeChatTransport implements ChatTransport, PromptAcknowledgement {
+class FakeChatTransport
+    implements ChatTransport, PromptAcknowledgement, AgentWorkTransport {
   final sends = <FakeSend>[];
   bool closed = false;
+
+  /// Whether the chat's session is attached on the current connection, as far
+  /// as [readAttached] is concerned.
+  bool agentSessionAttached = true;
+
+  /// Every agent read and action sent, in order: its method and params, with
+  /// the thread and profile it was addressed to.
+  final agentReads = <FakeAgentCall>[];
+  final agentActions = <FakeAgentCall>[];
+
+  /// Answers an agent read or action. A thrown error is what the transport
+  /// throws (a `GatewayRpcException`, `GatewayRequestTimeout`, ...).
+  FutureOr<Map<String, Object?>> Function(FakeAgentCall call)? agentAnswer;
+
+  @override
+  Future<Map<String, Object?>?> readAttached(
+    String threadId, {
+    String? profile,
+    required String method,
+    Map<String, Object?> params = const {},
+    required Duration timeout,
+  }) async {
+    if (!agentSessionAttached) return null;
+    final call = FakeAgentCall(threadId, profile, method, params);
+    agentReads.add(call);
+    return (agentAnswer ?? (_) => const {})(call);
+  }
+
+  @override
+  Future<Map<String, Object?>> act(
+    String threadId, {
+    String? profile,
+    required String method,
+    Map<String, Object?> params = const {},
+    required Duration timeout,
+  }) async {
+    final call = FakeAgentCall(threadId, profile, method, params);
+    agentActions.add(call);
+    return (agentAnswer ?? (_) => const {})(call);
+  }
 
   /// What [promptAccepted] reports: whether the server answered the submit.
   @override
@@ -384,4 +426,13 @@ class FakeFollowUps {
 
   /// Whether the screen is still listening.
   bool get hasListener => _events.hasListener;
+}
+
+/// One call the fake received for [AgentWorkTransport].
+class FakeAgentCall {
+  FakeAgentCall(this.threadId, this.profile, this.method, this.params);
+  final String threadId;
+  final String? profile;
+  final String method;
+  final Map<String, Object?> params;
 }

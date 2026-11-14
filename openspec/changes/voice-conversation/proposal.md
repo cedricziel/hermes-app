@@ -1,58 +1,53 @@
 ## Why
 
-Dictation (`voice-dictation`) still needs hands and eyes: the user taps, reads the transcript and sends. A hands-free conversation lets the user talk to Hermes while walking or cooking. Hermes already runs this loop for its desktop app: it marks spoken turns so they run on the profile's fast voice model, and it streams speech back sentence by sentence while the reply is still being written. The app should offer the same.
+Dictation (`voice-dictation`) needs hands and eyes: the user taps, reads the transcript and sends. A hands-free conversation lets the user talk to Hermes while walking or cooking. Hermes already runs this loop for its desktop app (spoken turns run on the profile's fast `voice_chat` model route; speech streams back sentence by sentence).
+
+Since this change was first written, iOS got a native voice call that is not specified anywhere (`lib/src/voice/calls/`, `packages/hermes_calls`, `docs/voice-calls.md`): CallKit, a voice-processing audio graph, a readiness check, a 900 ms pause, barge-in and the `speak-stream` socket. This change now specifies that call for every platform, adds the rules it lacks, and extends it to Android, macOS, Windows and Linux through the same loop. It replaces the original plan for a second loop controller, a second activity detector and a composer toggle.
 
 ## What Changes
 
-- The controls follow assistant-ui's realtime voice elements (`VoiceOrb`, `VoiceControl`, `VoiceConversation`). A "Start voice" toggle in the composer opens a call screen over the current chat, and starts a new chat when none is open. The screen shows an orb that tracks who is talking (connecting, listening, speaking or muted, scaled by the live level), a caption that names the turn with a hint, the last two spoken turns, and buttons to mute and to end the call. While Hermes speaks, tapping the orb interrupts it. Spoken turns are ordinary chat messages, so they stay in the thread after the call ends.
-- Availability depends on the profile's voice models. The toggle shows only when speech-to-text and text-to-speech are both usable (`GET /api/audio/voice-config`) and the `voice_chat` helper model slot resolves to a model (`GET /api/model/auxiliary`). A slot that follows the main model counts.
-- Listening: the app records until the user stops talking. A pause of the length set by the profile's `voice.silence_duration` ends the turn, 1.25 s unless the profile changed it. The app transcribes the turn with the same routes as dictation. A turn with no speech is dropped and listening restarts.
-- The transcript is sent as a normal prompt in the open chat, marked as a voice turn (`prompt.submit` with `voice_turn: true`). The turn and its reply appear in the chat like typed ones.
-- Speaking: the reply text is streamed to `/api/audio/speak-stream` while it arrives, and the 16-bit PCM audio that comes back is played as it comes. When the socket offers no audio, the app falls back to `POST /api/audio/speak`. When the reply ends, listening starts again.
-- Barge-in: when the profile allows it (`voice.barge_in`, default on) and the device cancels echo (iOS and Android), speaking over Hermes stops the speech, stops the reply if it is still being written, and sends what the user said with `interrupted: true`. A transcript that only repeats the reply being spoken is treated as echo and ignored.
-- Saying a stop phrase ends the conversation without sending anything. The phrases come from the profile's `voice.stop_phrases`, or the built-in list when the profile sets none.
-- A "Speak replies" switch on the call screen. With it off, the loop still listens and sends, but does not speak.
-- The app warms the profile's text-to-speech engine while the call screen is open (`POST /api/audio/tts-lease`).
+- **Reuse the shipped loop.** `VoiceCall`, `VoiceActivity`, `CallSpeechStream` and `ChatCallAgent` stay the one implementation. `CallBridge`, today `AppleCallBridge`, becomes the platform audio seam (capture, playback, mute, route, end). A portable bridge for Android, macOS, Windows and Linux is built on `record` (capture) and `flutter_soloud` (PCM playback), with `audio_session` (already a dependency) on Android.
+- **Hands-free consent, per call.** The start screen asks the user to turn on "Send what I say automatically" before the microphone opens. It is never remembered. Without it there is no call; dictation is offered instead.
+- **Migration of the shipped iOS call.** Consent, the stop list, transcription-failure and speech-failure handling, the `voice_chat` readiness row and the model route change for iOS users; design.md's "Migration (iOS)" lists each, and `docs/voice-calls.md` is updated in the same PR.
+- **State you can see and hear.** One orb, a state word with an icon, a "Hands-free on" strip with a recording dot, tones for listening, sent and ended, haptics on mobile and screen-reader announcements.
+- **Stop at any moment.** End, mute, stop phrases (the profile's `voice.stop_phrases`, read with `include_defaults=false`; a profile list replaces the built-in one) and the platform's hang-up. End or mute before `submit` is called sends nothing; the client never queues a voice turn (Hermes may still answer queued, steered or redirected under its busy-input mode, which the call reports).
+- **False turns.** Whisper's silence hallucinations are dropped; on desktop capture pauses during tones and speech, and an echo guard checks the first transcript after playback.
+- **Waiting for you.** While the agent waits for an approval, capture pauses and speech neither interrupts nor sends.
+- **Failed transcription sends nothing.** The turn is dropped with "Couldn't hear that. Nothing was sent."; two in a row end the call. (Today a failure ends the call at once.)
+- **Interruptions and exits.** A system interruption ends the call; a route change drops the turn being heard and resumes. Leaving the app ends the call on Android and desktop (a desktop screen lock is not observed; capture is open only while Listening there, and the idle limit bounds it); iOS keeps the call alive through its system call. Five minutes without speech end it. The microphone is closed first on every exit.
+- **Voice turns are marked** (`prompt.submit` with `voice_turn: true`, and `interrupted: true` after a barge-in), so Hermes runs them on the `voice_chat` model route. The header button depends only on platform and chat state; the start screen's checks cover speech-to-text, text-to-speech (`GET /api/audio/voice-config`), audio output and the `voice_chat` slot (`GET /api/model/auxiliary`; a failed read is a warning).
+- **Call screen additions:** the last two turns, a "Speak replies" switch (on by default), tap the orb to interrupt, and the stopped and failed notices.
+- **Entry point:** the header's "Start voice call" button that iOS has today, on every platform. No composer toggle. A "Hands-free on" strip with End shows in the app shell on every screen while the microphone is open.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `voice-conversation`: the hands-free spoken conversation with the agent, including turn-taking, speech playback, barge-in and stop phrases.
+- `voice-conversation`: the hands-free spoken conversation, including consent, state, stopping, turn-taking, speech playback, interruption and platform limits.
 
 ### Modified Capabilities
 
-- `chat`: a submitted prompt can be marked as a voice turn, and as interrupting the previous reply.
+- `chat`: `prompt.submit` carries `voice_turn` and `interrupted` on spoken turns (modified backend contract; the client never queues them), and the answer statuses and `voice_stopped` are handled.
 
 ## Impact
 
-- Code: `lib/src/voice/` gains the speech playback (speak-stream client, PCM player, fallback), voice-activity detection, the echo guard, stop phrases and a `VoiceConversationController`. It also gains the call screen and orb under `lib/src/voice/widgets/`. `ChatTransport.send` gains `voiceTurn` and `interrupted`, and `ChatComposer` gains the Start voice toggle. Voice availability is read from `voice-config` and `/api/model/auxiliary`.
-- Dependencies: `flutter_soloud` (streaming PCM playback on all five platforms) and `audio_session` (the iOS and Android voice-chat audio session). It reuses `record` and the waveform from `voice-dictation`.
-- Native: iOS and Android need the microphone and speaker routed for voice chat (the audio session, Bluetooth headsets). There is no new permission beyond `voice-dictation`'s.
-- API: no OpenAPI change. The generated client has `speak`, `tts-lease`, `voice-live/status` and `model/auxiliary`. `speak-stream` is a socket opened like the dictation socket.
-- Depends on `voice-dictation` (capture, the transcription socket, the microphone permission).
+- Code: `lib/src/voice/calls/` gains consent, the stop-phrase matcher, the echo guard, tones, the idle limit, a transcription-failure path and the portable bridge (`record` plus `flutter_soloud`). `ChatController.submit` and `ChatTransport.send` gain `voiceTurn` and `interrupted`. Widgets in `lib/src/voice/widgets/`: `VoiceOrb` and the extended call view, start view and notices.
+- Dependencies: `flutter_soloud` (new, the only one; justified in design.md decision 12: streaming PCM on all five platforms, never initialised on iOS or in conversation windows). `record` and `audio_session` are already in `pubspec.yaml`; stop phrases need no Unicode package.
+- Native: Android needs `MODIFY_AUDIO_SETTINGS`; `flutter_soloud`'s build hook downloads prebuilt Xiph libraries unless `no_xiph_libs: true` is set (it will be), which touches CI, the release workflows and the Linux arm64 build; on Linux it needs no new system package. iOS needs no change. No new permission beyond dictation's.
+- API: no OpenAPI or OpenRPC change. At the pinned ref (`d923a5e`) `prompt.submit` already takes `voice_turn` and `interrupted` and answers `voice_stopped`; the generated client has `speak`, `tts-lease`, `voice-live/status` and `model/auxiliary`; `speak-stream` is a socket opened like `/api/ws`.
 
 ## Non-goals
 
-- GPT-Live (`voice.voice_chat_mode: gpt-live`, WebRTC to OpenAI). The app always uses the chained loop and says so on the call screen when the profile is set to GPT-Live.
-- Keeping the conversation alive with the app in the background or the screen locked (iOS background audio). The conversation pauses when the app leaves the foreground.
-- Barge-in on macOS, Windows and Linux, where the app cannot rely on echo cancellation. On those platforms the user taps the orb to interrupt.
-- A wake word, server-side voice mode (`voice.toggle`, `voice.record`) and the backend host's microphone.
-- Client-direct speech providers from `voice-config`.
-- Reading a single message aloud outside the conversation.
-- Thinking sounds (`voice.thinking_sound`).
-- The Apple Watch app and CarPlay.
+- GPT-Live (`voice.voice_chat_mode: gpt-live`): the chained loop is always used and the start screen says so.
+- Keeping a call alive in the background or locked on Android and desktop (a foreground service is a follow-up).
+- Barge-in on macOS, Windows and Linux, where echo cancellation cannot be relied on: the microphone is closed while Hermes speaks and the orb tap interrupts.
+- A wake word, `voice.toggle`/`voice.record`, client-direct speech providers, thinking sounds, reading one message aloud (already `read_aloud`), the Apple Watch and CarPlay (`docs/voice-calls.md`).
+- Answering approvals or questions by voice.
 
 ## Security and privacy impact
 
-The microphone is open for the whole conversation, which is longer than for dictation. A recording indicator is always visible, and the OS shows its own. Audio goes only to the user's Hermes server, as in `voice-dictation`, and nothing is written to disk. Reply text is sent back to the same server to be spoken. The speak-stream socket uses the existing single-use ticket or session token. No new credential is stored, and no provider keys are read.
+The microphone is open for the whole call, longer than for dictation, and the transcript is sent without a press of send. That is why consent is per call and explicit, why the open microphone is always visible, why a failed or interrupted turn sends nothing, and why approvals stay in the chat. Audio goes only to the user's Hermes server (or the device recognizer) and touches disk only in temporary files deleted after use; reply text goes back to the same server to be spoken. No new credential is stored.
 
 ## Telemetry
 
-The feature records breadcrumbs only:
-
-- `voice.conversation.started` and `voice.conversation.ended`, with `reason`: `user`, `stop_phrase`, `background`, `error`, `profile_change`.
-- `voice.turn.sent`, with `interrupted` (bool).
-- `voice.speech.fallback`, when speak-stream gave no audio.
-
-They record counts and flags, never transcripts, reply text or audio.
+The existing `voice_call.readiness`, `voice_call.connected` and `voice_call.ended` events (fixed words, buckets), plus breadcrumbs `voice_call.opened`, `voice_call.consent` (flag only, no text), `voice_call.speech_fallback`. This replaces the first draft's `voice.conversation.*` names. Never speech, transcripts, reply text, URLs or ids.
