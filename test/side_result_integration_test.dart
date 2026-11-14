@@ -746,6 +746,7 @@ void main() {
         ),
       ),
     );
+    await settleActivityPanel(tester);
     expect(find.text('Background result'), findsOneWidget);
     expect(find.text('Side question answer'), findsOneWidget);
     await tester.ensureVisible(find.text('Side question answer'));
