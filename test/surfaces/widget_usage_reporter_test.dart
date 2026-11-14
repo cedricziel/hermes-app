@@ -133,6 +133,18 @@ void main() {
       ]);
     });
 
+    test('counts a widget that has only an Android class name', () async {
+      installed = () => [
+        {'androidClassName': '.HermesBoard', 'widgetId': 1},
+      ];
+
+      await reporter(kinds: const ['HermesBoard']).report();
+
+      expect(events.named('widgets.installed'), [
+        {'widgets.count': 1, 'widgets.kinds': 'HermesBoard/android=1'},
+      ]);
+    });
+
     test('counts a kind by its provider class without the dot', () async {
       installed = () => [
         {'androidClassName': '.HermesBoard', 'widgetId': 1},
