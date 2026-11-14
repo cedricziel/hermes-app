@@ -786,18 +786,28 @@ void main() {
             'work/job1': DateTime.utc(2026, 9, 20, 8),
           });
           SharedPreferencesAsyncPlatform.instance = _FailingWritePrefs();
+          final events = <(String, Map<String, Object>)>[];
           final failing = ScheduleWatcher(
             repository: HermesCronRepository(server.client().raw),
             service: service,
             settings: settings,
             baseline: ScheduleBaseline(),
+            events: (name, [attributes = const {}]) =>
+                events.add((name, attributes)),
             account: () => 'acct',
           );
           jobs([ran('2026-09-21T08:00:00+00:00')]);
           failing.available = true;
           await failing.check();
+          await failing.check();
           failing.dispose();
           expect(service.shown, isEmpty);
+          // Reported once per error type, with the type only.
+          expect(events.map((e) => e.$1), ['schedules.look_failed']);
+          expect(events.single.$2, {
+            'error_type': 'StateError',
+            'background': false,
+          });
 
           watcher.available = true;
           await look();

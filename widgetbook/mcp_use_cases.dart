@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
-import 'package:hermes_app/src/mcp/mcp_banner.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_server_row.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_credential_fields.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_server_fields.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_json_field.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_sign_in_status.dart';
-import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
 import 'frame.dart';
-
-WidgetbookUseCase _banner(String name, McpBanner banner) =>
-    WidgetbookUseCase(name: name, builder: (_) => frame(banner));
 
 const _grafana = HermesMcpServer(
   name: 'grafana',
@@ -178,47 +173,6 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
         'Tested, sign-in needed, off and switching',
         _rows,
       ),
-    ),
-    WidgetbookComponent(
-      name: 'McpBanner',
-      useCases: [
-        _banner(
-          'Success',
-          const McpBanner(
-            tone: McpTone.success,
-            icon: AppIcons.checkCircle,
-            title: 'Connected',
-            detail: 'Found 12 tools.',
-          ),
-        ),
-        _banner(
-          'Warning with action',
-          McpBanner(
-            tone: McpTone.warning,
-            icon: AppIcons.lock,
-            title: 'Sign-in needed',
-            detail: 'Approve access in your browser.',
-            action: TextButton(onPressed: () {}, child: const Text('Sign in')),
-          ),
-        ),
-        _banner(
-          'Error',
-          const McpBanner(
-            tone: McpTone.error,
-            icon: AppIcons.error,
-            title: 'Could not reach the server',
-            detail: 'Connection refused',
-          ),
-        ),
-        _banner(
-          'Title only',
-          const McpBanner(
-            tone: McpTone.success,
-            icon: AppIcons.checkCircle,
-            title: 'Saved',
-          ),
-        ),
-      ],
     ),
     WidgetbookComponent(
       name: 'McpCommandReview',
