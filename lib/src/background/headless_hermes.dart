@@ -505,11 +505,14 @@ class _Connection {
     HermesSession? held;
     if (status.authRequired) {
       final session = stored.session;
-      // A session another dashboard minted is no use here (see
-      // AuthController.connect for why the typed address counts too).
-      final minter = session?.serverUrl;
+      // A session another dashboard minted is no use here. One stored before
+      // the minter was recorded is taken as the saved address's.
       if (session == null ||
-          (minter != null && minter != normalized && minter != typed)) {
+          !sessionServes(
+            session.serverUrl ?? typed,
+            typed: typed,
+            redirectedTo: normalized,
+          )) {
         return _Opened.refused('no_session', attributes);
       }
       held = session.boundTo(normalized);

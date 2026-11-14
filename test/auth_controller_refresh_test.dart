@@ -669,6 +669,39 @@ void main() {
     expect(controller.baseUrl, dashboard.url);
   });
 
+  for (final (minted, legacy) in [
+    ('the saved address', false),
+    ('an older app', true),
+  ]) {
+    test('a redirect to another host does not take a session minted by '
+        '$minted along', () async {
+      final front = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => front.close(force: true));
+      final elsewhere = 'http://localhost:${Uri.parse(dashboard.url).port}';
+      front.listen((request) {
+        request.response
+          ..statusCode = HttpStatus.movedPermanently
+          ..headers.set('Location', '$elsewhere${request.uri.path}')
+          ..close();
+      });
+      final saved = 'http://127.0.0.1:${front.port}';
+      store = MemoryTokenStore(_session(serverUrl: legacy ? null : saved));
+      controller = AuthController(
+        tokenStore: store,
+        devServerUrl: saved,
+        telemetry: events.connection,
+      );
+
+      await controller.bootstrap();
+
+      expect(controller.baseUrl, elsewhere);
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(dashboard.authRequests, 0);
+      expect(dashboard.refreshCalls, 0);
+      expect(store.session?.refreshToken, 'refresh-1');
+    });
+  }
+
   test('signs the user out when the refresh token is rejected', () async {
     await bootstrapWith(_session());
     dashboard

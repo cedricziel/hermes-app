@@ -121,6 +121,13 @@ The system SHALL discover a server by requesting `GET /api/status` without crede
 - **THEN** the app uses and saves `https://hermes.example`
 - **AND** sign-in, including `POST /auth/native/token`, goes to `https://hermes.example`
 
+#### Scenario: A redirect to another host does not take the stored session along
+
+- **WHEN** a stored session was issued for the address the app connects to, and its status request is redirected to a different host
+- **THEN** the app uses the redirected address but does not send the stored session's tokens there
+- **AND** the state is needs login, so the user signs in at the redirected address
+- **AND** a redirect that only changes the scheme, port or path on the same host keeps the session
+
 #### Scenario: Successful discovery saves the address
 
 - **WHEN** the status request succeeds
