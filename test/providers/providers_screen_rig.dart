@@ -33,6 +33,7 @@ class ProvidersRig {
     ProvidersEntry entry = ProvidersEntry.sidebar,
     List<SingleChildWidget> providers = const [],
     bool pushed = false,
+    Locale? locale,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -54,6 +55,7 @@ class ProvidersRig {
     await tester.pumpWidget(
       MaterialApp(
         debugShowCheckedModeBanner: false,
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: brightness == Brightness.dark

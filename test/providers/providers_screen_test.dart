@@ -112,6 +112,33 @@ void main() {
       );
     });
 
+    testWidgets('the header starts where the detail does', (tester) async {
+      final rig = ProvidersRig(backend: _two());
+      await rig.pump(tester, size: const Size(1280, 700));
+      final header = tester.getTopLeft(find.byType(ProviderDetailHeader)).dx;
+      final text = tester
+          .getTopLeft(
+            find.descendant(
+              of: find.byType(ProviderDetailHeader),
+              matching: find.text('OpenRouter'),
+            ),
+          )
+          .dx;
+      final section = tester
+          .getTopLeft(
+            find
+                .byWidgetPredicate(
+                  (w) =>
+                      w is Text &&
+                      (w.data ?? '').toLowerCase() == 'default model',
+                )
+                .last,
+          )
+          .dx;
+      expect(text, closeTo(section, 1));
+      expect(header, lessThan(text + 1));
+    });
+
     testWidgets('the pane says where to start while nothing is connected', (
       tester,
     ) async {
@@ -188,10 +215,38 @@ void main() {
         ),
         findsNothing,
       );
+      // A Mac control is 28 points tall.
+      expect(
+        tester.getSize(find.byKey(const Key('settings-cancel'))).height,
+        greaterThanOrEqualTo(28),
+      );
       await tester.tap(find.byKey(const Key('settings-cancel')));
       await _settle(tester);
       expect(find.byType(Dialog), findsNothing);
       expect(find.byType(ProviderListView), findsOneWidget);
+    });
+
+    testWidgets('Cancel is worded in German too', (tester) async {
+      final rig = ProvidersRig();
+      await rig.pump(tester, locale: const Locale('de'));
+      await tester.tap(_row('openrouter'));
+      await _settle(tester);
+      expect(find.text('Abbrechen'), findsOneWidget);
+      expect(find.text('Cancel'), findsNothing);
+    });
+
+    testWidgets('the endpoint form starts its fields at one x', (tester) async {
+      final rig = ProvidersRig();
+      await rig.pump(tester);
+      await tester.scrollUntilVisible(find.text('Custom endpoint'), 200);
+      await tester.tap(find.text('Custom endpoint'));
+      await _settle(tester);
+      final xs = [
+        for (var i = 0; i < 3; i++)
+          tester.getTopLeft(find.byType(TextField).at(i)).dx,
+      ];
+      expect(xs[1], xs[0]);
+      expect(xs[2], xs[0]);
     });
 
     testWidgets('a narrow Mac window also opens a dialog', (tester) async {

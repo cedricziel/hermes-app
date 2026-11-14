@@ -89,7 +89,9 @@ void main() {
   /// The sheet's way out: Cancel on iOS, the close button on Material, the
   /// back button of a Mac dialog.
   Future<void> closeSheet(WidgetTester tester) async {
-    final cancel = find.text('Cancel');
+    final cancel = find.text('Cancel').evaluate().isNotEmpty
+        ? find.text('Cancel')
+        : find.text('Abbrechen');
     final close = find.byType(CloseButton);
     await tester.tap(
       cancel.evaluate().isNotEmpty
@@ -309,7 +311,9 @@ void main() {
         brightness: Brightness.light,
       );
       await openProviders(tester, phone: size == phoneSize);
-      await tester.scrollUntilVisible(find.text('Custom endpoint'), 200);
+      if (find.text('Custom endpoint').hitTestable().evaluate().isEmpty) {
+        await tester.scrollUntilVisible(find.text('Custom endpoint'), 200);
+      }
       await tester.tap(find.text('Custom endpoint'));
       await settle(tester);
       await shots.capture(tester, 'empty');

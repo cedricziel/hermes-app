@@ -25,6 +25,8 @@ Decisions taken in the design pass:
 - Removal alerts: the iOS and Mac alert with Cancel as the bold default and the action in red. On Android the library's Material alert fills its default button, which would make Cancel look primary, so both are text buttons and the removal is red text.
 - Welcome card: a bordered surface card (no shadow) with a 36 pt icon tile, title, body and a full-width filled button, under the existing welcome tile and "Where should we begin?". Icons: `tune` (Connect), `key` (Reconnect), `hourglass_empty` (Loading). A failed reply shows the error as an error `Banner` and an outlined "Check model providers" under it.
 
+- Mac exception, accepted at review: steps and forms (sign-in, default-model step, rejected key) put their buttons as small 28 pt push buttons aligned to the right, the primary one last, as a Mac dialog does, instead of the full-width stack of the other platforms; "Copy code" is right-aligned the same way.
+
 Corrections where this brief did not work:
 
 - "Waiting for sign-in…" cannot carry both a progress indicator and two buttons in the trailing slot; the row keeps the two buttons and drops the indicator.
