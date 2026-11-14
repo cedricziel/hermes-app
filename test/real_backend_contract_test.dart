@@ -190,7 +190,10 @@ void main() {
 
     test('status carries the fields the headline reads', () async {
       final status = value(await care.status(profile: 'default'));
-      expect(status.version, isNotNull);
+      // A checkout without version metadata answers "unknown", which reads
+      // as no version.
+      expect(status.version, anyOf(isNull, isNot(isEmpty)));
+      expect(status.version?.toLowerCase(), isNot('unknown'));
       expect(status.profiles, contains('default'));
       expect(status.configVersion, isA<int>());
       expect(status.latestConfigVersion, isA<int>());
@@ -205,7 +208,8 @@ void main() {
       'health answers ok with the commit the dashboard booted from',
       () async {
         final health = value(await care.health());
-        expect(health.version, isNotNull);
+        expect(health.version, anyOf(isNull, isNot(isEmpty)));
+        expect(health.version?.toLowerCase(), isNot('unknown'));
         expect(
           health.commit,
           anyOf(isNull, matches(RegExp(r'^[0-9a-f]{40}$'))),
@@ -4368,6 +4372,380 @@ approvals:
       skip: skip,
     );
 
+    Future<_GatewayTap> openTap() async {
+      final tap = _GatewayTap(
+        GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          )(),
+        ),
+      );
+      addTearDown(tap.close);
+      return tap;
+    }
+
+    Matcher rpcError(int code) =>
+        throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', code));
+
+    test(
+      'a delegation lists two running agents the app parses, which can be '
+      'read, steered and stopped, and which only the attached connection '
+      'controls',
+      () async {
+        final tap = await openTap();
+        final session = await tap.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final sid = session['session_id'] as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Delegate the crate counting.',
+        });
+        await tap.until(
+          () =>
+              tap
+                  .eventsOf(sid)
+                  .where((e) => e.type == 'subagent.tool')
+                  .length >=
+              2,
+          'two subagent.tool frames',
+        );
+        final ids = <String>{
+          for (final e in tap.eventsOf(sid))
+            if (e.type == 'subagent.start') e.payload['subagent_id']! as String,
+        };
+        expect(ids, hasLength(2));
+        // A failed assertion must not leave the children sleeping.
+        addTearDown(() async {
+          for (final id in ids) {
+            try {
+              await tap.rpc.request('subagent.interrupt', {
+                'session_id': sid,
+                'subagent_id': id,
+              });
+            } on Object {
+              // Already ended or the connection is gone.
+            }
+          }
+        });
+        Future<Map<String, Object?>> call(
+          String method, [
+          Map<String, Object?>? p,
+        ]) => tap.rpc.request(method, {'session_id': sid, ...?p});
+
+        // subagent.list: both children, running, steerable.
+        final list = parseAgentList(await call('subagent.list'))!;
+        expect(list.agents.map((a) => a.id).toSet(), ids);
+        expect(list.delegations, isEmpty);
+        for (final agent in list.agents) {
+          expect(agent.state, AgentState.running);
+          expect(agent.acceptingSteer, isTrue);
+          expect(agent.goal, startsWith('Count the '));
+          expect(agent.toolCount, 1);
+          expect(agent.lastTool, 'terminal');
+          expect(agent.startedAt, isNotNull);
+          expect(agent.delegationId, isNotNull);
+        }
+        final [first, second] = ids.toList();
+
+        // subagent.tail: the child's transcript, with its tool line.
+        final tail = parseAgentTail(
+          await call('subagent.tail', {'subagent_id': first}),
+        )!;
+        expect(tail.available, isTrue);
+        expect(tail.truncated, isFalse);
+        expect(tail.text, contains('terminal(sleep 30)'));
+
+        // subagent.steer: queued for a running child, rejected for an
+        // unknown one, and the two request errors.
+        expect(
+          parseSteerOutcome(
+            await call('subagent.steer', {
+              'subagent_id': first,
+              'text': 'Use the small crate.',
+            }),
+          ),
+          SteerOutcome.queued,
+        );
+        expect(
+          parseSteerOutcome(
+            await call('subagent.steer', {
+              'subagent_id': 'sa-9-unknown',
+              'text': 'Hello',
+            }),
+          ),
+          SteerOutcome.rejected,
+        );
+        await expectLater(
+          call('subagent.steer', {'subagent_id': first, 'text': '  '}),
+          rpcError(4002),
+        );
+        await expectLater(
+          call('subagent.steer', {'text': 'x'}),
+          rpcError(4000),
+        );
+        await expectLater(call('subagent.tail'), rpcError(4000));
+
+        // A connection that never resumed the chat: reads and interrupts are
+        // 4001, a note is rejected (not 4001).
+        final other = await openTap();
+        await expectLater(
+          other.rpc.request('subagent.list', {'session_id': sid}),
+          rpcError(4001),
+        );
+        await expectLater(
+          other.rpc.request('subagent.tail', {
+            'session_id': sid,
+            'subagent_id': first,
+          }),
+          rpcError(4001),
+        );
+        await expectLater(
+          other.rpc.request('subagent.interrupt', {
+            'session_id': sid,
+            'subagent_id': first,
+          }),
+          rpcError(4001),
+        );
+        expect(
+          parseSteerOutcome(
+            await other.rpc.request('subagent.steer', {
+              'session_id': sid,
+              'subagent_id': first,
+              'text': 'x',
+            }),
+          ),
+          SteerOutcome.rejected,
+        );
+
+        // subagent.interrupt: found for a running child, not for an unknown
+        // one; the child then completes as interrupted and is gone.
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': second}),
+          ),
+          StopOutcome.stopped,
+        );
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': 'sa-9-unknown'}),
+          ),
+          StopOutcome.alreadyEnded,
+        );
+        await tap.until(
+          () => tap
+              .eventsOf(sid)
+              .any(
+                (e) =>
+                    e.type == 'subagent.complete' &&
+                    e.payload['subagent_id'] == second,
+              ),
+          'the interrupted child to complete',
+        );
+        final complete = tap
+            .eventsOf(sid)
+            .firstWhere(
+              (e) =>
+                  e.type == 'subagent.complete' &&
+                  e.payload['subagent_id'] == second,
+            );
+        expect(complete.payload['status'], 'interrupted');
+        // The record is dropped when the child ends; allow a short race.
+        var endedTail = parseAgentTail(
+          await call('subagent.tail', {'subagent_id': second}),
+        )!;
+        for (var i = 0; i < 50 && endedTail.available; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          endedTail = parseAgentTail(
+            await call('subagent.tail', {'subagent_id': second}),
+          )!;
+        }
+        expect(endedTail.available, isFalse);
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': second}),
+          ),
+          StopOutcome.alreadyEnded,
+        );
+        expect(
+          parseSteerOutcome(
+            await call('subagent.steer', {
+              'subagent_id': second,
+              'text': 'late',
+            }),
+          ),
+          SteerOutcome.rejected,
+        );
+
+        // Stop the other child too, so nothing runs on after the test, and
+        // see the interrupted delegations listed once they are recorded.
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': first}),
+          ),
+          StopOutcome.stopped,
+        );
+        AgentList? after;
+        for (var i = 0; i < 100; i++) {
+          after = parseAgentList(await call('subagent.list'));
+          if (after!.agents.isEmpty && after.delegations.length == 2) break;
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        expect(after!.agents, isEmpty);
+        expect(after.delegations, hasLength(2));
+        for (final row in after.delegations) {
+          expect(row.state, AgentState.stopped);
+          expect(row.goal, startsWith('Count the '));
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'a background program is listed, stopped once, and reads as stopped '
+      'afterwards (a program of the test itself; process.stop is never sent)',
+      () async {
+        final tap = await openTap();
+        final session = await tap.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final sid = session['session_id'] as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Run background server.',
+        });
+        await tap.until(
+          () => tap.eventsOf(sid).any((e) => e.type == 'message.complete'),
+          'the reply',
+        );
+        Future<Map<String, Object?>> call(
+          String method, [
+          Map<String, Object?>? p,
+        ]) => tap.rpc.request(method, {'session_id': sid, ...?p});
+
+        // The program's output is read by a background thread: on a slow
+        // machine the first list can precede it. Wait, bounded, for it.
+        var running = parseProcessList(await call('process.list'))!;
+        for (var i = 0; i < 150; i++) {
+          final tail = running.processes.isEmpty
+              ? null
+              : running.processes.first.outputTail;
+          if (tail != null && tail.contains('ready on demo port')) break;
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          running = parseProcessList(await call('process.list'))!;
+        }
+        final row = running.processes.single;
+        expect(row.status, ProgramStatus.running);
+        expect(row.command, 'echo ready on demo port; sleep 300');
+        expect(row.outputTail, contains('ready on demo port'));
+        expect(row.exitCode, isNull);
+        expect(row.uptime, isNotNull);
+        addTearDown(() async {
+          try {
+            await tap.rpc.request('process.kill', {
+              'session_id': sid,
+              'process_id': row.id,
+            });
+          } on Object {
+            // Already stopped or the connection is gone.
+          }
+        });
+        // No attachment check: a connection that never resumed the chat reads
+        // the same list (design.md; the app still reads only while attached).
+        final reader = await openTap();
+        expect(
+          parseProcessList(
+            await reader.rpc.request('process.list', {'session_id': sid}),
+          )!.processes.single.id,
+          row.id,
+        );
+
+        final killed = parseProcessKill(
+          await call('process.kill', {'process_id': row.id}),
+        )!;
+        expect(killed.outcome, KillOutcome.killed);
+        expect(killed.completionReason, 'killed');
+        expect(killed.output, contains('ready on demo port'));
+
+        final after = parseProcessList(await call('process.list'))!;
+        final ended = after.processes.single;
+        expect(ended.id, row.id);
+        expect(ended.running, isFalse);
+        expect(ended.completionReason, 'killed');
+        expect(ended.exitCode, isNegative);
+        expect(ended.status, ProgramStatus.stopped);
+
+        final again = parseProcessKill(
+          await call('process.kill', {'process_id': row.id}),
+        )!;
+        expect(again.outcome, KillOutcome.alreadyExited);
+        expect(again.completionReason, 'killed');
+        expect(again.exitCode, isNegative);
+
+        await expectLater(
+          call('process.kill', {'process_id': 'proc_000000000000'}),
+          rpcError(4044),
+        );
+        await expectLater(call('process.kill'), rpcError(4012));
+        await expectLater(call('process.nope'), rpcError(-32601));
+        await expectLater(
+          tap.rpc.request('process.list', {'session_id': 'not-a-session'}),
+          rpcError(4001),
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'process.list and process.kill answer 5032 at once when the chat\'s '
+      'agent could not be built',
+      () async {
+        final broken = '$profile-broken';
+        await client.raw.createProfileEndpointApiProfilesPost(
+          profileCreate: ProfileCreate(name: broken, noSkills: true),
+        );
+        addTearDown(
+          () => client.raw.deleteProfileEndpointApiProfilesNameDelete(
+            name: broken,
+          ),
+        );
+        await client.raw.updateConfigRawApiConfigRawPut(
+          profile: broken,
+          rawConfigUpdate: RawConfigUpdate(
+            yamlText:
+                'model:\n  default: "none"\n  provider: "no-such-provider"\n',
+          ),
+        );
+        final tap = await openTap();
+        final session = await tap.rpc.request('session.create', {
+          'profile': broken,
+          'source': 'hermes_app',
+        });
+        final sid = session['session_id'] as String;
+        final clock = Stopwatch()..start();
+        await expectLater(
+          tap.rpc.request('process.list', {'session_id': sid}),
+          rpcError(5032),
+        );
+        expect(clock.elapsed, lessThan(const Duration(seconds: 10)));
+        await expectLater(
+          tap.rpc.request('process.kill', {
+            'session_id': sid,
+            'process_id': 'proc_000000000000',
+          }),
+          rpcError(5032),
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
     test(
       'an approval is found by its chat on another connection and answered '
       'there by its id, without resuming the chat',
@@ -4682,6 +5060,12 @@ Future<HttpServer> _serveMinimalMcp() async {
 /// An OpenAI-compatible model that answers a prompt containing "Clean up"
 /// with one terminal call running [command], and anything else, including the
 /// call's result and Hermes' own side calls, with a plain line.
+///
+/// Two more prompts script the agent-control checks: "Delegate" answers with
+/// a `delegate_task` call holding two goals, and "Run background" with a
+/// background `terminal` call (`sleep 300`). A delegated child, told apart by
+/// its system prompt ("focused subagent"), runs `terminal` `sleep 30` on its
+/// first turn and answers plainly after the tool's result.
 Future<HttpServer> _serveScriptedModel({required String command}) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
@@ -4704,20 +5088,40 @@ Future<HttpServer> _serveScriptedModel({required String command}) async {
     ) as Map<String, dynamic>;
     final messages = (body['messages'] as List).cast<Map<String, dynamic>>();
     final last = messages.last;
+    final userTurn = last['role'] == 'user';
+    final lastText = jsonEncode(last['content']);
+    final isChild = jsonEncode(messages.first['content'])
+        .contains('focused subagent');
+    final childFirstTurn = isChild && !messages.any((m) => m['role'] == 'tool');
+    final canCall = body['tools'] != null;
+    final cleanUp = canCall && userTurn && lastText.contains('Clean up');
+    final delegate =
+        canCall && !isChild && userTurn && lastText.contains('Delegate');
+    final background =
+        canCall && !isChild && userTurn && lastText.contains('Run background');
     final callTool =
-        body['tools'] != null &&
-        last['role'] == 'user' &&
-        jsonEncode(last['content']).contains('Clean up');
+        cleanUp || delegate || background || (canCall && childFirstTurn);
+    Map<String, Object?> call(String id, String name, Object arguments) => {
+      'id': id,
+      'type': 'function',
+      'function': {'name': name, 'arguments': jsonEncode(arguments)},
+    };
     final calls = [
-      if (callTool)
-        {
-          'id': 'call_scripted',
-          'type': 'function',
-          'function': {
-            'name': 'terminal',
-            'arguments': jsonEncode({'command': command}),
-          },
-        },
+      if (cleanUp) call('call_scripted', 'terminal', {'command': command}),
+      if (delegate)
+        call('call_delegate', 'delegate_task', {
+          'tasks': [
+            {'goal': 'Count the apples in the demo crate'},
+            {'goal': 'Count the pears in the demo crate'},
+          ],
+        }),
+      if (background)
+        call('call_background', 'terminal', {
+          'command': 'echo ready on demo port; sleep 300',
+          'background': true,
+        }),
+      if (canCall && childFirstTurn)
+        call('call_child', 'terminal', {'command': 'sleep 30'}),
     ];
     final content = callTool ? null : 'Done.';
     final finish = callTool ? 'tool_calls' : 'stop';
@@ -4817,9 +5221,9 @@ class _GatewayTap {
   }
 
   /// Waits until [condition] holds, and fails naming [what] when it does not
-  /// within two minutes.
+  /// within a minute.
   Future<void> until(bool Function() condition, String what) async {
-    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    final deadline = DateTime.now().add(const Duration(seconds: 60));
     while (!condition()) {
       if (DateTime.now().isAfter(deadline)) {
         fail('timed out waiting for $what');
