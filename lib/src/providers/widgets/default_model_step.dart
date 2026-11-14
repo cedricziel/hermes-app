@@ -131,6 +131,7 @@ class DefaultModelStep extends StatelessWidget {
               detail: l10n.providersStepLoadingDetail,
             ),
           ),
+        if (data.busy) ProviderStatusLine(l10n.providersSaving),
         ProviderActionStack(
           buttons: (full) => switch (data.view) {
             DefaultStepView.ready => [

@@ -44,7 +44,7 @@ class ServerCommandView extends StatelessWidget {
             metrics.rowPadding,
             0,
           ),
-          child: CommandRow(command: data.command),
+          child: CommandRow(command: data.command, copyBelowAtLargeText: true),
         ),
         GroupedFooter(l10n.providersServerFooter(data.profile)),
         ProviderActionStack(
@@ -57,6 +57,7 @@ class ServerCommandView extends StatelessWidget {
             ),
           ],
         ),
+        if (data.checking) ProviderStatusLine(l10n.providersServerChecking),
       ],
     );
   }

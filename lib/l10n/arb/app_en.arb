@@ -1454,6 +1454,10 @@
       }
     }
   },
+  "providersServerChecking": "Checking…",
+  "@providersServerChecking": {
+    "description": "Status line while the page that shows a server command reads the providers again."
+  },
   "providersServerDone": "Done",
   "@providersServerDone": {
     "description": "Button in the bar of the page that shows a server command."

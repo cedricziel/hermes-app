@@ -315,7 +315,7 @@ class _ProviderDetailViewState extends State<ProviderDetailView> {
             ),
           ),
           if (command != null && command.isNotEmpty)
-            CommandRow(command: command),
+            CommandRow(command: command, copyBelowAtLargeText: true),
         ],
       ),
     );

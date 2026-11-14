@@ -36,7 +36,7 @@ class ConnectModelCard extends StatelessWidget {
         l10n.providersCardConnect,
       ),
       ConnectCardKind.reconnect => (
-        AppIcons.password,
+        AppIcons.lock,
         l10n.providersCardReconnectTitle,
         l10n.providersCardReconnectBody(data.profile, data.modelName ?? ''),
         l10n.providersCardReconnect,

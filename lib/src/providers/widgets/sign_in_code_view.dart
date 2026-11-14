@@ -104,7 +104,8 @@ class _SignInCodeViewState extends State<SignInCodeView> {
     // The code breaks only between its groups, so each stays whole.
     final groups = code
         .split(RegExp(r'(?<=[-\s])'))
-        .where((g) => g.trim().isNotEmpty)
+        .map((g) => g.trim())
+        .where((g) => g.isNotEmpty)
         .toList();
     return Padding(
       padding: EdgeInsets.fromLTRB(

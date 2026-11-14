@@ -151,17 +151,7 @@ class _EndpointFormState extends State<EndpointForm> {
                 title: l10n.providersEndpointFound(data.models.length),
               ),
             ),
-            GroupedSection(
-              children: [
-                GroupedMenuRow<String>(
-                  title: l10n.providersEndpointModelLabel,
-                  options: data.models,
-                  labelOf: (model) => model,
-                  selected: data.selectedModel,
-                  onSelected: (model) => widget.onModelSelected?.call(model),
-                ),
-              ],
-            ),
+            _modelChoice(l10n),
             if (data.resolvedAddress != null)
               GroupedFooter(
                 l10n.providersEndpointWillUse(data.resolvedAddress!),
@@ -196,6 +186,44 @@ class _EndpointFormState extends State<EndpointForm> {
           ),
         );
     }
+  }
+
+  /// The models found: a menu with the first selected, or at a large text
+  /// size, where a menu row would cut its label and value, one row per model
+  /// under a "Model" header.
+  Widget _modelChoice(AppLocalizations l10n) {
+    final data = widget.data;
+    if (MediaQuery.textScalerOf(context).scale(14) <= 21) {
+      return GroupedSection(
+        children: [
+          GroupedMenuRow<String>(
+            title: l10n.providersEndpointModelLabel,
+            options: data.models,
+            labelOf: (model) => model,
+            selected: data.selectedModel,
+            onSelected: (model) => widget.onModelSelected?.call(model),
+          ),
+        ],
+      );
+    }
+    return RadioGroup<String>(
+      groupValue: data.selectedModel,
+      onChanged: (model) {
+        if (model != null) widget.onModelSelected?.call(model);
+      },
+      child: GroupedSection(
+        header: l10n.providersEndpointModelLabel,
+        dividerIndent: GroupedChoiceRow.dividerIndent(context),
+        children: [
+          for (final model in data.models)
+            GroupedChoiceRow<String>(
+              value: model,
+              title: model,
+              titleMaxLines: null,
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _advanced(BuildContext context, AppLocalizations l10n) {

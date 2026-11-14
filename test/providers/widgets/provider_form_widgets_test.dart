@@ -212,13 +212,17 @@ void main() {
 
     testWidgets('a plain failure keeps the typed key', (tester) async {
       controller.text = _fakeKey;
-      await pumpForm(tester, _key(ApiKeyPhase.checking));
+      // The key is shown first, then the check starts and the answer fails.
+      await pumpForm(tester, _key(ApiKeyPhase.editing), shown: true);
+      expect(_editable(tester).obscureText, isFalse);
+      await pumpForm(tester, _key(ApiKeyPhase.checking), shown: true);
       await pumpForm(
         tester,
         _key(
           ApiKeyPhase.rejected,
           message: 'That API key was rejected. Double-check it and try again.',
         ),
+        shown: true,
       );
       await tester.pump();
       expect(controller.text, _fakeKey);
@@ -517,6 +521,62 @@ void main() {
       await _pump(tester, SignInCodeView(data: data()), scale: 3);
       expect(tester.takeException(), isNull);
       expect(find.text('WDJB-'), findsOneWidget);
+    });
+  });
+
+  group('status lines for a busy step and a check', () {
+    testWidgets('the default-model step says Saving… while busy', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const DefaultModelStep(
+          data: DefaultStepData(
+            view: DefaultStepView.ready,
+            providerName: 'OpenRouter',
+            profile: 'work',
+            modelName: 'Example Model A',
+            busy: true,
+          ),
+        ),
+      );
+      expect(find.text('Saving…'), findsOneWidget);
+    });
+
+    testWidgets('the server command page says Checking… in German too', (
+      tester,
+    ) async {
+      const data = ServerCommandData(
+        providerName: 'Anthropic',
+        profile: 'work',
+        command: 'hermes auth add anthropic',
+        checking: true,
+      );
+      await _pump(tester, const ServerCommandView(data: data));
+      expect(find.text('Checking…'), findsOneWidget);
+      await _pump(
+        tester,
+        const ServerCommandView(data: data),
+        locale: const Locale('de'),
+      );
+      expect(find.text('Wird geprüft …'), findsOneWidget);
+    });
+
+    testWidgets('a code with spaces is shown without trailing spaces', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const SignInCodeView(
+          data: SignInCodeData(
+            providerName: 'ChatGPT',
+            profile: 'work',
+            code: 'WDJB MJHT',
+          ),
+        ),
+      );
+      expect(find.text('WDJB'), findsOneWidget);
+      expect(find.text('MJHT'), findsOneWidget);
     });
   });
 
