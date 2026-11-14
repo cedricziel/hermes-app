@@ -218,9 +218,9 @@ class _HermesAppState extends State<HermesApp> {
   }
 }
 
-/// Switches between setup / login / home purely on [AuthController.state] —
-/// no named routes yet, since the bootstrap app only has these three
-/// destinations.
+/// Switches between setup / login / home on [AuthController.state] — no named
+/// routes yet, since the bootstrap app only has these three destinations. The
+/// home shell is also rebuilt when the account owner generation changes.
 class _RootRouter extends StatefulWidget {
   const _RootRouter({this.updateChecker});
 
