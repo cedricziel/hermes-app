@@ -2,9 +2,9 @@
 
 Change: `openspec/changes/whatsapp-onboarding/`. Read its design.md for the server facts (statuses, the 600 s expiry, the 900 s drop, what apply does, what cancel does not do); this brief is the visual and copy pass.
 
-## Design (written, no canvas)
+## Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC)
 
-No Claude Design canvas was built for this pass. It was written from the Hermes App design system README, the merged briefs (`server-care.md`, `toolsets.md`), the shared widgets in `lib/src/widgets/` and the change's own files, in a session that had no canvas tooling run. There is no canvas link and none should be assumed. The catalog PR (task 1 in tasks.md) is where the states below are first drawn, and it is the first place a human sees them; where a catalog use case shows that a decision here does not work, correct the brief in that PR, in a "Corrections" paragraph like the other briefs.
+No Claude Design canvas exists yet, so there is no canvas link and none should be assumed. The brief was written from the Hermes App design system README, the merged briefs (`server-care.md`, `toolsets.md`), the shared widgets in `lib/src/widgets/` and the change's own files, then reviewed against the app-wide rules. No build starts before the canvas exists; when it does, run the design pass and bring this brief in line with it. The catalog PR (task 1 in tasks.md) is where the states below are first drawn, and it is the first place a human sees them; where a catalog use case shows that a decision here does not work, correct the brief in that PR, in a "Corrections" paragraph like the other briefs.
 
 Screens and states decided (one pushed screen, "Link WhatsApp", whose body follows a phase; plus the entry button and the Finish confirmation):
 
@@ -32,6 +32,7 @@ Decisions taken in this pass:
 - Failed texts are the server's own, shown in a surface-high box, selectable, wrapping (they can hold paths and 10 log lines), under a fixed title "WhatsApp setup stopped". No per-reason wording.
 - Finish confirmation is `showConfirmDialog(..., cancelIsDefault: true)` (`AppAlertDialog`: Cupertino alert, restrained Mac alert, Material dialog with two text buttons). The helper defaults to `filled: true, cancelIsDefault: false`, so the flag must be passed. Cancel is first and the default (bold on Apple platforms); "Save and restart" is plain, never red and never filled. By its doc comment the helper binds the Return key to neither button, so on the Mac Return is not bound; the brief does not claim it is Cancel's, and Escape cancels.
 - Finish result is shown on the Messaging list (`MessagingScreen`, titled "Messaging"; "Bots" is the Bot Mode tab, a different screen) as an `AppBanner` after the screens close: success tone when a restart was requested and `needs_restart` is false; warning tone otherwise. Neither says the gateway restarted.
+- Polling pauses while the app is in the background or App Lock is locked (owner decision). On return, once unlocked, a neutral `AppBanner` with a pause icon says "Paused while the app was away." with the detail "Checking again now. The code may have changed." It goes at the next answer; if that poll fails, the offline banner replaces it. While locked nothing polls and App Lock's cover hides the screen.
 - Lost answers end within 10 s with "Couldn't confirm...". Start: the action offered is Start again (it supersedes any earlier pairing). Finish: Check. Neither request is resent.
 - A phone with a second device is the supported handset path. There is no "link by number" and no hint that there is one.
 
@@ -111,13 +112,14 @@ States:
 - Loading means this card; there is no skeleton and no progress percentage (the server gives none).
 - Installing for the full 300 s window is expected, so no warning is added at any elapsed time; the server's own error (F) ends it.
 - Offline while here: the card stays, with an `AppBanner` warning above it, "You're offline." detail "Checking again when you're back." Polling continues every 2 s.
+- After a pause (background or App Lock): the same neutral "Paused while the app was away." banner above the card until the next poll answers.
 - Lost answer: not applicable (the screen polls; a failed poll is the offline line above).
 
 ### C. Handset notice (shortest side under 600 dp, QR status)
 
 - Before the tap: `HandsetQrNotice`: `AppBanner` neutral, phone icon, title "Scan this with the phone that has WhatsApp.", detail "A phone can't scan its own screen. Open this screen on another device, or on a computer, signed in to the same server." Then the filled "Show QR code". Under it the outlined "Cancel setup".
 - After the tap: the notice becomes the one muted line; the code shows (D). The tap moves screen-reader focus to the code.
-- Each lock, background or lifecycle leaving `resumed` returns to the "before the tap" state.
+- Each lock, background or lifecycle leaving `resumed` returns to the "before the tap" state. On return, once unlocked, the "Paused while the app was away." banner shows above the notice until the next poll answers.
 - The notice is the honest handset path. It is not an error and has no warning tone.
 
 ### D. QR
@@ -131,7 +133,7 @@ States:
 - Expiring (last 60 s): the countdown line becomes an `AppBanner` warning "Setup closes soon." detail "Scan now, or start again after it closes." A warning icon with the words; the code stays.
 - Expired (status `expired` or a 410): the tile is replaced by an end state (F, "The code expired"). The code is not kept.
 - Offline: the code stays, with an `AppBanner` warning above it, "You're offline." detail "This code may be out of date." Polling continues.
-- App Lock and lifecycle: hidden as above.
+- App Lock and lifecycle: hidden as above. Polling is paused then; on return, once unlocked, the "Paused while the app was away." banner (neutral, pause icon, detail "Checking again now. The code may have changed.") shows above the code until the next poll answers. If the countdown ran out while paused, the expired block of F shows locally at once.
 
 ### E. Linked
 
@@ -173,12 +175,12 @@ Start again returns to A with the earlier values, so nothing is retyped, and ask
 
 ## Platform and size behaviour
 
-- Desktop focus: the code hides whenever the window loses focus, because the lifecycle leaves `resumed` then, while `AppLockController` covers on inactive only on phones. That is the behaviour: on a Mac, Windows or Linux window, switching to another app hides the code and it shows again on return. It is also an open question for the owner (8 below). The catalog gets a use case for the desktop hidden state with the "Shows again when the app is unlocked and in front." line, so the behaviour is seen before wiring.
+- Desktop focus (owner decision): the code hides whenever the window loses focus, because the lifecycle leaves `resumed` then, while `AppLockController` covers on inactive only on phones. On a Mac, Windows or Linux window, switching to another app hides the code and it shows again on return. The catalog keeps a use case for the desktop hidden state with the "Shows again when the app is unlocked and in front." line, so the behaviour is seen before wiring.
 
 - Handset (shortest side under 600 dp): C before D; stacked layout; buttons full width (handsets only).
 - Tablet and desktop: D at once; two columns at 640 pt or more; the same buttons at their natural width in a row (primary first).
 - Mac: the same `AppBar` chrome as every platform (no separate toolbar), ⌘[ back, 28 pt minimum targets, text buttons are standard Mac buttons. The Mac alert is restrained.
-- Android: Material app bar, back button and the system back gesture both cancel. The Finish dialog is two text buttons. Open question: screenshots of the code.
+- Android: Material app bar, back button and the system back gesture both cancel. The Finish dialog is two text buttons. The code is not shielded from screenshots here: `FLAG_SECURE` is a follow-up outside this change (below).
 - Windows, Linux: the Mac layout with the same `AppBar`; no extra chords.
 
 ## States every screen covers
@@ -190,7 +192,7 @@ Start again returns to A with the earlier values, so nothing is retyped, and ask
 | Offline           | the warning banner in A, B, D; the error in G               |
 | Error             | F, the refused banners in A and G                           |
 | Lost answer       | A (Start again) and G (Check), both end within 10 s         |
-| App Lock          | the code goes to "Hidden"; the rest follows the app's cover |
+| App Lock          | the code goes to "Hidden"; polling pauses; "Paused while the app was away." on return |
 | Phone and desktop | C versus D, stacked versus two columns                      |
 | Light and dark    | the tile stays black on white; banners use their tones      |
 | Largest text      | see below                                                   |
@@ -235,10 +237,12 @@ English strings are shorter than German; the long-string risks are: "Link WhatsA
 | Entry and explicit start: Start carries the profile | A, Start (no visible change; a controller test)                                                    |
 | Entry and explicit start: Numbers are checked       | A, invalid number (both messages)                                                                  |
 | Progress and polling: Server installs packages      | B, Installing                                                                                      |
-| Progress and polling: App in background             | C and D, hidden; B and D polling paused                                                            |
+| Progress and polling: App in background             | C and D, hidden; B and D polling paused, then the "Paused" banner on return                        |
+| Progress and polling: App Lock                      | B, C and D: nothing polls while locked; the "Paused" banner once unlocked                           |
 | QR code: Code rotates                               | D, rotated                                                                                         |
 | QR code: No copy or log                             | D (no copy or share action); Privacy                                                               |
 | QR code: Hidden on lock or background               | D, hidden; C, before the tap                                                                       |
+| QR code: Desktop focus                              | D, hidden, with the "Shows again" line                                                              |
 | Handset flow: Phone                                 | C, both states                                                                                     |
 | Handset flow: Mac                                   | D at once, with the "Shows again" line when hidden                                                 |
 | Final states: Expired                               | F, expired; D, expiring                                                                            |
@@ -262,13 +266,19 @@ English strings are shorter than German; the long-string risks are: "Link WhatsA
 | Back          | Back button and swipe | Back button and system gesture | Back button             | Back, ⌘[                |
 | Targets       | 44 pt                 | 48 dp                          | 44 pt                   | 28 pt                   |
 
+## Decided by the owner
+
+- App Lock pauses polling. Polling runs only while the app is in front and unlocked; on return once unlocked the "Paused while the app was away." line shows until the next answer (spec: Progress and polling).
+- On desktop the code is hidden whenever the window loses focus (spec: QR code, Desktop focus).
+- A "Hide QR code" button is left out (no spec scenario).
+
+## Follow-ups outside this change
+
+- Android `FLAG_SECURE` for the QR (block screenshots and recordings while the code is shown). Not part of this change: it needs native work and the proposal rules that out. Roadmap candidate only; no task here.
+
 ## Open questions for the owner
 
 1. Mode wording. design.md does not say what "Bot" and "Self-chat" do beyond the bridge's two modes. The one-liners above ("Hermes has its own WhatsApp number..." and "Hermes uses your own number...") are the designer's reading and need confirming against the bridge.
-2. Screenshot protection. Should Android block screenshots of the screen while the code is shown? It needs a native change, which the proposal rules out (`No native change`). Today the code is only kept out of caches and the app switcher.
-3. A "Hide QR code" button on the shown code, for shoulder-surfing. Not in the spec; the brief leaves it out.
-4. Polling while App Lock is locked: the spec says polling runs while the app is in front and resumes on return, and the brief keeps that. Pausing it while App Lock is locked would differ from the spec's "resumes on return" (the code is hidden then, so a stale poll has nothing to show). Pause it too, or keep the spec as written?
-5. Check after a lost apply reads the platform list; which field there means "WhatsApp is on" is to be confirmed from the fixtures (task 2.1 in tasks.md). Finish records `enabled` before sending apply; if it was already on, Check cannot confirm a save and ends with "Couldn't confirm", and after a Check-confirmed save the banner makes no restart claim (see G).
-6. WhatsApp's German labels for Linked devices and Link a device, to be copied from a German install.
-7. A "Open Server" action on the not-restarted banner relies on the Server screen being reachable from the Messaging list; confirm it is, or drop the action and keep the words.
-8. Desktop focus loss: the code hides whenever the window loses focus (see Platform and size behaviour). Keep that, or hide only on App Lock and on minimise?
+2. Check after a lost apply reads the platform list; which field there means "WhatsApp is on" is to be confirmed from the fixtures (task 2.1 in tasks.md). Finish records `enabled` before sending apply; if it was already on, Check cannot confirm a save and ends with "Couldn't confirm", and after a Check-confirmed save the banner makes no restart claim (see G).
+3. WhatsApp's German labels for Linked devices and Link a device, to be copied from a German install.
+4. A "Open Server" action on the not-restarted banner relies on the Server screen being reachable from the Messaging list; confirm it is, or drop the action and keep the words.
