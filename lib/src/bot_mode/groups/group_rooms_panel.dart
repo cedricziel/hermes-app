@@ -81,7 +81,8 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
         try {
           states[room.roomId] = await repository.state(room.roomId);
         } on Object {
-          /* Listing survives a single unavailable room state. */
+          /* Listing survives a single unavailable room state. Bot Mode uses
+             StateError for its ordinary refusals, so nothing narrower fits. */
         }
       }
       if (!mounted || generation != _generation) return;

@@ -56,7 +56,7 @@ Future<Map<String, String>> _askHeaders(
     );
     return headers?.cast<String, String>() ?? const {};
   } on Object catch (error) {
-    debugPrint('The main window gave no auth headers: $error');
+    debugPrint('The main window gave no auth headers: ${error.runtimeType}');
     return const {};
   }
 }
@@ -109,7 +109,9 @@ class DesktopConversationWindowHost implements ConversationWindowHost {
     try {
       await _windowChannel(windowId).invokeMethod<void>(command);
     } on Object catch (error) {
-      debugPrint('Conversation window $windowId did not take $command: $error');
+      debugPrint(
+        'A conversation window did not take $command: ${error.runtimeType}',
+      );
     }
   }
 
@@ -322,7 +324,7 @@ class DesktopConversationWindowLink
     try {
       await call;
     } on Object catch (error) {
-      debugPrint('Conversation window call failed: $error');
+      debugPrint('Conversation window call failed: ${error.runtimeType}');
     }
   }
 }
@@ -456,7 +458,7 @@ class DesktopQuickPanelLink implements QuickPanelLink, QueueWindowLink {
     try {
       return await _main<String>('profile.current');
     } on Object catch (error) {
-      debugPrint('The main window gave no profile: $error');
+      debugPrint('The main window gave no profile: ${error.runtimeType}');
       return null;
     }
   }
@@ -481,7 +483,7 @@ class DesktopQuickPanelLink implements QuickPanelLink, QueueWindowLink {
       });
       return WindowMove.values.asNameMap()[move] ?? WindowMove.failed;
     } on Object catch (error) {
-      debugPrint('The main window did not open the chat: $error');
+      debugPrint('The main window did not open the chat: ${error.runtimeType}');
       return WindowMove.failed;
     }
   }

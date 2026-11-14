@@ -162,7 +162,9 @@ class MenuBarExtra {
             urgent: urgent,
           )
           .catchError((Object error) {
-            debugPrint('Could not update the menu bar item: $error');
+            debugPrint(
+              'Could not update the menu bar item: ${error.runtimeType}',
+            );
           }),
     );
   }
@@ -211,7 +213,7 @@ class MenuBarExtra {
           await quit();
       }
     } on Object catch (error) {
-      debugPrint('The menu bar item could not act: $error');
+      debugPrint('The menu bar item could not act: ${error.runtimeType}');
     }
   }
 
