@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
@@ -586,7 +588,7 @@ void main() {
     run.dispose();
     run = build(
       onDelay: (d) async {
-        if (polls++ == 1) run.reset();
+        if (polls++ == 1) unawaited(run.reset());
       },
     );
     await run.start();

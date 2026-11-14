@@ -12,6 +12,7 @@ import 'care_result.dart';
 import 'server_care_controller.dart';
 import 'server_care_repository.dart';
 import 'update_receipt.dart';
+import 'update_run_record.dart';
 
 enum UpdatePhase {
   idle,
@@ -55,6 +56,7 @@ enum UpdateResult { success, partial, failed, interrupted, unknown }
 class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   HermesUpdateRun({
     required ServerCareRepository repository,
+    UpdateRunStore? store,
     ServerCareController? care,
     Future<void> Function()? probeConnection,
     ConnectionTelemetry telemetry = const ConnectionTelemetry(),
@@ -62,6 +64,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     DateTime Function()? now,
     Future<void> Function(Duration)? delay,
   }) : _repository = repository,
+       _store = store,
        _care = care,
        _probeConnection = probeConnection,
        _telemetry = telemetry,
@@ -71,6 +74,9 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
 
   /// How long Hermes is waited for after it stopped answering.
   static const restartWindow = Duration(minutes: 15);
+
+  /// A saved update older than this is read once and dropped on launch.
+  static const resumeWindow = Duration(hours: 1);
 
   /// How long the receipt is waited for once Hermes answers.
   static const receiptWindow = Duration(seconds: 60);
@@ -82,6 +88,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   static const _lastBackoff = Duration(seconds: 10);
 
   final ServerCareRepository _repository;
+  final UpdateRunStore? _store;
   final ServerCareController? _care;
   final Future<void> Function()? _probeConnection;
   final ConnectionTelemetry _telemetry;
@@ -180,6 +187,9 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   /// ends the run.
   void dismiss() {
     if (busy || _phase == UpdatePhase.idle) return;
+    if (_phase == UpdatePhase.notBack || _phase == UpdatePhase.unauthorized) {
+      unawaited(_store?.clear());
+    }
     _reset();
     notifyListeners();
   }
@@ -209,9 +219,32 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   }
 
   /// Stops following and drops the run: sign-out and server change.
-  void reset() {
+  Future<void> reset() {
     _reset();
     notifyListeners();
+    return _store?.clear() ?? Future.value();
+  }
+
+  /// On launch: picks up an update a previous run of the app saved. One
+  /// younger than an hour resumes at [UpdatePhase.updating] (the action's
+  /// status and the receipt tell where it is); an older one is read once and
+  /// dropped.
+  Future<void> resume() async {
+    final store = _store;
+    if (store == null || busy || disposed) return;
+    final record = await store.read();
+    if (record == null || busy || disposed) return;
+    _reset();
+    _startedAt = record.startedAt;
+    _actionId = record.actionId;
+    _versionBefore = record.versionBefore;
+    _commitBefore = record.commitBefore;
+    if (_now().difference(record.startedAt) < resumeWindow) {
+      _startSpan(resumed: true);
+      await _launch(() => _follow(_Step.update));
+    } else {
+      await _launch(_readOld);
+    }
   }
 
   @override
@@ -304,7 +337,36 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
         _refusalMessage = null;
         return _settle(UpdatePhase.refused, 'refused');
     }
+    await _store?.write(
+      UpdateRunRecord(
+        startedAt: _startedAt!,
+        actionId: _actionId,
+        versionBefore: _versionBefore,
+        commitBefore: _commitBefore,
+      ),
+    );
+    if (_stale(generation)) return;
     await _follow(_Step.update);
+  }
+
+  /// An update saved long ago: the receipt is read once. When it names the
+  /// action its outcome is shown; otherwise there is nothing to say.
+  Future<void> _readOld() async {
+    final generation = _generation;
+    _enter(UpdatePhase.verifying);
+    final health = await _repository.health();
+    if (_stale(generation)) return;
+    if (health case CareOk(:final value)) _noteHealth(value);
+    final receipt = await _repository.updateReceipt();
+    if (_stale(generation)) return;
+    if (receipt case CareOk(:final value?)
+        when _isMine(value) && _resolve(value)) {
+      return;
+    }
+    await _store?.clear();
+    if (_stale(generation)) return;
+    _reset();
+    notifyListeners();
   }
 
   /// Runs the steps until one settles the run.
@@ -570,6 +632,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   }
 
   Future<void> _afterResolved() async {
+    await _store?.clear();
     try {
       await _probeConnection?.call();
     } on Object {
