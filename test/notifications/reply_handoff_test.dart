@@ -767,74 +767,102 @@ void main() {
 
   group('the app route when everything hangs', () {
     test(
-      'a hung close and a slow announcement: reported in time, and the ending '
-      'is the last word',
+      'an announcement dropped at the cutoff leaves the chat recorded',
       () async {
-        final slow = _SlowFirstPost(const Duration(milliseconds: 900));
-        final hung = _HangingClose();
-        final app = RequestAnswers(
-          sender,
-          reply:
-              ({
-                required payload,
-                required input,
-                required due,
-                required route,
-              }) => sendInlineReply(
-                payload: payload,
-                input: input,
-                due: due,
-                route: route,
-                platform: TargetPlatform.iOS,
-                notifications: slow,
-                settings: settings,
-                appLockAtArrival: () async => false,
-                appLockBeforePost: () async => false,
-                appInFront: () async => false,
-                running: running,
-                transportFor: (_) => hung,
-                deps: deps(),
-              ),
-        )..start();
-        addTearDown(app.dispose);
-        var told = 0;
-        // The cutoff is 0.4 s from now.
-        final due = DateTime.now().add(const Duration(milliseconds: 6400));
-        final started = DateTime.now();
+        final slow = _SlowAllowed(const Duration(milliseconds: 900));
+        final run = sendInlineReply(
+          payload: payload(),
+          input: 'Yes',
+          due: DateTime.now().add(const Duration(milliseconds: 400)),
+          route: InlineReplyRoute.lone,
+          platform: TargetPlatform.iOS,
+          notifications: slow,
+          settings: settings,
+          appLockAtArrival: () async => false,
+          appLockBeforePost: () async => false,
+          appInFront: () async => false,
+          running: running,
+          transportFor: (_) => transport,
+          deps: deps(),
+        );
+        await _until(() => transport.sends.isNotEmpty);
+        transport.sends.single.onSubmitting!();
+        transport.promptAccepted = true;
+        transport.sends.single.emit(const ReplyCompleted('Booked.'));
 
-        final run = routeAnswer(
-          response(),
-          deadline: due,
-          reportGrace: const Duration(seconds: 2),
-          unanswered: (_) async {},
-          alone: (_, _) async => fail('a reply is not an answer'),
-          aloneReply: (_, _) async => fail('the app took it'),
-          unansweredReply: (_) async => told++,
-        );
-        await _until(() => hung.sends.isNotEmpty);
-        // Written, never acknowledged, and the answer arrives: announcing
-        // starts and is slow.
-        hung.sends.single
-          ..onSubmitting!()
-          ..emit(const ReplyCompleted('Booked.'));
-        await run;
+        final result = await run;
+        await Future<void>.delayed(const Duration(milliseconds: 1100));
 
-        // The report came well before due + grace, from the ending.
-        expect(
-          DateTime.now().difference(started),
-          lessThan(const Duration(seconds: 6)),
-        );
-        expect(told, 0);
-        // The slow "Reply ready" lands later: the ending goes out again.
-        await _until(
-          () => slow.shown.any((n) => n.body != kReplyUnconfirmedBody),
-        );
-        await _until(() => slow.shown.last.body == kReplyUnconfirmedBody);
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-        expect(slow.shown.last.body, kReplyUnconfirmedBody);
-        expect(hung.sends, hasLength(1));
+        expect(result.ending, isNull);
+        expect((await running.read()).map((r) => r.threadId), ['thread-1']);
+        expect(await running.readAnnounced(), isEmpty);
+        expect(slow.shown, isEmpty);
       },
     );
+
+    group('one grace for everything that hangs', () {
+      HeadlessDeps slowDeps() => HeadlessDeps(
+        tokenStore: store,
+        prefs: SharedPreferencesAsync(),
+        devServerUrl: '',
+        adapter: server,
+        telemetry: (attributes) =>
+            ConnectionTelemetry(tracer: RecordingTracer()),
+        closeGrace: const Duration(milliseconds: 400),
+      );
+
+      Future<InlineReplyResult> start(
+        FakeChatTransport hung,
+        NotificationService service,
+      ) => sendInlineReply(
+        payload: payload(),
+        input: 'Yes',
+        due: DateTime.now().add(const Duration(milliseconds: 300)),
+        route: InlineReplyRoute.lone,
+        platform: TargetPlatform.iOS,
+        notifications: service,
+        settings: settings,
+        appLockAtArrival: () async => false,
+        appLockBeforePost: () async => false,
+        appInFront: () async => false,
+        running: running,
+        transportFor: (_) => hung,
+        deps: slowDeps(),
+      );
+
+      test(
+        'a hung close and a hung announcement end within one grace',
+        () async {
+          final hung = _HangingClose();
+          final watch = Stopwatch()..start();
+          final run = start(hung, _SlowAllowed(const Duration(seconds: 10)));
+          await _until(() => hung.sends.isNotEmpty);
+          hung.sends.single
+            ..onSubmitting!()
+            ..emit(const ReplyCompleted('Booked.'));
+          hung.promptAccepted = true;
+
+          await run;
+
+          // 0.3 s cutoff + one 0.4 s grace for the runtime + one for close and
+          // announcement together; two in sequence would pass 1.5 s.
+          expect(watch.elapsedMilliseconds, lessThan(950));
+        },
+      );
+
+      test('the transport is closed once, however many ask', () async {
+        final hung = _HangingClose();
+        final watch = Stopwatch()..start();
+        final run = start(hung, notifications);
+        await _until(() => hung.sends.isNotEmpty);
+        hung.sends.single.onSubmitting!();
+
+        await run;
+
+        expect(hung.closeCalls, 1);
+        expect(watch.elapsedMilliseconds, lessThan(1000));
+      });
+    });
 
     test(
       'an announcement not yet posted at the cutoff is never posted',
@@ -1178,19 +1206,6 @@ void main() {
   });
 }
 
-/// Delays only its first post, like an announcement that is slow to land.
-class _SlowFirstPost extends FakeNotificationService {
-  _SlowFirstPost(this.delay);
-  final Duration delay;
-  var _posts = 0;
-
-  @override
-  Future<NotificationPostResult> post(AttentionNotification n) async {
-    if (_posts++ == 0) await Future<void>.delayed(delay);
-    return super.post(n);
-  }
-}
-
 /// Answers `allowed` only after [delay], the first time.
 class _SlowAllowed extends FakeNotificationService {
   _SlowAllowed(this.delay);
@@ -1209,8 +1224,11 @@ class _SlowAllowed extends FakeNotificationService {
 
 /// A transport whose close never answers.
 class _HangingClose extends FakeChatTransport {
+  var closeCalls = 0;
+
   @override
   Future<void> close() {
+    closeCalls++;
     closed = true;
     return Completer<void>().future;
   }

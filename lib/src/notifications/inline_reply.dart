@@ -658,7 +658,6 @@ class _InlineReply {
       }
       return;
     }
-    _announcing = true;
     final posted = await _post(
       notifications,
       settings,
@@ -669,12 +668,21 @@ class _InlineReply {
         profile: _profile,
         appLock: locked,
       ),
-      stillWanted: () => !_muted,
+      // Past the cutoff the post is dropped, and the run records the chat.
+      stillWanted: () {
+        if (_muted) return false;
+        _announcing = true;
+        return true;
+      },
     );
-    // Posted late, after the ending was decided and posted: the ending goes
-    // out again, so the last word is the ending, never "Reply ready".
-    final ending = _repostEnding;
-    if (posted && ending != null) await ending();
+    if (!posted && !_announcing) {
+      // Dropped at the cutoff: the replay must still announce it.
+      try {
+        await running?.takeAnnounced(_profile, _threadId);
+      } on Object {
+        // Nothing more to undo.
+      }
+    }
   }
 
   /// The verdict for a failed send, by the step it reached.
@@ -753,7 +761,7 @@ class _InlineReply {
         verdict.keepText &&
         text.characters.length <= kPreviewLength &&
         _accountHash != null;
-    Future<bool> post() => postEnding(
+    return postEnding(
       notifications: notifications,
       settings: settings,
       appLockOn: appLockBeforePost,
@@ -764,13 +772,7 @@ class _InlineReply {
       draft: keep ? text : null,
       accountHash: keep ? _accountHash : null,
     );
-    final posted = await post();
-    if (posted) _repostEnding = post;
-    return posted;
   }
-
-  /// Posts the ending again, once it was posted.
-  Future<bool> Function()? _repostEnding;
 
   /// Remembers the chat for the background check, on iOS only.
   Future<void> _record() async {
