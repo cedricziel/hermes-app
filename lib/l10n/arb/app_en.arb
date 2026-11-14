@@ -2330,6 +2330,156 @@
   "@providersAddHeading": {
     "description": "Heading of the part of the model providers list that offers providers not yet connected."
   },
+  "providersAlertCantUse": "{profile} can no longer use {provider} models.",
+  "@providersAlertCantUse": {
+    "description": "Body of a removal alert.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersAlertCleartextBody": "{address} isn't encrypted. Anyone on the network could read the key on its way.",
+  "@providersAlertCleartextBody": {
+    "description": "Body of the alert shown before a key goes to an address that is not encrypted.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "models.example.net"
+      }
+    }
+  },
+  "providersAlertCleartextTitle": "Send the key unencrypted?",
+  "@providersAlertCleartextTitle": {
+    "description": "Title of the alert shown before a key goes to an address that is not encrypted."
+  },
+  "providersAlertDefaultWarning": "New chats in {profile} can't start until you pick another model.",
+  "@providersAlertDefaultWarning": {
+    "description": "Sentence added to a removal question when the provider serves the default model.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersAlertDeleteAction": "Delete",
+  "@providersAlertDeleteAction": {
+    "description": "Red action of the delete endpoint alert."
+  },
+  "providersAlertDeleteEndpointBody": "{profile} can no longer use it.",
+  "@providersAlertDeleteEndpointBody": {
+    "description": "Body of the delete endpoint alert when the endpoint has no key.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersAlertDeleteEndpointKeyBody": "Its saved key is deleted too.",
+  "@providersAlertDeleteEndpointKeyBody": {
+    "description": "Body of the delete endpoint alert when the endpoint has a saved key."
+  },
+  "providersAlertDeleteEndpointTitle": "Delete {name}?",
+  "@providersAlertDeleteEndpointTitle": {
+    "description": "Title of the alert that asks before deleting a custom endpoint.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My GPU box"
+      }
+    }
+  },
+  "providersAlertKeepWaiting": "Keep waiting",
+  "@providersAlertKeepWaiting": {
+    "description": "Default button of the alert that asks before cancelling a sign-in."
+  },
+  "providersAlertModelAction": "Use it anyway",
+  "@providersAlertModelAction": {
+    "description": "Action of the expensive model alert."
+  },
+  "providersAlertModelTitle": "Use this model?",
+  "@providersAlertModelTitle": {
+    "description": "Title of the alert Hermes asks for before an expensive model becomes the default."
+  },
+  "providersAlertRemoveAction": "Remove",
+  "@providersAlertRemoveAction": {
+    "description": "Red action of the alert that removes an endpoint's saved key."
+  },
+  "providersAlertRemoveKeyAction": "Remove key",
+  "@providersAlertRemoveKeyAction": {
+    "description": "Red action of the remove key alert."
+  },
+  "providersAlertRemoveKeyActionMac": "Remove Key",
+  "@providersAlertRemoveKeyActionMac": {
+    "description": "Red action of the remove key alert on a Mac, where actions are in title case."
+  },
+  "providersAlertRemoveKeyTitle": "Remove the {provider} key?",
+  "@providersAlertRemoveKeyTitle": {
+    "description": "Title of the alert that asks before removing a key.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersAlertRemoveSavedKeyBody": "Hermes will connect without a key.",
+  "@providersAlertRemoveSavedKeyBody": {
+    "description": "Body of the alert that asks before removing an endpoint's saved key."
+  },
+  "providersAlertRemoveSavedKeyTitle": "Remove the saved key for {name}?",
+  "@providersAlertRemoveSavedKeyTitle": {
+    "description": "Title of the alert that asks before removing an endpoint's saved key.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My GPU box"
+      }
+    }
+  },
+  "providersAlertSignOutAction": "Sign out",
+  "@providersAlertSignOutAction": {
+    "description": "Red action of the sign out alert."
+  },
+  "providersAlertSignOutActionMac": "Sign Out",
+  "@providersAlertSignOutActionMac": {
+    "description": "Red action of the sign out alert on a Mac, where actions are in title case."
+  },
+  "providersAlertSignOutTitle": "Sign out of {provider}?",
+  "@providersAlertSignOutTitle": {
+    "description": "Title of the alert that asks before signing out of a provider.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersAlertStopAction": "Stop",
+  "@providersAlertStopAction": {
+    "description": "Red action of the alert that cancels a sign-in."
+  },
+  "providersAlertStopBody": "The code stops working.",
+  "@providersAlertStopBody": {
+    "description": "Body of the alert that asks before cancelling a sign-in."
+  },
+  "providersAlertStopTitle": "Stop signing in to {provider}?",
+  "@providersAlertStopTitle": {
+    "description": "Title of the alert that asks before cancelling a sign-in.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "ChatGPT"
+      }
+    }
+  },
   "providersApiTypeAnthropicMessages": "Anthropic Messages",
   "@providersApiTypeAnthropicMessages": {
     "description": "How a custom endpoint talks to its server: the Anthropic Messages API. A protocol name; usually not translated."
@@ -2345,6 +2495,58 @@
   "providersApiTypeResponses": "Responses",
   "@providersApiTypeResponses": {
     "description": "How a custom endpoint talks to its server: the Responses API. A protocol name; usually not translated."
+  },
+  "providersCardConnect": "Connect a model",
+  "@providersCardConnect": {
+    "description": "Button of the connect card."
+  },
+  "providersCardConnectBody": "Your Hermes server has no model provider for {profile} yet.",
+  "@providersCardConnectBody": {
+    "description": "Body of the connect card.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersCardConnectTitle": "Connect a model to start chatting",
+  "@providersCardConnectTitle": {
+    "description": "Title of the card on the empty chat when no model provider is connected."
+  },
+  "providersCardLoadingBody": "A provider is connected, but its model list isn't ready yet.",
+  "@providersCardLoadingBody": {
+    "description": "Body of the loading card."
+  },
+  "providersCardLoadingTitle": "Hermes is loading your models",
+  "@providersCardLoadingTitle": {
+    "description": "Title of the card while a connected provider's model list is not ready."
+  },
+  "providersCardReconnect": "Reconnect",
+  "@providersCardReconnect": {
+    "description": "Button of the reconnect card."
+  },
+  "providersCardReconnectBody": "New chats in {profile} use {model}, but its provider's key is missing or no longer works.",
+  "@providersCardReconnectBody": {
+    "description": "Body of the reconnect card.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersCardReconnectTitle": "Reconnect your model's provider",
+  "@providersCardReconnectTitle": {
+    "description": "Title of the card when the default model's provider lost its key."
+  },
+  "providersCheckAgain": "Check again",
+  "@providersCheckAgain": {
+    "description": "Button that reads the providers or the sign-in state again."
   },
   "providersConnectedCount": "{count} connected",
   "@providersConnectedCount": {
@@ -2548,25 +2750,326 @@
   "@providersEndpointAddress": {
     "description": "Label of a custom endpoint's web address on its detail."
   },
+  "providersEndpointAddressFooter": "Hermes connects to this address from your server, so localhost means the server itself.",
+  "@providersEndpointAddressFooter": {
+    "description": "Note under the custom endpoint's address field."
+  },
+  "providersEndpointAddressHint": "https://example.com/v1",
+  "@providersEndpointAddressHint": {
+    "description": "Placeholder of the custom endpoint's address field; an example address."
+  },
+  "providersEndpointAdvanced": "Advanced",
+  "@providersEndpointAdvanced": {
+    "description": "Title of the collapsed section with the API type and a typed model."
+  },
   "providersEndpointApiType": "API type",
   "@providersEndpointApiType": {
     "description": "Label of the protocol a custom endpoint uses, on its detail."
+  },
+  "providersEndpointApiTypeFooter": "Automatic works for most servers. Pick another if chats fail with a 404.",
+  "@providersEndpointApiTypeFooter": {
+    "description": "Note under the API type choice."
+  },
+  "providersEndpointCheck": "Check connection",
+  "@providersEndpointCheck": {
+    "description": "Button that asks Hermes to reach the custom endpoint and list its models."
+  },
+  "providersEndpointCheckFailedDetail": "Hermes didn't answer. Try again.",
+  "@providersEndpointCheckFailedDetail": {
+    "description": "Detail when the connection check got no answer from Hermes."
+  },
+  "providersEndpointCheckFailedTitle": "Couldn't check the connection",
+  "@providersEndpointCheckFailedTitle": {
+    "description": "Heading when the connection check got no answer from Hermes."
+  },
+  "providersEndpointChecking": "Checking connection…",
+  "@providersEndpointChecking": {
+    "description": "Status line while Hermes checks the custom endpoint."
+  },
+  "providersEndpointFirstFooter": "New chats in {profile} will use this endpoint, since there is no default model yet.",
+  "@providersEndpointFirstFooter": {
+    "description": "Note shown instead of the switch when the profile has no default model yet.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersEndpointFormTitleEdit": "Edit {name}",
+  "@providersEndpointFormTitleEdit": {
+    "description": "Bar title of the form that edits a custom endpoint.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My GPU box"
+      }
+    }
+  },
+  "providersEndpointFormTitleNew": "Add custom endpoint",
+  "@providersEndpointFormTitleNew": {
+    "description": "Bar title of the form that adds a custom endpoint."
+  },
+  "providersEndpointFound": "{count, plural, =1{Found 1 model} other{Found {count} models}}",
+  "@providersEndpointFound": {
+    "description": "Heading of the success note after a connection check that listed models.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "providersEndpointInsecureDetail": "Your key would be sent to it in plain text.",
+  "@providersEndpointInsecureDetail": {
+    "description": "Detail of the warning when a key would be sent to an unencrypted address."
+  },
+  "providersEndpointInsecureTitle": "This address isn't encrypted",
+  "@providersEndpointInsecureTitle": {
+    "description": "Heading of the warning when a key would be sent to an unencrypted address."
+  },
+  "providersEndpointIssueAddress": "Enter an address",
+  "@providersEndpointIssueAddress": {
+    "description": "Error under the address field when it is empty."
+  },
+  "providersEndpointIssueModel": "Check the connection or type a model",
+  "@providersEndpointIssueModel": {
+    "description": "Error shown when Save was tapped without a model."
+  },
+  "providersEndpointIssueName": "Enter a name",
+  "@providersEndpointIssueName": {
+    "description": "Error under the name field when it is empty."
+  },
+  "providersEndpointIssueScheme": "Address must start with http:// or https://",
+  "@providersEndpointIssueScheme": {
+    "description": "Error under the address field when it has no scheme."
   },
   "providersEndpointKey": "API key",
   "@providersEndpointKey": {
     "description": "Label of a custom endpoint's key on its detail."
   },
+  "providersEndpointKeyFooter": "Leave empty if the server needs none.",
+  "@providersEndpointKeyFooter": {
+    "description": "Note under the custom endpoint's API key field."
+  },
+  "providersEndpointKeyFooterEdit": "Type a new key to replace the saved one.",
+  "@providersEndpointKeyFooterEdit": {
+    "description": "Note under the key field of an endpoint with a saved key."
+  },
+  "providersEndpointKeyHint": "Optional",
+  "@providersEndpointKeyHint": {
+    "description": "Placeholder of the custom endpoint's API key field."
+  },
   "providersEndpointKeyNone": "None",
   "@providersEndpointKeyNone": {
     "description": "Value of a custom endpoint's key row when it has no key."
+  },
+  "providersEndpointKeyNotSentDetail": "The key wasn't sent because the address isn't encrypted.",
+  "@providersEndpointKeyNotSentDetail": {
+    "description": "Detail of the note after a check that left the typed key out."
+  },
+  "providersEndpointKeyNotSentTitle": "Checked without your key",
+  "@providersEndpointKeyNotSentTitle": {
+    "description": "Heading of the note after a check that left the typed key out."
+  },
+  "providersEndpointKeyRemove": "Remove saved key",
+  "@providersEndpointKeyRemove": {
+    "description": "Red row that removes an endpoint's saved key after asking."
   },
   "providersEndpointKeySaved": "Saved",
   "@providersEndpointKeySaved": {
     "description": "Value of a custom endpoint's key row when a key is saved. The key is never shown."
   },
+  "providersEndpointKeySavedHint": "Saved key",
+  "@providersEndpointKeySavedHint": {
+    "description": "Placeholder of the key field of an endpoint that already has a saved key."
+  },
+  "providersEndpointModelFooter": "For servers that list no models.",
+  "@providersEndpointModelFooter": {
+    "description": "Note under the field where a model is typed by hand."
+  },
+  "providersEndpointModelHint": "Model name",
+  "@providersEndpointModelHint": {
+    "description": "Placeholder of the field where a model is typed by hand."
+  },
+  "providersEndpointModelLabel": "Model",
+  "@providersEndpointModelLabel": {
+    "description": "Label of the choice of a model found on the endpoint, and of the field to type one."
+  },
+  "providersEndpointNameFooter": "Shown in the model picker",
+  "@providersEndpointNameFooter": {
+    "description": "Note under the custom endpoint's name field."
+  },
+  "providersEndpointNameHint": "My GPU box",
+  "@providersEndpointNameHint": {
+    "description": "Placeholder of the custom endpoint's name field."
+  },
+  "providersEndpointNameLabel": "Name",
+  "@providersEndpointNameLabel": {
+    "description": "Label of the custom endpoint's name field."
+  },
+  "providersEndpointNoModelsDetail": "Type the model's name under Advanced.",
+  "@providersEndpointNoModelsDetail": {
+    "description": "Detail of the warning when the endpoint listed no models and Hermes gave no sentence."
+  },
+  "providersEndpointNoModelsTitle": "Connected, but no models listed",
+  "@providersEndpointNoModelsTitle": {
+    "description": "Heading of the warning when the endpoint answered and listed no models."
+  },
+  "providersEndpointRefusedFallback": "Hermes couldn't save this endpoint.",
+  "@providersEndpointRefusedFallback": {
+    "description": "Error when Hermes refused to save the endpoint and gave no reason."
+  },
+  "providersEndpointUnknownDetail": "Check the provider list before you save again.",
+  "@providersEndpointUnknownDetail": {
+    "description": "Detail of the warning after the answer to saving an endpoint was lost."
+  },
+  "providersEndpointUnknownTitle": "Couldn't tell whether the endpoint was saved",
+  "@providersEndpointUnknownTitle": {
+    "description": "Heading of the warning after the answer to saving an endpoint was lost."
+  },
+  "providersEndpointUnreachableDetail": "Hermes couldn't reach {address} from your server.",
+  "@providersEndpointUnreachableDetail": {
+    "description": "Detail of the error when Hermes could not reach the endpoint.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "https://gpu-box.example.net:8000/v1"
+      }
+    }
+  },
+  "providersEndpointUnreachableTitle": "Couldn't connect",
+  "@providersEndpointUnreachableTitle": {
+    "description": "Heading of the error when Hermes could not reach the endpoint."
+  },
+  "providersEndpointUseForNew": "Use for new chats",
+  "@providersEndpointUseForNew": {
+    "description": "Switch that makes the new endpoint's model the default for new chats."
+  },
+  "providersEndpointUseForNewFooter": "Keeps {model} for new chats when off. You can change it later.",
+  "@providersEndpointUseForNewFooter": {
+    "description": "Note under the switch that makes the endpoint the default.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersEndpointWillUse": "Hermes will use {address}",
+  "@providersEndpointWillUse": {
+    "description": "Note under the model choice when Hermes resolved a different address.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "https://gpu-box.example.net:8000/v1"
+      }
+    }
+  },
   "providersEndpointsFailed": "Custom endpoints couldn't be read.",
   "@providersEndpointsFailed": {
     "description": "Warning banner above the custom endpoint entry when the endpoints could not be read."
+  },
+  "providersFormSave": "Save",
+  "@providersFormSave": {
+    "description": "Save button in the bar of a provider form."
+  },
+  "providersKeyChecking": "Checking key…",
+  "@providersKeyChecking": {
+    "description": "Status line while Hermes checks the API key."
+  },
+  "providersKeyEditKey": "Edit key",
+  "@providersKeyEditKey": {
+    "description": "Button after a rejected key that puts the cursor back in the field."
+  },
+  "providersKeyEmpty": "Paste the key first",
+  "@providersKeyEmpty": {
+    "description": "Error under the API key field when Save was tapped with nothing typed."
+  },
+  "providersKeyGetLink": "Get a key from {provider}",
+  "@providersKeyGetLink": {
+    "description": "Row that opens the provider's page where keys are issued.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersKeyHelper": "Saved on your Hermes server for {profile}. You won't see it again here.",
+  "@providersKeyHelper": {
+    "description": "Note under the API key field.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersKeyHint": "Paste your key",
+  "@providersKeyHint": {
+    "description": "Placeholder of the API key field."
+  },
+  "providersKeyLabel": "API key",
+  "@providersKeyLabel": {
+    "description": "Label of the field that takes an API key."
+  },
+  "providersKeyProviderErrorFallback": "The provider answered with an error for this key.",
+  "@providersKeyProviderErrorFallback": {
+    "description": "Detail of the provider error warning when Hermes gave no sentence."
+  },
+  "providersKeyProviderErrorTitle": "{provider} didn't answer normally",
+  "@providersKeyProviderErrorTitle": {
+    "description": "Heading of the warning above the key field when the provider answered the check with an error.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersKeyRefusedFallback": "Hermes couldn't save this key.",
+  "@providersKeyRefusedFallback": {
+    "description": "Error under the key field when Hermes refused to save and gave no reason."
+  },
+  "providersKeyRejectedFallback": "That API key was rejected. Double-check it and try again.",
+  "@providersKeyRejectedFallback": {
+    "description": "Error under the key field when the provider rejected the key and Hermes gave no sentence."
+  },
+  "providersKeySaveAnyway": "Save anyway",
+  "@providersKeySaveAnyway": {
+    "description": "Button that saves a key that was not accepted or could not be checked, and the red action of the unencrypted key alert."
+  },
+  "providersKeyTitle": "Connect {provider}",
+  "@providersKeyTitle": {
+    "description": "Bar title of the form that takes an API key.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersKeyTitleReplace": "Replace key",
+  "@providersKeyTitleReplace": {
+    "description": "Bar title of the form that replaces a saved API key."
+  },
+  "providersKeyUnknownDetail": "Paste it again to be sure.",
+  "@providersKeyUnknownDetail": {
+    "description": "Detail of the warning shown after the answer to a save was lost; the field is empty."
+  },
+  "providersKeyUnknownTitle": "Couldn't tell whether the key was saved",
+  "@providersKeyUnknownTitle": {
+    "description": "Heading of the warning shown after the answer to a save was lost."
+  },
+  "providersKeyUseAccount": "Use an {provider} account instead",
+  "@providersKeyUseAccount": {
+    "description": "Text button on the key form of a provider that also signs in with an account.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
   },
   "providersKeysFailed": "Saved keys couldn't be read. You can still add a key.",
   "@providersKeysFailed": {
@@ -2591,6 +3094,10 @@
   "providersMoreHeader": "More providers",
   "@providersMoreHeader": {
     "description": "Header of the alphabetical group of providers that can be added."
+  },
+  "providersNotAccepted": "Hermes didn't accept the request",
+  "@providersNotAccepted": {
+    "description": "Fixed message when Hermes answers 422 to a save; it never repeats what was sent."
   },
   "providersOfflineBannerDetail": "Showing what was last loaded. Check your connection or VPN.",
   "@providersOfflineBannerDetail": {
@@ -2621,6 +3128,14 @@
   "providersRemoveKey": "Remove key",
   "@providersRemoveKey": {
     "description": "Red row on a provider's detail that removes its saved key after asking."
+  },
+  "providersReplyCheckProviders": "Check model providers",
+  "@providersReplyCheckProviders": {
+    "description": "Button under a failed reply that opens the default model's provider."
+  },
+  "providersReplyFailedTitle": "The reply failed",
+  "@providersReplyFailedTitle": {
+    "description": "Heading of the error under a failed reply that came from the model provider."
   },
   "providersRestartDetail": "It was updated. Models can't change until it restarts.",
   "@providersRestartDetail": {
@@ -2744,6 +3259,10 @@
   "@providersRowWaiting": {
     "description": "Subtitle of a provider whose account sign-in has started and is not finished."
   },
+  "providersSaving": "Saving…",
+  "@providersSaving": {
+    "description": "Status line while a form is being saved."
+  },
   "providersSearchHint": "Search providers",
   "@providersSearchHint": {
     "description": "Placeholder of the field that filters the providers that can be added."
@@ -2752,15 +3271,329 @@
   "@providersSearchNoMatch": {
     "description": "Row shown when the search filters out every provider."
   },
+  "providersServerBody": "{provider} is connected from Hermes' own command line. Run this on the computer running Hermes, then check again:",
+  "@providersServerBody": {
+    "description": "Explanation above the command to run on the Hermes server.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersServerChecking": "Checking…",
+  "@providersServerChecking": {
+    "description": "Status line while the page that shows a server command reads the providers again."
+  },
+  "providersServerDone": "Done",
+  "@providersServerDone": {
+    "description": "Button in the bar of the page that shows a server command."
+  },
+  "providersServerFooter": "Applies to the {profile} profile only.",
+  "@providersServerFooter": {
+    "description": "Note under the command saying which profile it is for.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersServerTitle": "Connect {provider} on your server",
+  "@providersServerTitle": {
+    "description": "Heading of the page that shows a command to run on the Hermes server.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersSignInCodeMatch": "Check that this code matches:",
+  "@providersSignInCodeMatch": {
+    "description": "Second step when the sign-in link already carries the code."
+  },
+  "providersSignInCodeSemantics": "Sign-in code: {code}",
+  "@providersSignInCodeSemantics": {
+    "description": "Accessibility label of the device code; the characters are spaced out so they are read one by one.",
+    "placeholders": {
+      "code": {
+        "type": "String",
+        "example": "W D J B, M J H T"
+      }
+    }
+  },
+  "providersSignInCopied": "Copied",
+  "@providersSignInCopied": {
+    "description": "What the copy button says for a moment after copying the code."
+  },
+  "providersSignInCopiedAnnouncement": "Code copied",
+  "@providersSignInCopiedAnnouncement": {
+    "description": "Announced to screen readers after the code was copied."
+  },
+  "providersSignInCopyCode": "Copy code",
+  "@providersSignInCopyCode": {
+    "description": "Button that copies the sign-in code."
+  },
+  "providersSignInDeclined": "The sign-in was declined.",
+  "@providersSignInDeclined": {
+    "description": "Message when the person declined the sign-in on the provider's page."
+  },
+  "providersSignInExpired": "The code expired.",
+  "@providersSignInExpired": {
+    "description": "Message when the sign-in code ran out."
+  },
+  "providersSignInExpires": "{minutes, plural, =0{The code expires in less than a minute.} =1{The code expires in 1 minute.} other{The code expires in {minutes} minutes.}}",
+  "@providersSignInExpires": {
+    "description": "Note under the sign-in code, counted down by the minute.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "providersSignInFailed": "Sign-in failed.",
+  "@providersSignInFailed": {
+    "description": "Message when the sign-in failed and Hermes gave no reason."
+  },
+  "providersSignInOffline": "Can't reach your server. Still waiting…",
+  "@providersSignInOffline": {
+    "description": "Status line when the polls for the sign-in failed; the sign-in is not over."
+  },
+  "providersSignInOpen": "Open {provider}",
+  "@providersSignInOpen": {
+    "description": "Button that opens the provider's sign-in page in the browser.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersSignInProfileNote": "Signs {profile} in. Other profiles stay as they are.",
+  "@providersSignInProfileNote": {
+    "description": "Note saying which profile the sign-in is for.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersSignInStartAgain": "Start again",
+  "@providersSignInStartAgain": {
+    "description": "Button that starts the sign-in over after it ended."
+  },
+  "providersSignInStartFailedDetail": "Hermes didn't answer. Nothing was started.",
+  "@providersSignInStartFailedDetail": {
+    "description": "Detail when the request to start a sign-in got no answer."
+  },
+  "providersSignInStartFailedTitle": "Couldn't start the sign-in",
+  "@providersSignInStartFailedTitle": {
+    "description": "Title when the request to start a sign-in got no answer."
+  },
+  "providersSignInStartRefusedFallback": "Hermes couldn't start the sign-in.",
+  "@providersSignInStartRefusedFallback": {
+    "description": "Message when Hermes refused to start a sign-in and gave no sentence."
+  },
+  "providersSignInStepCode": "2. Enter this code if asked:",
+  "@providersSignInStepCode": {
+    "description": "Second step of the account sign-in, above the code."
+  },
+  "providersSignInStepOpen": "1. Open {provider} and sign in.",
+  "@providersSignInStepOpen": {
+    "description": "First step of the account sign-in.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersSignInTitle": "Sign in to {provider}",
+  "@providersSignInTitle": {
+    "description": "Bar title of the account sign-in step.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersSignInWaiting": "Waiting for you to approve…",
+  "@providersSignInWaiting": {
+    "description": "Status line while the sign-in waits for approval."
+  },
   "providersSignOut": "Sign out",
   "@providersSignOut": {
     "description": "Red row on a provider's detail that signs the account out after asking."
+  },
+  "providersStepChangeModel": "Change model",
+  "@providersStepChangeModel": {
+    "description": "Secondary button of the ready step that opens the picker for this provider."
+  },
+  "providersStepChoose": "Choose model",
+  "@providersStepChoose": {
+    "description": "Primary button of the step that opens the picker for this provider."
+  },
+  "providersStepChooseAnother": "Choose another model…",
+  "@providersStepChooseAnother": {
+    "description": "Text button that opens the picker for this provider."
+  },
+  "providersStepChooseBody": "{provider} is connected. Pick the model new chats in {profile} should use.",
+  "@providersStepChooseBody": {
+    "description": "Body of the step when Hermes recommends no model.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      },
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersStepChooseTitle": "Choose a model for new chats",
+  "@providersStepChooseTitle": {
+    "description": "Title of the step when Hermes recommends no model."
+  },
+  "providersStepFailedDetail": "Nothing was changed. Try again.",
+  "@providersStepFailedDetail": {
+    "description": "Detail of the error when saving the default model failed."
+  },
+  "providersStepFailedTitle": "Couldn't save the default model",
+  "@providersStepFailedTitle": {
+    "description": "Heading of the error when saving the default model failed."
+  },
+  "providersStepKeep": "Keep {model}",
+  "@providersStepKeep": {
+    "description": "Secondary button that keeps the current default model.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersStepLaterBody": "{provider} recommends it. You're using {current} now.",
+  "@providersStepLaterBody": {
+    "description": "Body of the step when a second provider was connected.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      },
+      "current": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersStepLaterTitle": "Use {model} for new chats?",
+  "@providersStepLaterTitle": {
+    "description": "Title of the step when a second provider was connected.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model B"
+      }
+    }
+  },
+  "providersStepLoadingDetail": "Nothing is saved until they are ready.",
+  "@providersStepLoadingDetail": {
+    "description": "Detail of the warning while the provider's models are still loading."
+  },
+  "providersStepLoadingModel": "Hermes recommends {model}.",
+  "@providersStepLoadingModel": {
+    "description": "Line naming the recommended model while the provider's models load.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model B"
+      }
+    }
+  },
+  "providersStepLoadingTitle": "{provider} is connected",
+  "@providersStepLoadingTitle": {
+    "description": "Title of the step while the provider's models are still loading.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersStepLoadingWarning": "Hermes is still loading this provider's models.",
+  "@providersStepLoadingWarning": {
+    "description": "Heading of the warning while the provider's models are still loading."
+  },
+  "providersStepNotNow": "Not now",
+  "@providersStepNotNow": {
+    "description": "Text button that closes the step without choosing a model."
+  },
+  "providersStepNoteSaved": "Saved",
+  "@providersStepNoteSaved": {
+    "description": "Heading of the note above the step after a key was saved without a check."
+  },
+  "providersStepNoteUnchecked": "Your first chat will show whether the key works.",
+  "@providersStepNoteUnchecked": {
+    "description": "Detail of the note after a key was saved without a check."
+  },
+  "providersStepNoteUnreachable": "Saved, but Hermes couldn't reach {provider} to check it.",
+  "@providersStepNoteUnreachable": {
+    "description": "Note above the step when Hermes could not reach the provider to check the key.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersStepReadyBody": "New chats in {profile} use {model} from {provider}.",
+  "@providersStepReadyBody": {
+    "description": "Body of the ready step.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      },
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersStepReadyTitle": "You're ready",
+  "@providersStepReadyTitle": {
+    "description": "Title of the step after a provider was connected and a default model saved."
+  },
+  "providersStepRetry": "Retry",
+  "@providersStepRetry": {
+    "description": "Button that asks again whether the models are ready."
+  },
+  "providersStepStartChatting": "Start chatting",
+  "@providersStepStartChatting": {
+    "description": "Primary button of the ready step."
+  },
+  "providersStepUse": "Use {model}",
+  "@providersStepUse": {
+    "description": "Primary button of the step that offers the recommended model.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model B"
+      }
+    }
   },
   "providersTryAgain": "Try again",
   "@providersTryAgain": {
     "description": "Button that reads the providers again."
   },
-
   "@@x-area-quick_actions": "",
 
   "@@x-area-quick_panel": "",
@@ -4170,6 +5003,501 @@
   "@@x-area-telemetry": "",
 
   "@@x-area-theme": "",
+
+  "@@x-area-tools": "",
+  "toolsActionCount": "{count, plural, =1{1 action} other{{count} actions}}",
+  "@toolsActionCount": {
+    "description": "Under a tool's sentence: how many separate actions the tool gives Hermes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolsBannerInstallerDetail": "Hermes started an installer on your server. Applies from your next chat.",
+  "@toolsBannerInstallerDetail": {
+    "description": "Detail of the banner shown after switching on a tool started an installer on the server."
+  },
+  "toolsBannerInstallerTitle": "{name} is on.",
+  "@toolsBannerInstallerTitle": {
+    "description": "Title of the banner shown after switching on a tool started an installer on the server.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsBannerLoadFailedDetail": "The list below may be out of date.",
+  "@toolsBannerLoadFailedDetail": {
+    "description": "Detail of the error banner above the tools list when reloading failed; the rows already loaded stay."
+  },
+  "toolsBannerLoadFailedTitle": "Couldn't load tools.",
+  "@toolsBannerLoadFailedTitle": {
+    "description": "Title of the error banner above the tools list when reading it failed."
+  },
+  "toolsBannerOfflineDetail": "Couldn't load tools. Switches show what was last saved.",
+  "@toolsBannerOfflineDetail": {
+    "description": "Detail of the warning banner above the tools list when the device is offline."
+  },
+  "toolsBannerOfflineTitle": "You're offline.",
+  "@toolsBannerOfflineTitle": {
+    "description": "Title of the warning banner above the tools list when the device is offline."
+  },
+  "toolsBannerShow": "Show",
+  "@toolsBannerShow": {
+    "description": "Button in the installer banner that opens the tool's details."
+  },
+  "toolsChipCantUse": "Can't be used",
+  "@toolsChipCantUse": {
+    "description": "Status badge: a tool or backend that cannot work on this server. Keep it short."
+  },
+  "toolsChipNeedsInstall": "Needs install",
+  "@toolsChipNeedsInstall": {
+    "description": "Status badge: the provider needs an installer run on the server. Keep it short."
+  },
+  "toolsChipNeedsKey": "Needs a key",
+  "@toolsChipNeedsKey": {
+    "description": "Status badge: the provider needs an API key. Keep it short."
+  },
+  "toolsChipNeedsSignIn": "Needs a sign-in on the server",
+  "@toolsChipNeedsSignIn": {
+    "description": "Status badge: the provider needs someone to sign in on the Hermes server; the app cannot do it."
+  },
+  "toolsChipReady": "Ready",
+  "@toolsChipReady": {
+    "description": "Status badge: the provider or backend works now. Keep it short."
+  },
+  "toolsConfirmApplies": "It applies to the profile \"{profile}\".",
+  "@toolsConfirmApplies": {
+    "description": "Sentence in a confirmation question: which profile the change applies to.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "toolsConfirmBrowserLead": "It can open web pages, click and type in them, and may install a browser on the server.",
+  "@toolsConfirmBrowserLead": {
+    "description": "First sentence of the question asked before the browser tool is switched on."
+  },
+  "toolsConfirmBrowserTitle": "Let Hermes use a browser?",
+  "@toolsConfirmBrowserTitle": {
+    "description": "Title of the question asked before the browser tool is switched on."
+  },
+  "toolsConfirmCodeExecutionLead": "It can write and run programs on the machine where Hermes runs.",
+  "@toolsConfirmCodeExecutionLead": {
+    "description": "First sentence of the question asked before the code execution tool is switched on."
+  },
+  "toolsConfirmCodeExecutionTitle": "Let Hermes run programs?",
+  "@toolsConfirmCodeExecutionTitle": {
+    "description": "Title of the question asked before the code execution tool is switched on."
+  },
+  "toolsConfirmComputerUseDriver": "It may also install a driver on the server.",
+  "@toolsConfirmComputerUseDriver": {
+    "description": "Sentence added to the computer use question: switching it on may install a driver."
+  },
+  "toolsConfirmComputerUseLead": "It can see everything on the screen of the computer that runs Hermes and use its mouse and keyboard.",
+  "@toolsConfirmComputerUseLead": {
+    "description": "First sentence of the question asked before the computer use tool is switched on."
+  },
+  "toolsConfirmComputerUseTitle": "Let Hermes control a computer?",
+  "@toolsConfirmComputerUseTitle": {
+    "description": "Title of the question asked before the computer use tool is switched on."
+  },
+  "toolsConfirmInstallBody": "Switching {name} on may run an installer on the server. It may download software.",
+  "@toolsConfirmInstallBody": {
+    "description": "Body of the question asked before switching on a tool that may start an installer on the server.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsConfirmInstallTitle": "Install on your server?",
+  "@toolsConfirmInstallTitle": {
+    "description": "Title of the question asked before switching on a tool that may start an installer on the server."
+  },
+  "toolsConfirmOffActions": "Switching it off stops new actions. It doesn't undo what they did.",
+  "@toolsConfirmOffActions": {
+    "description": "Last sentences of a confirmation question for tools that act on web pages or a computer."
+  },
+  "toolsConfirmOffCommands": "Switching it off stops new commands. It doesn't undo what they did.",
+  "@toolsConfirmOffCommands": {
+    "description": "Last sentences of a confirmation question for tools that run commands or programs."
+  },
+  "toolsConfirmTerminalLead": "It can run commands on the machine where Hermes runs.",
+  "@toolsConfirmTerminalLead": {
+    "description": "First sentence of the question asked before the terminal tool is switched on."
+  },
+  "toolsConfirmTerminalTitle": "Let Hermes run commands?",
+  "@toolsConfirmTerminalTitle": {
+    "description": "Title of the question asked before the terminal tool is switched on."
+  },
+  "toolsEmptyDetail": "Tools Hermes offers for this profile will show here.",
+  "@toolsEmptyDetail": {
+    "description": "Detail under the empty state of the tools list."
+  },
+  "toolsEmptyTitle": "This profile has no tools to set up.",
+  "@toolsEmptyTitle": {
+    "description": "Title of the empty state of the tools list."
+  },
+  "toolsErrorFailed": "Couldn't change {name}. Try again.",
+  "@toolsErrorFailed": {
+    "description": "Error line on a tool's row after a change failed for any other reason.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsErrorNotAllowed": "You can't change tools on this server.",
+  "@toolsErrorNotAllowed": {
+    "description": "Error line on a tool's row when the server refused the change as not allowed."
+  },
+  "toolsErrorOffline": "You're offline. Couldn't change {name}.",
+  "@toolsErrorOffline": {
+    "description": "Error line on a tool's row when a change failed because the device is offline.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsFooterBody": "Switching a tool on or off applies from your next chat. A chat that is already open keeps the tools it started with.",
+  "@toolsFooterBody": {
+    "description": "Footer under the tools list."
+  },
+  "toolsFooterLink": "What's the difference?",
+  "@toolsFooterLink": {
+    "description": "Link under the tools list that explains tools, skills, plugins and MCP servers."
+  },
+  "toolsHeaderOffNeedsSetup": "Off · needs setup",
+  "@toolsHeaderOffNeedsSetup": {
+    "description": "State line in a tool's detail header: the tool is off and has not been set up."
+  },
+  "toolsHeaderOnNeedsSetup": "On · needs setup",
+  "@toolsHeaderOnNeedsSetup": {
+    "description": "State line in a tool's detail header: the tool is on but has not been set up."
+  },
+  "toolsLabelBrowser": "Browser",
+  "@toolsLabelBrowser": {
+    "description": "Display name of the built-in tool \"Browser\" in the tools list; keep it short."
+  },
+  "toolsLabelClarify": "Clarifying questions",
+  "@toolsLabelClarify": {
+    "description": "Display name of the built-in tool \"Clarifying questions\" in the tools list; keep it short."
+  },
+  "toolsLabelCodeExecution": "Code execution",
+  "@toolsLabelCodeExecution": {
+    "description": "Display name of the built-in tool \"Code execution\" in the tools list; keep it short."
+  },
+  "toolsLabelComputerUse": "Computer use",
+  "@toolsLabelComputerUse": {
+    "description": "Display name of the built-in tool \"Computer use\" in the tools list; keep it short."
+  },
+  "toolsLabelConnections": "Connections",
+  "@toolsLabelConnections": {
+    "description": "Display name of the built-in tool \"Connections\" in the tools list; keep it short."
+  },
+  "toolsLabelContextEngine": "Context engine",
+  "@toolsLabelContextEngine": {
+    "description": "Display name of the built-in tool \"Context engine\" in the tools list; keep it short."
+  },
+  "toolsLabelCronjob": "Scheduled tasks",
+  "@toolsLabelCronjob": {
+    "description": "Display name of the built-in tool \"Scheduled tasks\" in the tools list; keep it short."
+  },
+  "toolsLabelDelegation": "Delegation",
+  "@toolsLabelDelegation": {
+    "description": "Display name of the built-in tool \"Delegation\" in the tools list; keep it short."
+  },
+  "toolsLabelDiscord": "Discord",
+  "@toolsLabelDiscord": {
+    "description": "Display name of the built-in tool \"Discord\" in the tools list; keep it short."
+  },
+  "toolsLabelDiscordAdmin": "Discord admin",
+  "@toolsLabelDiscordAdmin": {
+    "description": "Display name of the built-in tool \"Discord admin\" in the tools list; keep it short."
+  },
+  "toolsLabelFile": "Files",
+  "@toolsLabelFile": {
+    "description": "Display name of the built-in tool \"Files\" in the tools list; keep it short."
+  },
+  "toolsLabelImageGen": "Image generation",
+  "@toolsLabelImageGen": {
+    "description": "Display name of the built-in tool \"Image generation\" in the tools list; keep it short."
+  },
+  "toolsLabelKanban": "Kanban",
+  "@toolsLabelKanban": {
+    "description": "Display name of the built-in tool \"Kanban\" in the tools list; keep it short."
+  },
+  "toolsLabelMemory": "Memory",
+  "@toolsLabelMemory": {
+    "description": "Display name of the built-in tool \"Memory\" in the tools list; keep it short."
+  },
+  "toolsLabelSessionSearch": "Session search",
+  "@toolsLabelSessionSearch": {
+    "description": "Display name of the built-in tool \"Session search\" in the tools list; keep it short."
+  },
+  "toolsLabelSkills": "Skills",
+  "@toolsLabelSkills": {
+    "description": "Display name of the built-in tool \"Skills\" in the tools list; keep it short."
+  },
+  "toolsLabelStt": "Speech to text",
+  "@toolsLabelStt": {
+    "description": "Display name of the built-in tool \"Speech to text\" in the tools list; keep it short."
+  },
+  "toolsLabelTerminal": "Terminal",
+  "@toolsLabelTerminal": {
+    "description": "Display name of the built-in tool \"Terminal\" in the tools list; keep it short."
+  },
+  "toolsLabelTodo": "Task planning",
+  "@toolsLabelTodo": {
+    "description": "Display name of the built-in tool \"Task planning\" in the tools list; keep it short."
+  },
+  "toolsLabelTts": "Text to speech",
+  "@toolsLabelTts": {
+    "description": "Display name of the built-in tool \"Text to speech\" in the tools list; keep it short."
+  },
+  "toolsLabelVideoAnalysis": "Video analysis",
+  "@toolsLabelVideoAnalysis": {
+    "description": "Display name of the built-in tool \"Video analysis\" in the tools list; keep it short."
+  },
+  "toolsLabelVideoGen": "Video generation",
+  "@toolsLabelVideoGen": {
+    "description": "Display name of the built-in tool \"Video generation\" in the tools list; keep it short."
+  },
+  "toolsLabelVision": "Image analysis",
+  "@toolsLabelVision": {
+    "description": "Display name of the built-in tool \"Image analysis\" in the tools list; keep it short."
+  },
+  "toolsLabelWeb": "Web search and scraping",
+  "@toolsLabelWeb": {
+    "description": "Display name of the built-in tool \"Web search and scraping\" in the tools list; keep it short."
+  },
+  "toolsLabelXSearch": "X search",
+  "@toolsLabelXSearch": {
+    "description": "Display name of the built-in tool \"X search\" in the tools list; keep it short."
+  },
+  "toolsLoading": "Loading tools…",
+  "@toolsLoading": {
+    "description": "Shown with a spinner while the tools list loads."
+  },
+  "toolsNeedsSetup": "Needs setup",
+  "@toolsNeedsSetup": {
+    "description": "Status badge, list section header and a row's state line: the tool has not been set up yet, or its status is unknown."
+  },
+  "toolsOldServerDetail": "Updating Hermes on the server adds them.",
+  "@toolsOldServerDetail": {
+    "description": "Detail under the message that the server has no tools settings."
+  },
+  "toolsOldServerTitle": "This server doesn't offer tools settings.",
+  "@toolsOldServerTitle": {
+    "description": "Title of the state shown when the Hermes server is too old to have tools settings."
+  },
+  "toolsRiskActOnItsOwnSentence": "Hermes can start work later, or hand it to helper agents, without you watching each step.",
+  "@toolsRiskActOnItsOwnSentence": {
+    "description": "Risk note sentence for scheduled tasks and delegation."
+  },
+  "toolsRiskActOnItsOwnTitle": "Can act on its own",
+  "@toolsRiskActOnItsOwnTitle": {
+    "description": "Risk note title for scheduled tasks and delegation."
+  },
+  "toolsRiskActOnWebPagesSentence": "Hermes can open web pages and click and type in them, such as filling in and sending forms.",
+  "@toolsRiskActOnWebPagesSentence": {
+    "description": "Risk note sentence for the browser tool."
+  },
+  "toolsRiskActOnWebPagesTitle": "Can act on web pages for you",
+  "@toolsRiskActOnWebPagesTitle": {
+    "description": "Risk note title for the browser tool."
+  },
+  "toolsRiskAsks": "Hermes asks before you switch it on.",
+  "@toolsRiskAsks": {
+    "description": "Last sentence of the risk note of a tool that asks for confirmation before it is switched on."
+  },
+  "toolsRiskChangeFilesSentence": "Hermes can read, create and change any file on the machine where Hermes runs, with that machine's permissions.",
+  "@toolsRiskChangeFilesSentence": {
+    "description": "Risk note sentence for the files tool."
+  },
+  "toolsRiskChangeThingsTitle": "Can change things on your server",
+  "@toolsRiskChangeThingsTitle": {
+    "description": "Risk note title for the terminal, code execution and files tools."
+  },
+  "toolsRiskControlComputerSentence": "Hermes can see everything on the screen of the computer that runs Hermes, and use its mouse and keyboard. Switch it on only for a profile you trust with that.",
+  "@toolsRiskControlComputerSentence": {
+    "description": "Risk note sentence for the computer use tool."
+  },
+  "toolsRiskControlComputerTitle": "Can see and control a computer",
+  "@toolsRiskControlComputerTitle": {
+    "description": "Risk note title for the computer use tool."
+  },
+  "toolsRiskManageDiscordSentence": "Hermes can change the channels and roles of the Discord server it works in.",
+  "@toolsRiskManageDiscordSentence": {
+    "description": "Risk note sentence for the Discord admin tool."
+  },
+  "toolsRiskManageDiscordTitle": "Can change your Discord server",
+  "@toolsRiskManageDiscordTitle": {
+    "description": "Risk note title for the Discord admin tool."
+  },
+  "toolsRiskRunCommandsSentence": "Hermes can run any command on the machine where Hermes runs, with that machine's permissions.",
+  "@toolsRiskRunCommandsSentence": {
+    "description": "Risk note sentence for the terminal tool."
+  },
+  "toolsRiskRunProgramsSentence": "Hermes can write and run any program on the machine where Hermes runs, with that machine's permissions.",
+  "@toolsRiskRunProgramsSentence": {
+    "description": "Risk note sentence for the code execution tool."
+  },
+  "toolsRowCanChangeThings": "Can change things",
+  "@toolsRowCanChangeThings": {
+    "description": "Line in a tool's row with a shield icon: the tool can change things on the server."
+  },
+  "toolsRowChecking": "May have changed. Checking…",
+  "@toolsRowChecking": {
+    "description": "Under a tool's row while the app checks whether a switch took effect after its answer was lost. Shown with a spinner."
+  },
+  "toolsRowUnconfirmedPull": "Couldn't confirm. Pull to refresh.",
+  "@toolsRowUnconfirmedPull": {
+    "description": "Line in a tool's row when the app could not confirm a switch; on touch screens the list is refreshed by pulling down."
+  },
+  "toolsRowUnconfirmedRetry": "Couldn't confirm. Try again.",
+  "@toolsRowUnconfirmedRetry": {
+    "description": "Line in a tool's row when the app could not confirm a switch; a Try again button follows it where there is no pull to refresh."
+  },
+  "toolsSentenceBrowser": "Open web pages, click and type in them.",
+  "@toolsSentenceBrowser": {
+    "description": "One plain sentence under the name of the built-in tool \"Browser\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceClarify": "Ask you a question when something is unclear.",
+  "@toolsSentenceClarify": {
+    "description": "One plain sentence under the name of the built-in tool \"Clarifying questions\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceCodeExecution": "Write and run programs on the machine where Hermes runs.",
+  "@toolsSentenceCodeExecution": {
+    "description": "One plain sentence under the name of the built-in tool \"Code execution\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceComputerUse": "See a desktop's screen and move its mouse and keyboard.",
+  "@toolsSentenceComputerUse": {
+    "description": "One plain sentence under the name of the built-in tool \"Computer use\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceConnections": "Use accounts you have connected.",
+  "@toolsSentenceConnections": {
+    "description": "One plain sentence under the name of the built-in tool \"Connections\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceContextEngine": "Use the add-on that manages long chats.",
+  "@toolsSentenceContextEngine": {
+    "description": "One plain sentence under the name of the built-in tool \"Context engine\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceCronjob": "Create tasks that run later without you.",
+  "@toolsSentenceCronjob": {
+    "description": "One plain sentence under the name of the built-in tool \"Scheduled tasks\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceDelegation": "Start helper agents that work on their own.",
+  "@toolsSentenceDelegation": {
+    "description": "One plain sentence under the name of the built-in tool \"Delegation\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceDiscord": "Read and join Discord conversations.",
+  "@toolsSentenceDiscord": {
+    "description": "One plain sentence under the name of the built-in tool \"Discord\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceDiscordAdmin": "Manage a Discord server's channels and roles.",
+  "@toolsSentenceDiscordAdmin": {
+    "description": "One plain sentence under the name of the built-in tool \"Discord admin\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceFile": "Read, create and change files on the machine where Hermes runs.",
+  "@toolsSentenceFile": {
+    "description": "One plain sentence under the name of the built-in tool \"Files\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceImageGen": "Make pictures from a description.",
+  "@toolsSentenceImageGen": {
+    "description": "One plain sentence under the name of the built-in tool \"Image generation\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceKanban": "Use the task board.",
+  "@toolsSentenceKanban": {
+    "description": "One plain sentence under the name of the built-in tool \"Kanban\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceMemory": "Remember things between chats.",
+  "@toolsSentenceMemory": {
+    "description": "One plain sentence under the name of the built-in tool \"Memory\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceSessionSearch": "Search your past chats.",
+  "@toolsSentenceSessionSearch": {
+    "description": "One plain sentence under the name of the built-in tool \"Session search\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceSkills": "Find and use the skills you have.",
+  "@toolsSentenceSkills": {
+    "description": "One plain sentence under the name of the built-in tool \"Skills\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceStt": "Turn voice messages into text.",
+  "@toolsSentenceStt": {
+    "description": "One plain sentence under the name of the built-in tool \"Speech to text\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceTerminal": "Run commands on the machine where Hermes runs.",
+  "@toolsSentenceTerminal": {
+    "description": "One plain sentence under the name of the built-in tool \"Terminal\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceTodo": "Keep a to-do list while working.",
+  "@toolsSentenceTodo": {
+    "description": "One plain sentence under the name of the built-in tool \"Task planning\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceTts": "Read answers aloud.",
+  "@toolsSentenceTts": {
+    "description": "One plain sentence under the name of the built-in tool \"Text to speech\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceVideoAnalysis": "Watch videos and describe them.",
+  "@toolsSentenceVideoAnalysis": {
+    "description": "One plain sentence under the name of the built-in tool \"Video analysis\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceVideoGen": "Make short videos from a description.",
+  "@toolsSentenceVideoGen": {
+    "description": "One plain sentence under the name of the built-in tool \"Video generation\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceVision": "Look at pictures and describe them.",
+  "@toolsSentenceVision": {
+    "description": "One plain sentence under the name of the built-in tool \"Image analysis\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceWeb": "Look things up on the web and read pages.",
+  "@toolsSentenceWeb": {
+    "description": "One plain sentence under the name of the built-in tool \"Web search and scraping\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceXSearch": "Search posts on X.",
+  "@toolsSentenceXSearch": {
+    "description": "One plain sentence under the name of the built-in tool \"X search\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSwitchLabel": "{name}, {state, select, on{on} other{off}}",
+  "@toolsSwitchLabel": {
+    "description": "Accessibility label of a tool's switch: the tool's name and whether it is on or off.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "toolsSwitchLabelSaving": "{name}, {state, select, on{on} other{off}}, saving",
+  "@toolsSwitchLabelSaving": {
+    "description": "Accessibility label of a tool's switch while the change is being saved: name, new state, then that it is saving.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "toolsTryAgain": "Try again",
+  "@toolsTryAgain": {
+    "description": "Button that repeats a failed load or a change of a tool."
+  },
 
   "@@x-area-update": "",
 
