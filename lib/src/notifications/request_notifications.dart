@@ -1,6 +1,7 @@
 /// The notification categories and actions that let the user answer an
 /// approval or a question without opening the app (iOS and macOS, mirrored
-/// to the watch), and how an action turns back into an answer.
+/// to the watch; Android's own buttons), and how an action turns back into an
+/// answer.
 library;
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -54,6 +55,9 @@ const kOpenAction = 'hermes.action.open';
 /// first three and Other… are shown.
 const kMaxChoiceActions = 4;
 
+/// Android shows at most this many buttons on a notification.
+const kMaxAndroidActions = 3;
+
 /// Approval choices in the order the buttons show them, with each one's
 /// action and title.
 const _approvalActions = [
@@ -103,6 +107,17 @@ class RequestAction {
         )
       : DarwinNotificationAction.plain(id, title, options: _options);
 
+  /// Cancels the notification; Reply opens the inline text input.
+  AndroidNotificationAction toAndroid() => AndroidNotificationAction(
+    id,
+    title,
+    showsUserInterface: foreground,
+    cancelNotification: true,
+    inputs: textInput
+        ? [AndroidNotificationActionInput(label: kReplyPlaceholder)]
+        : const [],
+  );
+
   Map<String, Object?> toChannel() => {
     'id': id,
     'title': title,
@@ -136,6 +151,34 @@ class RequestCategory {
     actions: [for (final action in actions) action.toDarwin()],
   );
 
+  /// [actions] cut to the [kMaxAndroidActions] Android shows. Approvals drop
+  /// Always allow; a question keeps a prefix of its choices (so their ids
+  /// still index the payload's choices), then Reply if it fits, else Other….
+  List<RequestAction> get androidActions {
+    if (actions.length <= kMaxAndroidActions) return actions;
+    if (actions.any((a) => a.id == kAllowAlwaysAction)) {
+      return actions
+          .where((a) => a.id != kAllowAlwaysAction)
+          .take(kMaxAndroidActions)
+          .toList();
+    }
+    final choices = [
+      for (final a in actions)
+        if (a.id.startsWith(kChoiceActionPrefix)) a,
+    ];
+    final hasOther = actions.any((a) => a.id == kOpenAction);
+    final reply = actions.where((a) => a.id == kReplyAction).firstOrNull;
+    if (choices.length <= kMaxAndroidActions - 1) {
+      return [...choices, ?reply];
+    }
+    if (choices.length == kMaxAndroidActions && !hasOther) return choices;
+    return [...choices.take(kMaxAndroidActions - 1), _other];
+  }
+
+  List<AndroidNotificationAction> toAndroid() => [
+    for (final action in androidActions) action.toAndroid(),
+  ];
+
   Map<String, Object?> toChannel() => {
     'id': id,
     'placeholder': placeholder,
@@ -144,6 +187,7 @@ class RequestCategory {
 }
 
 const _reply = RequestAction(kReplyAction, 'Reply', textInput: true);
+const _other = RequestAction(kOpenAction, 'Other…', foreground: true);
 const _open = RequestAction(kOpenAction, 'Open', foreground: true);
 
 const _approvalPlaceholder = RequestCategory(
@@ -225,8 +269,7 @@ RequestCategory? requestCategoryFor(
       final actions = [
         for (final (index, choice) in buttons.indexed)
           RequestAction('$kChoiceActionPrefix$index', choice),
-        if (question.choices.length > buttons.length)
-          const RequestAction(kOpenAction, 'Other…', foreground: true),
+        if (question.choices.length > buttons.length) _other,
         _reply,
       ];
       // Named after every title, so two questions share a category only

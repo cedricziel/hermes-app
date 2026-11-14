@@ -381,14 +381,23 @@ class BotScreenController extends ChangeNotifier {
     if (payload['profile_key'] != key) return;
     switch (event.type) {
       case 'display.status':
+        final next = BotScreenStatus.fromJson(payload);
+        final current = status!;
         _broadcasts++;
-        _apply(BotScreenStatus.fromJson(payload));
+        // A broadcast older than a lease taken from an answer keeps that one.
+        _apply(
+          next.lease.epoch < current.lease.epoch
+              ? next.withLease(current.lease)
+              : next,
+        );
         _notify();
       case 'display.lease':
         final current = status;
         if (current == null) return;
+        final lease = BotScreenLease.fromJson(payload['lease']);
+        if (lease.epoch < current.lease.epoch) return;
         _broadcasts++;
-        _apply(current.withLease(BotScreenLease.fromJson(payload['lease'])));
+        _apply(current.withLease(lease));
         _notify();
     }
   }

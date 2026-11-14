@@ -156,6 +156,61 @@ void main() {
       });
     });
 
+    test('an older lease broadcast after a newer answer is ignored', () {
+      scenario({'holder': 'agent', 'epoch': 5}, () {
+        controller.adoptLease(
+          const BotScreenLease(
+            holder: BotScreenHolder.human,
+            viewerHash: _mine,
+            epoch: 7,
+          ),
+        );
+
+        gateway.event('display.lease', '', {
+          'profile_key': status['profile_key'],
+          'lease': {'holder': 'agent', 'epoch': 6},
+        });
+        settle();
+
+        expect(controller.inControlHere, isTrue);
+      });
+    });
+
+    test('an older status broadcast keeps the newer lease and takes the '
+        'rest', () {
+      scenario({'holder': 'agent', 'epoch': 5}, () {
+        controller.adoptLease(
+          const BotScreenLease(
+            holder: BotScreenHolder.human,
+            viewerHash: _mine,
+            epoch: 7,
+          ),
+        );
+
+        gateway.event(
+          'display.status',
+          '',
+          statusJson(running: false, lease: {'holder': 'agent', 'epoch': 6}),
+        );
+        settle();
+
+        expect(controller.inControlHere, isTrue);
+        expect(controller.status?.running, isFalse);
+      });
+    });
+
+    test('a newer lease broadcast is taken', () {
+      scenario({'holder': 'human', 'viewer_hash': _mine, 'epoch': 5}, () {
+        gateway.event('display.lease', '', {
+          'profile_key': status['profile_key'],
+          'lease': {'holder': 'agent', 'epoch': 6},
+        });
+        settle();
+
+        expect(controller.inControlHere, isFalse);
+      });
+    });
+
     test('tells its listeners', () {
       scenario({'holder': 'agent', 'epoch': 5}, () {
         var told = 0;

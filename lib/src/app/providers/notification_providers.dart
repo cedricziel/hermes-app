@@ -42,7 +42,8 @@ List<SingleChildWidget> backgroundProviders(Telemetry telemetry) => [
     lazy: false,
     create: (context) {
       if (defaultTargetPlatform != TargetPlatform.iOS &&
-          defaultTargetPlatform != TargetPlatform.macOS) {
+          defaultTargetPlatform != TargetPlatform.macOS &&
+          defaultTargetPlatform != TargetPlatform.android) {
         return null;
       }
       return RequestAnswers.forAuth(
