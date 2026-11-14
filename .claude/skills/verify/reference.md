@@ -29,6 +29,7 @@ keyring while debugging. Also needed: Flutter at `.fvmrc` (`flutter` on PATH),
 ```
 /tmp/hermes-verify.XXXXXX/          RUN_DIR, removed on exit
   owner                             PID of verify.sh (for `clean`)
+  start sids                        run start time, sessions the run created
   contract/  home/ userhome/        no-auth backend: HERMES_HOME, HOME
              pid port dashboard.log dev-backend.sh's state (HERMES_DEV_STATE_DIR)
   app/       home/ userhome/ ...    password-gated backend
@@ -42,11 +43,24 @@ keyring while debugging. Also needed: Flutter at `.fvmrc` (`flutter` on PATH),
 build/verify/<time>-<id>/           kept (newest ten): shots/, *-test.log, *-dashboard.log, browser.log
 ```
 
-Every process the run starts inherits `HERMES_VERIFY_RUN=<RUN_DIR>`.
-`cleanup` (the EXIT trap) runs `dev-backend.sh stop` for each backend, then
-TERMs every process whose `/proc/<pid>/environ` carries the marker, KILLs
-what is left after 10 s, copies the logs and deletes `RUN_DIR`. It warns and
-fails the run if a marked process survives.
+verify.sh first re-executes itself under `env -i` with an allowlist (PATH,
+HOME, locale, proxy and CA variables, `PUB_CACHE`/`FLUTTER_ROOT`, its own
+`HERMES_VERIFY_*`/`HERMES_AGENT_CACHE`), dropping any name that looks like a
+secret, and refuses to run if one remains. Every backend's environment is
+checked the same way (only the run's synthetic `HERMES_DASHBOARD_BASIC_AUTH_*`
+may be there). Secrets go to children through exported variables in a
+subshell, never as arguments.
+
+Every process the run starts inherits `HERMES_VERIFY_RUN=<RUN_DIR>`. The
+dashboards, the contract tests and the app tier each run in a session of
+their own (`setsid`), recorded in `RUN_DIR/sids`; `RUN_DIR/start` holds the
+run's start time. `cleanup` (the EXIT trap) runs `dev-backend.sh stop` for
+each backend, then TERMs the run's processes: those with the marker, plus,
+among processes started after the run began, their descendants and the
+members of the recorded sessions (Hermes scrubs the environment of tool and
+package-install children, so the marker alone would miss them). It KILLs what
+is left after 10 s, copies the logs, deletes `RUN_DIR`, and fails the run if
+any of its processes survived.
 
 ## How the pieces fit
 
@@ -124,6 +138,14 @@ fails the run if a marked process survives.
 - Sign-in hangs with an empty `browser.log`: GIO did not pick the stand-in
   browser. Check `XDG_DATA_HOME`/`XDG_CONFIG_HOME` reach the app (the Flutter
   tool passes its environment to the app it launches).
+- `dbus-daemon ... Failed to set fd limit ... Operation not permitted` and
+  Flutter's "Telemetry is not sent on the very first run" banner (the app
+  tier's HOME is new every run): harmless.
+- `another verify.sh run is using this checkout`: one is running (or its
+  processes are still exiting); wait, or use another worktree.
+- `refusing to run with <NAME> in the environment`: the allowlist let a
+  secret-looking name through; it should not, so report it rather than
+  renaming the variable.
 - `dbus` `SocketException` at app start: no system bus in a container;
   harmless.
 - A run killed with SIGKILL leaves `/tmp/hermes-verify.*` and processes:

@@ -7,8 +7,9 @@ the app, as a person in a browser would.
 
 HERMES_VERIFY_ORIGIN is the throwaway dashboard's exact origin
 (http://127.0.0.1:<port>). The authorize URL and every redirect must stay on
-that origin, and the login's redirect must go to the app's listener on
-http://127.0.0.1:<port>/; anything else is refused before credentials are
+that origin, and the login's redirect must go to the listener the authorize
+URL's redirect_uri names (http://127.0.0.1:<port>/<path>), without the
+dashboard's cookies; anything else is refused before credentials are
 sent, or before the code is handed on. Credentials come from
 HERMES_VERIFY_USER and HERMES_VERIFY_PASSWORD (synthetic values verify.sh
 sets). One line per step, never the credentials, goes to
@@ -51,12 +52,19 @@ def check_origin(url, expected):
         )
 
 
-def check_listener(url):
-    parts = urllib.parse.urlsplit(url)
-    if parts.scheme != "http" or parts.hostname != "127.0.0.1" or parts.port is None:
-        raise Refused(
-            "login redirect is not the app's listener on http://127.0.0.1:<port>/"
-        )
+def check_listener(url, redirect_uri):
+    """The code may only go to the listener the app named in its authorize
+    URL: same http scheme, 127.0.0.1, port and path."""
+    want = urllib.parse.urlsplit(redirect_uri)
+    got = urllib.parse.urlsplit(url)
+    if (
+        want.scheme != "http"
+        or want.hostname != "127.0.0.1"
+        or want.port is None
+        or (got.scheme, got.hostname, got.port, got.path)
+        != (want.scheme, want.hostname, want.port, want.path)
+    ):
+        raise Refused("login redirect is not the app's listener from redirect_uri")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -66,6 +74,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def sign_in(url, expected, user, password, opener):
     check_origin(url, expected)
+    redirect_uri = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query).get(
+        "redirect_uri", [""]
+    )[0]
     for _ in range(MAX_REDIRECTS + 1):
         try:
             with opener.open(url, timeout=30):
@@ -89,10 +100,13 @@ def sign_in(url, expected, user, password, opener):
     )
     with opener.open(request, timeout=30) as response:
         target = json.load(response)["next"]
-    check_listener(target)
+    check_listener(target, redirect_uri)
     log("password login accepted, following the loopback redirect")
+    # Cookies are not scoped by port: the dashboard's session cookie must not
+    # go along to the app's listener.
+    plain = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     try:
-        with opener.open(target, timeout=30) as done:
+        with plain.open(target, timeout=30) as done:
             status = done.status
     except urllib.error.HTTPError as e:
         status = e.code  # a redirect to a "done" page is not followed

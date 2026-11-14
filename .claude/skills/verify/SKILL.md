@@ -35,7 +35,8 @@ scripts/verify.sh app        # backend + app only
 scripts/verify.sh clean      # sweep runs left by a verify.sh killed with SIGKILL
 ```
 
-Exit 0 and `[verify] verify all passed` mean every tier passed. Screenshots
+Exit 0 and `[verify] verify all passed` (printed last, after cleanup) mean
+every tier passed and nothing of the run survived. Screenshots
 and logs are in `build/verify/<time>-<id>/` (not committed): read
 `shots/*.png` with the Read tool. First time in a container, install the
 packages in [reference.md](reference.md#packages) (one `apt-get` line). Run `flutter pub get`
@@ -115,16 +116,27 @@ Then add a row to "Covered behaviour" below and run `scripts/verify.sh` twice.
   (profile aliases land there, not in `~/.local/bin`), app HOME and XDG dirs,
   keyring, logs. Ports are OS-assigned, the X display is picked by Xvfb.
 - Credentials are synthetic and new per run; nothing real is read, and the
-  password is never printed. Never put a real key or account in.
+  password is never printed or put on a command line. Never put a real key
+  or account in.
+- The script re-runs itself from an allowlisted environment (paths, locale,
+  proxy and CA settings, package-manager locations, its own options) and
+  refuses to start, or to keep a backend, with anything that looks like a
+  token or key (`*TOKEN*`, `*_KEY`, `AWS_*`, `GH_*`, provider names…). A
+  cloud session's own `GH_TOKEN` or AWS keys never reach Hermes, which would
+  otherwise offer them as model providers.
 - Never point anything at the real `~/.hermes`; never run
   `hermes dashboard --stop`; never `pkill -f` broad patterns.
 - On any exit (pass, fail, Ctrl-C, TERM) the trap stops the backends by their
-  recorded PIDs, kills every process carrying this run's
-  `HERMES_VERIFY_RUN` marker, and deletes the temp dir. After SIGKILL no trap
-  runs: the next `verify.sh` (or `verify.sh clean`) sweeps runs whose owner
-  is gone.
-- One run per checkout at a time: runs share `build/linux` and the mimalloc
-  seed. For a second run in parallel, use another worktree.
+  recorded PIDs, kills the run's processes (those carrying this run's
+  `HERMES_VERIFY_RUN` marker, plus their descendants and the members of the
+  sessions the run created, started after the run began: Hermes scrubs the
+  environment of some children), and deletes the temp dir. After SIGKILL no
+  trap runs: the next `verify.sh` (or `verify.sh clean`) sweeps runs whose
+  owner is gone. `clean` touches only real directories you own, never a
+  symlink's target.
+- One run per checkout at a time (a lock on `build/verify/.lock` refuses a
+  second): runs share `build/linux` and the mimalloc seed. For a second run in
+  parallel, use another worktree.
 - The Linux build can rewrite tracked `linux/flutter/generated_plugin*`
   files: check `git status` and `git restore` them.
 - The first run installs Hermes with `npm ci`, which runs third-party install
@@ -140,5 +152,5 @@ Then add a row to "Covered behaviour" below and run `scripts/verify.sh` twice.
 | Gateway JSON-RPC: session create/resume, prompt, approvals, branching on a scripted model                   | contract | same file, scripted-model group                                           |
 | Bot Mode chat registry, hosted group send/replay/stop/disband                                               | contract | `test/bot_mode_chat_contract_test.dart`, `real_groups_contract_test.dart` |
 | Connect to a password-gated server from `HERMES_SERVER_URL`                                                 | app      | `verify_flow_test.dart` step 1                                            |
-| Password sign-in via loopback + PKCE, token in secure storage (keyring)                                     | app      | step 2                                                                    |
+| Password sign-in via loopback + PKCE, session stored in secure storage (keyring)                                     | app      | step 2                                                                    |
 | Send a prompt, receive the streamed reply in the chat                                                       | app      | step 3                                                                    |

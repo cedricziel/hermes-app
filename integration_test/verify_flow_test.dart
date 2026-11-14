@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/main.dart' as app;
+import 'package:hermes_app/src/auth/token_store.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
 import 'package:integration_test/integration_test.dart';
@@ -105,6 +106,13 @@ void main() {
       'sign-in did not finish (no chat composer)',
     );
     await settle(tester, 2);
+    // The session went to secure storage: the run's throwaway keyring, over
+    // the Secret Service on the run's private D-Bus session.
+    expect(
+      await TokenStore.defaultStorage.containsKey(key: 'hermes.session.v1'),
+      isTrue,
+      reason: 'the signed-in session is not in secure storage',
+    );
     await dismissHint(tester);
     await shot(tester, '02-signed-in');
 

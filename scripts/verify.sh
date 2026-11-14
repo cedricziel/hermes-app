@@ -9,14 +9,55 @@
 #
 # Everything a run starts lives in one temporary directory outside the working
 # tree (backend HERMES_HOME and HOME, app HOME and XDG dirs, keyring, logs),
-# on OS-assigned ports and its own X display and D-Bus session. Every process
-# inherits HERMES_VERIFY_RUN=<that directory>; on any exit the trap stops the
-# backends by their recorded PIDs, kills whatever still carries the marker,
+# on OS-assigned ports and its own X display and D-Bus session, from an
+# allowlisted environment that carries no token or key of the caller's. Every
+# process inherits HERMES_VERIFY_RUN=<that directory>; on any exit the trap
+# stops the backends by their recorded PIDs, kills the run's processes (the
+# marked ones, their descendants and the members of the run's own sessions)
 # and deletes the directory. Screenshots and logs worth keeping are copied to
 # build/verify/<run>/ first. See .claude/skills/verify/SKILL.md.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Names that may carry a secret are never passed on, whatever the allowlist.
+secret_name() {
+  case "${1^^}" in
+    *TOKEN* | *SECRET* | *PASSW* | *CREDENTIAL* | *AUTH* | *_KEY | *_KEY_* | *APIKEY* | *COOKIE* | *SESSION* | *ASKPASS*) return 0 ;;
+    AWS_* | GH_* | GITHUB_* | CLOUDSDK_* | GOOGLE_* | AZURE_* | OPENAI* | ANTHROPIC* | OPENROUTER* | HF_* | HUGGINGFACE*) return 0 ;;
+  esac
+  return 1
+}
+
+# The caller's environment, reduced to what the tools need: paths, locale,
+# proxy and CA settings, package-manager locations and this script's own
+# options. Re-executes once; the copy then refuses to run with anything that
+# looks like a secret.
+if [[ -z "${HERMES_VERIFY_CLEAN_ENV:-}" ]]; then
+  clean_env=(HERMES_VERIFY_CLEAN_ENV=1)
+  while IFS= read -r -d '' entry; do
+    name="${entry%%=*}"
+    [[ "$name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    secret_name "$name" && continue
+    case "$name" in
+      PATH | HOME | USER | LOGNAME | SHELL | LANG | LC_* | TZ | TERM | COLUMNS | LINES) ;;
+      http_proxy | https_proxy | no_proxy | all_proxy | HTTP_PROXY | HTTPS_PROXY | NO_PROXY | ALL_PROXY) ;;
+      SSL_CERT_FILE | SSL_CERT_DIR | REQUESTS_CA_BUNDLE | CURL_CA_BUNDLE | NODE_EXTRA_CA_CERTS | GIT_SSL_CAINFO | PIP_CERT | UV_NATIVE_TLS) ;;
+      PUB_CACHE | PUB_HOSTED_URL | FLUTTER_ROOT | FLUTTER_STORAGE_BASE_URL | XDG_CACHE_HOME) ;;
+      HERMES_VERIFY_TMP | HERMES_VERIFY_OUT | HERMES_VERIFY_APP_TIMEOUT | HERMES_AGENT_CACHE) ;;
+      *) continue ;;
+    esac
+    clean_env+=("$entry")
+  done </proc/self/environ
+  exec env -i "${clean_env[@]}" bash "$0" "$@"
+fi
+while IFS= read -r -d '' entry; do
+  if secret_name "${entry%%=*}"; then
+    echo "[verify] error: refusing to run with ${entry%%=*} in the environment" >&2
+    exit 1
+  fi
+done </proc/self/environ
+
 MODE="${1:-all}"
 TMP_ROOT="${HERMES_VERIFY_TMP:-/tmp}"
 APP_TIMEOUT="${HERMES_VERIFY_APP_TIMEOUT:-1200}"
@@ -26,6 +67,8 @@ die() {
   log "error: $*"
   exit 1
 }
+
+# --- processes of a run ----------------------------------------------------
 
 # Every process carrying HERMES_VERIFY_RUN=$1 in its environment, except this
 # shell. Builtins only, so the scan itself starts no marked process.
@@ -44,9 +87,50 @@ marked_pids() {
   done
 }
 
-kill_marked() {
+# The processes of run $1: the marked ones, plus, among processes started
+# after the run began, their descendants and the members of the sessions the
+# run created ($1/sids). Hermes scrubs the environment of some children (tool
+# runners, package installs), so the marker alone would miss them.
+run_pids() {
+  local run="$1" since=0 pid line rest
+  local -A in_run=() sids=() ppid_of=() sid_of=() start_of=() zombie=()
+  [[ -f "$run/start" ]] && since="$(<"$run/start")"
+  if [[ -f "$run/sids" ]]; then
+    while read -r line; do [[ "$line" =~ ^[0-9]+$ ]] && sids[$line]=1; done <"$run/sids"
+  fi
+  for pid in $(marked_pids "$run"); do in_run[$pid]=1; done
+  local dir f
+  for dir in /proc/[0-9]*; do
+    pid="${dir#/proc/}"
+    { read -r line <"$dir/stat"; } 2>/dev/null || continue
+    rest="${line##*) }"
+    read -r -a f <<<"$rest"
+    [[ "${f[0]}" == Z ]] && zombie[$pid]=1
+    ppid_of[$pid]="${f[1]}"
+    sid_of[$pid]="${f[3]}"
+    start_of[$pid]="${f[19]}"
+  done
+  local grew=1
+  while ((grew)); do
+    grew=0
+    for pid in "${!ppid_of[@]}"; do
+      [[ -n "${in_run[$pid]:-}" || "$pid" == "$$" || "$pid" == "$BASHPID" ]] && continue
+      [[ "${start_of[$pid]:-0}" -ge "$since" ]] || continue
+      if [[ -n "${in_run[${ppid_of[$pid]}]:-}" || -n "${sids[${sid_of[$pid]}]:-}" ]]; then
+        in_run[$pid]=1
+        grew=1
+      fi
+    done
+  done
+  # A zombie has exited and only waits to be reaped by its parent or PID 1.
+  for pid in "${!in_run[@]}"; do
+    [[ -d "/proc/$pid" && -z "${zombie[$pid]:-}" ]] && printf '%s\n' "$pid"
+  done
+}
+
+kill_run() {
   local run="$1" pids tries=0
-  mapfile -t pids < <(marked_pids "$run")
+  mapfile -t pids < <(run_pids "$run")
   ((${#pids[@]})) || return 0
   local pid names=() name
   for pid in "${pids[@]}"; do
@@ -57,7 +141,7 @@ kill_marked() {
   log "stopping ${#pids[@]} process(es) of this run: ${names[*]}"
   kill -TERM "${pids[@]}" 2>/dev/null || true
   while ((tries < 20)); do
-    mapfile -t pids < <(marked_pids "$run")
+    mapfile -t pids < <(run_pids "$run")
     ((${#pids[@]})) || return 0
     sleep 0.5
     tries=$((tries + 1))
@@ -65,21 +149,42 @@ kill_marked() {
   kill -KILL "${pids[@]}" 2>/dev/null || true
 }
 
+# The session id of process $1, recorded so its members are found even after
+# they drop the marker. Only sessions this run created are recorded.
+record_sid() {
+  local line rest f
+  read -r line <"/proc/$1/stat"
+  rest="${line##*) }"
+  read -r -a f <<<"$rest"
+  echo "${f[3]}" >>"$RUN_DIR/sids"
+}
+
+resolve_tmp_root() {
+  [[ -d "$TMP_ROOT" ]] || die "HERMES_VERIFY_TMP=$TMP_ROOT does not exist"
+  TMP_ROOT="$(cd "$TMP_ROOT" && pwd -P)"
+  case "$TMP_ROOT/" in
+    "$(cd "$ROOT_DIR" && pwd -P)"/*) die "refusing: $TMP_ROOT is inside the working tree" ;;
+  esac
+}
+
 # Runs left behind by a verify.sh that was killed with SIGKILL (no trap ran).
+# Only real directories this user owns are touched, never a symlink's target.
 cmd_clean() {
   local dir owner
   for dir in "$TMP_ROOT"/hermes-verify.*; do
-    [[ -d "$dir" && -f "$dir/owner" ]] || continue
-    owner="$(cat "$dir/owner")"
-    if [[ "$owner" =~ ^[0-9]+$ ]] && kill -0 "$owner" 2>/dev/null &&
-      [[ "$(tr '\0' ' ' <"/proc/$owner/cmdline" 2>/dev/null)" == *verify.sh* ]]; then
-      continue # still running
+    [[ -d "$dir" && ! -L "$dir" && -O "$dir" ]] || continue
+    if [[ -f "$dir/owner" ]]; then
+      owner="$(<"$dir/owner")"
+      if [[ "$owner" =~ ^[0-9]+$ ]] && kill -0 "$owner" 2>/dev/null &&
+        [[ "$(tr '\0' ' ' <"/proc/$owner/cmdline" 2>/dev/null)" == *verify.sh* ]]; then
+        continue # still running
+      fi
+    elif [[ -z "$(find "$dir" -maxdepth 0 -mmin +10)" ]]; then
+      continue # just created; its owner file may not be written yet
     fi
-    # Runs mark their processes with the resolved path.
-    dir="$(cd "$dir" && pwd -P)"
     log "cleaning stale run $dir"
-    kill_marked "$dir"
-    rm -rf "$dir"
+    kill_run "$dir"
+    rm -rf -- "$dir"
   done
 }
 
@@ -87,14 +192,6 @@ need() {
   local tool missing=()
   for tool in "$@"; do command -v "$tool" >/dev/null || missing+=("$tool"); done
   ((${#missing[@]} == 0)) || die "missing tools: ${missing[*]} (see .claude/skills/verify/reference.md, Packages)"
-}
-
-free_of_tree() {
-  local path
-  path="$(cd "$1" && pwd -P)"
-  case "$path/" in
-    "$(cd "$ROOT_DIR" && pwd -P)"/*) die "refusing: $path is inside the working tree" ;;
-  esac
 }
 
 # --- backend ---------------------------------------------------------------
@@ -125,34 +222,40 @@ dashboard:
 EOF
     fi
   } >"$state/home/config.yaml"
-  local -a auth_env=()
-  if [[ "$gated" == 1 ]]; then
-    auth_env=(
-      HERMES_DASHBOARD_BASIC_AUTH_USERNAME="$VERIFY_USER"
-      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD="$VERIFY_PASSWORD"
-      HERMES_DASHBOARD_BASIC_AUTH_SECRET="$VERIFY_SECRET"
-    )
-  fi
-  # setsid: the dashboard gets its own session, so a Ctrl-C meant for this
-  # script reaches it only through the trap.
-  env -u HERMES_HOME HOME="$state/userhome" HERMES_DEV_STATE_DIR="$state" \
-    PATH="$HERMES_DIR/.venv/bin:$PATH" HERMES_WEB_DIST="$HERMES_DIR/hermes_cli/web_dist" \
-    "${auth_env[@]}" setsid "$ROOT_DIR/scripts/dev-backend.sh" start >&2 ||
-    {
-      tail -n 40 "$state/dashboard.log" >&2 2>/dev/null || true
-      die "backend $name did not start"
-    }
+  # Exported in a subshell rather than passed as arguments, so the synthetic
+  # password never shows in a command line. setsid gives the dashboard its own
+  # session, recorded for cleanup.
+  (
+    unset HERMES_HOME
+    export HOME="$state/userhome" HERMES_DEV_STATE_DIR="$state"
+    export PATH="$HERMES_DIR/.venv/bin:$PATH" HERMES_WEB_DIST="$HERMES_DIR/hermes_cli/web_dist"
+    if [[ "$gated" == 1 ]]; then
+      export HERMES_DASHBOARD_BASIC_AUTH_USERNAME="$VERIFY_USER"
+      export HERMES_DASHBOARD_BASIC_AUTH_PASSWORD="$VERIFY_PASSWORD"
+      export HERMES_DASHBOARD_BASIC_AUTH_SECRET="$VERIFY_SECRET"
+    fi
+    exec setsid "$ROOT_DIR/scripts/dev-backend.sh" start
+  ) >&2 || {
+    tail -n 40 "$state/dashboard.log" >&2 2>/dev/null || true
+    die "backend $name did not start"
+  }
   BACKENDS+=("$state")
   local url pid
   url="$(HERMES_DEV_STATE_DIR="$state" "$ROOT_DIR/scripts/dev-backend.sh" url)"
   pid="$(cat "$state/pid")"
-  # The process must be ours, on our home, and not the real ~/.hermes.
-  local env_home
+  record_sid "$pid"
+  # The process must be ours, on our home, not the real ~/.hermes, and hold
+  # no secret but the run's synthetic ones.
+  local env_home var
   env_home="$(tr '\0' '\n' <"/proc/$pid/environ" | sed -n 's/^HERMES_HOME=//p' | head -n1)"
   [[ "$env_home" == "$state/home" ]] || die "backend $name runs on HERMES_HOME=$env_home, not $state/home"
   [[ "$env_home" != "$ORIG_HOME/.hermes"* ]] || die "backend $name points at the real ~/.hermes"
   tr '\0' '\n' <"/proc/$pid/environ" | grep -qx "HERMES_VERIFY_RUN=$RUN_DIR" ||
     die "backend $name does not carry this run's marker"
+  while IFS= read -r var; do
+    [[ "$var" == HERMES_DASHBOARD_BASIC_AUTH_* ]] && continue
+    secret_name "$var" && die "backend $name has $var in its environment"
+  done < <(tr '\0' '\n' <"/proc/$pid/environ" | cut -d= -f1)
   log "backend $name: $url (pid $pid, home $state/home, password gate: $gated)"
   BACKEND_URL="$url"
 }
@@ -160,6 +263,8 @@ EOF
 # --- tiers -----------------------------------------------------------------
 
 run_contract() {
+  # No default model, as in CI: some contract tests expect a backend without
+  # one (and skip what needs one).
   start_backend contract 0
   local url="$BACKEND_URL"
   log "contract tier: real backend, Bot Mode chat and hosted group contracts"
@@ -168,12 +273,14 @@ run_contract() {
   mkdir -p "$RUN_DIR/tmp"
   local status=0
   # In the background and waited for, so TERM or INT to this script runs the
-  # trap at once instead of after the tests finish.
+  # trap at once instead of after the tests finish; in a session of its own,
+  # recorded for cleanup.
   (cd "$ROOT_DIR" && TMPDIR="$RUN_DIR/tmp" HERMES_DEV_URL="$url" HERMES_DEV_HOME="$RUN_DIR/contract/home" \
-    flutter test --no-pub --concurrency=1 \
+    exec setsid flutter test --no-pub --suppress-analytics --concurrency=1 \
     test/real_backend_contract_test.dart \
     test/bot_mode_chat_contract_test.dart \
     test/bot_mode/group_protocol/real_groups_contract_test.dart) >"$RUN_DIR/contract-test.log" 2>&1 &
+  echo "$!" >>"$RUN_DIR/sids"
   wait "$!" || status=$?
   tail -n 60 "$RUN_DIR/contract-test.log" >&2
   HERMES_DEV_STATE_DIR="$RUN_DIR/contract" "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
@@ -207,16 +314,23 @@ seed_mimalloc() {
   }
 }
 
-run_app() {
-  need Xvfb dbus-run-session gnome-keyring-daemon import xdotool
-  local model_log="$RUN_DIR/model.log"
-  python3 -I "$ROOT_DIR/scripts/verify_scripted_model.py" "$RUN_DIR/model.port" >"$model_log" 2>&1 &
+# The free scripted model the app tier's backend uses as its default, so no
+# turn needs a provider key. Sets MODEL_PORT.
+start_model() {
+  [[ -n "${MODEL_PORT:-}" ]] && return
+  python3 -I "$ROOT_DIR/scripts/verify_scripted_model.py" "$RUN_DIR/model.port" >"$RUN_DIR/model.log" 2>&1 &
   local tries=0
   until [[ -s "$RUN_DIR/model.port" ]]; do
     ((tries++ < 50)) || die "scripted model did not start"
     sleep 0.2
   done
   MODEL_PORT="$(cat "$RUN_DIR/model.port")"
+}
+
+run_app() {
+  need Xvfb dbus-run-session gnome-keyring-daemon import xdotool
+  local tries=0
+  start_model
   start_backend app 1
   local url="$BACKEND_URL"
 
@@ -252,14 +366,19 @@ EOF
   seed_mimalloc
   mkdir -p "$OUT_DIR/shots"
   local status=0
-  (cd "$ROOT_DIR" && env \
-    HOME="$apphome" XDG_CONFIG_HOME="$apphome/config" XDG_DATA_HOME="$apphome/data" \
-    XDG_CACHE_HOME="$apphome/cache" XDG_STATE_HOME="$apphome/state" XDG_RUNTIME_DIR="$apphome/runtime" \
-    PUB_CACHE="${PUB_CACHE:-$ORIG_HOME/.pub-cache}" DISPLAY="$display" \
-    GIT_CONFIG_GLOBAL="${GIT_CONFIG_GLOBAL:-$ORIG_HOME/.gitconfig}" \
-    HERMES_VERIFY_USER="$VERIFY_USER" HERMES_VERIFY_PASSWORD="$VERIFY_PASSWORD" \
-    HERMES_VERIFY_ORIGIN="$url" HERMES_VERIFY_BROWSER_LOG="$RUN_DIR/browser.log" NM_LOG="$RUN_DIR/fake-nm.log" KEYRING_PASSWORD="$VERIFY_SECRET" \
-    timeout -k 10 "$APP_TIMEOUT" dbus-run-session -- bash -c '
+  # Exported in a subshell, not passed as arguments, so no secret shows in a
+  # command line; in a session of its own, recorded for cleanup.
+  (
+    cd "$ROOT_DIR"
+    export HOME="$apphome" XDG_CONFIG_HOME="$apphome/config" XDG_DATA_HOME="$apphome/data"
+    export XDG_CACHE_HOME="$apphome/cache" XDG_STATE_HOME="$apphome/state" XDG_RUNTIME_DIR="$apphome/runtime"
+    export PUB_CACHE="${PUB_CACHE:-$ORIG_HOME/.pub-cache}" DISPLAY="$display"
+    # The isolated HOME hides Flutter's safe.directory entry.
+    export GIT_CONFIG_GLOBAL="$ORIG_HOME/.gitconfig"
+    export HERMES_VERIFY_USER="$VERIFY_USER" HERMES_VERIFY_PASSWORD="$VERIFY_PASSWORD"
+    export HERMES_VERIFY_ORIGIN="$url" HERMES_VERIFY_BROWSER_LOG="$RUN_DIR/browser.log"
+    export NM_LOG="$RUN_DIR/fake-nm.log" KEYRING_PASSWORD="$VERIFY_KEYRING"
+    exec setsid timeout -k 10 "$APP_TIMEOUT" dbus-run-session -- bash -c '
       set -e
       printf %s "$KEYRING_PASSWORD" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
       unset KEYRING_PASSWORD
@@ -275,9 +394,11 @@ EOF
       done
       grep -q ready "$NM_LOG" || { cat "$NM_LOG" >&2; echo "fake NetworkManager did not start" >&2; exit 1; }
       exec "$@"' bash \
-    flutter test --no-pub --suppress-analytics -d linux integration_test/verify_flow_test.dart \
-    --dart-define=HERMES_SERVER_URL="$url" \
-    --dart-define=HERMES_VERIFY_SHOTS="$OUT_DIR/shots") >"$RUN_DIR/app-test.log" 2>&1 &
+      flutter test --no-pub --suppress-analytics -d linux integration_test/verify_flow_test.dart \
+      --dart-define=HERMES_SERVER_URL="$url" \
+      --dart-define=HERMES_VERIFY_SHOTS="$OUT_DIR/shots"
+  ) >"$RUN_DIR/app-test.log" 2>&1 &
+  echo "$!" >>"$RUN_DIR/sids"
   wait "$!" || status=$?
   tail -n 40 "$RUN_DIR/app-test.log" >&2
   HERMES_DEV_STATE_DIR="$RUN_DIR/app" "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
@@ -295,30 +416,35 @@ cleanup() {
   for state in "${BACKENDS[@]}"; do
     HERMES_DEV_STATE_DIR="$state" "$ROOT_DIR/scripts/dev-backend.sh" stop >/dev/null 2>&1
   done
-  kill_marked "$RUN_DIR"
+  kill_run "$RUN_DIR"
   mkdir -p "$OUT_DIR"
   for state in contract-test.log app-test.log browser.log model.log contract/dashboard.log app/dashboard.log; do
     [[ -f "$RUN_DIR/$state" ]] && cp "$RUN_DIR/$state" "$OUT_DIR/${state//\//-}"
   done
-  rm -rf "$RUN_DIR"
+  # Builtins only: an external command here would carry the marker itself.
+  local survivors=()
+  mapfile -t survivors < <(run_pids "$RUN_DIR")
+  rm -rf -- "$RUN_DIR"
   # Keep the newest ten runs' screenshots and logs.
   local verify_out="$ROOT_DIR/build/verify" old_run
   if [[ "$(dirname "$OUT_DIR")" == "$verify_out" ]]; then
     while IFS= read -r old_run; do
-      [[ -n "$old_run" ]] && rm -rf "${verify_out:?}/$old_run"
+      [[ -n "$old_run" ]] && rm -rf -- "${verify_out:?}/$old_run"
     done < <(ls -1t "$verify_out" | tail -n +11)
   fi
-  if [[ -n "$(marked_pids "$RUN_DIR")" ]]; then
-    log "WARNING: processes of this run survived: $(marked_pids "$RUN_DIR" | tr '\n' ' ')"
+  if ((${#survivors[@]})); then
+    log "WARNING: processes of this run survived: ${survivors[*]}"
     status=1
   fi
   log "cleaned up $RUN_DIR; logs in $OUT_DIR"
+  ((status == 0)) && [[ -n "${PASSED:-}" ]] && log "verify $MODE passed"
   exit "$status"
 }
 
 case "$MODE" in
   all | contract | app) ;;
   clean)
+    resolve_tmp_root
     cmd_clean
     exit 0
     ;;
@@ -329,34 +455,42 @@ case "$MODE" in
 esac
 
 [[ "$(uname -s)" == Linux ]] || die "this runs on Linux; on a Mac use the verify-in-app skill"
-need git curl python3 uv npm flutter setsid lsof timeout md5sum
+need git curl python3 uv npm flutter setsid lsof timeout md5sum flock find
 
 # Paid model calls, external pairing and the Bot Screen stay off, and nothing
-# inherited may point a tool at another Hermes.
+# inherited may point a tool at another Hermes. (The allowlist above drops
+# these already; this keeps it true if the allowlist grows.)
 unset HERMES_DEV_MODEL_CALLS HERMES_DEV_TELEGRAM_PAIRING HERMES_DEV_BOT_SCREEN \
   HERMES_DEV_URL HERMES_DEV_HOME HERMES_DEV_STATE_DIR HERMES_DEV_PORT HERMES_HOME
 ORIG_HOME="$HOME"
 
+resolve_tmp_root
+# One run per checkout: runs share build/linux and the mimalloc seed.
+mkdir -p "$ROOT_DIR/build/verify"
+exec 8>"$ROOT_DIR/build/verify/.lock"
+flock -n 8 || die "another verify.sh run is using this checkout; use another worktree"
 cmd_clean
 HERMES_DIR="$(cd "$ROOT_DIR" && scripts/install-hermes.sh)"
 
-[[ -d "$TMP_ROOT" ]] || die "HERMES_VERIFY_TMP=$TMP_ROOT does not exist"
-free_of_tree "$TMP_ROOT"
 RUN_DIR="$(mktemp -d "$TMP_ROOT/hermes-verify.XXXXXX")"
-RUN_DIR="$(cd "$RUN_DIR" && pwd -P)"
 OUT_DIR="${HERMES_VERIFY_OUT:-$ROOT_DIR/build/verify/$(date +%Y%m%d-%H%M%S)-${RUN_DIR##*.}}"
 BACKENDS=()
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-free_of_tree "$RUN_DIR"
 echo "$$" >"$RUN_DIR/owner"
+# Processes of this run start after this verify.sh did.
+read -r line </proc/$$/stat
+rest="${line##*) }"
+read -r -a fields <<<"$rest"
+echo "${fields[19]}" >"$RUN_DIR/start"
 export HERMES_VERIFY_RUN="$RUN_DIR"
 
 # Synthetic credentials, new for every run and never printed.
 VERIFY_USER="verify"
 VERIFY_PASSWORD="$(python3 -I -c 'import secrets; print(secrets.token_urlsafe(18))')"
 VERIFY_SECRET="$(python3 -I -c 'import secrets; print(secrets.token_urlsafe(48))')"
+VERIFY_KEYRING="$(python3 -I -c 'import secrets; print(secrets.token_urlsafe(18))')"
 
 log "run $RUN_DIR (hermes $(basename "$HERMES_DIR"))"
 case "$MODE" in
@@ -367,4 +501,4 @@ case "$MODE" in
     run_app
     ;;
 esac
-log "verify $MODE passed"
+PASSED=1
