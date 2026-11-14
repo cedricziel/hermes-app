@@ -237,18 +237,23 @@ class _ApiKeyFormState extends State<ApiKeyForm> {
           ),
         GroupedSection(
           children: [
-            SecretFieldRow(
-              label: l10n.providersKeyLabel,
-              hint: l10n.providersKeyHint,
-              controller: widget.controller,
-              focusNode: _focus,
-              enabled: !data.busy,
-              busy: data.busy,
-              hideSignal: _hideSignal,
-              initiallyShown: widget.initiallyShown,
-              onChanged: widget.onChanged,
-              onSubmitted: (_) => _submit(),
-              textInputAction: TextInputAction.done,
+            LayoutBuilder(
+              builder: (context, box) => SecretFieldRow(
+                labelWidth: groupedLabelWidth(context, [
+                  l10n.providersKeyLabel,
+                ], available: box.maxWidth),
+                label: l10n.providersKeyLabel,
+                hint: l10n.providersKeyHint,
+                controller: widget.controller,
+                focusNode: _focus,
+                enabled: !data.busy,
+                busy: data.busy,
+                hideSignal: _hideSignal,
+                initiallyShown: widget.initiallyShown,
+                onChanged: widget.onChanged,
+                onSubmitted: (_) => _submit(),
+                textInputAction: TextInputAction.done,
+              ),
             ),
           ],
         ),

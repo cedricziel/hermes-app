@@ -35,6 +35,7 @@ Widget settingsPage({
       actions: actions?.call(l10n) ?? const [],
       formAction: formAction?.call(l10n),
       cancel: cancel,
+      macCancel: cancel,
       body: body,
     );
   },

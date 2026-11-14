@@ -11,6 +11,7 @@ Future<T?> showAdaptiveSheet<T>(
   double maxWidth = 520,
 }) {
   Widget dialogBuilder(BuildContext dialog) => Dialog(
+    clipBehavior: Clip.antiAlias,
     child: ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: builder(dialog),
