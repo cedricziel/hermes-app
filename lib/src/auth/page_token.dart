@@ -17,7 +17,7 @@ class PageToken {
     final pending = _cached ??= _page.fetchSessionToken();
     try {
       return await pending;
-    } on Object {
+    } on DioException {
       _cached = null;
       return null;
     }

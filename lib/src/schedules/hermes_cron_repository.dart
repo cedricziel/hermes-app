@@ -63,8 +63,10 @@ class HermesCronRepository {
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       return status == null || status >= 500 ? null : false;
-    } on Object catch (_) {
-      return false;
+    } on FormatException {
+      // A 200 the generated client could not read: the routes exist, the
+      // server cannot be confirmed to speak this API.
+      return null;
     }
   }
 

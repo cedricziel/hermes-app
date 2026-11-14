@@ -123,7 +123,17 @@ class TokenStore {
       }
       final session = HermesSession.fromStorageJson(json);
       return SessionFound(session);
-    } on Object {
+    } on Object catch (error) {
+      // Any parse failure, a TypeError from a changed shape included, means
+      // the stored session cannot be used. Say so instead of looking like a
+      // clean sign-out.
+      try {
+        _events('auth.session.corrupt', {
+          'error.type': error.runtimeType.toString(),
+        });
+      } on Object {
+        // Telemetry failure must not change session restoration.
+      }
       return const SessionEmpty();
     }
   }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_otel/flutter_otel.dart';
 
 import '../network/poll_backoff.dart';
 import '../notifications/attention_policy.dart';
@@ -99,6 +100,7 @@ class ScheduleWatcher with WidgetsBindingObserver {
     required this.service,
     required this.settings,
     this.profiles,
+    this.events = noopAppEventLogger,
     ScheduleBaseline? baseline,
     String Function()? account,
     this.interval = const Duration(minutes: 1),
@@ -116,7 +118,12 @@ class ScheduleWatcher with WidgetsBindingObserver {
   final NotificationService service;
   final NotificationSettings settings;
   final HermesProfilesRepository? profiles;
+  final AppEventLogger events;
   final Duration interval;
+
+  /// The error types a failed look was already reported for, until a look
+  /// succeeds.
+  final _reported = <String>{};
 
   /// What the last look, here or in a background run, saw of each job. Read
   /// at every look: a background run may have moved it while the app was away.
@@ -277,8 +284,20 @@ class ScheduleWatcher with WidgetsBindingObserver {
           await service.show(alert);
         }
       }
-    } on Object {
-      // A look that failed is tried again on the next tick.
+      _reported.clear();
+    } on Object catch (error) {
+      // A look that failed is tried again on the next tick; the failure is
+      // reported once per error type until a look succeeds.
+      if (_current(epoch) && _reported.add('${error.runtimeType}')) {
+        try {
+          events('schedules.look_failed', {
+            'error_type': '${error.runtimeType}',
+            'background': false,
+          });
+        } on Object {
+          // Telemetry failure must not break the watcher.
+        }
+      }
     }
   }
 
