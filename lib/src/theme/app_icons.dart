@@ -452,6 +452,22 @@ abstract final class AppIcons {
   static const key = AppIconSet(Icons.key_outlined, CupertinoIcons.lock);
   static const cloud = AppIconSet(Icons.cloud_outlined, CupertinoIcons.cloud);
 
+  /// A cross in a filled circle: a check that failed.
+  static const crossCircleFilled = AppIconSet(
+    Icons.cancel,
+    CupertinoIcons.xmark_circle_fill,
+  );
+
+  /// A question mark in a filled circle: a check that could not tell.
+  static const questionCircleFilled = AppIconSet(
+    Icons.help,
+    CupertinoIcons.question_circle_fill,
+  );
+  static const lockOpen = AppIconSet(
+    Icons.lock_open_outlined,
+    CupertinoIcons.lock_open,
+  );
+
   /// Every set by name, for the catalog and for tests.
   static const all = <String, AppIconSet>{
     'error': error,
@@ -577,5 +593,8 @@ abstract final class AppIcons {
     'warningFilled': warningFilled,
     'key': key,
     'cloud': cloud,
+    'crossCircleFilled': crossCircleFilled,
+    'questionCircleFilled': questionCircleFilled,
+    'lockOpen': lockOpen,
   };
 }

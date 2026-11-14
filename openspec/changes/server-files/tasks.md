@@ -52,12 +52,24 @@ If PR 1 passes about 500 lines, split it after 1.4 (repository) and 1.5 (streami
 - [ ] 4.2 Write failing tests, then add `CodePreview` using the server's `language` name, an unknown name falling back to plain text, and a size guard (no highlighting above the 512 KB the server sends; highlighting runs off the UI isolate when it exceeds a frame). Update the Widgetbook use cases.
 - [ ] 4.3 Run `/simplify`, then format, analyze and test.
 
+## Roadmap (not done in this change)
+
+- The Quick Look panels of other Mac conversation windows and of the quick panel do not close when App Lock locks (only the main window's `MediaStore` is cleared).
+
+## Known limits of path-based Save (not patched; the plugin is not ours)
+
+- Android: when the copy fails after the picker returned, `flutter_file_dialog` leaves an empty destination document the user chose.
+- Android: `flutter_file_dialog` logs, at debug level and also in release builds, the source file path (which ends in the server's file name) and the destination URI path (`FileDialog.kt`, `DocumentSaver.kt`). A neutral-named staged copy would hide the source path but not the destination, which carries the display name the plugin is given as `EXTRA_TITLE`, and would cost a second copy of the file on disk. So the server's file name can reach logcat on Android; not fixed here, to go on the roadmap (replace the plugin or patch its logging).
+- `file_selector` bundles mobile implementations the app does not use (a PR line, no action).
+- Follow-up: chat attachments' `openWithSystem` (`attachment_file_actions.dart`) gets neither the runnable-file block nor the Mark of the Web on Windows.
+- iOS: `fileName` is not passed to the plugin, because with it the plugin copies the whole file to `NSTemporaryDirectory()` outside the media cache; the document is named after the staged (sanitised) file.
+
 ## Known deviations (review of the controller PR)
 
-- Save is capped at 32 MB (`kMaxSaveBytes`): file_picker 13 saves from bytes, so `PlatformMediaActions.saveFile` reads the file into memory, against "SHALL NOT read it into memory" in the spec. A larger file ends as `FilesFailure.saveUnavailable`. Open item for the widget PR: a path-based save (`file_selector` on desktop, a document-export channel on mobile) without a new dependency decision hidden in the controller PR.
+- ~~Save is capped at 32 MB (`kMaxSaveBytes`): file_picker 13 saves from bytes, so `PlatformMediaActions.saveFile` reads the file into memory, against "SHALL NOT read it into memory" in the spec. A larger file ends as `FilesFailure.saveUnavailable`. Open item for the widget PR: a path-based save (`file_selector` on desktop, a document-export channel on mobile) without a new dependency decision hidden in the controller PR.~~ Done in PR 3: `FileExport` (`flutter_file_dialog` on iOS and Android, `file_selector` + `File.copy` on desktop); the cap and `FilesFailure.saveUnavailable` are gone. Not verified on a device: iOS Files export and Android document provider (5.2, 5.3).
 - Recommended for the Open with… PR: on Windows a file opened from the cache should carry the Mark of the Web (zone identifier) so SmartScreen applies. Bidirectional controls in a name are already replaced in `MediaStore`'s safe name.
 - **Blocking task for the Files screen PR (task 3.4):** path-based Save, so a file is never read into memory (spec). `file_selector` `getSaveLocation` then a native copy on desktop; a document-export channel on mobile (iOS `UIDocumentPickerViewController(forExporting:asCopy:)`, Android `ACTION_CREATE_DOCUMENT` copied with a stream). Justify each plugin against CLAUDE.md's Dependencies rule. The screen must not merge while Save is capped at 32 MB.
-- **Blocking task for the Open with… PR (task 3.4), Windows:** do not offer Open with… at all for executable or script types (decide the list from the spec's secret and hidden rules plus `.bat`, `.cmd`, `.exe`, `.msi`, `.ps1`, `.vbs`, `.js`, `.lnk`), and set the Mark of the Web on every other staged file there.
+- ~~**Blocking task for the Open with… PR (task 3.4), Windows:** do not offer Open with… at all for executable or script types (decide the list from the spec's secret and hidden rules plus `.bat`, `.cmd`, `.exe`, `.msi`, `.ps1`, `.vbs`, `.js`, `.lnk`), and set the Mark of the Web on every other staged file there.~~ Done: `FilesPlatformPolicy` (`files_platform_policy.dart`): no Open with… for the runnable extensions (also with trailing dots or spaces), the `Zone.Identifier` stream written after each download and again, required, before Open with…. Secret and hidden names add nothing: they already ask first. Not verified on Windows.
 - The 10 s `answerTimeout` is the total time for list, `git-root`, `default-cwd` and `read-text`; downloads end on the repository's 30 s idle timeout, not on it.
 - ENOTDIR on a folder request now lists the parent and opens the file (design.md); task 1.1's fixtures for it still need recording.
 
@@ -69,6 +81,7 @@ These need a device or simulator and a running Hermes, and are listed after the 
 - 5.2 iPhone and iPad simulator: list then preview push, list beside preview on iPad at 700 pt, Share sheet, PDF in Quick Look, App Lock closing the preview, largest text size and VoiceOver reading of rows.
 - 5.3 Android emulator: Save dialog, Open with… for a PDF and an archive, back gesture from preview to list, TalkBack.
 - 5.4 A profile whose terminal is an SSH workspace (a second container): the folder shown is the SSH machine's, the download shows an indeterminate progress, a `.env` there still asks before it is read, a symlinked folder lists as a folder, and an unreadable file fails instead of caching an empty file.
+- 5.11 macOS, the real sandboxed app (fake-picker tests cannot see the sandbox): Save of a small and of a 60 MB file from the Files page writes the chosen file; Save over an existing file replaces it; Save to a folder where the panel created the file and then cancel leaves nothing; no sibling `.part` file appears next to the destination.
 - 5.7 macOS with `/tmp` as the chat's folder (resolves to `/private/tmp`): entries are shown.
 - 5.5 A server older than `/api/fs` (or a stub answering 404): no Files row, no menu item, no error.
 - 5.6 A locked deployment (`HERMES_DASHBOARD_FILES_ROOT` set to a folder that excludes the chat's folder): the page shows "Hermes only shares files from a fixed folder on this server."
