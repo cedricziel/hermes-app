@@ -154,6 +154,7 @@ ChatThreadView boundChatThreadView({
   BotScreenController? screen,
   VoidCallback? onOpenScreen,
   bool draftHandedBack = false,
+  ValueChanged<String>? onShowAgentDetails,
   NeedsYouQueue? needsYou,
 }) {
   final t = thread;
@@ -161,6 +162,7 @@ ChatThreadView boundChatThreadView({
     thread: t,
     sendHeld: t != null && chat.sendHeldIn(t),
     draftHandedBack: draftHandedBack,
+    onShowAgentDetails: onShowAgentDetails,
     screenPreview: screen == null
         ? null
         : (run) => BoundBotScreenPreview(

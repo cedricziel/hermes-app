@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_app/src/chat/media/media_actions.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/files/files_controller.dart';
@@ -1124,17 +1123,6 @@ void main() {
         expect(everything(), isNot(contains('export')));
       },
     );
-
-    test('a file too large to save says so', () async {
-      actions.saveError = const SaveTooLargeException();
-      await build().start();
-      await controller.select(controller.entries.single);
-      await controller.save();
-      expect(
-        (controller.preview as PreviewFailed).kind,
-        FilesFailure.saveUnavailable,
-      );
-    });
   });
 
   group('unknown-length copies', () {

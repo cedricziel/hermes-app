@@ -58,6 +58,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
     final crumbs = _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none;
     if (_wide) {
       _rebuild(() => _activityOpen = !_activityOpen);
+      if (!_activityOpen) _agentSelection.clear();
       crumbs(_activityOpen ? 'chat.activity.opened' : 'chat.activity.closed', {
         'surface': 'inspector',
         if (_activityOpen) 'source': source,
@@ -67,7 +68,28 @@ extension _ChatScreenNavigation on _ChatScreenState {
     final thread = _chat.selectedThread;
     if (thread == null) return;
     crumbs('chat.activity.opened', {'surface': 'sheet', 'source': source});
+    final grower = _activitySheet = DraggableScrollableController();
+    void grow([int tries = 0]) {
+      // A detail needs the room: the sheet goes to its full height.
+      if (_agentSelection.key == null) return;
+      if (grower.isAttached) {
+        unawaited(
+          grower.animateTo(
+            1,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          ),
+        );
+      } else if (tries < 8 && mounted) {
+        // The sheet is still being pushed.
+        WidgetsBinding.instance.addPostFrameCallback((_) => grow(tries + 1));
+      }
+    }
+
+    _agentSelection.addListener(grow);
+    grow();
     final sheet = showKanbanDetentSheet(
+      sheet: grower,
       context,
       (controller) => ListenableBuilder(
         // The profile may change while the sheet is open, and with it the
@@ -79,14 +101,37 @@ extension _ChatScreenNavigation on _ChatScreenState {
           screen: _screen,
           onEnlargeScreen: () => _openViewer('card'),
           scrollController: controller,
+          selection: _agentSelection,
           onClose: () => Navigator.of(context).pop(),
           checkpointsAndContext: true,
         ),
       ),
     );
     unawaited(
-      sheet.then((_) => crumbs('chat.activity.closed', {'surface': 'sheet'})),
+      sheet.then((_) {
+        crumbs('chat.activity.closed', {'surface': 'sheet'});
+        if (mounted) {
+          _agentSelection
+            ..removeListener(grow)
+            ..clear();
+        }
+        _activitySheet = null;
+        grower.dispose();
+      }),
     );
+  }
+
+  /// Shows an agent's details from the transcript's agent card: the Activity
+  /// panel opens at that agent (it only opens, never closes).
+  void _showAgentDetails(String agentId) {
+    final thread = _chat.selectedThread;
+    final roster = thread == null ? null : _chat.subagentsIn(thread);
+    if (roster == null) return;
+    // The sheet listens for a selection to grow, so it opens first.
+    if (_wide ? !_activityOpen : _activitySheet == null) {
+      _toggleActivity(source: 'transcript');
+    }
+    _agentSelection.select(agentKeyOf(roster, agentId), source: 'transcript');
   }
 
   /// What the menu bar's File and Chat menus do here.

@@ -6,12 +6,11 @@ import '../../telemetry/breadcrumbs.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../widgets/install_parts.dart';
 import '../../widgets/named_icon_button.dart';
 import '../bot_screen_card_model.dart';
 import '../bot_screen_models.dart';
 import '../install/install_state.dart';
-
-const _mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
 
 /// The Bot screen card of the Activity panel: what the agent's own desktop
 /// shows, who is in control, and why there is no picture when there is none.
@@ -140,10 +139,14 @@ class _BotScreenCardState extends State<BotScreenCard> {
                 BotScreenNotOffered() => const Text(
                   "Hermes uses this server's own display.",
                 ),
-                BotScreenInstalling() => _InstallingBody(model.lines),
+                BotScreenInstalling() => InstallRunningBody(
+                  title: 'Installing the desktop on the server…',
+                  lines: model.lines,
+                  note: 'You can close this; the install keeps going.',
+                ),
                 BotScreenNotInstalled() => _notInstalled(context, model),
                 BotScreenBlocked() => _blocked(context, model),
-                BotScreenStarting() => const _SpinnerRow(
+                BotScreenStarting() => const InstallSpinnerRow(
                   'Starting the screen…',
                 ),
                 BotScreenOff() => _off(context, model),
@@ -181,7 +184,7 @@ class _BotScreenCardState extends State<BotScreenCard> {
         ),
         if (command != null) ...[
           const SizedBox(height: 8),
-          _CodeBlock(child: SelectableText(command, style: _mono)),
+          InstallCodeBox(child: SelectableText(command, style: kInstallMono)),
           if (widget.onCopyCommand != null)
             Align(
               alignment: Alignment.centerLeft,
@@ -436,63 +439,6 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// The box the install command and the package manager's lines sit in.
-class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Padding(padding: const EdgeInsets.all(10), child: child),
-  );
-}
-
-/// The package manager's latest lines, each cut off after [maxLines].
-class _LogLines extends StatelessWidget {
-  const _LogLines(this.lines, {this.maxLines = 1});
-
-  final List<String> lines;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) => _CodeBlock(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final line in lines)
-          Text(
-            line,
-            style: _mono,
-            maxLines: maxLines,
-            overflow: TextOverflow.ellipsis,
-          ),
-      ],
-    ),
-  );
-}
-
-class _InstallingBody extends StatelessWidget {
-  const _InstallingBody(this.lines);
-
-  final List<String> lines;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      const _SpinnerRow('Installing the desktop on the server…'),
-      if (lines.isNotEmpty) ...[const SizedBox(height: 8), _LogLines(lines)],
-      const SizedBox(height: 6),
-      const BotScreenCaption('You can close this; the install keeps going.'),
-    ],
-  );
-}
-
 /// How the last install ended, when it did not succeed.
 class _InstallResultNote extends StatelessWidget {
   const _InstallResultNote(this.result);
@@ -514,7 +460,7 @@ class _InstallResultNote extends StatelessWidget {
           Text('The install failed.', style: error),
           if (lines.isNotEmpty) ...[
             const SizedBox(height: 6),
-            _LogLines(lines, maxLines: 3),
+            InstallLogLines(lines, maxLines: 3),
           ],
         ],
       ),
@@ -535,25 +481,6 @@ class _InstallResultNote extends StatelessWidget {
     children: [
       Text("Couldn't start the install.", style: style),
       if (detail != null && detail.isNotEmpty) Text(detail),
-    ],
-  );
-}
-
-class _SpinnerRow extends StatelessWidget {
-  const _SpinnerRow(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      const SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-      ),
-      const SizedBox(width: 10),
-      Expanded(child: Text(text)),
     ],
   );
 }

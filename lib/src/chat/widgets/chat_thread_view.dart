@@ -86,6 +86,7 @@ class ChatThreadView extends StatelessWidget {
     this.screenPreview,
     this.sendHeld = false,
     this.draftHandedBack = false,
+    this.onShowAgentDetails,
   });
 
   final ChatThread? thread;
@@ -172,6 +173,10 @@ class ChatThreadView extends StatelessWidget {
   /// A restore just put the last message back into the composer.
   final bool draftHandedBack;
 
+  /// Opens an agent's details in the Activity panel from the reply's agent
+  /// card; none where the chat has no panel (the quick panel).
+  final ValueChanged<String>? onShowAgentDetails;
+
   @override
   Widget build(BuildContext context) {
     final builders =
@@ -193,6 +198,7 @@ class ChatThreadView extends StatelessWidget {
           reactionsFor: reactionsFor,
           onReactionDetails: onReactionDetails,
           screenPreview: screenPreview,
+          onShowAgentDetails: onShowAgentDetails,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,

@@ -208,6 +208,26 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(tester.getSize(find.byType(OutlinedButton)).height, greaterThan(70));
   });
+
+  testWidgets('keeps 28 pt on a Mac whose theme sets compact density', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme().copyWith(
+          platform: TargetPlatform.macOS,
+          visualDensity: VisualDensity.compact,
+        ),
+        home: Scaffold(
+          body: Center(
+            child: DestructiveTintButton(label: 'Stop agent', onPressed: () {}),
+          ),
+        ),
+      ),
+    );
+    final box = tester.getSize(find.byType(DestructiveTintButton));
+    expect(box.height, greaterThanOrEqualTo(28));
+  });
 }
 
 Color scaffoldColor(BuildContext context) =>

@@ -110,6 +110,7 @@ Builders buildChatBuilders({
   VoidCallback? onReactionDetails,
   LinkOpener? openLink,
   ScreenPreviewBuilder? screenPreview,
+  ValueChanged<String>? onShowAgentDetails,
 }) {
   final onLinkTap = markdownLinkHandler(open: openLink);
   return Builders(
@@ -157,6 +158,7 @@ Builders buildChatBuilders({
               onSkipUnsupported: onSkipUnsupported,
               onAnswerVault: onAnswerVault,
               screenPreview: screenPreview,
+              onShowAgentDetails: onShowAgentDetails,
             ),
     chatMessageBuilder:
         (
@@ -347,6 +349,7 @@ Widget _buildCustom(
   })?
   onAnswerVault,
   ScreenPreviewBuilder? screenPreview,
+  ValueChanged<String>? onShowAgentDetails,
 }) {
   final metadata = message.metadata;
   switch (metadata?[kMetaKind]) {
@@ -365,6 +368,7 @@ Widget _buildCustom(
     case kKindSubagents:
       return SubagentGroupCard(
         subagents: metadata![kMetaSubagents] as List<Subagent>,
+        onShowDetails: onShowAgentDetails,
       );
     case kKindReviewSummary:
       return ReviewSummaryNote(

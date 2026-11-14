@@ -43,7 +43,7 @@ class DestructiveTintButton extends StatelessWidget {
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(Size(0, minHeight)),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      // The macOS theme is compact and would take 8 off the minimum size.
+      // The compact density a Mac theme sets would cut the minimum height.
       visualDensity: VisualDensity.standard,
       shape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

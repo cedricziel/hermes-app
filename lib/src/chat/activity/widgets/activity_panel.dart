@@ -21,7 +21,12 @@ class ActivityPanel extends StatelessWidget {
     this.session = const [],
     this.onClose,
     this.scrollController,
+    this.detail,
   });
+
+  /// One agent's detail, drawn in place of the sections. The sections stay
+  /// mounted behind it, so going back returns to the same scroll position.
+  final Widget? detail;
 
   final List<Widget> now;
   final Widget? plan;
@@ -35,7 +40,8 @@ class ActivityPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final plan = this.plan;
     final onClose = this.onClose;
-    return Column(
+    final detail = this.detail;
+    final list = Column(
       key: const Key('activity-panel'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -97,6 +103,22 @@ class ActivityPanel extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+    // The same structure with or without a detail, so the list keeps its
+    // scroll position while a detail is open over it.
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Offstage(
+            offstage: detail != null,
+            // The sheet's growing animation runs on this list's scrollable, so
+            // its tickers stay on while a detail covers it.
+            // Offstage hides the list but keeps its focus targets.
+            child: ExcludeFocus(excluding: detail != null, child: list),
+          ),
+        ),
+        if (detail != null) Positioned.fill(child: detail),
       ],
     );
   }

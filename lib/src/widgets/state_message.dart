@@ -20,28 +20,41 @@ class StateMessage extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            AppIcon(icon!, size: 40),
-            const SizedBox(height: 8),
-          ],
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium,
-            textAlign: TextAlign.center,
-          ),
-          if (detail != null) ...[
-            const SizedBox(height: 8),
-            Text(detail!, textAlign: TextAlign.center),
-          ],
-          if (action != null) ...[const SizedBox(height: 16), action!],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final content = _content(context);
+      // Centered while it fits; scrolls when the largest text size makes it
+      // taller than the space it is given. In a scroll view it just sits.
+      if (!box.hasBoundedHeight) return Center(child: content);
+      return SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: box.maxHeight),
+          child: Center(child: content),
+        ),
+      );
+    },
+  );
+
+  Widget _content(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(24),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          AppIcon(icon!, size: 40),
+          const SizedBox(height: 8),
         ],
-      ),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium,
+          textAlign: TextAlign.center,
+        ),
+        if (detail != null) ...[
+          const SizedBox(height: 8),
+          Text(detail!, textAlign: TextAlign.center),
+        ],
+        if (action != null) ...[const SizedBox(height: 16), action!],
+      ],
     ),
   );
 }
