@@ -938,6 +938,91 @@ void main() {
       });
     });
 
+    /// Takes control, pauses the stream with 4100 and drops the gateway
+    /// connection, so the pinned release cannot go out.
+    void pausedOnDeadConnection() {
+      unawaited(viewer.takeOver());
+      settle();
+      viewer.foreground = false;
+      settle();
+      gateway.drop();
+      settle();
+    }
+
+    List<String?> requested(String method) => [
+      for (final r in gateway.requests)
+        if (r['method'] == method) (r['params'] as Map)['viewer_id'] as String?,
+    ];
+
+    test('paused on a dead connection, a lease that someone else took '
+        'meanwhile is not acquired', () {
+      scenario(broadcasts: false, () {
+        pausedOnDeadConnection();
+        server.holder = 'human';
+        server.holderId = 'someone-else';
+        server.epoch++;
+
+        unawaited(viewer.shutDown('sign_out'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(requested('display.lease.acquire'), ['viewer-1']);
+        expect(server.holderId, 'someone-else');
+        expect(channels, hasLength(1));
+      });
+    });
+
+    test('paused on a dead connection, an observe answered after the budget '
+        'sends no acquire', () {
+      scenario(() {
+        pausedOnDeadConnection();
+        gateway.silent.add('display.observe');
+
+        unawaited(viewer.shutDown('sign_out'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+        final observe = gateway.requests.lastWhere(
+          (r) => r['method'] == 'display.observe',
+        );
+        gateway.silent.remove('display.observe');
+        gateway.replyTo(
+          observe,
+          gateway.handlers['display.observe']!(
+            observe['params'] as Map<String, Object?>,
+          ) as Map<String, Object?>,
+        );
+        settle();
+        async.elapse(const Duration(seconds: 30));
+
+        expect(requested('display.lease.acquire'), ['viewer-1']);
+        expect(server.holderId, 'viewer-1');
+        expect(channels, hasLength(1));
+      });
+    });
+
+    test('paused on a dead connection, a release that gets no answer after '
+        'the new id took the lease still closes within the budget and logs an '
+        'error', () {
+      scenario(() {
+        pausedOnDeadConnection();
+        gateway.silent.add('display.lease.release');
+
+        unawaited(viewer.shutDown('sign_out'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(requested('display.lease.acquire'), ['viewer-1', 'viewer-2']);
+        expect(requested('display.lease.release'), ['viewer-2']);
+        expect(channels, hasLength(1));
+        async.elapse(const Duration(seconds: 30));
+        settle();
+        expect(logged.last, 'bot_screen.handback {reason: error}');
+      });
+    });
+
     test('while watching it only closes', () {
       scenario(() {
         final first = channel;

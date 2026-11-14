@@ -964,7 +964,10 @@ class BotScreenViewerController extends ChangeNotifier {
   /// Frees a lease held by an id of an earlier connection while shutting down
   /// with no stream open (paused with 4100): a release by a new id is
   /// ignored, so the new id takes the lease over from the old one, as a
-  /// reconnect does, and gives it back. Nothing is adopted or opened.
+  /// reconnect does, and gives it back. Nothing is adopted or opened. Once
+  /// the release budget is spent (the viewer is disposed) no acquire goes
+  /// out: the lease may have changed hands since the observe, and acquiring
+  /// is last writer wins. An acquire already sent is always released.
   Future<_Step> _releaseFromNewConnection() async {
     final result = await repository.observe(profile, viewerId: _viewerId);
     if (result is! BotScreenOk<BotScreenObservation>) return _Step.refused;
@@ -975,6 +978,7 @@ class BotScreenViewerController extends ChangeNotifier {
     final lease = fresh.status.lease;
     if (_holdsLease(lease) &&
         lease.viewerHash != BotScreenViewerIds.hashOf(id)) {
+      if (_disposed) return _Step.refused;
       if (await _acquire(id, connection) != _Step.done) return _Step.refused;
     }
     return _release(id, connection);
