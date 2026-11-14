@@ -9,11 +9,11 @@ This sends text to the agent from a notification. The user's typing the text and
 ## What Changes
 
 - On iOS and macOS, a "Reply ready" notification for a chat gets a "Reply" action with a text field (button "Send", placeholder "Reply to Hermes"). The typed text is sent once as a new prompt into that chat (`prompt.submit` with `queued: true`) without opening the app.
-- The action is offered only while App Lock is off. It requires the device to be unlocked (`authenticationRequired`). App Lock is checked again when the reply arrives, because it may have been turned on after the notification was posted; then nothing is sent and nothing is kept, and a notification says "Open Hermes to reply." Turning App Lock on withdraws notifications that carry the action.
-- The answer arrives as the usual "Reply ready" (or request) notification: at once if it comes within the background window, otherwise through the background check for finished replies (`background-refresh`), which the system schedules, so it may wait until the user next opens the app.
+- The action is offered only while App Lock is off and its saved setting has loaded (as for requests, unloaded counts as on). It requires the device to be unlocked (`authenticationRequired`). App Lock is checked again when the reply arrives, because it may have been turned on after the notification was posted; then nothing is sent and nothing is kept, and a notification says "Open Hermes to reply." Turning App Lock on withdraws notifications that carry the action.
+- The answer arrives as the usual "Reply ready" (or request) notification: at once if it comes within the background window, otherwise through the background check for finished replies (`background-refresh`), which the system schedules, so it may wait until the user next opens the app. On macOS no background check runs, so a slow answer is seen when the chat is opened.
 - When the text could not be sent, a "Reply not sent" notification says so; nothing is retried. When the prompt may have reached Hermes but the answer to `prompt.submit` was lost, a "Couldn't confirm" notification says so and nothing is resent.
 - The unsent text is kept only when it is no longer than a reply preview (120 characters), in that notification's payload, so a tap can put it back in the composer (the open a `hermes://chat?...&prompt=` link makes, never sent). Longer text is not kept. See design.md, "What is kept".
-- The action lives in the category `hermes.reply.ready.reply` with the action `hermes.action.reply-chat`, in `request_notifications.dart`. The existing placeholder-only category `hermes.reply.ready` stays for App Lock and for notifications that cannot be replied to. On iOS the response goes through the Runner's `NotificationActions` (which handles every `hermes.action.*` id but Open) into `answerRequestInBackground`; in front it goes through `LocalNotificationService._onResponse`.
+- The action lives in the category `hermes.reply.ready.reply` with the action `hermes.action.reply-chat`, in `request_notifications.dart`. The existing placeholder-only category `hermes.reply.ready` stays for App Lock and for notifications that cannot be replied to. On iOS and iPadOS the response always goes through the Runner's `NotificationActions` (which handles every `hermes.action.*` id but Open, with the app in front or not) into `answerRequestInBackground`; on macOS it reaches the app's isolate through `LocalNotificationService._onResponse` and, at a cold launch, `launchTarget`. The background check's own "Reply ready" notifications carry the action too. The category ships with its handler, never before.
 
 Non-goals:
 
@@ -31,7 +31,7 @@ Security and privacy impact:
 
 Observability:
 
-- Span `background.task` (from `headless-runtime`) with `task: notification.reply`, `outcome` (`answered`, `sent`, `failed`, `unavailable`, `unconfirmed`, `locked`), `engine`; it crosses the gateway.
+- Span `background.task` (from `headless-runtime`) with `task: notification.reply`, `engine`, annotated `reply.outcome` (`answered`, `sent`, `failed`, `unavailable`, `unconfirmed`) because the runtime writes the span's own `outcome`; a refusal for App Lock (`locked`) ends a run-less span, as Ask Hermes does. It crosses the gateway.
 - Log event `notification.reply` with `outcome` and `route` (`main` or `background`); breadcrumb `notification.reply` with `outcome`.
 - None carries the text, a title, a profile name or an id.
 

@@ -33,19 +33,20 @@ Corrections where the earlier draft did not work:
 - The unsent text was to live in the payload at any length; it is now capped at the preview length, never kept under App Lock, and uses its own payload key (`'q'` means "new chat" and would have opened the wrong screen).
 - A lost `prompt.submit` answer had no ending; "Couldn't confirm" was added, following the settled lost-answer rule.
 - "Reply failed" must not be posted when the background window closes the transport; kept from the earlier draft and covered by the spec.
+- Review corrections, which change no board: "Not sent" is only what happened before `prompt.submit` was sent, and anything after it, including a hand-off that reports nothing in time, is "Couldn't confirm" (boards 5 to 7 stand). The action is also on "Reply ready" notifications the background check posts, and on iPad. On macOS a slow answer is seen when the chat opens (no background check). Kept text is withdrawn on App Lock and sign-out.
 
 Copy added by the design (all fixed text, none with the typed text):
 
-| Where                                 | Copy                                                                                                 |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Action title                          | Reply                                                                                                |
-| Field placeholder                     | Reply to Hermes                                                                                      |
-| Field button                          | Send                                                                                                 |
-| Not sent, text kept                   | Reply not sent. Open Hermes to try again.                                                            |
-| Not sent, text too long               | Reply not sent. Open Hermes to write it again.                                                       |
-| Could not confirm                     | Couldn't confirm your reply was sent. Open Hermes to check.                                          |
-| App Lock on at reply (title "Hermes") | Open Hermes to reply.                                                                                |
-| Notifications dialog footnote         | On iPhone and Mac you can reply to a finished reply from its notification. Not while App Lock is on. |
+| Where                                 | Copy                                                                                                       |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Action title                          | Reply                                                                                                      |
+| Field placeholder                     | Reply to Hermes                                                                                            |
+| Field button                          | Send                                                                                                       |
+| Not sent, text kept                   | Reply not sent. Open Hermes to try again.                                                                  |
+| Not sent, text too long               | Reply not sent. Open Hermes to write it again.                                                             |
+| Could not confirm                     | Couldn't confirm your reply was sent. Open Hermes to check.                                                |
+| App Lock on at reply (title "Hermes") | Open Hermes to reply.                                                                                      |
+| Notifications dialog footnote         | On iPhone, iPad and Mac you can reply to a finished reply from its notification. Not while App Lock is on. |
 
 Catalog widget list (Widgetbook): no new widget. One changed use case: `NotificationsDialog` with the footnote, in both themes, phone and Mac width, at the largest text size (design-system card `NotificationsDialog`, `enabled`, `scheduleAlerts`). The notification itself is system UI and is not a catalog widget; its text is covered by unit tests of `attentionFor`, `inline_reply.dart` and the category definitions.
 
