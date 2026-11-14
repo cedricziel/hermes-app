@@ -5,8 +5,7 @@
 /// them with a live backend. Model ids are placeholders.
 library;
 
-/// `YYYY-MM-DD` of [days] before [now] (the real clock unless a test gives
-/// its own), so a fixture never goes stale.
+/// `YYYY-MM-DD` of [days] before [now].
 String _daysBack(DateTime now, int days) {
   final d = now.subtract(Duration(days: days));
   return '${d.year.toString().padLeft(4, '0')}-'
@@ -19,9 +18,13 @@ int _secondsBack(DateTime now, int days) =>
     now.subtract(Duration(days: days, hours: 12)).millisecondsSinceEpoch ~/
     1000;
 
+/// The release date is fixed unless a test gives its own clock, because tests
+/// assert it by value.
+final _fixedNow = DateTime(2026, 11, 14, 12);
+
 Map<String, dynamic> statusHealthy({DateTime? now}) => {
   'version': '0.22.2',
-  'release_date': _daysBack(now ?? DateTime.now(), 12),
+  'release_date': _daysBack(now ?? _fixedNow, 12),
   'config_version': 31,
   'latest_config_version': 31,
   'can_update_hermes': true,
