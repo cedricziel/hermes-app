@@ -76,13 +76,15 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
           self.controller.request(CXTransaction(action: action)) { error in
             DispatchQueue.main.async {
               if let error {
-                result(self.failure("start", "CallKit refused the call."))
+                // The event goes first: it carries CallKit's error number, and
+                // Dart keeps whichever of the two it hears first.
                 if self.callID == id {
                   var extra: [String: Any] = [:]
                   let nsError = error as NSError
                   if nsError.domain == CXErrorDomainRequestTransaction { extra["callkit"] = nsError.code }
                   self.finish(reason: .failed, code: "start_request", extra: extra)
                 }
+                result(self.failure("start", "CallKit refused the call."))
               } else { result(nil) }
             }
           }
