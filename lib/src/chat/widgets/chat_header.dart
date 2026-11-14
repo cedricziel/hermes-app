@@ -15,6 +15,7 @@ class ChatHeader extends StatelessWidget {
     super.key,
     this.avatar,
     this.callButton,
+    this.onShowFiles,
     required this.thread,
     this.housekeeping,
     this.displayTitle,
@@ -28,6 +29,9 @@ class ChatHeader extends StatelessWidget {
   /// The open thread, or null before one is picked.
   final Widget? avatar;
   final Widget? callButton;
+
+  /// Opens the chat's Files page; null while the server has none.
+  final VoidCallback? onShowFiles;
   final ChatThread? thread;
   final ThreadHousekeeping? housekeeping;
   final String? displayTitle;
@@ -60,6 +64,7 @@ class ChatHeader extends StatelessWidget {
           thread: thread,
           housekeeping: housekeeping,
           includeCopyTranscript: true,
+          onShowFiles: onShowFiles,
         ),
       if (onToggleActivity case final toggle?)
         ActivityButton(

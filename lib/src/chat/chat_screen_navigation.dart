@@ -134,7 +134,10 @@ extension _ChatScreenNavigation on _ChatScreenState {
   }
 
   /// What the menu bar's File and Chat menus do here.
-  Map<MacCommand, MacCommandHandler> _menuCommands({required bool ios}) {
+  Map<MacCommand, MacCommandHandler> _menuCommands({
+    required bool ios,
+    required bool files,
+  }) {
     final thread = _chat.selectedThread;
     final housekeeping = _chat.housekeeping;
     final managed = thread != null && thread.remote && housekeeping != null;
@@ -181,7 +184,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
       MacCommand.deleteThread: MacCommandHandler(
         on(ThreadAction.delete, when: managed),
       ),
+      // Disabled while the server has no Files, or no chat is open.
+      MacCommand.showFiles: MacCommandHandler(
+        files && thread != null ? () => _showFiles(FilesOpenedFrom.menu) : null,
+      ),
     };
+  }
+
+  /// Opens the Files page of the chat in front.
+  void _showFiles(FilesOpenedFrom from) {
+    _closeDrawerIfNarrow();
+    unawaited(openFiles(context, _chat, from: from));
   }
 
   void _copyTranscript(ChatThread thread) => runThreadAction(

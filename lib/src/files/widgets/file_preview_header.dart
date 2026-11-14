@@ -24,7 +24,7 @@ enum FilePreviewMenuChoice { openWith, reload }
 
 /// The header of the preview pane beside the list (iPad and desktop): a tile
 /// with the type's icon, the name on up to two lines (cut in the middle,
-/// keeping the extension), "type · size", and the actions: Share, Save and …
+/// keeping the extension), "type · size", and the actions: Save, Share and …
 /// on iPad (44 pt), Quick Look, Save and … on the Mac (32 pt tile, 28 pt
 /// buttons). The … menu holds Open with… and Reload.
 ///
@@ -126,14 +126,6 @@ class FilePreviewHeader extends StatelessWidget {
           iconSize: iconSize,
           style: files.iconButtonStyle(),
           onPressed: onQuickLook,
-        )
-      else
-        NamedIconButton(
-          label: l10n.filesActionShare,
-          icon: AppIcons.share,
-          iconSize: iconSize,
-          style: files.iconButtonStyle(),
-          onPressed: onShare,
         ),
       NamedIconButton(
         label: l10n.filesActionSave,
@@ -142,6 +134,14 @@ class FilePreviewHeader extends StatelessWidget {
         style: files.iconButtonStyle(),
         onPressed: onSave,
       ),
+      if (!mac)
+        NamedIconButton(
+          label: l10n.filesActionShare,
+          icon: AppIcons.share,
+          iconSize: iconSize,
+          style: files.iconButtonStyle(),
+          onPressed: onShare,
+        ),
       NamedPopupMenuButton<FilePreviewMenuChoice>(
         label: l10n.filesMenuMore,
         icon: AppIcons.more,
@@ -149,10 +149,11 @@ class FilePreviewHeader extends StatelessWidget {
         padding: EdgeInsets.zero,
         style: files.iconButtonStyle(),
         itemBuilder: (context) => [
-          PopupMenuItem(
-            value: FilePreviewMenuChoice.openWith,
-            child: Text(l10n.filesActionOpenWith),
-          ),
+          if (onOpenWith != null)
+            PopupMenuItem(
+              value: FilePreviewMenuChoice.openWith,
+              child: Text(l10n.filesActionOpenWith),
+            ),
           PopupMenuItem(
             value: FilePreviewMenuChoice.reload,
             child: Text(l10n.filesActionReload),

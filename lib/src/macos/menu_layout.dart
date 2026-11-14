@@ -133,6 +133,12 @@ final menuLayout = <MenuSection>[
         shortcut: metaActivator(LogicalKeyboardKey.keyI, alt: true),
         platforms: _macOnly,
       ),
+      MenuEntry(
+        MacCommand.showFiles,
+        'Show Files',
+        shortcut: metaActivator(LogicalKeyboardKey.keyF, shift: true),
+        platforms: _macOnly,
+      ),
     ],
   ]),
   MenuSection('chat', 'Chat', [
