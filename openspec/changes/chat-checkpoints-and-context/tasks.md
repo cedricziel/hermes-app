@@ -34,7 +34,7 @@ Five PRs. Each is reviewable alone and leaves the app working; nothing is drawn 
 
 ## PR 5 `test(chat): checkpoint and context workflow, docs` (~300 lines)
 
-- [ ] 5.1 Workflow test (`test/workflows/`) for the whole flow on phone and desktop, light and dark: panel opens, Context row, details, suggestion at 86%, compress, outcome line; checkpoints list, changes, one file, restore one file, restore all, composer hand-back; an old server shows neither row. Look at the screenshots.
+- [x] 5.1 Workflow test (`test/workflows/`) for the whole flow on phone and desktop, light and dark: panel opens, Context row, details, suggestion at 86%, compress, outcome line; checkpoints list, changes, one file, restore one file, restore all, composer hand-back; an old server shows neither row. Look at the screenshots.
 - [ ] 5.2 Add to the existing App Lock, sign-out, profile-switch and conversation-window tests that neither row leaks or appears.
 - [ ] 5.3 Update `CLAUDE.md` (Chat section: both features, the server facts that surprised us), `openspec/specs` through archive, and the `verify-in-app` skill with how to run a backend with `checkpoints.enabled`.
 
