@@ -306,6 +306,10 @@ abstract final class AppIcons {
     CupertinoIcons.arrow_right_circle,
   );
   static const link = AppIconSet(Icons.link, CupertinoIcons.link);
+  static const billing = AppIconSet(
+    Icons.credit_card_outlined,
+    CupertinoIcons.creditcard,
+  );
   static const waiting = AppIconSet(
     Icons.hourglass_empty,
     CupertinoIcons.hourglass,
@@ -514,6 +518,7 @@ abstract final class AppIcons {
     'menu': menu,
     'signIn': signIn,
     'link': link,
+    'billing': billing,
     'waiting': waiting,
     'help': help,
     'shieldWarning': shieldWarning,
