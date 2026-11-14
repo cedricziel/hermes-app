@@ -16,7 +16,7 @@ A **Skill curator** section on the Skills screen, for the profile the screen sho
 
 Hidden when the server has no curator route (a route-missing 404, told apart from a missing profile by the detail text).
 
-One PR (see tasks.md): `feat(skills): see, pause and run the skill curator`.
+Two PRs, catalog first (see tasks.md): `feat(skills): add the skill curator widgets to the catalog`, then `feat(skills): see, pause and run the skill curator`.
 
 ## Non-goals
 

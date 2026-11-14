@@ -73,6 +73,21 @@ Spans carry the connection's `hermes.*` attributes. None holds a skill name, out
 - **Run never offered when `enabled` is false:** the child would only exit 1.
 - **No dry run.** Not reachable through the route.
 
+## Design pass
+
+The brief is `docs/design-briefs/skills-curator.md`; no Claude Design canvas was built for it (docs-only pass from the design system README and the repo). Decisions that change behaviour:
+
+- The section shows on the Installed tab only while no search text or filter is active.
+- Output lines are shown only when a run ends, not while it goes, in a closed "Show output" tile (last 30 lines, a footnote that the log is shared by every profile). They are blank under App Lock and while the app is inactive on a phone.
+- The installed skills list is read again when a run ends, because archived skills leave it.
+- Following a run stops when the screen closes; the pass keeps going on the server. Reopening shows the last run time only.
+- Every request that gets no answer within 10 s ends in "Couldn't confirm" wording; only reads (status, action status) are repeated, by Try again or Check status. Polling that fails for 10 s shows "Couldn't confirm how the pass is going."
+- The result never says "nothing changed", because the route returns no counts or report.
+- `enabled` null counts as on; any other unknown field reads "Unknown".
+- Run now is a `GroupedActionRow` (disabled while running); the confirmation is an adaptive sheet with Cancel first and default, and Run now outlined, not red, not filled.
+
+Client additions: `OutputLinesTile` extracted from the Update page's details tile; `GroupedActionRow` moves to `lib/src/widgets/` if skills would otherwise import from `server_care`.
+
 ## Risks
 
 - [Output lines include skill names] -> shown on screen only, under App Lock blanking.
