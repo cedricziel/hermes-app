@@ -128,6 +128,29 @@ void main() {
     }
   });
 
+  testWidgets('a compact desktop theme does not shrink the Mac target', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme().copyWith(
+          platform: TargetPlatform.macOS,
+          visualDensity: VisualDensity.compact,
+        ),
+        home: Scaffold(
+          body: Center(
+            child: DestructiveTintButton(label: 'Stop', onPressed: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byType(OutlinedButton)).height,
+      greaterThanOrEqualTo(28),
+    );
+  });
+
   testWidgets('disabled does not call back and is not an enabled button', (
     tester,
   ) async {

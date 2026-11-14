@@ -11,6 +11,7 @@ import 'reactions/reaction_state.dart';
 import '../models/model_provider_option.dart';
 import '../bot_mode/bot_chat_context.dart';
 import '../workspaces/workspace_models.dart' show WorkspaceChoice;
+import 'chat_transport.dart' show ReplyStatusKind;
 import 'chat_warning_state.dart';
 import 'tool_label.dart';
 
@@ -637,8 +638,17 @@ class ChatMessage {
   String? error;
 
   /// What the agent is doing now, shown in the thinking row. Null keeps the
-  /// generic label.
-  String? activity;
+  /// generic label. Setting it clears [activityKind].
+  String? get activity => _activity;
+  set activity(String? value) {
+    _activity = value;
+    activityKind = null;
+  }
+
+  String? _activity;
+
+  /// A status worded by the widget layer, in place of [activity].
+  ReplyStatusKind? activityKind;
 
   /// The turn ended without its completion, so [content] is what streamed,
   /// taken as final. A completion that arrives later still applies.

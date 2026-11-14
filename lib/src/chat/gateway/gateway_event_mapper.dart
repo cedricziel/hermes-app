@@ -221,12 +221,27 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
         _ => null,
       },
       storedSessionId: _nonEmpty(text('stored_session_id')),
+      usage: UsageSnapshot.decode(payload['usage']),
+      usageRuntimeId: event.sessionId,
+      usageConnection: connection,
     ),
     'status.update' => switch (payload) {
+      {'kind': 'compacting', 'text': final String value} => ReplyStatus(
+        '',
+        kind: value.isEmpty ? null : ReplyStatusKind.compacting,
+      ),
+      {'kind': 'compressing', 'text': final String value} => ReplyStatus(
+        '',
+        kind: value.isEmpty ? null : ReplyStatusKind.compressing,
+      ),
+      // Hermes compacted on its own: the usage is read again. It needs the
+      // runtime to find its chat; nothing else is taken from the frame.
+      {'kind': 'compacted'} =>
+        event.sessionId.isEmpty
+            ? null
+            : ContextCompacted(runtimeId: event.sessionId),
       {'kind': final String kind, 'text': final String value} =>
-        kind == 'compacting'
-            ? ReplyStatus(value.isEmpty ? '' : 'Compacting the conversation…')
-            : SessionWaitUpdated(kind, value, runtimeId: event.sessionId),
+        SessionWaitUpdated(kind, value, runtimeId: event.sessionId),
       _ => null,
     },
     'session.control.update' => switch (SessionControlSnapshot.decode(

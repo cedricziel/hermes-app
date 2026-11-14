@@ -80,6 +80,8 @@ bool contextLargeText(BuildContext context) =>
 ButtonStyle contextButtonStyle(BuildContext context) => ButtonStyle(
   minimumSize: WidgetStatePropertyAll(Size(0, contextTargetHeight(context))),
   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  // The macOS theme is compact and would take 8 off the target.
+  visualDensity: VisualDensity.standard,
 );
 
 /// The state word with its icon, from 80%. Words and icon carry the state, the

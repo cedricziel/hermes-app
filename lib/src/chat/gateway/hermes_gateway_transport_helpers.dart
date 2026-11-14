@@ -309,12 +309,27 @@ class _QueuedGate {
   List<ChatEvent> admit(ChatEvent event) {
     if (_ended) return [event];
     switch (event) {
-      case SessionInfo(:final running, :final storedSessionId):
+      case SessionInfo(
+        :final running,
+        :final storedSessionId,
+        :final usage,
+        :final usageRuntimeId,
+        :final usageConnection,
+      ):
         // Idle after the submit: the running turn is over, or already was.
         final over = running == false;
         if (over) _ended = true;
         return [
           if (over && _sawRunning) const ThreadNeedsRefetch(),
+          // The usage the report carries still counts; `running` stays out
+          // of what is passed on, so it cannot settle the queued reply.
+          if (usage != null)
+            SessionUsageUpdated(
+              usage,
+              runtimeId: usageRuntimeId,
+              connection: usageConnection,
+              finalSnapshot: true,
+            ),
           if (storedSessionId != null)
             SessionInfo(storedSessionId: storedSessionId),
         ];
@@ -349,6 +364,7 @@ class _QueuedGate {
           SessionControlUpdated() ||
           SessionControlUnavailable() ||
           SessionWaitUpdated() ||
+          ContextCompacted() ||
           SessionReclaimed() ||
           SessionResumeProgress() ||
           ToolRiskFlagged() ||
@@ -424,6 +440,7 @@ class _Unsolicited {
     if (event is MessageReactionsUpdated ||
         event is SessionAcknowledgementReported ||
         event is SessionUsageUpdated ||
+        event is ContextCompacted ||
         event is TodoUpdated ||
         event is ConnectorOperationReceived ||
         event is SideResultReceived ||

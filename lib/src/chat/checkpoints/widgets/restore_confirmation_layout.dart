@@ -120,6 +120,7 @@ class _Buttons extends StatelessWidget {
         style: FilledButton.styleFrom(
           minimumSize: Size(0, minHeight),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.standard,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -135,7 +136,10 @@ class _Buttons extends StatelessWidget {
       cancel = TextButton(
         autofocus: true,
         onPressed: onCancel,
-        style: TextButton.styleFrom(minimumSize: Size(64, minHeight)),
+        style: TextButton.styleFrom(
+          minimumSize: Size(64, minHeight),
+          visualDensity: VisualDensity.standard,
+        ),
         child: Text(cancelLabel, textAlign: TextAlign.center),
       );
       confirm = TextButton(
@@ -143,6 +147,7 @@ class _Buttons extends StatelessWidget {
         style: TextButton.styleFrom(
           foregroundColor: error,
           minimumSize: Size(64, minHeight),
+          visualDensity: VisualDensity.standard,
         ),
         child: Text(confirmLabel, textAlign: TextAlign.center),
       );
