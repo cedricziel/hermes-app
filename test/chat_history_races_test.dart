@@ -286,6 +286,88 @@ void main() {
     expect(reply.content, 'Partial more');
   });
 
+  test('a receipt after the page puts the held turn where the stored copy '
+      'was, above later turns', () async {
+    final gate = Completer<void>();
+    gatePage(
+      gate,
+      () => [
+        ...history(),
+        messageRow(id: 3, role: 'user', content: 'More'),
+        messageRow(id: 4, role: 'assistant', content: 'Par'),
+        messageRow(id: 5, role: 'user', content: 'Elsewhere'),
+        messageRow(id: 6, role: 'assistant', content: 'Theirs'),
+      ],
+    );
+    await open();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+    final reply = thread('s1').messages.last;
+    send.emit(const ReplyDelta('Partial'));
+    await pumpEventQueue();
+
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+    ack(send, 3);
+    await pumpEventQueue();
+
+    expect(contents('s1'), [
+      'Hi',
+      'Hello',
+      'More',
+      'Partial',
+      'Elsewhere',
+      'Theirs',
+    ]);
+    expect(identical(thread('s1').messages[3], reply), isTrue);
+    send.emit(const ReplyDelta(' more'));
+    await pumpEventQueue();
+    expect(reply.content, 'Partial more');
+
+    send
+      ..emit(const ReplyCompleted('Partial more'))
+      ..finish();
+    await pumpEventQueue();
+    await chat.branch(thread('s1'), fromMessageId: 's1-6');
+    expect(transport.branches.single.$3, 0);
+  });
+
+  test('a receipt after the chat was stored under a new id still shows the '
+      'prompt once', () async {
+    final gate = Completer<void>();
+    gatePage(
+      gate,
+      () => [
+        ...history(),
+        messageRow(id: 3, role: 'user', content: 'More'),
+        messageRow(id: 4, role: 'assistant', content: 'Par'),
+      ],
+    );
+    page(history(), id: 's1b');
+    await open();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+    expect(thread('s1').messages.any((m) => m.id == 's1-3'), isTrue);
+    send.emit(const SessionInfo(storedSessionId: 's1b'));
+    await pumpEventQueue();
+    ack(send, 3);
+    await pumpEventQueue();
+
+    expect(chat.selectedThread?.id, 's1b');
+    expect(
+      contents('s1b').where((c) => c == 'More'),
+      hasLength(1),
+      reason: contents('s1b').toString(),
+    );
+  });
+
   test('a failed turn is kept when its stored turn only calls tools', () async {
     pageFails();
     await open();

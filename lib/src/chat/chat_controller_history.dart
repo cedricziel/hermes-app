@@ -457,23 +457,41 @@ extension _ChatControllerHistory on ChatController {
     null => false,
   };
 
-  /// Takes out of [thread] the stored copy of the prompt whose receipt just
-  /// named [rowId], with the stored rows that answer it: the page read
-  /// while the prompt was sent already held it, and the prompt shown here
-  /// is the same turn.
-  void _dropStoredCopy(ChatThread thread, int rowId) {
+  /// Replaces the stored copy of [prompt] in [thread], which the page read
+  /// while it was sent already held, with [prompt] and its reply: the two are
+  /// the same turn, and it stays where Hermes stored it, above what the page
+  /// holds after it. A stored row's id ends in its row id, which is unique
+  /// across the profile's sessions, so a chat stored under a new id since
+  /// still finds it.
+  void _dropStoredCopy(ChatThread thread, ChatMessage prompt) {
+    final rowId = prompt.canonicalRow?.rowId;
     final messages = thread.messages;
+    if (rowId == null || !messages.contains(prompt)) return;
+    bool local(ChatMessage m) => m.id.contains('-local-');
     final start = messages.indexWhere(
-      (m) => m.role == ChatRole.user && m.id == '${thread.id}-$rowId',
+      (m) => m.role == ChatRole.user && !local(m) && m.id.endsWith('-$rowId'),
     );
     if (start < 0) return;
     var end = start + 1;
     while (end < messages.length &&
         messages[end].role != ChatRole.user &&
-        !messages[end].id.contains('-local-')) {
+        !local(messages[end])) {
       end++;
     }
-    messages.removeRange(start, end);
+    final at = messages.indexOf(prompt);
+    final held = [
+      prompt,
+      if (at + 1 < messages.length &&
+          messages[at + 1].role == ChatRole.assistant &&
+          local(messages[at + 1]))
+        messages[at + 1],
+    ];
+    if (at > start) {
+      messages.removeRange(at, at + held.length);
+      messages.replaceRange(start, end, held);
+    } else {
+      messages.removeRange(start, end);
+    }
     _reactionHistory(thread);
     notifyListeners();
     unawaited(controllerFor(thread).setMessages(chatThreadToFlyer(thread)));

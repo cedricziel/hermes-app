@@ -156,10 +156,11 @@ extension ReactionVisibility on ChatController {
     if (inserted) {
       _updateReply(thread, user, () => user.canonicalRow = row);
       if (!_reactionOwnerCurrent(thread, binding, epoch)) return false;
-      _ChatControllerHistory(this)._dropStoredCopy(thread, receipt.userRowId);
+      _ChatControllerHistory(this)._dropStoredCopy(thread, user);
       _reactionHistory(thread);
     } else {
       user.canonicalRow = row;
+      _ChatControllerHistory(this)._dropStoredCopy(thread, user);
     }
     return true;
   }
