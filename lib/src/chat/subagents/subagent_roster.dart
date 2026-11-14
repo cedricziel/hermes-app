@@ -714,14 +714,7 @@ class _RosterHost implements AgentDetailHost {
   /// frame does not make an agent the list no longer has look alive.
   @override
   Future<AgentWorkResult<AgentView?>> rereadList() async {
-    final result = await _roster.readNow();
-    return switch (result) {
-      WorkOk(:final value) => WorkOk(_answer(value)),
-      WorkNotAttached() => const WorkNotAttached(),
-      WorkUnsupported() => const WorkUnsupported(),
-      WorkLost() => const WorkLost(),
-      WorkFailed(:final kind) => WorkFailed(kind),
-    };
+    return (await _roster.readNow()).mapOk(_answer);
   }
 
   AgentView? _answer(AgentList list) {
@@ -770,15 +763,10 @@ class _ProgramHost implements ProcessStopHost {
   @override
   Future<AgentWorkResult<ListedProcess?>> rereadList() async {
     final result = await _roster.readProgramsNow();
-    return switch (result) {
-      WorkOk(:final value) => WorkOk(
-        value.processes.where((process) => process.id == _id).firstOrNull,
-      ),
-      WorkNotAttached() => const WorkNotAttached(),
-      WorkUnsupported() => const WorkUnsupported(),
-      WorkLost() => const WorkLost(),
-      WorkFailed(:final kind) => WorkFailed(kind),
-    };
+    return result.mapOk(
+      (list) =>
+          list.processes.where((process) => process.id == _id).firstOrNull,
+    );
   }
 
   @override
