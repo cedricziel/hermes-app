@@ -258,13 +258,20 @@ void main() {
     expect(sent, 1);
   });
 
-  testWidgets('Send is full width when narrow, natural width when wide', (
-    tester,
-  ) async {
-    await _pump(tester, _m());
-    final narrow = tester.getSize(find.byType(FilledButton)).width;
-    expect(narrow, greaterThan(300));
-    await _pump(tester, _m(), size: const Size(900, 900));
+  testWidgets('Send is full width in the iPhone sheet only; inspectors and '
+      'Android keep it at its natural width', (tester) async {
+    await _pump(tester, _m(), platform: TargetPlatform.iOS);
+    expect(tester.getSize(find.byType(FilledButton)).width, greaterThan(300));
+    await _pump(tester, _m(), platform: TargetPlatform.android);
+    expect(tester.getSize(find.byType(FilledButton)).width, lessThan(250));
+    await _pump(tester, _m(), platform: TargetPlatform.macOS);
+    expect(tester.getSize(find.byType(FilledButton)).width, lessThan(250));
+    await _pump(
+      tester,
+      _m(),
+      platform: TargetPlatform.iOS,
+      size: const Size(900, 900),
+    );
     expect(tester.getSize(find.byType(FilledButton)).width, lessThan(250));
   });
 

@@ -337,7 +337,12 @@ class _AgentNoteFieldState extends State<AgentNoteField> {
     );
     return LayoutBuilder(
       builder: (context, box) {
-        final full = box.maxWidth < 480 || agentLargeText(context);
+        // Full width only in the iPhone sheet (and at the largest text size);
+        // inspectors and Android keep it trailing at its natural width.
+        final full =
+            (box.maxWidth < 480 &&
+                platformChromeOf(context) == PlatformChrome.ios) ||
+            agentLargeText(context);
         return full
             ? SizedBox(width: double.infinity, child: button)
             : Align(alignment: AlignmentDirectional.centerEnd, child: button);

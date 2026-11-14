@@ -412,4 +412,19 @@ void main() {
       handle.dispose();
     });
   });
+
+  testWidgets('the bar keeps its normal text size at the largest text size, '
+      'so its words never overlap', (tester) async {
+    await _pump(
+      tester,
+      _m(),
+      platform: TargetPlatform.iOS,
+      scale: 3,
+      size: const Size(390, 1600),
+    );
+    final back = tester.getRect(find.text('Activity'));
+    final title = tester.getRect(find.text('Agent'));
+    expect(back.overlaps(title), isFalse);
+    expect(back.height, lessThan(30));
+  });
 }

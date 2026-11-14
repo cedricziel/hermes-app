@@ -400,29 +400,32 @@ class _Header extends StatelessWidget {
         onPressed: onBack,
       ),
     };
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: switch (chrome) {
-        PlatformChrome.ios => Stack(
-          alignment: Alignment.center,
-          children: [
-            Row(children: [back, const Spacer(), ?close]),
-            title,
-          ],
-        ),
-        _ => Row(
-          children: [
-            back,
-            if (chrome == PlatformChrome.material) ...[
-              const SizedBox(width: 4),
+    // Bar text keeps its normal size at the largest text sizes, as bars do.
+    return MediaQuery.withNoTextScaling(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: switch (chrome) {
+          PlatformChrome.ios => Stack(
+            alignment: Alignment.center,
+            children: [
+              Row(children: [back, const Spacer(), ?close]),
               title,
-            ] else
-              const SizedBox(width: 4),
-            const Spacer(),
-            ?close,
-          ],
-        ),
-      },
+            ],
+          ),
+          _ => Row(
+            children: [
+              back,
+              if (chrome == PlatformChrome.material) ...[
+                const SizedBox(width: 4),
+                title,
+              ] else
+                const SizedBox(width: 4),
+              const Spacer(),
+              ?close,
+            ],
+          ),
+        },
+      ),
     );
   }
 }
