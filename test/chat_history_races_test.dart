@@ -406,6 +406,148 @@ void main() {
     expect(thread('s1').messages.map((m) => m.id).toSet(), hasLength(8));
   });
 
+  test(
+    'a turn streaming in from another device goes below its prompt',
+    () async {
+      final gate = Completer<void>();
+      gatePage(
+        gate,
+        () => [
+          ...history(),
+          messageRow(id: 3, role: 'user', content: 'More'),
+          messageRow(id: 4, role: 'assistant', content: 'Mine'),
+          messageRow(id: 5, role: 'user', content: 'Elsewhere'),
+        ],
+      );
+      await open();
+      final sent = chat.submit('More', const []);
+      await pumpEventQueue();
+      final send = transport.sends.single;
+      ack(send, 3);
+      send
+        ..emit(const ReplyCompleted('Mine'))
+        ..finish();
+      await pumpEventQueue();
+      final follow = transport.followUpStreams['s1']!;
+      follow.emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+      follow
+        ..emit(const ReplyStarted())
+        ..emit(const ReplyDelta('Theirs'));
+      await pumpEventQueue();
+
+      gate.complete();
+      await sent;
+      await pumpEventQueue();
+
+      expect(contents('s1'), [
+        'Hi',
+        'Hello',
+        'More',
+        'Mine',
+        'Elsewhere',
+        'Theirs',
+      ]);
+    },
+  );
+
+  test('a failed turn is replaced by its stored answer while another '
+      "device's reply streams after it", () async {
+    pageFails();
+    await open();
+    await pumpEventQueue();
+    expect(await chat.submit('More', const []), isTrue);
+    final send = transport.sends.single;
+    ack(send, 3);
+    await pumpEventQueue();
+    send.fail();
+    await pumpEventQueue();
+    final follow = transport.followUpStreams['s1']!;
+    follow
+      ..emit(const ReplyStarted())
+      ..emit(const ReplyDelta('Other rep'));
+    await pumpEventQueue();
+    final streaming = thread('s1').messages.last;
+
+    page([
+      ...history(),
+      messageRow(id: 3, role: 'user', content: 'More'),
+      messageRow(id: 4, role: 'assistant', content: 'Answer'),
+      messageRow(id: 5, role: 'user', content: 'Elsewhere'),
+    ]);
+    await reread();
+
+    expect(contents('s1'), [
+      'Hi',
+      'Hello',
+      'More',
+      'Answer',
+      'Elsewhere',
+      'Other rep',
+    ]);
+    expect(
+      thread('s1').messages.where((m) => m.status == MessageStatus.error),
+      isEmpty,
+    );
+    expect(identical(thread('s1').messages.last, streaming), isTrue);
+    follow.emit(const ReplyDelta('ly'));
+    await pumpEventQueue();
+    expect(streaming.content, 'Other reply');
+    expect(identical(thread('s1').messages.last, streaming), isTrue);
+  });
+
+  test('a chat stored under a new id while its page loads gets its history '
+      'under that id', () async {
+    final gate = Completer<void>();
+    gatePage(gate, history);
+    page(history(), id: 's1b');
+    await open();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    transport.sends.single.emit(const SessionInfo(storedSessionId: 's1b'));
+    await pumpEventQueue();
+
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+
+    expect(chat.selectedThread?.id, 's1b');
+    expect(contents('s1b'), ['Hi', 'Hello', 'More', '']);
+  });
+
+  test('rows the page holds after a matched turn, such as an automatic '
+      'continuation, stay after it', () async {
+    final gate = Completer<void>();
+    gatePage(
+      gate,
+      () => [
+        ...history(),
+        messageRow(id: 3, role: 'user', content: 'More'),
+        messageRow(id: 4, role: 'assistant', content: 'Mine'),
+        {
+          ...messageRow(id: 5, role: 'user', content: 'auto'),
+          'display_kind': 'auto_continue',
+        },
+        messageRow(id: 6, role: 'assistant', content: 'Cont'),
+      ],
+    );
+    await open();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+    ack(send, 3);
+    send
+      ..emit(const ReplyCompleted('Mine'))
+      ..finish();
+    await pumpEventQueue();
+
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Mine', 'auto', 'Cont']);
+  });
+
   testWidgets('a Live Activity starts on the tap, before the page arrives', (
     tester,
   ) async {
