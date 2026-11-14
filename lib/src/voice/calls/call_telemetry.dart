@@ -33,6 +33,28 @@ String callErrorKind(Object error) {
   };
 }
 
+const _nativeErrorSteps = {
+  'start_request',
+  'start_action',
+  'activation_timeout',
+  'audio_start',
+  'audio_reset',
+  'provider_reset',
+  'action_timeout',
+  'end_request',
+  'detached',
+};
+
+/// The `step` of a native `error` event. Only the plugin's fixed codes pass;
+/// anything else, or no code from an older plugin, is `unknown`.
+String callNativeErrorStep(Object? code) =>
+    code is String && _nativeErrorSteps.contains(code) ? code : 'unknown';
+
+/// The `error_type` of a native `error` event: the CallKit error code of a
+/// refused start, when the plugin sent one.
+String? callNativeErrorType(Object? callkit) =>
+    callkit is int ? 'callkit_$callkit' : null;
+
 /// Native codes are our own plugin's fixed words, but keep them bounded.
 String _slug(String code) {
   final slug = code.toLowerCase().replaceAll(RegExp('[^a-z0-9_]'), '_');

@@ -40,8 +40,7 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
       self.emit(["type": "audioReset"])
       do { self.audio.stop(); try self.audio.start(); self.reportRoute() }
       catch {
-        self.emit(["type": "error"])
-        self.finish(reason: .failed)
+        self.finish(reason: .failed, code: "audio_reset")
       }
     }
   }
@@ -77,8 +76,15 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
           self.controller.request(CXTransaction(action: action)) { error in
             DispatchQueue.main.async {
               if let error {
-                if self.callID == id { self.finish(reason: .failed) }
-                result(self.failure("start", error.localizedDescription))
+                // The event goes first: it carries CallKit's error number, and
+                // Dart keeps whichever of the two it hears first.
+                if self.callID == id {
+                  var extra: [String: Any] = [:]
+                  let nsError = error as NSError
+                  if nsError.domain == CXErrorDomainRequestTransaction { extra["callkit"] = nsError.code }
+                  self.finish(reason: .failed, code: "start_request", extra: extra)
+                }
+                result(self.failure("start", "CallKit refused the call."))
               } else { result(nil) }
             }
           }
@@ -91,7 +97,7 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
       guard let id = callID else { result(nil); return }
       controller.request(CXTransaction(action: CXEndCallAction(call: id))) { [weak self] error in
         DispatchQueue.main.async {
-          if error != nil, self?.callID == id { self?.finish(reason: .failed) }
+          if error != nil, self?.callID == id { self?.finish(reason: .failed, code: "end_request") }
           result(nil)
         }
       }
@@ -138,12 +144,11 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
       action.fulfill()
       activationTimer?.invalidate()
       activationTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: false) { [weak self] _ in
-        self?.emit(["type": "error", "message": "Call audio did not become available."])
-        self?.finish(reason: .failed)
+        self?.finish(reason: .failed, code: "activation_timeout")
       }
     } catch {
       action.fail()
-      finish(reason: .failed)
+      finish(reason: .failed, code: "start_action")
     }
   }
 
@@ -157,8 +162,7 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
       emit(["type": "activated"])
       reportRoute()
     } catch {
-      emit(["type": "error", "message": "Could not open call audio."])
-      finish(reason: .failed)
+      finish(reason: .failed, code: "audio_start")
     }
   }
 
@@ -181,12 +185,14 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     finish(reason: nil)
   }
 
-  public func providerDidReset(_ provider: CXProvider) { finish(reason: .failed) }
+  public func providerDidReset(_ provider: CXProvider) { finish(reason: .failed, code: "provider_reset") }
   public func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
-    finish(reason: .failed)
+    finish(reason: .failed, code: "action_timeout")
   }
 
-  private func finish(reason: CXCallEndedReason?) {
+  /// A failed end emits exactly one `error` event whose fixed `code` names the
+  /// failing path; `extra` holds only fixed, non-sensitive fields.
+  private func finish(reason: CXCallEndedReason?, code: String? = nil, extra: [String: Any] = [:]) {
     startGeneration += 1
     audioActive = false
     guard let id = callID else { return }
@@ -196,7 +202,13 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     audio.muted = false
     callID = nil
     if let reason { provider.reportCall(with: id, endedAt: Date(), reason: reason) }
-    emit(["type": reason == .failed ? "error" : "ended"])
+    if reason == .failed {
+      var event: [String: Any] = ["type": "error", "code": code ?? "unknown"]
+      for (key, value) in extra { event[key] = value }
+      emit(event)
+    } else {
+      emit(["type": "ended"])
+    }
   }
 
   private func reportRoute() {
@@ -218,7 +230,7 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     return nil
   }
   public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
-    finish(reason: .failed)
+    finish(reason: .failed, code: "detached")
     provider.invalidate()
     if let routeObserver { NotificationCenter.default.removeObserver(routeObserver) }
     if let configurationObserver { NotificationCenter.default.removeObserver(configurationObserver) }
