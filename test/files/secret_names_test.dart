@@ -75,6 +75,36 @@ void main() {
     expect(secret('/home/me/app/config.json'), isFalse);
   });
 
+  test('more key, token and Hermes names look secret', () {
+    for (final name in [
+      'id_ecdsa',
+      'id_dsa.pub',
+      'putty.PPK',
+      '_netrc',
+      '.env-prod',
+      '.env_local',
+      'auth.json',
+      '.anthropic_oauth.json',
+      'google_token.json',
+      'Google_client.JSON',
+    ]) {
+      expect(SecretNames.looksSecretName(name), isTrue, reason: name);
+    }
+    expect(SecretNames.looksSecretName('google_notes.txt'), isFalse);
+    expect(SecretNames.looksSecretName('googlemaps.json'), isFalse);
+    expect(SecretNames.looksSecretName('author.json'), isFalse);
+  });
+
+  test('.kube/config and the pairing folder', () {
+    expect(secret('/home/me/.kube/config'), isTrue);
+    expect(secret('/home/me/.Kube/Config'), isTrue);
+    expect(secret('/home/me/.kube/cache/x'), isFalse);
+    expect(secret('/home/me/app/config'), isFalse);
+    expect(secret('/srv/pairing/code.txt'), isTrue);
+    expect(secret('/srv/pairing/a/b'), isTrue);
+    expect(secret('/srv/pairings/code.txt'), isFalse);
+  });
+
   test('a root is not a file', () {
     expect(SecretNames.looksSecret(ServerPath.tryParse('/')!), isFalse);
   });

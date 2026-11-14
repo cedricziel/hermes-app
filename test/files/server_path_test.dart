@@ -69,6 +69,32 @@ void main() {
       expect(p('c:/a/b').segments, ['a', 'b']);
     });
 
+    test('unc accepts a forward slash as a separator', () {
+      expect(p(r'\\srv\share/x').isWithin(p(r'\\srv\share')), isTrue);
+      expect(p(r'\\srv\share/x').segments, ['x']);
+      expect(p(r'\\srv/share\x').isWithin(p(r'\\srv\share')), isTrue);
+      expect(p(r'\\srv\share/x').parent!.value, r'\\srv\share');
+      expect(ServerPath.tryParse(r'\\srv/'), isNull);
+    });
+
+    test('unc refuses dot parts and device paths', () {
+      for (final text in [
+        r'\\srv\share/..',
+        r'\\srv\share\.\a',
+        r'\\srv\share/a/../b',
+        r'\\srv\..\a',
+        r'\\srv\.\a',
+        r'\\..\share\a',
+        r'\\.\share\a',
+        r'\\?\C:\a',
+        r'\\.\C:\a',
+        r'\\?\UNC\srv\share',
+        r'\\srv\?',
+      ]) {
+        expect(ServerPath.tryParse(text), isNull, reason: text);
+      }
+    });
+
     test('unc keeps the server and share in the root', () {
       final path = p(r'\\files\share\a\b');
       expect(path.segments, ['a', 'b']);
