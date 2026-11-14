@@ -55,9 +55,16 @@ Future<void> runGatewayAction(
       filled: false,
     );
     if (!confirmed || !context.mounted) return;
+    // The question described this profile's gateway; if the chat moved on
+    // while it was open, nothing is sent for another one.
+    if (care.profile != profile) return;
+    run.confirmed(action);
   }
-  if (!run.busy && action == GatewayAction.restart) run.confirmed(action);
-  await run.run(action, profile: profile);
+  await run.run(
+    action,
+    profile: profile,
+    shared: (care.status?.gatewaySharedWith.length ?? 0) > 1,
+  );
 }
 
 /// What the gateway row says about a run: the progress while it goes, the

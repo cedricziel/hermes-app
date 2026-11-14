@@ -62,7 +62,6 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   GatewayAction? _action;
   GatewayFailure? _failure;
   String? _message;
-  List<String> _logLines = const [];
   Future<void>? _running;
   String? _profile;
 
@@ -81,9 +80,6 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   /// run. Shown to the person, never logged.
   String? get message => _message;
 
-  /// The last lines of the action's log, for "Show logs". Memory only.
-  List<String> get logLines => _logLines;
-
   bool get busy =>
       _phase == GatewayPhase.starting ||
       _phase == GatewayPhase.waiting ||
@@ -92,12 +88,20 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   /// Runs after the person confirmed. While a run is going a second call
   /// joins it and sends nothing; after `failed` or `slow` (Try again) or
   /// `done` it starts a new run with a new POST. [profile] is always sent.
-  Future<void> run(GatewayAction action, {required String profile}) {
+  Future<void> run(
+    GatewayAction action, {
+    required String profile,
+    bool shared = false,
+  }) {
     final running = _running;
     if (running != null) return running;
     if (disposed) return Future.value();
     dismiss();
-    final done = _execute(action, profile).whenComplete(() => _running = null);
+    final done = _execute(
+      action,
+      profile,
+      shared,
+    ).whenComplete(() => _running = null);
     _running = done;
     return done;
   }
@@ -110,13 +114,12 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     _profile = null;
     _failure = null;
     _message = null;
-    _logLines = const [];
     notifyListeners();
   }
 
   /// The person confirmed in the UI.
   void confirmed(GatewayAction action) =>
-      _breadcrumbs('server_care.gateway.confirmed', {'action': action.name});
+      _breadcrumbs('server_care.gateway.confirmed', {'verb': action.name});
 
   @override
   void dispose() {
@@ -132,18 +135,25 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
-  Future<void> _execute(GatewayAction action, String profile) async {
+  Future<void> _execute(
+    GatewayAction action,
+    String profile,
+    bool shared,
+  ) async {
     _action = action;
     _profile = profile;
     _failure = null;
     _message = null;
-    _logLines = const [];
     final started = _now();
     Span? span;
     _quiet(
       () => span = _telemetry.tracer?.startSpan(
         'server_care.gateway',
-        attributes: {..._telemetry.serverAttributes, 'action': action.name},
+        attributes: {
+          ..._telemetry.serverAttributes,
+          'verb': action.name,
+          'shared': shared,
+        },
       ),
     );
     _enter(GatewayPhase.starting);
@@ -153,14 +163,17 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     } finally {
       final finished = outcome;
       if (finished != null) {
-        _quiet(() => span?.setAttribute('outcome', finished));
+        _quiet(() {
+          span?.setAttribute('outcome', finished);
+          span?.setAttribute('duration', _bucket(_now().difference(started)));
+        });
       }
       _quiet(() => span?.end());
     }
     if (outcome == null) return;
     _quiet(
       () => _telemetry.events('server_care.gateway_finished', {
-        'action': action.name,
+        'verb': action.name,
         'outcome': outcome!,
       }),
     );
@@ -220,7 +233,6 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       final status = await _repository.actionStatus(name, lines: 40);
       if (disposed) return null;
       if (status case CareOk(:final value)) {
-        _logLines = value.lines;
         if (!value.running) {
           final code = value.exitCode;
           if (code != null && code != 0) {
@@ -233,7 +245,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       await _delay(_actionPoll);
       if (disposed) return null;
     }
-    return _awaitReturn(profile, _now(), returnWindow);
+    return _awaitReturn(profile, started, returnWindow);
   }
 
   /// The POST's answer was lost. Read the action and the gateway until one
@@ -255,9 +267,8 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       final action = await _repository.actionStatus(name, lines: 40);
       if (disposed) return null;
       if (action case CareOk(:final value)) {
-        _logLines = value.lines;
         if (value.running) {
-          return _awaitReturn(profile, _now(), returnWindow);
+          return _awaitReturn(profile, started, returnWindow);
         }
       }
       final gateway = await _repository.status(profile: profile);
@@ -300,7 +311,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
 
   String _done() {
     _enter(GatewayPhase.done);
-    return 'done';
+    return 'back';
   }
 
   String _slow() {
@@ -312,8 +323,15 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     _failure = failure;
     _message = message;
     _enter(GatewayPhase.failed);
-    return failure.name;
+    return failure == GatewayFailure.refused ? 'refused' : 'failed';
   }
+
+  static String _bucket(Duration d) => switch (d.inSeconds) {
+    <= 10 => '0-10s',
+    <= 30 => '11-30s',
+    <= 90 => '31-90s',
+    _ => '>90s',
+  };
 
   static String? _tail(List<String> lines) {
     final text = [

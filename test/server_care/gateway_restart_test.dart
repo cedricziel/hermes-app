@@ -164,7 +164,6 @@ void main() {
     expect(gateway.phase, GatewayPhase.failed);
     expect(gateway.failure, GatewayFailure.exited);
     expect(gateway.message, 'a\nneeds root');
-    expect(gateway.logLines, contains('needs root'));
     expect(gateway.busy, isFalse);
   });
 
@@ -413,7 +412,7 @@ void main() {
     );
     gateway.confirmed(GatewayAction.restart);
     expect(crumbs.single.$1, 'server_care.gateway.confirmed');
-    expect(crumbs.single.$2, {'action': 'restart'});
+    expect(crumbs.single.$2, {'verb': 'restart'});
 
     server.on(
       'GET',
@@ -425,12 +424,14 @@ void main() {
     expect(span.name, 'server_care.gateway');
     expect(span.attributes, {
       'hermes.version': '0.22.2',
-      'action': 'restart',
-      'outcome': 'exited',
+      'verb': 'restart',
+      'shared': false,
+      'outcome': 'failed',
+      'duration': '0-10s',
     });
     expect(span.ended, isTrue);
     expect(events.named('server_care.gateway_finished'), [
-      {'action': 'restart', 'outcome': 'exited'},
+      {'verb': 'restart', 'outcome': 'failed'},
     ]);
 
     server.on('POST', '/api/gateway/start', {
@@ -438,7 +439,7 @@ void main() {
     }, status: 409);
     await gateway.run(GatewayAction.start, profile: 'private-profile');
     expect(tracer.spans.last.attributes['outcome'], 'refused');
-    expect(tracer.spans.last.attributes['action'], 'start');
+    expect(tracer.spans.last.attributes['verb'], 'start');
     expect(tracer.spans.last.attributes.toString(), isNot(contains('secret')));
   });
 
