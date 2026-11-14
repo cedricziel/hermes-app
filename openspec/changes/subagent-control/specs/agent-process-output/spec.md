@@ -86,6 +86,11 @@ A card with a list entry SHALL show the command (at most two lines) and a state 
 - **WHEN** `process.list` returns an `exited` program for which no output frame arrived
 - **THEN** no card is added for it
 
+#### Scenario: A card Hermes does not list
+
+- **WHEN** a card has output frames but `process.list` has no entry for it
+- **THEN** it keeps today's "Process <id> · Output received" (or "Closed") title and shows no state icon, so it never reads as running or succeeded
+
 ### Requirement: List output never replaces received output
 
 A card's frame-fed output SHALL NOT be replaced or extended by the list's `output_tail`. The tail SHALL seed only a new or empty card, within the 64 KiB bound, with "Earlier output omitted" when the tail is 4,000 characters long (the server's cut). The command SHALL be shown as given, with a trailing "…" when it is 200 characters long.

@@ -46,7 +46,7 @@ The app SHALL ignore unknown fields, skip rows without `subagent_id`, read numbe
 
 ### Requirement: Agents are listed in the Activity panel
 
-The Activity panel SHALL list each delegated agent of the open chat as a row: running and starting agents under Now, ended agents and failed background delegations under This session. A row SHALL show the goal (at most two lines), the state as a word and an icon (Starting, Running, Finished, Failed, Stopped, Ended), what it is doing now while it runs, the tools used, and its run time. Nested agents SHALL be indented under their listed parent, at most three levels deep.
+The Activity panel SHALL list each delegated agent of the open chat as a row: running and starting agents under Now, ended agents and failed background delegations under This session. Each row SHALL show the agent's goal, state, run time and tools used (see Row content). Nested agents SHALL be indented under their listed parent within the same section, at most three levels deep.
 
 #### Scenario: Two agents run and one finishes
 
@@ -62,6 +62,20 @@ The Activity panel SHALL list each delegated agent of the open chat as a row: ru
 
 - **WHEN** an agent with id a1 is listed and another agent reports `parent_id: a1` at depth 2
 - **THEN** the second agent is drawn indented under a1; an agent whose parent is not listed is drawn at the top level
+
+#### Scenario: A finished child of a running parent
+
+- **WHEN** agent a1 is running and its child a2 has finished
+- **THEN** a1 is under Now and a2 is drawn at the top level of This session, not indented
+
+### Requirement: Row content
+
+A row SHALL show the goal (at most two lines), then a line that starts with the state word (Starting, Running, Finished, Failed, Stopped, Ended) followed by the run time and the tools used, and, while the agent runs, a further line with what it is doing now. Each state SHALL have its own icon shape.
+
+#### Scenario: A long tool preview
+
+- **WHEN** a running agent's last tool preview is longer than the row is wide
+- **THEN** the row still shows "Running", the run time and the tools used in full on its own line, and only the tool line ends with an ellipsis
 
 ### Requirement: Rows merge frames and the list
 
@@ -129,6 +143,11 @@ The detail SHALL read `subagent.tail` when it opens and every 2 seconds while it
 - **WHEN** `subagent.tail` answers `available: false` for a running agent the app can control
 - **THEN** the section says "No output yet"
 
+#### Scenario: Long output lines at phone width
+
+- **WHEN** an output line is wider than the output area on an iPhone
+- **THEN** it wraps, its continuation starts under the text after the time and role, and the area never scrolls sideways
+
 #### Scenario: Output that looks like a link
 
 - **WHEN** the output contains a URL and Markdown
@@ -194,6 +213,11 @@ The detail of a running agent SHALL offer Stop agent, which SHALL ask first with
 
 While a stop is in flight its control SHALL show progress and not be pressable, and no second confirmation SHALL open. On `found: false` the app SHALL re-read the list before it says anything (see the requirement on agents that cannot be controlled). A lost answer SHALL say "Couldn't confirm the stop. Checking…", re-read `subagent.list`, and never resend. A server error or 4001 SHALL say "Couldn't stop the agent. Try again." and offer Stop agent again.
 
+#### Scenario: The stop is accepted
+
+- **WHEN** `subagent.interrupt` answers `found: true`
+- **THEN** the detail says "Stopping…" and "The agent stops after the step it's on.", and Stop agent and the note field are no longer shown
+
 #### Scenario: The answer is lost
 
 - **WHEN** `subagent.interrupt` times out
@@ -216,7 +240,7 @@ While a stop is in flight its control SHALL show progress and not be pressable, 
 
 ### Requirement: Redirect an agent
 
-The detail of a running agent that accepts notes SHALL offer a note field titled "Redirect this agent", addressed "To: <goal>", with the helper "Goes only to this agent, after the step it's on. It isn't added to the chat." and a "Send to agent" button, disabled while the text is blank, over 4,000 characters, or in flight. The field SHALL sit in the detail, look unlike the composer, hide when `accepting_steer` is false,, with autofill, autocorrect, suggestions and keyboard learning off.
+The detail of a running agent that accepts notes SHALL offer a note field titled "Redirect this agent", addressed "To: <goal>", with the helper "Goes only to this agent, after the step it's on. It isn't added to the chat." and a "Send to agent" button, disabled while the text is blank, over 4,000 characters, or in flight. The field SHALL sit in the detail, look unlike the composer, hide when `accepting_steer` is false, with autofill, autocorrect, suggestions and keyboard learning off.
 
 #### Scenario: A note is queued
 
@@ -298,6 +322,29 @@ Method-not-found SHALL turn off only what needs that method, for that connection
 - **WHEN** `subagent.tail` answers method-not-found and `subagent.steer` answers `queued`
 - **THEN** the detail has no Recent output section and keeps the note field
 
+### Requirement: Offline detail
+
+While the app has no connection to Hermes, an open agent detail SHALL keep the last output read and any typed note, say "You're offline. This is the last output read. Stop and notes work again once Hermes is back.", and disable Stop agent and Send to agent. Nothing SHALL be queued to send later.
+
+#### Scenario: The connection drops with a detail open
+
+- **WHEN** an agent's detail is open with a typed note and the connection to Hermes drops
+- **THEN** the output stays, the note stays in the field, the offline sentence shows, and Stop agent and Send to agent cannot be pressed
+
+#### Scenario: The connection comes back
+
+- **WHEN** the connection is back and the agent is still running
+- **THEN** the offline sentence goes, the output refreshes, and Stop agent and Send to agent can be pressed again; nothing was sent while offline
+
+### Requirement: One filled action in the detail
+
+Send to agent SHALL be the only filled button in an agent's detail. Stop agent SHALL be a tinted destructive button whose label meets WCAG AA contrast on its tint in light and dark themes.
+
+#### Scenario: A running agent's detail
+
+- **WHEN** the detail of a running agent that accepts notes is open
+- **THEN** Send to agent is the only filled button and Stop agent is drawn tinted, after the output and the note field
+
 ### Requirement: Reaching an agent from the transcript
 
 Where the chat has an Activity panel (the main window and Mac conversation windows), each agent row of the transcript's agent card SHALL offer "Show details" (the row itself, and a context menu item on the Mac), opening the panel at that agent's detail. In the Mac quick panel the card SHALL stay read-only.
@@ -347,7 +394,7 @@ While App Lock covers the app, tail and list reads SHALL stop and held output SH
 
 ### Requirement: Accessible rows and controls
 
-Rows and controls SHALL have targets of at least 44 by 44 points on Apple platforms and 48 by 48 dp on Android. A row's screen-reader label SHALL read goal, state, tools used and run time, with the custom actions "Show details" and "Stop agent" named as the swipe and menu name them. State SHALL be a word, not colour alone.
+Rows and controls SHALL have targets of at least 44 by 44 points on iPhone and iPad and 48 by 48 dp on Android; on the Mac, where they are used with a pointer, at least 28 points. A row's screen-reader label SHALL read goal, state, tools used and run time, with the custom actions "Show details" and "Stop agent" named as the swipe and menu name them. State SHALL be a word, not colour alone.
 
 #### Scenario: VoiceOver on an agent row
 
@@ -367,6 +414,11 @@ State changes of the agent whose detail is open SHALL be announced once, politel
 
 - **WHEN** reduced motion is on and an agent is running
 - **THEN** the row shows a still running icon instead of an animated one
+
+#### Scenario: Largest accessibility text size
+
+- **WHEN** the text size is the largest accessibility size and the Activity panel and an agent's detail are open
+- **THEN** each row shows its whole goal and lines at full width under its icon and chevron, the output text is at most twice its normal size and still wraps without sideways scrolling, and Send to agent and Stop agent are full width with their whole labels
 
 ### Requirement: Keyboard use
 
