@@ -120,6 +120,7 @@ class SubagentDetailController extends ChangeNotifier {
   var _epoch = 0;
   var _answered = false;
   var _available = false;
+  var _truncated = false;
   var _refreshFailed = false;
   var _tailUnsupported = false;
 
@@ -143,6 +144,9 @@ class SubagentDetailController extends ChangeNotifier {
     _shown = null;
     notifyListeners();
   }
+
+  /// Only the end of the output is held (Hermes or this app cut its start).
+  bool get tailTruncated => _truncated && tail.isNotEmpty;
 
   /// The last read failed after output was shown: "Couldn't refresh the
   /// output."
@@ -198,6 +202,7 @@ class SubagentDetailController extends ChangeNotifier {
       case WorkOk(:final value):
         _answered = true;
         _available = value.available;
+        _truncated = value.truncated;
         _refreshFailed = false;
         if (value.available) {
           _latest = value.text;
@@ -222,6 +227,7 @@ class SubagentDetailController extends ChangeNotifier {
     _shown = null;
     _answered = false;
     _available = false;
+    _truncated = false;
     _refreshFailed = false;
   }
 

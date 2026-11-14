@@ -718,6 +718,7 @@ void main() {
       expect(find.text('Skip'), findsNothing);
       expect(find.text('Continue'), findsNothing);
       expect(find.text('Open connection'), findsNothing);
+      await settleActivityPanel(tester);
     },
   );
 }

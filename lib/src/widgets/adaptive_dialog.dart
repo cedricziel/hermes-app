@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
@@ -223,25 +224,64 @@ Future<bool> showDestructiveConfirm(
   required String message,
   required String confirmLabel,
   required String cancelLabel,
+  ValueListenable<bool>? dismissWhen,
 }) async =>
     await showAppDialog<bool>(
       context: context,
-      builder: (dialog) => AppAlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          AppDialogAction(
-            isDefault: true,
-            filledOnMaterial: false,
-            onPressed: () => Navigator.pop(dialog, false),
-            child: Text(cancelLabel),
-          ),
-          AppDialogAction(
-            isDestructive: true,
-            onPressed: () => Navigator.pop(dialog, true),
-            child: Text(confirmLabel),
-          ),
-        ],
+      builder: (dialog) => _DismissWhen(
+        when: dismissWhen,
+        child: AppAlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            AppDialogAction(
+              isDefault: true,
+              filledOnMaterial: false,
+              onPressed: () => Navigator.pop(dialog, false),
+              child: Text(cancelLabel),
+            ),
+            AppDialogAction(
+              isDestructive: true,
+              onPressed: () => Navigator.pop(dialog, true),
+              child: Text(confirmLabel),
+            ),
+          ],
+        ),
       ),
     ) ??
     false;
+
+/// Closes the dialog it is in, answering false, once [when] turns true: the
+/// thing the dialog asks about is gone.
+class _DismissWhen extends StatefulWidget {
+  const _DismissWhen({required this.when, required this.child});
+
+  final ValueListenable<bool>? when;
+  final Widget child;
+
+  @override
+  State<_DismissWhen> createState() => _DismissWhenState();
+}
+
+class _DismissWhenState extends State<_DismissWhen> {
+  @override
+  void initState() {
+    super.initState();
+    widget.when?.addListener(_check);
+  }
+
+  void _check() {
+    if (widget.when?.value != true || !mounted) return;
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent) Navigator.of(context).pop(false);
+  }
+
+  @override
+  void dispose() {
+    widget.when?.removeListener(_check);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

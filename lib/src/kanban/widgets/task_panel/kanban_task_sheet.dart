@@ -10,15 +10,18 @@ const double _kFormSheetHeight = 720;
 /// An iOS-style sheet: opens half way, drags up to full height, and a swipe
 /// down past the medium detent dismisses it. [builder] gets the controller
 /// the content's scroll view must use for the drag to work.
+///
+/// [sheet] lets the caller move the sheet, for example to its full height.
 Future<void> showKanbanDetentSheet(
   BuildContext context,
-  Widget Function(ScrollController controller) builder,
-) => showModalBottomSheet<void>(
+  Widget Function(ScrollController controller) builder, {
+  DraggableScrollableController? sheet,
+}) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: Colors.transparent,
-  builder: (context) => KanbanDetentSheet(builder: builder),
+  builder: (context) => KanbanDetentSheet(builder: builder, controller: sheet),
 );
 
 /// A centred sheet with the iOS corner radius, for iPad and desktop widths.
@@ -37,12 +40,14 @@ Future<void> showKanbanFormSheet(BuildContext context, Widget panel) =>
 /// The chrome of the phone sheet: detents, corner radius and grabber around
 /// content built by [builder].
 class KanbanDetentSheet extends StatelessWidget {
-  const KanbanDetentSheet({super.key, required this.builder});
+  const KanbanDetentSheet({super.key, required this.builder, this.controller});
 
   final Widget Function(ScrollController controller) builder;
+  final DraggableScrollableController? controller;
 
   @override
   Widget build(BuildContext context) => DraggableScrollableSheet(
+    controller: controller,
     expand: false,
     initialChildSize: 0.5,
     minChildSize: 0,
