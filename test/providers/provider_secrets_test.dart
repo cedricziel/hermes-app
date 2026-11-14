@@ -90,16 +90,20 @@ void main() {
 
   Future<void> everyKeyPath() async {
     final r = h.repository;
-    h.keep(await r.checkKey('OPENROUTER_API_KEY', _secret));
+    final check = await r.checkKey('OPENROUTER_API_KEY', _secret);
+    h.keep(check, switch (check) {
+      KeyRejected(:final message) => message,
+      KeyProviderError(:final message) => message,
+      _ => null,
+    });
     final saved = await r.saveKey('work', 'OPENROUTER_API_KEY', _secret);
     h.keep(saved, saved is KeyRefused ? saved.message : null);
-    h.keep(
-      await r.checkEndpoint(
-        name: 'Lab',
-        baseUrl: 'https://lab.example.com',
-        apiKey: _secret,
-      ),
+    final probe = await r.checkEndpoint(
+      name: 'Lab',
+      baseUrl: 'https://lab.example.com',
+      apiKey: _secret,
     );
+    h.keep(probe, probe is EndpointChecked ? probe.warning : null);
     final endpoint = await r.saveEndpoint(
       'work',
       name: 'Lab',

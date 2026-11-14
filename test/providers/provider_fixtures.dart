@@ -16,6 +16,7 @@ Map<String, Object?> optionsRow(
   String? authType,
   String? keyEnv,
   String? warning,
+  String? source,
 }) => {
   'slug': slug,
   'name': name ?? slug,
@@ -27,6 +28,7 @@ Map<String, Object?> optionsRow(
   'auth_type': ?authType,
   'key_env': ?keyEnv,
   'warning': ?warning,
+  'source': ?source,
 };
 
 Map<String, Object?> optionsBody(
@@ -176,7 +178,12 @@ Map<String, Object?> emptyProfileOptions() => optionsBody([
     keyEnv: 'ZETA_API_KEY',
   ),
   optionsRow('moa', name: 'Mixture of agents', authType: 'virtual'),
-  optionsRow('local-runtime', name: 'Local runtime', authenticated: false),
+  optionsRow(
+    'llamacpp',
+    name: 'llama.cpp',
+    authType: 'local',
+    source: 'local-runtime',
+  ),
   optionsRow('mystery', name: 'Mystery', authenticated: false, authType: 'x9'),
 ]);
 

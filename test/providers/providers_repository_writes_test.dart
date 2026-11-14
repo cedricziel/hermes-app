@@ -218,6 +218,13 @@ void main() {
       },
     );
 
+    test('a 200 object without ok: true is unknown', () async {
+      server.on('PUT', path, <String, Object?>{});
+      expect(await repository.saveKey('w', 'K', 'v'), isA<KeySaveUnknown>());
+      server.on('PUT', path, {'ok': false});
+      expect(await repository.saveKey('w', 'K', 'v'), isA<KeySaveUnknown>());
+    });
+
     test('an answer that says nothing is unknown', () async {
       server.on('PUT', path, 'not json at all');
       expect(await repository.saveKey('w', 'K', 'v'), isA<KeySaveUnknown>());

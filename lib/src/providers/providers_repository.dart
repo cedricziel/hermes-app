@@ -208,8 +208,6 @@ class ProvidersRepository {
         secret: value,
         ok: (data) => data is Map && data['ok'] == true
             ? const KeySaved()
-            : data is Map
-            ? const KeyRefused("Hermes didn't save the key")
             : const KeySaveUnknown(),
         failed: (f) => f.status == null || f.status! >= 500
             ? const KeySaveUnknown()

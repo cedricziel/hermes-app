@@ -89,7 +89,18 @@ void main() {
     test('moa and the local runtime are left out', () {
       final ids = empty().entries.map((e) => e.id);
       expect(ids, isNot(contains('moa')));
-      expect(ids, isNot(contains('local-runtime')));
+      expect(ids, isNot(contains('llamacpp')));
+    });
+
+    test('a local-runtime row is left out by source or by auth type', () {
+      final catalog = mergeProviders(
+        options: optionsBody([
+          optionsRow('a', source: 'local-runtime'),
+          optionsRow('b', authType: 'local'),
+          optionsRow('c'),
+        ]),
+      );
+      expect(catalog.entries.map((e) => e.id), ['c']);
     });
 
     test('a row lacking its slug is skipped and counted', () {
@@ -204,6 +215,37 @@ void main() {
       },
     );
 
+    test('a user-defined row stays when no endpoint carries its id', () {
+      final catalog = mergeProviders(
+        options: connectedOptions(),
+        endpoints: {
+          'endpoints': [endpointRow('other')],
+        },
+      );
+      expect(catalog.byId('custom:lab'), isNotNull);
+      expect(catalog.byId('other'), isNotNull);
+    });
+
+    test('an env key attaches to a provider only the account list names', () {
+      final catalog = mergeProviders(
+        options: optionsBody([]),
+        env: {
+          'ZED_API_KEY': envRow(
+            provider: 'zed',
+            isSet: true,
+            redacted: '«redacted:ab...wxyz»',
+          ),
+        },
+        oauth: {
+          'providers': [oauthRow('zed', flow: 'external')],
+        },
+      );
+      final zed = catalog.byId('zed')!;
+      expect(zed.method, ConnectMethod.key);
+      expect(zed.keyEnv, 'ZED_API_KEY');
+      expect(zed.credentials.single.lastFour, 'wxyz');
+    });
+
     test('a user-defined row stays when endpoints were not read', () {
       final catalog = mergeProviders(options: connectedOptions());
       expect(catalog.byId('custom:lab'), isNotNull);
@@ -269,7 +311,7 @@ void main() {
   group('order', () {
     test('unconnected providers lead with the recommended four', () {
       final options = optionsBody([
-        for (final slug in ['zeta', 'anthropic', 'alpha', 'openai', 'nous'])
+        for (final slug in ['zeta', 'anthropic', 'alpha', 'openai-api', 'nous'])
           optionsRow(
             slug,
             authenticated: false,
@@ -286,7 +328,7 @@ void main() {
       expect(mergeProviders(options: options).entries.map((e) => e.id), [
         'nous',
         'openrouter',
-        'openai',
+        'openai-api',
         'anthropic',
         'alpha',
         'zeta',

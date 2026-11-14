@@ -139,12 +139,18 @@ class ProviderEntry {
 
 /// Providers Hermes recommends first when adding one, in this order. The
 /// server sends no ranking; this only orders the list.
-const kRecommendedProviderSlugs = ['nous', 'openrouter', 'openai', 'anthropic'];
+const kRecommendedProviderSlugs = [
+  'nous',
+  'openrouter',
+  'openai-api',
+  'anthropic',
+];
 
 /// Rows that are not providers to connect: the mixture-of-agents pseudo
 /// provider and the managed local runtime.
-const _hiddenSlugs = {'moa', 'local-runtime', 'local_runtime'};
-const _hiddenAuthTypes = {'virtual', 'local_runtime', 'managed_local'};
+const _hiddenSlugs = {'moa'};
+const _hiddenAuthTypes = {'virtual', 'local'};
+const _hiddenSource = 'local-runtime';
 
 /// The merged answer: every provider, the default model and how many rows
 /// did not parse.
@@ -255,8 +261,12 @@ ProviderCatalog mergeProviders({
   final defaultProvider = _text(optionsBody?['provider']) ?? '';
   final defaultModel = _text(optionsBody?['model']) ?? '';
 
-  // Rows the options answer holds for custom endpoints come from the
-  // endpoints answer instead, when that was read.
+  // A custom endpoint's row in the options answer is dropped when the
+  // endpoints answer lists that endpoint, which shows it instead.
+  final endpointIds = {
+    for (final raw in _list(endpointsBody?['endpoints']))
+      ?_text(_map(raw)?['id']),
+  };
   for (final raw in _list(optionsBody?['providers'])) {
     final row = _map(raw);
     final slug = _text(row?['slug']);
@@ -265,10 +275,17 @@ ProviderCatalog mergeProviders({
       continue;
     }
     final authType = _text(row['auth_type']) ?? '';
-    if (_hiddenSlugs.contains(slug) || _hiddenAuthTypes.contains(authType)) {
+    if (_hiddenSlugs.contains(slug) ||
+        _hiddenAuthTypes.contains(authType) ||
+        row['source'] == _hiddenSource) {
       continue;
     }
-    if (row['is_user_defined'] == true && endpointsBody != null) continue;
+    if (row['is_user_defined'] == true &&
+        (endpointIds.contains(slug) ||
+            (slug.startsWith('custom:') &&
+                endpointIds.contains(slug.substring(7))))) {
+      continue;
+    }
     final d = draft(slug, _text(row['name']) ?? slug)
       ..optionsRow = true
       ..authenticated = row['authenticated'] != false
@@ -281,6 +298,18 @@ ProviderCatalog mergeProviders({
     d.totalModels = total is int && total >= d.models.length
         ? total
         : d.models.length;
+  }
+
+  if (oauthBody != null) {
+    for (final raw in _list(oauthBody['providers'])) {
+      final row = _map(raw);
+      final id = _text(row?['id']);
+      if (row == null || id == null) {
+        skipped++;
+        continue;
+      }
+      draft(id, _text(row['name']) ?? id).oauth = row;
+    }
   }
 
   if (envBody != null) {
@@ -296,18 +325,6 @@ ProviderCatalog mergeProviders({
           row['is_password'] == true || row['provider_primary'] == true;
       if (!isKey) continue;
       drafts[slug]?.keys.add((e.key, row));
-    }
-  }
-
-  if (oauthBody != null) {
-    for (final raw in _list(oauthBody['providers'])) {
-      final row = _map(raw);
-      final id = _text(row?['id']);
-      if (row == null || id == null) {
-        skipped++;
-        continue;
-      }
-      draft(id, _text(row['name']) ?? id).oauth = row;
     }
   }
 
