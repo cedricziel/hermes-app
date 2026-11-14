@@ -94,6 +94,10 @@ enum WorkspaceMoveBlock {
   /// answered after a reply started gets.
   replying,
 
+  /// A full restore or a compression of this chat is running, or Send is
+  /// held for one: the server rewinds or rewrites the chat meanwhile.
+  restoring,
+
   /// An earlier move of this chat is still being settled.
   moving,
 

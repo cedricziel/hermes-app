@@ -1376,6 +1376,7 @@
   "workspacesReasonChanging": "Ordner wird geändert…",
   "workspacesReasonChecking": "Ordner wird geprüft…",
   "workspacesReasonOffline": "Du bist offline.",
+  "workspacesReasonRestoring": "Warte, bis die Wiederherstellung oder Komprimierung fertig ist.",
   "workspacesReasonReplying": "Warte, bis die Antwort fertig ist.",
   "workspacesRowLookingUp": "Dein Ordner wird gesucht…",
   "workspacesRowOffline": "Offline",

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/workspaces/widgets/folder_browser_view.dart';
+import 'package:hermes_app/src/workspaces/widgets/working_directory_details.dart';
 import 'package:hermes_app/src/workspaces/widgets/working_directory_line.dart';
 import 'package:hermes_app/src/workspaces/widgets/workspace_picker_view.dart';
 
@@ -90,5 +91,25 @@ void main() {
     }
 
     expect(enabled, [FolderBrowserLevel.ready, FolderBrowserLevel.notAllowed]);
+  });
+
+  testWidgets('Change folder says why it waits for a restore', (tester) async {
+    await pumpFiles(
+      tester,
+      const WorkingDirectoryDetails(
+        folderName: 'api',
+        path: '/home/me/api',
+        restoring: true,
+      ),
+    );
+
+    expect(
+      find.text('Wait for the restore or compression to finish.'),
+      findsOneWidget,
+    );
+    final button = tester.widget<OutlinedButton>(
+      find.byKey(const Key('working-directory-change')),
+    );
+    expect(button.onPressed, isNull);
   });
 }

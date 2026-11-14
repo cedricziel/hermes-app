@@ -155,6 +155,7 @@ extension _ChatControllerWorkspace on ChatController {
     final block = _moveBlockImpl(thread);
     if (block != null &&
         block != WorkspaceMoveBlock.replying &&
+        block != WorkspaceMoveBlock.restoring &&
         block != WorkspaceMoveBlock.moving) {
       return false;
     }
@@ -291,6 +292,15 @@ extension _ChatControllerWorkspace on ChatController {
         queueBusy(thread) ||
         _undoing.containsKey(thread)) {
       return WorkspaceMoveBlock.replying;
+    }
+    // A full restore rewinds the chat and a compression rewrites it: the
+    // folder does not change under either.
+    final actions = _actionsOf(thread);
+    if (actions != null &&
+        (actions.sendHeld ||
+            actions.checkpoints?.restoring == true ||
+            actions.context?.compressing == true)) {
+      return WorkspaceMoveBlock.restoring;
     }
     if (_moveStateImpl(thread).inFlight) return WorkspaceMoveBlock.moving;
     if (path != null && !isServerPath(path)) {

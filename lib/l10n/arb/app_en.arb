@@ -6770,6 +6770,10 @@
   "@workspacesReasonOffline": {
     "description": "Reason shown next to the disabled \"Change folder…\" button while offline."
   },
+  "workspacesReasonRestoring": "Wait for the restore or compression to finish.",
+  "@workspacesReasonRestoring": {
+    "description": "Reason shown next to the disabled \"Change folder…\" button while a full restore or a compression of the chat runs."
+  },
   "workspacesReasonReplying": "Wait for the reply to finish.",
   "@workspacesReasonReplying": {
     "description": "Reason shown next to the disabled \"Change folder…\" button while Hermes replies."

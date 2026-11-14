@@ -40,6 +40,7 @@ class WorkingDirectoryDetails extends StatelessWidget {
     this.projectName,
     this.homeFolder = false,
     this.replying = false,
+    this.restoring = false,
     this.offline = false,
     this.canChange = true,
     this.conversationWindow = false,
@@ -65,6 +66,10 @@ class WorkingDirectoryDetails extends StatelessWidget {
 
   /// A reply is running, so the folder cannot change.
   final bool replying;
+
+  /// A full restore or a compression of the chat runs, so the folder cannot
+  /// change.
+  final bool restoring;
   final bool offline;
 
   /// The server can move a chat to another folder. False: no button.
@@ -100,6 +105,7 @@ class WorkingDirectoryDetails extends StatelessWidget {
       return l10n.workspacesReasonChecking;
     }
     if (replying) return l10n.workspacesReasonReplying;
+    if (restoring) return l10n.workspacesReasonRestoring;
     if (offline) return l10n.workspacesReasonOffline;
     return null;
   }

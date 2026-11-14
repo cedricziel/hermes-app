@@ -227,6 +227,7 @@ class _DetailsSheetState extends State<_DetailsSheet> {
         projectName: folder.projectName,
         homeFolder: folder.home,
         replying: block == WorkspaceMoveBlock.replying,
+        restoring: block == WorkspaceMoveBlock.restoring,
         offline: catalogStatus == WorkspaceCatalogStatus.offline,
         canChange: canChange,
         conversationWindow: widget.conversationWindow,
@@ -252,6 +253,7 @@ class _DetailsSheetState extends State<_DetailsSheet> {
               title: switch (blocked) {
                 WorkspaceMoveBlock.replying => l10n.workspacesReasonReplying,
                 WorkspaceMoveBlock.moving => l10n.workspacesReasonChanging,
+                WorkspaceMoveBlock.restoring => l10n.workspacesReasonRestoring,
                 _ => l10n.workspacesMoveNotChanged,
               },
               detail: l10n.workspacesMoveNothingChanged,
