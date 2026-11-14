@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_otel/flutter_otel.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import '../telemetry/telemetry.dart';
 import 'provider_models.dart';
 import 'provider_results.dart';
+import 'provider_signals.dart';
 
 /// Reads and changes the model providers of a profile through the generated
 /// [DefaultApi]. No route declares a response schema, so answers are parsed
@@ -37,6 +37,7 @@ class ProvidersRepository {
 
   final DefaultApi _api;
   final ConnectionTelemetry telemetry;
+  late final _signals = ProviderSignals(telemetry);
 
   /// How long the app waits for Hermes' key check before saving without it.
   final Duration checkBudget;
@@ -51,7 +52,7 @@ class ProvidersRepository {
   /// [ProvidersUnsupported]; the other sources degrade and a 404 on one reads
   /// as "not offered".
   Future<ProvidersSnapshot> load(String? profile) async {
-    final span = _start('providers.load');
+    final span = _signals.start('providers.load');
     final reads = await Future.wait([
       _read(
         () => _api.getModelOptionsApiModelOptionsGet(
@@ -79,7 +80,7 @@ class ProvidersRepository {
     for (var i = 0; i < reads.length; i++) {
       final type = reads[i].errorType;
       if (type != null) {
-        _log('providers.read_failed', {
+        _signals.log('providers.read_failed', {
           'source': ProviderSource.values[i].name,
           'error_type': type,
         });
@@ -92,7 +93,7 @@ class ProvidersRepository {
     final failed = counted.where((e) => e.value is SourceFailed).length;
     final options = sources[ProviderSource.options]!;
     if (options is! SourceOk) {
-      _end(span, {'sources_ok': ok, 'sources_failed': failed});
+      _signals.end(span, {'sources_ok': ok, 'sources_failed': failed});
       return options is SourceFailed
           ? ProvidersFailed(options.reason)
           : const ProvidersUnsupported();
@@ -104,7 +105,7 @@ class ProvidersRepository {
       endpoints: reads[3].data,
       pool: reads[4].data,
     );
-    _end(span, {
+    _signals.end(span, {
       'sources_ok': ok,
       'sources_failed': failed,
       'connected': _bucket(catalog.connected.length),
@@ -586,35 +587,6 @@ class ProvidersRepository {
       for (final item in value)
         if (item is String && item.isNotEmpty) item,
   ];
-
-  Span? _start(String name) {
-    Span? span;
-    _quiet(
-      () => span = telemetry.tracer?.startSpan(
-        name,
-        attributes: telemetry.serverAttributes,
-      ),
-    );
-    return span;
-  }
-
-  void _end(Span? span, Map<String, Object> attributes) => _quiet(() {
-    for (final e in attributes.entries) {
-      span?.setAttribute(e.key, e.value);
-    }
-    span?.end();
-  });
-
-  void _log(String name, Map<String, Object> attributes) =>
-      _quiet(() => telemetry.events(name, attributes));
-
-  static void _quiet(void Function() action) {
-    try {
-      action();
-    } on Object {
-      return;
-    }
-  }
 }
 
 /// A failed call reduced to what is safe to keep: the status and Hermes' own

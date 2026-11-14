@@ -59,12 +59,11 @@ class _SignInContext {
 }
 
 class _PendingConfirm {
-  _PendingConfirm(this.providerId, this.model, this.span, this.generation);
+  _PendingConfirm(this.providerId, this.model, this.span);
 
   final String providerId;
   final String model;
   final Span? span;
-  final int generation;
 }
 
 /// Connects model providers to one profile: the snapshot of what is
@@ -208,6 +207,8 @@ class ProviderSetupController extends ChangeNotifier
     await _reload();
     return catalog?.byId(providerId)?.connected ?? false;
   }
+
+  bool get _noneConnected => catalog?.connected.isEmpty ?? true;
 
   _DefaultBefore _defaultBefore() {
     final c = catalog;
@@ -386,11 +387,9 @@ class ProviderSetupController extends ChangeNotifier
       emptyKey: false,
     );
     _notify();
-    final firstKey = !entry.credentials.any(
-      (c) => c.kind == CredentialKind.apiKey && c.keyEnv == keyEnv,
-    );
+    final firstKey = !_hasKeyFor(entry, keyEnv);
     final wasConnected = entry.connected;
-    final firstProvider = (catalog?.connected.isEmpty) ?? true;
+    final firstProvider = _noneConnected;
     final before = _defaultBefore();
 
     var saved = false;
@@ -425,9 +424,7 @@ class ProviderSetupController extends ChangeNotifier
             reloaded &&
             now != null &&
             now.connected &&
-            now.credentials.any(
-              (c) => c.kind == CredentialKind.apiKey && c.keyEnv == keyEnv,
-            );
+            _hasKeyFor(now, keyEnv);
         if (!saved) {
           if (current()) {
             keyForm = keyForm!.copyWith(
@@ -467,6 +464,10 @@ class ProviderSetupController extends ChangeNotifier
       );
     }
   }
+
+  static bool _hasKeyFor(ProviderEntry entry, String keyEnv) => entry
+      .credentials
+      .any((c) => c.kind == CredentialKind.apiKey && c.keyEnv == keyEnv);
 
   static KeyCheckKind _kindOf(KeyCheck check) => switch (check) {
     KeyAccepted() => KeyCheckKind.accepted,
@@ -641,12 +642,7 @@ class ProviderSetupController extends ChangeNotifier
           return DefaultSetOutcome.failed;
         }
         confirmAsked = true;
-        _pendingConfirm = _PendingConfirm(
-          providerId,
-          model,
-          traced,
-          generation,
-        );
+        _pendingConfirm = _PendingConfirm(providerId, model, traced);
         confirmation = ModelConfirmation(
           providerId: providerId,
           model: model,
@@ -690,14 +686,7 @@ class ProviderSetupController extends ChangeNotifier
 
   /// Cancel on the confirmation: nothing is saved.
   void declineExpensiveModel() {
-    final pending = _pendingConfirm;
-    _pendingConfirm = null;
-    if (pending != null) {
-      _signals.end(pending.span, {
-        'outcome': 'declined',
-        'confirm_asked': true,
-      });
-    }
+    _endPendingConfirm();
     final open = step;
     if (open != null && open.kind == DefaultStepKind.preparing) {
       step = open.copyWith(kind: DefaultStepKind.ask);
@@ -773,10 +762,7 @@ class ProviderSetupController extends ChangeNotifier
       final now = catalog?.byId(entry.id);
       final gone = switch (action) {
         RemoveKeyAction(:final keyEnv) =>
-          now == null ||
-              !now.credentials.any(
-                (c) => c.kind == CredentialKind.apiKey && c.keyEnv == keyEnv,
-              ),
+          now == null || !_hasKeyFor(now, keyEnv),
         SignOutAction() => now == null || now.account == null,
         DeleteEndpointAction() => now == null,
         ServerCommandAction() => false,
@@ -853,14 +839,11 @@ class ProviderSetupController extends ChangeNotifier
         endpointForm.issue == null) {
       return;
     }
-    endpointForm = EndpointFormState(
-      phase: endpointForm.phase == EndpointFormPhase.saved
+    endpointForm = _keepingCheck(
+      endpointForm,
+      endpointForm.phase == EndpointFormPhase.saved
           ? EndpointFormPhase.saved
           : EndpointFormPhase.idle,
-      models: endpointForm.models,
-      resolvedBaseUrl: endpointForm.resolvedBaseUrl,
-      warning: endpointForm.warning,
-      checkedAddress: endpointForm.checkedAddress,
     );
     _notify();
   }
@@ -938,6 +921,23 @@ class ProviderSetupController extends ChangeNotifier
     _notify();
   }
 
+  /// [from]'s check result under another [phase], without its issue, message
+  /// or key note.
+  static EndpointFormState _keepingCheck(
+    EndpointFormState from,
+    EndpointFormPhase phase, {
+    String? message,
+    EndpointIssue? issue,
+  }) => EndpointFormState(
+    phase: phase,
+    models: from.models,
+    resolvedBaseUrl: from.resolvedBaseUrl,
+    warning: from.warning,
+    checkedAddress: from.checkedAddress,
+    message: message,
+    issue: issue,
+  );
+
   static EndpointIssue? _addressIssue(String address) {
     if (address.isEmpty) return EndpointIssue.addressMissing;
     final uri = Uri.tryParse(address);
@@ -971,12 +971,9 @@ class ProviderSetupController extends ChangeNotifier
         : _addressIssue(typed) ??
               (model.trim().isEmpty ? EndpointIssue.modelMissing : null);
     if (issue != null) {
-      endpointForm = EndpointFormState(
-        phase: endpointForm.phase,
-        models: endpointForm.models,
-        resolvedBaseUrl: endpointForm.resolvedBaseUrl,
-        warning: endpointForm.warning,
-        checkedAddress: endpointForm.checkedAddress,
+      endpointForm = _keepingCheck(
+        endpointForm,
+        endpointForm.phase,
         issue: issue,
       );
       _notify();
@@ -1001,16 +998,10 @@ class ProviderSetupController extends ChangeNotifier
         : null;
     final generation = _generation;
     final seq = ++_endpointSeq;
-    final wasEmpty = (catalog?.connected.isEmpty) ?? true;
+    final wasEmpty = _noneConnected;
     final makeDefault = !_defaultBefore().usable || useForNewChats;
     final previous = endpointForm;
-    endpointForm = EndpointFormState(
-      phase: EndpointFormPhase.saving,
-      models: previous.models,
-      resolvedBaseUrl: previous.resolvedBaseUrl,
-      warning: previous.warning,
-      checkedAddress: previous.checkedAddress,
-    );
+    endpointForm = _keepingCheck(previous, EndpointFormPhase.saving);
     _notify();
     final span = _signals.start('providers.endpoint.save');
     final result = await repository.saveEndpoint(
@@ -1034,12 +1025,9 @@ class ProviderSetupController extends ChangeNotifier
       case EndpointRefused(:final message):
         finish('refused');
         if (live) {
-          endpointForm = EndpointFormState(
-            phase: EndpointFormPhase.refused,
-            models: previous.models,
-            resolvedBaseUrl: previous.resolvedBaseUrl,
-            warning: previous.warning,
-            checkedAddress: previous.checkedAddress,
+          endpointForm = _keepingCheck(
+            previous,
+            EndpointFormPhase.refused,
             message: message,
           );
           _notify();
@@ -1139,7 +1127,7 @@ class ProviderSetupController extends ChangeNotifier
     _signIns[key] = signIn;
     _signInContexts[signIn] = _SignInContext(
       before: _defaultBefore(),
-      first: (catalog?.connected.isEmpty) ?? true,
+      first: _noneConnected,
     );
     signIn.addListener(_notify);
     unawaited(signIn.start());
@@ -1218,14 +1206,7 @@ class ProviderSetupController extends ChangeNotifier
     }
     _signIns.clear();
     _signInContexts.clear();
-    final pending = _pendingConfirm;
-    if (pending != null) {
-      _signals.end(pending.span, {
-        'outcome': 'declined',
-        'confirm_asked': true,
-      });
-      _pendingConfirm = null;
-    }
+    _endPendingConfirm();
     super.dispose();
   }
 
