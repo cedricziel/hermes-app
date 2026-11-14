@@ -65,16 +65,21 @@ class ServerAttentionBadge extends StatelessWidget {
 /// The label of the account menu's Server item: "Server", or "Server · needs
 /// attention" ending in the dot.
 class ServerMenuItemLabel extends StatelessWidget {
-  const ServerMenuItemLabel({super.key, required this.needsAttention});
+  const ServerMenuItemLabel({
+    super.key,
+    required this.label,
+    required this.needsAttention,
+  });
 
+  /// "Server", or "Server · needs attention", already in the reader's
+  /// language.
+  final String label;
   final bool needsAttention;
 
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Flexible(
-        child: Text(needsAttention ? 'Server · needs attention' : 'Server'),
-      ),
+      Flexible(child: Text(label)),
       if (needsAttention) ...[
         const SizedBox(width: 8),
         const ServerAttentionDot(),

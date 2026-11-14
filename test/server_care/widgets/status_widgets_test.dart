@@ -203,12 +203,19 @@ void main() {
 
     testWidgets('the menu label says it in words', (tester) async {
       await tester.pumpWidget(
-        _host(const ServerMenuItemLabel(needsAttention: true)),
+        _host(
+          const ServerMenuItemLabel(
+            label: 'Server · needs attention',
+            needsAttention: true,
+          ),
+        ),
       );
       expect(find.text('Server · needs attention'), findsOneWidget);
       expect(find.byType(ServerAttentionDot), findsOneWidget);
       await tester.pumpWidget(
-        _host(const ServerMenuItemLabel(needsAttention: false)),
+        _host(
+          const ServerMenuItemLabel(label: 'Server', needsAttention: false),
+        ),
       );
       expect(find.text('Server'), findsOneWidget);
       expect(find.byType(ServerAttentionDot), findsNothing);
@@ -265,6 +272,25 @@ void main() {
       expect(dismissed, 0);
       await tester.pump(const Duration(seconds: 2));
       expect(dismissed, 1);
+    });
+
+    testWidgets('ready: a new dismiss callback replaces the old timer', (
+      tester,
+    ) async {
+      var first = 0, second = 0;
+      Widget banner(VoidCallback dismiss) => _host(
+        ServerRestartBanner.ready(
+          version: '0.23.0',
+          onClose: () {},
+          onAutoDismiss: dismiss,
+        ),
+      );
+      await tester.pumpWidget(banner(() => first++));
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(banner(() => second++));
+      await tester.pump(const Duration(seconds: 7));
+      expect(first, 0);
+      expect(second, 1);
     });
 
     testWidgets('ready: stays until closed under reduced motion', (

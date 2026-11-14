@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older Auto Backup. The home_widget plugin keeps the surface
+     snapshot (chat titles and snippets) in these preferences; a restored
+     install writes its own again. Everything else stays backed up. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="HomeWidgetPreferences.xml"/>
+    <exclude domain="sharedpref" path="InternalHomeWidgetPreferences.xml"/>
+</full-backup-content>
