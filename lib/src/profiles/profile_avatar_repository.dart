@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
+import '../chat/gateway/gateway_rpc_client.dart';
+
 typedef ProfileAssetRequest = Future<Map<String, Object?>> Function(
   String method,
   Map<String, Object?> params,
@@ -28,15 +30,29 @@ class ProfileAvatarRepository extends ChangeNotifier {
   /// External URLs are never fetched. Names must be canonical profile names.
   Future<Uint8List?> load(String profile) {
     if (_closed || profile.isEmpty) return Future.value();
-    return _pending.putIfAbsent(profile, () => _read(profile));
+    final cached = _pending[profile];
+    if (cached != null) return cached;
+    late final Future<Uint8List?> read;
+    read = _read(profile).catchError((Object _) {
+      // The request never got an answer: a later load asks again.
+      if (identical(_pending[profile], read)) _pending.remove(profile);
+      return null;
+    });
+    return _pending[profile] = read;
   }
 
+  /// Throws only when the gateway gave no answer.
   Future<Uint8List?> _read(String profile) async {
+    final Map<String, Object?> response;
     try {
-      final response = await _request('profiles.get_asset', {
+      response = await _request('profiles.get_asset', {
         'name': profile,
         'asset': 'avatar',
       });
+    } on GatewayRpcException {
+      return null;
+    }
+    try {
       if (_closed || response['found'] != true) return null;
       final value = response['data'];
       if (value is! String || value.length > 7 * 1024 * 1024) return null;
