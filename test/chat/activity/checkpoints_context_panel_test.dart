@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/chat/widgets/composer_status_line.dart';
 import 'package:hermes_app/src/chat/activity/activity_tier.dart';
 import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
 import 'package:hermes_app/src/chat/activity/working_summary.dart';
@@ -611,12 +612,22 @@ void main() {
     for (final finder in [
       find.byType(NeedsYouDock),
       find.byType(ActivityLine),
-      find.text('Restoring files…'),
       find.text('Nearly full'),
       find.text('97%'),
     ]) {
       expect(find.descendant(of: strip, matching: finder), findsNothing);
     }
+    // The only place the chat side says a restore runs is the composer's own
+    // line, which gives the reason Send is held: it is no strip entry.
+    final restoring = find.descendant(
+      of: strip,
+      matching: find.text('Restoring files…'),
+    );
+    expect(
+      find.descendant(of: find.byType(ComposerStatusLine), matching: restoring),
+      findsOneWidget,
+    );
+    expect(restoring, findsOneWidget);
     // Both kinds are For reference, and nothing feeds the Working summary.
     expect(ActivityKind.context.tier, ActivityTier.reference);
     expect(ActivityKind.checkpoints.tier, ActivityTier.reference);
