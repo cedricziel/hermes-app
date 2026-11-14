@@ -141,6 +141,7 @@ void main() {
       '-',
       'Pin',
       'Rename…',
+      'Change Folder…',
       'Copy Transcript',
       'Compress Conversation…',
       '-',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'safe_path_text.dart';
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
@@ -82,10 +83,11 @@ class _FileRowState extends State<FileRow> {
 
   String _label(AppLocalizations l10n) {
     final model = widget.model;
-    if (model.isFolder) return l10n.filesRowLabelFolder(model.name);
+    final name = safePathText(model.name);
+    if (model.isFolder) return l10n.filesRowLabelFolder(name);
     return model.marksSecret
-        ? l10n.filesRowLabelFileSecret(model.name)
-        : l10n.filesRowLabelFile(model.name);
+        ? l10n.filesRowLabelFileSecret(name)
+        : l10n.filesRowLabelFile(name);
   }
 
   @override

@@ -21,6 +21,7 @@ import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/voice/voice_recorder.dart';
@@ -68,6 +69,7 @@ Future<void> pumpChatScreen(
   ThemeData? theme,
   Size size = const Size(1400, 900),
   ValueListenable<bool>? visible,
+  HermesWorkspacesRepository? workspaces,
   CompressConversationEntry? onCompressConversation,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
@@ -115,6 +117,7 @@ Future<void> pumpChatScreen(
           displaySocketOpener: displaySocketOpener,
           takeoverSetting: takeoverSetting,
           chatProfiles: chatProfiles,
+          workspaces: workspaces,
           onCompressConversation: onCompressConversation,
         ),
       ),

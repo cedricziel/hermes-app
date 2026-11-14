@@ -6,6 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/chat_workspace_state.dart'
+    show WorkspaceMoveBlock;
+import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoints_controller.dart';
@@ -1075,5 +1078,134 @@ void main() {
     expect(records, contains('chat.checkpoints.restore_confirmed'));
     expect(records, isNot(contains('quarterly')));
     expect(records, isNot(contains(_hash)));
+  });
+
+  group('folder moves and restores exclude each other', () {
+    late List<String> moves;
+
+    /// A controller that can also move a chat's folder.
+    void withMoves() {
+      chat.dispose();
+      moves = [];
+      chat = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        transport: source,
+        workspaces: HermesWorkspacesRepository(server.client().raw, (
+          method,
+          params, {
+          required timeout,
+        }) async {
+          moves.add(method);
+          return {'cwd': params['cwd']};
+        }),
+        attention: attention,
+        appLock: lock,
+        breadcrumbs: Breadcrumbs.of(trail),
+        report: (_) {},
+      );
+    }
+
+    test(
+      'a full restore in flight blocks a move, and nothing is sent',
+      () async {
+        withMoves();
+        final (opened, checkpoints) = await listed();
+        expect(chat.workspaceMoveBlock(opened), isNull);
+        source.fake.restoreGate = Completer<void>();
+
+        final restoring = checkpoints.confirmRestore(
+          checkpoints.beginRestore(_hash)!,
+        );
+        await pumpEventQueue();
+
+        expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.restoring);
+        expect(
+          await chat.moveWorkspace(opened, '/srv/other'),
+          WorkspaceMoveBlock.restoring,
+        );
+        expect(moves, isEmpty);
+
+        source.fake.restoreGate!.complete();
+        await restoring;
+        await pumpEventQueue();
+        expect(chat.workspaceMoveBlock(opened), isNull);
+      },
+    );
+
+    test('a compress in flight blocks a move, and nothing is sent', () async {
+      withMoves();
+      final (opened, _) = await listed();
+      final context = chat.contextIn(opened)!;
+      source.fake.compressGate = Completer<void>();
+
+      final compressing = context.confirmCompress(context.beginCompress()!);
+      await pumpEventQueue();
+
+      expect(context.compressing, isTrue);
+      expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.restoring);
+      expect(
+        await chat.moveWorkspace(opened, '/srv/other'),
+        WorkspaceMoveBlock.restoring,
+      );
+      expect(moves, isEmpty);
+
+      source.fake.compressGate!.complete();
+      await compressing;
+      await pumpEventQueue();
+      expect(chat.workspaceMoveBlock(opened), isNull);
+    });
+
+    test(
+      'a move in flight blocks a restore and a compress from starting',
+      () async {
+        withMoves();
+        final (opened, checkpoints) = await listed();
+        final context = chat.contextIn(opened)!;
+        expect(checkpoints.restoreRefusal(), isNull);
+        expect(context.compressRefusal, isNull);
+        final answer = Completer<Map<String, Object?>>();
+        chat.dispose();
+        chat = ChatController(
+          repository: HermesChatRepository(server.client().raw),
+          transport: source,
+          workspaces: HermesWorkspacesRepository(server.client().raw, (
+            method,
+            params, {
+            required timeout,
+          }) {
+            moves.add(method);
+            return answer.future;
+          }),
+          attention: attention,
+          appLock: lock,
+          report: (_) {},
+        );
+        final again = await open();
+        source.own('stored-1');
+        source.fake.list = CheckpointsOn([
+          Checkpoint(hash: _hash, reason: CheckpointReason.beforeEdit),
+        ]);
+        final checkpoints2 = chat.checkpointsIn(again)!;
+        await checkpoints2.panelOpened();
+        final context2 = chat.contextIn(again)!;
+
+        final move = chat.moveWorkspace(again, '/srv/other');
+        await pumpEventQueue();
+
+        expect(moves, ['session.workspace.move']);
+        expect(checkpoints2.restoreRefusal(), RestoreRefusal.folderMoving);
+        expect(checkpoints2.beginRestore(_hash), isNull);
+        expect(context2.compressRefusal, CompressRefusal.replying);
+        expect(context2.beginCompress(), isNull);
+        expect(source.fake.restoreRequests, isEmpty);
+        expect(source.fake.compressRequests, isEmpty);
+
+        answer.complete({'cwd': '/srv/other'});
+        await move;
+        await pumpEventQueue();
+        expect(checkpoints2.restoreRefusal(), isNull);
+        expect(context2.compressRefusal, isNull);
+      },
+    );
   });
 }

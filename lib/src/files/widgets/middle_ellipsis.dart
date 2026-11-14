@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'safe_path_text.dart';
+
 /// [text] cut to at most [maxChars] characters, the middle replaced by an
 /// ellipsis. With [keepExtension] the end is the extension and a few
 /// characters before it, so `quarterly-report-final.pdf` keeps its `.pdf`.
@@ -8,7 +10,8 @@ String elideMiddle(
   required int maxChars,
   bool keepExtension = false,
 }) {
-  final chars = text.characters;
+  text = safePathText(text);
+  final chars = safeTextUnits(text);
   if (chars.length <= maxChars || maxChars < 5) return text;
   final dot = text.lastIndexOf('.');
   final extension = dot > 0 ? text.substring(dot) : '';
@@ -18,7 +21,7 @@ String elideMiddle(
     tail = wanted < maxChars - 4 ? wanted : maxChars - 4;
   }
   final head = maxChars - 1 - tail;
-  return '${chars.take(head)}…${chars.takeLast(tail)}';
+  return '${chars.take(head).join()}…${chars.sublist(chars.length - tail).join()}';
 }
 
 /// A name drawn on at most [maxLines] lines, wrapped at word boundaries (a
@@ -39,6 +42,7 @@ class MiddleEllipsisText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = safePathText(this.text);
     final lines = maxLines;
     if (lines == null) return Text(text, style: style);
     final base = DefaultTextStyle.of(context).style.merge(style);
@@ -74,7 +78,7 @@ class MiddleEllipsisText extends StatelessWidget {
 
   /// The longest `head…tail` that fits, found by bisection on the head.
   static String _cut(String text, bool Function(String) fits) {
-    final chars = text.characters.toList();
+    final chars = safeTextUnits(text);
     final dot = text.lastIndexOf('.');
     final extension = dot > 0 ? text.substring(dot) : '';
     final keep = extension.isNotEmpty && extension.length <= 8

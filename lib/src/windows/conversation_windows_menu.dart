@@ -63,6 +63,8 @@ class ConversationWindowsMenu extends StatelessWidget {
               // session of its own to close the page with on a lock or an
               // expired session.
               MacCommand.showFiles: const MacCommandHandler(null),
+              // The window holds no session to move a chat with.
+              MacCommand.changeFolder: const MacCommandHandler(null),
               MacCommand.toggleInspector: MacCommandHandler(
                 windows.toggleKeyWindowInspector,
                 title: 'Show Inspector',

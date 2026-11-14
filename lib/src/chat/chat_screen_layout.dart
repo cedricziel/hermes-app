@@ -63,6 +63,11 @@ extension _ChatScreenLayout on _ChatScreenState {
         final showFiles = selected != null && filesShown(context)
             ? () => _showFiles(FilesOpenedFrom.header)
             : null;
+        // Where the open chat runs, as a line under its title; none for a
+        // chat that does not exist yet (its row is above the composer).
+        final folderLine = selected != null && workspacesOffered(chat)
+            ? folderLineBuilder(chat, selected)
+            : null;
         _latestReply.follow(chat, selected);
         final showNewChatFab =
             !isWide && platformChromeOf(context) == PlatformChrome.ios;
@@ -76,6 +81,7 @@ extension _ChatScreenLayout on _ChatScreenState {
               : 0,
           avatarBuilder: (_) => _avatar(24),
           navigation: navigation,
+          changeFolderFor: _changeFolderOffer,
           onOpenInNewWindow: _windows == null
               ? null
               : (thread) => unawaited(_openInWindow(thread)),
@@ -169,8 +175,16 @@ extension _ChatScreenLayout on _ChatScreenState {
             latestReply: _latestReply,
             editable: true,
             branchable: true,
-            header: !isWide
+            workingDirectoryRow: BoundWorkingDirectoryRow(chat: chat),
+            workspaceNotice: selected == null
                 ? null
+                : BoundFolderMismatchNotice(chat: chat, thread: selected),
+            header: !isWide
+                // At a large text size the phone's folder line leaves the bar
+                // and becomes a full-width row under it.
+                ? (folderLine != null && workingDirectoryLineBelowBar(context)
+                      ? folderLine(context, belowBar: true)
+                      : null)
                 : _mac
                 ? ListenableBuilder(
                     listenable: search ?? const AlwaysStoppedAnimation(0),
@@ -190,6 +204,12 @@ extension _ChatScreenLayout on _ChatScreenState {
                           ? null
                           : () => _copyTranscript(selected),
                       onShowFiles: showFiles,
+                      folderButton: workspacesOffered(chat)
+                          ? BoundFolderToolbarButton(
+                              chat: chat,
+                              thread: selected,
+                            )
+                          : null,
                       searchQuery: search?.query ?? '',
                       searchActive: search?.active ?? false,
                       searchFocus: _searchFocus,
@@ -208,6 +228,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                     onNewChat: _newThread,
                     callButton: _callButton,
                     onShowFiles: showFiles,
+                    folderLine: folderLine,
                     activityOpen: _activityOpen,
                     activityWaiting: _needsYou.count,
                     onToggleActivity: selected == null ? null : _toggleActivity,
@@ -252,11 +273,20 @@ extension _ChatScreenLayout on _ChatScreenState {
                       _avatar(),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          bot?.title ?? selected?.title ?? 'New message',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child:
+                            folderLine != null &&
+                                bot == null &&
+                                !workingDirectoryLineBelowBar(context)
+                            ? folderLine(
+                                context,
+                                belowBar: false,
+                                title: selected?.title ?? 'New message',
+                              )
+                            : Text(
+                                bot?.title ?? selected?.title ?? 'New message',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                       ),
                     ],
                   ),
@@ -269,6 +299,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                         housekeeping: chat.housekeeping,
                         includeCopyTranscript: true,
                         onShowFiles: showFiles,
+                        changeFolder: _changeFolderOffer(selected),
                       ),
                     if (selected != null)
                       ActivityButton(

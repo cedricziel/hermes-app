@@ -156,6 +156,12 @@ final menuLayout = <MenuSection>[
         shortcut: metaActivator(LogicalKeyboardKey.keyP, shift: true),
       ),
       const MenuEntry(MacCommand.renameThread, 'Rename…'),
+      // No chord: the folder button and the thread menu are the ways in.
+      const MenuEntry(
+        MacCommand.changeFolder,
+        'Change Folder…',
+        platforms: _macOnly,
+      ),
       const MenuEntry(MacCommand.copyTranscript, 'Copy Transcript'),
       // The screen titles it from the localizations; this is the fallback.
       const MenuEntry(

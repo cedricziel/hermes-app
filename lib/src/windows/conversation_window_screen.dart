@@ -12,6 +12,7 @@ import '../chat/activity/needs_you_queue.dart';
 import '../chat/attachments/attachment_source.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
+import '../workspaces/ui/bound_working_directory.dart';
 import '../chat/queue_storage/queue_broker.dart';
 import '../chat/queue_storage/queue_record.dart';
 import '../chat/chat_models.dart';
@@ -301,6 +302,13 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
       activityOpen: _activityOpen,
       activityWaiting: _needsYou.count,
       onToggleActivity: thread == null ? null : _toggleActivity,
+      folderButton: thread == null
+          ? null
+          : BoundFolderToolbarButton(
+              chat: chat,
+              thread: thread,
+              conversationWindow: true,
+            ),
       onAction: thread == null
           ? null
           : (action) => runThreadAction(

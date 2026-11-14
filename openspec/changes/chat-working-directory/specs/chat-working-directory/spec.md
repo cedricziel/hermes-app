@@ -285,7 +285,7 @@ A new chat's first send with a picked folder SHALL put `cwd` and `cwd_explicit: 
 
 ### Requirement: Change the folder of an existing chat
 
-The system SHALL offer "Change folder…" for a stored chat that is not replying, on a server that answers `session.workspace.move`, and on the Mac in the thread menu as "Change Folder…". After picking it SHALL confirm, then send the move once with the stored id, folder and profile, show the answer's folder and regroup the chat in the list with selection kept. It SHALL NOT be offered while replying, for a Bot Chat registry, or for an unopened chat of another profile.
+The system SHALL offer "Change folder…" for a stored chat that is not replying, on a server that answers `session.workspace.move`, and on the Mac in the thread menu as "Change Folder…". After picking it SHALL confirm, then send the move once with the stored id, folder and profile, show the answer's folder and regroup the chat in the list with selection kept. It SHALL NOT be offered while replying, while a full restore, a single-file restore or a compression of the chat runs (and none of those SHALL start while a move is being settled), for a Bot Chat registry, or for an unopened chat of another profile.
 
 #### Scenario: Move
 
@@ -356,7 +356,7 @@ The system SHALL offer "Change folder…" for a stored chat that is not replying
 #### Scenario: Old server
 
 - **WHEN** the move answers method not found
-- **THEN** "Change folder…" is hidden for the connection
+- **THEN** "Change folder…" is hidden in the app and the Chat menu item is disabled for the connection
 
 #### Scenario: Current folder marked
 
@@ -430,6 +430,11 @@ Every state that waits on the server SHALL end within 10 s of its request, measu
 ### Requirement: Safety and privacy of paths
 
 Paths, folder names, project names and branches SHALL be held in memory only: never in preferences, secure storage, the surface snapshot, Spotlight, Handoff, widgets, the watch bridge, notifications, drag-out, spans, logs, breadcrumbs, crash reports or thrown messages. Recent folders SHALL come from the server only; nothing about folders SHALL be stored on the device. Sign-out and Change Server SHALL clear the draft choice and catalog, and App Lock SHALL close an open picker and drop its state.
+
+#### Scenario: A name that reorders or hides text
+
+- **WHEN** a folder, project or branch name (or a path) holds a bidi control, a C0/C1 control (CR, LF, ESC), U+2028, U+2029, U+200B, U+2060 to U+2064, U+206A to U+206F or U+FEFF
+- **THEN** every view that shows it, its tooltip and its semantics label draw each such character as a visible placeholder (`⟨U+202E⟩`), shortening never splits a placeholder, U+200C and U+200D are left as they are, and the path that is sent or stored is the original string
 
 #### Scenario: Sign-out
 

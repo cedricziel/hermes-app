@@ -23,9 +23,14 @@ class _WorkspaceData {
   /// connection.
   var moveUnsupported = false;
 
+  /// Counts the times everything was dropped, for a picker or confirmation
+  /// that must close when it changes.
+  var epoch = 0;
+
   /// What a profile switch drops: everything about the chats of the profile
   /// before, except a move that is still being settled.
   void profileSwitched() {
+    epoch++;
     pending = null;
     sent.clear();
     projects.clear();
@@ -135,9 +140,47 @@ extension _ChatControllerWorkspace on ChatController {
 
   String get _profileKey => _profile ?? kDefaultProfile;
 
+  /// The server's home folder, when the profile's catalog was read.
+  String? get _homeImpl => _workspace.loaders[_profileKey]?.catalog?.home;
+
+  /// Whether "Change folder" is worth offering for [thread]: a stored chat
+  /// with a known folder, on a server that has the workspace routes. While the
+  /// catalog is still being read it is offered; it goes away once the read
+  /// says the server is older. A reply or a move in flight keeps it offered
+  /// (the control says why it is disabled).
+  bool _changeOfferedImpl(ChatThread thread) {
+    // Reads the catalog if nobody did: an older server answers "unsupported"
+    // and the control goes away.
+    _catalogFor(null);
+    final block = _moveBlockImpl(thread);
+    if (block != null &&
+        block != WorkspaceMoveBlock.replying &&
+        block != WorkspaceMoveBlock.restoring &&
+        block != WorkspaceMoveBlock.moving) {
+      return false;
+    }
+    final path = thread.workingDirectory ?? thread.folderPath;
+    if (path == null || path.trim().isEmpty) return false;
+    return _workspace.loaders[_profileKey]?.status !=
+        WorkspaceCatalogStatus.unsupported;
+  }
+
+  bool get _offlineImpl =>
+      _workspace.loaders[_profileKey]?.status == WorkspaceCatalogStatus.offline;
+
+  /// The project that holds [thread]'s folder: the server's own answer for a
+  /// chat just created, else the catalog's by the server's rule. Never reads
+  /// the catalog; null when it was not read.
+  String? _projectNameOfImpl(ChatThread thread, String path) =>
+      _workspace.projects[thread]?.name ??
+      _workspace.loaders[_profileKey]?.projectFor(path)?.name;
+
   WorkspaceCatalogLoader? _catalogFor(String? profile) {
     final repository = workspaces;
-    if (repository == null || !active) return null;
+    // Nothing is read for a locked app: the folders are dropped with it.
+    if (repository == null || !active || (appLock?.locked ?? false)) {
+      return null;
+    }
     final key = profile ?? _profileKey;
     var loader = _workspace.loaders[key];
     if (loader == null) {
@@ -177,7 +220,24 @@ extension _ChatControllerWorkspace on ChatController {
     _workspace.profileSwitched();
   }
 
+  /// App Lock engaged: like sign-out, except that a move still being
+  /// settled keeps its record.
+  void _workspaceLocked() {
+    _workspace.epoch++;
+    _workspace.pending = null;
+    for (final thread in _threads) {
+      thread.workspaceChoice = null;
+    }
+    _workspace
+      ..sent.clear()
+      ..projects.clear()
+      ..mismatches.clear()
+      ..moves.removeWhere((_, record) => !record.state.inFlight)
+      ..clearLoaders();
+  }
+
   void _clearWorkspaceStateImpl() {
+    _workspace.epoch++;
     _workspace.pending = null;
     for (final thread in _threads) {
       thread.workspaceChoice = null;
@@ -233,6 +293,15 @@ extension _ChatControllerWorkspace on ChatController {
         _undoing.containsKey(thread)) {
       return WorkspaceMoveBlock.replying;
     }
+    // A full restore rewinds the chat and a compression rewrites it: the
+    // folder does not change under either.
+    final actions = _actionsOf(thread);
+    if (actions != null &&
+        (actions.sendHeld ||
+            actions.checkpoints?.restoring == true ||
+            actions.context?.compressing == true)) {
+      return WorkspaceMoveBlock.restoring;
+    }
     if (_moveStateImpl(thread).inFlight) return WorkspaceMoveBlock.moving;
     if (path != null && !isServerPath(path)) {
       return WorkspaceMoveBlock.notAServerPath;
@@ -250,10 +319,35 @@ extension _ChatControllerWorkspace on ChatController {
     WorkspaceMoveState state,
   ) {
     final wasInFlight = record.state.inFlight;
+    final before = record.state.phase;
     record.state = state;
     if (disposed) return;
+    // How a move ended, as a fixed name: never the folder.
+    final outcome = switch (state.phase) {
+      WorkspaceMovePhase.changed => WorkspaceMoveOutcome.changed,
+      WorkspaceMovePhase.unchanged => WorkspaceMoveOutcome.unchanged,
+      WorkspaceMovePhase.couldNotConfirm =>
+        WorkspaceMoveOutcome.couldNotConfirm,
+      WorkspaceMovePhase.folderMissing => WorkspaceMoveOutcome.folderMissing,
+      WorkspaceMovePhase.chatGone => WorkspaceMoveOutcome.chatGone,
+      WorkspaceMovePhase.profileGone => WorkspaceMoveOutcome.profileGone,
+      _ => null,
+    };
+    if (outcome != null && before != state.phase) {
+      events('workspace.move_outcome', {'outcome': outcome.slug});
+    }
     notifyListeners();
     if (!wasInFlight || state.inFlight) return;
+    // The chat runs elsewhere now: checkpoints belong to a working
+    // directory, so the open list is read again and counts are not trusted.
+    if (state.phase == WorkspaceMovePhase.changed) {
+      final moved = _threadFor(key);
+      if (moved != null) {
+        unawaited(
+          _actionsOf(moved)?.checkpoints?.turnEnded() ?? Future.value(),
+        );
+      }
+    }
     // Whatever waited for the move goes on.
     final thread = _threadFor(key);
     if (thread != null && active && _queues[thread] != null) {
@@ -294,6 +388,7 @@ extension _ChatControllerWorkspace on ChatController {
     final epoch = _activityEpoch;
     final profile = _profile;
     final key = _moveKey(thread);
+    breadcrumbs('workspace.move.confirmed');
     final record = _workspace.moves.putIfAbsent(key, _MoveRecord.new);
     final run = ++record.moveRun;
     record
@@ -314,6 +409,9 @@ extension _ChatControllerWorkspace on ChatController {
       case WorkspacesUnsupported():
         _workspace.moveUnsupported = true;
         _workspace.moves.remove(key);
+        events('workspace.move_outcome', {
+          'outcome': WorkspaceMoveOutcome.unsupported.slug,
+        });
         notifyListeners();
       case WorkspacesFailed(:final kind)
           when kind == WorkspacesFailure.notFound:
@@ -350,7 +448,7 @@ extension _ChatControllerWorkspace on ChatController {
             }),
           );
         }
-        await _recheck(key, record, epoch, profile);
+        await _recheck(key, record, epoch, profile, timedOut: answer == null);
     }
     return null;
   }
@@ -376,6 +474,7 @@ extension _ChatControllerWorkspace on ChatController {
         ..branch = moved.branch
         ..folderPath = moved.folderPath;
       _workspace.projects.remove(thread);
+      _workspace.mismatches.remove(thread);
     }
     _setMove(
       key,
@@ -388,14 +487,15 @@ extension _ChatControllerWorkspace on ChatController {
     (String, String) key,
     _MoveRecord record,
     int epoch,
-    String? profile,
-  ) async {
+    String? profile, {
+    bool timedOut = false,
+  }) async {
     final repository = workspaces!;
     final generation = ++record.readGen;
     _setMove(
       key,
       record,
-      const WorkspaceMoveState(WorkspaceMovePhase.checking),
+      WorkspaceMoveState(WorkspaceMovePhase.checking, timedOut: timedOut),
     );
     final read = repository.sessionFolder(key.$2, profile: profile);
     final result = await _within(read);
@@ -460,6 +560,7 @@ extension _ChatControllerWorkspace on ChatController {
                   }) ??
                   cwd;
             _workspace.projects.remove(thread);
+            _workspace.mismatches.remove(thread);
           }
           _setMove(
             key,

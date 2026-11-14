@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../files/widgets/safe_path_text.dart';
+
 import '../../../l10n/l10n.dart';
 import '../../files/widgets/files_lazy_list.dart';
 import '../../files/widgets/files_metrics.dart';
@@ -285,11 +287,11 @@ class _PathEntryViewState extends State<PathEntryView> {
           onTap: () => widget.onPickSuggestion?.call(item),
           details: [
             Semantics(
-              label: item.path,
+              label: safePathText(item.path),
               excludeSemantics: true,
               child: large
                   ? Text(
-                      item.path,
+                      safePathText(item.path),
                       style: pathStyle.copyWith(fontFamily: kServerPathFont),
                     )
                   : PathCutText(item.path, style: pathStyle),

@@ -38,6 +38,11 @@ String? latestFinishedReplyId(ChatThread? thread) {
       : null;
 }
 
+/// Whether [thread] is a chat that does not exist yet: the welcome view's.
+bool _isNewChat(ChatThread thread) =>
+    !thread.remote &&
+    (thread.messages.isEmpty || thread.workspaceChoice != null);
+
 /// The open thread's messages and composer, in a column capped at
 /// [kChatColumnMaxWidth]: the content of the main window's chat and of a
 /// conversation window.
@@ -91,9 +96,20 @@ class ChatThreadView extends StatelessWidget {
     this.sendHeld = false,
     this.draftHandedBack = false,
     this.onShowAgentDetails,
+    this.workingDirectoryRow,
+    this.workspaceNotice,
   });
 
   final ChatThread? thread;
+
+  /// Where a new chat's first message will run, directly above the composer
+  /// of the welcome view. Null where the chat shows none (the quick panel, a
+  /// conversation window, an older server).
+  final Widget? workingDirectoryRow;
+
+  /// The notice that Hermes started this chat in another folder than the one
+  /// picked, between the header and the transcript.
+  final Widget? workspaceNotice;
 
   /// The activity line, drawn under the header (and its divider) above a Bot
   /// Chat banner; it is a plain widget that folds away by itself. Null draws
@@ -196,6 +212,7 @@ class ChatThreadView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final openThread = thread;
     final builders =
         buildChatBuilders(
           starterPrompts: starterPrompts,
@@ -240,6 +257,9 @@ class ChatThreadView extends StatelessWidget {
             sendHeld: sendHeld,
             draftHandedBack: draftHandedBack,
             dock: dock,
+            workingDirectoryRow: openThread == null || _isNewChat(openThread)
+                ? workingDirectoryRow
+                : null,
           ),
         );
     // copyWith takes a null builder as "none", so only the panel's case
@@ -264,6 +284,7 @@ class ChatThreadView extends StatelessWidget {
             builder: (context, media) =>
                 needsYouCompactFor(media) ? const SizedBox.shrink() : line,
           ),
+        ?workspaceNotice,
         if (botContext case final bot?) BotChatBanner(context: bot),
         Expanded(
           child: AttachmentSurface(

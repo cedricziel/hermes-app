@@ -1,4 +1,7 @@
 import 'package:flutter/cupertino.dart';
+
+import 'safe_path_text.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -27,7 +30,8 @@ List<ServerPath> pathBarFolders(ServerPath current, ServerPath? highest) {
   return chain.reversed.toList();
 }
 
-String _segmentLabel(ServerPath path) => path.isRoot ? path.value : path.name;
+String _segmentLabel(ServerPath path) =>
+    safePathText(path.isRoot ? path.value : path.name);
 
 /// The breadcrumb of the folder the page shows: each folder from the highest
 /// one down to the current one, as a link-coloured text button, with the
@@ -269,12 +273,12 @@ class _LinkSegment extends StatelessWidget {
     final l10n = context.l10n;
     final link = context.hermesColors.link;
     return Tooltip(
-      message: path,
+      message: safePathText(path),
       excludeFromSemantics: true,
       child: MergeSemantics(
         child: Semantics(
           button: true,
-          label: l10n.filesPathSegmentLabel(path),
+          label: l10n.filesPathSegmentLabel(safePathText(path)),
           child: TextButton(
             onPressed: onPressed,
             style: TextButton.styleFrom(
@@ -313,10 +317,10 @@ class _CurrentSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: path,
+    message: safePathText(path),
     excludeFromSemantics: true,
     child: Semantics(
-      label: context.l10n.filesPathCurrentLabel(path),
+      label: context.l10n.filesPathCurrentLabel(safePathText(path)),
       excludeSemantics: true,
       child: Container(
         constraints: BoxConstraints(minHeight: height),

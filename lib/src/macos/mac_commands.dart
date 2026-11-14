@@ -23,6 +23,7 @@ enum MacCommand {
   find,
   pinThread,
   renameThread,
+  changeFolder,
   copyTranscript,
   compress,
   archiveThread,

@@ -6992,6 +6992,10 @@
   "@workspacesPickerBrowse": {
     "description": "Row of the folder picker that opens the Browse page."
   },
+  "workspacesPickerDefaultUnknown": "Your server's default folder",
+  "@workspacesPickerDefaultUnknown": {
+    "description": "Title of the Server default row of the folder picker while the profile's default folder is not known (the projects could not be read)."
+  },
   "workspacesPickerEmpty": "No projects or recent folders yet. Browse your server or type a path.",
   "@workspacesPickerEmpty": {
     "description": "Folder picker when the server knows no projects and no recent folders."
@@ -7065,6 +7069,10 @@
   "workspacesReasonReplying": "Wait for the reply to finish.",
   "@workspacesReasonReplying": {
     "description": "Reason shown next to the disabled \"Change folder…\" button while Hermes replies."
+  },
+  "workspacesReasonRestoring": "Wait for the restore or compression to finish.",
+  "@workspacesReasonRestoring": {
+    "description": "Reason shown next to the disabled \"Change folder…\" button while a full restore or a compression of the chat runs."
   },
   "workspacesRowLookingUp": "Looking up your folder…",
   "@workspacesRowLookingUp": {

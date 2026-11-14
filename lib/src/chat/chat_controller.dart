@@ -39,6 +39,7 @@ import '../workspaces/hermes_workspaces_repository.dart';
 import '../workspaces/workspace_catalog_loader.dart';
 import '../workspaces/workspace_models.dart';
 import '../workspaces/workspace_paths.dart';
+import '../workspaces/workspace_telemetry.dart' show WorkspaceMoveOutcome;
 import 'chat_workspace_state.dart';
 import 'checkpoints/action_telemetry.dart';
 import 'checkpoints/chat_action_bridge.dart';
@@ -210,6 +211,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _activeActivity = activity?.value ?? true;
     activity?.addListener(_activityChanged);
     appLock?.addListener(_billingLockChanged);
+    appLock?.addListener(_workspaceLockChanged);
     appLock?.addListener(_actionsLockChanged);
     _listenOwnedSessions();
     search?.setActivity(_activeActivity);
@@ -400,6 +402,40 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Server, after which nothing of the folders is left for the next account.
   void clearWorkspaceState() {
     _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
+    notifyListeners();
+  }
+
+  /// The server's home folder, when the profile's catalog was read.
+  String? get workspaceHome => _ChatControllerWorkspace(this)._homeImpl;
+
+  /// Whether Change folder is offered for [thread]: see the details sheet, the
+  /// Mac command and the thread menu.
+  bool workspaceChangeOffered(ChatThread thread) =>
+      _ChatControllerWorkspace(this)._changeOfferedImpl(thread);
+
+  /// Whether the profile's folders were last asked for with no answer from
+  /// the server. Never starts a read.
+  bool get workspaceOffline => _ChatControllerWorkspace(this)._offlineImpl;
+
+  /// The project that holds the folder [path] of [thread], when known.
+  String? workspaceProjectNameOf(ChatThread thread, String path) =>
+      _ChatControllerWorkspace(this)._projectNameOfImpl(thread, path);
+
+  /// Bumped whenever the folders are dropped (sign-out, Change Server, App
+  /// Lock): an open picker or confirmation closes when it changes.
+  int get workspaceEpoch => _workspace.epoch;
+
+  var _wasLocked = false;
+
+  /// App Lock engaged: the draft pick, the catalogs and the notices go, and
+  /// an open picker or confirmation closes. A move that is still being
+  /// settled stays, so its outcome is not lost.
+  void _workspaceLockChanged() {
+    final locked = appLock?.locked ?? false;
+    final engaged = locked && !_wasLocked;
+    _wasLocked = locked;
+    if (!engaged || disposed) return;
+    _ChatControllerWorkspace(this)._workspaceLocked();
     notifyListeners();
   }
 
@@ -1429,6 +1465,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _cancelQueueBindings();
     activity?.removeListener(_activityChanged);
     appLock?.removeListener(_billingLockChanged);
+    appLock?.removeListener(_workspaceLockChanged);
     appLock?.removeListener(_actionsLockChanged);
     _activityEpoch++;
     _ChatControllerSubagents(this)._clearSubagents();

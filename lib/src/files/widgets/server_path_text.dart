@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/l10n.dart';
 import '../server_path.dart';
 import 'files_metrics.dart';
+import 'safe_path_text.dart';
 
 /// "· on your server" as one unit that never breaks inside: the spaces are
 /// non-breaking, so a wrapped path moves the whole suffix to the next line.
@@ -19,7 +20,7 @@ const String kServerPathFont = 'monospace';
 /// as much of the start as is left.
 String elidePathMiddle(String path, bool Function(String) fits) {
   if (fits(path)) return path;
-  final chars = path.characters.toList();
+  final chars = safeTextUnits(path);
   // Nothing to cut out of one or two characters.
   if (chars.length < 3) return path;
   final last = path.lastIndexOf(
@@ -80,6 +81,7 @@ class PathCutText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final path = safePathText(this.path);
     final base = DefaultTextStyle.of(context).style;
     final pathStyle = monospace
         ? base.merge(style).copyWith(fontFamily: kServerPathFont)
@@ -177,6 +179,7 @@ class ServerPathText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final path = safePathText(this.path);
     final large = isLargeText(context);
     // A selectable path shows in full: a shortened one cannot be selected.
     final wrapped = wrap ?? (large || selectable);

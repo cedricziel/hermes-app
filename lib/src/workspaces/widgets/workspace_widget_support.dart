@@ -1,4 +1,7 @@
 import 'package:flutter/cupertino.dart';
+
+import '../../files/widgets/safe_path_text.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -75,9 +78,9 @@ String workspaceFolderLabel(
   String? branch,
   List<String> notes = const [],
 }) => [
-  l10n.workspacesLabelFolder(name),
-  if (path != null) l10n.workspacesPathLabel(path),
-  if (branch != null) l10n.workspacesLabelBranch(branch),
+  l10n.workspacesLabelFolder(safePathText(name)),
+  if (path != null) l10n.workspacesPathLabel(safePathText(path)),
+  if (branch != null) l10n.workspacesLabelBranch(safePathText(branch)),
   ...notes,
 ].join(', ');
 
