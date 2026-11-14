@@ -14,5 +14,15 @@
 ## 3. Verification
 
 - [ ] 3.1 Add isolated real-backend conformance for canonical creation/materialization, compression lineage, local bot delivery and resume; include multiple profile names and a competing creator without accessing real user profiles.
+  Remaining: `test/bot_mode_chat_contract_test.dart` covers canonical creation and materialization for two profiles, resume under the owner only, and a competing creator adopting one registry row. Compression lineage (a `/new`, `/reset` or `session.compress` tip adopted by `BotModeChatRepository.open`) and local bot delivery (`message_agent` outcomes and resume) have no real-backend test; both are covered only against fakes (`test/bot_mode_chat_repository_test.dart`, `test/bot_chat_open_test.dart`). `session.compress`, `session.resume` and `bot_relay.deliver` exist in the pinned `openrpc/`, so the server supports the checks. Needs a throwaway Hermes with a scripted model.
 - [x] 3.2 Update README/CLAUDE.md and stale project skills with canonical chat behavior; keep `feat(bots)` near 500 changed lines through existing renderer reuse, splitting optional presentation additions before implementation.
 - [ ] 3.3 Run `dart format`, `flutter analyze`, `flutter test`, the component catalog and bot chat workflow screenshots; inspect images and complete verify-in-app for profile ownership, resume, handoff and retirement before marking UI/connection tasks done.
+  Remaining: not run. It needs `hermes` on PATH and a Mac or desktop session for `verify-in-app`; neither is in the delivery environment. Widget and workflow tests exist (`test/workflows/bot_chat_workflow_test.dart`, `widgetbook/bot_chat_use_cases.dart`) and are part of the normal test run.
+
+## Status
+
+Partly done (checked 2026-11-14 against `lib/src/bot_mode/`, `lib/src/chat/`, `test/`, `widgetbook/`, `docs/architecture/bot-mode.md` and `openrpc/`; the Hermes source was not reachable). All implementation tasks are ticked with tests behind them. The server supports what is left: nothing here is blocked on Hermes.
+
+Left to build: 3.1 (real-backend conformance for compression lineage and local bot delivery).
+
+Left to run, not code: 3.3 (verification run with an isolated Hermes home; no `hermes` in the delivery environment). Once 3.1 is done, move 3.3 under `## Not verified on a device` and archive.
