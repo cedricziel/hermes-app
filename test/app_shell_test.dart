@@ -2388,6 +2388,31 @@ void main() {
       expect(care.status?.version, '0.22.2');
     });
 
+    testWidgets('looks the default profile up again on resume when the first '
+        'lookup failed', (tester) async {
+      server.on('GET', '/api/profiles/active', {'detail': 'down'}, status: 500);
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      // No profile is known, so nothing was read.
+      expect(statusReads(), 0);
+
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work'),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(statusReads(), greaterThanOrEqualTo(1));
+      for (final request in server.requestsTo('GET', '/api/status')) {
+        expect(request.queryParameters['profile'], isNotEmpty);
+      }
+    });
+
     testWidgets('is read again when the app resumes, at most every 5 minutes', (
       tester,
     ) async {

@@ -15,6 +15,7 @@ class ConversationWindowToolbar extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.subtitleBuilder,
     required this.pinned,
     this.onShowInMain,
     this.onTogglePin,
@@ -27,6 +28,10 @@ class ConversationWindowToolbar extends StatelessWidget {
 
   final String title;
   final String? subtitle;
+
+  /// Wraps the drawn [subtitle], e.g. to draw a `MacToolbarSubtitle` instead.
+  /// It runs only while [subtitle] is not null.
+  final Widget Function(BuildContext context, Widget subtitle)? subtitleBuilder;
   final bool pinned;
   final VoidCallback? onShowInMain;
   final VoidCallback? onTogglePin;
@@ -55,7 +60,11 @@ class ConversationWindowToolbar extends StatelessWidget {
           children: [
             const SizedBox(width: kMacTrafficLightsWidth + 8),
             Expanded(
-              child: MacToolbarTitle(title: title, subtitle: subtitle),
+              child: MacToolbarTitle(
+                title: title,
+                subtitle: subtitle,
+                subtitleBuilder: subtitleBuilder,
+              ),
             ),
             MacToolbarButton(
               label: 'Show in Main Window',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
@@ -209,7 +210,7 @@ class _ServerScreenState extends State<ServerScreen> {
       detail: detail,
       button: button,
     );
-    final free = _free(status?.disk.freeMb);
+    final free = _free(status?.disk.freeMb, l10n.localeName);
     return switch (attention) {
       Attention.offline => card(
         ServerStatusTone.warning,
@@ -292,14 +293,16 @@ class _ServerScreenState extends State<ServerScreen> {
     );
   }
 
-  /// "8.4 GB", "52 GB", "512 MB".
-  static String? _free(int? mb) {
+  /// "8.4 GB", "52 GB", "512 MB"; the decimal mark follows [locale].
+  static String? _free(int? mb, String locale) {
     if (mb == null) return null;
-    if (mb < 1000) return '$mb MB';
+    if (mb < 1000) {
+      return '${NumberFormat.decimalPattern(locale).format(mb)} MB';
+    }
     final gb = mb / 1000;
     final text = gb >= 100 || gb == gb.roundToDouble()
-        ? gb.round().toString()
-        : gb.toStringAsFixed(1);
+        ? NumberFormat('0', locale).format(gb.round())
+        : NumberFormat('0.0', locale).format(gb);
     return '$text GB';
   }
 
@@ -400,7 +403,7 @@ class _ServerScreenState extends State<ServerScreen> {
 
   List<Widget> _machine(AppLocalizations l10n, ServerStatus status) {
     final disk = status.disk;
-    final free = _free(disk.freeMb);
+    final free = _free(disk.freeMb, l10n.localeName);
     final used = disk.usedPercent;
     final memory = switch (status.memory.pressure) {
       Pressure.ok => l10n.serverCareOk,

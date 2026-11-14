@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../log_line.dart';
@@ -125,9 +126,9 @@ class _LogLineTileState extends State<LogLineTile> {
                                 onPressed: () =>
                                     setState(() => _showAll = true),
                                 child: Text(
-                                  hidden == 1
-                                      ? 'Show 1 more line'
-                                      : 'Show $hidden more lines',
+                                  context.l10n.serverCareLogShowMoreLines(
+                                    hidden,
+                                  ),
                                 ),
                               ),
                             ),
