@@ -155,5 +155,47 @@ void main() {
         isNull,
       );
     });
+
+    test('a counter that repeats the sentence is dropped', () {
+      final processes = WorkingSummary.compute(
+        sentences: const [
+          WorkingSentence(WorkingSentenceKind.processes, at: 3, count: 2),
+        ],
+        planOpen: true,
+        counters: [
+          WorkingCounter.processes(running: 2, at: 3),
+          WorkingCounter.plan(done: 2, total: 5, at: 2),
+          WorkingCounter.references(done: 1, total: 3, at: 1),
+        ],
+      )!;
+      expect(processes.counters.map((c) => c.kind), [
+        WorkingCounterKind.plan,
+        WorkingCounterKind.references,
+      ]);
+
+      for (final kind in [
+        WorkingSentenceKind.askingModels,
+        WorkingSentenceKind.combiningAnswers,
+      ]) {
+        final models = WorkingSummary.compute(
+          sentences: [WorkingSentence(kind, at: 3)],
+          counters: [
+            WorkingCounter.references(done: 1, total: 3, at: 3),
+            WorkingCounter.processes(running: 1, at: 2),
+          ],
+        )!;
+        expect(models.counters.map((c) => c.kind), [
+          WorkingCounterKind.processes,
+        ]);
+      }
+    });
+
+    test('a status sentence keeps every counter', () {
+      final summary = WorkingSummary.compute(
+        sentences: [_status('Running 2 processes', 3)],
+        counters: [WorkingCounter.processes(running: 2, at: 3)],
+      )!;
+      expect(summary.counters, hasLength(1));
+    });
   });
 }

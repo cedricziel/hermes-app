@@ -90,8 +90,21 @@ class WorkingCounter {
   }
 }
 
+/// Whether a counter of [kind] only says again what [sentence] says: the
+/// processes sentence already counts processes, and the asking and combining
+/// sentences already stand for the references.
+bool _repeats(WorkingSentence sentence, WorkingCounterKind kind) =>
+    switch (sentence.kind) {
+      WorkingSentenceKind.processes => kind == WorkingCounterKind.processes,
+      WorkingSentenceKind.askingModels ||
+      WorkingSentenceKind.combiningAnswers =>
+        kind == WorkingCounterKind.references,
+      _ => false,
+    };
+
 /// What the activity line, or the Mac toolbar subtitle, says about the open
-/// chat: the newest Working sentence and at most two counters.
+/// chat: the newest Working sentence and at most two counters, none of which
+/// repeats the sentence.
 ///
 /// Pure data from plain inputs. The Bot screen, usage and Needs-you items are
 /// not Working items and have no way in. Null means nothing is working.
@@ -128,7 +141,7 @@ class WorkingSummary {
 
     final latest = <WorkingCounterKind, WorkingCounter>{};
     for (final counter in counters) {
-      if (!counter._known) continue;
+      if (!counter._known || _repeats(newest, counter.kind)) continue;
       if (counter.kind == WorkingCounterKind.plan &&
           (!planOpen || counter.value! >= counter.total!)) {
         continue;
