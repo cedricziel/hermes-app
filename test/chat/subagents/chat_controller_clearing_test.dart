@@ -229,8 +229,23 @@ void main() {
         expect(roster.row('sa-late'), isNull);
         expect(roster.hasAgents, isFalse);
         expect(cards.cards, isEmpty);
+        final fresh = chat.subagentsIn(chat.selectedThread!);
+        expect(fresh?.row('sa-late'), isNull);
+        expect(fresh?.row('sa-1'), isNull);
         watch.close();
       },
     );
+  });
+
+  group('owned sessions stream', () {
+    test('closing it clears both rosters', () async {
+      final (:roster, :watch) = await populated(chat);
+      final cards = chat.processOutputsIn(chat.selectedThread!)!;
+      await transport.close();
+      await pumpEventQueue();
+      expect(roster.hasAgents, isFalse);
+      expect(cards.cards, isEmpty);
+      watch.close();
+    });
   });
 }
