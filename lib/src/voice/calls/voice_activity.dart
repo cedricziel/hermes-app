@@ -2,9 +2,13 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 /// Bounded utterance segmentation of the call's echo-cancelled 16 kHz mono
-/// PCM. Speech onset needs 100 ms; a 900 ms pause ends the utterance. Keeps
-/// 200 ms before onset, so initial consonants are not cut off.
+/// PCM. Speech onset needs 100 ms; a pause of [silence] (900 ms unless the
+/// profile sets one) ends the utterance. Keeps 200 ms before onset, so
+/// initial consonants are not cut off.
 class VoiceActivity {
+  VoiceActivity({this.silence = const Duration(milliseconds: 900)});
+
+  final Duration silence;
   static const sampleRate = 16000;
   final _preRoll = <Uint8List>[];
   final _speech = BytesBuilder(copy: false);
@@ -52,7 +56,8 @@ class VoiceActivity {
     _speech.add(bytes);
     _samples += count;
     _quiet = voiced ? 0 : _quiet + count;
-    if (_quiet < sampleRate * 9 ~/ 10 && _samples < sampleRate * 60) {
+    if (_quiet < sampleRate * silence.inMilliseconds ~/ 1000 &&
+        _samples < sampleRate * 60) {
       return (started: false, utterance: null);
     }
     final utterance = _speech.takeBytes();

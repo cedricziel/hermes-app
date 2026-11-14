@@ -10,6 +10,9 @@ abstract interface class CallAgent {
     String text, {
     required void Function(String) onText,
     required void Function(bool) onAttention,
+
+    /// Called once the prompt reached the chat, which ends the call's Sending.
+    void Function()? onSubmitted,
   });
   Future<void> interrupt();
   void dispose();
@@ -50,6 +53,7 @@ class ChatCallAgent implements CallAgent {
     String text, {
     required void Function(String) onText,
     required void Function(bool) onAttention,
+    void Function()? onSubmitted,
   }) async {
     final thread = chat.selectedThread;
     if (!valid ||
@@ -77,6 +81,7 @@ class ChatCallAgent implements CallAgent {
       final accepted = await chat.submit(text, const []);
       if (accepted) {
         _messageID = _replies(thread).firstOrNull?.id;
+        onSubmitted?.call();
       }
       if (!valid || !accepted || done.isCompleted) {
         if (accepted &&

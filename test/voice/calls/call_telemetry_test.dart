@@ -127,6 +127,7 @@ void main() {
       Future<void> Function()? prepare,
     }) => VoiceCall(
       bridge: bridge,
+      consented: true,
       agent: agent,
       connect: ([_ = const {}]) async => socket.local,
       prepare: prepare ?? () async {},
@@ -187,26 +188,34 @@ void main() {
       });
     });
 
-    test('a failed transcription names its step and error kind', () async {
-      call.dispose();
-      logged.clear();
-      call = build(transcribe: () async => throw TimeoutException('slow'));
-      await call.start();
-      bridge.emit('activated');
-      utterance();
-      await pumpEventQueue();
-      expect(call.phase, CallPhase.failed);
-      expect(ended(), containsPair('reason', 'turn'));
-      expect(ended(), containsPair('step', 'transcribe'));
-      expect(ended(), containsPair('error_type', 'timeout'));
-      expect(ended(), containsPair('outcome', 'failed'));
-    });
+    test(
+      'one failed transcription is no end; the second names its step and kind',
+      () async {
+        call.dispose();
+        logged.clear();
+        call = build(transcribe: () async => throw TimeoutException('slow'));
+        await call.start();
+        bridge.emit('activated');
+        utterance();
+        await pumpEventQueue();
+        expect(call.phase, CallPhase.listening);
+        expect(logged.where((e) => e.$1 == 'voice_call.ended'), isEmpty);
+        utterance();
+        await pumpEventQueue();
+        expect(call.phase, CallPhase.failed);
+        expect(ended(), containsPair('reason', 'transcription'));
+        expect(ended(), containsPair('step', 'transcribe'));
+        expect(ended(), containsPair('error_type', 'timeout'));
+        expect(ended(), containsPair('outcome', 'failed'));
+      },
+    );
 
     test('a refused speech socket is logged as the speech step', () async {
       call.dispose();
       logged.clear();
       call = VoiceCall(
         bridge: bridge,
+        consented: true,
         agent: agent,
         connect: ([_ = const {}]) async => throw WebSocketChannelException.from(
           const WebSocketException('not upgraded', 403),

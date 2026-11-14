@@ -25,6 +25,7 @@ void main() {
     uploads = 0;
     call = VoiceCall(
       bridge: bridge,
+      consented: true,
       agent: agent,
       connect: ([_ = const {}]) async => socket.local,
       prepare: () async {},
@@ -137,6 +138,7 @@ void main() {
       CancelToken? cancellation;
       call = VoiceCall(
         bridge: bridge,
+        consented: true,
         agent: agent,
         connect: ([_ = const {}]) async => socket.local,
         prepare: () async {},
@@ -192,6 +194,7 @@ void main() {
     final ready = Completer<void>();
     call = VoiceCall(
       bridge: bridge,
+      consented: true,
       agent: agent,
       connect: ([_ = const {}]) async => socket.local,
       transcribe: (_) async => '',
@@ -208,6 +211,7 @@ void main() {
     final otherBridge = FakeCallBridge();
     final other = VoiceCall(
       bridge: otherBridge,
+      consented: true,
       agent: FakeCallAgent(),
       connect: ([_ = const {}]) async => socket.local,
       transcribe: (_) async => '',

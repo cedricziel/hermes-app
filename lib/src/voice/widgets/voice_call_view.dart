@@ -60,8 +60,7 @@ class VoiceCallView extends StatelessWidget {
   final VoidCallback onEnd;
   final VoidCallback onShowChat;
 
-  /// The user's words are being prepared for Hermes. It is not a phase yet, so
-  /// the caller says so; until then [CallPhase.transcribing] reads as thinking.
+  /// Shows Sending whatever the phase says. [CallPhase.sending] does already.
   final bool sending;
 
   /// The input level while listening, the output level while speaking.
@@ -102,7 +101,8 @@ class VoiceCallView extends StatelessWidget {
       CallPhase.connecting => VoiceOrbState.connecting,
       CallPhase.listening =>
         muted ? VoiceOrbState.muted : VoiceOrbState.listening,
-      CallPhase.transcribing || CallPhase.thinking => VoiceOrbState.thinking,
+      CallPhase.sending => VoiceOrbState.sending,
+      CallPhase.thinking => VoiceOrbState.thinking,
       CallPhase.speaking => VoiceOrbState.speaking,
       CallPhase.attention => VoiceOrbState.waiting,
       CallPhase.ended || CallPhase.failed => VoiceOrbState.stopped,

@@ -13,9 +13,11 @@ import 'call_agent.dart';
 import 'call_phase.dart';
 export 'call_phase.dart';
 import 'call_bridge.dart';
+import 'call_config.dart';
 import 'call_speech_stream.dart';
 import 'call_telemetry.dart';
 import 'voice_activity.dart';
+import 'whisper_hallucination.dart';
 
 /// Owns one outgoing call, independent of the foreground route. Audio capture
 /// begins only on CallKit activation and stops on native end, auth/context loss,
@@ -27,8 +29,11 @@ class VoiceCall extends ChangeNotifier {
     required this.connect,
     required this.transcribe,
     required this.prepare,
+    required this.consented,
     this.profile,
     this.speechFallback,
+    this.loadConfig,
+    this.echoGuard,
     this.events = noopAppEventLogger,
   });
   final CallBridge bridge;
@@ -39,11 +44,24 @@ class VoiceCall extends ChangeNotifier {
   final String? profile;
   final CallSpeechFallback? speechFallback;
 
+  /// Whether the user allowed automatic sending for this call. Without it the
+  /// call never opens capture.
+  final bool consented;
+
+  /// Reads the profile's voice config once, when the call starts. A failure
+  /// leaves the defaults.
+  final Future<VoiceCallConfig> Function()? loadConfig;
+
+  /// Whether a transcript is the reply just spoken, heard back. It runs
+  /// before the hallucination and stop-phrase checks; null drops nothing.
+  final bool Function(String text)? echoGuard;
+
   /// Gets `voice_call.connected` when CallKit hands over the audio and one
   /// `voice_call.ended` (`outcome`, `reason`, `step`, `error_type`, buckets
   /// of turns and duration). Fixed words only: never speech, text or ids.
   final AppEventLogger events;
-  final _vad = VoiceActivity();
+  VoiceActivity _vad = VoiceActivity();
+  VoiceCallConfig _config = const VoiceCallConfig();
   StreamSubscription<Map<String, Object?>>? _events;
   Timer? _clock;
   CallSpeechStream? _speech;
@@ -57,6 +75,9 @@ class VoiceCall extends ChangeNotifier {
   bool _nativeStarted = false;
   bool _waitingForInput = false;
   bool _connectedOnce = false;
+  bool _requestedMute = false;
+  int _muteRequests = 0;
+  int _transcriptionFailures = 0;
   int _turns = 0;
   int _fallbacks = 0;
   CallPhase phase = CallPhase.connecting;
@@ -65,6 +86,16 @@ class VoiceCall extends ChangeNotifier {
   String route = 'iPhone';
   String caption = '';
   String? error;
+
+  /// What the screen explains, besides the state: a turn that could not be
+  /// heard, or speech that failed.
+  CallNotice? notice;
+
+  /// The fixed word that ended the call (the telemetry `reason`), once ended.
+  String? endReason;
+
+  /// What the profile configured for this call.
+  VoiceCallConfig get config => _config;
   Duration elapsed = Duration.zero;
   bool get ended => phase == CallPhase.ended || phase == CallPhase.failed;
   bool _current(int epoch) => !_disposed && !ended && epoch == _epoch;
@@ -76,10 +107,24 @@ class VoiceCall extends ChangeNotifier {
     if (_startedOnce || _disposed) return;
     _startedOnce = true;
     final epoch = _epoch;
+    if (!consented) {
+      await _end('prepare', 'Allow automatic sending to start a call.');
+      return;
+    }
     var step = 'prepare';
     try {
       await prepare().timeout(const Duration(seconds: 20));
       if (!_current(epoch)) return;
+      step = 'config';
+      if (loadConfig case final load?) {
+        try {
+          _config = await load().timeout(const Duration(seconds: 5));
+        } on Object {
+          // The app's own defaults stand in for a profile that cannot be read.
+        }
+        if (!_current(epoch)) return;
+        _vad = VoiceActivity(silence: _config.silence);
+      }
       step = 'audio_focus';
       await VoiceAudioFocus.shared.acquire(this);
       if (!_current(epoch)) return;
@@ -135,6 +180,7 @@ class VoiceCall extends ChangeNotifier {
         _clock = Timer.periodic(const Duration(seconds: 1), (_) {
           elapsed = DateTime.now().difference(_started!);
           if (!muted &&
+              !_requestedMute &&
               DateTime.now().difference(_lastPCM!) >
                   const Duration(seconds: 15)) {
             unawaited(
@@ -148,7 +194,7 @@ class VoiceCall extends ChangeNotifier {
         });
       case 'pcm':
         _lastPCM = DateTime.now();
-        if (_active && !muted) {
+        if (_active && !muted && !_requestedMute) {
           if (event['data'] case final Uint8List pcm) _hear(pcm);
         }
       case 'audioReset':
@@ -166,11 +212,11 @@ class VoiceCall extends ChangeNotifier {
         _lastPCM = DateTime.now();
       case 'muted':
         muted = event['muted'] == true;
+        // A system mute is a request too; one this app is still making is
+        // already counted.
+        if (_muteRequests == 0) _requestedMute = muted;
         _vad.reset();
-        if (muted && phase == CallPhase.transcribing) {
-          _epoch++;
-          phase = CallPhase.listening;
-        }
+        if (_requestedMute && phase == CallPhase.sending) _dropTurn();
         _lastPCM = DateTime.now();
       case 'route':
         route = event['name'] as String? ?? 'iPhone';
@@ -198,6 +244,7 @@ class VoiceCall extends ChangeNotifier {
     final activity = _vad.add(pcm);
     if (activity.started) {
       final previous = phase;
+      notice = null;
       _epoch++;
       if (previous != CallPhase.listening) {
         final speech = _speech;
@@ -217,32 +264,82 @@ class VoiceCall extends ChangeNotifier {
     }
   }
 
+  /// The turn is over for this call: nothing of it is sent and the call
+  /// listens again.
+  void _dropTurn() {
+    _epoch++;
+    _vad.reset();
+    final speech = _speech;
+    _speech = null;
+    if (speech != null) unawaited(speech.close().catchError((Object _) {}));
+    phase = CallPhase.listening;
+    caption = '';
+    _waitingForInput = false;
+    _notify();
+  }
+
+  /// Whether the turn of [epoch] must not go on: the call moved on, or the
+  /// user asked for mute, which counts before the bridge confirms it.
+  bool _abandoned(int epoch) {
+    if (!_current(epoch)) return true;
+    if (!_requestedMute) return false;
+    _dropTurn();
+    return true;
+  }
+
+  Future<void> _transcriptionFailed(Object error) async {
+    _transcriptionFailures++;
+    if (_transcriptionFailures >= 2) {
+      await _end(
+        'transcription',
+        "Couldn't hear that. Nothing was sent.",
+        error,
+        'transcribe',
+        null,
+        CallNotice.transcription,
+      );
+      return;
+    }
+    notice = CallNotice.transcription;
+    phase = CallPhase.listening;
+    _notify();
+  }
+
   Future<void> _turn(Uint8List pcm, int epoch) async {
-    phase = CallPhase.transcribing;
+    if (_abandoned(epoch)) return;
+    phase = CallPhase.sending;
     _notify();
     CallSpeechStream? speech;
     var step = 'transcribe';
     try {
       await _interruption;
-      if (!_current(epoch) || muted) return;
-      final text = (await transcribe(
-        wavFromPcm16(pcm, sampleRate: VoiceActivity.sampleRate),
-      ).timeout(const Duration(seconds: 60))).trim();
-      if (!_current(epoch) || muted) return;
-      if (text.isEmpty) {
+      if (_abandoned(epoch)) return;
+      final String text;
+      try {
+        text = (await transcribe(
+          wavFromPcm16(pcm, sampleRate: VoiceActivity.sampleRate),
+        ).timeout(const Duration(seconds: 60))).trim();
+      } on Object catch (error) {
+        if (!_abandoned(epoch)) await _transcriptionFailed(error);
+        return;
+      }
+      if (_abandoned(epoch)) return;
+      _transcriptionFailures = 0;
+      // One order, the first match decides: empty, echo, hallucination, stop
+      // phrase, else sent. A dropped transcript says nothing.
+      if (text.isEmpty ||
+          (echoGuard?.call(text) ?? false) ||
+          isWhisperHallucination(text)) {
         phase = CallPhase.listening;
         _notify();
         return;
       }
-      if (RegExp(
-        r'^(?:hang up|end (?:the )?call)[.!?]?$',
-        caseSensitive: false,
-      ).hasMatch(text)) {
-        await _end('voice_hang_up');
+      if (_config.isStopPhrase(text)) {
+        await _end('stop_phrase');
         return;
       }
+      notice = null;
       caption = text;
-      phase = CallPhase.thinking;
       _notify();
       step = 'speech_open';
       speech = CallSpeechStream(
@@ -260,9 +357,11 @@ class VoiceCall extends ChangeNotifier {
             unawaited(
               _end(
                 'speech',
-                'Hermes could not speak this reply. Check your speech provider and reconnect.',
+                _speechFailedText,
                 error,
                 speech?.usedFallback == true ? 'speech_fallback' : step,
+                null,
+                CallNotice.speechFailed,
               ),
             );
           }
@@ -270,10 +369,17 @@ class VoiceCall extends ChangeNotifier {
       );
       _speech = speech;
       await speech.open(profile);
-      if (!_current(epoch)) return;
+      // Nothing between this check and the send may await.
+      if (_abandoned(epoch)) return;
       step = 'agent';
       await agent.reply(
         text,
+        onSubmitted: () {
+          if (_current(epoch) && phase == CallPhase.sending) {
+            phase = CallPhase.thinking;
+            _notify();
+          }
+        },
         onText: (part) {
           if (_current(epoch)) speech!.append(part);
         },
@@ -325,13 +431,24 @@ class VoiceCall extends ChangeNotifier {
     }
   }
 
+  /// Mute counts at once: [_requestedMute] is set before the bridge answers,
+  /// so a turn still being prepared is dropped and nothing is sent.
   Future<void> setMuted(bool value) async {
+    if (ended) return;
+    _requestedMute = value;
+    _muteRequests++;
+    if (value) {
+      _vad.reset();
+      if (phase == CallPhase.sending) _dropTurn();
+    }
     try {
       await bridge.mute(value);
     } on Object catch (error) {
       if (!ended) {
         await _end('mute', 'Could not change microphone mute.', error);
       }
+    } finally {
+      _muteRequests--;
     }
   }
 
@@ -354,8 +471,11 @@ class VoiceCall extends ChangeNotifier {
     Object? cause,
     String? step,
     String? errorType,
+    CallNotice? notice,
   ]) async {
     if (ended) return;
+    endReason = reason;
+    this.notice = notice;
     _log('voice_call.ended', {
       'outcome': failure == null ? 'ended' : 'failed',
       'reason': reason,
@@ -407,6 +527,9 @@ class VoiceCall extends ChangeNotifier {
     super.dispose();
   }
 }
+
+const _speechFailedText =
+    'Hermes could not speak this reply. Check your speech provider on the server. The reply is in the chat.';
 
 const _startFailureText =
     'Could not start the call. Check microphone access and your speech providers in Settings.';

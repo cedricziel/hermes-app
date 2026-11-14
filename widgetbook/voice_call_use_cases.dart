@@ -343,12 +343,7 @@ WidgetbookComponent _viewNode() => WidgetbookComponent(
     WidgetbookUseCase(name: 'Muted', builder: (c) => _call(c, muted: true)),
     WidgetbookUseCase(
       name: 'Sending',
-      builder: (c) => _call(
-        c,
-        phase: CallPhase.transcribing,
-        sending: true,
-        caption: _question,
-      ),
+      builder: (c) => _call(c, phase: CallPhase.sending, caption: _question),
     ),
     WidgetbookUseCase(
       name: 'Thinking',

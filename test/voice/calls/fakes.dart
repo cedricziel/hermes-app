@@ -5,6 +5,8 @@ import 'package:hermes_app/src/voice/calls/call_agent.dart';
 import 'package:hermes_app/src/voice/calls/call_bridge.dart';
 
 class FakeCallBridge implements CallBridge {
+  /// Holds `mute` until completed, like a bridge that confirms later.
+  Completer<void>? muteGate;
   final controller = StreamController<Map<String, Object?>>.broadcast(
     sync: true,
   );
@@ -32,6 +34,7 @@ class FakeCallBridge implements CallBridge {
 
   @override
   Future<void> mute(bool muted) async {
+    await muteGate?.future;
     emit('muted', {'muted': muted});
   }
 
@@ -62,13 +65,21 @@ class FakeCallAgent implements CallAgent {
   void Function(String)? text;
   void Function(bool)? attention;
   Completer<void>? pending;
+
+  /// Keeps `onSubmitted` back until the test calls [submitted].
+  bool holdSubmit = false;
+  void Function()? onSubmitted;
+  void submitted() => onSubmitted?.call();
   @override
   Future<void> reply(
     String prompt, {
     required void Function(String) onText,
     required void Function(bool) onAttention,
+    void Function()? onSubmitted,
   }) {
     prompts.add(prompt);
+    this.onSubmitted = onSubmitted;
+    if (!holdSubmit) onSubmitted?.call();
     text = onText;
     attention = onAttention;
     return (pending = Completer<void>()).future;
