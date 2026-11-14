@@ -11,6 +11,12 @@ import 'session_usage_use_cases.dart';
 import 'connector_operation_use_cases.dart';
 import 'side_result_use_cases.dart';
 import 'process_output_use_cases.dart';
+import 'agent_row_use_cases.dart';
+import 'agent_output_use_cases.dart';
+import 'agent_note_use_cases.dart';
+import 'agent_detail_use_cases.dart';
+import 'agent_confirm_use_cases.dart';
+import 'subagent_card_use_cases.dart';
 import 'agent_warning_use_cases.dart';
 import 'session_state_use_cases.dart';
 import 'todo_plan_use_cases.dart';
@@ -138,6 +144,12 @@ final List<WidgetbookNode> directories = [
   connectorOperationNode(),
   sideResultNode(),
   processOutputNode(),
+  agentRowNode(),
+  agentOutputNode(),
+  agentNoteNode(),
+  agentDetailNode(),
+  agentConfirmNode(),
+  subagentCardNode(),
   billingVerificationNode(),
   chatSuggestionsNode(),
   chatThreadNode(),
