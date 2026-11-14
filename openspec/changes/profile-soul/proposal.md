@@ -40,7 +40,7 @@ Fixed names, enums and buckets only: never the text, the profile name or an erro
 Claude Design covers, each in light and dark, at the largest text, on phone and desktop width:
 
 - Personality screen - states: loading, loaded, file not set yet, empty file, long text (over 20,000 characters; never locked), offline, not found, unsaved changes, saving, saved, lost answer, wide layout.
-- Save question - states: normal, empty text, with the chat-already-running note.
+- Save question - states: normal, empty text.
 - Changed on the server - states: sheet or alert, server's text shown read-only.
 - Discard changes question.
 - Entry rows - Personality in the sidebar and the Mac Profiles section.
@@ -57,5 +57,5 @@ None.
 
 ## Impact
 
-- Code: `lib/src/profiles/soul/` (repository on the generated client, controller, screen, plain-model widgets), the sidebar row (`thread_sidebar.dart`, `chat_screen_navigation.dart`), `ProfileSection` and `mac_profiles_page.dart`, ARB strings (`profiles` area), Widgetbook use cases, `docs/architecture/app-shell.md`.
+- Code: `lib/src/profiles/soul/` (repository on the generated client, controller, screen, plain-model widgets), the sidebar row (`thread_sidebar.dart`, `chat_screen_navigation.dart`), `ProfileSection` and `mac_profiles_page.dart`, ARB strings (`profiles` area), Widgetbook use cases, `docs/architecture/app-shell.md`, `docs/architecture/settings-screens.md`, `docs/architecture/macos.md` (File > Save).
 - Backend: no new route; both routes are in `openapi/hermes-agent.openapi.json`. No regeneration.

@@ -27,7 +27,10 @@ Decisions, one line each:
 - "Changed on the server" is a sheet (a dialog on a Mac and wide windows, through `showAdaptiveSheet`), not an alert, because it can hold the server's text. The server's version is closed behind a "Show server's version" disclosure row; opened, it is a selectable, read-only text box (max 40% of the screen, scrolls) with a Copy button. Keep editing is the filled, default button; Replace anyway is a plain text button under it.
 - A lost answer is a warning banner above the editor ("Couldn't confirm the save") with a Check action; the text stays in the editor. Saved is never shown while it is unconfirmed. The bar's Save stays enabled and asks again before any new request.
 - Check running: the banner swaps its action for a spinner and "Checking…". It ends within 10 s with "Couldn't confirm" and Check again. Nothing is resent.
-- Check outcomes: equal to the editor's text is "Saved" (success line) and the baseline moves; equal to the old baseline is "The save didn't go through. Your text is still here." with Save as the bar action; anything else opens the "Changed on the server" sheet. This splits design.md's "otherwise the conflict question" in two (see "Corrections").
+- Check outcomes are compared with the text that was sent, not the editor (the user may have kept typing in the lost-answer state): equal to the sent text is "Saved" (success line), the baseline moves to it and later edits stay dirty; equal to the old baseline is "The server still has the earlier text. Your text is still here." with Save as the bar action; anything else opens the "Changed on the server" sheet. This splits design.md's "otherwise the conflict question" in two (see "Corrections").
+- Both requests of a save are bounded: the check read and the PUT each give up after 10 s (a controller-level timeout, as `kFilesAnswerTimeout` does in the Files controller). A timed-out check read is "Couldn't check the server first, so nothing was sent."; a timed-out PUT is the lost-answer state.
+- Before sending, if the server's text already equals the text about to be sent (an earlier unconfirmed save did land), the screen reports Saved, moves the baseline and sends nothing.
+- App Lock while a check or PUT is in flight: the request finishes, its outcome is discarded, and after the unlock the screen reloads the server's text.
 - Errors never show the response body. Fixed lines per case: read failed, save failed (400, 422, 500), offline, nothing sent because the check failed.
 - Leaving with unsaved changes asks "Discard changes?" with Keep editing as default. On the Mac Profiles page the same question is asked when the selected profile or section changes while dirty, and on closing the window.
 - Unsaved text is dropped on sign-out, server change and App Lock (spec). After an unlock the screen reloads from the server and says nothing about the lost edits beyond what the lock screen already shows (see "Open questions").
@@ -45,7 +48,7 @@ Copy added by the design (English; German in the ARB, see "German"):
 - Save question: title "Replace the personality of <profile>?", body "New chats use it. Chats already running keep the old one.", buttons "Cancel", "Replace". Empty text body: "Hermes will use its default personality. Chats already running keep the old one."
 - Discard question: title "Discard changes?", body "Your edits to the personality of <profile> haven't been saved.", buttons "Keep editing", "Discard".
 - Changed sheet: title "Changed on the server", body "This file changed since you opened it. Replacing it will lose those changes.", rows "Show server's version", "Copy", buttons "Keep editing", "Replace anyway". If the server's file is now gone: "The file was removed on the server." and the server's version reads "No personality set."
-- Saved line "Saved. New chats use it." Not-saved line "The save didn't go through. Your text is still here."
+- Saved line "Saved. New chats use it." Not-saved line "The server still has the earlier text. Your text is still here."
 - Lost answer banner: title "Couldn't confirm the save", detail "It may have gone through. Your text is still here.", action "Check". Checking: "Checking…". After 10 s: "Couldn't confirm" with "Check".
 - Errors: "Couldn't read the personality file on the server." (read failed), "Couldn't save. Hermes reported a problem. Nothing was changed on the server." (400, 422, 500), "Couldn't check the server first, so nothing was sent." with Try again (the second read failed), and offline "You're offline." with "Couldn't load the personality." on load.
 - Profile gone: `StateMessage` "This profile no longer exists." detail "It may have been deleted on the server." no action.
@@ -66,7 +69,7 @@ Corrections where the earlier documents did not work:
 
 - The proposal's design list names a "too long to edit" state; design.md and the "Size guidance" requirement say the editor never locks. The brief follows the spec: no such state. The proposal line is corrected in the same PR.
 - design.md says a Check that finds different text shows the conflict question. If the server's text equals the baseline the save simply never landed, and "This file changed since you opened it" would be false. The brief splits it (see the decisions). The spec's scenarios still hold; the extra branch is added to design.md.
-- The proposal says the Save question has "with the chat-already-running note" as a variant; the note is in every save question's body, so the variants are normal and empty text.
+- The proposal's Save-question variant "with the chat-already-running note" is removed: the note is in every body, so the variants are normal and empty text.
 
 ## Who and why
 
@@ -86,7 +89,7 @@ Two facts the design must not blur:
 - iPhone: sidebar drawer, Personality row right after Memory (same row look and `AppIcons` pattern, no count). It pushes the screen; Back returns to the chat; leaving with unsaved changes asks first. The More section on a phone holds the same row for the chat's profile.
 - Android: the same; the system back gesture and the bar's back button both go through the Discard question when dirty. Material bar and dialogs.
 - iPad and wide windows (900 pt and up): the screen is pushed into the content column, not a two-pane; the editor is capped at 720 pt wide and centred, Save and Revert sit under it.
-- Mac: Personality is a section after Memory in the Profiles page's section list for the selected profile. The pane is the editor with Save (filled) and Revert (outlined) under it, the count and notes between. Changing profile or section while dirty asks "Discard changes?". The proposal adds no Mac sidebar row; the Profiles page is the Mac entry. Menu commands are not added; ⌘S saves (opens the Save question) and ⌘[ goes back where there is a back.
+- Mac: Personality is a section after Memory in the Profiles page's section list for the selected profile, with the detail line "Who Hermes is and how it talks" (German draft: "Wer Hermes ist und wie es spricht"), as the other `ProfileSection`s have one. The pane is the editor with Save (filled) and Revert (outlined) under it, the count and notes between. Changing profile or section while dirty asks "Discard changes?". The proposal adds no Mac sidebar row; the Profiles page is the Mac entry. The Personality pane offers a File > Save command (`MacCommand.save`, ⌘S, a new entry in `menuLayout`) through its `MacCommandScope`; it opens the Save question and is disabled while clean or busy. View > Back (⌘[) comes from the scaffold as on other pages; no key handler is added for either chord.
 - Windows and Linux: as Mac for pointer sizes, as iPad for navigation.
 
 ## Screen: Personality
@@ -118,8 +121,8 @@ States:
 - Error on read (500 and others): error banner "Couldn't read the personality file on the server." with Try again; no editor (an empty editor would invite saving over a file the app could not read).
 - Error on save (400, 422, 500, or a 200 without `ok: true` is a lost answer, not an error): error banner "Couldn't save. Hermes reported a problem. Nothing was changed on the server." The text stays; Save stays enabled.
 - Lost answer: warning banner "Couldn't confirm the save", Check. Checking, then the three outcomes above. A failed Check keeps the banner and says "Couldn't confirm" again after at most 10 s.
-- Profile gone (404 "Profile '…'"): `StateMessage`, no editor, no Save.
-- Old server (route-missing 404 or 405): the entry is hidden; if the screen was open, `StateMessage` with Back.
+- Profile gone (404 "Profile '…'"): `StateMessage`, no editor, no Save, no action (Back is the bar's).
+- Old server (route-missing 404 or 405): the row is shown until the first such answer, then hidden for the rest of the connection; the screen that got it shows the neutral `StateMessage` "This server doesn't offer personality settings." with Back.
 - 401: the existing sign-in path; the screen shows nothing of its own.
 - Changed on the server: the sheet above; nothing is sent until Replace anyway.
 - App Lock: see "Privacy".
@@ -131,7 +134,7 @@ Hierarchy at the largest text: the bar title truncates, the subtitle (profile na
 
 Save question (platform alert; dialog at wide widths): see the copy above. Cancel is first and default; Replace is plain. Pressing Replace starts the saving state, and the second read happens there. Cancel sends nothing and leaves the text.
 
-Discard question: Keep editing is first and default; Discard is plain, not red (the text is the user's own, but nothing is lost on the server). Used for back, Revert, profile or section change on the Mac, and window close.
+Discard question: Keep editing is first and default; Discard is plain, not red and not filled. This is a stated exception to the settled rule: the schedule form and the skill editor (`confirmDiscard` with `destructive: true`) show Discard destructive, and those older screens may follow later. The case for plain: the text is the user's own and nothing is lost on the server. The closest existing analogue to `SoulEditor` is the skill editor's multi-line field. Used for back, Revert, profile or section change on the Mac, and window close.
 
 Changed on the server: a sheet with a drag handle on a phone, a dialog on a Mac and wide windows. Order: title, body, "Show server's version" disclosure row, the Keep editing filled button, the Replace anyway plain button. Opening the disclosure shows the server's text read-only and selectable with Copy under it; Copy puts the text on the clipboard and says "Copied". Dismissing the sheet is Keep editing. Replace anyway sends the PUT once; its result goes through the same states as a normal save (saved, error, lost answer). If a second change appears between the sheet and the PUT, the window stays open (design.md); the screen says nothing about it.
 
@@ -162,19 +165,19 @@ Longer strings and risks: "Persönlichkeit" in the bar and sidebar row (fits, bu
 - iPhone: pushed page, bar Save, alert questions, a bottom sheet for the changed state, the keyboard resizes the editor and the page scrolls.
 - Android: Material bar, two-text-button dialogs, a Material bottom sheet, back gesture asks to discard.
 - iPad and Windows/Linux wide: pushed page with a 720 pt editor and buttons under it; sheets become dialogs.
-- Mac: Profiles section, toolbar-less editor with buttons under it, hover states on buttons, ⌘S, dialogs not sheets.
+- Mac: Profiles section, toolbar-less editor with buttons under it, hover states on buttons, File > Save (⌘S) from the pane's `MacCommandScope`, dialogs not sheets.
 
 ## Spec scenario coverage
 
 | Spec requirement and scenario                               | Where the design covers it                                                               |
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Backend contract: Another profile                           | Screen title and subtitle carry the bound profile; the path carries its name (tasks 1.2) |
-| Backend contract: Old server                                | Old server state: entries hidden, `StateMessage` with Back if open                       |
+| Backend contract: Another profile                           | Screen title and subtitle carry the bound profile; the path carries its name (tasks 2.2) |
+| Backend contract: Old server                                | Old server state: row shown until the first 404, then hidden; neutral `StateMessage` with Back if open |
 | Entry points: Phone                                         | Navigation, iPhone and Android; sidebar row after Memory                                 |
 | Entry points (Mac Profiles page)                            | Navigation, Mac; section after Memory                                                    |
 | Showing the text: File missing versus empty                 | States "File not set yet" and "Empty file"                                               |
 | Showing the text: Profile gone                              | State "Profile gone"                                                                     |
-| Showing the text (loading, offline, failed)                 | States Loading, Offline on load, Error on read, each with Try again                      |
+| Showing the text (loading, offline, failed)                 | States Loading, Offline on load, Error on read; the last two with Try again                      |
 | Editing never saves by itself: Leaving with changes         | Discard question; Keep editing default                                                   |
 | Editing never saves by itself (state dropped)               | Privacy; App Lock; sign-out and server change                                            |
 | Save is confirmed: Cancel                                   | Save question; Cancel first and default; nothing sent                                    |
@@ -182,7 +185,7 @@ Longer strings and risks: "Persönlichkeit" in the bar and sidebar row (fits, bu
 | Changed-on-server check: Someone else saved                 | "Changed on the server" sheet; nothing sent until Replace anyway                         |
 | Changed-on-server check: Check fails                        | State "Offline on Replace" / error banner with Try again; text stays                     |
 | A lost answer is not a save: Timeout on save                | Lost answer banner with Check; Save asks again                                           |
-| A lost answer is not a save: Check finds it saved           | Check outcome "equal to the editor" shows Saved and moves the baseline                   |
+| A lost answer is not a save: Check finds it saved           | Check outcome "equal to the sent text" shows Saved and moves the baseline                   |
 | Size guidance: Long text                                    | Count and info line from 20,000; the editor and Save never lock                          |
 | Privacy and observability: Nothing user-written is recorded | Privacy; fixed error lines; names from design.md                                         |
 
