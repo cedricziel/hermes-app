@@ -3,7 +3,8 @@ import 'package:hermes_app/src/app_lock/device_authenticator.dart';
 class FakeDeviceAuthenticator implements DeviceAuthenticator {
   FakeDeviceAuthenticator({this.available = true, this.succeeds = true});
 
-  bool available;
+  /// Null when the device could not tell.
+  bool? available;
   bool succeeds;
   final reasons = <String>[];
 
@@ -14,7 +15,7 @@ class FakeDeviceAuthenticator implements DeviceAuthenticator {
   Future<bool>? answer;
 
   @override
-  Future<bool> isAvailable() async => available;
+  Future<bool?> isAvailable() async => available;
 
   @override
   Future<bool> authenticate(String reason) async {

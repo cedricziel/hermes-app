@@ -4,8 +4,9 @@ import 'package:local_auth/local_auth.dart';
 /// its owner: Face ID, Touch ID or fingerprint, or the device passcode.
 abstract class DeviceAuthenticator {
   /// False when the device has no biometrics or passcode set up, or the
-  /// platform has no support for either.
-  Future<bool> isAvailable();
+  /// platform has no support for either; null when the check itself failed,
+  /// which says nothing about the device.
+  Future<bool?> isAvailable();
 
   /// True only when the system confirmed the person. A cancel, a lockout or
   /// any error is false.
@@ -19,11 +20,11 @@ class LocalDeviceAuthenticator implements DeviceAuthenticator {
   final LocalAuthentication _auth;
 
   @override
-  Future<bool> isAvailable() async {
+  Future<bool?> isAvailable() async {
     try {
       return await _auth.isDeviceSupported();
     } on Object catch (_) {
-      return false;
+      return null;
     }
   }
 

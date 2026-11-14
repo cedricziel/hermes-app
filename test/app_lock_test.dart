@@ -5,9 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
 import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
+import 'package:hermes_app/src/app_lock/device_authenticator.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -210,6 +212,40 @@ void main() {
       },
     );
 
+    test('stays locked at launch when the device cannot tell whether it '
+        'can confirm, and unlocks once it confirms', () async {
+      await enabledLock();
+      authenticator
+        ..available = null
+        ..succeeds = false;
+
+      final lock = await relaunched();
+
+      expect(lock.locked, isTrue);
+      expect(lock.covered, isTrue);
+      expect(authenticator.reasons.last, 'Unlock Hermes');
+      authenticator.succeeds = true;
+      expect(await lock.unlock(), isTrue);
+      expect(lock.locked, isFalse);
+    });
+
+    test('a device that could not tell is asked again by unlock, and one '
+        'that now has no support is not locked', () async {
+      await enabledLock();
+      authenticator
+        ..available = null
+        ..succeeds = false;
+      final lock = await relaunched();
+      expect(lock.locked, isTrue);
+      final prompts = authenticator.reasons.length;
+
+      authenticator.available = false;
+      expect(await lock.unlock(), isTrue);
+
+      expect(lock.locked, isFalse);
+      expect(authenticator.reasons, hasLength(prompts));
+    });
+
     test('unlock reports whether the app is unlocked afterwards', () async {
       final lock = await relaunched();
       expect(await lock.unlock(), isTrue, reason: 'nothing to unlock');
@@ -395,4 +431,35 @@ void main() {
       expect(find.textContaining('Set up Face ID'), findsOneWidget);
     });
   });
+
+  group('LocalDeviceAuthenticator', () {
+    test('cannot tell when the support check throws', () async {
+      final device = LocalDeviceAuthenticator(auth: _ThrowingLocalAuth());
+
+      expect(await device.isAvailable(), isNull);
+    });
+
+    test('reports what the support check answers', () async {
+      expect(
+        await LocalDeviceAuthenticator(
+          auth: _ThrowingLocalAuth(supported: false),
+        ).isAvailable(),
+        isFalse,
+      );
+    });
+  });
+}
+
+/// Answers the support check with [supported], or throws when it is null.
+class _ThrowingLocalAuth implements LocalAuthentication {
+  _ThrowingLocalAuth({this.supported});
+
+  final bool? supported;
+
+  @override
+  Future<bool> isDeviceSupported() async =>
+      supported ?? (throw StateError('no keyguard service'));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

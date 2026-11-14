@@ -36,7 +36,9 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
   final bool _coverWhenInactive;
 
   bool _enabled = false;
-  bool _available = false;
+
+  /// Null while the device could not tell (its check failed).
+  bool? _available = false;
   bool _loaded = false;
   bool _locked = false;
   bool _authenticating = false;
@@ -50,14 +52,15 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Whether the device can confirm the person at all. Without that the lock
   /// cannot be turned on, and a saved "on" is not enforced, so nobody is
-  /// locked out of their own app.
-  bool get available => _available;
+  /// locked out of their own app. A check that failed counts as available:
+  /// the lock stays on, and [unlock] asks the device again.
+  bool get available => _available != false;
   bool get locked => _locked;
 
   /// Whether the content is out of sight: locked, or inactive on a phone.
   bool get covered => !_loaded || _locked || _inactive;
 
-  bool get _enforced => _enabled && _available;
+  bool get _enforced => _enabled && available;
 
   /// Whether App Lock is on, read from the saved setting, for an isolate that
   /// has no controller, such as the one that answers notification buttons.
@@ -92,7 +95,7 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> setEnabled(bool value) async {
     if (value == _enabled) return true;
     if (value) {
-      if (!_available || _authenticating) return false;
+      if (!available || _authenticating) return false;
       if (!await _confirm('Confirm to turn on app lock')) return false;
     }
     _enabled = value;
@@ -112,7 +115,16 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<bool> _unlockOnce() async {
-    if (_authenticating || !await _confirm('Unlock Hermes')) return false;
+    if (_authenticating) return false;
+    if (_available == null) {
+      _available = await _authenticator.isAvailable();
+      if (!_enforced) {
+        _locked = false;
+        notifyListeners();
+        return true;
+      }
+    }
+    if (!await _confirm('Unlock Hermes')) return false;
     _locked = false;
     notifyListeners();
     return true;
