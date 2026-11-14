@@ -61,6 +61,8 @@ import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/server_care/action_status.dart';
 import 'package:hermes_app/src/server_care/care_result.dart';
 import 'package:hermes_app/src/server_care/doctor_report.dart';
+import 'package:hermes_app/src/server_care/log_line.dart';
+import 'package:hermes_app/src/server_care/server_status.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -183,35 +185,66 @@ void main() {
     test('status carries the fields the headline reads', () async {
       final status = value(await care.status(profile: 'default'));
       expect(status.version, isNotNull);
-      expect(status.profiles, isNotEmpty);
+      expect(status.profiles, contains('default'));
+      expect(status.configVersion, isA<int>());
+      expect(status.latestConfigVersion, isA<int>());
+      expect(status.activeAgents, greaterThanOrEqualTo(0));
       // Null until a gateway has run on this backend.
       expect(status.gatewayStateRaw, anyOf(isNull, isA<String>()));
+      expect(status.disk.pressure, isNot(Pressure.unknown));
+      expect(status.storageOk, isTrue);
     });
 
-    test('health answers ok with a commit', () async {
-      final health = value(await care.health());
-      expect(health.version, isNotNull);
-      expect(health.commit, anyOf(isNull, isA<String>()));
-    });
+    test(
+      'health answers ok with the commit the dashboard booted from',
+      () async {
+        final health = value(await care.health());
+        expect(health.version, isNotNull);
+        expect(health.commit, matches(RegExp(r'^[0-9a-f]{40}$')));
+      },
+    );
 
     test('the update check answers, not forced', () async {
       final check = value(await care.checkUpdate());
       expect(check.installMethodRaw, isNotNull);
       expect(check.behind, anyOf(isNull, isA<int>()));
+      expect(check.couldNotCheck, check.behind == null);
+      expect(check.canApply, isA<bool>());
+      // Guidance comes with an answer that could not check.
+      if (check.behind == null) expect(check.message, isNotEmpty);
     });
 
-    test('each log file answers lines', () async {
+    test('each log file answers lines the parser can read', () async {
       for (final file in CareLogFile.values) {
         final lines = value(await care.logs(profile: 'default', file: file));
-        expect(lines, isA<List<Object>>(), reason: file.name);
+        expect(lines, isA<List<LogLine>>(), reason: file.name);
+        // No entry stands without a time except possibly the first (a tail
+        // cut inside a traceback).
+        expect(
+          lines.skip(1).where((l) => l.isHeaderless),
+          isEmpty,
+          reason: '${file.name}: every entry after the first has a header',
+        );
       }
+      // Booting the dashboard writes to the agent log, so the real line
+      // format is exercised and not an empty list.
+      final agent = value(
+        await care.logs(profile: 'default', file: CareLogFile.agent),
+      );
+      expect(agent, isNotEmpty);
+      expect(agent.first.time, isNotNull);
+      expect(agent.first.level, isNotNull);
+      expect(agent.first.source, isNotNull);
+      expect(agent.first.message, isNot(endsWith('\n')));
     });
 
-    test('usage for 7 days has one row per day', () async {
+    test('usage for 7 days has one row per day, oldest first', () async {
       final report = value(
         await care.usage(profile: 'default', days: 7, today: DateTime.now()),
       );
       expect(report.days, hasLength(7));
+      final dates = report.days.map((d) => d.day).toList();
+      expect([...dates]..sort(), dates);
     });
 
     test('a doctor run is followed to its end', () async {
@@ -220,15 +253,22 @@ void main() {
       final deadline = DateTime.now().add(const Duration(minutes: 3));
       while (DateTime.now().isBefore(deadline)) {
         final status = value(await care.actionStatus(CareAction.doctor));
-        if (!status.running && status.lines.isNotEmpty) {
+        if (!status.running && status.exitCode != null) {
           done = status;
           break;
         }
         await Future<void>.delayed(const Duration(seconds: 1));
       }
       expect(done, isNotNull, reason: 'the doctor run finished');
-      final report = DoctorReport.parse(done!.lines);
-      expect(report.sections.isNotEmpty || report.allPassed, isTrue);
+      // Exit 1 is a finished check that found something to fix.
+      expect(done!.exitCode, anyOf(0, 1));
+      expect(done.lines, isNotEmpty);
+      final report = DoctorReport.parse(done.lines);
+      expect(report.sections, isNotEmpty);
+      expect(report.passed + report.warnings + report.problems, greaterThan(0));
+      if (report.problems > 0) {
+        expect(report.fixes, isNotEmpty, reason: 'problems list what to fix');
+      }
     });
   }, skip: skip);
 
