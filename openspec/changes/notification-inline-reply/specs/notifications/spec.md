@@ -1,5 +1,60 @@
 # Spec Delta
 
+## MODIFIED Requirements
+
+### Requirement: Tapping a notification opens its chat
+
+The system SHALL open the chat a notification was posted for when the user taps it while the app is running. When the Chat and Kanban destinations are shown, the system SHALL select Chat on every tap, including a tap whose chat cannot be opened, so that the user is not left on the Kanban board, and SHALL dismiss the screens pushed over the board (a task, board management, the create form). When the tap started the app, the system SHALL select Chat and open that chat once the chat list has loaded. A tap that arrives while the chat list is still loading SHALL be held and applied when the list has loaded, and SHALL take precedence over the notification that launched the app. A notification carries the chat's thread id and, when known, its profile; a notification without a profile SHALL match on the thread id alone (so a notification posted by an earlier build, whose payload is a bare thread id, still works). A notification for a message from Hermes, and the summary of several, SHALL open as the agent-messages spec defines (switching profile and fetching the chat); for every other notification, if the target chat cannot be opened, because it belongs to a different profile than the one currently shown or is not in the loaded list, the selection SHALL NOT change (for a launch, the welcome view for a new chat is shown instead) and the system SHALL tell the user with the message "Could not open that chat." Opening a chat from a notification SHALL close the chat list drawer when it is open, and SHALL NOT close or pop any other screen the user has open, except the screens pushed over the Kanban board. A "Reply not sent" notification that holds a kept text is an exception: its tap SHALL switch to the chat's profile and open the chat with the text in the composer, never sent.
+
+#### Scenario: Tap while running
+
+- **WHEN** the user taps a notification for chat s2 while chat s1 is open
+- **THEN** chat s2 opens
+
+#### Scenario: Tap while Kanban is shown
+
+- **WHEN** the user taps a notification for chat s2 while the Kanban destination is selected
+- **THEN** the Chat destination is selected
+- **AND** chat s2 is open
+
+#### Scenario: Tap while a task is open over the board
+
+- **WHEN** the user taps a notification while a task, board management or the create form is open over the Kanban board
+- **THEN** that screen is dismissed and the Chat destination is selected
+
+#### Scenario: Tap for an unknown chat
+
+- **WHEN** a tapped notification other than a message from Hermes names a chat that is not in the list
+- **THEN** the open chat stays as it was
+- **AND** the message "Could not open that chat." is shown
+
+#### Scenario: Tap made under another profile
+
+- **WHEN** the profile of a notification other than a message from Hermes differs from the profile currently shown
+- **THEN** the open chat stays as it was
+- **AND** the message "Could not open that chat." is shown
+
+#### Scenario: Tap while the list is loading
+
+- **WHEN** the user taps a notification for chat s2 while the chat list is still loading
+- **THEN** chat s2 is selected as soon as the list has loaded
+
+#### Scenario: Tap while another screen is open
+
+- **WHEN** the user taps a notification for chat s2 while a secondary screen such as Profiles or Bots is open over the chat
+- **THEN** chat s2 is selected
+- **AND** the secondary screen stays open
+
+#### Scenario: Cold start from a notification
+
+- **WHEN** the app was launched by tapping a notification for chat s2
+- **THEN** chat s2 is selected once the list has loaded
+
+#### Scenario: Tap on a kept unsent reply from another profile
+
+- **WHEN** the profile of a "Reply not sent" notification that holds a kept text differs from the profile currently shown
+- **THEN** the profile is switched and the chat opens with the text in the composer, never sent
+
 ## ADDED Requirements
 
 ### Requirement: Inline reply to a finished reply
@@ -101,7 +156,7 @@ The answer to an inline reply SHALL arrive as the notifications this spec alread
 #### Scenario: Prompt folded into a running turn
 
 - **WHEN** Hermes steers or redirects the prompt into a turn already running
-- **THEN** the reply counts as sent, the chat is recorded as running, and no automatic continuation turn is announced as the answer
+- **THEN** the reply counts as sent, nothing is recorded as running and nothing is announced for it, and the answer is seen when the chat is opened
 
 ### Requirement: Reply not sent
 
@@ -124,7 +179,7 @@ When Hermes cannot have received the prompt (nobody signed in, the stored sessio
 
 ### Requirement: Reply that may have been sent
 
-Once `prompt.submit` was written without an answer, the system SHALL NOT resend. Whatever ends the work after that point, whether a lost connection, a timeout, a headless runtime that reports unreachable, signed out or locked, a stream that ends with no acknowledgement or a hand-off that reports nothing in time, SHALL post "Couldn't confirm your reply was sent. Open Hermes to check." without the text, and keep no text.
+Once `prompt.submit` was written without an answer (a session reclaimed before it was written is not this case), the system SHALL NOT resend. Whatever ends the work after that point, whether a lost connection, a timeout, a headless runtime that reports unreachable, signed out or locked, a stream that ends with no acknowledgement or a hand-off that reports nothing in time, SHALL post "Couldn't confirm your reply was sent. Open Hermes to check." without the text, and keep no text.
 
 #### Scenario: Answer lost
 
@@ -143,7 +198,7 @@ Once `prompt.submit` was written without an answer, the system SHALL NOT resend.
 
 ### Requirement: Typed text is not stored
 
-Typed reply text SHALL be held in memory only while it is sent. Except as "Unsent text can be restored" allows, it SHALL NOT be written to preferences, files, logs, telemetry, breadcrumbs, or a notification's title or body, and SHALL NOT be kept when the reply ended `sent`, `unconfirmed` or `locked`, or signed out.
+Typed reply text SHALL be held in memory only while it is sent. Except as "Unsent text can be restored" allows, it SHALL NOT be written to preferences, files, logs, telemetry, breadcrumbs, or a notification's title or body, and SHALL NOT be kept when the reply ended `sent`, `unconfirmed` or was refused for App Lock, or signed out.
 
 #### Scenario: Reply sent
 
@@ -198,12 +253,12 @@ Sending an inline reply, in either isolate, SHALL run on the headless runtime. A
 
 ### Requirement: An ending is told only when allowed
 
-"Reply not sent", "Couldn't confirm" and "Open Hermes to reply." SHALL be posted only while notifications are on and permitted. App Lock SHALL be read again right before posting; if it is on, the text SHALL be dropped and the ending SHALL be "Open Hermes to reply." under "Hermes". If notifications are off or revoked, nothing SHALL be posted or kept.
+"Reply not sent", "Couldn't confirm" and "Open Hermes to reply." SHALL be posted only while notifications are on and permitted. App Lock SHALL be read again right before posting; if it is on, the text and the chat's title SHALL be dropped (title "Hermes") and the body keeps its meaning, so "Couldn't confirm" stays "Couldn't confirm" and a not-sent ending says "write it again". If notifications are off or revoked, nothing SHALL be posted or kept.
 
 #### Scenario: App Lock turned on while sending
 
 - **WHEN** App Lock turns on after the reply was handed over and before the ending is posted
-- **THEN** the ending carries no title and no text
+- **THEN** the ending is posted under the title "Hermes" with no text, and "Couldn't confirm" stays "Couldn't confirm"
 
 #### Scenario: Permission revoked
 
