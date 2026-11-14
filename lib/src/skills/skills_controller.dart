@@ -45,7 +45,11 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
   String _query = '';
   SkillFilter _filter = SkillFilter.all;
   int _generation = 0;
-  final _toggles = <String, Future<bool>>{};
+
+  /// Keyed by profile and skill, so a tap waits behind earlier writes to the
+  /// same skill of the same profile, however often the profile was switched.
+  final _toggles = <(String?, String), Future<bool>>{};
+  final _succeeded = <String>{};
 
   /// Per skill with taps in flight: the value the server last confirmed, and
   /// the newest tap, which alone may put that value back.
@@ -183,7 +187,7 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     _pending.clear();
     _confirmedAt.clear();
     _settled.clear();
-    _toggles.clear();
+    _succeeded.clear();
     return load();
   }
 
@@ -199,9 +203,10 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     _latestToggle[name] = tap;
     _pending[name] = enabled;
     _settled.remove(name);
+    final key = (profile, name);
     _set(name, enabled);
     late final Future<bool> done;
-    done = (_toggles[name] ?? Future<bool>.value(true)).then((_) async {
+    done = (_toggles[key] ?? Future<bool>.value(true)).then((_) async {
       bool ok;
       try {
         await repository.setEnabled(name, enabled, profile: profile);
@@ -211,24 +216,27 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
         _log('toggle', 'error');
         ok = false;
       }
+      if (identical(_toggles[key], done)) unawaited(_toggles.remove(key));
       // A tap made for another profile says nothing about this one.
       if (epoch != _profileEpoch) return ok;
-      if (identical(_toggles[name], done)) unawaited(_toggles.remove(name));
       if (ok) {
         _confirmed[name] = enabled;
         _confirmedAt[name] = _generation;
+        _succeeded.add(name);
       }
       if (_latestToggle[name] == tap) {
         _latestToggle.remove(name);
         _pending.remove(name);
         _confirmedAt.remove(name);
         final confirmed = _confirmed.remove(name)!;
-        _settled[name] = (confirmed, _generation);
+        // A run of failures may still have reached the server, so only a
+        // confirmed write is shielded from a stale reload.
+        if (_succeeded.remove(name)) _settled[name] = (confirmed, _generation);
         if (!ok) _set(name, confirmed);
       }
       return ok;
     });
-    _toggles[name] = done;
+    _toggles[key] = done;
     return done;
   }
 

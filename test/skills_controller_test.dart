@@ -535,6 +535,28 @@ void main() {
     await Future.wait([a, b]);
   });
 
+  test('switching away and back keeps taps on a skill in order', () async {
+    final gate = Completer<FakeResponse>();
+    final sent = <Object?>[];
+    server.onRequest('PUT', '/api/skills/toggle', (r) {
+      sent.add((jsonBody(r)! as Map)['enabled']);
+      return sent.length == 1 ? gate.future : (status: 200, body: {'ok': true});
+    });
+    final c = controller();
+    await c.load();
+
+    final a = c.toggle('zeta', false);
+    await c.selectProfile('home');
+    await c.selectProfile('work');
+    final b = c.toggle('zeta', true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(sent, [false]);
+    gate.complete((status: 200, body: {'ok': true}));
+    await Future.wait([a, b]);
+    expect(sent, [false, true]);
+  });
+
   test('profiles arriving after dispose do not notify', () async {
     final gate = Completer<FakeResponse>();
     server.onRequest('GET', '/api/profiles', (_) => gate.future);
