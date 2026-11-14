@@ -288,21 +288,25 @@ void main() {
       'with no async error', () async {
     final errors = <Object>[];
     await runZonedGuarded(() async {
-      final dictation = DictationController(
-        repository: HermesChatRepository(server.client().raw),
-        connect: ([query = const {}]) => throw StateError('no socket'),
-        recorder: recorder,
-        onTranscript: inserted.add,
-        onDevice: OnDeviceSpeech(),
-        locale: () => 'de-DE',
-      )..configure(profile: 'work', support: _live);
+      try {
+        final dictation = DictationController(
+          repository: HermesChatRepository(server.client().raw),
+          connect: ([query = const {}]) => throw StateError('no socket'),
+          recorder: recorder,
+          onTranscript: inserted.add,
+          onDevice: OnDeviceSpeech(),
+          locale: () => 'de-DE',
+        )..configure(profile: 'work', support: _live);
 
-      await dictation.start();
-      recorder.speak([1, 2, 3]);
-      await pumpEventQueue();
-      await dictation.stop();
+        await dictation.start();
+        recorder.speak([1, 2, 3]);
+        await pumpEventQueue();
+        await dictation.stop();
 
-      expect(inserted, ['from the upload']);
+        expect(inserted, ['from the upload']);
+      } on Object catch (e) {
+        errors.add(e);
+      }
     }, (error, _) => errors.add(error));
     expect(errors, isEmpty);
   });
@@ -314,17 +318,47 @@ void main() {
     recorder = failing;
     final errors = <Object>[];
     await runZonedGuarded(() async {
-      final dictation = controller(support: _uploadOnly);
-      final starting = dictation.start();
-      await pumpEventQueue();
-      unawaited(dictation.cancel());
-      gate.complete();
-      await starting;
-      await pumpEventQueue();
-      expect(inserted, isEmpty);
-      expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+      try {
+        final dictation = controller(support: _uploadOnly);
+        addTearDown(dictation.dispose);
+        final starting = dictation.start();
+        await pumpEventQueue();
+        unawaited(dictation.cancel());
+        gate.complete();
+        await starting;
+        await pumpEventQueue();
+        expect(dictation.phase, DictationPhase.idle);
+        expect(inserted, isEmpty);
+        expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+      } on Object catch (e) {
+        errors.add(e);
+      }
     }, (error, _) => errors.add(error));
     expect(errors, isEmpty);
+  });
+
+  test('a failure while starting ends as failed once, sending nothing, '
+      'with the microphone and lease released', () async {
+    final listened = _ListenedStreamRecorder();
+    recorder = listened;
+    final dictation = controller(support: _uploadOnly);
+    addTearDown(dictation.dispose);
+
+    await dictation.start();
+    await pumpEventQueue();
+    final settled = dictation.whenSettled();
+    await settled;
+
+    expect(dictation.phase, DictationPhase.failed);
+    expect(dictation.lastOutcome, 'failed');
+    expect(
+      trail.recent.where((b) => b.name == 'voice.dictation.ended'),
+      hasLength(1),
+    );
+    expect(inserted, isEmpty);
+    expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+    expect(listened.stops, greaterThan(0));
+    expect(leases().map((l) => l['active']), [true, false]);
   });
 
   test('stops by itself after five minutes', () {
@@ -965,4 +999,18 @@ class _StopFailingRecorder extends FakeVoiceRecorder {
 
   @override
   Future<void> stop() async => throw PlatformException(code: 'stop');
+
+  @override
+  Future<void> dispose() async {}
+}
+
+class _ListenedStreamRecorder extends FakeVoiceRecorder {
+  @override
+  Future<Stream<Uint8List>> start({required int sampleRate}) async {
+    final stream = await super.start(sampleRate: sampleRate);
+    // A single-subscription stream that already has its listener, so the
+    // controller's own listen throws.
+    stream.listen((_) {});
+    return stream;
+  }
 }

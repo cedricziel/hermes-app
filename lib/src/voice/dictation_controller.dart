@@ -243,13 +243,17 @@ class DictationController extends ChangeNotifier {
       unawaited(_partials?.cancel());
       _partials = null;
       _discardPcm();
+      if (_pcm == null) {
+        // The recorder may be open although no listener took its stream.
+        unawaited(_recorder.stop().catchError((Object _) {}));
+      }
       unawaited(_closeMicrophone().catchError((Object _) {}));
       _end(DictationPhase.failed, 'failed');
     }
   }
 
-  /// Everything of [_start] after the permission check; a throw is the
-  /// caller's failure.
+  /// Everything of [_start] after the permission check. Throws are handled
+  /// by [_start].
   Future<void> _begin(int run) async {
     final LiveTranscriber? stream;
     if (_onTheDevice) {
