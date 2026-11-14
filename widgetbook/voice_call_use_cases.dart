@@ -285,7 +285,7 @@ Widget _call(
   CallPhase phase = CallPhase.listening,
   bool muted = false,
   bool sending = false,
-  double amplitude = 0,
+  double? amplitude,
   bool showSpeaker = true,
   VoiceSpeakingHint hint = VoiceSpeakingHint.tapOrTalk,
   String caption = '',
@@ -339,6 +339,14 @@ WidgetbookComponent _viewNode() => WidgetbookComponent(
     WidgetbookUseCase(
       name: 'Listening',
       builder: (c) => _call(c, amplitude: 0.5),
+    ),
+    WidgetbookUseCase(
+      name: 'Listening, no level (shipped)',
+      builder: (c) => _call(c),
+    ),
+    WidgetbookUseCase(
+      name: 'Speaking, no level (shipped)',
+      builder: (c) => _call(c, phase: CallPhase.speaking),
     ),
     WidgetbookUseCase(name: 'Muted', builder: (c) => _call(c, muted: true)),
     WidgetbookUseCase(

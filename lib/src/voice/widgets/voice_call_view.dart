@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -77,7 +79,8 @@ class VoiceCallView extends StatelessWidget {
   /// Taps the orb while Hermes speaks; null leaves the orb inert.
   final VoidCallback? onInterrupt;
 
-  /// A [VoiceCallNotice] for what just happened, above the controls.
+  /// A [VoiceCallNotice] for what just happened. It shares the slot above the
+  /// controls with the caption, so it is always in view.
   final Widget? notice;
 
   /// The call stopped because the user ended it: a check and "Call ended"
@@ -156,19 +159,18 @@ class VoiceCallView extends StatelessWidget {
         '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
     final shown = error ?? caption;
     final connecting = phase == CallPhase.connecting;
-    final top = Column(
+    final showChat = Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: onShowChat,
+        icon: Icon(AppIcons.expandMore.of(context)),
+        label: Text(l10n.voiceCallShowChat),
+      ),
+    );
+    final state = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: onShowChat,
-            icon: Icon(AppIcons.expandMore.of(context)),
-            label: Text(l10n.voiceCallShowChat),
-          ),
-        ),
-        const SizedBox(height: 16),
         Center(
           child: VoiceOrb(
             state: orb,
@@ -208,20 +210,35 @@ class VoiceCallView extends StatelessWidget {
             color: colors.onSurfaceVariant,
           ),
         ),
-        if (shown.isNotEmpty) ...[
-          const SizedBox(height: 16),
+      ],
+    );
+    final words = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (shown.isNotEmpty)
           Text(
             shown,
             textAlign: TextAlign.center,
-            maxLines: 5,
-            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyLarge?.copyWith(
               fontStyle: orb == VoiceOrbState.sending ? FontStyle.italic : null,
             ),
           ),
+        if (notice != null) ...[
+          if (shown.isNotEmpty) const SizedBox(height: 12),
+          notice!,
         ],
-        if (notice != null) ...[const SizedBox(height: 16), notice!],
       ],
+    );
+    // A slot of fixed height right above the controls: what was heard and what
+    // went wrong are always in view, a longer text scrolls inside it, and the
+    // controls never move.
+    Widget slot(double maxHeight) => SizedBox(
+      height: math.min(
+        MediaQuery.textScalerOf(context).scale(24) * 4,
+        maxHeight * 0.22,
+      ),
+      child: SingleChildScrollView(child: Center(child: words)),
     );
     // The controls sit below the scrolling part, so a caption, a notice or a
     // larger text size never moves End.
@@ -292,40 +309,99 @@ class VoiceCallView extends StatelessWidget {
         ],
       ],
     );
+    Widget capped(Widget child, double maxHeight) => ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(child: child),
+    );
+    const sideGutter = EdgeInsets.symmetric(horizontal: 24);
     return SafeArea(
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: LayoutBuilder(
-            builder: (context, box) {
-              // Under a scroll view of its own (the catalog) nothing bounds
-              // the height, so the controls simply follow the content.
-              if (!box.hasBoundedHeight) {
-                return Padding(
+        child: LayoutBuilder(
+          builder: (context, box) {
+            // Under a scroll view of its own (the catalog) nothing bounds the
+            // height, so everything simply follows the content.
+            if (!box.hasBoundedHeight) {
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [top, const SizedBox(height: 24), bottom],
+                    children: [
+                      showChat,
+                      const SizedBox(height: 16),
+                      state,
+                      const SizedBox(height: 16),
+                      words,
+                      const SizedBox(height: 24),
+                      bottom,
+                    ],
                   ),
-                );
-              }
-              return Column(
+                ),
+              );
+            }
+            if (box.maxHeight < 600) {
+              // Short windows (a phone on its side): the state on the left,
+              // what was heard and the controls on the right, so the state
+              // word is never below the fold.
+              return Row(
                 children: [
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                      child: top,
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 12, 8),
+                        child: state,
+                      ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                    child: bottom,
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12, right: 12),
+                          child: showChat,
+                        ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 8,
+                            ),
+                            child: Center(child: words),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 24, 12),
+                          child: capped(bottom, box.maxHeight * 0.65),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               );
-            },
-          ),
+            }
+            return ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Column(
+                children: [
+                  Padding(padding: sideGutter, child: showChat),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                      child: state,
+                    ),
+                  ),
+                  Padding(padding: sideGutter, child: slot(box.maxHeight)),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                    child: capped(bottom, box.maxHeight * 0.5),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
