@@ -361,7 +361,7 @@ void main() {
     testWidgets('Usage and Update open with the controller above them', (
       tester,
     ) async {
-      server.on('GET', '/api/analytics/usage', usage30());
+      server.on('GET', '/api/analytics/usage', usage30(today: DateTime.now()));
       await pump(tester);
       await tester.tap(find.text('Usage'));
       await tester.pump(const Duration(milliseconds: 400));

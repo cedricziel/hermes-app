@@ -319,6 +319,7 @@ class _UsageChartState extends State<UsageChart>
           xLabelScaler: axisScaler,
           barColor: muted,
           selectedColor: scheme.primary,
+          outlineColor: scheme.onSurface,
           gridColor: scheme.outlineVariant,
           baselineColor: scheme.outline,
           onPick: _select,
@@ -482,6 +483,7 @@ class UsageChartPlotPainter extends CustomPainter {
     required this.xLabelScaler,
     required this.barColor,
     required this.selectedColor,
+    required this.outlineColor,
     required this.gridColor,
     required this.baselineColor,
     required this.onPick,
@@ -500,6 +502,7 @@ class UsageChartPlotPainter extends CustomPainter {
   final TextScaler xLabelScaler;
   final Color barColor;
   final Color selectedColor;
+  final Color outlineColor;
   final Color gridColor;
   final Color baselineColor;
   final ValueChanged<int> onPick;
@@ -522,15 +525,6 @@ class UsageChartPlotPainter extends CustomPainter {
         ..strokeWidth = 1,
     );
 
-    // The selected day's whole column is tinted, so it reads at a glance
-    // even when its own bar is short or empty.
-    if (selected >= 0 && selected < values.length) {
-      canvas.drawRect(
-        Rect.fromLTWH(selected * slot, topPad, slot, plotHeight),
-        Paint()..color = selectedColor.withValues(alpha: 0.12),
-      );
-    }
-
     final barWidth = (slot * 0.62).clamp(2.0, 24.0).toDouble();
     final grow = Curves.easeOut.transform(rise.value);
     for (var i = 0; i < values.length; i++) {
@@ -547,6 +541,27 @@ class UsageChartPlotPainter extends CustomPainter {
           const Radius.circular(2),
         ),
         paint,
+      );
+    }
+
+    // The selected day's column is outlined, so it reads at a glance even
+    // when its own bar is short or empty, and without relying on colour: the
+    // 2 px line is the text colour, far above 3:1 on the plot in both themes.
+    if (selected >= 0 && selected < values.length) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            selected * slot + 1,
+            topPad - 1,
+            slot - 2,
+            plotHeight + 2,
+          ),
+          const Radius.circular(4),
+        ),
+        Paint()
+          ..color = outlineColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
       );
     }
 
@@ -572,6 +587,7 @@ class UsageChartPlotPainter extends CustomPainter {
       old.xLabelScaler != xLabelScaler ||
       old.barColor != barColor ||
       old.selectedColor != selectedColor ||
+      old.outlineColor != outlineColor ||
       old.gridColor != gridColor ||
       old.baselineColor != baselineColor;
 

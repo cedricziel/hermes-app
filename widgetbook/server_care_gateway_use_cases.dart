@@ -229,6 +229,22 @@ get _rowStates => [
       buttons: [_tryAgain(c)],
     ),
   ),
+  (
+    // A child that exited non-zero: the last five lines of its log, as Hermes
+    // wrote them, in place of the generic sentence.
+    'Exited, five-line log tail',
+    true,
+    (c) => GroupedActionStatus(
+      phase: GroupedActionPhase.failed,
+      text:
+          'hermes gateway restart: stopping gateway (pid 4321)\n'
+          'hermes gateway restart: waiting for the old process to exit\n'
+          'hermes gateway restart: old process did not exit after 30 s\n'
+          'hermes gateway restart: sending SIGKILL\n'
+          "hermes gateway restart: error: couldn't remove the lock file",
+      buttons: [_tryAgain(c)],
+    ),
+  ),
 ];
 
 WidgetbookComponent _gatewayRow() => WidgetbookComponent(
@@ -243,6 +259,11 @@ WidgetbookComponent _gatewayRow() => WidgetbookComponent(
       name: "Refused, largest text",
       builder: (c) =>
           _largest(_row(c, restart: true, status: _rowStates[8].$3(c))),
+    ),
+    WidgetbookUseCase(
+      name: 'Exited, five-line log tail, largest text',
+      builder: (c) =>
+          _largest(_row(c, restart: true, status: _rowStates[10].$3(c))),
     ),
     WidgetbookUseCase(
       name: "Couldn't confirm, largest text",

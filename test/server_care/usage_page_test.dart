@@ -14,6 +14,7 @@ import 'package:hermes_app/src/server_care/widgets/usage_chart.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_day_list.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -31,7 +32,7 @@ void main() {
     trail = BreadcrumbTrail();
     server = FakeHermesServer()
       ..on('GET', '/api/status', statusHealthy())
-      ..on('GET', '/api/analytics/usage', usage30());
+      ..on('GET', '/api/analytics/usage', usage30(today: DateTime.now()));
     care = ServerCareController(
       repository: ServerCareRepository(server.client()),
       profile: 'default',
@@ -177,7 +178,7 @@ void main() {
     );
     await pump(tester);
     expect(find.text("Can't reach Hermes"), findsOneWidget);
-    server.on('GET', '/api/analytics/usage', usage30());
+    server.on('GET', '/api/analytics/usage', usage30(today: DateTime.now()));
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
     expect(find.text("Can't reach Hermes"), findsNothing);
@@ -201,7 +202,7 @@ void main() {
       return (
         status: 200,
         body: request.queryParameters['days'] == 7
-            ? usage30()
+            ? usage30(today: DateTime.now())
             : {'daily': [], 'totals': {}},
       );
     });
@@ -235,8 +236,12 @@ void main() {
     tester,
   ) async {
     await pump(tester);
-    // 12 Nov is the newest day with tokens in the fixture; today is empty.
-    expect(find.textContaining('12 Nov · '), findsOneWidget);
+    // The newest day with tokens in the fixture is 2 days back; today is empty.
+    final newest = DateFormat(
+      'd MMM',
+      'en',
+    ).format(DateTime.now().subtract(const Duration(days: 2)));
+    expect(find.textContaining('$newest · '), findsOneWidget);
     expect(find.textContaining('0 tokens · 0 conversations'), findsNothing);
   });
 
