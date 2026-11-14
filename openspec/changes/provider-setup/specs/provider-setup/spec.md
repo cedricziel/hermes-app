@@ -142,13 +142,19 @@ Before saving, the app SHALL check the key with `POST /api/providers/validate` (
 
 ### Requirement: Key save failures
 
-A refusal of `PUT /api/env` SHALL show Hermes' reason and SHALL NOT be retried automatically. A save whose answer is lost SHALL NOT be resent; the app SHALL read the providers again. A replacement SHALL count as saved only when the refreshed key's last four characters match the submitted key's; otherwise the app SHALL say "Couldn't tell whether the key was saved. Check the list, then try again."
+A refusal of `PUT /api/env` SHALL show Hermes' reason and SHALL NOT be retried automatically. A save whose answer is lost SHALL NOT be resent; the app SHALL read the providers again. A replacement SHALL always stay unknown after a lost answer, since the server's data cannot identify the submitted key, and the app SHALL say "Couldn't tell whether the new key was saved. Paste it again to be sure."
 
 #### Scenario: Replacement answer lost
 
 - **GIVEN** OpenRouter is connected with a key ending in "4f2a"
 - **WHEN** the answer to a replacement ending in "9c1d" is lost and the re-read still shows "4f2a"
-- **THEN** the app says "Couldn't tell whether the key was saved. Check the list, then try again." and does not report success
+- **THEN** the app says "Couldn't tell whether the new key was saved. Paste it again to be sure." and does not report success
+
+#### Scenario: Replacement with the same last four characters
+
+- **GIVEN** OpenRouter is connected with a key ending in "4f2a"
+- **WHEN** the answer to a replacement that also ends in "4f2a" is lost and the re-read shows "4f2a"
+- **THEN** the outcome stays unknown and the app asks the person to paste the new key again
 
 #### Scenario: Locked key
 
@@ -282,9 +288,15 @@ The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for 
 
 #### Scenario: Nous moved the default itself
 
-- **GIVEN** a profile still on the free tier's route
-- **WHEN** a Nous Portal sign-in is approved and the poll answer carries `model`
+- **GIVEN** a profile whose default before the sign-in was the free tier's model
+- **WHEN** a Nous Portal sign-in is approved and the re-read default differs from it
 - **THEN** the step reads "New chats use <model>" with Change, and nothing else is saved
+
+#### Scenario: Nous poll names the unchanged default
+
+- **GIVEN** a profile whose default is a model the person chose
+- **WHEN** a plain Nous Portal sign-in is approved and the poll answer's `model` is that same default
+- **THEN** the step offers Nous' recommended model and "Keep <current model>", and nothing is saved until the person chooses
 
 #### Scenario: Expensive model
 

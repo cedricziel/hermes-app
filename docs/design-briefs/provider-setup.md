@@ -92,7 +92,7 @@ Principles for this feature:
 | Saved, unchecked      | Default-model step shows a note at top: "Saved. Your first chat will show whether the key works."                                               |
 | Saved, couldn't reach | Note: "Saved, but Hermes couldn't reach <provider> to check it."                                                                                                                |
 | Refused               | Inline error with Hermes' reason (e.g. the administrator lock); Save stays enabled for another key.                                                                             |
-| Unknown outcome       | "Couldn't tell whether the key was saved. Check the list, then try again." and the list re-reads behind it.                                                                     |
+| Unknown outcome       | First key: "Couldn't tell whether the key was saved. Check the list, then try again." Replacement: always "Couldn't tell whether the new key was saved. Paste it again to be sure." The list re-reads behind it.                                                                     |
 
 **Keyboard and secrets:** no autocorrect, no suggestions, no autofill, password keyboard on Android; Return = Save on desktop; Escape = Cancel. The eye toggle flips back to hidden when the app leaves the foreground. Never show the key in any other place (no confirmation that repeats it).
 
@@ -148,7 +148,7 @@ Save enabled when Name, Address and a model (found or typed) are present. Saving
 
 **First provider (no default before, recommendation saved):** title "You're ready", body "New chats in <profile> use <model> from <provider>." Buttons: "Start chatting" (primary; closes everything and returns to the chat when it came from the chat, else to the list) and "Change model" (secondary; opens the picker limited to this provider).
 
-**After a Nous sign-in that moved the default:** Hermes reports the model it switched the profile to (only when the profile was on the free tier's route); show "You're ready" with that model and "Change model".
+**After a Nous sign-in that moved the default:** when the profile's default after the sign-in differs from the one before it (Hermes moves it off the free tier's model by itself), show "You're ready" with that model and "Change model". When it is unchanged, show the later-provider step below.
 
 **Later provider:** title "Use <model> for new chats?" body "<provider> recommends it. You're using <current model> now." Buttons: "Use <model>" (primary), "Keep <current model>" (secondary), "Choose another model…" (text).
 
