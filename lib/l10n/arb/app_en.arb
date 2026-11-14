@@ -5180,6 +5180,10 @@
   "@toolsConfirmInstallTitle": {
     "description": "Title of the question asked before switching on a tool that may start an installer on the server."
   },
+  "toolsConfirmInstallsExtra": "It may also run an installer on the server.",
+  "@toolsConfirmInstallsExtra": {
+    "description": "Sentence added to the question before switching on a tool whose setup has an install step: the switch may start an installer on the server."
+  },
   "toolsConfirmLocalBody": "Commands will run on the same machine as Hermes, with full access to that machine's files, not in a container.",
   "@toolsConfirmLocalBody": {
     "description": "Body of the question before the Local terminal backend is picked."

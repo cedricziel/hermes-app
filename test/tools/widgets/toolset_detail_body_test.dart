@@ -32,6 +32,7 @@ Widget _body(
   List<Widget> setup = const [],
   Widget? note,
   VoidCallback? onTryAgain,
+  bool open = false,
 }) => SizedBox(
   height: 900,
   child: ToolsetDetailBody(
@@ -40,6 +41,7 @@ Widget _body(
     onTryAgain: onTryAgain,
     note: note,
     setup: setup,
+    namesOpen: open,
   ),
 );
 
@@ -78,6 +80,17 @@ void main() {
       find.text('These are the names you see on tool cards in a chat.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('the opened names start at the left edge, like the title', (
+    t,
+  ) async {
+    await pumpTools(t, _body(_view(), open: true));
+    await t.pumpAndSettle();
+
+    final title = t.getTopLeft(find.text('What\'s inside (2)')).dx;
+    expect(t.getTopLeft(find.text('process')).dx, title);
+    expect(t.getTopLeft(find.text('terminal')).dx, title);
   });
 
   testWidgets('has no risk note for a toolset outside the table and no '

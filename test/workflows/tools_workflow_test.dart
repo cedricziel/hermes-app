@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart' show RequestOptions;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -15,7 +16,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/protected_catalog_auth.dart';
 import '../support/pump_chat.dart' show openSidebarMore;
 import '../support/screenshot_recorder.dart';
-import '../support/workflow_app.dart' show workflowPlatform;
+import '../support/workflow_app.dart' show newAppLock, workflowPlatform;
 import '../tools/tools_screen_fixtures.dart';
 
 /// The Tools screen from the real shell: the entry in the sidebar or the
@@ -80,10 +81,13 @@ void main() {
     await shots.start(tester, size);
     final auth = ProtectedCatalogAuth(server);
     addTearDown(auth.dispose);
+    // A loaded lock: an app whose lock has not loaded is still covered.
+    final lock = await newAppLock(tester);
     await tester.pumpWidget(
       shots.frame(
         withAppProviders(
           auth,
+          lock: lock,
           app(
             const AppShell(),
             brightness: brightness,
@@ -163,6 +167,10 @@ void main() {
     await tester.tap(switchOf(name));
   }
 
+  Iterable<RequestOptions> puts() => server.requests.where(
+    (r) => r.method == 'PUT' && r.path.startsWith('/api/tools/toolsets/'),
+  );
+
   Future<void> scrollToTop(WidgetTester tester) async {
     await tester.drag(
       find.byKey(const Key('tools-list')),
@@ -186,14 +194,22 @@ void main() {
         await tapSwitch(tester, 'todo');
         await tester.pumpAndSettle();
         await scrollToTop(tester);
+        expect(puts().map((r) => r.path), ['/api/tools/toolsets/todo']);
+        expect(find.text('Applies from your next chat.'), findsOneWidget);
         await shots.capture(tester, 'switched');
 
         await tapSwitch(tester, 'terminal');
         await tester.pumpAndSettle();
+        expect(find.text('Let Hermes run commands?'), findsOneWidget);
+        // Nothing is sent while the question is open, and the switch is off.
+        expect(puts(), hasLength(1));
+        expect(tester.widget<ToolsSwitch>(switchOf('terminal')).value, isFalse);
         await shots.capture(tester, 'terminal-question');
 
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
+        expect(find.text('Let Hermes run commands?'), findsNothing);
+        expect(puts(), hasLength(1));
         await shots.capture(tester, 'cancelled');
 
         final text = find.descendant(
@@ -209,6 +225,7 @@ void main() {
         // The detail's own tool names.
         await tester.tap(find.textContaining('What\'s inside'));
         await tester.pumpAndSettle();
+        expect(find.text('process'), findsOneWidget);
         await shots.capture(tester, 'detail-inside');
       });
 
@@ -222,9 +239,12 @@ void main() {
 
         await tapSwitch(tester, 'todo');
         await tester.pump(const Duration(milliseconds: 200));
+        expect(find.text('May have changed. Checking…'), findsOneWidget);
         await shots.capture(tester, 'checking');
 
         await tester.pump(const Duration(seconds: 11));
+        expect(find.textContaining('Couldn\'t confirm.'), findsOneWidget);
+        expect(puts(), hasLength(1));
         await shots.capture(tester, 'couldnt-confirm');
       });
 
@@ -238,6 +258,7 @@ void main() {
           brightness: brightness,
           settle: false,
         );
+        expect(find.text('Loading tools…'), findsOneWidget);
         await shots.capture(tester, 'loading');
         server.on('GET', '/api/tools/toolsets', toolsCatalog());
         gate.complete();
@@ -250,11 +271,15 @@ void main() {
           1000,
         );
         await tester.pumpAndSettle();
+        expect(find.text('You\'re offline.'), findsOneWidget);
+        expect(row('terminal'), findsOneWidget);
         await shots.capture(tester, 'offline');
 
         server.on('GET', '/api/tools/toolsets', {'detail': 'x'}, status: 500);
         await tester.tap(find.text('Try again'));
         await tester.pumpAndSettle();
+        expect(find.text('Couldn\'t load tools.'), findsOneWidget);
+        expect(row('terminal'), findsOneWidget);
         await shots.capture(tester, 'couldnt-load');
 
         server.on('GET', '/api/tools/toolsets', {
@@ -262,10 +287,33 @@ void main() {
         }, status: 404);
         await tester.tap(find.text('Try again'));
         await tester.pumpAndSettle();
+        expect(
+          find.text('This server doesn\'t offer tools settings.'),
+          findsOneWidget,
+        );
         await shots.capture(tester, 'old-server');
       });
     }
   }
+
+  testWidgets('Linux, narrow: a lost answer offers Try again', (tester) async {
+    final shots = ScreenshotRecorder('tools-lost-linux');
+    await pumpScreen(
+      tester,
+      shots,
+      size: phoneSize,
+      platform: TargetPlatform.linux,
+    );
+    loseAnswer(server, 'PUT', '/api/tools/toolsets/todo');
+    holdAnswer(server, 'GET', '/api/tools/toolsets');
+
+    await tapSwitch(tester, 'todo');
+    await tester.pump(const Duration(seconds: 11));
+
+    expect(find.text('Couldn\'t confirm. Try again.'), findsOneWidget);
+    expect(puts(), hasLength(1));
+    await shots.capture(tester, 'couldnt-confirm');
+  });
 
   testWidgets('desktop: an old server has no entry', (tester) async {
     server.on('GET', '/api/tools/toolsets', {

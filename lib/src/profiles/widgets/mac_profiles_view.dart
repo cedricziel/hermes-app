@@ -20,8 +20,8 @@ enum ProfileSection {
   plugins('Plugins', 'Agent plugins and providers', AppIcons.extension),
   mcp('MCP servers', 'Tools from MCP servers', AppIcons.power),
 
-  /// Listed only while the server offers Tools; its words are localized
-  /// where it is drawn.
+  /// Listed only while the server offers Tools. The strings here are never
+  /// shown: the view takes this row's title and detail from the localizations.
   tools('Tools', 'What Hermes can do by itself', AppIcons.wrench),
   helperModels('Helper models', 'Models for side tasks', AppIcons.tune);
 

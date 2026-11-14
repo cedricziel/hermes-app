@@ -45,6 +45,7 @@ class ToolsAvailability extends ChangeNotifier with SafeNotifier {
   var _offered = false;
   var _profileGone = false;
   String? _rowsProfile;
+  String? _requested;
   var _rows = const <Toolset>[];
 
   /// True when the entry should show: the server answered a list, and no
@@ -57,6 +58,10 @@ class ToolsAvailability extends ChangeNotifier with SafeNotifier {
   /// The profile the last answered read was for; null before one.
   String? get profile => _rowsProfile;
 
+  /// The profile the latest read was asked for, answered or not: the one the
+  /// shell wants the entry to open.
+  String? get requestedProfile => _requested;
+
   /// The rows read for [profile]; empty when none were read for it.
   List<Toolset> rowsFor(String profile) =>
       profile == _rowsProfile ? _rows : const [];
@@ -67,6 +72,7 @@ class ToolsAvailability extends ChangeNotifier with SafeNotifier {
 
   Future<ToolsAvailabilityRead> refresh(String profile) async {
     final epoch = ++_epoch;
+    _requested = profile;
     final result = await _repository.forProfile(profile).list();
     if (disposed || epoch != _epoch) return ToolsAvailabilityRead.dropped;
     final ToolsAvailabilityRead read;
@@ -111,6 +117,7 @@ class ToolsAvailability extends ChangeNotifier with SafeNotifier {
     _profileGone = false;
     _rows = const [];
     _rowsProfile = null;
+    _requested = null;
     notifyListeners();
   }
 }

@@ -67,6 +67,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   /// selected and only while the server offers Tools.
   final _tools = <String, ({int on, int total})>{};
   ToolsAvailability? _availability;
+  final _toolsReading = <String>{};
   int _generation = 0;
 
   ChatProfiles get _profiles => widget.profiles;
@@ -110,13 +111,21 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   Future<void> _loadTools(String name, int generation) async {
     final repositories = HermesRepositories.maybeOf(context);
     if (repositories == null || !(_availability?.offered ?? false)) return;
-    final result = await repositories.tools.forProfile(name).list();
+    // One read per profile at a time: a selection, an offer change and a
+    // return from the screen can come together.
+    if (!_toolsReading.add(name)) return;
+    final ToolsResult<ToolsetList> result;
+    try {
+      result = await repositories.tools.forProfile(name).list();
+    } finally {
+      _toolsReading.remove(name);
+    }
     if (!mounted || generation != _generation) return;
-    if (result is ToolsOk<ToolsetList>) {
+    if (result case ToolsOk<ToolsetList>(:final value)) {
       setState(
         () => _tools[name] = (
-          on: result.value.toolsets.where((t) => t.enabled).length,
-          total: result.value.toolsets.length,
+          on: value.toolsets.where((t) => t.enabled).length,
+          total: value.toolsets.length,
         ),
       );
     }

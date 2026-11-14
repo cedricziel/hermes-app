@@ -25,6 +25,17 @@ import 'widgets/tools_difference_sheet.dart';
 import 'widgets/tools_list_footer.dart';
 import 'widgets/tools_target.dart';
 
+/// Whether there is no pull to refresh: on a desktop platform (macOS,
+/// Windows, Linux) or in a window wide enough for the details beside the
+/// list. "Couldn't confirm" then offers Try again.
+bool toolsOnDesktop(BuildContext context) =>
+    const {
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+    }.contains(Theme.of(context).platform) ||
+    isWideLayout(context);
+
 /// The width of the list when the detail sits beside it.
 const double _listPaneWidth = 420;
 
@@ -64,6 +75,11 @@ class _ToolsScreenState extends State<ToolsScreen> {
   AppLockController? _lock;
   String? _selected;
   var _asking = false;
+
+  /// The open question's route and the navigator it is on, to take it down
+  /// when the screen goes or the question is cancelled from outside.
+  Route<dynamic>? _questionRoute;
+  NavigatorState? _questionNavigator;
   var _goneReported = false;
 
   @override
@@ -97,6 +113,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
       // question for it is cancelled.
       _selected = null;
       _goneReported = false;
+      // Cancel first, so the question for the old profile goes with it.
+      _controller.cancel();
       _controller.switchProfile(widget.repository);
       unawaited(_controller.load());
     }
@@ -105,6 +123,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
   @override
   void dispose() {
     _lock?.removeListener(_onLock);
+    _takeQuestionDown();
     _controller
       ..removeListener(_onChanged)
       ..dispose();
@@ -120,10 +139,17 @@ class _ToolsScreenState extends State<ToolsScreen> {
     if (!mounted) return;
     final question = _controller.confirmation;
     if (question != null && !_asking) {
-      unawaited(_ask(question));
+      if (_lock?.covered ?? false) {
+        // App Lock came while the setup was being read: nothing is asked
+        // behind the lock screen.
+        _controller.cancel();
+      } else {
+        unawaited(_ask(question));
+      }
     } else if (question == null && _asking) {
-      // Cancelled from outside (App Lock): take the dialog down too.
-      Navigator.of(context, rootNavigator: true).pop(false);
+      // Cancelled from outside (App Lock, a profile switch): take the dialog
+      // down too.
+      _takeQuestionDown();
     }
     if (_controller.loadState == ToolsLoadState.profileGone && !_goneReported) {
       _goneReported = true;
@@ -131,15 +157,40 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
   }
 
+  /// Removes the open question's route, after the frame: the caller may be
+  /// building or unmounting, where the navigator cannot change.
+  void _takeQuestionDown() {
+    final route = _questionRoute;
+    final navigator = _questionNavigator;
+    _questionRoute = null;
+    _questionNavigator = null;
+    if (route == null || navigator == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (navigator.mounted && route.isActive) navigator.removeRoute(route);
+    });
+  }
+
   Future<void> _ask(ToolsConfirmation question) async {
     final l10n = context.l10n;
     final toolset = question.toolset;
     final text =
-        toolsetConfirmQuestion(l10n, toolset.name, _controller.profile) ??
+        toolsetConfirmQuestion(
+          l10n,
+          toolset.name,
+          _controller.profile,
+          installsSoftware: question.installsSoftware,
+        ) ??
         toolsetInstallQuestion(l10n, toolsetName(l10n, toolset));
     _asking = true;
-    final confirmed = await showToolsetConfirmation(context, text);
+    _questionNavigator = Navigator.of(context, rootNavigator: true);
+    final confirmed = await showToolsetConfirmation(
+      context,
+      text,
+      onRoute: (route) => _questionRoute = route,
+    );
     _asking = false;
+    _questionRoute = null;
+    _questionNavigator = null;
     if (!mounted) return;
     if (confirmed) {
       unawaited(_controller.confirm());
@@ -147,10 +198,6 @@ class _ToolsScreenState extends State<ToolsScreen> {
       _controller.cancel();
     }
   }
-
-  bool _desktop(BuildContext context) =>
-      platformChromeOf(context) == PlatformChrome.macos ||
-      isWideLayout(context);
 
   void _switch(String name, bool on) {
     if (_controller.toolVanished) _controller.dismissVanished();
@@ -221,16 +268,16 @@ class _ToolsScreenState extends State<ToolsScreen> {
     child: Text(MaterialLocalizations.of(context).backButtonTooltip),
   );
 
-  Widget _tryAgain(BuildContext context, {bool filled = false}) {
-    final label = Text(context.l10n.toolsTryAgain);
-    return filled
-        ? OutlinedButton(
-            onPressed: _controller.load,
-            style: toolsButtonStyle(context),
-            child: label,
-          )
-        : TextButton(onPressed: _controller.load, child: label);
-  }
+  Widget _tryAgain(BuildContext context) => TextButton(
+    onPressed: _controller.load,
+    child: Text(context.l10n.toolsTryAgain),
+  );
+
+  Widget _tryAgainOutlined(BuildContext context) => OutlinedButton(
+    onPressed: _controller.load,
+    style: toolsButtonStyle(context),
+    child: Text(context.l10n.toolsTryAgain),
+  );
 
   Widget _body(BuildContext context) {
     final l10n = context.l10n;
@@ -251,11 +298,11 @@ class _ToolsScreenState extends State<ToolsScreen> {
           icon: AppIcons.cloud,
           title: l10n.toolsBannerOfflineTitle,
           detail: l10n.toolsBannerOfflineDetail,
-          action: _tryAgain(context, filled: true),
+          action: _tryAgainOutlined(context),
         ),
         ToolsLoadState.failed || ToolsLoadState.unauthorized => StateMessage(
           title: l10n.toolsBannerLoadFailedTitle,
-          action: _tryAgain(context, filled: true),
+          action: _tryAgainOutlined(context),
         ),
         _ => Center(
           child: Semantics(
@@ -370,7 +417,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
   Widget _list(BuildContext context, {required String? selected}) {
     final l10n = context.l10n;
     final groups = _controller.groups;
-    final desktop = _desktop(context);
+    final desktop = toolsOnDesktop(context);
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     Widget section(String header, List<Toolset> toolsets) => GroupedSection(
       header: header,
@@ -437,9 +484,7 @@ class _ToolsetDetail extends StatelessWidget {
           .firstOrNull;
       if (toolset == null) return const SizedBox.shrink();
       final l10n = context.l10n;
-      final desktop =
-          platformChromeOf(context) == PlatformChrome.macos ||
-          isWideLayout(context);
+      final desktop = toolsOnDesktop(context);
       final started = controller.postSetupStarted != null;
       return ToolsetDetailBody(
         view: toolsetDetailView(

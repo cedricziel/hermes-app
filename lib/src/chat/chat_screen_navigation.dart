@@ -305,8 +305,11 @@ extension _ChatScreenNavigation on _ChatScreenState {
     _closeDrawerIfNarrow();
     final availability = _toolsAvailability;
     // A chat on the server's default profile names none: use the profile the
-    // list was read for.
-    final profile = _chat.profile ?? availability?.profile;
+    // list was last asked for.
+    final profile =
+        _chat.profile ??
+        availability?.requestedProfile ??
+        availability?.profile;
     final tools = profile == null ? null : _tools?.forProfile(profile);
     if (tools == null) return;
     await Navigator.of(context).push(

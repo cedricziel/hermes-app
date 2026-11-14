@@ -71,6 +71,7 @@ class ToolsetDetailBody extends StatelessWidget {
     this.onTryAgain,
     this.note,
     this.setup = const [],
+    this.namesOpen = false,
   });
 
   final ToolsetDetailView view;
@@ -80,6 +81,9 @@ class ToolsetDetailBody extends StatelessWidget {
 
   /// The setup sections, in order, after the risk note.
   final List<Widget> setup;
+
+  /// Starts with the tool names open (the catalog and tests).
+  final bool namesOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -180,6 +184,7 @@ class ToolsetDetailBody extends StatelessWidget {
             footer: l10n.toolsInsideHelper,
             children: [
               DisclosureTile(
+                initiallyExpanded: namesOpen,
                 shape: const Border(),
                 collapsedShape: const Border(),
                 tilePadding: EdgeInsets.symmetric(
@@ -191,6 +196,7 @@ class ToolsetDetailBody extends StatelessWidget {
                   metrics.rowPadding,
                   12,
                 ),
+                expandedAlignment: AlignmentDirectional.centerStart,
                 expandedCrossAxisAlignment: CrossAxisAlignment.start,
                 minTileHeight: toolsTarget(context),
                 title: Text(

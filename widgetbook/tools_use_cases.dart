@@ -651,6 +651,7 @@ Widget _detail(
   bool unconfirmed = false,
   bool showTryAgain = false,
   bool note = false,
+  bool namesOpen = false,
   String? label,
   String? sentence,
 }) {
@@ -672,6 +673,7 @@ Widget _detail(
       ),
       onChanged: (_) {},
       onTryAgain: _noop,
+      namesOpen: namesOpen,
       note: note
           ? AppBanner(
               tone: AppBannerTone.success,
@@ -692,6 +694,16 @@ WidgetbookNode _detailComponent() => WidgetbookComponent(
         c,
         'terminal',
         enabled: true,
+        tools: ['terminal', 'process', 'read_process_log', 'kill_process'],
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Terminal, names open',
+      builder: (c) => _detail(
+        c,
+        'terminal',
+        enabled: true,
+        namesOpen: true,
         tools: ['terminal', 'process', 'read_process_log', 'kill_process'],
       ),
     ),

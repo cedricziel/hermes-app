@@ -51,6 +51,7 @@ void main() {
     VoidCallback? onProfileGone,
     Locale locale = const Locale('en'),
     bool settle = true,
+    ValueNotifier<String>? profile,
   }) async {
     tester.view
       ..physicalSize = size
@@ -76,13 +77,16 @@ void main() {
           .state<NavigatorState>(find.byType(Navigator))
           .push(
             MaterialPageRoute<void>(
-              builder: (_) => ToolsScreen(
-                repository: HermesToolsRepository(
-                  server.client().raw,
-                  profile: 'work',
+              builder: (_) => ValueListenableBuilder<String>(
+                valueListenable: profile ?? ValueNotifier('work'),
+                builder: (_, name, _) => ToolsScreen(
+                  repository: HermesToolsRepository(
+                    server.client().raw,
+                    profile: name,
+                  ),
+                  availability: availability,
+                  onProfileGone: onProfileGone,
                 ),
-                availability: availability,
-                onProfileGone: onProfileGone,
               ),
             ),
           ),
@@ -264,7 +268,7 @@ void main() {
     testWidgets('is German in a German app', (tester) async {
       await pumpTools(tester, locale: const Locale('de'));
 
-      expect(find.text('work · 2 an'), findsOneWidget);
+      expect(find.text('work · 2 eingeschaltet'), findsOneWidget);
       expect(find.text('Einrichtung nötig'), findsWidgets);
     });
   });
@@ -753,6 +757,118 @@ void main() {
       expect(puts(), isEmpty);
       expect(isOn(tester, 'terminal'), isFalse);
     });
+  });
+
+  group('the question and the screen', () {
+    Future<void> openQuestion(WidgetTester tester) async {
+      await tapSwitch(tester, 'terminal');
+      await tester.pumpAndSettle();
+      expect(find.text('Let Hermes run commands?'), findsOneWidget);
+    }
+
+    testWidgets('the dialog goes when the screen is removed, sending nothing', (
+      tester,
+    ) async {
+      await pumpTools(tester);
+      await openQuestion(tester);
+
+      final route = ModalRoute.of(tester.element(find.byType(ToolsScreen)))!;
+      tester.state<NavigatorState>(find.byType(Navigator)).removeRoute(route);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Let Hermes run commands?'), findsNothing);
+      expect(find.byType(ToolsScreen), findsNothing);
+      expect(puts(), isEmpty);
+    });
+
+    testWidgets('the dialog goes when the profile changes, sending nothing', (
+      tester,
+    ) async {
+      final profile = ValueNotifier('work');
+      addTearDown(profile.dispose);
+      await pumpTools(tester, profile: profile);
+      await openQuestion(tester);
+
+      profile.value = 'home';
+      await tester.pumpAndSettle();
+
+      expect(find.text('Let Hermes run commands?'), findsNothing);
+      expect(tester.takeException(), isNull);
+      expect(puts(), isEmpty);
+      expect(
+        server
+            .requestsTo('GET', '/api/tools/toolsets')
+            .last
+            .queryParameters['profile'],
+        'home',
+      );
+    });
+
+    testWidgets('App Lock during the setup read asks nothing', (tester) async {
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(
+          authenticator: FakeDeviceAuthenticator(),
+          coverWhenInactive: true,
+        );
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      await pumpTools(tester, lock: lock);
+      final gate = Completer<void>();
+      server.onRequest('GET', '/api/tools/toolsets/terminal/config', (_) async {
+        await gate.future;
+        return (status: 200, body: plainConfig('terminal'));
+      });
+
+      await tapSwitch(tester, 'terminal');
+      await tester.pump(const Duration(milliseconds: 50));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Let Hermes run commands?'), findsNothing);
+      expect(puts(), isEmpty);
+      expect(isOn(tester, 'terminal'), isFalse);
+    });
+
+    testWidgets('a confirm-level toolset with an install step says so', (
+      tester,
+    ) async {
+      server.on(
+        'GET',
+        '/api/tools/toolsets/terminal/config',
+        installingConfig('terminal'),
+      );
+      await pumpTools(tester);
+
+      await tapSwitch(tester, 'terminal');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('It may also run an installer on the server.'),
+        findsOneWidget,
+      );
+      expect(puts(), isEmpty);
+    });
+
+    for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+      testWidgets('"Couldn\'t confirm" offers Try again on $platform, even '
+          'in a narrow window', (tester) async {
+        await pumpTools(tester, platform: platform);
+        loseAnswer(server, 'PUT', '/api/tools/toolsets/todo');
+        holdAnswer(server, 'GET', '/api/tools/toolsets');
+
+        await tapSwitch(tester, 'todo');
+        await tester.pump(const Duration(seconds: 11));
+
+        expect(find.text('Couldn\'t confirm. Try again.'), findsOneWidget);
+        expect(find.text('Try again'), findsOneWidget);
+        expect(puts(), hasLength(1));
+      });
+    }
   });
 
   group('on a Mac', () {
