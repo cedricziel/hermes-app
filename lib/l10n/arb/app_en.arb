@@ -136,6 +136,138 @@
       }
     }
   },
+  "chatActivityLineAsking": "{count, plural, =1{Asking 1 model} other{Asking {count} models}}",
+  "@chatActivityLineAsking": {
+    "description": "Activity line sentence while a mixture-of-agents turn collects answers from several models. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineAskingUnknown": "Asking models",
+  "@chatActivityLineAskingUnknown": {
+    "description": "Activity line sentence while a mixture-of-agents turn collects answers and the number of models is not known."
+  },
+  "chatActivityLineCombining": "Combining answers",
+  "@chatActivityLineCombining": {
+    "description": "Activity line sentence while a mixture-of-agents turn combines the models' answers."
+  },
+  "chatActivityLineLabel": "Hermes is working: {sentence}. Opens activity.",
+  "@chatActivityLineLabel": {
+    "description": "Accessible name of the activity line without counters. {sentence} is what Hermes is doing.",
+    "placeholders": {
+      "sentence": {
+        "type": "String",
+        "example": "Running 2 processes"
+      }
+    }
+  },
+  "chatActivityLineLabelCounters": "Hermes is working: {sentence}, {counters}. Opens activity.",
+  "@chatActivityLineLabelCounters": {
+    "description": "Accessible name of the activity line with counters. {sentence} is what Hermes is doing, {counters} the spoken counters joined by commas.",
+    "placeholders": {
+      "sentence": {
+        "type": "String",
+        "example": "Running 2 processes"
+      },
+      "counters": {
+        "type": "String",
+        "example": "plan 2 of 5, 1 process running"
+      }
+    }
+  },
+  "chatActivityLinePlan": "Working on the plan",
+  "@chatActivityLinePlan": {
+    "description": "Activity line sentence while a plan has an open task and nothing else reports what Hermes is doing."
+  },
+  "chatActivityLinePlanCounter": "{done}/{total}",
+  "@chatActivityLinePlanCounter": {
+    "description": "Counter chip on the activity line: plan tasks done out of all tasks.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "2"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLinePlanCounterLabel": "plan {done} of {total}",
+  "@chatActivityLinePlanCounterLabel": {
+    "description": "Spoken form of the plan counter on the activity line.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "2"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineProcesses": "{count, plural, =1{Process running} other{Running {count} processes}}",
+  "@chatActivityLineProcesses": {
+    "description": "Activity line sentence while background processes run. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineProcessesCounter": "{count, plural, =1{1 running} other{{count} running}}",
+  "@chatActivityLineProcessesCounter": {
+    "description": "Counter chip on the activity line: how many background processes run.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineProcessesCounterLabel": "{count, plural, =1{1 process running} other{{count} processes running}}",
+  "@chatActivityLineProcessesCounterLabel": {
+    "description": "Spoken form of the processes counter on the activity line.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineReferencesCounter": "{done}/{total}",
+  "@chatActivityLineReferencesCounter": {
+    "description": "Counter chip on the activity line: models that have answered out of all asked in a mixture-of-agents turn.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineReferencesCounterLabel": "{done} of {total} models answered",
+  "@chatActivityLineReferencesCounterLabel": {
+    "description": "Spoken form of the models counter on the activity line.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineRestoring": "Restoring the chat…",
+  "@chatActivityLineRestoring": {
+    "description": "Activity line sentence while a chat is being restored on the server."
+  },
   "chatActivityNeedsYouBillingCopy": "Copy code",
   "@chatActivityNeedsYouBillingCopy": {
     "description": "Button on the Needs-you card that copies the billing verification code."
