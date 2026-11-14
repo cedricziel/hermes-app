@@ -447,8 +447,11 @@ extension _ChatControllerHistory on ChatController {
   }
 
   /// Why Hermes stores a candidate answer and goes on with the turn: a stop
-  /// gate (verify-on-stop, the `pre_verify` hook, the kanban terminal-tool
-  /// guard) keeps the answer as an assistant row and nudges the model again.
+  /// gate (verify-on-stop, the `pre_verify` hook) keeps the answer as an
+  /// assistant row and nudges the model again. The kanban guard's value is
+  /// listed defensively: Hermes does not store its candidate. A turn that
+  /// ended on such a row (budget spent, interrupted) looks the same, so a
+  /// failed turn then keeps its error copy until the chat is read again.
   static const _continuingFinishReasons = {
     'verification_required',
     'verify_hook_continue',
