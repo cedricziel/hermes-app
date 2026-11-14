@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_toggled.dart';
+import '../../widgets/row_actions.dart';
 import '../chat_models.dart';
 import 'tool_call_card.dart'
     show ToolCallStatusIcon, ToolCallTime, formatToolDuration;
@@ -19,9 +23,14 @@ class SubagentGroupCard extends StatefulWidget {
     super.key,
     required this.subagents,
     this.initiallyOpen = false,
+    this.onShowDetails,
   });
 
   final List<Subagent> subagents;
+
+  /// Opens an agent's details in the Activity panel, given its id. Null where
+  /// the chat has no panel (the quick panel): the rows stay read-only.
+  final ValueChanged<String>? onShowDetails;
 
   /// Starts with the details showing, as the catalog does to show them.
   final bool initiallyOpen;
@@ -45,7 +54,10 @@ class _SubagentGroupCardState extends State<SubagentGroupCard> {
   Widget build(BuildContext context) {
     final subagents = widget.subagents;
     if (subagents.length == 1) {
-      return SubagentCard(subagent: subagents.single);
+      return SubagentCard(
+        subagent: subagents.single,
+        onShowDetails: widget.onShowDetails,
+      );
     }
 
     final running = subagents.where((s) => s.status == SubagentStatus.running);
@@ -118,7 +130,7 @@ class _SubagentGroupCardState extends State<SubagentGroupCard> {
               ),
             ),
           ),
-          if (_open) ..._tree(subagents),
+          if (_open) ..._tree(subagents, widget.onShowDetails),
         ],
       ),
     );
@@ -130,7 +142,10 @@ bool _waiting(List<Subagent> subagents) =>
 
 /// The flat list as the spawn tree renders: children grouped beneath their
 /// parent, a child deeper in the tree indented one more level.
-List<Widget> _tree(List<Subagent> subagents) {
+List<Widget> _tree(
+  List<Subagent> subagents,
+  ValueChanged<String>? onShowDetails,
+) {
   final known = {for (final s in subagents) s.id};
   final byParent = <String, List<Subagent>>{};
   for (final s in subagents) {
@@ -149,7 +164,7 @@ List<Widget> _tree(List<Subagent> subagents) {
       children: [
         Padding(
           padding: EdgeInsets.only(left: 10.0 + depth * 16),
-          child: SubagentCard(subagent: s),
+          child: SubagentCard(subagent: s, onShowDetails: onShowDetails),
         ),
         for (final child in byParent[s.id] ?? const [])
           buildNode(child, depth + 1),
@@ -172,9 +187,13 @@ String _totalDuration(List<Subagent> subagents) {
 /// One delegated child: what it was asked to do, what it is doing right now
 /// while it runs, and what it delivered once it finished.
 class SubagentCard extends StatelessWidget {
-  const SubagentCard({super.key, required this.subagent});
+  const SubagentCard({super.key, required this.subagent, this.onShowDetails});
 
   final Subagent subagent;
+
+  /// Makes the row open the agent's details: a chevron, the whole row as the
+  /// target, and "Show Details" in the Mac context menu.
+  final ValueChanged<String>? onShowDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +208,7 @@ class SubagentCard extends StatelessWidget {
       SubagentStatus.failed ||
       SubagentStatus.interrupted => s.summary ?? s.goal,
     };
-    return Container(
+    final row = Container(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,6 +272,50 @@ class SubagentCard extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+    final open = onShowDetails;
+    if (open == null) return row;
+    final l10n = context.l10n;
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    return RowActions(
+      title: s.goal,
+      actions: [
+        RowAction(
+          label: mac
+              ? l10n.chatSubagentsMenuShowDetails
+              : l10n.chatSubagentsActionShowDetails,
+          icon: AppIcons.chevronRight,
+          onPressed: () => open(s.id),
+        ),
+      ],
+      child: Semantics(
+        button: true,
+        hint: l10n.chatSubagentsRowShowDetailsHint,
+        child: InkWell(
+          onTap: () => open(s.id),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: switch (platformChromeOf(context)) {
+                PlatformChrome.material => 48,
+                PlatformChrome.ios => kAppleMinTapTarget,
+                PlatformChrome.macos => 28,
+              },
+            ),
+            child: Row(
+              children: [
+                Expanded(child: row),
+                ExcludeSemantics(
+                  child: AppIcon(
+                    AppIcons.chevronRight,
+                    size: 16,
+                    color: subtle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

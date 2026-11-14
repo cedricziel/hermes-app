@@ -5,11 +5,16 @@ Future<T?> showAppDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
 }) {
-  if (Theme.of(context).platform != TargetPlatform.macOS) {
-    return showAdaptiveDialog<T>(context: context, builder: builder);
-  }
   final navigator = Navigator.of(context, rootNavigator: true);
   final themes = InheritedTheme.capture(from: context, to: navigator.context);
+  if (Theme.of(context).platform != TargetPlatform.macOS) {
+    // The dialog sits under the root navigator: carry the caller's theme
+    // (and its platform) into it, so it is drawn as the caller would.
+    return showAdaptiveDialog<T>(
+      context: context,
+      builder: (dialog) => themes.wrap(Builder(builder: builder)),
+    );
+  }
   return navigator.push<T>(
     RawDialogRoute<T>(
       barrierDismissible: true,
