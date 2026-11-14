@@ -42,40 +42,42 @@ You need your own Hermes Agent dashboard to sign in (see [Getting started](#gett
 
 ## Windows and Linux
 
-Both ship as release downloads (a Linux tarball and `.deb`, an unsigned Windows
-x64 zip) and run the chat, the Kanban board, schedules, memory and the settings
-pages as on the Mac. They get the phone and Mac extras only where a plugin and
-the code allow it. CI builds both and packages Linux, but does not launch either
-app, so this table is read from the code, not observed: `pubspec.yaml`, the
-plugins' platform lists and the platform checks in `lib/`. The Windows column is
-marked "from code, not run" because Windows cannot be run where this was
-written.
+Both ship as [release downloads](https://github.com/cedricziel/hermes-app/releases)
+(a Linux tarball and `.deb`, an unsigned Windows x64 zip) and run the chat, the
+Kanban board, schedules, memory and the settings pages as on the Mac. They get
+the phone and Mac extras only where a plugin and the code allow it.
+
+Both columns are read from the code, not run: `pubspec.yaml`, the plugins'
+platform lists and the platform checks in `lib/`. CI builds both and packages
+Linux but launches neither app. The Windows column is marked "from code, not
+run" all the same.
 
 | Feature | Windows (from code, not run) | Linux | Why |
 | --- | --- | --- | --- |
 | Sign-in (OIDC and password) | Works | Works | The loopback and PKCE flow is plain `dart:io`; the page opens in the default browser through `url_launcher`. |
-| Keeping you signed in | Works | Partly | Windows encrypts the tokens with a key in Credential Manager. Linux needs a running Secret Service (GNOME Keyring or KWallet) through `libsecret`; without one, saving the session is expected to fail. |
+| Keeping you signed in | Works | Partly | Windows encrypts the tokens with a key in Credential Manager. Linux needs a running Secret Service (GNOME Keyring or KWallet) through `libsecret`; without one, saving the session is expected to fail. The durable send queue keeps its key in the same store. |
 | Chat, threads, profiles, Kanban, schedules, memory, plugins | Works | Works | Shared Dart code and the server's API. |
-| Attachments: file picker, drag and drop, paste | Works | Works | `file_picker`, `desktop_drop` and `pasteboard` cover both; photo library and camera are phone-only. |
-| Voice messages: playback | Works | Works | `media_kit`. On Linux it needs `libmpv2` (the `.deb` declares it). |
-| Dictation (speech to text) | Works | Partly | The microphone goes through `record` to the server's transcription. On Linux that plugin also needs `parecord`, `pactl` and `ffmpeg`; the `.deb` declares only `pulseaudio-utils`. There is no on-device recognizer. |
+| Attachments: drag and drop, paste | Works | Works | `desktop_drop` and `pasteboard`; photo library and camera are phone-only. |
+| Attachments: file picker, Save as | Works | Partly | On Linux `file_picker` uses `xdg-desktop-portal`, which must be installed. |
+| Voice messages: playback | Works | Works | `media_kit`; on Linux it needs `libmpv2` (`libmpv1` on Ubuntu 22.04), which the `.deb` declares. CI plays Ogg/Opus, MP3 and more through libmpv on Linux (`native_voice_player_test`). |
+| Voice messages: recording | Works | Works | Same `record` stream as dictation; needs PulseAudio or PipeWire-pulse on Linux. |
+| Dictation (speech to text) | Works | Works | The microphone goes through `record` (16 kHz PCM stream) to the server's transcription. On Linux that is `parecord` and `pactl` from `pulseaudio-utils`, which the `.deb` declares. There is no on-device recognizer. |
 | Voice calls | Not available | Not available | Hands-free calls are iOS only. |
 | Bot Screen viewer and takeover | Works | Works | The viewer and its keyboard input have Windows and Linux paths. |
 | Notifications | Not available | Not available | The code turns them off outside iOS, macOS and Android. The plugin has Windows and Linux backends that are linked in but not used. |
-| App Lock | Partly | Not available | `local_auth` covers Windows Hello but has no Linux backend. The app locks when the window is hidden, not when it loses focus. |
+| App Lock | Partly | Not available | `local_auth` covers Windows Hello, but the dialog's text names Face ID and Touch ID only. It has no Linux backend. |
 | Opening `hermes://` links | Not available | Not available | The link listener only starts on iOS, macOS and Android, and neither package registers the scheme. |
-| Receive shared files and text | Not available | Not available | The share extension is iOS only, the inbox macOS only. Drag and drop and paste still work. |
-| Share or drag files out | Not available | Not available | Drag out is macOS only; opening a file uses the system default app. |
-| Background refresh and alerts | Not available | Not available | `workmanager` has no Windows or Linux support and the scheduler runs on phones only. Nothing is announced while the app is closed. |
+| Receive shared files and text | Not available | Not available | Receiving works on iOS, Android and macOS. Drag and drop and paste still work. |
+| Drag files out | Not available | Not available | Drag out is macOS only. Opening a file uses the system default app. |
+| Background refresh and alerts | Not available | Not available | `workmanager` has no Windows support; Linux only through an experimental, unendorsed `workmanager_linux` the app does not use. Nothing is announced while the app is closed. |
 | Widgets, quick actions, Spotlight, Live Activities, Watch | Not available | Not available | Apple and Android surfaces. |
 | Quick panel, menu bar item, Dock menu, conversation windows | Not available | Not available | macOS only. |
 | Keyboard navigation (back and forward) | Works | Works | The desktop shortcuts are enabled for both. |
-| Update check | Works | Works | Compares with the latest GitHub release and offers the release page; the app does not update itself. |
+| Update check | Works | Works | Compares with the latest full (not pre-release) GitHub release and offers its page; the app does not update itself. |
 | Telemetry (off unless configured) | Works | Works | Shared Dart code. |
 
-The Linux release job builds a bundle on every pull request but the app is not
-launched there. [docs/architecture/windows-linux.md](docs/architecture/windows-linux.md)
-has the evidence for each row and the gaps that are cheap to close.
+[docs/architecture/windows-linux.md](docs/architecture/windows-linux.md) has the
+evidence for each row and the gaps that are cheap to close.
 
 ## Screenshots
 
