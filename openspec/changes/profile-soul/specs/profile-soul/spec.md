@@ -22,7 +22,7 @@ The feature SHALL use only `GET /api/profiles/{name}/soul` and `PUT /api/profile
 
 ### Requirement: Entry points
 
-The app SHALL open Personality from a row after Memory in the chat sidebar (the chat's profile) and from a section after Memory on the Mac Profiles page (the selected profile). It SHALL never use the server's active profile.
+The app SHALL open Personality from a row after Memory in the chat sidebar (the chat's profile) and from a section row after Memory on the Mac Profiles page (the selected profile), as a pushed page with a back bar on every platform. It SHALL never use the server's active profile.
 
 #### Scenario: Phone
 
