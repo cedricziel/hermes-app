@@ -61,10 +61,7 @@ class UpdateReceiptSummary {
       preSha: readString(summary['pre_sha']),
       postSha: readString(summary['post_sha']),
       userAction: followup(summary['user_action']),
-      followups: [
-        for (final f in (summary['followups'] as List? ?? const []))
-          ?followup(f),
-      ],
+      followups: [for (final f in readMaps(summary['followups'])) ?followup(f)],
     );
   }
 

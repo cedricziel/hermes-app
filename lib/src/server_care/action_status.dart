@@ -37,7 +37,7 @@ class ActionStatus {
   final Object? receipt;
 }
 
-final _startHeader = RegExp(r'^=== .+ started .* ===$');
+final _startHeader = RegExp(r'^=== .+ started .* ===\s*$');
 
 /// An action's log is append-only and every run starts with a header, so the
 /// lines of the latest run are those after the last header.

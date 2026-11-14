@@ -191,7 +191,12 @@ class ServerCareRepository {
       // A page or a proxy's error text answered where JSON was expected: the
       // route is not here.
       if (data is! Map && data is! List) return const CareUnsupported();
-      final value = parse(data);
+      final T? value;
+      try {
+        value = parse(data);
+      } on Object {
+        return const CareFailed(CareFailureKind.unreadable);
+      }
       if (value == null) {
         return const CareFailed(CareFailureKind.unreadable);
       }

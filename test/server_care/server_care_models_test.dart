@@ -197,6 +197,13 @@ void main() {
       expect(partial.followups.single.step, 'restart');
     });
 
+    test('ill-typed followups never throw', () {
+      final r = UpdateReceiptSummary.parse({
+        'summary': {'outcome': 'success', 'followups': 'none'},
+      })!;
+      expect(r.followups, isEmpty);
+    });
+
     test('an unknown outcome is other; no summary is null', () {
       expect(
         UpdateReceiptSummary.parse({
@@ -226,6 +233,17 @@ void main() {
       expect(s.running, isFalse);
       expect(s.exitCode, isNull);
       expect(s.lines, ['a']);
+    });
+
+    test('a header with a trailing carriage return is recognised', () {
+      expect(
+        linesOfLatestRun([
+          'a',
+          '=== doctor started 2026-11-14 09:00:00 ===\r',
+          'b',
+        ]),
+        ['b'],
+      );
     });
 
     test('a header with an action id is recognised', () {
@@ -281,6 +299,11 @@ void main() {
       expect(r.unknownLines, 1);
       expect(r.fixes, ["Re-run 'hermes setup telegram'", 'Migrate the config']);
       expect(r.allPassed, isFalse);
+    });
+
+    test('an emoji-presentation warning marker leaves no invisible text', () {
+      final r = DoctorReport.parse(['◆ A', '  ⚠\uFE0F Low disk']);
+      expect(r.sections.single.items.single.text, 'Low disk');
     });
 
     test('all passed', () {

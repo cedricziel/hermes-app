@@ -95,7 +95,10 @@ class DoctorReport {
     }
 
     for (final raw in run) {
-      final line = raw.replaceAll(_ansi, '').trimRight();
+      final line = raw
+          .replaceAll(_ansi, '')
+          .replaceAll(RegExp('[\u200D\uFE0E\uFE0F]'), '')
+          .trimRight();
       final text = line.trim();
       if (text.isEmpty || _rule.hasMatch(text)) continue;
       if (text.toLowerCase().contains('all checks passed')) {
