@@ -535,6 +535,26 @@ void main() {
     await Future.wait([a, b]);
   });
 
+  test('a run of failed taps does not shield a skill from a reload', () async {
+    server.on('PUT', '/api/skills/toggle', {'detail': 'x'}, status: 500);
+    final c = controller();
+    await c.load();
+
+    final slow = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/skills', (_) => slow.future);
+    final reload = c.load(quiet: true);
+    expect(await c.toggle('zeta', false), isFalse);
+    expect(c.skill('zeta')!.enabled, isTrue);
+    // The failed request may still have reached the server.
+    slow.complete((
+      status: 200,
+      body: [skillRow(name: 'zeta', category: 'devops', enabled: false)],
+    ));
+    await reload;
+
+    expect(c.skill('zeta')!.enabled, isFalse);
+  });
+
   test('switching away and back keeps taps on a skill in order', () async {
     final gate = Completer<FakeResponse>();
     final sent = <Object?>[];
