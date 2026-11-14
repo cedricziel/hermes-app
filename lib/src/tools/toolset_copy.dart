@@ -1,7 +1,7 @@
 /// The words the Tools screens use for built-in toolsets: one sentence and
 /// one name for each, what a risk kind means, and the question asked before
-/// a toolset is switched on. Only strings and pure functions live here; the
-/// dialogs that show the questions are built where they are used.
+/// a toolset is switched on, or a setup step runs. Only strings and pure
+/// functions live here; `widgets/tools_confirmation.dart` shows the questions.
 ///
 /// Names unverified: only the names in the risk table (`toolset_risk.dart`)
 /// come from the design record. `vision`, `clarify`, `context_engine`,
@@ -103,12 +103,19 @@ String toolsetRiskSentence(AppLocalizations l10n, ToolsetRiskKind kind) =>
       ToolsetRiskKind.manageDiscord => l10n.toolsRiskManageDiscordSentence,
     };
 
-/// A question asked before a toolset is switched on.
+/// A question asked before something is changed on the server, with the
+/// words of the action that confirms it. Cancel is the other action and
+/// the default; the confirming one is never styled as destructive.
 class ToolsetQuestion {
-  const ToolsetQuestion({required this.title, required this.body});
+  const ToolsetQuestion({
+    required this.title,
+    required this.body,
+    required this.confirmLabel,
+  });
 
   final String title;
   final String body;
+  final String confirmLabel;
 }
 
 /// The question for a confirm-level toolset, or null when [name] has none
@@ -151,6 +158,7 @@ ToolsetQuestion? toolsetConfirmQuestion(
   return ToolsetQuestion(
     title: title,
     body: [lead, ?extra, l10n.toolsConfirmApplies(profile), off].join(' '),
+    confirmLabel: l10n.toolsConfirmSwitchOn,
   );
 }
 
@@ -160,4 +168,29 @@ ToolsetQuestion toolsetInstallQuestion(AppLocalizations l10n, String label) =>
     ToolsetQuestion(
       title: l10n.toolsConfirmInstallTitle,
       body: l10n.toolsConfirmInstallBody(label),
+      confirmLabel: l10n.toolsConfirmSwitchOn,
+    );
+
+/// The question before the Local terminal backend is picked.
+ToolsetQuestion toolsetLocalBackendQuestion(AppLocalizations l10n) =>
+    ToolsetQuestion(
+      title: l10n.toolsConfirmLocalTitle,
+      body: l10n.toolsConfirmLocalBody,
+      confirmLabel: l10n.toolsConfirmLocalUse,
+    );
+
+/// The question before an install step runs on the server.
+ToolsetQuestion toolsetInstallStepQuestion(AppLocalizations l10n) =>
+    ToolsetQuestion(
+      title: l10n.toolsConfirmInstallTitle,
+      body: l10n.toolsConfirmInstallStepBody,
+      confirmLabel: l10n.toolsConfirmInstallStepAction,
+    );
+
+/// The question before the permission grant on a Mac server starts.
+ToolsetQuestion toolsetAllowAccessQuestion(AppLocalizations l10n) =>
+    ToolsetQuestion(
+      title: l10n.toolsConfirmAllowTitle,
+      body: l10n.toolsConfirmAllowBody,
+      confirmLabel: l10n.toolsConfirmAllowAction,
     );
