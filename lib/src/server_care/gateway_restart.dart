@@ -9,8 +9,8 @@ import '../core/safe_notifier.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../telemetry/telemetry.dart';
 import 'care_result.dart';
-import 'server_care_controller.dart';
 import 'resumable_sleep.dart';
+import 'server_care_controller.dart';
 import 'server_care_repository.dart';
 import 'server_status.dart';
 
