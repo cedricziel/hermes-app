@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/log_line.dart';
-import 'package:hermes_app/src/server_care/widgets/command_row.dart';
+import 'package:hermes_app/src/widgets/command_row.dart';
 import 'package:hermes_app/src/server_care/widgets/log_level_menu_button.dart';
 import 'package:hermes_app/src/server_care/widgets/log_line_tile.dart';
 import 'package:hermes_app/src/server_care/widgets/update_status_card.dart';

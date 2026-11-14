@@ -4,7 +4,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
-import 'command_row.dart';
+import '../../widgets/command_row.dart';
 import 'update_step_list.dart';
 
 /// Full-width buttons share one height: 44 on Apple platforms, 48 on Material.
