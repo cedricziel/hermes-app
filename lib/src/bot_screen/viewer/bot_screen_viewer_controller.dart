@@ -876,6 +876,7 @@ class BotScreenViewerController extends ChangeNotifier {
     // nothing may rebuild.
     scheduleMicrotask(_notify);
     var done = false;
+    var answered = true;
     try {
       var step = await _release(id, connection);
       if (step == _Step.retry && !_disposed) {
@@ -884,6 +885,7 @@ class BotScreenViewerController extends ChangeNotifier {
           // that holds the lease can end: the bridge takes a clean close of
           // the holder's stream as its release.
           step = await _releaseByClosing() ? _Step.done : _Step.refused;
+          answered = false;
         } else if (!_closing) {
           final fresh = await _observeAgain();
           step = fresh == null || fresh.connection == null
@@ -899,6 +901,7 @@ class BotScreenViewerController extends ChangeNotifier {
     } finally {
       _releasing = false;
     }
+    _releaseAnswered = done && answered;
     _logHandBack(done ? reason : 'error');
     _notify();
     return done;
@@ -922,7 +925,10 @@ class BotScreenViewerController extends ChangeNotifier {
     _coverTimer = null;
     _dropInput();
     if (screen.inControlHere) {
-      if (_viewerId case final id?) _ids.retire(id);
+      if (_viewerId case final id?) {
+        _retiredId = id;
+        _ids.retire(id);
+      }
       var released = false;
       try {
         released = await handBack(reason: reason)
@@ -931,6 +937,11 @@ class BotScreenViewerController extends ChangeNotifier {
         // The close below hands the lease back as well.
       }
       _forgetOnDispose = !released;
+      // A release the server answered leaves nothing for the id to name, so
+      // the next viewer may ask for it again.
+      if (released && _releaseAnswered) {
+        if (_retiredId case final id?) _ids.unretire(id);
+      }
     }
     dispose();
   }
@@ -943,6 +954,15 @@ class BotScreenViewerController extends ChangeNotifier {
 
   /// The ids this viewer used, for [dispose] to let go of.
   final _mine = <String>{};
+
+  String? _retiredId;
+  var _releaseAnswered = false;
+
+  /// Whether [lease] names an id this viewer used, as opposed to one that
+  /// another viewer of the app holds now.
+  bool _ownsLease(BotScreenLease lease) =>
+      lease.holder == BotScreenHolder.human &&
+      _mine.any((id) => BotScreenViewerIds.hashOf(id) == lease.viewerHash);
 
   /// Set when a shut-down release did not get through: [dispose] then forgets
   /// this viewer's ids unless another viewer uses them.
@@ -966,6 +986,13 @@ class BotScreenViewerController extends ChangeNotifier {
       viewerId: id,
       connection: connection,
     );
+    if (result case BotScreenOk(:final value)
+        when _holdsLease(value) && !_ownsLease(value)) {
+      // Another viewer of this app holds the lease now: not this one's to give
+      // back, and taking it over would evict that viewer.
+      screen.adoptLease(value);
+      return _Step.done;
+    }
     if (result case BotScreenOk(:final value)
         when _holdsLease(value) &&
             value.viewerHash != BotScreenViewerIds.hashOf(id)) {
@@ -998,6 +1025,10 @@ class BotScreenViewerController extends ChangeNotifier {
       _ids.retire(id);
     }
     final lease = fresh.status.lease;
+    if (_holdsLease(lease) && !_ownsLease(lease) && lease.viewerHash != hash) {
+      // Another viewer of this app took the lease meanwhile.
+      return _Step.done;
+    }
     if (_holdsLease(lease) && lease.viewerHash != hash) {
       if (_disposed) return _Step.refused;
       final taken = await repository.acquire(

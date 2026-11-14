@@ -1004,33 +1004,36 @@ void main() {
       });
     });
 
-    test('paused on a dead connection, an observe answered after the budget '
-        'adds no id to the app\'s set', () {
-      scenario(() {
-        pausedOnDeadConnection();
-        gateway.silent.add('display.observe');
+    test(
+      '(guard that predates the retired ids) paused on a dead connection, '
+      'an observe answered after the budget adds no id to the app\'s set',
+      () {
+        scenario(() {
+          pausedOnDeadConnection();
+          gateway.silent.add('display.observe');
 
-        unawaited(viewer.shutDown('sign_out'));
-        settle();
-        async.elapse(kViewerReleaseBudget);
-        settle();
-        final observe = gateway.requests.lastWhere(
-          (r) => r['method'] == 'display.observe',
-        );
-        gateway.silent.remove('display.observe');
-        gateway.replyTo(
-          observe,
-          gateway.handlers['display.observe']!(
-            observe['params'] as Map<String, Object?>,
-          ) as Map<String, Object?>,
-        );
-        settle();
+          unawaited(viewer.shutDown('sign_out'));
+          settle();
+          async.elapse(kViewerReleaseBudget);
+          settle();
+          final observe = gateway.requests.lastWhere(
+            (r) => r['method'] == 'display.observe',
+          );
+          gateway.silent.remove('display.observe');
+          gateway.replyTo(
+            observe,
+            gateway.handlers['display.observe']!(
+              observe['params'] as Map<String, Object?>,
+            ) as Map<String, Object?>,
+          );
+          settle();
 
-        expect(server.mintedIds.last, 'viewer-2');
-        expect(ids.holds(BotScreenViewerIds.hashOf('viewer-2')), isFalse);
-        expect(ids.holds(BotScreenViewerIds.hashOf('viewer-1')), isFalse);
-      });
-    });
+          expect(server.mintedIds.last, 'viewer-2');
+          expect(ids.holds(BotScreenViewerIds.hashOf('viewer-2')), isFalse);
+          expect(ids.holds(BotScreenViewerIds.hashOf('viewer-1')), isFalse);
+        });
+      },
+    );
 
     test('paused on a dead connection, a release that gets no answer after '
         'the new id took the lease still closes within the budget and logs an '
@@ -1143,6 +1146,107 @@ void main() {
           other.dispose();
           otherScreen.dispose();
         }
+      });
+    });
+
+    /// A shuts down in control with its release unanswered, and B opens on the
+    /// same screen controller, as the chat screen's viewers do, and takes the
+    /// lease with a new id. Runs [answer] while A's release is still pending.
+    void closingThenReopened(
+      void Function(Map<String, Object?> release) answer,
+    ) {
+      unawaited(viewer.takeOver());
+      settle();
+      gateway.silent.add('display.lease.release');
+      unawaited(viewer.shutDown('close'));
+      settle();
+      async.elapse(const Duration(milliseconds: 500));
+      final release = gateway.requests.lastWhere(
+        (r) => r['method'] == 'display.lease.release',
+      );
+      final other = BotScreenViewerController(
+        repository: repository,
+        screen: screen,
+        openSocket: (path, ticket) async {
+          final next = server.openStream(ticket);
+          channels.add(next);
+          return next;
+        },
+        profile: 'work',
+        random: _Fixed(),
+        telemetry: telemetry,
+        platform: TargetPlatform.macOS,
+      );
+      try {
+        other.start();
+        settle();
+        handshake();
+        expect(server.holderId, 'viewer-2');
+        final acquiresBefore = server.acquired.length;
+
+        answer(release);
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(server.holder, 'human');
+        expect(server.holderId, 'viewer-2');
+        expect(server.acquired.length, acquiresBefore);
+        expect(server.released, isNot(contains('viewer-3')));
+      } finally {
+        other.dispose();
+      }
+    }
+
+    test('a closing viewer whose release is answered with the lease of a '
+        'viewer opened meanwhile leaves that viewer in control', () {
+      scenario(() {
+        closingThenReopened((release) {
+          gateway.silent.remove('display.lease.release');
+          gateway.replyTo(
+            release,
+            gateway.handlers['display.lease.release']!(
+              release['params'] as Map<String, Object?>,
+            ) as Map<String, Object?>,
+          );
+        });
+      });
+    });
+
+    test('a closing viewer whose release finds the connection closed leaves '
+        'a viewer opened meanwhile in control', () {
+      scenario(() {
+        closingThenReopened((release) {
+          gateway.drop();
+        });
+      });
+    });
+
+    test('a release the server answered offers the id as the latest again', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+
+        expect(server.holder, 'agent');
+        expect(ids.latest, 'viewer-1');
+      });
+    });
+
+    test('a release that got no answer keeps the id retired', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        gateway.silent.add('display.lease.release');
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(ids.latest, isNull);
       });
     });
 

@@ -59,6 +59,9 @@ class BotScreenViewerIds {
   /// the closing viewer's release would then free the lease that viewer took.
   void retire(String id) => _retired.add(hashOf(id));
 
+  /// Offers [id] as the latest again, once its release was answered.
+  void unretire(String id) => _retired.remove(hashOf(id));
+
   final _retired = <String>{};
 
   /// The id added last, for the next observe to ask for: the server keeps it
