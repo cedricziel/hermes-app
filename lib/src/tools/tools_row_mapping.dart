@@ -55,6 +55,7 @@ row.ToolsetRowView toolsetRowView(
   ToolsRowState state, {
   bool selected = false,
   bool desktop = false,
+  bool locked = false,
 }) {
   final name = toolsetName(l10n, toolset);
   final error = state.error;
@@ -70,6 +71,7 @@ row.ToolsetRowView toolsetRowView(
     error: error == null ? null : toolsRowErrorText(l10n, error, name),
     selected: selected,
     unknownPlugin: toolsetSentence(l10n, toolset.name) == null,
+    locked: locked,
   );
 }
 
@@ -86,6 +88,7 @@ ToolsetDetailView toolsetDetailView(
   Toolset toolset,
   ToolsRowState state, {
   bool desktop = false,
+  bool locked = false,
 }) {
   final name = toolsetName(l10n, toolset);
   final error = state.error;
@@ -106,5 +109,6 @@ ToolsetDetailView toolsetDetailView(
     error: error == null ? null : toolsRowErrorText(l10n, error, name),
     unconfirmed: state.phase == ToolsRowPhase.unconfirmed,
     showTryAgain: desktop,
+    locked: locked,
   );
 }

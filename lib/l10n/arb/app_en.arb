@@ -1919,6 +1919,10 @@
       }
     }
   },
+  "chatWidgetsProgramConfirmThisProgram": "this program",
+  "@chatWidgetsProgramConfirmThisProgram": {
+    "description": "Stands for the command in the stop confirmation's message when Hermes gave none (\"Hermes ends this program\")."
+  },
   "chatWidgetsProgramConfirmTitle": "Stop this program?",
   "@chatWidgetsProgramConfirmTitle": {
     "description": "Title of the confirmation before a background program is stopped."
@@ -1962,6 +1966,10 @@
   "chatWidgetsProgramOutcomeStopped": "Stopped",
   "@chatWidgetsProgramOutcomeStopped": {
     "description": "Banner once a program was stopped."
+  },
+  "chatWidgetsProgramOutcomeUnsupported": "This server can't stop programs.",
+  "@chatWidgetsProgramOutcomeUnsupported": {
+    "description": "Banner after Stop program was pressed on a server without process.kill; Stop is then gone."
   },
   "chatWidgetsProgramStateClosed": "Closed",
   "@chatWidgetsProgramStateClosed": {
@@ -5442,6 +5450,14 @@
   "@toolsBannerShow": {
     "description": "Button in the installer banner that opens the tool's details."
   },
+  "toolsCheckAgain": "Check again",
+  "@toolsCheckAgain": {
+    "description": "Button next to a note that the app lost track of an install or a permission window; reads its state again."
+  },
+  "toolsChecking": "Checking…",
+  "@toolsChecking": {
+    "description": "Shown with a spinner while the app reads what the server has after an install or a permission window ended."
+  },
   "toolsChipCantUse": "Can't be used",
   "@toolsChipCantUse": {
     "description": "Status badge: a tool or backend that cannot work on this server. Keep it short."
@@ -5650,6 +5666,26 @@
   "@toolsFooterLink": {
     "description": "Link under the tools list that explains tools, skills, plugins and MCP servers."
   },
+  "toolsGrantFailed": "Couldn't open the permission window. Try again.",
+  "@toolsGrantFailed": {
+    "description": "Error when asking the server's Mac to open its permission window failed."
+  },
+  "toolsGrantFollowLost": "Couldn't follow the permission window. Check again.",
+  "@toolsGrantFollowLost": {
+    "description": "Warning when the app lost track of the permission window on the server's Mac."
+  },
+  "toolsGrantFollowRetrying": "Couldn't follow the permission window. Trying again…",
+  "@toolsGrantFollowRetrying": {
+    "description": "Warning while the app retries reading the progress of the permission window."
+  },
+  "toolsGrantHeader": "Allow access",
+  "@toolsGrantHeader": {
+    "description": "Header of the block that shows the permission window opened on the server's Mac."
+  },
+  "toolsGrantRunning": "Waiting for approval on the Mac that runs Hermes…",
+  "@toolsGrantRunning": {
+    "description": "Title while the permission window is open on the server's Mac and someone there has to approve it."
+  },
   "toolsHeaderOffNeedsSetup": "Off · needs setup",
   "@toolsHeaderOffNeedsSetup": {
     "description": "State line in a tool's detail header: the tool is off and has not been set up."
@@ -5696,6 +5732,14 @@
   "@toolsInstallFailedNothing": {
     "description": "Sentence after a failed install, introducing the installer's last lines."
   },
+  "toolsInstallFollowLost": "Couldn't follow the install. Check again.",
+  "@toolsInstallFollowLost": {
+    "description": "Warning when the app gave up reading how an install on the server is going."
+  },
+  "toolsInstallFollowRetrying": "Couldn't follow the install. Trying again…",
+  "@toolsInstallFollowRetrying": {
+    "description": "Warning while the app retries reading how an install on the server is going."
+  },
   "toolsInstallHeader": "Install on server",
   "@toolsInstallHeader": {
     "description": "Header of the section that shows an install running on the server."
@@ -5707,6 +5751,14 @@
   "toolsInstallLeave": "You can leave this screen. The install keeps going.",
   "@toolsInstallLeave": {
     "description": "Muted line while an install runs on the server."
+  },
+  "toolsInstallMayHaveStarted": "The install may have started. Checking…",
+  "@toolsInstallMayHaveStarted": {
+    "description": "Title while an install is followed after the answer to starting it was lost."
+  },
+  "toolsInstallNotStarted": "Couldn't start the install. Try again.",
+  "@toolsInstallNotStarted": {
+    "description": "Error when starting an install on the server failed and nothing is known to run."
   },
   "toolsInstallRunning": "Installing on your server…",
   "@toolsInstallRunning": {
@@ -5807,6 +5859,10 @@
   "toolsKeyUnconfirmed": "Couldn't confirm. Pull to refresh.",
   "@toolsKeyUnconfirmed": {
     "description": "Shown when the app could not find out whether a key was saved."
+  },
+  "toolsKeyUnconfirmedRetry": "Couldn't confirm.",
+  "@toolsKeyUnconfirmedRetry": {
+    "description": "Under a key field when the answer to saving was lost and reading again failed, where nothing pulls to refresh."
   },
   "toolsLabelBrowser": "Browser",
   "@toolsLabelBrowser": {
@@ -5978,6 +6034,10 @@
   "@toolsProviderNeedsSignInNote": {
     "description": "Note on a provider that needs a sign-in on the Hermes server."
   },
+  "toolsReadFailed": "Couldn't read this.",
+  "@toolsReadFailed": {
+    "description": "Shown in a section of a tool's details when reading it failed; Try again is next to it."
+  },
   "toolsReadinessAccessibility": "Accessibility",
   "@toolsReadinessAccessibility": {
     "description": "Row label in the Computer use readiness section: the macOS accessibility permission."
@@ -6013,6 +6073,10 @@
   "toolsReadinessInstalled": "Installed",
   "@toolsReadinessInstalled": {
     "description": "Value of the Driver row when the driver is installed."
+  },
+  "toolsReadinessLoading": "Checking readiness…",
+  "@toolsReadinessLoading": {
+    "description": "Shown with a spinner while the readiness of Computer use is read from the server."
   },
   "toolsReadinessNo": "No",
   "@toolsReadinessNo": {
@@ -6130,7 +6194,7 @@
   "@toolsRowUnconfirmedPull": {
     "description": "Line in a tool's row when the app could not confirm a switch; on touch screens the list is refreshed by pulling down."
   },
-  "toolsRowUnconfirmedRetry": "Couldn't confirm. Try again.",
+  "toolsRowUnconfirmedRetry": "Couldn't confirm.",
   "@toolsRowUnconfirmedRetry": {
     "description": "Line in a tool's row when the app could not confirm a switch; a Try again button follows it where there is no pull to refresh."
   },
@@ -6238,9 +6302,17 @@
   "@toolsSetupAdvancedFooter": {
     "description": "Footer of the Advanced part of Web setup, where search and extract get different providers."
   },
+  "toolsSetupAdvancedGeneric": "Advanced",
+  "@toolsSetupAdvancedGeneric": {
+    "description": "Title of the row that opens the less common options of a tool's setup."
+  },
   "toolsSetupAdvancedTitle": "Use different providers for search and extract",
   "@toolsSetupAdvancedTitle": {
     "description": "Last row of the Web Set up section; opens the choices for search and for extract."
+  },
+  "toolsSetupChange": "Change setup",
+  "@toolsSetupChange": {
+    "description": "Row in the details of a tool that is already set up; opens its providers, keys and install step. The value is the active provider."
   },
   "toolsSetupExtractHeader": "Extract",
   "@toolsSetupExtractHeader": {
@@ -6339,6 +6411,26 @@
         "example": "Discord"
       }
     }
+  },
+  "toolsWriteFailedBackend": "Couldn't change where commands run. Try again.",
+  "@toolsWriteFailedBackend": {
+    "description": "Error under the terminal backends when picking one failed."
+  },
+  "toolsWriteFailedModel": "Couldn't change the model. Try again.",
+  "@toolsWriteFailedModel": {
+    "description": "Error under the Model row when picking a model failed."
+  },
+  "toolsWriteFailedSetup": "Couldn't change the setup. Try again.",
+  "@toolsWriteFailedSetup": {
+    "description": "Error under the providers of a tool when picking one failed."
+  },
+  "toolsWriteNotApplied": "That didn't change. Try again.",
+  "@toolsWriteNotApplied": {
+    "description": "Shown when the answer to a pick was lost and reading again shows it did not land."
+  },
+  "toolsWriteSaving": "Saving…",
+  "@toolsWriteSaving": {
+    "description": "Shown with a spinner while a pick of a provider, model or backend is being saved."
   },
 
   "@@x-area-update": "",

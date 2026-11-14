@@ -29,7 +29,7 @@ const kViewerPhoneShortestSide = 600;
 /// closed (its Close button, Escape, the system's Back, or
 /// [BotScreenViewerHandle.close]).
 ///
-/// [source] (`card` or `preview`) and the surface go into the
+/// [source] (`card`, `preview` or `tools`) and the surface go into the
 /// `bot_screen.viewer.opened` and `.closed` breadcrumbs, which hold nothing
 /// else.
 BotScreenViewerHandle showBotScreenViewer(

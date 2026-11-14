@@ -10,6 +10,7 @@ import '../settings/account_actions.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
+import '../widgets/grouped_action_row.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import 'attention.dart';
@@ -27,7 +28,6 @@ import 'update_check_controller.dart';
 import 'update_page.dart';
 import 'usage_page.dart';
 import 'widgets/care_row_value.dart';
-import 'widgets/grouped_action_row.dart';
 import 'widgets/server_status_card.dart';
 
 /// Pushes the Server screen as a settings page. [source] says where the
