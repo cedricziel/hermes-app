@@ -816,6 +816,7 @@ const needsYouConnectorOne = NeedsYouItem(
         status: ConnectorTargetStatus.waiting,
         detail: 'Continue in the browser to approve access.',
         openable: true,
+        skippable: true,
       ),
     ],
     expiresIn: Duration(minutes: 4),
@@ -837,11 +838,13 @@ const needsYouConnectorThree = NeedsYouItem(
         status: ConnectorTargetStatus.waiting,
         detail: 'Continue in the browser to approve access.',
         openable: true,
+        skippable: true,
       ),
       ConnectorTargetModel(
         name: 'Google Calendar',
         status: ConnectorTargetStatus.waiting,
         openable: true,
+        skippable: true,
       ),
       ConnectorTargetModel(
         name: 'GitHub',

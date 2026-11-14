@@ -24,10 +24,6 @@ extension _ChatControllerConnectors on ChatController {
         : null;
   }
 
-  bool _connectionLostForImpl(ChatThread thread) =>
-      active &&
-      (_connectionDown || _lostOwners.contains((_profile, thread.id)));
-
   ConnectorOperationController? get _connectionOperationsImpl {
     final source = transport,
         connection = _connectorConnection,
@@ -56,7 +52,6 @@ extension _ChatControllerConnectors on ChatController {
   }
 
   void _clearConnectors() {
-    _lostOwners.clear();
     _connectorActivityGeneration++;
     _cancelConnectorActivitySubscription();
     for (final controller in _connectorOperations.values) {
@@ -161,19 +156,6 @@ extension _ChatControllerConnectors on ChatController {
   void _onConnectorOwnership(OwnedSessionChange change, int epoch) {
     final owner = (change.binding.profile, change.threadId);
     if (!change.connected) {
-      final source = transport;
-      final replaced =
-          source is OwnedSessionTransport &&
-          (source as OwnedSessionTransport).ownedSessionFor(
-                owner.$2,
-                profile: owner.$1,
-              ) !=
-              null;
-      if (change.retired || replaced) {
-        _lostOwners.remove(owner);
-      } else {
-        _lostOwners.add(owner);
-      }
       if (_connectorBindings[owner] == change.binding) {
         // A drop keeps what the operations show, without a link or authority,
         // until the reconnect replays them; a retirement releases them.
@@ -200,8 +182,6 @@ extension _ChatControllerConnectors on ChatController {
             change.binding) {
       return;
     }
-    _lostOwners.remove(owner);
-    _connectionDown = false;
     final controller = _adoptConnector(owner, change.binding);
     if (!_currentConnector(owner, controller, change.binding, epoch)) return;
     final pending = change.resumeSnapshot?['pending_connection'];
@@ -270,10 +250,6 @@ extension _ChatControllerConnectors on ChatController {
         .listen(
           (change) {
             if (!current()) return;
-            final down =
-                !change.connected &&
-                (source as GatewayConnectionTransport).gatewayConnection ==
-                    null;
             if (!change.connected) {
               // Before anything is told, so no card sees a controller that
               // has lost its session and still acts.
@@ -282,10 +258,6 @@ extension _ChatControllerConnectors on ChatController {
                   _connectorOperations[entry.key]?.suspend();
                 }
               }
-            }
-            if (down != _connectionDown && (down || change.connected)) {
-              _connectionDown = down;
-              notifyListeners();
             }
             if (!change.connected) {
               if (identical(_connectorConnection, change.connection)) {

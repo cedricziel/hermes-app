@@ -154,6 +154,7 @@ void main() {
 
         gateway.drop();
         await settle();
+        await tester.pump(const Duration(milliseconds: 300));
         await shots.capture(tester, 'offline');
 
         await tester.pumpWidget(const SizedBox());
@@ -251,6 +252,24 @@ void main() {
         await tester.tap(find.byKey(const Key('needs-you-next')));
         await tester.pump();
         await shots.capture(tester, 'two-of-two');
+
+        final target =
+            (connectionRequestFixture['targets']! as List).single
+                as Map<String, Object?>;
+        gateway.event('connection.request', 'rt-1', {
+          ...connectionRequestFixture,
+          'op_id': 'two-targets',
+          'deadline_at':
+              DateTime.now().millisecondsSinceEpoch / 1000 + 4 * 60 + 30,
+          'targets': [
+            {...target, 'name': 'Notion'},
+            {...target, 'name': 'Google Calendar'},
+          ],
+        });
+        await settle();
+        await tester.tap(find.byKey(const Key('needs-you-next')));
+        await tester.pump();
+        await shots.capture(tester, 'three-of-three-two-targets');
 
         await tester.pumpWidget(const SizedBox());
         await tester.runAsync(transport.close);

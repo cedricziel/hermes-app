@@ -276,6 +276,48 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('Skip is per target: one in the row for a single target, one '
+      'under each target for several', (tester) async {
+    await pumpScreen(tester);
+    await request(tester);
+    expect(button('needs-you-skip'), findsOneWidget);
+    await tester.tap(button('needs-you-skip'));
+    await settle(tester);
+    final one = gateway.requestOf('connection.respond')['params'] as Map;
+    expect((one['result'] as Map)['targets'], [
+      {'name': 'synthetic-connector', 'status': 'skipped'},
+    ]);
+
+    final target =
+        (connectionRequestFixture['targets']! as List).single
+            as Map<String, Object?>;
+    await emit(tester, 'connection.request', {
+      ...connectionRequestFixture,
+      'op_id': 'two',
+      'targets': [
+        {...target, 'name': 'first'},
+        {...target, 'name': 'second'},
+      ],
+    });
+    await tester.tap(find.byKey(const Key('needs-you-next')));
+    await settle(tester);
+    expect(button('needs-you-skip'), findsNothing);
+    expect(button('needs-you-skip-first'), findsOneWidget);
+    expect(button('needs-you-skip-second'), findsOneWidget);
+    await tester.tap(button('needs-you-skip-second'));
+    await settle(tester);
+    final two =
+        gateway.requests
+                .where((r) => r['method'] == 'connection.respond')
+                .last['params']
+            as Map;
+    expect(two['op_id'], 'two');
+    expect((two['result'] as Map)['targets'], [
+      {'name': 'second', 'status': 'skipped'},
+    ]);
+    await finish(tester);
+  });
+
   group('billing verification', () {
     Future<void> details(WidgetTester tester) => emit(
       tester,
@@ -325,6 +367,21 @@ void main() {
       await settle(tester);
     }
 
+    testWidgets('Reopen stays available on a reclaimed chat, because it '
+        'reconnects', (tester) async {
+      await pumpScreen(tester);
+      await emit(tester, 'session.reclaimed', {
+        'session_id': 'rt-1',
+        'stored_session_id': 'stored-1',
+        'reason': 'Opened elsewhere',
+      });
+      expect(find.byKey(const Key('needs-you-reopen')), findsOneWidget);
+      await drop(tester);
+      expect(find.textContaining('Offline. These actions'), findsNothing);
+      expect(enabled(tester, 'needs-you-reopen'), isTrue);
+      await finish(tester);
+    });
+
     testWidgets('a connector sign-in stays, display-only, with its actions '
         'disabled', (tester) async {
       await pumpScreen(tester);
@@ -334,10 +391,18 @@ void main() {
 
       expect(dock(), findsOneWidget);
       expect(find.textContaining('Offline. These actions'), findsOneWidget);
-      expect(enabled(tester, 'needs-you-continue'), isFalse);
-      expect(enabled(tester, 'needs-you-skip'), isFalse);
-      expect(find.byKey(const Key('needs-you-open')), findsOneWidget);
-      expect(enabled(tester, 'needs-you-open'), isFalse);
+      for (final key in [
+        'needs-you-continue',
+        'needs-you-skip',
+        'needs-you-open',
+      ]) {
+        expect(find.byKey(Key(key)), findsOneWidget);
+        expect(
+          tester.widget<ButtonStyleButton>(find.byKey(Key(key))).onPressed,
+          isNull,
+          reason: '$key is disabled offline',
+        );
+      }
       // No second announcement and the marker stays.
       expect(announced, ['A connection needs you']);
       expect(find.bySemanticsLabel('Activity, 1 needs you'), findsOneWidget);
@@ -345,11 +410,16 @@ void main() {
     });
 
     testWidgets('the reconnect replay brings the actions back', (tester) async {
-      gateway.handlers['session.resume'] = (params) => {
-        'session_id': 'rt-1',
-        'stored_session_id': params['session_id'],
-        'session_key': params['session_id'],
-        'pending_connection': connectionRequestFixture,
+      var resumes = 0;
+      gateway.handlers['session.resume'] = (params) {
+        resumes++;
+        return {
+          // The reconnect lands on a new runtime session.
+          'session_id': resumes == 1 ? 'rt-1' : 'rt-2',
+          'stored_session_id': params['session_id'],
+          'session_key': params['session_id'],
+          if (resumes > 1) 'pending_connection': connectionRequestFixture,
+        };
       };
       await pumpScreen(tester);
       await request(tester);
@@ -366,6 +436,9 @@ void main() {
 
       expect(find.textContaining('Offline. These actions'), findsNothing);
       expect(enabled(tester, 'needs-you-continue'), isTrue);
+      // The same operation under a new runtime: not announced again.
+      expect(announced, ['A connection needs you']);
+      expect(find.bySemanticsLabel('Activity, 1 needs you'), findsOneWidget);
       await finish(tester);
     });
   });

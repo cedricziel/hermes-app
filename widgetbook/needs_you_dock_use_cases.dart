@@ -51,7 +51,7 @@ class _DemoState extends State<_Demo> {
       onShow: (index) => setState(() => shown = index),
       onCopy: (_) {},
       onOpen: (_, _) {},
-      onSkip: (_) {},
+      onSkip: (_, _) {},
       onContinue: (_) {},
       onReopen: (_) {},
     ),
@@ -200,10 +200,6 @@ WidgetbookNode needsYouDockNode() => WidgetbookComponent(
         ),
         maxWidth: 720,
       ),
-    ),
-    WidgetbookUseCase(
-      name: 'Offline, reclaimed',
-      builder: (_) => _dock([needsYouReclaimed], offline: true),
     ),
     WidgetbookUseCase(
       name: 'Keyboard open on a small phone, collapsed',

@@ -323,6 +323,12 @@ class _Header extends StatelessWidget {
 }
 
 /// Whether more than one target of a connector item has its own Open.
+bool _perTargetSkip(NeedsYouItem item) =>
+    item.actions.contains(NeedsYouAction.skip) &&
+    item.body is ConnectorBodyModel &&
+    (item.body as ConnectorBodyModel).targets.where((t) => t.skippable).length >
+        1;
+
 bool _perTargetOpen(NeedsYouItem item) =>
     item.actions.contains(NeedsYouAction.open) &&
     item.body is ConnectorBodyModel &&
@@ -345,6 +351,10 @@ class _Body extends StatelessWidget {
           ? (target) => model.onOpen!(item, target)
           : null,
       openEnabled: !offline && item.actions.contains(NeedsYouAction.open),
+      onSkip: _perTargetSkip(item) && model.onSkip != null
+          ? (target) => model.onSkip!(item, target)
+          : null,
+      skipEnabled: !offline && item.answer != NeedsYouAnswer.sending,
     ),
     ReclaimBodyModel body => ReclaimNeedsYouBody(
       model: body,
@@ -462,11 +472,16 @@ class _Actions extends StatelessWidget {
                 orElse: () => single.first,
               );
         final hasOpen = showOpen;
-        if (_has(NeedsYouAction.skip)) {
+        // One Skip per target: in the body when several can be skipped, in
+        // this row when exactly one can.
+        final skippable = targets.where((t) => t.skippable).toList();
+        if (_has(NeedsYouAction.skip) && skippable.length == 1) {
           buttons.add(
             TextButton(
               key: const Key('needs-you-skip'),
-              onPressed: run(model.onSkip, enabled: !sending),
+              onPressed: offline || sending || model.onSkip == null
+                  ? null
+                  : () => model.onSkip!(item, skippable.single.name),
               child: Text(l10n.chatActivityNeedsYouConnectorSkip),
             ),
           );
