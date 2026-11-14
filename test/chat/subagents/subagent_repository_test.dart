@@ -144,7 +144,8 @@ void main() {
       () {
         expect(parseAgentList({'subagents': 'nope'}), isNull);
         expect(parseAgentList({'subagents': [], 'delegations': 4}), isNull);
-        expect(parseAgentList({'extra': 1})!.agents, isEmpty);
+        expect(parseAgentList({'extra': 1}), isNull);
+        expect(parseAgentList({'subagents': [], 'extra': 1})!.agents, isEmpty);
       },
     );
 

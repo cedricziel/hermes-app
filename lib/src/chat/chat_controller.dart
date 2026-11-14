@@ -310,6 +310,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final bool Function()? canShowQueues;
   bool get queuesVisible => _ChatControllerQueues(this)._queuesVisibleImpl;
   var _queueEpoch = 0;
+  final _protectedSends = Expando<_ProtectedQueuedSend>();
   final _restoredQueues = <ChatThread>{};
   final _loadedQueues = <ChatThread>{};
   final _queuePreparing = <ChatThread>{};
