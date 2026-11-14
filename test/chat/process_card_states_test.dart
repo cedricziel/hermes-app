@@ -346,7 +346,7 @@ void main() {
       final message = tester
           .widget<Text>(find.textContaining('Hermes ends'))
           .data!;
-      expect(message, contains('python -m http.server'));
+      expect(message, contains('python \u2011m http.server'));
       expect(message, contains('…'));
       expect(message, isNot(contains('….')));
       expect(message.split('\n\n'), hasLength(2));
@@ -399,6 +399,63 @@ void main() {
         confirmCommandLine('x' * 100).runes.length,
         kConfirmCommandChars + 1,
       );
+    });
+  });
+
+  group('wrapping and empty commands', () {
+    const command = 'npm run dev -- --host 127.0.0.1 --port 5173';
+
+    test('shown commands break only at spaces; the command itself is kept', () {
+      for (final shown in [
+        processCommandLine(command),
+        confirmCommandLine(command),
+      ]) {
+        // Every hyphen is non-breaking, so "--port" never splits.
+        expect(shown, isNot(contains('-')));
+        expect(shown.replaceAll('\u2011', '-'), command);
+      }
+      expect(command, contains('--port'), reason: 'the original is untouched');
+    });
+
+    testWidgets('the card title wraps at spaces only', (tester) async {
+      await pump(
+        tester,
+        info: const ProcessCardInfo(
+          command: command,
+          status: ProcessCardStatus.running,
+        ),
+        open: false,
+      );
+      final title = tester.widget<Text>(find.textContaining('127.0.0.1')).data!;
+      expect(title, isNot(contains('-')));
+      expect(title.replaceAll('\u2011', '-'), command);
+    });
+
+    testWidgets('a program without a command is "this program"', (
+      tester,
+    ) async {
+      for (final (locale, expected) in [
+        (const Locale('en'), 'Hermes ends this program'),
+        (const Locale('de'), 'Hermes beendet dieses Programm'),
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: locale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => confirmStopProgram(context, command: '  '),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining(expected), findsOneWidget, reason: expected);
+        await tester.pumpWidget(const SizedBox());
+      }
     });
   });
 

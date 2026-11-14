@@ -7,7 +7,9 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
+import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/subagents/process_models.dart';
 import 'package:hermes_app/src/windows/widgets/conversation_window_toolbar.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -21,6 +23,7 @@ import 'package:hermes_app/src/windows/conversation_windows.dart'
     show kInspectorWindowCommand;
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -280,6 +283,112 @@ void main() {
     expect(find.byKey(const Key('activity-panel')), findsOneWidget);
     expect(find.byType(BotScreenCard), findsNothing);
     expect(gateway.methods.where((m) => m.startsWith('display.')), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(gatewayTransport.close);
+  });
+
+  testWidgets('a window\'s program cards show what frames said, offer no '
+      'Stop and read or stop nothing', (tester) async {
+    final gateway = FakeGateway()..activeSessions = {};
+    gateway.handlers['session.resume'] = (params) => {
+      'session_id': 'rt-1',
+      'stored_session_id': params['session_id'],
+      'session_key': params['session_id'],
+    };
+    // Invented: a program Hermes would list as running.
+    gateway.handlers['process.list'] = (_) => {
+      'processes': [
+        {
+          'session_id': 'proc_dev',
+          'command': 'npm run dev',
+          'status': 'running',
+        },
+      ],
+    };
+    gateway.handlers['process.kill'] = (_) => {'status': 'killed'};
+    final gatewayTransport = HermesGatewayTransport(connect: gateway.connect);
+    addTearDown(gatewayTransport.close);
+    await pump(tester, withTransport: gatewayTransport);
+
+    await tester.enterText(composerField, 'Start the dev server');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Send'));
+    await tester.pump();
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+    }
+    gateway.event('agent.terminal.output', gateway.lastSessionId, {
+      'process_id': 'proc_dev',
+      'chunk': 'ready on :5173\n',
+    });
+    link.commandsIn.add(kInspectorWindowCommand);
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+    }
+    await tester.pump(const Duration(seconds: 12));
+    final card = find.byType(ProcessOutputCard);
+    expect(card, findsOneWidget, reason: 'the frame made a card');
+    expect(find.text('Process proc_dev · Output received'), findsOneWidget);
+    expect(
+      gateway.methods.where((m) => m.startsWith('process.')),
+      isEmpty,
+      reason: 'the window reads no program list by itself',
+    );
+
+    // Even once the list has named the program as running (as a writable
+    // panel's read would have), the window offers no Stop.
+    final windowChat = tester
+        .widget<BoundActivityPanel>(find.byType(BoundActivityPanel))
+        .chat;
+    final binding = gatewayTransport.ownedSessionFor(
+      's1',
+      profile: windowChat.profile,
+    )!;
+    windowChat
+        .processOutputsIn(windowChat.selectedThread!)!
+        .applyList(
+          parseProcessList({
+            'processes': [
+              {
+                'session_id': 'proc_dev',
+                'command': 'npm run dev',
+                'status': 'running',
+              },
+            ],
+          })!,
+          attachment: binding,
+        );
+    gateway.event('agent.terminal.output', gateway.lastSessionId, {
+      'process_id': 'proc_dev',
+      'chunk': 'compiled\n',
+    });
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+    }
+    expect(find.text('npm run dev'), findsOneWidget, reason: 'named');
+    expect(find.textContaining('Running'), findsOneWidget);
+    await tester.tap(card);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      tester.widget<ProcessOutputCard>(card).onStop,
+      isNull,
+      reason: 'no Stop in a window',
+    );
+    expect(find.text('Stop program'), findsNothing);
+    final lists = gateway.methods.where((m) => m == 'process.list').length;
+    await tester.pump(const Duration(seconds: 12));
+    expect(gateway.methods.where((m) => m == 'process.list'), hasLength(lists));
+    expect(gateway.methods, isNot(contains('process.kill')));
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(gatewayTransport.close);
   });
