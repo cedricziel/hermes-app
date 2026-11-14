@@ -931,6 +931,79 @@ void main() {
     });
   });
 
+  group('telemetry', () {
+    panelTest('the detail records exactly its fixed breadcrumbs and outcomes', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        await open('stored-1');
+        startAgent('a1', _audit, tool: 'read_file');
+        outputs['a1'] = '10:02:11 tool | read_file package-lock.json';
+        await pumpEventQueue();
+      });
+      await pumpPanel(tester);
+      selection.select(keyOf('a1'), source: 'transcript');
+      await settle(tester);
+      await tester.ensureVisible(noteField());
+      await tester.enterText(noteField(), 'Only check the Go modules');
+      await tester.pump();
+      await tapText(tester, 'Send to agent');
+      await tapText(tester, 'Stop agent');
+      await tester.tap(dialogText('Stop agent'));
+      await settle(tester);
+      await tester.tap(find.byTooltip('Back to Activity'));
+      await settle(tester);
+
+      final crumbs = [
+        for (final crumb in trail.recent)
+          if (crumb.name.startsWith('subagent.'))
+            '${crumb.name} ${crumb.attributes}',
+      ];
+      expect(crumbs, [
+        'subagent.detail.opened {source: transcript}',
+        'subagent.redirect.sent {}',
+        'subagent.stop.pressed {}',
+        'subagent.stop.confirmed {}',
+        'subagent.detail.closed {}',
+      ]);
+      // Events carry only a fixed outcome word.
+      const outcomes = {
+        'queued',
+        'rejected',
+        'unconfirmed',
+        'error',
+        'missed',
+        'stopped',
+        'already_ended',
+        'not_controllable',
+      };
+      for (final (name, attributes) in events) {
+        if (!name.startsWith('subagent.')) continue;
+        expect(attributes.keys.toSet().difference({'outcome'}), isEmpty);
+        if (attributes.containsKey('outcome')) {
+          expect(outcomes, contains(attributes['outcome']), reason: name);
+        }
+      }
+    });
+
+    panelTest('a panel row opens with the source panel', (tester) async {
+      await tester.runAsync(() async {
+        await open('stored-1');
+        startAgent('a1', _audit);
+        await pumpEventQueue();
+      });
+      await pumpPanel(tester);
+      await openDetail(tester, 'a1');
+      final opened = [
+        for (final crumb in trail.recent)
+          if (crumb.name == 'subagent.detail.opened') crumb.attributes,
+      ];
+      expect(opened, [
+        {'source': 'panel'},
+      ]);
+    });
+  });
+
   group('privacy', () {
     panelTest('goals, notes, output and summaries reach no breadcrumb or '
         'app event', (tester) async {
