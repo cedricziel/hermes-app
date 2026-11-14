@@ -54,7 +54,7 @@ Text SHALL change nothing on the server until the user confirms a save. The text
 
 ### Requirement: Save is confirmed
 
-Save SHALL ask before sending, with Cancel as the default: it replaces the whole file, new chats use it and running chats keep the old text. Empty text SHALL say Hermes will use its default personality.
+Save SHALL ask before sending, with Cancel as the default: it replaces the whole file, new chats use it and running chats usually keep the old text (Bot Chats may pick it up). Empty text SHALL say Hermes will use its default personality.
 
 #### Scenario: Cancel
 
@@ -82,7 +82,7 @@ Before a confirmed save the app SHALL read the file again and send only when it 
 
 ### Requirement: A lost answer is not a save
 
-If the save's answer is lost or lacks `ok: true`, the app SHALL say the save could not be confirmed, keep the text, resend nothing and not show Saved. A user-tapped Check SHALL read the file and report Saved only when it equals the text that was sent.
+If the save's answer is lost or lacks `ok: true`, the app SHALL say the save could not be confirmed, keep the text, resend nothing and not show Saved. A user-tapped Check SHALL read the file and report Saved only when the file exists and equals the text that was sent.
 
 #### Scenario: Timeout on save
 
