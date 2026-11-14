@@ -45,7 +45,7 @@ The screen SHALL show, in this order, the profile's default model, the connected
 
 ### Requirement: Model providers layout
 
-From 900 points wide, and on a full-screen iPad, the list SHALL sit beside the selected provider's detail. Narrower, a provider SHALL open its detail as a page. Forms SHALL open as sheets on phones and as dialogs on iPad, desktop width and macOS, never as a bottom sheet on macOS.
+From 900 points wide (on macOS from 560 points of content width beside the sidebar), and on a full-screen iPad, the list SHALL sit beside the selected provider's detail. Narrower, a provider SHALL open its detail as a page. Forms SHALL open as sheets on phones and as dialogs on iPad, desktop width and macOS, never as a bottom sheet on macOS.
 
 #### Scenario: Wide Mac window
 
@@ -112,7 +112,7 @@ For a provider that takes an API key, the app SHALL offer a form with one field 
 
 ### Requirement: Checking a key before saving
 
-Before saving, the app SHALL check the key with `POST /api/providers/validate` (6 second budget) and then save it with `PUT /api/env` under the provider's key variable for the profile, with `provider_setup: true`. A rejected key (`ok: false`, `reachable: true`) SHALL NOT be saved unless the person chooses "Save anyway". Any other check result, a timeout or a failed check SHALL save the key and say what was or was not checked.
+Before saving, the app SHALL check the key with `POST /api/providers/validate` (6 second budget) and then save it with `PUT /api/env` under the provider's key variable for the profile, with `provider_setup: true`. A key the provider rejected, or one the provider answered with an error status for (`ok: false`, `reachable: true`), SHALL NOT be saved unless the person chooses "Save anyway". Any other check result, a timeout or a failed check SHALL save the key and say what was or was not checked.
 
 #### Scenario: Valid key
 
@@ -128,7 +128,12 @@ Before saving, the app SHALL check the key with `POST /api/providers/validate` (
 #### Scenario: Provider without a check
 
 - **WHEN** Hermes answers `ok: true, reachable: false`
-- **THEN** the key is saved and the confirmation reads "Saved. Hermes can't check keys for <provider> ahead of time; your first chat will tell."
+- **THEN** the key is saved and the confirmation reads "Saved. Your first chat will show whether the key works."
+
+#### Scenario: Provider down
+
+- **WHEN** Hermes' check answers `ok: false, reachable: true` with "Provider returned HTTP 503 for this key."
+- **THEN** nothing is saved yet, the form reads "<provider> didn't answer normally" with Hermes' message, and offers "Save anyway" and "Try again"
 
 #### Scenario: Check cannot reach the provider
 
@@ -241,7 +246,7 @@ Save SHALL send `POST /api/providers/custom-endpoints` for the profile with the 
 
 ### Requirement: Default model after connecting
 
-After a provider connects, the app SHALL ask `GET /api/model/recommended-default` for it. When the profile had no usable default, the app SHALL save the recommended model at once and say "New chats use <model>" with Change. Otherwise it SHALL ask "Use <model> for new chats?" with "Choose another model…" and "Keep <current model>", and save nothing until the person chooses.
+After a provider connects, the app SHALL ask `GET /api/model/recommended-default` for it. With no usable default before, it SHALL save the recommended model at once and say "New chats use <model>". Otherwise it SHALL ask "Use <model> for new chats?" with "Choose another model…" and "Keep <current model>". With no recommendation it SHALL save nothing and ask the person to choose, never taking the provider's first listed model.
 
 #### Scenario: First provider
 
@@ -255,6 +260,11 @@ After a provider connects, the app SHALL ask `GET /api/model/recommended-default
 - **WHEN** Nous Portal is signed in
 - **THEN** the step offers Nous' recommended model and "Keep <current model>"
 
+#### Scenario: No recommendation
+
+- **WHEN** `GET /api/model/recommended-default` answers an empty `model` for an aggregator
+- **THEN** nothing is saved and the step reads "Choose a model for new chats" with the picker limited to that provider
+
 #### Scenario: Models still loading
 
 - **WHEN** the new provider lists no models yet
@@ -262,7 +272,7 @@ After a provider connects, the app SHALL ask `GET /api/model/recommended-default
 
 ### Requirement: Saving the default model
 
-The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for the profile. When Hermes answers `confirm_required`, the app SHALL show its message with "Use it anyway" and Cancel and resend with `confirm_expensive_model` only after "Use it anyway". The screen's default-model row SHALL open the shared model picker over all connected providers, without reasoning effort.
+The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for the profile. When Hermes answers `confirm_required`, the app SHALL show its message with "Use it anyway" and Cancel and resend with `confirm_expensive_model` only after "Use it anyway". The screen's default-model row SHALL show the model's display name (its id as secondary text when they differ) and open the shared model picker over all connected providers, without reasoning effort.
 
 #### Scenario: Expensive model
 
@@ -271,7 +281,18 @@ The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for 
 
 ### Requirement: Removing credentials
 
-A provider's detail SHALL offer the removal that fits its credential: "Remove key" (`DELETE /api/env`), "Sign out" (`DELETE /api/providers/oauth/{id}`), "Delete endpoint" (`DELETE /api/providers/custom-endpoints/{id}`), and "Remove saved key ending in <last four>" for each further key Hermes holds (`DELETE /api/credentials/pool/{provider}/{index}`). A sign-in Hermes cannot remove SHALL show Hermes' hint or command instead.
+A provider's detail SHALL offer the removal that fits its credential: "Remove key" (`DELETE /api/env`), "Sign out" (`DELETE /api/providers/oauth/{id}`), "Delete endpoint" (`DELETE /api/providers/custom-endpoints/{id}`), and "Remove saved key ending in <last four>" for each key added by hand on the server (pool entries with `source: manual` and `auth_type: api_key` only; sign-in tokens are never listed as keys). A sign-in Hermes cannot remove SHALL show the server command or Hermes' hint instead.
+
+#### Scenario: Sign-in tokens are not keys
+
+- **GIVEN** a Nous Portal sign-in, which Hermes also keeps as a pool entry with `source: device_code`
+- **WHEN** the detail is shown
+- **THEN** it shows "Signed in" and no "Remove saved key ending in …" row
+
+#### Scenario: Hint that points at the dashboard
+
+- **WHEN** an account row has `disconnectable: false` because its credential comes from an API key (`status.source: env_var`)
+- **THEN** the detail shows the app's own "Remove key" row instead of Hermes' hint text
 
 #### Scenario: Not removable here
 
@@ -290,12 +311,17 @@ Each removal SHALL ask first, naming the provider and the profile, with the dest
 
 ### Requirement: After a removal
 
-After a removal the app SHALL read the providers again. When the provider is still connected through another credential, the detail SHALL say "Still connected through <N> other saved credentials" and list them. A 404 SHALL count as already removed; a lost answer SHALL be re-read, never resent.
+Before removing a pool entry the app SHALL read the pool again and delete only when the entry at that index still has the same id. After a removal the app SHALL read the providers again. When the provider is still connected through another credential, the detail SHALL say "Still connected through <N> other saved credentials" and list them. A 404 SHALL count as already removed; a lost answer SHALL be re-read, never resent.
 
 #### Scenario: Still connected
 
 - **WHEN** the OpenAI key is removed but a manually added OpenAI key remains
 - **THEN** the detail says "Still connected through 1 other saved credential" and offers "Remove saved key ending in <last four>"
+
+#### Scenario: Pool changed meanwhile
+
+- **WHEN** the entry at the chosen index has another id when re-read
+- **THEN** nothing is deleted and the refreshed list is shown
 
 #### Scenario: Already gone
 
@@ -304,13 +330,31 @@ After a removal the app SHALL read the providers again. When the provider is sti
 
 ### Requirement: First run from the chat
 
-When the chat's profile has no usable model (discovery succeeds with no usable provider), the welcome view SHALL replace its starter prompts with "Connect a model to start chatting", "Your Hermes server has no model provider for <profile> yet." and the button "Connect a model", which opens Model providers for that profile at "Add a provider". The composer's "Set up a model" SHALL open the same.
+When the chat's profile has no usable model, the welcome view SHALL replace its starter prompts with one card: "Reconnect your model's provider" when the configured provider lost its credential, "Hermes is loading your models" when a provider is connected but lists no models yet, else "Connect a model to start chatting", which opens Model providers at "Add a provider". The composer's "Set up a model" SHALL open the screen.
 
 #### Scenario: Fresh server
 
 - **GIVEN** a freshly installed Hermes with no provider
 - **WHEN** the person signs in and opens a new chat
 - **THEN** the welcome view shows "Connect a model to start chatting" and sending is disabled
+
+#### Scenario: Configured provider lost its key
+
+- **GIVEN** the profile's default model is served by OpenRouter and its key was removed on the server
+- **WHEN** the person opens a new chat
+- **THEN** the card reads "Reconnect your model's provider" and "Reconnect" opens OpenRouter's detail
+
+#### Scenario: Models still warming
+
+- **GIVEN** a provider is connected but Hermes lists no models for it yet
+- **WHEN** the welcome view shows
+- **THEN** the card reads "Hermes is loading your models" with "Check again", not "Connect a model"
+
+#### Scenario: Key without credit
+
+- **GIVEN** a key Hermes accepted but whose account has no credit
+- **WHEN** the first reply fails with the provider's error
+- **THEN** the failed reply shows the error and a "Check model providers" action that opens the default model's provider
 
 ### Requirement: Pickers stay consistent
 
@@ -352,6 +396,33 @@ A typed key SHALL exist only in its field and in the request that sends it. It S
 - **WHEN** Hermes shows a saved key as `«redacted:***»`
 - **THEN** the row reads "API key saved" with no characters of it
 
+### Requirement: Validation answers are never read
+
+The app SHALL send every required field of a check or save request (a custom endpoint's `name`, `base_url` and `model`, `""` before a model is picked), and SHALL NOT parse, show or log the body of a 422 answer, since it echoes the submitted key.
+
+#### Scenario: 422 answer
+
+- **WHEN** a save answers 422
+- **THEN** the form shows "Hermes didn't accept the request" and nothing of the answer body is shown or recorded
+
+### Requirement: Opening addresses from the server
+
+The app SHALL open an address Hermes sends (key signup page, sign-in verification page, docs) only when it is an absolute `https` URL with a host, or `http` to a local address; otherwise its button SHALL be hidden.
+
+#### Scenario: Unsafe address
+
+- **WHEN** a sign-in start answers a `verification_url` of `javascript:alert(1)`
+- **THEN** no "Open" button is shown and the code is still shown
+
+### Requirement: Identifiers in request paths
+
+Endpoint ids, provider ids, pool provider slugs and sign-in session ids SHALL be percent-encoded when they are put into a request path.
+
+#### Scenario: Endpoint id with a colon
+
+- **WHEN** the person deletes the endpoint `local-127.0.0.1:8283`
+- **THEN** the request path carries `local-127.0.0.1%3A8283` and Hermes deletes that endpoint
+
 ### Requirement: Device codes
 
 The device code of a sign-in SHALL be shown and copyable, and SHALL NOT be logged or kept after the sign-in ends.
@@ -363,7 +434,7 @@ The device code of a sign-in SHALL be shown and copyable, and SHALL NOT be logge
 
 ### Requirement: Profile scope
 
-Every read and write SHALL carry the profile the screen was opened for, and none on a server without profiles. Answers for a profile the screen no longer shows SHALL be dropped. Changing the chat's profile SHALL NOT change the profile of an open screen. A sign-in SHALL keep following the profile it was started for.
+Every read and write of profile state SHALL carry the profile the screen was opened for, and none on a server without profiles; the two check routes take no profile and write nothing. Answers for a profile the screen no longer shows SHALL be dropped. Changing the chat's profile SHALL NOT change the profile of an open screen. A sign-in SHALL keep following the profile it was started for.
 
 #### Scenario: Profile switch on the Mac Profiles page
 
@@ -375,6 +446,12 @@ Every read and write SHALL carry the profile the screen was opened for, and none
 
 While App Lock covers the app the screen SHALL be hidden like every other screen and a pending sign-in SHALL keep polling. Sign-out and a change of server SHALL close the screen, drop typed keys and stop following sign-ins without cancelling them.
 
+#### Scenario: App Lock during a sign-in
+
+- **GIVEN** App Lock is on and a sign-in waits
+- **WHEN** the person leaves the app and returns
+- **THEN** the lock covers the screen until unlocked, and a sign-in approved meanwhile shows as signed in after unlocking
+
 #### Scenario: Sign-out during a sign-in
 
 - **WHEN** the person signs out while a sign-in waits
@@ -382,7 +459,7 @@ While App Lock covers the app the screen SHALL be hidden like every other screen
 
 ### Requirement: Touch targets and contrast
 
-Every control SHALL be at least 44 by 44 points on Apple platforms and 48 by 48 dp on Android, and text SHALL meet WCAG AA contrast in both themes. Connection state SHALL be stated in words, never by colour alone.
+Every control SHALL be at least 44 by 44 points on iOS and iPadOS and 48 by 48 dp on Android; macOS SHALL use the Mac's standard control and row sizes with full keyboard access. Text SHALL meet WCAG AA contrast in both themes. Connection state SHALL be stated in words, never by colour alone.
 
 #### Scenario: Default provider in dark mode
 

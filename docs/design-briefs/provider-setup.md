@@ -24,8 +24,8 @@ Principles for this feature:
 **Hierarchy (top to bottom):**
 
 1. Bar: title "Model providers", subtitle "<profile> · <N> connected" (or "<profile>" when none). No add button in the bar on phones (the "Add a provider" section is on the page); on Mac and desktop width a toolbar button "Add Provider" (title case on Mac menus/toolbars only) that scrolls to and focuses that section.
-2. Section "Default model": one row, title = model id, meta = provider name, chevron. Footer: "Used for new chats in <profile>. A chat can still pick another model." Hidden when nothing is connected.
-3. Section "Connected": a row per provider. Title = provider name. Subtitle = how: "API key ending in 4f2a", "API key saved" (no characters known), "Signed in" (+ " as <email>" when Hermes reports one), "Custom endpoint · <host>", "Waiting for sign-in…" (with a small progress indicator in the trailing slot). Meta = "Default" when it serves the default model. Warning line when Hermes reports one ("Rate limited until 14:20", "Missing usable credentials"). Chevron.
+2. Section "Default model": one row, title = the model's display name (the id when Hermes gives no name), subtitle = the id when it differs, meta = provider name, chevron. Footer: "Used for new chats in <profile>. A chat can still pick another model." Hidden when nothing is connected.
+3. Section "Connected": a row per provider. Title = provider name. Subtitle = how: "API key ending in 4f2a", "API key saved" (no characters known), "Signed in" (+ " as <email>" only right after a Nous sign-in, the one case where Hermes reports an email), "Custom endpoint · <host>", "Waiting for sign-in…" (with a small progress indicator in the trailing slot). Meta = "Default" when it serves the default model. Warning line when Hermes reports one ("Rate limited until 14:20", "Missing usable credentials"). Chevron.
 4. Section "Add a provider": first a "Recommended" group (Nous Portal, OpenRouter, OpenAI, Anthropic, those not yet connected), then "More providers" (alphabetical), then a last row "Custom endpoint" with subtitle "Any OpenAI-compatible server, like vLLM, llama.cpp or Ollama". Each provider row's subtitle says how it connects: "API key", "Sign in with your account", "Set up on your server". A search field appears above the list when there are more than 12 entries ("Search providers").
 5. Footer under everything: "Keys and sign-ins are saved on your Hermes server for the <profile> profile only. They are never stored on this device."
 
@@ -47,7 +47,7 @@ Principles for this feature:
 - iPhone: pushed page from the drawer; inset grouped list; pull to refresh.
 - Android: Material 3 top app bar, list with dividers; pull to refresh.
 - iPad full screen / desktop width ≥ 900 pt: list (360 pt) beside the detail (Screen 2); first connected provider selected; selection highlighted.
-- Mac: reached from the sidebar and from Profiles > "Model providers"; Mac toolbar with back, title, "Add Provider" button; list beside detail from 560 pt content width; rows 28 pt high in the list with hover; no pull to refresh (⌘R refreshes).
+- Mac: reached from the sidebar and from Profiles > "Model providers"; Mac toolbar with back, title, "Add Provider" button; list beside detail from 560 pt of content width (`kMacSplitBreakpoint`; the sidebar takes the rest); rows 28 pt high in the list with hover; no pull to refresh (⌘R refreshes).
 
 ## Screen 2: Provider detail
 
@@ -57,7 +57,7 @@ Principles for this feature:
 
 1. Header: provider name (large title on iPhone), state line ("Connected with an API key", "Signed in as ada@example.com", "Custom endpoint", "Not connected").
 2. If it serves the default model: info row "New chats in <profile> use <model>" with "Change".
-3. Section "Credentials": one row per credential: "API key ending in 4f2a" (action "Replace key"), "Signed in · <source label>", "Saved key ending in 7890 · added on the server" (pool entries). For an endpoint: Address, API type, Models (count, expandable list), API key ("Saved" / "None").
+3. Section "Credentials": one row per credential: "API key ending in 4f2a" (action "Replace key"), "Signed in" (never Hermes' source label, which can be a file path on the server), "Saved key ending in 7890 · added on the server" (only keys added by hand on the server; sign-in tokens are never listed as keys). For an endpoint: Address, API type, Models (count, expandable list), API key ("Saved" / "None").
 4. Section "Models": count and the first five ids, "Show all" (read-only; picking happens in the default-model row).
 5. Destructive section at the bottom, red text rows: "Remove key", "Sign out", "Delete endpoint", "Remove saved key ending in 7890". When Hermes cannot remove a sign-in: no button; a footer "Hermes can't remove this sign-in from the app. Run this on your server:" + selectable command + Copy.
 6. "Still connected" note when a removal left other credentials: "Still connected through 1 other saved credential." above the list of them.
@@ -86,9 +86,10 @@ Principles for this feature:
 | Empty Save attempt    | Field error "Paste the key first".                                                                                                                                              |
 | Checking              | Save becomes a progress indicator with "Checking key…"; field read-only.                                                                                                        |
 | Rejected              | Field error (Hermes' message, e.g. "That API key was rejected. Double-check it and try again."); buttons "Edit key" (primary, focuses the field) and "Save anyway" (secondary). |
+| Provider error        | Heading "<provider> didn't answer normally", Hermes' message ("Provider returned HTTP 503 for this key."); buttons "Save anyway" (primary) and "Try again" (secondary). |
 | Saving                | "Saving…"                                                                                                                                                                       |
 | Saved, checked        | Sheet closes into the default-model step.                                                                                                                                       |
-| Saved, unchecked      | Default-model step shows a note at top: "Saved. Hermes can't check keys for <provider> ahead of time; your first chat will tell."                                               |
+| Saved, unchecked      | Default-model step shows a note at top: "Saved. Your first chat will show whether the key works."                                               |
 | Saved, couldn't reach | Note: "Saved, but Hermes couldn't reach <provider> to check it."                                                                                                                |
 | Refused               | Inline error with Hermes' reason (e.g. the administrator lock); Save stays enabled for another key.                                                                             |
 | Unknown outcome       | "Couldn't tell whether the key was saved. Check the list, then try again." and the list re-reads behind it.                                                                     |
@@ -110,7 +111,7 @@ Principles for this feature:
 5. Footer: "The code expires in 14 minutes." (counts down per minute, not per second; no ticking motion).
 6. Note for the profile: "Signs <profile> in. Other profiles stay as they are."
 
-**End states:** Approved → closes into the default-model step with "Signed in to <provider>" announced. Denied → "The sign-in was declined." + "Try again". Expired → "The code expired." + "Start again". Error → Hermes' message or "Sign-in failed." + "Try again". Start refused → Hermes' sentence + "Check again" (no code shown).
+**End states:** Approved → closes into the default-model step with "Signed in to <provider>" announced. Denied → "The sign-in was declined." + "Start again". Expired → "The code expired." + "Start again". Error → Hermes' message or "Sign-in failed." + "Start again". Start refused → Hermes' sentence + "Check again" (no code shown).
 
 **Leaving:** closing the sheet with a pending sign-in does not cancel it; the list row shows "Waiting for sign-in…" with "Continue" (reopens this step) and "Cancel" (asks: "Stop signing in to <provider>?" / "Stop" / "Keep waiting").
 
@@ -168,13 +169,21 @@ Cancel is the default and first-reachable on every alert; the destructive action
 
 **Purpose:** turn "this server can't answer" into one tap.
 
-Replaces the starter prompts on the chat's welcome view when the profile has no usable model. Card: icon (`tune` or a plug), title "Connect a model to start chatting", body "Your Hermes server has no model provider for <profile> yet.", primary button "Connect a model". The composer stays visible but its send button is disabled, and its pill reads "Set up a model" (unchanged) and opens the same screen. On a Mac or wide window the card is centred in the welcome area at max 420 pt wide; on phones it sits where the prompts were.
+Replaces the starter prompts on the chat's welcome view when the profile has no usable model. Three variants, one at a time:
+
+- Reconnect (the configured provider lost its key): title "Reconnect your model's provider", body "New chats in <profile> use <model>, but its provider's key is missing or no longer works.", primary "Reconnect" (opens that provider's detail).
+- Loading (a provider is connected but its model list is not ready): title "Hermes is loading your models", body "A provider is connected, but its model list isn't ready yet.", primary "Check again". No connect button.
+- Connect (nothing connected), described next.
+
+A failed reply whose error comes from the provider (bad key, no credit) gets the secondary action "Check model providers" under the error, opening the default model's provider.
+
+Connect card: icon (`tune` or a plug), title "Connect a model to start chatting", body "Your Hermes server has no model provider for <profile> yet.", primary button "Connect a model". The composer stays visible but its send button is disabled, and its pill reads "Set up a model" (unchanged) and opens the same screen. On a Mac or wide window the card is centred in the welcome area at max 420 pt wide; on phones it sits where the prompts were.
 
 After setup the card disappears without animation when reduced motion is on, with a short fade otherwise, and the starter prompts appear.
 
 ## Accessibility (all screens)
 
-- Targets: 44 × 44 pt (Apple), 48 × 48 dp (Android), including the eye button, Copy and the disclosure.
+- Targets: 44 × 44 pt on iOS and iPadOS, 48 × 48 dp on Android, including the eye button, Copy and the disclosure. macOS follows the Mac's own sizes (28 pt list rows, regular push buttons) with full keyboard access instead.
 - Row labels: "<provider>, <state>[, default model]"; last-four characters read separately ("ending in 4 f 2 a"). The code reads character by character, grouped ("W D J B, M J H T").
 - Announcements: "Checking key", "Key saved", "Waiting for sign-in", "Code ready" (once), "Signed in to <provider>", failures.
 - Largest accessibility text: rows wrap to as many lines as needed, the code wraps by group, buttons stack vertically in forms and steps.
@@ -186,4 +195,5 @@ After setup the card disappears without animation when reduced motion is on, wit
 
 - No mock or screenshot may contain a real-looking full key; examples show only "ending in 4f2a".
 - The key field is obscured in every frame of every use case, except the one "shown" state, which uses an obviously fake key (`test-key-not-real`).
+- Links Hermes sends (key page, sign-in page, docs) are opened only when they are `https` (or `http` to a local address); otherwise the button is not drawn, so designs must work without it.
 - Nothing about keys appears in notifications, widgets or the app switcher; no design should propose a "key saved" notification.
