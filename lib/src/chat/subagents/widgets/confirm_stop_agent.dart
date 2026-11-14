@@ -21,13 +21,11 @@ String confirmGoalLine(String goal) {
 /// first). The caller binds the answer to the agent it asked about.
 Future<bool> confirmStopAgent(BuildContext context, {required String goal}) {
   final l10n = context.l10n;
-  return showConfirmDialog(
+  return showDestructiveConfirm(
     context,
     title: l10n.chatSubagentsConfirmTitle,
     message: l10n.chatSubagentsConfirmMessage(confirmGoalLine(goal)),
     confirmLabel: l10n.chatSubagentsStopButton,
     cancelLabel: l10n.chatSubagentsConfirmCancel,
-    destructive: true,
-    filled: false,
   );
 }

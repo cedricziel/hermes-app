@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoDialogAction;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -103,5 +104,32 @@ void main() {
   test('goal line collapses whitespace and cuts on characters', () {
     expect(confirmGoalLine('  a\n b  '), 'a b');
     expect(confirmGoalLine('😀' * 100).runes.length, kConfirmGoalChars + 1);
+  });
+
+  testWidgets('Cancel is the default on Apple platforms', (tester) async {
+    await open(tester, platform: TargetPlatform.iOS);
+    final cancel = tester.widget<CupertinoDialogAction>(
+      find.widgetWithText(CupertinoDialogAction, 'Cancel'),
+    );
+    final stop = tester.widget<CupertinoDialogAction>(
+      find.widgetWithText(CupertinoDialogAction, 'Stop agent'),
+    );
+    expect(cancel.isDefaultAction, isTrue);
+    expect(stop.isDestructiveAction, isTrue);
+    expect(stop.isDefaultAction, isFalse);
+  });
+
+  testWidgets('on Material Stop agent is plain text in the error colour', (
+    tester,
+  ) async {
+    await open(tester);
+    final stop = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Stop agent'),
+    );
+    final color = stop.style?.foregroundColor?.resolve({});
+    expect(
+      color,
+      Theme.of(tester.element(find.text('Stop agent'))).colorScheme.error,
+    );
   });
 }

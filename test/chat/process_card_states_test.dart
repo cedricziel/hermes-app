@@ -394,4 +394,46 @@ void main() {
       );
     });
   });
+
+  group('review fixes', () {
+    testWidgets('an exit without a code is Ended, not code 0', (tester) async {
+      await pump(
+        tester,
+        info: const ProcessCardInfo(
+          command: 'npm test',
+          status: ProcessCardStatus.exited,
+        ),
+        open: false,
+      );
+      expect(find.text('Ended'), findsOneWidget);
+      expect(find.textContaining('code 0'), findsNothing);
+    });
+
+    testWidgets('with info, the empty and omitted lines are localized', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        info: running(),
+        output: const ProcessOutput(processId: 'p'),
+        locale: const Locale('de'),
+      );
+      expect(find.text('Keine Ausgabe empfangen.'), findsOneWidget);
+      expect(find.text('No output received.'), findsNothing);
+    });
+
+    testWidgets('a seeded card shows the omission line once', (tester) async {
+      await pump(
+        tester,
+        info: running(seeded: true),
+        output: const ProcessOutput(
+          processId: 'p',
+          text: 'tail',
+          omitted: true,
+        ),
+      );
+      expect(find.text('Earlier output omitted'), findsOneWidget);
+      expect(find.text('Earlier output omitted.'), findsNothing);
+    });
+  });
 }

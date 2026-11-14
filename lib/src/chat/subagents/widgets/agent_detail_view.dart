@@ -183,10 +183,14 @@ class AgentDetailView extends StatelessWidget {
                     maxHeight: outputMaxHeight,
                   ),
                 ],
-                if (_controllable && note != null) ...[
+                if (_controllable && note != null && _noteShown(note)) ...[
                   const SizedBox(height: 16),
                   AgentNoteField(
-                    model: note,
+                    // Offline or ended, nothing can be sent.
+                    model: note.copyWith(
+                      offline: note.offline || model.offline,
+                      canSend: note.canSend && model.active && !model.offline,
+                    ),
                     onChanged: onNoteChanged,
                     onSend: onSendNote,
                     onCopy: onCopyNote,
@@ -218,6 +222,13 @@ class AgentDetailView extends StatelessWidget {
       ],
     );
   }
+
+  /// An ended agent takes no note: the section stays only for text typed
+  /// and never sent, or to say a note missed.
+  bool _noteShown(AgentNoteModel note) =>
+      model.active ||
+      (note.frozen && note.text.isNotEmpty) ||
+      note.status == AgentNoteStatus.missed;
 
   String _endedLine(AppLocalizations l10n) => switch (model.state) {
     AgentState.finished => l10n.chatSubagentsEndedFinished,
@@ -317,8 +328,9 @@ class _Facts extends StatelessWidget {
           children: [
             AgentStateGlyph(state: model.state),
             const SizedBox(width: 8),
-            // The state word changing is announced once, politely.
-            Expanded(child: Semantics(liveRegion: true, child: Text(line))),
+            // Only the state word is a live region: it is announced once,
+            // politely, when it changes, and a refreshed run time is not.
+            Expanded(child: _liveStateText(word, line)),
           ],
         ),
         if (model.active && model.currentTool != null)
@@ -334,6 +346,22 @@ class _Facts extends StatelessWidget {
       ],
     );
   }
+}
+
+Widget _liveStateText(String word, String line) {
+  final rest = line.startsWith(word) ? line.substring(word.length) : '';
+  return Text.rich(
+    TextSpan(
+      children: [
+        WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Semantics(liveRegion: true, child: Text(word)),
+        ),
+        TextSpan(text: rest),
+      ],
+    ),
+  );
 }
 
 class _StopButton extends StatelessWidget {

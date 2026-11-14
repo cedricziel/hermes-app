@@ -181,6 +181,8 @@
   "chatWidgetsProgramConfirmTitle": "Dieses Programm stoppen?",
   "chatWidgetsProgramEarlierOmitted": "Frühere Ausgabe ausgelassen",
   "chatWidgetsProgramLine": "{state} · {time}",
+  "chatWidgetsProgramNoOutput": "Keine Ausgabe empfangen.",
+  "chatWidgetsProgramOmittedCards": "Frühere Programmkarten ausgelassen",
   "chatWidgetsProgramOutcomeAlreadyEnded": "Es war bereits beendet.",
   "chatWidgetsProgramOutcomeFailed": "Das Programm konnte nicht gestoppt werden.",
   "chatWidgetsProgramOutcomeNotListed": "Dieses Programm wird nicht mehr aufgeführt.",

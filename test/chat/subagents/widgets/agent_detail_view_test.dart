@@ -427,4 +427,107 @@ void main() {
     expect(back.overlaps(title), isFalse);
     expect(back.height, lessThan(30));
   });
+
+  group('review fixes', () {
+    testWidgets('an ended agent takes no note field', (tester) async {
+      for (final state in [
+        AgentState.finished,
+        AgentState.failed,
+        AgentState.stopped,
+        AgentState.ended,
+      ]) {
+        await _pump(tester, _m(state: state));
+        expect(
+          find.text('Redirect this agent'),
+          findsNothing,
+          reason: '$state',
+        );
+        expect(find.text('Send to agent'), findsNothing, reason: '$state');
+      }
+    });
+
+    testWidgets('typed text of an ended agent stays as Not sent', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        AgentDetailModel(
+          goal: _goal,
+          state: AgentState.finished,
+          note: const AgentNoteModel(
+            goal: _goal,
+            text: 'Skip vendored',
+            length: 13,
+            frozen: true,
+          ),
+        ),
+      );
+      expect(find.text('Not sent'), findsOneWidget);
+      expect(find.text('Send to agent'), findsNothing);
+    });
+
+    testWidgets('a missed note is said for an ended agent', (tester) async {
+      await _pump(
+        tester,
+        const AgentDetailModel(
+          goal: _goal,
+          state: AgentState.finished,
+          note: AgentNoteModel(
+            goal: _goal,
+            status: AgentNoteStatus.missed,
+            frozen: true,
+          ),
+        ),
+      );
+      expect(find.text("Your note didn't reach the agent."), findsOneWidget);
+      expect(find.text('Send to agent'), findsNothing);
+    });
+
+    testWidgets('offline on the detail alone disables Send and Stop', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AgentDetailModel(
+          goal: _goal,
+          state: AgentState.running,
+          offline: true,
+          note: AgentNoteModel(
+            goal: _goal,
+            text: 'x',
+            length: 1,
+            canSend: true,
+          ),
+        ),
+        onStop: () {},
+      );
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<DestructiveTintButton>(find.byType(DestructiveTintButton))
+            .onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('only the state word is a live region, not the run time', (
+      tester,
+    ) async {
+      await _pump(tester, _m());
+      final live = find.byWidgetPredicate(
+        (w) => w is Semantics && (w.properties.liveRegion ?? false),
+      );
+      expect(
+        find.descendant(of: live, matching: find.text('Running')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: live, matching: find.textContaining('2m')),
+        findsNothing,
+      );
+    });
+  });
 }

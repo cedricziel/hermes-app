@@ -112,7 +112,11 @@ class ProcessOutputCard extends StatelessWidget {
                     ),
                   ),
                 if (process.text.isEmpty)
-                  const Text('No output received.')
+                  Text(
+                    info == null
+                        ? 'No output received.'
+                        : context.l10n.chatWidgetsProgramNoOutput,
+                  )
                 else
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 180),
@@ -120,8 +124,18 @@ class ProcessOutputCard extends StatelessWidget {
                       child: SelectableText(process.text),
                     ),
                   ),
-                if (process.omitted) const Text('Earlier output omitted.'),
-                if (omittedCards) const Text('Earlier process cards omitted.'),
+                if (process.omitted && !(info?.seeded ?? false))
+                  Text(
+                    info == null
+                        ? 'Earlier output omitted.'
+                        : context.l10n.chatWidgetsProgramEarlierOmitted,
+                  ),
+                if (omittedCards)
+                  Text(
+                    info == null
+                        ? 'Earlier process cards omitted.'
+                        : context.l10n.chatWidgetsProgramOmittedCards,
+                  ),
                 if (info != null) _Controls(info: info, onStop: onStop),
               ],
             ),
@@ -142,8 +156,11 @@ class _Title extends StatelessWidget {
     final state = switch (info.status) {
       ProcessCardStatus.running => l10n.chatWidgetsProgramStateRunning,
       ProcessCardStatus.stopped => l10n.chatWidgetsProgramStateStopped,
+      // An exit without a code is Ended, never "code 0".
+      ProcessCardStatus.exited when info.exitCode == null =>
+        l10n.chatWidgetsProgramStateEnded,
       ProcessCardStatus.exited => l10n.chatWidgetsProgramStateExited(
-        info.exitCode ?? 0,
+        info.exitCode!,
       ),
       ProcessCardStatus.ended => l10n.chatWidgetsProgramStateEnded,
     };

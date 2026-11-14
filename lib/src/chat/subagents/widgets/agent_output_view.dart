@@ -136,6 +136,7 @@ class _OutputBox extends StatefulWidget {
 class _OutputBoxState extends State<_OutputBox> {
   final _scroll = ScrollController();
   var _selected = false;
+  final _selection = GlobalKey<SelectionAreaState>();
   var _away = false;
   var _faded = false;
   var _holding = false;
@@ -193,7 +194,13 @@ class _OutputBoxState extends State<_OutputBox> {
   }
 
   void _jump() {
-    _away = false;
+    // Jump to latest clears the selection and resumes following.
+    _selection.currentState?.selectableRegion.clearSelection();
+    setState(() {
+      _away = false;
+      _selected = false;
+    });
+    _report();
     widget.onJumpToLatest();
     _toEnd();
   }
@@ -244,6 +251,7 @@ class _OutputBoxState extends State<_OutputBox> {
                     stops: [0, (24 / rect.height).clamp(0.0, 1.0)],
                   ).createShader(rect),
                   child: SelectionArea(
+                    key: _selection,
                     onSelectionChanged: (content) {
                       _selected = content != null && content.plainText != '';
                       _report();

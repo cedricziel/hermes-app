@@ -34,6 +34,18 @@ class AgentNoteModel {
     this.offline = false,
   });
 
+  AgentNoteModel copyWith({bool? offline, bool? canSend}) => AgentNoteModel(
+    goal: goal,
+    text: text,
+    length: length,
+    limit: limit,
+    status: status,
+    frozen: frozen,
+    canSend: canSend ?? this.canSend,
+    sentNotes: sentNotes,
+    offline: offline ?? this.offline,
+  );
+
   final String goal;
   final String text;
 
@@ -107,6 +119,7 @@ class _AgentNoteFieldState extends State<AgentNoteField> {
     final m = widget.model;
     return widget.onSend != null &&
         m.canSend &&
+        m.length > 0 &&
         !m.offline &&
         m.status != AgentNoteStatus.sending &&
         m.length <= m.limit;
@@ -129,8 +142,14 @@ class _AgentNoteFieldState extends State<AgentNoteField> {
       ]);
     }
     if (m.frozen || m.status == AgentNoteStatus.notControllable) {
-      if (m.text.isEmpty) return const SizedBox.shrink();
-      return _section(context, [_notSent(context)], recipient: false);
+      final missed = m.status == AgentNoteStatus.missed;
+      if (m.text.isEmpty && !missed) return const SizedBox.shrink();
+      return _section(context, [
+        // A note that arrived too late belongs to an ended agent: say so even
+        // though nothing more can be sent.
+        if (missed) ...[?_banner(context), const SizedBox(height: 8)],
+        if (m.text.isNotEmpty) _notSent(context),
+      ], recipient: false);
     }
     final large = agentLargeText(context);
     return _section(context, [
@@ -158,7 +177,8 @@ class _AgentNoteFieldState extends State<AgentNoteField> {
         if (recipient)
           Text.rich(
             TextSpan(text: context.l10n.chatSubagentsNoteTo(m.goal)),
-            maxLines: 1,
+            // The goal is never cut at the largest text sizes.
+            maxLines: agentLargeText(context) ? null : 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,

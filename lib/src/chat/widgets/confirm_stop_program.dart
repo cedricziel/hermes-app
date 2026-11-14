@@ -22,13 +22,11 @@ Future<bool> confirmStopProgram(
   required String command,
 }) {
   final l10n = context.l10n;
-  return showConfirmDialog(
+  return showDestructiveConfirm(
     context,
     title: l10n.chatWidgetsProgramConfirmTitle,
     message: l10n.chatWidgetsProgramConfirmMessage(confirmCommandLine(command)),
     confirmLabel: l10n.chatWidgetsProgramStopButton,
     cancelLabel: l10n.chatWidgetsProgramConfirmCancel,
-    destructive: true,
-    filled: false,
   );
 }

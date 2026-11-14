@@ -750,6 +750,14 @@
       }
     }
   },
+  "chatWidgetsProgramNoOutput": "No output received.",
+  "@chatWidgetsProgramNoOutput": {
+    "description": "Text of an expanded background program card that has received no output yet."
+  },
+  "chatWidgetsProgramOmittedCards": "Earlier process cards omitted",
+  "@chatWidgetsProgramOmittedCards": {
+    "description": "Line under the program cards when older cards were dropped to keep the list short."
+  },
   "chatWidgetsProgramOutcomeAlreadyEnded": "It had already ended.",
   "@chatWidgetsProgramOutcomeAlreadyEnded": {
     "description": "Banner when the program had ended before the stop."

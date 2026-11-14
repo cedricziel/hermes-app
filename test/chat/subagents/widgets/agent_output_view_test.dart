@@ -240,6 +240,27 @@ void main() {
     await tester.pump();
     expect(events, [true]);
   });
+
+  testWidgets('Jump to latest ends the hold', (tester) async {
+    final events = <bool>[];
+    final many = List.generate(
+      80,
+      (i) => '12:04:${(i % 60).toString().padLeft(2, '0')} tool    | line $i',
+    ).join('\n');
+    await _pump(tester, AgentOutputModel(text: many), onHolding: events.add);
+    await tester.pump();
+    await tester.drag(find.byType(SelectionArea), const Offset(0, 300));
+    await tester.pump();
+    await _pump(
+      tester,
+      AgentOutputModel(text: many, paused: true),
+      onHolding: events.add,
+    );
+    await tester.pump();
+    await tester.tap(find.text('Jump to latest'));
+    await tester.pump();
+    expect(events, [true, false]);
+  });
 }
 
 bool _hasRecognizer(InlineSpan span) {
