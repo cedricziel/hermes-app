@@ -111,6 +111,28 @@ class NotificationAnswer {
   final OpenRequestAnswer answer;
 }
 
+/// The text the user typed into a finished reply's Reply action, as it
+/// reached this isolate (macOS), with the moment Dart received it, which
+/// starts its budget.
+class NotificationReply {
+  const NotificationReply({
+    required this.payload,
+    required this.input,
+    required this.receivedAt,
+  });
+
+  final String? payload;
+  final String? input;
+  final DateTime receivedAt;
+}
+
+/// A [NotificationService] that reports the replies typed into a
+/// notification that reach this isolate, as macOS delivers them. On iOS they
+/// go to a background isolate instead.
+abstract interface class ReplyingNotificationService {
+  Stream<NotificationReply> get replies;
+}
+
 /// Rechecks caller authorization after asynchronous notification preparation.
 abstract interface class GuardedNotificationService {
   Future<void> showWhile(
