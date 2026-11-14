@@ -87,7 +87,24 @@ void main() {
     await pumpEventQueue();
     chat.dispose();
     attention.dispose();
-    await directory.delete(recursive: true);
+    // The store serializes its operations per directory, so a read queued now
+    // answers only after every write the controller already started.
+    try {
+      await store.load(_scope);
+    } on Object {
+      // The directory is deleted next either way.
+    }
+    // A write that still lands while the tree is removed fails the delete
+    // with "Directory not empty": try again until the tree is quiet.
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (directory.existsSync()) {
+      try {
+        await directory.delete(recursive: true);
+      } on FileSystemException {
+        if (!DateTime.now().isBefore(deadline)) rethrow;
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      }
+    }
   });
 
   ChatThread thread() => chat.threads.singleWhere((t) => t.id == 'stored');
