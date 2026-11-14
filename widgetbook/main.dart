@@ -27,7 +27,7 @@ class HermesWidgetbook extends StatelessWidget {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           initialLocale: const Locale('en'),
         ),
-        TextScaleAddon(min: 1, max: 2),
+        TextScaleAddon(min: 1, max: 3),
         ViewportAddon([phone, desktop]),
       ],
     );
