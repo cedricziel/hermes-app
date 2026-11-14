@@ -307,6 +307,269 @@
   "@@x-area-chat/attachments": "",
 
   "@@x-area-chat/checkpoints": "",
+  "chatCheckpointsChangesBarCount": "{count, plural, =1{1 file differs} other{{count} files differ}}",
+  "@chatCheckpointsChangesBarCount": {
+    "description": "Sticky footer of the Changes page: how many files differ now.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesBarRestoreAll": "Restore all files…",
+  "@chatCheckpointsChangesBarRestoreAll": {
+    "description": "Button in the Changes footer that starts restoring every file of the checkpoint."
+  },
+  "chatCheckpointsChangesBarRestoring": "Restoring…",
+  "@chatCheckpointsChangesBarRestoring": {
+    "description": "Label of the Restore all files button while a restore runs."
+  },
+  "chatCheckpointsChangesBarSome": "Some files differ",
+  "@chatCheckpointsChangesBarSome": {
+    "description": "Changes footer when the number of differing files is not known."
+  },
+  "chatCheckpointsChangesCountsAddedRemoved": "+{added} −{removed}",
+  "@chatCheckpointsChangesCountsAddedRemoved": {
+    "description": "Counts under a changed file: lines added and lines removed. The signs carry the meaning.",
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "removed": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesCountsLinesChanged": "{count, plural, =1{1 line changed} other{{count} lines changed}}",
+  "@chatCheckpointsChangesCountsLinesChanged": {
+    "description": "Count under a changed file when only the total of changed lines is known.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesCountsSemantics": "{added, plural, =1{1 line added} other{{added} lines added}}, {removed} removed",
+  "@chatCheckpointsChangesCountsSemantics": {
+    "description": "Screen reader text for the counts of a changed file.",
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "removed": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsChangesCutCaption": "Hermes cut this diff short",
+  "@chatCheckpointsChangesCutCaption": {
+    "description": "Caption under a changed file whose diff is missing because the server cut the diff."
+  },
+  "chatCheckpointsChangesCutFooter": "Hermes only sends the first part of a large diff. The file list is complete.",
+  "@chatCheckpointsChangesCutFooter": {
+    "description": "Note under the file list when the server cut the diff."
+  },
+  "chatCheckpointsChangesFileLabel": "{name}, {details}",
+  "@chatCheckpointsChangesFileLabel": {
+    "description": "Screen reader text of a changed file row. {name} is the file name, {details} the counts.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsChangesFileSubtitle": "{folder} · {details}",
+  "@chatCheckpointsChangesFileSubtitle": {
+    "description": "Line under a file name: its folder and its counts. {folder} may be \"Top of the folder\".",
+    "placeholders": {
+      "folder": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsChangesHeader": "Files that differ now",
+  "@chatCheckpointsChangesHeader": {
+    "description": "Heading of the file list on the Changes page."
+  },
+  "chatCheckpointsChangesHeaderNote": "Lines added and removed since the checkpoint.",
+  "@chatCheckpointsChangesHeaderNote": {
+    "description": "Note under the heading of the file list."
+  },
+  "chatCheckpointsChangesLoading": "Reading the changes…",
+  "@chatCheckpointsChangesLoading": {
+    "description": "Label of the skeleton while the changes of a checkpoint load."
+  },
+  "chatCheckpointsChangesNone": "No changes since this checkpoint.",
+  "@chatCheckpointsChangesNone": {
+    "description": "Message when no file differs from the checkpoint."
+  },
+  "chatCheckpointsChangesNoneDetail": "The files in this folder are as they were {time}.",
+  "@chatCheckpointsChangesNoneDetail": {
+    "description": "Detail under the no-changes message. {time} is a relative time such as \"12 min ago\".",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsChangesNotText": "Not text, no preview",
+  "@chatCheckpointsChangesNotText": {
+    "description": "Under a binary file: it has no text diff."
+  },
+  "chatCheckpointsChangesReasonDisconnected": "Reconnect to restore files.",
+  "@chatCheckpointsChangesReasonDisconnected": {
+    "description": "Why restoring is disabled while the connection is down."
+  },
+  "chatCheckpointsChangesReasonFileNotOffered": "This file can't be restored one at a time.",
+  "@chatCheckpointsChangesReasonFileNotOffered": {
+    "description": "Why restoring one file is disabled."
+  },
+  "chatCheckpointsChangesReasonLocked": "Unlock the app to restore files.",
+  "@chatCheckpointsChangesReasonLocked": {
+    "description": "Why restoring is disabled while App Lock is on."
+  },
+  "chatCheckpointsChangesReasonReplying": "Wait for the reply to finish.",
+  "@chatCheckpointsChangesReasonReplying": {
+    "description": "Why restoring all files is disabled while the chat replies."
+  },
+  "chatCheckpointsChangesReasonRestoring": "Wait for the restore to finish.",
+  "@chatCheckpointsChangesReasonRestoring": {
+    "description": "Why restoring is disabled while another restore runs."
+  },
+  "chatCheckpointsChangesReasonUnavailable": "This server can't restore files.",
+  "@chatCheckpointsChangesReasonUnavailable": {
+    "description": "Why restoring is disabled when the server has no such feature."
+  },
+  "chatCheckpointsChangesRefused": "Hermes runs this chat in a separate workspace, so it keeps no checkpoints of its files.",
+  "@chatCheckpointsChangesRefused": {
+    "description": "Message on the Changes page when the server runs the chat in a container."
+  },
+  "chatCheckpointsChangesTopOfFolder": "Top of the folder",
+  "@chatCheckpointsChangesTopOfFolder": {
+    "description": "Folder shown under a file that sits directly in the chat's folder."
+  },
+  "chatCheckpointsChangesTryAgain": "Try again",
+  "@chatCheckpointsChangesTryAgain": {
+    "description": "Button under the message that the changes could not be read."
+  },
+  "chatCheckpointsChangesUnreadable": "Couldn't read the changes.",
+  "@chatCheckpointsChangesUnreadable": {
+    "description": "Message when the changes of a checkpoint could not be read."
+  },
+  "chatCheckpointsFileBinary": "This file isn't text, so there is no preview.",
+  "@chatCheckpointsFileBinary": {
+    "description": "Note on the file page for a binary file."
+  },
+  "chatCheckpointsFileCounts": "{added} added, {removed} removed",
+  "@chatCheckpointsFileCounts": {
+    "description": "Counts under the file page heading. {added} and {removed} are numbers of lines.",
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "removed": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsFileCut": "Hermes cut this diff short.",
+  "@chatCheckpointsFileCut": {
+    "description": "Note on the file page when the diff is incomplete."
+  },
+  "chatCheckpointsFileHeading": "Changes in {file}",
+  "@chatCheckpointsFileHeading": {
+    "description": "Heading of the file page. {file} is the file name.",
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsFileNameNotAlone": "This file's name can't be restored one at a time. Use Restore all files.",
+  "@chatCheckpointsFileNameNotAlone": {
+    "description": "Shown instead of the Restore this file button for a name that cannot be sent safely."
+  },
+  "chatCheckpointsFileNameShortened": "Git shortened this name, so Hermes can't be sure which file it is. Use Restore all files.",
+  "@chatCheckpointsFileNameShortened": {
+    "description": "Shown instead of the Restore this file button for a name that git shortened."
+  },
+  "chatCheckpointsFileNoPreview": "There is no preview for this file.",
+  "@chatCheckpointsFileNoPreview": {
+    "description": "Note on the file page when the file has no diff to show and is not binary."
+  },
+  "chatCheckpointsFileRestore": "Restore this file…",
+  "@chatCheckpointsFileRestore": {
+    "description": "Button on the file page that starts restoring one file."
+  },
+  "chatCheckpointsFileRestoring": "Restoring…",
+  "@chatCheckpointsFileRestoring": {
+    "description": "Label of the Restore this file button while the restore runs."
+  },
+  "chatCheckpointsListEmpty": "No checkpoints yet for this chat's folder. Hermes makes one just before it first edits a file in a turn.",
+  "@chatCheckpointsListEmpty": {
+    "description": "Empty state of the checkpoint list."
+  },
+  "chatCheckpointsListFailed": "Couldn't read checkpoints.",
+  "@chatCheckpointsListFailed": {
+    "description": "Message when the checkpoint list could not be read."
+  },
+  "chatCheckpointsListLoading": "Loading checkpoints…",
+  "@chatCheckpointsListLoading": {
+    "description": "Label of the skeleton while the checkpoint list loads."
+  },
+  "chatCheckpointsListLocked": "{count, plural, =1{1 checkpoint} other{{count} checkpoints}}",
+  "@chatCheckpointsListLocked": {
+    "description": "All the checkpoint list shows while App Lock is on.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsListNewestFirst": "Newest first",
+  "@chatCheckpointsListNewestFirst": {
+    "description": "Heading of the checkpoint list."
+  },
+  "chatCheckpointsListNotCovered": "Checkpoints don't cover this chat's workspace.",
+  "@chatCheckpointsListNotCovered": {
+    "description": "Message when the chat runs in a container workspace."
+  },
+  "chatCheckpointsListNote": "Checkpoints belong to this chat's folder, so other chats in it see them too.",
+  "@chatCheckpointsListNote": {
+    "description": "Note above the checkpoint list."
+  },
+  "chatCheckpointsListOff": "File checkpoints are off on your Hermes server. To use them, turn on {setting} in its config.",
+  "@chatCheckpointsListOff": {
+    "description": "Message when checkpoints are disabled on the server. {setting} is the config key, shown as code.",
+    "placeholders": {
+      "setting": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsListRetry": "Try again",
+  "@chatCheckpointsListRetry": {
+    "description": "Button under the message that the checkpoints could not be read."
+  },
+  "chatCheckpointsListStale": "Not up to date · reconnect to restore",
+  "@chatCheckpointsListStale": {
+    "description": "Note above the checkpoint list while the connection is down; the list is kept."
+  },
   "chatCheckpointsOutcomeBusyCompressing": "Hermes is compressing this chat. Try again when it's done.",
   "@chatCheckpointsOutcomeBusyCompressing": {
     "description": "Outcome note when a restore was refused because Hermes is compressing the chat."
@@ -515,6 +778,43 @@
   "chatCheckpointsRestoreFileWorking": "Hermes is working in this folder right now. It may change the file again.",
   "@chatCheckpointsRestoreFileWorking": {
     "description": "Extra line of the Restore this file confirmation while the agent works."
+  },
+  "chatCheckpointsRowBeforeEdit": "Before editing a file",
+  "@chatCheckpointsRowBeforeEdit": {
+    "description": "Title of a checkpoint made before Hermes edited a file."
+  },
+  "chatCheckpointsRowBeforeRestore": "Before a restore",
+  "@chatCheckpointsRowBeforeRestore": {
+    "description": "Title of a checkpoint Hermes made before a restore."
+  },
+  "chatCheckpointsRowBeforeTerminal": "Before a terminal command",
+  "@chatCheckpointsRowBeforeTerminal": {
+    "description": "Title of a checkpoint made before Hermes ran a terminal command."
+  },
+  "chatCheckpointsRowMenuLabel": "Actions for the checkpoint from {time}",
+  "@chatCheckpointsRowMenuLabel": {
+    "description": "Accessible name of the \"…\" button of a checkpoint row. {time} is a relative time.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCheckpointsRowOther": "Checkpoint",
+  "@chatCheckpointsRowOther": {
+    "description": "Title of a checkpoint with no recognised reason."
+  },
+  "chatCheckpointsRowRestoreAll": "Restore all files…",
+  "@chatCheckpointsRowRestoreAll": {
+    "description": "Menu item of a checkpoint row that starts restoring every file."
+  },
+  "chatCheckpointsRowSeeChanges": "See changes",
+  "@chatCheckpointsRowSeeChanges": {
+    "description": "Menu item of a checkpoint row that opens its changes."
+  },
+  "chatCheckpointsRowUnknownTime": "Unknown time",
+  "@chatCheckpointsRowUnknownTime": {
+    "description": "Shown where the time of a checkpoint is not known."
   },
 
   "@@x-area-chat/context": "",
