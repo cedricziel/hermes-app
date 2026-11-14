@@ -40,6 +40,11 @@ const _outputReady = CallCheck(
   CallCheckStatus.ready,
   'Hermes speech output is configured.',
 );
+const _modelReady = CallCheck(
+  CallCheckId.voiceModel,
+  CallCheckStatus.ready,
+  'Voice replies follow your main model.',
+);
 const _connectionReady = CallCheck(
   CallCheckId.connection,
   CallCheckStatus.ready,
@@ -49,6 +54,7 @@ const _allReady = CallReadiness([
   _micReady,
   _inputReady,
   _outputReady,
+  _modelReady,
   _connectionReady,
 ], useDeviceSpeech: true);
 
@@ -100,19 +106,18 @@ WidgetbookComponent _setupNode() => WidgetbookComponent(
       builder: (_) => _setup(_allReady, consented: true, gptLive: true),
     ),
     WidgetbookUseCase(
-      name: 'Voice model not set up',
+      name: 'Voice model warning (can still start)',
       builder: (_) => _setup(
         const CallReadiness([
           _micReady,
           _inputReady,
           _outputReady,
           CallCheck(
-            CallCheckId.connection,
-            CallCheckStatus.needsSetup,
-            'The voice chat model follows your main model.',
-            action: CallSetupAction.hermes,
-            label: 'Voice model',
+            CallCheckId.voiceModel,
+            CallCheckStatus.warning,
+            'Hermes has no model set for voice replies. The call can still start.',
           ),
+          _connectionReady,
         ], useDeviceSpeech: true),
       ),
     ),
@@ -127,8 +132,8 @@ WidgetbookComponent _setupNode() => WidgetbookComponent(
             CallCheckStatus.needsSetup,
             'Your server has no text-to-speech provider with credentials.',
             action: CallSetupAction.hermes,
-            label: 'Hermes speech',
           ),
+          _modelReady,
           _connectionReady,
         ], useDeviceSpeech: true),
       ),
@@ -165,6 +170,11 @@ WidgetbookComponent _setupNode() => WidgetbookComponent(
           'Hermes speech output is configured.',
         ),
         CallCheck(
+          CallCheckId.voiceModel,
+          CallCheckStatus.ready,
+          'Voice replies follow your main model.',
+        ),
+        CallCheck(
           CallCheckId.connection,
           CallCheckStatus.ready,
           'The voice service is reachable.',
@@ -186,6 +196,11 @@ WidgetbookComponent _setupNode() => WidgetbookComponent(
           CallCheckStatus.needsSetup,
           'Configure a speech provider on Hermes.',
           action: CallSetupAction.hermes,
+        ),
+        CallCheck(
+          CallCheckId.voiceModel,
+          CallCheckStatus.warning,
+          "Couldn't check the voice model. The call can still start.",
         ),
         CallCheck(
           CallCheckId.connection,
@@ -211,6 +226,11 @@ WidgetbookComponent _setupNode() => WidgetbookComponent(
           CallCheckId.output,
           CallCheckStatus.ready,
           'Hermes speech output is configured.',
+        ),
+        CallCheck(
+          CallCheckId.voiceModel,
+          CallCheckStatus.ready,
+          'Voice replies follow your main model.',
         ),
         CallCheck(
           CallCheckId.connection,

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/call_readiness.dart';
 import 'package:hermes_app/src/voice/calls/call_readiness_checker.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
+import 'package:hermes_app/src/voice/calls/voice_model_route.dart';
 import 'package:hermes_app/src/voice/voice_call_screen.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 
@@ -12,6 +13,7 @@ import 'fakes.dart';
 
 class _Flow {
   bool microphone = true, installed = true, configured = true, current = true;
+  bool gptLive = false;
   int requests = 0, settings = 0, starts = 0, asks = 0, probes = 0;
   int consentGiven = 0, dictations = 0;
   final consents = <bool>[];
@@ -30,6 +32,8 @@ class _Flow {
     connection: () async {
       probes++;
     },
+    voiceModel: () async => VoiceModelRoute.named,
+    gptLive: () async => gptLive,
     isCurrent: () => current,
   );
 
@@ -130,6 +134,24 @@ void main() {
       await flow.dispose(tester);
     },
   );
+
+  testWidgets('a GPT-Live profile gets the note and can still start', (
+    tester,
+  ) async {
+    final flow = _Flow()..gptLive = true;
+    await flow.open(tester);
+    expect(find.textContaining('GPT-Live'), findsOneWidget);
+    await flow.consentAndStart(tester);
+    expect(flow.starts, 1);
+    await flow.dispose(tester);
+  });
+
+  testWidgets('no GPT-Live, no note', (tester) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    expect(find.textContaining('GPT-Live'), findsNothing);
+    await flow.dispose(tester);
+  });
 
   testWidgets('Start is disabled until the switch is on', (tester) async {
     final flow = _Flow();

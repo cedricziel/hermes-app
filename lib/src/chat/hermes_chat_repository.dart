@@ -240,6 +240,16 @@ class HermesChatRepository {
     }
   }
 
+  /// Whether the profile's voice chat mode is GPT-Live
+  /// (`GET /api/audio/voice-live/status`, `mode: gpt-live`). Non-secret.
+  Future<bool> voiceLiveIsGptLive({String? profile}) async {
+    final response = await _api.getVoiceLiveStatusApiAudioVoiceLiveStatusGet(
+      profile: profile,
+    );
+    final body = response.data;
+    return body is Map && body['mode'] == 'gpt-live';
+  }
+
   /// The profile's own `voice` keys (defaults left out), for one call.
   Future<VoiceCallConfig> voiceCallConfig({String? profile}) async {
     final response = await _api.getConfigApiConfigGet(

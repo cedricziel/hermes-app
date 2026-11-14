@@ -10,6 +10,7 @@ const _ready = CallReadiness([
   CallCheck(CallCheckId.microphone, CallCheckStatus.ready, 'Allowed.'),
   CallCheck(CallCheckId.input, CallCheckStatus.ready, 'Ready.'),
   CallCheck(CallCheckId.output, CallCheckStatus.ready, 'Configured.'),
+  CallCheck(CallCheckId.voiceModel, CallCheckStatus.ready, 'Follows main.'),
   CallCheck(CallCheckId.connection, CallCheckStatus.ready, 'Reachable.'),
 ]);
 
@@ -89,14 +90,13 @@ void main() {
             CallCheckStatus.needsSetup,
             'No provider.',
             action: CallSetupAction.hermes,
-            label: 'Hermes speech',
           ),
         ]),
       ),
     );
     expect(find.byType(Switch), findsNothing);
     expect(find.text('Start call'), findsNothing);
-    expect(find.text('Hermes speech'), findsOneWidget);
+    expect(find.text('Spoken replies'), findsOneWidget);
     expect(find.text('Check again'), findsOneWidget);
   });
 

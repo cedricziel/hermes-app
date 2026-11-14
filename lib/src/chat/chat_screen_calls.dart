@@ -60,6 +60,7 @@ extension _ChatScreenCalls on _ChatScreenState {
           _chat.modelSendAllowed;
       bool current() => _callRouteOpen && ownerValid();
       final telemetry = HermesRepositories.maybeOf(context)?.telemetry;
+      final models = HermesRepositories.maybeOf(context)?.models;
       final events = telemetry?.events ?? noopAppEventLogger;
       // A tracer per socket: each turn and the readiness probe open their own,
       // and a tracer links its messages to the last upgrade it traced.
@@ -95,6 +96,10 @@ extension _ChatScreenCalls on _ChatScreenState {
         },
         configuration: () => repository.voiceConfiguration(profile: profile),
         connection: () => probeCallSpeech(connect, profile, isCurrent: current),
+        voiceModel: () async => models == null
+            ? VoiceModelRoute.unknown
+            : models.loadVoiceRoute(profile: profile),
+        gptLive: () => repository.voiceLiveIsGptLive(profile: profile),
         events: events,
       );
       await Navigator.of(context).push<void>(

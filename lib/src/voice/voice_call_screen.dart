@@ -313,6 +313,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
             )
           : VoiceCallSetupView(
               readiness: _readiness,
+              gptLiveNote: _readiness.gptLive,
               busy: _busy,
               microphoneDenied: _denied,
               error: _error,
