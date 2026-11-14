@@ -129,6 +129,20 @@ void main() {
     }
   }
 
+  /// Waits until the controller has nothing left to do for [thread], then a
+  /// short grace so a duplicate send would show up before an assertion that
+  /// there was none.
+  Future<void> settled(ChatThread thread) async {
+    await waitFor(
+      () =>
+          !chat.queueBusy(thread) &&
+          chat.queuedIn(thread).isEmpty &&
+          !thread.isReplying,
+      reason: 'the controller to go quiet',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+  }
+
   test('a queued send listed again before the server accepts it keeps its '
       'prompt text, and the prompt goes out once', () async {
     await store.commit(_scope, 'Queued text');
@@ -157,7 +171,7 @@ void main() {
     transport.sends.single
       ..emit(const ReplyCompleted('Done'))
       ..finish();
-    await pumpEventQueue();
+    await settled(running);
 
     expect(contents(), containsAllInOrder(['Hi', 'Hello', 'Queued text']));
     expect(contents().where((c) => c == 'Queued text'), hasLength(1));
@@ -189,6 +203,10 @@ void main() {
     );
     read.complete();
     await loading;
+    transport.sends.single
+      ..emit(const ReplyCompleted('Done'))
+      ..finish();
+    await settled(running);
     await pumpEventQueue();
 
     expect(contents(), containsAllInOrder(['Hi', 'Hello', 'Queued text']));
@@ -216,6 +234,7 @@ void main() {
 
     transport.sends.first
       ..emit(const ReplyCompleted('One'))
+      ..emit(const SessionInfo(running: false))
       ..finish();
     await waitFor(
       () => transport.sends.length == 2,
@@ -258,6 +277,7 @@ void main() {
     );
     gate.complete();
     await loading;
+    await settled(running);
 
     expect(identical(thread(), running), isTrue);
     expect(chat.selectedThread, same(running));
