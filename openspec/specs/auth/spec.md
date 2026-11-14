@@ -524,6 +524,7 @@ Signing out SHALL retire old clients, clear the in-memory session and identity, 
 
 - **WHEN** the user signs out on a server that does not require auth
 - **THEN** the state stays ready
+- **AND** once the new API client is in place, the home screen is rebuilt for the new owner, and the old owner's shell, runs and navigations are dropped
 
 #### Scenario: Change server
 
@@ -531,6 +532,22 @@ Signing out SHALL retire old clients, clear the in-memory session and identity, 
 - **AND** the applicable stored-token and saved-address deletions succeed
 - **THEN** the saved address and tokens are removed
 - **AND** the server setup screen is shown
+
+### Requirement: Pages above the home route close when the connection ends
+
+When the connection ends, every route above the home route of the root navigator (pushed pages, dialogs, sheets and popup menus) SHALL be removed from the navigator before the setup or login screen is built, whether or not the route can be popped (a route already animating out is left to finish its exit and ignores touches), so no screen, controller or content of the old server or account remains and no stale callback reaches the new connection. The connection ends when the state leaves ready, or while it is ready and the owner generation changes (sign-out, server change, another account). A token refresh, a retried refresh and a rejected access token that is then refreshed SHALL NOT close anything. Closing SHALL NOT sign the user out and SHALL NOT interrupt a Hermes update or gateway restart run, which the app shell owns.
+
+#### Scenario: Sign out with a page, dialog and menu open
+
+- **WHEN** a settings page is open with a dialog that cannot be dismissed and a popup menu above it
+- **AND** the user signs out, the server is changed or the session expires
+- **THEN** the login or setup screen is the only route
+- **AND** the page is unmounted and a callback it left behind sends no request
+
+#### Scenario: Token refresh
+
+- **WHEN** an access token is rejected and the refresh succeeds
+- **THEN** every open page, dialog and menu stays
 
 ### Requirement: Backend contract
 

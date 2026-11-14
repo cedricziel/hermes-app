@@ -616,6 +616,24 @@ void main() {
       expect(await running.read(), isEmpty);
     });
 
+    test(
+      'is told when only a compaction came, not a frame of the reply',
+      () async {
+        final run = ask('Hello', within: const Duration(milliseconds: 20));
+        final send = await sent();
+        send
+          ..emit(const ThreadBound('new-1'))
+          ..emit(const ContextCompacted(runtimeId: 'rt-1'));
+        await run.answer;
+
+        send.finish();
+        await run.finished;
+
+        expect(notifications.shown.single.body, kAskNotSentBody);
+        expect(await running.read(), isEmpty);
+      },
+    );
+
     test('carries at most 4000 characters of the question', () async {
       final run = ask('é' * 5000, within: Duration.zero);
       await sent();

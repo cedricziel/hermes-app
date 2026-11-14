@@ -1,6 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
+
+import '../../l10n/l10n.dart';
+import 'context/compress_entry.dart';
+import 'context/pages/compress_flow.dart';
+
+import 'context/context_controller.dart';
 
 import '../voice/calls/call_bridge.dart';
 import '../voice/calls/call_audio_decoder.dart';
@@ -60,7 +67,6 @@ import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';
 import '../memory/memory_proposals_repository.dart';
 import '../memory/memory_waiting_count.dart';
-import '../../l10n/l10n.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_options_state.dart';
 import '../models/widgets/model_setup_dialog.dart';
@@ -80,6 +86,9 @@ import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/profiles_screen.dart';
 import '../providers/providers_repository.dart';
 import '../providers/providers_screen.dart';
+import '../providers/widgets/connect_model_card.dart';
+import '../providers/widgets/provider_form_models.dart' show ConnectCardKind;
+import 'first_run_card.dart';
 import '../settings/helper_models_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
@@ -155,6 +164,7 @@ part 'chat_screen_layout.dart';
 part 'chat_screen_calls.dart';
 part 'chat_screen_bot_screen.dart';
 part 'chat_screen_read_aloud.dart';
+part 'chat_screen_checkpoints.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -195,6 +205,7 @@ class ChatScreen extends StatefulWidget {
     this.displaySocketOpener,
     this.takeoverSetting,
     this.workspaces,
+    this.onCompressConversation,
   });
 
   final HermesChatRepository? repository;
@@ -276,6 +287,10 @@ class ChatScreen extends StatefulWidget {
   /// account's own unless a test supplies one.
   final TakeoverSetting? takeoverSetting;
 
+  /// Opens the compress confirmation for Chat > Compress Conversation…; the
+  /// item stays off without it.
+  final CompressConversationEntry? onCompressConversation;
+
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
@@ -299,6 +314,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   MemoryWaitingCount? _memoryWaiting;
   var _wasLoadingThreads = false;
   HandoffController? _handoff;
+  HandoffRestore? _handoffRestore;
   DockMenuController? _dock;
   HermesProfilesRepository? _profiles;
   ProfileAvatarRepository? _avatars;
@@ -406,6 +422,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The reply of the open thread that can be asked again: its last message,
   /// once that is a finished reply.
   final _latestReply = LatestReply();
+
+  /// The composer text and owner right after a restore put the last prompt
+  /// back, while the line saying so shows.
+  ({(String?, String?) owner, String text})? _handedBack;
+
+  /// The selected chat's context controller, listened to so Chat > Compress
+  /// Conversation… follows it.
+  ContextController? _menuContext;
 
   StarterContextLoader? _starterLoader;
 
@@ -543,6 +567,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         selection: TextSelection.collapsed(offset: draft.length),
       ),
       onDraft: _draftFromLink,
+      onHandBack: _handBackFromRestore,
     )..addListener(_changed);
     _repliesCount = _maybeRead<RepliesInProgress>()?..attach(_runningReplies);
     _needsYou = needsYouQueueFor(
@@ -652,10 +677,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _refreshReadAloud();
     }
     _handoff = _maybeRead<HandoffController>();
-    _handoff?.bind((activity, valid) async {
+    final restore = _handoffRestore = (activity, valid) async {
       final shown = await _showChat(activity.threadId, activity.profile, valid);
       return shown.opened;
-    });
+    };
+    _handoff?.bind(restore);
     _dock = _maybeRead<DockMenuController?>()
       ?..bind(this, open: _openFromDock, newChat: _newChatFromDock)
       ..addListener(_syncDock);
@@ -913,8 +939,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _listChanges?.controller.removeListener(_invalidationsChanged);
     _listChanges?.dispose();
     _menuBar?.disconnect(_chat);
-    _handoff?.bind(null);
-    _handoff?.advertise(null);
+    // A replacement screen is built before this one is disposed.
+    if (_handoffRestore case final restore?) _handoff?.unbind(restore);
+    _handoff?.withdraw(this);
     _dock
       ?..removeListener(_syncDock)
       ..release(this);
@@ -931,6 +958,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _sessionActivity?.removeListener(_callOwnerChanged);
     _voiceCall?.removeListener(_callChanged);
     _voiceCall?.dispose();
+    _menuContext?.removeListener(_menuContextChanged);
     _needsYou.dispose();
     _repliesCount?.detach(_runningReplies);
     _chat
@@ -959,6 +987,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // retain callback identity across addListener/removeListener calls.
   void _checkAvatarOwner() => _ChatScreenRecipients(this)._checkAvatarOwner();
   void _onComposerText() => _ChatScreenComposer(this)._onComposerText();
+  void _handBackFromRestore(String text) =>
+      _ChatScreenCheckpoints(this)._handBackFromRestore(text);
+  void _menuContextChanged() =>
+      _ChatScreenCheckpoints(this)._menuContextChanged();
   void _onOpenRequest({bool initial = false}) =>
       _ChatScreenExternalOpenings(this)._onOpenRequest(initial: initial);
   void _onShared() => _ChatScreenSharing(this)._onShared();

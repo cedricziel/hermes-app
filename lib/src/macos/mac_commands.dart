@@ -25,6 +25,7 @@ enum MacCommand {
   renameThread,
   changeFolder,
   copyTranscript,
+  compress,
   archiveThread,
   deleteThread,
   showMainWindow,

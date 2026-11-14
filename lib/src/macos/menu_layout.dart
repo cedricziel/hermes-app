@@ -163,6 +163,12 @@ final menuLayout = <MenuSection>[
         platforms: _macOnly,
       ),
       const MenuEntry(MacCommand.copyTranscript, 'Copy Transcript'),
+      // The screen titles it from the localizations; this is the fallback.
+      const MenuEntry(
+        MacCommand.compress,
+        'Compress Conversation…',
+        platforms: _macOnly,
+      ),
     ],
     [
       const MenuEntry(MacCommand.archiveThread, 'Archive'),

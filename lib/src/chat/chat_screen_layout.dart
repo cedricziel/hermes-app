@@ -148,6 +148,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                 ? null
                 : () => _toggleActivity(source: 'line'),
             thread: selected,
+            draftHandedBack: _ChatScreenCheckpoints(this)._showsHandBack,
             greetingName: context.select<AuthController, String?>(
               (auth) => auth.identity?.displayName,
             ),
@@ -168,6 +169,8 @@ extension _ChatScreenLayout on _ChatScreenState {
             commandRunning:
                 _slashSending || _queueSending || !_recipientSendAllowed,
             starterPrompts: _showsWelcome ? _starterPrompts() : null,
+            welcomeCard: _showsWelcome ? _welcomeCard() : null,
+            onCheckProviders: _providersOffered ? _checkProviders : null,
             onPickStarter: _pickStarter,
             latestReply: _latestReply,
             editable: true,
@@ -242,6 +245,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                   thread: selected,
                   screen: _screen,
                   onEnlargeScreen: () => _openViewer('card'),
+                  checkpointsAndContext: true,
                   selection: _agentSelection,
                 ),
                 panelKey: const Key('activity-inspector'),

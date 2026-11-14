@@ -106,6 +106,7 @@ extension _ChatControllerSessionBinding on ChatController {
               _usage[entry.key]?.disconnected();
             }
           }
+          _ChatControllerCheckpoints(this)._actionsOwnershipLost(change);
           return;
         }
         final thread = _threads
@@ -135,6 +136,7 @@ extension _ChatControllerSessionBinding on ChatController {
       controller.dispose();
     }
     _usage.clear();
+    _ChatControllerCheckpoints(this)._clearActions();
     for (final state in _sideResults.values) {
       state.dispose();
     }
@@ -226,6 +228,8 @@ extension _ChatControllerSessionBinding on ChatController {
     _processOutputs[thread]?.adopt(binding);
     if (!current()) return null;
     _syncReactions(thread, binding);
+    if (!current()) return null;
+    _ChatControllerCheckpoints(this)._syncActions(thread);
     return current() ? binding : null;
   }
 
@@ -286,16 +290,28 @@ extension _ChatControllerSessionBinding on ChatController {
 
   bool _onUsageEvent(ChatThread thread, ChatEvent event, String? profile) {
     final tick = event is SessionUsageUpdated;
-    if (!tick && event is! ReplyCompleted) return false;
+    // `session.info` carries the same snapshot after a turn and a compress.
+    // A snapshot is the whole state, so taking it again counts nothing twice.
+    final info = event is SessionInfo && event.usage != null;
+    if (!tick && !info && event is! ReplyCompleted) return false;
     final binding = _syncOwnedSession(thread, profile);
     final controller = _usage[thread];
     if (controller == null || binding == null) return tick;
-    final runtime = tick
-        ? event.runtimeId
-        : (event as ReplyCompleted).usageRuntimeId;
-    final connection = tick
-        ? event.connection
-        : (event as ReplyCompleted).usageConnection;
+    final (runtime, connection) = switch (event) {
+      SessionUsageUpdated(:final runtimeId, :final connection) => (
+        runtimeId,
+        connection,
+      ),
+      SessionInfo(:final usageRuntimeId, :final usageConnection) => (
+        usageRuntimeId,
+        usageConnection,
+      ),
+      ReplyCompleted(:final usageRuntimeId, :final usageConnection) => (
+        usageRuntimeId,
+        usageConnection,
+      ),
+      _ => ('', null),
+    };
     if (runtime != binding.runtimeId ||
         !identical(connection, binding.connection)) {
       return tick;
@@ -314,6 +330,8 @@ extension _ChatControllerSessionBinding on ChatController {
       } else {
         controller.tick(scope, event.snapshot);
       }
+    } else if (event is SessionInfo) {
+      controller.complete(scope, event.usage);
     } else if (event is ReplyCompleted) {
       controller.complete(
         scope,

@@ -106,11 +106,17 @@ class FakeChatBridge {
   bool quoteStillThere = false;
   final held = <bool>[];
   final handedBack = <String>[];
-  int refetches = 0, usageReads = 0, reestablished = 0;
+  int usageReads = 0, reestablished = 0;
+
+  /// What each re-read of the chat was told: whether a full restore took
+  /// history away.
+  final refetchFlags = <bool>[];
+  int get refetches => refetchFlags.length;
 
   ChatActionBridge get bridge => ChatActionBridge(
     isReplying: () => replying,
-    refetchChat: () async => refetches++,
+    refetchChat: ({bool historyRemoved = false}) async =>
+        refetchFlags.add(historyRemoved),
     refreshUsage: () async => usageReads++,
     holdSend: held.add,
     lastPrompt: () => quote,

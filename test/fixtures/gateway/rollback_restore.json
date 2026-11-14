@@ -1,0 +1,82 @@
+{
+  "source_ref": "d923a5eb",
+  "note": "Invented content in the shapes of the Hermes gateway handlers and tests named in openspec/changes/chat-checkpoints-and-context/design.md. No real paths, hashes or messages.",
+  "source": "tui_gateway/methods_tools.py::rollback.restore, tools/checkpoint_manager.py",
+  "cases": {
+    "success_history_removed": {
+      "result": {
+        "success": true,
+        "restored_to": "1a2b3c4d",
+        "reason": "before write_file",
+        "directory": "/srv/example/project",
+        "history_removed": 3
+      }
+    },
+    "no_checkpoints": {
+      "result": {
+        "success": false,
+        "error": "No checkpoints exist for this directory"
+      }
+    },
+    "not_found": {
+      "result": {
+        "success": false,
+        "error": "Checkpoint '5e6f7a8b' not found"
+      }
+    },
+    "path_escapes": {
+      "result": {
+        "success": false,
+        "error": "File path escapes the working directory via traversal"
+      }
+    },
+    "matched_no_files": {
+      "result": {
+        "success": false,
+        "error": "Restore selection matched no files in checkpoint: notes/missing.md"
+      }
+    },
+    "nested_repositories": {
+      "result": {
+        "success": false,
+        "error": "Checkpoint contains nested git repositories that were not captured (vendor/lib); rollback was not performed"
+      }
+    },
+    "restore_failed": {
+      "result": {
+        "success": false,
+        "error": "Restore failed: error: pathspec did not match"
+      }
+    },
+    "store_busy": {
+      "result": {
+        "success": false,
+        "error": "checkpoint store is busy: /srv/example/store"
+      }
+    },
+    "container": {
+      "result": {
+        "success": false,
+        "error": "Checkpoints are not taken for terminal.backend=docker: file paths belong to the container, not this host."
+      }
+    },
+    "busy_4009": {
+      "error": {
+        "code": 4009,
+        "message": "session busy — a reply is running"
+      }
+    },
+    "history_not_rewound_5021": {
+      "error": {
+        "code": 5021,
+        "message": "checkpoint restored, but session history rewind failed: database is locked"
+      }
+    },
+    "failed_5021": {
+      "error": {
+        "code": 5021,
+        "message": "rollback failed: unexpected error"
+      }
+    }
+  }
+}

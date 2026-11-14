@@ -1042,6 +1042,55 @@ void main() {
   });
 
   group('ConnectModelCard', () {
+    testWidgets('the default profile is not named', (tester) async {
+      await _pump(
+        tester,
+        const ConnectModelCard(
+          data: ConnectCardData(
+            kind: ConnectCardKind.connect,
+            profile: 'default',
+          ),
+        ),
+      );
+      expect(
+        find.text('Your Hermes server has no model provider yet.'),
+        findsOneWidget,
+      );
+
+      await _pump(
+        tester,
+        const ConnectModelCard(
+          data: ConnectCardData(
+            kind: ConnectCardKind.reconnect,
+            profile: 'default',
+            modelName: 'example-model-a',
+          ),
+        ),
+      );
+      expect(
+        find.text(
+          "New chats use example-model-a, but its provider's key is missing "
+          'or no longer works.',
+        ),
+        findsOneWidget,
+      );
+
+      await _pump(
+        tester,
+        const ConnectModelCard(
+          data: ConnectCardData(
+            kind: ConnectCardKind.connect,
+            profile: 'default',
+          ),
+        ),
+        locale: const Locale('de'),
+      );
+      expect(
+        find.text('Dein Hermes-Server hat noch keinen Modellanbieter.'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('the three variants', (tester) async {
       var taps = 0;
       await _pump(

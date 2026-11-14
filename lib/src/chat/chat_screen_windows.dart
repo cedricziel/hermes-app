@@ -129,6 +129,7 @@ extension _ChatScreenWindows on _ChatScreenState {
                 'profile': args.profile,
                 'threadId': args.threadId,
               }),
+        owner: this,
       );
     }
     final thread = _chat.selectedThread;
@@ -147,6 +148,7 @@ extension _ChatScreenWindows on _ChatScreenState {
               'threadId': thread!.id,
             })
           : null,
+      owner: this,
     );
   }
 

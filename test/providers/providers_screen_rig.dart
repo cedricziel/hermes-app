@@ -31,6 +31,7 @@ class ProvidersRig {
     Brightness brightness = Brightness.light,
     String? profile = 'work',
     ProvidersEntry entry = ProvidersEntry.sidebar,
+    ProvidersFocus? focus,
     List<SingleChildWidget> providers = const [],
     bool pushed = false,
     Locale? locale,
@@ -42,6 +43,7 @@ class ProvidersRig {
       repository: repository,
       profile: profile,
       entry: entry,
+      focus: focus,
       platform: platform,
       onChanged: () => changed++,
       launchLink: (uri) async {

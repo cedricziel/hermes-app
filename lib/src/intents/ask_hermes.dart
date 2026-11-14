@@ -422,6 +422,9 @@ class _Ask {
         // Reported by the create, before the prompt is submitted: it says
         // nothing about whether the question went in.
         break;
+      case ContextCompacted():
+        // About the session, not the turn: it is no sign of the question.
+        break;
       default:
         _frameSeen = true;
     }

@@ -143,6 +143,7 @@ void main() {
       'Rename…',
       'Change Folder…',
       'Copy Transcript',
+      'Compress Conversation…',
       '-',
       'Archive',
       'Delete…',

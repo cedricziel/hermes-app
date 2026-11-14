@@ -66,6 +66,8 @@ class ChatThreadView extends StatelessWidget {
     this.queueView,
     this.sendTarget,
     this.starterPrompts,
+    this.welcomeCard,
+    this.onCheckProviders,
     required this.onPickStarter,
     required this.latestReplyId,
     this.turnActionStatus,
@@ -91,6 +93,8 @@ class ChatThreadView extends StatelessWidget {
     this.greetingName,
     this.welcome = true,
     this.screenPreview,
+    this.sendHeld = false,
+    this.draftHandedBack = false,
     this.onShowAgentDetails,
     this.workingDirectoryRow,
     this.workspaceNotice,
@@ -142,6 +146,14 @@ class ChatThreadView extends StatelessWidget {
   /// when this changed meanwhile.
   final Object? Function()? sendTarget;
   final List<StarterPrompt>? starterPrompts;
+
+  /// Takes the place of the starter prompts while the profile has no usable
+  /// model.
+  final Widget? welcomeCard;
+
+  /// A reply that failed with the model provider's error offers a way to
+  /// Model providers; none where the chat has no such screen.
+  final VoidCallback? onCheckProviders;
   final ValueChanged<StarterPrompt> onPickStarter;
   final ValueListenable<String?> latestReplyId;
   final ValueListenable<TurnActionStatus>? turnActionStatus;
@@ -188,6 +200,12 @@ class ChatThreadView extends StatelessWidget {
   /// window that holds no screen.
   final ScreenPreviewBuilder? screenPreview;
 
+  /// A full restore of this chat is settling: Send is off until it ends.
+  final bool sendHeld;
+
+  /// A restore just put the last message back into the composer.
+  final bool draftHandedBack;
+
   /// Opens an agent's details in the Activity panel from the reply's agent
   /// card; none where the chat has no panel (the quick panel).
   final ValueChanged<String>? onShowAgentDetails;
@@ -198,6 +216,8 @@ class ChatThreadView extends StatelessWidget {
     final builders =
         buildChatBuilders(
           starterPrompts: starterPrompts,
+          welcomeCard: welcomeCard,
+          onCheckProviders: onCheckProviders,
           onPickPrompt: onPickStarter,
           greetingName: greetingName,
           assistantName: botContext?.title,
@@ -234,6 +254,8 @@ class ChatThreadView extends StatelessWidget {
             commandRunning: commandRunning,
             queueView: queueView,
             sendTarget: sendTarget,
+            sendHeld: sendHeld,
+            draftHandedBack: draftHandedBack,
             dock: dock,
             workingDirectoryRow: openThread == null || _isNewChat(openThread)
                 ? workingDirectoryRow

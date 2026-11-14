@@ -53,6 +53,10 @@ class ConversationWindowsMenu extends StatelessWidget {
               ),
               MacCommand.renameThread: run(ThreadAction.rename),
               MacCommand.copyTranscript: run(ThreadAction.copyTranscript),
+              // A conversation window holds no checkpoint or context
+              // controllers, so the main window's chat is not compressed
+              // from it.
+              MacCommand.compress: const MacCommandHandler(null),
               MacCommand.archiveThread: run(ThreadAction.archive),
               MacCommand.deleteThread: run(ThreadAction.delete),
               // Files is not offered in a conversation window: it has no

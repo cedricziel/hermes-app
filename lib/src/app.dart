@@ -8,6 +8,7 @@ import '../l10n/l10n.dart';
 import 'app_lock/app_lock_gate.dart';
 import 'app_lock/app_lock_controller.dart';
 import 'api/hermes_repositories.dart';
+import 'navigation/connection_pages.dart';
 import 'navigation/desktop_history_owner.dart';
 import 'navigation/desktop_navigation_history.dart';
 import 'navigation/desktop_navigation_commands.dart';
@@ -54,6 +55,8 @@ class HermesApp extends StatefulWidget {
 class _HermesAppState extends State<HermesApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   final _handoffObserver = HandoffNavigationObserver();
+  final _pushedRoutes = PushedRoutes();
+  late final _connectionPages = ConnectionPageCloser(_pushedRoutes);
   late final _history = DesktopNavigationHistory(
     canNavigate: _canNavigate,
     resolve: _resolve,
@@ -150,6 +153,7 @@ class _HermesAppState extends State<HermesApp> {
   void dispose() {
     _windows?.removeListener(_windowOwnershipChanged);
     unawaited(_windowlessChanges?.cancel());
+    _connectionPages.dispose();
     _history.dispose();
     super.dispose();
   }
@@ -161,10 +165,13 @@ class _HermesAppState extends State<HermesApp> {
     context.watch<AppLockController?>();
     context.watch<HandoffController?>();
     _bindWindows(context.watch<ConversationWindows?>());
+    _connectionPages
+      ..bind(auth)
+      ..breadcrumbs = _read<Breadcrumbs>() ?? Breadcrumbs.none;
     _syncHistory(auth);
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      navigatorObservers: [_handoffObserver, _history],
+      navigatorObservers: [_handoffObserver, _history, _pushedRoutes],
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: [
@@ -214,14 +221,33 @@ class _HermesAppState extends State<HermesApp> {
 /// Switches between setup / login / home purely on [AuthController.state] —
 /// no named routes yet, since the bootstrap app only has these three
 /// destinations.
-class _RootRouter extends StatelessWidget {
+class _RootRouter extends StatefulWidget {
   const _RootRouter({this.updateChecker});
 
   final Upgrader? updateChecker;
 
   @override
+  State<_RootRouter> createState() => _RootRouterState();
+}
+
+class _RootRouterState extends State<_RootRouter> {
+  /// The owner generation the shell on screen was built for. It follows
+  /// [AuthController.ownerGeneration] only while protected requests are
+  /// allowed: an ungated server's sign-out moves the generation while the
+  /// state stays `ready`, but the API client and the repositories over it are
+  /// replaced a moment later, and a shell built in between would keep the old
+  /// ones. An expiry never moves the generation, so it keeps its shell.
+  int? _shellOwner;
+
+  @override
   Widget build(BuildContext context) {
-    final state = context.watch<AuthController>().state;
+    final auth = context.watch<AuthController>();
+    final state = auth.state;
+    if (state != HermesConnectionState.ready) {
+      _shellOwner = null;
+    } else if (auth.protectedRequestsAllowed) {
+      _shellOwner = auth.ownerGeneration;
+    }
     switch (state) {
       case HermesConnectionState.initializing:
         return const _SplashScreen();
@@ -235,12 +261,15 @@ class _RootRouter extends StatelessWidget {
       case HermesConnectionState.signingIn:
         return const LoginScreen();
       case HermesConnectionState.ready:
-        final updateChecker = this.updateChecker;
-        if (updateChecker == null) return const AppShell();
+        // A new owner gets a new shell: the old one holds the old owner's
+        // controllers, runs and gateway, and stays unauthorized for good.
+        final shell = AppShell(key: ValueKey(_shellOwner));
+        final updateChecker = widget.updateChecker;
+        if (updateChecker == null) return shell;
         return UpgradeAlert(
           upgrader: updateChecker,
           showReleaseNotes: false,
-          child: const AppShell(),
+          child: shell,
         );
     }
   }

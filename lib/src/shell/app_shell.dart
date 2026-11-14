@@ -216,6 +216,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   var _lockHeld = false;
   StreamSubscription<void>? _showInMain;
   ConversationWindows? _windows;
+  String? Function()? _profileGetter;
   AuthController? _auth;
   int? _ownerGeneration;
   bool _sessionAuthorized = true;
@@ -374,7 +375,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     );
     final windows = _windows = _maybeRead<ConversationWindows?>();
     if (windows != null) {
-      windows.currentProfile = () => _chatProfiles?.current;
+      windows.currentProfile = _profileGetter = () => _chatProfiles?.current;
       _showInMain = windows.showInMainRequests.listen((chat) {
         _queueExternalNavigation(() {
           _openRequests.request(
@@ -547,7 +548,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _appLock?.removeListener(_takeDeepLink);
     _showInMain?.cancel();
     _windowlessChanges?.cancel();
-    _windows?.currentProfile = null;
+    // A replacement shell is built before this one is disposed.
+    if (identical(_windows?.currentProfile, _profileGetter)) {
+      _windows?.currentProfile = null;
+    }
     _watcher?.dispose();
     _messages?.dispose();
     _finds.dispose();

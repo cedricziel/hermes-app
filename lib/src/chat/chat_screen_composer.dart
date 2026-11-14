@@ -3,6 +3,7 @@ part of 'chat_screen.dart';
 /// Slash command discovery, starter prompts, and prompt submission.
 extension _ChatScreenComposer on _ChatScreenState {
   void _onComposerText() {
+    _ChatScreenCheckpoints(this)._forgetHandBack();
     if (!_composerController.text.startsWith('/')) {
       _slashContext = null;
       _slashFetchGeneration++;

@@ -35,6 +35,8 @@ WidgetBuilder buildChatComposer({
   Widget? queueView,
   BotChatContext? botContext,
   Object? Function()? sendTarget,
+  bool sendHeld = false,
+  bool draftHandedBack = false,
   NeedsYouDockBuilder? dock,
   Widget? workingDirectoryRow,
 }) {
@@ -61,6 +63,8 @@ WidgetBuilder buildChatComposer({
     queueView: queueView,
     dictation: dictationView,
     recording: voiceRecording?.view,
+    sendHeld: sendHeld,
+    draftHandedBack: draftHandedBack,
   );
   return (context) => _ComposerSlot(
     builder: (onSend, onAttach) {
