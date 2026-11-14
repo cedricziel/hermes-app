@@ -116,7 +116,8 @@ class ToolsPanelEnv {
   final AppLockController? lock;
 
   /// Some write of this toolset is out: its own switch, a setup write, a
-  /// backend pick or the permission grant (the count the registry keeps). The
+  /// backend pick, the permission grant or a running install of it (the count
+  /// `ToolsController.setSetupBusy` keeps). The
   /// panels take no pick, save, install or grant until every one has ended,
   /// so writes of a toolset never overlap.
   final bool locked;

@@ -40,16 +40,27 @@ class _ComputerUsePanelState extends State<ComputerUsePanel> {
   @override
   void initState() {
     super.initState();
-    unawaited(_controller.load());
-    widget.env.refresh.add(_controller.load);
+    widget.env.registry.claim(_ownerKey, this);
+    // After this frame, like the setup panel's read.
+    scheduleMicrotask(() {
+      if (mounted) unawaited(_controller.load());
+    });
+    widget.env.refresh.add(_load);
     widget.env.installs.addListener(_onInstalls);
   }
 
+  static const _ownerKey = 'computer';
+
+  // Its own closure: see TerminalBackendsPanel.
+  Future<void> _load() => _controller.load();
+
   @override
   void dispose() {
-    widget.env.refresh.remove(_controller.load);
+    widget.env.refresh.remove(_load);
     widget.env.installs.removeListener(_onInstalls);
-    _controller.acknowledge();
+    if (widget.env.registry.release(_ownerKey, this)) {
+      _controller.acknowledge();
+    }
     super.dispose();
   }
 

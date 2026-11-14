@@ -43,14 +43,28 @@ class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
   @override
   void initState() {
     super.initState();
-    unawaited(_controller.load());
-    widget.env.refresh.add(_controller.load);
+    widget.env.registry.claim(_ownerKey, this);
+    // After this frame, like the setup panel's read.
+    scheduleMicrotask(() {
+      if (mounted) unawaited(_controller.load());
+    });
+    widget.env.refresh.add(_load);
   }
+
+  static const _ownerKey = 'backends';
+
+  // Its own closure: a tear-off of the shared controller would be equal to
+  // the one a replacing panel registered, and removing it would drop that.
+  Future<void> _load() => _controller.load();
 
   @override
   void dispose() {
-    widget.env.refresh.remove(_controller.load);
-    _controller.acknowledge();
+    widget.env.refresh.remove(_load);
+    // Only the panel that shows the result sees it; one the layout replaced
+    // leaves it to its successor.
+    if (widget.env.registry.release(_ownerKey, this)) {
+      _controller.acknowledge();
+    }
     super.dispose();
   }
 
