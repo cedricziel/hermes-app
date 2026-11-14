@@ -213,7 +213,7 @@ class BotScreenViewerController extends ChangeNotifier {
   /// so ask again after a reconnect.
   ScreenInput? get input {
     final client = _client;
-    if (client == null || _releasing || !inControl) return null;
+    if (client == null || !_delivered || _releasing || !inControl) return null;
     // `_forgetClient` drops the input with its client, so a live one is
     // always the open stream's.
     if (_input == null) {
@@ -835,6 +835,11 @@ class BotScreenViewerController extends ChangeNotifier {
           // acquire answers, since the old id is of no use any more.
           _run++;
           _dropStream(code: 1000);
+          // Like any other new stream: no old picture, no input until the
+          // first update.
+          _picture = null;
+          _base = BotScreenViewerPhase.connecting;
+          _notify();
           await _open(_run, fresh);
           step = await _acquire(fresh.viewerId, fresh.connection!);
         }
@@ -884,6 +889,8 @@ class BotScreenViewerController extends ChangeNotifier {
           step = fresh == null || fresh.connection == null
               ? _Step.refused
               : await _release(fresh.viewerId, fresh.connection!);
+        } else {
+          step = await _releaseFromNewConnection();
         }
       }
       done = step == _Step.done;
@@ -952,6 +959,29 @@ class BotScreenViewerController extends ChangeNotifier {
       return _Step.retry;
     }
     return _stepOf(result, holding: false);
+  }
+
+  /// Frees a lease held by an id of an earlier connection while shutting down
+  /// with no stream open (paused with 4100): a release by a new id is
+  /// ignored, so the new id takes the lease over from the old one, as a
+  /// reconnect does, and gives it back. Nothing is adopted or opened. Once
+  /// the release budget is spent (the viewer is disposed) no acquire goes
+  /// out: the lease may have changed hands since the observe, and acquiring
+  /// is last writer wins. An acquire already sent is always released.
+  Future<_Step> _releaseFromNewConnection() async {
+    final result = await repository.observe(profile, viewerId: _viewerId);
+    if (result is! BotScreenOk<BotScreenObservation>) return _Step.refused;
+    final fresh = result.value;
+    final id = fresh.viewerId, connection = fresh.connection;
+    if (connection == null) return _Step.refused;
+    _ids.add(id);
+    final lease = fresh.status.lease;
+    if (_holdsLease(lease) &&
+        lease.viewerHash != BotScreenViewerIds.hashOf(id)) {
+      if (_disposed) return _Step.refused;
+      if (await _acquire(id, connection) != _Step.done) return _Step.refused;
+    }
+    return _release(id, connection);
   }
 
   /// Ends the open stream with 1000, which the bridge answers by handing the

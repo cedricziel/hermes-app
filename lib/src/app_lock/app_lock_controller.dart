@@ -36,7 +36,9 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
   final bool _coverWhenInactive;
 
   bool _enabled = false;
-  bool _available = false;
+
+  /// Null while the device could not tell (its check failed).
+  bool? _available = false;
   bool _loaded = false;
   bool _locked = false;
   bool _authenticating = false;
@@ -50,14 +52,15 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Whether the device can confirm the person at all. Without that the lock
   /// cannot be turned on, and a saved "on" is not enforced, so nobody is
-  /// locked out of their own app.
-  bool get available => _available;
+  /// locked out of their own app. A check that failed is not offered the
+  /// switch, but keeps a lock that is already on: [unlock] asks again.
+  bool get available => _available == true;
   bool get locked => _locked;
 
   /// Whether the content is out of sight: locked, or inactive on a phone.
   bool get covered => !_loaded || _locked || _inactive;
 
-  bool get _enforced => _enabled && _available;
+  bool get _enforced => _enabled && _available != false;
 
   /// Whether App Lock is on, read from the saved setting, for an isolate that
   /// has no controller, such as the one that answers notification buttons.
@@ -92,8 +95,11 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> setEnabled(bool value) async {
     if (value == _enabled) return true;
     if (value) {
-      if (!_available || _authenticating) return false;
-      if (!await _confirm('Confirm to turn on app lock')) return false;
+      if (!available || _authenticating) return false;
+      if (await _confirm('Confirm to turn on app lock') !=
+          DeviceAuthResult.confirmed) {
+        return false;
+      }
     }
     _enabled = value;
     _locked = false;
@@ -112,13 +118,30 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<bool> _unlockOnce() async {
-    if (_authenticating || !await _confirm('Unlock Hermes')) return false;
+    if (_authenticating) return false;
+    if (_available == null) {
+      _available = await _authenticator.isAvailable();
+      if (!_enforced) {
+        _locked = false;
+        notifyListeners();
+        return true;
+      }
+    }
+    final checkFailed = _available == null;
+    final result = await _confirm('Unlock Hermes');
+    if (result == DeviceAuthResult.unavailable && checkFailed) {
+      // The support check could not tell, and the device says it cannot
+      // confirm anyone: unless a new check now says it can, the lock is not
+      // enforced, so nobody is locked out of their own app.
+      _available = await _authenticator.isAvailable() ?? false;
+    }
+    if (result != DeviceAuthResult.confirmed && _enforced) return false;
     _locked = false;
     notifyListeners();
     return true;
   }
 
-  Future<bool> _confirm(String reason) async {
+  Future<DeviceAuthResult> _confirm(String reason) async {
     _authenticating = true;
     try {
       return await _authenticator.authenticate(reason);

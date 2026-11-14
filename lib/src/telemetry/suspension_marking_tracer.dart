@@ -29,7 +29,12 @@ class AppSuspensions with WidgetsBindingObserver {
   @visibleForTesting
   void pause() => _count++;
 
-  AppLifecycleState? _last;
+  /// Whether the app was paused since it was last resumed. The binding
+  /// reports every state in between (paused, hidden, inactive, resumed), so
+  /// the state just before `resumed` is always `inactive`. Hidden alone is
+  /// not counted: a desktop window that is covered, minimised or closed
+  /// leaves the process running.
+  bool _paused = false;
 
   /// Moves when the app is paused and again when it comes back from it, so a
   /// span started while the app was winding down, or while it ran in the
@@ -37,13 +42,17 @@ class AppSuspensions with WidgetsBindingObserver {
   /// Center, a system alert) is not a suspension.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final last = _last;
-    _last = state;
-    if (state == AppLifecycleState.paused ||
-        (state == AppLifecycleState.resumed &&
-            (last == AppLifecycleState.paused ||
-                last == AppLifecycleState.hidden))) {
-      _count++;
+    switch (state) {
+      case AppLifecycleState.paused:
+        _paused = true;
+        _count++;
+      case AppLifecycleState.resumed:
+        if (_paused) _count++;
+        _paused = false;
+      case AppLifecycleState.hidden ||
+          AppLifecycleState.inactive ||
+          AppLifecycleState.detached:
+        break;
     }
   }
 }
