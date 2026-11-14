@@ -1319,6 +1319,33 @@ void main() {
       },
     );
 
+    test(
+      'keeps the periodic run when the stored session is another server\'s',
+      () async {
+        // A redirect to another host refuses the session the same way.
+        server.on('GET', '/api/status', {
+          'auth_required': true,
+          'version': '0.9.0',
+        });
+        tokens.session = HermesSession(
+          accessToken: 'access-1',
+          refreshToken: 'refresh-1',
+          expiresAt: 4102444800,
+          provider: 'basic',
+          userId: 'u1',
+          serverUrl: 'http://other.test',
+          mintedAt: 1000,
+        );
+
+        final outcome = await refresh();
+
+        expect(outcome, isA<HeadlessSignedOut<void>>());
+        expect(cancelled, 0);
+        expect(notifications.shown, isEmpty);
+        expect(tokens.session?.serverUrl, 'http://other.test');
+      },
+    );
+
     test('changes nothing before the first unlock', () async {
       tokens.unreadable = true;
       server.on('GET', '/api/status', {
