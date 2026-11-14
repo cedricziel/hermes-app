@@ -213,6 +213,21 @@ void main() {
         expect(storage.reloaded, ['Recent', 'Recent']);
       });
 
+      test('that failed to reload is retried by a change that leaves it '
+          'signed in', () async {
+        storage.failingKinds.add('HermesNewChat');
+        await both.write(snapshot());
+        storage.failingKinds.clear();
+        storage.reloaded.clear();
+
+        await both.write(snapshot(profile: 'work'));
+
+        expect(storage.reloaded, containsAll(['Recent', 'HermesNewChat']));
+        storage.reloaded.clear();
+        await both.write(snapshot(profile: 'work', minute: 5));
+        expect(storage.reloaded, isEmpty, reason: 'retried once, then hourly');
+      });
+
       test('is reloaded again when the first save failed', () async {
         storage.failure = StateError('no group');
         await both.write(snapshot());
@@ -315,7 +330,70 @@ void main() {
       expect(events.named('surface.snapshot.write_failed'), isEmpty);
       expect(events.named('widgets.reload_failed'), [
         {'widget.kind': 'Recent', 'error.type': 'StateError'},
-      ]);
+        {'widget.kind': 'Recent', 'error.type': 'StateError'},
+      ], reason: 'a failed reload is not marked, so the refresh tries again');
+    });
+
+    test('a reload that failed is not marked, so the next refresh within the '
+        'hour reloads again', () async {
+      storage.reloadFailure = StateError('no widgets');
+      await store.write(snapshot());
+      storage.reloadFailure = null;
+
+      await store.write(snapshot(minute: 30));
+
+      expect(storage.reloaded, ['Recent']);
+      expect(
+        storage.reloadedFor,
+        snapshot(minute: 30).updatedAt.toIso8601String(),
+      );
+    });
+
+    test('when one kind fails, a refresh within the hour retries only that '
+        'kind', () async {
+      final several = SurfaceSnapshotStore(
+        storage: storage,
+        events: events.call,
+        widgetKinds: const ['Recent', 'Needs'],
+      );
+      addTearDown(several.dispose);
+      storage.failingKinds.add('Recent');
+      await several.write(snapshot());
+      expect(storage.reloaded, ['Needs']);
+
+      await several.write(snapshot(minute: 30));
+      expect(storage.reloaded, ['Needs'], reason: 'Recent still fails');
+      expect(events.named('widgets.reload_failed'), [
+        {'widget.kind': 'Recent', 'error.type': 'StateError'},
+        {'widget.kind': 'Recent', 'error.type': 'StateError'},
+      ], reason: 'Recent was attempted again, and Needs was not');
+
+      storage.failingKinds.clear();
+      await several.write(snapshot(minute: 40));
+      expect(storage.reloaded, ['Needs', 'Recent']);
+
+      await several.write(snapshot(minute: 50));
+      expect(storage.reloaded, ['Needs', 'Recent'], reason: 'back to hourly');
+    });
+
+    test('when every kind fails, each is attempted again by the next '
+        'refresh', () async {
+      final several = SurfaceSnapshotStore(
+        storage: storage,
+        events: events.call,
+        widgetKinds: const ['Recent', 'Needs'],
+      );
+      addTearDown(several.dispose);
+      storage.failingKinds.addAll(['Recent', 'Needs']);
+      await several.write(snapshot());
+      await several.write(snapshot(minute: 30));
+
+      expect(events.named('widgets.reload_failed'), hasLength(4));
+      storage.failingKinds.clear();
+      await several.write(snapshot(minute: 40));
+      expect(storage.reloaded, unorderedEquals(['Recent', 'Needs']));
+      await several.write(snapshot(minute: 50));
+      expect(storage.reloaded, hasLength(2), reason: 'back to hourly');
     });
 
     test('content already stored is only refreshed after a start', () async {

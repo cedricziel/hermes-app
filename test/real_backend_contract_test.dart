@@ -47,6 +47,10 @@ import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_draft.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
+import 'package:hermes_app/src/server_care/action_status.dart';
+import 'package:hermes_app/src/server_care/care_result.dart';
+import 'package:hermes_app/src/server_care/doctor_report.dart';
+import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
@@ -143,6 +147,69 @@ void main() {
         'hermes.overall',
       ]),
     );
+  }, skip: skip);
+
+  group('server care', () {
+    // Read-only: no update, restart or start is ever called here. The doctor
+    // check does not modify anything (the route never passes --fix).
+    late ServerCareRepository care;
+    setUp(() => care = ServerCareRepository(client));
+
+    T value<T>(CareResult<T> r) {
+      expect(r, isA<CareOk<T>>(), reason: 'the route answered: $r');
+      return (r as CareOk<T>).value;
+    }
+
+    test('status carries the fields the headline reads', () async {
+      final status = value(await care.status(profile: 'default'));
+      expect(status.version, isNotNull);
+      expect(status.profiles, isNotEmpty);
+      // Null until a gateway has run on this backend.
+      expect(status.gatewayStateRaw, anyOf(isNull, isA<String>()));
+    });
+
+    test('health answers ok with a commit', () async {
+      final health = value(await care.health());
+      expect(health.version, isNotNull);
+      expect(health.commit, anyOf(isNull, isA<String>()));
+    });
+
+    test('the update check answers, not forced', () async {
+      final check = value(await care.checkUpdate());
+      expect(check.installMethodRaw, isNotNull);
+      expect(check.behind, anyOf(isNull, isA<int>()));
+    });
+
+    test('each log file answers lines', () async {
+      for (final file in CareLogFile.values) {
+        final lines = value(await care.logs(profile: 'default', file: file));
+        expect(lines, isA<List<Object>>(), reason: file.name);
+      }
+    });
+
+    test('usage for 7 days has one row per day', () async {
+      final report = value(
+        await care.usage(profile: 'default', days: 7, today: DateTime.now()),
+      );
+      expect(report.days, hasLength(7));
+    });
+
+    test('a doctor run is followed to its end', () async {
+      value(await care.startDoctor(profile: 'default'));
+      ActionStatus? done;
+      final deadline = DateTime.now().add(const Duration(minutes: 3));
+      while (DateTime.now().isBefore(deadline)) {
+        final status = value(await care.actionStatus(CareAction.doctor));
+        if (!status.running && status.lines.isNotEmpty) {
+          done = status;
+          break;
+        }
+        await Future<void>.delayed(const Duration(seconds: 1));
+      }
+      expect(done, isNotNull, reason: 'the doctor run finished');
+      final report = DoctorReport.parse(done!.lines);
+      expect(report.sections.isNotEmpty || report.allPassed, isTrue);
+    });
   }, skip: skip);
 
   group('voice', () {
