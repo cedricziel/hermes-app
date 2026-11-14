@@ -650,6 +650,30 @@ step below is unverified unless it says otherwise.
 - With checkpoints off, an edited chat reads "off"; a server before
   `rollback.*` draws neither row (design notes, unverified here).
 
+## A chat's folder: projects, repos and a locked root
+
+Checked against Hermes `d923a5eb`. In the dev backend's own `HERMES_HOME`
+(never the real one), a project and a repo for the folder picker:
+
+```bash
+H="$PWD/.dart_tool/hermes-dev/home"; D=$(mktemp -d); mkdir -p "$D/app" "$D/docs" && git -C "$D/app" init -q
+printf 'desktop:\n  repo_scan_roots:\n    - %s\n' "$D" >> "$H/config.yaml"
+HERMES_HOME="$H" HOME="$H/../userhome" hermes project create "Demo" "$D/app" "$D/docs"
+```
+
+`GET /api/chat/workspaces?profile=default&scan=1` then lists the project (two
+folders, the first primary) and `$D/app` as a scanned repo; without `scan=1`
+the repo only shows once a chat has run in it. A project can also be made over
+the gateway (`projects.create`, `projects.delete`), as the contract test does.
+
+For the locked case start the backend with `HERMES_DASHBOARD_FILES_ROOT=$D`
+in its environment (`scripts/dev-backend.sh` passes it on): every `/api/fs/*`
+route except `default-cwd` and `git-root` answers 403 "Path is outside the
+managed read boundary" outside it, a secret name inside it too, and the
+dashboard's launch folder is outside, so the first list of a chat with no
+folder is that 403. The contract tests read `HERMES_DEV_FILES_ROOT` (the same
+folder) and `HERMES_DEV_HOME` (the state folder, for the live-database 409).
+
 ## Scripted tool calls
 
 Tool-call rendering (cards, groups, approvals inside a call, diffs, stop)
@@ -1406,3 +1430,15 @@ and look at `build/workflow_screenshots/server-care-*`.
 ## Background request alert retry
 
 Run `flutter test --concurrency=1 test/local_notification_service_test.dart test/background/background_refresh_test.dart`. A posting result records OS acceptance of the attempt, not observed delivery. In the isolated client, leave a synthetic approval pending, simulate one native posting failure, then allow a later live check to post it. Verify that failed or denied attempts remain eligible and that accepted attempts save only the represented request marks. Interrupt after acceptance but before mark persistence; a later check must replace the same notification ID. Resolve the approval before a retry and verify that no stale request is announced. Keep App Lock text generic and use only disposable client state.
+
+## Server care: status, logs, usage and the server check
+
+`openspec/changes/server-care`. Device-free first: `flutter test test/server_care`. Its `recorded*` fixtures are real answers of Hermes `d923a5eb`; re-record them from a throwaway backend (`scripts/dev-backend.sh start`, never the real `~/.hermes`) when the pin moves, and replace paths, the install id and model ids.
+
+Against the throwaway dashboard, with the page token from its `index.html` in `X-Hermes-Session-Token`:
+
+1. Reads the contract test makes (`HERMES_DEV_URL=… flutter test test/real_backend_contract_test.dart --plain-name 'server care'`): `/api/status`, `/api/health`, `/api/hermes/update/check`, `/api/logs?file=agent|errors|gateway`, `/api/analytics/usage?days=7`. A fresh backend has `gateway_state: null`, `overall: "degraded"`, `version: "unknown"` (a git checkout) and an update check with `behind: null`.
+2. The server check: `POST /api/ops/doctor?profile=default`, then poll `/api/actions/doctor/status?lines=400` until `running` is false. Takes about 5 s, exits 1 when it found something, and its log is plain text without ANSI escapes. It never passes `--fix`.
+3. Usage with a turn: run one scripted-model turn (`_serveScriptedModel` in the contract test) and read `/api/analytics/usage?days=7&profile=<that profile>` before the profile is deleted.
+
+Not run offline, so not reproducible here: `POST /api/hermes/update` (on a git install it updates the checkout the backend runs from, so never call it against the pinned install; an update needs a throwaway git clone that is behind its remote), and gateway restart or start (`hermes gateway restart` may touch a service manager outside the throwaway home). Treat the update and restart steps of `openspec/changes/server-care/tasks.md` 7.1 and 7.3 as open until someone runs them on a disposable machine.

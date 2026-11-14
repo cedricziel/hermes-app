@@ -293,6 +293,25 @@ void main() {
       expect(lines.last.continuation, isEmpty);
     });
 
+    test('CRLF and newline endings are dropped, tracebacks still fold', () {
+      final lines = LogLine.parseAll([
+        '2026-11-14 09:12:03,114 ERROR a.b: boom\r\n',
+        'Traceback (most recent call last):\n',
+        '  File "x.py", line 1, in <module>\r\n',
+        'ValueError: boom\n',
+        '2026-11-14 09:12:04,001 INFO a.b: next\n',
+      ]);
+      expect(lines, hasLength(2));
+      expect(lines.first.message, 'boom');
+      expect(lines.first.raw, isNot(contains('\n')));
+      expect(lines.first.continuation, [
+        'Traceback (most recent call last):',
+        '  File "x.py", line 1, in <module>',
+        'ValueError: boom',
+      ]);
+      expect(lines.last.message, 'next');
+    });
+
     test('a leading orphan line stays as a headerless entry', () {
       final lines = LogLine.parseAll([
         '  at x',

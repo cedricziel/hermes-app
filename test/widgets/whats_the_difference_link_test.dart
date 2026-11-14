@@ -70,4 +70,59 @@ void main() {
     await t.tap(find.text("What's the difference?"));
     expect(taps, 1);
   });
+  group('tap area', () {
+    final text = find.text("What's the difference?");
+    final area = find.descendant(
+      of: find.byType(WhatsTheDifferenceLink),
+      matching: find.byType(InkWell),
+    );
+
+    Future<Size> areaAt(
+      WidgetTester t,
+      double parentWidth,
+      TargetPlatform platform,
+      VoidCallback onTap,
+    ) async {
+      await pump(
+        t,
+        SizedBox(
+          width: parentWidth,
+          child: WhatsTheDifferenceLink(onTap: onTap),
+        ),
+        platform: platform,
+      );
+      return t.getSize(area);
+    }
+
+    for (final (platform, height) in [
+      (TargetPlatform.iOS, 44.0),
+      (TargetPlatform.android, 48.0),
+      (TargetPlatform.macOS, 28.0),
+    ]) {
+      testWidgets('is the text wide and at least $height tall on $platform, '
+          'whatever the parent width', (t) async {
+        final narrow = await areaAt(t, 360, platform, () {});
+        final textWidth = t.getSize(text).width;
+        final wide = await areaAt(t, 900, platform, () {});
+
+        expect(narrow.height, greaterThanOrEqualTo(height));
+        expect(wide, narrow);
+        expect(narrow.width, textWidth);
+        expect(narrow.width, lessThan(360));
+      });
+    }
+
+    testWidgets('a tap on the text opens it, one beside it does not', (
+      t,
+    ) async {
+      var taps = 0;
+      await areaAt(t, 900, TargetPlatform.android, () => taps++);
+      await t.tap(text);
+      expect(taps, 1);
+
+      final box = t.getRect(area);
+      await t.tapAt(Offset(box.right + 40, box.center.dy));
+      expect(taps, 1);
+    });
+  });
 }

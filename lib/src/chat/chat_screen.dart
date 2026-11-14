@@ -70,6 +70,7 @@ import '../network/poll_backoff.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
+import '../notifications/request_notifications.dart' show accountHashFor;
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../plugins/plugins_screen.dart';
 import '../profiles/chat_profiles.dart';
