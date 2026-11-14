@@ -169,6 +169,49 @@ void main() {
       expect(c.skill('zeta')!.enabled, isTrue);
     });
 
+    test(
+      'a reload during a failing toggle sets what it rolls back to',
+      () async {
+        final gate = Completer<void>();
+        server.onRequest('PUT', '/api/skills/toggle', (_) async {
+          await gate.future;
+          return (status: 500, body: {'detail': 'x'});
+        });
+        final c = controller();
+        await c.load();
+
+        final done = c.toggle('zeta', false);
+        // Another client disabled it meanwhile; the reload sees that.
+        server.on('GET', '/api/skills', [
+          skillRow(name: 'zeta', category: 'devops', enabled: false),
+        ]);
+        await c.load(quiet: true);
+        expect(c.skill('zeta')!.enabled, isFalse);
+        gate.complete();
+
+        expect(await done, isFalse);
+        expect(c.skill('zeta')!.enabled, isFalse);
+      },
+    );
+
+    test('a reload during a toggle keeps the tapped value on screen', () async {
+      final gate = Completer<void>();
+      server.onRequest('PUT', '/api/skills/toggle', (_) async {
+        await gate.future;
+        return (status: 200, body: {'ok': true});
+      });
+      final c = controller();
+      await c.load();
+
+      final done = c.toggle('zeta', false);
+      await c.load(quiet: true);
+      expect(c.skill('zeta')!.enabled, isFalse);
+      gate.complete();
+
+      expect(await done, isTrue);
+      expect(c.skill('zeta')!.enabled, isFalse);
+    });
+
     test('quick taps are sent in order', () async {
       final sent = <bool>[];
       server.onRequest('PUT', '/api/skills/toggle', (r) async {
