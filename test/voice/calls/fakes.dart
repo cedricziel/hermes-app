@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:hermes_app/src/chat/chat_controller.dart' show VoiceTurnRefusal;
 import 'package:hermes_app/src/voice/calls/call_agent.dart';
 import 'package:hermes_app/src/voice/calls/call_bridge.dart';
 
@@ -141,21 +142,65 @@ class FakeCallAgent implements CallAgent {
   /// Keeps `onSubmitted` back until the test calls [submitted].
   bool holdSubmit = false;
   void Function()? onSubmitted;
-  void submitted() => onSubmitted?.call();
+  bool Function()? wanted;
+  void Function(CallTurnAnswer)? onAnswer;
+
+  /// The `interrupted` each reply was asked with, and the prompts that really
+  /// reached the transport (`onSubmitted` ran while still wanted).
+  final interruptedAsked = <bool>[];
+  final written = <String>[];
+  String? _prompt;
+
+  /// Like the real agent: a send still wanted when it reaches the transport
+  /// is written, one that is not ends the reply with a refusal.
+  void submitted() {
+    if (wanted?.call() == false) {
+      if (pending?.isCompleted == false) {
+        pending!.completeError(
+          const CallTurnRefused(VoiceTurnRefusal.noLongerWanted),
+        );
+      }
+      return;
+    }
+    written.add(_prompt!);
+    onSubmitted?.call();
+  }
+
+  /// Hermes answered the turn in a way that ends the wait at once.
+  void answer(CallTurnAnswer answer) {
+    onAnswer?.call(answer);
+    pending?.complete();
+  }
+
+  void Function()? _typed;
+  @override
+  void watchTyped(void Function() listener) => _typed = listener;
+
+  /// A message typed in the chat, not this call's.
+  void typed() => _typed?.call();
+
   @override
   Future<void> reply(
     String prompt, {
     required void Function(String) onText,
     required void Function(bool) onAttention,
+    required bool Function() wanted,
+    bool interrupted = false,
     void Function()? onSubmitted,
+    void Function(CallTurnAnswer)? onAnswer,
   }) {
     prompts.add(prompt);
+    interruptedAsked.add(interrupted);
     if (replyError != null) return Future.error(replyError!);
+    _prompt = prompt;
+    this.wanted = wanted;
     this.onSubmitted = onSubmitted;
-    if (!holdSubmit) onSubmitted?.call();
+    this.onAnswer = onAnswer;
     text = onText;
     replyAttention = onAttention;
-    return (pending = Completer<void>()).future;
+    final done = pending = Completer<void>();
+    if (!holdSubmit) submitted();
+    return done.future;
   }
 
   @override

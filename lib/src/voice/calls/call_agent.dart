@@ -5,16 +5,69 @@ import '../../chat/chat_models.dart';
 import '../../chat/media/extract_media.dart';
 import '../../chat/markdown_entities.dart';
 
+/// Why a spoken turn was not sent. The reason is a fixed word: nothing of the
+/// words travels with it. Whatever the reason, nothing was sent.
+final class CallTurnRefused implements Exception {
+  const CallTurnRefused(this.reason);
+  final VoiceTurnRefusal reason;
+
+  /// Hermes is still answering, or a queue holds prompts.
+  bool get busy => reason == VoiceTurnRefusal.busy;
+
+  /// The call moved on (End, mute, an approval waiting): nothing to say.
+  bool get noLongerWanted => reason == VoiceTurnRefusal.noLongerWanted;
+
+  /// The chat or its profile is gone: the call cannot go on.
+  bool get endsCall =>
+      reason == VoiceTurnRefusal.sessionReclaimed ||
+      reason == VoiceTurnRefusal.profileNotConfirmed;
+
+  /// The reason in fixed words, for telemetry.
+  String get kind => switch (reason) {
+    VoiceTurnRefusal.busy => 'busy',
+    VoiceTurnRefusal.noLongerWanted => 'no_longer_wanted',
+    VoiceTurnRefusal.queueRestoreFailed => 'queue_restore_failed',
+    VoiceTurnRefusal.modelOrBranchNotAllowed => 'not_allowed',
+    VoiceTurnRefusal.profileNotConfirmed => 'profile_not_confirmed',
+    VoiceTurnRefusal.sessionReclaimed => 'session_reclaimed',
+  };
+
+  @override
+  String toString() => 'The voice turn was not sent ($kind).';
+}
+
+/// How Hermes answered a spoken turn in a way that ends the wait for a reply:
+/// it will answer after its current turn, took the words into it, or adjusts
+/// it to them (the turn it is running goes on streaming), or it took them as
+/// its own stop phrase.
+enum CallTurnAnswer { queued, steered, redirected, voiceStopped }
+
 abstract interface class CallAgent {
+  /// Sends [text] as a spoken turn and follows its reply. [wanted] says
+  /// whether the call still wants it sent (not ended, not muted, no approval
+  /// waiting): it is asked right up to the moment `prompt.submit` is written.
+  /// A turn that is not sent throws a [CallTurnRefused]. [interrupted] says
+  /// the user cut off the previous spoken reply before this one.
   Future<void> reply(
     String text, {
     required void Function(String) onText,
     required void Function(bool) onAttention,
+    required bool Function() wanted,
+    bool interrupted = false,
 
-    /// Called once the prompt reached the chat, which ends the call's Sending.
+    /// Called just before the prompt is written, which ends the call's
+    /// Sending: from then on End or mute cannot withdraw it.
     void Function()? onSubmitted,
+
+    /// Called when Hermes answers in a way that ends the wait at once; the
+    /// reply then returns without a spoken reply to wait for.
+    void Function(CallTurnAnswer answer)? onAnswer,
   });
   Future<void> interrupt();
+
+  /// Calls [listener] when a message is typed in the chat, which is not this
+  /// call's own turn.
+  void watchTyped(void Function() listener);
 
   /// Whether the thread waits for the user (an approval, a question), whoever
   /// raised it: this call's reply, a typed one or a server-queued one.
@@ -39,6 +92,11 @@ class ChatCallAgent implements CallAgent {
   final ChatThread? _thread;
   bool _submitting = false;
   bool _disposed = false;
+
+  /// Set by [interrupt]: whatever this call sends from then on is withdrawn.
+  bool _stopped = false;
+  void Function()? _typed;
+  ChatMessage? _knownPrompt;
   Completer<void>? _reply;
   String? _messageID;
   void Function(String)? _text;
@@ -68,21 +126,30 @@ class ChatCallAgent implements CallAgent {
       identical(chat.selectedThread, _thread);
 
   @override
+  void watchTyped(void Function() listener) {
+    _typed = listener;
+    _knownPrompt = _thread == null ? null : chat.lastSentPrompt(_thread);
+  }
+
+  @override
   Future<void> reply(
     String text, {
     required void Function(String) onText,
     required void Function(bool) onAttention,
+    required bool Function() wanted,
+    bool interrupted = false,
     void Function()? onSubmitted,
+    void Function(CallTurnAnswer answer)? onAnswer,
   }) async {
     final thread = chat.selectedThread;
     if (!valid ||
         thread == null ||
         _reply != null ||
-        !chat.modelSendAllowed ||
-        thread.isReplying ||
-        chat.queuedIn(thread).isNotEmpty ||
         thread.isCanonicalBotChat) {
       throw StateError('This chat is not ready for another voice turn.');
+    }
+    if (thread.isReplying || chat.queuedIn(thread).isNotEmpty) {
+      throw const CallTurnRefused(VoiceTurnRefusal.busy);
     }
     final done = _reply = Completer<void>();
     // Observe errors before submit's asynchronous admission checks complete.
@@ -94,19 +161,40 @@ class ChatCallAgent implements CallAgent {
     _spoken = '';
     _messageID = null;
     _prompt = null;
+    _stopped = false;
     _earlierPrompt = chat.lastSentPrompt(thread);
     _submitting = true;
     try {
-      final accepted = await chat.submit(text, const []);
-      if (accepted) {
-        _messageID = _replies(thread).firstOrNull?.id;
-        onSubmitted?.call();
-      }
-      if (!valid || !accepted || done.isCompleted) {
-        if (accepted &&
-            _messageID != null &&
-            thread.isReplying &&
-            chat.active) {
+      final refused = await chat.submitVoiceTurn(
+        text,
+        wanted: () => valid && !_stopped && wanted(),
+        interrupted: interrupted,
+        onSubmitting: onSubmitted,
+        onAnswer: (answer) {
+          switch (answer) {
+            case VoiceTurnAnswer.started:
+              break;
+            case VoiceTurnAnswer.queued:
+              _answered(done, onAnswer, CallTurnAnswer.queued);
+            case VoiceTurnAnswer.steered:
+              _answered(done, onAnswer, CallTurnAnswer.steered);
+            case VoiceTurnAnswer.redirected:
+              _answered(done, onAnswer, CallTurnAnswer.redirected);
+            case VoiceTurnAnswer.voiceStopped:
+              _answered(done, onAnswer, CallTurnAnswer.voiceStopped);
+            case VoiceTurnAnswer.withdrawn:
+              if (!done.isCompleted) {
+                done.completeError(
+                  const CallTurnRefused(VoiceTurnRefusal.noLongerWanted),
+                );
+              }
+          }
+        },
+      );
+      if (refused != null) throw CallTurnRefused(refused);
+      _messageID = _replies(thread).firstOrNull?.id;
+      if (!valid || _stopped) {
+        if (_messageID != null && thread.isReplying && chat.active) {
           await chat.stopReply(thread);
         }
         throw StateError('Hermes could not send this voice turn.');
@@ -124,12 +212,29 @@ class ChatCallAgent implements CallAgent {
     }
   }
 
+  /// Hermes answered in a way that ends the wait: nothing of the reply is
+  /// spoken, the chat shows it.
+  void _answered(
+    Completer<void> done,
+    void Function(CallTurnAnswer)? onAnswer,
+    CallTurnAnswer answer,
+  ) {
+    if (done.isCompleted) return;
+    try {
+      onAnswer?.call(answer);
+    } on Object {
+      // The call's own bookkeeping must not break the agent.
+    }
+    done.complete();
+  }
+
   void _changed() {
     if (_disposed) return;
     if (!valid) {
       onContextLost();
       return;
     }
+    _noteTyped();
     final waiting = attention;
     if (waiting != _lastAttention) {
       _lastAttention = waiting;
@@ -173,6 +278,17 @@ class ChatCallAgent implements CallAgent {
     }
   }
 
+  /// A prompt the chat sent that is not this call's is a typed one (or a
+  /// queued one sent now): the call hears of it, which clears `interrupted`.
+  void _noteTyped() {
+    final thread = _thread;
+    if (thread == null) return;
+    final latest = chat.lastSentPrompt(thread);
+    if (identical(latest, _knownPrompt)) return;
+    _knownPrompt = latest;
+    if (!_submitting && !identical(latest, _prompt)) _typed?.call();
+  }
+
   /// The replies that follow this call's prompt. History read while the turn
   /// runs goes above it, so the prompt is found by identity, not position.
   Iterable<ChatMessage> _replies(ChatThread thread) {
@@ -194,6 +310,7 @@ class ChatCallAgent implements CallAgent {
   Future<void> interrupt() async {
     final done = _reply;
     if (done == null) return;
+    _stopped = true;
     if (!done.isCompleted) {
       done.completeError(StateError('Voice turn interrupted.'));
     }
