@@ -597,6 +597,24 @@ void main() {
       expect(page.hasMore, isTrue);
     });
 
+    test('skips a message row without an id', () async {
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', [
+          messageRow(id: 1, role: 'user', content: 'kept'),
+          {...messageRow(id: 2, role: 'user', content: 'no id')}..remove('id'),
+          {...messageRow(id: 3, role: 'user', content: 'also none')}
+            ..remove('id'),
+        ]),
+      );
+
+      final page = await repository.loadMessagePage('s1', limit: 40);
+
+      expect(page.messages.map((m) => m.content), ['kept']);
+      expect(page.rows, 3);
+    });
+
     test('says nothing remains when the page came back short', () async {
       server.on(
         'GET',

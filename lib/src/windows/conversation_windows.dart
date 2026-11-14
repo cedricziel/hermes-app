@@ -715,6 +715,13 @@ class ConversationWindows extends ChangeNotifier {
           panel.ownerKey == _ownerKey();
     }
 
+    // A new engine can report in before `create` has returned.
+    if ((method == 'focused' || method == 'panel') &&
+        _entry(windowId) == null &&
+        windowId != _panel?.id) {
+      await Future.wait([..._creating, ?_creatingPanel]);
+    }
+
     if (method != 'auth.headers' && method != 'closed' && !current()) {
       return method == 'panel.showInWindow' ? WindowMove.failed.name : null;
     }

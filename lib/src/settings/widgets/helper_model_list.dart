@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../models/auxiliary_models.dart';
 import '../../models/model_provider_option.dart';
 import '../../models/moa_setup.dart';
@@ -44,21 +45,22 @@ class HelperModelList extends StatelessWidget {
     final main = platformChromeOf(context) == PlatformChrome.macos
         ? null
         : mainModelName(models);
+    final l10n = context.l10n;
     return GroupedListView(
       children: [
         GroupedSection(
           footer: [
-            'Hermes runs side jobs on these models.',
-            if (main != null) 'Main model is $main.',
-            'Changes apply to new chats.',
+            l10n.settingsHelperModelsFooterIntro,
+            if (main != null) l10n.settingsHelperModelsFooterMainModel(main),
+            l10n.settingsHelperModelsFooterApply,
           ].join(' '),
           children: [
             for (final slot in models.slots)
               GroupedValueRow(
                 key: Key('helper-${slot.task}'),
                 title: slot.label,
-                value: _describe(slot.choice),
-                caption: _details(slot.choice),
+                value: _describe(l10n, slot.choice),
+                caption: _details(l10n, slot.choice),
                 busy: saving.contains(slot.task),
                 onTap: () => onTap(slot),
               ),
@@ -66,23 +68,24 @@ class HelperModelList extends StatelessWidget {
         ),
         if (moa != null)
           GroupedSection(
-            header: 'Mixture of agents',
+            header: l10n.settingsHelperModelsMoaHeader,
             footer: moa.privacyFilterOn
-                ? 'Hermes’ privacy filter is on, and saving here would turn '
-                      'it off. Change these slots on the server.'
+                ? l10n.settingsHelperModelsMoaPrivacyFooter
                 : null,
             children: [
               GroupedValueRow(
                 key: const Key('helper-moa-preset'),
-                title: 'Preset',
-                value: moa.preset == 'default' ? 'Default' : moa.preset,
+                title: l10n.settingsHelperModelsMoaPreset,
+                value: moa.preset == 'default'
+                    ? l10n.settingsHelperModelsMoaPresetDefault
+                    : moa.preset,
               ),
               for (final slot in moa.slots)
                 GroupedValueRow(
                   key: Key('helper-${slot.key}'),
                   title: slot.label,
-                  value: _describe(slot.choice),
-                  caption: _details(slot.choice, off: !slot.enabled),
+                  value: _describe(l10n, slot.choice),
+                  caption: _details(l10n, slot.choice, off: !slot.enabled),
                   busy: saving.contains(slot.key),
                   onTap: onTapMoa == null ? null : () => onTapMoa(slot),
                 ),
@@ -92,18 +95,22 @@ class HelperModelList extends StatelessWidget {
     );
   }
 
-  static String _describe(ModelChoice? choice) {
-    if (choice == null) return 'Main model';
-    if (choice.modelId.isEmpty) return 'Provider default';
+  static String _describe(AppLocalizations l10n, ModelChoice? choice) {
+    if (choice == null) return l10n.settingsHelperModelsMainModel;
+    if (choice.modelId.isEmpty) return l10n.settingsHelperModelsProviderDefault;
     return shortModelName(choice.modelId);
   }
 
   /// What the short value leaves out: "Off" for a slot switched off, the
   /// whole model id when it was shortened, the provider and the effort.
-  static String? _details(ModelChoice? choice, {bool off = false}) {
+  static String? _details(
+    AppLocalizations l10n,
+    ModelChoice? choice, {
+    bool off = false,
+  }) {
     final effort = choice?.effort;
     final parts = [
-      if (off) 'Off',
+      if (off) l10n.commonOff,
       if (choice != null) ...[
         if (shortModelName(choice.modelId) != choice.modelId) choice.modelId,
         if (choice.providerId.isNotEmpty) choice.providerId,

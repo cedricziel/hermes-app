@@ -76,6 +76,7 @@ extension _ChatControllerSending on ChatController {
       createdAt: DateTime.now(),
       attachments: attachments,
     );
+    _sentPrompts[thread] = userMessage;
     if (protectedSend == null) {
       thread.messages.add(userMessage);
       for (final flyer in chatMessageToFlyer(userMessage)) {

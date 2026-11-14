@@ -413,6 +413,10 @@ class HermesChatRepository {
         _ => null,
       };
       if (role == null) continue;
+      // A message's id comes from its row: without one it could not be told
+      // from another row's.
+      final rowId = row['id'];
+      if (rowId == null) continue;
       final displayKind = switch (row['display_kind']) {
         final String kind when kind.isNotEmpty => kind,
         _ => null,
@@ -455,7 +459,7 @@ class HermesChatRepository {
           : stored.text;
       messages.add(
         ChatMessage(
-          id: '$sessionId-${row['id']}',
+          id: '$sessionId-$rowId',
           canonicalRow: DurableReactionRow.decode(row),
           role: role,
           content: before ? '' : stored.text,

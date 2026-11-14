@@ -135,6 +135,8 @@ void main() {
         {'op': 'send', 'reason': 'not_reachable', 'at': now - 90},
         {'op': 'private text', 'reason': 'delivery:7012', 'at': now - 5},
         'not a map',
+        {'op': 'send', 'reason': 'not_reachable', 'at': double.nan},
+        {'op': 'send', 'reason': 'not_reachable', 'at': double.infinity},
       ],
     });
 

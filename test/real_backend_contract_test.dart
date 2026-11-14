@@ -164,7 +164,8 @@ void main() {
       final status = value(await care.status(profile: 'default'));
       expect(status.version, isNotNull);
       expect(status.profiles, isNotEmpty);
-      expect(status.gatewayState, isNotNull);
+      // Null until a gateway has run on this backend.
+      expect(status.gatewayStateRaw, anyOf(isNull, isA<String>()));
     });
 
     test('health answers ok with a commit', () async {

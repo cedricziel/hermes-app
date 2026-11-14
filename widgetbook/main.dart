@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'directories.dart';
@@ -20,6 +21,11 @@ class HermesWidgetbook extends StatelessWidget {
             for (final e in themes.entries)
               WidgetbookTheme(name: e.key, data: e.value),
           ],
+        ),
+        LocalizationAddon(
+          locales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          initialLocale: const Locale('en'),
         ),
         TextScaleAddon(min: 1, max: 2),
         ViewportAddon([phone, desktop]),

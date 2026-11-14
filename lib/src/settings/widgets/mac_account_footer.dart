@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../profiles/widgets/profile_avatar.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
@@ -35,6 +36,7 @@ class MacAccountFooter extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final onSignOut = this.onSignOut;
+    final l10n = context.l10n;
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: scheme.outlineVariant)),
@@ -44,7 +46,7 @@ class MacAccountFooter extends StatelessWidget {
         child: MergeSemantics(
           child: Semantics(
             button: true,
-            label: 'Account',
+            label: l10n.settingsAccount,
             child: AdaptivePopupMenuButton<_AccountAction>(
               key: const Key('mac-account-footer'),
               tooltip: '',
@@ -69,28 +71,28 @@ class MacAccountFooter extends StatelessWidget {
                   enabled: false,
                   child: Text(
                     onSignOut == null
-                        ? 'Connected to the dashboard'
-                        : 'Signed in to the dashboard',
+                        ? l10n.settingsConnectedToDashboard
+                        : l10n.settingsSignedInToDashboard,
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                const AdaptiveMenuItem(
+                AdaptiveMenuItem(
                   value: _AccountAction.settings,
                   shortcut: '⌘,',
-                  child: Text('Settings…'),
+                  child: Text(l10n.settingsMenuSettings),
                 ),
-                const AdaptiveMenuItem(
+                AdaptiveMenuItem(
                   value: _AccountAction.connection,
-                  child: Text('Connection Details'),
+                  child: Text(l10n.settingsConnectionDetails),
                 ),
                 if (onSignOut != null) ...[
                   const PopupMenuDivider(),
-                  const AdaptiveMenuItem(
+                  AdaptiveMenuItem(
                     value: _AccountAction.signOut,
-                    child: Text('Sign Out'),
+                    child: Text(l10n.settingsSignOut),
                   ),
                 ],
               ],

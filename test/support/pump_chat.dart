@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/bot_screen/takeover_setting.dart';
 import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.dart'
@@ -79,6 +80,8 @@ Future<void> pumpChatScreen(
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: theme ?? buildHermesLightTheme().copyWith(platform: platform),
       builder: macCommandsBuilder(commands),
       home: _Visible(

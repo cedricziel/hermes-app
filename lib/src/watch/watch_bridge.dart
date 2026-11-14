@@ -469,6 +469,7 @@ class WatchBridge {
       if (entry is! Map) continue;
       final reason = entry['reason'];
       final at = entry['at'];
+      if (at is double && !at.isFinite) continue;
       _record('watch.delivery.failed', {
         'watch.operation': _operation(entry['op']),
         'watch.failure': reason is String && _failureReason.hasMatch(reason)

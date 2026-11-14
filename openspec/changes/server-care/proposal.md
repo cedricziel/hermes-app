@@ -4,7 +4,7 @@
 
 A person who runs their own Hermes has no way to look after it from the app. When the bots on Telegram go quiet, a scheduled task never runs, or the disk fills up, the app shows nothing: the server version sits in Connection details and that is all. To find out what is wrong, update Hermes, or restart the messaging gateway, they have to reach a computer and open the web dashboard or a terminal. Hermes already exposes everything needed for the common cases over the dashboard's REST API, so the app can offer one place, **Server**, to see whether the server is healthy and fix the usual problems from a phone.
 
-Roadmap item 4.7.
+Roadmap item 4.7. Visual design: https://claude.ai/artifact/7AKZUSYGPHvvmU97dAWrAx (decisions in `docs/design-briefs/server-care.md`, "Design (done)").
 
 ## What Changes
 

@@ -28,6 +28,31 @@ class BotScreenViewerIds {
     _latest = id;
   }
 
+  final _users = <String, int>{};
+
+  /// Counts a live viewer as using [id], so that another viewer's [letGo] does
+  /// not forget an id this one holds a stream for.
+  void retain(String id) =>
+      _users.update(hashOf(id), (count) => count + 1, ifAbsent: () => 1);
+
+  /// Ends a viewer's use of [id]. With [forget], for a release that did not get
+  /// through, the id is dropped once no other viewer uses it: the lease it may
+  /// still hold then names no id of this app, so it reads as someone else's and
+  /// the card offers Hand back to Hermes instead of the next viewer resuming it
+  /// without asking. Nothing is stored.
+  void letGo(String id, {bool forget = false}) {
+    final hash = hashOf(id);
+    final left = (_users[hash] ?? 1) - 1;
+    if (left > 0) {
+      _users[hash] = left;
+      return;
+    }
+    _users.remove(hash);
+    if (!forget) return;
+    _hashes.remove(hash);
+    if (_latest == id) _latest = null;
+  }
+
   /// The id added last, for the next observe to ask for: the server keeps it
   /// when the same connection minted it and mints another otherwise.
   String? get latest => _latest;

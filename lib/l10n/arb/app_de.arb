@@ -1,0 +1,160 @@
+{
+  "@@locale": "de",
+
+  "@@x-area-common": "",
+  "commonOff": "Aus",
+  "commonOn": "Ein",
+  "commonRetry": "Erneut versuchen",
+
+  "@@x-area-agent_messages": "",
+
+  "@@x-area-api": "",
+
+  "@@x-area-app_lock": "",
+
+  "@@x-area-auth": "",
+
+  "@@x-area-background": "",
+
+  "@@x-area-bot_mode": "",
+
+  "@@x-area-bot_screen": "",
+
+  "@@x-area-chat": "",
+
+  "@@x-area-chat/activity": "",
+
+  "@@x-area-chat/attachments": "",
+
+  "@@x-area-chat/gateway": "",
+
+  "@@x-area-chat/invalidation": "",
+
+  "@@x-area-chat/media": "",
+
+  "@@x-area-chat/memory": "",
+
+  "@@x-area-chat/queue_storage": "",
+
+  "@@x-area-chat/reactions": "",
+
+  "@@x-area-chat/session_usage": "",
+
+  "@@x-area-chat/side_results": "",
+
+  "@@x-area-chat/todo_plan": "",
+
+  "@@x-area-chat/widgets": "",
+
+  "@@x-area-core": "",
+
+  "@@x-area-deep_links": "",
+
+  "@@x-area-drag_out": "",
+
+  "@@x-area-handoff": "",
+
+  "@@x-area-intents": "",
+
+  "@@x-area-kanban": "",
+
+  "@@x-area-live_activities": "",
+
+  "@@x-area-macos": "",
+
+  "@@x-area-mcp": "",
+
+  "@@x-area-memory": "",
+
+  "@@x-area-messaging": "",
+
+  "@@x-area-models": "",
+
+  "@@x-area-navigation": "",
+
+  "@@x-area-network": "",
+
+  "@@x-area-notifications": "",
+
+  "@@x-area-platform_hint": "",
+
+  "@@x-area-plugins": "",
+
+  "@@x-area-profiles": "",
+
+  "@@x-area-quick_actions": "",
+
+  "@@x-area-quick_panel": "",
+
+  "@@x-area-schedules": "",
+
+  "@@x-area-screens": "",
+
+  "@@x-area-settings": "",
+  "settingsAboutHermes": "Über Hermes",
+  "settingsAboutTitle": "Info",
+  "settingsAboutVersion": "Version",
+  "settingsAboutVersionUnavailable": "Nicht verfügbar",
+  "settingsAccount": "Konto",
+  "settingsAppLock": "App-Sperre",
+  "settingsAppearanceTitle": "Erscheinungsbild",
+  "settingsChangeServer": "Server wechseln",
+  "settingsConnectedToDashboard": "Mit dem Dashboard verbunden",
+  "settingsConnectionDetails": "Verbindungsdetails",
+  "settingsDictation": "Diktieren",
+  "settingsDictationEngineDevice": "Auf diesem Gerät",
+  "settingsDictationEngineHermes": "Hermes",
+  "settingsHelperModelsChangeFailed": "{slot} konnte nicht geändert werden",
+  "settingsHelperModelsConfirmAction": "Verwenden",
+  "settingsHelperModelsConfirmTitle": "Dieses Modell verwenden?",
+  "settingsHelperModelsFooterApply": "Änderungen gelten für neue Chats.",
+  "settingsHelperModelsFooterIntro": "Hermes erledigt Nebenaufgaben mit diesen Modellen.",
+  "settingsHelperModelsFooterMainModel": "Das Hauptmodell ist {model}.",
+  "settingsHelperModelsLoadFailed": "Die Hilfsmodelle konnten nicht geladen werden",
+  "settingsHelperModelsMainModel": "Hauptmodell",
+  "settingsHelperModelsMoaHeader": "Mixture of Agents",
+  "settingsHelperModelsMoaPreset": "Voreinstellung",
+  "settingsHelperModelsMoaPresetDefault": "Standard",
+  "settingsHelperModelsMoaPrivacyFooter": "Der Datenschutzfilter von Hermes ist aktiviert. Wenn du hier speicherst, wird er ausgeschaltet. Ändere diese Zuordnungen auf dem Server.",
+  "settingsHelperModelsProviderDefault": "Standard des Anbieters",
+  "settingsHelperModelsSubtitleMainModel": "Hauptmodell {model}",
+  "settingsHelperModelsTitle": "Hilfsmodelle",
+  "settingsMenuSettings": "Einstellungen…",
+  "settingsNotifications": "Benachrichtigungen",
+  "settingsReportBug": "Fehler melden",
+  "settingsSignOut": "Abmelden",
+  "settingsSignOutMessage": "Du musst dich erneut anmelden, um deine Chats zu sehen.",
+  "settingsSignOutTitle": "Vom Dashboard abmelden?",
+  "settingsSignedInToDashboard": "Beim Dashboard angemeldet",
+  "settingsSpotlight": "Spotlight",
+  "settingsThemeDark": "Dunkel",
+  "settingsThemeLight": "Hell",
+  "settingsThemeSystem": "System",
+  "settingsTitle": "Einstellungen",
+
+  "@@x-area-share": "",
+
+  "@@x-area-shell": "",
+
+  "@@x-area-skills": "",
+
+  "@@x-area-spotlight": "",
+
+  "@@x-area-surfaces": "",
+
+  "@@x-area-telemetry": "",
+
+  "@@x-area-theme": "",
+
+  "@@x-area-update": "",
+
+  "@@x-area-voice": "",
+
+  "@@x-area-watch": "",
+
+  "@@x-area-widgets": "",
+
+  "@@x-area-windows": "",
+
+  "@@x-end": ""
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../widgets/grouped_choice_row.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
@@ -17,11 +18,11 @@ Future<void> showAppearanceDialog(BuildContext context) {
   );
 }
 
-/// What each theme mode is called in the settings.
-const themeModeLabels = {
-  ThemeMode.system: 'Follow system',
-  ThemeMode.light: 'Light',
-  ThemeMode.dark: 'Dark',
+/// What [mode] is called in the settings.
+String themeModeLabel(AppLocalizations l10n, ThemeMode mode) => switch (mode) {
+  ThemeMode.system => l10n.settingsThemeSystem,
+  ThemeMode.light => l10n.settingsThemeLight,
+  ThemeMode.dark => l10n.settingsThemeDark,
 };
 
 class _AppearanceDialog extends StatelessWidget {
@@ -30,8 +31,9 @@ class _AppearanceDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeController>();
+    final l10n = context.l10n;
     return GroupedDialog(
-      title: 'Appearance',
+      title: l10n.settingsAppearanceTitle,
       children: [
         RadioGroup<ThemeMode>(
           groupValue: theme.mode,
@@ -44,7 +46,7 @@ class _AppearanceDialog extends StatelessWidget {
               for (final mode in ThemeMode.values)
                 GroupedChoiceRow<ThemeMode>(
                   value: mode,
-                  title: themeModeLabels[mode]!,
+                  title: themeModeLabel(l10n, mode),
                 ),
             ],
           ),

@@ -33,7 +33,8 @@ flutter run -d macos -t widgetbook/main.dart
 ```
 
 The sidebar lists components and use cases. The addons panel switches light and
-dark (the app's own `buildHermes*Theme`), text scale and phone/desktop width.
+dark (the app's own `buildHermes*Theme`), text scale, phone/desktop width and
+the locale (English or German; see `docs/architecture/localization.md`).
 Building for macOS rewrites tracked `ios/` and `macos/` Xcode files: stage
 files by name and `git restore` those afterwards.
 
