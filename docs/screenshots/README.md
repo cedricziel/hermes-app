@@ -125,6 +125,9 @@ replaces the screenshots on the editable version and uploads no build. Like
 
 `provider-setup/` holds Widgetbook use cases of the model-provider screens
 (`ProviderListView`, `ApiKeyForm`, `SignInCodeView`) rendered in a throwaway
-widget test: phone (390 x 844, iPhone), desktop (1000 x 800, Mac), the largest
-text size (3x) and dark, at 1.5x. They are not part of the README or the App
-Store. File names read `<widget>-<phone|desktop|largest-text-phone>[-light|-dark]`.
+widget test: phone (390 x 844, iPhone), desktop (1000 x 800, Mac), dark, and
+the largest text size (3x, on a tall canvas so the whole screen shows). They
+are not part of the README or the App Store. File names read
+`<list|keyform|signin>-<state>-<phone|desktop|largest-text-phone>[-light|-dark]`;
+`keyform-empty-phone-light.png` is the empty form with Save disabled, the
+others show the rejected key.
