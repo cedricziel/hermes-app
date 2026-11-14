@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../checkpoints/action_telemetry.dart';
@@ -137,6 +139,13 @@ class ContextController extends ChangeNotifier {
   /// Binds to [scope]; any change drops what was read for the old one.
   void bind(ActionScope? scope) {
     if (_disposed || scope == _scope) return;
+    final previous = _scope;
+    final resumed =
+        previous != null &&
+        previous.binding == null &&
+        scope != null &&
+        scope.binding != null &&
+        previous.threadId == scope.threadId;
     _scope = scope;
     _epoch++;
     _breakdownGeneration++;
@@ -149,6 +158,8 @@ class ContextController extends ChangeNotifier {
     _connected = true;
     _readFailures.clear();
     _notify();
+    // Details open while the chat gets its runtime are read for it.
+    if (resumed) unawaited(_readBreakdownIfOpen());
   }
 
   /// The usage snapshot the Session usage card holds.

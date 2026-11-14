@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'action_telemetry.dart';
@@ -150,6 +152,13 @@ class CheckpointsController extends ChangeNotifier {
 
   void bind(ActionScope? scope) {
     if (_disposed || scope == _scope) return;
+    final previous = _scope;
+    final resumed =
+        previous != null &&
+        previous.binding == null &&
+        scope != null &&
+        scope.binding != null &&
+        previous.threadId == scope.threadId;
     _scope = scope;
     _epoch++;
     _listGeneration++;
@@ -162,6 +171,9 @@ class CheckpointsController extends ChangeNotifier {
     _connected = true;
     _readFailures.clear();
     _notify();
+    // A chat that gets its runtime while the panel is open (it was resumed
+    // to be listed) is listed for that runtime.
+    if (_panelOpen && resumed) unawaited(refresh());
   }
 
   void setLocked(bool locked) {

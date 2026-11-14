@@ -20,6 +20,7 @@ import '../widgets/moa_progress_card.dart';
 import '../widgets/process_output_card.dart';
 import '../widgets/session_status_card.dart';
 import 'activity_tier.dart';
+import 'checkpoints_context_panel.dart';
 import 'widgets/activity_panel.dart';
 
 /// The [ActivityPanel] of [thread] in [chat]: Working items under Now, the
@@ -37,6 +38,7 @@ class BoundActivityPanel extends StatelessWidget {
     this.onEnlargeScreen,
     this.onClose,
     this.scrollController,
+    this.checkpointsAndContext = false,
   });
 
   final ChatController chat;
@@ -48,6 +50,11 @@ class BoundActivityPanel extends StatelessWidget {
   final VoidCallback? onEnlargeScreen;
   final VoidCallback? onClose;
   final ScrollController? scrollController;
+
+  /// Lists the Context and File checkpoints rows, whose pages push inside
+  /// the panel. Only the main chat screen holds them; conversation windows
+  /// leave them out.
+  final bool checkpointsAndContext;
 
   @override
   Widget build(BuildContext context) {
@@ -65,9 +72,12 @@ class BoundActivityPanel extends StatelessWidget {
       builder: (context, _) => _sections(context, t),
     );
     final screen = this.screen;
-    return screen == null
+    final shown = screen == null
         ? panel
         : BotScreenDemand(controller: screen, child: panel);
+    return checkpointsAndContext
+        ? ActivityPanelNavigator(thread: t, child: shown)
+        : shown;
   }
 
   /// What the Bot screen card shows, or null when it is not listed.
@@ -88,8 +98,15 @@ class BoundActivityPanel extends StatelessWidget {
         connection = chat.connectionOperations,
         sideResults = chat.sideResultsIn(t),
         reactions = chat.reactionsIn(t);
-    return ListenableBuilder(
+    final actions = CheckpointsContextPanel(
+      chat: chat,
+      thread: t,
+      context: checkpointsAndContext ? chat.contextIn(t) : null,
+      checkpoints: checkpointsAndContext ? chat.checkpointsIn(t) : null,
+    );
+    final sections = ListenableBuilder(
       listenable: Listenable.merge([
+        ...actions.listenables,
         usage,
         billing,
         plan,
@@ -124,6 +141,7 @@ class BoundActivityPanel extends StatelessWidget {
                 model: screenModel,
                 onEnlarge: onEnlargeScreen,
               ),
+            ...actions.now(context),
             if (state != null &&
                 state.visible &&
                 sessionStateTier(state) == ActivityTier.working)
@@ -143,6 +161,7 @@ class BoundActivityPanel extends StatelessWidget {
               ? TodoPlanCard(state: plan, initiallyOpen: true)
               : null,
           session: [
+            ...actions.session(context),
             if (state != null &&
                 state.visible &&
                 sessionStateTier(state) == ActivityTier.reference)
@@ -179,7 +198,8 @@ class BoundActivityPanel extends StatelessWidget {
                 reviewNotes: reviewNotes,
                 onOpenMemory: chat.repository == null || chat.profile == null
                     ? null
-                    : () => Navigator.of(context).push(
+                    // Over the whole app, not inside the panel's own pages.
+                    : () => Navigator.of(context, rootNavigator: true).push(
                         MaterialPageRoute<void>(
                           builder: (_) =>
                               MemoryDestination(profile: chat.profile),
@@ -232,6 +252,10 @@ class BoundActivityPanel extends StatelessWidget {
           ],
         );
       },
+    );
+    return CheckpointsPanelPresence(
+      controller: actions.checkpoints,
+      child: sections,
     );
   }
 }
