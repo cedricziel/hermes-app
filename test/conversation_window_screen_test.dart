@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -329,5 +330,27 @@ void main() {
     expect(gateway.methods.where((m) => m.startsWith('display.')), isEmpty);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(gatewayTransport.close);
+  });
+
+  testWidgets('shows the requests of its own chat only, and marks the '
+      'inspector button', (tester) async {
+    await pump(tester);
+    expect(find.byKey(const Key('needs-you-dock')), findsNothing);
+
+    await tester.enterText(composerField, 'Hello');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    final send = transport.sends.last;
+    send
+      ..emit(const ReplyStarted())
+      ..emit(const SessionReclaimed('rt-1', 's1', 'Opened elsewhere'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('needs-you-dock')), findsOneWidget);
+    expect(find.text('Session opened elsewhere'), findsOneWidget);
+    expect(find.text('1 of 2'), findsNothing);
+    expect(find.bySemanticsLabel('Show Inspector, 1 needs you'), findsOne);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 }

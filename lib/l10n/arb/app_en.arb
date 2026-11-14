@@ -268,6 +268,22 @@
   "@chatActivityLineRestoring": {
     "description": "Activity line sentence while a chat is being restored on the server."
   },
+  "chatActivityNeedsYouAnnounceBilling": "Billing access needs approval",
+  "@chatActivityNeedsYouAnnounceBilling": {
+    "description": "Screen reader announcement when a billing verification request reaches the Needs-you card. Never includes the code or the link."
+  },
+  "chatActivityNeedsYouAnnounceConnector": "A connection needs you",
+  "@chatActivityNeedsYouAnnounceConnector": {
+    "description": "Screen reader announcement when a connector sign-in reaches the Needs-you card. Never names the service."
+  },
+  "chatActivityNeedsYouAnnounceReclaim": "This chat was opened elsewhere",
+  "@chatActivityNeedsYouAnnounceReclaim": {
+    "description": "Screen reader announcement when another client took over the chat. Never includes the server's reason."
+  },
+  "chatActivityNeedsYouAnnounceResume": "This chat couldn't be restored",
+  "@chatActivityNeedsYouAnnounceResume": {
+    "description": "Screen reader announcement when restoring the chat failed. Never includes the server's reason."
+  },
   "chatActivityNeedsYouBillingCopy": "Copy code",
   "@chatActivityNeedsYouBillingCopy": {
     "description": "Button on the Needs-you card that copies the billing verification code."
@@ -945,6 +961,473 @@
   "@@x-area-deep_links": "",
 
   "@@x-area-drag_out": "",
+
+  "@@x-area-files": "",
+  "filesAboutList": "About this list",
+  "@filesAboutList": {
+    "description": "Page menu item and title of the alert that explains what the file list leaves out."
+  },
+  "filesAboutListMessage": "Hermes leaves some files out of this list, like build folders and config.yaml. Show hidden files shows names that start with a dot, but not these. To get one, ask the agent to attach it to a reply.",
+  "@filesAboutListMessage": {
+    "description": "Body of the About this list alert. \"Show hidden files\" names the menu item and must match filesActionShowHidden."
+  },
+  "filesActionContinue": "Continue",
+  "@filesActionContinue": {
+    "description": "Button of the secret-file question that goes on with the action."
+  },
+  "filesActionCopyPath": "Copy path",
+  "@filesActionCopyPath": {
+    "description": "Page menu item that copies the folder's full path."
+  },
+  "filesActionDownload": "Download",
+  "@filesActionDownload": {
+    "description": "Button of the large-file question that starts the download."
+  },
+  "filesActionDownloadFull": "Download full file",
+  "@filesActionDownloadFull": {
+    "description": "Button in the note above a text file that was cut short; downloads the whole file."
+  },
+  "filesActionGoBack": "Go back",
+  "@filesActionGoBack": {
+    "description": "Button of the failure shown for a link that points outside the chat's folder."
+  },
+  "filesActionOpen": "Open",
+  "@filesActionOpen": {
+    "description": "Button that opens a PDF in the system viewer, and the confirm button of the link question."
+  },
+  "filesActionOpenWith": "Open with…",
+  "@filesActionOpenWith": {
+    "description": "Button and menu item that hands a file to another app. Keep the ellipsis."
+  },
+  "filesActionQuickLook": "Quick Look",
+  "@filesActionQuickLook": {
+    "description": "Mac toolbar button that previews a file with the system Quick Look panel. Apple calls it Übersicht in German."
+  },
+  "filesActionQuickLookTooltip": "Quick Look (Space)",
+  "@filesActionQuickLookTooltip": {
+    "description": "Hover text of the Quick Look button on a Mac; names the key."
+  },
+  "filesActionRefresh": "Refresh",
+  "@filesActionRefresh": {
+    "description": "Page menu item and empty-state button that lists the folder again."
+  },
+  "filesActionReload": "Reload",
+  "@filesActionReload": {
+    "description": "Menu item that fetches the open file again."
+  },
+  "filesActionSave": "Save",
+  "@filesActionSave": {
+    "description": "Button that saves a copy of the file on this device."
+  },
+  "filesActionShare": "Share",
+  "@filesActionShare": {
+    "description": "Button that opens the system share sheet for a file."
+  },
+  "filesActionShowHidden": "Show hidden files",
+  "@filesActionShowHidden": {
+    "description": "Page menu item (checked when on) and empty-state button; hidden files are names that start with a dot."
+  },
+  "filesActionTryAgain": "Try again",
+  "@filesActionTryAgain": {
+    "description": "Button of a failure that can go away on its own."
+  },
+  "filesActionUp": "Up",
+  "@filesActionUp": {
+    "description": "Button and failure action that go to the folder above."
+  },
+  "filesActionUpTooltip": "Up (⌘↑)",
+  "@filesActionUpTooltip": {
+    "description": "Hover text of the Up button on a Mac; names the key."
+  },
+  "filesCoverLabel": "File preview hidden",
+  "@filesCoverLabel": {
+    "description": "Accessibility label of the blank cover shown over a file preview in the app switcher."
+  },
+  "filesDetailsTooLarge": "This file is too large to open here.",
+  "@filesDetailsTooLarge": {
+    "description": "Note under a file's name when the server refused to read it as text because of its size."
+  },
+  "filesDownloadDownloaded": "Downloaded {size}",
+  "@filesDownloadDownloaded": {
+    "description": "Progress line of a download whose total size is unknown.",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "12 MB"
+      }
+    }
+  },
+  "filesDownloadProgress": "Downloading… {received} of {total}",
+  "@filesDownloadProgress": {
+    "description": "Progress line of a download. The received amount has no unit when it shares the total's unit.",
+    "placeholders": {
+      "received": {
+        "type": "String",
+        "example": "14"
+      },
+      "total": {
+        "type": "String",
+        "example": "30 MB"
+      }
+    }
+  },
+  "filesDragTooltip": "Drag to Finder",
+  "@filesDragTooltip": {
+    "description": "Hover text of the file tile in a Mac preview header, which can be dragged out of the window."
+  },
+  "filesFailureBusy": "This file is open in a database right now. Try again in a moment.",
+  "@filesFailureBusy": {
+    "description": "Failure shown in place of a file when the server has it locked."
+  },
+  "filesFailureCouldntOpen": "Couldn't open this file.",
+  "@filesFailureCouldntOpen": {
+    "description": "Failure shown in place of a file for any other error."
+  },
+  "filesFailureGone": "This file no longer exists.",
+  "@filesFailureGone": {
+    "description": "Failure shown in place of a file the server cannot find."
+  },
+  "filesFailureIncomplete": "The file may be incomplete.",
+  "@filesFailureIncomplete": {
+    "description": "Title of the failure for a download that ended early."
+  },
+  "filesFailureIncompleteDetail": "The connection dropped while it downloaded. Nothing was kept.",
+  "@filesFailureIncompleteDetail": {
+    "description": "Detail under filesFailureIncomplete."
+  },
+  "filesFailureNotAFile": "This item can't be opened as a file.",
+  "@filesFailureNotAFile": {
+    "description": "Failure shown in place of a file when the item is a folder or a special file."
+  },
+  "filesFailureNotShared": "Hermes doesn't share this file.",
+  "@filesFailureNotShared": {
+    "description": "Failure shown in place of a file the server refuses to hand out."
+  },
+  "filesFolderEmptyDetail": "Files the agent writes in this folder appear here.",
+  "@filesFolderEmptyDetail": {
+    "description": "Detail of the empty folder state."
+  },
+  "filesFolderEmptyHiddenDetail": "Files the agent writes in this folder appear here. Hidden files are not shown.",
+  "@filesFolderEmptyHiddenDetail": {
+    "description": "Detail of the empty folder state when the folder holds hidden files."
+  },
+  "filesFolderEmptyTitle": "Nothing here yet",
+  "@filesFolderEmptyTitle": {
+    "description": "Title of the empty folder state."
+  },
+  "filesFolderLoading": "Loading folder…",
+  "@filesFolderLoading": {
+    "description": "Label of the folder while its list loads; also its accessibility label."
+  },
+  "filesListCapFooter": "Showing the first {shown} of {total}.",
+  "@filesListCapFooter": {
+    "description": "Footer under a folder list that was cut at a fixed number of rows.",
+    "placeholders": {
+      "shown": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "2,000"
+      },
+      "total": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "5,310"
+      }
+    }
+  },
+  "filesMarkdownImageNotLoaded": "Image not loaded",
+  "@filesMarkdownImageNotLoaded": {
+    "description": "Shown in place of an image in a rendered Markdown file that has no alt text; nothing is fetched."
+  },
+  "filesMarkdownRendered": "Rendered",
+  "@filesMarkdownRendered": {
+    "description": "Segment of the Markdown switch that shows the formatted text."
+  },
+  "filesMarkdownSource": "Source",
+  "@filesMarkdownSource": {
+    "description": "Segment of the Markdown switch that shows the plain Markdown text."
+  },
+  "filesMenuFullPath": "Full path: {path}",
+  "@filesMenuFullPath": {
+    "description": "Accessibility label of the first line of the page menu, which shows the folder's full path.",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/srv/projects/demo/reports"
+      }
+    }
+  },
+  "filesMenuMore": "More",
+  "@filesMenuMore": {
+    "description": "Accessibility label of the button that opens the page or preview menu."
+  },
+  "filesNoSelection": "Select a file to preview it.",
+  "@filesNoSelection": {
+    "description": "Empty preview pane beside the file list."
+  },
+  "filesNoteServerFolderDetail": "This chat hasn't started yet, so Hermes shows the server's own folder. After your first message it shows this chat's folder.",
+  "@filesNoteServerFolderDetail": {
+    "description": "Detail of the note above the file list of a chat without a first message."
+  },
+  "filesNoteServerFolderTitle": "Working folder of the server",
+  "@filesNoteServerFolderTitle": {
+    "description": "Title of the note above the file list of a chat without a first message."
+  },
+  "filesNoteTruncated": "Showing the first {shown} of {total}.",
+  "@filesNoteTruncated": {
+    "description": "Note above a text file that was cut short.",
+    "placeholders": {
+      "shown": {
+        "type": "String",
+        "example": "512 KB"
+      },
+      "total": {
+        "type": "String",
+        "example": "3.2 MB"
+      }
+    }
+  },
+  "filesOfflineDetail": "This list may be out of date.",
+  "@filesOfflineDetail": {
+    "description": "Detail of the warning banner above a list that could not be refreshed."
+  },
+  "filesOpenLinkTitle": "Open {host}?",
+  "@filesOpenLinkTitle": {
+    "description": "Title of the question before a link in a Markdown file opens. The host is the site's name.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "example.com"
+      }
+    }
+  },
+  "filesOpenMailTitle": "Write to {address}?",
+  "@filesOpenMailTitle": {
+    "description": "Title of the question before a mail link in a Markdown file opens the mail app.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "me@example.org"
+      }
+    }
+  },
+  "filesPathBarLabel": "Folder path",
+  "@filesPathBarLabel": {
+    "description": "Accessibility label of the path bar above the file list."
+  },
+  "filesPathCurrentLabel": "{path}, current folder",
+  "@filesPathCurrentLabel": {
+    "description": "Accessibility label of the last path bar segment, which is not a button.",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/srv/projects/demo"
+      }
+    }
+  },
+  "filesPathSegmentLabel": "{path}, folder, go to",
+  "@filesPathSegmentLabel": {
+    "description": "Accessibility label of a path bar segment; the path is its full path.",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/srv/projects/demo"
+      }
+    }
+  },
+  "filesPickEmpty": "No folders in here.",
+  "@filesPickEmpty": {
+    "description": "Shown in the folder picker when a folder holds no subfolders."
+  },
+  "filesPreviewTypeSize": "{type} · {size}",
+  "@filesPreviewTypeSize": {
+    "description": "Subtitle of a file: its type and its size, for example Python · 1.8 KB.",
+    "placeholders": {
+      "type": {
+        "type": "String",
+        "example": "Python"
+      },
+      "size": {
+        "type": "String",
+        "example": "1.8 KB"
+      }
+    }
+  },
+  "filesProblemFixedFolder": "Hermes only shares files from a fixed folder on this server.",
+  "@filesProblemFixedFolder": {
+    "description": "Failure of a folder on a server locked to one folder."
+  },
+  "filesProblemFixedFolderDetail": "This chat's folder is outside it.",
+  "@filesProblemFixedFolderDetail": {
+    "description": "Detail under filesProblemFixedFolder: the chat works in a folder the server does not share."
+  },
+  "filesProblemGone": "This folder no longer exists.",
+  "@filesProblemGone": {
+    "description": "Failure of a folder the server cannot find."
+  },
+  "filesProblemNoPermission": "Hermes can't read this folder.",
+  "@filesProblemNoPermission": {
+    "description": "Failure of a folder the server may not read."
+  },
+  "filesProblemNotAccepted": "Hermes can't open this folder.",
+  "@filesProblemNotAccepted": {
+    "description": "Title of the failure when the server rejected the folder or the profile."
+  },
+  "filesProblemNotAcceptedDetail": "The server didn't accept this folder or this chat's profile.",
+  "@filesProblemNotAcceptedDetail": {
+    "description": "Detail under filesProblemNotAccepted."
+  },
+  "filesProblemOutside": "This folder is outside this chat's folder.",
+  "@filesProblemOutside": {
+    "description": "Failure of a link to a folder above the chat's highest folder."
+  },
+  "filesProblemUnreachable": "Can't reach your Hermes server.",
+  "@filesProblemUnreachable": {
+    "description": "Failure of a folder that cannot be listed because the server did not answer, and title of the offline banner."
+  },
+  "filesProblemWorkspaceDown": "Can't reach this profile's workspace.",
+  "@filesProblemWorkspaceDown": {
+    "description": "Failure of a folder whose SSH workspace is down."
+  },
+  "filesProblemWorkspaceDownDetail": "The machine this profile works on didn't answer.",
+  "@filesProblemWorkspaceDownDetail": {
+    "description": "Detail under filesProblemWorkspaceDown."
+  },
+  "filesRowLabelFile": "{name}, file",
+  "@filesRowLabelFile": {
+    "description": "Accessibility label of a file row.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "report.md"
+      }
+    }
+  },
+  "filesRowLabelFileSecret": "{name}, file, may contain secrets",
+  "@filesRowLabelFileSecret": {
+    "description": "Accessibility label of a file row whose name looks like it holds passwords or keys.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": ".env"
+      }
+    }
+  },
+  "filesRowLabelFolder": "{name}, folder",
+  "@filesRowLabelFolder": {
+    "description": "Accessibility label of a folder row.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "reports"
+      }
+    }
+  },
+  "filesRowSecretHint": "May contain secrets",
+  "@filesRowSecretHint": {
+    "description": "Second line of a file row whose name looks like it holds passwords or keys."
+  },
+  "filesSavedMessage": "Saved {name}.",
+  "@filesSavedMessage": {
+    "description": "Snack bar after a file was saved on this device.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "export.zip"
+      }
+    }
+  },
+  "filesSecretQuestion": "This file may contain passwords or keys. Continue anyway?",
+  "@filesSecretQuestion": {
+    "description": "Message of the question before a secret-looking file is opened, saved or shared. Its title is the file name."
+  },
+  "filesSizeBytes": "{count, plural, =1{1 byte} other{{count} bytes}}",
+  "@filesSizeBytes": {
+    "description": "A file size under one kilobyte.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "512"
+      }
+    }
+  },
+  "filesSizeGigabytes": "{size} GB",
+  "@filesSizeGigabytes": {
+    "description": "A file size in gigabytes; the size is already formatted for the locale.",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "1.2"
+      }
+    }
+  },
+  "filesSizeKilobytes": "{size} KB",
+  "@filesSizeKilobytes": {
+    "description": "A file size in kilobytes; the size is already formatted for the locale.",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "1.8"
+      }
+    }
+  },
+  "filesSizeMegabytes": "{size} MB",
+  "@filesSizeMegabytes": {
+    "description": "A file size in megabytes; the size is already formatted for the locale.",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "212"
+      }
+    }
+  },
+  "filesSizeQuestion": "This file is {size}. Download it anyway?",
+  "@filesSizeQuestion": {
+    "description": "Question before a large file is downloaded.",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "212 MB"
+      }
+    }
+  },
+  "filesTypeArchive": "Archive",
+  "@filesTypeArchive": {
+    "description": "Type word of a compressed archive that is not a ZIP file."
+  },
+  "filesTypeCode": "Source code",
+  "@filesTypeCode": {
+    "description": "Type word of a code file with no better name."
+  },
+  "filesTypeDatabase": "Database",
+  "@filesTypeDatabase": {
+    "description": "Type word of a database file."
+  },
+  "filesTypeFile": "File",
+  "@filesTypeFile": {
+    "description": "Type word of a file with no better name."
+  },
+  "filesTypeImage": "Image",
+  "@filesTypeImage": {
+    "description": "Type word of a picture."
+  },
+  "filesTypeLog": "Log",
+  "@filesTypeLog": {
+    "description": "Type word of a log file."
+  },
+  "filesTypePdf": "PDF document",
+  "@filesTypePdf": {
+    "description": "Type word of a PDF file."
+  },
+  "filesTypeText": "Plain text",
+  "@filesTypeText": {
+    "description": "Type word of a text file."
+  },
+  "filesTypeZip": "ZIP archive",
+  "@filesTypeZip": {
+    "description": "Type word of a ZIP file."
+  },
 
   "@@x-area-handoff": "",
 
