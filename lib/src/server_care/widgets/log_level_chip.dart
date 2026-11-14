@@ -43,7 +43,11 @@ class LogLevelChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           spacing: 4,
           children: [
-            AppIcon(icon, size: 14, color: color),
+            AppIcon(
+              icon,
+              size: MediaQuery.textScalerOf(context).scale(14),
+              color: color,
+            ),
             Text(
               wordFor(context.l10n, level),
               style: TextStyle(

@@ -30,6 +30,9 @@ import 'package:hermes_app/src/chat/chat_reply.dart' show kReplyFailedMessage;
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/message_drag_grip.dart';
 import 'package:hermes_app/src/chat/widgets/reply_error_note.dart';
+import 'package:hermes_app/src/providers/widgets/connect_model_card.dart';
+import 'package:hermes_app/src/providers/widgets/provider_form_models.dart'
+    show ConnectCardData, ConnectCardKind;
 import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/review_summary_note.dart';
@@ -564,6 +567,40 @@ WidgetbookNode chatNode() => WidgetbookFolder(
             onPick: (_) {},
           ),
         ),
+        for (final (name, data) in [
+          (
+            'Card: Connect a model',
+            const ConnectCardData(
+              kind: ConnectCardKind.connect,
+              profile: 'work',
+            ),
+          ),
+          (
+            'Card: Reconnect',
+            const ConnectCardData(
+              kind: ConnectCardKind.reconnect,
+              profile: 'work',
+              modelName: 'example-model-a',
+              providerId: 'example-provider',
+            ),
+          ),
+          (
+            'Card: Hermes is loading your models (Check again)',
+            const ConnectCardData(
+              kind: ConnectCardKind.loading,
+              profile: 'work',
+            ),
+          ),
+        ])
+          WidgetbookUseCase(
+            name: name,
+            builder: (_) => WelcomeView(
+              greetingName: 'Ada',
+              prompts: const [],
+              onPick: (_) {},
+              card: ConnectModelCard(data: data, onPressed: () {}),
+            ),
+          ),
       ],
     ),
     WidgetbookComponent(
