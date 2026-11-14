@@ -28,8 +28,6 @@ class HermesPluginsRepository {
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       return status == null || status >= 500 ? null : false;
-    } on Object catch (_) {
-      return false;
     }
   }
 }

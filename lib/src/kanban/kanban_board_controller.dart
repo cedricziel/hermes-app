@@ -326,7 +326,7 @@ class KanbanBoardController extends ChangeNotifier {
         await _restart();
       }
       if (_current(generation)) notifyListeners();
-    } on Object catch (_) {
+    } on Exception {
       // The switcher is optional; the board still loads without it.
     }
   }
@@ -521,7 +521,8 @@ class KanbanBoardController extends ChangeNotifier {
         return;
       }
       _events = events;
-    } on Object catch (_) {
+    } on Exception {
+      // A connect or subscribe that failed is tried again; a bug is not.
       retry();
     }
   }
@@ -535,7 +536,7 @@ class KanbanBoardController extends ChangeNotifier {
       if (cursor is num) _cursor = math.max(_cursor, cursor.toInt());
       final events = data['events'];
       return events is List && events.isNotEmpty;
-    } on Object catch (_) {
+    } on FormatException {
       return false;
     }
   }

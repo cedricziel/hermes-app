@@ -5,6 +5,7 @@ import 'catalog_entry.dart';
 import 'installed_plugin.dart';
 import 'plugin_install_result.dart';
 import 'provider_settings.dart';
+import '../telemetry/report_bug.dart';
 
 /// The server has no plugin hub: it is older than the app needs.
 class PluginsUnsupported implements Exception {
@@ -190,7 +191,8 @@ class HermesPluginManagerRepository {
         return const PluginInstallResult(ok: false, timedOut: true);
       }
       return PluginInstallResult(ok: false, message: _reason(e));
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a plugin action');
       return const PluginInstallResult(ok: false);
     }
   }
@@ -239,7 +241,8 @@ class HermesPluginManagerRepository {
       return PluginActionResult(ok: true, unchanged: unchanged);
     } on DioException catch (e) {
       return PluginActionResult(ok: false, message: _reason(e));
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a plugin action');
       return const PluginActionResult(ok: false);
     }
   }

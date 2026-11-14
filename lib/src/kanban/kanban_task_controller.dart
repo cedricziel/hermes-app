@@ -106,7 +106,9 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
       if (disposed) return;
       _channels = channels;
       notifyListeners();
-    } on Object catch (_) {}
+    } on Exception {
+      // Not an error the user needs to hear about; see above.
+    }
   }
 
   Future<void> setChannel(KanbanHomeChannel channel, bool on) async {
@@ -266,7 +268,7 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
   Future<List<String>> loadAssignees() async {
     try {
       return await repository.loadAssignees(board: board);
-    } on Object catch (_) {
+    } on Exception {
       return const [];
     }
   }
@@ -373,7 +375,7 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
         file = await _stageAttachment(store, a);
       } on KanbanException {
         rethrow;
-      } on Object {
+      } on Exception {
         throw const KanbanException('Could not download the attachment.');
       }
       if (disposed) return;

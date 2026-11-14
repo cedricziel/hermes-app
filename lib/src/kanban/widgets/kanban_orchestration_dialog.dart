@@ -44,7 +44,7 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
       final settings = await widget.repository.loadOrchestration();
       final profiles = await widget.repository
           .loadAssignees(board: widget.board)
-          .catchError((_) => <String>[]);
+          .catchError((Object _) => <String>[], test: (e) => e is Exception);
       if (!mounted) return;
       setState(() {
         _settings = settings;
