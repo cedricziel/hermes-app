@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_icons.dart';
-import '../../theme/hermes_theme.dart';
-import '../../theme/platform_chrome.dart';
-import '../../widgets/busy_bar.dart';
-import '../../widgets/grouped_list.dart';
+import '../theme/app_icons.dart';
+import '../theme/hermes_theme.dart';
+import '../theme/platform_chrome.dart';
+import 'busy_bar.dart';
+import 'grouped_list.dart';
 
 /// How a [GroupedActionRow]'s action is going.
 enum GroupedActionPhase {
