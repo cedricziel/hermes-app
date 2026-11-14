@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:home_widget/home_widget.dart';
@@ -70,7 +71,7 @@ class HomeWidgetSurfaceStorage
 
   @override
   Future<void> reload(String kind) async {
-    await HomeWidget.updateWidget(iOSName: kind);
+    await HomeWidget.updateWidget(iOSName: kind, androidName: kind);
   }
 }
 
@@ -96,9 +97,11 @@ class SurfaceSnapshotStore {
   SurfaceSnapshotStore({
     SurfaceStorage? storage,
     this.events = noopAppEventLogger,
-    this.widgetKinds = kSurfaceWidgetKinds,
+    List<String>? widgetKinds,
     this.signedInOnlyKinds = kSignedInOnlyWidgetKinds,
-  }) : _storage = storage ?? HomeWidgetSurfaceStorage();
+  }) : widgetKinds =
+           widgetKinds ?? surfaceWidgetKindsFor(defaultTargetPlatform),
+       _storage = storage ?? HomeWidgetSurfaceStorage();
 
   final SurfaceStorage _storage;
   final AppEventLogger events;
