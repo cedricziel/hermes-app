@@ -77,6 +77,40 @@ void main() {
       },
     );
 
+    test('an answer in flight keeps the operation Needs you', () async {
+      controller.accept(
+        ConnectorOperationSnapshot.fromUpdate(connectionUpdateFixture)!,
+        attachment: attachment,
+      );
+      final operation = controller.operations.single;
+      final sending = controller.continueOperation(
+        operation,
+        attachment: attachment,
+      );
+      await pumpEventQueue();
+      expect(controller.pendingFor(operation.key), isTrue);
+      expect(connectorTier(operation, controller), ActivityTier.needsYou);
+      server.answer(0, {'status': 'ok', 'settled': false});
+      await sending;
+    });
+
+    test('a display-only operation stays Needs you until it settles', () {
+      controller.accept(
+        ConnectorOperationSnapshot.fromUpdate(connectionUpdateFixture)!,
+        attachment: attachment,
+      );
+      controller.suspend();
+      final operation = controller.operations.single;
+      expect(controller.displayOnly, isTrue);
+      expect(controller.canRespond(operation.key), isFalse);
+      expect(operation.targets.single.connectUrl, isNull);
+      expect(connectorTier(operation, controller), ActivityTier.needsYou);
+      expect(
+        connectorTier(operation, controller, connectionWide: true),
+        ActivityTier.reference,
+      );
+    });
+
     test('connection-wide activity is always reference', () {
       controller.accept(
         ConnectorOperationSnapshot.fromUpdate(connectionUpdateFixture)!,

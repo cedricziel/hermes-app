@@ -29,6 +29,7 @@ List<Widget> connectorOperationCards(
           pending: controller.pendingFor(operation.key),
           awaitingFinalStatus: controller.awaitingFinalStatus(operation.key),
           error: controller.errorFor(operation.key),
+          answer: controller.answerFor(operation.key),
           onDetails: controller.detailsOpened,
           canOpen: (name) => controller.canOpen(operation.key, name),
           canSkip: (name) => controller.canSkip(operation.key, name),

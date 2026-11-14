@@ -1,3 +1,4 @@
+import 'files_use_cases.dart';
 import 'tools_use_cases.dart';
 import 'voice_call_use_cases.dart';
 import 'messenger_identity_use_cases.dart';
@@ -79,6 +80,7 @@ import 'server_care_update_logs_use_cases.dart';
 import 'server_care_usage_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
+  filesNode(),
   voiceCallNode(),
   messengerIdentityNode(),
   reactionNode(),
