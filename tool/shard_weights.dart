@@ -112,7 +112,10 @@ ShardModel parseModel(Object? decoded) {
   if (model is! Map) return const ShardModel();
   final c = model['invocationOverheadSeconds'];
   final b = model['secondsPerWeight'];
-  if (c is! num || b is! num || c < 0 || b <= 0) return const ShardModel();
+  if (c is! num || b is! num || !c.isFinite || !b.isFinite) {
+    return const ShardModel();
+  }
+  if (c < 0 || b <= 0 || !(c / b).isFinite) return const ShardModel();
   return ShardModel(
     overheadSeconds: c.toDouble(),
     secondsPerWeight: b.toDouble(),
@@ -122,7 +125,12 @@ ShardModel parseModel(Object? decoded) {
 /// Least squares for `wall = c + b * weight` over (weight, wall) points.
 /// Null when there are fewer than 3 points, no spread, a non-positive slope or
 /// a negative intercept (the caller then falls back to a single scale).
-ShardModel? fitModel(List<(double, double)> points) {
+ShardModel? fitModel(List<(double, double)> allPoints) {
+  // A report without recognised suites is a (0, wall) point that would skew c.
+  final points = [
+    for (final p in allPoints)
+      if (p.$1.isFinite && p.$2.isFinite && p.$1 > 0 && p.$2 > 0) p,
+  ];
   if (points.length < 3) return null;
   final n = points.length;
   final mx = points.fold(0.0, (s, p) => s + p.$1) / n;
@@ -132,7 +140,8 @@ ShardModel? fitModel(List<(double, double)> points) {
   final sxy = points.fold(0.0, (s, p) => s + (p.$1 - mx) * (p.$2 - my));
   final b = sxy / sxx;
   final c = my - b * mx;
-  if (b <= 0 || c < 0) return null;
+  if (!b.isFinite || !c.isFinite || b <= 0 || c < 0) return null;
+  if (!(c / b).isFinite) return null;
   return ShardModel(overheadSeconds: c, secondsPerWeight: b);
 }
 
@@ -238,6 +247,8 @@ int update(List<String> reports) {
       return 1;
     }
     final report = parseReport(file.readAsStringSync(), root, known: existing);
+    // No recognised suites: nothing to learn, and no skewing the fit.
+    if (report.weights.isEmpty) continue;
     measured.addAll(report.weights);
     if (report.weights.containsKey(catalog)) {
       catalogSeconds += report.wall;

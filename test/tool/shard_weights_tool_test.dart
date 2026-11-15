@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -77,6 +78,53 @@ void main() {
       expect(fitModel([(1, 5), (2, 4), (3, 3)]), isNull); // falling
       expect(fitModel([(1, 1), (2, 3), (3, 5)]), isNull); // negative intercept
       expect(fitModel([(2, 1), (2, 2), (2, 3)]), isNull); // no spread
+    });
+
+    test('a point without weights does not skew the fit', () {
+      final points = [
+        for (final w in [300.0, 588.0, 900.0, 1100.0]) (w, 167 + 0.5 * w),
+        (0.0, 500.0),
+      ];
+      final model = fitModel(points)!;
+      expect(model.overheadSeconds, closeTo(167, 1e-6));
+      expect(model.secondsPerWeight, closeTo(0.5, 1e-9));
+      expect(fitModel([(0.0, 5.0), (0.0, 6.0), (1.0, 2.0)]), isNull);
+    });
+
+    test('a model that is not finite is rejected', () {
+      expect(
+        parseModel(
+          jsonDecode(
+            '{"_model":{"invocationOverheadSeconds":1e400,'
+            '"secondsPerWeight":0.5}}',
+          ),
+        ).overheadSeconds,
+        0,
+      );
+      expect(
+        parseModel(
+          jsonDecode(
+            '{"_model":{"invocationOverheadSeconds":100,'
+            '"secondsPerWeight":1e-400}}',
+          ),
+        ).secondsPerWeight,
+        1,
+      );
+      expect(
+        parseModel(
+          jsonDecode(
+            '{"_model":{"invocationOverheadSeconds":1e300,'
+            '"secondsPerWeight":1e-300}}',
+          ),
+        ).overheadSeconds,
+        0,
+      );
+      final infinite = double.infinity;
+      expect(fitModel([(1, 2), (2, infinite), (3, 4)]), isNull);
+      expect(
+        fitModel([(1, 2), (2, 3), (3, 4), (infinite, 5)])!.overheadSeconds,
+        closeTo(1, 1e-9),
+      );
     });
 
     test('reserved keys are never test files', () {
