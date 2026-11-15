@@ -12,7 +12,7 @@ class FakeRecorder implements CallRecorder {
   FakeRecorder(this.log);
   final List<String> log;
   int starts = 0, stops = 0, disposes = 0;
-  Completer<void>? startGate, stopGate;
+  Completer<void>? startGate, stopGate, disposeGate;
   Object? startError;
   StreamController<Uint8List>? _stream;
 
@@ -50,6 +50,7 @@ class FakeRecorder implements CallRecorder {
   Future<void> dispose() async {
     disposes++;
     log.add('recorder.dispose');
+    await disposeGate?.future;
   }
 }
 
@@ -539,6 +540,22 @@ void main() {
       async.flushMicrotasks();
       expect(done, isTrue);
       expect(rig.log, containsAll(['player.dispose', 'recorder.dispose']));
+    });
+  });
+
+  test('a recorder hanging on stop and dispose still lets the session go', () {
+    fakeAsync((async) {
+      final rig = Rig(session: true);
+      rig.bridge.start('call-1', 'Hermes');
+      async.flushMicrotasks();
+      rig.recorder.stopGate = Completer<void>();
+      rig.recorder.disposeGate = Completer<void>();
+      var done = false;
+      rig.bridge.end().then((_) => done = true);
+      async.elapse(const Duration(seconds: 10));
+      async.flushMicrotasks();
+      expect(done, isTrue);
+      expect(rig.audioSession!.deactivations, 1);
     });
   });
 

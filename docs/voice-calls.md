@@ -201,6 +201,10 @@ Android, macOS, Windows and Linux run the same loop through `PortableCallBridge`
   reply, when it matches a stretch of the reply. So the reply's own "Goodbye."
   heard back does not end the call. It runs before the invented-transcript and
   stop-phrase checks and drops silently.
+- **A hung plugin is bounded.** On End the bridge waits at most two seconds for
+  the recorder to stop, and two for each later release (player, recorder
+  dispose, audio session), so a recorder that hangs cannot keep the audio focus
+  and communication mode from being released.
 - **Echo guard trade-off.** It can drop a real answer: "Yes, send the email to
   Anna" right after Hermes asked "Shall I send the email to Anna?" matches a
   six-word stretch of the question (about 0.88) and is dropped silently. It

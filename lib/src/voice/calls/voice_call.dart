@@ -257,17 +257,19 @@ class VoiceCall extends ChangeNotifier {
       await bridge.start(callId, 'Hermes');
       opened = true;
       // A bridge that never says `activated` must not leave Connecting forever.
-      _connectTimer = Timer(callConnectTimeout, () {
-        if (_active || _ending || ended || _disposed) return;
-        unawaited(
-          _end(
-            'native_error',
-            _nativeErrorText('activation_timeout'),
-            null,
-            'activation_timeout',
-          ),
-        );
-      });
+      if (_current(epoch)) {
+        _connectTimer = Timer(callConnectTimeout, () {
+          if (_active || _ending || ended || _disposed) return;
+          unawaited(
+            _end(
+              'native_error',
+              _nativeErrorText('activation_timeout'),
+              null,
+              'activation_timeout',
+            ),
+          );
+        });
+      }
     } on CallPreparationException catch (failure) {
       if (_current(epoch)) await _end('prepare', failure.message);
     } on PlatformException catch (error) {

@@ -432,7 +432,9 @@ class PortableCallBridge implements CallBridge {
 
   Future<void> _guard(Future<void> Function() run) async {
     try {
-      await run();
+      // A plugin that hangs (record shares one queue for stop and dispose)
+      // must not keep the audio session from being released.
+      await run().timeout(const Duration(seconds: 2));
     } on Object {
       // Releasing one resource never stops the release of the next.
     }
