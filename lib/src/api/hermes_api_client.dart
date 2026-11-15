@@ -282,8 +282,11 @@ class HermesApiClient {
   /// answer (never for an error body). The managed client's 30 s receive
   /// timeout and the 5-minute total apply.
   ///
-  /// Throws [SessionExportCancelled] when [cancelToken] ended it, otherwise
-  /// [SessionExportRequestFailed]. Neither carries the original exception: its
+  /// Throws [SessionExportCancelled] when the request was cancelled, by
+  /// [cancelToken] or because the connection ended (the auth interceptor
+  /// rejects with [DioExceptionType.cancel] on sign-out and on an owner or
+  /// epoch change); the controller closes the alert silently in both cases.
+  /// Otherwise throws [SessionExportRequestFailed]. Neither carries the original exception: its
   /// text holds the chat id, profile and server address, and its response the
   /// error body. Throws [ArgumentError] for an id that cannot name one chat.
   Future<Uint8List> fetchSessionExport(

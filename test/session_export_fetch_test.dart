@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/api/request_timeout.dart';
@@ -36,6 +37,22 @@ class _ChunkedServer implements HttpClientAdapter {
       },
     );
   }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+/// Fails every request with a plain, non-Dio error.
+class _ThrowingAdapter implements HttpClientAdapter {
+  _ThrowingAdapter(this.error);
+  final Object error;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) => Future.error(error);
 
   @override
   void close({bool force = false}) {}
@@ -293,6 +310,158 @@ void main() {
           SessionExportFailure.failed,
         ),
       );
+    });
+
+    test(
+      'a plain error from the adapter is failed, without its text',
+      () async {
+        const mark = 'ID-MARK-9d2';
+        final dio = Dio(BaseOptions(baseUrl: 'http://hermes.test'))
+          ..httpClientAdapter = _ThrowingAdapter(StateError(mark));
+
+        Object? thrown;
+        try {
+          await HermesApiClient(dio).fetchSessionExport('a', profile: 'p');
+        } on Object catch (e) {
+          thrown = e;
+        }
+
+        expect(
+          thrown,
+          isA<SessionExportRequestFailed>().having(
+            (e) => e.kind,
+            'kind',
+            SessionExportFailure.failed,
+          ),
+        );
+        expect('$thrown', isNot(contains(mark)));
+      },
+    );
+
+    test('a redirect status is failed and never reports progress', () async {
+      for (final status in [302, 304]) {
+        final server = FakeHermesServer()
+          ..on('GET', '/api/sessions/x/export', Uint8List(64), status: status);
+        final seen = <int>[];
+
+        await expectLater(
+          server.client().fetchSessionExport(
+            'x',
+            profile: 'p',
+            onProgress: seen.add,
+          ),
+          throwsA(
+            isA<SessionExportRequestFailed>().having(
+              (e) => e.kind,
+              'kind',
+              SessionExportFailure.failed,
+            ),
+          ),
+          reason: '$status',
+        );
+        expect(seen, isEmpty, reason: '$status');
+      }
+    });
+
+    test(
+      'a retried request reports progress only for the final body',
+      () async {
+        final raw = Uint8List.fromList(List.filled(40, 7));
+        final server = FakeHermesServer()
+          ..onRequest('GET', '/api/sessions/x/export', (request) {
+            final first = request.headers['Retry'] == null;
+            return first
+                ? (status: 401, body: Uint8List(500))
+                : (status: 200, body: raw);
+          });
+        final dio = server.dio();
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onError: (error, handler) async {
+              if (error.response?.statusCode != 401) return handler.next(error);
+              final options = error.requestOptions..headers['Retry'] = '1';
+              try {
+                handler.resolve(await dio.fetch<List<int>>(options));
+              } on DioException catch (e) {
+                handler.reject(e);
+              }
+            },
+          ),
+        );
+        final seen = <int>[];
+
+        final bytes = await HermesApiClient(dio)
+            .fetchSessionExport('x', profile: 'p', onProgress: seen.add);
+
+        expect(bytes, raw);
+        expect(server.requests, hasLength(2));
+        expect(seen, isNotEmpty);
+        expect(seen.last, raw.length);
+        expect(seen.every((n) => n <= raw.length), isTrue, reason: '$seen');
+      },
+    );
+
+    group('through the request deadline adapter', () {
+      Future<(Object?, int)> run({required bool withBytes}) async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final release = Completer<void>();
+        server.listen((request) async {
+          request.response.headers.contentType = ContentType.json;
+          request.response.bufferOutput = false;
+          if (withBytes) {
+            request.response.add(utf8.encode('{"id":'));
+          }
+          await request.response.flush();
+          await release.future;
+          await request.response.close();
+        });
+        final dio = Dio(
+          BaseOptions(
+            baseUrl: 'http://127.0.0.1:${server.port}',
+            receiveTimeout: const Duration(milliseconds: 80),
+          ),
+        )..httpClientAdapter = RequestDeadlineAdapter(IOHttpClientAdapter());
+        var progress = 0;
+        try {
+          await HermesApiClient(dio).fetchSessionExport(
+            'a',
+            profile: 'p',
+            onProgress: (n) => progress = n,
+          );
+          return (null, progress);
+        } on Object catch (e) {
+          return (e, progress);
+        } finally {
+          release.complete();
+          await server.close(force: true);
+        }
+      }
+
+      test('a stall before any byte is lost', () async {
+        final (error, progress) = await run(withBytes: false);
+        expect(
+          error,
+          isA<SessionExportRequestFailed>().having(
+            (e) => e.kind,
+            'kind',
+            SessionExportFailure.lost,
+          ),
+        );
+        expect(progress, 0);
+      });
+
+      test('a stall after bytes is incomplete', () async {
+        final (error, progress) = await run(withBytes: true);
+        expect(
+          error,
+          isA<SessionExportRequestFailed>().having(
+            (e) => e.kind,
+            'kind',
+            SessionExportFailure.incomplete,
+          ),
+        );
+        expect(progress, greaterThan(0));
+      });
     });
   });
 
