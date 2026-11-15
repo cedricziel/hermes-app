@@ -261,10 +261,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     search?.setActivity(false);
     housekeeping?.setActivity(false);
     _loadGeneration++;
+    _forgetQuietModelRead();
     _openGeneration++;
     _activeRefresh++;
     _pauses++;
     _loadingThreads = false;
+    // A read that is cut short leaves its chat unloaded, so the transcript
+    // keeps showing it as loading rather than as a new chat.
+    _unloaded.addAll(_loadingMessages.keys);
     _loadingMessages.clear();
     _interruptedOpening = _requestedOpening ?? _interruptedOpening;
     _requestedOpening = null;
@@ -787,6 +791,52 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> refreshModelOptions() =>
       _loadModelOptions(_profile, _loadGeneration);
 
+  Future<void>? _quietModelRefresh;
+
+  /// Reads the current profile's model options again without leaving the
+  /// ready state: the pill keeps showing what it has until the answer
+  /// arrives, and a failed read changes nothing. One read at a time. Used
+  /// when a new chat starts, the app comes back and the picker opens, so the
+  /// pill follows a default model changed on the server. A pick the user made
+  /// is untouched.
+  Future<void> refreshModelOptionsQuietly() {
+    if (!active || models == null) return Future.value();
+    if (_modelOptionsState == ModelOptionsState.loading) return Future.value();
+    final epoch = _quietReadEpoch;
+    return _quietModelRefresh ??=
+        _loadModelOptions(_profile, _loadGeneration, quiet: true).whenComplete(
+          () {
+            _quietModelRefresh = null;
+            if (epoch == _quietReadEpoch) _lastQuietModelRead = _clock();
+          },
+        );
+  }
+
+  DateTime? _lastQuietModelRead;
+  int _quietReadEpoch = 0;
+
+  /// Forgets the last quiet read, so the next resume reads at once. A read
+  /// still out for the old profile or owner does not stamp afterwards.
+  void _forgetQuietModelRead() {
+    _quietReadEpoch++;
+    _lastQuietModelRead = null;
+  }
+
+  /// How soon after the last finished quiet read a foreground resume reads
+  /// again, so a brief inactive-to-resumed flap (Control Centre, a system
+  /// dialog, the App Lock prompt) does not fetch.
+  static const modelResumeInterval = Duration(seconds: 30);
+
+  /// [refreshModelOptionsQuietly] for a return to the foreground: skipped
+  /// within [modelResumeInterval] of the last finished quiet read.
+  Future<void> refreshModelOptionsOnResume() {
+    final last = _lastQuietModelRead;
+    if (last != null && _clock().difference(last) < modelResumeInterval) {
+      return Future.value();
+    }
+    return refreshModelOptionsQuietly();
+  }
+
   bool _warmingUnchanged = false;
 
   /// A "Check again" on the loading card found the options still warming:
@@ -828,6 +878,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   final _unloaded = <String>{};
+
+  /// Threads whose first page of messages could not be read, until it is read
+  /// again; the transcript shows the failure with a Retry instead of nothing.
+  final _historyFailed = <String>{};
 
   /// Threads with older rows on the server, by how many rows were read so far.
   final _olderRows = <String, int>{};
@@ -1546,6 +1600,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (!_currentActivity(epoch) || valid?.call() == false) return;
     final selected = selectedThread;
     if (selected != null && !selected.remote && selected.messages.isEmpty) {
+      unawaited(refreshModelOptionsQuietly());
       return;
     }
     newThread();
@@ -1565,6 +1620,43 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _ChatControllerWorkspace(this)._carryPendingChoice(thread);
     _selectedId = thread.id;
     notifyListeners();
+    unawaited(refreshModelOptionsQuietly());
+  }
+
+  /// What the transcript of [thread] stands in for while it has no messages:
+  /// its stored first page is being read ([ChatHistoryStatus.loading]) or
+  /// could not be read ([ChatHistoryStatus.failed]). Null for a new chat, a
+  /// chat that shows messages, and a stored chat whose page came back empty.
+  ChatHistoryStatus? historyStatusOf(ChatThread thread) {
+    if (!thread.remote || thread.messages.isNotEmpty) return null;
+    final id = thread.id;
+    if (_loadingMessages.containsKey(id)) return ChatHistoryStatus.loading;
+    if (_historyFailed.contains(id)) return ChatHistoryStatus.failed;
+    return _selectedId == id && _unloaded.contains(id)
+        ? ChatHistoryStatus.loading
+        : null;
+  }
+
+  /// Reads [thread]'s first page again after it failed.
+  void retryHistory(ChatThread thread) {
+    if (!active || _selectedId != thread.id) return;
+    if (!_historyFailed.contains(thread.id)) return;
+    breadcrumbs('chat.history.retry');
+    final epoch = _activityEpoch;
+    final profile = _profile;
+    final id = thread.id;
+    final load = _loadMessages(id);
+    notifyListeners();
+    unawaited(
+      load.then((_) {
+        if (_currentActivity(epoch) &&
+            _profile == profile &&
+            _selectedId == id &&
+            _threads.contains(thread)) {
+          _pickUp(thread);
+        }
+      }),
+    );
   }
 
   void select(String id) {
@@ -1995,6 +2087,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final controller = _chatControllers.remove(previousId);
     if (_selectedId == previousId) _selectedId = id;
     _unloaded.remove(previousId);
+    _historyFailed.remove(previousId);
     _olderRows.remove(previousId);
     if (_followingIds.remove(previousId)) _followingIds.add(id);
     if (_active.remove(previousId)) _active.add(id);
