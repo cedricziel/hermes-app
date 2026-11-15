@@ -7,7 +7,7 @@ import '../chat/chat_transport.dart';
 import 'watch_context.dart';
 
 /// Transient request details and answers, bound to the phone's live context.
-/// Call [clear] on lock activation, logout, and context departure.
+/// Call [clear] on logout and context departure.
 class WatchRequestActions {
   WatchRequestActions({
     required this.context,
