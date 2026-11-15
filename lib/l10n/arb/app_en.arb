@@ -5513,6 +5513,10 @@
   "@settingsAboutHermes": {
     "description": "Settings row that opens the About dialog."
   },
+  "settingsAboutLicenses": "Open source licenses",
+  "@settingsAboutLicenses": {
+    "description": "About dialog row that opens the list of open source licenses."
+  },
   "settingsAboutTitle": "About",
   "@settingsAboutTitle": {
     "description": "Title of the About dialog."
@@ -5686,6 +5690,10 @@
   "settingsTitle": "Settings",
   "@settingsTitle": {
     "description": "Title of the settings dialog."
+  },
+  "settingsVoiceCalls": "Voice calls",
+  "@settingsVoiceCalls": {
+    "description": "Settings row, and the title of its dialog, for turning voice calls on or off on this device. Not shown on iOS."
   },
 
   "@@x-area-share": "",
@@ -6879,6 +6887,14 @@
   "voiceCallUnmute": "Unmute",
   "@voiceCallUnmute": {
     "description": "Label of the round control that unmutes the microphone."
+  },
+  "voiceCallsDeviceNote": "New on this platform: calls stay off until you turn them on.",
+  "@voiceCallsDeviceNote": {
+    "description": "One-line note under the voice calls switch: calls are new on this platform and off by default."
+  },
+  "voiceCallsDeviceTitle": "Voice calls on this device (beta)",
+  "@voiceCallsDeviceTitle": {
+    "description": "Title of the switch that turns voice calls on for this device (Android, macOS, Windows, Linux)."
   },
   "voiceCheckModelFollowsMain": "Voice replies follow your main model.",
   "@voiceCheckModelFollowsMain": {

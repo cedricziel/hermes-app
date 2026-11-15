@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'src/settings/third_party_notices.dart';
 import 'src/app.dart';
 import 'src/app/providers/app_lock_providers.dart';
 import 'src/app/providers/auth_providers.dart';
@@ -24,6 +25,7 @@ import 'src/windows/conversation_window_app.dart';
 
 Future<void> main([List<String> args = const []]) async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerCallAudioNotices();
   if (conversationWindowLaunch(args) case final window?) {
     return runConversationWindow(window.windowId, window.arguments);
   }

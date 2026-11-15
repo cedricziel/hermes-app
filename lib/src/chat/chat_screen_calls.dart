@@ -1,9 +1,16 @@
 part of 'chat_screen.dart';
 
 extension _ChatScreenCalls on _ChatScreenState {
+  /// Whether a call may start here: always on iOS, and elsewhere only with
+  /// the user's switch on. A call that is running is not ended by turning it
+  /// off.
+  bool get _callsEnabled =>
+      callsAvailable(Theme.of(context).platform, _callSettings);
+
   bool get _canCall {
     if (kIsWeb) return false;
     if (_voiceCall case final call? when !call.ended) return true;
+    if (!_callsEnabled) return false;
     final thread = _chat.selectedThread;
     return _chat.active &&
         _chat.repository != null &&
@@ -70,7 +77,10 @@ extension _ChatScreenCalls on _ChatScreenState {
           identical(_chat.selectedThread, thread) &&
           _recipientSendAllowed &&
           _chat.modelSendAllowed;
-      bool current() => _callRouteOpen && ownerValid();
+      bool current() =>
+          _callRouteOpen &&
+          ownerValid() &&
+          (_voiceCall?.ended == false || _callsEnabled);
       final telemetry = HermesRepositories.maybeOf(context)?.telemetry;
       final models = HermesRepositories.maybeOf(context)?.models;
       final events = telemetry?.events ?? noopAppEventLogger;
@@ -149,7 +159,7 @@ extension _ChatScreenCalls on _ChatScreenState {
               _chat,
               onContextLost: () => unawaited(created.end()),
             );
-            final bridge = createCallBridge();
+            final bridge = (widget.callBridge ?? createCallBridge)();
             created = VoiceCall(
               bridge: bridge,
               tones: BridgeCallTones(bridge),
@@ -209,6 +219,10 @@ extension _ChatScreenCalls on _ChatScreenState {
       _callRouteOpen = false;
       if (mounted) _rebuild(() {});
     }
+  }
+
+  void _callSettingsChanged() {
+    if (mounted) _rebuild(() {});
   }
 
   void _callChanged() {

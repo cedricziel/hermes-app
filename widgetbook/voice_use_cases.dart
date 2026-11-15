@@ -3,6 +3,7 @@ import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/voice/on_device_speech.dart';
 import 'package:hermes_app/src/voice/widgets/dictation_settings_view.dart';
 import 'package:hermes_app/src/voice/widgets/dictation_notice.dart';
+import 'package:hermes_app/src/voice/widgets/portable_calls_section.dart';
 import 'package:hermes_app/src/voice/widgets/voice_waveform.dart';
 import 'package:hermes_app/src/voice/widgets/voice_message_view.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -106,6 +107,17 @@ WidgetbookNode voiceNode() => WidgetbookFolder(
         _notice('No speech', DictationPhase.noSpeech),
         _notice('Microphone access off', DictationPhase.denied),
         _notice('Speech model missing', DictationPhase.modelMissing),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'PortableCallsSection',
+      useCases: [
+        for (final on in [false, true])
+          WidgetbookUseCase(
+            name: on ? 'On' : 'Off',
+            builder: (_) =>
+                frame(PortableCallsSection(value: on, onChanged: (_) {})),
+          ),
       ],
     ),
     WidgetbookComponent(

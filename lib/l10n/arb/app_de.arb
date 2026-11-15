@@ -1088,6 +1088,7 @@
 
   "@@x-area-settings": "",
   "settingsAboutHermes": "Über Hermes",
+  "settingsAboutLicenses": "Open-Source-Lizenzen",
   "settingsAboutTitle": "Info",
   "settingsAboutVersion": "Version",
   "settingsAboutVersionUnavailable": "Nicht verfügbar",
@@ -1127,6 +1128,7 @@
   "settingsThemeLight": "Hell",
   "settingsThemeSystem": "System",
   "settingsTitle": "Einstellungen",
+  "settingsVoiceCalls": "Sprachanrufe",
 
   "@@x-area-share": "",
 
@@ -1407,6 +1409,8 @@
   "voiceCallStateThinking": "Denkt nach",
   "voiceCallStateWaiting": "Wartet auf dich",
   "voiceCallUnmute": "Stummschaltung aufheben",
+  "voiceCallsDeviceNote": "Auf dieser Plattform neu: Anrufe bleiben aus, bis du sie einschaltest.",
+  "voiceCallsDeviceTitle": "Sprachanrufe auf diesem Gerät (Beta)",
   "voiceCheckModelFollowsMain": "Sprachantworten folgen deinem Hauptmodell.",
   "voiceCheckModelNamed": "Sprachantworten nutzen ein eigens gewähltes Modell.",
   "voiceCheckModelProviderOnly": "Sprachantworten nutzen ein schnelles Modell des Sprachanbieters.",

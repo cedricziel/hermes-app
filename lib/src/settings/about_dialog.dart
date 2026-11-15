@@ -21,10 +21,18 @@ Future<void> showAppAboutDialog(BuildContext context) async {
 
 /// Shows the app's version and a way to report a bug.
 class AppAboutDialog extends StatelessWidget {
-  const AppAboutDialog({super.key, required this.version, this.openLink});
+  const AppAboutDialog({
+    super.key,
+    required this.version,
+    this.openLink,
+    this.onLicenses,
+  });
 
   final String version;
   final LinkOpener? openLink;
+
+  /// Opens the licenses page; Flutter's own unless a test supplies one.
+  final VoidCallback? onLicenses;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +46,17 @@ class AppAboutDialog extends StatelessWidget {
               wrapWhenStacked: true,
               title: l10n.settingsAboutVersion,
               value: version,
+            ),
+            GroupedRow(
+              key: const Key('about-licenses'),
+              title: l10n.settingsAboutLicenses,
+              onTap:
+                  onLicenses ??
+                  () => showLicensePage(
+                    context: context,
+                    applicationName: 'Hermes',
+                    applicationVersion: version,
+                  ),
             ),
             GroupedRow(
               key: const Key('report-bug'),

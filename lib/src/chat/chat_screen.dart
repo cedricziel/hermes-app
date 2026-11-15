@@ -16,7 +16,9 @@ import '../voice/calls/call_agent.dart';
 import '../voice/calls/voice_call.dart';
 import '../voice/calls/voice_model_route.dart';
 import '../voice/calls/call_microphone.dart';
+import '../voice/calls/call_bridge.dart';
 import '../voice/calls/portable_call_audio.dart';
+import '../voice/calls/portable_call_settings.dart';
 import '../voice/call_presentation.dart';
 import '../voice/calls/call_readiness_checker.dart';
 import '../voice/calls/call_speech_probe.dart';
@@ -205,6 +207,7 @@ class ChatScreen extends StatefulWidget {
     this.shareEntry = 0,
     this.chatProfiles,
     this.voiceRecorder,
+    this.callBridge,
     this.voiceMessageRecorder,
     this.displaySocketOpener,
     this.takeoverSetting,
@@ -279,6 +282,10 @@ class ChatScreen extends StatefulWidget {
   /// The microphone for dictation; the platform's unless a test supplies its
   /// own.
   final VoiceRecorder? voiceRecorder;
+
+  /// Makes the call's audio when a call starts; the platform's unless a test
+  /// supplies its own.
+  final CallBridge Function()? callBridge;
 
   /// Optional microphone override for draft audio attachments.
   final VoiceRecorder? voiceMessageRecorder;
@@ -368,6 +375,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   SessionActivity? _sessionActivity;
   final _composerController = TextEditingController();
   VoiceCall? _voiceCall;
+  PortableCallSettings? _callSettings;
 
   /// Where [_voiceCall] was announced, so this screen lets go of it on dispose.
   ActiveCallRegistry? _callRegistry;
@@ -466,6 +474,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
     _finds = _maybeRead<AgentMessageFinds>()?..addListener(_onAgentMessages);
+    _callSettings = _maybeRead<PortableCallSettings>()
+      ?..addListener(_callSettingsChanged);
     final liveActivities = _maybeRead<LiveActivities?>();
     final appLock = _maybeRead<AppLockController>();
     final auth = _maybeRead<AuthController>();
@@ -973,6 +983,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _windows?.removeListener(_advertise);
     _attention.dispose();
     _sessionActivity?.removeListener(_callOwnerChanged);
+    _callSettings?.removeListener(_callSettingsChanged);
     _voiceCall?.removeListener(_callChanged);
     // A disposed call tells nobody that it ended; the registry ends it first
     // and keeps what the shell's strip still has to say. It acts only on the
