@@ -1,10 +1,10 @@
 # Tasks
 
-Two PRs: the catalog PR first (`feat(profile-soul): Personality widgets in the catalog`, about 250 changed lines), then the screen PR (`feat(profile-soul): edit a profile's SOUL.md`, about 400). The design is in `docs/design-briefs/profile-soul.md`. Status: Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC). No build starts before the canvas exists. Every behaviour task starts with a failing test. No OpenAPI change: both routes and `ProfileSoulUpdate` are already in the generated client.
+Two PRs: the catalog PR first (`feat(profile-soul): Personality widgets in the catalog`, about 250 changed lines), then the screen PR (`feat(profile-soul): edit a profile's SOUL.md`, about 400). The design is in `docs/design-briefs/profile-soul.md`. Status: Design (done): canvas reviewed (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, private: ask its owner for access). Every behaviour task starts with a failing test. No OpenAPI change: both routes and `ProfileSoulUpdate` are already in the generated client.
 
 ## 1. PR 1: Catalog (widgets as plain-model use cases)
 
-- [ ] 1.0 Wait for the finished Design canvas (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB is incomplete); bring it and the brief in line before any task below starts.
+- [x] 1.0 Design canvas published (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, 60 boards) and brought in line with the brief.
 - [ ] 1.1 Add the ARB strings (en and de, `profiles` area) for every state, question and note in the brief; run `flutter gen-l10n`.
 - [ ] 1.2 Add `AppIcons.personality` (Material `face_outlined`, Cupertino `person_crop_circle`) and its entry in the icon use case.
 - [ ] 1.3 Build `SoulEditor` (multiline field with hint, read-only mode, count line, 20,000-character note, hardened input) in `lib/src/profiles/soul/widgets/`, with a filled field while editable and transparent while read-only, and use cases for empty, not set yet, loaded, long, over 20,000, read-only, largest text, German; both themes, phone and desktop width.
