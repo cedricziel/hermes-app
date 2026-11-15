@@ -601,7 +601,6 @@ void main() {
   group('a real failure still fails the reply', () {
     for (final (name, error) in <(String, Object)>[
       ('an unknown error', StateError('boom')),
-      ('a session the server no longer has', const GatewaySessionGone(4007)),
       ('a turn the server ended with nothing', const GatewayTurnEnded()),
       ('an answer from the server', const GatewayRpcException(5000, 'boom')),
     ]) {
@@ -619,7 +618,8 @@ void main() {
       });
     }
 
-    test('a pick-up the server says is gone fails the reply', () async {
+    test('a pick-up the server says is gone settles the reply as no longer '
+        'on the server, and not as a failure', () async {
       await startTurn();
       await lose();
 
@@ -629,6 +629,8 @@ void main() {
       await pumpEventQueue();
 
       expect(assistant().status, MessageStatus.error);
+      expect(assistant().loss, ReplyLoss.notOnServer);
+      expect(assistant().error, isNull);
       expect(assistant().reconnecting, isFalse);
       expect(assistantCount(), 1);
       expectOneSubmit();

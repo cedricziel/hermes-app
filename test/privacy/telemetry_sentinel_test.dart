@@ -544,6 +544,14 @@ void main() {
           ..emit(ReplyDelta('late $_msg'))
           ..emit(ReplyCompleted('done $_msg'));
         await pumpEventQueue();
+        // A reply the server could not confirm, settled as lost.
+        chat.newThread();
+        chat.submit('again $_msg', const []);
+        transport.sends.last
+          ..emit(const ThreadBound(_session))
+          ..emit(const PromptAcknowledged(2))
+          ..fail(const GatewayReplyUnconfirmed());
+        await pumpEventQueue();
       });
     });
 

@@ -13,7 +13,9 @@ const kReplyEndCauses = {
   'user_stop',
   'reconnect_gave_up',
   'session_gone',
+  'server_restarted',
   'turn_ended',
+  'unconfirmed',
   'connection_closed',
   'timeout',
   'rejected',
@@ -53,8 +55,11 @@ String replyEndCause(Object? error, {required bool stopped}) {
   return switch (cause) {
     null => 'none',
     GatewayReplyLost() => 'reconnect_gave_up',
-    GatewaySessionGone() => 'session_gone',
-    GatewayTurnEnded() => 'turn_ended',
+    GatewaySessionGone(:final restarted) =>
+      restarted ? 'server_restarted' : 'session_gone',
+    GatewayTurnEnded(:final restarted) =>
+      restarted ? 'server_restarted' : 'turn_ended',
+    GatewayReplyUnconfirmed() => 'unconfirmed',
     GatewayCallTimedOut() => 'timeout',
     TimeoutException() => 'timeout',
     GatewayConnectionClosed() => 'connection_closed',
