@@ -84,11 +84,7 @@ void main() {
     );
   });
 
-  for (final platform in [
-    TargetPlatform.android,
-    TargetPlatform.macOS,
-    TargetPlatform.linux,
-  ]) {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
     testWidgets('on $platform the sizes stay as they were', (tester) async {
       await _pump(
         tester,
@@ -108,4 +104,27 @@ void main() {
       expect(_sizeOf(tester, find.byType(ListTile)).height, 36);
     });
   }
+
+  testWidgets(
+    'on Android the message actions are 48 and the headers keep their size',
+    (tester) async {
+      await _pump(
+        tester,
+        TargetPlatform.android,
+        Column(
+          children: [
+            MessageActions(text: 'hi', onRetry: () {}),
+            const ReasoningBlock(text: 'because'),
+            const ToolCallGroup(calls: single),
+          ],
+        ),
+      );
+
+      expect(_sizeOf(tester, _button('Copy')), const Size(48, 48));
+      // Only the message actions grow on Android; the reasoning toggle and
+      // the tool call header keep their compact sizes.
+      expect(_sizeOf(tester, find.byType(ReasoningBlock)).height, 27);
+      expect(_sizeOf(tester, find.byType(ListTile)).height, 36);
+    },
+  );
 }
