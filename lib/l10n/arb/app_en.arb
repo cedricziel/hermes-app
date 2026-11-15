@@ -6156,6 +6156,10 @@
   "@skillsCuratorOffNote": {
     "description": "Subtitle of the Status row when the curator is switched off in the server config (value Off)."
   },
+  "skillsCuratorOutputCleared": "Output cleared when the app locked.",
+  "@skillsCuratorOutputCleared": {
+    "description": "One muted line shown where the output was, after App Lock cleared the lines for good."
+  },
   "skillsCuratorOutputEarlier": "{count, plural, =1{1 earlier line not shown} other{{count} earlier lines not shown}}",
   "@skillsCuratorOutputEarlier": {
     "description": "First line of the output box when older lines were left out.",
@@ -6189,6 +6193,16 @@
   "skillsCuratorPauseFailed": "Couldn't change it",
   "@skillsCuratorPauseFailed": {
     "description": "Error line under the pause switch when Hermes refused the change."
+  },
+  "skillsCuratorPauseFailedWith": "Couldn't change it: {detail}",
+  "@skillsCuratorPauseFailedWith": {
+    "description": "Error line under the pause switch when Hermes refused the change and said why. {detail} is Hermes' own text.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "example": "value is not allowed"
+      }
+    }
   },
   "skillsCuratorPauseLost": "Couldn't confirm whether this changed.",
   "@skillsCuratorPauseLost": {

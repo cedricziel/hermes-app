@@ -61,6 +61,7 @@ CuratorSectionModel _model({
   CuratorRunView run = CuratorRunView.idle,
   CuratorNotStartedView? notStarted,
   String? notStartedDetail,
+  String? pauseDetail,
   String? failureLine,
   bool checking = false,
   bool checkFailed = false,
@@ -80,6 +81,7 @@ CuratorSectionModel _model({
     run: run,
     notStarted: notStarted,
     notStartedDetail: notStartedDetail,
+    pauseDetail: pauseDetail,
     failureLine: failureLine,
     checking: checking,
     checkFailed: checkFailed,
@@ -114,6 +116,15 @@ Widget _section(CuratorSectionModel model, {bool open = false}) =>
 
 Widget _framed(CuratorSectionModel model, {bool open = false}) =>
     frame(_section(model, open: open), maxWidth: 560);
+
+/// The largest iOS text size.
+Widget _huge(Widget child) => Builder(
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context)
+        .copyWith(textScaler: const TextScaler.linear(3.1)),
+    child: child,
+  ),
+);
 
 Widget _largest(Widget child) => Builder(
   builder: (context) => MediaQuery(
@@ -323,6 +334,15 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
       useCases: [
         WidgetbookUseCase(name: 'Interactive', builder: (_) => const _Live()),
         ..._states('Ran', _model(), platforms: true, largest: true),
+        WidgetbookUseCase(
+          name: 'Ran, 3.1x text',
+          builder: (_) => _huge(_calm(_framed(_model()))),
+        ),
+        WidgetbookUseCase(
+          name: 'Paused, 3.1x text',
+          builder: (_) =>
+              _huge(_calm(_framed(_model(status: _status(paused: true))))),
+        ),
         ..._states(
           'Never run',
           _model(status: _status(lastRun: CuratorLastRunView.never)),
@@ -374,6 +394,13 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
           _model(pause: CuratorPauseView.saving, paused: true),
           largest: true,
         ),
+        ..._states(
+          'Failed with Hermes\' text',
+          _model(
+            pause: CuratorPauseView.failed,
+            pauseDetail: 'the value is not allowed',
+          ),
+        ),
         ..._states('Failed', _model(pause: CuratorPauseView.failed)),
         ..._states('Offline', _model(pause: CuratorPauseView.offline)),
         ..._states('Lost answer', _model(pause: CuratorPauseView.lost)),
@@ -388,6 +415,7 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
       name: 'Run now row',
       useCases: [
         ..._states('Idle', _model()),
+        ..._states('Opening', _model(run: CuratorRunView.opening)),
         ..._states(
           'Running',
           _model(run: CuratorRunView.following),

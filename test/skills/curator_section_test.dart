@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/skills/widgets/curator_section.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/widgets/output_lines_tile.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 final _now = DateTime.utc(2026, 11, 15, 12);
@@ -51,6 +53,7 @@ CuratorSectionModel _model({
   bool dropped = false,
   bool checkFailed = false,
   bool checking = false,
+  String? pauseDetail,
   CuratorLoadView load = CuratorLoadView.loaded,
   CuratorNotStartedView? notStarted,
   String? failureLine,
@@ -59,6 +62,7 @@ CuratorSectionModel _model({
   load: load,
   status: status ?? _status(),
   notStarted: notStarted,
+  pauseDetail: pauseDetail,
   failureLine: failureLine,
   checkFailed: checkFailed,
   checking: checking,
@@ -91,7 +95,12 @@ Widget _host(
   TargetPlatform platform = TargetPlatform.iOS,
   Locale? locale,
   bool open = false,
+  double scale = 1,
 }) => MaterialApp(
+  builder: (context, child) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+    child: child!,
+  ),
   locale: locale,
   localizationsDelegates: AppLocalizations.localizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
@@ -116,12 +125,14 @@ void main() {
     CuratorSectionModel model, {
     TargetPlatform platform = TargetPlatform.iOS,
     bool open = false,
+    double scale = 1,
+    Size size = const Size(800, 3000),
   }) async {
-    tester.view.physicalSize = const Size(800, 3000);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      _host(model, calls, platform: platform, open: open),
+      _host(model, calls, platform: platform, open: open, scale: scale),
     );
   }
 
@@ -526,10 +537,7 @@ void main() {
       tester,
     ) async {
       await pump(tester, _model(run: CuratorRunView.finished, dropped: true));
-      expect(
-        find.text('Hidden while the app is locked or away'),
-        findsOneWidget,
-      );
+      expect(find.text('Output cleared when the app locked.'), findsOneWidget);
       expect(find.text('Hermes printed no output.'), findsNothing);
     });
 
@@ -597,6 +605,175 @@ void main() {
       await pump(tester, _model(pause: CuratorPauseView.saving, paused: false));
       await pump(tester, _model());
       expect(said, ['Paused', 'Resumed']);
+    });
+  });
+
+  group('at the largest text', () {
+    testWidgets('the status row keeps its words whole at 3.1x', (tester) async {
+      await pump(tester, _model(), scale: 3.1, size: const Size(700, 6000));
+      for (final word in ['Status', 'Schedule']) {
+        final font = tester.widget<Text>(find.text(word)).style!.fontSize!;
+        // One line at 3.1x is about 1.2 of the scaled size.
+        expect(
+          tester.getSize(find.text(word)).height,
+          lessThan(font * 3.1 * 1.6),
+          reason: '$word broke',
+        );
+      }
+      final title = tester.getTopLeft(find.text('Status')).dy;
+      expect(tester.getTopLeft(find.text('Active')).dy, greaterThan(title));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the status icon grows with the text', (tester) async {
+      Size icon() => tester.getSize(
+        find.byWidgetPredicate(
+          (w) => w is AppIcon && w.icon == AppIcons.checkCircle,
+        ),
+      );
+      await pump(tester, _model());
+      final small = icon();
+      await pump(tester, _model(), scale: 2, size: const Size(390, 4000));
+      expect(icon().width, greaterThan(small.width * 1.5));
+    });
+
+    testWidgets('the pause switch box keeps the platform target', (
+      tester,
+    ) async {
+      await pump(tester, _model(), scale: 1.2);
+      final box = find.ancestor(
+        of: find.byType(Switch),
+        matching: find.byType(SizedBox),
+      );
+      expect(tester.getSize(box.first).height, greaterThanOrEqualTo(44));
+    });
+  });
+
+  group('Run now states', () {
+    testWidgets('a not-started Try again follows canRunNow', (tester) async {
+      await pump(
+        tester,
+        CuratorSectionModel(
+          status: _status(),
+          run: CuratorRunView.notStarted,
+          notStarted: CuratorNotStartedView.refused,
+          canRunNow: false,
+        ),
+      );
+      final button = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'Try again'),
+      );
+      expect(button.onPressed, isNull);
+    });
+
+    testWidgets('a check that found nothing keeps the earlier pass', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        _model(run: CuratorRunView.checkedNothing, lines: ['a line']),
+        open: true,
+      );
+      expect(find.text('Show output of the earlier pass'), findsOneWidget);
+    });
+
+    testWidgets('the earlier pass tile has no line count in its label', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, _model(run: CuratorRunView.stopped, lines: ['a']));
+      expect(
+        find.bySemanticsLabel('Show output of the earlier pass'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel(RegExp('1 line')), findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('the output box is capped to 40 percent of a small window', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        _model(
+          run: CuratorRunView.finished,
+          lines: [for (var i = 0; i < 80; i++) 'archived skill-$i'],
+        ),
+        open: true,
+        size: const Size(800, 500),
+      );
+      final box = find.descendant(
+        of: find.byType(OutputLinesTile),
+        matching: find.byType(SingleChildScrollView),
+      );
+      expect(tester.getSize(box.first).height, lessThanOrEqualTo(200));
+    });
+
+    testWidgets('opening has a reason for the disabled row', (tester) async {
+      await pump(tester, _model(run: CuratorRunView.opening));
+      expect(find.text('Checking…'), findsOneWidget);
+    });
+  });
+
+  group('details', () {
+    testWidgets('the pause failure shows Hermes\' cleaned text', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        _model(
+          pause: CuratorPauseView.failed,
+          pauseDetail: 'value is not allowed',
+        ),
+      );
+      expect(
+        find.text("Couldn't change it: value is not allowed"),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('dropped output says it was cleared', (tester) async {
+      await pump(tester, _model(run: CuratorRunView.finished, dropped: true));
+      expect(find.text('Output cleared when the app locked.'), findsOne);
+      expect(find.textContaining('Hidden while'), findsNothing);
+    });
+  });
+
+  group('start announcement', () {
+    testWidgets('waits for following and never follows a lost start', (
+      tester,
+    ) async {
+      final said = <String>[];
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+            message,
+          ) async {
+            final data = (message as Map)['data'];
+            if (data is Map) said.add(data['message'] as String);
+            return null;
+          });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger
+            .setMockDecodedMessageHandler<dynamic>(
+              SystemChannels.accessibility,
+              null,
+            ),
+      );
+      await pump(tester, _model());
+      await pump(tester, _model(run: CuratorRunView.starting));
+      await pump(tester, _model(run: CuratorRunView.lostAnswer));
+      await pump(tester, _model(run: CuratorRunView.starting));
+      await pump(
+        tester,
+        _model(
+          run: CuratorRunView.notStarted,
+          notStarted: CuratorNotStartedView.refused,
+        ),
+      );
+      expect(said, isEmpty);
+      await pump(tester, _model(run: CuratorRunView.starting));
+      await pump(tester, _model(run: CuratorRunView.following));
+      expect(said, ['Curator pass started']);
     });
   });
 }

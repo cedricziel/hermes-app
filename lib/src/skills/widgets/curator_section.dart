@@ -94,6 +94,7 @@ class CuratorSectionModel {
     this.run = CuratorRunView.idle,
     this.notStarted,
     this.notStartedDetail,
+    this.pauseDetail,
     this.failureLine,
     this.checking = false,
     this.checkFailed = false,
@@ -123,6 +124,10 @@ class CuratorSectionModel {
   /// output lines. The widget shows it in a title and never makes it
   /// selectable.
   final String? notStartedDetail;
+
+  /// Hermes' text when it refused a pause change. Same rules as
+  /// [notStartedDetail].
+  final String? pauseDetail;
 
   /// Hermes' last line of a failed pass. Same rules as [notStartedDetail].
   final String? failureLine;
@@ -207,11 +212,13 @@ class _CuratorSectionState extends State<CuratorSection> {
     final was = old.model;
     final now = widget.model;
     final l10n = context.l10n;
-    bool going(CuratorRunView r) =>
-        r == CuratorRunView.starting || r == CuratorRunView.following;
     bool ended(CuratorRunView r) =>
         r == CuratorRunView.finished || r == CuratorRunView.failed;
-    final text = going(now.run) && !going(was.run)
+    // Only once Hermes has answered: `starting` may still end in a lost
+    // answer or a refusal.
+    final text =
+        now.run == CuratorRunView.following &&
+            was.run != CuratorRunView.following
         ? l10n.skillsCuratorAnnounceStarted
         : now.run == CuratorRunView.finished && !ended(was.run)
         ? l10n.skillsCuratorAnnounceFinished
@@ -331,6 +338,20 @@ class _CuratorBody extends StatelessWidget {
     // A long value would be cut at half the row, so it moves to the subtitle.
     final longEvery = everyLabel != null && everyLabel.length > 16;
     final off = !status.isOn;
+    final statusValue = off
+        ? l10n.commonOff
+        : paused == null
+        ? l10n.skillsCuratorStatusUnknown
+        : paused
+        ? l10n.skillsCuratorStatusPaused
+        : l10n.skillsCuratorStatusActive;
+    final statusNote = !off && paused == true
+        ? l10n.skillsCuratorPausedNote
+        : null;
+    // Beyond twice the text size the row puts the value under the title
+    // itself: the grouped row's own stacking does not know this icon grows
+    // with the text, and would leave "Status" too little room.
+    final stackStatus = MediaQuery.textScalerOf(context).scale(17) > 2 * 17;
     return [
       GroupedRow(
         title: l10n.skillsCuratorStatus,
@@ -347,14 +368,10 @@ class _CuratorBody extends StatelessWidget {
               ? AppIcons.pause
               : AppIcons.checkCircle,
         ),
-        value: off
-            ? l10n.commonOff
-            : paused == null
-            ? l10n.skillsCuratorStatusUnknown
-            : paused
-            ? l10n.skillsCuratorStatusPaused
-            : l10n.skillsCuratorStatusActive,
-        subtitle: !off && paused == true ? l10n.skillsCuratorPausedNote : null,
+        value: stackStatus ? null : statusValue,
+        subtitle: stackStatus
+            ? [statusValue, ?statusNote].join('\n')
+            : statusNote,
       ),
       // A line of its own, so the value does not sit beside wrapped text.
       if (off) _NoteRow(l10n.skillsCuratorOffNote),
@@ -437,7 +454,10 @@ class _CuratorBody extends StatelessWidget {
       separateTrailing: true,
       trailingBelow: scale > 1.3,
       error: switch (model.pause) {
-        CuratorPauseView.failed => l10n.skillsCuratorPauseFailed,
+        CuratorPauseView.failed =>
+          model.pauseDetail == null || model.pauseDetail!.isEmpty
+              ? l10n.skillsCuratorPauseFailed
+              : l10n.skillsCuratorPauseFailedWith(model.pauseDetail!),
         CuratorPauseView.offline => l10n.skillsCuratorCantReach,
         _ => null,
       },
@@ -481,7 +501,9 @@ class _CuratorBody extends StatelessWidget {
     );
     final working =
         run == CuratorRunView.starting || run == CuratorRunView.following;
-    String? subtitle = l10n.skillsCuratorRunNowNote;
+    String? subtitle = run == CuratorRunView.opening
+        ? l10n.skillsCuratorChecking
+        : l10n.skillsCuratorRunNowNote;
     GroupedActionStatus? state;
     if (model.checking) {
       state = GroupedActionStatus(
@@ -622,7 +644,7 @@ class _CuratorBody extends StatelessWidget {
     if (!model.hasOutput) {
       return _NoteRow(
         model.outputDropped
-            ? l10n.skillsCuratorOutputHidden
+            ? l10n.skillsCuratorOutputCleared
             : l10n.skillsCuratorNoOutput,
       );
     }
