@@ -389,8 +389,8 @@ class _ModelPickerState extends State<ModelPicker> {
                         key: const Key('model-default'),
                         value: _defaultPick,
                         title: context.l10n.modelsPickerUseDefault,
-                        titleMaxLines: 2,
-                        subtitleMaxLines: 2,
+                        titleMaxLines: large ? 2 : 1,
+                        subtitleMaxLines: large ? 2 : 1,
                         subtitleMiddleEllipsis: true,
                         // The server's value, drawn with its control and
                         // bidi characters visible.
@@ -516,8 +516,9 @@ class _EffortSegment extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          height: height,
-          padding: EdgeInsets.symmetric(horizontal: height / 2.5),
+          // A minimum: the pill grows with the text size.
+          constraints: BoxConstraints(minHeight: height),
+          padding: EdgeInsets.symmetric(horizontal: height / 2.5, vertical: 4),
           child: Align(
             widthFactor: 1,
             child: Text(
@@ -544,8 +545,8 @@ class _EffortSegment extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               excludeFromSemantics: true,
               onTap: onTap,
-              child: SizedBox(
-                height: hit,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: hit),
                 child: Center(widthFactor: 1, child: pill),
               ),
             ),

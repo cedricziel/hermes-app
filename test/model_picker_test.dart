@@ -474,6 +474,64 @@ void main() {
       expect(under(find.byType(ListView), block), findsOneWidget);
     });
 
+    testWidgets('at the normal size a long id is a single middle-cut line '
+        'under a one-line title', (tester) async {
+      await pump(tester, long, width: 260);
+
+      final entry = find.byKey(const Key('model-default'));
+      final subtitle = under(entry, find.textContaining('Uses'));
+      expect(subtitle, findsOneWidget);
+      final text = tester.widget<Text>(subtitle).data!;
+      expect(text, startsWith('Uses'));
+      expect(text, contains('…'));
+      expect(text, endsWith('instruct'));
+      expect(
+        tester
+            .renderObject<RenderParagraph>(
+              under(subtitle, find.byType(RichText)),
+            )
+            .maxLines,
+        1,
+      );
+      expect(
+        tester
+            .renderObject<RenderParagraph>(
+              under(entry, find.text('Use the profile’s default')),
+            )
+            .maxLines,
+        1,
+      );
+    });
+
+    testWidgets('at a text scale of 2 the effort pill grows with its label', (
+      tester,
+    ) async {
+      const picked = ModelChoice('acme', longId, effort: 'high');
+      for (final platform in [
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      ]) {
+        await pump(
+          tester,
+          long,
+          selected: picked,
+          platform: platform,
+          width: 390,
+          scale: 2,
+        );
+        final pill = find.byKey(const Key('effort-high'));
+        final label = tester.getSize(under(pill, find.text('High')));
+        final drawn = tester.getSize(under(pill, find.byType(Material)).first);
+        expect(
+          drawn.height,
+          greaterThanOrEqualTo(label.height + 8),
+          reason: '$platform',
+        );
+        expect(tester.getSize(pill).height, greaterThanOrEqualTo(drawn.height));
+      }
+    });
+
     testWidgets('at a text scale of 2 the default row wraps its title and '
         'shows the id, cut in the middle after two lines', (tester) async {
       final handle = tester.ensureSemantics();
