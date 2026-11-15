@@ -314,4 +314,129 @@ void main() {
       isSemantics(hasCheckedState: true, isChecked: false),
     );
   });
+
+  group('an open picker', () {
+    ModelOptions optionsFor(String model) => ModelOptions(
+      current: ModelChoice('anthropic', model),
+      providers: const [
+        ModelProviderOption(
+          id: 'anthropic',
+          label: 'Anthropic',
+          models: [
+            ModelOption(id: 'claude-opus-4'),
+            ModelOption(id: 'claude-haiku-4-5'),
+          ],
+        ),
+      ],
+    );
+
+    testWidgets(
+      'follows an explicit pick made elsewhere while the default changes',
+      (tester) async {
+        var current = optionsFor('claude-opus-4');
+        ModelChoice? picked;
+        final updates = ValueNotifier<int>(0);
+        addTearDown(updates.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildHermesLightTheme(),
+            home: Scaffold(
+              body: ComposerModelPill(
+                options: current,
+                choice: null,
+                onChanged: (_) {},
+                pickerUpdates: updates,
+                pickerOptions: () => current,
+                pickerChoice: () => picked,
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byKey(const Key('composer-model-pill')));
+        await tester.pumpAndSettle();
+        // The pick lands from outside the picker (another window, a command),
+        // so only the pill's latest pick can tell the open picker about it.
+        picked = const ModelChoice('anthropic', 'claude-haiku-4-5');
+
+        current = const ModelOptions(
+          current: ModelChoice('anthropic', 'claude-opus-4'),
+          providers: [
+            ModelProviderOption(
+              id: 'anthropic',
+              label: 'Anthropic',
+              models: [
+                ModelOption(id: 'claude-opus-4'),
+                ModelOption(id: 'claude-haiku-4-5'),
+                ModelOption(id: 'claude-sonnet-4'),
+              ],
+            ),
+          ],
+        );
+        updates.value++;
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getSemantics(
+            find.byKey(const Key('model-anthropic-claude-haiku-4-5')),
+          ),
+          isSemantics(hasCheckedState: true, isChecked: true),
+        );
+        expect(
+          tester.getSemantics(
+            find.byKey(const Key('model-anthropic-claude-opus-4')),
+          ),
+          isSemantics(hasCheckedState: true, isChecked: false),
+        );
+      },
+    );
+
+    testWidgets('rebuilds only when the options or the pick change', (
+      tester,
+    ) async {
+      var current = optionsFor('claude-opus-4');
+      ModelChoice? pick;
+      final updates = ValueNotifier<int>(0);
+      addTearDown(updates.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showModelPicker(
+                context,
+                options: current,
+                selected: null,
+                onChanged: (_) {},
+                updates: updates,
+                latest: () => current,
+                latestSelected: () => pick,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      ModelPicker shown() =>
+          tester.widget<ModelPicker>(find.byType(ModelPicker));
+      final before = shown();
+
+      updates.value++;
+      await tester.pumpAndSettle();
+      expect(identical(shown(), before), isTrue, reason: 'no rebuild');
+
+      current = optionsFor('claude-haiku-4-5');
+      updates.value++;
+      await tester.pumpAndSettle();
+      expect(identical(shown(), before), isFalse, reason: 'rebuilt');
+      expect(shown().options.current?.modelId, 'claude-haiku-4-5');
+
+      final again = shown();
+      pick = const ModelChoice('anthropic', 'claude-opus-4');
+      updates.value++;
+      await tester.pumpAndSettle();
+      expect(identical(shown(), again), isFalse, reason: 'pick rebuilt');
+    });
+  });
 }

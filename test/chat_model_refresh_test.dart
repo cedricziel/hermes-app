@@ -138,6 +138,45 @@ void main() {
       expect(server.requestsTo('GET', '/api/model/options').length, before + 1);
     });
 
+    test('a resume after a profile switch is not skipped', () async {
+      now = DateTime(2026, 1, 1, 12);
+      final chat = timed();
+      addTearDown(chat.dispose);
+      await chat.loadThreads();
+      await pumpEventQueue();
+      await chat.refreshModelOptionsOnResume();
+      await chat.loadThreads('other');
+      await pumpEventQueue();
+      final before = server.requestsTo('GET', '/api/model/options').length;
+
+      now = now.add(const Duration(seconds: 5));
+      await chat.refreshModelOptionsOnResume();
+
+      expect(server.requestsTo('GET', '/api/model/options').length, before + 1);
+    });
+
+    test('a resume after the owner went away is not skipped', () async {
+      now = DateTime(2026, 1, 1, 12);
+      final chat = timed();
+      addTearDown(chat.dispose);
+      await chat.loadThreads();
+      await pumpEventQueue();
+      await chat.refreshModelOptionsOnResume();
+      activity.value = false;
+      await pumpEventQueue();
+      activity.value = true;
+      await pumpEventQueue();
+      final before = server.requestsTo('GET', '/api/model/options').length;
+
+      now = now.add(const Duration(seconds: 5));
+      await chat.refreshModelOptionsOnResume();
+
+      expect(
+        server.requestsTo('GET', '/api/model/options').length,
+        greaterThan(before),
+      );
+    });
+
     test('a resume after the interval reads again', () async {
       now = DateTime(2026, 1, 1, 12);
       final chat = timed();

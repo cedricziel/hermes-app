@@ -199,6 +199,7 @@ extension _ChatControllerHistory on ChatController {
       final switched = profile != _profile;
       if (switched) {
         _modelOptions = null;
+        _forgetQuietModelRead();
         _warmingUnchanged = false;
         _newChatModel = null;
         _ChatControllerWorkspace(this)._workspaceProfileSwitched();
