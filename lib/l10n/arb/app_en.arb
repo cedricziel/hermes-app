@@ -2870,7 +2870,7 @@
   "modelsPillSetUp": "Set up a model",
   "@modelsPillSetUp": {
     "description": "Label of the model pill when no provider offers a model yet; it opens model setup."
-    },
+  },
   "modelsSetupBody": "Configure a provider and model for the {profile} profile on your Hermes server. Run this command on that server, then check again:",
   "@modelsSetupBody": {
     "description": "Explains how to set up a model for a profile; the server command follows below it.",
