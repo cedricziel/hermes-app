@@ -68,6 +68,10 @@ enum InlineReplyOutcome {
   unreachable('unreachable'),
   appLocked('app_locked'),
 
+  /// Hermes took the text as the stop phrase of its voice mode and ran no
+  /// turn; the text is kept like after any reply not sent.
+  stopCommand('stop_command'),
+
   /// Nothing to do: no text, not a chat reply. Nothing is logged.
   ignored('ignored');
 
@@ -594,7 +598,7 @@ class _InlineReply {
                   // goes back to the user as after any reply not sent.
                   finish(
                     () => const _Verdict(
-                      InlineReplyOutcome.failed,
+                      InlineReplyOutcome.stopCommand,
                       ending: ReplyEnding.notSent,
                       keepText: true,
                     ),

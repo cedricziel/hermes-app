@@ -21,6 +21,10 @@ enum ChatRole { user, assistant }
 
 enum MessageStatus { sent, thinking, streaming, error }
 
+/// Why a stored chat's transcript has nothing to show yet: its messages are
+/// being read, or reading them failed.
+enum ChatHistoryStatus { loading, failed }
+
 /// Where a tool call stands. [cancelled] is a call the reply stopped before
 /// it finished, or one the model began to write but never ran.
 enum ToolCallStatus { running, completed, warning, error, cancelled }

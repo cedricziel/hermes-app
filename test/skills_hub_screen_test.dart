@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
@@ -22,8 +23,10 @@ Future<void> pumpFor(WidgetTester tester, int milliseconds) async {
 
 void main() {
   late FakeHermesServer server;
+  var platform = TargetPlatform.android;
 
   setUp(() {
+    platform = TargetPlatform.android;
     server = FakeHermesServer()
       ..on('GET', '/api/skills', [
         skillRow(name: 'compose', category: 'devops', provenance: 'hub'),
@@ -93,6 +96,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        theme: ThemeData(platform: platform),
         home: SkillsScreen(
           repository: HermesSkillsRepository(server.client().raw),
           hubRepository: HermesSkillsHubRepository(server.client().raw),
@@ -313,6 +317,36 @@ void main() {
         hasLength(1),
       );
     });
+
+    testWidgets(
+      'the install confirmation keeps findings start-aligned on iOS',
+      (tester) async {
+        platform = TargetPlatform.iOS;
+        server.on(
+          'GET',
+          '/api/skills/hub/scan',
+          hubScanBody(policy: 'ask', findings: [hubFindingRow()]),
+        );
+        await openWebScraper(tester);
+        await tester.tap(find.text('Install anyway…'));
+        await tester.pumpAndSettle();
+
+        final dialog = find.byType(CupertinoAlertDialog);
+        expect(dialog, findsOneWidget);
+        for (final text in [
+          'HIGH  Downloads and runs a remote script',
+          'scripts/fetch.sh:12',
+        ]) {
+          final inDialog = find.descendant(
+            of: dialog,
+            matching: find.text(text),
+          );
+          expect(inDialog, findsOneWidget, reason: text);
+          final align = DefaultTextStyle.of(tester.element(inDialog)).textAlign;
+          expect(align, TextAlign.start, reason: text);
+        }
+      },
+    );
 
     testWidgets('block: Install is off and the reason is shown', (
       tester,

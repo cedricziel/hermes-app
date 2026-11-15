@@ -90,19 +90,24 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
       context: context,
       builder: (context) => AppAlertDialog(
         title: Text('Install ${widget.skill.name}?'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                scan.policyReason.isNotEmpty
-                    ? scan.policyReason
-                    : 'The security scan asks for your confirmation.',
-              ),
-              const SizedBox(height: 12),
-              for (final f in scan.findings) SkillScanFinding(f),
-            ],
+        // Findings are data: start-aligned on every platform, not centred as
+        // an Apple alert would centre its message.
+        content: DefaultTextStyle.merge(
+          textAlign: TextAlign.start,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  scan.policyReason.isNotEmpty
+                      ? scan.policyReason
+                      : 'The security scan asks for your confirmation.',
+                ),
+                const SizedBox(height: 12),
+                for (final f in scan.findings) SkillScanFinding(f),
+              ],
+            ),
           ),
         ),
         actions: [

@@ -115,6 +115,45 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ),
         ),
         ...onEachPlatform(
+          'Default entry, long model name',
+          (_) => _picker(
+            ModelPicker(
+              options: ModelOptions(
+                current: _longModel,
+                providers: modelOptions.providers,
+              ),
+              selected: null,
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Default entry, default unknown',
+          (_) => _picker(
+            ModelPicker(
+              options: kanbanModelOptions,
+              selected: null,
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Explicit pick checked, default still named',
+          (_) => _picker(
+            ModelPicker(
+              options: modelOptions,
+              selected: const ModelChoice('anthropic', 'claude-haiku-4-5'),
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+          ),
+        ),
+        ...onEachPlatform(
           'Kanban task: default entry and effort',
           (_) => _picker(
             ModelPicker(
@@ -127,6 +166,32 @@ WidgetbookNode modelNode() => WidgetbookFolder(
               onChanged: (_) {},
               onUseDefault: () {},
             ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Long model ids, cut in the middle',
+          (_) => _picker(
+            ModelPicker(
+              options: _longIds,
+              selected: null,
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+            width: 320,
+          ),
+        ),
+        ...onEachPlatform(
+          'Largest text',
+          (_) => _picker(
+            ModelPicker(
+              options: _longIds,
+              selected: const ModelChoice('acme', _longId, effort: 'high'),
+              onChanged: (_) {},
+              onUseDefault: () {},
+            ),
+            width: 390,
+            textScale: 2,
           ),
         ),
         ...onEachPlatform(
@@ -207,14 +272,45 @@ WidgetbookNode modelNode() => WidgetbookFolder(
 );
 
 /// A picker in a sheet's width and colour.
-Widget _picker(ModelPicker picker) => Builder(
-  builder: (context) => fill(
-    Material(
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: picker,
+Widget _picker(ModelPicker picker, {double width = 420, double? textScale}) =>
+    Builder(
+      builder: (context) {
+        final sheet = Material(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          child: picker,
+        );
+        return fill(
+          textScale == null
+              ? sheet
+              : MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(textScale)),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: 640),
+                    child: sheet,
+                  ),
+                ),
+          width: width,
+        );
+      },
+    );
+
+const _longId = 'acme-lm-large-2025-0914-long-context-instruct';
+
+/// Invented ids that share a long prefix and differ at the end.
+const _longIds = ModelOptions(
+  current: ModelChoice('acme', _longId),
+  providers: [
+    ModelProviderOption(
+      id: 'acme',
+      label: 'Acme',
+      models: [
+        ModelOption(id: _longId),
+        ModelOption(id: 'acme-lm-large-2025-0914-long-context-preview'),
+        ModelOption(id: 'acme-lm-small', reasoning: false),
+      ],
     ),
-    width: 420,
-  ),
+  ],
 );
 
 const _manyModels = ModelOptions(

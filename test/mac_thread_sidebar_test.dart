@@ -106,9 +106,22 @@ void main() {
     return mouse;
   }
 
-  Future<void> rightClick(WidgetTester tester, String id) async {
+  /// [settle] false pumps a fixed second instead: a chat whose messages are
+  /// still loading shows a skeleton that pulses until they arrive, so the
+  /// tree never settles.
+  Future<void> rightClick(
+    WidgetTester tester,
+    String id, {
+    bool settle = true,
+  }) async {
     await tester.tap(row(id), buttons: kSecondaryButton);
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
   }
 
   testWidgets('sorts threads under Pinned, Today and Older', (tester) async {
@@ -293,7 +306,7 @@ void main() {
       await tester.tap(row('s1'));
       await tester.pump();
 
-      await rightClick(tester, 's1');
+      await rightClick(tester, 's1', settle: false);
       await tester.tap(find.text('Copy Transcript'));
       await tester.pump();
       answer.complete((

@@ -765,7 +765,7 @@ extension _Sending on HermesGatewayTransport {
                 !yielded.any((event) => event is ThreadNeedsRefetch)) {
               yield const ThreadNeedsRefetch();
             }
-            throw const GatewayConnectionClosed();
+            throw resumed.failure;
           }
           _reportSettled(yielded, errored: errored);
           return;

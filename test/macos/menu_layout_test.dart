@@ -42,6 +42,7 @@ void main() {
         'Pin ⇧⌘P',
         'Rename…',
         'Copy Transcript',
+        'Export Chat as JSON…',
         '-',
         'Archive',
         'Delete…',

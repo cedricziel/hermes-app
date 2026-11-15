@@ -21,6 +21,7 @@ class ConversationWindowToolbar extends StatelessWidget {
     this.onTogglePin,
     this.onShare,
     this.onAction,
+    this.exportJson,
     this.activityOpen = false,
     this.activityWaiting = 0,
     this.onToggleActivity,
@@ -43,6 +44,9 @@ class ConversationWindowToolbar extends StatelessWidget {
 
   /// Called for Rename, Copy Transcript, Archive and Delete in the … menu.
   final ValueChanged<ThreadAction>? onAction;
+
+  /// "Export Chat as JSON…" in the … menu; null (no profile) leaves it out.
+  final ExportJsonOffer? exportJson;
   final bool activityOpen;
 
   /// How many requests need the user; marks the Inspector button.
@@ -119,7 +123,7 @@ class ConversationWindowToolbar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            _MoreButton(onAction: onAction),
+            _MoreButton(onAction: onAction, exportJson: exportJson),
             const SizedBox(width: 12),
           ],
         ),
@@ -136,9 +140,10 @@ class ConversationWindowToolbar extends StatelessWidget {
 /// The … button: the thread actions in the platform's menu (compact rows on
 /// macOS), Delete last.
 class _MoreButton extends StatefulWidget {
-  const _MoreButton({required this.onAction});
+  const _MoreButton({required this.onAction, this.exportJson});
 
   final ValueChanged<ThreadAction>? onAction;
+  final ExportJsonOffer? exportJson;
 
   @override
   State<_MoreButton> createState() => _MoreButtonState();
@@ -162,7 +167,11 @@ class _MoreButtonState extends State<_MoreButton> {
       onSelected: onAction,
       // Pin has its own toolbar button.
       itemBuilder: (_) => [
-        for (final entry in macThreadMenuItems(pinned: false, manageable: true))
+        for (final entry in macThreadMenuItems(
+          pinned: false,
+          manageable: true,
+          exportJson: widget.exportJson,
+        ))
           if (entry is! PopupMenuItem<ThreadAction> ||
               entry.value != ThreadAction.pin)
             entry,
