@@ -234,6 +234,44 @@ void main() {
       expect(calls.cancels, 0);
     });
 
+    testWidgets('a double tap on Run now reaches the caller once', (
+      tester,
+    ) async {
+      await pump(tester, _known);
+      await tester.tap(_run);
+      await tester.tap(_run);
+      await tester.pump();
+      expect(calls.runs, 1);
+      expect(calls.cancels, 0);
+    });
+
+    testWidgets('Cancel then Run in one frame only cancels', (tester) async {
+      await pump(tester, _known);
+      await tester.tap(_cancel);
+      await tester.tap(_run);
+      await tester.pump();
+      expect(calls.cancels, 1);
+      expect(calls.runs, 0);
+    });
+
+    testWidgets('Run then Cancel in one frame only runs', (tester) async {
+      await pump(tester, _known);
+      await tester.tap(_run);
+      await tester.tap(_cancel);
+      await tester.pump();
+      expect(calls.runs, 1);
+      expect(calls.cancels, 0);
+    });
+
+    testWidgets('Escape and then Run sends nothing', (tester) async {
+      await pump(tester, _known, platform: TargetPlatform.macOS, dialog: true);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.tap(_run);
+      await tester.pump();
+      expect(calls.cancels, 1);
+      expect(calls.runs, 0);
+    });
+
     for (final (platform, minHeight, name) in [
       (TargetPlatform.iOS, 44.0, 'iOS 44 pt'),
       (TargetPlatform.android, 48.0, 'Android 48 dp'),
@@ -309,6 +347,40 @@ void main() {
       );
     });
 
+    for (final platform in [TargetPlatform.android, TargetPlatform.macOS]) {
+      testWidgets('1.4x text is still side by side on $platform', (
+        tester,
+      ) async {
+        await pump(
+          tester,
+          _known,
+          platform: platform,
+          scale: 1.4,
+          dialog: platform == TargetPlatform.macOS,
+        );
+        expect(tester.getTopLeft(_cancel).dy, tester.getTopLeft(_run).dy);
+        expect(
+          tester.getTopLeft(_cancel).dx,
+          lessThan(tester.getTopLeft(_run).dx),
+        );
+      });
+
+      testWidgets('1.6x text stacks on $platform', (tester) async {
+        await pump(
+          tester,
+          _known,
+          platform: platform,
+          scale: 1.6,
+          dialog: platform == TargetPlatform.macOS,
+        );
+        expect(tester.getTopLeft(_cancel).dx, tester.getTopLeft(_run).dx);
+        expect(
+          tester.getTopLeft(_cancel).dy,
+          lessThan(tester.getTopLeft(_run).dy),
+        );
+      });
+    }
+
     for (final platform in [
       TargetPlatform.iOS,
       TargetPlatform.android,
@@ -363,6 +435,34 @@ void main() {
       expect(tester.getTopLeft(_run), before);
       expect(tester.getBottomLeft(command).dy, lessThan(runBottom));
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'button labels keep scaling past 2x and the body keeps a quarter of the '
+    'window at 3.1x in German on a small iPhone',
+    (tester) async {
+      await pump(
+        tester,
+        const CuratorRunConfirmationModel(
+          staleAfterDays: 14,
+          archiveAfterDays: 30,
+        ),
+        locale: const Locale('de'),
+        scale: 3.1,
+        size: const Size(320, 568),
+      );
+      final viewport = tester.getSize(find.byType(SingleChildScrollView).first);
+      // Measured 153 of 568 pt (26.9 percent) with the labels unclamped, 278
+      // (48.9 percent) with them clamped to 2x.
+      expect(viewport.height, greaterThanOrEqualTo(568 * 0.25));
+      final label = tester.widget<Text>(
+        find.descendant(of: _run, matching: find.byType(Text)),
+      );
+      expect(
+        MediaQuery.textScalerOf(tester.element(find.byWidget(label))).scale(14),
+        closeTo(14 * 3.1, 0.01),
+      );
     },
   );
 

@@ -73,6 +73,23 @@ class CuratorRunConfirmation extends StatefulWidget {
 class _CuratorRunConfirmationState extends State<CuratorRunConfirmation> {
   final _scroll = ScrollController();
 
+  /// Set before a callback runs, so a second tap, or Cancel and Run in the
+  /// same frame, never reaches the caller: a pass is never started twice and
+  /// a decision is never changed once made.
+  var _decided = false;
+
+  void _cancel() {
+    if (_decided) return;
+    _decided = true;
+    widget.onCancel();
+  }
+
+  void _run() {
+    if (_decided) return;
+    _decided = true;
+    widget.onRun();
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -115,12 +132,10 @@ class _CuratorRunConfirmationState extends State<CuratorRunConfirmation> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) widget.onCancel();
+        if (!didPop) _cancel();
       },
       child: CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape): widget.onCancel,
-        },
+        bindings: {const SingleActivator(LogicalKeyboardKey.escape): _cancel},
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
           child: LayoutBuilder(
@@ -144,15 +159,10 @@ class _CuratorRunConfirmationState extends State<CuratorRunConfirmation> {
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsetsDirectional.only(end: 8),
-                  // Two words each: past twice their size the buttons would
-                  // leave the text above them almost no room to scroll in.
-                  child: MediaQuery.withClampedTextScaling(
-                    maxScaleFactor: 2,
-                    child: _Buttons(
-                      stacked: stacked,
-                      onCancel: widget.onCancel,
-                      onRun: widget.onRun,
-                    ),
+                  child: _Buttons(
+                    stacked: stacked,
+                    onCancel: _cancel,
+                    onRun: _run,
                   ),
                 ),
               ],

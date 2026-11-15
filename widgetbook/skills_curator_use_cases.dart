@@ -607,16 +607,12 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'CuratorRunConfirmation',
       useCases: [
-        _confirm('Defaults known (iPhone)', _knownDays),
+        _confirm('Archive only (iPhone)', _knownDays),
+        _confirm('Archive only (iPad dialog)', _knownDays, where: _Where.iPad),
+        _confirm('Archive only (Mac)', _knownDays, where: _Where.mac),
+        _confirm('Archive only (Android)', _knownDays, where: _Where.android),
         _confirm(
-          'Defaults known (iPad dialog)',
-          _knownDays,
-          where: _Where.iPad,
-        ),
-        _confirm('Defaults known (Mac)', _knownDays, where: _Where.mac),
-        _confirm('Defaults known (Android)', _knownDays, where: _Where.android),
-        _confirm(
-          'Prune only (iPhone)',
+          'Built-ins included (iPhone)',
           const CuratorRunConfirmationModel(
             staleAfterDays: 14,
             archiveAfterDays: 30,

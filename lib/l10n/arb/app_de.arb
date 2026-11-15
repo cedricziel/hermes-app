@@ -1254,7 +1254,7 @@
   "skillsCuratorConfirmCancel": "Abbrechen",
   "skillsCuratorConfirmConsolidate": "Skills zusammenführen und umschreiben und geplante Aufgaben anpassen, die sie nutzen.",
   "skillsCuratorConfirmConsolidateMaybe": "Kann außerdem Skills zusammenführen und umschreiben und geplante Aufgaben anpassen, die sie nutzen.",
-  "skillsCuratorConfirmConsolidateOff": "Es archiviert nur ungenutzte Skills.",
+  "skillsCuratorConfirmConsolidateOff": "Er archiviert nur ungenutzte Skills.",
   "skillsCuratorConfirmLead": "Ein Durchlauf prüft die Skills auf dem Server. Er kann:",
   "skillsCuratorConfirmPlaceholders": "Ersetze <name> durch den Skill und füge statt <profile> dein Profil ein.",
   "skillsCuratorConfirmRestoreLead": "Um einen archivierten Skill zurückzuholen, führe dies auf dem Server aus:",
