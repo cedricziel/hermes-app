@@ -13,6 +13,7 @@ import '../../macos/mac_window.dart';
 import '../../server_care/connection_guard.dart';
 import '../../server_care/widgets/private_surface.dart';
 import '../../telemetry/breadcrumbs.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -28,6 +29,7 @@ import 'soul_repository.dart';
 import 'soul_telemetry.dart';
 import 'widgets/soul_changed_sheet.dart';
 import 'widgets/soul_editor.dart';
+import 'widgets/soul_page_layout.dart';
 import 'widgets/soul_questions.dart';
 import 'widgets/soul_save_actions.dart';
 import 'widgets/soul_status_line.dart';
@@ -353,17 +355,29 @@ class _SoulScreenState extends State<SoulScreen> {
       title: l10n.profilesSoulTitle,
       subtitle: widget.profile,
       shrinkTitle: true,
-      formAction: below || !c.showsEditor
+      // Save is always in the phone bar: disabled while the page loads (and
+      // while a lock covers it), so the bar does not shift when the text
+      // arrives. The pages with no editor to save from (a failed read,
+      // offline, a gone profile, an old server) have none.
+      formAction: below || !(c.showsEditor || _showsLoading)
           ? null
           : SoulSaveActions.barAction(
               context,
               dirty: c.dirty && !c.paused,
-              busy: c.busy,
+              // The label stays while the page loads: the spinner is for a
+              // save that runs.
+              busy: c.busy && c.showsEditor,
               onSave: _save,
             ),
       body: _body(context, wide: below),
     );
   }
+
+  /// The page shows the centred spinner: a read, a closed page or a cover.
+  bool get _showsLoading =>
+      _controller.closed ||
+      _controller.covered ||
+      _controller.load == SoulLoad.loading;
 
   Widget _body(BuildContext context, {required bool wide}) {
     final l10n = context.l10n;
@@ -389,11 +403,13 @@ class _SoulScreenState extends State<SoulScreen> {
         return message(SoulBannerKind.readFailed);
       case SoulLoad.profileGone:
         return StateMessage(
+          icon: AppIcons.personOff,
           title: l10n.profilesSoulGoneTitle,
           detail: l10n.profilesSoulGoneDetail,
         );
       case SoulLoad.unsupported:
         return StateMessage(
+          icon: AppIcons.extensionOff,
           title: l10n.profilesSoulUnsupportedTitle,
           detail: l10n.profilesSoulUnsupportedDetail,
           action: OutlinedButton(
@@ -440,50 +456,52 @@ class _SoulScreenState extends State<SoulScreen> {
     final l10n = context.l10n;
     final c = _controller;
     final metrics = GroupedMetrics.of(context);
-    final banner = _banner();
+    // One banner at a time. While the connection is paused the editor is
+    // read-only and the paused banner says why; a lost answer or a failed
+    // check would offer an action that cannot run, so it waits for the
+    // resume and comes back then.
+    final kind = c.paused ? SoulBannerKind.paused : _banner();
     final status = _statusLine();
-    return GroupedListView(
-      children: [
-        if (c.paused)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: SoulStatusBanner(kind: SoulBannerKind.paused),
-          ),
-        if (banner != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: SoulStatusBanner(kind: banner, onAction: _bannerAction()),
-          ),
-        const SizedBox(height: 8),
-        SoulEditor(
-          controller: _text,
-          profile: widget.profile,
-          fileExists: c.exists,
-          readOnly: c.readOnly,
-          maxLines: 30,
-          onChanged: c.setText,
-        ),
+    final dirty = c.dirty && !c.paused;
+    return SoulPageLayout(
+      banner: kind == null
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: SoulStatusBanner(kind: kind, onAction: _bannerAction()),
+            ),
+      editor: SoulEditor(
+        controller: _text,
+        profile: widget.profile,
+        fileExists: c.exists,
+        readOnly: c.readOnly,
+        expands: true,
+        footerAction: wide
+            ? null
+            : SoulSaveActions.revertButton(
+                dirty: dirty,
+                busy: c.busy,
+                onRevert: () => unawaited(_revert()),
+              ),
+        onChanged: c.setText,
+      ),
+      below: [
         if (status != null) SoulStatusLine(kind: status),
-        const SizedBox(height: 8),
-        if (wide)
+        if (wide) ...[
+          const SizedBox(height: 8),
           SoulSaveActions(
-            dirty: c.dirty && !c.paused,
+            dirty: dirty,
             busy: c.busy,
             onSave: _save,
             onRevert: () => unawaited(_revert()),
-          )
-        else
-          SoulSaveActions.revertRow(
-            dirty: c.dirty && !c.paused,
-            busy: c.busy,
-            onRevert: () => unawaited(_revert()),
           ),
+        ],
         Padding(
           padding: EdgeInsets.fromLTRB(
             metrics.rowPadding,
             16,
             metrics.rowPadding,
-            16,
+            0,
           ),
           child: Text(
             l10n.profilesSoulFootnote,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_editor.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_save_actions.dart';
-import 'package:hermes_app/src/profiles/soul/widgets/soul_status_line.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 
 import 'soul_widget_host.dart';
@@ -107,7 +106,7 @@ void main() {
     ) async {
       Future<void> pump(bool dirty, bool busy) => pumpSoul(
         tester,
-        SoulSaveActions.revertRow(dirty: dirty, busy: busy, onRevert: () {}),
+        SoulSaveActions.revertButton(dirty: dirty, busy: busy, onRevert: () {}),
       );
       VoidCallback? press() =>
           tester.widget<TextButton>(find.byType(TextButton)).onPressed;
@@ -137,7 +136,11 @@ void main() {
       ) async {
         await pumpSoul(
           tester,
-          SoulSaveActions.revertRow(dirty: true, busy: false, onRevert: () {}),
+          SoulSaveActions.revertButton(
+            dirty: true,
+            busy: false,
+            onRevert: () {},
+          ),
           platform: platform,
         );
         final size = tester.getSize(find.byType(TextButton));
@@ -162,45 +165,43 @@ void main() {
     });
   });
 
-  group('Revert lines up with the text of the lines above it', () {
+  group('Revert sits in the editor card and lines up with its text', () {
     for (final scale in [1.0, 3.0]) {
       for (final locale in [const Locale('en'), const Locale('de')]) {
         testWidgets('at text scale $scale ($locale)', (tester) async {
-          final controller = SoulTextController();
+          final controller = SoulTextController(text: 'You are Mara.');
           addTearDown(controller.dispose);
           await pumpSoul(
             tester,
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SoulEditor(controller: controller, profile: 'work'),
-                const SoulStatusLine(kind: SoulStatusKind.saved),
-                SoulSaveActions.revertRow(
-                  dirty: true,
-                  busy: false,
-                  onRevert: () {},
-                ),
-              ],
+            SoulEditor(
+              controller: controller,
+              profile: 'work',
+              footerAction: SoulSaveActions.revertButton(
+                dirty: true,
+                busy: false,
+                onRevert: () {},
+              ),
             ),
             locale: locale,
             textScaler: TextScaler.linear(scale),
           );
-          double left(Finder f) => tester.getTopLeft(f).dx;
           final revert = find.text(
             locale.languageCode == 'de' ? 'Zurücksetzen' : 'Revert',
           );
-          final status = find.text(
-            locale.languageCode == 'de'
-                ? 'Gespeichert. Neue Chats verwenden sie.'
-                : 'Saved. New chats use it.',
+          expect(
+            tester.getTopLeft(revert).dx,
+            closeTo(tester.getTopLeft(find.byType(EditableText)).dx, 0.5),
           );
-          final note = find.text(
-            locale.languageCode == 'de'
-                ? 'Hermes verwendet seine Standardpersönlichkeit, solange das hier leer ist.'
-                : 'Hermes uses its default personality while this is empty.',
+          // Inside the card: under the field, above nothing else.
+          final card = find.ancestor(
+            of: find.byType(TextField),
+            matching: find.byType(DecoratedBox),
           );
-          expect(left(status), closeTo(left(note), 0.5));
-          expect(left(revert), closeTo(left(status), 0.5));
+          expect(
+            tester.getRect(card.first).contains(tester.getCenter(revert)),
+            isTrue,
+          );
+          expect(tester.takeException(), isNull);
         });
       }
     }

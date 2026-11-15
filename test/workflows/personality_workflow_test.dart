@@ -73,11 +73,26 @@ void main() {
       });
   });
 
-  for (final (name, size, platform) in [
-    ('phone', phoneSize, TargetPlatform.iOS),
-    ('desktop', desktopSize, TargetPlatform.macOS),
+  // Phone and desktop in both themes; Android (the Material bar, two-button
+  // dialogs, the Material bottom sheet) and an iPad (a pushed page at 820 pt,
+  // Save and Revert under the editor, the changed state as a dialog) in light.
+  for (final (name, size, platform, brightnesses) in [
+    (
+      'phone',
+      phoneSize,
+      TargetPlatform.iOS,
+      [Brightness.light, Brightness.dark],
+    ),
+    (
+      'desktop',
+      desktopSize,
+      TargetPlatform.macOS,
+      [Brightness.light, Brightness.dark],
+    ),
+    ('android', phoneSize, TargetPlatform.android, [Brightness.light]),
+    ('ipad', const Size(820, 1180), TargetPlatform.iOS, [Brightness.light]),
   ]) {
-    for (final brightness in [Brightness.light, Brightness.dark]) {
+    for (final brightness in brightnesses) {
       final mode = brightness == Brightness.dark ? 'dark' : 'light';
       testWidgets('$name, $mode: edit, save question, conflict, save', (
         tester,
@@ -126,7 +141,10 @@ void main() {
         await animate(tester);
         await shots.capture(tester, 'edited');
 
-        Finder save() => name == 'phone'
+        // The phone bar has Save as a text action; the Mac and wide windows
+        // (an iPad too) have it under the editor.
+        final barSave = name == 'phone' || name == 'android';
+        Finder save() => barSave
             ? find.widgetWithText(TextButton, 'Save')
             : find.widgetWithText(FilledButton, 'Save');
 
@@ -156,10 +174,10 @@ void main() {
         // Edit again and try to leave: Discard asks, Keep editing is first.
         await tester.enterText(find.byType(TextField), '$_edited\n- Be kind.');
         await animate(tester);
-        if (name == 'phone') {
-          await tester.pageBack();
-        } else {
+        if (name == 'desktop') {
           await tester.tap(find.byKey(const Key('settings-back')));
+        } else {
+          await tester.pageBack();
         }
         await tester.pumpAndSettle();
         await shots.capture(tester, 'discard-question');

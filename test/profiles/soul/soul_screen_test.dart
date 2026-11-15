@@ -20,13 +20,16 @@ import 'package:hermes_app/src/profiles/soul/soul_telemetry.dart';
 import 'package:hermes_app/src/server_care/widgets/private_surface.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/app_banner.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../../support/fake_device_authenticator.dart';
 import '../../support/fake_hermes_server.dart';
+import '../../support/find_app_icon.dart';
 import '../../support/mac_commands_builder.dart';
 import '../../support/recorded_events.dart';
 import '../../support/recording_tracer.dart';
@@ -330,6 +333,7 @@ void main() {
       server.on('GET', soulPath, soulProfileMissing, status: 404);
       await pump(tester);
       expect(find.text('This profile no longer exists.'), findsOneWidget);
+      expect(findAppIcon(AppIcons.personOff), findsOneWidget);
       expect(
         find.text('It may have been deleted on the server.'),
         findsOneWidget,
@@ -348,6 +352,7 @@ void main() {
         find.text("This server doesn't offer personality settings."),
         findsOneWidget,
       );
+      expect(findAppIcon(AppIcons.extensionOff), findsOneWidget);
       expect(editor(), findsNothing);
       expect(availability.shown, isFalse);
       // 48 dp on Android.
@@ -692,6 +697,133 @@ void main() {
     });
   });
 
+  group('layout', () {
+    const footnote =
+        'This is the SOUL.md file Hermes reads for this profile. It tells '
+        'Hermes who it is and how to talk.';
+
+    Rect card(WidgetTester tester) => tester.getRect(
+      find.ancestor(of: editor(), matching: find.byType(DecoratedBox)).first,
+    );
+
+    pageTest('a phone: the card fills the page down to the footnote', (
+      tester,
+    ) async {
+      await pump(tester, platform: TargetPlatform.iOS);
+      final rect = card(tester);
+      final note = tester.getRect(find.text(footnote));
+      // One card holds the field, Revert and the count.
+      expect(rect.contains(tester.getCenter(find.text('Revert'))), isTrue);
+      expect(
+        rect.contains(tester.getCenter(find.text('14 characters'))),
+        isTrue,
+      );
+      expect(rect.height, greaterThan(500));
+      expect(note.top, greaterThanOrEqualTo(rect.bottom));
+      // The page is used to its bottom: no blank lower half.
+      expect(note.bottom, greaterThan(900 - 60));
+      expect(tester.takeException(), isNull);
+    });
+
+    pageTest('with the keyboard up the card ends above it', (tester) async {
+      await pump(tester, platform: TargetPlatform.iOS);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      final rect = card(tester);
+      expect(rect.bottom, lessThanOrEqualTo(900 - 320));
+      // Twelve lines of 17 pt text at 1.35 stay.
+      expect(rect.height, greaterThanOrEqualTo(12 * 17 * 1.35));
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      pageTest('at the largest text with the keyboard up it scrolls '
+          'without overflow on $platform', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 3.0;
+        addTearDown(tester.platformDispatcher.clearAllTestValues);
+        await pump(tester, platform: platform);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(tester.takeException(), isNull);
+        final rect = card(tester);
+        expect(rect.height, greaterThanOrEqualTo(12 * 17 * 3 * 1.35));
+        // The page scrolls to its end: the footnote comes into view.
+        final page = tester.state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(CustomScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        expect(page.position.maxScrollExtent, greaterThan(0));
+        page.position.jumpTo(page.position.maxScrollExtent);
+        await tester.pump();
+        expect(
+          tester.getRect(find.text(footnote)).bottom,
+          lessThanOrEqualTo(900 - 320 + 0.5),
+        );
+      });
+    }
+
+    pageTest('a banner scrolls with the page and the card keeps its '
+        'minimum', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      putBody = <String, Object?>{};
+      await pump(tester, platform: TargetPlatform.android);
+      await type(tester, 'You are Mara.');
+      await tester.tap(phoneSave());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Replace'));
+      await tester.pumpAndSettle();
+      expect(find.text("Couldn't confirm the save"), findsOneWidget);
+      expect(card(tester).height, greaterThanOrEqualTo(12 * 17 * 2 * 1.35));
+      expect(tester.takeException(), isNull);
+    });
+
+    pageTest('a wide window keeps its 600 pt column, Save and Revert under '
+        'the card', (tester) async {
+      await pump(tester, platform: TargetPlatform.macOS, width: 1400);
+      final rect = card(tester);
+      expect(rect.width, closeTo(600, 1));
+      expect(rect.center.dx, closeTo(700, 1));
+      expect(rect.height, greaterThan(500));
+      expect(
+        tester.getRect(find.widgetWithText(FilledButton, 'Save')).top,
+        greaterThanOrEqualTo(rect.bottom),
+      );
+      // Revert is a button under the card, not in it.
+      expect(rect.contains(tester.getCenter(find.text('Revert'))), isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('loading', () {
+    pageTest('Save is in the bar, disabled, while the file loads', (
+      tester,
+    ) async {
+      final read = Completer<FakeResponse>();
+      server.onRequest('GET', soulPath, (_) => read.future);
+      await pump(tester, settle: false);
+      expect(find.text('Loading personality…'), findsOneWidget);
+      final save = tester.getRect(phoneSave());
+      expect(tester.widget<TextButton>(phoneSave()).onPressed, isNull);
+      read.complete((status: 200, body: {'content': fileText, 'exists': true}));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+      expect(editor(), findsOneWidget);
+      // The bar does not shift when the text arrives.
+      final after = tester.getRect(phoneSave());
+      expect(after.top, save.top);
+      expect(after.right, closeTo(save.right, 0.5));
+      expect(after.width, closeTo(save.width, 0.5));
+    });
+  });
+
   group('at the largest text', () {
     pageTest('iOS keeps the title and the profile name, Save goes below', (
       tester,
@@ -819,8 +951,8 @@ void main() {
       expect(puts, isEmpty);
     });
 
-    pageTest('a pause says so and a lost answer cannot be checked until it '
-        'ends', (tester) async {
+    pageTest('a pause is the only banner: a lost answer returns, with its '
+        'action, after the resume', (tester) async {
       final auth = _Auth();
       addTearDown(auth.dispose);
       await pump(tester, auth: auth);
@@ -831,22 +963,41 @@ void main() {
       await tester.tap(find.text('Replace'));
       await tester.pumpAndSettle();
       expect(find.text('The connection is paused.'), findsNothing);
+      expect(find.text("Couldn't confirm the save"), findsOneWidget);
 
       auth.pauseRequests();
       await tester.pumpAndSettle();
+      // One banner: the pause explains the read-only editor; the lost answer
+      // and its Check, which cannot run, are not shown beside it.
       expect(find.text('The connection is paused.'), findsOneWidget);
-      expect(find.text("Couldn't confirm the save"), findsOneWidget);
-      final check = find.widgetWithText(TextButton, 'Check');
-      expect(tester.widget<TextButton>(check).onPressed, isNull);
+      expect(find.byType(AppBanner), findsOneWidget);
+      expect(find.text("Couldn't confirm the save"), findsNothing);
+      expect(find.widgetWithText(TextButton, 'Check'), findsNothing);
+      expect(find.text('You are Mara.'), findsOneWidget);
       final before = server.requests.length;
-      await tester.tap(check, warnIfMissed: false);
-      await tester.pumpAndSettle();
       expect(server.requests.length, before);
 
       auth.restoreRequests();
       await tester.pumpAndSettle();
       expect(find.text('The connection is paused.'), findsNothing);
+      expect(find.byType(AppBanner), findsOneWidget);
+      expect(find.text("Couldn't confirm the save"), findsOneWidget);
+      final check = find.widgetWithText(TextButton, 'Check');
       expect(tester.widget<TextButton>(check).onPressed, isNotNull);
+    });
+
+    pageTest('a pause alone is neutral, has no action and no Save', (
+      tester,
+    ) async {
+      final auth = _Auth();
+      addTearDown(auth.dispose);
+      await pump(tester, auth: auth);
+      auth.pauseRequests();
+      await tester.pumpAndSettle();
+      final banner = tester.widget<AppBanner>(find.byType(AppBanner));
+      expect(banner.tone, AppBannerTone.neutral);
+      expect(banner.action, isNull);
+      expect(tester.widget<TextButton>(phoneSave()).onPressed, isNull);
     });
 
     pageTest('App Lock unlocking during a pause reads nothing; the rescue '

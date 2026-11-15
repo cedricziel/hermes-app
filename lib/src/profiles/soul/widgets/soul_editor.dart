@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../../l10n/l10n.dart';
 import '../../../files/widgets/safe_path_text.dart';
@@ -225,8 +227,9 @@ class SoulCharacterCount {
   }
 }
 
-/// A profile's personality text: one multiline field with a hint, a count of
-/// characters under it, and the notes under that.
+/// A profile's personality text: one grouped card with a multiline field and
+/// a hint, a divider, and a footer row with [footerAction] and the count of
+/// characters; the notes sit under the card.
 ///
 /// It takes plain values: a [controller] that holds the text, [fileExists] for
 /// the line shown while the text is empty, and a callback. It owns no
@@ -251,6 +254,7 @@ class SoulEditor extends StatefulWidget {
     this.minLines = 10,
     this.maxLines,
     this.expands = false,
+    this.footerAction,
     this.focusNode,
     this.onChanged,
     this.announceDelay = const Duration(milliseconds: 800),
@@ -277,8 +281,17 @@ class SoulEditor extends StatefulWidget {
   final int? maxLines;
 
   /// Fills the height the parent gives it, ignoring [minLines] and
-  /// [maxLines]. The parent must bound the height.
+  /// [maxLines]. The parent must bound the height; its intrinsic height is
+  /// the card's minimum ([fillMinLines] lines), not the text's.
   final bool expands;
+
+  /// Lines of text the card keeps when it fills and the page is short: the
+  /// page scrolls beneath it instead of shrinking it further.
+  static const int fillMinLines = 12;
+
+  /// A button at the card's footer, before the count: Revert on a phone. The
+  /// card draws it with a divider above; the page owns what it does.
+  final Widget? footerAction;
   final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
 
@@ -336,6 +349,94 @@ class _SoulEditorState extends State<SoulEditor>
     });
   }
 
+  /// The count, announced politely once typing pauses.
+  Widget _countText(BuildContext context) {
+    final l10n = context.l10n;
+    final metrics = GroupedMetrics.of(context);
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) => Semantics(
+        liveRegion: true,
+        label: l10n.profilesSoulCount(_announced),
+        child: ExcludeSemantics(
+          child: Text(
+            l10n.profilesSoulCount(_counter.of(widget.controller.text)),
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: metrics.footerSize,
+              color: context.hermesColors.subtleText,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The card's bottom row: Revert (when the page gives one) at the leading
+  /// edge, the count at the trailing edge. They wrap at large text.
+  Widget _footer(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
+    final action = widget.footerAction;
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: metrics.rowPadding,
+        vertical: 4,
+      ),
+      child: action == null
+          ? Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: _countText(context),
+              ),
+            )
+          : Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runAlignment: WrapAlignment.end,
+              spacing: 12,
+              children: [action, _countText(context)],
+            ),
+    );
+  }
+
+  /// The info lines under the card: an empty file, a long text.
+  Widget _notes(BuildContext context) {
+    final l10n = context.l10n;
+    final metrics = GroupedMetrics.of(context);
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final text = widget.controller.text;
+        final count = _counter.of(text);
+        if (text.isEmpty || count >= kSoulLongNoteLength) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              metrics.rowPadding,
+              0,
+              metrics.rowPadding,
+              0,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (text.isEmpty)
+                  SoulInfoLine(
+                    text: widget.fileExists
+                        ? l10n.profilesSoulEmptyFile
+                        : l10n.profilesSoulNotSet,
+                  ),
+                if (count >= kSoulLongNoteLength)
+                  SoulInfoLine(text: l10n.profilesSoulLongNote),
+              ],
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -391,70 +492,101 @@ class _SoulEditorState extends State<SoulEditor>
         onChanged: widget.onChanged,
       ),
     );
-    final box = DecoratedBox(
+    final fieldArea = Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: metrics.rowPadding,
+        vertical: 12,
+      ),
+      child: field,
+    );
+    // One grouped card: the field, a divider, then Revert and the count.
+    final card = DecoratedBox(
       decoration: BoxDecoration(
         color: widget.readOnly
             ? Colors.transparent
             : scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(metrics.radius),
       ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: metrics.rowPadding,
-          vertical: 12,
-        ),
-        child: field,
+      child: Column(
+        mainAxisSize: expands ? MainAxisSize.max : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (expands) Expanded(child: fieldArea) else fieldArea,
+          Divider(height: 1, color: scheme.outlineVariant),
+          _footer(context),
+        ],
       ),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (expands) Expanded(child: box) else box,
-        ListenableBuilder(
-          listenable: widget.controller,
-          builder: (context, _) {
-            final text = widget.controller.text;
-            final count = _counter.of(text);
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                metrics.rowPadding,
-                8,
-                metrics.rowPadding,
-                0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Semantics(
-                    liveRegion: true,
-                    label: l10n.profilesSoulCount(_announced),
-                    child: ExcludeSemantics(
-                      child: Text(
-                        l10n.profilesSoulCount(count),
-                        textAlign: TextAlign.end,
-                        style: TextStyle(
-                          fontSize: metrics.footerSize,
-                          color: colors.subtleText,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (text.isEmpty)
-                    SoulInfoLine(
-                      text: widget.fileExists
-                          ? l10n.profilesSoulEmptyFile
-                          : l10n.profilesSoulNotSet,
-                    ),
-                  if (count >= kSoulLongNoteLength)
-                    SoulInfoLine(text: l10n.profilesSoulLongNote),
-                ],
-              ),
-            );
-          },
-        ),
+        if (expands)
+          Expanded(
+            child: _IntrinsicHeight(
+              height: _minCardHeight(context),
+              child: card,
+            ),
+          )
+        else
+          card,
+        _notes(context),
       ],
     );
   }
+
+  /// What the card needs when it fills: [SoulEditor.fillMinLines] lines of
+  /// text at the user's size, the field's padding and the footer row.
+  double _minCardHeight(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
+    final line =
+        MediaQuery.textScalerOf(context).scale(metrics.titleSize) * 1.35;
+    final footer = math.max(
+      MediaQuery.textScalerOf(context).scale(metrics.footerSize) * 1.4 + 20,
+      widget.footerAction == null ? 0 : 52,
+    );
+    return line * SoulEditor.fillMinLines + 24 + 1 + footer;
+  }
+}
+
+/// Answers a parent's intrinsic-height question with [height] and lays its
+/// child out as usual. A field that fills has no height of its own (its text
+/// can be hundreds of thousands of characters long), but a page that scrolls
+/// when the space is short must know how much the field needs.
+class _IntrinsicHeight extends SingleChildRenderObjectWidget {
+  const _IntrinsicHeight({required this.height, required Widget child})
+    : super(child: child);
+
+  final double height;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderIntrinsicHeight(height);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderIntrinsicHeight renderObject,
+  ) {
+    renderObject.height = height;
+  }
+}
+
+class _RenderIntrinsicHeight extends RenderProxyBox {
+  _RenderIntrinsicHeight(this._height);
+
+  double _height;
+
+  set height(double value) {
+    if (_height == value) return;
+    _height = value;
+    markNeedsLayout();
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _height;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _height;
 }
 
 /// A muted sentence with an info icon, under the count: the icon and the
