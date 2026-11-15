@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -1359,23 +1360,31 @@ void main() {
       expect((await retry)['waiting'], 'working');
     });
 
-    test('gives up later while it waits', () async {
-      useHandler(
-        sendTimeout: const Duration(milliseconds: 20),
-        waitingTimeout: const Duration(seconds: 5),
-      );
-      final first = send();
-      await pumpEventQueue();
-      final turn = transport.sends.single
-        ..emit(const ThreadBound('new-1'))
-        ..emit(approval);
-      await first;
-      final retry = send();
+    test('gives up later while it waits', () {
+      // Virtual time: the handler's per-step timeouts and the delay must not
+      // race the machine, so a loaded runner cannot trip the 20 ms one early.
+      fakeAsync((async) {
+        useHandler(
+          sendTimeout: const Duration(milliseconds: 20),
+          waitingTimeout: const Duration(seconds: 5),
+        );
+        Map<String, Object?>? firstReply;
+        Map<String, Object?>? retryReply;
+        send().then((reply) => firstReply = reply);
+        async.flushMicrotasks();
+        final turn = transport.sends.single
+          ..emit(const ThreadBound('new-1'))
+          ..emit(approval);
+        async.flushMicrotasks();
+        expect(firstReply, isNotNull);
+        send().then((reply) => retryReply = reply);
 
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      turn.emit(const ReplyCompleted('Done.'));
+        async.elapse(const Duration(milliseconds: 60));
+        turn.emit(const ReplyCompleted('Done.'));
+        async.flushMicrotasks();
 
-      expect((await retry)['text'], 'Done.');
+        expect(retryReply?['text'], 'Done.');
+      });
     });
 
     test(
