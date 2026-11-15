@@ -155,6 +155,66 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
         ),
       ],
     ),
+    // The message of an alert is centred on Apple platforms and start-aligned
+    // on Material.
+    WidgetbookComponent(
+      name: 'AppAlertDialog',
+      useCases: [
+        ...onEachPlatform(
+          'Message',
+          (_) => frame(
+            AppAlertDialog(
+              title: const Text('Restart the gateway?'),
+              content: const Text(
+                'Running chats stop and reconnect. This can take a moment.',
+              ),
+              actions: [
+                AppDialogAction(onPressed: () {}, child: const Text('Cancel')),
+                AppDialogAction(
+                  isDefault: true,
+                  onPressed: () {},
+                  child: const Text('Restart'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Message and data block',
+          (_) => frame(
+            AppAlertDialog(
+              title: const Text('Install web-scraper?'),
+              // A data alert keeps all its content on the start edge, as the
+              // Kanban export alert and the skill install confirmation do.
+              content: DefaultTextStyle.merge(
+                textAlign: TextAlign.start,
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('The security scan asks for your confirmation.'),
+                    SizedBox(height: 12),
+                    Text('HIGH  Downloads and runs a remote script'),
+                    Text(
+                      'scripts/fetch.sh:12',
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                AppDialogAction(onPressed: () {}, child: const Text('Cancel')),
+                AppDialogAction(
+                  isDefault: true,
+                  onPressed: () {},
+                  child: const Text('Install anyway'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
     WidgetbookComponent(
       name: 'New profile',
       useCases: onEachPlatform(

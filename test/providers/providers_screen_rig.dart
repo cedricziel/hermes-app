@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/providers/providers_screen.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -35,6 +36,7 @@ class ProvidersRig {
     List<SingleChildWidget> providers = const [],
     bool pushed = false,
     Locale? locale,
+    MacCommandRegistry? commands,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -54,28 +56,31 @@ class ProvidersRig {
     final home = providers.isEmpty
         ? screen
         : MultiProvider(providers: providers, child: screen);
-    await tester.pumpWidget(
-      MaterialApp(
-        debugShowCheckedModeBanner: false,
-        locale: locale,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        theme: brightness == Brightness.dark
-            ? buildHermesDarkTheme(platform: platform)
-            : buildHermesLightTheme(platform: platform),
-        home: pushed
-            ? Builder(
-                builder: (context) => Scaffold(
-                  body: TextButton(
-                    onPressed: () => Navigator.of(context)
-                        .push(MaterialPageRoute<void>(builder: (_) => home)),
-                    child: const Text('open providers'),
-                  ),
+    Widget app = MaterialApp(
+      debugShowCheckedModeBanner: false,
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      theme: brightness == Brightness.dark
+          ? buildHermesDarkTheme(platform: platform)
+          : buildHermesLightTheme(platform: platform),
+      home: pushed
+          ? Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () =>
+                      Navigator.of(context)
+                          .push(MaterialPageRoute<void>(builder: (_) => home)),
+                  child: const Text('open providers'),
                 ),
-              )
-            : home,
-      ),
+              ),
+            )
+          : home,
     );
+    if (commands != null) {
+      app = MacCommandScope.root(registry: commands, child: app);
+    }
+    await tester.pumpWidget(app);
     if (pushed) {
       await tester.tap(find.text('open providers'));
     }

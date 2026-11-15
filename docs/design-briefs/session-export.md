@@ -116,7 +116,7 @@ Title and message from the table. Buttons: Close (default, `filledOnMaterial: fa
 
 ## Saved and cancelled
 
-- Saved: floating `SnackBar` "Chat saved", the app's usual duration, no action, no name, no path. On iOS it appears over the chat after the Files sheet closes; on a Mac after the panel closes.
+- Saved: floating `SnackBar` "Chat saved" (`SnackBarBehavior.floating`, 16 px inset, raised above the composer so it never covers the send button), the app's usual duration, no action, no name, no path. On iOS it appears over the chat after the Files sheet closes; on a Mac after the panel closes.
 - Cancelled sheet: nothing, not even a snack bar. The bytes are dropped.
 
 ## Menu rows
@@ -218,6 +218,7 @@ Only the rows above are brief copy. The canvas drafted the rest (progress messag
 1. **Deadline.** 30 s of silence stays as the stall deadline: no byte for 30 s is `lost`, a stall after bytes is `incomplete`, five minutes in total, plus the 10 s "Still waiting" line. No `receiveTimeoutExtra(5 min)`. The spec's Timeout scenario already says so.
 2. **Bytes counter.** The "Downloaded N MB" line stays (the `FileDownloadProgress` wording, fed by the progress callback of task 2.2).
 3. **Entry points.** No Export in the non-Mac sidebar row menu or the touch swipe sheet for now. The header menu is the entry off the Mac. It can be added later together with Copy transcript.
+4. **Stalled line.** "Still waiting for Hermes." stays as the whole line; the Cancel hint ("Tap Cancel to stop.") was dropped on purpose, so it fits one line in 270 pt and does not say "Tap" on desktop. The Cancel button is on screen anyway.
 
 ## Open questions for the owner
 
@@ -225,9 +226,8 @@ Only the rows above are brief copy. The canvas drafted the rest (progress messag
 2. **Share.** The save sheet is the only exit. If `share_plus` lands with Server files, "Share…" would be a second row; left out here.
 3. **Size.** No cap: the server streams without a limit and `MediaActions` saves from bytes in memory (`kMaxSaveBytes`, 32 MB, applies only to `saveFile`). Accepted risk: a very large export is held in memory; the 5-minute total bounds it in practice. Recommended over a "too large" state, which would need a `Content-Length` the server does not send. Revisit after the first real large export.
 4. **German copy.** Only the table's strings are brief copy; the rest of the German on the boards and in the ARB is a draft. Needs the owner's review (check "Sitzung", "Systemprompt" and "Export" against the glossary).
-5. **Stalled line.** "Still waiting for Hermes." drops the Cancel hint so it fits one line in 270 pt. Keep it, or prefer the hint ("Still waiting for Hermes. Tap Cancel to stop.", which wraps with an orphan on iPhone and says "Tap" on desktop)?
-6. **Failure button order on Apple.** Close (bold) left, Try again right side by side, and Close above Try again when stacked (the Cupertino alert stacks in list order, so the stacked order follows the list, not the HIG's preferred-action-last rule), is assumed. The HIG puts the preferred action on the right; Close is the default here only so Enter never retries. Confirm both the side-by-side and the stacked order.
-7. **Compressed chats.** The copy says "this session"; should the confirmation also say a continued chat's earlier part is not included? Not added: the app cannot tell in advance.
+5. **Failure button order on Apple.** Close (bold) left, Try again right side by side, and Close above Try again when stacked (the Cupertino alert stacks in list order, so the stacked order follows the list, not the HIG's preferred-action-last rule), is assumed. The HIG puts the preferred action on the right; Close is the default here only so Enter never retries. Confirm both the side-by-side and the stacked order.
+6. **Compressed chats.** The copy says "this session"; should the confirmation also say a continued chat's earlier part is not included? Not added: the app cannot tell in advance.
 
 ## Not verified
 

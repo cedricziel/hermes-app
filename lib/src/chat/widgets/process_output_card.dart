@@ -1,3 +1,5 @@
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -97,7 +99,9 @@ class ProcessOutputCard extends StatelessWidget {
       dense: true,
       title: info == null
           ? Text(
-              'Process ${process.processId} · ${process.closed ? 'Closed' : 'Output received'}',
+              wellFormedText(
+                'Process ${process.processId} · ${process.closed ? 'Closed' : 'Output received'}',
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             )
@@ -132,7 +136,7 @@ class ProcessOutputCard extends StatelessWidget {
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 180),
                     child: SingleChildScrollView(
-                      child: SelectableText(process.text),
+                      child: SelectableText(wellFormedText(process.text)),
                     ),
                   ),
                 if (process.omitted && !(info?.seeded ?? false))
@@ -193,7 +197,7 @@ class _Title extends StatelessWidget {
       children: [
         if (command != null && command.isNotEmpty)
           Text(
-            processCommandLine(command),
+            wellFormedText(processCommandLine(command)),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
@@ -202,7 +206,7 @@ class _Title extends StatelessWidget {
           children: [
             AgentStateGlyph(state: glyph, size: 16),
             const SizedBox(width: 8),
-            Expanded(child: Text(line)),
+            Expanded(child: Text(wellFormedText(line))),
           ],
         ),
       ],

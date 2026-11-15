@@ -10,9 +10,16 @@ import '../../../widgets/busy_bar.dart';
 /// It is not a Needs-you item and never marks the Activity button; it only
 /// says that something runs. Takes plain values only.
 class ActivityWorkingLine extends StatelessWidget {
-  const ActivityWorkingLine({super.key, required this.label});
+  const ActivityWorkingLine({
+    super.key,
+    required this.label,
+    this.horizontalPadding = 16,
+  });
 
   final String label;
+
+  /// Zero when the line sits in a list that already insets its content.
+  final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -20,7 +27,10 @@ class ActivityWorkingLine extends StatelessWidget {
     label: label,
     child: ExcludeSemantics(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: horizontalPadding,
+          vertical: 8,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

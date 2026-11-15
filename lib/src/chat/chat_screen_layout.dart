@@ -87,6 +87,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           avatarBuilder: (_) => _avatar(24),
           navigation: navigation,
           changeFolderFor: _changeFolderOffer,
+          exportJsonFor: _exportJsonOffer,
           onOpenInNewWindow: _windows == null
               ? null
               : (thread) => unawaited(_openInWindow(thread)),
@@ -211,6 +212,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                       onCopyTranscript: selected == null
                           ? null
                           : () => _copyTranscript(selected),
+                      exportJson: _exportJsonOffer(selected),
                       onShowFiles: showFiles,
                       folderButton: workspacesOffered(chat)
                           ? BoundFolderToolbarButton(
@@ -236,6 +238,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                     onNewChat: _newThread,
                     callButton: _callButton,
                     onShowFiles: showFiles,
+                    exportJson: _exportJsonOffer(selected),
                     folderLine: folderLine,
                     activityOpen: _activityOpen,
                     activityWaiting: _needsYou.count,
@@ -308,6 +311,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                         includeCopyTranscript: true,
                         onShowFiles: showFiles,
                         changeFolder: _changeFolderOffer(selected),
+                        exportJson: _exportJsonOffer(selected),
                       ),
                     if (selected != null)
                       ActivityButton(

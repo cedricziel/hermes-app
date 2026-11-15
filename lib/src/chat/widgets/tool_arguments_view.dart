@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../../theme/hermes_theme.dart';
 import 'tool_call_bodies.dart';
 
@@ -30,7 +31,7 @@ class ToolArgumentsView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  _label(entry.key),
+                  wellFormedText(_label(entry.key)),
                   style: TextStyle(
                     color: context.hermesColors.subtleText,
                     fontSize: 11.5,
@@ -53,11 +54,13 @@ class ToolArgumentsView extends StatelessWidget {
     ),
   );
 
-  static String _value(Object? value) => value is String
-      ? value.isEmpty
-            ? '""'
-            : value
-      : const JsonEncoder.withIndent('  ').convert(value);
+  static String _value(Object? value) => wellFormedText(
+    value is String
+        ? value.isEmpty
+              ? '""'
+              : value
+        : const JsonEncoder.withIndent('  ').convert(value),
+  );
 
   static String _label(String key) => switch (key) {
     'cwd' || 'workdir' => 'Working directory',
