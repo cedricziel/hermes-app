@@ -319,6 +319,46 @@ void main() {
     });
   });
 
+  group('no profile and searching', () {
+    testWidgets('no chat profile: no section, no curator request, no crash', (
+      tester,
+    ) async {
+      await pumpSkills(tester, chatProfile: null);
+
+      expect(title(), findsNothing);
+      expect(server.requestsTo('GET', _curatorPath), isEmpty);
+      expect(server.requestsTo('GET', _statusPath), isEmpty);
+      expect(server.requestsTo('GET', '/api/config'), isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a search that is active while the profile changes keeps the '
+        'section hidden, and clearing it shows the new profile', (
+      tester,
+    ) async {
+      await pumpSkills(tester);
+      await tester.enterText(find.byType(TextField), 'review');
+      await tester.pump();
+      expect(title(), findsNothing);
+
+      await tester.tap(find.text('default'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(CheckedPopupMenuItem<String>, 'work'),
+      );
+      await tester.pumpAndSettle();
+      expect(title(), findsNothing);
+      expect(
+        server.requestsTo('GET', _curatorPath).last.queryParameters['profile'],
+        'work',
+      );
+
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+      expect(title(), findsOneWidget);
+    });
+  });
+
   group('confirmed run', () {
     testWidgets('Run now opens the confirmation and sends nothing yet', (
       tester,
@@ -373,6 +413,64 @@ void main() {
 
       expect(confirmTitle(), findsNothing);
       expect(posts(), 0);
+    });
+
+    testWidgets('a config that lands while the sheet is open changes no words, '
+        'the next open uses it', (tester) async {
+      final gate = Completer<FakeResponse>();
+      server.onRequest('GET', '/api/config', (_) => gate.future);
+      await pumpSkills(tester);
+      final maybe = find.textContaining('May also merge and rewrite skills');
+      final sure = find.textContaining(RegExp('^Merge and rewrite skills'));
+
+      await tester.tap(runNow());
+      await tester.pumpAndSettle();
+      expect(maybe, findsOneWidget);
+
+      gate.complete((
+        status: 200,
+        body: {
+          'curator': {'consolidate': true, 'prune_builtins': false},
+        },
+      ));
+      await tester.pumpAndSettle();
+      expect(maybe, findsOneWidget);
+      expect(sure, findsNothing);
+
+      await tester.tap(cancelButton());
+      await tester.pumpAndSettle();
+      // The second read stays out: the words come from the first one.
+      server.onRequest(
+        'GET',
+        '/api/config',
+        (_) => Completer<FakeResponse>().future,
+      );
+      await tester.tap(runNow());
+      await tester.pumpAndSettle();
+      expect(sure, findsOneWidget);
+      expect(maybe, findsNothing);
+      expect(posts(), 0);
+    });
+
+    testWidgets('Run now pressed twice in one frame sends one POST', (
+      tester,
+    ) async {
+      final gate = Completer<FakeResponse>();
+      server.onRequest('POST', '/api/curator/run', (_) => gate.future);
+      await pumpSkills(tester);
+      await tester.tap(runNow());
+      await tester.pumpAndSettle();
+      await tester.tap(confirmRunButton());
+      await tester.tap(confirmRunButton(), warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(posts(), 1);
+      expect(confirmTitle(), findsNothing);
+      gate.complete((status: 200, body: recordedRunStarted));
+      await tester.pumpAndSettle();
+      await pumpPast(tester, const Duration(seconds: 6));
+      expect(posts(), 1);
     });
 
     testWidgets('Run now sends exactly one POST, follows it and reads the '

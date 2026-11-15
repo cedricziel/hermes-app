@@ -178,6 +178,7 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   CuratorRunPhase _phase = CuratorRunPhase.opening;
   CuratorNotStarted? _notStarted;
   CuratorConfig? _confirmation;
+  CuratorConfig? _lastConfig;
   bool _checking = false;
   bool _checkFailed = false;
   bool _own = false;
@@ -283,6 +284,7 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     _pause = CuratorPause.idle;
     _optimistic = null;
     _confirmation = null;
+    _lastConfig = null;
     _notStarted = null;
     _clearResult();
     start();
@@ -405,18 +407,21 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
-  /// Opens the run confirmation at once with the hedged wording; the config
-  /// read refines it when it lands and never delays it.
+  /// Opens the run confirmation at once, with the switches of the last config
+  /// read for this profile or the hedged wording when there is none; the read
+  /// started here never delays it and applies the next time the question is
+  /// opened (the sheet takes its wording once, when it opens).
   void beginRun() {
     if (!canRunNow) return;
-    _confirmation = const CuratorConfig();
+    _confirmation = _lastConfig ?? const CuratorConfig();
     final epoch = _epoch;
     final id = ++_confirmId;
     notifyListeners();
     unawaited(() async {
       final config = await readConfig(_profile);
       if (_gone(epoch) || id != _confirmId || _confirmation == null) return;
-      _confirmation = config ?? const CuratorConfig();
+      if (config != null) _lastConfig = config;
+      _confirmation = config ?? _lastConfig ?? const CuratorConfig();
       notifyListeners();
     }());
   }

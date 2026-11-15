@@ -17,7 +17,8 @@ import 'curator_section_adapter.dart';
 /// controller sends the POST once and never again. A sheet that goes away
 /// without an answer (the profile changed, App Lock covered the app, the
 /// screen was left) is a cancel too: the controller drops its question and
-/// the sheet closes itself.
+/// the sheet closes itself. The sheet takes its wording once, when it opens:
+/// a config read that lands while it is open applies the next time.
 ///
 /// [host] is read when the question is shown, from the root navigator so a
 /// phone shows the sheet over the whole screen.
@@ -58,9 +59,14 @@ class _CuratorRunSheetState extends State<_CuratorRunSheet> {
   var _decided = false;
   var _closing = false;
 
+  /// Taken once, when the sheet opens: a config read that lands while it is
+  /// open must not change the words under the user's eyes.
+  late final CuratorRunConfirmationModel _model;
+
   @override
   void initState() {
     super.initState();
+    _model = curatorConfirmationModel(widget.controller);
     widget.controller.addListener(_changed);
   }
 
@@ -79,15 +85,18 @@ class _CuratorRunSheetState extends State<_CuratorRunSheet> {
   void _close(bool? result) {
     if (_closing) return;
     _closing = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final route = ModalRoute.of(context);
-      if (route != null && route.isCurrent) {
-        Navigator.of(context).pop(result);
-      } else if (route != null && route.isActive) {
-        Navigator.of(context).removeRoute(route);
-      }
-    });
+    // Nothing is rebuilt here, so a frame is asked for to run the callback.
+    WidgetsBinding.instance
+      ..ensureVisualUpdate()
+      ..addPostFrameCallback((_) {
+        if (!mounted) return;
+        final route = ModalRoute.of(context);
+        if (route != null && route.isCurrent) {
+          Navigator.of(context).pop(result);
+        } else if (route != null && route.isActive) {
+          Navigator.of(context).removeRoute(route);
+        }
+      });
   }
 
   void _cancel() {
@@ -105,18 +114,12 @@ class _CuratorRunSheetState extends State<_CuratorRunSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final controller = widget.controller;
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) => CuratorRunConfirmation(
-        model: curatorConfirmationModel(controller),
-        onCancel: _cancel,
-        onRun: _run,
-        dialog:
-            Theme.of(context).platform == TargetPlatform.macOS ||
-            isWideLayout(context),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => CuratorRunConfirmation(
+    model: _model,
+    onCancel: _cancel,
+    onRun: _run,
+    dialog:
+        Theme.of(context).platform == TargetPlatform.macOS ||
+        isWideLayout(context),
+  );
 }
