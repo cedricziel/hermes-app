@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 import yaml
 
@@ -68,7 +69,11 @@ def resolve(expression, ctx):
 
 
 def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
-    """Runs every `run:` step of a job. Returns (job_ok, stdout, summary)."""
+    """Runs the steps of a job the way GitHub does. Returns (job_ok, stdout,
+    summary). A step runs when its `if:` (with the implicit success()) is true,
+    or, without an `if:`, while no earlier step failed. The job concludes
+    failure only when a step failed without `continue-on-error`; a skipped step
+    counts as success."""
     job = load_jobs()[job_id]
     if cache is not None:
         signature = (
@@ -77,10 +82,8 @@ def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
             ctx["event_name"],
             gh_fails,
             tuple(gh_labels),
-            tuple(
-                resolve(value, dict(ctx, step_outputs={}))
-                for step in job["steps"]
-                for value in (step.get("env") or {}).values()
+            json.dumps(
+                [ctx["needs_results"], ctx["needs_outputs"]], sort_keys=True
             ),
         )
         if signature in cache:
@@ -101,48 +104,63 @@ def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
         output_file.touch()
         summary_file.touch()
         ctx = dict(ctx, step_outputs={})
+        step_state = {}
         log = []
-        job_ok = True
+        failed = False
         for index, step in enumerate(job["steps"]):
-            if "run" not in step:
-                continue
-            # The simulation reuses a step's outputs when its inputs (event
-            # and label lookup) are the same; the step itself ran once for real.
-            cache_key = (job_id, step.get("id"), ctx["event_name"], gh_fails, tuple(gh_labels))
-            if cache is not None and step.get("id") and cache_key in cache:
-                ctx["step_outputs"][step["id"]] = cache[cache_key]
-                continue
-            env = dict(
-                os.environ,
-                PATH=f"{stub}{os.pathsep}{os.environ['PATH']}",
-                GITHUB_OUTPUT=str(output_file),
-                GITHUB_STEP_SUMMARY=str(summary_file),
+            if "if" in step:
+                wanted = step_expression(step["if"], ctx, step_state, failed).evaluate()
+            else:
+                wanted = not failed
+            outcome = "skipped"
+            outputs = {}
+            if wanted and "run" in step:
+                # The simulation reuses a step's result when its inputs (event
+                # and label lookup) are the same; it ran once for real.
+                cache_key = (job_id, index, ctx["event_name"], gh_fails, tuple(gh_labels))
+                if cache is not None and step.get("id") and cache_key in cache:
+                    outputs, returncode = cache[cache_key]
+                else:
+                    env = dict(
+                        os.environ,
+                        PATH=f"{stub}{os.pathsep}{os.environ['PATH']}",
+                        GITHUB_OUTPUT=str(output_file),
+                        GITHUB_STEP_SUMMARY=str(summary_file),
+                    )
+                    for key, value in (step.get("env") or {}).items():
+                        env[key] = resolve(value, ctx)
+                    script = work / f"step{index}.sh"
+                    script.write_text(step["run"])
+                    output_file.write_text("")
+                    result = subprocess.run(
+                        ["bash", "-e", str(script)],
+                        env=env,
+                        cwd=ROOT,
+                        capture_output=True,
+                        text=True,
+                    )
+                    log.append(result.stdout)
+                    returncode = result.returncode
+                    for line in output_file.read_text().splitlines():
+                        if "=" in line:
+                            key, value = line.split("=", 1)
+                            outputs[key] = value
+                    if cache is not None and step.get("id"):
+                        cache[cache_key] = (outputs, returncode)
+                outcome = "success" if returncode == 0 else "failure"
+            elif wanted:
+                outcome = "success"  # a `uses:` step: nothing to execute
+            conclusion = (
+                "success"
+                if outcome == "failure" and step.get("continue-on-error")
+                else outcome
             )
-            for key, value in (step.get("env") or {}).items():
-                env[key] = resolve(value, ctx)
-            script = work / f"step{index}.sh"
-            script.write_text(step["run"])
-            output_file.write_text("")
-            result = subprocess.run(
-                ["bash", "-e", str(script)],
-                env=env,
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-            )
-            log.append(result.stdout)
+            if outcome == "failure" and not step.get("continue-on-error"):
+                failed = True
             if step.get("id"):
-                outputs = {}
-                for line in output_file.read_text().splitlines():
-                    if "=" in line:
-                        key, value = line.split("=", 1)
-                        outputs[key] = value
                 ctx["step_outputs"][step["id"]] = outputs
-                if cache is not None:
-                    cache[cache_key] = outputs
-            if result.returncode != 0 and not step.get("continue-on-error"):
-                job_ok = False
-        outcome = (job_ok, "".join(log), summary_file.read_text())
+                step_state[step["id"]] = {"outcome": outcome, "conclusion": conclusion}
+        outcome = (not failed, "".join(log), summary_file.read_text())
         if cache is not None:
             cache[signature] = outcome
         return outcome
@@ -344,20 +362,49 @@ class LabelGate(unittest.TestCase):
 
 def logical_lines(script):
     """Joins backslash continuations, so a comment may end a command."""
-    return re.sub(r'\\\n', ' ', script).splitlines()
+    return re.sub(r"\\\n", " ", script).splitlines()
+
+
+def split_comment(line):
+    """Returns (code, comment): the comment is the trailing shell comment, a
+    `#` at a word start outside quotes. A `#` inside quotes is no comment."""
+    quote = None
+    escaped = False
+    for index, char in enumerate(line):
+        if escaped:
+            escaped = False
+        elif char == "\\" and quote != "'":
+            escaped = True
+        elif quote:
+            if char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char == "#" and (index == 0 or line[index - 1].isspace()):
+            return line[:index], line[index:]
+    return line, ""
+
+
+MARKER = re.compile(r"^#\s*process-substitution-ok:\s*\S")
+
+
+def unmarked_substitutions(script):
+    hits = []
+    for line in logical_lines(script):
+        code, comment = split_comment(line)
+        if re.search(r"[<>]\(", code) and not MARKER.match(comment):
+            hits.append(line.strip()[:120])
+    return hits
 
 
 def process_substitutions():
     hits = []
-    for path in sorted((ROOT / '.github' / 'workflows').glob('*.yml')):
+    for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
         data = yaml.safe_load(path.read_text())
-        for job_id, job in (data.get('jobs') or {}).items():
-            for step in job.get('steps') or []:
-                for line in logical_lines(step.get('run') or ''):
-                    if re.search(r'[<>]\(', line) and (
-                        '# process-substitution-ok:' not in line
-                    ):
-                        hits.append(f'{path.name} {job_id}: {line.strip()[:120]}')
+        for job_id, job in (data.get("jobs") or {}).items():
+            for step in job.get("steps") or []:
+                for line in unmarked_substitutions(step.get("run") or ""):
+                    hits.append(f"{path.name} {job_id}: {line}")
     return hits
 
 
@@ -365,18 +412,29 @@ class ProcessSubstitution(unittest.TestCase):
     def test_no_unmarked_process_substitution_in_workflow_scripts(self):
         # `set -o pipefail` does not cover <(...) or >(...): a failing command
         # inside exits 0 for the shell (shard 0 once passed without its files).
-        # Mark a reviewed one with `# process-substitution-ok: <reason>` on
-        # the same command.
+        # Mark a reviewed one with a trailing shell comment
+        # `# process-substitution-ok: <reason>` on the same command.
+        # scripts/*.sh is out of scope here.
         self.assertEqual(process_substitutions(), [])
 
-    def test_scanner_finds_an_unmarked_one(self):
-        self.assertTrue(
-            re.search(r'[<>]\(', 'diff <(a) <(b)')
-            and '# process-substitution-ok:' not in 'diff <(a) <(b)'
+    def test_trailing_comment_marks_a_reviewed_one(self):
+        script = "diff -q \\\n  <(a) \\\n  <(b); then # process-substitution-ok: x"
+        self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_marker_inside_quotes_does_not_count(self):
+        script = 'echo "# process-substitution-ok: x"; diff <(a) <(b)'
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_marker_must_carry_a_reason(self):
+        self.assertEqual(
+            len(unmarked_substitutions("diff <(a) <(b) # process-substitution-ok:")), 1
         )
-        joined = logical_lines('diff -q \\\n  <(a) \\\n  <(b); then # process-substitution-ok: x')
-        self.assertEqual(len(joined), 1)
-        self.assertIn('# process-substitution-ok:', joined[0])
+
+    def test_substitution_inside_the_comment_is_no_code(self):
+        self.assertEqual(unmarked_substitutions("echo hi # not <(real)"), [])
+
+    def test_output_substitution_is_found(self):
+        self.assertEqual(len(unmarked_substitutions("tee >(cat)")), 1)
 
 
 class BuildsAggregate(unittest.TestCase):
@@ -424,6 +482,147 @@ class BuildsAggregate(unittest.TestCase):
                     self.assertFalse(ok, out)
 
 
+# Step conditions are modelled; these are the aggregate jobs' own steps. A
+# step-level `if:` on an aggregate would let GitHub skip the check and report
+# success. Allowlist: (job, step name) -> reason. Keep it empty if possible.
+STEP_IF_ALLOWLIST = {}
+
+
+class StepSemantics(unittest.TestCase):
+    def test_no_aggregate_step_carries_an_if_unless_allowlisted(self):
+        for job_id in aggregate_jobs():
+            for step in load_jobs()[job_id]["steps"]:
+                if "if" in step:
+                    key = (job_id, step.get("name") or step.get("uses"))
+                    self.assertIn(
+                        key,
+                        STEP_IF_ALLOWLIST,
+                        f"{key} has if: {step['if']!r}; a skipped step reports "
+                        "success to the required check",
+                    )
+
+    def run_with_steps(self, steps, ctx_overrides=None):
+        """Runs a synthetic job through the real run_job semantics."""
+        jobs = dict(load_jobs())
+        jobs["synthetic"] = {"steps": steps}
+        ctx = {
+            "needs_results": {},
+            "needs_outputs": {},
+            "event_name": "push",
+            "base_ref": "",
+            "head_ref": "",
+        }
+        with mock.patch(f"{__name__}.load_jobs", lambda: jobs):
+            return run_job("synthetic", ctx)
+
+    def test_step_if_false_skips_the_step_and_the_job_succeeds(self):
+        ok, _, _ = self.run_with_steps([{"if": "false", "run": "exit 1"}])
+        self.assertTrue(ok)
+
+    def test_failed_step_skips_later_steps_without_always(self):
+        ok, out, _ = self.run_with_steps(
+            [{"run": "exit 1"}, {"run": "echo later"}]
+        )
+        self.assertFalse(ok)
+        self.assertNotIn("later", out)
+
+    def test_always_and_failure_run_after_a_failed_step(self):
+        for condition in ("always()", "failure()"):
+            with self.subTest(condition=condition):
+                ok, out, _ = self.run_with_steps(
+                    [{"run": "exit 1"}, {"if": condition, "run": "echo later"}]
+                )
+                self.assertFalse(ok)
+                self.assertIn("later", out)
+
+    def test_continue_on_error_keeps_the_job_green(self):
+        ok, out, _ = self.run_with_steps(
+            [
+                {"id": "a", "run": "exit 1", "continue-on-error": True},
+                {"run": "echo later"},
+            ]
+        )
+        self.assertTrue(ok)
+        self.assertIn("later", out)
+
+    def test_step_outcome_and_conclusion(self):
+        ok, out, _ = self.run_with_steps(
+            [
+                {"id": "a", "run": "exit 1", "continue-on-error": True},
+                {
+                    "if": "steps.a.outcome == 'failure' && steps.a.conclusion == 'success'",
+                    "run": "echo seen",
+                },
+            ]
+        )
+        self.assertTrue(ok)
+        self.assertIn("seen", out)
+
+    def test_step_if_reads_step_outputs(self):
+        ok, out, _ = self.run_with_steps(
+            [
+                {"id": "a", "run": 'echo full=false >> "$GITHUB_OUTPUT"'},
+                {"if": "steps.a.outputs.full != 'false'", "run": "echo ran"},
+            ]
+        )
+        self.assertTrue(ok)
+        self.assertNotIn("ran", out)
+
+    def test_if_without_status_function_gets_implicit_success(self):
+        ok, out, _ = self.run_with_steps(
+            [{"run": "exit 1"}, {"if": "true", "run": "echo later"}]
+        )
+        self.assertFalse(ok)
+        self.assertNotIn("later", out)
+
+
+class TruthinessAndOutputs(unittest.TestCase):
+    def test_only_empty_string_null_and_false_are_false(self):
+        for value, expected in (
+            ("", False),
+            (None, False),
+            (False, False),
+            ("false", True),
+            ("0", True),
+            ("x", True),
+            (True, True),
+        ):
+            with self.subTest(value=value):
+                self.assertEqual(_truthy(value), expected)
+
+    def test_a_false_string_stays_the_output(self):
+        self.assertEqual(
+            job_expression("'false' || 'true'", [], {}, {}, "push").value(), "false"
+        )
+
+    def changes_output(self, name, event, gate):
+        expression = load_jobs()["changes"]["outputs"][name]
+        return job_expression(
+            expression,
+            [],
+            {},
+            {},
+            event,
+            step_outputs={"gate": {"full": gate, "gate_reason": gate}},
+        ).value()
+
+    def test_changes_full_output_over_event_and_gate(self):
+        for gate, expected in (("true", "true"), ("false", "false"), ("", "true")):
+            with self.subTest(event="pull_request", gate=gate):
+                self.assertEqual(
+                    self.changes_output("full", "pull_request", gate), expected
+                )
+        for gate in ("true", "false", ""):
+            with self.subTest(event="push", gate=gate):
+                self.assertEqual(self.changes_output("full", "push", gate), "true")
+
+    def test_changes_gate_reason_is_never_empty(self):
+        for event in ("pull_request", "push"):
+            for gate in ("why", ""):
+                with self.subTest(event=event, gate=gate):
+                    self.assertTrue(self.changes_output("gate_reason", event, gate))
+
+
 # ---------------------------------------------------------------------------
 # Needs-graph simulation
 # ---------------------------------------------------------------------------
@@ -460,20 +659,24 @@ def _tokens(expression):
 
 
 def _truthy(value):
-    return bool(value) if isinstance(value, bool) else value not in ("", None, "0")
+    # GitHub: false, 0, null and the empty string are false; every other
+    # string, 'false' and '0' included, is true.
+    if isinstance(value, bool):
+        return value
+    return value not in ("", None)
 
 
 class Expression:
-    """The subset of GitHub's expression syntax the `if:` conditions use.
-    Anything else raises, so a new construct cannot slip past the simulation."""
+    """The subset of GitHub's expression syntax the `if:` conditions and
+    output expressions use. Anything else raises, so a new construct cannot
+    slip past the simulation. `lookup(path)` resolves a context path and
+    `status(name)` a status function."""
 
-    def __init__(self, source, needs, results, outputs, event_name):
+    def __init__(self, source, lookup, status):
         match = _EXPRESSION.match(str(source).strip())
         self.source = match.group(1) if match else str(source)
-        self.needs = needs
-        self.results = results
-        self.outputs = outputs
-        self.event_name = event_name
+        self.lookup = lookup
+        self.status = status
         self.tokens = _tokens(self.source)
         self.pos = 0
         self.has_status = any(
@@ -491,12 +694,18 @@ class Expression:
         self.pos += 1
         return token
 
-    def evaluate(self):
+    def value(self):
+        """The raw result (a string or a bool), as an output expression."""
+        self.pos = 0
         value = self.parse_or()
         if self.pos != len(self.tokens):
             self.fail(f"unexpected {self.peek()[1]!r}")
-        value = _truthy(value)
-        if not self.has_status:  # GitHub wraps it in success() &&
+        return value
+
+    def evaluate(self):
+        """An `if:` condition: truthiness, with GitHub's implicit success()."""
+        value = _truthy(self.value())
+        if not self.has_status:
             value = value and self.status("success")
         return value
 
@@ -540,32 +749,74 @@ class Expression:
         if kind == "str":
             return value
         if kind == "call":
+            if value not in _STATUS_FUNCTIONS:
+                self.fail(f"unsupported function {value}()")
             return self.status(value)
+        if kind == "name" and value in ("true", "false"):
+            return value == "true"
         if kind == "name":
-            return self.context(value)
+            try:
+                return self.lookup(value)
+            except KeyError:
+                self.fail(f"unsupported context {value}")
         self.fail(f"unexpected {value!r}")
 
-    def status(self, name):
-        results = [self.results[n] for n in self.needs]
+
+def job_expression(source, needs, results, outputs, event_name, step_outputs=None):
+    """An expression in a job's `if:` or `outputs:`."""
+
+    def lookup(path):
+        parts = path.split(".")
+        if parts[0] == "needs" and len(parts) == 3 and parts[2] == "result":
+            return results[parts[1]]
+        if parts[0] == "needs" and len(parts) == 4 and parts[2] == "outputs":
+            return outputs.get(parts[1], {}).get(parts[3], "")
+        if parts[0] == "steps" and len(parts) == 4 and parts[2] == "outputs":
+            return (step_outputs or {}).get(parts[1], {}).get(parts[3], "")
+        if path == "github.event_name":
+            return event_name
+        raise KeyError(path)
+
+    def status(name):
+        values = [results[n] for n in needs]
         if name == "always":
             return True
         if name == "success":
-            return all(r == "success" for r in results)
+            return all(r == "success" for r in values)
         if name == "failure":
-            return any(r == "failure" for r in results)
-        if name == "cancelled":
-            return False  # the simulated workflow run is not cancelled
-        self.fail(f"unsupported function {name}()")
+            return any(r == "failure" for r in values)
+        return False  # cancelled(): the simulated workflow run is not cancelled
 
-    def context(self, path):
+    return Expression(source, lookup, status)
+
+
+def step_expression(source, ctx, step_state, failed):
+    """An expression in a step's `if:`: the steps context and the job status."""
+
+    def lookup(path):
         parts = path.split(".")
+        if parts[0] == "steps" and len(parts) == 4 and parts[2] == "outputs":
+            return ctx["step_outputs"].get(parts[1], {}).get(parts[3], "")
+        if parts[0] == "steps" and len(parts) == 3 and parts[2] in ("outcome", "conclusion"):
+            return step_state[parts[1]][parts[2]]
         if parts[0] == "needs" and len(parts) == 3 and parts[2] == "result":
-            return self.results[parts[1]]
+            return ctx["needs_results"].get(parts[1], "")
         if parts[0] == "needs" and len(parts) == 4 and parts[2] == "outputs":
-            return self.outputs.get(parts[1], {}).get(parts[3], "")
+            return ctx["needs_outputs"].get(parts[1], {}).get(parts[3], "")
         if path == "github.event_name":
-            return self.event_name
-        self.fail(f"unsupported context {path}")
+            return ctx["event_name"]
+        raise KeyError(path)
+
+    def status(name):
+        if name == "always":
+            return True
+        if name == "success":
+            return not failed
+        if name == "failure":
+            return failed
+        return False
+
+    return Expression(source, lookup, status)
 
 
 # The policy mirrors CLAUDE.md's CI paragraph: a need may be skipped only when
@@ -625,7 +876,7 @@ class NeedsGraphSimulation(unittest.TestCase):
                 )
                 return results[name]
             if "if" in job:
-                runs = Expression(
+                runs = job_expression(
                     job["if"], needs, results, {"changes": outputs}, event
                 ).evaluate()
             else:
@@ -708,7 +959,7 @@ class NeedsGraphSimulation(unittest.TestCase):
         ):
             with self.subTest(source=source):
                 with self.assertRaises(UnsupportedExpression):
-                    Expression(source, [], {}, {}, "push").evaluate()
+                    job_expression(source, [], {}, {}, "push").evaluate()
 
     def test_expression_evaluator_semantics(self):
         outputs = {"changes": {"code": "true", "full": ""}}
@@ -723,14 +974,14 @@ class NeedsGraphSimulation(unittest.TestCase):
         }
         for source, expected in cases.items():
             with self.subTest(source=source):
-                value = Expression(
+                value = job_expression(
                     source, ["changes"], results, outputs, "pull_request"
                 ).evaluate()
                 self.assertEqual(value, expected)
         # Without a status function GitHub adds success(): a skipped need
         # skips the job.
         self.assertFalse(
-            Expression(
+            job_expression(
                 "needs.a.result == 'skipped'", ["a"], results, outputs, "push"
             ).evaluate()
         )

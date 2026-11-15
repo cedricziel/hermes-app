@@ -203,16 +203,24 @@ is classified as full but `ci.yml` does not trigger on it today.
 
 **Aggregate tests.** `scripts/test_ci_aggregates.py` (PyYAML is installed in
 the `Test scripts` step; a missing module fails the test) runs the real `run:`
-scripts of `Analyze & test` under `bash -e` for every outcome of its needs
-(success, failure, cancelled, skipped, empty), so the aggregate can be the only
-required test context. It also evaluates each job's `if:` over every
-combination of the Changes outputs (a small evaluator that fails on any syntax
-it does not know), runs the real aggregate with the resulting results, and
-asserts that a pass never hides a skip the outputs did not allow. The aggregate
-rejects a `code` or `watch` output that is not exactly `true` or `false`, so an
-empty output never reads as "not needed". Its `if:` must stay `always()`: a job
-skipped by its `if:` reports success to required checks. A process
-substitution (`<(...)`, `>(...)`) in a workflow `run:` script fails the test
-unless the command carries `# process-substitution-ok: <reason>`, because
-`pipefail` does not see a failure inside it. A `Builds` aggregate gets the same
-matrix when it exists.
+scripts of `Analyze & test` under `bash -e`, with the step conditions modelled
+too: a step's `if:` with the implicit `success()`, later steps skipped after a
+failure unless `always()` or `failure()`, `continue-on-error`, and the job
+failing only when a step failed without it. It does so for every outcome of the
+job's needs (success, failure, cancelled, skipped, empty), so the aggregate can
+be the only required test context. It also evaluates each job's `if:` over
+every combination of the Changes outputs (a small evaluator that fails on any
+syntax it does not know), runs the real aggregate with the resulting results,
+and asserts that a pass never hides a skip the outputs did not allow. Changes'
+`full` output expression is evaluated over event and gate output as well. The
+aggregate rejects a `code` or `watch` output that is not exactly `true` or
+`false`, so an empty output never reads as "not needed". Its `if:` must stay
+`always()`: a job skipped by its `if:` reports success to required checks, and
+for the same reason no step of an aggregate job may carry an `if:` (an
+allowlist in the test, empty today). A process substitution (`<(...)`,
+`>(...)`) in a workflow `run:` script fails the test unless the command ends in
+a trailing shell comment `# process-substitution-ok: <reason>` outside quotes,
+because `pipefail` does not see a failure inside it. `scripts/*.sh` is out of
+that test's scope; the `scripts/test-shard.sh` one (a failed `find` gives a
+smaller shard) is tracked in the roadmap's "Found along the way" table. A
+`Builds` aggregate gets the same matrix when it exists.
