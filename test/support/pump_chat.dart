@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/bot_screen/takeover_setting.dart';
 import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.dart'
@@ -47,6 +48,7 @@ final composerField = find.descendant(
 Future<void> pumpChatScreen(
   WidgetTester tester, {
   FakeHermesServer? server,
+  HermesApiClient? api,
   bool withProfiles = false,
   bool withSkills = false,
   HermesModelsRepository? models,
@@ -78,6 +80,8 @@ Future<void> pumpChatScreen(
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
+  // The chat's requests go through [api] when a test instruments its own.
+  final client = api ?? server?.client();
   final app = MultiProvider(
     providers: [
       ChangeNotifierProvider<AuthController>(create: (_) => AuthController()),
@@ -96,15 +100,9 @@ Future<void> pumpChatScreen(
         visible: visible,
         builder: (shown) => ChatScreen(
           visible: shown,
-          repository: server == null
-              ? null
-              : HermesChatRepository(server.client().raw),
-          profiles: withProfiles
-              ? HermesProfilesRepository(server!.client().raw)
-              : null,
-          skills: withSkills
-              ? HermesSkillsRepository(server!.client().raw)
-              : null,
+          repository: client == null ? null : HermesChatRepository(client.raw),
+          profiles: withProfiles ? HermesProfilesRepository(client!.raw) : null,
+          skills: withSkills ? HermesSkillsRepository(client!.raw) : null,
           models: models,
           providers: providersRepository,
           transport: transport,
