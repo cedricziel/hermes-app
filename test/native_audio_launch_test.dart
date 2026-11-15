@@ -65,86 +65,155 @@ String _blockAt(String source, int from) {
   fail('block at $from is not closed');
 }
 
-/// Bodies of `static func register(` and every `init(`.
-List<String> _launchBodies(String source, {bool register = true}) => [
-  if (register) _blockAt(source, source.indexOf('static func register(')),
-  for (final m in RegExp(r'\binit\(').allMatches(source))
-    _blockAt(source, m.start),
-];
+final _initPattern = RegExp(r'(?<![.\w])init[?!]?\s*\(');
 
-/// Function name -> the text of every body with that name.
-Map<String, String> _functions(String source) {
-  final functions = <String, String>{};
-  for (final m in RegExp(r'\bfunc\s+(\w+)').allMatches(source)) {
-    functions.update(
-      m.group(1)!,
-      (old) => '$old\n${_blockAt(source, m.end)}',
-      ifAbsent: () => _blockAt(source, m.end),
+/// What the launch path of one Swift file runs: the bodies of `register` and of
+/// every `init(`, the stored-property statements of its top-level types, and
+/// for each nested type (by name) its stored properties and `init` bodies, run
+/// only when something instantiates it.
+class _Launch {
+  final bodies = <String>[];
+  final members = <String>[];
+  final nested = <String, String>{};
+}
+
+/// Whole stored-property statements start at a line of a type body: any
+/// modifiers and attributes (with arguments), then `let` or `var`.
+final _memberHeader = RegExp(
+  r'[ \t]*((@?[\w.]+(\([^)\n]*\))?)[ \t]+)*(let|var)\s',
+);
+final _typeHeader = RegExp(r'\b(class|struct|enum|actor|extension)\s+(\w+)');
+
+_Launch _launch(String source, {bool register = true}) {
+  final launch = _Launch();
+  if (register) {
+    launch.bodies.add(
+      _blockAt(source, source.indexOf('static func register(')),
     );
   }
-  return functions;
-}
-
-/// Whether [text] names something forbidden, or calls a function of the same
-/// file that does, however deep.
-bool _builds(String text, Map<String, String> functions, [Set<String>? seen]) {
-  seen ??= {};
-  if (text.contains(_forbidden)) return true;
-  for (final entry in functions.entries) {
-    if (!RegExp('\\b${entry.key}\\s*\\(').hasMatch(text)) continue;
-    if (!seen.add(entry.key)) continue;
-    if (_builds(entry.value, functions, seen)) return true;
-  }
-  return false;
-}
-
-/// Whole stored-property statements declared directly in a type, parentheses
-/// and braces balanced, with any modifier; `lazy` and `static` ones run later.
-List<String> _members(String source) {
-  final members = <String>[];
-  final header = RegExp(
-    r'^[ \t]*((@\w+|public|private(\(set\))?|fileprivate|internal|open|final|'
-    r'lazy|static|class|weak|unowned|nonisolated)\s+)*(let|var)\s',
-    multiLine: true,
-  );
-  var depth = 0;
+  // Each entry is a block opened: a type name, or null for anything else.
+  final stack = <String?>[];
+  var boundary = 0;
   var i = 0;
   while (i < source.length) {
     final c = source[i];
-    if (depth == 1 && (i == 0 || source[i - 1] == '\n')) {
-      final m = header.matchAsPrefix(source, i);
-      if (m != null) {
+    final atLineStart = _startsStatement(source, i);
+    final inType = stack.isNotEmpty && stack.last != null;
+    if (inType && atLineStart) {
+      final header = _memberHeader.matchAsPrefix(source, i);
+      if (header != null) {
         var nest = 0;
         var j = i;
         for (; j < source.length; j++) {
-          if ('({['.contains(source[j])) nest++;
-          if (')}]'.contains(source[j])) nest--;
-          if (source[j] == '\n' && nest <= 0) break;
+          final ch = source[j];
+          if (nest == 0 && (ch == '}' || ch == ';')) break;
+          if ('({['.contains(ch)) nest++;
+          if (')}]'.contains(ch)) nest--;
+          if (ch == '\n' && nest <= 0) {
+            final soFar = source.substring(i, j).trimRight();
+            final next = source.substring(j).trimLeft();
+            final goesOn =
+                soFar.endsWith('=') ||
+                next.startsWith('{') ||
+                next.startsWith('.');
+            if (!goesOn) break;
+          }
         }
         final statement = source.substring(i, j);
-        if (!RegExp(r'\b(lazy|static)\b').hasMatch(m.group(0)!)) {
-          members.add(statement);
+        if (!RegExp(r'\b(lazy|static)\b').hasMatch(header.group(0)!)) {
+          _add(launch, stack, statement);
         }
         i = j;
         continue;
       }
     }
-    if (c == '{') depth++;
-    if (c == '}') depth--;
+    if (inType &&
+        _initPattern.matchAsPrefix(source, i) != null &&
+        !_isWord(source, i - 1)) {
+      _add(launch, stack, _blockAt(source, i));
+    }
+    if (c == '{') {
+      final segment = source.substring(boundary, i);
+      final type = segment.contains(RegExp(r'\bfunc\b'))
+          ? null
+          : _typeHeader.firstMatch(segment)?.group(2);
+      stack.add(type);
+      boundary = i + 1;
+    } else if (c == '}') {
+      if (stack.isNotEmpty) stack.removeLast();
+      boundary = i + 1;
+    } else if (c == ';') {
+      boundary = i + 1;
+    }
     i++;
   }
-  return members;
+  return launch;
+}
+
+/// Whether a statement may begin at [index]: after a line break, `{` or `;`.
+bool _startsStatement(String source, int index) {
+  var back = index - 1;
+  while (back >= 0 && (source[back] == ' ' || source[back] == '\t')) {
+    back--;
+  }
+  return back < 0 || '\n{;'.contains(source[back]);
+}
+
+bool _isWord(String s, int index) =>
+    index >= 0 && RegExp(r'[\w.]').hasMatch(s[index]);
+
+void _add(_Launch launch, List<String?> stack, String text) {
+  if (stack.length == 1) {
+    // A top-level type: built when the plugin is, and its init runs then too.
+    if (text.startsWith(RegExp(r'\s*\{'))) {
+      launch.bodies.add(text);
+    } else {
+      launch.members.add(text);
+    }
+  } else {
+    final name = stack.last!;
+    launch.nested.update(name, (old) => '$old\n$text', ifAbsent: () => text);
+  }
+}
+
+/// Function and stored-closure names -> their text, and nested type names ->
+/// their stored properties and initialisers: what a call by that name runs.
+Map<String, String> _callables(String source, _Launch launch) {
+  final callables = <String, String>{...launch.nested};
+  void add(String name, String text) =>
+      callables.update(name, (old) => '$old\n$text', ifAbsent: () => text);
+  for (final m in RegExp(r'\bfunc\s+(\w+)').allMatches(source)) {
+    add(m.group(1)!, _blockAt(source, m.end));
+  }
+  for (final member in launch.members) {
+    final name = RegExp(r'\b(?:let|var)\s+(\w+)').firstMatch(member)?.group(1);
+    if (name != null) add(name, member);
+  }
+  return callables;
+}
+
+/// Whether [text] names something forbidden, or calls (with parentheses or a
+/// trailing closure) something of the same file that does, however deep.
+bool _builds(String text, Map<String, String> callables, [Set<String>? seen]) {
+  seen ??= {};
+  if (text.contains(_forbidden)) return true;
+  for (final entry in callables.entries) {
+    if (!RegExp('(?<![.\\w])${entry.key}\\s*[({]').hasMatch(text) &&
+        !RegExp('\\.${entry.key}\\s*[({]').hasMatch(text)) {
+      continue;
+    }
+    if (!seen.add(entry.key)) continue;
+    if (_builds(entry.value, callables, seen)) return true;
+  }
+  return false;
 }
 
 void _expectSilentAtLaunch(String source, {bool register = true}) {
-  final functions = _functions(source);
-  final bodies = _launchBodies(source, register: register);
-  if (register) expect(bodies, isNotEmpty);
-  for (final body in bodies) {
-    expect(_builds(body, functions), isFalse, reason: body);
-  }
-  for (final member in _members(source)) {
-    expect(_builds(member, functions), isFalse, reason: member);
+  final launch = _launch(source, register: register);
+  final callables = _callables(source, launch);
+  if (register) expect(launch.bodies, isNotEmpty);
+  for (final text in [...launch.bodies, ...launch.members]) {
+    expect(_builds(text, callables), isFalse, reason: text);
   }
 }
 
@@ -156,16 +225,18 @@ void main() {
   test('call audio wires its engine only when started', () {
     final source = _clean(File(_callAudio).readAsStringSync());
 
-    expect(_launchBodies(source, register: false), isEmpty);
-    expect(source, isNot(contains(RegExp(r'\binit\('))));
+    final launch = _launch(source, register: false);
+    expect(launch.bodies, isEmpty);
+    expect(source, isNot(contains(_initPattern)));
     expect(
       _blockAt(source, source.indexOf('func start(')),
       contains('mainMixerNode'),
     );
-    for (final member in _members(source)) {
+    final callables = _callables(source, launch);
+    for (final member in launch.members) {
       expect(
-        member.replaceAll('AVAudioEngine()', ''),
-        isNot(contains(_forbidden)),
+        _builds(member.replaceAll('AVAudioEngine()', ''), callables),
+        isFalse,
         reason: member,
       );
     }
@@ -175,35 +246,59 @@ void main() {
     _expectSilentAtLaunch(_clean(File(_speech).readAsStringSync()));
   });
 
-  test('the guard sees what it claims to', () {
-    final source = _clean('''
-final class A {
-  public let eager = CXCallController()
-  private var audio: CallAudio? = {
-    let built = CallAudio()
-    return built
-  }()
-  private(set) var other = CXProvider(configuration: c)
-  lazy var later = CXProvider(configuration: c)
-  static let shared = CallAudio()
-  var plain = 0
-  init() { prepare() }
-  func prepare() { warm() }
-  func warm() { _ = engine.inputNode }
-}''');
+  group('the guard sees what it claims to', () {
+    bool flags(String type) {
+      final source = _clean('final class A {\n$type\n}');
+      final launch = _launch(source, register: false);
+      final callables = _callables(source, launch);
+      return [
+        ...launch.bodies,
+        ...launch.members,
+      ].any((text) => _builds(text, callables));
+    }
 
-    expect(_members(source), hasLength(4));
-    expect(
-      _members(source).where((m) => _builds(m, _functions(source))),
-      hasLength(3),
-    );
-    expect(
-      _builds(
-        _launchBodies(source, register: false).single,
-        _functions(source),
-      ),
-      isTrue,
-    );
+    final bypasses = {
+      'a multi-line closure initialiser':
+          'private var a: CallAudio? = {\n let b = CallAudio()\n return b\n}()',
+      'a value on the line after the equals sign':
+          'let eng =\n  AVAudioEngine()',
+      'a closure on the line after the equals sign, run in init':
+          'let warm: () -> Void =\n  { _ = CallAudio() }\ninit() { warm() }',
+      'a public let': 'public let c = CXCallController()',
+      'private(set)': 'private(set) var p = CXProvider(configuration: c)',
+      'fileprivate(set)':
+          'fileprivate(set) var p = CXProvider(configuration: c)',
+      'nonisolated(unsafe)':
+          'nonisolated(unsafe) var p = CXProvider(configuration: c)',
+      '@objc dynamic': '@objc dynamic var p = CXProvider(configuration: c)',
+      'an attribute with arguments':
+          '@available(iOS 17, *) var p = CXProvider(configuration: c)',
+      'a helper reached from init': 'init() { prepare() }\nfunc prepare() { warm() }\nfunc warm() { _ = engine.inputNode }',
+      'init with a space': 'init () { _ = CallAudio() }',
+      'a failable init': 'init?() { _ = CallAudio() }',
+      'a trailing closure call':
+          'init() { warm { } }\nfunc warm(_ f: () -> Void) { _ = CallAudio() }',
+      'a nested type built in init':
+          'struct W { let engine = AVAudioEngine() }\ninit() { _ = W() }',
+      'a nested type init built in init':
+          'struct W { init() { _ = CallAudio() } }\ninit() { _ = W() }',
+      'a free function in a property': 'private let wired = wireGraph()\nfunc wireGraph() { _ = engine.mainMixerNode }',
+    };
+    for (final entry in bypasses.entries) {
+      test('flags ${entry.key}', () => expect(flags(entry.value), isTrue));
+    }
+
+    final fine = {
+      'lazy': 'lazy var later = CXProvider(configuration: c)',
+      'static': 'static let shared = CallAudio()',
+      'plain members': 'var plain = 0\nprivate let tag = "init( CallAudio()"',
+      'a nested type nobody builds':
+          'struct W { let engine = AVAudioEngine() }\ninit() { }',
+      'a function nobody calls': 'init() { }\nfunc later() { _ = CallAudio() }',
+    };
+    for (final entry in fine.entries) {
+      test('lets ${entry.key} pass', () => expect(flags(entry.value), isFalse));
+    }
   });
 
   test('the app delegates set no audio session', () {

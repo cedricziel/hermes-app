@@ -153,11 +153,11 @@ void main() {
           final call = Object();
           await owned.acquire('play', voicePlaybackSession);
           await VoiceAudioFocus.shared.acquire(call);
+          addTearDown(() => VoiceAudioFocus.shared.release(call));
           await owned.release('play');
           await Future<void>.delayed(const Duration(milliseconds: 150));
 
           expect(port.calls.where((c) => c == _deactivate), isEmpty);
-          VoiceAudioFocus.shared.release(call);
         },
       );
     }
@@ -177,6 +177,40 @@ void main() {
           port.lastDeactivation,
           AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
         );
+      },
+    );
+
+    test('a call failing within the grace deactivates once', () async {
+      final graceful = VoiceAudioSession(
+        port: port,
+        deactivationDelay: const Duration(milliseconds: 80),
+      );
+      addTearDown(graceful.dispose);
+      final call = Object();
+      await graceful.acquire('play', voicePlaybackSession);
+      await graceful.release('play');
+      await VoiceAudioFocus.shared.acquire(call);
+      addTearDown(() => VoiceAudioFocus.shared.release(call));
+      VoiceAudioFocus.shared.release(call);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      expect(port.calls.where((c) => c == _deactivate), hasLength(1));
+    });
+
+    test(
+      'a call retaking the focus before the deactivation runs wins',
+      () async {
+        final call = Object();
+        await session.acquire('play', voicePlaybackSession);
+        await VoiceAudioFocus.shared.acquire(call);
+        await session.forget('play');
+        addTearDown(() => VoiceAudioFocus.shared.release(call));
+        VoiceAudioFocus.shared.release(call);
+        // The listener queued its work; a new call takes the focus before it runs.
+        await VoiceAudioFocus.shared.acquire(call);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(port.calls.where((c) => c == _deactivate), isEmpty);
       },
     );
 

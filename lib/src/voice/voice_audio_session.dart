@@ -135,8 +135,9 @@ class VoiceAudioSession {
     _pending = Timer(deactivationDelay, () => unawaited(_serial(_settle)));
   });
 
-  /// Drops [owner] without deactivating: a call has taken the session, and its
-  /// own end tells the other apps.
+  /// Drops [owner] without deactivating: a call has taken the session. When the
+  /// call's focus is released with nobody holding the session, it is
+  /// deactivated then (a recording that took it meanwhile keeps it).
   Future<void> forget(Object owner) => _serial(() async {
     _owners.remove(owner);
   });
@@ -148,7 +149,11 @@ class VoiceAudioSession {
     if (VoiceAudioFocus.shared.inCall) return;
     unawaited(
       _serial(() async {
-        if (_owners.isEmpty && _active) await _deactivate();
+        if (_owners.isEmpty && _active && !VoiceAudioFocus.shared.inCall) {
+          _pending?.cancel();
+          _pending = null;
+          await _deactivate();
+        }
       }),
     );
   }
