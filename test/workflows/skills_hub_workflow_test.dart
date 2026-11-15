@@ -136,6 +136,19 @@ void main() {
             source: 'clawhub',
             description: 'Fetch pages',
           ),
+          hubSkillRow(
+            name: 'page-outline',
+            identifier: 'official/web/page-outline',
+            source: 'official',
+            trustLevel: 'builtin',
+            description: 'Outline a page before reading it',
+          ),
+          hubSkillRow(
+            name: 'tide-tables',
+            identifier: 'github/tide-tables',
+            trustLevel: 'trusted',
+            description: 'Look up tide times for a harbour',
+          ),
         ],
         'timed_out': ['skills-sh', 'clawhub'],
         'installed': {
@@ -422,6 +435,18 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
       await back(tester);
+
+      // The trust badge on the skill's page: Official and Trusted (the
+      // scraper above is Community).
+      for (final (identifier, shot) in [
+        ('official/web/page-outline', 'trust-official'),
+        ('github/tide-tables', 'trust-trusted'),
+      ]) {
+        await tester.tap(find.byKey(ValueKey('hub-$identifier')));
+        await tester.pumpAndSettle();
+        await shots.capture(tester, shot);
+        await back(tester);
+      }
 
       // Already installed: the result opens the installed skill instead.
       await tester.tap(find.byKey(const ValueKey('hub-github/compose')));
