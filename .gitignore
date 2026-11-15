@@ -68,3 +68,6 @@ design/web/dist/
 
 # gen-l10n output, rebuilt by `flutter pub get` from lib/l10n/arb (l10n.yaml)
 /lib/l10n/generated/
+
+# temp files of the source-guard baseline rewrite
+/test/architecture/baseline/*.tmp*
