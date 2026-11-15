@@ -19,11 +19,11 @@
 Merged to main in three PRs: #712 (`feat(watch): add scoped request review models`), #713 (`feat(watch): add transient structured request helper`) and #714 (`feat(watch): answer approvals and questions inline`). They implement scoped request details, lock gating, complete command confirmation, Deny, expiry, and uncertain acknowledgement. Thirty-four focused inline headless tests passed when the stack was written.
 
 Checked implementation tasks describe source and authored regression coverage. They do not
-mean that a native acceptance check has passed. Combined
-verification tasks remain open until their specified evidence is available. Tasks 1.1 (native fixtures), 2.2 (accessibility on device) and 3.3 (device and
-native verification) stay open. Native visual,
-VoiceOver, gesture, microphone, and paired lifecycle checks have not run. The user excluded
-watch simulators, and local native builds remain paused to limit host load.
+mean that a native acceptance check has passed. Combined verification tasks remain open
+until their specified evidence is available. Tasks 1.1 (native fixtures), 2.2 (accessibility
+on device) and 3.3 (device and native verification) stay open. Native visual, VoiceOver,
+gesture, microphone, and paired lifecycle checks have not run. The user excluded watch
+simulators, and local native builds remain paused to limit host load.
 
 The shared watch verification procedure now documents this change's portable
 regressions and native acceptance cases. The existing `.claude` procedure links
