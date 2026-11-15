@@ -1,0 +1,11 @@
+# Exceptions for tool/style_score.dart. Every entry needs a reason.
+#
+#   - path: lib/src/app.dart          # as the tool prints it
+#     category: d.string              # one of the scored or informational categories
+#     match: "title: 'Hermes'"        # optional: part of the printed snippet
+#     line: 176                       # optional: prefer match, lines move
+#     count: 1                        # optional: hits this entry silences (default 1)
+#     reason: The product name is not translated.
+#
+# An entry that matches fewer hits than its count is reported as unused.
+allow: []

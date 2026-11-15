@@ -7,6 +7,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'tap_targets.dart';
+
 /// Where workflow tests write their screenshots. Override with
 /// `WORKFLOW_SHOTS_DIR` to collect them somewhere else (CI uploads this).
 final _shotsRoot =
@@ -183,5 +185,10 @@ class ScreenshotRecorder {
       await file.parent.create(recursive: true);
       await file.writeAsBytes(png);
     });
+    // Measuring only: HERMES_TAP_REPORT=1 also records the screen's tap
+    // targets for test/tap_targets/ (see the hill-climb-style skill).
+    if (tapReportEnabled) {
+      await recordWorkflowScreen(tester, flow, '$step-$name');
+    }
   }
 }

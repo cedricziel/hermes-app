@@ -1,0 +1,54 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../support/tap_targets.dart';
+
+TapTarget target(String label, double w, double h, {bool labeled = true}) =>
+    TapTarget(label: label, width: w, height: h, labeled: labeled);
+
+void main() {
+  test('a screen seen in both themes counts once', () {
+    final report = TapReport([
+      TapSample('chat-phone/01-x', 'android', [target('Copy', 40, 40)]),
+      TapSample('chat-phone-dark/01-x', 'android', [target('Copy', 40, 40)]),
+    ]);
+    expect(report.violations('android'), hasLength(1));
+    expect(report.rawViolations('android'), hasLength(2));
+  });
+
+  test('each platform judges by its own minimum', () {
+    final report = TapReport([
+      TapSample('a', 'android', [target('x', 46, 46)]),
+      TapSample('a', 'ios', [target('x', 46, 46)]),
+      TapSample('a', 'macos', [target('x', 24, 24), target('y', 44, 44)]),
+    ]);
+    expect(report.violations('android'), hasLength(1));
+    expect(report.violations('ios'), isEmpty);
+    expect(report.violations('macos'), hasLength(1));
+    expect(report.inflated(), hasLength(1));
+  });
+
+  test('unlabeled targets count, skipped screens do not', () {
+    final report = TapReport([
+      TapSample('a', 'android', [target('(no label)', 50, 50, labeled: false)]),
+      TapSample('b', 'skip', [
+        target('(no label)', 5, 5, labeled: false),
+      ], 'linux'),
+    ]);
+    expect(report.unlabeled(), hasLength(1));
+    expect(report.skippedByPlatform, {'linux': 1});
+  });
+
+  test('a workflow screen is judged by what it rendered as, or by macOS', () {
+    expect(judgedPlatform(TargetPlatform.android, 390), 'android');
+    expect(judgedPlatform(TargetPlatform.iOS, 390), 'ios');
+    expect(judgedPlatform(TargetPlatform.android, 1280), 'macos');
+    expect(judgedPlatform(TargetPlatform.macOS, 1280), 'macos');
+    expect(judgedPlatform(TargetPlatform.macOS, 390), 'skip');
+  });
+
+  test('theme suffix is stripped from the flow only', () {
+    expect(stripTheme('chat-phone-dark/01-x'), 'chat-phone/01-x');
+    expect(stripTheme('chat-phone/01-dark-mode'), 'chat-phone/01-dark-mode');
+  });
+}
