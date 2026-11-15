@@ -14,11 +14,11 @@ the code.
 Work in this order. First read the diff (`git diff <base>...<head>`,
 `git log`). Second, try to break the change: revert each fix and run the tests
 that should catch it; inject the fault the change guards against; render the
-worst case (3x text scale, dark, phone width). Third, reproduce the PR's
-`## Proof` section (the mutation, the screenshots, the verify run). Read the PR
-description last (`pull_request_read`), only to find `## Proof`, and then
-review the diff against the rules below. You do not commit, push, merge or comment on
-GitHub. You may edit files locally only to revert a fix for a test run, and you
+worst case (3x text scale, dark, phone width). Third, read the PR
+description (`pull_request_read`) only for its `## Proof` section and
+reproduce it (the mutation, the screenshots, the verify run). Fourth, review
+the diff against the rules below, and read the rest of the description last.
+You do not commit, push, merge or comment on GitHub. You may edit files locally only to revert a fix for a test run, and you
 must restore every file (`git checkout -- <file>`) afterwards. Never use
 `git stash`. Record the full head SHA you reviewed (`git rev-parse` of the PR
 head).

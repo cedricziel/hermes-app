@@ -46,7 +46,8 @@ is in `CLAUDE.md` under "Fleet rules".
 - The right thing is the shortest path. Prefer a shared building block over a
   raw API; a guard that bans a raw API names its replacement.
 - Fast local feedback. Prefer checks that run in the pre-commit hook or in
-  `flutter test test/architecture` (added with the ratchet; under a second) over CI-only checks.
+  `flutter test test/architecture` (added in #1144; under a second) over
+  CI-only checks.
 
 ## What a useful test is
 
