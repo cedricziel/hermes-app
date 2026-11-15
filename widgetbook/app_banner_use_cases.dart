@@ -69,6 +69,64 @@ WidgetbookFolder appBannerNode() => WidgetbookFolder(
             ),
           ),
         ),
+        WidgetbookUseCase(
+          name: 'Largest text (3x), long title, stacked action',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              AppBanner(
+                tone: AppBannerTone.warning,
+                title: "Couldn't confirm the save",
+                detail: 'It may have gone through. Your text is still here.',
+                action: TextButton(
+                  onPressed: () {},
+                  child: const Text('Check'),
+                ),
+              ),
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'German, stacked action',
+          builder: (context) => Localizations.override(
+            context: context,
+            locale: const Locale('de'),
+            child: frame(
+              AppBanner(
+                tone: AppBannerTone.warning,
+                title: 'Die Speicherung konnte nicht bestätigt werden',
+                detail:
+                    'Sie ist möglicherweise durchgegangen. Ihr Text ist noch '
+                    'hier.',
+                action: TextButton(
+                  onPressed: () {},
+                  child: const Text('Erneut prüfen'),
+                ),
+              ),
+            ),
+          ),
+        ),
+        // The outline shows the action's own box: 44 pt, 48 dp, 28 pt.
+        ...onEachPlatform(
+          'Action target',
+          (_) => frame(
+            AppBanner(
+              tone: AppBannerTone.error,
+              title: "Couldn't save",
+              detail: 'Nothing was changed on the server.',
+              action: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.pinkAccent),
+                ),
+                child: TextButton(
+                  onPressed: () {},
+                  child: const Text('Try again'),
+                ),
+              ),
+            ),
+          ),
+        ),
         _case(
           'Custom icon',
           () => const AppBanner(

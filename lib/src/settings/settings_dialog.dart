@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -13,8 +14,10 @@ import '../quick_panel/global_shortcut.dart';
 import '../quick_panel/widgets/quick_panel_shortcut_row.dart';
 import '../spotlight/spotlight_dialog.dart';
 import '../spotlight/spotlight_settings.dart';
+import '../voice/calls/portable_call_settings.dart';
 import '../voice/dictation_dialog.dart';
 import '../voice/dictation_settings.dart';
+import '../voice/portable_calls_dialog.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
 import 'about_dialog.dart';
@@ -25,6 +28,7 @@ enum _Setting {
   appearance,
   notifications,
   dictation,
+  voiceCalls,
   spotlight,
   appLock,
   about,
@@ -34,6 +38,7 @@ enum _Setting {
     appearance => l10n.settingsAppearanceTitle,
     notifications => l10n.settingsNotifications,
     dictation => l10n.settingsDictation,
+    voiceCalls => l10n.settingsVoiceCalls,
     spotlight => l10n.settingsSpotlight,
     appLock => l10n.settingsAppLock,
     about => l10n.settingsAboutHermes,
@@ -62,6 +67,10 @@ Future<void> showSettingsDialog(BuildContext context) async {
         DictationEngine.device => l10n.settingsDictationEngineDevice,
       },
     ),
+    _Setting.voiceCalls: _read<PortableCallSettings>(
+      context,
+      (settings) => onOff(settings.enabled),
+    ),
     _Setting.spotlight: _read<SpotlightSettings>(
       context,
       (settings) => onOff(settings.enabled),
@@ -76,6 +85,7 @@ Future<void> showSettingsDialog(BuildContext context) async {
   final menuBar = MenuBarExtraSettings.offered
       ? _maybeRead<MenuBarExtraSettings>(context)
       : null;
+  final callSettings = _maybeRead<PortableCallSettings>(context);
   final picked = await showDialog<_Setting>(
     context: context,
     builder: (context) {
@@ -94,6 +104,9 @@ Future<void> showSettingsDialog(BuildContext context) async {
               row(_Setting.appearance),
               row(_Setting.notifications),
               if (DictationSettings.offered) row(_Setting.dictation),
+              if (PortableCallSettings.offeredOn(defaultTargetPlatform) &&
+                  callSettings != null)
+                row(_Setting.voiceCalls),
               if (shortcut != null) QuickPanelShortcutRow(shortcut: shortcut),
               if (SpotlightSettings.offered) row(_Setting.spotlight),
               row(_Setting.appLock),
@@ -122,6 +135,8 @@ Future<void> showSettingsDialog(BuildContext context) async {
       await showNotificationsDialog(context);
     case _Setting.dictation:
       await showDictationDialog(context);
+    case _Setting.voiceCalls:
+      await showPortableCallsDialog(context);
     case _Setting.spotlight:
       await showSpotlightDialog(context);
     case _Setting.appLock:

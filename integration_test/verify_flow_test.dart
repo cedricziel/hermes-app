@@ -134,11 +134,23 @@ void main() {
     await shot(tester, '03-reply');
     expect(find.textContaining(_reply, findRichText: true), findsWidgets);
 
-    // 4. The voice call: the header offers it on Linux (the portable bridge),
-    // it opens as a dialog over the chat, runs its readiness checks against
-    // the real backend, and Escape closes it. Nothing is started: the
-    // container has no audio device, and a call needs the consent switch.
+    // 4. The voice call. Off by default on Linux (the portable bridge), so the
+    // header offers none; the account menu's Voice calls switch turns it on,
+    // then the header offers it, it opens as a dialog over the chat, runs its
+    // readiness checks against the real backend, and Escape closes it.
+    // Nothing is started: the container has no audio device, and a call needs
+    // the consent switch.
     final call = find.byKey(const Key('header-voice-call'));
+    expect(call, findsNothing, reason: 'calls are off until the user says so');
+    final l10n = lookupAppLocalizations(const Locale('en'));
+    await tester.tap(find.byTooltip('Account'));
+    await settle(tester);
+    await tester.tap(find.text(l10n.settingsVoiceCalls));
+    await settle(tester);
+    await tester.tap(find.byType(Switch));
+    await settle(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
     await waitFor(
       tester,
       call,
@@ -163,7 +175,6 @@ void main() {
     // dashboard. Which headline shows depends on the backend's gateway and
     // disk, so only the card, the gateway row and the absence of a failure are
     // asserted.
-    final l10n = lookupAppLocalizations(const Locale('en'));
     await tester.tap(find.byTooltip('Account'));
     await settle(tester);
     final serverItem = find.byType(ServerMenuItemLabel);

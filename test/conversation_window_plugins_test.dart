@@ -42,6 +42,9 @@ const _mainEngineOnly = {
   'FPPPackageInfoPlusPlugin',
   'FlutterMultiWindowPlugin',
   'RecordDarwinPlugin',
+  // Call audio (flutter_soloud) starts only in the main window's voice call;
+  // a conversation window offers no call.
+  'FlutterSoloudPlugin',
   // Background tasks belong to the main engine; a window schedules none.
   'WorkmanagerPlugin',
 };

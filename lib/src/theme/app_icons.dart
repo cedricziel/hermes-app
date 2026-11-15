@@ -228,6 +228,10 @@ abstract final class AppIcons {
     Icons.bookmark_added_outlined,
     CupertinoIcons.bookmark,
   );
+  static const personality = AppIconSet(
+    Icons.face_outlined,
+    CupertinoIcons.person_crop_circle,
+  );
   static const idea = AppIconSet(
     Icons.lightbulb_outline,
     CupertinoIcons.lightbulb,
@@ -527,6 +531,7 @@ abstract final class AppIcons {
     'sendArrow': sendArrow,
     'reasoning': reasoning,
     'memory': memory,
+    'personality': personality,
     'idea': idea,
     'resume': resume,
     'play': play,

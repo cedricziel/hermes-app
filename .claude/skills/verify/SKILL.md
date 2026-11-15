@@ -72,7 +72,9 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    password per run) and a scripted model (`scripts/verify_scripted_model.py`,
    fixed reply, no key). The app signs in through its real RFC 8252 loopback
    - PKCE flow: `scripts/verify_browser.py`, registered as the http handler,
-     plays the browser. Then it sends a prompt and waits for the reply, opens
+     plays the browser. Then it sends a prompt and waits for the reply, checks
+     the header offers no call (calls are off by default off iOS), turns on
+     Voice calls through the account menu's switch, opens
      the voice call from the header (a dialog over the chat on Linux, with its
      readiness checks run against the backend; nothing is started, the
      container has no audio device) and closes it with Escape, and opens the
