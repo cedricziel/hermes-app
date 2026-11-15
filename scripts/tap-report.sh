@@ -9,6 +9,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export HERMES_TAP_REPORT=1
+if [ "${KEEP_WORKFLOWS:-0}" = 1 ] && [ "${WORKFLOWS:-1}" != 0 ]; then
+  echo "KEEP_WORKFLOWS=1 needs WORKFLOWS=0: rerunning the workflows would append to the kept data and count every screen twice." >&2
+  exit 2
+fi
 if [ "${KEEP_WORKFLOWS:-0}" = 1 ]; then
   # Keep the workflow screens of an earlier run, drop the rest.
   find build/tap_targets -mindepth 1 -maxdepth 1 ! -name workflows -exec rm -rf {} + 2>/dev/null || true

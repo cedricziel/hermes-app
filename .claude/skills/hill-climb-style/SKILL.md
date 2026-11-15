@@ -90,7 +90,7 @@ it. Prefer fixing the code to adding an entry.
 ```bash
 scripts/tap-report.sh              # workflow screens, then the Widgetbook catalog
 WORKFLOWS=0 scripts/tap-report.sh  # catalog only (deletes build/tap_targets first)
-WORKFLOWS=0 KEEP_WORKFLOWS=1 scripts/tap-report.sh  # catalog only, reusing the last workflow data
+WORKFLOWS=0 KEEP_WORKFLOWS=1 scripts/tap-report.sh  # catalog only, reusing (KEEP_WORKFLOWS=1 without WORKFLOWS=0 is an error) the last workflow data
 ```
 
 A failing workflow test does not abort the run: the script prints a warning that some
@@ -106,7 +106,7 @@ guidelines but does not stop at the first failure.
 
 - A use case that wraps its content in a `Theme` with a fixed `platform` (names like
   "/ Android", "(iPhone)", "(Mac)") is judged only by the pass whose platform matches; the
-  other passes are recorded as skipped with the reason `pins <platform>` and listed under
+  other passes are recorded as skipped (a use case showing several platforms side by side is measured in each matching pass) with the reason `pins <platform>` and listed under
   `passesSkipped`. Desktop platforms count as macOS. A phone-sized pass of a desktop layout
   is not special-cased.
 - Every Widgetbook use case, light theme, three passes: Android (48 dp) and iOS (44 pt) on

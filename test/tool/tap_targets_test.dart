@@ -95,6 +95,11 @@ void main() {
       isNull,
     );
     expect(pinnedPlatform(const [], TargetPlatform.iOS), isNull);
+    // Side by side: each pass finds its own theme.
+    const both = [TargetPlatform.android, TargetPlatform.iOS];
+    expect(pinnedPlatform(both, TargetPlatform.android), isNull);
+    expect(pinnedPlatform(both, TargetPlatform.iOS), isNull);
+    expect(pinnedPlatform(both, TargetPlatform.macOS), 'android');
   });
 
   test('skipped passes are counted by reason, apart from skipped screens', () {

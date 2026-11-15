@@ -219,23 +219,28 @@ String judgedPlatform(TargetPlatform rendered, double width) {
   };
 }
 
-/// The platform key a use case pins, when one of [themePlatforms] (the
-/// `Theme.data.platform` of every `Theme` it builds) is judged by a different
-/// minimum than [pass]; null when it pins nothing or only the pass platform.
+/// The platform key a use case pins: the first of [themePlatforms] (the
+/// `Theme.data.platform` of every `Theme` the use case itself builds) when
+/// none of them is judged by the same minimum as [pass]. A use case that shows
+/// several platforms side by side matches each of its passes and is measured
+/// in all of them; one that builds no Theme pins nothing and follows the app's
+/// root theme, which is the pass platform. Null when the pass is to be judged.
 String? pinnedPlatform(
   Iterable<TargetPlatform> themePlatforms,
   TargetPlatform pass,
 ) {
   final passKey = platformKey(pass);
+  String? other;
   for (final p in themePlatforms) {
     final key = platformKey(p);
-    if (key != passKey) return key;
+    if (key == passKey) return null;
+    other ??= key;
   }
-  return null;
+  return other;
 }
 
-/// The platforms of every `Theme` below the app's own, read from the element
-/// tree of the pumped use case.
+/// The platforms of every `Theme` the use case builds, read from the element
+/// tree below the app's `Scaffold` (the app's own root theme is above it).
 List<TargetPlatform> themePlatformsOf(WidgetTester tester) {
   final out = <TargetPlatform>[];
   void visit(Element e) {
@@ -244,7 +249,10 @@ List<TargetPlatform> themePlatformsOf(WidgetTester tester) {
     e.visitChildren(visit);
   }
 
-  tester.binding.rootElement?.visitChildren(visit);
+  final scaffolds = find.byType(Scaffold);
+  if (scaffolds.evaluate().isNotEmpty) {
+    scaffolds.evaluate().first.visitChildren(visit);
+  }
   return out;
 }
 

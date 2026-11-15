@@ -188,37 +188,47 @@ class _Call {
   List<Expression> get positional => args.whereType<Expression>().toList();
 }
 
-_Call? _asCall(AstNode node) {
+/// Reads [node] as a call. [prefixes] are the import prefixes of the file
+/// (`m` in `import '...' as m;`): without resolution that is the only way to
+/// tell `m.Class(..)` from `Class.named(..)`, so `m.` is dropped and the call
+/// reads as if it were unprefixed.
+_Call? _asCall(AstNode node, Set<String> prefixes) {
   if (node is MethodInvocation) {
     final target = node.target;
-    if (target == null) {
-      return _Call(
-        node,
-        null,
-        node.methodName.name,
-        node.argumentList.arguments,
-      );
-    }
+    final args = node.argumentList.arguments;
+    final method = node.methodName.name;
+    if (target == null) return _Call(node, null, method, args);
     if (target is SimpleIdentifier) {
       return _Call(
         node,
-        target.name,
-        node.methodName.name,
-        node.argumentList.arguments,
+        prefixes.contains(target.name) ? null : target.name,
+        method,
+        args,
       );
+    }
+    // `m.Class.named(..)`.
+    if (target is PrefixedIdentifier && prefixes.contains(target.prefix.name)) {
+      return _Call(node, target.identifier.name, method, args);
     }
     return null;
   }
   if (node is InstanceCreationExpression) {
     final ctor = node.constructorName;
-    final type = ctor.type.name.lexeme;
-    final named = ctor.name?.name;
-    return _Call(
-      node,
-      named == null ? null : type,
-      named ?? type,
-      node.argumentList.arguments,
-    );
+    final first = ctor.type.importPrefix?.name.lexeme;
+    final second = ctor.type.name.lexeme;
+    final third = ctor.name?.name;
+    final args = node.argumentList.arguments;
+    if (first == null) {
+      // `const Class(..)` or `Class.named(..)` written with the dot in the
+      // constructor name.
+      return _Call(node, third == null ? null : second, third ?? second, args);
+    }
+    if (prefixes.contains(first)) {
+      // `const m.Class(..)` or `const m.Class.named(..)`.
+      return _Call(node, third == null ? null : second, third ?? second, args);
+    }
+    // `const Class.named(..)`: the parser reads Class as an import prefix.
+    return _Call(node, first, second, args);
   }
   return null;
 }
@@ -278,19 +288,28 @@ class _Visitor extends RecursiveAstVisitor<void> {
     if (node.prefix.name == 'Colors' && node.identifier.name != 'transparent') {
       _add('a.color', node);
     }
+    // `m.Colors.red`: the identifier is `m.Colors`, the shade is its parent's.
+    if (importPrefixes.contains(node.prefix.name) &&
+        node.identifier.name == 'Colors') {
+      final parent = node.parent;
+      final member = parent is PropertyAccess && parent.target == node
+          ? parent.propertyName.name
+          : null;
+      if (member != null && member != 'transparent') _add('a.color', parent!);
+    }
     super.visitPrefixedIdentifier(node);
   }
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
-    final call = _asCall(node);
+    final call = _asCall(node, importPrefixes);
     if (call != null) _call(call);
     super.visitMethodInvocation(node);
   }
 
   @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
-    final call = _asCall(node);
+    final call = _asCall(node, importPrefixes);
     if (call != null) _call(call);
     super.visitInstanceCreationExpression(node);
   }
@@ -300,7 +319,7 @@ class _Visitor extends RecursiveAstVisitor<void> {
     final label = node.name.lexeme;
     final value = node.argumentExpression;
     final owner = node.parent?.parent;
-    final parentCall = owner == null ? null : _asCall(owner);
+    final parentCall = owner == null ? null : _asCall(owner, importPrefixes);
     switch (label) {
       case 'fontSize':
         final v = _numLiteral(value);
@@ -334,13 +353,8 @@ class _Visitor extends RecursiveAstVisitor<void> {
   }
 
   void _call(_Call c) {
-    var type = c.type;
+    final type = c.type;
     final name = c.name;
-    // `prefix.func(..)` parses as a call on a target; a prefixed constructor
-    // `prefix.Class(..)` is `type: prefix`.
-    if (type != null && importPrefixes.contains(type)) {
-      type = null;
-    }
 
     if (type == null && name == 'Color' ||
         type == 'Color' &&
