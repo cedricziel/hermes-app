@@ -199,10 +199,12 @@ extension _ChatControllerHistory on ChatController {
       final switched = profile != _profile;
       if (switched) {
         _modelOptions = null;
+        _forgetQuietModelRead();
         _warmingUnchanged = false;
         _newChatModel = null;
         _ChatControllerWorkspace(this)._workspaceProfileSwitched();
         search?.clear();
+        _stopHandBacks.clear();
       }
       _carryReplies();
       for (final entry in interruptedLocalReplies.entries) {
@@ -318,6 +320,9 @@ extension _ChatControllerHistory on ChatController {
         );
       }
       notifyListeners();
+      if (launchedThread != null) {
+        _ChatControllerVoice(this)._stopHandBackSelected();
+      }
       if (!active || generation != _loadGeneration) return;
       _reportSurface(SurfaceTrigger.threads);
       if (!active || generation != _loadGeneration) return;
@@ -384,11 +389,33 @@ extension _ChatControllerHistory on ChatController {
     String? profile,
     int generation, {
     bool notifyLoading = true,
+    bool quiet = false,
   }) async {
     if (!active) return;
     final models = this.models;
     if (models == null) return;
     final request = ++_modelOptionsGeneration;
+    if (quiet) {
+      ModelOptions? options;
+      try {
+        options = await models.load(profile: profile);
+      } on Object {
+        return;
+      }
+      if (!active ||
+          generation != _loadGeneration ||
+          request != _modelOptionsGeneration ||
+          profile != _profile) {
+        return;
+      }
+      _modelOptions = options;
+      if (!options.warming) _warmingUnchanged = false;
+      _modelOptionsState = options.providers.isEmpty
+          ? ModelOptionsState.incomplete
+          : ModelOptionsState.ready;
+      notifyListeners();
+      return;
+    }
     if (_modelOptionsState != ModelOptionsState.loading) {
       _settledModelOptionsState = _modelOptionsState;
     }
