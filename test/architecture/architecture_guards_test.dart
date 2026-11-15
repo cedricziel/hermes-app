@@ -255,8 +255,10 @@ List<Hit> _doctorFix() {
 }
 
 /// A string literal as the `title:` of a `MacCommandHandler(`, or as the label
-/// of a `MenuEntry(` or `MenuSection(`. The brand label `'Hermes'` is the one
-/// literal that is the same in every language.
+/// of a `MenuEntry(` or `MenuSection(`, and in the menu code itself any literal
+/// `title:` or `label:` argument or first argument of the Edit-menu helper.
+/// The brand label `'Hermes'` (the app menu and the Window menu's main-window
+/// item) is the one literal that is the same in every language.
 List<Hit> _menuLiteralLabels() {
   final handlerTitle = RegExp(r"""\btitle\s*:[^,()]*?['"]""");
   final entryLabel = RegExp(
@@ -265,6 +267,22 @@ List<Hit> _menuLiteralLabels() {
   final sectionLabel = RegExp(
     r"""\bMenuSection\(\s*['"]\w+['"]\s*,\s*(?:\(\w*\)\s*=>\s*)?['"](?!Hermes['"])""",
   );
+  // Menu code builds its labels in helpers (`edit('Undo', ...)`,
+  // `run(..., title: 'Pin')`, `PlatformMenu(label: 'Edit')`), so there every
+  // `title:` and `label:` argument and the Edit helper's first argument count.
+  final menuLabel = RegExp(
+    r"""\b(?:title|label)\s*:[^,()]*?['"](?!Hermes['"])""",
+  );
+  final helperLabel = RegExp(
+    r"""\b(?:edit|item)\(\s*(?:MacCommand\.\w+\s*,\s*)?['"](?!Hermes['"])""",
+  );
+  const menuFiles = {
+    'lib/src/macos/mac_menu_bar.dart',
+    'lib/src/macos/menu_layout.dart',
+    'lib/src/macos/mac_commands.dart',
+    'lib/src/macos/mac_sidebar.dart',
+    'lib/src/windows/conversation_windows_menu.dart',
+  };
   final hits = <Hit>[];
   for (final file in dartFiles('lib')) {
     final lines = <int>{};
@@ -273,6 +291,14 @@ List<Hit> _menuLiteralLabels() {
       RegExp(r'\bMacCommandHandler\('),
     )) {
       if (handlerTitle.hasMatch(args)) lines.add(file.lineOf(offset));
+    }
+    if (menuFiles.contains(file.path)) {
+      for (final m in [
+        ...menuLabel.allMatches(file.text),
+        ...helperLabel.allMatches(file.text),
+      ]) {
+        lines.add(file.lineOf(m.start));
+      }
     }
     for (final m in [
       ...entryLabel.allMatches(file.text),
