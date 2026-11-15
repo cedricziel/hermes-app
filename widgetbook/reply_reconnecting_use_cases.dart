@@ -83,13 +83,9 @@ WidgetbookFolder replyReconnectingNode() => WidgetbookFolder(
           ),
         ),
         _case(
-          'Long sentence wraps',
-          (_) => const ReplyReconnectingNote(
-            text:
-                'Connection lost. Reconnecting… Hermes may still be working on '
-                'this, and the answer will appear here when the connection is '
-                'back.',
-          ),
+          'Long sentence wraps (the idle note)',
+          (context) =>
+              ReplyReconnectingNote(text: context.l10n.chatReplyReconnectIdle),
           width: 320,
         ),
         WidgetbookUseCase(

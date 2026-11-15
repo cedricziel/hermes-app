@@ -10,9 +10,10 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 
-/// A deleted chat is not picked up again by the timer of its lost reply. The
-/// timer's own guard (`_threads.contains`) makes this hold; the test pins the
-/// behaviour, not the removal's cleanup line.
+/// A deleted chat is not picked up again after its reply was lost. The
+/// follow-up stream `select` opened is finished first, so the retry that
+/// follows is a new `_followUps`, which checks that the thread is still in the
+/// list and still the open one.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -61,6 +62,9 @@ void main() {
     send.fail(const GatewayReplyLost());
     await pumpEventQueue();
     expect(thread.messages.last.reconnecting, isTrue);
+    // The follow-up stream select opened ends, so a retry would open a new one.
+    transport.followUpStreams['s1']!.finish();
+    await pumpEventQueue();
 
     await chat.housekeeping!.delete(thread);
     await pumpEventQueue();
