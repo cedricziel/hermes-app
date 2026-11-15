@@ -1047,6 +1047,7 @@ void main() {
 
     test('reads a server without profiles with no profile parameter', () async {
       server.on('GET', '/api/profiles', {'detail': 'nope'}, status: 404);
+      server.on('GET', '/api/profiles/active', {'detail': 'nope'}, status: 404);
       sessions = {
         null: [_session('chat-a')],
       };
