@@ -129,6 +129,9 @@ or `pull_request_read`; pending, queued and in-progress are not green.
 - An armed PR that never merges: the orchestrator reads its checks; if all are
   green and it still has not merged after about 15 minutes, disarm, then
   re-arm.
+- Exception: the release-please PR is generated and has no isolated review.
+  It is armed only when the owner asks, after its five builds are green, with
+  the asked-for version in its title, and last (see the `release` skill).
 
 Stacked PRs: merge bottom-up. After the lower PR merges, retarget the next one
 to main and read the checks again on its new head: a retarget does not rerun CI
