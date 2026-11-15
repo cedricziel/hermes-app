@@ -40,12 +40,31 @@ class AppAlertDialog extends StatelessWidget {
         constraints: const BoxConstraints(minWidth: 280, maxWidth: 560),
       );
     }
-    // Material fields inside the content still need a Material ancestor.
+    // Material fields inside the content still need a Material ancestor. A
+    // Material resets the inherited text style and alignment, so the alert's
+    // own (centred) default is read outside it and applied again inside.
     return CupertinoAlertDialog(
       title: title,
       content: content == null
           ? null
-          : Material(type: MaterialType.transparency, child: content),
+          : Builder(
+              builder: (context) {
+                final inherited = DefaultTextStyle.of(context);
+                return Material(
+                  type: MaterialType.transparency,
+                  child: DefaultTextStyle(
+                    style: inherited.style,
+                    textAlign: inherited.textAlign,
+                    softWrap: inherited.softWrap,
+                    overflow: inherited.overflow,
+                    maxLines: inherited.maxLines,
+                    textWidthBasis: inherited.textWidthBasis,
+                    textHeightBehavior: inherited.textHeightBehavior,
+                    child: content!,
+                  ),
+                );
+              },
+            ),
       actions: actions,
     );
   }
