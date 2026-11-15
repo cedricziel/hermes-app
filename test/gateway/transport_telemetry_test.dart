@@ -713,18 +713,18 @@ void main() {
         gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid);
 
         final seen = _listen(transport.send(text: 'hi'));
-        async.elapse(const Duration(seconds: 30));
+        // Unanswered attempts wait out the 60 s window, not five tries.
+        async.elapse(const Duration(seconds: 70));
 
         expect(seen.error, isA<GatewayConnectionClosed>());
-        expect(events.named('gateway.reconnect'), [
-          {
-            'attempt': 5,
-            'outcome': 'failed',
-            'replayed_count': 0,
-            'truncated': false,
-            'epoch_changed': false,
-          },
-        ]);
+        final reported = events.named('gateway.reconnect').single;
+        expect(reported['attempt'], greaterThan(5));
+        expect({...reported}..remove('attempt'), {
+          'outcome': 'failed',
+          'replayed_count': 0,
+          'truncated': false,
+          'epoch_changed': false,
+        });
       });
     });
 

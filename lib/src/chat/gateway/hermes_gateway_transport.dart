@@ -82,6 +82,20 @@ const _unsupportedImage = 4016;
 /// How many reconnect attempts follow a drop before the reply gives up.
 const _maxReconnectAttempts = 5;
 
+/// How long a reconnect keeps trying while no attempt has been answered by the
+/// server (no network yet, a socket that opens and stays silent). Such attempts
+/// do not use up [_maxReconnectAttempts] or [_reconnectBudget]; those count from
+/// the first answer. The window starts over each time the app asks the
+/// connection again (`checkConnection`, on coming to the front).
+const _reconnectWindow = Duration(seconds: 60);
+
+/// The longest wait between two attempts that the server never answered.
+const _unansweredBackoffCap = Duration(seconds: 5);
+
+/// A backstop on unanswered attempts in one reconnect, so a sleep that returns
+/// at once cannot spin.
+const _maxUnansweredAttempts = 100;
+
 /// How many times a send opens its socket and session before it fails.
 const _sendOpenAttempts = 3;
 
@@ -139,6 +153,7 @@ class HermesGatewayTransport
     this._events = noopAppEventLogger,
     this.requestTimeout = const Duration(seconds: 30),
     this.probeTimeout = const Duration(seconds: 10),
+    this.reattachTimeout = const Duration(seconds: 10),
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
     this.readTimeout = const Duration(seconds: 10),
@@ -164,6 +179,10 @@ class HermesGatewayTransport
   /// How long opening a session or submitting a prompt may go unanswered
   /// before the connection is given up on.
   final Duration requestTimeout;
+
+  /// How long a call of a reconnect (`session.resume`, `session.events.since`)
+  /// may go unanswered before its socket is dropped and a new one is tried.
+  final Duration reattachTimeout;
 
   /// How long a checkpoint or context read may go unanswered; the connection
   /// stays open.
@@ -451,8 +470,15 @@ class HermesGatewayTransport
   /// the same answer instead of each waiting out a probe of their own.
   final _probes = <GatewayRpcClient, Future<bool>>{};
 
+  /// Completes (and is replaced) each time [checkConnection] runs.
+  var _nudge = Completer<void>();
+
   @override
   Future<void> checkConnection() async {
+    // A reconnect waiting for the network tries again now, with a new window.
+    final woken = _nudge;
+    _nudge = Completer<void>();
+    woken.complete();
     final open = _connected();
     if (open == null || await _alive(open)) return;
     _drop(open);

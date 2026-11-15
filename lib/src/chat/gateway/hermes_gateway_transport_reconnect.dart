@@ -25,38 +25,76 @@ extension _Reconnect on HermesGatewayTransport {
     required bool Function() cancelled,
     int maxAttempts = _maxReconnectAttempts,
   }) async {
-    final budget = Completer<void>();
-    final timer = Timer(_reconnectBudget, () {
-      if (!budget.isCompleted) budget.complete();
-    });
-    bool stop() => budget.isCompleted || _closed || cancelled();
-    // Attempts that got as far as opening a socket, for telemetry.
+    // Only a reconnect that may keep trying (a reply on screen) waits for the
+    // network; one made when a thread opens makes its single attempt and goes.
+    final patient = maxAttempts > 1;
+    final expired = Completer<void>();
+    Timer? timer;
+    // Runs out the budget once the server has answered, or the window while
+    // it has not.
+    void startTimer(Duration after) {
+      timer?.cancel();
+      timer = Timer(after, () {
+        if (!expired.isCompleted) expired.complete();
+      });
+    }
+
+    var answeredYet = !patient;
+    startTimer(patient ? _reconnectWindow : _reconnectBudget);
+    bool stop() => expired.isCompleted || _closed || cancelled();
+    // Attempts the server answered, for telemetry and the attempt limit.
     var tried = 0;
+    var unanswered = 0;
+    var nudge = _nudge;
     try {
-      for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      while (tried < maxAttempts && unanswered < _maxUnansweredAttempts) {
         if (stop()) break;
-        final index = attempt + drops;
+        if (!answeredYet && !identical(nudge, _nudge)) {
+          // The app asked the connection again: a new window.
+          nudge = _nudge;
+          startTimer(_reconnectWindow);
+        }
+        final index = tried + unanswered + drops;
         if (index > 0) {
+          final delay = reconnectDelay(
+            index,
+            _random,
+            cap: answeredYet
+                ? const Duration(seconds: 15)
+                : _unansweredBackoffCap,
+          );
           await _within(
-            _sleep(reconnectDelay(index, _random)),
-            budget.future,
+            Future.any([_sleep(delay), if (!answeredYet) nudge.future]),
+            expired.future,
             (_) {},
           );
         }
         if (stop()) break;
-        tried = attempt + 1;
+        final attempt = _Attempt();
         final resumed = await _within(
-          _resumeOnce(owner, runtimeId, shown, stop),
-          budget.future,
+          _resumeOnce(owner, runtimeId, shown, stop, attempt),
+          expired.future,
           (resumed) => resumed?.discard(),
         );
+        if (attempt.answered && !answeredYet) {
+          // From here the server is reachable: the usual budget runs.
+          answeredYet = true;
+          startTimer(_reconnectBudget);
+        }
         if (resumed != null) {
           if (!cancelled()) {
-            if (runtimeId != null) _reportReconnect(tried, resumed);
+            if (runtimeId != null) {
+              _reportReconnect(tried + unanswered + 1, resumed);
+            }
             return resumed;
           }
           resumed.discard();
           break;
+        }
+        if (attempt.answered || !patient) {
+          tried++;
+        } else {
+          unanswered++;
         }
       }
       final failed = _Resumed(
@@ -64,10 +102,12 @@ extension _Reconnect on HermesGatewayTransport {
         giveUp: true,
         outcome: 'failed',
       );
-      if (runtimeId != null && !cancelled()) _reportReconnect(tried, failed);
+      if (runtimeId != null && !cancelled()) {
+        _reportReconnect(tried + unanswered, failed);
+      }
       return failed;
     } finally {
-      timer.cancel();
+      timer?.cancel();
     }
   }
 
@@ -88,6 +128,7 @@ extension _Reconnect on HermesGatewayTransport {
     String? previous,
     Set<String> shown,
     bool Function() stop,
+    _Attempt attempt,
   ) async {
     final GatewayRpcClient client;
     try {
@@ -107,8 +148,25 @@ extension _Reconnect on HermesGatewayTransport {
         'session_id': owner.$2,
         'profile': ?owner.$1,
         'source': gatewaySessionSource,
-      });
+      }, timeout: reattachTimeout);
+      attempt.answered = true;
+    } on GatewayRpcException catch (error) {
+      tap.close();
+      attempt.answered = true;
+      // A refusal that says the session is gone is final: asking again
+      // cannot change it, and the reply says so instead of waiting it out.
+      if (isFinalResumeRefusal(error)) {
+        return _Resumed(
+          runtimeId: previous ?? owner.$2,
+          giveUp: true,
+          gone: GatewaySessionGone(error.code),
+          outcome: 'gone',
+        );
+      }
+      return null;
     } on Object {
+      // No answer in time (the socket is dropped by the call) or a closed
+      // socket: nothing was heard from the server.
       tap.close();
       return null;
     }
@@ -132,7 +190,7 @@ extension _Reconnect on HermesGatewayTransport {
         since = await _call(client, 'session.events.since', {
           'session_id': runtimeId,
           'last_seen': _ledger.lastSeen(runtimeId),
-        });
+        }, timeout: reattachTimeout);
       } on GatewayRpcException catch (error) {
         // A gateway that predates the replay cannot fill the gap, so the
         // reply is rebuilt from the resume answer instead.

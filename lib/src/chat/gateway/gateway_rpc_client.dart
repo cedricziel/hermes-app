@@ -88,6 +88,39 @@ class GatewayConnectionClosed implements Exception {
   String toString() => 'The gateway connection closed';
 }
 
+/// `session.resume` was answered with an error that says this session or turn
+/// is not on the server any more (or never will resume), so reconnecting again
+/// cannot help. A [GatewayConnectionClosed], so code that treats a lost
+/// connection as the reply's end still does; a reader that wants to say why
+/// checks for this type first. [code] is the JSON-RPC code of the refusal.
+class GatewaySessionGone extends GatewayConnectionClosed {
+  const GatewaySessionGone(this.code);
+
+  final int code;
+
+  @override
+  String toString() => 'The gateway no longer has the session ($code)';
+}
+
+/// Whether a `session.resume` refusal is final: no later attempt can succeed.
+///
+/// The codes are those Hermes' `session.resume` answers for a session it does
+/// not have or will not resume: `4000` (params refused), `4006` (no id),
+/// `4007` "session not found", `4064` (profile gone), `4130` (transcript too
+/// large) and `4132` (a Kanban worker's session). A `4007` that asks for a
+/// retry ("session no longer live; retry resume") is a race the next attempt
+/// wins, and `4009` and `5000` are transient too.
+bool isFinalResumeRefusal(GatewayRpcException error) {
+  switch (error.code) {
+    case kGatewayInvalidParams || 4006 || 4064 || 4130 || 4132:
+      return true;
+    case 4007:
+      return !error.message.toLowerCase().contains('retry');
+    default:
+      return false;
+  }
+}
+
 /// A request that asked not to take the connection down with it gave up
 /// waiting for its answer. The connection is still open.
 class GatewayRequestTimeout implements Exception {

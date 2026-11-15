@@ -1185,15 +1185,20 @@ void main() {
         gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
 
         final seen = _listen(transport.send(text: 'hi'));
-        async.elapse(const Duration(seconds: 10));
+        // No socket ever opens, so the attempts are not spent: the reply
+        // keeps trying through the 60 s window, then gives up.
+        async.elapse(const Duration(seconds: 59));
+        expect(seen.error, isNull);
+        async.elapse(const Duration(seconds: 2));
 
-        expect(attemptsAt, const [
+        expect(attemptsAt.take(5), const [
           Duration.zero,
           Duration(milliseconds: 300),
           Duration(milliseconds: 900),
           Duration(milliseconds: 2100),
           Duration(milliseconds: 4500),
         ]);
+        expect(attemptsAt.length, greaterThan(5));
         expect(seen.error, isA<GatewayConnectionClosed>());
       });
     });
@@ -1215,12 +1220,14 @@ void main() {
         final seen = _listen(transport.send(text: 'hi'));
         async.flushMicrotasks();
 
-        expect(waits, const [
+        // An instant sleep cannot spin: unanswered attempts stop at a cap.
+        expect(waits.take(4), const [
           Duration(milliseconds: 300),
           Duration(milliseconds: 600),
           Duration(milliseconds: 1200),
           Duration(milliseconds: 2400),
         ]);
+        expect(waits.length, lessThanOrEqualTo(100));
         expect(seen.error, isA<GatewayConnectionClosed>());
       });
     });
