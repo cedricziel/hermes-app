@@ -61,7 +61,7 @@ void main() {
         (300, '>=256'),
       ]) {
         answer = () async => {'data_url': jpegOf(kib * 1024)};
-        await repository.thumbnail(null);
+        await repository.thumbnail('default');
         expect(tracer.spans.last.attributes['bytes_kib'], bucket);
       }
     });

@@ -1,3 +1,5 @@
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
@@ -207,7 +209,7 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          label,
+                          wellFormedText(label),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

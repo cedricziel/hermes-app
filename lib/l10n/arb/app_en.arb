@@ -98,6 +98,14 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatReplyReconnectIdle": "Couldn't reconnect. Hermes may still be working on this. Trying again when you come back.",
+  "@chatReplyReconnectIdle": {
+    "description": "Note under a reply whose connection was lost and could not be won back after many tries. Nothing is being tried any more; the reply is picked up again when the app comes to the front or the chat is opened. Wraps at any text size."
+  },
+  "chatReplyReconnecting": "Connection lost. Reconnecting…",
+  "@chatReplyReconnecting": {
+    "description": "Note under a reply whose connection to Hermes dropped while the answer may still be coming. Not an error: the reply keeps what it had and goes on when the connection is back. Announced once to screen readers. Wraps at any text size."
+  },
   "chatSessionExportConfirmButton": "Export",
   "@chatSessionExportConfirmButton": {
     "description": "Button of the export confirmation that starts fetching the chat file."
@@ -2038,6 +2046,18 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
+  "@chatWidgetsHistoryEarlierFailedTitle": {
+    "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
+  },
+  "chatWidgetsHistoryEarlierRetryLabel": "Retry loading earlier messages",
+  "@chatWidgetsHistoryEarlierRetryLabel": {
+    "description": "Screen reader label of the Retry button in the row shown when a chat's earlier messages could not be loaded."
+  },
+  "chatWidgetsHistoryEarlierRetrying": "Retrying…",
+  "@chatWidgetsHistoryEarlierRetrying": {
+    "description": "Shown beside a small spinner in place of the Retry button while a chat's earlier messages are read again."
+  },
   "chatWidgetsHistoryFailedDetail": "Check your connection, then try again.",
   "@chatWidgetsHistoryFailedDetail": {
     "description": "Detail under the title shown when a stored chat's messages could not be loaded; the Retry button sits below it."
@@ -2817,6 +2837,55 @@
   "modelsPickerUseDefault": "Use the profile’s default",
   "@modelsPickerUseDefault": {
     "description": "Title of the first row of the model picker, which clears an explicit pick so the profile's default model is used."
+  },
+  "modelsPillChoose": "Choose a model",
+  "@modelsPillChoose": {
+    "description": "Label of the composer's model pill when no model is picked and the chat has no profile default to name."
+  },
+  "modelsPillDiscoveryUnavailable": "{label}. Model discovery is unavailable.",
+  "@modelsPillDiscoveryUnavailable": {
+    "description": "Screen reader name of the model pill when the server cannot list models. {label} is what the pill shows.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPillLoadFailed": "Could not load models",
+  "@modelsPillLoadFailed": {
+    "description": "Label of the model pill when loading the model list failed."
+  },
+  "modelsPillLoading": "Loading models",
+  "@modelsPillLoading": {
+    "description": "Label of the model pill while the model list loads."
+  },
+  "modelsPillProfileDefault": "Profile default",
+  "@modelsPillProfileDefault": {
+    "description": "Label of the model pill when the profile's default model is used."
+  },
+  "modelsPillRetry": "Retry",
+  "@modelsPillRetry": {
+    "description": "Visible label of the model pill's button that loads the model list again."
+  },
+  "modelsPillRetryModels": "Retry models",
+  "@modelsPillRetryModels": {
+    "description": "Screen reader name of the model pill's retry button."
+  },
+  "modelsPillSelectedModel": "{label}, selected model {model}",
+  "@modelsPillSelectedModel": {
+    "description": "Screen reader name of the model pill while loading or after a failure: what it shows and the model that stays selected. {model} is the server's model id.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPillSetUp": "Set up a model",
+  "@modelsPillSetUp": {
+    "description": "Label of the model pill when no provider offers a model yet; it opens model setup."
   },
 
   "@@x-area-navigation": "",
@@ -7534,6 +7603,10 @@
   "widgetsCancel": "Cancel",
   "@widgetsCancel": {
     "description": "Label of the button that closes a form or dialog in a settings page bar without saving."
+  },
+  "widgetsDone": "Done",
+  "@widgetsDone": {
+    "description": "Button in the header of a settings dialog that closes it."
   },
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} character entered} other{{count} characters entered}}",
   "@widgetsSecretCharactersEntered": {
