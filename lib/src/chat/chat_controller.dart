@@ -261,6 +261,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     search?.setActivity(false);
     housekeeping?.setActivity(false);
     _loadGeneration++;
+    _forgetQuietModelRead();
     _openGeneration++;
     _activeRefresh++;
     _pauses++;
@@ -786,6 +787,52 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Refreshes only the current profile's model discovery, preserving drafts.
   Future<void> refreshModelOptions() =>
       _loadModelOptions(_profile, _loadGeneration);
+
+  Future<void>? _quietModelRefresh;
+
+  /// Reads the current profile's model options again without leaving the
+  /// ready state: the pill keeps showing what it has until the answer
+  /// arrives, and a failed read changes nothing. One read at a time. Used
+  /// when a new chat starts, the app comes back and the picker opens, so the
+  /// pill follows a default model changed on the server. A pick the user made
+  /// is untouched.
+  Future<void> refreshModelOptionsQuietly() {
+    if (!active || models == null) return Future.value();
+    if (_modelOptionsState == ModelOptionsState.loading) return Future.value();
+    final epoch = _quietReadEpoch;
+    return _quietModelRefresh ??=
+        _loadModelOptions(_profile, _loadGeneration, quiet: true).whenComplete(
+          () {
+            _quietModelRefresh = null;
+            if (epoch == _quietReadEpoch) _lastQuietModelRead = _clock();
+          },
+        );
+  }
+
+  DateTime? _lastQuietModelRead;
+  int _quietReadEpoch = 0;
+
+  /// Forgets the last quiet read, so the next resume reads at once. A read
+  /// still out for the old profile or owner does not stamp afterwards.
+  void _forgetQuietModelRead() {
+    _quietReadEpoch++;
+    _lastQuietModelRead = null;
+  }
+
+  /// How soon after the last finished quiet read a foreground resume reads
+  /// again, so a brief inactive-to-resumed flap (Control Centre, a system
+  /// dialog, the App Lock prompt) does not fetch.
+  static const modelResumeInterval = Duration(seconds: 30);
+
+  /// [refreshModelOptionsQuietly] for a return to the foreground: skipped
+  /// within [modelResumeInterval] of the last finished quiet read.
+  Future<void> refreshModelOptionsOnResume() {
+    final last = _lastQuietModelRead;
+    if (last != null && _clock().difference(last) < modelResumeInterval) {
+      return Future.value();
+    }
+    return refreshModelOptionsQuietly();
+  }
 
   bool _warmingUnchanged = false;
 
@@ -1546,6 +1593,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (!_currentActivity(epoch) || valid?.call() == false) return;
     final selected = selectedThread;
     if (selected != null && !selected.remote && selected.messages.isEmpty) {
+      unawaited(refreshModelOptionsQuietly());
       return;
     }
     newThread();
@@ -1565,6 +1613,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _ChatControllerWorkspace(this)._carryPendingChoice(thread);
     _selectedId = thread.id;
     notifyListeners();
+    unawaited(refreshModelOptionsQuietly());
   }
 
   void select(String id) {
