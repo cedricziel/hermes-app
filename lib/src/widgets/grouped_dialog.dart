@@ -55,47 +55,42 @@ class GroupedDialog extends StatelessWidget {
         label: title,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxWidth),
-          // The room the dialog really gets (Dialog has already taken the
-          // keyboard and the insets off it) decides how tall the header may be.
-          child: LayoutBuilder(
-            builder: (context, constraints) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _Title(
-                  title: title,
-                  chrome: chrome,
-                  showDone: actions == null,
-                  room: constraints.maxHeight,
+          // The header, the rows and the footer share the room the dialog
+          // really gets: the footer is measured first and the header is
+          // capped so it never takes room the footer needs.
+          child: _DialogColumn(
+            children: [
+              _Title(title: title, chrome: chrome, showDone: actions == null),
+              SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  metrics.gutter,
+                  0,
+                  metrics.gutter,
+                  metrics.gutter,
                 ),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      metrics.gutter,
-                      0,
-                      metrics.gutter,
-                      metrics.gutter,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: children,
-                    ),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: children,
                 ),
-                if (actions != null) ...[
-                  const Divider(height: 1),
-                  Padding(
-                    padding: EdgeInsets.all(metrics.gutter),
-                    child: Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: actions!,
+              ),
+              if (actions != null)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Divider(height: 1),
+                    Padding(
+                      padding: EdgeInsets.all(metrics.gutter),
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: actions!,
+                      ),
                     ),
-                  ),
-                ],
-              ],
-            ),
+                  ],
+                ),
+            ],
           ),
         ),
       ),
@@ -136,15 +131,11 @@ class _Title extends StatelessWidget {
     required this.title,
     required this.chrome,
     required this.showDone,
-    required this.room,
   });
 
   final String title;
   final PlatformChrome chrome;
   final bool showDone;
-
-  /// The height the dialog may take, with the keyboard already off it.
-  final double room;
 
   @override
   Widget build(BuildContext context) {
@@ -167,17 +158,26 @@ class _Title extends StatelessWidget {
     }
     final ios = chrome == PlatformChrome.ios;
     final fontSize = ios ? 17.0 : 13.0;
-    // A long title (it can come from user data) grows the header, but never
-    // past a share of the dialog's room: beyond that the title scrolls, so
-    // the rows below keep theirs and Done stays in view.
     final minHeight = ios ? kAppleNavBarHeight + 8 : 44.0;
+    final style = TextStyle(
+      fontSize: fontSize,
+      fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
+      color: onSurface,
+    );
+    final lineHeight = (TextPainter(
+      text: TextSpan(text: 'Ag', style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout()).height;
+    final titleWidth = (TextPainter(
+      text: TextSpan(text: title, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout()).width;
     return _TitleBar(
-      // Tight room (a landscape keyboard) keeps the resting height: the title
-      // scrolls in a one-line bar rather than taking room from the rows.
-      maxHeight: !room.isFinite
-          ? 1e9
-          : (0.4 * room < 1.5 * minHeight ? minHeight : 0.4 * room),
       minHeight: minHeight,
+      lineHeight: lineHeight,
+      titleWidth: titleWidth,
       doneInset: ios ? 4 : 8,
       textDirection: Directionality.of(context),
       // Screen readers follow the sort keys, not the position: stacked, Done
@@ -186,11 +186,8 @@ class _Title extends StatelessWidget {
         sortKey: const OrdinalSortKey(0),
         child: _ScrollingTitle(
           title: title,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
-            color: onSurface,
-          ),
+          style: style,
+          lineHeight: lineHeight,
         ),
       ),
       done: showDone
@@ -221,18 +218,21 @@ class _Title extends StatelessWidget {
 /// The title of the header: it scrolls when the header's cap clips it, and a
 /// fade at the bottom edge says there is more.
 class _ScrollingTitle extends StatefulWidget {
-  const _ScrollingTitle({required this.title, required this.style});
+  const _ScrollingTitle({
+    required this.title,
+    required this.style,
+    required this.lineHeight,
+  });
 
   final String title;
   final TextStyle style;
+  final double lineHeight;
 
   @override
   State<_ScrollingTitle> createState() => _ScrollingTitleState();
 }
 
 class _ScrollingTitleState extends State<_ScrollingTitle> {
-  static const _fade = 20.0;
-
   bool _more = false;
 
   bool _update(ScrollMetrics metrics) {
@@ -242,8 +242,37 @@ class _ScrollingTitleState extends State<_ScrollingTitle> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      NotificationListener<ScrollMetricsNotification>(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      // The header lays the title out with a tight height when the rows need
+      // the room (the header's one-line form): the title is then cut with an
+      // ellipsis, the long-press tooltip and the semantics label carry it in
+      // full. Otherwise it wraps and, past the header's cap, scrolls.
+      if (constraints.hasTightHeight) {
+        return ClipRect(
+          child: Center(
+            child: Tooltip(
+              message: widget.title,
+              excludeFromSemantics: true,
+              child: Semantics(
+                header: true,
+                label: widget.title,
+                excludeSemantics: true,
+                child: Text(
+                  widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: widget.style,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+      // The fade is shorter than a line, so a visible line never sits under it.
+      final fade = math.min(20.0, 0.4 * widget.lineHeight);
+      return NotificationListener<ScrollMetricsNotification>(
         onNotification: (n) => _update(n.metrics),
         child: NotificationListener<ScrollNotification>(
           onNotification: (n) => _update(n.metrics),
@@ -253,7 +282,7 @@ class _ScrollingTitleState extends State<_ScrollingTitle> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: const [Colors.white, Colors.white, Colors.transparent],
-              stops: [0, _more ? math.max(0, 1 - _fade / rect.height) : 1, 1],
+              stops: [0, _more ? math.max(0, 1 - fade / rect.height) : 1, 1],
             ).createShader(rect),
             child: SingleChildScrollView(
               primary: false,
@@ -269,6 +298,8 @@ class _ScrollingTitleState extends State<_ScrollingTitle> {
           ),
         ),
       );
+    },
+  );
 }
 
 /// The header of an Apple or desktop [GroupedDialog]: the title centred, the
@@ -277,23 +308,26 @@ class _ScrollingTitleState extends State<_ScrollingTitle> {
 /// on one line beside Done, gives Done its own row with the title under it.
 class _TitleBar extends MultiChildRenderObjectWidget {
   _TitleBar({
-    required this.maxHeight,
     required this.minHeight,
+    required this.lineHeight,
+    required this.titleWidth,
     required this.doneInset,
     required this.textDirection,
     required Widget title,
     Widget? done,
   }) : super(children: [title, ?done]);
 
-  final double maxHeight;
   final double minHeight;
+  final double lineHeight;
+  final double titleWidth;
   final double doneInset;
   final TextDirection textDirection;
 
   @override
   RenderObject createRenderObject(BuildContext context) => _RenderTitleBar(
-    maxHeight: maxHeight,
     minHeight: minHeight,
+    lineHeight: lineHeight,
+    titleWidth: titleWidth,
     doneInset: doneInset,
     textDirection: textDirection,
   );
@@ -301,8 +335,9 @@ class _TitleBar extends MultiChildRenderObjectWidget {
   @override
   void updateRenderObject(BuildContext context, _RenderTitleBar renderObject) {
     renderObject
-      ..maxHeight = maxHeight
       ..minHeight = minHeight
+      ..lineHeight = lineHeight
+      ..titleWidth = titleWidth
       ..doneInset = doneInset
       ..textDirection = textDirection;
   }
@@ -315,8 +350,9 @@ class _RenderTitleBar extends RenderBox
         ContainerRenderObjectMixin<RenderBox, _TitleBarParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _TitleBarParentData> {
   _RenderTitleBar({
-    required this._maxHeight,
     required this._minHeight,
+    required this._lineHeight,
+    required this._titleWidth,
     required this._doneInset,
     required this._textDirection,
   });
@@ -325,10 +361,17 @@ class _RenderTitleBar extends RenderBox
   static const _gap = 8.0;
   static const _verticalPadding = 8.0;
 
-  double _maxHeight;
-  set maxHeight(double value) {
-    if (_maxHeight == value) return;
-    _maxHeight = value;
+  double _titleWidth;
+  set titleWidth(double value) {
+    if (_titleWidth == value) return;
+    _titleWidth = value;
+    markNeedsLayout();
+  }
+
+  double _lineHeight;
+  set lineHeight(double value) {
+    if (_lineHeight == value) return;
+    _lineHeight = value;
     markNeedsLayout();
   }
 
@@ -376,10 +419,7 @@ class _RenderTitleBar extends RenderBox
   double computeMinIntrinsicWidth(double height) {
     final done = _done;
     final doneWidth = done == null ? 0.0 : done.getMinIntrinsicWidth(height);
-    return math.max(
-      _title.getMinIntrinsicWidth(height) + 2 * _sidePadding,
-      doneWidth + 2 * _doneInset,
-    );
+    return math.max(2 * _sidePadding, doneWidth + 2 * _doneInset);
   }
 
   @override
@@ -390,7 +430,7 @@ class _RenderTitleBar extends RenderBox
     final done = _done;
     final doneWidth = done == null ? 0.0 : done.getMaxIntrinsicWidth(h);
     final doneSpan = done == null ? 0.0 : doneWidth + _doneInset + _gap;
-    return _title.getMaxIntrinsicWidth(h) + _sidePadding + doneSpan;
+    return _titleWidth + _sidePadding + doneSpan;
   }
 
   @override
@@ -412,6 +452,18 @@ class _RenderTitleBar extends RenderBox
     (child.parentData! as _TitleBarParentData).offset = Offset(dx, y);
   }
 
+  /// The header's one-line form: the resting height, or Done's own height
+  /// when that is taller, so Done is always whole. The title is cut with an
+  /// ellipsis in it. Handed down as the maximum height, it asks for that form.
+  double oneLineHeight(double width) {
+    final done = _done;
+    if (done == null) return _minHeight;
+    return math.max(
+      _minHeight,
+      done.getDryLayout(BoxConstraints(maxWidth: width)).height,
+    );
+  }
+
   Size _layout(
     BoxConstraints constraints,
     Size Function(RenderBox child, BoxConstraints constraints) layoutChild,
@@ -424,25 +476,55 @@ class _RenderTitleBar extends RenderBox
         : layoutChild(done, BoxConstraints(maxWidth: width));
     final doneSpan = done == null ? 0.0 : doneSize.width + _doneInset + _gap;
     final beside = width - doneSpan - _sidePadding;
-    final stacked =
-        done != null && _title.getMaxIntrinsicWidth(double.infinity) > beside;
+    final oneLine =
+        constraints.hasBoundedHeight &&
+        constraints.maxHeight <= math.max(_minHeight, doneSize.height) + 0.01;
+    final stacked = !oneLine && done != null && _titleWidth > beside;
 
     final titleMax = stacked ? width - 2 * _sidePadding : beside;
-    // The title scrolls once the header would pass its share of the screen.
+    // The parent caps the header; the title scrolls once it would pass the
+    // cap, but always keeps one whole line.
+    final cap = constraints.maxHeight;
     final doneRow = math.max(doneSize.height, kAppleMinTapTarget);
     final titleRoom = stacked
-        ? math.max(_maxHeight - doneRow - _verticalPadding, 24.0)
-        : math.max(
-            _maxHeight - 2 * _verticalPadding,
-            _minHeight - 2 * _verticalPadding,
-          );
+        ? math.max(cap - doneRow - _verticalPadding, _lineHeight)
+        : math.max(cap - 2 * _verticalPadding, _lineHeight);
+    final bar = math.max(_minHeight, doneSize.height);
     final titleSize = layoutChild(
       _title,
-      BoxConstraints(maxWidth: math.max(0, titleMax), maxHeight: titleRoom),
+      oneLine
+          ? BoxConstraints(
+              maxWidth: math.max(0, titleMax),
+              minHeight: bar,
+              maxHeight: bar,
+            )
+          : BoxConstraints(
+              maxWidth: math.max(0, titleMax),
+              maxHeight: titleRoom,
+            ),
     );
 
     final double height;
-    if (stacked) {
+    if (oneLine) {
+      height = bar;
+      if (place != null) {
+        final limit = width - doneSpan;
+        final x = math.max(
+          _sidePadding,
+          math.min((width - titleSize.width) / 2, limit - titleSize.width),
+        );
+        place(_title, x, 0, titleSize.width, width);
+        if (done != null) {
+          place(
+            done,
+            width - doneSize.width - _doneInset,
+            (height - doneSize.height) / 2,
+            doneSize.width,
+            width,
+          );
+        }
+      }
+    } else if (stacked) {
       // Done keeps its own row of at least a tap target, the title wraps
       // under it.
       height = math.max(
@@ -468,7 +550,10 @@ class _RenderTitleBar extends RenderBox
     } else {
       height = math.max(
         _minHeight,
-        math.max(titleSize.height + 2 * _verticalPadding, doneSize.height),
+        math.max(
+          math.min(titleSize.height + 2 * _verticalPadding, cap),
+          doneSize.height,
+        ),
       );
       if (place != null) {
         final limit = width - doneSpan;
@@ -495,6 +580,110 @@ class _RenderTitleBar extends RenderBox
       }
     }
     return constraints.constrain(Size(width, height));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
+class _DialogColumnParentData extends ContainerBoxParentData<RenderBox> {}
+
+/// Header, rows and an optional footer, one under the other. The footer is
+/// laid out first and the header is capped at 40% of the room, but never so
+/// that it takes room the footer needs; in tight room it falls back to the
+/// least height that still shows one whole line of the title.
+class _DialogColumn extends MultiChildRenderObjectWidget {
+  const _DialogColumn({required super.children});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderDialogColumn();
+}
+
+class _RenderDialogColumn extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _DialogColumnParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _DialogColumnParentData> {
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _DialogColumnParentData) {
+      child.parentData = _DialogColumnParentData();
+    }
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      _layout(constraints, (child, c) => child.getDryLayout(c), null);
+
+  @override
+  void performLayout() {
+    size = _layout(
+      constraints,
+      (child, c) {
+        child.layout(c, parentUsesSize: true);
+        return child.size;
+      },
+      (child, y) =>
+          (child.parentData! as _DialogColumnParentData).offset = Offset(0, y),
+    );
+  }
+
+  Size _layout(
+    BoxConstraints constraints,
+    Size Function(RenderBox, BoxConstraints) layoutChild,
+    void Function(RenderBox, double)? place,
+  ) {
+    final width = constraints.maxWidth;
+    final room = constraints.maxHeight;
+    final header = firstChild!;
+    final body = childAfter(header)!;
+    final footer = childAfter(body);
+
+    final tight = BoxConstraints(minWidth: width, maxWidth: width);
+    final footerHeight = footer == null
+        ? 0.0
+        : layoutChild(footer, tight).height;
+
+    // Rows win: the header may grow past its one-line form (up to 40% of
+    // the room) only while the rows keep the height they would have under
+    // the one-line header. Otherwise the title is cut to one line.
+    var headerLimit = double.infinity;
+    if (header is _RenderTitleBar && room.isFinite) {
+      final oneLine = header.oneLineHeight(width);
+      final available = math.max(0.0, room - footerHeight);
+      final natural = layoutChild(
+        body,
+        tight.copyWith(maxHeight: double.infinity),
+      ).height;
+      final mostForHeader = math.max(oneLine, available - natural);
+      final cap = math.min(0.4 * room, mostForHeader);
+      headerLimit = cap < 1.5 * oneLine ? oneLine : cap;
+    }
+    final headerHeight = layoutChild(
+      header,
+      tight.copyWith(maxHeight: headerLimit),
+    ).height;
+    final bodyHeight = layoutChild(
+      body,
+      tight.copyWith(
+        maxHeight: room.isFinite
+            ? math.max(0.0, room - headerHeight - footerHeight)
+            : double.infinity,
+      ),
+    ).height;
+    if (place != null) {
+      place(header, 0);
+      place(body, headerHeight);
+      if (footer != null) place(footer, headerHeight + bodyHeight);
+    }
+    return constraints.constrain(
+      Size(width, headerHeight + bodyHeight + footerHeight),
+    );
   }
 
   @override

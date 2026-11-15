@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/semantics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,7 +106,7 @@ List<String> _readingOrder(WidgetTester tester) {
     }
   }
 
-  var root = tester.getSemantics(find.text('Row'));
+  var root = tester.getSemantics(find.text('Row').first);
   while (root.parent != null) {
     root = root.parent!;
   }
@@ -317,44 +319,171 @@ void main() {
       ('landscape', const Size(844, 390), 209.0),
       ('portrait', const Size(320, 568), 260.0),
     ]) {
-      // A landscape keyboard at x3.1 leaves 133 pt, which the fixed footer
-      // alone (padding plus one 3.1x button) already exceeds, with or
-      // without this header; main overflows there too.
+      // A landscape keyboard at x3.1 leaves 133 pt, which the fixed two-button
+      // footer alone already exceeds, with or without this header; main
+      // overflows there too.
       for (final scale in name == 'landscape' ? [2.0] : [2.0, 3.1]) {
-        testWidgets('a dialog with fields and a footer fits above the '
-            'keyboard: ${platform.name} $name x$scale', (tester) async {
-          final fields = [
-            for (var i = 0; i < 3; i++)
-              TextField(key: Key('field-$i'), decoration: null),
-          ];
-          await _open(
+        for (final (shape, title) in [
+          ('Edit bot', _bot),
+          ('Kanban log', 'Log · t_8f3a2c19'),
+        ]) {
+          testWidgets('a dialog with fields and a two-button footer fits above '
+              'the keyboard: $shape ${platform.name} $name x$scale', (
             tester,
-            scale: scale,
-            platform: platform,
-            title: _bot,
-            size: size,
-            keyboard: keyboard,
-            actions: [
-              FilledButton(onPressed: () {}, child: const Text('Save')),
-            ],
-            children: fields,
-          );
-          expect(tester.takeException(), isNull);
-          // The body scrolls to the field; the keyboard room is what it has.
-          await tester.ensureVisible(find.byKey(const Key('field-2')));
-          await tester.pumpAndSettle();
-          await tester.tap(find.byKey(const Key('field-2')));
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-          final field = tester.getRect(find.byKey(const Key('field-2')));
-          expect(field.top, greaterThanOrEqualTo(0));
-          expect(field.bottom, lessThanOrEqualTo(size.height - keyboard));
-          expect(
-            tester.getRect(find.text('Save')).bottom,
-            lessThanOrEqualTo(size.height - keyboard),
-          );
-        });
+          ) async {
+            final fields = [
+              for (var i = 0; i < 3; i++)
+                TextField(key: Key('field-$i'), decoration: null),
+            ];
+            await _open(
+              tester,
+              scale: scale,
+              platform: platform,
+              title: title,
+              size: size,
+              keyboard: keyboard,
+              actions: _footer,
+              children: fields,
+            );
+            expect(tester.takeException(), isNull);
+            // The body scrolls to the field; the keyboard room is what it has.
+            await tester.ensureVisible(find.byKey(const Key('field-2')));
+            await tester.pumpAndSettle();
+            await tester.tap(find.byKey(const Key('field-2')));
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+            final field = tester.getRect(find.byKey(const Key('field-2')));
+            expect(field.top, greaterThanOrEqualTo(0));
+            expect(field.bottom, lessThanOrEqualTo(size.height - keyboard));
+            expect(
+              tester.getRect(find.text('Save')).bottom,
+              lessThanOrEqualTo(size.height - keyboard),
+            );
+            // The footer is never pushed off by the header: the header keeps to
+            // one line plus its padding, or less, in the tightest room.
+            final dialog = _dialogRect(tester);
+            expect(dialog.bottom, lessThanOrEqualTo(size.height - keyboard));
+          });
+        }
       }
     }
   }
+
+  // The rule, over a grid of phones, keyboards and text scales: the header may
+  // grow only while the rows keep the height they have under the resting,
+  // one-line header (what main has). Done is always whole and reachable, and
+  // the full title is always in the semantics.
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    final minHeader = platform == TargetPlatform.iOS ? 52.0 : 44.0;
+    for (final width in [320.0, 375.0, 430.0]) {
+      for (final height in [568.0, 667.0, 932.0]) {
+        for (final keyboardShare in [0.0, 0.4]) {
+          for (final scale in [1.0, 1.5, 2.0, 3.1]) {
+            for (final (shape, title, footer) in [
+              ('done', _bot, false),
+              ('footer', _bot, true),
+              ('short', _short, true),
+            ]) {
+              final keyboard = (keyboardShare * height).roundToDouble();
+              testWidgets("rows keep main's height: $shape ${platform.name} "
+                  '${width.toInt()}x${height.toInt()} kb${keyboard.toInt()} '
+                  'x$scale', (tester) async {
+                final semantics = tester.ensureSemantics();
+                await _open(
+                  tester,
+                  scale: scale,
+                  platform: platform,
+                  title: title,
+                  size: Size(width, height),
+                  keyboard: keyboard,
+                  actions: footer ? _footer : null,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < 6; i++)
+                            SizedBox(height: 40, child: Text('Row')),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+                expect(tester.takeException(), isNull);
+
+                final dialog = _dialogRect(tester);
+                final body = tester.getRect(
+                  find
+                      .ancestor(
+                        of: find.text('Row').first,
+                        matching: find.byType(SingleChildScrollView),
+                      )
+                      .first,
+                );
+                final footerHeight = footer
+                    ? dialog.bottom - tester.getRect(find.byType(Divider)).top
+                    : 0.0;
+                final room = height - keyboard - 48;
+                // Main's header is the resting bar; Done must be whole, so a
+                // taller Done sets the bar.
+                final bar = footer
+                    ? minHeader
+                    : math.max(minHeader, _doneRect(tester).height);
+                const need = 6 * 40.0 + 16 + 8; // rows plus the gutter
+                final mainRows = math.min(need, room - footerHeight - bar);
+                expect(
+                  body.height,
+                  greaterThanOrEqualTo(mainRows - 0.5),
+                  reason: 'rows ${body.height} vs main $mainRows',
+                );
+
+                if (!footer) {
+                  final doneFinder = find.byKey(
+                    const Key('grouped-dialog-done'),
+                  );
+                  expect(doneFinder.hitTestable(), findsOneWidget);
+                  final done = _doneRect(tester);
+                  expect(done.top, greaterThanOrEqualTo(dialog.top));
+                  expect(done.bottom, lessThanOrEqualTo(body.top + 0.5));
+                }
+                expect(_readingOrder(tester), contains(title));
+                semantics.dispose();
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  testWidgets('a title cut to one line keeps its full text in a tooltip and '
+      'the label', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await _open(
+      tester,
+      scale: 3.1,
+      platform: TargetPlatform.iOS,
+      title: _bot,
+      size: const Size(320, 568),
+      keyboard: 260,
+      actions: _footer,
+      children: [for (var i = 0; i < 6; i++) const Text('Row')],
+    );
+    final text = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(GroupedDialog),
+        matching: find.text(_bot),
+      ),
+    );
+    expect(text.maxLines, 1);
+    expect(text.overflow, TextOverflow.ellipsis);
+    final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
+    expect(tooltip.message, _bot);
+    // The full title is the heading's label; the tooltip adds no second one.
+    expect(tooltip.excludeFromSemantics, isTrue);
+    final heading = tester.getSemantics(find.text(_bot));
+    expect(heading.label, _bot);
+    expect(heading.flagsCollection.isHeader, isTrue);
+    semantics.dispose();
+  });
 }
