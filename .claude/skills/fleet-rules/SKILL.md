@@ -72,6 +72,8 @@ useful when it:
   patch file.
 - Stage files by name, never `git add -A`.
 - Never delete remote branches.
+- After editing a Markdown file, diff it and revert any line you did not mean
+  to change (a formatter hook can rewrite unrelated lines).
 - Install the hook first (`dart run tool/setup_git_hooks.dart`). A failing hook
   is fixed, never bypassed: no `--no-verify`, no `core.hooksPath`, no config
   edit.
