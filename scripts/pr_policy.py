@@ -4,65 +4,113 @@
     python3 -I scripts/pr_policy.py policy   # job "PR policy"
     python3 -I scripts/pr_policy.py review   # job "Review recorded"
 
-Both read the pull_request event from $GITHUB_EVENT_PATH, so the title and body
-never pass through a shell line. `check` and `review_recorded` are pure and are
-tested in scripts/test_pr_policy.py.
+The workflow runs on pull_request_target from the default branch, so this file
+is main's copy, never the PR's. The script reads the pull_request event from
+$GITHUB_EVENT_PATH (the title and body never pass through a shell line) and
+asks the REST API for the PR's files and patches with a read-only token. It
+never checks out, fetches, executes or installs anything from the PR.
+`check`, `review_recorded` and `main` are tested in scripts/test_pr_policy.py.
 """
 
 import json
 import os
 import re
-import subprocess
 import sys
+import urllib.request
 
 # The types release-please-config.json lists in changelog-sections.
 TYPES = "feat|fix|docs|chore|refactor|test|ci|build|perf|style|revert"
 TITLE_RE = re.compile(rf"^({TYPES})(\([a-z0-9_./,-]+\))?!?: \S")
+REVERT_RE = re.compile(r'^Revert ".+"$')  # GitHub's default revert title
 FIX_RE = re.compile(r"^fix(\([a-z0-9_./,-]+\))?!?: ")
 
 HEADINGS = ["Behaviour changes", "Proof", "Not verified on a device", "Review"]
 CAUGHT_EARLIER = "What would have caught this earlier?"
 
-# Branches the repo's own automation opens (prefix match). release-please's is
-# release-please--branches--main--components--hermes-app. update-claude-plugins
-# runs a shared action whose branch name is not in this repo, so that entry is
-# a guess; its PRs are also covered when they come from a [bot] author.
-RELEASE_PLEASE_PREFIX = "release-please--"
-BOT_BRANCH_PREFIXES = (
-    RELEASE_PLEASE_PREFIX,
-    "chore/update-flutter",
-    "chore/update-hermes-contracts",
-    "chore/update-claude-plugins",
-    "chore/readme-screenshots-",
-    "dependabot/",
+# The branches the repo's own automation opens, exact (update-flutter.yml,
+# update-hermes-contracts.yml, readme-screenshots.yml with its run id, and
+# release-please's PR #945). update-claude-plugins runs an external action whose
+# branch is not visible from this repo, so it is not listed. Exemptions need a
+# same-repo head; a fork can use any branch name.
+RELEASE_PLEASE_BRANCH = "release-please--branches--main--components--hermes-app"
+BOT_BRANCH_RE = re.compile(
+    r"chore/update-flutter"
+    r"|chore/update-hermes-contracts"
+    r"|chore/readme-screenshots-\d+"
+    rf"|{re.escape(RELEASE_PLEASE_BRANCH)}"
 )
 
 ROADMAP = "docs/roadmap.md"
 ROADMAP_BRANCH_PREFIX = "claude/quirky-einstein-"
 
+# Zero-width and soft-hyphen characters are removed, NBSP becomes a space.
+_INVISIBLE_RE = re.compile("[​‌‍⁠﻿­]")
+_FAMILY = r"(?:opus|sonnet|haiku|fable)"
 _MODEL_RES = [
+    # claude-opus-4-1, Claude Sonnet 4.5, claude-3-5-sonnet-20241022
     re.compile(
-        r"claude[-_ ]?(?:\d+(?:[-.]\d+)*[-_ ])?(?:opus|sonnet|haiku|fable)", re.I
+        rf"\bclaude[-_ ](?:\d+(?:[-.]\d+)*[-_ ]{_FAMILY}|{_FAMILY}[-_ ]v?\d)", re.I
     ),
-    re.compile(r"\b(?:opus|sonnet|haiku|fable)[-_ ]?v?\d", re.I),
+    # Opus 4, Sonnet 4.5, Haiku-3: a single-digit major of 3 or more, so codec
+    # text such as "Opus 1.5" is not a model name.
+    re.compile(r"\b(?:opus|sonnet|haiku)[-_ ]v?[3-9](?!\d)", re.I),
+    re.compile(r"\bfable[-_ ]v?\d", re.I),
     re.compile(r"\bgpt[-_ ]?\d", re.I),
     re.compile(r"\bgemini[-_ ]?\d", re.I),
 ]
+_FOOTER = "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 _SESSION_URL_RE = re.compile(r"^\s*<?https?://claude\.ai/code/session_\S+?>?\s*$")
 _COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_INLINE_CODE_RE = re.compile(r"(`+)(?!`).+?(?<!`)\1(?!`)")
+# TODO, TBD, n/a, "-", "..." (with bullets and punctuation) are not answers.
+_PLACEHOLDER_RE = re.compile(r"^[\s\-.…*_]*(?:(?:todo|tbd|n/?a)[\s.!]*)?$", re.I)
 
 REVIEW_HINT = (
     "run the isolated-reviewer agent on this head and paste its block into ## Review"
 )
+REVIEW_LINE_RE = re.compile(
+    r"^Reviewer:[ \t]*[^\n]+?[ \t]+Head:[ \t]*([0-9a-fA-F]{40})"
+    r"[ \t]+Verdict:[ \t]*(clean|changes-requested)[ \t]*$",
+    re.M,
+)
 
 
-def is_bot(author, head_ref):
-    return author.endswith("[bot]") or head_ref.startswith(BOT_BRANCH_PREFIXES)
+def same_repo(pr):
+    head = (pr.get("head") or {}).get("repo") or {}
+    base = (pr.get("base") or {}).get("repo") or {}
+    return bool(head.get("full_name")) and head.get("full_name") == base.get(
+        "full_name"
+    )
+
+
+def is_bot(author, head_ref, same_repo=True):
+    """True for the repo's own automation: dependabot (its branch and its
+    author), or one of the exact automation branches. Always false for a fork."""
+    if not same_repo:
+        return False
+    if head_ref.startswith("dependabot/"):
+        return author == "dependabot[bot]"
+    return bool(BOT_BRANCH_RE.fullmatch(head_ref))
 
 
 def _strip_comments(text):
     return _COMMENT_RE.sub("", text)
+
+
+def _strip_fences(text):
+    out, fenced = [], False
+    for line in text.splitlines():
+        if _FENCE_RE.match(line):
+            fenced = not fenced
+            continue
+        if not fenced:
+            out.append(line)
+    return "\n".join(out)
+
+
+def _is_empty(text):
+    return bool(_PLACEHOLDER_RE.match(text or ""))
 
 
 def _sections(body):
@@ -79,19 +127,21 @@ def _sections(body):
             continue
         if current is not None:
             texts[current].append(line)
-    return order, {k: "\n".join(v).strip() for k, v in texts.items()}
+    return order, {k: "\n".join(v).strip("\n") for k, v in texts.items()}
 
 
 def _model_mentions(text):
+    text = _INVISIBLE_RE.sub("", (text or "").replace(" ", " "))
     found = []
-    for line in (text or "").splitlines():
+    for line in _strip_fences(text).splitlines():
         s = line.strip()
         if (
-            s.lower().startswith(("co-authored-by:", "claude-session:"))
-            or "Generated with [Claude Code]" in line
+            s == _FOOTER
+            or s.lower().startswith(("co-authored-by:", "claude-session:"))
             or _SESSION_URL_RE.match(line)
         ):
             continue
+        line = _INLINE_CODE_RE.sub(" ", line)
         for rx in _MODEL_RES:
             m = rx.search(line)
             if m:
@@ -105,6 +155,7 @@ CORRUPTION_MESSAGE = (
     "This line looks corrupted by a Markdown formatter; restore it from main "
     "and re-apply only your change."
 )
+_DOUBLE_SPAN_RE = re.compile(r"``.+?``")
 
 
 def _suspicious(line):
@@ -112,16 +163,20 @@ def _suspicious(line):
         return True
     if line.lstrip().startswith(("```", "~~~")):
         return False
-    return line.count("`") % 2 == 1
+    # A valid ``a`b`` span holds a single backtick; count outside such spans.
+    return _DOUBLE_SPAN_RE.sub("", line).count("`") % 2 == 1
 
 
 def corrupted_lines(diff):
-    """Added lines of a unified diff (-U0 or more) that a Markdown formatter
-    probably mangled: `x86*64`, or an odd number of backticks where the line
-    it replaced (paired in order within the hunk) had an even number. A pure
-    addition needs only the odd count. Fence lines are not counted."""
+    """Added lines of a unified diff that a Markdown formatter probably
+    mangled: `x86*64`, or an odd number of backticks where the line it replaced
+    (paired in order within the hunk) had an even number. A pure addition needs
+    only the odd count. Fence lines are not counted. Only lines inside a hunk
+    (after `@@`) are content, so a removed line starting with `--` is not a
+    file header."""
     found = []
     removed, added = [], []
+    in_hunk = False
 
     def flush():
         for i, line in enumerate(added):
@@ -134,8 +189,14 @@ def corrupted_lines(diff):
         added.clear()
 
     for raw in (diff or "").splitlines():
-        if raw.startswith(("+++", "---")):
+        if raw.startswith("diff --git"):
             flush()
+            in_hunk = False
+        elif raw.startswith("@@"):
+            flush()
+            in_hunk = True
+        elif not in_hunk:
+            continue
         elif raw.startswith("-"):
             if added:
                 flush()
@@ -157,17 +218,18 @@ def check(
     changed_files,
     version_changed,
     diff="",
+    same_repo=True,
 ):
     """Returns the policy failures, each saying what to do instead. `diff` is
     the PR's unified diff of CORRUPTION_FILES."""
     failures = []
-    bot = is_bot(author, head_ref)
+    bot = is_bot(author, head_ref, same_repo)
     body = body or ""
 
     if not bot:
         # a. Bots are exempt: their titles are checked only if they comply, so
         # a non-conforming bot title is never a failure.
-        if not TITLE_RE.match(title or ""):
+        if not (TITLE_RE.match(title or "") or REVERT_RE.match(title or "")):
             failures.append(
                 f"Title {title!r} is not a Conventional Commit: write "
                 f"'<type>(<scope>): <summary>' with type one of {TYPES.replace('|', ', ')}."
@@ -191,29 +253,27 @@ def check(
                     + " in that order."
                 )
         for h in HEADINGS:
-            if h in order and not texts.get(h):
+            if h in order and _is_empty(texts.get(h)):
                 failures.append(
-                    f"'## {h}' is empty (an HTML comment does not count): "
-                    "fill it in, or say 'Nothing' where that is the answer."
+                    f"'## {h}' is empty (an HTML comment, TODO, TBD, n/a or '-' "
+                    "does not count): fill it in, or say 'Nothing' where that "
+                    "is the answer."
                 )
 
-        # c. A fix says what would have caught it earlier.
+        # c. A fix says in ## Proof what would have caught it earlier.
         if FIX_RE.match(title or ""):
-            clean = _strip_comments(body)
-            i = clean.find(CAUGHT_EARLIER)
+            proof = texts.get("Proof", "")
+            i = proof.find(CAUGHT_EARLIER)
             if i < 0:
                 failures.append(
                     f"A fix: PR must answer '{CAUGHT_EARLIER}' in ## Proof: "
                     "name the check, test or review that would have caught it."
                 )
-            else:
-                tail = clean[i + len(CAUGHT_EARLIER) :]
-                tail = re.split(r"^## ", tail, maxsplit=1, flags=re.M)[0]
-                if not re.sub(r"[\s*_:>\-]+", "", tail):
-                    failures.append(
-                        f"Answer '{CAUGHT_EARLIER}': write what would have "
-                        "caught the bug earlier after the question."
-                    )
+            elif _is_empty(proof[i + len(CAUGHT_EARLIER) :].lstrip("*_: \t")):
+                failures.append(
+                    f"Answer '{CAUGHT_EARLIER}': write what would have "
+                    "caught the bug earlier after the question."
+                )
 
         # d. No model names in the title or body.
         names = _model_mentions(title) + _model_mentions(body)
@@ -226,7 +286,7 @@ def check(
             )
 
     # e. Versions are release-please's.
-    if version_changed and not head_ref.startswith(RELEASE_PLEASE_PREFIX):
+    if version_changed and not (same_repo and head_ref == RELEASE_PLEASE_BRANCH):
         failures.append(
             "pubspec.yaml's version: changed: release-please bumps the version; "
             "revert that line."
@@ -234,7 +294,9 @@ def check(
 
     # f. Loud, not tight: the branch prefix is an honour system. It exists so a
     # session that was not given the orchestrator's brief stops and asks.
-    if ROADMAP in changed_files and not head_ref.startswith(ROADMAP_BRANCH_PREFIX):
+    if ROADMAP in changed_files and not (
+        same_repo and head_ref.startswith(ROADMAP_BRANCH_PREFIX)
+    ):
         failures.append(
             "Only the orchestrator edits docs/roadmap.md; revert it and send "
             "the orchestrator the row."
@@ -247,21 +309,31 @@ def check(
 
 
 def review_recorded(body, head_sha):
-    """Returns the failures of the ## Review section for head_sha."""
+    """Returns the failures of the ## Review section for head_sha. The section
+    must hold exactly one line `Reviewer: <name> Head: <40-hex> Verdict:
+    clean|changes-requested` outside fenced code; Head and Verdict come from
+    that one line, so quoted text in the findings cannot stand in for them."""
     _, texts = _sections(body or "")
-    section = texts.get("Review", "")
-    heads = re.findall(r"\bHead:\W*([0-9a-fA-F]{40})\b", section)
-    verdicts = re.findall(
-        r"\bVerdict:\W*(clean|changes-requested)\b(?!\s*\|)", section, re.I
-    )
-    if not heads or not verdicts:
-        return [f"No isolated review recorded for {head_sha}: {REVIEW_HINT}"]
-    if heads[-1].lower() != head_sha.lower():
+    section = _strip_fences(texts.get("Review", ""))
+    lines = REVIEW_LINE_RE.findall(section)
+    if not lines:
         return [
-            f"The review is for {heads[-1].lower()}, the head is {head_sha}: "
+            f"No isolated review recorded for {head_sha}: {REVIEW_HINT}. "
+            "The line must read 'Reviewer: <name> Head: <full sha> Verdict: "
+            "clean | changes-requested' on one line."
+        ]
+    if len(lines) > 1:
+        return [
+            f"## Review holds {len(lines)} review lines: keep exactly one, "
+            f"the isolated reviewer's block for {head_sha}."
+        ]
+    head, verdict = lines[0]
+    if head.lower() != head_sha.lower():
+        return [
+            f"The review is for {head.lower()}, the head is {head_sha}: "
             "review the new commits."
         ]
-    if verdicts[-1].lower() != "clean":
+    if verdict != "clean":
         return [
             f"The review of {head_sha} says changes-requested: fix the findings, "
             "push, and review the new head."
@@ -269,51 +341,91 @@ def review_recorded(body, head_sha):
     return []
 
 
-def _git(*args):
-    return subprocess.run(
-        ["git", *args], check=True, capture_output=True, text=True
-    ).stdout
+def _api_get(url, token):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.load(resp)
 
 
-def changed_files(base_sha, head_sha):
-    out = _git("diff", "--name-only", f"{base_sha}...{head_sha}")
-    return [line for line in out.splitlines() if line]
+def fetch_pr_files(repo, number):
+    """The PR's files (filename, previous_filename, patch) from the REST API,
+    read-only, with GITHUB_TOKEN. Nothing of the PR is checked out."""
+    token = os.environ.get("GITHUB_TOKEN", "")
+    files, page = [], 1
+    while page <= 30:
+        chunk = _api_get(
+            f"https://api.github.com/repos/{repo}/pulls/{number}/files"
+            f"?per_page=100&page={page}",
+            token,
+        )
+        files += chunk
+        if len(chunk) < 100:
+            break
+        page += 1
+    return files
 
 
-def version_changed(base_sha, head_sha):
-    out = _git("diff", "-U0", f"{base_sha}...{head_sha}", "--", "pubspec.yaml")
-    return any(re.match(r"^[+-]version:", line) for line in out.splitlines())
+def changed_names(files):
+    names = []
+    for f in files:
+        names.append(f["filename"])
+        if f.get("previous_filename"):
+            names.append(f["previous_filename"])
+    return names
 
 
-def corruption_diff(base_sha, head_sha):
-    return _git(
-        "diff", "-U0", f"{base_sha}...{head_sha}", "--", *CORRUPTION_FILES
+def version_changed(files):
+    for f in files:
+        if f["filename"] == "pubspec.yaml":
+            return any(
+                re.match(r"^[+-]version:", line)
+                for line in (f.get("patch") or "").splitlines()
+            )
+    return False
+
+
+def corruption_diff(files):
+    return "\n".join(
+        f"diff --git a/{f['filename']} b/{f['filename']}\n{f.get('patch') or ''}"
+        for f in files
+        if f["filename"] in CORRUPTION_FILES
     )
 
 
-def main(argv):
+def main(argv, fetch_files=fetch_pr_files):
+    """`fetch_files(repo, number)` is injectable so tests can run a saved event
+    JSON without the network."""
     mode = argv[1] if len(argv) > 1 else ""
     with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as f:
         pr = json.load(f)["pull_request"]
     head_sha = pr["head"]["sha"]
     author = (pr.get("user") or {}).get("login", "")
     head_ref = pr["head"]["ref"]
+    same = same_repo(pr)
     if mode == "policy":
-        base_sha = pr["base"]["sha"]
+        files = fetch_files(pr["base"]["repo"]["full_name"], pr["number"])
         failures = check(
             pr.get("title") or "",
             pr.get("body") or "",
             head_ref,
             author,
             head_sha,
-            changed_files(base_sha, head_sha),
-            version_changed(base_sha, head_sha),
-            corruption_diff(base_sha, head_sha),
+            changed_names(files),
+            version_changed(files),
+            corruption_diff(files),
+            same,
         )
     elif mode == "review":
         failures = (
             []
-            if is_bot(author, head_ref)
+            if is_bot(author, head_ref, same)
             else review_recorded(pr.get("body") or "", head_sha)
         )
     else:

@@ -1,13 +1,20 @@
 name: PR policy
 
-# Both jobs read the pull_request event JSON from $GITHUB_EVENT_PATH; the title
-# and body never go through a shell line. No path filter: every PR is checked.
+# Why pull_request_target is safe here: this workflow checks out the default
+# branch only (no `ref:`), so scripts/pr_policy.py is main's copy and a PR
+# cannot edit its own gate. Nothing from the PR is checked out, fetched,
+# executed, installed or built; the script reads the PR title, body, branch and
+# SHA from the event JSON ($GITHUB_EVENT_PATH, never interpolated into a `run:`
+# line) and the changed files and patches from the REST API as data. The token
+# is read-only (contents, pull-requests), and there are no secrets or caches.
+# Consequence: a PR that changes this file is checked by main's version.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, edited, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: pr-policy-${{ github.event.pull_request.number }}
@@ -21,19 +28,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
           persist-credentials: false
       - run: python3 -I scripts/pr_policy.py policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   review:
     name: Review recorded
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # Only the script and the event file are needed.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
       - run: python3 -I scripts/pr_policy.py review
