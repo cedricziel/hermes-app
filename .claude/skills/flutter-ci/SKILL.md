@@ -72,7 +72,7 @@ change can cause (icon tree shaking on a non-const `IconData`, AOT-only or
 conditional-import problems, a platform-only plugin call) are caught on main's
 run only, since push to main and `workflow_dispatch` build everything. The
 native audio test (`test/voice/native_voice_player_test.dart`, real libmpv)
-runs for every code PR in its own job, `Test native audio (Linux)`, which
+runs for every full code PR (see "Label gate") in its own job, `Test native audio (Linux)`, which
 `Analyze & test` does not wait for. When a build starts to read a
 new path (a script it calls, a new asset folder), add it to the `builds` case in
 the `Changes` job, or PRs that touch only that path will skip the build.
@@ -109,3 +109,86 @@ any job upstream was skipped, and `Test watch core` is skipped on most pull
 requests. Their `if` therefore names `needs.analyze-and-test.result ==
 'success'` under `!cancelled()`. If builds show as skipped on a pull request that
 changes code, look there first.
+
+## Label gate: "Tests deferred"
+
+The test shards are about 93% of runner time, so on a pull request they run
+only when the PR is ready. `Changes` runs `scripts/ci_gate.py`, which outputs
+`full` (a pure function of the event name, the base branch, the PR's current
+labels read from the API, and the head branch). A run is FULL when any holds:
+
+- the event is `push`, `workflow_dispatch` or `merge_group`;
+- the PR's base is not `main` (a stacked PR);
+- the PR has the label `ci:full`;
+- the PR's branch is the release-please branch (see below);
+- the gate cannot decide (label lookup failed, missing or malformed data):
+  fail closed.
+
+Otherwise it is DEFERRED. Always run, full or deferred: `Changes`, `Analyze`
+(format, analyze, the script tests including `scripts/test_ci_gate.py`) and
+`Analyze & test`. Run only when FULL, and still under their path conditions
+(`code`, `watch`, `builds`): the shards, `Coverage`, `Test native audio
+(Linux)`, `Test watch core` and the five platform builds. A full Dart-only PR
+therefore still skips the builds. `PR policy` is a separate workflow and is not
+gated.
+
+**What "Tests deferred" means.** On a deferred run `Analyze & test` fails, as an
+`::error::` annotation and in the step summary: "Tests deferred: add the
+ci:full label when the PR is ready (fleet rules). Nothing merges until the
+tests ran on this head." It fails instead of skipping because a skipped
+required check counts as passing. It says the tests did not run on this head.
+It says nothing about whether the code is good, so never read it as a test
+failure and never as green. Exception: a docs-only PR (including the
+release-please PR when it changes only the changelog, the manifest and the
+version line) needs no tests, so it passes deferred and needs no label.
+
+**How to add the label.** `gh pr edit <number> --add-label ci:full`, or on the
+PR page. Add it when the PR is ready, not before, unless a CI-only failure
+needs a full run to debug. The label must exist in the repo: the owner creates
+it once (`gh label create ci:full --description "Run the full CI test suite"`);
+until then the first session to label a PR creates it, since adding a label
+through the API creates it when missing. Do not use "Re-run jobs" to get a full
+run after labelling: the label event starts a new run by itself, and the gate
+reads the current labels either way.
+
+| Event | Labels after it | Run | `Analyze & test` |
+| --- | --- | --- | --- |
+| opened / reopened / synchronize | none of ours | deferred | fails (tests deferred) |
+| opened / reopened / synchronize | `ci:full` | full | tests' result |
+| labeled `ci:full` | `ci:full` | full, cancels a run in progress | tests' result |
+| unlabeled `ci:full` | none of ours | deferred, cancels a run in progress | fails (tests deferred) |
+| labeled or unlabeled, other label, `ci:full` absent | none of ours | deferred | fails (tests deferred) |
+| labeled or unlabeled, other label, `ci:full` present | `ci:full` | full, queued behind a run in progress | tests' result |
+| base not `main` | any | full | tests' result |
+| release-please branch | any | full; docs-like runs nothing heavy | tests' result, or pass when docs-only |
+| push to main, `workflow_dispatch`, `merge_group` | n/a | full | tests' result |
+| gate error | n/a | full | tests' result |
+
+Docs-only PRs pass in every row, because `code` is false and the shards are
+skipped as they were before the gate.
+
+**Why the label events behave this way.** GitHub reads the latest check run
+named `Analyze & test` on the head, so a newer deferred run that fails turns an
+armed PR red even if an earlier full run on the same head was green: removing
+`ci:full` is enough, and no one has to push. Adding `ci:full` to a head that
+had a deferred run starts a full run on that head whose aggregate replaces the
+failed one. The workflow is triggered by every label event, so an unrelated
+label could otherwise cancel a full run: only `ci:full` events cancel a run in
+progress. Any other label event queues behind it (a queued run is replaced by a
+newer one), recomputes the same decision from the label set, and so gives the
+same result. The cost is one repeated full run per unrelated label added to a
+PR that has `ci:full` and has finished or is running; the workflow cannot
+filter by label name, and a skipped aggregate would count as passing. Labels
+other than `ci:full` that a bot adds belong on the PR before `ci:full` is
+added, so the labelling does not repeat a full run.
+
+**Release and bot PRs.** The release-please PR runs FULL by itself, without the
+label, when its diff is more than the changelog, the manifest and the version
+line (the fleet rules arm it only after its builds are green). When it is
+docs-like it passes without a label. Dependabot and other bots are treated like
+any PR: deferred until someone adds `ci:full`.
+
+**Costs.** A PR needs one label action before it can merge. A deferred head has
+a red required check. Reading the label through the API needs
+`pull-requests: read` on `Changes`; a failed lookup runs everything. `merge_group`
+is classified as full but `ci.yml` does not trigger on it today.

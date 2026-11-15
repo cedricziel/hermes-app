@@ -3,15 +3,22 @@ name: CI
 on:
   push:
     branches: [main]
+  # The label events rerun the gate when `ci:full` is added or removed.
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
 
 # A newer push cancels the run of a pull request it replaces. On main nothing
 # is cancelled once it runs, so every finished merge leaves a complete run
-# (a run still waiting in the queue is replaced by the newer one).
+# (a run still waiting in the queue is replaced by the newer one). A label
+# event cancels a run in progress only when the label is `ci:full`: that label
+# changes what the run must do. Any other label (a bot's, say) queues behind
+# the run in progress instead of cancelling a full run; it then runs with the
+# same label set and so gives the same result (see "Label gate" in the
+# flutter-ci skill for the cost).
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'ci:full') }}
 
 jobs:
   # Decides which heavy jobs a pull request needs. Push to main and manual runs
@@ -28,14 +35,26 @@ jobs:
   # docs-only too: it is rebuilt after every merge to main and each rebuild
   # cancelled a full test run, while the code it carries was already tested on
   # main. Its tag run builds everything in release-please.yml.
+  #
+  # Label gate: the heavy jobs (shards, coverage, native audio, watch test and
+  # the platform builds) also need `full`, decided by scripts/ci_gate.py. A pull
+  # request is FULL with the label `ci:full`, from the release-please branch, or
+  # when its base is not main; push, manual and merge-group runs are always
+  # FULL; any doubt is FULL. Otherwise it is DEFERRED, and `Analyze & test`
+  # fails (unless the pull request is docs-only) until the label is added.
   changes:
     name: Changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       code: ${{ steps.filter.outputs.code }}
       watch: ${{ steps.filter.outputs.watch }}
       builds: ${{ steps.filter.outputs.builds }}
+      full: ${{ steps.gate.outputs.full }}
+      gate_reason: ${{ steps.gate.outputs.gate_reason }}
     steps:
       # On a pull request HEAD is the merge commit and HEAD^1 the base branch.
       - uses: actions/checkout@v7
@@ -123,6 +142,30 @@ jobs:
           echo "builds=$builds" >> "$GITHUB_OUTPUT"
           echo "code=$code watch=$watch builds=$builds" >> "$GITHUB_STEP_SUMMARY"
 
+      # The labels are read from the API, not from the event payload, so a
+      # re-run of this workflow sees the labels as they are now. A failed
+      # lookup makes the run FULL (fail closed).
+      - name: Decide full or deferred
+        id: gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          labels=""
+          labels_error=false
+          if [ "$EVENT_NAME" = pull_request ]; then
+            labels="$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/labels" --jq '.[].name')" || labels_error=true
+          fi
+          decision="$(LABELS="$labels" LABELS_ERROR="$labels_error" python3 -I scripts/ci_gate.py)"
+          echo "$decision" >> "$GITHUB_OUTPUT"
+          echo "gate: $decision" | tr '\n' ' ' >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
@@ -159,7 +202,7 @@ jobs:
   test:
     name: Test (shard ${{ matrix.shard }})
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -208,7 +251,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [changes, test]
-    if: always() && !cancelled() && needs.changes.outputs.code == 'true'
+    if: always() && !cancelled() && needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -241,6 +284,10 @@ jobs:
   # that was needed did: the shards unless the pull request changed docs only,
   # the Swift package tests unless it left their files alone. A job that was not
   # needed must show as skipped; a failed or cancelled one fails this check.
+  # A deferred run (no `ci:full` label, see Changes) fails it when tests are
+  # needed: nothing merges before the tests ran on this head. It must not skip,
+  # because a skipped required check counts as passing. A docs-only pull request
+  # needs no tests and passes deferred too.
   analyze-and-test:
     name: Analyze & test
     runs-on: ubuntu-latest
@@ -256,6 +303,8 @@ jobs:
           TEST_WATCH: ${{ needs.test-watch.result }}
           NEED_TEST: ${{ needs.changes.outputs.code }}
           NEED_WATCH: ${{ needs.changes.outputs.watch }}
+          FULL: ${{ needs.changes.outputs.full }}
+          GATE_REASON: ${{ needs.changes.outputs.gate_reason }}
         run: |
           fail=0
           expect() {
@@ -264,8 +313,16 @@ jobs:
           }
           expect changes "$CHANGES" success
           expect analyze "$ANALYZE" success
-          if [ "$NEED_TEST" = true ]; then expect test "$TEST" success; else expect test "$TEST" skipped; fi
-          if [ "$NEED_WATCH" = true ]; then expect test-watch "$TEST_WATCH" success; else expect test-watch "$TEST_WATCH" skipped; fi
+          if [ "$CHANGES" = success ] && [ "$NEED_TEST" = true ] && [ "$FULL" != true ]; then
+            msg="Tests deferred: add the ci:full label when the PR is ready (fleet rules). Nothing merges until the tests ran on this head."
+            echo "::error::$msg"
+            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+            echo "gate: $GATE_REASON"
+            fail=1
+          else
+            if [ "$NEED_TEST" = true ]; then expect test "$TEST" success; else expect test "$TEST" skipped; fi
+            if [ "$NEED_WATCH" = true ]; then expect test-watch "$TEST_WATCH" success; else expect test-watch "$TEST_WATCH" skipped; fi
+          fi
           exit $fail
 
   build-android:
@@ -275,7 +332,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -304,7 +361,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -326,7 +383,7 @@ jobs:
   test-watch:
     name: Test watch core
     needs: changes
-    if: needs.changes.outputs.watch == 'true'
+    if: needs.changes.outputs.watch == 'true' && needs.changes.outputs.full == 'true'
     runs-on: macos-26
     timeout-minutes: 20
     permissions:
@@ -354,7 +411,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -398,7 +455,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -420,7 +477,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     needs: [changes, analyze-and-test]
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -449,7 +506,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
