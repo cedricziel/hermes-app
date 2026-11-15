@@ -29,9 +29,17 @@ void main() {
       expect(theme.splashFactory, NoSplash.splashFactory);
     });
 
-    test('buttons are compact', () {
-      final size = theme.textButtonTheme.style!.minimumSize!.resolve({});
-      expect(size!.height, 28);
+    testWidgets('buttons are 28 tall once the density is applied', (
+      tester,
+    ) async {
+      final button = TextButton(onPressed: () {}, child: const Text('Go'));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(body: Center(child: button)),
+        ),
+      );
+      expect(tester.getSize(find.byWidget(button)).height, 28);
     });
 
     test('popup menus use the smaller Mac radius', () {

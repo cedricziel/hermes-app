@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/tools/widgets/tools_target.dart';
+import 'package:hermes_app/src/widgets/app_banner.dart';
 
 typedef _Theme = ThemeData Function({TargetPlatform? platform});
 
@@ -91,6 +95,88 @@ void main() {
           finder: find.byType(SegmentedButton<int>),
         );
         expect(size.height, 32);
+      });
+
+      // The theme must reach 28 pt only through `minimumSize`: a button that
+      // sets part of its own style, or a banner that merges the theme's
+      // style, must see the same padding and density as before.
+      group('buttons that style themselves', () {
+        Future<void> pumpMac(WidgetTester tester, Widget child) =>
+            tester.pumpWidget(
+              MaterialApp(
+                theme: theme(platform: TargetPlatform.macOS),
+                locale: const Locale('de'),
+                localizationsDelegates: const [
+                  AppLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: Scaffold(body: Center(child: child)),
+              ),
+            );
+
+        testWidgets('a stacked AppBanner action keeps its start edge', (
+          tester,
+        ) async {
+          await pumpMac(
+            tester,
+            AppBanner(
+              tone: AppBannerTone.neutral,
+              title: 'Titel',
+              action: TextButton(onPressed: () {}, child: const Text('Aktion')),
+            ),
+          );
+          expect(
+            AppBanner.stacksAction(tester.element(find.byType(AppBanner))),
+            isTrue,
+          );
+          expect(
+            tester.getTopLeft(find.text('Aktion')).dx,
+            tester.getTopLeft(find.text('Titel')).dx,
+          );
+        });
+
+        testWidgets('a minimumSize-only style keeps its main height', (
+          tester,
+        ) async {
+          final button = FilledButton(
+            onPressed: () {},
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            child: const Text('Go'),
+          );
+          await pumpMac(tester, button);
+          expect(tester.getSize(find.byWidget(button)).height, 36);
+        });
+
+        testWidgets('toolsButtonStyle keeps its main height', (tester) async {
+          late TextButton button;
+          await pumpMac(
+            tester,
+            Builder(
+              builder: (context) => button = TextButton(
+                onPressed: () {},
+                style: toolsButtonStyle(context),
+                child: const Text('Go'),
+              ),
+            ),
+          );
+          expect(tester.getSize(find.byWidget(button)).height, 36);
+        });
+
+        testWidgets('TextButton.icon keeps its main width', (tester) async {
+          final button = TextButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Go'),
+          );
+          await pumpMac(tester, button);
+          expect(
+            tester.getSize(find.byWidget(button)).width,
+            closeTo(82.2, 0.1),
+          );
+        });
       });
     });
   }
