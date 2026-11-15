@@ -667,10 +667,91 @@ class MergeReviewTest(unittest.TestCase):
         )
         self.assertEqual(out, [])
 
-    def test_more_than_one_plain_block_fails(self):
+    def test_several_plain_blocks_one_per_reviewed_head(self):
         self.r.sync_origin()
-        out = self.review(self.rev, blk(self.rev, self.root) + blk(OLD, self.root))
-        self.assertIn("holds 2 review lines", out[0])
+        later = self.r.commit("pr2.txt")
+        both = blk(self.rev, self.root) + blk(later, self.root)
+        self.assertEqual(self.review(later, both), [])
+        self.assertEqual(self.review(self.rev, both), [])
+
+    def test_blocks_for_other_heads_do_not_accept_this_one(self):
+        self.r.sync_origin()
+        out = self.review(self.rev, blk(OLD, self.root) + blk("d" * 40, self.root))
+        self.assertIn(f"The review is for {OLD}, {'d' * 40}", out[0])
+
+    def test_clean_block_wins_over_changes_requested_for_same_head(self):
+        self.r.sync_origin()
+        both = blk(self.rev, self.root, verdict="changes-requested") + blk(self.rev, self.root)
+        self.assertEqual(self.review(self.rev, both), [])
+
+    def test_chain_through_later_reviewed_head(self):
+        r = self.r
+        later = r.commit("pr2.txt")
+        self.advance_main("m1.txt")
+        h = r.merge("main")
+        both = blk(self.rev, self.root) + blk(later, self.root)
+        self.assertEqual(self.review(h, both), [])
+        # P is the later head: only the first reviewed commit is not enough.
+        out = self.review(h, blk(self.rev, self.root))
+        self.assertIn(f"commit {later} (reached from head {h}", out[0])
+
+    # --- the transition: a legacy block naming a merge head --------------
+
+    def test_legacy_block_naming_clean_merge_head_passes(self):
+        h = self.clean_merge_of_main()
+        self.assertEqual(self.review(h, blk(h, self.root, rng=False)), [])
+
+    def test_legacy_merge_head_with_unreviewed_first_parent_passes_only_in_transition(self):
+        self.advance_main("m1.txt")
+        self.r.commit("late.txt")
+        late = self.r.head()
+        h = self.r.merge("main")
+        legacy = blk(h, self.root, rng=False)
+        self.assertEqual(self.review(h, legacy), [])
+        with mock.patch.object(pr_policy, "ACCEPT_LEGACY_REVIEW_BLOCK", False):
+            out = self.review(h, legacy)
+        self.assertIn(f"but commit {late} (reached from head {h}", out[0])
+        self.assertIn(f"Head: {late}", out[0])
+        self.assertIn(f"Range: {self.r.tip()}..{late}", out[0])
+
+    def test_legacy_block_with_flag_off_passes_once_p_has_a_block(self):
+        h = self.clean_merge_of_main()
+        with mock.patch.object(pr_policy, "ACCEPT_LEGACY_REVIEW_BLOCK", False):
+            out = self.review(h, blk(h, self.root, rng=False) + blk(self.rev, self.root))
+        self.assertEqual(out, [])
+
+    def test_range_block_naming_a_clean_merge_does_not_accept_it(self):
+        self.advance_main("m1.txt")
+        self.r.commit("late.txt")
+        h = self.r.merge("main")
+        out = self.review(h, blk(h, self.root))
+        self.assertIn(f"commit {self.r.git('rev-parse', h + '^1').stdout.strip()} (reached", out[0])
+
+    def test_legacy_block_does_not_accept_a_dirty_merge(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        r.git("merge", "-q", "--no-ff", "--no-commit", "main")
+        r.write("evil.txt", "payload\n")
+        r.git("add", "evil.txt")
+        r.git("commit", "-q", "-m", "Merge main")
+        h = r.head()
+        out = self.review(h, blk(h, self.root, rng=False))
+        self.assertIn("evil.txt", out[0])
+
+    def test_legacy_block_does_not_accept_a_foreign_second_parent(self):
+        r = self.r
+        r.git("checkout", "-q", "-B", "other", self.root)
+        r.commit("other.txt")
+        r.git("checkout", "-q", "pr")
+        r.sync_origin()
+        h = r.merge("other")
+        out = self.review(h, blk(h, self.root, rng=False))
+        self.assertIn("is not on the base branch", out[0])
+
+    def test_legacy_changes_requested_does_not_accept_a_merge(self):
+        h = self.clean_merge_of_main()
+        out = self.review(h, blk(h, self.root, rng=False, verdict="changes-requested"))
+        self.assertTrue(out)
 
     def test_head_missing_from_checkout_fails(self):
         self.r.sync_origin()
@@ -851,9 +932,44 @@ class MergeReviewTest(unittest.TestCase):
             out += f"Range: {self.root}..{h}\n"
         return out
 
+    def p_block(self, h):
+        p = self.r.git("rev-parse", f"{h}^1").stdout.strip()
+        return blk(p, self.root)
+
     def test_dirty_merge_with_merge_review_passes(self):
         h = self.dirty_merge()
-        out = self.review(h, blk(self.rev, self.root) + "\n" + self.merge_review(h))
+        out = self.review(h, self.p_block(h) + "\n" + self.merge_review(h))
+        self.assertEqual(out, [])
+
+    def test_merge_review_needs_the_first_parent_accepted(self):
+        h = self.dirty_merge()
+        p = self.r.git("rev-parse", f"{h}^1").stdout.strip()
+        out = self.review(h, self.merge_review(h))
+        self.assertIn(f"No isolated review recorded for commit {p}", out[0])
+        self.assertIn(f"Head: {p}", out[0])
+
+    def test_merge_review_must_list_every_differing_file(self):
+        h = self.dirty_merge()
+        out = self.review(h, self.p_block(h) + self.merge_review(h, files="b.txt"))
+        self.assertIn("does not list a.txt", out[0])
+        self.assertIn("Merge-review: a.txt, b.txt", out[0])
+
+    def test_merge_review_may_list_extra_files(self):
+        h = self.dirty_merge()
+        out = self.review(h, self.p_block(h) + self.merge_review(h, files="a.txt, b.txt"))
+        self.assertEqual(out, [])
+
+    def test_merge_review_lists_evil_merge_extra_file(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        r.git("merge", "-q", "--no-ff", "--no-commit", "main")
+        r.write("evil.txt", "payload\n")
+        r.git("add", "evil.txt")
+        r.git("commit", "-q", "-m", "Merge main")
+        h = r.head()
+        out = self.review(h, blk(self.rev, self.root) + self.merge_review(h, files="m1.txt"))
+        self.assertIn("does not list evil.txt", out[0])
+        out = self.review(h, blk(self.rev, self.root) + self.merge_review(h, files="evil.txt"))
         self.assertEqual(out, [])
 
     def test_merge_review_for_another_commit_does_not_help(self):
@@ -889,7 +1005,7 @@ class MergeReviewTest(unittest.TestCase):
 
     def test_plain_block_after_merge_review_is_its_own_block(self):
         h = self.dirty_merge()
-        review = self.merge_review(h) + blk(self.rev, self.root)
+        review = self.merge_review(h) + self.p_block(h)
         self.assertEqual(self.review(h, review), [])
 
     def test_merge_review_also_rescues_a_foreign_second_parent(self):
@@ -899,7 +1015,8 @@ class MergeReviewTest(unittest.TestCase):
         r.git("checkout", "-q", "pr")
         r.sync_origin()
         h = r.merge("other")
-        self.assertEqual(self.review(h, self.merge_review(h, files="other.txt")), [])
+        review = blk(self.rev, self.root) + self.merge_review(h, files="other.txt")
+        self.assertEqual(self.review(h, review), [])
 
 
 class GitReviewMainTest(unittest.TestCase):

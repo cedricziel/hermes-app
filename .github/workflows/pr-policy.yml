@@ -51,6 +51,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # First live exercise on the PR that carries this change: this fetch
+      # recipe has only been tried against local repositories until then.
       # Objects only: `refs/pull/<n>/head` is served for fork PRs too, and the
       # event's head SHA is fetched if a push moved the ref. Nothing is checked
       # out. The token goes in through the environment as a scoped extraheader,
@@ -67,7 +69,12 @@ jobs:
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
           export GIT_CONFIG_KEY_1="fetch.fsckObjects"
           export GIT_CONFIG_VALUE_1="true"
-          git fetch --no-tags --no-recurse-submodules origin "refs/pull/${PR_NUMBER}/head"
-          git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null \
-            || git fetch --no-tags --no-recurse-submodules origin "${HEAD_SHA}"
+          git fetch --no-tags --no-recurse-submodules origin "refs/pull/${PR_NUMBER}/head" || true
+          if ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --no-recurse-submodules origin "${HEAD_SHA}" || true
+          fi
+          if ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::Could not fetch the PR head ${HEAD_SHA}: neither refs/pull/${PR_NUMBER}/head nor the SHA itself came back. Re-run the job; the review cannot be checked without the head's commits."
+            exit 1
+          fi
       - run: python3 -I scripts/pr_policy.py review

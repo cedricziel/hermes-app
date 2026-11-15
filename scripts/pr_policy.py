@@ -324,17 +324,25 @@ def check(
 #
 #   (a)  non-merge commit C: a block `Reviewer: <name> Head: <C> Verdict:
 #        clean` plus `Range: <base>..<C>` (base an ancestor of C, range head
-#        equal to Head).
+#        equal to Head). The body may hold several such blocks, one per
+#        reviewed head (the pre-merge head, later heads).
 #   (b1) merge commit H = merge(P, M): P is accepted (recursively), M is on the
 #        base branch, and `git merge-tree --write-tree P M` is clean and
 #        yields exactly H's tree (no conflict resolution, no extra change).
 #   (b2) merge commit H: a `Merge-review: <files>` block naming H, with its own
-#        Reviewer/Head/Verdict and Range lines.
+#        Reviewer/Head/Verdict and Range lines. P is accepted as in (b1), and
+#        the files cover every file whose content differs from merge-tree.
+# A plain block never accepts a merge commit by itself.
 #
-# Transition: PRs opened before Range existed carry the one-line block. Until
-# the fleet rules (fleet-rules skill, isolated-reviewer agent) require Range,
-# a NON-MERGE head is accepted without it. Merge heads get rule (b) from day
-# one. Set this to False in the change that makes Range mandatory everywhere.
+# Transition: PRs opened before Range existed carry ONE plain block, often
+# naming their merge head, with the reviewed pre-merge head only in prose.
+# While this flag is True: a NON-MERGE head is accepted on a one-line block
+# without Range, and a MERGE head H is accepted on such a legacy block when H
+# passes the tree test (second parent on the base tip, merge-tree clean and
+# equal to H's tree, not an octopus). P is not checked in that legacy case.
+# That is a known, temporary gap: an unreviewed P behind a clean merge. Today's
+# state has the same gap, so it adds nothing worse. It closes when this flips
+# to False, in the change that makes Range mandatory everywhere.
 ACCEPT_LEGACY_REVIEW_BLOCK = True
 # A chain of clean merges is followed at most this deep before failing.
 MAX_MERGE_DEPTH = 20
@@ -503,6 +511,7 @@ class _Review:
     def reviewed(self, commit):
         """Rule (a), for a commit with fewer than two parents."""
         mine = [b for b in self.plain if b.head == commit]
+        mine.sort(key=lambda b: b.verdict != "clean")
         paste = _paste(commit, self.base_tip)
         if not mine:
             others = sorted({b.head for b in self.plain if b.head})
@@ -527,7 +536,7 @@ class _Review:
             return []
         return self.range_failures(block, commit)
 
-    def merge_review(self, commit):
+    def merge_review(self, commit, p, m, depth):
         """Rule (b2). Returns (accepted, failures); failures are empty when no
         Merge-review block names the commit."""
         mine = [b for b in self.merge_blocks if b.head == commit]
@@ -546,7 +555,26 @@ class _Review:
                 "reviewer's Reviewer and Range lines."
             ]
         failures = self.range_failures(block, commit)
+        if failures:
+            return False, failures
+        differing = self.differing_files(commit, p, m)
+        listed = {f.strip() for f in block.files}
+        missing = [f for f in differing if f not in listed]
+        if missing:
+            return False, [
+                f"The Merge-review for {commit} does not list "
+                f"{', '.join(missing)}, whose content differs from `git "
+                f"merge-tree {p} {m}`: ask the isolated reviewer for a merge "
+                f"review that covers them. "
+                f"{_paste(commit, self.base_tip, sorted(set(differing) | listed))}"
+            ]
+        failures = self.accepted(p, depth + 1)
         return not failures, failures
+
+    def differing_files(self, h, p, m):
+        """Files whose content differs between merge-tree(p, m) and h."""
+        _, tree, conflicted = self.git.merge_tree(p, m)
+        return sorted(set(conflicted) | set(self.git.changed_files(tree, self.git.tree(h))))
 
     def accepted(self, commit, depth=0):
         """The failures that keep `commit` from being accepted; [] accepts."""
@@ -563,7 +591,7 @@ class _Review:
         failures = self.clean_merge(commit, parents[0], parents[1], depth)
         if not failures:
             return []
-        ok, blocked = self.merge_review(commit)
+        ok, blocked = self.merge_review(commit, parents[0], parents[1], depth)
         if ok:
             return []
         return blocked or failures
@@ -598,6 +626,11 @@ class _Review:
                 "and push, or ask the isolated reviewer for a merge-only "
                 f"review of these files. {_paste(h, self.base_tip, files or ['<files>'])}"
             ]
+        if ACCEPT_LEGACY_REVIEW_BLOCK and any(
+            b.head == h and b.range is None and b.verdict == "clean"
+            for b in self.plain
+        ):
+            return []  # the known transition gap described above
         return self.accepted(p, depth + 1)
 
 
@@ -613,11 +646,6 @@ def review_recorded(body, head_sha, git=None, base_tip=None):
         return _legacy_review(section, head_sha)
     head_sha = head_sha.lower()
     review = _Review(git, base_tip, parse_blocks(section), head_sha)
-    if len(review.plain) > 1:
-        return [
-            f"## Review holds {len(review.plain)} review lines: keep exactly "
-            f"one, the isolated reviewer's block for {head_sha}."
-        ]
     if not git.has_commit(head_sha):
         return [f"The head {head_sha} is not in the checkout: re-run the job."]
     try:
