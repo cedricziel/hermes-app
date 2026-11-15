@@ -2180,6 +2180,101 @@
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
   },
+  "chatWidgetsToolValueCopied": "Copied",
+  "@chatWidgetsToolValueCopied": {
+    "description": "Shown for two seconds on the Copy button of a tool call's input or result after it was copied, and announced to screen readers."
+  },
+  "chatWidgetsToolValueCopyError": "Copy error",
+  "@chatWidgetsToolValueCopyError": {
+    "description": "Accessible name of the button that copies a tool call's error text exactly as it was sent."
+  },
+  "chatWidgetsToolValueCopyInput": "Copy input",
+  "@chatWidgetsToolValueCopyInput": {
+    "description": "Accessible name of the button that copies a tool call's input exactly as it was sent."
+  },
+  "chatWidgetsToolValueCopyResult": "Copy result",
+  "@chatWidgetsToolValueCopyResult": {
+    "description": "Accessible name of the button that copies a tool call's result exactly as it was sent."
+  },
+  "chatWidgetsToolValueHiddenChar": "hidden character {code}",
+  "@chatWidgetsToolValueHiddenChar": {
+    "description": "What a screen reader says for a boxed escape in a tool call's text, a character that hides or reorders text. {code} is its code point, such as U+202E.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsToolValueItems": "{count, plural, =1{1 item} other{{count} items}}",
+  "@chatWidgetsToolValueItems": {
+    "description": "Summary of a JSON array in the tree view of a tool call's input or result. {count} is how many entries it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsToolValueKeys": "{count, plural, =1{1 key} other{{count} keys}}",
+  "@chatWidgetsToolValueKeys": {
+    "description": "Summary of a JSON object in the tree view of a tool call's input or result. {count} is how many keys it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsToolValueLineBreak": "line break",
+  "@chatWidgetsToolValueLineBreak": {
+    "description": "What a screen reader says for the boxed line break inside a string of the tree view of a tool call's JSON."
+  },
+  "chatWidgetsToolValueNoticeTooDeepForTree": "Too deeply nested for the tree view.",
+  "@chatWidgetsToolValueNoticeTooDeepForTree": {
+    "description": "Muted line under a tool call's JSON that is nested too deep for the tree view; it is shown as coloured text only."
+  },
+  "chatWidgetsToolValueNoticeTooLongForTree": "Too long for the tree view.",
+  "@chatWidgetsToolValueNoticeTooLongForTree": {
+    "description": "Muted line under a tool call's JSON that is too long for the tree view; it is shown as coloured text only."
+  },
+  "chatWidgetsToolValueNoticeTooLongToColour": "Too long to colour. Shown as plain text.",
+  "@chatWidgetsToolValueNoticeTooLongToColour": {
+    "description": "Muted line under a tool call's text that is too long to be coloured; it is shown as plain text."
+  },
+  "chatWidgetsToolValueShowAsText": "Show as text",
+  "@chatWidgetsToolValueShowAsText": {
+    "description": "Accessible name of the view switch option that shows a tool call's JSON as the text it was sent as."
+  },
+  "chatWidgetsToolValueShowAsTree": "Show as tree",
+  "@chatWidgetsToolValueShowAsTree": {
+    "description": "Accessible name of the view switch option that shows a tool call's JSON as a collapsible tree."
+  },
+  "chatWidgetsToolValueShowErrorAs": "Show error as",
+  "@chatWidgetsToolValueShowErrorAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's error."
+  },
+  "chatWidgetsToolValueShowInputAs": "Show input as",
+  "@chatWidgetsToolValueShowInputAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's input."
+  },
+  "chatWidgetsToolValueShowResultAs": "Show result as",
+  "@chatWidgetsToolValueShowResultAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's result."
+  },
+  "chatWidgetsToolValueTagJson": "JSON",
+  "@chatWidgetsToolValueTagJson": {
+    "description": "Muted tag beside the label of a tool call's input or result that is JSON."
+  },
+  "chatWidgetsToolValueTagPython": "Python",
+  "@chatWidgetsToolValueTagPython": {
+    "description": "Muted tag beside the label of a tool call's input or result that is Python code."
+  },
+  "chatWidgetsToolValueViewText": "Text",
+  "@chatWidgetsToolValueViewText": {
+    "description": "Option of the view switch that shows a tool call's JSON as the text it was sent as."
+  },
+  "chatWidgetsToolValueViewTree": "Tree",
+  "@chatWidgetsToolValueViewTree": {
+    "description": "Option of the view switch that shows a tool call's JSON as a collapsible tree."
+  },
 
   "@@x-area-core": "",
 
