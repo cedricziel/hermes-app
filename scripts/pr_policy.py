@@ -382,6 +382,8 @@ def local_patch(api, repo, f, base_sha, head_sha):
     """A patch for a file the files API listed without one (a large diff),
     diffed locally from the base and head blobs. Returns None when the blobs
     cannot be fetched."""
+    # The merge base comes from the event's base.sha. On a moved base the patch
+    # may differ from GitHub's own list; both sides are real commits.
     try:
         merge_base = base_sha
         if f.get("status") != "added":
@@ -464,13 +466,16 @@ def main(argv, api=api_get):
     same = same_repo(pr)
     if mode == "policy":
         repo = pr["base"]["repo"]["full_name"]
-        # A newer push has its own run; leave the result to it. Exit 0 is safe
-        # because that run reports on the new head, and a failed lookup here
-        # fails the job rather than passing it.
+        # Fail closed: if the API head is not the event's, a push landed (or
+        # the API lags). A red run on a superseded SHA is harmless, since the
+        # branch protection reads the current head, and a re-run clears a lag.
         current = api(f"repos/{repo}/pulls/{pr['number']}")["head"]["sha"]
         if current != head_sha:
-            print(f"superseded by {current}")
-            return 0
+            print(
+                f"::error::The PR head moved ({head_sha} → {current}); "
+                "the run on the newer head decides."
+            )
+            return 1
         files = fetch_pr_files(api, repo, pr["number"])
         failures = []
         listed = pr.get("changed_files")

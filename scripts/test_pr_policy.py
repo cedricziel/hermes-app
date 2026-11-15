@@ -584,11 +584,13 @@ class MainTest(unittest.TestCase):
         ev = self.event(changed_files=1)
         self.assertEqual(self.run_main("policy", ev, [{"filename": "a.dart"}])[0], 0)
 
-    def test_superseded_head_exits_zero(self):
-        code, out, calls = self.run_main(
-            "policy", self.event(title="bad title"), current=OLD
+    def test_moved_head_fails_closed(self):
+        code, out, calls = self.run_main("policy", self.event(), current=OLD)
+        self.assertEqual(code, 1)
+        self.assertIn(
+            f"The PR head moved ({SHA} → {OLD}); the run on the newer head decides",
+            out,
         )
-        self.assertEqual((code, out.strip()), (0, f"superseded by {OLD}"))
         self.assertEqual(len(calls), 1)
 
     def test_review_not_superseded_check(self):
