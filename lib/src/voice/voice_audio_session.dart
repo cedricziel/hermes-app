@@ -60,9 +60,12 @@ final AudioSessionConfiguration voiceRecordingSession =
 /// the first owner arrives and deactivated, telling other apps to resume, when
 /// the last one leaves (after a short grace, so an owner that pauses just
 /// before another one starts does not make other apps resume for a moment),
-/// so a later owner starts from its own category. CallKit owns the session
-/// during a call; nobody acquires it then, and an owner that is still held
-/// when a call starts is dropped with [forget], without a deactivation.
+/// so a later owner starts from its own category. During a call nobody here
+/// acquires it: on iOS CallKit owns the session, and on Android with the
+/// portable bridge `AndroidCallAudioSession` does, releasing any focus
+/// request a player still held before it makes the call's own. An owner that
+/// is still held when a call starts is dropped with [forget], without a
+/// deactivation.
 ///
 /// Nothing here runs before a user action: no acquire at launch or resume.
 class VoiceAudioSession {
