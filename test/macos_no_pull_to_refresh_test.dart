@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -65,6 +66,12 @@ void main() {
       );
       expect(find.byType(RefreshIndicator), matcher);
       expect(find.text('row'), findsOneWidget);
+      if (platform == TargetPlatform.iOS) {
+        await tester.drag(find.text('row'), const Offset(0, 300));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+        await tester.pumpAndSettle();
+      }
     });
 
     testWidgets('schedules list on $platform', (tester) async {

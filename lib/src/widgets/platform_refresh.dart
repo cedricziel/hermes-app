@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/platform_chrome.dart';
 
-/// Pull to refresh around [child] on every platform but the Mac, where a
+/// Pull to refresh (adaptive: a Cupertino spinner on iOS) around [child] on every platform but the Mac, where a
 /// scrolled list has no pull gesture and the screen offers a Refresh button
 /// instead.
 class PlatformRefresh extends StatelessWidget {
@@ -19,5 +19,5 @@ class PlatformRefresh extends StatelessWidget {
   Widget build(BuildContext context) =>
       platformChromeOf(context) == PlatformChrome.macos
       ? child
-      : RefreshIndicator(onRefresh: onRefresh, child: child);
+      : RefreshIndicator.adaptive(onRefresh: onRefresh, child: child);
 }
