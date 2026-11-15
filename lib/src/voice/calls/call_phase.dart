@@ -34,8 +34,12 @@ enum CallNotice {
   /// The app was hidden, which ends a call everywhere but on iOS.
   left,
 
-  /// A reply is running or a queue holds prompts, so the turn was not sent.
+  /// A reply is running or a queue is about to send, so the turn was not sent.
   busy,
+
+  /// A queue holds prompts that wait for the user and no reply runs: the turn
+  /// was not sent.
+  queuePaused,
 
   /// The chat refused the turn for another reason the call survives (the
   /// model, a branch, the persisted queue): nothing was sent.

@@ -128,18 +128,20 @@ extension _ChatScreenLayout on _ChatScreenState {
           value: _readAloud,
           child: boundChatThreadView(
             chat: chat,
-            recipientChip: ProfileRecipientChip(
-              profile: _recipient,
-              state: _recipientState,
-              avatars: _avatars,
-              onTap:
-                  selected == null ||
-                      !selected.remote && selected.messages.isEmpty
-                  ? _changeRecipient
-                  : null,
-              onRetry: _loadRecipients,
-              onSetup: _openProfiles,
-            ),
+            // The recipient can be chosen only before the first message; an
+            // ongoing chat belongs to its profile, which the header shows.
+            recipientChip:
+                selected != null &&
+                    (selected.remote || selected.messages.isNotEmpty)
+                ? null
+                : ProfileRecipientChip(
+                    profile: _recipient,
+                    state: _recipientState,
+                    avatars: _avatars,
+                    onTap: _changeRecipient,
+                    onRetry: _loadRecipients,
+                    onSetup: _openProfiles,
+                  ),
             onSetupModel: _setupModel,
             screen: _screen,
             onOpenScreen: () => _openViewer('preview'),
