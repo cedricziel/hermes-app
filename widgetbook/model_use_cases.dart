@@ -180,6 +180,48 @@ WidgetbookNode modelNode() => WidgetbookFolder(
         ),
       ],
     ),
+    // On a desktop platform the picker opens as a popover on the composer's
+    // pill (a dialog without an anchor) at any window width, never as a
+    // bottom sheet. 800 pt is the default Mac window.
+    WidgetbookComponent(
+      name: 'ModelPicker presentation',
+      useCases: [
+        for (final (label, platform, width, state) in [
+          ('Default checked', TargetPlatform.macOS, 800.0, _State.defaultRow),
+          ('Pick with effort', TargetPlatform.macOS, 800.0, _State.effort),
+          (
+            'Pick with effort, wide',
+            TargetPlatform.macOS,
+            1200.0,
+            _State.effort,
+          ),
+          ('Long ids', TargetPlatform.macOS, 800.0, _State.longIds),
+          ('Default unknown', TargetPlatform.macOS, 800.0, _State.unknown),
+          ('Search, scrolls', TargetPlatform.macOS, 800.0, _State.many),
+          ('Windows', TargetPlatform.windows, 800.0, _State.effort),
+          ('Linux', TargetPlatform.linux, 800.0, _State.effort),
+          (
+            'Without an anchor (dialog)',
+            TargetPlatform.macOS,
+            800.0,
+            _State.noAnchor,
+          ),
+          ('Phone (bottom sheet)', TargetPlatform.iOS, 390.0, _State.effort),
+        ])
+          WidgetbookUseCase(
+            name: 'Desktop popover: $label',
+            builder: (context) => Theme(
+              data: Theme.of(context).copyWith(platform: platform),
+              child: Builder(
+                builder: (context) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(size: Size(width, 700)),
+                  child: _PopoverHost(state: state),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
     WidgetbookComponent(
       name: 'HelperModelList',
       useCases: [
@@ -311,6 +353,84 @@ class _PillState extends State<_Pill> {
       onUseDefault: widget.canReset
           ? () => setState(() => _choice = null)
           : null,
+    ),
+  );
+}
+
+enum _State { defaultRow, effort, longIds, unknown, many, noAnchor }
+
+/// A fake composer pill at the bottom left that opens the picker on itself,
+/// as the real pill does.
+class _PopoverHost extends StatefulWidget {
+  const _PopoverHost({required this.state});
+
+  final _State state;
+
+  @override
+  State<_PopoverHost> createState() => _PopoverHostState();
+}
+
+class _PopoverHostState extends State<_PopoverHost> {
+  final _pill = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _open();
+    });
+  }
+
+  void _open() {
+    final box = _pill.currentContext!.findRenderObject()! as RenderBox;
+    final anchor = widget.state == _State.noAnchor
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size;
+    final (options, selected) = switch (widget.state) {
+      _State.defaultRow => (modelOptions, null),
+      _State.longIds => (
+        ModelOptions(current: _longModel, providers: modelOptions.providers),
+        _longModel,
+      ),
+      _State.unknown => (kanbanModelOptions, null),
+      _State.many => (
+        _manyModels,
+        const ModelChoice('openrouter', 'openai/gpt-5.1'),
+      ),
+      _ => (
+        modelOptions,
+        const ModelChoice('anthropic', 'claude-opus-4', effort: 'high'),
+      ),
+    };
+    showModelPicker(
+      context,
+      options: options,
+      selected: selected,
+      onChanged: (_) {},
+      onUseDefault: widget.state == _State.effort ? null : () {},
+      anchor: anchor,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Align(
+      alignment: Alignment.bottomLeft,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          key: _pill,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.onSurface
+                .withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Text('claude-opus-4 · High'),
+        ),
+      ),
     ),
   );
 }

@@ -96,8 +96,14 @@ class ComposerModelPill extends StatelessWidget {
       onPressed: switch (state) {
         ModelOptionsState.ready when options != null => () {
           onPickerOpened?.call();
+          // The pill's own rectangle, read now: a desktop picker opens on it.
+          final box = context.findRenderObject();
+          final anchor = box is RenderBox && box.hasSize && box.attached
+              ? box.localToGlobal(Offset.zero) & box.size
+              : null;
           showModelPicker(
             context,
+            anchor: anchor,
             options: options,
             selected: shown,
             onChanged: onChanged,

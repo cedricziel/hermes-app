@@ -5,13 +5,25 @@ import '../../files/widgets/safe_path_text.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../widgets/anchored_popover.dart';
+import '../../widgets/dialog_presentation.dart';
 import '../../widgets/grouped_choice_row.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/settings_search_field.dart';
 import '../model_provider_option.dart';
 
-/// Opens [ModelPicker]: a bottom sheet on a phone, a dialog from
-/// [isWideLayout]. Without [withEffort] a pick is final, so it
+bool _isDesktop(BuildContext context) => switch (Theme.of(context).platform) {
+  TargetPlatform.macOS ||
+  TargetPlatform.windows ||
+  TargetPlatform.linux => true,
+  _ => false,
+};
+
+/// Opens [ModelPicker]. The platform decides first: on macOS, Windows and
+/// Linux it is a popover on [anchor] (a global rectangle, only the composer's
+/// pill passes one) or, without an anchor, the app's adaptive dialog, at any
+/// window width. On iOS and Android it is a dialog from [isWideLayout] and a
+/// bottom sheet below it. Without [withEffort] a pick is final, so it
 /// closes the picker, and so does [onUseDefault].
 Future<void> showModelPicker(
   BuildContext context, {
@@ -25,6 +37,7 @@ Future<void> showModelPicker(
   Listenable? updates,
   ModelOptions? Function()? latest,
   ModelChoice? Function()? latestSelected,
+  Rect? anchor,
 }) {
   ModelOptions currentOptions() => latest?.call() ?? options;
   ModelChoice? currentSelected() =>
@@ -32,8 +45,10 @@ Future<void> showModelPicker(
   Widget picker(
     BuildContext sheet,
     ModelOptions pickerOptions,
-    ModelChoice? pickerSelected,
-  ) => ModelPicker(
+    ModelChoice? pickerSelected, {
+    ModelPickerPresentation presentation = ModelPickerPresentation.sheet,
+  }) => ModelPicker(
+    presentation: presentation,
     options: pickerOptions,
     selected: pickerSelected,
     withEffort: withEffort,
@@ -50,25 +65,46 @@ Future<void> showModelPicker(
             Navigator.of(sheet).pop();
           },
   );
-  Widget live(BuildContext sheet) => updates == null
-      ? picker(sheet, currentOptions(), currentSelected())
+  Widget live(
+    BuildContext sheet, {
+    ModelPickerPresentation presentation = ModelPickerPresentation.sheet,
+  }) => updates == null
+      ? picker(
+          sheet,
+          currentOptions(),
+          currentSelected(),
+          presentation: presentation,
+        )
       : _LivePicker(
           updates: updates,
           options: currentOptions,
           selected: currentSelected,
-          builder: (options, selected) => picker(sheet, options, selected),
+          builder: (options, selected) =>
+              picker(sheet, options, selected, presentation: presentation),
         );
   final size = MediaQuery.sizeOf(context);
-  if (isWideLayout(context)) {
-    return showDialog<void>(
-      context: context,
-      builder: (dialog) => Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440, maxHeight: 560),
-          child: live(dialog),
-        ),
-      ),
+  Widget dialogBody(BuildContext dialog) => Dialog(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 440, maxHeight: 560),
+      child: live(dialog, presentation: ModelPickerPresentation.dialog),
+    ),
+  );
+  // A desktop window is never a phone: the app's adaptive dialog at any
+  // width, a bottom sheet only on iOS and Android.
+  if (_isDesktop(context) && anchor != null) {
+    return showAnchoredPopover<void>(
+      context,
+      anchor: anchor,
+      semanticLabel: title,
+      builder: (popover) =>
+          live(popover, presentation: ModelPickerPresentation.popover),
     );
+  }
+  if (_isDesktop(context)) {
+    return showAppDialog<void>(context: context, builder: dialogBody);
+  }
+  if (isWideLayout(context)) {
+    return showDialog<void>(context: context, builder: dialogBody);
   }
   return showModalBottomSheet<void>(
     context: context,
@@ -142,6 +178,9 @@ class _LivePickerState extends State<_LivePicker> {
   Widget build(BuildContext context) => widget.builder(_options, _selected);
 }
 
+/// Where a [ModelPicker] is shown.
+enum ModelPickerPresentation { sheet, dialog, popover }
+
 /// Picks a model, grouped by provider, and the reasoning effort when the
 /// model takes one, unless [withEffort] is off. Each pick is reported through
 /// [onChanged] at once. [note], when given, is shown under [title]. A long
@@ -156,6 +195,7 @@ class ModelPicker extends StatefulWidget {
     this.title = 'Model',
     this.note,
     this.onUseDefault,
+    this.presentation = ModelPickerPresentation.sheet,
   });
 
   final ModelOptions options;
@@ -169,6 +209,11 @@ class ModelPicker extends StatefulWidget {
   /// while nothing is selected. It names [ModelOptions.current] when the
   /// server reported one.
   final VoidCallback? onUseDefault;
+
+  /// Where it is shown. A popover has no visible title (the route is named
+  /// by [title]), a full-width search field first, [note] under it, and the
+  /// checked row takes the keyboard focus.
+  final ModelPickerPresentation presentation;
 
   /// More models than this get a search field.
   static const searchAbove = 8;
@@ -246,7 +291,8 @@ class _ModelPickerState extends State<ModelPicker> {
     final mac = chrome == PlatformChrome.macos;
     final scheme = Theme.of(context).colorScheme;
     final muted = context.hermesColors.subtleText;
-    final gutter = metrics.gutter;
+    final popover = widget.presentation == ModelPickerPresentation.popover;
+    final gutter = popover ? 12.0 : metrics.gutter;
     final selected = _selected;
     final efforts = selected == null || !widget.withEffort
         ? const <String>[]
@@ -284,18 +330,31 @@ class _ModelPickerState extends State<ModelPicker> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(gutter, mac ? 14 : 16, gutter, 0),
-          child: mac && search != null
-              ? Row(
-                  spacing: 12,
-                  children: [
-                    Expanded(child: title),
-                    search,
-                  ],
-                )
-              : title,
-        ),
+        if (popover) ...[
+          // The route is named by the title; nothing draws it.
+          Semantics(
+            header: true,
+            label: widget.title,
+            child: const SizedBox(height: 12),
+          ),
+          if (search != null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 8),
+              child: search,
+            ),
+        ] else
+          Padding(
+            padding: EdgeInsets.fromLTRB(gutter, mac ? 14 : 16, gutter, 0),
+            child: mac && search != null
+                ? Row(
+                    spacing: 12,
+                    children: [
+                      Expanded(child: title),
+                      search,
+                    ],
+                  )
+                : title,
+          ),
         if (widget.note case final note?)
           Padding(
             padding: EdgeInsets.fromLTRB(gutter, 2, gutter, 0),
@@ -304,7 +363,7 @@ class _ModelPickerState extends State<ModelPicker> {
               style: TextStyle(fontSize: metrics.footerSize, color: muted),
             ),
           ),
-        if (search != null && !mac)
+        if (search != null && !mac && !popover)
           Padding(
             padding: EdgeInsets.fromLTRB(gutter, 12, gutter, 0),
             child: search,
@@ -317,7 +376,12 @@ class _ModelPickerState extends State<ModelPicker> {
             onChanged: _onPicked,
             child: ListView(
               shrinkWrap: true,
-              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 16),
+              padding: EdgeInsets.fromLTRB(
+                gutter,
+                0,
+                gutter,
+                popover ? 12 : 16,
+              ),
               children: [
                 if (widget.onUseDefault != null && query.isEmpty)
                   GroupedSection(
@@ -325,6 +389,7 @@ class _ModelPickerState extends State<ModelPicker> {
                       GroupedChoiceRow<_Pick>(
                         key: const Key('model-default'),
                         value: _defaultPick,
+                        autofocus: popover && selected == null,
                         title: context.l10n.modelsPickerUseDefault,
                         // The server's value, drawn with its control and
                         // bidi characters visible.
@@ -345,6 +410,10 @@ class _ModelPickerState extends State<ModelPicker> {
                         GroupedChoiceRow<_Pick>(
                           key: Key('model-${provider.id}-${model.id}'),
                           value: (provider.id, model.id),
+                          autofocus:
+                              popover &&
+                              selected?.providerId == provider.id &&
+                              selected?.modelId == model.id,
                           title: model.id,
                         ),
                     ],
@@ -462,7 +531,7 @@ class _EffortSegment extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final (height, fontSize) = switch (chrome) {
       PlatformChrome.ios => (32.0, 15.0),
-      PlatformChrome.macos => (24.0, 12.0),
+      PlatformChrome.macos => (28.0, 12.0),
       PlatformChrome.material => (32.0, 14.0),
     };
     final side = selected ? BorderSide(color: scheme.outline) : BorderSide.none;

@@ -24,6 +24,7 @@ class GroupedChoiceRow<T> extends StatelessWidget {
     this.warning,
     this.details = const [],
     this.enabled = true,
+    this.autofocus = false,
   });
 
   final T value;
@@ -40,6 +41,10 @@ class GroupedChoiceRow<T> extends StatelessWidget {
   final List<Widget> details;
   final bool enabled;
 
+  /// Takes the keyboard focus when it is built, for the checked row of a
+  /// popover.
+  final bool autofocus;
+
   /// Where the separators of a group of choice rows start: past the radio
   /// button on Material, at the text on Apple platforms.
   static double? dividerIndent(BuildContext context) {
@@ -55,6 +60,7 @@ class GroupedChoiceRow<T> extends StatelessWidget {
     final radio = Radio<T>.adaptive(
       value: value,
       enabled: enabled,
+      autofocus: autofocus,
       useCupertinoCheckmarkStyle: true,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );

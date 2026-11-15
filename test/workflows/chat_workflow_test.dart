@@ -632,6 +632,13 @@ void main() {
         platform: TargetPlatform.macOS,
       );
       await shots.capture(tester, 'sidebar');
+      // The picker is a popover on the pill at every Mac width, never a sheet.
+      await tester.tap(find.byKey(const Key('composer-model-pill')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      await shots.capture(tester, 'model-picker');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
       if (name == 'compact') {
         await tester.tap(find.byKey(const Key('mac-sidebar-toggle')));
         await tester.pumpAndSettle();
