@@ -20,6 +20,7 @@ import 'conversation_window_args.dart';
 import 'conversation_window_screen.dart';
 import 'desktop_conversation_windows.dart';
 import 'window_api_client.dart';
+import '../theme/material_ui_bridge.dart';
 
 /// The conversation window [main] was started for: desktop_multi_window
 /// starts each window's engine at `main(["multi_window", id, arguments])`.
@@ -80,12 +81,16 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
         builder: (context) => MaterialApp(
           title: args.title,
           debugShowCheckedModeBanner: false,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: [
+            ...AppLocalizations.localizationsDelegates,
+            ...kMaterialUiLocalizationsDelegates,
+          ],
           supportedLocales: kReleasedLocales,
           theme: buildHermesLightTheme(),
           darkTheme: buildHermesDarkTheme(),
           themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-          builder: (context, child) => MacWindowChrome(child: child!),
+          builder: (context, child) =>
+              AppThemeScopes(child: MacWindowChrome(child: child!)),
           home: ConversationWindowScreen(
             args: args,
             draft: launch.draft,

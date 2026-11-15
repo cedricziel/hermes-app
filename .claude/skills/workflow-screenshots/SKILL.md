@@ -36,8 +36,12 @@ To see one widget in every state without a flow around it, use the
   `HermesApp`, `pumpScreen` and the Widgetbook catalog all mount that one widget;
   a hand-built `MaterialApp` in a test must too, or dark markdown headings draw
   near-black (1.17:1) in the screenshot and the app never does. Add new app-level
-  theme scopes inside `AppThemeScopes`, not around it in `app.dart`
-  (`test/app_theme_scopes_test.dart` guards this).
+  theme scopes inside `AppThemeScopes`. `test/app_theme_scopes_test.dart` compares
+  the theme-like inherited widgets above the `Navigator` in `HermesApp` and
+  `pumpScreen` (a scope added in `app.dart` that the harness lacks fails it; a
+  chrome-only inherited widget goes on its `_notTheme` list) and checks that every
+  `MaterialApp` in `lib/` (the conversation window and quick panel engines too)
+  mounts `AppThemeScopes`.
 - Fonts must be loaded inside the test body (`shots.start` does it). Loaded in a
   `setUpAll` they are ignored, and all text is drawn as black boxes.
 - Text with no font family (the AppBar title, some third-party widgets such as

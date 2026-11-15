@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
@@ -18,6 +20,16 @@ import 'support/workflow_app.dart';
 /// widgets with the same theme. `gpt_markdown` reads `material_ui`'s theme from
 /// [AppThemeScopes]; without it a dark screenshot shows near-black headings
 /// the app never draws.
+/// Inherited widgets the app's chrome adds that say nothing about how a child
+/// draws: focus scopes, the ticker mode of a hidden route, the desktop
+/// navigation history and the menu bar's registry.
+const _notTheme = {
+  '_FocusInheritedScope',
+  '_EffectiveTickerMode',
+  'DesktopNavigationHistoryScope',
+  '_RegistryScope',
+};
+
 void main() {
   Color headingColor(WidgetTester tester) {
     final span = tester
@@ -37,7 +49,30 @@ void main() {
     return found ?? (span.style?.color ?? Colors.transparent);
   }
 
-  testWidgets('HermesApp mounts AppThemeScopes above its home', (tester) async {
+  /// What a widget below `home` inherits that could change how it draws:
+  /// every [InheritedTheme] and every [InheritedWidget] that is not on the
+  /// allowlist, from the app's `Navigator` (what the builder wraps; the routes differ)
+  /// up to the root. Providers and [MediaQuery] are
+  /// data an app or a test supplies by itself, so they are left out;
+  /// everything else has to be the same in `HermesApp` and `pumpScreen`.
+  List<String> inheritedAbove(WidgetTester tester, Finder home) {
+    final types = <String>[];
+    tester.element(home).visitAncestorElements((e) {
+      final w = e.widget;
+      final name = w.runtimeType.toString();
+      final ignored =
+          w is MediaQuery ||
+          name.startsWith('_InheritedProviderScope') ||
+          _notTheme.contains(name);
+      if (!ignored && (w is InheritedTheme || w is InheritedWidget)) {
+        types.add(name);
+      }
+      return true;
+    });
+    return types;
+  }
+
+  Future<void> pumpHermesApp(WidgetTester tester) async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     final appLock = AppLockController(authenticator: FakeDeviceAuthenticator());
@@ -54,6 +89,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+  }
+
+  testWidgets('HermesApp mounts AppThemeScopes above its home', (tester) async {
+    await pumpHermesApp(tester);
 
     expect(
       find.ancestor(
@@ -104,4 +143,41 @@ void main() {
       );
     },
   );
+
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'pumpScreen inherits the same theme widgets as HermesApp (${brightness.name})',
+      (tester) async {
+        await pumpHermesApp(tester);
+        final app = inheritedAbove(tester, find.byType(Navigator).first);
+
+        await pumpScreen(
+          tester,
+          ScreenshotRecorder('theme-scopes'),
+          const Scaffold(body: Text('home')),
+          brightness: brightness,
+        );
+        final harness = inheritedAbove(tester, find.byType(Navigator).first);
+
+        expect(app, isNotEmpty);
+        expect(harness, app);
+      },
+    );
+  }
+
+  test('every engine that builds a MaterialApp mounts AppThemeScopes', () {
+    // The conversation window and the quick panel are engines of their own
+    // that `runApp` a MaterialApp, which no test can start without native
+    // channels, so check their source.
+    final missing = [
+      for (final f in Directory('lib').listSync(recursive: true))
+        if (f is File &&
+            f.path.endsWith('.dart') &&
+            !f.path.contains('generated') &&
+            f.readAsStringSync().contains('MaterialApp(') &&
+            !f.readAsStringSync().contains('AppThemeScopes('))
+          f.path,
+    ];
+    expect(missing, isEmpty);
+  });
 }

@@ -19,6 +19,7 @@ import '../windows/conversation_window_args.dart';
 import '../windows/desktop_conversation_windows.dart';
 import '../windows/window_api_client.dart';
 import 'quick_panel_screen.dart';
+import '../theme/material_ui_bridge.dart';
 
 /// Runs the quick panel's engine (macOS), which desktop_multi_window started
 /// for [windowId]. Like a conversation window it starts no telemetry or
@@ -56,11 +57,15 @@ Future<void> runQuickPanel(String windowId, QuickPanelLaunch launch) async {
         builder: (context) => MaterialApp(
           title: 'Hermes',
           debugShowCheckedModeBanner: false,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: [
+            ...AppLocalizations.localizationsDelegates,
+            ...kMaterialUiLocalizationsDelegates,
+          ],
           supportedLocales: kReleasedLocales,
           theme: buildHermesLightTheme(),
           darkTheme: buildHermesDarkTheme(),
           themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
+          builder: (context, child) => AppThemeScopes(child: child!),
           home: QuickPanelScreen(
             link: link,
             queueServerKey: launch.baseUrl,
