@@ -1,0 +1,31 @@
+# Exceptions for tool/style_score.dart. Every entry needs a reason.
+#
+#   - path: lib/src/app.dart          # as the tool prints it
+#     category: d.string              # one of the scored or informational categories
+#     match: "title: 'Hermes'"        # optional: part of the printed snippet
+#     line: 176                       # optional: prefer match, lines move
+#     count: 1                        # optional: hits this entry silences (default 1)
+#     reason: The product name is not translated.
+#
+# An entry that matches fewer hits than its count is reported as unused.
+allow:
+  - path: lib/src/app.dart
+    category: d.string
+    match: "title: 'Hermes'"
+    reason: The app title is the product name, which is not translated.
+  - path: lib/src/quick_panel/quick_panel_app.dart
+    category: d.string
+    match: "title: 'Hermes'"
+    reason: The quick panel window title is the product name, which is not translated.
+  - path: lib/src/chat/widgets/thread_sidebar.dart
+    category: d.string
+    match: "'Hermes'"
+    reason: The sidebar header is the product name alone, which is not translated.
+  - path: lib/src/shell/shell_navigation.dart
+    category: d.string
+    match: "'Hermes'"
+    reason: The navigation header is the product name alone, which is not translated.
+  - path: lib/src/voice/widgets/dictation_settings_view.dart
+    category: d.string
+    match: "title: 'Hermes'"
+    reason: The dictation engine option is named after the product, which is not translated.
