@@ -439,4 +439,27 @@ void main() {
       expect(identical(shown(), again), isFalse, reason: 'pick rebuilt');
     });
   });
+
+  testWidgets('shows control characters of a model id visibly', (tester) async {
+    final handle = tester.ensureSemantics();
+    const evil = 'evil\u202Emodel';
+    await _pumpPill(
+      tester,
+      options: const ModelOptions(
+        current: ModelChoice('p', evil),
+        providers: [
+          ModelProviderOption(
+            id: 'p',
+            label: 'P',
+            models: [ModelOption(id: evil)],
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('evil<U+202E>model'), findsOneWidget);
+    expect(find.textContaining('\u202E'), findsNothing);
+    expect(find.bySemanticsLabel(RegExp('evil<U\\+202E>model')), findsWidgets);
+    handle.dispose();
+  });
 }
