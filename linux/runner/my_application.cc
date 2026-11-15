@@ -15,8 +15,10 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
-// The work area of the monitor the window will most likely open on (the one
-// under the pointer, else the primary one). False when GDK reports none.
+// The work area of the monitor the window will most likely open on: the
+// monitor under the pointer on X11; on Wayland the pointer position is unknown
+// before a window is mapped, so this is the monitor at the origin. Falls back
+// to the primary monitor. False when GDK reports none.
 static gboolean get_work_area(GtkWindow* window, GdkRectangle* work_area) {
   GdkDisplay* display = gtk_widget_get_display(GTK_WIDGET(window));
   GdkMonitor* monitor = nullptr;

@@ -6,7 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 /// area, centred, and cannot shrink below 360 x 480. The C++ lives in
 /// `linux/runner/` and has no test shard, so the first group pins the source
 /// and the second compiles the pure function when a C++ compiler exists.
+bool _hasGpp() {
+  try {
+    return Process.runSync('g++', ['--version']).exitCode == 0;
+  } on ProcessException {
+    return false;
+  }
+}
+
 void main() {
+  final hasGpp = _hasGpp();
   final header = File('linux/runner/window_size.h').readAsStringSync();
   final runner = File('linux/runner/my_application.cc').readAsStringSync();
 
@@ -33,14 +42,12 @@ void main() {
   });
 
   group('default_window_size', () {
-    late Directory dir;
+    Directory? dir;
     late String binary;
 
     setUpAll(() {
-      final probe = Process.runSync('which', ['g++']);
-      if (probe.exitCode != 0) return;
-      dir = Directory.systemTemp.createTempSync('window_size_test');
-      final source = File('${dir.path}/main.cc')
+      final tmp = dir = Directory.systemTemp.createTempSync('window_size_test');
+      final source = File('${tmp.path}/main.cc')
         ..writeAsStringSync('''
 #include <cstdio>
 #include <cstdlib>
@@ -50,9 +57,9 @@ int main(int argc, char** argv) {
   std::printf("%d x %d", s.width, s.height);
 }
 ''');
-      binary = '${dir.path}/probe';
+      binary = '${tmp.path}/probe';
       final build = Process.runSync('g++', [
-        '-std=c++17',
+        '-std=c++14',
         '-Ilinux/runner',
         source.path,
         '-o',
@@ -62,9 +69,7 @@ int main(int argc, char** argv) {
     });
 
     tearDownAll(() {
-      if (Process.runSync('which', ['g++']).exitCode == 0) {
-        dir.deleteSync(recursive: true);
-      }
+      dir?.deleteSync(recursive: true);
     });
 
     String size(int w, int h) =>
@@ -81,5 +86,5 @@ int main(int argc, char** argv) {
     test('a tiny work area never goes below 360 x 480', () {
       expect(size(300, 400), '360 x 480');
     });
-  }, skip: Process.runSync('which', ['g++']).exitCode == 0 ? null : 'no g++');
+  }, skip: hasGpp ? null : 'no g++');
 }
