@@ -342,4 +342,60 @@ void main() {
       expect(controller.busy, isFalse);
     });
   });
+
+  group('a navigation that pops everything', () {
+    testWidgets('during progress ends the export with its alert', (
+      tester,
+    ) async {
+      answer = Completer<FakeResponse>();
+      await pump(tester);
+      await confirm(tester);
+      await frames(tester);
+      expect(find.text('Preparing the export…'), findsOneWidget);
+
+      // A notification tap or a deep link: popUntil(isFirst) ignores PopScope.
+      Navigator.of(
+        tester.element(find.text('Start')),
+        rootNavigator: true,
+      ).popUntil((route) => route.isFirst);
+      await frames(tester);
+      expect(find.byType(SessionExportAlert), findsNothing);
+
+      answer!.complete((status: 200, body: _session()));
+      await frames(tester);
+      expect(saved, isEmpty);
+      expect(controller.busy, isFalse);
+      expect(controller.phase, isNull);
+    });
+  });
+
+  group('a second start', () {
+    testWidgets('never stacks a second alert over the confirmation', (
+      tester,
+    ) async {
+      await pump(tester);
+      final context = tester.element(find.text('Start'));
+
+      unawaited(
+        showSessionExport(
+          context,
+          controller,
+          sessionId: 's1',
+          profile: 'work',
+          title: 'Again',
+        ),
+      );
+      await frames(tester);
+
+      expect(find.byType(SessionExportAlert), findsOneWidget);
+      expect(controller.begin('s2', 'work'), isFalse);
+      await tester.tap(find.text('Export'));
+      await frames(tester);
+      expect(
+        server.requests.where((r) => r.path == '/api/sessions/s1/export'),
+        hasLength(1),
+      );
+      expect(saved, ['Plan the release.json']);
+    });
+  });
 }

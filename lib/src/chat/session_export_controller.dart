@@ -94,10 +94,13 @@ class SessionExportController extends ChangeNotifier {
   static String _defaultFileName(String sessionId) => 'session-$sessionId.json';
 
   /// Opens the confirmation for [sessionId]. False, with nothing shown or
-  /// sent, when the chat has no [profile] or an export is already running.
+  /// sent, when the chat has no [profile] or an export is already running or
+  /// open (a confirmation or a failure is showing).
   /// [fileName] is what the save sheet proposes; it stays on the device.
   bool begin(String sessionId, String? profile, {String? fileName}) {
-    if (_running || profile == null || sessionId.isEmpty) return false;
+    if (_running || _phase != null || profile == null || sessionId.isEmpty) {
+      return false;
+    }
     _sessionId = sessionId;
     _profile = profile;
     _fileName = fileName ?? _defaultFileName(sessionId);

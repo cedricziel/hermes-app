@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
@@ -11,6 +12,7 @@ import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/session_export_alert.dart';
+import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/profiles/chat_profiles.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -24,6 +26,27 @@ import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
 import 'support/fake_session_auth.dart';
 import 'support/pump_chat.dart';
+
+/// A session whose owner generation, server and sign-out can move one at a
+/// time.
+class _Auth extends FakeSessionAuth {
+  String server = 'https://one.test';
+
+  @override
+  String get baseUrl => server;
+
+  void bumpOwner() {
+    generation++;
+    notifyListeners();
+  }
+
+  void moveServer() {
+    server = 'https://two.test';
+    notifyListeners();
+  }
+
+  void signOutSignalOnly() => departures.add(null);
+}
 
 final _body = Uint8List.fromList(
   utf8.encode(
@@ -43,7 +66,7 @@ void main() {
   late FakeHermesServer server;
   late MacCommandRegistry commands;
   late FakeMediaActions actions;
-  late FakeSessionAuth auth;
+  late _Auth auth;
   late AppLockController lock;
   late Directory cache;
   Completer<FakeResponse>? held;
@@ -54,7 +77,7 @@ void main() {
     held = null;
     commands = MacCommandRegistry();
     actions = FakeMediaActions();
-    auth = FakeSessionAuth();
+    auth = _Auth();
     cache = Directory.systemTemp.createTempSync('export-screen-');
     addTearDown(() {
       auth.dispose();
@@ -96,16 +119,20 @@ void main() {
     }
   }
 
-  Future<void> pump(WidgetTester tester, {bool signedIn = true}) async {
+  late ChatProfiles chatProfiles;
+
+  Future<void> pump(
+    WidgetTester tester, {
+    bool signedIn = true,
+    TargetPlatform? platform,
+  }) async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     lock = AppLockController(authenticator: FakeDeviceAuthenticator());
     addTearDown(lock.dispose);
     await tester.runAsync(lock.load);
     await tester.runAsync(() => lock.setEnabled(true));
-    final chatProfiles = ChatProfiles(
-      HermesProfilesRepository(server.client().raw),
-    );
+    chatProfiles = ChatProfiles(HermesProfilesRepository(server.client().raw));
     addTearDown(chatProfiles.dispose);
     final store = MediaStore(
       source: HermesMediaSource(() => server.client()),
@@ -115,6 +142,10 @@ void main() {
     addTearDown(store.dispose);
     await pumpChatScreen(
       tester,
+      platform: platform,
+      wrap: platform == TargetPlatform.macOS
+          ? (app) => MacSidebarScope(child: app)
+          : null,
       settle: false,
       server: server,
       withProfiles: true,
@@ -279,5 +310,108 @@ void main() {
 
     expect(find.text('Archive'), findsOneWidget);
     expect(find.textContaining('Export'), findsNothing);
+  });
+
+  Future<void> startHeld(WidgetTester tester) async {
+    held = Completer<FakeResponse>();
+    await pump(tester);
+    await openThread(tester, 'Run failure');
+    commands.invoke(MacCommand.exportThread);
+    await frames(tester);
+    await tester.tap(find.text('Export'));
+    await frames(tester);
+    expect(find.text('Preparing the export…'), findsOneWidget);
+  }
+
+  Future<void> finishHeld(WidgetTester tester) async {
+    held!.complete((status: 200, body: _body));
+    await frames(tester);
+    expect(actions.saved, isEmpty);
+    expect(find.byType(SnackBar), findsNothing);
+  }
+
+  group('what ends an export on its own', () {
+    testWidgets('the sign-out signal alone closes the alert', (tester) async {
+      await startHeld(tester);
+      auth.signOutSignalOnly();
+      await frames(tester);
+      expect(find.byType(SessionExportAlert), findsNothing);
+      await finishHeld(tester);
+    });
+
+    testWidgets('a new owner generation alone closes it', (tester) async {
+      await startHeld(tester);
+      auth.bumpOwner();
+      await frames(tester);
+      expect(find.byType(SessionExportAlert), findsNothing);
+      await finishHeld(tester);
+    });
+
+    testWidgets('a changed server alone closes it', (tester) async {
+      await startHeld(tester);
+      auth.moveServer();
+      await frames(tester);
+      expect(find.byType(SessionExportAlert), findsNothing);
+      await finishHeld(tester);
+    });
+
+    testWidgets('switching the chat profile closes it', (tester) async {
+      await startHeld(tester);
+      await tester.runAsync(chatProfiles.load);
+      await tester.runAsync(() async {
+        await chatProfiles.switchTo('work');
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await frames(tester);
+
+      expect(find.byType(SessionExportAlert), findsNothing);
+      await finishHeld(tester);
+    });
+
+    testWidgets('unmounting the screen ends it, saving nothing', (
+      tester,
+    ) async {
+      await startHeld(tester);
+      await tester.pumpWidget(const SizedBox());
+      await frames(tester);
+      await finishHeld(tester);
+    });
+  });
+
+  testWidgets('a local unsent chat has no row and a disabled menu item', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(find.text('New chat'));
+    await frames(tester);
+
+    expect(enabled(), isFalse);
+    expect(find.byKey(const Key('header-thread-actions')), findsNothing);
+  });
+
+  testWidgets('with no profile the header row is absent', (tester) async {
+    await pump(tester, signedIn: false);
+    await openThread(tester, 'Run failure');
+
+    expect(enabled(), isFalse);
+    await tester.tap(find.byKey(const Key('header-thread-actions')));
+    await frames(tester);
+    expect(find.text('Copy transcript'), findsOneWidget);
+    expect(find.text('Export chat as JSON…'), findsNothing);
+  });
+
+  testWidgets('a Mac sidebar row menu lists it after Copy Transcript', (
+    tester,
+  ) async {
+    await pump(tester, platform: TargetPlatform.macOS);
+    await tester.tap(
+      find.byKey(const ValueKey('thread-s1')),
+      buttons: kSecondaryButton,
+    );
+    await frames(tester);
+
+    final copy = tester.getTopLeft(find.text('Copy Transcript')).dy;
+    final export = tester.getTopLeft(find.text('Export Chat as JSON…')).dy;
+    expect(export, greaterThan(copy));
   });
 }

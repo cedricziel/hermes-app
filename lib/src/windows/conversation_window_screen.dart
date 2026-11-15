@@ -190,8 +190,18 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     unawaited(_link.present(frameName: _args.frameName, title: _args.title));
   }
 
+  bool _exportBusyReported = false;
+
   void _exportChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final busy = _export?.busy ?? false;
+    if (busy != _exportBusyReported) {
+      _exportBusyReported = busy;
+      if (_link case final ExportBusyWindowLink link) {
+        link.reportExportBusy(busy);
+      }
+    }
+    setState(() {});
   }
 
   /// "Export Chat as JSON…" for [thread]: absent without a profile, disabled

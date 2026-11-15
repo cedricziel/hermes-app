@@ -225,6 +225,13 @@ void main() {
       expect(server.requests, isEmpty);
     });
 
+    test('a second begin while a phase is open changes nothing', () {
+      final c = build(server.client());
+      expect(c.begin('abc', 'work', fileName: 'a.json'), isTrue);
+      expect(c.begin('other', 'work'), isFalse);
+      expect(c.phase, isA<SessionExportConfirm>());
+    });
+
     test('shows the confirmation and sends nothing', () {
       final c = build(server.client());
       expect(c.begin('abc', 'work'), isTrue);

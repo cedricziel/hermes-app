@@ -83,8 +83,15 @@ Future<void> showSessionExport(
   await shown;
   // Escape, a tap outside or the back gesture closed a confirmation or a
   // failure: only the progress is protected from that.
-  if (controller.phase case SessionExportConfirm() || SessionExportFailed()) {
-    controller.close();
+  switch (controller.phase) {
+    case SessionExportConfirm() || SessionExportFailed():
+      controller.close();
+    case SessionExportProgress():
+      // A navigation that pops every route (a notification tap, a deep link)
+      // ignores PopScope: the alert is gone, so the run goes with it.
+      controller.cancel();
+    case null:
+      break;
   }
 }
 
