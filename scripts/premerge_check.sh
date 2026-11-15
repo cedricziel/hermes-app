@@ -236,7 +236,7 @@ step_start "flutter analyze"
 if ! run flutter analyze --no-pub; then
   step_done "analyze (failed)"
   echo "FAIL: flutter analyze reports errors on origin/$BASE + #$PR (listed above). Do not arm #$PR." >&2
-  echo "Merge origin/$BASE into the PR branch, fix what analyze names (a duplicate declaration means another PR landed the same symbol), push, then rerun this check." >&2
+  echo "Analyze fails on the PR merged with current $BASE: rerun with --keep and run flutter analyze in the trial merge, then fix the PR, or merge $BASE in if the clash comes from $BASE (a duplicate declaration means another PR landed the same symbol). Push, then rerun this check." >&2
   exit 3
 fi
 step_done "analyze"
@@ -245,7 +245,7 @@ step_start "flutter test test/architecture"
 if ! run flutter test --no-pub test/architecture; then
   step_done "architecture tests (failed)"
   echo "FAIL: architecture tests fail on origin/$BASE + #$PR (listed above). Do not arm #$PR." >&2
-  echo "Merge origin/$BASE into the PR branch, fix the rule it names, push, then rerun this check." >&2
+  echo "the architecture tests fail on the PR merged with current $BASE: run \`flutter test test/architecture\` on the trial merge (use --keep) and fix the PR, or merge $BASE in if the clash comes from $BASE. Push, then rerun this check." >&2
   exit 4
 fi
 step_done "architecture tests"

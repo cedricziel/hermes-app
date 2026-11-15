@@ -43,8 +43,8 @@ A full run takes about two minutes.
 | 0    | Merged tree analyzes and passes the architecture tests | Arm now. Rerun if main moves before the merge.                             |
 | 1    | Usage error, unknown PR number, fetch failure          | Fix the arguments or the remote.                                           |
 | 2    | Merge conflict (files listed)                          | Merge origin/main into the PR branch, resolve, push, rerun.                |
-| 3    | `pub get` or analyze failed (errors printed)           | Merge origin/main into the PR branch, fix what analyze names, push, rerun. |
-| 4    | Architecture tests failed                              | Same: merge origin/main, fix the named rule, push, rerun.                  |
+| 3 | `pub get` or analyze failed (errors printed) | Rerun with `--keep`, run `flutter analyze` in the trial merge, fix the PR, or merge origin/main in if the clash comes from main. |
+| 4 | Architecture tests failed | Rerun with `--keep`, run `flutter test test/architecture` in the trial merge, fix the PR, or merge origin/main in if the clash comes from main. |
 
 Arm only on exit 0. On an overlap `WARNING`, arm one of the overlapping PRs,
 wait for it to merge, then rerun the check for the other.
@@ -57,3 +57,7 @@ with `refs/pull/N/head`, a caller clone) and a stub `flutter` on PATH. Set
 that is how the mutation proof (no trap, run in the caller's tree, ignore
 analyze's exit code) is done. Keep the script bash 3.2 compatible (macOS): no
 associative arrays, `mapfile` or `${var,,}`.
+
+The incident-catching path (exit 3 on a merged tree that does not compile) is
+covered by the stub test only (`test_analyze_failure_exits_3`). Main had been
+fixed before the first real run, so no real run has shown it.
