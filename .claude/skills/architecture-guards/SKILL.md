@@ -23,7 +23,7 @@ description: Use when a test under test/architecture/ fails (a guard or the base
 ## Adding a rule
 
 1. Write the scan. A `Rule` (`ratchet.dart`) has `id`, `scan` (path to violation count), `locate` (offending lines of one path, for the failure) and `message` (what to use instead; name the shared building block, a rule without one is not finished).
-2. Register it with `ratchetTests([...])` in a test file under `test/architecture/`.
+2. Register it with `ratchetTests([...])` in a test file under `test/architecture/`. The `arch.*` rules are the table `guardRules` in `architecture_guards_test.dart`; `source_scan.dart` gives a comment-free view of each file (`SourceFile.text` keeps string literals, `SourceFile.code` blanks them, so a call pattern never matches text in a string).
 3. Run the scan on main and read every hit. Allowlist the legitimate paths in code, with a reason. Baseline only real violations you will not fix in this change: `UPDATE_BASELINE=1` never adds, so write those entries by hand with the counts the failure reports.
 4. Prove the rule can fail: add one violating line to a `lib/` file, run `flutter test test/architecture`, see the failure with the right message, revert it. Do not commit the line.
 5. Keep the whole directory fast (it may run in a pre-commit hook): read files once, no process spawns.

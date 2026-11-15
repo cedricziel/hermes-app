@@ -14,3 +14,42 @@
 # `UPDATE_BASELINE=1 flutter test --concurrency=1 test/architecture` rewrites
 # this file by lowering counts and removing entries. It never raises a count
 # or adds an entry. A rule with no violations has no entry.
+
+arch.raw-icon-button:
+  lib/src/chat/widgets/agent_notice_card.dart: 1
+  lib/src/server_care/widgets/server_restart_banner.dart: 1
+  lib/src/shell/shell_navigation.dart: 1
+  lib/src/widgets/adaptive_popup_menu_button.dart: 1
+
+arch.widget-layer-imports:
+  lib/src/bot_mode/groups/widgets/group_widgets.dart: 1
+  lib/src/bot_screen/widgets/bound_bot_screen_card.dart: 1
+  lib/src/bot_screen/widgets/bound_bot_screen_preview.dart: 1
+  lib/src/chat/widgets/billing_verification_card.dart: 1
+  lib/src/chat/widgets/chat_composer.dart: 1
+  lib/src/chat/widgets/chat_composer_builder.dart: 1
+  lib/src/chat/widgets/chat_thread_view.dart: 1
+  lib/src/chat/widgets/connector_operation_card.dart: 1
+  lib/src/chat/widgets/connector_operation_cards.dart: 1
+  lib/src/chat/widgets/thread_sidebar.dart: 1
+  lib/src/kanban/widgets/kanban_bulk_bar.dart: 1
+  lib/src/kanban/widgets/kanban_drop_strip.dart: 1
+  lib/src/kanban/widgets/kanban_orchestration_dialog.dart: 1
+  lib/src/kanban/widgets/kanban_task_log_dialog.dart: 1
+  lib/src/kanban/widgets/kanban_task_panel.dart: 2
+  lib/src/kanban/widgets/task_panel/kanban_task_header.dart: 1
+  lib/src/mcp/widgets/mcp_credential_fields.dart: 1
+  lib/src/mcp/widgets/mcp_server_fields.dart: 1
+  lib/src/mcp/widgets/mcp_server_row.dart: 1
+  lib/src/memory/widgets/memory_proposal_detail.dart: 1
+  lib/src/memory/widgets/memory_proposals_list.dart: 2
+  lib/src/messaging/widgets/messaging_platform_row.dart: 1
+  lib/src/profiles/widgets/mac_profile_switcher.dart: 1
+  lib/src/profiles/widgets/mac_profiles_view.dart: 1
+  lib/src/profiles/widgets/profile_avatar.dart: 2
+  lib/src/profiles/widgets/profile_tile.dart: 1
+  lib/src/profiles/widgets/recipient_picker.dart: 2
+  lib/src/skills/widgets/installed_skills_list.dart: 2
+  lib/src/skills/widgets/skill_badges.dart: 1
+  lib/src/skills/widgets/skill_security_scan.dart: 1
+  lib/src/voice/widgets/dictation_notice.dart: 1
