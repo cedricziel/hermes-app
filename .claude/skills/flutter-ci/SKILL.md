@@ -34,6 +34,12 @@ To refresh the weights when shards drift apart: download the `test-report-<shard
 artifacts of a recent main run, then
 `dart run tool/shard_weights.dart update <reports...>` and commit
 `test/shard_weights.json`.
+Weights are per-file wall seconds, and a shard's files overlap about 1.6x, so a
+shard's Test step is about 0.62 x its weight sum. The catalog runs alone, so its
+weight is its wall time divided by that scale (400 s / 0.62 = 645). `update`
+derives the scale as the wall of the non-catalog invocations (first to last
+report event) over their summed weights, and the catalog weight from its own
+report the same way; give it the catalog report too.
 
 For timeout tests, use the existing `fake_async` dependency and advance the
 simulated clock. Keep normal success tests on the production timeout. A global

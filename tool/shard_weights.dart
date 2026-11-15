@@ -15,7 +15,17 @@ import 'shard_assignment.dart';
 //       json:<path>` reports (CI uploads them as `test-report-<shard>`).
 const catalog = 'test/widgetbook_test.dart';
 const weightsPath = 'test/shard_weights.json';
-const catalogWeight = 400.0;
+
+// Weights are per-file wall seconds (first suite event to last testDone). Files
+// of one invocation run about 1.6x in parallel, so an invocation's wall time is
+// about `weightScale` x the sum of its files' weights (CI: shards 1-3 Test
+// steps came to 0.59-0.66 x their weight sums). The catalog runs alone, so its
+// measured wall time (about 400 s) is real wall seconds; its weight is
+// catalogWall / weightScale (400 / 0.62 = 645.2) to share the others' unit.
+// `update` re-derives both from the reports.
+const catalogWall = 400.0;
+const weightScale = 0.62;
+const catalogWeight = 645.2;
 
 Future<void> main(List<String> args) async {
   exitCode = run(args);
@@ -81,13 +91,26 @@ Map<String, double> readWeights() {
   }
 }
 
-/// Seconds per test file: from the suite's first event to its last test
-/// finishing. Lines that are not JSON, or have odd shapes, are skipped.
-Map<String, double> weightsFromReport(String content, String root) {
+/// What one `--file-reporter json` report says.
+class Report {
+  Report(this.weights, this.wall);
+
+  /// Seconds per test file: from the suite's first event to its last test
+  /// finishing.
+  final Map<String, double> weights;
+
+  /// Wall seconds of the whole invocation: first to last event of the report.
+  final double wall;
+}
+
+/// Parses one report. Lines that are not JSON, or have odd shapes, are skipped.
+Report parseReport(String content, String root) {
   final suitePath = <int, String>{};
   final suiteStart = <int, int>{};
   final suiteEnd = <int, int>{};
   final testSuite = <int, int>{};
+  int? first;
+  int? last;
   for (final line in const LineSplitter().convert(content)) {
     final Object? event;
     try {
@@ -99,6 +122,8 @@ Map<String, double> weightsFromReport(String content, String root) {
     final time = event['time'];
     if (time is! num) continue;
     final ms = time.toInt();
+    if (first == null || ms < first) first = ms;
+    if (last == null || ms > last) last = ms;
     switch (event['type']) {
       case 'suite':
         final suite = event['suite'];
@@ -125,7 +150,8 @@ Map<String, double> weightsFromReport(String content, String root) {
     final seconds = (suiteEnd[id]! - suiteStart[id]!) / 1000;
     result[name] = (seconds * 10).round() / 10;
   });
-  return result;
+  final wall = first == null ? 0.0 : (last! - first) / 1000;
+  return Report(result, wall);
 }
 
 String? _relative(String path, String root) {
@@ -139,6 +165,9 @@ String? _relative(String path, String root) {
 
 int update(List<String> reports) {
   final measured = <String, double>{};
+  var catalogSeconds = 0.0; // wall of the invocation that ran the catalog
+  var otherWall = 0.0; // wall of every other invocation
+  var otherWeights = 0.0; // weights of the files those ran
   final root = Directory.current.path;
   for (final path in reports) {
     final file = File(path);
@@ -146,7 +175,14 @@ int update(List<String> reports) {
       stderr.writeln('missing report: $path');
       return 1;
     }
-    measured.addAll(weightsFromReport(file.readAsStringSync(), root));
+    final report = parseReport(file.readAsStringSync(), root);
+    measured.addAll(report.weights);
+    if (report.weights.containsKey(catalog)) {
+      catalogSeconds += report.wall;
+    } else {
+      otherWall += report.wall;
+      otherWeights += report.weights.values.fold(0.0, (a, b) => a + b);
+    }
   }
   if (measured.isEmpty) {
     stderr.writeln('no test files found in the reports');
@@ -159,7 +195,18 @@ int update(List<String> reports) {
     final w = measured[f] ?? old[f];
     if (w != null) next[f] = w;
   }
-  next[catalog] = measured[catalog] ?? old[catalog] ?? catalogWeight;
+  // The catalog's weight is its invocation's wall time divided by the scale
+  // (other invocations' wall / their summed weights). Without a catalog report,
+  // or without other reports to get the scale from, the old weight stays.
+  if (catalogSeconds > 0 && otherWall > 0 && otherWeights > 0) {
+    final scale = otherWall / otherWeights;
+    next[catalog] = (catalogSeconds / scale * 10).round() / 10;
+    stdout.writeln(
+      'scale ${scale.toStringAsFixed(2)}, catalog ${next[catalog]}',
+    );
+  } else {
+    next[catalog] = old[catalog] ?? catalogWeight;
+  }
   final keys = next.keys.toList()..sort();
   final out = {for (final k in keys) k: next[k]};
   File(

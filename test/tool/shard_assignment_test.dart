@@ -133,13 +133,23 @@ void main() {
     ]);
   });
 
-  test('the real weights balance the shards', () {
+  test('the real weights balance the predicted wall time', () {
+    // Weights are per-file wall seconds; a shard's files overlap about 1.6x,
+    // so their wall is `scale` x the summed weights (CI measured 0.59-0.66).
+    // The catalog runs alone: its wall is 400 s, its weight 400 / scale.
+    const scale = 0.62;
+    const catalogWall = 400.0;
+    expect(real[catalog], closeTo(catalogWall / scale, 5));
     final loads = shardLoads(
       assignShards(files: files, weights: real, catalog: catalog, total: 4),
       real,
     );
-    final spread = loads.reduce(max) - loads.reduce(min);
-    expect(spread, lessThan(60), reason: '$loads');
+    final walls = [
+      catalogWall + (loads[0] - real[catalog]!) * scale,
+      for (final l in loads.skip(1)) l * scale,
+    ];
+    final spread = walls.reduce(max) - walls.reduce(min);
+    expect(spread / walls.reduce(max), lessThan(0.05), reason: '$walls');
   });
 
   test('the weights file is sorted', () {
