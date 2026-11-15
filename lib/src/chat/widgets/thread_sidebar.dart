@@ -82,6 +82,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenHelperModels,
     this.onOpenInNewWindow,
     this.changeFolderFor,
+    this.exportJsonFor,
     this.searchProfile,
     this.searchFocus,
     this.fullPage = false,
@@ -125,6 +126,10 @@ class ThreadSidebar extends StatelessWidget {
 
   /// "Change Folder…" of a row's menu, for the chat that can be moved.
   final ChangeFolderOffer? Function(ChatThread thread)? changeFolderFor;
+
+  /// "Export Chat as JSON…" of a Mac row's menu; the touch rows and the other
+  /// platforms' row menus do not offer it.
+  final ExportJsonOffer? Function(ChatThread thread)? exportJsonFor;
 
   /// The profile [search] looks in by default; results from another one name
   /// theirs.
@@ -304,6 +309,7 @@ class ThreadSidebar extends StatelessWidget {
               housekeeping: housekeeping,
               onOpenInNewWindow: onOpenInNewWindow,
               changeFolderFor: changeFolderFor,
+              exportJsonFor: exportJsonFor,
             ),
           ),
         ],
@@ -347,6 +353,7 @@ class ThreadSidebar extends StatelessWidget {
         housekeeping: this.housekeeping,
         onOpenInNewWindow: onOpenInNewWindow,
         changeFolderFor: changeFolderFor,
+        exportJsonFor: exportJsonFor,
         preferences: preferences,
         bottomPadding: contentBottomPadding,
       );
@@ -605,6 +612,7 @@ class _SectionedThreadList extends StatefulWidget {
     required this.housekeeping,
     required this.onOpenInNewWindow,
     this.changeFolderFor,
+    this.exportJsonFor,
     this.avatarBuilder,
     this.bottomPadding = 0,
   });
@@ -617,6 +625,7 @@ class _SectionedThreadList extends StatefulWidget {
   final ThreadHousekeeping? housekeeping;
   final ValueChanged<ChatThread>? onOpenInNewWindow;
   final ChangeFolderOffer? Function(ChatThread thread)? changeFolderFor;
+  final ExportJsonOffer? Function(ChatThread thread)? exportJsonFor;
   final Widget Function(ChatThread)? avatarBuilder;
   final double bottomPadding;
 
@@ -707,6 +716,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
     final housekeeping = thread.remote ? widget.housekeeping : null;
     final onOpenInNewWindow = widget.onOpenInNewWindow;
     final changeFolder = widget.changeFolderFor?.call(thread);
+    final exportJson = widget.exportJsonFor?.call(thread);
     void run(ThreadAction action) => action == ThreadAction.changeFolder
         ? changeFolder?.onSelected()
         : runThreadAction(
@@ -715,6 +725,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
             thread: thread,
             housekeeping: housekeeping,
             onOpenInNewWindow: onOpenInNewWindow,
+            exportJson: exportJson,
           );
     final row = MacThreadRow(
       avatar: widget.avatarBuilder?.call(thread),
@@ -731,6 +742,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
         canOpenInNewWindow: onOpenInNewWindow != null && thread.remote,
         canBranch: housekeeping?.branch != null && thread.remote,
         changeFolder: changeFolder,
+        exportJson: exportJson,
       ),
       onAction: run,
     );
