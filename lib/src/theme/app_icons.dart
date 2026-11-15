@@ -45,6 +45,9 @@ abstract final class AppIcons {
     Icons.error_outline,
     CupertinoIcons.exclamationmark_circle,
   );
+
+  /// The connection to the server is lost; [cloud] reads as online.
+  static const wifiOff = AppIconSet(Icons.wifi_off, CupertinoIcons.wifi_slash);
   static const errorFilled = AppIconSet(
     Icons.error,
     CupertinoIcons.exclamationmark_circle_fill,
@@ -599,6 +602,7 @@ abstract final class AppIcons {
     'warningFilled': warningFilled,
     'key': key,
     'cloud': cloud,
+    'wifiOff': wifiOff,
     'crossCircleFilled': crossCircleFilled,
     'questionCircleFilled': questionCircleFilled,
     'lockOpen': lockOpen,

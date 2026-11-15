@@ -150,6 +150,38 @@ typedef ConnectionTelemetryFactory = ConnectionTelemetry Function(
   Map<String, Object> serverAttributes,
 );
 
+/// Wires the telemetry of one connection: requests are traced and logged on
+/// [tracer] and [logger], events are logged through [logger] and kept in
+/// [breadcrumbs], and all of it is described with [serverAttributes]. The
+/// one place that wiring lives, so tests exercise what production runs.
+ConnectionTelemetry buildConnectionTelemetry({
+  required Logger logger,
+  required Tracer tracer,
+  required AppSuspensions suspensions,
+  required BreadcrumbTrail breadcrumbs,
+  required Map<String, Object> serverAttributes,
+}) {
+  final log = appEventLogger(logger);
+  // Requests and socket calls in flight when the app is paused end only after
+  // it comes back; their spans are marked so they can be told apart.
+  final marking = SuspensionMarkingTracer(tracer, suspensions);
+  return ConnectionTelemetry(
+    interceptor: httpInterceptor(
+      logger,
+      marking,
+      serverAttributes: serverAttributes,
+    ),
+    tracer: marking,
+    serverAttributes: serverAttributes,
+    events: breadcrumbs.asAppEventLogger(
+      serverAttributes.isEmpty
+          ? log
+          : (name, [attributes = const {}]) =>
+                log(name, {...serverAttributes, ...attributes}),
+    ),
+  );
+}
+
 class Telemetry {
   Telemetry._(this._sdk);
 
@@ -228,24 +260,12 @@ class Telemetry {
   ConnectionTelemetry forConnection(Map<String, Object> serverAttributes) {
     final sdk = _sdk;
     if (sdk == null) return const ConnectionTelemetry();
-    final log = appEventLogger(sdk.getLogger());
-    // Requests and socket calls in flight when the app is paused end only
-    // after it comes back; their spans are marked so they can be told apart.
-    final tracer = SuspensionMarkingTracer(sdk.getTracer(), _suspensions);
-    return ConnectionTelemetry(
-      interceptor: httpInterceptor(
-        sdk.getLogger(),
-        tracer,
-        serverAttributes: serverAttributes,
-      ),
-      tracer: tracer,
+    return buildConnectionTelemetry(
+      logger: sdk.getLogger(),
+      tracer: sdk.getTracer(),
+      suspensions: _suspensions,
+      breadcrumbs: _breadcrumbs,
       serverAttributes: serverAttributes,
-      events: _breadcrumbs.asAppEventLogger(
-        serverAttributes.isEmpty
-            ? log
-            : (name, [attributes = const {}]) =>
-                  log(name, {...serverAttributes, ...attributes}),
-      ),
     );
   }
 

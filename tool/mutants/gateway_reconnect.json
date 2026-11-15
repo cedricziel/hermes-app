@@ -1,0 +1,361 @@
+{
+  "subject": "gateway_reconnect",
+  "tests": [
+    "test/background/background_refresh_test.dart",
+    "test/bot_mode_chat_contract_test.dart",
+    "test/bot_screen/bot_screen_chat_preview_test.dart",
+    "test/bot_screen/bot_screen_chat_screen_test.dart",
+    "test/bot_screen/bot_screen_controller_install_test.dart",
+    "test/bot_screen/bot_screen_controller_lease_test.dart",
+    "test/bot_screen/bot_screen_controller_test.dart",
+    "test/bot_screen/bot_screen_install_panel_test.dart",
+    "test/bot_screen/bot_screen_installs_test.dart",
+    "test/bot_screen/bot_screen_panel_test.dart",
+    "test/bot_screen/bot_screen_repository_test.dart",
+    "test/bot_screen/bot_screen_viewer_chat_screen_test.dart",
+    "test/bot_screen/bot_screen_viewer_input_chat_screen_test.dart",
+    "test/bot_screen/bot_screen_viewer_lease_chat_screen_test.dart",
+    "test/bot_screen/bound_bot_screen_preview_test.dart",
+    "test/bot_screen/viewer/bot_screen_viewer_lease_test.dart",
+    "test/change_invalidation_messaging_test.dart",
+    "test/change_invalidation_queue_test.dart",
+    "test/chat/activity/activity_line_placement_test.dart",
+    "test/chat/activity/activity_line_screen_test.dart",
+    "test/chat/activity/bound_activity_panel_programs_test.dart",
+    "test/chat/activity/bound_activity_panel_test.dart",
+    "test/chat/activity/needs_you_chat_screen_test.dart",
+    "test/chat/activity/working_summary_controller_test.dart",
+    "test/chat/billing_verification_integration_test.dart",
+    "test/chat/connector_operation_integration_test.dart",
+    "test/chat/durable_queue_dispatch_test.dart",
+    "test/chat/process_list_integration_test.dart",
+    "test/chat/process_output_integration_test.dart",
+    "test/chat/subagents/bound_activity_panel_agents_test.dart",
+    "test/chat/subagents/chat_controller_clearing_test.dart",
+    "test/chat_screen_review_regressions_test.dart",
+    "test/conversation_window_screen_test.dart",
+    "test/gateway/agent_work_transport_test.dart",
+    "test/gateway/answer_open_request_test.dart",
+    "test/gateway/billing_verification_transport_test.dart",
+    "test/gateway/checkpoint_fixtures_test.dart",
+    "test/gateway/checkpoints_transport_test.dart",
+    "test/gateway/connector_operation_transport_test.dart",
+    "test/gateway/context_compacted_consumers_test.dart",
+    "test/gateway/display_request_test.dart",
+    "test/gateway/durable_prompt_submission_test.dart",
+    "test/gateway/gateway_connection_transport_test.dart",
+    "test/gateway/gateway_contract_test.dart",
+    "test/gateway/pending_approvals_test.dart",
+    "test/gateway/process_output_transport_test.dart",
+    "test/gateway/prompt_acknowledgement_test.dart",
+    "test/gateway/prompt_receipt_test.dart",
+    "test/gateway/reaction_transport_test.dart",
+    "test/gateway/review_fixes_test.dart",
+    "test/gateway/send_failure_test.dart",
+    "test/gateway/server_request_handlers_test.dart",
+    "test/gateway/session_state_transport_test.dart",
+    "test/gateway/session_usage_transport_test.dart",
+    "test/gateway/side_result_transport_test.dart",
+    "test/gateway/transport_reconnect_test.dart",
+    "test/gateway/transport_settle_test.dart",
+    "test/gateway/transport_signals_test.dart",
+    "test/gateway/transport_telemetry_test.dart",
+    "test/gateway/voice_turn_transport_test.dart",
+    "test/gateway/warning_transport_test.dart",
+    "test/gateway/workspace_transport_test.dart",
+    "test/gateway_connection_test.dart",
+    "test/hermes_gateway_transport_test.dart",
+    "test/moa_progress_integration_test.dart",
+    "test/reaction_integration_test.dart",
+    "test/reaction_queue_test.dart",
+    "test/real_backend_contract_test.dart",
+    "test/session_usage_integration_test.dart",
+    "test/side_result_integration_test.dart",
+    "test/todo_plan_integration_test.dart",
+    "test/watch_glanceable_relay_test.dart",
+    "test/watch_request_actions_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/bot_screen_lease_workflow_test.dart",
+    "test/workflows/bot_screen_preview_workflow_test.dart",
+    "test/workflows/bot_screen_viewer_workflow_test.dart",
+    "test/workflows/bot_screen_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workspaces/workspaces_gateway_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
+    "test/workflows/chat_autocomplete_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/chat_workflow_test.dart",
+    "test/workflows/chat_working_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/compact_chat_workflow_test.dart",
+    "test/workflows/connection_screens_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/group_creation_workflow_test.dart",
+    "test/workflows/handoff_workflow_test.dart",
+    "test/workflows/hands_free_strip_workflow_test.dart",
+    "test/workflows/kanban_extras_workflow_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart",
+    "test/workflows/kanban_task_activity_workflow_test.dart",
+    "test/workflows/kanban_task_metadata_workflow_test.dart",
+    "test/workflows/kanban_worker_log_workflow_test.dart",
+    "test/workflows/kanban_workflow_test.dart",
+    "test/workflows/mac_profiles_workflow_test.dart",
+    "test/workflows/management_workflow_test.dart",
+    "test/workflows/mcp_workflow_test.dart",
+    "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/onboarding_workflow_test.dart",
+    "test/workflows/plugins_workflow_test.dart",
+    "test/workflows/process_control_workflow_test.dart",
+    "test/workflows/profile_creation_workflow_test.dart",
+    "test/workflows/provider_first_run_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/schedules_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workflows/skills_hub_workflow_test.dart",
+    "test/workflows/subagent_control_workflow_test.dart",
+    "test/workflows/tools_setup_workflow_test.dart",
+    "test/workflows/tools_workflow_test.dart",
+    "test/workflows/voice_call_phases_workflow_test.dart",
+    "test/workflows/voice_call_setup_workflow_test.dart",
+    "test/workflows/working_directory_workflow_test.dart"
+  ],
+  "quick_tests": [
+    "test/gateway/transport_reconnect_test.dart",
+    "test/gateway/transport_settle_test.dart",
+    "test/gateway/transport_signals_test.dart",
+    "test/gateway/transport_telemetry_test.dart",
+    "test/gateway/review_fixes_test.dart",
+    "test/gateway/prompt_receipt_test.dart",
+    "test/hermes_gateway_transport_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "rc01",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport.dart",
+      "old": "const _maxReconnectAttempts = 5;",
+      "new": "const _maxReconnectAttempts = 6;",
+      "note": "one extra attempt per drop"
+    },
+    {
+      "id": "rc02",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport.dart",
+      "old": "const _maxReconnectAttempts = 5;",
+      "new": "const _maxReconnectAttempts = 4;",
+      "note": "one attempt fewer per drop"
+    },
+    {
+      "id": "rc03",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport.dart",
+      "old": "const _reconnectBudget = Duration(seconds: 60);",
+      "new": "const _reconnectBudget = Duration(milliseconds: 1);",
+      "note": "budget expires at once"
+    },
+    {
+      "id": "rc04",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport.dart",
+      "old": "const _maxReplyReconnects = 5;",
+      "new": "const _maxReplyReconnects = 6;",
+      "note": "one extra reconnect per reply"
+    },
+    {
+      "id": "rc05",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_helpers.dart",
+      "old": "const _stableStreaming = Duration(seconds: 30);",
+      "new": "const _stableStreaming = Duration.zero;",
+      "note": "any streaming resets the reconnect count (never gives up)"
+    },
+    {
+      "id": "rc06",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_helpers.dart",
+      "old": "last.difference(since) >= _stableStreaming) {\n      _count = 0;",
+      "new": "last.difference(since) >= _stableStreaming) {",
+      "note": "stable stretch no longer forgets earlier drops"
+    },
+    {
+      "id": "rc07",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_helpers.dart",
+      "old": "void attempt() => _count++;",
+      "new": "void attempt() {}",
+      "note": "drop count never grows (infinite reconnects)"
+    },
+    {
+      "id": "rc08",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_helpers.dart",
+      "old": "void reset() {\n    _count = 0;",
+      "new": "void reset() {",
+      "note": "count survives a finished turn"
+    },
+    {
+      "id": "rc09",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_sending.dart",
+      "old": "        if (made >= _maxReplyReconnects) {\n          if (finishing)",
+      "new": "        if (made > _maxReplyReconnects) {\n          if (finishing)",
+      "note": "send path: limit off by one"
+    },
+    {
+      "id": "rc10",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_follow_ups.dart",
+      "old": "        if (made >= _maxReplyReconnects) {\n          out.addError(",
+      "new": "        if (made > _maxReplyReconnects) {\n          out.addError(",
+      "note": "follow-up path: limit off by one"
+    },
+    {
+      "id": "rc11",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_sending.dart",
+      "old": "        drops.attempt();\n        final resumed = await _reattach(\n          owner,",
+      "new": "        final resumed = await _reattach(\n          owner,",
+      "note": "send path: attempt not counted"
+    },
+    {
+      "id": "rc12",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_follow_ups.dart",
+      "old": "        drops.attempt();\n        final resumed = await _reattach(\n          key,",
+      "new": "        final resumed = await _reattach(\n          key,",
+      "note": "follow-up path: attempt not counted"
+    },
+    {
+      "id": "rc13",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_sending.dart",
+      "old": "        watch = live;\n        drops.reconnected(clock.now());",
+      "new": "        watch = live;",
+      "note": "send path: reconnected not recorded"
+    },
+    {
+      "id": "rc14",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_sending.dart",
+      "old": "        if (stopped.value) return;\n        final made = drops.dropped();",
+      "new": "        final made = drops.dropped();",
+      "note": "send path: reconnect even though the reply was stopped"
+    },
+    {
+      "id": "rc15",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "      for (var attempt = 0; attempt < maxAttempts; attempt++) {\n        if (stop()) break;",
+      "new": "      for (var attempt = 0; attempt < maxAttempts; attempt++) {",
+      "note": "no stop check before the backoff sleep"
+    },
+    {
+      "id": "rc16",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "        final index = attempt + drops;",
+      "new": "        final index = attempt;",
+      "note": "backoff forgets earlier drops"
+    },
+    {
+      "id": "rc17",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "        if (index > 0) {\n          await _within(",
+      "new": "        if (index > 1) {\n          await _within(",
+      "note": "second attempt not delayed"
+    },
+    {
+      "id": "rc18",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "_sleep(reconnectDelay(index, _random)),",
+      "new": "_sleep(reconnectDelay(0, _random)),",
+      "note": "constant backoff"
+    },
+    {
+      "id": "rc19",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "        tried = attempt + 1;",
+      "new": "        tried = attempt;",
+      "note": "telemetry attempt count off by one"
+    },
+    {
+      "id": "rc20",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "          if (!cancelled()) {\n            if (runtimeId != null)",
+      "new": "          if (true) {\n            if (runtimeId != null)",
+      "note": "cancelled reply still takes the resumed watch"
+    },
+    {
+      "id": "rc21",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "            return resumed;\n          }\n          resumed.discard();",
+      "new": "            return resumed;\n          }",
+      "note": "cancelled resume leaks its watch"
+    },
+    {
+      "id": "rc22",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "        runtimeId: runtimeId ?? owner.$2,\n        giveUp: true,\n        outcome: 'failed',\n      );\n      if (runtimeId != null && !cancelled())",
+      "new": "        runtimeId: runtimeId ?? owner.$2,\n        giveUp: false,\n        outcome: 'failed',\n      );\n      if (runtimeId != null && !cancelled())",
+      "note": "exhausted reconnect does not give up"
+    },
+    {
+      "id": "rc23",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "    if (stop()) return null;\n    // Listening starts before the resume is sent, so the frames the gateway",
+      "new": "    // Listening starts before the resume is sent, so the frames the gateway",
+      "note": "no stop check after opening the socket"
+    },
+    {
+      "id": "rc24",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "        _ledger.hasWatermark(runtimeId);\n    Map<String, Object?>? since;",
+      "new": "        true;\n    Map<String, Object?>? since;",
+      "note": "replay asked for without a watermark"
+    },
+    {
+      "id": "rc25",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "'last_seen': _ledger.lastSeen(runtimeId),",
+      "new": "'last_seen': 0,",
+      "note": "replay from 0 hands over the whole ring (duplicates)"
+    },
+    {
+      "id": "rc26",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "        runtimeId == previous &&\n        _ledger.hasWatermark",
+      "new": "        _ledger.hasWatermark",
+      "note": "replay across a different runtime session"
+    },
+    {
+      "id": "rc27",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "if (error.code != kGatewayMethodNotFound) {",
+      "new": "if (error.code == kGatewayMethodNotFound) {",
+      "note": "method-not-found treated as failure, other errors swallowed"
+    },
+    {
+      "id": "rc28",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "        replayEpoch is String &&\n        replayEpoch != recordedEpoch;",
+      "new": "        replayEpoch is String &&\n        replayEpoch == recordedEpoch;",
+      "note": "epochChanged inverted"
+    },
+    {
+      "id": "rc29",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "final truncated = since?['truncated'] == true;",
+      "new": "final truncated = since?['truncated'] != true;",
+      "note": "truncated flag inverted in telemetry/discard decisions"
+    },
+    {
+      "id": "rc30",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "(since == null || truncated || epochChanged || runtimeId != previous);",
+      "new": "(since == null || epochChanged || runtimeId != previous);",
+      "note": "warnings not discarded after truncated replay"
+    },
+    {
+      "id": "rc31",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "if (stored == null && !errored && onScreen) {",
+      "new": "if (stored == null && onScreen) {",
+      "note": "errored reply gives up instead of settling"
+    },
+    {
+      "id": "rc32",
+      "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
+      "old": "      } else if (previous != null) {\n        injected.add((const ThreadNeedsRefetch(), false));",
+      "new": "      } else if (previous == null) {\n        injected.add((const ThreadNeedsRefetch(), false));",
+      "note": "no refetch when the gap cannot be filled"
+    }
+  ]
+}

@@ -520,10 +520,11 @@ void main() {
 
       final result = await run;
 
-      expect(result.outcome, InlineReplyOutcome.failed);
+      expect(result.outcome, InlineReplyOutcome.stopCommand);
       expect(result.ending, ReplyEnding.notSent);
       expect(result.endingPosted, isTrue);
       expect(only().body, kReplyNotSentKeptBody);
+      expect(InlineReplyOutcome.stopCommand.wire, 'stop_command');
       expect(payloadOf(only())['u'], 'stop');
       // No turn runs: nothing is waited for or remembered.
       expect(await running.read(), isEmpty);
