@@ -22,21 +22,32 @@ class HiddenBoxBudget {
   HiddenBoxBudget([this.left = kToolHiddenBoxMax]);
 
   int left;
-
-  /// Whether the last character was U+1F3F4 or a tag character of the flag
-  /// sequence that follows it, so the tag characters after it are part of an
-  /// emoji (England, Scotland, Wales) and not hidden text.
-  bool inFlag = false;
 }
 
-bool _isTag(int rune) => rune >= 0xE0020 && rune <= 0xE007F;
-
-/// Whether [rune] is a tag character that belongs to a flag sequence, given
-/// whether the character before it ended in one ([inFlag]).
-bool _tagInFlag(int rune, bool inFlag) => inFlag && _isTag(rune);
-
-bool _flagAfter(int rune, bool inFlag) =>
-    rune == 0x1F3F4 || _tagInFlag(rune, inFlag);
+/// The end (an index into [text], exclusive) of the tag characters of a flag
+/// sequence that starts right after the black flag U+1F3F4 at [flagAt]: one to
+/// six tag letters or digits and then the cancel tag U+E007F, as in `gbeng`,
+/// `gbsct` and `gbwls`. Anything else, a longer run, another tag character or
+/// no cancel tag, is not an emoji and gives [flagAt] + 2 (nothing exempt).
+int _flagTagEnd(String text, int flagAt) {
+  var i = flagAt + 2;
+  var letters = 0;
+  while (i + 1 < text.length) {
+    final rune = _runeAt(text, i);
+    final alnum =
+        (rune >= 0xE0030 && rune <= 0xE0039) ||
+        (rune >= 0xE0061 && rune <= 0xE007A);
+    if (alnum) {
+      if (++letters > 6) return flagAt + 2;
+      i += 2;
+    } else if (rune == 0xE007F && letters > 0) {
+      return i + 2;
+    } else {
+      return flagAt + 2;
+    }
+  }
+  return flagAt + 2;
+}
 
 String _hex(int rune) =>
     'U+${rune.toRadixString(16).toUpperCase().padLeft(4, '0')}';
@@ -51,17 +62,14 @@ bool isHiddenToolRune(int rune) => rune != 0x0A && isUnsafeDisplayRune(rune);
 /// Whether [text] has a character [hiddenCharSpans] would box, so a text
 /// without one is drawn as plain runs.
 bool hasHiddenToolText(String text) {
-  var inFlag = false;
+  var exemptUntil = 0;
   for (var i = 0; i < text.length; i++) {
     final unit = text.codeUnitAt(i);
     // ASCII text and most of the rest have no hidden character.
-    if (unit >= 0x20 && unit < 0x7F) {
-      inFlag = false;
-      continue;
-    }
+    if (unit >= 0x20 && unit < 0x7F) continue;
     final rune = _runeAt(text, i);
-    if (isHiddenToolRune(rune) && !_tagInFlag(rune, inFlag)) return true;
-    inFlag = _flagAfter(rune, inFlag);
+    if (rune == 0x1F3F4) exemptUntil = _flagTagEnd(text, i);
+    if (isHiddenToolRune(rune) && i >= exemptUntil) return true;
     if (rune > 0xFFFF) i++;
   }
   return false;
@@ -84,8 +92,11 @@ List<InlineSpan> hiddenCharSpans(
   TextStyle? boxStyle,
   bool boxLineBreaks = false,
 }) {
+  var i = 0;
+  // Tag characters up to here are the tail of a flag emoji, not hidden text.
+  var exemptUntil = 0;
   bool hidden(int rune) =>
-      (isHiddenToolRune(rune) && !_tagInFlag(rune, budget.inFlag)) ||
+      (isHiddenToolRune(rune) && i >= exemptUntil) ||
       (boxLineBreaks && rune == 0x0A);
   final spans = <InlineSpan>[];
   var plainStart = 0;
@@ -95,14 +106,11 @@ List<InlineSpan> hiddenCharSpans(
     }
   }
 
-  var i = 0;
   while (i < text.length) {
     final rune = _runeAt(text, i);
     final width = rune > 0xFFFF ? 2 : 1;
-    final isHidden = hidden(rune);
-    final startedFlag = budget.inFlag;
-    budget.inFlag = _flagAfter(rune, budget.inFlag);
-    if (isHidden) {
+    if (rune == 0x1F3F4) exemptUntil = _flagTagEnd(text, i);
+    if (hidden(rune)) {
       flush(i);
       if (budget.left > 0) {
         budget.left--;
@@ -128,7 +136,7 @@ List<InlineSpan> hiddenCharSpans(
               text,
               i,
               boxLineBreaks: boxLineBreaks,
-              inFlag: startedFlag,
+              exemptUntil: exemptUntil,
             ),
             style: style,
           ),
@@ -147,7 +155,7 @@ String _escapedRest(
   String text,
   int from, {
   required bool boxLineBreaks,
-  required bool inFlag,
+  required int exemptUntil,
 }) {
   final out = StringBuffer();
   var i = from;
@@ -155,12 +163,11 @@ String _escapedRest(
     final rune = _runeAt(text, i);
     if (boxLineBreaks && rune == 0x0A) {
       out.write(r'\n');
-    } else if (isHiddenToolRune(rune) && !_tagInFlag(rune, inFlag)) {
+    } else if (isHiddenToolRune(rune) && i >= exemptUntil) {
       out.write('<${_hex(rune)}>');
     } else {
       out.writeCharCode(rune);
     }
-    inFlag = _flagAfter(rune, inFlag);
     i += rune > 0xFFFF ? 2 : 1;
   }
   return out.toString();

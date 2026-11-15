@@ -140,6 +140,8 @@ The Claude Design canvas for this section is https://claude.ai/artifact/Y5SRsysG
 - **Tag characters.** U+E0020 to U+E007F are boxed as hidden text, except those that follow U+1F3F4 (the black flag), which is how the England, Scotland and Wales flags are written; a tag character anywhere else is boxed.
 - **The JSON tag above 64 KB** also needs the first non-blank character after the opening bracket to be able to start an entry (`"`, `{`, `[`, a digit, `-`, `t`, `f`, `n` or `]` after `[`; `"` or `}` after `{`), so a log line such as `[INFO] ... [done]` is plain with no tag.
 
+- **Tag characters, exactly (supersedes the bullet above).** Only U+1F3F4 followed by one to six tag letters or digits (U+E0030 to E0039, U+E0061 to E007A) and then the cancel tag U+E007F is shown unboxed, which covers the England, Scotland and Wales flags (`gbeng`, `gbsct`, `gbwls`). Every other tag character is boxed: a longer run, a run with no cancel tag, other tag characters, and anything after the cancel tag, since tag characters are a known way to hide instructions in text.
+
 ### Cost
 
 The colouring is the Files one and obeys its rules:
