@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 
+import '../../l10n/l10n.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'mac_commands.dart';
 import 'menu_layout.dart';
@@ -20,10 +21,12 @@ import 'menu_layout.dart';
 class IpadMenuBridge {
   IpadMenuBridge({
     required this.registry,
+    required AppLocalizations localizations,
     this.breadcrumbs = Breadcrumbs.none,
     required this.events,
     MethodChannel? channel,
-  }) : _channel = channel ?? const MethodChannel('hermes_app/menu');
+  }) : _l10n = localizations,
+       _channel = channel ?? const MethodChannel('hermes_app/menu');
 
   final MacCommandRegistry registry;
   final Breadcrumbs breadcrumbs;
@@ -31,6 +34,19 @@ class IpadMenuBridge {
   /// Read for each event, as the connection a logger belongs to can change.
   final AppEventLogger Function() events;
   final MethodChannel _channel;
+  AppLocalizations _l10n;
+
+  /// Sends the layout again when the app's language changed.
+  set l10n(AppLocalizations value) {
+    if (identical(_l10n, value)) return;
+    _l10n = value;
+    if (_started) {
+      unawaited(_send('layout', 'setLayout', _layout()));
+      _sendState();
+    }
+  }
+
+  bool _started = false;
 
   late final _commands = {
     for (final section in menuLayout)
@@ -39,6 +55,7 @@ class IpadMenuBridge {
   };
 
   void start() {
+    _started = true;
     _channel.setMethodCallHandler(_onCall);
     registry.addListener(_sendState);
     unawaited(_send('layout', 'setLayout', _layout()));
@@ -80,7 +97,8 @@ class IpadMenuBridge {
       for (final MapEntry(key: name, value: entry) in _commands.entries)
         name: {
           'enabled': registry.handlerFor(entry.command)?.enabled ?? false,
-          'title': registry.handlerFor(entry.command)?.title ?? entry.label,
+          'title':
+              registry.handlerFor(entry.command)?.title ?? entry.label(_l10n),
         },
     };
     unawaited(_send('state', 'setState', {'states': states}));
@@ -106,21 +124,21 @@ class IpadMenuBridge {
       for (final section in menuLayout)
         {
           'id': section.id,
-          'label': section.label,
+          'label': section.label(_l10n),
           'groups': [
             for (final group in section.groupsOn(MenuPlatform.ipad))
-              [for (final entry in group) _item(entry)],
+              [for (final entry in group) _item(entry, _l10n)],
           ],
         },
     ],
   };
 
-  static Map<String, Object> _item(MenuEntry entry) {
+  static Map<String, Object> _item(MenuEntry entry, AppLocalizations l10n) {
     final chord = entry.shortcutOn(MenuPlatform.ipad);
     final input = chord?.trigger.keyLabel.toLowerCase();
     return {
       'command': entry.command.name,
-      'label': entry.label,
+      'label': entry.label(l10n),
       if (chord != null && input != null && input.length == 1) ...{
         'input': input,
         'modifiers': [

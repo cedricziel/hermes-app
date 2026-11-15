@@ -10,19 +10,20 @@ import 'context/pages/compress_flow.dart';
 import 'context/context_controller.dart';
 
 import '../voice/calls/active_call.dart';
-import '../voice/calls/call_bridge.dart';
 import '../voice/calls/call_tones.dart';
 import '../voice/calls/call_audio_decoder.dart';
 import '../voice/calls/call_agent.dart';
 import '../voice/calls/voice_call.dart';
 import '../voice/calls/voice_model_route.dart';
 import '../voice/calls/call_microphone.dart';
+import '../voice/calls/call_bridge.dart';
+import '../voice/calls/portable_call_audio.dart';
+import '../voice/calls/portable_call_settings.dart';
+import '../voice/call_presentation.dart';
 import '../voice/calls/call_readiness_checker.dart';
 import '../voice/calls/call_speech_probe.dart';
 import '../voice/voice_call_screen.dart';
 import '../voice/dictation_dialog.dart';
-
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
@@ -101,11 +102,13 @@ import '../macos/dock/dock_menu_controller.dart';
 import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
+import '../macos/mac_toolbar.dart' show MacToolbarButton;
 import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
 import '../server_care/replies_in_progress.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
+import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import '../surfaces/surface_snapshot_store.dart';
 import '../surfaces/surface_snapshots.dart';
 import '../telemetry/breadcrumbs.dart';
@@ -134,6 +137,9 @@ import '../voice/composer_dictation.dart';
 import '../voice/read_aloud.dart';
 import '../voice/voice_support.dart';
 import 'media/media_store.dart';
+import 'session_export_controller.dart';
+import 'session_export_flow.dart';
+import 'session_export_telemetry.dart';
 import '../voice/voice_message_recording.dart';
 import '../voice/voice_recording_view.dart';
 import '../voice/dictation_settings.dart';
@@ -170,6 +176,7 @@ part 'chat_screen_calls.dart';
 part 'chat_screen_bot_screen.dart';
 part 'chat_screen_read_aloud.dart';
 part 'chat_screen_checkpoints.dart';
+part 'chat_screen_export.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -206,6 +213,7 @@ class ChatScreen extends StatefulWidget {
     this.shareEntry = 0,
     this.chatProfiles,
     this.voiceRecorder,
+    this.callBridge,
     this.voiceMessageRecorder,
     this.displaySocketOpener,
     this.takeoverSetting,
@@ -232,7 +240,7 @@ class ChatScreen extends StatefulWidget {
 
   /// The tools routes; the connected dashboard's when null. The Tools entry
   /// shows only while [toolsAvailability] says the server offers them.
-  final HermesToolsRepository? tools;
+  final HermesToolsRoot? tools;
 
   /// Whether the server offers Tools; the shell's when null. Without either
   /// there is no Tools entry.
@@ -280,6 +288,10 @@ class ChatScreen extends StatefulWidget {
   /// The microphone for dictation; the platform's unless a test supplies its
   /// own.
   final VoiceRecorder? voiceRecorder;
+
+  /// Makes the call's audio when a call starts; the platform's unless a test
+  /// supplies its own.
+  final CallBridge Function()? callBridge;
 
   /// Optional microphone override for draft audio attachments.
   final VoiceRecorder? voiceMessageRecorder;
@@ -346,7 +358,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesSkillsRepository? _skills;
   HermesPluginManagerRepository? _plugins;
   HermesMcpRepository? _mcp;
-  HermesToolsRepository? _tools;
+  HermesToolsRoot? _tools;
   ToolsAvailability? _toolsAvailability;
   HermesModelsRepository? _models;
   ProvidersRepository? _providers;
@@ -375,6 +387,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   SessionActivity? _sessionActivity;
   final _composerController = TextEditingController();
   VoiceCall? _voiceCall;
+  PortableCallSettings? _callSettings;
 
   /// Where [_voiceCall] was announced, so this screen lets go of it on dispose.
   ActiveCallRegistry? _callRegistry;
@@ -447,6 +460,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   StarterContextLoader? _starterLoader;
 
+  /// The "Export chat as JSON" controller, null while there is no API client,
+  /// and what ends one early: App Lock, a sign-out, a new owner or server.
+  SessionExportController? _export;
+  AppLockController? _exportLock;
+  AuthController? _exportAuth;
+  StreamSubscription<void>? _exportSignedOut;
+  var _exportWasLocked = false;
+  int? _exportOwner;
+  String? _exportServer;
+  String? _exportProfile;
+
   /// Conversation windows (macOS); null elsewhere.
   ConversationWindows? _windows;
   StreamSubscription<void>? _mainFocused;
@@ -473,6 +497,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
     _finds = _maybeRead<AgentMessageFinds>()?..addListener(_onAgentMessages);
+    _callSettings = _maybeRead<PortableCallSettings>()
+      ?..addListener(_callSettingsChanged);
     final liveActivities = _maybeRead<LiveActivities?>();
     final appLock = _maybeRead<AppLockController>();
     final auth = _maybeRead<AuthController>();
@@ -585,6 +611,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onHandBack: _handBackFromRestore,
       onSendNotice: _showSendNotice,
     )..addListener(_changed);
+    _initExport(repositories);
     _repliesCount = _maybeRead<RepliesInProgress>()?..attach(_runningReplies);
     _needsYou = needsYouQueueFor(
       _chat,
@@ -778,6 +805,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     _syncListChanges();
     _syncBotScreen();
+    _syncExport();
     final loading = _chat.loadingThreads;
     if (_wasLoadingThreads && !loading) {
       unawaited(_memoryWaiting?.refresh(_chat.profile));
@@ -984,6 +1012,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _windows?.removeListener(_advertise);
     _attention.dispose();
     _sessionActivity?.removeListener(_callOwnerChanged);
+    _callSettings?.removeListener(_callSettingsChanged);
     _voiceCall?.removeListener(_callChanged);
     // A disposed call tells nobody that it ended; the registry ends it first
     // and keeps what the shell's strip still has to say. It acts only on the
@@ -998,6 +1027,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chat
       ..removeListener(_changed)
       ..dispose();
+    _exportSignedOut?.cancel();
+    _disposeExport();
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
     _toolsAvailability?.removeListener(_toolsAvailabilityChanged);

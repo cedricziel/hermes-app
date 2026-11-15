@@ -1,3 +1,5 @@
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -41,13 +43,17 @@ class BotHandoffBody extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
-        if (data['to'] case final String target) Text('To $target'),
+        Text(
+          wellFormedText(label),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        if (data['to'] case final String target)
+          Text(wellFormedText('To $target')),
         for (final key in ['reply', 'error', 'detail'])
           if (data[key] case final String value when value.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: SelectableText(value),
+              child: SelectableText(wellFormedText(value)),
             ),
         if (pending)
           const Text('Receipt retained. Do not resend this handoff.'),

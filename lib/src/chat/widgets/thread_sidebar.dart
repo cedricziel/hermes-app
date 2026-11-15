@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:provider/provider.dart';
@@ -18,8 +19,10 @@ import '../../spotlight/spotlight_settings.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../voice/calls/portable_call_settings.dart';
 import '../../voice/dictation_dialog.dart';
 import '../../voice/dictation_settings.dart';
+import '../../voice/portable_calls_dialog.dart';
 import '../chat_models.dart';
 import '../../drag_out/drag_out_item.dart';
 import '../../drag_out/drag_out_source.dart';
@@ -82,6 +85,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenHelperModels,
     this.onOpenInNewWindow,
     this.changeFolderFor,
+    this.exportJsonFor,
     this.searchProfile,
     this.searchFocus,
     this.fullPage = false,
@@ -125,6 +129,10 @@ class ThreadSidebar extends StatelessWidget {
 
   /// "Change Folder…" of a row's menu, for the chat that can be moved.
   final ChangeFolderOffer? Function(ChatThread thread)? changeFolderFor;
+
+  /// "Export Chat as JSON…" of a Mac row's menu; the touch rows and the other
+  /// platforms' row menus do not offer it.
+  final ExportJsonOffer? Function(ChatThread thread)? exportJsonFor;
 
   /// The profile [search] looks in by default; results from another one name
   /// theirs.
@@ -304,6 +312,7 @@ class ThreadSidebar extends StatelessWidget {
               housekeeping: housekeeping,
               onOpenInNewWindow: onOpenInNewWindow,
               changeFolderFor: changeFolderFor,
+              exportJsonFor: exportJsonFor,
             ),
           ),
         ],
@@ -347,6 +356,7 @@ class ThreadSidebar extends StatelessWidget {
         housekeeping: this.housekeeping,
         onOpenInNewWindow: onOpenInNewWindow,
         changeFolderFor: changeFolderFor,
+        exportJsonFor: exportJsonFor,
         preferences: preferences,
         bottomPadding: contentBottomPadding,
       );
@@ -518,9 +528,10 @@ class _ThreadRowState extends State<_ThreadRow> {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final housekeeping = widget.housekeeping;
-    final touch = platformChromeOf(context) == PlatformChrome.ios;
-    final swipeable = touch && housekeeping != null;
-    final inlineButton = housekeeping != null && !touch;
+    final ios = platformChromeOf(context) == PlatformChrome.ios;
+    final touch = isTouchPlatform(context);
+    final swipeable = ios && housekeeping != null;
+    final inlineButton = housekeeping != null && !ios;
     final row = Semantics(
       hint: relativeTime(_thread.updatedAt),
       child: SidebarRow(
@@ -528,8 +539,10 @@ class _ThreadRowState extends State<_ThreadRow> {
         onTap: widget.onTap,
         onLongPress: inlineButton ? _openMenu : null,
         onSecondaryTap: inlineButton ? _openMenu : null,
-        padding: touch
+        padding: ios
             ? const EdgeInsets.symmetric(horizontal: 10)
+            : touch
+            ? EdgeInsets.fromLTRB(10, 0, inlineButton ? 0 : 10, 0)
             : EdgeInsets.fromLTRB(
                 10,
                 inlineButton ? 2 : 9,
@@ -538,7 +551,7 @@ class _ThreadRowState extends State<_ThreadRow> {
               ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            minHeight: touch ? kAppleMinTapTarget : 0,
+            minHeight: touch ? minTapTargetOf(context) : 0,
           ),
           child: Row(
             children: [
@@ -605,6 +618,7 @@ class _SectionedThreadList extends StatefulWidget {
     required this.housekeeping,
     required this.onOpenInNewWindow,
     this.changeFolderFor,
+    this.exportJsonFor,
     this.avatarBuilder,
     this.bottomPadding = 0,
   });
@@ -617,6 +631,7 @@ class _SectionedThreadList extends StatefulWidget {
   final ThreadHousekeeping? housekeeping;
   final ValueChanged<ChatThread>? onOpenInNewWindow;
   final ChangeFolderOffer? Function(ChatThread thread)? changeFolderFor;
+  final ExportJsonOffer? Function(ChatThread thread)? exportJsonFor;
   final Widget Function(ChatThread)? avatarBuilder;
   final double bottomPadding;
 
@@ -707,6 +722,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
     final housekeeping = thread.remote ? widget.housekeeping : null;
     final onOpenInNewWindow = widget.onOpenInNewWindow;
     final changeFolder = widget.changeFolderFor?.call(thread);
+    final exportJson = widget.exportJsonFor?.call(thread);
     void run(ThreadAction action) => action == ThreadAction.changeFolder
         ? changeFolder?.onSelected()
         : runThreadAction(
@@ -715,6 +731,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
             thread: thread,
             housekeeping: housekeeping,
             onOpenInNewWindow: onOpenInNewWindow,
+            exportJson: exportJson,
           );
     final row = MacThreadRow(
       avatar: widget.avatarBuilder?.call(thread),
@@ -731,6 +748,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
         canOpenInNewWindow: onOpenInNewWindow != null && thread.remote,
         canBranch: housekeeping?.branch != null && thread.remote,
         changeFolder: changeFolder,
+        exportJson: exportJson,
       ),
       onAction: run,
     );
@@ -834,6 +852,7 @@ class AccountFooter extends StatelessWidget {
                 if (value == 'appearance') showAppearanceDialog(context);
                 if (value == 'notifications') showNotificationsDialog(context);
                 if (value == 'dictation') showDictationDialog(context);
+                if (value == 'voice-calls') showPortableCallsDialog(context);
                 if (value == 'app-lock') showAppLockDialog(context);
                 if (value == 'spotlight') showSpotlightDialog(context);
                 if (value == 'about') showAppAboutDialog(context);
@@ -863,6 +882,12 @@ class AccountFooter extends StatelessWidget {
                   const PopupMenuItem(
                     value: 'dictation',
                     child: Text('Dictation'),
+                  ),
+                if (PortableCallSettings.offeredOn(defaultTargetPlatform) &&
+                    _hasCallSettings(context))
+                  PopupMenuItem(
+                    value: 'voice-calls',
+                    child: Text(context.l10n.settingsVoiceCalls),
                   ),
                 if (SpotlightSettings.offered)
                   const PopupMenuItem(
@@ -985,4 +1010,15 @@ class _ThreadListHeading extends StatelessWidget {
     grouping: preferences.grouping,
     onGroupingChanged: preferences.choose,
   );
+}
+
+/// Whether this app provides the voice calls switch, which a widget test or a
+/// catalog host may leave out.
+bool _hasCallSettings(BuildContext context) {
+  try {
+    context.read<PortableCallSettings>();
+    return true;
+  } on ProviderNotFoundException {
+    return false;
+  }
 }

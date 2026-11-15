@@ -155,7 +155,7 @@ void main() {
     });
   });
 
-  testWidgets('on Android the more button stays and rows stay compact', (
+  testWidgets('on Android the more button stays and rows are 48dp tall', (
     tester,
   ) async {
     await pumpChatScreen(
@@ -165,7 +165,8 @@ void main() {
     );
 
     expect(find.byTooltip('Chat actions'), findsOneWidget);
-    expect(tester.getSize(row).height, lessThan(44));
+    expect(tester.getSize(row).height, greaterThanOrEqualTo(48));
+    expect(tester.getSize(find.byTooltip('Chat actions')).width, 48);
   });
 
   testWidgets('on macOS rows are 28pt with a More button', (tester) async {
