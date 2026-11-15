@@ -6,6 +6,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "window_size.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -13,6 +14,24 @@ struct _MyApplication {
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+// The work area of the monitor the window will most likely open on (the one
+// under the pointer, else the primary one). False when GDK reports none.
+static gboolean get_work_area(GtkWindow* window, GdkRectangle* work_area) {
+  GdkDisplay* display = gtk_widget_get_display(GTK_WIDGET(window));
+  GdkMonitor* monitor = nullptr;
+  GdkSeat* seat = gdk_display_get_default_seat(display);
+  GdkDevice* pointer = seat != nullptr ? gdk_seat_get_pointer(seat) : nullptr;
+  if (pointer != nullptr) {
+    gint x = 0, y = 0;
+    gdk_device_get_position(pointer, nullptr, &x, &y);
+    monitor = gdk_display_get_monitor_at_point(display, x, y);
+  }
+  if (monitor == nullptr) monitor = gdk_display_get_primary_monitor(display);
+  if (monitor == nullptr) return FALSE;
+  gdk_monitor_get_workarea(monitor, work_area);
+  return work_area->width > 0 && work_area->height > 0;
+}
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
@@ -52,7 +71,18 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "Hermes");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  GdkGeometry min_size = {};
+  min_size.min_width = kMinWindowWidth;
+  min_size.min_height = kMinWindowHeight;
+  gtk_window_set_geometry_hints(window, nullptr, &min_size, GDK_HINT_MIN_SIZE);
+
+  WindowSize size = {kDefaultWindowWidth, kDefaultWindowHeight};
+  GdkRectangle work_area;
+  if (get_work_area(window, &work_area)) {
+    size = default_window_size(work_area.width, work_area.height);
+  }
+  gtk_window_set_default_size(window, size.width, size.height);
+  gtk_window_set_position(window, GTK_WIN_POS_CENTER);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
