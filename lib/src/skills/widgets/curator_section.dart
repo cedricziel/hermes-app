@@ -607,7 +607,9 @@ class _CuratorBody extends StatelessWidget {
       GroupedActionRow(
         title: ended ? l10n.skillsCuratorRunAgain : l10n.skillsCuratorRunNow,
         icon: AppIcons.play,
-        subtitle: ended ? null : subtitle,
+        // A disabled row always says why: the subtitle or the status line.
+        subtitle: ended && model.canRunNow ? null : subtitle,
+        touchTargetButtons: true,
         onPressed: model.canRunNow ? callbacks.onRunNow : null,
         status: state,
         spinnerWhileWorking: true,
@@ -632,6 +634,7 @@ class _CuratorBody extends StatelessWidget {
       lines: model.outputLines,
       initiallyOpen: outputInitiallyOpen,
       selectable: false,
+      capHeight: true,
       maxLines: 30,
       earlierLines: model.earlierLines,
       earlierLabel: l10n.skillsCuratorOutputEarlier,
