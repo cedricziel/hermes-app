@@ -70,7 +70,9 @@ class VoiceAudioSession {
     this._port = const PluginAudioSessionPort(),
     this.deactivationDelay = const Duration(milliseconds: 250),
     this.callTimeout = const Duration(seconds: 3),
-  });
+  }) {
+    VoiceAudioFocus.shared.addListener(_focusChanged);
+  }
 
   static final shared = VoiceAudioSession();
 
@@ -86,6 +88,7 @@ class VoiceAudioSession {
   final _owners = <Object>{};
   Future<void> _tail = Future.value();
   Timer? _pending;
+  bool _active = false;
 
   /// Whether any owner holds the session.
   bool get held => _owners.isNotEmpty;
@@ -105,14 +108,20 @@ class VoiceAudioSession {
     if (!first && (joined || !reconfigure)) return true;
     try {
       await _port.configure(configuration).timeout(callTimeout);
-      if (await _port.setActive(true).timeout(callTimeout)) return true;
+      if (await _port.setActive(true).timeout(callTimeout)) {
+        _active = true;
+        return true;
+      }
     } on Object {
       // Falls through to the refusal below.
     }
     if (!first) return true;
     // A recording is activated by its plugin whatever the answer, so it stays
     // an owner and gives the session back when it ends.
-    if (reconfigure) return false;
+    if (reconfigure) {
+      _active = true;
+      return false;
+    }
     _owners.remove(owner);
     await _deactivate();
     return false;
@@ -121,7 +130,7 @@ class VoiceAudioSession {
   /// Gives the session back; does nothing for an owner that does not hold it.
   Future<void> release(Object owner) => _serial(() async {
     if (!_owners.remove(owner) || _owners.isNotEmpty) return;
-    if (deactivationDelay == Duration.zero) return _deactivate();
+    if (deactivationDelay == Duration.zero) return _settle();
     _pending?.cancel();
     _pending = Timer(deactivationDelay, () => unawaited(_serial(_settle)));
   });
@@ -132,6 +141,24 @@ class VoiceAudioSession {
     _owners.remove(owner);
   });
 
+  /// A call that ended (or never got going) while a player it had taken the
+  /// session from was forgotten: nobody holds the session and it may still be
+  /// active, so the other apps are told now.
+  void _focusChanged() {
+    if (VoiceAudioFocus.shared.inCall) return;
+    unawaited(
+      _serial(() async {
+        if (_owners.isEmpty && _active) await _deactivate();
+      }),
+    );
+  }
+
+  /// Stops listening to the call focus; tests that make their own sessions.
+  void dispose() {
+    VoiceAudioFocus.shared.removeListener(_focusChanged);
+    _pending?.cancel();
+  }
+
   Future<void> _settle() async {
     _pending = null;
     // CallKit owns the session during a call, whoever released before it.
@@ -140,6 +167,7 @@ class VoiceAudioSession {
   }
 
   Future<void> _deactivate() async {
+    _active = false;
     try {
       await _port
           .setActive(

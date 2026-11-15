@@ -242,8 +242,12 @@ each starting from its own category, so a spoken reply after a recording plays
 as playback again. On iOS playback pauses other audio instead of ducking it, because
 libmpv's own output, not the app's session, would decide whether ducking holds;
 on Android playback asks for transient focus that may duck, so other apps may
-lower their volume instead of pausing, and a recording asks for plain
-transient focus.
+lower their volume instead of pausing. A recording asks for plain transient
+focus, but one that starts while a voice message still holds the session keeps
+the playback's focus request (the plugin does not replace an existing one), so
+other apps may duck rather than pause then. A call that fails before CallKit
+activates, after a voice message was playing, gives the session back with
+notify-others when the call's audio focus is released.
 Manual iPhone check: play music, record, stop: the music resumes within about
 two seconds; the same on cancel, after a failed recording (microphone denied)
 and with Bluetooth headphones connected.

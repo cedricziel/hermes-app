@@ -6,8 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// and `init` run at launch, and building an audio engine, an audio session
 /// setting or a CallKit object there interrupts the music or video playing in
 /// another app. SwiftPM cannot build these packages without Flutter, so the
-/// rule is pinned on the source text: whatever a class declares or runs at
-/// construction must not name these.
+/// rule is pinned on the source text: what `register`, any `init` and any
+/// stored-property initialiser run, directly or through a function of the same
+/// file, must not name these. The check leans to false positives.
 const _calls =
     'packages/hermes_calls/ios/hermes_calls/Sources/hermes_calls/HermesCallsPlugin.swift';
 const _callAudio =
@@ -21,84 +22,188 @@ final _forbidden = RegExp(
   r'setVoiceProcessingEnabled|requestRecordPermission',
 );
 
-/// What runs at launch may not call a helper that builds either: the
-/// `make...` factories and any use of the engine count as building.
-final _launchForbidden = RegExp(
-  '${_forbidden.pattern}|\\bmake\\w*\\(|\\bengine\\.',
-);
+/// Source without comments, and with the inside of string literals blanked,
+/// so a `//` in a string is not a comment and a brace in one is not a block.
+String _clean(String source) {
+  final out = StringBuffer();
+  var i = 0;
+  while (i < source.length) {
+    final c = source[i];
+    if (source.startsWith('//', i)) {
+      while (i < source.length && source[i] != '\n') {
+        i++;
+      }
+    } else if (source.startsWith('/*', i)) {
+      final end = source.indexOf('*/', i + 2);
+      i = end < 0 ? source.length : end + 2;
+    } else if (c == '"') {
+      out.write('"');
+      i++;
+      while (i < source.length && source[i] != '"' && source[i] != '\n') {
+        if (source[i] == r'\') i++;
+        i++;
+      }
+      out.write('"');
+      i++;
+    } else {
+      out.write(c);
+      i++;
+    }
+  }
+  return out.toString();
+}
 
-String _stripComments(String source) =>
-    source.replaceAll(RegExp(r'//[^\n]*'), '');
-
-/// Every brace block that opens after an `init(` of any signature.
-Iterable<String> _initBlocks(String source) => [
-  for (final match in RegExp(r'\binit\(').allMatches(source))
-    _block(source, source.substring(match.start)),
-];
-
-/// The text of the brace block that opens after [header].
-String _block(String source, String header) {
-  final start = source.indexOf(header);
-  expect(start, isNonNegative, reason: '$header not found');
-  final open = source.indexOf('{', start);
+/// The brace block that opens at or after [from].
+String _blockAt(String source, int from) {
+  final open = source.indexOf('{', from);
+  expect(open, isNonNegative, reason: 'no block after $from');
   var depth = 0;
   for (var i = open; i < source.length; i++) {
     if (source[i] == '{') depth++;
     if (source[i] == '}' && --depth == 0) return source.substring(open, i);
   }
-  fail('$header is not closed');
+  fail('block at $from is not closed');
 }
 
-/// Stored properties declared at class level, one per line starting `private
-/// let`/`private var`/`let`/`var` at two spaces of indent.
-String _members(String source) => source
-    .split('\n')
-    .where(
-      (line) => RegExp(r'^  (private |fileprivate )?(let|var) ').hasMatch(line),
-    )
-    .join('\n');
+/// Bodies of `static func register(` and every `init(`.
+List<String> _launchBodies(String source, {bool register = true}) => [
+  if (register) _blockAt(source, source.indexOf('static func register(')),
+  for (final m in RegExp(r'\binit\(').allMatches(source))
+    _blockAt(source, m.start),
+];
+
+/// Function name -> the text of every body with that name.
+Map<String, String> _functions(String source) {
+  final functions = <String, String>{};
+  for (final m in RegExp(r'\bfunc\s+(\w+)').allMatches(source)) {
+    functions.update(
+      m.group(1)!,
+      (old) => '$old\n${_blockAt(source, m.end)}',
+      ifAbsent: () => _blockAt(source, m.end),
+    );
+  }
+  return functions;
+}
+
+/// Whether [text] names something forbidden, or calls a function of the same
+/// file that does, however deep.
+bool _builds(String text, Map<String, String> functions, [Set<String>? seen]) {
+  seen ??= {};
+  if (text.contains(_forbidden)) return true;
+  for (final entry in functions.entries) {
+    if (!RegExp('\\b${entry.key}\\s*\\(').hasMatch(text)) continue;
+    if (!seen.add(entry.key)) continue;
+    if (_builds(entry.value, functions, seen)) return true;
+  }
+  return false;
+}
+
+/// Whole stored-property statements declared directly in a type, parentheses
+/// and braces balanced, with any modifier; `lazy` and `static` ones run later.
+List<String> _members(String source) {
+  final members = <String>[];
+  final header = RegExp(
+    r'^[ \t]*((@\w+|public|private(\(set\))?|fileprivate|internal|open|final|'
+    r'lazy|static|class|weak|unowned|nonisolated)\s+)*(let|var)\s',
+    multiLine: true,
+  );
+  var depth = 0;
+  var i = 0;
+  while (i < source.length) {
+    final c = source[i];
+    if (depth == 1 && (i == 0 || source[i - 1] == '\n')) {
+      final m = header.matchAsPrefix(source, i);
+      if (m != null) {
+        var nest = 0;
+        var j = i;
+        for (; j < source.length; j++) {
+          if ('({['.contains(source[j])) nest++;
+          if (')}]'.contains(source[j])) nest--;
+          if (source[j] == '\n' && nest <= 0) break;
+        }
+        final statement = source.substring(i, j);
+        if (!RegExp(r'\b(lazy|static)\b').hasMatch(m.group(0)!)) {
+          members.add(statement);
+        }
+        i = j;
+        continue;
+      }
+    }
+    if (c == '{') depth++;
+    if (c == '}') depth--;
+    i++;
+  }
+  return members;
+}
+
+void _expectSilentAtLaunch(String source, {bool register = true}) {
+  final functions = _functions(source);
+  final bodies = _launchBodies(source, register: register);
+  if (register) expect(bodies, isNotEmpty);
+  for (final body in bodies) {
+    expect(_builds(body, functions), isFalse, reason: body);
+  }
+  for (final member in _members(source)) {
+    expect(_builds(member, functions), isFalse, reason: member);
+  }
+}
 
 void main() {
   test('the calls plugin builds nothing audio or CallKit at launch', () {
-    final source = _stripComments(File(_calls).readAsStringSync());
-
-    expect(
-      _block(source, 'static func register('),
-      isNot(contains(_launchForbidden)),
-    );
-    final inits = _initBlocks(source);
-    expect(inits, isNotEmpty);
-    for (final body in inits) {
-      expect(body, isNot(contains(_launchForbidden)));
-    }
-    expect(_members(source), isNot(contains(_launchForbidden)));
+    _expectSilentAtLaunch(_clean(File(_calls).readAsStringSync()));
   });
 
   test('call audio wires its engine only when started', () {
-    final source = _stripComments(File(_callAudio).readAsStringSync());
+    final source = _clean(File(_callAudio).readAsStringSync());
 
-    for (final body in _initBlocks(source)) {
-      expect(body, isNot(contains(_launchForbidden)));
-    }
+    expect(_launchBodies(source, register: false), isEmpty);
     expect(source, isNot(contains(RegExp(r'\binit\('))));
-    expect(_block(source, 'func start()'), contains('mainMixerNode'));
     expect(
-      _members(source).replaceAll('AVAudioEngine()', ''),
-      isNot(contains(_forbidden)),
+      _blockAt(source, source.indexOf('func start(')),
+      contains('mainMixerNode'),
     );
+    for (final member in _members(source)) {
+      expect(
+        member.replaceAll('AVAudioEngine()', ''),
+        isNot(contains(_forbidden)),
+        reason: member,
+      );
+    }
   });
 
   test('the speech plugin builds no audio at launch', () {
-    final source = _stripComments(File(_speech).readAsStringSync());
+    _expectSilentAtLaunch(_clean(File(_speech).readAsStringSync()));
+  });
 
+  test('the guard sees what it claims to', () {
+    final source = _clean('''
+final class A {
+  public let eager = CXCallController()
+  private var audio: CallAudio? = {
+    let built = CallAudio()
+    return built
+  }()
+  private(set) var other = CXProvider(configuration: c)
+  lazy var later = CXProvider(configuration: c)
+  static let shared = CallAudio()
+  var plain = 0
+  init() { prepare() }
+  func prepare() { warm() }
+  func warm() { _ = engine.inputNode }
+}''');
+
+    expect(_members(source), hasLength(4));
     expect(
-      _block(source, 'static func register('),
-      isNot(contains(_launchForbidden)),
+      _members(source).where((m) => _builds(m, _functions(source))),
+      hasLength(3),
     );
-    for (final body in _initBlocks(source)) {
-      expect(body, isNot(contains(_launchForbidden)));
-    }
-    expect(_members(source), isNot(contains(_forbidden)));
+    expect(
+      _builds(
+        _launchBodies(source, register: false).single,
+        _functions(source),
+      ),
+      isTrue,
+    );
   });
 
   test('the app delegates set no audio session', () {

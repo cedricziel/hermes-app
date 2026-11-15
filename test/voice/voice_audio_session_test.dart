@@ -46,6 +46,7 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     port = _Port();
     session = VoiceAudioSession(port: port, deactivationDelay: Duration.zero);
+    addTearDown(session.dispose);
     recording.clear();
     recorderFails = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -129,16 +130,49 @@ void main() {
       ]);
     });
 
-    test(
-      'an owner forgotten for a call leaves no deactivation behind',
-      () async {
-        await session.acquire('play', voicePlaybackSession);
-        await session.forget('play');
-        await session.acquire('rec', voiceRecordingSession, reconfigure: true);
-        port.calls.clear();
-        await session.release('rec');
+    for (final delay in [Duration.zero, const Duration(milliseconds: 60)]) {
+      test('a call taking the session deactivates nothing ($delay)', () async {
+        final owned = VoiceAudioSession(port: port, deactivationDelay: delay);
+        addTearDown(owned.dispose);
+        final call = Object();
+        await owned.acquire('play', voicePlaybackSession);
+        await VoiceAudioFocus.shared.acquire(call);
+        addTearDown(() => VoiceAudioFocus.shared.release(call));
+        await owned.forget('play');
+        await Future<void>.delayed(const Duration(milliseconds: 150));
 
-        expect(port.calls, [_deactivate]);
+        expect(port.calls, ['configure:playback', 'activate']);
+        expect(owned.held, isFalse);
+      });
+
+      test(
+        'a player released as a call starts waits for the call ($delay)',
+        () async {
+          final owned = VoiceAudioSession(port: port, deactivationDelay: delay);
+          addTearDown(owned.dispose);
+          final call = Object();
+          await owned.acquire('play', voicePlaybackSession);
+          await VoiceAudioFocus.shared.acquire(call);
+          await owned.release('play');
+          await Future<void>.delayed(const Duration(milliseconds: 150));
+
+          expect(port.calls.where((c) => c == _deactivate), isEmpty);
+          VoiceAudioFocus.shared.release(call);
+        },
+      );
+    }
+
+    test(
+      'a call that ends without CallKit activating tells the others',
+      () async {
+        final call = Object();
+        await session.acquire('play', voicePlaybackSession);
+        await VoiceAudioFocus.shared.acquire(call);
+        await session.forget('play');
+        VoiceAudioFocus.shared.release(call);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(port.calls.last, _deactivate);
         expect(
           port.lastDeactivation,
           AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
@@ -146,6 +180,36 @@ void main() {
       },
     );
 
+    test(
+      'a call ending while a recording holds the session leaves it',
+      () async {
+        final call = Object();
+        await session.acquire('rec', voiceRecordingSession, reconfigure: true);
+        await VoiceAudioFocus.shared.acquire(call);
+        VoiceAudioFocus.shared.release(call);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(port.calls.where((c) => c == _deactivate), isEmpty);
+      },
+    );
+
+    test(
+      'an owner forgotten for a call frees the session for a recording',
+      () async {
+        await session.acquire('play', voicePlaybackSession);
+        await session.forget('play');
+        await session.acquire('rec', voiceRecordingSession, reconfigure: true);
+        await session.release('rec');
+
+        expect(port.calls, [
+          'configure:playback',
+          'activate',
+          'configure:playAndRecord',
+          'activate',
+          _deactivate,
+        ]);
+      },
+    );
     test('a refused recording still deactivates when it ends', () async {
       port.grant = false;
       expect(
@@ -167,6 +231,7 @@ void main() {
           callTimeout: const Duration(milliseconds: 50),
         );
         port.hang = true;
+        addTearDown(slow.dispose);
         expect(await slow.acquire('a', voicePlaybackSession), isFalse);
         port.hang = false;
 
@@ -179,6 +244,7 @@ void main() {
         port: port,
         deactivationDelay: const Duration(milliseconds: 80),
       );
+      addTearDown(graceful.dispose);
       await graceful.acquire('play', voicePlaybackSession);
       await graceful.release('play');
       await graceful.acquire('rec', voiceRecordingSession, reconfigure: true);
@@ -197,6 +263,7 @@ void main() {
           port: port,
           deactivationDelay: const Duration(milliseconds: 50),
         );
+        addTearDown(graceful.dispose);
         await graceful.acquire('play', voicePlaybackSession);
         await graceful.release('play');
         final call = Object();
