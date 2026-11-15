@@ -6231,6 +6231,82 @@
   "@skillsCuratorChecking": {
     "description": "Status text of the Run now row while Check status is reading the server."
   },
+  "skillsCuratorConfirmArchived": "Archived skills are moved aside on the server, not deleted. This app can't undo a pass.",
+  "@skillsCuratorConfirmArchived": {
+    "description": "Line under the items of the run confirmation: nothing is deleted, and the app cannot bring a skill back."
+  },
+  "skillsCuratorConfirmBuiltins": "Include skills that came with Hermes.",
+  "@skillsCuratorConfirmBuiltins": {
+    "description": "Item shown when the server's config says built-in skills are pruned too."
+  },
+  "skillsCuratorConfirmBuiltinsMaybe": "May include skills that came with Hermes.",
+  "@skillsCuratorConfirmBuiltinsMaybe": {
+    "description": "Same item when the config could not be read."
+  },
+  "skillsCuratorConfirmCancel": "Cancel",
+  "@skillsCuratorConfirmCancel": {
+    "description": "Default button of the run confirmation; sends nothing."
+  },
+  "skillsCuratorConfirmConsolidate": "Merge and rewrite skills, and update scheduled tasks that use them.",
+  "@skillsCuratorConfirmConsolidate": {
+    "description": "Item shown when the server's config says a pass consolidates skills."
+  },
+  "skillsCuratorConfirmConsolidateMaybe": "May also merge and rewrite skills, and update scheduled tasks that use them.",
+  "@skillsCuratorConfirmConsolidateMaybe": {
+    "description": "Same item when the config could not be read."
+  },
+  "skillsCuratorConfirmConsolidateOff": "It archives unused skills only.",
+  "@skillsCuratorConfirmConsolidateOff": {
+    "description": "Line shown in place of the merge item when the config says a pass does not consolidate."
+  },
+  "skillsCuratorConfirmLead": "A pass reviews the skills on the server. It may:",
+  "@skillsCuratorConfirmLead": {
+    "description": "Lead sentence above the list of what a pass may do."
+  },
+  "skillsCuratorConfirmPlaceholders": "Replace <name> with the skill and add your profile in place of <profile>.",
+  "@skillsCuratorConfirmPlaceholders": {
+    "description": "Line under the restore command; the angle-bracket words are placeholders that stay as typed in the command."
+  },
+  "skillsCuratorConfirmRestoreLead": "To bring an archived skill back, run this on the server:",
+  "@skillsCuratorConfirmRestoreLead": {
+    "description": "Lead above the copyable restore command."
+  },
+  "skillsCuratorConfirmRollbackNote": "Merged or rewritten skills can only be rolled back on the server.",
+  "@skillsCuratorConfirmRollbackNote": {
+    "description": "Added to the merge item, because restore does not undo a merge or rewrite."
+  },
+  "skillsCuratorConfirmRun": "Run now",
+  "@skillsCuratorConfirmRun": {
+    "description": "Button that starts a pass."
+  },
+  "skillsCuratorConfirmSkipped": "Pinned skills, skills a scheduled task uses and skills installed from the hub are skipped.",
+  "@skillsCuratorConfirmSkipped": {
+    "description": "Line saying what a pass leaves alone."
+  },
+  "skillsCuratorConfirmStale": "Mark skills stale after {stale, plural, =1{1 day} other{{stale} days}} without use and archive them after {archive, plural, =1{1 day} other{{archive} days}}.",
+  "@skillsCuratorConfirmStale": {
+    "description": "First item: the two thresholds, in days, from the server's status.",
+    "placeholders": {
+      "stale": {
+        "type": "int"
+      },
+      "archive": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorConfirmStaleAgentMade": "Only skills recorded as agent-made count.",
+  "@skillsCuratorConfirmStaleAgentMade": {
+    "description": "Second sentence of the first item."
+  },
+  "skillsCuratorConfirmStaleUnknown": "Mark skills stale and archive them after the set number of days.",
+  "@skillsCuratorConfirmStaleUnknown": {
+    "description": "First item when the server gave no thresholds."
+  },
+  "skillsCuratorConfirmTitle": "Run the curator now?",
+  "@skillsCuratorConfirmTitle": {
+    "description": "Title of the run confirmation."
+  },
   "skillsCuratorCouldntConfirm": "Couldn't confirm.",
   "@skillsCuratorCouldntConfirm": {
     "description": "Warning line when Check status got no answer."
