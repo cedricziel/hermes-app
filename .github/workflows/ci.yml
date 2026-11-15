@@ -23,9 +23,15 @@ jobs:
   # packages, dependencies, assets, the packaging script, fastlane or this
   # workflow): Dart under lib/ and test/ is analyzed and tested on every code
   # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to `builds` below.
+  # The release-please pull request (its branch, CHANGELOG.md, the version line
+  # of pubspec.yaml and .release-please-manifest.json, nothing else) counts as
+  # docs-only too: it is rebuilt after every merge to main and each rebuild
+  # cancelled a full test run, while the code it carries was already tested on
+  # main. Its tag run builds everything in release-please.yml.
   changes:
     name: Changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
       watch: ${{ steps.filter.outputs.watch }}
@@ -41,6 +47,7 @@ jobs:
         id: filter
         env:
           EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
           code=true
@@ -62,8 +69,18 @@ jobs:
                 code=false
                 watch=false
                 builds=false
+                # Stays true only while every file is one a release-please
+                # pull request changes.
+                release=false
+                if [ "$HEAD_REF" = release-please--branches--main--components--hermes-app ]; then
+                  release=true
+                fi
                 while IFS= read -r -d '' file; do
                   echo "changed: $file"
+                  case "$file" in
+                    CHANGELOG.md | pubspec.yaml | .release-please-manifest.json) ;;
+                    *) release=false ;;
+                  esac
                   case "$file" in
                     docs/* | openspec/* | *.md) ;;
                     *) code=true ;;
@@ -78,6 +95,23 @@ jobs:
                     scripts/package-linux.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
                   esac
                 done < "$list"
+                if [ "$release" = true ]; then
+                  # pubspec.yaml may change on its version line only: exactly
+                  # one removed and one added line, both `version: `.
+                  pubspec_diff="$(git diff -U0 HEAD^1 HEAD -- pubspec.yaml | grep -E '^[-+]' | grep -vE '^(---|\+\+\+) ' || true)"
+                  removed="$(printf '%s\n' "$pubspec_diff" | grep -c '^-' || true)"
+                  added="$(printf '%s\n' "$pubspec_diff" | grep -c '^+' || true)"
+                  if [ "$removed" -eq 1 ] && [ "$added" -eq 1 ] \
+                    && printf '%s\n' "$pubspec_diff" | grep -q '^-version: ' \
+                    && printf '%s\n' "$pubspec_diff" | grep -q '^+version: '; then
+                    echo "release-please pull request: treated as docs-only"
+                    code=false
+                    watch=false
+                    builds=false
+                  else
+                    echo "::warning::release-please branch changes more than the version; classifying normally"
+                  fi
+                fi
               fi
             fi
           fi
@@ -89,6 +123,7 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
@@ -123,6 +158,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -167,6 +203,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [changes, test]
     if: always() && !cancelled() && needs.changes.outputs.code == 'true'
     continue-on-error: true
@@ -204,6 +241,7 @@ jobs:
   analyze-and-test:
     name: Analyze & test
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [changes, analyze, test, test-watch]
     if: always()
     steps:
@@ -230,6 +268,7 @@ jobs:
   build-android:
     name: Build Android (release)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
@@ -258,6 +297,7 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
+    timeout-minutes: 30
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
@@ -285,6 +325,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.watch == 'true'
     runs-on: macos-26
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -306,6 +347,7 @@ jobs:
   build-ios:
     name: Build iOS (simulator)
     runs-on: macos-26
+    timeout-minutes: 40
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
@@ -349,6 +391,7 @@ jobs:
   build-macos:
     name: Build macOS (debug)
     runs-on: macos-26
+    timeout-minutes: 30
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
@@ -372,6 +415,7 @@ jobs:
   native-audio-test:
     name: Test native audio (Linux)
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     needs: [changes, analyze-and-test]
     if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
     steps:
@@ -398,6 +442,7 @@ jobs:
   build-linux:
     name: Build Linux (release)
     runs-on: ubuntu-22.04
+    timeout-minutes: 25
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
