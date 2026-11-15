@@ -13,6 +13,7 @@ Widget _host(
   bool reduceMotion = false,
   double scale = 1,
 }) => MaterialApp(
+  themeAnimationDuration: Duration.zero,
   theme: buildHermesLightTheme(platform: platform),
   home: MediaQuery(
     data: MediaQueryData(
@@ -49,12 +50,12 @@ void main() {
       expect(find.byType(AppIcon), findsNothing);
     });
 
-    testWidgets('has its icon on iOS and Material', (tester) async {
-      await tester.pumpWidget(_host(row()));
-      expect(find.byType(AppIcon), findsOneWidget);
-      await tester.pumpWidget(_host(row(), platform: TargetPlatform.android));
-      expect(find.byType(AppIcon), findsOneWidget);
-    });
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets('has its icon on $platform', (tester) async {
+        await tester.pumpWidget(_host(row(), platform: platform));
+        expect(find.byType(AppIcon), findsOneWidget);
+      });
+    }
 
     testWidgets('while working it shows a BusyBar and ignores taps', (
       tester,
@@ -113,10 +114,14 @@ void main() {
         GroupedActionStatus? status,
         bool spinner = false,
         String? semanticLabel,
+        String? subtitle,
+        bool touchTargetButtons = false,
       }) => GroupedSection(
         children: [
           GroupedActionRow(
             title: 'Run now',
+            subtitle: subtitle,
+            touchTargetButtons: touchTargetButtons,
             icon: AppIcons.play,
             onPressed: onPressed,
             status: status,
@@ -130,7 +135,9 @@ void main() {
         tester,
       ) async {
         final handle = tester.ensureSemantics();
-        await tester.pumpWidget(_host(plain()));
+        await tester.pumpWidget(
+          _host(plain(subtitle: 'A pass is running on this server')),
+        );
         await tester.tap(find.text('Run now'), warnIfMissed: false);
         final context = tester.element(find.text('Run now'));
         expect(
@@ -138,14 +145,35 @@ void main() {
           context.hermesColors.subtleText,
         );
         expect(
-          tester.getSemantics(find.text('Run now')),
+          tester.getSemantics(find.byType(InkWell).first),
           isSemantics(
-            label: 'Run now',
+            label: 'Run now\nA pass is running on this server',
             hasEnabledState: true,
             isEnabled: false,
           ),
         );
         handle.dispose();
+      });
+
+      testWidgets('a disabled row fades its icon as a second cue', (
+        tester,
+      ) async {
+        await tester.pumpWidget(_host(plain(onPressed: () {})));
+        final enabled = tester.widget<AppIcon>(find.byType(AppIcon)).color!;
+        await tester.pumpWidget(_host(plain(subtitle: 'Not now')));
+        final disabled = tester.widget<AppIcon>(find.byType(AppIcon)).color!;
+        expect(disabled.a, lessThan(enabled.a));
+      });
+
+      test('a disabled row without a reason is refused', () {
+        expect(
+          () => GroupedActionRow(
+            title: 'Run now',
+            icon: AppIcons.play,
+            onPressed: null,
+          ),
+          throwsAssertionError,
+        );
       });
 
       testWidgets('the neutral phase shows its line and working button', (
@@ -180,14 +208,18 @@ void main() {
         expect(tester.widget<OutlinedButton>(disabled).onPressed, isNull);
       });
 
-      testWidgets('a spinner leads the working phase, on the Mac too', (
-        tester,
-      ) async {
-        const working = GroupedActionStatus(
-          phase: GroupedActionPhase.working,
-          text: 'Running on the server…',
-        );
-        for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+      const working = GroupedActionStatus(
+        phase: GroupedActionPhase.working,
+        text: 'Running on the server…',
+      );
+      for (final platform in [
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      ]) {
+        testWidgets('a spinner leads the working phase on $platform', (
+          tester,
+        ) async {
           await tester.pumpWidget(
             _host(
               plain(status: working, spinner: true),
@@ -197,16 +229,38 @@ void main() {
           );
           expect(find.byType(MotionSpinner), findsOneWidget);
           expect(find.text('Run now'), findsNothing);
-        }
-        await tester.pumpWidget(
-          _host(
-            plain(status: working),
-            platform: TargetPlatform.macOS,
-            reduceMotion: true,
-          ),
-        );
-        expect(find.byType(MotionSpinner), findsNothing);
-      });
+        });
+
+        testWidgets('without the flag $platform shows no spinner', (
+          tester,
+        ) async {
+          await tester.pumpWidget(
+            _host(
+              plain(status: working),
+              platform: platform,
+              reduceMotion: true,
+            ),
+          );
+          expect(find.byType(MotionSpinner), findsNothing);
+        });
+
+        testWidgets('the spinner flag shows nothing while idle on $platform', (
+          tester,
+        ) async {
+          await tester.pumpWidget(
+            _host(
+              plain(onPressed: () {}, spinner: true),
+              platform: platform,
+              reduceMotion: true,
+            ),
+          );
+          expect(find.byType(MotionSpinner), findsNothing);
+          expect(
+            find.byType(AppIcon),
+            platform == TargetPlatform.macOS ? findsNothing : findsOneWidget,
+          );
+        });
+      }
 
       testWidgets('semanticLabel replaces the visible text', (tester) async {
         final handle = tester.ensureSemantics();
@@ -224,18 +278,110 @@ void main() {
         expect(tester.getSize(find.byType(AppIcon)).width, greaterThan(normal));
       });
 
+      testWidgets('the status line icon grows with the text size', (
+        tester,
+      ) async {
+        const neutral = GroupedActionStatus(
+          phase: GroupedActionPhase.neutral,
+          text: 'Still running.',
+        );
+        await tester.pumpWidget(
+          _host(
+            plain(onPressed: () {}, status: neutral),
+            platform: TargetPlatform.macOS,
+          ),
+        );
+        final normal = tester.getSize(find.byType(AppIcon)).width;
+        await tester.pumpWidget(
+          _host(
+            plain(onPressed: () {}, status: neutral),
+            platform: TargetPlatform.macOS,
+            scale: 1.5,
+          ),
+        );
+        expect(tester.getSize(find.byType(AppIcon)).width, greaterThan(normal));
+      });
+
+      group('stacked at large text', () {
+        Future<void> pump(WidgetTester tester, double scale) async {
+          tester.view.physicalSize = const Size(320, 900);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(
+            _host(
+              plain(
+                onPressed: () {},
+                subtitle: 'Leaving this screen does not stop it.',
+              ),
+              scale: scale,
+            ),
+          );
+        }
+
+        testWidgets('the icon leads on the left up to twice the size', (
+          tester,
+        ) async {
+          await pump(tester, 2);
+          final icon = tester.getRect(find.byType(AppIcon));
+          final text = tester.getRect(find.text('Run now'));
+          expect(icon.right, lessThanOrEqualTo(text.left));
+          expect(text.left - icon.right, greaterThan(0));
+        });
+
+        testWidgets('beyond that the icon sits above the text', (tester) async {
+          await pump(tester, 3.1);
+          final icon = tester.getRect(find.byType(AppIcon));
+          final text = tester.getRect(find.text('Run now'));
+          expect(icon.bottom, lessThanOrEqualTo(text.top));
+          expect(icon.left, text.left);
+          final sub = tester.getRect(
+            find.text('Leaving this screen does not stop it.'),
+          );
+          expect(sub.left, text.left);
+          expect(tester.takeException(), isNull);
+        });
+
+        testWidgets('the status line starts at the row edge when stacked', (
+          tester,
+        ) async {
+          tester.view.physicalSize = const Size(320, 900);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(
+            _host(
+              plain(
+                onPressed: () {},
+                status: const GroupedActionStatus(
+                  phase: GroupedActionPhase.neutral,
+                  text: 'Still running.',
+                ),
+              ),
+              scale: 3.1,
+            ),
+          );
+          final title = tester.getRect(find.text('Run now')).left;
+          final line = tester.getRect(find.text('Still running.')).left;
+          final lineIcon = tester.getRect(find.byType(AppIcon).last).left;
+          expect(lineIcon, title);
+          expect(line, greaterThan(lineIcon));
+        });
+      });
+
       for (final (platform, min) in [
         (TargetPlatform.iOS, 44.0),
         (TargetPlatform.android, 48.0),
         (TargetPlatform.macOS, 28.0),
       ]) {
-        testWidgets('status buttons are at least $min tall on $platform', (
-          tester,
-        ) async {
+        Future<double> buttonHeight(
+          WidgetTester tester,
+          TargetPlatform platform, {
+          required bool touchTargets,
+        }) async {
           await tester.pumpWidget(
             _host(
               plain(
                 onPressed: () {},
+                touchTargetButtons: touchTargets,
                 status: GroupedActionStatus(
                   phase: GroupedActionPhase.neutral,
                   text: 'Still running.',
@@ -254,7 +400,34 @@ void main() {
             of: find.text('Check status'),
             matching: find.byType(OutlinedButton),
           );
-          expect(tester.getSize(button).height, greaterThanOrEqualTo(min));
+          return tester
+              .getSize(
+                find
+                    .descendant(of: button, matching: find.byType(Material))
+                    .first,
+              )
+              .height;
+        }
+
+        testWidgets('touchTargetButtons are $min tall on $platform', (
+          tester,
+        ) async {
+          expect(await buttonHeight(tester, platform, touchTargets: true), min);
+        });
+
+        testWidgets('the default buttons keep Server care\'s compact look '
+            'on $platform', (tester) async {
+          final height = await buttonHeight(
+            tester,
+            platform,
+            touchTargets: false,
+          );
+          expect(height, 36, reason: 'compact density, as Server care drew it');
+          final button = tester.widget<OutlinedButton>(
+            find.byType(OutlinedButton),
+          );
+          expect(button.style!.visualDensity, VisualDensity.compact);
+          expect(button.style!.minimumSize!.resolve({}), const Size(0, 44));
         });
       }
     });
