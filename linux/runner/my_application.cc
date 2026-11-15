@@ -14,6 +14,26 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+// Sets the window icon: the installed theme icon named like the .desktop
+// file's Icon= (the .deb), else the PNG shipped in the bundle's data dir (the
+// tar.gz, which installs no icon theme entry).
+static void set_window_icon(GtkWindow* window) {
+  GtkIconTheme* theme = gtk_icon_theme_get_default();
+  if (gtk_icon_theme_has_icon(theme, APPLICATION_ID)) {
+    gtk_window_set_icon_name(window, APPLICATION_ID);
+    return;
+  }
+  g_autofree gchar* exe = g_file_read_link("/proc/self/exe", nullptr);
+  if (exe == nullptr) return;
+  g_autofree gchar* dir = g_path_get_dirname(exe);
+  g_autofree gchar* file =
+      g_build_filename(dir, "data", "icons", APPLICATION_ID ".png", nullptr);
+  // Scaled down: GDK sets no _NET_WM_ICON for the 512 px original.
+  g_autoptr(GdkPixbuf) icon =
+      gdk_pixbuf_new_from_file_at_size(file, 256, 256, nullptr);
+  if (icon != nullptr) gtk_window_set_icon(window, icon);
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -51,6 +71,9 @@ static void my_application_activate(GApplication* application) {
   } else {
     gtk_window_set_title(window, "Hermes");
   }
+
+  // After both title paths, so the icon is set whichever one ran.
+  set_window_icon(window);
 
   gtk_window_set_default_size(window, 1280, 720);
 
