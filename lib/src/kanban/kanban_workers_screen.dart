@@ -10,6 +10,7 @@ import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'widgets/kanban_list_rows.dart';
 import 'widgets/kanban_task_panel.dart';
+import '../widgets/platform_refresh.dart';
 
 /// The workers the dispatcher has running tasks right now, with a look at
 /// each one's process and a way to stop it.
@@ -156,7 +157,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                     ),
                   )
                 : const Center(child: CircularProgressIndicator.adaptive())
-          : RefreshIndicator(
+          : PlatformRefresh(
               onRefresh: _load,
               child: workers.isEmpty
                   ? ListView(

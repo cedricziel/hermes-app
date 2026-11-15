@@ -8,6 +8,7 @@ import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
 import 'widgets/job_group.dart';
+import '../widgets/platform_refresh.dart';
 
 /// The jobs of the server as one inset group; the bar holds the filter.
 class SchedulesList extends StatelessWidget {
@@ -55,7 +56,7 @@ class SchedulesList extends StatelessWidget {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
     if (jobs.isEmpty) {
-      return RefreshIndicator(
+      return PlatformRefresh(
         onRefresh: controller.refresh,
         child: LayoutBuilder(
           builder: (context, box) => ListView(
@@ -91,7 +92,7 @@ class SchedulesList extends StatelessWidget {
       }
     }
 
-    return RefreshIndicator(
+    return PlatformRefresh(
       onRefresh: controller.refresh,
       child: GroupedListView(
         physics: const AlwaysScrollableScrollPhysics(),

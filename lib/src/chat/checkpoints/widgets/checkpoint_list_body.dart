@@ -8,6 +8,7 @@ import '../../../widgets/loading_skeleton.dart';
 import '../checkpoint_models.dart';
 import '../checkpoints_state.dart';
 import 'checkpoint_row.dart';
+import '../../../widgets/platform_refresh.dart';
 
 /// What the checkpoint page body shows.
 enum CheckpointListStatus {
@@ -155,7 +156,7 @@ class CheckpointListBody extends StatelessWidget {
     final refresh = onRefresh;
     return refresh == null
         ? child
-        : RefreshIndicator(onRefresh: refresh, child: child);
+        : PlatformRefresh(onRefresh: refresh, child: child);
   }
 
   Widget _loaded(BuildContext context) {
@@ -227,7 +228,7 @@ class CheckpointListBody extends StatelessWidget {
     final refresh = onRefresh;
     return refresh == null
         ? list
-        : RefreshIndicator(onRefresh: refresh, child: list);
+        : PlatformRefresh(onRefresh: refresh, child: list);
   }
 }
 
