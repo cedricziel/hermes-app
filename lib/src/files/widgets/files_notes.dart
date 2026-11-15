@@ -14,9 +14,10 @@ Widget _noteAction(BuildContext context, String label, VoidCallback onPressed) {
     style: FilesMetrics.of(context).buttonStyle(),
     child: Text(label, textAlign: TextAlign.center),
   );
-  // The banner stacks its action under the text from 1.5x; there it needs
-  // the full width, not the cap that leaves a translation's text its room.
-  return textScaleOf(context) > 1.5
+  // Stacked under the text (above 1.5x, or in German) the action has the
+  // full width; the cap is for the action beside the text, which it leaves
+  // its room.
+  return AppBanner.stacksAction(context)
       ? button
       : ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 150),

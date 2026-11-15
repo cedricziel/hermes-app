@@ -123,7 +123,11 @@ FilesPreviewModel previewModelOf(
           file.text,
           truncation: truncation,
         ),
-        FilePreviewKind.code => CodeContent(file.text, truncation: truncation),
+        FilePreviewKind.code => CodeContent(
+          file.text,
+          language: file.language,
+          truncation: truncation,
+        ),
         _ => TextContent(file.text, truncation: truncation),
       });
     case PreviewImage(:final file):
