@@ -69,4 +69,110 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(SelectableText), findsOneWidget);
   });
+
+  group('curator options', () {
+    testWidgets('selectable false draws plain text', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const OutputLinesTile(
+            label: 'Show output',
+            lines: lines,
+            initiallyOpen: true,
+            selectable: false,
+          ),
+        ),
+      );
+      expect(find.byType(SelectableText), findsNothing);
+      expect(find.text('first line\nsecond line'), findsOneWidget);
+    });
+
+    testWidgets('keeps the last lines and counts the earlier ones', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          OutputLinesTile(
+            label: 'Show output',
+            lines: [for (var i = 1; i <= 35; i++) 'line $i'],
+            initiallyOpen: true,
+            selectable: false,
+            maxLines: 30,
+            earlierLines: 2,
+            earlierLabel: (n) => '$n earlier lines not shown',
+          ),
+        ),
+      );
+      expect(find.textContaining('7 earlier lines not shown'), findsOneWidget);
+      expect(find.textContaining('line 5\n'), findsNothing);
+      expect(find.textContaining('line 6\n'), findsOneWidget);
+    });
+
+    testWidgets('a footnote sits under the box', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const OutputLinesTile(
+            label: 'Show output',
+            lines: lines,
+            initiallyOpen: true,
+            footnote: 'One log for every profile.',
+          ),
+        ),
+      );
+      expect(find.text('One log for every profile.'), findsOneWidget);
+    });
+
+    testWidgets('blank mode holds the note and no lines', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const OutputLinesTile(
+            label: 'Show output',
+            lines: lines,
+            initiallyOpen: true,
+            blank: true,
+            blankNote: 'Hidden while locked',
+          ),
+        ),
+      );
+      expect(find.text('Hidden while locked'), findsOneWidget);
+      expect(find.textContaining('first line'), findsNothing);
+    });
+
+    testWidgets('a tall box is capped at 40 percent of the window', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(600, 500);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _host(
+          OutputLinesTile(
+            label: 'Show output',
+            lines: [for (var i = 1; i <= 200; i++) 'line $i'],
+            initiallyOpen: true,
+            selectable: false,
+          ),
+        ),
+      );
+      final box = tester.getSize(find.byType(SingleChildScrollView).last);
+      expect(box.height, lessThanOrEqualTo(200));
+    });
+
+    testWidgets('semanticsLabel names the tile', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _host(
+          const OutputLinesTile(
+            label: 'Show output',
+            lines: lines,
+            semanticsLabel: 'Show output, 2 lines',
+          ),
+        ),
+      );
+      expect(
+        find.bySemanticsLabel(RegExp('Show output, 2 lines')),
+        findsOneWidget,
+      );
+      handle.dispose();
+    });
+  });
 }

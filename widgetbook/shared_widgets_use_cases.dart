@@ -68,10 +68,25 @@ const _outputLines = [
   'Successfully installed hermes-agent-0.22.2',
 ];
 
-Widget _output(List<String> lines, {bool open = false}) => frame(
+Widget _output(
+  List<String> lines, {
+  bool open = false,
+  bool curator = false,
+  bool blank = false,
+}) => frame(
   GroupedSection(
     children: [
-      OutputLinesTile(label: 'Show output', lines: lines, initiallyOpen: open),
+      OutputLinesTile(
+        label: 'Show output',
+        lines: lines,
+        initiallyOpen: open,
+        selectable: !curator,
+        maxLines: curator ? 30 : null,
+        earlierLabel: (n) => '$n earlier lines not shown',
+        footnote: curator ? 'Hermes keeps one log for every profile.' : null,
+        blank: blank,
+        blankNote: 'Hidden while the app is locked or away',
+      ),
     ],
   ),
 );
@@ -225,6 +240,52 @@ WidgetbookNode sharedWidgetsNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
+          name: 'Neutral with Check status',
+          builder: (_) => _subtitleRow(
+            status: GroupedActionStatus(
+              phase: GroupedActionPhase.neutral,
+              text: 'Still running on the server.',
+              buttons: [
+                GroupedActionButton(label: 'Check status', onPressed: () {}),
+              ],
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Working with a spinner',
+          (_) => frame(
+            GroupedSection(
+              children: [
+                GroupedActionRow(
+                  title: 'Run now',
+                  subtitle: "Leaving this screen doesn't stop it.",
+                  icon: AppIcons.play,
+                  onPressed: null,
+                  spinnerWhileWorking: true,
+                  status: const GroupedActionStatus(
+                    phase: GroupedActionPhase.working,
+                    text: 'Running on the server…',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Disabled',
+          builder: (_) => frame(
+            GroupedSection(
+              children: [
+                GroupedActionRow(
+                  title: 'Run now',
+                  icon: AppIcons.play,
+                  onPressed: null,
+                ),
+              ],
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'Largest text, long subtitle',
           builder: (context) =>
               _largest(context, _subtitleRow(subtitle: _longSubtitle)),
@@ -252,6 +313,29 @@ WidgetbookNode sharedWidgetsNode() => WidgetbookFolder(
           name: 'Largest text',
           builder: (context) =>
               _largest(context, _output(_outputLines, open: true)),
+        ),
+        WidgetbookUseCase(
+          name: 'Not selectable, 40 lines capped at 30, footnote',
+          builder: (_) => _output(
+            [for (var i = 1; i <= 40; i++) 'archived skill-$i'],
+            open: true,
+            curator: true,
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Tall box scrolls inside',
+          builder: (_) => _output(
+            [
+              for (var i = 1; i <= 30; i++)
+                'curator: reviewed skill-$i, last used 3 weeks ago, no change',
+            ],
+            open: true,
+            curator: true,
+          ),
+        ),
+        ...onEachPlatform(
+          'Blank',
+          (_) => _output(_outputLines, open: true, curator: true, blank: true),
         ),
       ],
     ),

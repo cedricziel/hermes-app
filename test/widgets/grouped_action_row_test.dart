@@ -5,15 +5,20 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/busy_bar.dart';
 import 'package:hermes_app/src/widgets/grouped_action_row.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
+import 'package:hermes_app/src/widgets/motion_spinner.dart';
 
 Widget _host(
   Widget child, {
   TargetPlatform platform = TargetPlatform.iOS,
   bool reduceMotion = false,
+  double scale = 1,
 }) => MaterialApp(
   theme: buildHermesLightTheme(platform: platform),
   home: MediaQuery(
-    data: MediaQueryData(disableAnimations: reduceMotion),
+    data: MediaQueryData(
+      disableAnimations: reduceMotion,
+      textScaler: TextScaler.linear(scale),
+    ),
     child: Scaffold(body: SingleChildScrollView(child: child)),
   ),
 );
@@ -101,6 +106,157 @@ void main() {
       await tester.tap(find.text('Try again'));
       expect(pressed, ['logs', 'again']);
       expect(find.text('Restart gateway'), findsOneWidget);
+    });
+    group('long-running pass states', () {
+      Widget plain({
+        VoidCallback? onPressed,
+        GroupedActionStatus? status,
+        bool spinner = false,
+        String? semanticLabel,
+      }) => GroupedSection(
+        children: [
+          GroupedActionRow(
+            title: 'Run now',
+            icon: AppIcons.play,
+            onPressed: onPressed,
+            status: status,
+            spinnerWhileWorking: spinner,
+            semanticLabel: semanticLabel,
+          ),
+        ],
+      );
+
+      testWidgets('a null onPressed ignores taps and reads as disabled', (
+        tester,
+      ) async {
+        final handle = tester.ensureSemantics();
+        await tester.pumpWidget(_host(plain()));
+        await tester.tap(find.text('Run now'), warnIfMissed: false);
+        final context = tester.element(find.text('Run now'));
+        expect(
+          tester.widget<Text>(find.text('Run now')).style!.color,
+          context.hermesColors.subtleText,
+        );
+        expect(
+          tester.getSemantics(find.text('Run now')),
+          isSemantics(
+            label: 'Run now',
+            hasEnabledState: true,
+            isEnabled: false,
+          ),
+        );
+        handle.dispose();
+      });
+
+      testWidgets('the neutral phase shows its line and working button', (
+        tester,
+      ) async {
+        var checks = 0;
+        await tester.pumpWidget(
+          _host(
+            plain(
+              status: GroupedActionStatus(
+                phase: GroupedActionPhase.neutral,
+                text: 'Still running on the server.',
+                buttons: [
+                  GroupedActionButton(
+                    label: 'Check status',
+                    onPressed: () => checks++,
+                  ),
+                  const GroupedActionButton(label: 'Wait', onPressed: null),
+                ],
+              ),
+            ),
+          ),
+        );
+        expect(find.text('Still running on the server.'), findsOneWidget);
+        expect(find.text('Run now'), findsOneWidget);
+        await tester.tap(find.text('Check status'));
+        expect(checks, 1);
+        final disabled = find.ancestor(
+          of: find.text('Wait'),
+          matching: find.byType(OutlinedButton),
+        );
+        expect(tester.widget<OutlinedButton>(disabled).onPressed, isNull);
+      });
+
+      testWidgets('a spinner leads the working phase, on the Mac too', (
+        tester,
+      ) async {
+        const working = GroupedActionStatus(
+          phase: GroupedActionPhase.working,
+          text: 'Running on the server…',
+        );
+        for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+          await tester.pumpWidget(
+            _host(
+              plain(status: working, spinner: true),
+              platform: platform,
+              reduceMotion: true,
+            ),
+          );
+          expect(find.byType(MotionSpinner), findsOneWidget);
+          expect(find.text('Run now'), findsNothing);
+        }
+        await tester.pumpWidget(
+          _host(
+            plain(status: working),
+            platform: TargetPlatform.macOS,
+            reduceMotion: true,
+          ),
+        );
+        expect(find.byType(MotionSpinner), findsNothing);
+      });
+
+      testWidgets('semanticLabel replaces the visible text', (tester) async {
+        final handle = tester.ensureSemantics();
+        await tester.pumpWidget(
+          _host(plain(onPressed: () {}, semanticLabel: 'Run now, running')),
+        );
+        expect(find.bySemanticsLabel('Run now, running'), findsOneWidget);
+        handle.dispose();
+      });
+
+      testWidgets('the icon grows with the text size', (tester) async {
+        await tester.pumpWidget(_host(plain(onPressed: () {})));
+        final normal = tester.getSize(find.byType(AppIcon)).width;
+        await tester.pumpWidget(_host(plain(onPressed: () {}), scale: 2));
+        expect(tester.getSize(find.byType(AppIcon)).width, greaterThan(normal));
+      });
+
+      for (final (platform, min) in [
+        (TargetPlatform.iOS, 44.0),
+        (TargetPlatform.android, 48.0),
+        (TargetPlatform.macOS, 28.0),
+      ]) {
+        testWidgets('status buttons are at least $min tall on $platform', (
+          tester,
+        ) async {
+          await tester.pumpWidget(
+            _host(
+              plain(
+                onPressed: () {},
+                status: GroupedActionStatus(
+                  phase: GroupedActionPhase.neutral,
+                  text: 'Still running.',
+                  buttons: [
+                    GroupedActionButton(
+                      label: 'Check status',
+                      onPressed: () {},
+                    ),
+                  ],
+                ),
+              ),
+              platform: platform,
+            ),
+          );
+          final button = find.ancestor(
+            of: find.text('Check status'),
+            matching: find.byType(OutlinedButton),
+          );
+          expect(tester.getSize(button).height, greaterThanOrEqualTo(min));
+        });
+      }
     });
     group('subtitle', () {
       Widget withSubtitle(String subtitle, {GroupedActionStatus? status}) =>
