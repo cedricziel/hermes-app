@@ -155,6 +155,30 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
         ),
       ],
     ),
+    // The message of an alert is centred on Apple platforms and start-aligned
+    // on Material.
+    WidgetbookComponent(
+      name: 'AppAlertDialog',
+      useCases: onEachPlatform(
+        'Message',
+        (_) => frame(
+          AppAlertDialog(
+            title: const Text('Restart the gateway?'),
+            content: const Text(
+              'Running chats stop and reconnect. This can take a moment.',
+            ),
+            actions: [
+              AppDialogAction(onPressed: () {}, child: const Text('Cancel')),
+              AppDialogAction(
+                isDefault: true,
+                onPressed: () {},
+                child: const Text('Restart'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
     WidgetbookComponent(
       name: 'New profile',
       useCases: onEachPlatform(
