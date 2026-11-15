@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
+
+import '../../../widgets/bounded_markdown.dart';
 
 import '../../../chat/chat_models.dart' show ApprovalRequest;
 import '../../../chat/widgets/approval_card.dart';
@@ -269,7 +270,7 @@ class GroupEventRow extends StatelessWidget {
             ),
             if (prose) ...[
               const SizedBox(height: 10),
-              GptMarkdown(
+              BoundedMarkdown(
                 event.payload['text'] as String,
                 onLinkTap: markdownLinkHandler(),
               ),

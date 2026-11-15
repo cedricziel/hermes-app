@@ -129,6 +129,10 @@ dependencies:
   # Save and Open with only), by path so the file is never read into memory.
   share_plus: ^13.3.1
 
+  # Syntax colours for the Files code preview. Already in the tree through
+  # gpt_markdown, so this adds no package; see the server-files change.
+  val_highlight: ^0.1.1
+
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
 # upstream SPM implementation until those packages publish their next release.
 dependency_overrides:

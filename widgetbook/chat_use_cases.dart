@@ -122,6 +122,37 @@ WidgetbookUseCase _phoneBar(String name, TargetPlatform platform) =>
 WidgetbookUseCase _tool(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card));
 
+/// A run that grows by one call per press, to open a card and then see it
+/// survive the next call starting.
+class _GrowingToolRun extends StatefulWidget {
+  const _GrowingToolRun();
+
+  @override
+  State<_GrowingToolRun> createState() => _GrowingToolRunState();
+}
+
+class _GrowingToolRunState extends State<_GrowingToolRun> {
+  static const _later = [bridgeToolCall, runningToolCall];
+  var _calls = const [terminalToolCall];
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      ToolCallGroup(calls: _calls),
+      const SizedBox(height: 12),
+      OutlinedButton(
+        onPressed: _calls.length > _later.length
+            ? null
+            : () => setState(
+                () => _calls = [..._calls, _later[_calls.length - 1]],
+              ),
+        child: const Text('Start next tool'),
+      ),
+    ],
+  );
+}
+
 WidgetbookNode chatNode() => WidgetbookFolder(
   name: 'Chat',
   children: [
@@ -221,6 +252,7 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         ),
         _tool('Failed', const ToolCallGroup(calls: failedToolRun)),
         _tool('Cancelled', const ToolCallGroup(calls: cancelledToolRun)),
+        _tool('Opened card, next call starts', const _GrowingToolRun()),
         _tool(
           'Waiting on approval',
           ToolCallGroup(
