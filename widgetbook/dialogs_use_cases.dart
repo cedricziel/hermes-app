@@ -184,31 +184,23 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
           (_) => frame(
             AppAlertDialog(
               title: const Text('Install web-scraper?'),
-              // The message follows the alert (centred on Apple platforms);
-              // the data block opts into start alignment, as the Kanban
-              // export alert and the skill install confirmation do.
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('The security scan asks for your confirmation.'),
-                  const SizedBox(height: 12),
-                  DefaultTextStyle.merge(
-                    textAlign: TextAlign.start,
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text('HIGH  Downloads and runs a remote script'),
-                        Text(
-                          'scripts/fetch.sh:12',
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+              // A data alert keeps all its content on the start edge, as the
+              // Kanban export alert and the skill install confirmation do.
+              content: DefaultTextStyle.merge(
+                textAlign: TextAlign.start,
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('The security scan asks for your confirmation.'),
+                    SizedBox(height: 12),
+                    Text('HIGH  Downloads and runs a remote script'),
+                    Text(
+                      'scripts/fetch.sh:12',
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 11),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               actions: [
                 AppDialogAction(onPressed: () {}, child: const Text('Cancel')),
