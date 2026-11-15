@@ -1,3 +1,5 @@
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+
 import 'package:flutter/material.dart';
 
 import '../../widgets/disclosure_tile.dart';
@@ -64,12 +66,14 @@ class MoaProgressCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          reference.label.isEmpty
-                              ? 'Advisor reference'
-                              : reference.label,
+                          wellFormedText(
+                            reference.label.isEmpty
+                                ? 'Advisor reference'
+                                : reference.label,
+                          ),
                         ),
                         const SizedBox(height: 4),
-                        SelectableText(reference.text),
+                        SelectableText(wellFormedText(reference.text)),
                       ],
                     ),
                   ),

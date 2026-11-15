@@ -48,6 +48,15 @@ void main() {
     expect(find.byType(JsonView), findsNothing);
   });
 
+  // Well-formed input, so only the depth cap decides tree or flat text.
+  testWidgets('64 levels deep is a tree, 65 is flat text', (tester) async {
+    await _open(tester, '${'[' * 64}1${']' * 64}');
+    expect(find.byType(JsonView), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await _open(tester, '${'[' * 65}1${']' * 65}');
+    expect(find.byType(JsonView), findsNothing);
+  });
+
   testWidgets('well-formed JSON is still a tree', (tester) async {
     await _open(tester, '{"a":1.0,"b":["\u{1F600}"]}');
     expect(find.byType(JsonView), findsOneWidget);

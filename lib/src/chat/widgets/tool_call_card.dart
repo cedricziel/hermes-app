@@ -221,7 +221,9 @@ class ToolCallCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
               child: Text(
-                'Output risk: ${risk.risk}${risk.redacted ? ' · Redacted' : ''}',
+                wellFormedText(
+                  'Output risk: ${risk.risk}${risk.redacted ? ' · Redacted' : ''}',
+                ),
                 style: TextStyle(fontSize: 12, color: scheme.error),
               ),
             ),
