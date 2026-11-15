@@ -624,7 +624,11 @@ class VoiceCall extends ChangeNotifier {
     _closeSpeech();
     // A turn no longer wanted says nothing: the user or the chat moved on.
     if (!refused.noLongerWanted) {
-      notice = refused.busy ? CallNotice.busy : CallNotice.notSent;
+      notice = refused.busy
+          ? CallNotice.busy
+          : refused.queuePaused
+          ? CallNotice.queuePaused
+          : CallNotice.notSent;
     }
     phase = _idlePhase;
     caption = '';
