@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -369,6 +370,105 @@ void main() {
       chat.retryHistory(thread('s2'));
       await flush();
       expect(s2Reads, hasLength(3));
+    });
+
+    for (final (name, staleFails) in [
+      ('a stale failure', true),
+      ('a stale success', false),
+    ]) {
+      test('$name of a Retry the reload replaced changes nothing, and the '
+          'newer read decides', () async {
+        await failThenSend();
+        chat.retryHistory(thread('s2'));
+        await flush();
+        await chat.loadThreads();
+        await flush();
+        // Read 1 failed, read 2 was the Retry, read 3 is the reload's.
+        expect(s2Reads, hasLength(3));
+        expect(earlier(), ChatEarlierMessagesStatus.retrying);
+
+        s2Reads[1].complete(staleFails ? failure() : page());
+        await flush();
+        expect(earlier(), ChatEarlierMessagesStatus.retrying);
+
+        s2Reads[2].complete(page());
+        await flush();
+        expect(earlier(), isNull);
+        expect(
+          thread('s2').messages.map((m) => m.content),
+          contains('older question'),
+        );
+      });
+    }
+
+    test('a first page that lands through a slash command refresh ends the '
+        'failure and the retry for good', () async {
+      await failThenSend();
+      chat.retryHistory(thread('s2'));
+      await flush();
+      server.on('GET', '/api/sessions', {'detail': 'boom'}, status: 500);
+      await chat.loadThreads();
+      await flush();
+      transport.slashResult = const SlashCommandResult(
+        threadId: 's2',
+        output: 'ok',
+        prefill: 'draft',
+      );
+      final running = chat.runSlashCommand('/review');
+      await flush();
+
+      // The Retry read, made stale by the failed reload, fails; the refresh
+      // behind the command then reads the page itself.
+      s2Reads[1].complete(failure());
+      await flush();
+      s2Reads.last.complete(page());
+      await running;
+      await flush();
+
+      expect(earlier(), isNull);
+      expect(status('s2'), isNull);
+      final reads = s2Reads.length;
+      chat.retryHistory(thread('s2'));
+      await flush();
+      expect(s2Reads, hasLength(reads), reason: 'nothing left to retry');
+    });
+
+    test('a stale Retry read that ends after a slash command refresh landed '
+        'the page does not bring the failure back', () async {
+      await failThenSend();
+      chat.retryHistory(thread('s2'));
+      await flush();
+      final retry = s2Reads.last;
+      // A pause drops the read from the controller's view and makes it stale.
+      activity.value = false;
+      await flush();
+      activity.value = true;
+      await flush();
+      final before = s2Reads.length;
+      transport.slashResult = const SlashCommandResult(
+        threadId: 's2',
+        output: 'ok',
+        prefill: 'draft',
+      );
+      final running = chat.runSlashCommand('/review');
+      await flush();
+      expect(before, greaterThan(0));
+
+      // Every other read of the page lands it; the stale Retry read is last.
+      for (var i = 0; i < 5; i++) {
+        for (final read in s2Reads) {
+          if (!identical(read, retry) && !read.isCompleted) {
+            read.complete(page());
+          }
+        }
+        await flush();
+      }
+      await running;
+      retry.complete(failure());
+      await flush();
+
+      expect(earlier(), isNull);
+      expect(status('s2'), isNull);
     });
 
     test('a chat that never failed has no row', () async {

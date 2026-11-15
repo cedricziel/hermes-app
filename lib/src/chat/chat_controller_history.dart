@@ -222,6 +222,7 @@ extension _ChatControllerHistory on ChatController {
       // A chat kept for its send keeps its failed first page: its row stays
       // and Retry still reads. The others are read again when selected.
       _historyFailed.retainWhere(liveIds.contains);
+      _pageReadToken.removeWhere((id, _) => !liveIds.contains(id));
       _historyRetrying.retainWhere(liveIds.contains);
       _unloaded
         ..clear()
@@ -432,7 +433,7 @@ extension _ChatControllerHistory on ChatController {
     if (!_unloaded.remove(id)) return _loadingMessages[id] ?? Future.value();
     // A read that starts while the failure shows is a retry of it.
     if (_historyFailed.remove(id)) _historyRetrying.add(id);
-    final token = _pageReadToken[id] = (_pageReadToken[id] ?? 0) + 1;
+    final token = _pageReadToken[id] = ++_pageReadSeq;
     final load = _readFirstPage(id, token);
     _loadingMessages[id] = load;
     return load.whenComplete(() {
@@ -468,9 +469,12 @@ extension _ChatControllerHistory on ChatController {
       if (generation != _loadGeneration) {
         return _restoreStaleRead(id, token, retried: retried);
       }
-      _historyRetrying.remove(id);
       final thread = _threads.where((t) => t.id == id).firstOrNull;
-      if (thread == null) return _readAgainUnderNewId(reading, id);
+      if (thread == null) {
+        _historyRetrying.remove(id);
+        return _readAgainUnderNewId(reading, id);
+      }
+      _firstPageLanded(id);
       final merged = _mergedWithPage(thread.messages, id, page.messages);
       thread.messages
         ..clear()

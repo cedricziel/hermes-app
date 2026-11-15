@@ -8,6 +8,8 @@ import 'package:hermes_app/src/chat/widgets/chat_earlier_messages_failed_row.dar
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/app_banner.dart';
 
+import 'support/screenshot_recorder.dart';
+
 Widget _host(
   Widget child, {
   TargetPlatform platform = TargetPlatform.android,
@@ -66,33 +68,39 @@ void main() {
     expect(tester.getSize(retry).height, 32);
   });
 
-  testWidgets('retrying shows a spinner and no button, at the height of '
-      'the failed row', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        ChatEarlierMessagesFailedRow(
-          status: ChatEarlierMessagesStatus.failed,
-          onRetry: () {},
+  testWidgets(
+    'retrying shows a spinner and a button that is off, at the height of '
+    'the failed row',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ChatEarlierMessagesFailedRow(
+            status: ChatEarlierMessagesStatus.failed,
+            onRetry: () {},
+          ),
         ),
-      ),
-    );
-    final failed = tester.getSize(find.byType(ChatEarlierMessagesFailedRow));
+      );
+      final failed = tester.getSize(find.byType(ChatEarlierMessagesFailedRow));
 
-    await tester.pumpWidget(
-      _host(
-        const ChatEarlierMessagesFailedRow(
-          status: ChatEarlierMessagesStatus.retrying,
+      await tester.pumpWidget(
+        _host(
+          const ChatEarlierMessagesFailedRow(
+            status: ChatEarlierMessagesStatus.retrying,
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('Retrying…'), findsOneWidget);
-    expect(find.byType(TextButton), findsNothing);
-    expect(
-      tester.getSize(find.byType(ChatEarlierMessagesFailedRow)).height,
-      failed.height,
-    );
-  });
+      expect(find.text('Retrying…'), findsOneWidget);
+      expect(
+        tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+        isNull,
+      );
+      expect(
+        tester.getSize(find.byType(ChatEarlierMessagesFailedRow)).height,
+        failed.height,
+      );
+    },
+  );
 
   testWidgets('without a callback a failed row offers no button', (
     tester,
@@ -208,6 +216,57 @@ void main() {
       final failed = await height(ChatEarlierMessagesStatus.failed);
       final retrying = await height(ChatEarlierMessagesStatus.retrying);
       expect(retrying, failed);
+    });
+  }
+
+  // Real fonts: the test font is far wider than any real one, and the row's
+  // height must not depend on the state at any text size or language.
+  for (final (platform, scale, locale, width) in [
+    (TargetPlatform.macOS, 1.5, const Locale('en'), 680.0),
+    (TargetPlatform.macOS, 2.0, const Locale('en'), 680.0),
+    (TargetPlatform.iOS, 2.0, const Locale('en'), 390.0),
+    (TargetPlatform.android, 3.1, const Locale('de'), 360.0),
+    (TargetPlatform.android, 3.1, const Locale('en'), 360.0),
+    (TargetPlatform.linux, 3.1, const Locale('en'), 680.0),
+  ]) {
+    testWidgets('the row keeps its height with real fonts on ${platform.name} '
+        'at ${scale}x in ${locale.languageCode} at $width', (tester) async {
+      await ScreenshotRecorder('row-fit').start(tester, Size(width, 900));
+      Future<double> height(ChatEarlierMessagesStatus status) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: locale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: withScreenshotFont(
+              buildHermesLightTheme(platform: platform),
+            ),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ChatEarlierMessagesFailedRow(
+                      status: status,
+                      onRetry: status == ChatEarlierMessagesStatus.failed
+                          ? () {}
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        return tester.getSize(find.byType(AppBanner)).height;
+      }
+
+      final failed = await height(ChatEarlierMessagesStatus.failed);
+      final retrying = await height(ChatEarlierMessagesStatus.retrying);
+      expect(retrying, failed);
+      expect(tester.takeException(), isNull);
     });
   }
 }

@@ -844,6 +844,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// newer one has been replaced.
   final _pageReadToken = <String, int>{};
 
+  /// Never reused, so a token that was pruned cannot match a later read.
+  var _pageReadSeq = 0;
+
+  /// [id]'s first page was put on screen (by a read, a refresh or a handoff):
+  /// no failure or retry stands for it any more, and a read that was still
+  /// out for it is replaced, so its late end changes nothing.
+  void _firstPageLanded(String id) {
+    _historyFailed.remove(id);
+    _historyRetrying.remove(id);
+    _pageReadToken[id] = ++_pageReadSeq;
+  }
+
   /// Threads with older rows on the server, by how many rows were read so far.
   final _olderRows = <String, int>{};
 
@@ -1331,6 +1343,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..clear()
         ..addAll(page.messages);
       _unloaded.remove(selected.id);
+      _firstPageLanded(selected.id);
       if (page.hasMore) _olderRows[selected.id] = page.rows;
       if (thread.unread) selected.unread = true;
       _selectedId = selected.id;
@@ -2060,6 +2073,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _unloaded.remove(previousId);
     _historyFailed.remove(previousId);
     _historyRetrying.remove(previousId);
+    _pageReadToken.remove(previousId);
     _olderRows.remove(previousId);
     if (_followingIds.remove(previousId)) _followingIds.add(id);
     if (_active.remove(previousId)) _active.add(id);

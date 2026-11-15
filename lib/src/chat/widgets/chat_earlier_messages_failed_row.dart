@@ -42,50 +42,43 @@ class ChatEarlierMessagesFailedRow extends StatelessWidget {
       AppBanner.minActionTarget(context),
       touch ? 44.0 : 32.0,
     );
-    final Widget? action = switch (status) {
-      ChatEarlierMessagesStatus.failed =>
-        onRetry == null
-            ? null
-            : TextButton.icon(
-                onPressed: onRetry,
-                icon: const AppIcon(AppIcons.refresh, size: 16),
-                label: Text(
-                  l10n.commonRetry,
-                  semanticsLabel: l10n.chatWidgetsHistoryEarlierRetryLabel,
-                ),
-                style: TextButton.styleFrom(
-                  minimumSize: Size(0, height),
-                  visualDensity: VisualDensity.standard,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                ),
+    final retrying = status == ChatEarlierMessagesStatus.retrying;
+    // Both states are the same button frame (padding, minimum size, text), so
+    // the row has one height at every text size and in every language; while
+    // retrying the button is off and shows the spinner and "Retrying…".
+    final Widget? action = !retrying && onRetry == null
+        ? null
+        : Semantics(
+            // Its own node, so the banner's live label stays the title.
+            container: retrying,
+            child: TextButton.icon(
+              onPressed: retrying ? null : onRetry,
+              icon: retrying
+                  ? const MotionSpinner()
+                  : const AppIcon(AppIcons.refresh, size: 16),
+              label: Text(
+                retrying
+                    ? l10n.chatWidgetsHistoryEarlierRetrying
+                    : l10n.commonRetry,
+                semanticsLabel: retrying
+                    ? null
+                    : l10n.chatWidgetsHistoryEarlierRetryLabel,
               ),
-      // Its own node, so the banner's live label stays the title.
-      ChatEarlierMessagesStatus.retrying => Semantics(
-        container: true,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: height),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const MotionSpinner(),
-              const SizedBox(width: 8),
-              Text(
-                l10n.chatWidgetsHistoryEarlierRetrying,
-                style: TextStyle(color: context.hermesColors.subtleText),
+              style: TextButton.styleFrom(
+                minimumSize: Size(0, height),
+                visualDensity: VisualDensity.standard,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                disabledForegroundColor: context.hermesColors.subtleText,
               ),
-            ],
-          ),
-        ),
-      ),
-    };
+            ),
+          );
     return AppBanner(
       tone: AppBannerTone.warning,
       title: l10n.chatWidgetsHistoryEarlierFailedTitle,
       action: action,
-      actionIsButton: status == ChatEarlierMessagesStatus.failed,
     );
   }
 }
