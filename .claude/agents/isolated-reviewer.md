@@ -69,15 +69,17 @@ after them:
   reviewed. `<base>` is the head of the last review you are continuing, when
   you review only the commits since it (claim nothing you did not review), or
   for a first review the fork point, `git merge-base <base branch tip> <head>`.
-  Never `<head>^`.
+  A Range may start at the head of an earlier review of this branch, clean or
+  not, if that review's own Range is valid. Never `<head>^`.
 - For a merge-only review (the head is a merge commit, or you were asked to
   review only a merge of the base branch), put one line before the
   `Reviewer:` line: `Merge-review: <file>, <file>`. It names every file whose
-  content differs between `git merge-tree --write-tree <first parent> <second
-  parent>` and the merge commit, conflicted files included; when the second
-  parent is not on the base branch, every file the merge changes against the
-  first parent. The `Reviewer:` and `Range:` lines that follow are for the
-  merge commit itself.
+  content differs between the automatic merge and the merge commit, conflicted
+  files included. The automatic merge is the result of
+  `git merge-tree --write-tree <first parent> <second parent>`.
+  When the second parent is not on the base branch, name every file the merge
+  changes against the first parent instead. The `Reviewer:` and `Range:` lines
+  that follow are for the merge commit itself.
 - The `Findings:` line gives the count, then one line per finding (severity,
   file:line, issue, fix expected).
 - The `Revert-the-fix:` line names the test and the fix reverted and says it
