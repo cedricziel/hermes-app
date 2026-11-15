@@ -132,6 +132,10 @@ dependencies:
   # Syntax colours for the Files code preview. Already in the tree through
   # gpt_markdown, so this adds no package; see the server-files change.
   val_highlight: ^0.1.1
+  # The QR encoder (pure Dart, no native code) for the WhatsApp link code; the
+  # app draws the matrix itself so the quiet zone and colours are fixed (see
+  # lib/src/messaging/widgets/qr_code_card.dart).
+  qr: ^4.0.1
 
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
 # upstream SPM implementation until those packages publish their next release.

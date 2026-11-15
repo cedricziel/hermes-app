@@ -283,6 +283,22 @@ Design-system gaps the canvas works around (plain markup with `var(--h-*)` token
 
 Widget changes this review asks of the PR 1 widgets: `WhatsAppSetupForm` puts the mode sentences in the footer and labels the numbers field by its section header; `QrCodeCard` has a 4-module quiet zone, an outline in both themes and fixed colours; `PairingEnd` and the Finish dialog stack their buttons when a label does not fit; `LinkedAccountCard` uses `GroupedRow` with `wrapWhenStacked`.
 
+## Corrections (from the catalog)
+
+The catalog PR (`widgetbook/whatsapp_use_cases.dart`, task 1 in tasks.md) drew every state above, in both themes, at phone (390) and desktop (1280) width, at text scale 3 and in German, and looked at the renders. Where a use case showed the brief wrong, the widgets follow this list, not the text above.
+
+- **Tile size.** The tile is 240 pt in total (280 pt in the two-column layout), the code and its 4-module quiet zone inside it. The module size is the tile divided by the code's modules plus 8, so the quiet zone is exactly 4 modules at any payload size; the brief's "tile grows to 288 pt" is not built. Colours are fixed white and black in both themes; the outline is the theme's outline colour.
+- **Hidden tile.** It is a surface-high box with the outline (a white square in dark mode says nothing), not a white tile. At 3x text the words broke inside a word ("Ausgeblen-det") in a 240 pt box, so it grows taller at any large size and takes the available width above 150% text; the shown code never does.
+- **Phone keyboard.** The numbers are separated by commas and the iOS phone pad has no comma, so Apple platforms get the numbers-and-punctuation keyboard; Android keeps the phone keyboard. Autocorrect and suggestions stay off.
+- **Mode subtitles** wrap instead of truncating at large text (the brief allowed a cut; a cut "Its own WhatsApp n..." reads wrong).
+- **Lost start.** The form shows the banner's filled "Start again" and drops the plain Start, so the screen keeps one filled button.
+- **Handset hidden.** A handset shows the C notice and no tile whenever the code is not shown (before the tap, after a lock). The hidden tile with "Show QR code" is the tablet and computer state after the code was hidden on request (`needsTap`); on a handset it appears only as the standalone tile.
+- **Banner actions in German.** `AppBanner` stacks its action under the text in German at any size, so "Start again", "Check" and "Open Server" sit under the text there; no layout change is needed.
+- **Finish dialog buttons.** The Apple alert already stacks its two buttons at 270 pt in English too (Cancel on top, bold), and the Material dialog stacks right-aligned in German and at large text, so nothing is added to `showConfirmDialog`. `PairingEnd` has one button, so the review's "stack their buttons" has nothing to stack there.
+- **Added states not in the brief** (the controller has them): "Reading the account again..." while App Lock's dropped account is read again, and "Couldn't read the account." with "Start again" when that read keeps failing; both are in the `messaging` ARB block and need the owner's wording check.
+- **Saved banner.** The close button and "Open Server" share the banner's action slot; "Open Server" is shown only where the caller gives an action.
+- **Server text** is shown in monospace in the `InstallCodeBox` the Tools install failure uses; control and bidi characters appear as `<U+202E>`.
+
 ## Decided by the owner
 
 - App Lock pauses polling. Polling runs only while the app is in front and unlocked; on return once unlocked the "Paused while the app was away." line shows until the next answer (spec: Progress and polling).
