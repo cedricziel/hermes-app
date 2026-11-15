@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
+
+import '../widgets/bounded_markdown.dart';
+
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../theme/app_icons.dart';
 import '../widgets/markdown_links.dart';
+import '../widgets/markdown_task_box.dart';
 import '../widgets/grouped_form.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
@@ -213,9 +216,11 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
 
   Widget _previewPane() => SingleChildScrollView(
     padding: const EdgeInsets.all(16),
-    child: GptMarkdown(
+    child: BoundedMarkdown(
       skillMarkdownBody(_text.text),
       onLinkTap: markdownLinkHandler(),
+      checkboxBuilder: readOnlyTaskBox,
+      radioOptionBuilder: readOnlyRadioOption,
     ),
   );
 

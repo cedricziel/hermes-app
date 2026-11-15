@@ -8,8 +8,10 @@ import 'package:flutter/services.dart'
 import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pasteboard/pasteboard.dart';
+import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
+import '../media/media_store.dart';
 import 'attachment_source.dart';
 import '../../telemetry/report_bug.dart';
 
@@ -47,7 +49,10 @@ class PluginAttachmentSource implements AttachmentSource {
     this._pasteDirectory,
     DateTime Function()? clock,
     ImagePicker? images,
-  }) : _platform = platform ?? defaultTargetPlatform,
+    this.staging,
+    Future<List<PlatformFile>> Function()? pickFiles,
+  }) : _pickFiles = pickFiles ?? FilePicker.pickFiles,
+       _platform = platform ?? defaultTargetPlatform,
        _clipboardImage = clipboardImage ?? (() => Pasteboard.image),
        _clipboardFiles =
            clipboardFiles ??
@@ -63,6 +68,24 @@ class PluginAttachmentSource implements AttachmentSource {
   final Directory? _pasteDirectory;
   final DateTime Function() _clock;
   final ImagePicker _images;
+  final Future<List<PlatformFile>> Function() _pickFiles;
+
+  /// Where a file the picker returns on a phone is copied to, so its path no
+  /// longer lies in the plugin's temporary directory, which
+  /// `FilePicker.clearTemporaryFiles` empties. The copies follow `MediaStore`'s
+  /// rules: deleted on sign-out and by its launch sweep.
+  final MediaStore? staging;
+
+  /// A source that stages into the [MediaStore] the app provides, if any.
+  factory PluginAttachmentSource.of(BuildContext context) {
+    MediaStore? store;
+    try {
+      store = context.read<MediaStore?>();
+    } on ProviderNotFoundException {
+      store = null;
+    }
+    return PluginAttachmentSource(staging: store);
+  }
 
   bool get _isPhone =>
       _platform == TargetPlatform.iOS || _platform == TargetPlatform.android;
@@ -101,12 +124,34 @@ class PluginAttachmentSource implements AttachmentSource {
   Future<List<SharedFile>> pick(AttachOrigin origin) async {
     switch (origin) {
       case AttachOrigin.files:
-        final files = await FilePicker.pickFiles();
-        return [
-          for (final file in files)
-            if (file.path != null)
-              sharedFileFromPath(file.path!, name: file.name),
-        ];
+        final files = await _pickFiles();
+        final store = _isPhone ? staging : null;
+        final copies = <File>[];
+        try {
+          final picked = <SharedFile>[];
+          for (final file in files) {
+            final path = file.path;
+            if (path == null) continue;
+            var staged = path;
+            if (store != null) {
+              final (copy, created) = await store.stageCopyTracked(
+                file.name,
+                File(path),
+              );
+              // A copy an earlier pick made is not ours to roll back.
+              if (created) copies.add(copy);
+              staged = copy.path;
+            }
+            picked.add(sharedFileFromPath(staged, name: file.name));
+          }
+          return picked;
+        } on Object {
+          // All or nothing: a failed pick leaves no copy behind.
+          for (final copy in copies) {
+            await store?.discard(copy);
+          }
+          rethrow;
+        }
       case AttachOrigin.photos:
         final photos = await _images.pickMultiImage();
         return photos.map(_fromPicked).toList();

@@ -267,7 +267,7 @@ Sending an inline reply, in either isolate, SHALL run on the headless runtime. A
 
 ### Requirement: Telemetry for inline replies
 
-Each inline reply SHALL record a `background.task` span with `task` = `notification.reply` and `engine`. When the body ran it SHALL be annotated `reply.outcome` (`answered`, `sent`, `failed`, `unconfirmed`); when the run ended first, the span keeps the runtime's own outcome. A log event `notification.reply` SHALL carry `outcome` and `route`. A reply refused for App Lock SHALL end a run-less span. None SHALL carry the typed text, a title, a profile name, a server address or an id.
+Each inline reply SHALL record a `background.task` span with `task` = `notification.reply` and `engine`. When the body ran it SHALL be annotated `reply.outcome` (`answered`, `sent`, `failed`, `unconfirmed`, `stop_command`); when the run ended first, the span keeps the runtime's own outcome. A log event `notification.reply` SHALL carry `outcome` and `route`. A reply refused for App Lock SHALL end a run-less span. None SHALL carry the typed text, a title, a profile name, a server address or an id.
 
 #### Scenario: Failed send recorded
 

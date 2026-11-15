@@ -33,6 +33,22 @@ void main() {
       expect(safePathText('a\u007Fb'), 'a<U+007F>b');
     });
 
+    test(
+      'shows invisible characters: tag characters, soft hyphen, fillers',
+      () {
+        expect(safePathText('a\u{E0041}b'), 'a<U+E0041>b');
+        expect(safePathText('\u{E0000}\u{E007F}'), '<U+E0000><U+E007F>');
+        expect(
+          safePathText('a\u00ADb\u034Fc\u115Fd\u1160e\u3164f\u180Eg'),
+          'a<U+00AD>b<U+034F>c<U+115F>d<U+1160>e<U+3164>f<U+180E>g',
+        );
+        // Neighbours of the ranges stay as they are.
+        expect(isUnsafeDisplayRune(0xDFFFF), isFalse);
+        expect(isUnsafeDisplayRune(0xE0080), isFalse);
+        expect(isUnsafeDisplayRune(0x200D), isFalse);
+      },
+    );
+
     test('leaves ordinary text, tabs and non-Latin names alone', () {
       for (final text in ['/home/me/code', 'a\tb', '/srv/données/日本語', '']) {
         expect(identical(safePathText(text), text), isTrue, reason: text);

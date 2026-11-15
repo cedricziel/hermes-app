@@ -20,10 +20,20 @@ Future<void> showModelPicker(
   String title = 'Model',
   String? note,
   VoidCallback? onUseDefault,
+  Listenable? updates,
+  ModelOptions? Function()? latest,
+  ModelChoice? Function()? latestSelected,
 }) {
-  Widget picker(BuildContext sheet) => ModelPicker(
-    options: options,
-    selected: selected,
+  ModelOptions currentOptions() => latest?.call() ?? options;
+  ModelChoice? currentSelected() =>
+      latestSelected == null ? selected : latestSelected();
+  Widget picker(
+    BuildContext sheet,
+    ModelOptions pickerOptions,
+    ModelChoice? pickerSelected,
+  ) => ModelPicker(
+    options: pickerOptions,
+    selected: pickerSelected,
     withEffort: withEffort,
     title: title,
     note: note,
@@ -38,6 +48,14 @@ Future<void> showModelPicker(
             Navigator.of(sheet).pop();
           },
   );
+  Widget live(BuildContext sheet) => updates == null
+      ? picker(sheet, currentOptions(), currentSelected())
+      : _LivePicker(
+          updates: updates,
+          options: currentOptions,
+          selected: currentSelected,
+          builder: (options, selected) => picker(sheet, options, selected),
+        );
   final size = MediaQuery.sizeOf(context);
   if (isWideLayout(context)) {
     return showDialog<void>(
@@ -45,7 +63,7 @@ Future<void> showModelPicker(
       builder: (dialog) => Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440, maxHeight: 560),
-          child: picker(dialog),
+          child: live(dialog),
         ),
       ),
     );
@@ -57,10 +75,69 @@ Future<void> showModelPicker(
     builder: (sheet) => SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: size.height * 0.75),
-        child: picker(sheet),
+        child: live(sheet),
       ),
     ),
   );
+}
+
+/// Rebuilds [builder] when [updates] fires, but only when the options (by
+/// identity) or the selection really changed, so a stream of unrelated
+/// notifications leaves an open picker alone.
+class _LivePicker extends StatefulWidget {
+  const _LivePicker({
+    required this.updates,
+    required this.options,
+    required this.selected,
+    required this.builder,
+  });
+
+  final Listenable updates;
+  final ModelOptions Function() options;
+  final ModelChoice? Function() selected;
+  final Widget Function(ModelOptions options, ModelChoice? selected) builder;
+
+  @override
+  State<_LivePicker> createState() => _LivePickerState();
+}
+
+class _LivePickerState extends State<_LivePicker> {
+  late ModelOptions _options = widget.options();
+  late ModelChoice? _selected = widget.selected();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.updates.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(_LivePicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.updates != oldWidget.updates) {
+      oldWidget.updates.removeListener(_changed);
+      widget.updates.addListener(_changed);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.updates.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() {
+    final options = widget.options();
+    final selected = widget.selected();
+    if (identical(options, _options) && selected == _selected) return;
+    setState(() {
+      _options = options;
+      _selected = selected;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_options, _selected);
 }
 
 /// Picks a model, grouped by provider, and the reasoning effort when the

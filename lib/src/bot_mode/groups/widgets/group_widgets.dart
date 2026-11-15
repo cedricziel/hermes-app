@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
+
+import '../../../widgets/bounded_markdown.dart';
 
 import '../../../chat/chat_models.dart' show ApprovalRequest;
 import '../../../chat/widgets/approval_card.dart';
@@ -10,6 +11,7 @@ import '../../../theme/platform_chrome.dart';
 import '../../../widgets/disclosure_tile.dart';
 import '../../../widgets/grouped_list.dart';
 import '../../../widgets/markdown_links.dart';
+import '../../../widgets/markdown_task_box.dart';
 import '../../../widgets/settings_search_field.dart';
 import '../../group_protocol/hermes_groups_repository.dart';
 
@@ -269,9 +271,11 @@ class GroupEventRow extends StatelessWidget {
             ),
             if (prose) ...[
               const SizedBox(height: 10),
-              GptMarkdown(
+              BoundedMarkdown(
                 event.payload['text'] as String,
                 onLinkTap: markdownLinkHandler(),
+                checkboxBuilder: readOnlyTaskBox,
+                radioOptionBuilder: readOnlyRadioOption,
               ),
               if (onReply != null && thread is String)
                 TextButton.icon(

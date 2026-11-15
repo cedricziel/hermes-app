@@ -196,6 +196,19 @@ final class WatchRelay: NSObject, WCSessionDelegate {
     }
   }
 
+  /// Every key a complication payload can carry (`WatchComplicationStatus`).
+  static let complicationKeys: Set<String> = [
+    "v", "state", "updatedAt", "title", "threadId", "seq", "contextId", "revision",
+  ]
+
+  /// The application context after a complication [payload]: the payload
+  /// replaces every complication key, so a key it omits (the title and chat
+  /// under App Lock, or of a chat not yet named) is dropped rather than left
+  /// from the previous status. Other keys, such as `watchSession`, stay.
+  static func complicationContext(merging payload: [String: Any], into context: [String: Any]) -> [String: Any] {
+    context.filter { !complicationKeys.contains($0.key) }.merging(payload) { _, new in new }
+  }
+
   /// Hands the watch's complications the latest turn's status. Only an
   /// [urgent] one, a change of state, spends the budgeted transfer that wakes
   /// the watch app; anything else, and an urgent one once the budget is spent,
@@ -210,10 +223,18 @@ final class WatchRelay: NSObject, WCSessionDelegate {
     }
     if urgent, session.isComplicationEnabled, session.remainingComplicationUserInfoTransfers > 0 {
       session.transferCurrentComplicationUserInfo(payload)
+      // Keeps the held context's complication keys equal to the latest payload,
+      // so a later context delivery (deliverSessionState) cannot bring back an
+      // older title. The watch drops it by `seq`.
+      do {
+        try session.updateApplicationContext(Self.complicationContext(merging: payload, into: session.applicationContext))
+      } catch {
+        logger.error("Complication context failed code=\((error as NSError).code)")
+      }
       return result("complication")
     }
     do {
-      try session.updateApplicationContext(session.applicationContext.merging(payload) { _, new in new })
+      try session.updateApplicationContext(Self.complicationContext(merging: payload, into: session.applicationContext))
       result("context")
     } catch {
       logger.error("Complication context failed code=\((error as NSError).code)")

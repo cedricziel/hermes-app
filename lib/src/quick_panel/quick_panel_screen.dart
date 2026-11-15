@@ -164,7 +164,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
       },
     );
     _attachmentSource = _HeldAttachmentSource(
-      widget.attachmentSource ?? PluginAttachmentSource(),
+      widget.attachmentSource ?? PluginAttachmentSource.of(context),
       _link.hold,
     );
     if (widget.voiceRecorder case final recorder?) {
