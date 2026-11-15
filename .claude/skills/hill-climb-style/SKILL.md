@@ -5,7 +5,7 @@ description: Use when measuring or lowering the hermes-app style score S (hand-w
 
 # Hill-climb: style score S and tap targets T
 
-Two tools that only measure. They change no app code and fail nothing yet.
+Two tools that measure. They change no app code. The style score S is also ratcheted (see Ratchet below); tap targets T are not.
 
 ## Style score S: `tool/style_score.dart`
 
@@ -130,8 +130,27 @@ window edge or a scrollable's edge, and anything not mounted (lazy list rows bel
 fold, closed menus and dialogs, states a use case does not show). Workflow screens are
 measured only where a test calls `capture`, at that test's platform and theme.
 
-## Planned
+## Ratchet
 
-A contrast-violation count over the catalog, and a ratchet check
-(`test/architecture/baseline.yaml`, rule -> `path: count`, rule ids as above) that fails
-when a count rises.
+`test/architecture/style_ratchet_test.dart` registers the counted rules (`style.color`,
+`style.spacing`, `style.radius`, `style.font.role`, `style.font.offRole`,
+`style.elevation`, `style.dialog`, `style.adaptive`, `style.string`) with
+`ratchetTests(..., namespace: 'style')`. It runs the same scan and allowlist as the CLI
+(`tool/style_score/measure.dart`) and compares per rule and file with
+`test/architecture/baseline.yaml`. `style.duration` and `style.iconSize` are not ratcheted.
+General API: the `architecture-guards` skill.
+
+- **A count rises, or a new file has a hit:** the test fails with `path:line: snippet` and
+  the building block to use instead (named in the message). Use it. Never raise or add a
+  baseline entry.
+- **A count falls:** the test fails with the exact edit ("lower style.color <path> to N" or
+  "remove the entry"). Make it, or run
+  `UPDATE_BASELINE=1 flutter test --concurrency=1 test/architecture`, which only lowers
+  and removes. Commit `baseline.yaml`.
+- **A legitimate exception** (a brand name, a platform boundary): add an entry to
+  `tool/style_score_allowlist.yaml` with a reason (see Adding an exception). The CLI and
+  the ratchet both skip it, so the baseline does not change. Say why in the PR.
+- Baseline totals per rule equal the CLI's per-category counts (`font` is split into
+  `font.role` and `font.offRole`).
+
+Still planned: a contrast-violation count over the catalog.

@@ -11,25 +11,9 @@ import 'dart:io';
 import 'package:args/args.dart';
 
 import 'style_score/allowlist.dart';
+import 'style_score/measure.dart';
 import 'style_score/report.dart';
 import 'style_score/scanner.dart';
-
-const allowlistPath = 'tool/style_score_allowlist.yaml';
-
-List<Finding> scanTree(Directory root) {
-  final files =
-      root
-          .listSync(recursive: true, followLinks: false)
-          .whereType<File>()
-          .map((f) => f.path.replaceAll(r'\', '/'))
-          .where((p) => !isSkipped(p))
-          .toList()
-        ..sort();
-  return [
-    for (final path in files)
-      ...scanSource(File(path).readAsStringSync(), path: path),
-  ];
-}
 
 Future<void> main(List<String> args) async {
   final parser = ArgParser()
@@ -60,15 +44,15 @@ Future<void> main(List<String> args) async {
     exit(64);
   }
 
-  final List<AllowEntry> allow;
+  final ({List<Finding> findings, int allowlisted, List<AllowEntry> unused})
+  applied;
   try {
-    allow = loadAllowlist(allowlistPath);
+    applied = measureLib();
   } on AllowlistError catch (e) {
     stderr.writeln('$allowlistPath: $e');
     exit(65);
   }
-  final applied = applyAllowlist(scanTree(Directory('lib')), allow);
-  var findings = applied.kept;
+  var findings = applied.findings;
   final category = opts.option('category');
   final area = opts.option('area');
   if (category != null) {
@@ -79,8 +63,8 @@ Future<void> main(List<String> args) async {
   }
   final report = StyleReport(
     findings,
-    allowlisted: applied.allowed,
-    unused: unusedEntries(allow),
+    allowlisted: applied.allowlisted,
+    unused: applied.unused,
   );
   final list = !opts.flag('no-list');
   if (opts.flag('ratchet-yaml')) {

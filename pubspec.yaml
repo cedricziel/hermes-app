@@ -156,7 +156,8 @@ dev_dependencies:
   # In-memory SharedPreferencesAsyncPlatform for widget tests.
   shared_preferences_platform_interface: ^2.4.2
 
-  # Reads test/architecture/baseline.yaml (the source-guard ratchet).
+  # Reads test/architecture/baseline.yaml (the source-guard ratchet) and
+  # tool/style_score_allowlist.yaml.
   yaml: ^3.1.4
 
   # Component catalog (widgetbook/), run with -t widgetbook/main.dart.
@@ -175,7 +176,6 @@ dev_dependencies:
   # tool/style_score.dart parses lib/ syntactically and reads its allowlist.
   analyzer: ^14.7.0
   args: ^2.7.0
-  yaml: ^3.1.4
 
 dart_pre_commit:
   outdated:
