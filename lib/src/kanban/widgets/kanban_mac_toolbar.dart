@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../macos/mac_window.dart';
 import '../../theme/app_icons.dart';
@@ -7,7 +8,7 @@ import '../kanban_models.dart';
 import 'kanban_board_menu.dart';
 
 /// The board's toolbar in a Mac window: the title with what the board shows,
-/// then New Task, the profile filter, the inspector toggle, the board
+/// then New Task, Refresh, the profile filter, the inspector toggle, the board
 /// switcher and [more].
 class KanbanMacToolbar extends StatelessWidget implements PreferredSizeWidget {
   const KanbanMacToolbar({
@@ -24,6 +25,8 @@ class KanbanMacToolbar extends StatelessWidget implements PreferredSizeWidget {
     required this.onManageBoards,
     required this.onProfileChanged,
     required this.onToggleInspector,
+    required this.onRefresh,
+    this.refreshing = false,
     this.more,
   });
 
@@ -48,6 +51,10 @@ class KanbanMacToolbar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onManageBoards;
   final ValueChanged<String?> onProfileChanged;
   final VoidCallback onToggleInspector;
+  final VoidCallback onRefresh;
+
+  /// Shows a spinner on Refresh while the board reloads.
+  final bool refreshing;
 
   /// The menu of less common board actions.
   final Widget? more;
@@ -78,6 +85,14 @@ class KanbanMacToolbar extends StatelessWidget implements PreferredSizeWidget {
           shortcut: '⌘N',
           icon: AppIcons.add,
           onPressed: onNewTask,
+        ),
+        MacToolbarButton(
+          key: const Key('kanban-refresh'),
+          label: context.l10n.kanbanRefreshAction,
+          shortcut: '⌘R',
+          icon: AppIcons.refresh,
+          busy: refreshing,
+          onPressed: onRefresh,
         ),
         if (profiles.isNotEmpty)
           MacToolbarMenu<({String? profile})>(

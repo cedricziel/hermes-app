@@ -3,6 +3,7 @@ import 'package:hermes_app/src/models/auxiliary_models.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
+import 'package:hermes_app/src/models/widgets/model_setup_dialog.dart';
 import 'package:hermes_app/src/settings/widgets/helper_model_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -224,6 +225,18 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ('Long ids', TargetPlatform.macOS, 800.0, _State.longIds),
           ('Default unknown', TargetPlatform.macOS, 800.0, _State.unknown),
           ('Search, scrolls', TargetPlatform.macOS, 800.0, _State.many),
+          (
+            'Keyboard focus on a row, 800',
+            TargetPlatform.macOS,
+            800.0,
+            _State.focused,
+          ),
+          (
+            'Keyboard focus on a row, wide',
+            TargetPlatform.macOS,
+            1200.0,
+            _State.focused,
+          ),
           ('Windows', TargetPlatform.windows, 800.0, _State.effort),
           ('Linux', TargetPlatform.linux, 800.0, _State.effort),
           (
@@ -246,6 +259,31 @@ WidgetbookNode modelNode() => WidgetbookFolder(
               ),
             ),
           ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ModelSetupAlert',
+      useCases: [
+        ...onEachPlatform(
+          'Default profile',
+          (_) =>
+              _behindAlert(ModelSetupAlert(profile: null, onCheckAgain: () {})),
+        ),
+        ...onEachPlatform(
+          'Named profile',
+          (_) => _behindAlert(
+            ModelSetupAlert(profile: 'work-assistant', onCheckAgain: () {}),
+          ),
+        ),
+        ...onEachPlatform(
+          'Profile name that needs quoting',
+          (_) => _behindAlert(
+            ModelSetupAlert(
+              profile: "it's a long profile",
+              onCheckAgain: () {},
+            ),
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(
@@ -414,7 +452,16 @@ class _PillState extends State<_Pill> {
   );
 }
 
-enum _State { defaultRow, effort, longIds, unknown, many, noAnchor }
+/// The alert as the app shows it: centred over a dimmed page.
+Widget _behindAlert(Widget alert) => Stack(
+  children: [
+    const Scaffold(body: Center(child: Text('Chat'))),
+    const ModalBarrier(dismissible: false, color: Colors.black54),
+    Center(child: alert),
+  ],
+);
+
+enum _State { defaultRow, effort, longIds, unknown, many, noAnchor, focused }
 
 /// A fake composer pill at the bottom left that opens the picker on itself,
 /// as the real pill does.
@@ -433,9 +480,23 @@ class _PopoverHostState extends State<_PopoverHost> {
   @override
   void initState() {
     super.initState();
+    // The outline on the focused row is the keyboard's mark: show it.
+    if (widget.state == _State.focused) {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _open();
     });
+  }
+
+  @override
+  void dispose() {
+    if (widget.state == _State.focused) {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.automatic;
+    }
+    super.dispose();
   }
 
   void _open() {
@@ -450,7 +511,7 @@ class _PopoverHostState extends State<_PopoverHost> {
         _longModel,
       ),
       _State.unknown => (kanbanModelOptions, null),
-      _State.many => (
+      _State.many || _State.focused => (
         _manyModels,
         const ModelChoice('openrouter', 'openai/gpt-5.1'),
       ),

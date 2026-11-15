@@ -36,8 +36,10 @@ production timeout or add retries to mask a test-only scheduling assumption.
 
 After a fix, run the affected tests and analysis, push to the existing PR and
 check that CI starts for the new commit. Preserve the user's preference about
-waiting; describe pending checks as pending, never as green. Keep auto-merge
-subject to the required checks.
+waiting; describe pending checks as pending, never as green. The orchestrator
+arms auto-merge once the PR is READY, and GitHub merges when the required
+checks are green on the head (`fleet-rules`). Never push to a PR with
+auto-merge armed.
 
 VM catalog tests do not establish that the catalog compiles for the web. A
 native plugin may export a browser stub without its native-only methods (for
@@ -108,7 +110,7 @@ payload, so edit the body to re-check. Each failure names its fix:
 - `pubspec.yaml` version: revert; release-please bumps it.
 - `docs/roadmap.md`: revert it and send the orchestrator the row. The check is by branch prefix (`claude/quirky-einstein-`), so it is loud, not tight.
 - "looks corrupted by a Markdown formatter": the hook turned `x86_64` into `x86*64` or unbalanced a backtick in CLAUDE.md or the roadmap. Restore the line from main and re-apply only your change, with a script instead of Edit/Write.
-- Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push.
+- Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push. A block pasted with leading indentation is not recognised: paste it flush left.
 - "The PR head moved (<old> → <new>)": a push landed while the job ran, or the API lagged. The run on the newer head decides; re-run the job if that run is missing.
 - Known gap: model names inside inline code or fenced code are not checked.
 - TODO, TBD, n/a, `-` and `...` count as empty; "Nothing" is a valid answer for `## Not verified on a device`.

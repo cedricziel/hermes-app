@@ -116,6 +116,21 @@ void main() {
     });
   }
 
+  testWidgets('Mac at 600 wide is a form sheet, not a bottom sheet', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      size: const Size(600, 800),
+      platform: TargetPlatform.macOS,
+    );
+
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byKey(grabber), findsNothing);
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.text('Migrate webhooks'), findsOneWidget);
+  });
+
   testWidgets('Android keeps the Material sheet', (tester) async {
     await open(
       tester,

@@ -119,7 +119,6 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
                 onChanged: widget.onChanged,
                 onSubmitted: widget.onSubmitted,
                 textInputAction: TextInputAction.search,
-                textAlignVertical: TextAlignVertical.center,
                 style: const TextStyle(fontSize: 13),
                 decoration: InputDecoration(
                   isCollapsed: true,
