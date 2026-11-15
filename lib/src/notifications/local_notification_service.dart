@@ -25,6 +25,11 @@ const _windowsAppUserModelId = 'com.cedricziel.hermesApp';
 /// Windows keys the callback registration by it.
 const _windowsActivationGuid = 'c7d1a9f4-3b2e-4c6a-9e51-8f0d2a7b6e13';
 
+/// Android's status bar icon: a white glyph on transparent, since the
+/// adaptive launcher icon is opaque and would show as a white square. Kept
+/// from resource shrinking in `res/raw/keep.xml`.
+const kAndroidStatusIcon = '@drawable/ic_stat_hermes';
+
 /// Tags Android's answerable notifications: its plugin lists no payloads, so
 /// the tag is how they are found again.
 const kAnswerableTag = 'hermes.request';
@@ -273,7 +278,7 @@ class LocalNotificationService
     );
     await _plugin.initialize(
       settings: InitializationSettings(
-        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: const AndroidInitializationSettings(kAndroidStatusIcon),
         iOS: darwin,
         macOS: darwin,
         // Not localized: it is below the widget layer, and servers that
