@@ -30,7 +30,7 @@ catalog=test/widgetbook_test.dart
 list=$(dart tool/shard_weights.dart assign "$index" "$total")
 files=()
 if [ -n "$list" ]; then
-  mapfile -t files <<<"$list"
+  while IFS= read -r file; do files+=("$file"); done <<<"$list"
 fi
 
 if [ "${TEST_SHARD_LIST:-}" = 1 ]; then

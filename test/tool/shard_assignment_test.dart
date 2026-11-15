@@ -145,6 +145,7 @@ void main() {
     final loads = shardLoads(
       assignShards(files: list, weights: weights, catalog: catalog, total: 4),
       weights,
+      catalog: catalog,
     );
     expect(
       loads.reduce(max) - loads.reduce(min),
@@ -160,12 +161,28 @@ void main() {
     final loads = shardLoads(
       assignShards(files: files, weights: real, catalog: catalog, total: 4),
       real,
+      catalog: catalog,
     );
     expect(
       (loads.reduce(max) - loads.reduce(min)) / loads.reduce(max),
       lessThan(0.15),
       reason: '$loads',
     );
+  });
+
+  test('shardLoads counts a file without a weight as assignment does', () {
+    final weights = {'a': 10.0};
+    final shards = assignShards(
+      files: ['a', 'b', 'c'],
+      weights: weights,
+      catalog: catalog,
+      total: 2,
+    );
+    expect(shards, [
+      ['a', 'c'],
+      ['b'],
+    ]);
+    expect(shardLoads(shards, weights, catalog: catalog), [20, 10]);
   });
 
   test('the weights file is sorted', () {

@@ -19,16 +19,7 @@ List<List<String>> assignShards({
   final all = files.toSet();
   final others = all.where((f) => f != catalog).toList();
 
-  final known = [
-    for (final f in others)
-      if (weights.containsKey(f)) weights[f]!,
-  ]..sort();
-  final fallback = known.isEmpty
-      ? 1.0
-      : known.length.isOdd
-      ? known[known.length ~/ 2]
-      : (known[known.length ~/ 2 - 1] + known[known.length ~/ 2]) / 2;
-  double weightOf(String f) => weights[f] ?? fallback;
+  final weightOf = effectiveWeight(all, weights, catalog);
 
   others.sort((a, b) {
     final byWeight = weightOf(b).compareTo(weightOf(a));
@@ -39,7 +30,7 @@ List<List<String>> assignShards({
   final loads = List<double>.filled(total, 0);
   if (all.contains(catalog)) {
     shards[0].add(catalog);
-    loads[0] += weights[catalog] ?? fallback;
+    loads[0] += weightOf(catalog);
   }
   for (final f in others) {
     var best = 0;
@@ -52,11 +43,39 @@ List<List<String>> assignShards({
   return shards;
 }
 
-/// The load of each shard under [weights], for the predicted times.
+/// The weight assignment uses for a file: its entry in [weights], else the
+/// median of the known weights of the other [files] (1.0 if none is known).
+/// One function for [assignShards] and [shardLoads], so they cannot disagree.
+double Function(String file) effectiveWeight(
+  Iterable<String> files,
+  Map<String, double> weights,
+  String catalog,
+) {
+  final known = [
+    for (final f in files)
+      if (f != catalog && weights.containsKey(f)) weights[f]!,
+  ]..sort();
+  final fallback = known.isEmpty
+      ? 1.0
+      : known.length.isOdd
+      ? known[known.length ~/ 2]
+      : (known[known.length ~/ 2 - 1] + known[known.length ~/ 2]) / 2;
+  return (file) => weights[file] ?? fallback;
+}
+
+/// The load of each shard as assignment saw it, for the predicted times.
 List<double> shardLoads(
   List<List<String>> shards,
-  Map<String, double> weights,
-) => [
-  for (final shard in shards)
-    shard.fold<double>(0, (sum, f) => sum + (weights[f] ?? 0)),
-];
+  Map<String, double> weights, {
+  required String catalog,
+}) {
+  final weightOf = effectiveWeight(
+    [for (final shard in shards) ...shard],
+    weights,
+    catalog,
+  );
+  return [
+    for (final shard in shards)
+      shard.fold<double>(0, (sum, f) => sum + weightOf(f)),
+  ];
+}
