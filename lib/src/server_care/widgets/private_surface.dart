@@ -18,6 +18,7 @@ class PrivateSurface extends StatefulWidget {
     required this.child,
     this.blankWhenInactive,
     this.blank = false,
+    this.shrinkWrap = false,
   });
 
   final Widget child;
@@ -25,6 +26,10 @@ class PrivateSurface extends StatefulWidget {
 
   /// Shows the blank surface whatever the app's state is, for the catalog.
   final bool blank;
+
+  /// Sizes to [child] instead of filling the space, for a sheet or a dialog
+  /// whose height is its content's; the blank covers that size.
+  final bool shrinkWrap;
 
   @override
   State<PrivateSurface> createState() => _PrivateSurfaceState();
@@ -67,9 +72,19 @@ class _PrivateSurfaceState extends State<PrivateSurface>
   Widget build(BuildContext context) {
     final hidden = _hidden;
     return Stack(
-      fit: StackFit.expand,
+      fit: widget.shrinkWrap ? StackFit.loose : StackFit.expand,
       children: [
-        Offstage(offstage: hidden, child: widget.child),
+        if (widget.shrinkWrap)
+          // Hidden but still measured, so the sheet keeps its size.
+          Visibility(
+            visible: !hidden,
+            maintainState: true,
+            maintainAnimation: true,
+            maintainSize: true,
+            child: widget.child,
+          )
+        else
+          Offstage(offstage: hidden, child: widget.child),
         if (hidden)
           Positioned.fill(
             child: ColoredBox(

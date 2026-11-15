@@ -157,6 +157,8 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   var _opened = false;
   var _covered = false;
   var _closed = false;
+  var _paused = false;
+  var _staleWhilePaused = false;
   var _toldUnsupported = false;
 
   /// Whether the open conflict came from a confirmed save (not from Check).
@@ -201,10 +203,16 @@ class SoulController extends ChangeNotifier with SafeNotifier {
       _status == SoulStatus.checking;
 
   /// The editor is read-only so the baseline cannot race the text.
-  bool get readOnly => busy;
+  bool get readOnly => busy || _paused;
+
+  /// Protected requests are closed for a moment (an expired session that may
+  /// still be rescued): the text and the baseline stay, nothing is sent or
+  /// read until [resume].
+  bool get paused => _paused;
 
   bool get canSave =>
       showsEditor &&
+      !_paused &&
       dirty &&
       !busy &&
       _status != SoulStatus.asking &&
@@ -213,6 +221,7 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   /// A save's outcome is unknown, so a read can settle it.
   bool get canCheck =>
       showsEditor &&
+      !_paused &&
       !busy &&
       _sentText != null &&
       _status != SoulStatus.asking &&
@@ -237,13 +246,13 @@ class SoulController extends ChangeNotifier with SafeNotifier {
 
   /// Records that the page opened and reads the file.
   Future<void> start() async {
-    if (_closed || _covered || busy) return;
+    if (_closed || _covered || _paused || busy) return;
     await _reload();
   }
 
   /// Reads the file again (Try again). Drops the editor's text.
   Future<void> reload() async {
-    if (_closed || _covered || busy) return;
+    if (_closed || _covered || _paused || busy) return;
     await _reload();
   }
 
@@ -306,6 +315,7 @@ class SoulController extends ChangeNotifier with SafeNotifier {
     final text = _pendingText;
     if (_closed ||
         _covered ||
+        _paused ||
         text == null ||
         (_status != SoulStatus.asking &&
             _status != SoulStatus.saveCheckFailed)) {
@@ -394,6 +404,7 @@ class SoulController extends ChangeNotifier with SafeNotifier {
     final text = _pendingText;
     if (_closed ||
         _covered ||
+        _paused ||
         text == null ||
         _status != SoulStatus.changedOnServer) {
       return;
@@ -455,6 +466,46 @@ class SoulController extends ChangeNotifier with SafeNotifier {
     if (_closed || !_covered) return;
     _covered = false;
     unawaited(_reload());
+  }
+
+  /// Protected requests closed while the connection may come back: keeps the
+  /// text and the baseline, makes the editor read-only and sends nothing.
+  void pause() {
+    if (_closed || _paused) return;
+    _paused = true;
+    notifyListeners();
+  }
+
+  /// The same connection is open again: the editor is editable with the text
+  /// it had. Nothing is read or sent.
+  void resume() {
+    if (_closed || !_paused) return;
+    _paused = false;
+    if (_staleWhilePaused && !_covered) {
+      _staleWhilePaused = false;
+      notifyListeners();
+      unawaited(_reload());
+      return;
+    }
+    notifyListeners();
+  }
+
+  /// The text is thrown away without leaving the page (File > Close Window
+  /// answered Discard): unlike [revert] it also works while a read or a write
+  /// runs, whose outcome is dropped, and the file is read again for when the
+  /// page is shown.
+  void discardText() {
+    if (_closed) return;
+    _generation++;
+    _dropAll();
+    _load = SoulLoad.loading;
+    notifyListeners();
+    if (_covered) return;
+    if (_paused) {
+      _staleWhilePaused = true;
+    } else {
+      unawaited(_reload());
+    }
   }
 
   /// Sign-out, server change or profile switch: drops everything and ends the

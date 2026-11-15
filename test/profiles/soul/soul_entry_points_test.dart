@@ -118,6 +118,45 @@ void main() {
       expect(server.requestsTo('POST', '/api/profiles/active'), isEmpty);
     });
 
+    testWidgets('a chat with no profile opens default, not the active one', (
+      tester,
+    ) async {
+      // A server without the active-profile route leaves the chat on no
+      // profile at all; the active profile (`work`) is not consulted.
+      server = FakeHermesServer()
+        ..on(
+          'GET',
+          '/api/profiles',
+          profileListBody([
+            profileRow(name: 'default', isDefault: true),
+            profileRow(name: 'work'),
+          ]),
+        )
+        ..on('GET', '/api/sessions', sessionListBody([]))
+        ..on('GET', '/api/skills', <Object?>[])
+        ..on('GET', '/api/profiles/default/soul', {
+          'content': 'You are the default.',
+          'exists': true,
+        })
+        ..on('GET', '/api/profiles/work/soul', {
+          'content': 'You are Quill.',
+          'exists': true,
+        });
+      await pumpChat(tester);
+      await openSidebarMore(tester);
+
+      await tester.tap(inSidebar(find.text('Personality')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SoulScreen), findsOneWidget);
+      expect(
+        server.requestsTo('GET', '/api/profiles/default/soul'),
+        hasLength(1),
+      );
+      expect(server.requestsTo('GET', '/api/profiles/work/soul'), isEmpty);
+      expect(find.text('You are the default.'), findsOneWidget);
+    });
+
     testWidgets('is not offered without a dashboard connection', (
       tester,
     ) async {

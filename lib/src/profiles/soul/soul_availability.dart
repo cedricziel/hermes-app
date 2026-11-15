@@ -28,4 +28,12 @@ class SoulAvailability extends ChangeNotifier with SafeNotifier {
     _unsupported = true;
     notifyListeners();
   }
+
+  /// The provider disposes the one it replaces, and so does the connection's
+  /// own swap: a second call does nothing.
+  @override
+  void dispose() {
+    if (disposed) return;
+    super.dispose();
+  }
 }

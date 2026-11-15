@@ -15,7 +15,9 @@ import 'package:hermes_app/src/profiles/chat_profiles.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/soul/open_soul.dart';
 import 'package:hermes_app/src/profiles/soul/soul_availability.dart';
+import 'package:hermes_app/src/profiles/soul/soul_screen.dart';
 import 'package:hermes_app/src/profiles/soul/soul_telemetry.dart';
+import 'package:hermes_app/src/server_care/widgets/private_surface.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -46,16 +48,29 @@ void pageTest(
 class _Auth extends AuthController {
   var _state = HermesConnectionState.ready;
   var _owner = 1;
+  var _allowed = true;
   final _server = 'https://hermes.example';
 
   @override
   HermesConnectionState get state => _state;
   @override
-  bool get protectedRequestsAllowed => _state == HermesConnectionState.ready;
+  bool get protectedRequestsAllowed =>
+      _allowed && _state == HermesConnectionState.ready;
   @override
   int get ownerGeneration => _owner;
   @override
   String? get baseUrl => _server;
+
+  /// An expiry the stored session may still rescue: ready, but closed.
+  void pauseRequests() {
+    _allowed = false;
+    notifyListeners();
+  }
+
+  void restoreRequests() {
+    _allowed = true;
+    notifyListeners();
+  }
 
   void endConnection() {
     _state = HermesConnectionState.needsLogin;
@@ -136,6 +151,7 @@ void main() {
     _Auth? auth,
     SoulOpenedFrom from = SoulOpenedFrom.sidebar,
     bool settle = true,
+    bool withCloser = true,
     MacCommandRegistry? commands,
   }) async {
     debugDefaultTargetPlatformOverride = platform;
@@ -143,7 +159,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final pushed = PushedRoutes();
-    if (auth != null) {
+    if (auth != null && withCloser) {
       final closer = ConnectionPageCloser(pushed)..bind(auth);
       addTearDown(closer.dispose);
     }
@@ -620,6 +636,98 @@ void main() {
     });
   });
 
+  group('opening', () {
+    pageTest('pushes on the root navigator, not a nested one', (tester) async {
+      final root = GlobalKey<NavigatorState>();
+      final nested = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<HermesRepositories>.value(
+              value: HermesRepositories(server.client()),
+            ),
+          ],
+          child: MaterialApp(
+            navigatorKey: root,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Navigator(
+              key: nested,
+              onGenerateRoute: (_) => MaterialPageRoute<void>(
+                builder: (_) => Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => unawaited(
+                      openSoul(
+                        context,
+                        profile: soulProfile,
+                        from: SoulOpenedFrom.sidebar,
+                      ),
+                    ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      final page = find.byType(SoulScreen);
+      expect(page, findsOneWidget);
+      expect(
+        Navigator.of(tester.element(page)),
+        same(root.currentState),
+        reason: 'ConnectionPageCloser sweeps the root navigator only',
+      );
+      expect(nested.currentState!.canPop(), isFalse);
+      expect(
+        find.descendant(
+          of: find.byWidget(nested.currentContext!.widget),
+          matching: page,
+        ),
+        findsNothing,
+      );
+    });
+  });
+
+  group('at the largest text', () {
+    pageTest('iOS keeps the title and the profile name, Save goes below', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await pump(tester, platform: TargetPlatform.iOS);
+      final title = tester.getRect(find.text('Personality').first);
+      final profile = tester.getRect(find.text(soulProfile).first);
+      for (final rect in [title, profile]) {
+        expect(rect.width, greaterThan(40), reason: 'room for the title');
+        expect(rect.right, lessThanOrEqualTo(400));
+      }
+      expect(phoneSave(), findsNothing, reason: 'not in the bar');
+      expect(wideSave(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    pageTest('Android keeps the title and the profile name in the bar', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await pump(tester);
+      expect(
+        tester.getRect(find.text('Personality').first).width,
+        greaterThan(40),
+      );
+      expect(
+        tester.getRect(find.text(soulProfile).first).width,
+        greaterThan(40),
+      );
+      expect(phoneSave(), findsOneWidget);
+    });
+  });
+
   group('binding', () {
     pageTest('a switch of the chat profile behind it changes nothing', (
       tester,
@@ -674,6 +782,99 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    pageTest('an expiry that is rescued keeps the text and the editor', (
+      tester,
+    ) async {
+      final auth = _Auth();
+      addTearDown(auth.dispose);
+      await pump(tester, auth: auth);
+      await type(tester, 'You are Mara.');
+      final before = server.requests.length;
+
+      auth.pauseRequests();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      // Held: the text stays, read-only, no spinner, nothing sent.
+      expect(find.text('You are Mara.'), findsOneWidget);
+      expect(find.text('Loading personality…'), findsNothing);
+      expect(tester.widget<TextField>(editor()).readOnly, isTrue);
+      expect(tester.widget<TextButton>(phoneSave()).onPressed, isNull);
+      expect(find.text('open'), findsNothing);
+      expect(server.requests.length, before);
+
+      auth.restoreRequests();
+      await tester.pumpAndSettle();
+      expect(find.text('You are Mara.'), findsOneWidget);
+      expect(find.text('Loading personality…'), findsNothing);
+      expect(tester.widget<TextField>(editor()).readOnly, isFalse);
+      // Same text, same baseline: still unsaved, and Save asks as ever.
+      expect(tester.widget<TextButton>(phoneSave()).onPressed, isNotNull);
+      expect(server.requests.length, before, reason: 'nothing read or sent');
+      await tester.tap(phoneSave());
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Replace the personality of $soulProfile?'),
+        findsOneWidget,
+      );
+      expect(puts, isEmpty);
+    });
+
+    pageTest('an expiry that is not rescued clears the text at once', (
+      tester,
+    ) async {
+      final auth = _Auth();
+      addTearDown(auth.dispose);
+      await pump(tester, auth: auth);
+      await type(tester, 'You are Mara.');
+      auth.pauseRequests();
+      await tester.pump();
+      expect(find.text('You are Mara.'), findsOneWidget);
+
+      auth.endConnection();
+      // One frame, before the app has removed the page: the text is gone.
+      await tester.pump();
+      expect(find.text('You are Mara.'), findsNothing);
+      await tester.pumpAndSettle();
+      expect(find.text('open'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    pageTest('a real end drops the text at once, before the page goes', (
+      tester,
+    ) async {
+      final auth = _Auth();
+      addTearDown(auth.dispose);
+      // No closer: only the page's own reaction is looked at.
+      await pump(tester, auth: auth, withCloser: false);
+      await type(tester, 'You are Mara.');
+      auth.endConnection();
+      await tester.pump();
+      expect(find.text('You are Mara.'), findsNothing);
+      expect(editor(), findsNothing);
+      expect(find.text('Loading personality…'), findsOneWidget);
+      expect(find.text('open'), findsNothing, reason: 'the page is still up');
+      expect(tester.takeException(), isNull);
+    });
+
+    pageTest('an open question goes with a pause and nothing is sent', (
+      tester,
+    ) async {
+      final auth = _Auth();
+      addTearDown(auth.dispose);
+      await pump(tester, auth: auth);
+      await type(tester, 'You are Mara.');
+      await tester.tap(phoneSave());
+      await tester.pumpAndSettle();
+      auth.pauseRequests();
+      await tester.pumpAndSettle();
+      expect(find.text('Replace'), findsNothing);
+      expect(puts, isEmpty);
+      auth.restoreRequests();
+      await tester.pumpAndSettle();
+      expect(find.text('You are Mara.'), findsOneWidget);
+      expect(puts, isEmpty);
+    });
+
     pageTest('an open question goes with it and nothing is sent', (
       tester,
     ) async {
@@ -718,6 +919,42 @@ void main() {
       expect(find.text('You are Quill.'), findsOneWidget);
       expect(find.text('You are Mara.'), findsNothing);
       expect(puts, isEmpty);
+    });
+
+    pageTest('the changed-on-server sheet is blank while the app is inactive', (
+      tester,
+    ) async {
+      await pump(tester);
+      await type(tester, 'You are Mara.');
+      fileText = 'Someone else wrote this.';
+      await tester.tap(phoneSave());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Replace'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("Show server's version"));
+      await tester.pumpAndSettle();
+      expect(find.text('Someone else wrote this.'), findsOneWidget);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      // The sheet's own surface (the last one: the page's is below it) holds
+      // its content unpainted, unhittable and out of the semantics tree.
+      final sheet = find.byType(PrivateSurface).last;
+      Visibility shown() => tester.widget<Visibility>(
+        find.descendant(of: sheet, matching: find.byType(Visibility)).first,
+      );
+      expect(shown().visible, isFalse);
+      expect(
+        find.descendant(of: sheet, matching: find.byType(ExcludeSemantics)),
+        findsWidgets,
+        reason: 'the blank stands in with its lock',
+      );
+      expect(tester.takeException(), isNull);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(shown().visible, isTrue);
+      expect(find.text('Someone else wrote this.'), findsOneWidget);
     });
 
     pageTest('an open question closes when the lock covers', (tester) async {
@@ -860,6 +1097,123 @@ void main() {
       await tester.tap(find.text('Keep editing'));
       await tester.pumpAndSettle();
       expect(find.text('You are Mara.'), findsOneWidget);
+    });
+
+    pageTest('File > Close Window twice asks one question, not two', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 1100,
+        commands: commands,
+      );
+      await type(tester, 'You are Mara.');
+      commands
+        ..invoke(MacCommand.closeWindow)
+        ..invoke(MacCommand.closeWindow);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      // While it is open the page offers neither command.
+      expect(commands.handlerFor(MacCommand.closeWindow), isNull);
+      expect(saveEnabled(), isFalse);
+      commands
+        ..invoke(MacCommand.closeWindow)
+        ..invoke(MacCommand.save);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(find.text('Replace'), findsNothing);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      // Back in front: offered again.
+      expect(commands.handlerFor(MacCommand.closeWindow), isNotNull);
+      expect(saveEnabled(), isTrue);
+    });
+
+    pageTest('File > Save over the Replace question opens nothing on top', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 1100,
+        commands: commands,
+      );
+      await type(tester, 'You are Mara.');
+      commands
+        ..invoke(MacCommand.save)
+        ..invoke(MacCommand.save);
+      await tester.pumpAndSettle();
+      expect(find.text('Replace'), findsOneWidget);
+      commands.invoke(MacCommand.save);
+      await tester.pumpAndSettle();
+      expect(find.text('Replace'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(saveEnabled(), isTrue);
+      expect(puts, isEmpty);
+    });
+
+    pageTest('Discard on Close Window drops the text even while a save runs', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 1100,
+        commands: commands,
+      );
+      await type(tester, 'You are Mara.');
+      final put = Completer<FakeResponse>();
+      var sent = false;
+      server.onRequest('PUT', soulPath, (_) {
+        sent = true;
+        return put.future;
+      });
+      commands.invoke(MacCommand.save);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Replace'));
+      for (var i = 0; i < 20 && !sent; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(sent, isTrue, reason: 'the write is on its way');
+      expect(tester.widget<TextField>(editor()).readOnly, isTrue);
+
+      // The write is open: only short frames, so no deadline runs out.
+      commands.invoke(MacCommand.closeWindow);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('Discard'));
+      await tester.pump(const Duration(milliseconds: 400));
+      // The hidden window holds no text: the editor is gone.
+      expect(find.text('You are Mara.'), findsNothing);
+      expect(editor(), findsNothing);
+
+      put.complete((status: 200, body: soulSaved));
+      await tester.pumpAndSettle();
+      // The file is read again for when the window comes back: the first
+      // read, the check before the write, and this one.
+      expect(find.text('Loading personality…'), findsNothing);
+      expect(gets(), 3);
+      expect(find.text('You are Quill.'), findsOneWidget);
+    });
+
+    pageTest('Discard on Close Window with no save running reads the file', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 1100,
+        commands: commands,
+      );
+      await type(tester, 'You are Mara.');
+      commands.invoke(MacCommand.closeWindow);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      expect(find.text('You are Mara.'), findsNothing);
+      expect(find.text('You are Quill.'), findsOneWidget);
+      expect(puts, isEmpty);
     });
 
     pageTest('the toolbar has no Save: Save and Revert sit under the editor', (

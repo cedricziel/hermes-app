@@ -52,7 +52,9 @@ import 'widgets/soul_status_line.dart';
 ///   app is inactive on a phone a blank surface stands in for the page.
 /// - When the connection ends the app removes every pushed page (see
 ///   `navigation/connection_pages.dart`); [ConnectionGuard] only makes the
-///   page drop its text a frame earlier.
+///   page drop its text a frame earlier. A pause with the state still ready
+///   (an expired session that may be rescued) keeps the text, read-only,
+///   and sends nothing until the connection is restored.
 ///
 /// On the Mac the page offers File > Save through its `MacCommandScope`,
 /// enabled only while there is something to save and nothing runs.
@@ -78,7 +80,13 @@ class _SoulScreenState extends State<SoulScreen> {
   final _text = SoulTextController();
   AppLockController? _lock;
   ConnectionGuard? _connection;
+  AuthController? _auth;
+  late final int _owner;
+  late final String? _server;
   var _sheetOpen = false;
+
+  /// A question of this page (Replace, Discard) is open or being opened.
+  var _questionOpen = false;
 
   @override
   void initState() {
@@ -96,7 +104,14 @@ class _SoulScreenState extends State<SoulScreen> {
       onUnsupported: availability?.markUnsupported,
     )..addListener(_onController);
     _lock = _maybe<AppLockController>()?..addListener(_lockChanged);
-    _connection = ConnectionGuard(_maybe<AuthController>(), _connectionEnded);
+    _auth = _maybe<AuthController>();
+    _owner = _auth?.ownerGeneration ?? 0;
+    _server = _auth?.baseUrl;
+    _connection = ConnectionGuard(
+      _auth,
+      _connectionEnded,
+      onRestored: _connectionRestored,
+    );
     if (_isCovered()) {
       _controller.cover();
     } else {
@@ -124,6 +139,7 @@ class _SoulScreenState extends State<SoulScreen> {
   @override
   void dispose() {
     _connection?.dispose();
+    _auth?.removeListener(_whilePaused);
     _lock?.removeListener(_lockChanged);
     _controller
       ..removeListener(_onController)
@@ -143,9 +159,44 @@ class _SoulScreenState extends State<SoulScreen> {
     }
   }
 
+  /// Whether the connection this page opened for is really over: the state
+  /// left ready, or another owner or server took over. A session that expired
+  /// and may still be rescued leaves the state ready.
+  bool _reallyEnded() {
+    final auth = _auth;
+    return auth == null ||
+        auth.state != HermesConnectionState.ready ||
+        auth.ownerGeneration != _owner ||
+        auth.baseUrl != _server;
+  }
+
+  /// Protected requests closed. When the connection is over the text goes at
+  /// once. When it is only paused (an expiry that a newer session may still
+  /// rescue) the text and its baseline stay, the editor is read-only and
+  /// nothing is sent; the guard says when it is restored, and this page
+  /// watches for the end itself in the meantime, since the guard does not
+  /// say it twice.
   void _connectionEnded() {
     _closeAbove();
+    if (_reallyEnded()) {
+      _controller.clear();
+      return;
+    }
+    _controller.pause();
+    _auth?.addListener(_whilePaused);
+  }
+
+  void _whilePaused() {
+    if (!_reallyEnded()) return;
+    _auth?.removeListener(_whilePaused);
     _controller.clear();
+  }
+
+  /// The same connection is open again: the editor is editable with the text
+  /// it had. Nothing is read or sent.
+  void _connectionRestored() {
+    _auth?.removeListener(_whilePaused);
+    _controller.resume();
   }
 
   /// Closes what this page opened (a question, the changed sheet) without
@@ -199,15 +250,24 @@ class _SoulScreenState extends State<SoulScreen> {
 
   // -- Asking -----------------------------------------------------------------
 
+  bool get _asking => _questionOpen || _sheetOpen;
+
   Future<void> _save() async {
+    if (_asking) return;
     final question = _controller.requestSave();
     if (question == null) return;
-    final replace = await askReplaceSoul(
-      context,
-      profile: question.profile,
-      empty: question.empty,
-      pendingSaveNote: question.pendingSaveNote,
-    );
+    _questionOpen = true;
+    final bool replace;
+    try {
+      replace = await askReplaceSoul(
+        context,
+        profile: question.profile,
+        empty: question.empty,
+        pendingSaveNote: question.pendingSaveNote,
+      );
+    } finally {
+      _questionOpen = false;
+    }
     // Both calls do nothing unless the question is still the open one.
     if (!mounted) return;
     if (replace) {
@@ -218,8 +278,14 @@ class _SoulScreenState extends State<SoulScreen> {
   }
 
   Future<bool> _discard() async {
-    final discard = await askDiscardSoul(context, profile: widget.profile);
-    return discard && mounted;
+    if (_asking) return false;
+    _questionOpen = true;
+    try {
+      final discard = await askDiscardSoul(context, profile: widget.profile);
+      return discard && mounted;
+    } finally {
+      _questionOpen = false;
+    }
   }
 
   Future<void> _revert() async {
@@ -232,10 +298,11 @@ class _SoulScreenState extends State<SoulScreen> {
   }
 
   /// File > Close Window while the text is unsaved: the window is hidden, not
-  /// released, so a discarded text must really go.
+  /// released, so a discarded text must really go, even while a save or a
+  /// check runs (the file is then read again when the window comes back).
   Future<void> _closeWindow() async {
     if (_controller.dirty && !await _discard()) return;
-    _controller.revert();
+    _controller.discardText();
     await MacWindow.close();
   }
 
@@ -247,6 +314,10 @@ class _SoulScreenState extends State<SoulScreen> {
     builder: (context, _) {
       final c = _controller;
       final dirty = c.dirty;
+      // The Mac's menu keeps offering a page's commands under its own
+      // questions: only the route in front takes them, and a command that
+      // arrives before the question's route is up meets `_asking`.
+      final inFront = ModalRoute.of(context)?.isCurrent ?? true;
       return PopScope(
         canPop: !dirty,
         onPopInvokedWithResult: (didPop, _) {
@@ -254,8 +325,11 @@ class _SoulScreenState extends State<SoulScreen> {
         },
         child: MacCommandScope(
           commands: {
-            MacCommand.save: MacCommandHandler(c.canSave ? _save : null),
-            if (dirty) MacCommand.closeWindow: MacCommandHandler(_closeWindow),
+            MacCommand.save: MacCommandHandler(
+              c.canSave && inFront ? _save : null,
+            ),
+            if (dirty && inFront)
+              MacCommand.closeWindow: MacCommandHandler(_closeWindow),
           },
           child: PrivateSurface(child: _scaffold(context)),
         ),
@@ -263,23 +337,31 @@ class _SoulScreenState extends State<SoulScreen> {
     },
   );
 
+  /// At the largest text the iOS back label and a bar Save leave the title
+  /// no room, so Save goes under the editor with Revert, as on a wide window.
+  bool _saveBelow(BuildContext context) =>
+      platformChromeOf(context) == PlatformChrome.ios &&
+      MediaQuery.textScalerOf(context).scale(14) / 14 >= 1.5;
+
   Widget _scaffold(BuildContext context) {
     final l10n = context.l10n;
     final c = _controller;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final wide = mac || isWideLayout(context);
+    final below = wide || _saveBelow(context);
     return SettingsScaffold(
       title: l10n.profilesSoulTitle,
       subtitle: widget.profile,
-      formAction: wide || !c.showsEditor
+      shrinkTitle: true,
+      formAction: below || !c.showsEditor
           ? null
           : SoulSaveActions.barAction(
               context,
-              dirty: c.dirty,
+              dirty: c.dirty && !c.paused,
               busy: c.busy,
               onSave: _save,
             ),
-      body: _body(context, wide: wide),
+      body: _body(context, wide: below),
     );
   }
 
@@ -372,14 +454,14 @@ class _SoulScreenState extends State<SoulScreen> {
         const SizedBox(height: 8),
         if (wide)
           SoulSaveActions(
-            dirty: c.dirty,
+            dirty: c.dirty && !c.paused,
             busy: c.busy,
             onSave: _save,
             onRevert: () => unawaited(_revert()),
           )
         else
           SoulSaveActions.revertRow(
-            dirty: c.dirty,
+            dirty: c.dirty && !c.paused,
             busy: c.busy,
             onRevert: () => unawaited(_revert()),
           ),
