@@ -79,13 +79,6 @@ runs for every code PR in its own job, `Test native audio (Linux)`, which
 new path (a script it calls, a new asset folder), add it to the `builds` case in
 the `Changes` job, or PRs that touch only that path will skip the build.
 
-A pull request from the branch `release-please--branches--main--components--hermes-app`
-whose diff is exactly `CHANGELOG.md`, `.release-please-manifest.json` and a
-`pubspec.yaml` change of the `version:` line alone (one removed and one added
-line) gets `code`, `watch` and `builds` false, like docs-only. Any other file or
-pubspec line falls through to the normal classification. The branch name comes
-in through `HEAD_REF` (env), never interpolated into the script.
-
 `verify-hermes-api-client.yml`'s job is a required check, so the workflow has no
 `paths:` filter (a skipped required workflow stays pending). Its first step
 diffs the merge commit like `Changes` does and sets `steps.scope.outputs.run`;

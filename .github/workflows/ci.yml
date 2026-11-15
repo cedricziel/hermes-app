@@ -23,11 +23,6 @@ jobs:
   # packages, dependencies, assets, the packaging script, fastlane or this
   # workflow): Dart under lib/ and test/ is analyzed and tested on every code
   # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to the `builds` case in the filter below.
-  # The release-please pull request (its branch, CHANGELOG.md, the version line
-  # of pubspec.yaml and .release-please-manifest.json, nothing else) counts as
-  # docs-only too: it is rebuilt after every merge to main and each rebuild
-  # cancelled a full test run, while the code it carries was already tested on
-  # main. Its tag run builds everything in release-please.yml.
   changes:
     name: Changes
     runs-on: ubuntu-latest
@@ -47,7 +42,6 @@ jobs:
         id: filter
         env:
           EVENT_NAME: ${{ github.event_name }}
-          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
           code=true
@@ -69,18 +63,8 @@ jobs:
                 code=false
                 watch=false
                 builds=false
-                # Stays true only while every file is one a release-please
-                # pull request changes.
-                release=false
-                if [ "$HEAD_REF" = release-please--branches--main--components--hermes-app ]; then
-                  release=true
-                fi
                 while IFS= read -r -d '' file; do
                   echo "changed: $file"
-                  case "$file" in
-                    CHANGELOG.md | pubspec.yaml | .release-please-manifest.json) ;;
-                    *) release=false ;;
-                  esac
                   case "$file" in
                     docs/* | openspec/* | *.md) ;;
                     *) code=true ;;
@@ -95,26 +79,6 @@ jobs:
                     scripts/package-linux.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
                   esac
                 done < "$list"
-                if [ "$release" = true ]; then
-                  # pubspec.yaml may change on its version line only: each
-                  # side has exactly one `version: ` line and the files are
-                  # equal without it. Compared as files, not as a diff, so no
-                  # content line can hide behind diff markers. Any failed
-                  # command makes the condition false (fail closed).
-                  base_versions="$(git show HEAD^1:pubspec.yaml 2>/dev/null | grep -c '^version: ' || true)"
-                  head_versions="$(git show HEAD:pubspec.yaml 2>/dev/null | grep -c '^version: ' || true)"
-                  if [ "$base_versions" = 1 ] && [ "$head_versions" = 1 ] \
-                    && diff -q \
-                      <(git show HEAD^1:pubspec.yaml | sed '/^version: /d') \
-                      <(git show HEAD:pubspec.yaml | sed '/^version: /d') > /dev/null 2>&1; then
-                    echo "release-please pull request: treated as docs-only"
-                    code=false
-                    watch=false
-                    builds=false
-                  else
-                    echo "::warning::release-please branch changes more than the version; classifying normally"
-                  fi
-                fi
               fi
             fi
           fi
