@@ -7,7 +7,6 @@ import 'package:gpt_markdown/custom_widgets/code_field.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
-import 'package:hermes_app/src/widgets/bounded_markdown.dart';
 
 Future<int> _render(WidgetTester tester, String text) async {
   tester.view.physicalSize = const Size(1000, 900);
@@ -46,29 +45,22 @@ Future<int> _render(WidgetTester tester, String text) async {
 
 String _empty(int n) => List.filled(n, '```\n```').join('\n\n');
 
-/// A reply of many small or empty fences through the real chat path. Each
-/// fence past `kCodeFieldMaxCount` is a plain block; before the cap every one
-/// was a code field (chrome, scroll view, copy button): 1 000 empty fences
-/// took ~4.5 s to build and lay out here, about 1.3 s with it.
+/// Baseline of a reply of many small or empty fences through the real chat
+/// path: every fence builds one code field (chrome, scroll view, copy button).
+/// There is no cap today, so the count equals the number of fences; a change
+/// that caps or batches them changes this test on purpose. The time is
+/// printed, never asserted (about 0.8, 1.6 and 4.5 s for 100, 300 and 1 000
+/// empty fences in the debug harness).
 void main() {
   for (final n in [100, 300, 1000]) {
-    testWidgets('$n empty fences', (tester) async {
+    testWidgets('$n empty fences build $n code fields', (tester) async {
       // The first block ever built pays for the grammar tables.
       await _render(tester, '```js\nconst a = 1;\n```');
       await tester.pumpWidget(const SizedBox());
       final ms = await _render(tester, _empty(n));
       // ignore: avoid_print
       print('FENCE-COST $n fences: ${ms}ms');
-      expect(
-        tester.widgetList(find.byType(CodeField)),
-        hasLength(kCodeFieldMaxCount),
-      );
-      expect(
-        tester.widgetList(find.byType(PlainCodeBlock)),
-        hasLength(n - kCodeFieldMaxCount),
-      );
-      // The time is printed, never asserted: capped 0.6 to 1.3 s, uncapped
-      // 4.7 s for 1 000 fences. The counts above are the check.
+      expect(tester.widgetList(find.byType(CodeField)), hasLength(n));
     }, timeout: const Timeout(Duration(minutes: 4)));
   }
 }

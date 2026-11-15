@@ -161,7 +161,6 @@ void main() {
       }
       // What the limits guarantee, counted rather than timed (unbounded these
       // take from 0.3 s to 17 s; the times are only printed above).
-      expect(fields.length, lessThanOrEqualTo(kCodeFieldMaxCount));
       final granted = fields.where((f) => f.highlightCode);
       expect(
         granted.fold<int>(0, (sum, f) => sum + f.codes.length),
