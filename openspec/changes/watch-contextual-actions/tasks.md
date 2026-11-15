@@ -16,11 +16,12 @@
 
 ## Implementation evidence
 
-The frozen contextual source contains built-in editable starters, guarded ordinary follow-ups, and selector regression tests. A UI-used activation helper and model/presentation regressions cover editable starter insertion, ordinary send identity, and stale activation.
+Merged to main in PR #718 (`feat(watch): offer editable starters and relevant follow-ups`): built-in editable starters (Plan my day, Explain something), guarded ordinary follow-ups (Continue, Summarize), the UI-used activation helper and selector, and model/presentation regressions (`ios/HermesWatch/Core/WatchContextualActions.swift`, `ContextualActionsTests.swift`). The main spec's "Quick replies and double tap" requirement now describes this shipped set; this change is not yet archived.
 
 Checked implementation tasks describe source and authored regression coverage. They do not
-mean that an open PR has merged or that a native acceptance check has passed. Combined
-verification tasks remain open until their specified evidence is available. Native visual,
+mean that a native acceptance check has passed. Combined
+verification tasks remain open until their specified evidence is available. Tasks 1.1 (native fixtures), 2.2 (accessibility on device) and 3.3 (device and
+native verification) stay open. Native visual,
 VoiceOver, gesture, microphone, and paired lifecycle checks have not run. The user excluded
 watch simulators, and local native builds remain paused to limit host load.
 

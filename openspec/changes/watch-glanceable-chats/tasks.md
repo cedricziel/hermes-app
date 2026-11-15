@@ -16,11 +16,12 @@
 
 ## Implementation evidence
 
-The three frozen glanceability stages contain optional metadata, atomic messages with fetch timestamps, owner-scoped update markers, successful-read acknowledgement, row labels, and old-peer regression tests. They have not merged at this checkpoint.
+Merged to main in three stages: PR #715 (`feat(watch): persist chat freshness atomically`), PR #716 (`feat(watch): track freshly read chat updates`) and PR #717 (`feat(watch): show chat profiles status and freshness`). They contain optional metadata, atomic messages with fetch timestamps, owner-scoped update markers, successful-read acknowledgement, row labels, and old-peer regression tests.
 
 Checked implementation tasks describe source and authored regression coverage. They do not
-mean that an open PR has merged or that a native acceptance check has passed. Combined
-verification tasks remain open until their specified evidence is available. Native visual,
+mean that a native acceptance check has passed. Combined
+verification tasks remain open until their specified evidence is available. Tasks 1.1 (native fixtures), 2.2 (accessibility on device) and 3.3 (device and
+native verification) stay open. Native visual,
 VoiceOver, gesture, microphone, and paired lifecycle checks have not run. The user excluded
 watch simulators, and local native builds remain paused to limit host load.
 

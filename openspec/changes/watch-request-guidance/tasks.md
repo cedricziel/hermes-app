@@ -16,11 +16,12 @@
 
 ## Implementation evidence
 
-The frozen guidance source is in PR #710. Its presentation regression asserts notification and iPhone guidance, local Leave waiting wording, and preservation of the accepted message.
+Merged to main in PR #710 (`feat(watch): clarify request waiting and phone answer paths`). Its presentation regression asserts notification and iPhone guidance, local Leave waiting wording, and preservation of the accepted message.
 
 Checked implementation tasks describe source and authored regression coverage. They do not
-mean that an open PR has merged or that a native acceptance check has passed. Combined
-verification tasks remain open until their specified evidence is available. Native visual,
+mean that a native acceptance check has passed. Combined
+verification tasks remain open until their specified evidence is available. Tasks 1.1 (native fixtures), 2.2 (accessibility on device) and 3.3 (device and
+native verification) stay open. Native visual,
 VoiceOver, gesture, microphone, and paired lifecycle checks have not run. The user excluded
 watch simulators, and local native builds remain paused to limit host load.
 
