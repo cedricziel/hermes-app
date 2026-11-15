@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show FileSystemEntity, FileSystemEntityType, Platform;
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart'
@@ -16,6 +17,23 @@ import 'request_notifications.dart';
 
 const _channelId = 'agent_activity';
 const _channelName = 'Agent activity';
+
+/// Whether a D-Bus session bus can be reached: `DBUS_SESSION_BUS_ADDRESS` is
+/// set, or the systemd socket `$XDG_RUNTIME_DIR/bus` exists. The Linux plugin
+/// subscribes to bus signals when it starts, and without a bus that throws an
+/// error nothing can catch.
+bool linuxSessionBusAvailable() {
+  final env = Platform.environment;
+  if ((env['DBUS_SESSION_BUS_ADDRESS'] ?? '').isNotEmpty) return true;
+  final runtime = env['XDG_RUNTIME_DIR'];
+  if (runtime == null || runtime.isEmpty) return false;
+  try {
+    return FileSystemEntity.typeSync('$runtime/bus') !=
+        FileSystemEntityType.notFound;
+  } on Object {
+    return false;
+  }
+}
 
 /// Identifies the app to Windows for its toasts, in the form
 /// `CompanyName.ProductName`. Unpackaged, Windows files the toasts under it.
@@ -228,26 +246,30 @@ class LocalNotificationService
     FlutterLocalNotificationsPlugin? plugin,
     CategoryRegistrar registerCategories = registerCategoriesNatively,
     this._background = false,
+    this._hasLinuxSessionBus = linuxSessionBusAvailable,
   }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
        _register = registerCategories;
 
   final FlutterLocalNotificationsPlugin _plugin;
   final CategoryRegistrar _register;
   final bool _background;
+  final bool Function() _hasLinuxSessionBus;
   final _taps = StreamController<NotificationTarget>.broadcast();
   final _answers = StreamController<NotificationAnswer>.broadcast();
   final _replies = StreamController<NotificationReply>.broadcast();
   Future<void>? _initialized;
   var _launchAnswered = false;
 
-  static bool get _supported =>
+  /// Linux without a session bus counts as unsupported, so the plugin is
+  /// never initialized there.
+  bool get _supported =>
       !kIsWeb &&
       switch (defaultTargetPlatform) {
         TargetPlatform.android ||
         TargetPlatform.iOS ||
         TargetPlatform.macOS ||
-        TargetPlatform.windows ||
-        TargetPlatform.linux => true,
+        TargetPlatform.windows => true,
+        TargetPlatform.linux => _hasLinuxSessionBus(),
         _ => false,
       };
 

@@ -1153,6 +1153,7 @@ void main() {
       service = LocalNotificationService(
         plugin: plugin,
         registerCategories: (_) async => fail('no categories on a desktop'),
+        hasLinuxSessionBus: () => true,
       );
     });
 
@@ -1305,6 +1306,63 @@ void main() {
         });
       });
     }
+  });
+
+  group('Linux without a session bus', () {
+    tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    LocalNotificationService serviceWith(
+      _FakePlugin plugin, {
+      required bool bus,
+    }) {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      return LocalNotificationService(
+        plugin: plugin,
+        registerCategories: (_) async {},
+        hasLinuxSessionBus: () => bus,
+      );
+    }
+
+    test('never initializes the plugin and reports unsupported', () async {
+      final plugin = _FakePlugin();
+      final service = serviceWith(plugin, bus: false);
+      addTearDown(service.dispose);
+
+      final result = await service.post(
+        const AttentionNotification(
+          threadId: 's1',
+          profile: 'work',
+          title: 'Cleanup',
+          body: 'Done.',
+        ),
+      );
+
+      expect(result.status, NotificationPostStatus.unsupported);
+      expect(plugin.initializeCalls, 0);
+      expect(plugin.posted, isEmpty);
+      expect(
+        await service.requestPermission(),
+        NotificationPermission.unavailable,
+      );
+    });
+
+    test('posts normally once a session bus exists', () async {
+      final plugin = _FakePlugin();
+      final service = serviceWith(plugin, bus: true);
+      addTearDown(service.dispose);
+
+      await service.post(
+        const AttentionNotification(
+          threadId: 's1',
+          profile: 'work',
+          title: 'Cleanup',
+          body: 'Done.',
+        ),
+      );
+
+      expect(plugin.initializeCalls, 1);
+      expect(plugin.posted, hasLength(1));
+    });
   });
 
   group('registerCategoriesNatively', () {
