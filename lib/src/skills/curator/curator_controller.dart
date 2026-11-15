@@ -12,6 +12,7 @@ import '../../server_care/action_status.dart';
 import '../../server_care/resumable_sleep.dart';
 import 'curator_config.dart';
 import 'curator_result.dart';
+import 'curator_server_text.dart';
 import 'curator_status.dart';
 import 'curator_telemetry.dart';
 import 'hermes_curator_repository.dart';
@@ -198,6 +199,13 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
 
   List<String> _lines = const [];
   int _earlier = 0;
+
+  // Hermes' own words, cleaned for display (`curatorServerText`): screen
+  // state in the lifetime of the output lines. Dropped on lock, profile
+  // switch, a new run and dispose, hidden while blanked, never logged.
+  String? _pauseDetail;
+  String? _notStartedDetail;
+  String? _failureLine;
   bool _locked = false;
   bool _inactive = false;
   bool _dropped = false;
@@ -266,8 +274,24 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   /// [blanked].
   List<String> get outputLines => blanked ? const [] : _lines;
 
+  /// Hermes' text when it refused a pause change ([CuratorPause.failed]), as
+  /// one cleaned line of at most 200 characters. Null when it said nothing
+  /// readable, and while [blanked].
+  String? get pauseDetail => blanked ? null : _pauseDetail;
+
+  /// Hermes' text when it could not start a pass
+  /// ([CuratorNotStarted.spawnFailed]). Same rules as [pauseDetail].
+  String? get notStartedDetail => blanked ? null : _notStartedDetail;
+
+  /// The last line of a failed pass this app started. Same rules as
+  /// [pauseDetail].
+  String? get failureLine => blanked ? null : _failureLine;
+
   /// How many lines before [outputLines] were left out.
   int get earlierLines => _earlier;
+
+  /// How many lines the pass left on screen, also while they are [blanked].
+  int get outputLineCount => _lines.length + _earlier;
 
   /// Reads the status and, once, the action status's `running` flag.
   void start() {
@@ -294,6 +318,7 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     _confirmation = null;
     _lastConfig = null;
     _notStarted = null;
+    _pauseDetail = null;
     _clearResult();
     start();
   }
@@ -310,6 +335,8 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   void _clearResult() {
     _lines = const [];
     _earlier = 0;
+    _notStartedDetail = null;
+    _failureLine = null;
     _dropped = false;
     _startedAt = null;
     _checkFailed = false;
@@ -387,6 +414,7 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     final epoch = _epoch;
     _optimistic = value;
     _pause = CuratorPause.saving;
+    _pauseDetail = null;
     notifyListeners();
     final result = await repository.setPaused(value, profile: _profile);
     if (_gone(epoch)) return;
@@ -403,13 +431,16 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
       case CuratorUnsupported():
         _pause = CuratorPause.idle;
         _load = CuratorLoad.unsupported;
-      case CuratorFailed(:final kind):
+      case CuratorFailed(:final kind, :final detail):
         _pause = switch (kind) {
           CuratorFailure.lostAnswer ||
           CuratorFailure.timeout => CuratorPause.lost,
           CuratorFailure.offline => CuratorPause.offline,
           _ => CuratorPause.failed,
         };
+        if (_pause == CuratorPause.failed && !_locked) {
+          _pauseDetail = curatorServerText(detail);
+        }
         if (_pause == CuratorPause.lost) unawaited(_loadStatus(epoch));
     }
     notifyListeners();
@@ -497,14 +528,14 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
         onProfileGone?.call();
       case CuratorUnsupported():
         _refused(CuratorNotStarted.refused);
-      case CuratorFailed(:final kind):
+      case CuratorFailed(:final kind, :final detail):
         switch (kind) {
           case CuratorFailure.offline:
             _refused(CuratorNotStarted.offline);
           case CuratorFailure.refused || CuratorFailure.unauthorized:
             _refused(CuratorNotStarted.refused);
           case CuratorFailure.spawnFailed:
-            _refused(CuratorNotStarted.spawnFailed);
+            _refused(CuratorNotStarted.spawnFailed, detail: detail);
           default:
             _triggerLost = true;
             _unsure(CuratorRunPhase.lostAnswer, CuratorRunOutcome.unknown);
@@ -512,8 +543,9 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     }
   }
 
-  void _refused(CuratorNotStarted why) {
+  void _refused(CuratorNotStarted why, {String? detail}) {
     _notStarted = why;
+    _notStartedDetail = _locked ? null : curatorServerText(detail);
     _phase = CuratorRunPhase.notStarted;
     _endSpan(CuratorRunOutcome.failed);
     notifyListeners();
@@ -683,6 +715,12 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     }
     _earlier = math.max(0, shown.length - maxLines);
     _lines = shown.sublist(_earlier);
+    // The last line only says why a failed pass failed.
+    _failureLine = _phase == CuratorRunPhase.failed
+        ? curatorServerText(
+            raw.lastWhere((l) => l.trim().isNotEmpty, orElse: () => ''),
+          )
+        : null;
   }
 
   /// App Lock locked: the output is dropped, not only hidden.
@@ -691,6 +729,9 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     if (_lines.isNotEmpty) _dropped = true;
     _lines = const [];
     _earlier = 0;
+    _pauseDetail = null;
+    _notStartedDetail = null;
+    _failureLine = null;
     notifyListeners();
   }
 
@@ -713,6 +754,9 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   void dispose() {
     _drop();
     _lines = const [];
+    _pauseDetail = null;
+    _notStartedDetail = null;
+    _failureLine = null;
     super.dispose();
   }
 }
