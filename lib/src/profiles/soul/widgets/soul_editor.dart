@@ -42,10 +42,10 @@ class SoulTextController extends TextEditingController {
     for (var i = 0; i < text.length; i++) {
       final unit = text.codeUnitAt(i);
       if (_isHigh(unit)) {
-        if (_pairAt(text, i) case final rune? when isUnsafeDisplayRune(rune)) {
-          return true;
-        }
-      } else if (isHidden(unit)) {
+        final rune = _pairAt(text, i);
+        if (rune == null || isUnsafeDisplayRune(rune)) return true;
+        i++;
+      } else if (_isLow(unit) || isHidden(unit)) {
         return true;
       }
     }
@@ -54,25 +54,90 @@ class SoulTextController extends TextEditingController {
 
   /// For each UTF-16 unit of [text], whether it is drawn as a mark: a hidden
   /// character below U+10000, or either half of a hidden character above it.
-  /// A lone surrogate is not hidden.
+  /// A lone surrogate (half of no pair) is drawn as a mark too: laid out as it
+  /// is, it would make the text invalid UTF-16 and throw.
   @visibleForTesting
   static List<bool> hiddenUnits(String text) {
     final hidden = List<bool>.filled(text.length, false);
     for (var i = 0; i < text.length; i++) {
       final unit = text.codeUnitAt(i);
       if (_isHigh(unit)) {
-        if (_pairAt(text, i) case final rune? when isUnsafeDisplayRune(rune)) {
-          hidden[i] = hidden[i + 1] = true;
+        final rune = _pairAt(text, i);
+        if (rune == null) {
+          hidden[i] = true;
+        } else {
+          if (isUnsafeDisplayRune(rune)) hidden[i] = hidden[i + 1] = true;
           i++;
         }
       } else {
-        hidden[i] = isHidden(unit);
+        hidden[i] = _isLow(unit) || isHidden(unit);
       }
     }
     return hidden;
   }
 
   static bool _isHigh(int unit) => unit >= 0xD800 && unit <= 0xDBFF;
+
+  static bool _isLow(int unit) => unit >= 0xDC00 && unit <= 0xDFFF;
+
+  /// Whether [offset] sits between the two halves of a pair in [text].
+  static bool _insidePair(String text, int offset) =>
+      offset > 0 &&
+      offset < text.length &&
+      _isHigh(text.codeUnitAt(offset - 1)) &&
+      _isLow(text.codeUnitAt(offset));
+
+  /// [offset] moved out of the middle of a pair: to the pair's start when
+  /// [forward] is false, to its end when true. Any other offset is returned
+  /// as it is.
+  static int _outOfPair(String text, int offset, {required bool forward}) =>
+      _insidePair(text, offset) ? (forward ? offset + 1 : offset - 1) : offset;
+
+  /// [selection] with no end inside a pair. A caret goes to the end of the
+  /// pair it would have split. A range keeps covering what it covered: its
+  /// lower end goes to the pair's start and its upper end to the pair's end,
+  /// and the direction (which end is the base) is kept.
+  static TextSelection _snapSelection(String text, TextSelection selection) {
+    if (!selection.isValid) return selection;
+    final base = selection.baseOffset;
+    final extent = selection.extentOffset;
+    if (!_insidePair(text, base) && !_insidePair(text, extent)) {
+      return selection;
+    }
+    if (base == extent) {
+      final caret = _outOfPair(text, base, forward: true);
+      return selection.copyWith(baseOffset: caret, extentOffset: caret);
+    }
+    final baseIsLower = base < extent;
+    return selection.copyWith(
+      baseOffset: _outOfPair(text, base, forward: !baseIsLower),
+      extentOffset: _outOfPair(text, extent, forward: baseIsLower),
+    );
+  }
+
+  /// The same for the composing range, which is never a caret.
+  static TextRange _snapComposing(String text, TextRange range) {
+    if (!range.isValid || range.isCollapsed) return range;
+    return TextRange(
+      start: _outOfPair(text, range.start, forward: false),
+      end: _outOfPair(text, range.end, forward: true),
+    );
+  }
+
+  /// The caret and the composing range never stop between the two halves of a
+  /// pair. A hidden character above U+FFFF is drawn as two marks, so a tap
+  /// can land between them; a character typed or pasted there would split
+  /// the pair into two lone surrogates. The text is never changed here.
+  @override
+  set value(TextEditingValue newValue) {
+    final text = newValue.text;
+    final selection = _snapSelection(text, newValue.selection);
+    final composing = _snapComposing(text, newValue.composing);
+    super.value =
+        selection == newValue.selection && composing == newValue.composing
+        ? newValue
+        : newValue.copyWith(selection: selection, composing: composing);
+  }
 
   /// The character whose high surrogate is at [i], or null when no low
   /// surrogate follows.
