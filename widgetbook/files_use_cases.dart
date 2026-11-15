@@ -26,6 +26,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'code_block_use_cases.dart';
 import 'files_sample_image.dart';
 import 'frame.dart';
 import 'host.dart';
@@ -1729,6 +1730,7 @@ WidgetbookNode filesNode() => WidgetbookFolder(
     _notesComponent(),
     _previewHeaderComponent(),
     _previewViewComponent(),
+    codeBlockComponent(),
     _previewBodyComponent(),
     _activityRowComponent(),
     _detailsComponent(),

@@ -174,7 +174,14 @@ bool isColourable(String text) {
 /// Every grammar `val_highlight` ships, by name and alias (`python`, `py`,
 /// `shell`, `sh`, `yml` ...). The server's `language` is a name from its own
 /// fixed map; a name not here is shown plain. There is no fallback grammar.
-final LanguageRegistry _registry = LanguageRegistry(allLanguages);
+final LanguageRegistry _registry = LanguageRegistry(allLanguages)
+  ..add(pythonLanguage, aliases: const ['python3'])
+  ..add(bashLanguage, aliases: const ['shellscript']);
+
+/// Shares [_registry] so Markdown and HTML resolve the languages embedded in
+/// them (a fenced block in a Markdown file, a `<script>` in HTML), as
+/// `gpt_markdown`'s own code block did. Built in each isolate that needs it.
+final Highlighter _highlighter = Highlighter(registry: _registry);
 
 /// Whether [language] names a grammar the app has.
 bool hasCodeGrammar(String? language) => _grammarOf(language) != null;
@@ -197,7 +204,7 @@ List<CodeRun> highlightCode(String text, String? language) {
     return plain;
   }
   try {
-    final result = const Highlighter().highlight(text, language: grammar);
+    final result = _highlighter.highlight(text, language: grammar);
     final table = result.scopes;
     final runs = <CodeRun>[];
     final cache = <int, CodeToken?>{};

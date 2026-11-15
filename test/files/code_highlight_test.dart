@@ -90,6 +90,18 @@ def hello(name):
     });
   });
 
+  test('a fenced block inside Markdown is coloured by its own grammar', () {
+    const md = '# t\n\n```python\ndef f(): pass\n```\n';
+    final runs = highlightCode(md, 'markdown');
+    expect(_joined(runs), md);
+    expect(_of(runs, 'def'), CodeToken.keyword);
+  });
+
+  test('python3 and shellscript are aliases', () {
+    expect(hasCodeGrammar('python3'), isTrue);
+    expect(hasCodeGrammar('shellscript'), isTrue);
+  });
+
   group('JSON', () {
     const json = '{"name": "x", "n": 3, "ok": true, "z": null}';
 

@@ -45,9 +45,6 @@ class HermesCodeBlock extends StatefulWidget {
   State<HermesCodeBlock> createState() => _HermesCodeBlockState();
 }
 
-/// Fence tags `val_highlight` has no alias for.
-const _aliases = {'python3': 'python', 'shellscript': 'bash'};
-
 class _HermesCodeBlockState extends State<HermesCodeBlock> {
   static const double _copyButtonSize = 32;
   static const double _copyIconSize = 17;
@@ -59,8 +56,9 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
   List<CodeRun>? _cachedRuns;
 
   List<CodeRun> _runs() {
-    var language = widget.highlightCode ? widget.name.trim().toLowerCase() : '';
-    language = _aliases[language] ?? language;
+    final language = widget.highlightCode
+        ? widget.name.trim().toLowerCase()
+        : '';
     if (_cachedRuns != null &&
         _cachedCode == widget.codes &&
         _cachedLanguage == language) {
