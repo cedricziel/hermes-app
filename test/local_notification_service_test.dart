@@ -43,6 +43,9 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   InitializationSettings? settings;
   void Function()? duringInitialize;
   Completer<void>? showGate;
+  Completer<void>? activeGate;
+  Completer<void>? cancelGate;
+  Completer<void>? launchGate;
   void Function()? onResolve;
 
   @override
@@ -78,6 +81,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   @override
   Future<NotificationAppLaunchDetails?>
   getNotificationAppLaunchDetails() async {
+    await launchGate?.future;
     if (launchDetailsError case final error?) throw error;
     return launchDetails;
   }
@@ -90,7 +94,12 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
 
   /// Like the plugin's Android side: no payload, but the tag.
   @override
-  Future<List<ActiveNotification>> getActiveNotifications() async => [
+  Future<List<ActiveNotification>> getActiveNotifications() async {
+    await activeGate?.future;
+    return _active();
+  }
+
+  List<ActiveNotification> _active() => [
     if (activeError case final error?) throw error,
     for (final a in active)
       if (defaultTargetPlatform == TargetPlatform.android)
@@ -101,6 +110,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
 
   @override
   Future<void> cancel({required int id, String? tag}) async {
+    await cancelGate?.future;
     if (cancelError case final error?) throw error;
     cancelled.add(id);
     cancelledTags.add(tag);
@@ -1614,9 +1624,9 @@ void main() {
       });
     });
 
-    test('a show that never answers ends by the timeout', () {
+    test('a first call that never answers latches the bus as failed', () {
       fakeAsync((async) {
-        final plugin = _FakePlugin()..showGate = Completer<void>();
+        final plugin = _FakePlugin()..initializeHeld = Completer<void>();
         final service = serviceWith(plugin, bus: true);
         NotificationPostResult? result;
         service.post(note).then((r) => result = r);
@@ -1631,8 +1641,76 @@ void main() {
         service.post(note).then((r) => next = r);
         async.flushMicrotasks();
         expect(next?.status, NotificationPostStatus.unsupported);
+        expect(plugin.initializeCalls, 1);
         debugDefaultTargetPlatformOverride = null;
       });
+    });
+
+    test('a slow call on a bus that answered before fails only that call', () {
+      fakeAsync((async) {
+        final plugin = _FakePlugin();
+        final service = serviceWith(plugin, bus: true);
+        NotificationPostResult? first;
+        service.post(note).then((r) => first = r);
+        async.flushMicrotasks();
+        expect(first?.status, NotificationPostStatus.accepted);
+
+        plugin.showGate = Completer<void>();
+        NotificationPostResult? slow;
+        service.post(note).then((r) => slow = r);
+        async.flushMicrotasks();
+        async.elapse(kLinuxCallTimeout);
+        async.flushMicrotasks();
+        expect(slow?.status, NotificationPostStatus.failed);
+
+        plugin.showGate = null;
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+        expect(next?.status, NotificationPostStatus.accepted);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    });
+
+    /// Runs [start] against a plugin whose call hangs and returns whether it
+    /// finished once only the timeout could end it.
+    bool endsByTimeout(
+      _FakePlugin plugin,
+      Future<void> Function(LocalNotificationService service) start,
+    ) {
+      var finished = false;
+      fakeAsync((async) {
+        final service = serviceWith(plugin, bus: true);
+        start(service).then((_) => finished = true);
+        async.flushMicrotasks();
+        expect(finished, isFalse);
+        async.elapse(kLinuxCallTimeout);
+        async.flushMicrotasks();
+        debugDefaultTargetPlatformOverride = null;
+      });
+      return finished;
+    }
+
+    test('a hanging getActiveNotifications ends withdrawAnswerable', () {
+      final plugin = _FakePlugin()..activeGate = Completer<void>();
+      expect(endsByTimeout(plugin, (s) => s.withdrawAnswerable()), isTrue);
+    });
+
+    test('a hanging cancel ends withdrawAnswerable', () {
+      final plugin = _FakePlugin()..cancelGate = Completer<void>();
+      plugin.active.add(
+        ActiveNotification(
+          id: 1,
+          payload: notificationPayload(_request(_approval)),
+        ),
+      );
+      expect(endsByTimeout(plugin, (s) => s.withdrawAnswerable()), isTrue);
+      expect(plugin.cancelled, isEmpty);
+    });
+
+    test('a hanging getNotificationAppLaunchDetails ends launchTarget', () {
+      final plugin = _FakePlugin()..launchGate = Completer<void>();
+      expect(endsByTimeout(plugin, (s) => s.launchTarget()), isTrue);
     });
   });
 

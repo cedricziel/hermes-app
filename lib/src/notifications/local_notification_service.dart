@@ -347,6 +347,9 @@ class LocalNotificationService
   /// Set when the Linux plugin's D-Bus setup failed, even after `initialize`
   /// returned; the service is unsupported from then on.
   var _linuxBusFailed = false;
+
+  /// Whether any guarded call ever got an answer, a failure included.
+  var _busResponded = false;
   final _pendingCalls = <void Function()>{};
 
   @visibleForTesting
@@ -368,7 +371,9 @@ class LocalNotificationService
     if (_linuxBusFailed) return Future.error(StateError('D-Bus unavailable'));
     final out = Completer<T>();
     final timer = Timer(kLinuxCallTimeout, () {
-      _markBusFailed();
+      // A bus that never answered is dead; one that has answered before may
+      // only be slow (a notification daemon starting on demand).
+      if (!_busResponded) _markBusFailed();
       if (!out.isCompleted) {
         out.completeError(TimeoutException('D-Bus call', kLinuxCallTimeout));
       }
@@ -380,9 +385,11 @@ class LocalNotificationService
     _pendingCalls.add(fail);
     Future.sync(call).then(
       (value) {
+        _busResponded = true;
         if (!out.isCompleted) out.complete(value);
       },
       onError: (Object error, StackTrace stack) {
+        _busResponded = true;
         if (!out.isCompleted) out.completeError(error, stack);
       },
     );
