@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Themed icon layer (Android 13+): the system tints the alpha channel. The
      launcher foreground's chat bubble with the wing cut out
-     (design/icon-foreground.svg), scaled from its 1024 canvas to about 60dp,
-     centred inside the 66dp safe zone of the 108dp adaptive canvas. -->
+     (design/icon-foreground.svg) at 0.82 scale, centred on the 108dp canvas
+     so every point lies within the 33dp-radius circular safe zone (max
+     32.8dp). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:translateX="2.43"
-        android:translateY="2.03"
-        android:scaleX="0.1007"
-        android:scaleY="0.1007">
+        android:translateX="9.72"
+        android:translateY="9.72"
+        android:scaleX="0.0865"
+        android:scaleY="0.0865">
         <path
             android:fillColor="#FFFFFFFF"
             android:fillType="evenOdd"
