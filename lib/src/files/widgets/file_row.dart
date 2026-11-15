@@ -9,7 +9,7 @@ import '../../widgets/grouped_list.dart';
 import '../server_path.dart';
 import 'file_glyph.dart';
 import 'files_metrics.dart';
-import 'middle_ellipsis.dart';
+import '../../widgets/middle_ellipsis.dart';
 
 /// One entry of a folder as a row shows it. The screen builds these from a
 /// listing; [looksSecret] comes from `SecretNames`.

@@ -1,8 +1,12 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/files/widgets/safe_path_text.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/screenshot_recorder.dart';
 
 const _options = ModelOptions(
   current: ModelChoice('anthropic', 'claude-opus-4'),
@@ -233,6 +237,8 @@ void main() {
         find.descendant(of: entry, matching: find.textContaining('Uses')),
         findsNothing,
       );
+      // No second line either: an empty subtitle would still draw a blank one.
+      expect(find.descendant(of: entry, matching: find.byType(Text)), findsOne);
     });
 
     testWidgets('shows control characters of a server name visibly', (
@@ -298,6 +304,295 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Uses'), findsNothing);
+    });
+  });
+
+  group('long ids and large text', () {
+    const longId = 'acme-lm-large-2025-0914-long-context-instruct';
+    const otherId = 'acme-lm-large-2025-0914-long-context-preview';
+    const long = ModelOptions(
+      current: ModelChoice('acme', longId),
+      providers: [
+        ModelProviderOption(
+          id: 'acme',
+          label: 'Acme',
+          models: [
+            ModelOption(id: longId),
+            ModelOption(id: otherId),
+            ModelOption(id: 'acme-lm-small', reasoning: false),
+          ],
+        ),
+      ],
+    );
+
+    Future<void> pump(
+      WidgetTester tester,
+      ModelOptions options, {
+      ModelChoice? selected,
+      TargetPlatform platform = TargetPlatform.iOS,
+      double width = 320,
+      double scale = 1,
+    }) async {
+      // Real fonts: in Ahem a glyph is as wide as it is tall, which no
+      // language needs at a text scale of 2.
+      await tester.runAsync(loadTestFonts);
+      tester.view
+        ..physicalSize = Size(width, 900)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: withScreenshotFont(
+            buildHermesLightTheme().copyWith(platform: platform),
+          ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: ModelPicker(
+              options: options,
+              selected: selected,
+              onChanged: (_) {},
+              onUseDefault: () {},
+            ),
+          ),
+        ),
+      );
+      // A new theme animates; settle so the platform is the new one.
+      await tester.pumpAndSettle();
+    }
+
+    Finder under(Finder parent, Finder child) =>
+        find.descendant(of: parent, matching: child);
+
+    testWidgets('the default subtitle is cut in the middle, keeps "Uses" and '
+        'the end of the id, and the full id is in the semantics', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, long, width: 260);
+
+      final entry = find.byKey(const Key('model-default'));
+      final subtitle = tester
+          .widgetList<Text>(under(entry, find.byType(Text)))
+          .map((text) => text.data ?? '')
+          .firstWhere((text) => text.startsWith('Uses'));
+      expect(subtitle, contains('…'));
+      expect(subtitle, endsWith('instruct'));
+      expect(tester.getSemantics(entry).label, contains(longId));
+      handle.dispose();
+    });
+
+    testWidgets('model rows are cut in the middle and tell ids apart', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, long, width: 260);
+
+      for (final (id, end) in [(longId, 'instruct'), (otherId, 'preview')]) {
+        final row = find.byKey(Key('model-acme-$id'));
+        final title = tester
+            .widgetList<Text>(under(row, find.byType(Text)))
+            .map((text) => text.data ?? '')
+            .single;
+        expect(title, contains('…'));
+        expect(title, endsWith(end));
+        expect(tester.getSemantics(row).label, contains(id));
+      }
+      handle.dispose();
+    });
+
+    testWidgets('hover text names the id on a desktop platform only', (
+      tester,
+    ) async {
+      await pump(tester, long, platform: TargetPlatform.macOS, width: 500);
+      expect(find.byTooltip(longId), findsOneWidget);
+
+      await pump(tester, long, platform: TargetPlatform.iOS, width: 500);
+      expect(find.byTooltip(longId), findsNothing);
+    });
+
+    testWidgets('effort pills have a hit area of 44 on iOS, 48 on Material '
+        'and 28 on a Mac, and are drawn 36, 40 and 28', (tester) async {
+      const picked = ModelChoice('acme', longId, effort: 'high');
+      for (final (platform, hit, drawn) in [
+        (TargetPlatform.iOS, 44.0, 36.0),
+        (TargetPlatform.android, 48.0, 40.0),
+        (TargetPlatform.macOS, 28.0, 28.0),
+      ]) {
+        await pump(tester, long, selected: picked, platform: platform);
+        final pill = find.byKey(const Key('effort-high'));
+        expect(tester.getSize(pill).height, hit, reason: '$platform hit');
+        expect(
+          tester.getSize(under(pill, find.byType(Material)).first).height,
+          drawn,
+          reason: '$platform drawn',
+        );
+      }
+    });
+
+    testWidgets('a tap in the margin of the 44 point hit area picks the '
+        'effort', (tester) async {
+      final picked = <ModelChoice>[];
+      tester.view
+        ..physicalSize = const Size(320, 900)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          home: Scaffold(
+            body: ModelPicker(
+              options: long,
+              selected: const ModelChoice('acme', longId),
+              onChanged: picked.add,
+            ),
+          ),
+        ),
+      );
+
+      final rect = tester.getRect(find.byKey(const Key('effort-high')));
+      await tester.tapAt(Offset(rect.center.dx, rect.top + 2));
+      expect(picked.last.effort, 'high');
+    });
+
+    testWidgets('the effort block is pinned at the normal size and moves '
+        'into the list from a text scale of 1.3', (tester) async {
+      const picked = ModelChoice('acme', longId, effort: 'high');
+      final block = find.byKey(const Key('effort-high'));
+
+      await pump(tester, long, selected: picked, scale: 1.2);
+      expect(under(find.byType(ListView), block), findsNothing);
+      expect(block, findsOneWidget);
+
+      await pump(tester, long, selected: picked, scale: 1.3);
+      expect(under(find.byType(ListView), block), findsOneWidget);
+
+      await pump(tester, long, selected: picked, scale: 2, width: 390);
+      expect(under(find.byType(ListView), block), findsOneWidget);
+    });
+
+    testWidgets('at the normal size a long id is a single middle-cut line '
+        'under a one-line title', (tester) async {
+      await pump(tester, long, width: 260);
+
+      final entry = find.byKey(const Key('model-default'));
+      final subtitle = under(entry, find.textContaining('Uses'));
+      expect(subtitle, findsOneWidget);
+      final text = tester.widget<Text>(subtitle).data!;
+      expect(text, startsWith('Uses'));
+      expect(text, contains('…'));
+      expect(text, endsWith('instruct'));
+      expect(
+        tester
+            .renderObject<RenderParagraph>(
+              under(subtitle, find.byType(RichText)),
+            )
+            .maxLines,
+        1,
+      );
+      expect(
+        tester
+            .renderObject<RenderParagraph>(
+              under(entry, find.text('Use the profile’s default')),
+            )
+            .maxLines,
+        1,
+      );
+    });
+
+    testWidgets('at a text scale of 2 the effort pill grows with its label', (
+      tester,
+    ) async {
+      const picked = ModelChoice('acme', longId, effort: 'high');
+      for (final platform in [
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      ]) {
+        await pump(
+          tester,
+          long,
+          selected: picked,
+          platform: platform,
+          width: 390,
+          scale: 2,
+        );
+        final pill = find.byKey(const Key('effort-high'));
+        final label = tester.getSize(under(pill, find.text('High')));
+        final drawn = tester.getSize(under(pill, find.byType(Material)).first);
+        expect(
+          drawn.height,
+          greaterThanOrEqualTo(label.height + 8),
+          reason: '$platform',
+        );
+        expect(tester.getSize(pill).height, greaterThanOrEqualTo(drawn.height));
+      }
+    });
+
+    testWidgets('at a text scale of 2 the default row wraps its title and '
+        'shows the id, cut in the middle after two lines', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, long, width: 390, scale: 2);
+
+      final entry = find.byKey(const Key('model-default'));
+      final title = under(entry, find.text('Use the profile’s default'));
+      expect(title, findsOneWidget);
+      final paragraph = tester.renderObject<RenderParagraph>(title);
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(paragraph.maxLines, 2);
+
+      final subtitle = tester
+          .widgetList<Text>(under(entry, find.byType(Text)))
+          .map((text) => text.data ?? '')
+          .firstWhere((text) => text.startsWith('Uses'));
+      expect(subtitle, endsWith('instruct'));
+      expect(tester.getSemantics(entry).label, contains(longId));
+      expect(tester.takeException(), isNull);
+      handle.dispose();
+    });
+  });
+
+  group('a server id is shown with its control characters visible', () {
+    const evil = 'evil\u202Emodel';
+    const options = ModelOptions(
+      current: ModelChoice('p', evil),
+      providers: [
+        ModelProviderOption(
+          id: 'p',
+          label: 'P',
+          models: [ModelOption(id: evil)],
+        ),
+      ],
+    );
+
+    testWidgets('in the model row, the checked row and the default row', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: Scaffold(
+            body: ModelPicker(
+              options: options,
+              selected: const ModelChoice('p', evil),
+              onChanged: (_) {},
+              onUseDefault: () {},
+            ),
+          ),
+        ),
+      );
+
+      final row = find.byKey(const Key('model-p-$evil'));
+      expect(
+        find.descendant(of: row, matching: find.text(safePathText(evil))),
+        findsOneWidget,
+      );
+      expect(find.text('evil<U+202E>model'), findsOneWidget);
+      expect(find.text('Uses evil<U+202E>model'), findsOneWidget);
+      expect(find.textContaining('\u202E'), findsNothing);
     });
   });
 }

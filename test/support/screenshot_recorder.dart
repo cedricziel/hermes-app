@@ -18,6 +18,10 @@ const desktopSize = Size(1280, 800);
 
 Future<void>? _fontsLoaded;
 
+/// Loads the real fonts, once per run, for a test that needs text to take the
+/// room it does on a device (the Ahem test font is as wide as it is tall).
+Future<void> loadTestFonts() => _fontsLoaded ??= _loadFonts();
+
 /// Widget tests draw text in the Ahem test font (solid boxes) and icons as
 /// empty squares. Load the real Roboto and Material Icons from the Flutter
 /// SDK so a screenshot shows what a user would see.
