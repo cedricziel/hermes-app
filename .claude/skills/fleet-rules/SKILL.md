@@ -145,7 +145,10 @@ The orchestrator arms or hand-merges at most one PR touching Dart code (`lib/`,
 `test/`, `widgetbook/` or `packages/`) at a time, until it has merged. The
 overlap unit is the `lib/src/<area>/` or test directory. Before every hand
 merge it trial-merges the PR with current main and runs `flutter analyze` in a
-scratch worktree.
+scratch worktree. Exception: a hand merge may proceed while another Dart PR is
+armed, if the trial merge includes BOTH heads on current main (merge the armed
+PR's head and this PR's head into a scratch worktree of current origin/main)
+and `flutter analyze` plus `flutter test test/architecture` pass there.
 
 - HARD RULE: never push to a PR with auto-merge armed. The push would merge
   without a review of that commit. Ask the orchestrator to disarm first, then
