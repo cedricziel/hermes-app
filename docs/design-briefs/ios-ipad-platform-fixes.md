@@ -129,11 +129,11 @@ Every new string needs English and German in `app_en.arb` and `app_de.arb`, unde
 | English                                                | German                                               | Area anchor                      |
 | ------------------------------------------------------ | ---------------------------------------------------- | -------------------------------- |
 | Couldn't refresh your chats.                           | Chats konnten nicht aktualisiert werden.             | `@@x-area-chat` (thread list)    |
-| Pull down to try again.                                | Zum erneuten Versuch nach unten ziehen.              | `@@x-area-chat` (thread list)    |
+| Pull down to try again.                                | Zum Wiederholen nach unten ziehen.              | `@@x-area-chat` (thread list)    |
 | Refreshing chats                                       | Chats werden aktualisiert                            | `@@x-area-chat` (thread list)    |
 | Attach                                                 | Anhängen                                             | `@@x-area-chat/attachments`      |
 | Photo Library, Take Photo, Files (hard-coded today)    | Fotomediathek, Foto aufnehmen, Dateien               | `@@x-area-chat/attachments`      |
-| Rename, Pin, Unpin, Archive, Delete (hard-coded today) | Umbenennen, Anheften, Loslösen, Archivieren, Löschen | `@@x-area-chat` (thread actions) |
+| Rename, Pin, Unpin, Archive, Delete (hard-coded today) | Umbenennen, Anheften, Nicht mehr anheften, Archivieren, Löschen | `@@x-area-chat` (thread actions) |
 
 The "Set up a model" alert text is the existing English text moved under `@@x-area-models` with a German translation. The memory dialogs keep their current wording ("Leave this memory?", "Permanently delete this memory?", "Keep draft", "Discard and leave", "Cancel", "Delete permanently"); they move into the ARB files under `@@x-area-memory` (PR #1136 keeps the key `memoryDeleteConfirmAction`).
 
