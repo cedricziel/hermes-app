@@ -11,13 +11,9 @@ import '../json_tree_parser.dart';
 import '../tool_value_language.dart'
     show kToolJsonTreeMaxDepth, kToolJsonTreeMaxNodes;
 import 'tool_hidden_chars.dart';
-import 'tool_value_view.dart' show ToolValueView;
+import 'tool_value_view.dart' show ToolValueView, kToolMonoStyle;
 
-const TextStyle _mono = TextStyle(
-  fontFamily: 'monospace',
-  fontSize: 12,
-  height: 1.4,
-);
+const TextStyle _mono = kToolMonoStyle;
 
 /// The collapsible JSON tree of a tool call: an object or array already
 /// decoded ([value], within the depth the tree is offered for). Rows are
@@ -52,6 +48,13 @@ class _ToolJsonTreeState extends State<ToolJsonTree> {
   final Set<int> _closed = {};
   late List<int> _visible;
 
+  /// The place of each node in the array that holds it, -1 elsewhere.
+  List<int> _position = const [];
+
+  /// Whether the root has its own row: only an empty one does; otherwise the
+  /// tree starts at its entries.
+  bool get _rootRow => (_nodes?.first.count ?? 0) == 0;
+
   @override
   void initState() {
     super.initState();
@@ -72,12 +75,30 @@ class _ToolJsonTreeState extends State<ToolJsonTree> {
   void _closeDeep() {
     _closed.clear();
     final nodes = _nodes ?? const <JsonTreeNode>[];
+    _position = List.filled(nodes.length, -1);
+    // Open: the root, depth 1 and the first container at depth 2.
+    var firstDeepOpen = false;
+    final counters = <int, int>{};
+    final ends = <(int, int)>[];
     for (var i = 0; i < nodes.length; i++) {
       final node = nodes[i];
+      while (ends.isNotEmpty && ends.last.$1 <= i) {
+        ends.removeLast();
+      }
+      if (ends.isNotEmpty && nodes[ends.last.$2].kind == JsonTreeKind.array) {
+        _position[i] = counters[ends.last.$2] =
+            (counters[ends.last.$2] ?? -1) + 1;
+      }
+      if (node.isContainer) ends.add((node.end, i));
       if (node.isContainer &&
           node.count > 0 &&
           node.depth > ToolJsonTree.initiallyOpenDepth) {
-        _closed.add(i);
+        if (node.depth == ToolJsonTree.initiallyOpenDepth + 1 &&
+            !firstDeepOpen) {
+          firstDeepOpen = true;
+        } else {
+          _closed.add(i);
+        }
       }
     }
     _visible = _computeVisible();
@@ -95,7 +116,7 @@ class _ToolJsonTreeState extends State<ToolJsonTree> {
   List<int> _computeVisible() {
     final visible = <int>[];
     final nodes = _nodes ?? const <JsonTreeNode>[];
-    var i = 0;
+    var i = _rootRow || nodes.isEmpty ? 0 : 1;
     while (i < nodes.length) {
       visible.add(i);
       i = _closed.contains(i) ? nodes[i].end : i + 1;
@@ -129,6 +150,8 @@ class _ToolJsonTreeState extends State<ToolJsonTree> {
         final index = _visible[row];
         return _TreeRow(
           node: nodes[index],
+          position: _position[index],
+          rootless: !_rootRow,
           open: !_closed.contains(index),
           onToggle: () => _toggle(index),
         );
@@ -140,11 +163,19 @@ class _ToolJsonTreeState extends State<ToolJsonTree> {
 class _TreeRow extends StatelessWidget {
   const _TreeRow({
     required this.node,
+    required this.position,
+    required this.rootless,
     required this.open,
     required this.onToggle,
   });
 
   final JsonTreeNode node;
+
+  /// The index of an array item, -1 for anything else.
+  final int position;
+
+  /// Whether the root has no row, so every row sits one level up.
+  final bool rootless;
   final bool open;
   final VoidCallback onToggle;
 
@@ -179,6 +210,13 @@ class _TreeRow extends StatelessWidget {
       spans
         ..addAll(text(key, keyStyle))
         ..add(TextSpan(text: ': ', style: punctuation));
+    } else if (position >= 0) {
+      spans.add(
+        TextSpan(
+          text: '$position: ',
+          style: base.copyWith(color: subtle),
+        ),
+      );
     }
     switch (node.kind) {
       case JsonTreeKind.object || JsonTreeKind.array:
@@ -186,10 +224,11 @@ class _TreeRow extends StatelessWidget {
         final summary = isObject
             ? l10n.chatWidgetsToolValueKeys(node.count)
             : l10n.chatWidgetsToolValueItems(node.count);
+        // Plain muted sans text, not code: no braces.
         spans.add(
           TextSpan(
-            text: isObject ? '{ $summary }' : '[ $summary ]',
-            style: base.copyWith(color: subtle),
+            text: summary,
+            style: TextStyle(fontSize: 11.5, color: subtle),
           ),
         );
       case JsonTreeKind.string:
@@ -215,30 +254,42 @@ class _TreeRow extends StatelessWidget {
         );
     }
 
-    final indent = node.depth.clamp(0, _indentSteps) * _indent;
-    final content = Padding(
-      padding: EdgeInsetsDirectional.only(start: indent),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: node.isContainer && node.count > 0
-                ? AppIcon(
-                    open ? AppIcons.dropDown : AppIcons.dropRight,
-                    size: 18,
-                    color: subtle,
-                  )
-                : null,
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 1),
-              child: Text.rich(TextSpan(children: spans), style: base),
+    final level = (rootless ? node.depth - 1 : node.depth).clamp(
+      0,
+      _indentSteps,
+    );
+    final indent = level * _indent;
+    final content = CustomPaint(
+      painter: _GuidePainter(
+        levels: level,
+        step: _indent,
+        color: scheme.outline,
+        rtl: Directionality.of(context) == TextDirection.rtl,
+      ),
+      child: Padding(
+        padding: EdgeInsetsDirectional.only(start: indent),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: node.isContainer && node.count > 0
+                  ? AppIcon(
+                      open ? AppIcons.dropDown : AppIcons.dropRight,
+                      size: 18,
+                      color: subtle,
+                    )
+                  : null,
             ),
-          ),
-        ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 1),
+                child: Text.rich(TextSpan(children: spans), style: base),
+              ),
+            ),
+          ],
+        ),
       ),
     );
     if (!node.isContainer || node.count == 0) return content;
@@ -262,4 +313,36 @@ class _TreeRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// One thin vertical line per level of nesting, at the start of each level's
+/// indent, so a deep row can be followed back to its parent.
+class _GuidePainter extends CustomPainter {
+  const _GuidePainter({
+    required this.levels,
+    required this.step,
+    required this.color,
+    required this.rtl,
+  });
+
+  final int levels;
+  final double step;
+  final Color color;
+  final bool rtl;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    for (var i = 0; i < levels; i++) {
+      final x = i * step + 10;
+      final dx = rtl ? size.width - x : x;
+      canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GuidePainter old) =>
+      old.levels != levels || old.color != color || old.rtl != rtl;
 }

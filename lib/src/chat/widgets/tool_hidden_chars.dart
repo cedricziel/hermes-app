@@ -224,7 +224,7 @@ class HiddenCharBox extends StatelessWidget {
           style: base.copyWith(
             fontSize: (base.fontSize ?? 12) * 0.8,
             height: 1.2,
-            color: subtle,
+            color: base.color,
             fontWeight: FontWeight.w500,
             fontStyle: FontStyle.normal,
           ),

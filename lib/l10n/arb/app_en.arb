@@ -2227,17 +2227,21 @@
   "@chatWidgetsToolValueLineBreak": {
     "description": "What a screen reader says for the boxed line break inside a string of the tree view of a tool call's JSON."
   },
+  "chatWidgetsToolValueNoticeColourBudget": "Not coloured while many long texts are open. Shown as plain text.",
+  "@chatWidgetsToolValueNoticeColourBudget": {
+    "description": "Muted line above a tool call's text that is not coloured because the open tool calls of this chat have used up the colouring they share; it is shown as plain text."
+  },
   "chatWidgetsToolValueNoticeTooDeepForTree": "Too deeply nested for the tree view.",
   "@chatWidgetsToolValueNoticeTooDeepForTree": {
-    "description": "Muted line under a tool call's JSON that is nested too deep for the tree view; it is shown as coloured text only."
+    "description": "Muted line above a tool call's JSON that is nested too deep for the tree view; it is shown as coloured text only."
   },
-  "chatWidgetsToolValueNoticeTooLongForTree": "Too long for the tree view.",
+  "chatWidgetsToolValueNoticeTooLongForTree":"Too long for the tree view.",
   "@chatWidgetsToolValueNoticeTooLongForTree": {
-    "description": "Muted line under a tool call's JSON that is too long for the tree view; it is shown as coloured text only."
+    "description": "Muted line above a tool call's JSON that is too long for the tree view; it is shown as coloured text only."
   },
   "chatWidgetsToolValueNoticeTooLongToColour": "Too long to colour. Shown as plain text.",
   "@chatWidgetsToolValueNoticeTooLongToColour": {
-    "description": "Muted line under a tool call's text that is too long to be coloured; it is shown as plain text."
+    "description": "Muted line above a tool call's text that is too long to be coloured; it is shown as plain text."
   },
   "chatWidgetsToolValueShowAsText": "Show as text",
   "@chatWidgetsToolValueShowAsText": {
