@@ -43,7 +43,9 @@ class CuratorRunConfirmationModel {
 /// filled. Run now is outlined in the link colour on Apple platforms and a
 /// text button on Android, never red. The back action, Escape and Return on
 /// the default all call [onCancel]; only the Run now button calls [onRun].
-/// Neither closes anything itself.
+/// Neither closes anything itself. A decided sheet closes from the next frame
+/// on: back or Escape in the same frame as Run, before the rebuild, is
+/// swallowed, and a second press closes it.
 ///
 /// The buttons stack, Cancel on top, at a large text size everywhere and on an
 /// Apple phone; [dialog] says the question sits in a dialog (iPad, a Mac,
@@ -82,7 +84,7 @@ class _CuratorRunConfirmationState extends State<CuratorRunConfirmation> {
   /// Escape from now on, whatever the caller does with its callback.
   void _decide() {
     _decided = true;
-    if (mounted) setState(() {});
+    setState(() {});
   }
 
   void _cancel() {

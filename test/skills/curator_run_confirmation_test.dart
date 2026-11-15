@@ -361,6 +361,186 @@ void main() {
       });
     });
 
+    group('a caller that closes the sheet itself', () {
+      Future<void> open(WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 3000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(platform: TargetPlatform.android),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  key: const ValueKey('open'),
+                  onPressed: () => showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (sheet) => CuratorRunConfirmation(
+                      model: _known,
+                      onCancel: () {
+                        calls.cancels++;
+                        Navigator.pop(sheet);
+                      },
+                      onRun: () {
+                        calls.runs++;
+                        Navigator.pop(sheet);
+                      },
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byKey(const ValueKey('open')));
+        await tester.pumpAndSettle();
+        expect(_run, findsOneWidget);
+      }
+
+      testWidgets('back pops only the sheet and cancels once', (tester) async {
+        await open(tester);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(_run, findsNothing);
+        expect(find.byKey(const ValueKey('open')), findsOneWidget);
+        expect(calls.cancels, 1);
+        expect(calls.runs, 0);
+      });
+    });
+
+    group('a decision made inside a callback', () {
+      Future<void> pumpReentrant(
+        WidgetTester tester, {
+        required VoidCallback Function() onCancel,
+        required VoidCallback Function() onRun,
+      }) async {
+        tester.view.physicalSize = const Size(800, 3000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(platform: TargetPlatform.android),
+            home: Scaffold(
+              body: CuratorRunConfirmation(
+                model: _known,
+                onCancel: () {
+                  calls.cancels++;
+                  onCancel()();
+                },
+                onRun: () {
+                  calls.runs++;
+                  onRun()();
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+
+      void press(WidgetTester tester, Finder button) =>
+          tester.widget<ButtonStyleButton>(button).onPressed!();
+
+      testWidgets('Cancel pressed from inside onRun never reaches the caller', (
+        tester,
+      ) async {
+        await pumpReentrant(
+          tester,
+          onCancel: () => () {},
+          onRun: () =>
+              () => press(tester, _cancel),
+        );
+        press(tester, _run);
+        await tester.pump();
+        expect(calls.runs, 1);
+        expect(calls.cancels, 0);
+      });
+
+      testWidgets('Run pressed from inside onCancel never reaches the caller', (
+        tester,
+      ) async {
+        await pumpReentrant(
+          tester,
+          onCancel: () =>
+              () => press(tester, _run),
+          onRun: () => () {},
+        );
+        press(tester, _cancel);
+        await tester.pump();
+        expect(calls.cancels, 1);
+        expect(calls.runs, 0);
+      });
+
+      testWidgets('Run pressed from inside onRun calls the caller once', (
+        tester,
+      ) async {
+        await pumpReentrant(
+          tester,
+          onCancel: () => () {},
+          onRun: () =>
+              () => press(tester, _run),
+        );
+        press(tester, _run);
+        await tester.pump();
+        expect(calls.runs, 1);
+        expect(calls.cancels, 0);
+      });
+    });
+
+    testWidgets(
+      'a decided sheet closes from the next frame on: back in the frame of '
+      'Run is swallowed',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 3000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(platform: TargetPlatform.android),
+            home: Builder(
+              builder: (context) => TextButton(
+                key: const ValueKey('open'),
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => CuratorRunConfirmation(
+                    model: _known,
+                    onCancel: () => calls.cancels++,
+                    onRun: () => calls.runs++,
+                  ),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byKey(const ValueKey('open')));
+        await tester.pumpAndSettle();
+
+        // No pump between Run and back: the route still refuses to pop.
+        await tester.tap(_run);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(_run, findsOneWidget);
+        expect(calls.runs, 1);
+        expect(calls.cancels, 0);
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(_run, findsNothing);
+        expect(calls.runs, 1);
+        expect(calls.cancels, 0);
+      },
+    );
+
     for (final (platform, minHeight, name) in [
       (TargetPlatform.iOS, 44.0, 'iOS 44 pt'),
       (TargetPlatform.android, 48.0, 'Android 48 dp'),
