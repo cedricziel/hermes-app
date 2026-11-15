@@ -51,7 +51,7 @@ void main() {
     });
 
     test('dot names are refused without a request', () async {
-      for (final name in ['.', '..']) {
+      for (final name in ['', '.', '..']) {
         expect(
           await failureOf(repository.read(name)),
           SoulFailureKind.badRequest,
@@ -195,6 +195,21 @@ void main() {
   });
 
   group('write', () {
+    test('a write whose JSON does not parse is a lost answer', () async {
+      server.onRequest(
+        'PUT',
+        soulPath,
+        (request) => throw DioException(
+          requestOptions: request,
+          error: const FormatException('bad json'),
+        ),
+      );
+      expect(
+        await failureOf(repository.write(soulProfile, 'x')),
+        SoulFailureKind.lostAnswer,
+      );
+    });
+
     test('sends the whole text in the body, name in the path', () async {
       server.on('PUT', soulPath, soulSaved);
       final result = await repository.write(soulProfile, 'New text\n');

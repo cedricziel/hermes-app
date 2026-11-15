@@ -127,10 +127,10 @@ class SoulRepository {
 
   /// The generated client pastes the name into the path as it is, so a name
   /// with `/`, `?`, `#` or `..` would reach another route.
-  /// `.` and `..` survive any encoding (Uri normalises `%2E`), so they are
-  /// refused before anything is sent.
+  /// `.` and `..` survive any encoding (Uri normalises `%2E`) and an empty
+  /// name collapses the path, so they are refused before anything is sent.
   String _segment(String profile) {
-    if (profile == '.' || profile == '..') {
+    if (profile.isEmpty || profile == '.' || profile == '..') {
       throw const SoulFailure(SoulFailureKind.badRequest);
     }
     return Uri.encodeComponent(profile);
