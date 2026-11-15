@@ -28,6 +28,8 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaml/yaml.dart';
 
+import 'source_scan.dart';
+
 /// The directory of the baseline files, relative to the repository root.
 const baselineDir = 'test/architecture/baseline';
 
@@ -319,39 +321,79 @@ void ratchetTests(List<Rule> rules, {required String namespace}) {
   }
 }
 
-/// Test files that call `ratchetTests(..., namespace: 'x')`, by namespace.
-/// Comment lines are skipped; [skip] is a path that is not scanned.
-Map<String, List<String>> findRegistrations(Directory root, {String? skip}) {
-  final call = RegExp(r'ratchetTests\([^;]*namespace:\s*.(\w+).');
-  final found = <String, List<String>>{};
-  for (final entity in root.listSync(recursive: true, followLinks: false)) {
-    if (entity is! File || !entity.path.endsWith('.dart')) continue;
-    final path = entity.path.replaceAll(r'\', '/');
-    if (path == skip) continue;
-    final text = entity
-        .readAsStringSync()
-        .split('\n')
-        .where((l) => !l.trimLeft().startsWith('//'))
-        .join('\n');
-    for (final m in call.allMatches(text)) {
-      found.putIfAbsent(m.group(1)!, () => []).add(path);
-    }
-  }
-  return found;
+/// Every `ratchetTests(` call under [roots], and what is wrong with it.
+class Registrations {
+  /// Namespace -> the files that register it with a literal.
+  final byNamespace = <String, List<String>>{};
+
+  /// Calls that are not allowed: outside a `*_test.dart` file, with a
+  /// namespace that is not a literal naming a known namespace, or a namespace
+  /// registered twice.
+  final problems = <String>[];
 }
 
-/// Problems between registrations and baseline files: a namespace registered
-/// from two places, or a baseline file nobody registers.
+const _registrationRule =
+    'call ratchetTests directly from exactly one *_test.dart per namespace, '
+    'with a literal namespace';
+
+/// Scans the comment-free code of every Dart file under [roots] for
+/// `ratchetTests(` calls, with arguments matched by parenthesis depth.
+Registrations findRegistrations(List<Directory> roots) {
+  final call = RegExp(r'(?<!void\s)\bratchetTests\s*\(');
+  final literal = RegExp(
+    r"""\bnamespace\s*:\s*(?:'(\w+)'|"(\w+)")\s*(?:,|\))""",
+  );
+  final out = Registrations();
+  for (final root in roots) {
+    if (!root.existsSync()) continue;
+    for (final entity in root.listSync(recursive: true, followLinks: false)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final path = entity.path.replaceAll(r'\', '/');
+      final file = SourceFile(path, entity.readAsStringSync());
+      for (final (offset, args) in callArguments(file, call)) {
+        final where = '$path:${file.lineOf(offset)}';
+        if (!path.endsWith('_test.dart')) {
+          out.problems.add(
+            '$where: ratchetTests is called outside a *_test.dart file: '
+            '$_registrationRule',
+          );
+          continue;
+        }
+        final m = literal.firstMatch(args);
+        final ns = m == null ? null : (m.group(1) ?? m.group(2));
+        if (ns == null) {
+          out.problems.add(
+            '$where: the namespace argument is not a string literal: '
+            '$_registrationRule',
+          );
+        } else if (!namespaces.contains(ns)) {
+          out.problems.add('$where: unknown namespace "$ns" ($namespaces)');
+        } else {
+          out.byNamespace.putIfAbsent(ns, () => []).add(where);
+        }
+      }
+    }
+  }
+  for (final entry in out.byNamespace.entries) {
+    if (entry.value.length > 1) {
+      out.problems.add(
+        'namespace ${entry.key} is registered ${entry.value.length} times '
+        '(${entry.value.join(', ')}): $_registrationRule',
+      );
+    }
+  }
+  return out;
+}
+
+/// Problems between registrations and baseline files: a bad call, a namespace
+/// registered twice, or a baseline file nobody registers.
 List<String> checkRegistrations(
-  Map<String, List<String>> registrations,
+  Registrations registrations,
   Iterable<String> baselineFileNamespaces,
 ) => [
-  for (final entry in registrations.entries)
-    if (entry.value.length > 1)
-      'namespace ${entry.key} is registered by ${entry.value.length} files '
-          '(${entry.value.join(', ')}): call ratchetTests once per namespace',
+  ...registrations.problems,
   for (final ns in baselineFileNamespaces)
-    if (!registrations.containsKey(ns))
+    if (!registrations.byNamespace.containsKey(ns))
       '${baselinePathFor(ns)} has no test file calling '
           "ratchetTests(..., namespace: '$ns')",
 ];
