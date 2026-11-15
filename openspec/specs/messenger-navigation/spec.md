@@ -55,7 +55,7 @@ Chats SHALL offer New message, which opens a new-chat composer with a profile re
 
 ### Requirement: Both composer selectors expose configuration state
 
-The recipient and model selectors SHALL remain visible side by side on compact and wide layouts across all Flutter platforms. Each SHALL distinguish loading, incomplete configuration or missing options, load failure with Retry, and ready states through visible and accessible text. Neither SHALL disappear solely because its options are loading, empty, or failed. Long labels SHALL truncate without overflowing or stacking the controls.
+While the recipient can still be chosen, which is in a new conversation that has no messages, the recipient and model selectors SHALL remain visible side by side on compact and wide layouts across all Flutter platforms. In an existing conversation, whose owning profile is fixed and shown by the chat header, the recipient selector SHALL NOT be shown and the model selector SHALL remain visible and changeable. Each SHALL distinguish loading, incomplete configuration or missing options, load failure with Retry, and ready states through visible and accessible text. Neither SHALL disappear solely because its options are loading, empty, or failed, and the recipient selector SHALL reappear if a first send leaves the conversation with no messages. Long labels SHALL truncate without overflowing or stacking the controls.
 
 Recipient setup and retry SHALL preserve local selection semantics. An unavailable recipient SHALL remain identified and SHALL NOT silently fall back to another profile. The model setup action SHALL address the selected recipient's model/provider configuration. Returning from setup SHALL refresh the affected options. Opening setup or retrying discovery SHALL NOT itself mutate configuration or send a message.
 
@@ -88,6 +88,10 @@ The app SHALL preserve unsent text and attachments through these states and disa
 #### Scenario: Stale discovery completes
 - **WHEN** an earlier discovery request completes after a recipient, account, or server change
 - **THEN** its result does not replace either current selector's options or configuration state
+
+#### Scenario: Existing conversation shows no recipient selector
+- **WHEN** the user opens a conversation that has messages, or a first send has completed in a new one
+- **THEN** the composer shows the model selector alone, still changeable, and no recipient selector, because the conversation keeps its owning profile
 
 ### Requirement: Preserve adaptive desktop and tablet behavior
 
