@@ -12,11 +12,14 @@ never checks out, fetches, executes or installs anything from the PR.
 `check`, `review_recorded` and `main` are tested in scripts/test_pr_policy.py.
 """
 
+import base64
+import difflib
 import json
 import os
 import re
 import sys
 import urllib.request
+from urllib.parse import quote
 
 # The types release-please-config.json lists in changelog-sections.
 TYPES = "feat|fix|docs|chore|refactor|test|ci|build|perf|style|revert"
@@ -70,7 +73,7 @@ REVIEW_HINT = (
     "run the isolated-reviewer agent on this head and paste its block into ## Review"
 )
 REVIEW_LINE_RE = re.compile(
-    r"^Reviewer:[ \t]*[^\n]+?[ \t]+Head:[ \t]*([0-9a-fA-F]{40})"
+    r"^Reviewer:[ \t]*\S+[ \t]+Head:[ \t]*([0-9a-fA-F]{40})"
     r"[ \t]+Verdict:[ \t]*(clean|changes-requested)[ \t]*$",
     re.M,
 )
@@ -341,11 +344,13 @@ def review_recorded(body, head_sha):
     return []
 
 
-def _api_get(url, token):
+def api_get(path):
+    """GET https://api.github.com/<path> with GITHUB_TOKEN: data only, read-only,
+    nothing of the PR is checked out or executed."""
     req = urllib.request.Request(
-        url,
+        f"https://api.github.com/{path}",
         headers={
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {os.environ.get('GITHUB_TOKEN', '')}",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         },
@@ -354,22 +359,67 @@ def _api_get(url, token):
         return json.load(resp)
 
 
-def fetch_pr_files(repo, number):
-    """The PR's files (filename, previous_filename, patch) from the REST API,
-    read-only, with GITHUB_TOKEN. Nothing of the PR is checked out."""
-    token = os.environ.get("GITHUB_TOKEN", "")
+def fetch_pr_files(api, repo, number):
+    """The PR's files (filename, previous_filename, status, patch)."""
     files, page = [], 1
     while page <= 30:
-        chunk = _api_get(
-            f"https://api.github.com/repos/{repo}/pulls/{number}/files"
-            f"?per_page=100&page={page}",
-            token,
-        )
+        chunk = api(f"repos/{repo}/pulls/{number}/files?per_page=100&page={page}")
         files += chunk
         if len(chunk) < 100:
             break
         page += 1
     return files
+
+
+def _blob(api, repo, path, ref):
+    data = api(f"repos/{repo}/contents/{quote(path)}?ref={ref}")
+    if data.get("encoding") != "base64":
+        raise ValueError("blob too large")
+    return base64.b64decode(data["content"]).decode("utf-8", "replace")
+
+
+def local_patch(api, repo, f, base_sha, head_sha):
+    """A patch for a file the files API listed without one (a large diff),
+    diffed locally from the base and head blobs. Returns None when the blobs
+    cannot be fetched."""
+    try:
+        merge_base = base_sha
+        if f.get("status") != "added":
+            cmp = api(f"repos/{repo}/compare/{base_sha}...{head_sha}")
+            merge_base = cmp["merge_base_commit"]["sha"]
+            old = _blob(api, repo, f.get("previous_filename") or f["filename"], merge_base)
+        else:
+            old = ""
+        new = _blob(api, repo, f["filename"], head_sha)
+    except Exception:
+        return None
+    return "\n".join(
+        difflib.unified_diff(
+            old.splitlines(), new.splitlines(), n=0, lineterm="", fromfile="a", tofile="b"
+        )
+    )
+
+
+def fill_patches(api, repo, files, base_sha, head_sha):
+    """Fills in missing patches of the files the policy reads. Returns the
+    failures for those it could not read."""
+    failures = []
+    for f in files:
+        if (
+            f["filename"] in READ_FILES
+            and f.get("status") != "removed"
+            and not f.get("patch")
+        ):
+            patch = local_patch(api, repo, f, base_sha, head_sha)
+            if patch is None:
+                failures.append(
+                    f"The diff of {f['filename']} is too large to check and its "
+                    "contents could not be fetched; split the change, or ask the "
+                    "orchestrator to review it by hand."
+                )
+            else:
+                f["patch"] = patch
+    return failures
 
 
 def changed_names(files):
@@ -399,9 +449,12 @@ def corruption_diff(files):
     )
 
 
-def main(argv, fetch_files=fetch_pr_files):
-    """`fetch_files(repo, number)` is injectable so tests can run a saved event
-    JSON without the network."""
+READ_FILES = ("pubspec.yaml",) + CORRUPTION_FILES
+
+
+def main(argv, api=api_get):
+    """`api(path)` is injectable so tests can run a saved event JSON without
+    the network."""
     mode = argv[1] if len(argv) > 1 else ""
     with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as f:
         pr = json.load(f)["pull_request"]
@@ -410,8 +463,24 @@ def main(argv, fetch_files=fetch_pr_files):
     head_ref = pr["head"]["ref"]
     same = same_repo(pr)
     if mode == "policy":
-        files = fetch_files(pr["base"]["repo"]["full_name"], pr["number"])
-        failures = check(
+        repo = pr["base"]["repo"]["full_name"]
+        # A newer push has its own run; leave the result to it. Exit 0 is safe
+        # because that run reports on the new head, and a failed lookup here
+        # fails the job rather than passing it.
+        current = api(f"repos/{repo}/pulls/{pr['number']}")["head"]["sha"]
+        if current != head_sha:
+            print(f"superseded by {current}")
+            return 0
+        files = fetch_pr_files(api, repo, pr["number"])
+        failures = []
+        listed = pr.get("changed_files")
+        if isinstance(listed, int) and len(files) < listed:
+            failures.append(
+                f"Too many files to check: the API lists {len(files)} of "
+                f"{listed}. Split the PR."
+            )
+        failures += fill_patches(api, repo, files, pr["base"]["sha"], head_sha)
+        failures += check(
             pr.get("title") or "",
             pr.get("body") or "",
             head_ref,

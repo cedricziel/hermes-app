@@ -1,5 +1,6 @@
 import unittest
 
+import base64
 import io
 import json
 import os
@@ -11,6 +12,7 @@ from pr_policy import check, corrupted_lines, review_recorded
 
 SHA = "a" * 40
 OLD = "b" * 40
+MERGE_BASE = "c" * 40
 
 TRAILERS = (
     "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n"
@@ -388,9 +390,18 @@ class ReviewTest(unittest.TestCase):
     def test_uppercase_sha_matches(self):
         self.assertEqual(self.rv(f"Reviewer: r Head: {SHA.upper()} Verdict: clean"), [])
 
-    def test_reviewer_name_with_spaces(self):
-        r = f"Reviewer: isolated reviewer 2 Head: {SHA} Verdict: clean"
-        self.assertEqual(self.rv(r), [])
+    def test_reviewer_name_is_one_word(self):
+        r = f"Reviewer: isolated reviewer Head: {SHA} Verdict: clean"
+        self.assertTrue(self.rv(r)[0].startswith("No isolated"))
+
+    def test_second_pair_packed_into_the_name(self):
+        r = (
+            f"Reviewer: x Head: {OLD} Verdict: changes-requested "
+            f"Head: {SHA} Verdict: clean"
+        )
+        self.assertTrue(self.rv(r)[0].startswith("No isolated"))
+        r = f"Reviewer: Head: {SHA} Verdict: clean Head: {SHA} Verdict: clean"
+        self.assertTrue(self.rv(r)[0].startswith("No isolated"))
 
     def test_missing_section(self):
         out = review_recorded("## Proof\nx\n", SHA)
@@ -479,7 +490,8 @@ class MainTest(unittest.TestCase):
         pr.update(over)
         return {"pull_request": pr}
 
-    def run_main(self, mode, event, files=()):
+    def run_main(self, mode, event, files=(), blobs=None, current=SHA):
+        """blobs maps (path, ref) to file text; a missing one raises."""
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "event.json")
             with open(path, "w") as f:
@@ -488,14 +500,27 @@ class MainTest(unittest.TestCase):
             os.environ["GITHUB_EVENT_PATH"] = path
             calls = []
 
-            def fetch(repo, number):
-                calls.append((repo, number))
-                return list(files)
+            def api(p):
+                calls.append(p)
+                if p == "repos/o/r/pulls/7":
+                    return {"head": {"sha": current}}
+                if p.startswith("repos/o/r/pulls/7/files"):
+                    return list(files)
+                if p.startswith("repos/o/r/compare/"):
+                    return {"merge_base_commit": {"sha": MERGE_BASE}}
+                if p.startswith("repos/o/r/contents/"):
+                    name, ref = p[len("repos/o/r/contents/"):].split("?ref=")
+                    text = (blobs or {})[(name, ref)]
+                    return {
+                        "encoding": "base64",
+                        "content": base64.b64encode(text.encode()).decode(),
+                    }
+                raise AssertionError(p)
 
             buf = io.StringIO()
             try:
                 with redirect_stdout(buf):
-                    code = pr_policy.main(["x", mode], fetch)
+                    code = pr_policy.main(["x", mode], api)
             finally:
                 if old is None:
                     del os.environ["GITHUB_EVENT_PATH"]
@@ -503,11 +528,80 @@ class MainTest(unittest.TestCase):
                     os.environ["GITHUB_EVENT_PATH"] = old
             return code, buf.getvalue(), calls
 
+    def test_patchless_pubspec_version_change_detected(self):
+        files = [{"filename": "pubspec.yaml", "status": "modified"}]
+        blobs = {
+            ("pubspec.yaml", MERGE_BASE): "name: x\nversion: 1.0.0\n",
+            ("pubspec.yaml", SHA): "name: x\nversion: 1.0.1\n",
+        }
+        code, out, _ = self.run_main("policy", self.event(), files, blobs)
+        self.assertEqual(code, 1)
+        self.assertIn("release-please bumps", out)
+
+    def test_patchless_pubspec_without_version_change_ok(self):
+        files = [{"filename": "pubspec.yaml", "status": "modified"}]
+        blobs = {
+            ("pubspec.yaml", MERGE_BASE): "name: x\nversion: 1.0.0\n",
+            ("pubspec.yaml", SHA): "name: y\nversion: 1.0.0\n",
+        }
+        self.assertEqual(self.run_main("policy", self.event(), files, blobs)[0], 0)
+
+    def test_patchless_large_claude_md_reflow_checked(self):
+        old = "".join(f"line {i} with `code`\n" for i in range(3000))
+        new = old.replace("line 2999 with `code`", "line 2999 on x86*64 with `code")
+        files = [{"filename": "CLAUDE.md", "status": "modified"}]
+        blobs = {("CLAUDE.md", MERGE_BASE): old, ("CLAUDE.md", SHA): new}
+        code, out, _ = self.run_main("policy", self.event(), files, blobs)
+        self.assertEqual(code, 1)
+        self.assertIn("corrupted by a Markdown formatter", out)
+
+    def test_patchless_added_file_diffed_against_empty(self):
+        files = [{"filename": "CLAUDE.md", "status": "added"}]
+        blobs = {("CLAUDE.md", SHA): "use `flutter run\n"}
+        self.assertEqual(self.run_main("policy", self.event(), files, blobs)[0], 1)
+
+    def test_patchless_unfetchable_fails_closed(self):
+        files = [{"filename": "docs/roadmap.md", "status": "modified"}]
+        code, out, _ = self.run_main("policy", self.event(), files, {})
+        self.assertEqual(code, 1)
+        self.assertIn("too large to check", out)
+
+    def test_removed_or_other_patchless_files_not_fetched(self):
+        files = [
+            {"filename": "CLAUDE.md", "status": "removed"},
+            {"filename": "lib/big.dart", "status": "modified"},
+        ]
+        code, _, calls = self.run_main("policy", self.event(), files, {})
+        self.assertFalse([c for c in calls if "contents" in c])
+
+    def test_too_many_files(self):
+        ev = self.event(changed_files=3001)
+        code, out, _ = self.run_main("policy", ev, [{"filename": "a.dart"}])
+        self.assertEqual(code, 1)
+        self.assertIn("Too many files to check", out)
+
+    def test_changed_files_equal_ok(self):
+        ev = self.event(changed_files=1)
+        self.assertEqual(self.run_main("policy", ev, [{"filename": "a.dart"}])[0], 0)
+
+    def test_superseded_head_exits_zero(self):
+        code, out, calls = self.run_main(
+            "policy", self.event(title="bad title"), current=OLD
+        )
+        self.assertEqual((code, out.strip()), (0, f"superseded by {OLD}"))
+        self.assertEqual(len(calls), 1)
+
+    def test_review_not_superseded_check(self):
+        ev = self.event(body=body(review=""))
+        code, _, calls = self.run_main("review", ev, current=OLD)
+        self.assertEqual((code, calls), (1, []))
+
     def test_policy_ok(self):
         code, out, calls = self.run_main(
             "policy", self.event(), [{"filename": "a.dart"}]
         )
-        self.assertEqual((code, out.strip(), calls), (0, "ok", [("o/r", 7)]))
+        self.assertEqual((code, out.strip()), (0, "ok"))
+        self.assertEqual(calls[0], "repos/o/r/pulls/7")
 
     def test_policy_fails_on_roadmap_and_version(self):
         files = [

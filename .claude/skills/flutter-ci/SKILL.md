@@ -109,6 +109,7 @@ payload, so edit the body to re-check. Each failure names its fix:
 - `docs/roadmap.md`: revert it and send the orchestrator the row. The check is by branch prefix (`claude/quirky-einstein-`), so it is loud, not tight.
 - "looks corrupted by a Markdown formatter": the hook turned `x86_64` into `x86*64` or unbalanced a backtick in CLAUDE.md or the roadmap. Restore the line from main and re-apply only your change, with a script instead of Edit/Write.
 - Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push.
+- Known gap: model names inside inline code or fenced code are not checked.
 - TODO, TBD, n/a, `-` and `...` count as empty; "Nothing" is a valid answer for `## Not verified on a device`.
 
 Automation PRs from the same repository skip the title, body and review
