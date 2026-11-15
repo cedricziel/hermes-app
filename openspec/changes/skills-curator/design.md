@@ -75,9 +75,9 @@ Spans carry the connection's `hermes.*` attributes. None holds a skill name, out
 
 ## Design pass
 
-Status: Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC).
+Status: Design (done): canvas reviewed.
 
-The brief is `docs/design-briefs/skills-curator.md`; the design record is written and reviewed, with no canvas yet: the design tool was not run, no build starts before the canvas exists, and the design system README was not read (the decisions come from the merged briefs and the existing widgets). Decisions that change behaviour:
+The brief is `docs/design-briefs/skills-curator.md`; the design record is written and the canvas is reviewed. The canvas is https://claude.ai/artifact/Bo238NP1GGXUdeDW888tLJ (private; ask its owner for access). It holds 19 boards and one parametric page, in these rows: the section (4 boards: idle, never run / paused / off in config / unknown fields, loading / refreshing / pass already running, status read fails); the pause switch (1); the run confirmation (2: three wordings on the phone sheet, Android / largest text / dark); Run now (2: running / progress lost / still running, not started / lost answer / Check status results); the output tile (1); the Skills screen states (1); dark, largest text and German (3); Mac (3: page, confirmation dialog, running and finished); Android (1); wide, iPad landscape (1). The design system README was not read for the brief (the decisions come from the merged briefs and the existing widgets). What the render checked and what it did not is in the brief's "Local render review". Decisions that change behaviour:
 
 - The section shows on the Installed tab only while no search text or filter is active (decided by the owner), or on the only list when the server has no hub.
 - Output lines are shown only when a run ends, not while it goes, in a closed "Show output" tile (last 30 lines, not selectable, a footnote that the log is shared by every profile). They are blank under App Lock and while the app is inactive on a phone.
