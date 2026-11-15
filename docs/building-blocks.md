@@ -16,7 +16,7 @@ Rules are stated in full in the area's file under `docs/architecture/`.
 | List or read server files | `/api/fs` repository (`list`, `git-root`, `default-cwd`, `read-text`, `download`) | `lib/src/files/hermes_files_repository.dart` | `/api/fs` only, with `profile`; `/api/files` is left to `MEDIA:` attachments. |
 | Download a file | `MediaStore.stageDownload`, `FileExport` (Save) | `lib/src/chat/media/media_store.dart`, `lib/src/chat/media/file_export.dart` | Streams to a `.part` file, never in memory; nothing downloads without a tap. |
 | Clear downloads on sign-out or lock | `MediaStore.clearFileDownloads`, `FilesLockCleanup` | `lib/src/chat/media/media_store.dart`, `files_lock_cleanup.dart` | Every Files download goes on sign-out and App Lock. |
-| Secret-looking file names | `SecretNames` | `lib/src/files/secret_names.dart` | Ask first; cache under `fs-secret:`; delete when the preview closes. |
+| Secret-looking file names | `SecretNames` | `lib/src/files/secret_names.dart` | Ask first; cache under `fs-secret:` (`kSecretCopyKeyPrefix`, `lib/src/chat/media/media_store.dart`); delete when the preview closes. |
 | Platform limits on files | `FilesPlatformPolicy` | `lib/src/files/files_platform_policy.dart` | No Open with... for runnable types on Windows; Mark of the Web on staged files. |
 | Confirm an MCP command server | `showMcpCommandReview` / `McpCommandReview` | `lib/src/mcp/mcp_command_review.dart` | A command server is never sent without the reviewer's confirmation. |
 | User-visible text | `context.l10n`, ARB files under `@@x-area-<dir>`, `kReleasedLocales` | `lib/l10n/l10n.dart`, `lib/l10n/arb/app_en.arb`, `app_de.arb` | No strings below the widget layer; none for telemetry names, ids or server values. |

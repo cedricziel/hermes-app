@@ -42,7 +42,7 @@ Store "What's New" are both read from that body (`scripts/plain_release_notes.py
 removes the Markdown, leaves out lines about Android, Windows or Linux, which
 App Review rejects under guideline 2.3.10, and cuts the text to 4000 characters).
 
-The orchestrator merges the PR when `Analyze & test` is green. The PR is opened with
+When asked, the orchestrator merges the PR once `Analyze & test` is green. The PR is opened with
 `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
 missing or expired.
 

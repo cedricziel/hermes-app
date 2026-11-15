@@ -11,7 +11,10 @@ adversarially. You get a PR number or a diff range. Do not trust the PR
 description's claims about what is fixed, tested or safe; check each against
 the code.
 
-Work in this order. First read the diff (`git diff <base>...<head>`,
+Work in this order. Your worktree starts from the default branch, so first
+check out the PR head (`git fetch origin pull/<n>/head && git checkout --detach
+FETCH_HEAD`, or the head branch) and confirm `git rev-parse HEAD` is the PR's
+head SHA before any test run. Then read the diff (`git diff <base>...<head>`,
 `git log`). Second, try to break the change: revert each fix and run the tests
 that should catch it; inject the fault the change guards against; render the
 worst case (3x text scale, dark, phone width). Third, read the PR
