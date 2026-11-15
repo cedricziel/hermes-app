@@ -129,8 +129,9 @@ reports to the orchestrator, who arms auto-merge.
 
 - **Stacked PRs.** Build them with plain merge commits of the lower branch into
   the upper one. Merge bottom-up: after the lower PR merges, retarget the next
-  PR's base to main, then arm it. Retargeting does not rerun CI, so read the
-  checks on the new head.
+  PR's base to main, merge main into its branch, get a review of the new head,
+  and arm it only once that head's checks are green. Retargeting does not rerun
+  CI.
 - **No rebases, no force-pushes** on a pushed branch.
 - **No `git stash`.** Agents sharing one clone share one stash list, so one
   worker's pop can take another's work. Workers use commits or patch files.
