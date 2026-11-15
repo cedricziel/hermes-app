@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/app_banner.dart';
+import '../../widgets/platform_refresh.dart';
+
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
 import '../../macos/mac_sidebar.dart';
@@ -91,6 +94,8 @@ class ThreadSidebar extends StatelessWidget {
     this.fullPage = false,
     this.avatarBuilder,
     this.contentBottomPadding = 0,
+    this.onRefresh,
+    this.refreshFailed = false,
   });
 
   final List<ChatThread> threads;
@@ -146,6 +151,14 @@ class ThreadSidebar extends StatelessWidget {
 
   /// Scroll clearance for a floating control over the list or search results.
   final double contentBottomPadding;
+
+  /// Reads the first page of chats again, for a pull down on the list. The
+  /// pull is offered everywhere but on the Mac, and only with this.
+  final Future<void> Function()? onRefresh;
+
+  /// Whether the last pull to refresh failed; a notice above the list says
+  /// so until the next one works.
+  final bool refreshFailed;
 
   @override
   Widget build(BuildContext context) => _ThreadListScope(
@@ -342,6 +355,36 @@ class ThreadSidebar extends StatelessWidget {
   }
 
   Widget _threadList(BuildContext context, ThreadListPreferences preferences) {
+    final onRefresh = this.onRefresh;
+    final list = _threadListBody(context, preferences);
+    if (onRefresh == null) return list;
+    final l10n = context.l10n;
+    return Column(
+      children: [
+        if (refreshFailed)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+            child: AppBanner(
+              tone: AppBannerTone.error,
+              title: l10n.chatWidgetsThreadListRefreshFailedTitle,
+              detail: l10n.chatWidgetsThreadListRefreshFailedDetail,
+            ),
+          ),
+        Expanded(
+          child: PlatformRefresh(
+            onRefresh: onRefresh,
+            semanticsLabel: l10n.chatWidgetsThreadListRefreshing,
+            child: list,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _threadListBody(
+    BuildContext context,
+    ThreadListPreferences preferences,
+  ) {
     if (fullPage && threads.isEmpty) {
       return const Center(child: Text('No chats yet. Start a new message.'));
     }
@@ -368,6 +411,7 @@ class ThreadSidebar extends StatelessWidget {
         _ThreadListHeading(preferences: preferences),
         Expanded(
           child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(8, 0, 8, contentBottomPadding),
             itemCount: threads.length + (showMore ? 1 : 0),
             itemBuilder: (context, index) {
@@ -682,6 +726,9 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       if (housekeeping != null && housekeeping.hasMore) housekeeping,
     ];
     return ListView.builder(
+      physics: platformChromeOf(context) == PlatformChrome.macos
+          ? null
+          : const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(8, 0, 8, widget.bottomPadding),
       itemCount: items.length,
       itemBuilder: (context, index) => switch (items[index]) {

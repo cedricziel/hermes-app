@@ -97,6 +97,10 @@ extension _ChatScreenLayout on _ChatScreenState {
           selectedId: chat.selectedId,
           onSelect: _pickInSidebar,
           onNewThread: _newThread,
+          onRefresh: () async {
+            await chat.pullRefreshThreadList();
+          },
+          refreshFailed: chat.threadListRefreshFailed,
           busy: chat.activeThreads,
           housekeeping: chat.housekeeping,
           search: chat.search,

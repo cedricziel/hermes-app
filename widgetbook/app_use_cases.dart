@@ -315,6 +315,15 @@ WidgetbookNode appNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ThreadSidebar',
       useCases: [
+        for (final state in ['Idle', 'Refreshing', 'Refresh failed'])
+          _screen(
+            'Pull to refresh $state (iPhone)',
+            () => CatalogAuth(gated: true),
+            () => _PullToRefreshList(
+              refreshing: state == 'Refreshing',
+              failed: state == 'Refresh failed',
+            ),
+          ),
         for (final state in [
           'Empty',
           'Populated',
@@ -929,3 +938,58 @@ Widget _shortShellSidebar() => Builder(
 );
 
 void _ignoreOrigin(AttachOrigin _) {}
+
+/// The chat list on an iPhone: at rest, with the pull spinner showing (a
+/// refresh that never ends), or with the notice a failed pull leaves.
+class _PullToRefreshList extends StatefulWidget {
+  const _PullToRefreshList({required this.refreshing, required this.failed});
+
+  final bool refreshing;
+  final bool failed;
+
+  @override
+  State<_PullToRefreshList> createState() => _PullToRefreshListState();
+}
+
+class _PullToRefreshListState extends State<_PullToRefreshList> {
+  final _never = Completer<void>();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.refreshing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        void visit(Element element) {
+          if (element is StatefulElement &&
+              element.state is RefreshIndicatorState) {
+            unawaited((element.state as RefreshIndicatorState).show());
+            return;
+          }
+          element.visitChildren(visit);
+        }
+
+        context.visitChildElements(visit);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: Theme.of(context).copyWith(platform: TargetPlatform.iOS),
+    child: fill(
+      Scaffold(
+        body: ThreadSidebar(
+          fullPage: true,
+          threads: threads,
+          selectedId: null,
+          onSelect: (_) {},
+          onNewThread: () {},
+          onRefresh: () => _never.future,
+          refreshFailed: widget.failed,
+        ),
+      ),
+      width: 390,
+    ),
+  );
+}

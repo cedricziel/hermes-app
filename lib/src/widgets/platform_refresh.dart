@@ -10,14 +10,22 @@ class PlatformRefresh extends StatelessWidget {
     super.key,
     required this.onRefresh,
     required this.child,
+    this.semanticsLabel,
   });
 
   final Future<void> Function() onRefresh;
   final Widget child;
 
+  /// What a screen reader announces while the spinner shows.
+  final String? semanticsLabel;
+
   @override
   Widget build(BuildContext context) =>
       platformChromeOf(context) == PlatformChrome.macos
       ? child
-      : RefreshIndicator.adaptive(onRefresh: onRefresh, child: child);
+      : RefreshIndicator.adaptive(
+          onRefresh: onRefresh,
+          semanticsLabel: semanticsLabel,
+          child: child,
+        );
 }
