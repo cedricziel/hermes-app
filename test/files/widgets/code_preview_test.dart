@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/code_highlight.dart';
 import 'package:hermes_app/src/files/widgets/file_previews.dart';
@@ -316,6 +317,41 @@ void main() {
       );
       expect(rendered(tester), contains('a & b < c \u00A9 d A'));
     });
+
+    for (final (name, source) in [
+      ('a relative link', '&#x202E[;](rel) x'),
+      ('an anchor link', '&#x202E[;](#a) x'),
+      ('an image', '&lrm![;](https://e.com/i.png) x'),
+      ('a reference image', '&rlm![;][r] y\n\n[r]: https://e.com/i.png'),
+      ('a reference without a semicolon', '&lrm x'),
+      ('a hex reference without a semicolon', '&#x202E x'),
+      ('a padded hex reference', '&#x000202E; x'),
+    ]) {
+      testWidgets('a reference joined by $name shows no raw character', (
+        tester,
+      ) async {
+        final handle = tester.ensureSemantics();
+        await pumpFiles(tester, MarkdownPreview(text: source));
+        final text = rendered(tester);
+        for (final char in unsafe.split('')) {
+          expect(text.contains(char), isFalse, reason: source);
+        }
+        final labels = StringBuffer();
+        void walk(SemanticsNode node) {
+          labels.write(node.label);
+          node.visitChildren((child) {
+            walk(child);
+            return true;
+          });
+        }
+
+        walk(tester.getSemantics(find.byType(MarkdownPreview)));
+        for (final char in unsafe.split('')) {
+          expect(labels.toString().contains(char), isFalse, reason: source);
+        }
+        handle.dispose();
+      });
+    }
 
     test('safeMarkdownText leaves ordinary references and text alone', () {
       const text = 'a &amp; b &#65; &copy; & lone &x; &#xZZ;';

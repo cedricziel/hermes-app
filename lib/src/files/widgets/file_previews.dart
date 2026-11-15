@@ -442,7 +442,12 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
           child: _themed(
             context,
             GptMarkdown(
-              inertMarkdown(safeMarkdownText(text), notLoaded: notLoaded),
+              // The reference pass runs last: inertMarkdown collapses links and
+              // images to their text and can join an unfinished reference to a
+              // semicolon.
+              safeMarkdownText(
+                inertMarkdown(safeContentText(text), notLoaded: notLoaded),
+              ),
               // Markdown here comes from the agent: HTML in it is text, never
               // a tag that renders (an <img> would be a request).
               html: false,
