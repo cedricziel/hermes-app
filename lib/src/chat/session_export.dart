@@ -19,6 +19,26 @@ class SessionExportIncomplete implements Exception {
   String toString() => 'SessionExportIncomplete';
 }
 
+/// The export request failed. Holds only the [kind]: the [DioException] it
+/// came from carries the chat id, profile and server address in its text and
+/// the server's error body in its response, none of which may travel on.
+class SessionExportRequestFailed implements Exception {
+  const SessionExportRequestFailed(this.kind);
+
+  final SessionExportFailure kind;
+
+  @override
+  String toString() => 'SessionExportRequestFailed';
+}
+
+/// The caller's cancel token ended the request. Not a failure.
+class SessionExportCancelled implements Exception {
+  const SessionExportCancelled();
+
+  @override
+  String toString() => 'SessionExportCancelled';
+}
+
 const _isolateAbove = 1024 * 1024;
 
 /// Checks that [bytes] are a whole session (an object with a string `id` and a
@@ -48,15 +68,23 @@ int _messageCount(Uint8List bytes) {
 
 /// The failure kind for a failed export request, from its type, status and
 /// `detail` only. Nothing of [error] (its URI, message or body) is kept.
-/// [receivedAny] says whether a byte of the body arrived before it failed.
+/// [receivedAny] says whether a byte of the body arrived before it failed: a
+/// connection that drops then (Dio reports `unknown` with an `HttpException`)
+/// leaves a body that stopped short. A connect timeout means the request never
+/// reached Hermes, so it reads as offline.
 SessionExportFailure classifySessionExportError(
   DioException error, {
   required bool receivedAny,
 }) => switch (error.type) {
-  DioExceptionType.connectionTimeout => SessionExportFailure.lost,
+  DioExceptionType.connectionTimeout => SessionExportFailure.offline,
   DioExceptionType.receiveTimeout =>
     receivedAny ? SessionExportFailure.incomplete : SessionExportFailure.lost,
-  DioExceptionType.connectionError => SessionExportFailure.offline,
+  DioExceptionType.connectionError =>
+    receivedAny
+        ? SessionExportFailure.incomplete
+        : SessionExportFailure.offline,
+  DioExceptionType.unknown =>
+    receivedAny ? SessionExportFailure.incomplete : SessionExportFailure.failed,
   DioExceptionType.badResponse => _forStatus(error.response),
   _ => SessionExportFailure.failed,
 };

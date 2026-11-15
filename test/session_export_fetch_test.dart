@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
+import 'package:hermes_app/src/api/request_timeout.dart';
 import 'package:hermes_app/src/chat/session_export.dart';
 import 'package:hermes_app/src/chat/widgets/session_export_failure.dart';
 
@@ -113,23 +114,14 @@ void main() {
       }
     });
 
-    test('cancel stops the request', () async {
+    test('cancel stops the request and is its own outcome', () async {
       final server = _ChunkedServer();
       final token = CancelToken();
       final done = HermesApiClient(
         Dio(BaseOptions(baseUrl: 'http://hermes.test'))
           ..httpClientAdapter = server,
       ).fetchSessionExport('a', profile: 'p', cancelToken: token);
-      final failure = expectLater(
-        done,
-        throwsA(
-          isA<DioException>().having(
-            (e) => e.type,
-            'type',
-            DioExceptionType.cancel,
-          ),
-        ),
-      );
+      final failure = expectLater(done, throwsA(isA<SessionExportCancelled>()));
 
       while (server.requests.isEmpty) {
         await Future<void>.delayed(Duration.zero);
@@ -142,7 +134,40 @@ void main() {
       expect(server.cancelled, isTrue);
     });
 
-    test('throws the Dio exception of a failed answer unchanged', () async {
+    test(
+      'a failed answer throws only its kind, free of chat details',
+      () async {
+        const idMark = 'ID-MARK-7c1';
+        const profileMark = 'PROFILE-MARK-7c1';
+        const bodyMark = 'BODY-MARK-7c1';
+        final server = FakeHermesServer()
+          ..on('GET', '/api/sessions/$idMark/export', {
+            'detail': 'Session not found $bodyMark',
+          }, status: 404);
+
+        Object? thrown;
+        try {
+          await server.client().fetchSessionExport(
+            idMark,
+            profile: profileMark,
+          );
+        } on Object catch (e) {
+          thrown = e;
+        }
+
+        expect(thrown, isA<SessionExportRequestFailed>());
+        expect(
+          (thrown! as SessionExportRequestFailed).kind,
+          SessionExportFailure.unsupported,
+        );
+        expect('$thrown', 'SessionExportRequestFailed');
+        for (final mark in [idMark, profileMark, bodyMark, 'hermes.test']) {
+          expect('$thrown', isNot(contains(mark)));
+        }
+      },
+    );
+
+    test('a 404 with the recorded detail is gone', () async {
       final server = FakeHermesServer()
         ..on('GET', '/api/sessions/x/export', {
           'detail': 'Session not found',
@@ -151,11 +176,121 @@ void main() {
       await expectLater(
         server.client().fetchSessionExport('x', profile: 'p'),
         throwsA(
-          isA<DioException>().having(
-            (e) => e.response?.statusCode,
-            'status',
-            404,
+          isA<SessionExportRequestFailed>().having(
+            (e) => e.kind,
+            'kind',
+            SessionExportFailure.gone,
           ),
+        ),
+      );
+    });
+
+    test('a store-busy 404 is unsupported', () async {
+      final server = FakeHermesServer()
+        ..on('GET', '/api/sessions/x/export', {
+          'detail': 'Profile store busy',
+        }, status: 404);
+
+      await expectLater(
+        server.client().fetchSessionExport('x', profile: 'p'),
+        throwsA(
+          isA<SessionExportRequestFailed>().having(
+            (e) => e.kind,
+            'kind',
+            SessionExportFailure.unsupported,
+          ),
+        ),
+      );
+    });
+
+    test('an error body never reports progress', () async {
+      final server = FakeHermesServer()
+        ..on('GET', '/api/sessions/x/export', {
+          'detail': 'Session not found',
+        }, status: 404);
+      final seen = <int>[];
+
+      await expectLater(
+        server.client().fetchSessionExport(
+          'x',
+          profile: 'p',
+          onProgress: seen.add,
+        ),
+        throwsA(isA<SessionExportRequestFailed>()),
+      );
+      expect(seen, isEmpty);
+    });
+
+    test('carries the 5-minute request deadline', () async {
+      final server = FakeHermesServer()
+        ..on('GET', '/api/sessions/x/export', Uint8List(0));
+
+      await server.client().fetchSessionExport('x', profile: 'p');
+
+      final extra = server.requests.single.extra;
+      final expected = requestDeadlineExtra(const Duration(minutes: 5));
+      for (final entry in expected.entries) {
+        expect(extra[entry.key], entry.value);
+      }
+    });
+
+    test('ids that cannot name one chat throw without the value', () async {
+      final server = FakeHermesServer();
+      for (final id in ['', '.', '..']) {
+        Object? thrown;
+        try {
+          await server.client().fetchSessionExport(id, profile: 'p');
+        } on Object catch (e) {
+          thrown = e;
+        }
+        expect(thrown, isA<ArgumentError>(), reason: "'$id'");
+        expect((thrown! as ArgumentError).invalidValue, isNull);
+        expect(server.requests, isEmpty);
+      }
+    });
+
+    test('a drop after bytes is incomplete, without bytes failed', () async {
+      Future<(Object?, DioExceptionType?)> run({
+        required bool withBytes,
+      }) async {
+        final server = _ChunkedServer();
+        final done = HermesApiClient(
+          Dio(BaseOptions(baseUrl: 'http://hermes.test'))
+            ..httpClientAdapter = server,
+        ).fetchSessionExport('a', profile: 'p');
+        final result = done.then<Object?>(
+          (_) => null,
+          onError: (Object e) => e,
+        );
+        while (server.requests.isEmpty) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        if (withBytes) {
+          server.chunks.add(Uint8List(5));
+          await Future<void>.delayed(Duration.zero);
+        }
+        server.chunks.addError(
+          const HttpException('Connection closed while receiving data'),
+        );
+        return (await result, null);
+      }
+
+      final withBytes = (await run(withBytes: true)).$1;
+      expect(
+        withBytes,
+        isA<SessionExportRequestFailed>().having(
+          (e) => e.kind,
+          'kind',
+          SessionExportFailure.incomplete,
+        ),
+      );
+      final without = (await run(withBytes: false)).$1;
+      expect(
+        without,
+        isA<SessionExportRequestFailed>().having(
+          (e) => e.kind,
+          'kind',
+          SessionExportFailure.failed,
         ),
       );
     });
@@ -203,11 +338,7 @@ void main() {
 
       expect(
         kind(of(DioExceptionType.connectionTimeout)),
-        SessionExportFailure.lost,
-      );
-      expect(
-        kind(of(DioExceptionType.connectionTimeout), receivedAny: true),
-        SessionExportFailure.lost,
+        SessionExportFailure.offline,
       );
       expect(
         kind(of(DioExceptionType.receiveTimeout)),
@@ -221,7 +352,15 @@ void main() {
         kind(of(DioExceptionType.connectionError)),
         SessionExportFailure.offline,
       );
+      expect(
+        kind(of(DioExceptionType.connectionError), receivedAny: true),
+        SessionExportFailure.incomplete,
+      );
       expect(kind(of(DioExceptionType.unknown)), SessionExportFailure.failed);
+      expect(
+        kind(of(DioExceptionType.unknown), receivedAny: true),
+        SessionExportFailure.incomplete,
+      );
       expect(kind(of(DioExceptionType.cancel)), SessionExportFailure.failed);
     });
   });
@@ -275,21 +414,16 @@ void main() {
         ],
       });
       final cut = whole.substring(0, whole.indexOf('after'));
-      final padded = '$cut${' ' * 0}';
-
-      for (final body in [padded, '$cut${'y' * (1024 * 1024 + 1)}']) {
+      for (final body in [cut, '$cut${'y' * (1024 * 1024 + 1)}']) {
         Object? thrown;
-        StackTrace? trace;
         try {
           await decodeSessionExport(Uint8List.fromList(utf8.encode(body)));
-        } on Object catch (e, s) {
+        } on Object catch (e) {
           thrown = e;
-          trace = s;
         }
         expect(thrown, isA<SessionExportIncomplete>());
         expect('$thrown', isNot(contains(marker)));
         expect('$thrown', isNot(contains('before')));
-        expect(trace, isNotNull);
       }
     });
   });

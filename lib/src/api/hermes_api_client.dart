@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../chat/session_export.dart';
+import '../chat/widgets/session_export_failure.dart';
 import '../files/files_failure.dart';
 import '../files/files_models.dart' show FsDownload;
 import '../models/auth_provider_info.dart';
@@ -276,34 +278,62 @@ class HermesApiClient {
   /// chat, as the bytes it sent. The generated method would decode a possibly
   /// very large body into maps, so this asks for raw bytes like
   /// [fetchKanbanAttachment]. The server streams it with no `Content-Length`,
-  /// so [onProgress] gets only the bytes received so far. Throws the
-  /// [DioException] unchanged; `classifySessionExportError` reads it. The
-  /// managed client's 30 s receive timeout and the 5-minute total apply.
+  /// so [onProgress] gets only the bytes received so far, and only for a 2xx
+  /// answer (never for an error body). The managed client's 30 s receive
+  /// timeout and the 5-minute total apply.
+  ///
+  /// Throws [SessionExportCancelled] when [cancelToken] ended it, otherwise
+  /// [SessionExportRequestFailed]. Neither carries the original exception: its
+  /// text holds the chat id, profile and server address, and its response the
+  /// error body. Throws [ArgumentError] for an id that cannot name one chat.
   Future<Uint8List> fetchSessionExport(
     String id, {
     required String profile,
     CancelToken? cancelToken,
     void Function(int received)? onProgress,
-  }) => _getBytes(
-    '/api/sessions/${Uri.encodeComponent(id)}/export',
-    {'profile': profile},
-    cancelToken: cancelToken,
-    onProgress: onProgress,
-  );
-
-  Future<Uint8List> _getBytes(
-    String route,
-    Map<String, dynamic> query, {
-    CancelToken? cancelToken,
-    void Function(int received)? onProgress,
   }) async {
+    if (id.isEmpty || id == '.' || id == '..') {
+      throw ArgumentError('Invalid session id');
+    }
+    var receivedAny = false;
+    var ok = false;
+    try {
+      final response = await _dio.get<List<int>>(
+        '/api/sessions/${Uri.encodeComponent(id)}/export',
+        queryParameters: {'profile': profile},
+        cancelToken: cancelToken,
+        onReceiveProgress: (received, _) {
+          if (!ok) return;
+          if (received > 0) receivedAny = true;
+          onProgress?.call(received);
+        },
+        options: Options(
+          responseType: ResponseType.bytes,
+          validateStatus: (status) {
+            ok = status != null && status >= 200 && status < 300;
+            return ok;
+          },
+          extra: requestDeadlineExtra(const Duration(minutes: 5)),
+        ),
+      );
+      final data = response.data;
+      return data is Uint8List ? data : Uint8List.fromList(data ?? const []);
+    } on DioException catch (error) {
+      if (error.type == DioExceptionType.cancel) {
+        throw const SessionExportCancelled();
+      }
+      throw SessionExportRequestFailed(
+        classifySessionExportError(error, receivedAny: receivedAny),
+      );
+    } on Object {
+      throw const SessionExportRequestFailed(SessionExportFailure.failed);
+    }
+  }
+
+  Future<Uint8List> _getBytes(String route, Map<String, dynamic> query) async {
     final response = await _dio.get<List<int>>(
       route,
       queryParameters: query,
-      cancelToken: cancelToken,
-      onReceiveProgress: onProgress == null
-          ? null
-          : (received, _) => onProgress(received),
       options: Options(
         responseType: ResponseType.bytes,
         extra: requestDeadlineExtra(const Duration(minutes: 5)),
