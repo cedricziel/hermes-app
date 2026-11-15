@@ -5,6 +5,7 @@ import io
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import time
 from contextlib import redirect_stdout
@@ -545,6 +546,39 @@ class Repo:
     def tip(self):
         return self.git("rev-parse", "main").stdout.strip()
 
+    def plumb(self, *args, inp=None):
+        r = subprocess.run(
+            ["git", *args],
+            cwd=self.dir,
+            capture_output=True,
+            text=True,
+            input=inp,
+            env=dict(os.environ, GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_NOSYSTEM="1"),
+        )
+        assert r.returncode == 0, (args, r.stderr)
+        return r.stdout.strip()
+
+    def fast_chain(self, bottom, n, dirty=()):
+        """`n` merges of main into `bottom`, one on top of the other, built
+        with commit-tree (fast). Main moves along; a merge whose index is in
+        `dirty` also adds a file evil<i>.txt (an evil merge). Returns (head,
+        merges bottom-first). main and origin/main end on the last main commit."""
+        m = self.tip()
+        tree_of_main = self.plumb("rev-parse", f"{m}^{{tree}}")
+        h, merges = bottom, []
+        for i in range(n):
+            m = self.plumb("commit-tree", tree_of_main, "-p", m, "-m", f"m{i}")
+            tree = self.plumb("rev-parse", f"{h}^{{tree}}")
+            if i in dirty:
+                blob = self.plumb("hash-object", "-w", "--stdin", inp="evil\n")
+                entries = self.plumb("ls-tree", tree) + f"\n100644 blob {blob}\tevil{i}.txt"
+                tree = self.plumb("mktree", inp=entries + "\n")
+            h = self.plumb("commit-tree", tree, "-p", h, "-p", m, "-m", f"h{i}")
+            merges.append(h)
+        self.git("update-ref", "refs/heads/main", m)
+        self.sync_origin()
+        return h, merges
+
     def pr_git(self):
         return pr_policy.Git(self.dir)
 
@@ -785,7 +819,7 @@ class MergeReviewTest(unittest.TestCase):
             out = self.review(h, legacy)
         self.assertIn(f"but commit {late} (reached from head {h}", out[0])
         self.assertIn(f"Head: {late}", out[0])
-        self.assertIn(f"Range: {self.r.tip()}..{late}", out[0])
+        self.assertIn(f"Range: {self.root}..{late}", out[0])
 
     def test_legacy_block_with_flag_off_passes_once_p_has_a_block(self):
         h = self.clean_merge_of_main()
@@ -820,6 +854,72 @@ class MergeReviewTest(unittest.TestCase):
         h = r.merge("other")
         out = self.review(h, blk(h, self.root, rng=False))
         self.assertIn("is not on the base branch", out[0])
+
+    def test_non_clean_block_for_a_clean_merge_head_blocks_it(self):
+        h = self.clean_merge_of_main()
+        p = blk(self.rev, self.root)
+        self.assertEqual(self.review(h, p), [])
+        for verdict in ("changes-requested", "changes-needed"):
+            for rng in (True, False):
+                plain = blk(h, self.root, verdict=verdict, rng=rng)
+                for review in (p + plain, plain + p):
+                    out = self.review(h, review)
+                    self.assertIn("requested changes", out[0], (verdict, rng))
+            merge = self.anchor_block(h).replace("Verdict: clean", f"Verdict: {verdict}")
+            for review in (p + merge, merge + p):
+                out = self.review(h, review)
+                self.assertIn("latest merge review of", out[0], verdict)
+
+    def test_merge_review_blocks_with_mixed_verdicts_fail_in_either_order(self):
+        h = self.dirty_merge()
+        pb = self.p_block(h)
+        good = self.merge_review(h)
+        bad = self.merge_review(h, verdict="changes-requested")
+        self.assertEqual(self.review(h, pb + good), [])
+        for review in (pb + good + bad, pb + bad + good):
+            out = self.review(h, review)
+            self.assertIn("latest merge review of", out[0])
+
+    def test_pasted_range_applies_as_is_on_a_branch_forked_from_older_main(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        old_main = r.tip()
+        self.advance_main("m2.txt")
+        out = self.review(self.rev, "")
+        self.assertIn(f"Range: {self.root}..{self.rev}", out[0])
+        self.assertNotIn(f"Range: {r.tip()}..", out[0])
+        pasted = out[0].split("in this format:\n")[1]
+        self.assertEqual(self.review(self.rev, pasted + "\n"), [])
+        # A dirty merge of the older main: the pasted Merge-review block passes.
+        r.git("checkout", "-q", "pr")
+        r.git("merge", "-q", "--no-ff", "--no-commit", old_main)
+        r.write("evil.txt", "x\n")
+        r.git("add", "evil.txt")
+        r.git("commit", "-q", "-m", "Merge older main")
+        h = r.head()
+        out = self.review(h, blk(self.rev, self.root))
+        self.assertIn(f"Range: {old_main}..{h}", out[0])
+        block = out[0].split("in this format:\n")[1]
+        self.assertTrue(block.startswith("Merge-review: evil.txt\n"))
+        self.assertEqual(self.review(h, blk(self.rev, self.root) + block), [])
+
+    def test_conflicted_file_must_be_listed_even_when_the_tree_matches(self):
+        r = self.r
+        r.git("checkout", "-q", "main")
+        r.commit("a.txt", "one\nMAIN\nthree\n")
+        r.sync_origin()
+        r.git("checkout", "-q", "pr")
+        reviewed = r.commit("a.txt", "one\nPR\nthree\n")
+        r.git("merge", "--no-ff", "-m", "Merge main", "main", check=False)
+        _, tree, _ = r.pr_git().merge_tree(reviewed, r.tip())
+        r.write("a.txt", r.git("show", f"{tree}:a.txt").stdout)
+        r.git("add", "a.txt")
+        r.git("commit", "-q", "--no-edit")
+        h = r.head()
+        pb = blk(reviewed, self.root)
+        out = self.review(h, pb + self.merge_review(h, files="x.txt"))
+        self.assertIn("does not list a.txt", out[0])
+        self.assertEqual(self.review(h, pb + self.merge_review(h, files="a.txt")), [])
 
     def test_legacy_clean_and_changes_requested_for_a_merge_head_in_either_order(self):
         self.advance_main("m1.txt")
@@ -951,27 +1051,103 @@ class MergeReviewTest(unittest.TestCase):
         self.assertIn(f"second parent {other} is not on the base branch", out[0])
         self.assertIn("merge only the base branch", out[0])
 
-    def test_depth_cap_fails(self):
-        for i in range(3):
-            self.advance_main(f"m{i}.txt")
-            h = self.r.merge("main")
-        with mock.patch.object(pr_policy, "MAX_MERGE_DEPTH", 2):
-            out = self.review(h, blk(self.rev, self.root))
-        p2 = self.r.git("rev-parse", f"{h}^1^1").stdout.strip()
-        self.assertIn(f"2 clean merges in a row lie between head {h} and {p2}", out[0])
-        self.assertIn(f"merge review of {p2}", out[0])
-        self.assertIn(f"Merge-review: <files>\nReviewer: isolated-reviewer  Head: {p2}", out[0])
-        with mock.patch.object(pr_policy, "MAX_MERGE_DEPTH", 2):
-            anchored = (
-                blk(self.rev, self.root)
-                + f"Merge-review: x.txt\nReviewer: r Head: {p2} Verdict: clean\nRange: {self.root}..{p2}\n"
-            )
-            self.assertEqual(self.review(h, anchored), [])
-        with mock.patch.object(pr_policy, "MAX_MERGE_DEPTH", 3):
-            self.assertEqual(self.review(h, blk(self.rev, self.root)), [])
+    def anchor_block(self, h, files="x.txt"):
+        return (
+            f"Merge-review: {files}\nReviewer: r Head: {h} Verdict: clean\n"
+            f"Range: {self.root}..{h}\n"
+        )
 
-    def test_default_depth_cap_is_twenty(self):
-        self.assertEqual(pr_policy.MAX_MERGE_DEPTH, 20)
+    def test_anchors_at_positions_19_20_21_all_pass(self):
+        head, merges = self.r.fast_chain(self.rev, 24)
+        base = blk(self.rev, self.root)
+        self.assertEqual(self.review(head, base), [])  # no anchor needed
+        for k in (19, 20, 21):
+            anchored = base + self.anchor_block(merges[-k])
+            self.assertEqual(self.review(head, anchored), [], k)
+
+    def test_dirty_merges_anchored_at_19_20_21_pass_after_b1_is_tried(self):
+        dirty = {len(range(24)) - k for k in (19, 20, 21)}
+        head, merges = self.r.fast_chain(self.rev, 24, dirty=dirty)
+        review = blk(self.rev, self.root)
+        for i in sorted(dirty):
+            review += self.anchor_block(merges[i], f"evil{i}.txt")
+        self.assertEqual(self.review(head, review), [])
+        # Without the anchor of the lowest dirty merge it fails, naming it.
+        lowest = min(dirty)
+        review = blk(self.rev, self.root) + "".join(
+            self.anchor_block(merges[i], f"evil{i}.txt") for i in sorted(dirty) if i != lowest
+        )
+        out = self.review(head, review)
+        self.assertIn(f"Merge {merges[lowest]} is not a clean automatic merge", out[0])
+        self.assertIn(f"evil{lowest}.txt", out[0])
+
+    def test_anchor_does_not_excuse_an_unreviewed_bottom(self):
+        head, merges = self.r.fast_chain(self.rev, 3)
+        out = self.review(head, self.anchor_block(merges[1]))
+        self.assertIn(f"commit {self.rev} (reached from head {head}", out[0])
+
+    def test_default_chain_budget_is_200(self):
+        self.assertEqual(pr_policy.MAX_CHAIN_COMMITS, 200)
+
+    def test_300_merge_chain_fails_with_the_budget_message_fast(self):
+        head, _ = self.r.fast_chain(self.rev, 300)
+        start = time.monotonic()
+        out = self.review(head, blk(self.rev, self.root))
+        self.assertLess(time.monotonic() - start, 2.0)
+        self.assertEqual(len(out), 1)
+        self.assertIn(f"The chain behind {head} is longer than 200 commits", out[0])
+        self.assertIn(
+            f"squash or rebase the branch onto the base branch (tip {self.r.tip()}) "
+            "and get a full review of the new head",
+            out[0],
+        )
+        self.assertNotIn("Merge-review", out[0])
+
+    def test_chain_at_the_budget_passes_and_one_more_fails(self):
+        head, _ = self.r.fast_chain(self.rev, 5)
+        with mock.patch.object(pr_policy, "MAX_CHAIN_COMMITS", 5):
+            self.assertEqual(self.review(head, blk(self.rev, self.root)), [])
+        with mock.patch.object(pr_policy, "MAX_CHAIN_COMMITS", 4):
+            out = self.review(head, blk(self.rev, self.root))
+        self.assertIn("longer than 4 commits", out[0])
+
+    def test_visited_commit_guard_fails_with_the_same_message(self):
+        # The pre-scan counts merges; the guard inside the walk caps what a run
+        # visits. Forcing the guard alone must give the same message.
+        head, _ = self.r.fast_chain(self.rev, 5)
+        with mock.patch.object(pr_policy.Git, "merge_run", return_value=0):
+            with mock.patch.object(pr_policy, "MAX_CHAIN_COMMITS", 2):
+                out = self.review(head, blk(self.rev, self.root))
+        self.assertIn("longer than 2 commits", out[0])
+
+    def test_recursion_error_is_caught_with_the_same_message(self):
+        head, _ = self.r.fast_chain(self.rev, 2)
+        with mock.patch.object(pr_policy._Review, "accepted", side_effect=RecursionError):
+            out = self.review(head, blk(self.rev, self.root))
+        self.assertIn(f"The chain behind {head} is longer than 200 commits", out[0])
+        self.assertNotIn("Merge-review", out[0])
+
+    def test_long_chain_does_not_recurse(self):
+        head, _ = self.r.fast_chain(self.rev, 150)
+        depth, f = 0, sys._getframe()
+        while f:
+            depth, f = depth + 1, f.f_back
+        old = sys.getrecursionlimit()
+        sys.setrecursionlimit(depth + 60)
+        try:
+            out = self.review(head, blk(self.rev, self.root))
+        finally:
+            sys.setrecursionlimit(old)
+        self.assertEqual(out, [])
+
+    def test_memo_is_exact_whichever_path_asks_first(self):
+        # b1 passes down the chain and the anchor asks for the same first
+        # parent again: the second ask reads the same verdict.
+        head, merges = self.r.fast_chain(self.rev, 4)
+        review = self.review(head, blk(self.rev, self.root) + self.anchor_block(merges[-1]) + self.anchor_block(merges[-2]))
+        self.assertEqual(review, [])
+        out = self.review(head, self.anchor_block(merges[-1]) + self.anchor_block(merges[-2]))
+        self.assertIn(f"commit {self.rev} (reached from head {head}", out[0])
 
     def test_octopus_merge_fails_closed(self):
         r = self.r

@@ -333,8 +333,9 @@ def check(
 #   (b2) merge commit H: a `Merge-review: <files>` block naming H, with its own
 #        Reviewer/Head/Verdict and Range lines. P is accepted as in (b1), and
 #        the files cover every file whose content differs from merge-tree.
-# A plain block never accepts a merge commit by itself. Any block naming a
-# commit with a verdict other than clean keeps it from being accepted.
+# A plain block never accepts a merge commit by itself. Any block, plain or
+# Merge-review, naming a commit with a verdict other than clean keeps it from
+# being accepted. The Range base to ask for is merge-base(base tip, commit).
 # A Merge-review whose second parent is not on the base branch must list
 # everything the merge brings into its first parent, since merge-tree proves
 # nothing about that parent's content.
@@ -349,15 +350,21 @@ def check(
 # state has the same gap, so it adds nothing worse. It closes when this flips
 # to False, in the change that makes Range mandatory everywhere.
 ACCEPT_LEGACY_REVIEW_BLOCK = True
-# Clean merges followed in a row before a Merge-review block is needed. A
-# Merge-review block anchors the chain: its first parent starts a new count.
-MAX_MERGE_DEPTH = 20
+# The walk down the first parents of merges decides each commit once and
+# depends on nothing but the commit. A head with more than this many merges in
+# a row behind it is refused before any is looked at (one rev-list), and no run
+# visits more distinct commits than that chain plus its bottom.
+MAX_CHAIN_COMMITS = 200
 
 _RANGE_LINE_RE = re.compile(r"^Range:[ \t]*(.*?)[ \t]*$")
 _RANGE_RE = re.compile(r"^([0-9a-fA-F]{40})\.\.([0-9a-fA-F]{40})$")
 _MERGE_REVIEW_RE = re.compile(r"^Merge-review:[ \t]*(.*?)[ \t]*$")
 # Four or more spaces (or a tab) make a Markdown code block, not a block.
 _INDENTED_RE = re.compile(r"^(?: {4,}|\t)")
+
+
+class _ChainTooLong(Exception):
+    pass
 
 
 class Block:
@@ -444,6 +451,21 @@ class Git:
             raise ValueError(f"cannot compare {a} and {b}")
         return r.returncode == 0
 
+    def merge_run(self, head, limit):
+        """How many commits in a row, from `head` down the first parents, are
+        merges (two or more parents), counted up to limit + 1: one rev-list."""
+        r = self.run(
+            "rev-list", "--first-parent", "--parents", f"--max-count={limit + 1}", head
+        )
+        if r.returncode != 0:
+            raise ValueError(f"cannot read commit {head}")
+        run = 0
+        for line in r.stdout.splitlines():
+            if len(line.split()) < 3:
+                break
+            run += 1
+        return run
+
     def merge_base(self, a, b):
         r = self.run("merge-base", a, b)
         return r.stdout.strip() if r.returncode == 0 else None
@@ -471,13 +493,14 @@ class Git:
         return [line for line in r.stdout.split("\n") if line]
 
 
-def _paste(commit, base_tip, merge_files=None):
-    """What to paste, with real newlines so the block can be pasted as is."""
+def _paste(commit, range_base, merge_files=None):
+    """What to paste, with real newlines so the block can be pasted as is.
+    `range_base` is `git merge-base <base tip> <commit>`."""
     lines = []
     if merge_files is not None:
         lines.append(f"Merge-review: {', '.join(merge_files)}")
     lines.append(f"Reviewer: isolated-reviewer  Head: {commit}  Verdict: clean")
-    lines.append(f"Range: {base_tip}..{commit}")
+    lines.append(f"Range: {range_base}..{commit}")
     return (
         "Paste the reviewer's block verbatim into ## Review (never write or "
         "edit it yourself), in this format:\n" + "\n".join(lines)
@@ -490,6 +513,19 @@ class _Review:
         self.plain = [b for b in blocks if b.files is None]
         self.merge_blocks = [b for b in blocks if b.files is not None]
         self.memo = {}
+        self.visited = 0
+        self._forks = {}
+
+    def fork(self, commit):
+        """The Range base to ask for: where `commit` left the base branch."""
+        if commit not in self._forks:
+            self._forks[commit] = (
+                self.git.merge_base(self.base_tip, commit) or self.base_tip
+            )
+        return self._forks[commit]
+
+    def paste(self, commit, merge_files=None):
+        return _paste(commit, self.fork(commit), merge_files)
 
     def where(self, commit):
         if commit == self.head:
@@ -503,7 +539,8 @@ class _Review:
 
     def range_failures(self, block, commit):
         """Failures of the Range line of a block naming `commit`, or []."""
-        paste = _paste(commit, self.base_tip)
+        paste = self.paste(commit)
+        want = f"{self.fork(commit)}..{commit}"
         if block.range is None:
             return [
                 f"The review block for {commit} has no Range line: ask the "
@@ -528,21 +565,21 @@ class _Review:
             return [
                 f"The Range of the review for {commit} is empty (it starts "
                 f"and ends at {commit}): ask the isolated reviewer to review "
-                f"{self.base_tip}..{commit}. {paste}"
+                f"{want}. {paste}"
             ]
         if not self.git.has_commit(base) or not self.git.is_ancestor(base, commit):
             return [
                 f"The Range of the review for {commit} starts at {base}, which "
                 f"is not an ancestor of {commit}: ask the isolated reviewer "
-                f"to review {self.base_tip}..{commit}. {paste}"
+                f"to review {want}. {paste}"
             ]
-        fork = self.git.merge_base(self.base_tip, commit)
+        fork = self.fork(commit)
         if not self.git.is_ancestor(base, self.base_tip) and base != fork:
             return [
                 f"The Range of the review for {commit} starts at {base}, which "
                 f"covers only part of the branch (it is neither on the base "
                 f"branch nor where {commit} left it, {fork}): ask the "
-                f"isolated reviewer to review {self.base_tip}..{commit}. {paste}"
+                f"isolated reviewer to review {want}. {paste}"
             ]
         return []
 
@@ -558,7 +595,7 @@ class _Review:
     def reviewed(self, commit):
         """Rule (a), for a commit with fewer than two parents."""
         mine = [b for b in self.plain if b.head == commit]
-        paste = _paste(commit, self.base_tip)
+        paste = self.paste(commit)
         if not mine:
             others = sorted({b.head for b in self.plain if b.head})
             if others:
@@ -571,8 +608,6 @@ class _Review:
                 f"No isolated review recorded for {self.where(commit)}: ask "
                 f"the isolated reviewer for a full review of {commit}. {paste}"
             ]
-        if any(b.verdict != "clean" for b in mine):
-            return self.requested_changes(commit)
         block = mine[0]
         if block.range is None and ACCEPT_LEGACY_REVIEW_BLOCK:
             return []
@@ -580,9 +615,9 @@ class _Review:
 
     def required_files(self, h, p, m):
         """Files a Merge-review of h must list: those whose content differs
-        between merge-tree(p, m) and h; and, when m is not on the base branch
-        (so merge-tree proves nothing about m's content), everything h brings
-        into p."""
+        between merge-tree(p, m) and h, the conflicted ones among them; and,
+        when m is not on the base branch (so merge-tree proves nothing about
+        m's content), everything h brings into p."""
         _, tree, conflicted = self.git.merge_tree(p, m)
         actual = self.git.tree(h)
         files = set(conflicted) | set(self.git.changed_files(tree, actual))
@@ -590,47 +625,71 @@ class _Review:
             files |= set(self.git.changed_files(self.git.tree(p), actual))
         return sorted(files)
 
-    def merge_review(self, commit, p, m):
-        """Rule (b2). Returns (accepted, failures); failures are empty when no
-        Merge-review block names the commit. The first parent starts a new
-        depth count: a merge review anchors the chain."""
+    def merge_review_failures(self, commit, p, m):
+        """Rule (b2) without the first parent. Returns (has_block, failures)."""
         mine = [b for b in self.merge_blocks if b.head == commit]
         if not mine:
             return False, []
-        if any(b.verdict != "clean" for b in mine):
-            return False, self.requested_changes(commit, merge=True)
         block = mine[0]
         if not block.files:
-            return False, [
+            return True, [
                 f"The Merge-review block for {commit} names no files: it must "
                 "read 'Merge-review: <file>, <file>' followed by the "
                 "reviewer's Reviewer and Range lines."
             ]
         failures = self.range_failures(block, commit)
         if failures:
-            return False, failures
+            return True, failures
         required = self.required_files(commit, p, m)
         listed = {f.strip() for f in block.files}
         missing = [f for f in required if f not in listed]
         if missing:
-            return False, [
+            return True, [
                 f"The Merge-review for {commit} does not list "
                 f"{', '.join(missing)}, which the merge changes against its "
                 f"first parent {p} or against `git merge-tree {p} {m}`: ask "
                 f"the isolated reviewer for a merge review that covers them. "
-                f"{_paste(commit, self.base_tip, sorted(set(required) | listed))}"
+                f"{self.paste(commit, sorted(set(required) | listed))}"
             ]
-        failures = self.accepted(p, 0)
-        return not failures, failures
+        return True, []
 
-    def accepted(self, commit, depth=0):
-        """The failures that keep `commit` from being accepted; [] accepts.
-        Memoised per run: the first parent is asked about by (b1) and (b2)."""
-        if commit not in self.memo:
-            self.memo[commit] = self._accepted(commit, depth)
-        return self.memo[commit]
+    def accepted(self, root):
+        """The failures that keep `root` from being accepted; [] accepts. Each
+        commit is decided once, from the commit alone, so the memo is exact.
+        The walk keeps its own stack of generators (one per commit that waits
+        for its first parent), so a long chain never recurses."""
+        if root in self.memo:
+            return self.memo[root]
+        stack = [(root, self._decide(root))]
+        reply = None
+        while stack:
+            commit, gen = stack[-1]
+            try:
+                need = gen.send(reply)
+            except StopIteration as done:
+                self.memo[commit] = done.value
+                stack.pop()
+                reply = done.value
+                continue
+            if need in self.memo:
+                reply = self.memo[need]
+            else:
+                stack.append((need, self._decide(need)))
+                reply = None
+        return self.memo[root]
 
-    def _accepted(self, commit, depth):
+    def _decide(self, commit):
+        """A generator: it yields the first parent it needs a verdict on and
+        is sent that verdict; it returns the failures for `commit`."""
+        self.visited += 1
+        if self.visited > MAX_CHAIN_COMMITS + 1:
+            raise _ChainTooLong()
+        blocks = [b for b in self.plain + self.merge_blocks if b.head == commit]
+        bad = [b for b in blocks if b.verdict != "clean"]
+        if bad:
+            return self.requested_changes(
+                commit, merge=any(b.files is not None for b in bad)
+            )
         parents = self.git.parents(commit)
         if len(parents) > 2:
             return [
@@ -642,25 +701,29 @@ class _Review:
         if len(parents) < 2:
             return self.reviewed(commit)
         p, m = parents
-        if depth >= MAX_MERGE_DEPTH:
-            failures = [
-                f"{MAX_MERGE_DEPTH} clean merges in a row lie between head "
-                f"{self.head} and {commit}, which is too long a chain to "
-                f"follow: ask the isolated reviewer for a merge review of "
-                f"{commit} (list the files it changes, or any file if it "
-                f"changes none). {_paste(commit, self.base_tip, ['<files>'])}"
-            ]
-        else:
-            failures = self.clean_merge(commit, p, m, depth)
+        failures = self.tree_failures(commit, p, m)
         if not failures:
-            return []
-        ok, blocked = self.merge_review(commit, p, m)
-        if ok:
-            return []
+            # (b1): the merge is the clean automatic merge.
+            if ACCEPT_LEGACY_REVIEW_BLOCK and any(
+                b.head == commit and b.range is None for b in self.plain
+            ):
+                return []  # the known transition gap described above
+            parent_failures = yield p
+            if not parent_failures:
+                return []
+            failures = parent_failures
+        # (b2): a merge review.
+        has_block, blocked = self.merge_review_failures(commit, p, m)
+        if has_block and not blocked:
+            parent_failures = yield p
+            if not parent_failures:
+                return []
+            blocked = parent_failures
         return blocked or failures
 
-    def clean_merge(self, h, p, m, depth):
-        """Rule (b1)."""
+    def tree_failures(self, h, p, m):
+        """The tree test of rule (b1): second parent on the base branch,
+        merge-tree clean and equal to h's tree."""
         if not self.on_base(m):
             files = []
             if self.git.has_commit(m):
@@ -672,7 +735,7 @@ class _Review:
                 "isolated reviewer for a merge review whose Merge-review line "
                 f"lists every file the merge brings into {p} "
                 f"(`git diff-tree -r --name-only {p} {h}`). "
-                f"{_paste(h, self.base_tip, files or ['<files>'])}"
+                f"{self.paste(h, files or ['<files>'])}"
             ]
         clean, tree, conflicted = self.git.merge_tree(p, m)
         actual = self.git.tree(h)
@@ -685,17 +748,9 @@ class _Review:
                 f"{', '.join(files) or 'none listed'}. Redo the merge with no "
                 "manual edit (git merge, no conflict fixes, no extra changes) "
                 "and push, or ask the isolated reviewer for a merge-only "
-                f"review of these files. {_paste(h, self.base_tip, files or ['<files>'])}"
+                f"review of these files. {self.paste(h, files or ['<files>'])}"
             ]
-        named = [b for b in self.plain if b.head == h]
-        if (
-            ACCEPT_LEGACY_REVIEW_BLOCK
-            and named
-            and all(b.verdict == "clean" for b in named)
-            and any(b.range is None for b in named)
-        ):
-            return []  # the known transition gap described above
-        return self.accepted(p, depth + 1)
+        return []
 
 
 def review_recorded(body, head_sha, git=None, base_tip=None):
@@ -713,14 +768,21 @@ def review_recorded(body, head_sha, git=None, base_tip=None):
     if not git.has_commit(head_sha):
         return [f"The head {head_sha} is not in the checkout: re-run the job."]
     try:
+        if git.merge_run(head_sha, MAX_CHAIN_COMMITS) > MAX_CHAIN_COMMITS:
+            raise _ChainTooLong()
         return review.accepted(head_sha)
-    except RecursionError:
-        return [
-            f"The merge chain below {head_sha} is too deep to check: ask the "
-            "isolated reviewer for a merge review of the head."
-        ]
+    except _ChainTooLong:
+        pass
+    except RecursionError:  # backstop: the walk itself does not recurse
+        pass
     except ValueError as e:
         return [f"The review could not be checked mechanically ({e}): re-run the job."]
+    return [
+        f"The chain behind {head_sha} is longer than {MAX_CHAIN_COMMITS} "
+        f"commits; squash or rebase the branch onto the base branch (tip "
+        f"{base_tip}) and get a full review of the new head. "
+        f"{_paste(head_sha, git.merge_base(base_tip, head_sha) or base_tip)}"
+    ]
 
 
 def _legacy_review(section, head_sha):
