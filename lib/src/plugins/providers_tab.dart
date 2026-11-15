@@ -11,6 +11,7 @@ import '../widgets/grouped_choice_row.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/named_icon_button.dart';
 import '../widgets/platform_refresh.dart';
+import 'plugins_refresh.dart';
 
 /// Where the agent keeps its memory and how it compresses long chats. It
 /// loads when it is first shown, and keeps what the user picked but has not
@@ -37,14 +38,11 @@ class _ProvidersTabState extends State<ProvidersTab>
     _controller.load();
   }
 
-  Future<void> _refresh() async {
-    final messenger = ScaffoldMessenger.of(context);
-    if (!await _controller.refresh()) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Could not refresh provider settings')),
-      );
-    }
-  }
+  Future<void> _refresh() => refreshReporting(
+    ScaffoldMessenger.of(context),
+    _controller.refresh,
+    kProvidersRefreshFailed,
+  );
 
   Future<void> _save() async {
     final messenger = ScaffoldMessenger.of(context);

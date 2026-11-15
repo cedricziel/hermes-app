@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
+import 'motion_spinner.dart';
 
 /// An [IconButton] whose [label] is its accessible name and, unless [tooltip]
 /// is given, its tooltip.
@@ -24,6 +25,7 @@ class NamedIconButton extends StatelessWidget {
     this.padding,
     this.constraints,
     this.isSelected,
+    this.busy = false,
   }) : assert(!(filled && outlined), 'A button is filled or outlined.');
 
   final String label;
@@ -44,6 +46,10 @@ class NamedIconButton extends StatelessWidget {
   /// Whether a toggle is on; null for a plain button.
   final bool? isSelected;
 
+  /// Shows a spinner in place of the glyph and ignores taps, while the action
+  /// it starts is running.
+  final bool busy;
+
   @override
   Widget build(BuildContext context) {
     final button = filled
@@ -55,7 +61,9 @@ class NamedIconButton extends StatelessWidget {
       message: tooltip ?? label,
       excludeFromSemantics: true,
       child: button(
-        icon: AppIcon(icon, semanticLabel: label),
+        icon: busy
+            ? Semantics(label: label, child: const MotionSpinner())
+            : AppIcon(icon, semanticLabel: label),
         color: color,
         style: style,
         iconSize: iconSize,
@@ -63,7 +71,7 @@ class NamedIconButton extends StatelessWidget {
         padding: padding,
         constraints: constraints,
         isSelected: isSelected,
-        onPressed: onPressed,
+        onPressed: busy ? null : onPressed,
       ),
     );
   }

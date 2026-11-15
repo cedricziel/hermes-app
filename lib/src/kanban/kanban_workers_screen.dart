@@ -5,8 +5,8 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
-
 import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/platform_refresh.dart';
 import '../widgets/settings_scaffold.dart';
@@ -16,8 +16,6 @@ import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'widgets/kanban_list_rows.dart';
 import 'widgets/kanban_task_panel.dart';
-
-import '../theme/platform_chrome.dart';
 
 /// The workers the dispatcher has running tasks right now, with a look at
 /// each one's process and a way to stop it.
@@ -43,11 +41,23 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
   List<KanbanWorker>? _workers;
   String? _failure;
   int _loads = 0;
+  bool _reloading = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  /// A reload the user asked for, from the bar or View > Reload: the button
+  /// shows a spinner meanwhile.
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    try {
+      await _load();
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
   }
 
   Future<void> _load() async {
@@ -150,7 +160,8 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
           label: context.l10n.kanbanRefreshAction,
           icon: AppIcons.refresh,
           shortcut: mac ? '⌘R' : null,
-          onPressed: _load,
+          busy: _reloading,
+          onPressed: _reload,
         ),
       ],
       body: workers == null
@@ -206,7 +217,9 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
     // View > Reload owns ⌘R.
     return MacCommandScope(
       commands: {
-        MacCommand.reload: MacCommandHandler(() => unawaited(_load())),
+        MacCommand.reload: MacCommandHandler(
+          _reloading ? null : () => unawaited(_reload()),
+        ),
       },
       child: scaffold,
     );

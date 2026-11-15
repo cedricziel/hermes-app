@@ -25,6 +25,7 @@ class SettingsBarAction {
     required this.icon,
     required this.onPressed,
     this.shortcut,
+    this.busy = false,
     this.key,
   }) : menu = null;
 
@@ -34,7 +35,8 @@ class SettingsBarAction {
     required PopupMenuItemBuilder<void> this.menu,
     this.key,
   }) : onPressed = null,
-       shortcut = null;
+       shortcut = null,
+       busy = false;
 
   /// The accessible name and tooltip.
   final String label;
@@ -44,6 +46,9 @@ class SettingsBarAction {
 
   /// The key equivalent a Mac tooltip shows, such as "⌘N".
   final String? shortcut;
+
+  /// Shows a spinner in place of the glyph in a Mac toolbar while it runs.
+  final bool busy;
   final Key? key;
 }
 
@@ -339,6 +344,7 @@ class SettingsScaffold extends StatelessWidget {
         label: action.label,
         icon: action.icon,
         shortcut: action.shortcut,
+        busy: action.busy,
         onPressed: action.onPressed,
       );
     }

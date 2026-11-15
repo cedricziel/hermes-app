@@ -16,6 +16,7 @@ import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/motion_spinner.dart';
 import 'package:hermes_app/src/widgets/platform_refresh.dart';
 
 import 'hermes_plugin_manager_repository_test.dart'
@@ -60,6 +61,7 @@ void main() {
   final platforms = {
     TargetPlatform.macOS: findsNothing,
     TargetPlatform.iOS: findsOneWidget,
+    TargetPlatform.android: findsOneWidget,
   };
 
   for (final entry in platforms.entries) {
@@ -264,6 +266,67 @@ void main() {
       expect(commands.invoke(MacCommand.reload), isTrue);
       await tester.pumpAndSettle();
       expect(server.requestsTo('GET', path).length, before + 1);
+    });
+
+    testWidgets('reloads the Catalog tab, not the Installed one', (
+      tester,
+    ) async {
+      final commands = await pumpMac(
+        tester,
+        PluginsScreen(
+          repository: HermesPluginManagerRepository(server.client().raw),
+          initialTab: PluginsTab.catalog,
+        ),
+      );
+      const catalog = '/api/dashboard/plugins/catalog';
+      const hub = '/api/dashboard/plugins/hub';
+      final catalogBefore = server.requestsTo('GET', catalog).length;
+      final hubBefore = server.requestsTo('GET', hub).length;
+      expect(commands.invoke(MacCommand.reload), isTrue);
+      await tester.pumpAndSettle();
+      expect(server.requestsTo('GET', catalog).length, catalogBefore + 1);
+      expect(server.requestsTo('GET', hub).length, hubBefore);
+    });
+
+    testWidgets('a failed reload says so, as pull to refresh does', (
+      tester,
+    ) async {
+      final commands = await pumpMac(
+        tester,
+        PluginsScreen(
+          repository: HermesPluginManagerRepository(server.client().raw),
+        ),
+      );
+      server.on('GET', '/api/dashboard/plugins/hub', {
+        'detail': 'boom',
+      }, status: 500);
+      expect(commands.invoke(MacCommand.reload), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('Could not refresh plugins'), findsOneWidget);
+    });
+
+    testWidgets('the toolbar button shows a spinner while it reloads', (
+      tester,
+    ) async {
+      await pumpMac(
+        tester,
+        KanbanWorkersScreen(
+          repository: KanbanRepository(server.client()),
+          board: 'ops',
+          onChanged: () {},
+        ),
+      );
+      final release = Completer<void>();
+      server.onRequest('GET', '/api/plugins/kanban/workers/active', (_) async {
+        await release.future;
+        return (status: 200, body: {'workers': <Object?>[]});
+      });
+      await tester.tap(find.byTooltip('Refresh ⌘R'));
+      await tester.pump();
+      expect(find.byType(MotionSpinner), findsOneWidget);
+      release.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(MotionSpinner), findsNothing);
     });
   });
 }

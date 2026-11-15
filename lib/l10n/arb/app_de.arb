@@ -543,7 +543,6 @@
 
   "@@x-area-kanban": "",
   "kanbanRefreshAction": "Aktualisieren",
-  "kanbanRefreshTooltip": "Aktualisieren ⌘R",
 
   "@@x-area-live_activities": "",
 
@@ -866,6 +865,7 @@
   "schedulesRefreshAction": "Aktualisieren",
 
   "@@x-area-screens": "",
+  "screensRefreshAction": "Aktualisieren",
 
   "@@x-area-server_care": "",
   "serverCareAccountButtonLabel": "Konto",

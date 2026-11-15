@@ -13,6 +13,7 @@ class ActivityPageAction {
     required this.icon,
     required this.onPressed,
     this.tooltip,
+    this.busy = false,
     this.key,
   });
 
@@ -25,6 +26,9 @@ class ActivityPageAction {
 
   /// Hover text when it differs from [label].
   final String? tooltip;
+
+  /// Shows a spinner in place of the glyph while the action runs.
+  final bool busy;
   final Key? key;
 }
 
@@ -120,6 +124,7 @@ class ActivityPageScaffold extends StatelessWidget {
               key: action.key,
               label: action.label,
               tooltip: action.tooltip,
+              busy: action.busy,
               icon: action.icon,
               onPressed: action.onPressed,
             ),

@@ -375,6 +375,7 @@ Widget _page({
         actions: [
           ActivityPageAction(
             label: context.l10n.chatCheckpointsPageRefresh,
+            tooltip: context.l10n.chatCheckpointsPageRefreshTooltip,
             icon: AppIcons.refresh,
             onPressed: () {},
           ),

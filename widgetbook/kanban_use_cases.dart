@@ -39,6 +39,7 @@ KanbanMacToolbar _macToolbar({
   String? profile,
   bool inspectorShown = true,
   bool live = true,
+  bool refreshing = false,
 }) => KanbanMacToolbar(
   taskCount: 12,
   boards: _boards,
@@ -52,6 +53,8 @@ KanbanMacToolbar _macToolbar({
   onManageBoards: () {},
   onProfileChanged: (_) {},
   onToggleInspector: () {},
+  onRefresh: () {},
+  refreshing: refreshing,
 );
 
 Widget _boardColumns() => SingleChildScrollView(
@@ -229,6 +232,7 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
           ),
           maxWidth: 1000,
         ),
+        _use('Reloading', _mac(_macToolbar(refreshing: true)), maxWidth: 1000),
         _use('Compact window', _mac(_macToolbar()), maxWidth: 680),
       ],
     ),

@@ -6,6 +6,7 @@ import '../theme/platform_chrome.dart';
 import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/platform_refresh.dart';
+import 'plugins_refresh.dart';
 import '../widgets/settings_search_field.dart';
 
 import 'catalog_controller.dart';
@@ -47,14 +48,11 @@ class _CatalogTabState extends State<CatalogTab>
     _controller.load();
   }
 
-  Future<void> _refresh() async {
-    final messenger = ScaffoldMessenger.of(context);
-    if (!await _controller.refresh()) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Could not refresh the catalog')),
-      );
-    }
-  }
+  Future<void> _refresh() => refreshReporting(
+    ScaffoldMessenger.of(context),
+    _controller.refresh,
+    kCatalogRefreshFailed,
+  );
 
   Future<void> _open(CatalogEntry entry, {required bool wide}) async {
     _controller.select(entry.name);

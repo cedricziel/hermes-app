@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../macos/mac_commands.dart';
 import '../../../theme/app_icons.dart';
+import '../../../theme/platform_chrome.dart';
 import '../../activity/activity_page_binding.dart';
 import '../../activity/widgets/activity_page_scaffold.dart';
 import '../../activity/widgets/activity_working_line.dart';
@@ -16,8 +17,6 @@ import '../widgets/checkpoint_list_body.dart';
 import '../widgets/restore_outcome_note.dart';
 import 'changes_page.dart';
 import 'restore_flow.dart';
-
-import '../../../theme/platform_chrome.dart';
 
 /// The "File checkpoints" page, pushed inside the Activity panel: the
 /// checkpoints of [thread]'s folder, newest first, with Refresh in the bar
@@ -171,10 +170,10 @@ class _CheckpointsPageState extends State<CheckpointsPage>
           label: l10n.chatCheckpointsPageRefresh,
           icon: AppIcons.refresh,
           tooltip: mac ? l10n.chatCheckpointsPageRefreshTooltip : null,
+          busy: mac && controller.loadingList,
           onPressed: canRefresh ? _refresh : null,
         ),
       ],
-
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

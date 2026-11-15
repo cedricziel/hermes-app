@@ -12,6 +12,7 @@ import '../tools/widgets/tools_difference_sheet.dart';
 import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/platform_refresh.dart';
+import 'plugins_refresh.dart';
 import '../widgets/row_actions.dart';
 import '../widgets/whats_the_difference_link.dart';
 
@@ -33,14 +34,11 @@ class _InstalledTabState extends State<InstalledTab>
   @override
   bool get wantKeepAlive => true;
 
-  Future<void> _refresh() async {
-    final messenger = ScaffoldMessenger.of(context);
-    if (!await _controller.refresh()) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Could not refresh plugins')),
-      );
-    }
-  }
+  Future<void> _refresh() => refreshReporting(
+    ScaffoldMessenger.of(context),
+    _controller.refresh,
+    kInstalledRefreshFailed,
+  );
 
   Future<void> _open(InstalledPlugin plugin, {required bool wide}) async {
     _controller.select(plugin.name);

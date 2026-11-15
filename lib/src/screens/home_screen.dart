@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../auth/auth_controller.dart';
+import '../macos/mac_commands.dart';
 import '../models/hermes_status.dart';
 import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import '../widgets/settings_scaffold.dart';
 import 'widgets/connection_summary.dart';
 
@@ -39,17 +45,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final identity = auth.identity;
-    return SettingsScaffold(
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    final scaffold = SettingsScaffold(
       title: 'Connection',
       actions: [
         SettingsBarAction(
           key: const Key('connection-refresh'),
-          label: 'Refresh',
+          label: context.l10n.screensRefreshAction,
           icon: AppIcons.refresh,
+          shortcut: mac ? '⌘R' : null,
           onPressed: _refresh,
         ),
       ],
-      body: RefreshIndicator(
+      body: PlatformRefresh(
         onRefresh: _refresh,
         child: GroupedListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -81,6 +89,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+    if (!mac) return scaffold;
+    // View > Reload owns ⌘R.
+    return MacCommandScope(
+      commands: {
+        MacCommand.reload: MacCommandHandler(() => unawaited(_refresh())),
+      },
+      child: scaffold,
     );
   }
 }

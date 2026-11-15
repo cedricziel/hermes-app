@@ -308,6 +308,7 @@ class _MacLayout extends StatelessWidget {
           allProfiles: controller.allProfiles,
           onScopeChanged: (all) => controller.allProfiles = all,
           filterMenu: filterMenu,
+          refreshing: controller.loading,
           onRefresh: controller.refresh,
           onNew: onNew,
         ),

@@ -16,6 +16,7 @@ class SchedulesMacToolbar extends StatelessWidget {
     required this.onScopeChanged,
     required this.filterMenu,
     required this.onRefresh,
+    this.refreshing = false,
     required this.onNew,
   });
 
@@ -26,6 +27,9 @@ class SchedulesMacToolbar extends StatelessWidget {
   /// The [ScheduleFilterMenu] for the failing and paused jobs.
   final Widget filterMenu;
   final VoidCallback onRefresh;
+
+  /// Shows a spinner on Refresh while the jobs load.
+  final bool refreshing;
   final VoidCallback onNew;
 
   @override
@@ -49,6 +53,7 @@ class SchedulesMacToolbar extends StatelessWidget {
       MacToolbarButton(
         label: context.l10n.schedulesRefreshAction,
         shortcut: '⌘R',
+        busy: refreshing,
         icon: AppIcons.refresh,
         onPressed: onRefresh,
       ),

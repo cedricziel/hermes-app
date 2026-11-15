@@ -23,6 +23,7 @@ import 'installed_plugin.dart';
 import 'installed_tab.dart';
 import 'plugin_install_result.dart';
 import 'plugins_controller.dart';
+import 'plugins_refresh.dart';
 import 'providers_controller.dart';
 import 'providers_tab.dart';
 
@@ -60,6 +61,7 @@ class _PluginsScreenState extends State<PluginsScreen>
   late final PluginsController _installed;
   late final CatalogController _catalog;
   final _catalogQuery = ValueNotifier<String>('');
+  bool _reloading = false;
   late final ProvidersController _providers;
   late final _tabs = TabController(
     length: PluginsTab.values.length,
@@ -107,13 +109,35 @@ class _PluginsScreenState extends State<PluginsScreen>
 
   /// Reloads the tab in front, as pull to refresh does on a phone.
   Future<void> _refreshCurrent() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _reloading = true);
+    try {
+      await _reloadTab(messenger);
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
+
+  Future<void> _reloadTab(ScaffoldMessengerState messenger) async {
     switch (PluginsTab.values[_tabs.index]) {
       case PluginsTab.installed:
-        await _installed.refresh();
+        await refreshReporting(
+          messenger,
+          _installed.refresh,
+          kInstalledRefreshFailed,
+        );
       case PluginsTab.catalog:
-        await _catalog.refresh();
+        await refreshReporting(
+          messenger,
+          _catalog.refresh,
+          kCatalogRefreshFailed,
+        );
       case PluginsTab.providers:
-        await _providers.refresh();
+        await refreshReporting(
+          messenger,
+          _providers.refresh,
+          kProvidersRefreshFailed,
+        );
     }
   }
 
@@ -171,6 +195,7 @@ class _PluginsScreenState extends State<PluginsScreen>
                 label: context.l10n.pluginsRefreshAction,
                 icon: AppIcons.refresh,
                 shortcut: '⌘R',
+                busy: _reloading,
                 onPressed: () => unawaited(_refreshCurrent()),
               ),
             SettingsBarAction(
@@ -187,7 +212,7 @@ class _PluginsScreenState extends State<PluginsScreen>
         return MacCommandScope(
           commands: {
             MacCommand.reload: MacCommandHandler(
-              () => unawaited(_refreshCurrent()),
+              _reloading ? null : () => unawaited(_refreshCurrent()),
             ),
           },
           child: scaffold,

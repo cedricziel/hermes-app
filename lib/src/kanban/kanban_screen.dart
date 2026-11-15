@@ -148,11 +148,23 @@ class _KanbanScreenState extends State<KanbanScreen> {
       _controller.board == null || _controller.selecting ? null : _create;
 
   /// What File > New and View > Inspector do while the board is in front.
+  bool _reloading = false;
+
+  /// A reload the user asked for, from the toolbar or View > Reload.
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    try {
+      await _controller.refresh();
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
+
   Map<MacCommand, MacCommandHandler> _menuCommands() => {
     MacCommand.newChat: MacCommandHandler(_newTask, title: 'New Task'),
     if (_mac)
       MacCommand.reload: MacCommandHandler(
-        () => unawaited(_controller.refresh()),
+        _reloading ? null : () => unawaited(_reload()),
       ),
     if (_mac)
       MacCommand.toggleInspector: MacCommandHandler(
@@ -186,6 +198,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
     onManageBoards: _manageBoards,
     onProfileChanged: _controller.setAssignee,
     onToggleInspector: _inspector.toggle,
+    onRefresh: () => unawaited(_reload()),
+    refreshing: _reloading,
     more: _controller.board == null
         ? null
         : MacToolbarMenu<String>(

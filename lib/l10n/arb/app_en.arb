@@ -2615,10 +2615,6 @@
   "@kanbanRefreshAction": {
     "description": "Name of the Refresh button on the board and the workers page; reads the list again."
   },
-  "kanbanRefreshTooltip": "Refresh ⌘R",
-  "@kanbanRefreshTooltip": {
-    "description": "Hover text of the board toolbar Refresh button on a Mac; names the key."
-  },
 
   "@@x-area-live_activities": "",
 
@@ -4211,6 +4207,10 @@
   },
 
   "@@x-area-screens": "",
+  "screensRefreshAction": "Refresh",
+  "@screensRefreshAction": {
+    "description": "Name of the Refresh button of the Connection page; reads the server status again."
+  },
 
   "@@x-area-server_care": "",
   "serverCareAccountButtonLabel": "Account",

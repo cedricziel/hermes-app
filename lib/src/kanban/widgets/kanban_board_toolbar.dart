@@ -83,12 +83,10 @@ class KanbanBoardToolbar extends StatelessWidget {
                         ),
                 ),
               ),
-              if (wide)
+              // The Mac has Refresh in its own toolbar.
+              if (wide && platformChromeOf(context) != PlatformChrome.macos)
                 NamedIconButton(
                   label: context.l10n.kanbanRefreshAction,
-                  tooltip: platformChromeOf(context) == PlatformChrome.macos
-                      ? context.l10n.kanbanRefreshTooltip
-                      : null,
                   icon: AppIcons.refresh,
                   onPressed: onRefresh,
                 ),
