@@ -37,15 +37,24 @@ class ScrollToLatestButton extends StatelessWidget {
           },
           child: ScaleTransition(
             scale: animation,
-            child: FloatingActionButton(
-              heroTag: null,
-              mini: true,
-              shape: const CircleBorder(),
-              backgroundColor: scheme.surfaceContainer,
-              foregroundColor: scheme.onSurface,
-              tooltip: context.l10n.chatScrollToLatest,
-              onPressed: onPressed,
-              child: const Icon(Icons.keyboard_arrow_down),
+            // The name goes on the icon, not the FAB's tooltip: a tooltip is
+            // not an accessible name on every embedder (macOS reads the
+            // label only).
+            child: Tooltip(
+              message: context.l10n.chatScrollToLatest,
+              excludeFromSemantics: true,
+              child: FloatingActionButton(
+                heroTag: null,
+                mini: true,
+                shape: const CircleBorder(),
+                backgroundColor: scheme.surfaceContainer,
+                foregroundColor: scheme.onSurface,
+                onPressed: onPressed,
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  semanticLabel: context.l10n.chatScrollToLatest,
+                ),
+              ),
             ),
           ),
         ),

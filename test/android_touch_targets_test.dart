@@ -117,12 +117,40 @@ void main() {
       animation.value = 1;
       await tester.pump();
       expect(find.semantics.byFlag(SemanticsFlag.isButton), findsOneWidget);
-      expect(find.byTooltip('Scroll to latest message'), findsOneWidget);
+      expect(
+        find.semantics.byLabel('Scroll to latest message'),
+        findsOneWidget,
+      );
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
       handle.dispose();
     },
   );
+
+  testWidgets('on macOS the jump-to-latest button is named by a label', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final animation = AnimationController(vsync: const TestVSync(), value: 1);
+    addTearDown(animation.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
+        home: ChangeNotifierProvider(
+          create: (_) => ComposerHeightNotifier(),
+          child: Stack(
+            children: [
+              ScrollToLatestButton(animation: animation, onPressed: () {}),
+            ],
+          ),
+        ),
+      ),
+    );
+    final node = find.semantics.byLabel('Scroll to latest message');
+    expect(node, findsOneWidget);
+    expect(tester.getSemantics(find.byType(FloatingActionButton)).tooltip, '');
+    handle.dispose();
+  });
 
   testWidgets('the row and header "..." take taps at their outer edges', (
     tester,
