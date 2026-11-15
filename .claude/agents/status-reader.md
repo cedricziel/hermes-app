@@ -29,3 +29,7 @@ green. A cancelled or failed run whose SHA differs from the head is reported
 with its own SHA so the caller can see it is superseded. State plainly whether
 `Analyze & test` is success on the head SHA, and whether the head moved while
 you read.
+
+An `Analyze & test` failure whose needs are all "cancelled", on a head that is
+no longer the PR's current head, is noise from a superseded run: report it as
+"superseded", not as a failure. Judge the current head.

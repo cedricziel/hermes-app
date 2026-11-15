@@ -109,6 +109,11 @@ A review reported only in a session message does not count. It must be in the
 PR, where a check can read it. A push after the review needs a new review of
 the new commits, with the new head SHA.
 
+Authors never edit the `## Review` section except to paste the isolated
+reviewer's block verbatim. Record the review line for the new head SHA before
+pushing it (the SHA is known locally), so `Review recorded` never sees a stale
+line.
+
 ## READY and merging
 
 A session reports READY to the orchestrator when all of these hold:
@@ -119,6 +124,19 @@ A session reports READY to the orchestrator when all of these hold:
   author's conclusions (`isolated-reviewer` agent).
 - For a UI PR, the design canvas is linked.
 - Main is merged in wherever main changed the PR's files.
+
+After one merge of main with a clean merge-only review, a PR is READY even if
+main moves again in a shared file, provided (1) `git merge-tree` against
+current origin/main is clean, (2) the later main commits do not change the same
+functions, classes or doc section the PR changes (name the commits you
+checked), and (3) `Analyze & test` is green on the reviewed head. If (2) fails,
+re-merge and get a scoped merge-only review.
+
+A READY report names the `lib/` directories the PR touches (or "none").
+
+The orchestrator arms at most one PR touching `lib/` at a time, and before
+every hand merge it trial-merges the PR with current main and runs
+`flutter analyze` in a scratch worktree.
 
 The orchestrator then arms squash auto-merge when READY, and GitHub waits for
 the required checks on the head. Read check state with `status-reader`
@@ -136,6 +154,10 @@ or `pull_request_read`; pending, queued and in-progress are not green.
 - Exception: the release-please PR is generated and has no isolated review.
   It is armed only when the owner asks, after its five builds are green, with
   the asked-for version in its title, and last (see the `release` skill).
+- Docs-only PRs cannot auto-merge while the ruleset requires the individual
+  test shards (they never report on a docs-only PR). Until the owner changes the
+  ruleset, the orchestrator merges them by hand after reading `Analyze & test`
+  success on the exact head.
 
 Stacked PRs: merge bottom-up. After the lower PR merges, retarget the next one
 to main and read the checks again on its new head: a retarget does not rerun CI
