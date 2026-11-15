@@ -75,14 +75,13 @@ version>`. Check the editable version on App Store Connect first and pass
   only the light Kanban board and task details, preserving other raw captures.
 - The seed script uses `DEMO_SERVER_URL` to create Kanban tasks through the
   backend API after checking that `/api/status` reports the throwaway home.
-- The main window now has a 1100 x 760 xib default and a 640 x 480 content
-  minimum set in `awakeFromNib` (PR #1132). An earlier observation was that a
-  size in the xib or in `MainFlutterWindow.swift` never reached the built app;
-  a probable reason is AppKit state restoration, which brings back the last saved frame over the xib default (the 640 x 480 minimum is not affected). The `build-macos` CI job measures the default and the minimum on every
-  build (`HERMES_WINDOW` line, see docs/architecture/macos.md); to look at it
-  yourself, `scripts/dev-app.sh start` and `screenshot`. Keep resizing for
-  screenshots through the `setContentSize` call on the `hermes_app/window`
-  channel (`SHOT_WINDOW`), whatever the default is.
+- The main window opens at 1100 x 760 on a first launch and then remembers its
+  last frame (frame autosave `HermesMainWindow`, PR #1132 and its follow-up);
+  the `build-macos` CI job measures both (see docs/architecture/macos.md). The
+  screenshot test resizes it through the `setContentSize` call (followed by
+  `center()`) on the `hermes_app/window` channel (`SHOT_WINDOW`) every run, so a
+  remembered frame never reaches a screenshot; `scripts/store-screenshots.sh`
+  deletes the frame the run leaves in the dev app's defaults afterwards.
 - Don't add erase boxes for the dev address by hand. The test finds the
   address text and writes its pixel box to `<screen>.erase`; `finish` erases
   that. A fixed box goes stale with the next layout change.

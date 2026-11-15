@@ -49,7 +49,26 @@ void main() {
     final awake = swift.indexOf('override func awakeFromNib()');
     expect(awake, isNonNegative);
     expect(swift.indexOf('contentMinSize = '), greaterThan(awake));
-    expect(xib, isNot(contains('restorable="NO"')));
+    // The remembered frame is AppKit's frame autosave, set once in
+    // awakeFromNib; the centred default applies only when none exists.
+    expect(
+      swift,
+      contains('static let frameAutosaveName = "HermesMainWindow"'),
+    );
+    expect(swift, contains('self.isRestorable = false'));
+    final awakeBody = swift.substring(
+      awake,
+      swift.indexOf('RegisterGeneratedPlugins'),
+    );
+    expect(
+      RegExp(
+        r'if setFrameUsingName\(Self\.frameAutosaveName\) \{\s*'
+        r'correctSavedFrame\(\)\s*\} else \{\s*center\(\)\s*\}\s*'
+        r'setFrameAutosaveName\(Self\.frameAutosaveName\)',
+      ).hasMatch(awakeBody),
+      isTrue,
+    );
+    expect(RegExp(r'\bcenter\(\)').allMatches(awakeBody), hasLength(1));
     final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
     expect(delegate, isNot(contains('contentMinSize =')));
   });

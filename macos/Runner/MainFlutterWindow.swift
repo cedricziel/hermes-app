@@ -20,6 +20,10 @@ class MainFlutterWindow: NSWindow {
   /// step with `kMacMainWindowMinSize` in lib/src/theme/breakpoints.dart.
   static let minimumContentSize = NSSize(width: 640, height: 480)
 
+  /// AppKit's frame autosave name: the window's last frame is remembered
+  /// across launches under it. Debug builds read it in AppDelegate's report.
+  static let frameAutosaveName = "HermesMainWindow"
+
   private var keyObserver: WindowKeyObserver?
   private var channel: FlutterMethodChannel?
   private var menuBarStatusItem: MenuBarStatusItem?
@@ -29,6 +33,20 @@ class MainFlutterWindow: NSWindow {
   /// happen before applicationDidFinishLaunching.
   private(set) var flutterViewController: FlutterViewController?
 
+  /// A remembered frame can be below the minimum or on a display that is gone.
+  private func correctSavedFrame() {
+    var frame = self.frame
+    let smallest = frameRect(forContentRect: NSRect(origin: .zero, size: Self.minimumContentSize)).size
+    frame.size.width = max(frame.width, smallest.width)
+    frame.size.height = max(frame.height, smallest.height)
+    setFrame(frame, display: false)
+    let reachable = NSScreen.screens.contains {
+      let shown = $0.visibleFrame.intersection(frame)
+      return shown.width >= 100 && shown.height >= 40
+    }
+    if !reachable { center() }
+  }
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     self.flutterViewController = flutterViewController
@@ -36,7 +54,15 @@ class MainFlutterWindow: NSWindow {
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
     self.contentMinSize = Self.minimumContentSize
-    self.center()
+    // The remembered frame is the only source of the frame after the first
+    // launch, so AppKit's own window restoration stays out of it.
+    self.isRestorable = false
+    if setFrameUsingName(Self.frameAutosaveName) {
+      correctSavedFrame()
+    } else {
+      center()
+    }
+    setFrameAutosaveName(Self.frameAutosaveName)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     QueueStorageDirectory.install(messenger: flutterViewController.engine.binaryMessenger)

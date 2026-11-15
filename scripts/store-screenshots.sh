@@ -130,6 +130,8 @@ cmd_mac() { # [compact]
       --dart-define=SHOT_THEME="$appearance" --dart-define=SHOT_WINDOW="$size" \
       --dart-define=SHOT_KANBAN_ONLY="${SHOT_KANBAN_ONLY:-false}"
   done
+  # The test resized the window; the main window remembers its last frame.
+  defaults delete com.cedricziel.hermesApp.dev "NSWindow Frame HermesMainWindow" 2>/dev/null || true
   "$ROOT_DIR/scripts/dev-backend.sh" stop || true
 }
 

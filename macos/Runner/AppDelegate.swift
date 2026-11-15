@@ -103,7 +103,20 @@ class AppDelegate: FlutterAppDelegate {
                     print("HERMES_WINDOW frame=\(Int(frame.width.rounded()))x\(Int(frame.height.rounded())) chrome=\(Int(chrome.rounded())) min=\(Int(minimum.width.rounded()))x\(Int(minimum.height.rounded()))")
                     fflush(stdout)
                 }
-                NSApp.terminate(nil)
+                // Resize, then quit normally so AppKit has written the frame it remembers.
+                if let spec = ProcessInfo.processInfo.environment["HERMES_REPORT_WINDOW_SET"],
+                   let window = self?.mainFlutterWindow {
+                    let size = spec.split(separator: "x").compactMap { Double($0) }
+                    if size.count == 2 {
+                        window.setFrame(
+                            NSRect(origin: window.frame.origin, size: NSSize(width: size[0], height: size[1])),
+                            display: true)
+                    }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    UserDefaults.standard.synchronize()
+                    NSApp.terminate(nil)
+                }
             }
         }
         #endif
