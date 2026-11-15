@@ -12,7 +12,7 @@ import 'package:hermes_app/src/theme/type_scale.dart';
 
 /// The look of a text message through the real chat path. Distinct colours for
 /// the chat theme's `onPrimary` and `onSurface`: links must ignore both and
-/// take the app's link colour (the pin changed with the link colour fix).
+/// take the app's link colour.
 const _onPrimary = Color(0xFFD50000);
 const _onSurface = Color(0xFF0000D5);
 

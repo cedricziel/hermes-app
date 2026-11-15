@@ -262,7 +262,6 @@ Widget _buildText(
   final bubble = SelectionArea(
     child: ChatTextMessage(
       message: message,
-      isSentByMe: isSentByMe,
       linksDecoration: TextDecoration.underline,
       onLinkTap: onLinkTap,
       textStyle: style,

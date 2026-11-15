@@ -17,7 +17,6 @@ class ChatTextMessage extends StatelessWidget {
   const ChatTextMessage({
     super.key,
     required this.message,
-    required this.isSentByMe,
     required this.textStyle,
     required this.backgroundColor,
     required this.borderRadius,
@@ -27,7 +26,6 @@ class ChatTextMessage extends StatelessWidget {
   });
 
   final TextMessage message;
-  final bool isSentByMe;
   final TextStyle textStyle;
   final Color backgroundColor;
   final BorderRadiusGeometry borderRadius;
