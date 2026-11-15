@@ -228,9 +228,15 @@ abstract interface class ConversationWindowLink {
   Future<void> share(String text, Rect anchor);
 }
 
+/// A window link that tells the main window when the window's own "Export
+/// chat as JSON" runs, so the menu bar item can be disabled.
+abstract interface class ExportBusyWindowLink {
+  void reportExportBusy(bool busy);
+}
+
 /// [ConversationWindowLink] for the conversation window [windowId].
 class DesktopConversationWindowLink
-    implements ConversationWindowLink, QueueWindowLink {
+    implements ConversationWindowLink, QueueWindowLink, ExportBusyWindowLink {
   DesktopConversationWindowLink(this.windowId) {
     unawaited(
       _windowChannel(windowId).setMethodCallHandler((call) async {
@@ -279,6 +285,10 @@ class DesktopConversationWindowLink
   @override
   void reportFocus(bool focused) =>
       unawaited(_quietly(_main<void>('focused', {'focused': focused})));
+
+  @override
+  void reportExportBusy(bool busy) =>
+      unawaited(_quietly(_main<void>('exportBusy', {'busy': busy})));
 
   @override
   void reportThread(String title, {required bool pinned}) {

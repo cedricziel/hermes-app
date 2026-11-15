@@ -1,3 +1,5 @@
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+
 import 'package:flutter/material.dart';
 
 import '../../widgets/disclosure_tile.dart';
@@ -38,7 +40,11 @@ class SessionStatusCard extends StatelessWidget {
       onExpansionChanged: (open) {
         if (open) onDetails?.call();
       },
-      title: Text(summary, maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: Text(
+        wellFormedText(summary),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
       children: [
         Padding(
           padding: const EdgeInsets.all(12),

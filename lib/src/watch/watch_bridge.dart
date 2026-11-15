@@ -35,7 +35,6 @@ class WatchBridge {
     this._events = noopAppEventLogger,
     this._authState = _unknownAuthState,
     this._auth,
-    this._appLock,
     this._requestActions,
     this._requestsEnabled = false,
     WatchContextStore? contextStore,
@@ -48,7 +47,6 @@ class WatchBridge {
   final AppEventLogger _events;
   final String Function() _authState;
   final AuthController? _auth;
-  final AppLockController? _appLock;
   final WatchRequestActions? _requestActions;
   final bool _requestsEnabled;
   Future<void> _requestPublication = Future.value();
@@ -61,8 +59,6 @@ class WatchBridge {
   bool get requestsAvailable => _requestPublicationSecured && _requestsWanted;
   bool get _requestsWanted =>
       _requestsEnabled &&
-      _appLock?.loaded == true &&
-      _appLock?.enabled == false &&
       _publicationSecured &&
       _contextStore.current != null &&
       _auth?.state == HermesConnectionState.ready &&
@@ -76,8 +72,6 @@ class WatchBridge {
       scope?.id,
       scope?.revision,
       _auth?.ownerGeneration,
-      _appLock?.loaded,
-      _appLock?.enabled,
     );
     if (!force &&
         state == _requestRequestedState &&
@@ -295,7 +289,6 @@ class WatchBridge {
       contextStore: contextStore,
       events: events,
       auth: auth,
-      appLock: appLock,
       requestActions: actions,
       requestsEnabled: requestsEnabled,
       authState: () => auth.state.name,
@@ -485,14 +478,12 @@ class WatchBridge {
   void start() {
     _channel.setMethodCallHandler(_onCall);
     _auth?.addListener(_sessionChanged);
-    _appLock?.addListener(_requestAccessChanged);
     _departure = _auth?.signedOut.listen((_) => _sessionChanged());
     _sessionChanged();
   }
 
   void dispose() {
     _auth?.removeListener(_sessionChanged);
-    _appLock?.removeListener(_requestAccessChanged);
     _requestActions?.clear();
     unawaited(_departure?.cancel());
     _channel.setMethodCallHandler(null);

@@ -28,8 +28,10 @@ import '../../voice/voice_message_recording.dart';
 import '../activity/widgets/needs_you_dock.dart'
     show NeedsYouDockBuilder, needsYouCompactFor;
 import 'chat_composer_builder.dart';
+import 'chat_earlier_messages_failed_row.dart';
 import 'chat_history_state.dart';
 import 'message_actions.dart' show TurnActionStatus;
+import 'tool_call_expansion.dart';
 import '../reactions/reaction_state.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
@@ -99,10 +101,12 @@ class ChatThreadView extends StatelessWidget {
     this.sendHeld = false,
     this.draftHandedBack = false,
     this.onShowAgentDetails,
+    this.toolCallExpansion,
     this.workingDirectoryRow,
     this.workspaceNotice,
     this.historyStatus,
     this.onRetryHistory,
+    this.earlierMessages,
   });
 
   /// Set while a stored chat has no messages on screen because they are
@@ -112,6 +116,10 @@ class ChatThreadView extends StatelessWidget {
 
   /// Reads the messages of a chat whose [historyStatus] is failed again.
   final VoidCallback? onRetryHistory;
+
+  /// Set when the chat shows messages but its older ones failed to load: a
+  /// row with Retry then leads the transcript ([onRetryHistory] reads again).
+  final ChatEarlierMessagesStatus? earlierMessages;
 
   final ChatThread? thread;
 
@@ -223,6 +231,10 @@ class ChatThreadView extends StatelessWidget {
   /// card; none where the chat has no panel (the quick panel).
   final ValueChanged<String>? onShowAgentDetails;
 
+  /// Keeps the tool calls the reader opened beyond the rows that show them;
+  /// each row keeps its own when null.
+  final ToolCallExpansionStore? toolCallExpansion;
+
   @override
   Widget build(BuildContext context) {
     final openThread = thread;
@@ -248,6 +260,26 @@ class ChatThreadView extends StatelessWidget {
           onReactionDetails: onReactionDetails,
           screenPreview: screenPreview,
           onShowAgentDetails: onShowAgentDetails,
+          topSliver: earlierMessages == null
+              ? null
+              : SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kChatGutter,
+                      0,
+                      kChatGutter,
+                      kChatTurnGap,
+                    ),
+                    child: ChatEarlierMessagesFailedRow(
+                      status: earlierMessages!,
+                      onRetry:
+                          earlierMessages == ChatEarlierMessagesStatus.failed
+                          ? onRetryHistory
+                          : null,
+                    ),
+                  ),
+                ),
+          toolCallExpansion: toolCallExpansion,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,

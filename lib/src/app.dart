@@ -183,7 +183,7 @@ class _HermesAppState extends State<HermesApp> {
       theme: widget.lightTheme ?? buildHermesLightTheme(),
       darkTheme: widget.darkTheme ?? buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-      builder: (context, child) => MaterialUiThemeScope(
+      builder: (context, child) => AppThemeScopes(
         child: MenuBarExtraHost(
           navigatorKey: _navigatorKey,
           child: MacMenuBar(

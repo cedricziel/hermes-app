@@ -22,6 +22,7 @@ import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import '../widgets/named_icon_button.dart';
+import '../widgets/platform_refresh.dart';
 import 'kanban_board_controller.dart';
 import 'kanban_boards_screen.dart';
 import 'kanban_create_screen.dart';
@@ -146,9 +147,25 @@ class _KanbanScreenState extends State<KanbanScreen> {
   VoidCallback? get _newTask =>
       _controller.board == null || _controller.selecting ? null : _create;
 
+  bool _reloading = false;
+
+  /// A reload the user asked for, from the toolbar or View > Reload.
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    try {
+      await _controller.refresh();
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
+
   /// What File > New and View > Inspector do while the board is in front.
   Map<MacCommand, MacCommandHandler> _menuCommands() => {
     MacCommand.newChat: MacCommandHandler(_newTask, title: 'New Task'),
+    if (_mac)
+      MacCommand.reload: MacCommandHandler(
+        _reloading ? null : () => unawaited(_reload()),
+      ),
     if (_mac)
       MacCommand.toggleInspector: MacCommandHandler(
         _inspector.toggle,
@@ -181,6 +198,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
     onManageBoards: _manageBoards,
     onProfileChanged: _controller.setAssignee,
     onToggleInspector: _inspector.toggle,
+    onRefresh: () => unawaited(_reload()),
+    refreshing: _reloading,
     more: _controller.board == null
         ? null
         : MacToolbarMenu<String>(
@@ -491,7 +510,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         Expanded(
           child: Stack(
             children: [
-              RefreshIndicator(
+              PlatformRefresh(
                 onRefresh: _controller.refresh,
                 child: tasks.isEmpty
                     ? ListView(
