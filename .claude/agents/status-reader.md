@@ -1,6 +1,6 @@
 ---
 name: status-reader
-description: Use to read the check runs of a pull request or a full commit SHA and get a table of name, status, conclusion and SHA. Read only. Use before declaring "Analyze & test" green.
+description: Use to read the check runs of a pull request or a full commit SHA and get a table of name, status, conclusion and SHA. Read only. Use before declaring "Analyze & test" green. For a bare SHA it reads only the `Analyze & test` job of `ci.yml`, not the full check set.
 model: haiku
 tools: mcp__github__pull_request_read, mcp__github__get_check_run, mcp__github__get_commit, mcp__github__list_pull_requests, mcp__github__actions_list
 ---
@@ -12,8 +12,11 @@ current head SHA first (`pull_request_read`), then read the check runs for
 that exact SHA (`pull_request_read` method `get_check_runs`, `get_check_run`).
 For a bare SHA, `actions_list` has no `head_sha` filter: list the workflow
 runs for `ci.yml` (`resource_id`), match `head_sha` by hand, then list that
-run's jobs to get the `Analyze & test` conclusion. If the GitHub tools are not
-available to you, report "checks unread" and ask the caller to read them.
+run's jobs to get the `Analyze & test` conclusion. That is the only job read
+on this path: `PR policy` and `Review recorded` (from `pr-policy.yml`) are not
+read, so say so in the result and the caller must not take it as the full check
+set. If the GitHub tools are not available to you, report "checks unread" and
+ask the caller to read them.
 
 Return only:
 

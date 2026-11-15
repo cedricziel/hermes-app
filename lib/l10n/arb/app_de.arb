@@ -4,6 +4,7 @@
   "@@x-area-common": "",
   "commonOff": "Aus",
   "commonOn": "Ein",
+  "commonRefreshing": "Wird aktualisiert",
   "commonRetry": "Erneut versuchen",
 
   "@@x-area-agent_messages": "",
@@ -214,6 +215,7 @@
   "chatCheckpointsPageFileNext": "Nächste Datei",
   "chatCheckpointsPageFilePrevious": "Vorherige Datei",
   "chatCheckpointsPageRefresh": "Aktualisieren",
+  "chatCheckpointsPageRefreshTooltip": "Aktualisieren ⌘R",
   "chatCheckpointsPageRestoring": "Dateien werden wiederhergestellt …",
   "chatCheckpointsPageRowCount": "Datei-Checkpoints · {count}",
   "chatCheckpointsPageRowFailed": "Checkpoints konnten nicht gelesen werden",
@@ -575,6 +577,7 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanRefreshAction": "Aktualisieren",
 
   "@@x-area-live_activities": "",
 
@@ -629,6 +632,9 @@
   "modelsPillRetryModels": "Modelle erneut laden",
   "modelsPillSelectedModel": "{label}, ausgewähltes Modell {model}",
   "modelsPillSetUp": "Modell einrichten",
+  "modelsSetupBody": "Richte einen Anbieter und ein Modell für das Profil {profile} auf deinem Hermes-Server ein. Führe diesen Befehl auf dem Server aus und prüfe dann erneut:",
+  "modelsSetupCheckAgain": "Erneut prüfen",
+  "modelsSetupTitle": "Modell einrichten",
 
   "@@x-area-navigation": "",
 
@@ -640,6 +646,7 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsRefreshAction": "Aktualisieren",
 
   "@@x-area-profiles": "",
   "profilesSoulBannerCheck": "Prüfen",
@@ -934,8 +941,10 @@
   "@@x-area-quick_panel": "",
 
   "@@x-area-schedules": "",
+  "schedulesRefreshAction": "Aktualisieren",
 
   "@@x-area-screens": "",
+  "screensRefreshAction": "Aktualisieren",
 
   "@@x-area-server_care": "",
   "serverCareAccountButtonLabel": "Konto",
@@ -1268,6 +1277,23 @@
   "skillsCuratorCheckedNothing": "Gerade läuft kein Durchlauf.",
   "skillsCuratorCheckedNothingSince": "Gerade läuft kein Durchlauf. Letzter Durchlauf oder erste Prüfung {when}.",
   "skillsCuratorChecking": "Wird geprüft …",
+  "skillsCuratorConfirmArchived": "Archivierte Skills werden auf dem Server beiseitegelegt, nicht gelöscht. Diese App kann einen Durchlauf nicht rückgängig machen.",
+  "skillsCuratorConfirmBuiltins": "Skills einbeziehen, die mit Hermes geliefert wurden.",
+  "skillsCuratorConfirmBuiltinsMaybe": "Kann Skills einbeziehen, die mit Hermes geliefert wurden.",
+  "skillsCuratorConfirmCancel": "Abbrechen",
+  "skillsCuratorConfirmConsolidate": "Skills zusammenführen und umschreiben und geplante Aufgaben anpassen, die sie nutzen.",
+  "skillsCuratorConfirmConsolidateMaybe": "Kann außerdem Skills zusammenführen und umschreiben und geplante Aufgaben anpassen, die sie nutzen.",
+  "skillsCuratorConfirmConsolidateOff": "Er archiviert nur ungenutzte Skills.",
+  "skillsCuratorConfirmLead": "Ein Durchlauf prüft die Skills auf dem Server. Er kann:",
+  "skillsCuratorConfirmPlaceholders": "Ersetze <name> durch den Skill und füge statt <profile> dein Profil ein.",
+  "skillsCuratorConfirmRestoreLead": "Um einen archivierten Skill zurückzuholen, führe dies auf dem Server aus:",
+  "skillsCuratorConfirmRollbackNote": "Zusammengeführte oder umgeschriebene Skills lassen sich nur auf dem Server zurückrollen.",
+  "skillsCuratorConfirmRun": "Jetzt ausführen",
+  "skillsCuratorConfirmSkipped": "Angeheftete Skills, Skills, die eine geplante Aufgabe nutzt, und Skills aus dem Hub werden übersprungen.",
+  "skillsCuratorConfirmStale": "Skills nach {stale, plural, =1{1 Tag} other{{stale} Tagen}} ohne Nutzung als veraltet markieren und nach {archive, plural, =1{1 Tag} other{{archive} Tagen}} archivieren.",
+  "skillsCuratorConfirmStaleAgentMade": "Es zählen nur Skills, die als vom Agenten erstellt vermerkt sind.",
+  "skillsCuratorConfirmStaleUnknown": "Skills nach der eingestellten Anzahl Tage als veraltet markieren und archivieren.",
+  "skillsCuratorConfirmTitle": "Curator jetzt ausführen?",
   "skillsCuratorCouldntConfirm": "Konnte nicht bestätigt werden.",
   "skillsCuratorElsewhere": "Auf diesem Server läuft ein Durchlauf",
   "skillsCuratorElsewhereNote": "Diese App hat ihn nicht gestartet und zeigt deshalb keine Ausgabe.",

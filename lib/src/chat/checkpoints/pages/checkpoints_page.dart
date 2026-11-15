@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/l10n.dart';
+import '../../../macos/mac_commands.dart';
 import '../../../theme/app_icons.dart';
+import '../../../theme/platform_chrome.dart';
 import '../../activity/activity_page_binding.dart';
 import '../../activity/widgets/activity_page_scaffold.dart';
 import '../../activity/widgets/activity_working_line.dart';
@@ -183,7 +185,9 @@ class _CheckpointsPageState extends State<CheckpointsPage>
     if (controller == null) return const SizedBox.shrink();
     final outcome = controller.outcome;
     final showOutcome = _showsOutcome(controller);
-    return ActivityPageScaffold(
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    final canRefresh = !controller.loadingList && !controller.notUpToDate;
+    final page = ActivityPageScaffold(
       title: l10n.chatCheckpointsPageTitle,
       onBack: () => Navigator.of(context).maybePop(),
       actions: [
@@ -191,9 +195,9 @@ class _CheckpointsPageState extends State<CheckpointsPage>
           key: const Key('checkpoints-refresh'),
           label: l10n.chatCheckpointsPageRefresh,
           icon: AppIcons.refresh,
-          onPressed: controller.loadingList || controller.notUpToDate
-              ? null
-              : _refresh,
+          tooltip: mac ? l10n.chatCheckpointsPageRefreshTooltip : null,
+          busy: mac && controller.loadingList,
+          onPressed: canRefresh ? _refresh : null,
         ),
       ],
       body: CheckpointListBody(
@@ -244,6 +248,16 @@ class _CheckpointsPageState extends State<CheckpointsPage>
         onRetry: () => unawaited(_refresh()),
         onRefresh: controller.notUpToDate ? null : _refresh,
       ),
+    );
+    if (!mac) return page;
+    // View > Reload owns ⌘R.
+    return MacCommandScope(
+      commands: {
+        MacCommand.reload: MacCommandHandler(
+          canRefresh ? () => unawaited(_refresh()) : null,
+        ),
+      },
+      child: page,
     );
   }
 }
