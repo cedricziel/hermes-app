@@ -37,6 +37,7 @@
   "chatComposerHoldHandedBack": "Deine letzte Nachricht ist wieder im Nachrichtenfeld.",
   "chatComposerHoldRestoring": "Dateien werden wiederhergestellt …",
   "chatNoticeStopCommand": "Hermes hat das als Stopp-Befehl verstanden. Es wurde nichts gesendet.",
+  "chatNoticeStopCommandElsewhere": "Hermes hat eine Nachricht in einem anderen Chat als Stopp-Befehl verstanden. Es wurde nichts gesendet; der Text steht dort wieder im Nachrichtenfeld.",
   "chatScrollToLatest": "Zur neuesten Nachricht",
   "chatSessionExportConfirmButton": "Exportieren",
   "chatSessionExportConfirmMessage": "Die Datei enthält diese Sitzung so, wie Hermes sie gespeichert hat, auch den Systemprompt, Tool-Ausgaben und Dateipfade. Sie kann Geheimnisse wie Schlüssel enthalten. Speichere sie nur an einem Ort, dem du vertraust.",
@@ -422,6 +423,9 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsHistoryFailedDetail": "Prüfe deine Verbindung und versuche es erneut.",
+  "chatWidgetsHistoryFailedTitle": "Die Nachrichten konnten nicht geladen werden",
+  "chatWidgetsHistoryLoading": "Chat wird geladen",
   "chatWidgetsProgramConfirmCancel": "Abbrechen",
   "chatWidgetsProgramConfirmMessage": "Hermes beendet {command}\n\nDie bisherige Ausgabe bleibt hier erhalten, und der Agent erfährt nicht, dass es beendet wurde.",
   "chatWidgetsProgramConfirmThisProgram": "dieses Programm",

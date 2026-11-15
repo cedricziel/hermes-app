@@ -39,6 +39,10 @@ Widget composerModelPill(ChatController chat, {VoidCallback? onSetupModel}) =>
             }
           },
           onRetry: chat.refreshModelOptions,
+          onPickerOpened: () => unawaited(chat.refreshModelOptionsQuietly()),
+          pickerUpdates: chat,
+          pickerOptions: () => chat.modelOptions,
+          pickerChoice: () => chat.modelChoice,
           onSetup:
               onSetupModel ??
               () async {
@@ -171,6 +175,8 @@ ChatThreadView boundChatThreadView({
     workingDirectoryRow: workingDirectoryRow,
     workspaceNotice: workspaceNotice,
     thread: t,
+    historyStatus: t == null ? null : chat.historyStatusOf(t),
+    onRetryHistory: t == null ? null : () => chat.retryHistory(t),
     sendHeld: t != null && chat.sendHeldIn(t),
     draftHandedBack: draftHandedBack,
     activityLine: t == null || onOpenActivity == null
