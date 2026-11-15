@@ -21,6 +21,7 @@ import 'package:hermes_app/src/files/widgets/files_notes.dart';
 import 'package:hermes_app/src/files/widgets/files_page_menu.dart';
 import 'package:hermes_app/src/files/widgets/files_questions.dart';
 import 'package:hermes_app/src/files/widgets/folder_pick_list.dart';
+import 'package:hermes_app/src/theme/hermes_code_colors.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -832,6 +833,52 @@ WidgetbookComponent _previewHeaderComponent() => WidgetbookComponent(
 
 // -- Preview views ----------------------------------------------------------
 
+/// Every role of the code palette named in its own colour, then a JSON and a
+/// Python sample drawn by the same palette.
+Widget _codePalette() => Builder(
+  builder: (context) {
+    final palette = context.codeColors;
+    final roles = {
+      'key': palette.key,
+      'keyword': palette.keyword,
+      'string': palette.string,
+      'number': palette.number,
+      'function': palette.function,
+      'typeName': palette.typeName,
+      'comment, punctuation': palette.comment,
+    };
+    return fill(
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final role in roles.entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Container(width: 16, height: 16, color: role.value),
+                    const SizedBox(width: 10),
+                    Text(
+                      role.key,
+                      style: filesCodeStyle(context)
+                          .copyWith(color: role.value),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 12),
+            const HighlightedCode(text: _json, language: 'json'),
+            const SizedBox(height: 12),
+            const HighlightedCode(text: _python, language: 'python'),
+          ],
+        ),
+      ),
+    );
+  },
+);
+
 Widget _view(FilePreviewContent content) => Builder(
   builder: (context) => fill(
     FilePreviewView(
@@ -876,6 +923,7 @@ WidgetbookComponent _previewViewComponent() => WidgetbookComponent(
       'Code, JSON',
       (_) => _view(const CodeContent(_json, language: 'json')),
     ),
+    _case('Code palette', (_) => _codePalette()),
     _case(
       'Code, shell',
       (_) => _view(const CodeContent(_shell, language: 'shell')),

@@ -346,23 +346,11 @@ class _HighlightedCodeState extends State<HighlightedCode> {
   Widget build(BuildContext context) {
     final base = filesCodeStyle(context);
     final palette = context.codeColors;
-    TextStyle? styleOf(CodeToken? token) => switch (token) {
-      null => null,
-      CodeToken.keyword => TextStyle(color: palette.keyword),
-      CodeToken.string => TextStyle(color: palette.string),
-      CodeToken.comment => TextStyle(
-        color: palette.comment,
-        fontStyle: FontStyle.italic,
-      ),
-      CodeToken.number => TextStyle(color: palette.number),
-      CodeToken.function => TextStyle(color: palette.function),
-      CodeToken.type => TextStyle(color: palette.typeName),
-    };
     final span = TextSpan(
       style: base,
       children: [
         for (final (text, token) in _runs)
-          TextSpan(text: text, style: styleOf(token)),
+          TextSpan(text: text, style: codeTokenStyle(token, palette)),
       ],
     );
     return widget.selectable ? SelectableText.rich(span) : Text.rich(span);

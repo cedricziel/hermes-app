@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gpt_markdown/custom_widgets/code_field.dart';
+import 'package:hermes_app/src/widgets/hermes_code_block.dart';
 
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
@@ -147,7 +147,7 @@ void main() {
         '${e.key} | chars=${e.value.length} | first=${r.first}ms | pumps=${r.rest}ms',
       );
       final fields = tester
-          .widgetList<CodeField>(find.byType(CodeField))
+          .widgetList<HermesCodeBlock>(find.byType(HermesCodeBlock))
           .toList();
       expect(fields, isNotEmpty, reason: e.key);
       // A fast plain fallback must not pass as a benchmark of colouring.

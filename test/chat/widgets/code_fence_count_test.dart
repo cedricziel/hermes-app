@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gpt_markdown/custom_widgets/code_field.dart';
+import 'package:hermes_app/src/widgets/hermes_code_block.dart';
 
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
@@ -61,7 +61,7 @@ void main() {
       // ignore: avoid_print
       print('FENCE-COST $n fences: ${ms}ms');
       expect(
-        tester.widgetList(find.byType(CodeField)),
+        tester.widgetList(find.byType(HermesCodeBlock)),
         hasLength(n),
         reason:
             'baseline without a fence cap; when the chat-speed cap lands, '
