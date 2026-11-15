@@ -67,14 +67,30 @@ class AppBanner extends StatelessWidget {
   /// lines up with the text above it while the target still extends past the
   /// label vertically. A button that sets its own side padding through
   /// `style:` is moved toward the leading edge by that padding instead (the
-  /// theme cannot beat a button's own style; a button inside a wrapper widget
-  /// is not seen and is not moved). The move is done in layout, by the
+  /// theme cannot beat a button's own style; a button inside a Semantics,
+  /// ExcludeSemantics or MergeSemantics wrapper is seen, one inside any other
+  /// wrapper widget is not and is not moved). The move is done in layout, by the
   /// caller, through [_stackedShift], so the whole button stays tappable.
   /// With [isButton] false the widget is
   /// placed as it is.
   static double _stackedShift(BuildContext context, Widget action) {
-    final own = action is ButtonStyleButton
-        ? action.style?.padding?.resolve(const <WidgetState>{})
+    // Semantics wrappers around the button do not hide its padding.
+    var button = action;
+    while (true) {
+      button = switch (button) {
+        Semantics(:final child?) => child,
+        ExcludeSemantics(:final child?) => child,
+        MergeSemantics(:final child?) => child,
+        _ => button,
+      };
+      if (button is! Semantics &&
+          button is! ExcludeSemantics &&
+          button is! MergeSemantics) {
+        break;
+      }
+    }
+    final own = button is ButtonStyleButton
+        ? button.style?.padding?.resolve(const <WidgetState>{})
         : null;
     if (own == null) return 0;
     final direction = Directionality.of(context);

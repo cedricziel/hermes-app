@@ -233,6 +233,25 @@ void main() {
     },
   );
 
+  test('a full-screen Retry made stale by a list reload does not bring the '
+      'failure back for a chat that is no longer kept', () async {
+    chat.select('s2');
+    await flush();
+    s2Reads.first.complete(failure());
+    await flush();
+    chat.retryHistory(thread('s2'));
+    await flush();
+    chat.select('s1');
+    await flush();
+    await chat.loadThreads();
+    await flush();
+
+    s2Reads.last.complete(failure());
+    await flush();
+
+    expect(status('s2'), isNot(ChatHistoryStatus.failed));
+  });
+
   group('earlier messages after a send', () {
     ChatEarlierMessagesStatus? earlier() =>
         chat.earlierMessagesStatusOf(thread('s2'));
@@ -470,6 +489,56 @@ void main() {
       expect(earlier(), isNull);
       expect(status('s2'), isNull);
     });
+
+    for (final (name, retryFails) in [('failure', true), ('success', false)]) {
+      test('a Retry read overtaken by a refresh in the same load does not '
+          'decide the row: its $name is ignored', () async {
+        await failThenSend();
+        transport.slashResult = const SlashCommandResult(
+          threadId: 's2',
+          output: 'ok',
+          prefill: 'draft',
+        );
+        final running = chat.runSlashCommand('/review');
+        await flush();
+        // Read 1 failed; read 2 is the refresh behind the command.
+        expect(s2Reads, hasLength(2));
+        chat.retryHistory(thread('s2'));
+        await flush();
+        expect(s2Reads, hasLength(3));
+
+        s2Reads[1].complete(page());
+        await running;
+        await flush();
+        expect(earlier(), isNull);
+        final landed = thread('s2').messages.map((m) => m.content).toList();
+        expect(landed, contains('older question'));
+
+        s2Reads[2].complete(
+          retryFails
+              ? failure()
+              : (
+                  status: 200,
+                  body: messageListBody('s2', [
+                    messageRow(id: 8, role: 'user', content: 'stale question'),
+                  ]),
+                ),
+        );
+        await flush();
+
+        expect(earlier(), isNull);
+        expect(status('s2'), isNull);
+        expect(
+          thread('s2').messages.map((m) => m.content).toList(),
+          landed,
+          reason: 'the newer page is kept as it was',
+        );
+        final reads = s2Reads.length;
+        chat.retryHistory(thread('s2'));
+        await flush();
+        expect(s2Reads, hasLength(reads), reason: 'nothing left to retry');
+      });
+    }
 
     test('a chat that never failed has no row', () async {
       expect(chat.earlierMessagesStatusOf(thread('s1')), isNull);

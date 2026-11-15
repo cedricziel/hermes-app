@@ -474,6 +474,9 @@ extension _ChatControllerHistory on ChatController {
         _historyRetrying.remove(id);
         return _readAgainUnderNewId(reading, id);
       }
+      // A newer read or a page landed another way meanwhile: this one is
+      // overtaken and decides nothing.
+      if (_pageReadToken[id] != token) return;
       _firstPageLanded(id);
       final merged = _mergedWithPage(thread.messages, id, page.messages);
       thread.messages
@@ -488,6 +491,14 @@ extension _ChatControllerHistory on ChatController {
     } on Object {
       if (generation != _loadGeneration) {
         return _restoreStaleRead(id, token, retried: retried);
+      }
+      if (_pageReadToken[id] != token) {
+        // Overtaken, or the chat was stored under a new id meanwhile and is
+        // read again under it.
+        if (active && !_threads.any((t) => t.id == id)) {
+          _readAgainUnderNewId(reading, id);
+        }
+        return;
       }
       _historyRetrying.remove(id);
       _unloaded.add(id);

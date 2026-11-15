@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/chat_earlier_messages_failed_row.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/app_banner.dart';
+import 'package:hermes_app/src/widgets/motion_spinner.dart';
 
 import 'support/screenshot_recorder.dart';
 
@@ -267,6 +268,129 @@ void main() {
       final retrying = await height(ChatEarlierMessagesStatus.retrying);
       expect(retrying, failed);
       expect(tester.takeException(), isNull);
+    });
+  }
+
+  // Stacked under the title (German, or a large text size), the Retry's
+  // content starts where the title does, failed and retrying alike.
+  for (final (locale, scale) in [
+    (const Locale('de'), 1.0),
+    (const Locale('en'), 2.0),
+  ]) {
+    for (final status in ChatEarlierMessagesStatus.values) {
+      testWidgets('the stacked ${status.name} content lines up with the title '
+          'in ${locale.languageCode} at ${scale}x', (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: locale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 680,
+                    child: ChatEarlierMessagesFailedRow(
+                      status: status,
+                      onRetry: status == ChatEarlierMessagesStatus.failed
+                          ? () {}
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final title = tester.getTopLeft(
+          find.text(
+            locale.languageCode == 'de'
+                ? 'Frühere Nachrichten konnten nicht geladen werden'
+                : "Couldn't load earlier messages",
+          ),
+        );
+        final lead = status == ChatEarlierMessagesStatus.failed
+            ? find.descendant(
+                of: find.byType(TextButton),
+                matching: find.byType(Icon),
+              )
+            : find.byType(MotionSpinner);
+        expect(tester.getTopLeft(lead).dx, closeTo(title.dx, 0.5));
+      });
+    }
+  }
+
+  testWidgets('while retrying a screen reader hears one plain "Retrying…" and '
+      'no button, and the banner label is unchanged', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _host(
+        const ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.retrying,
+        ),
+      ),
+    );
+    final banner = tester.getSemantics(find.byType(AppBanner));
+    expect(banner.label, "Couldn't load earlier messages");
+    expect(banner.flagsCollection.isLiveRegion, isTrue);
+    final node = tester.getSemantics(find.text('Retrying…'));
+    expect(node.label, 'Retrying…');
+    expect(node.flagsCollection.isButton, isFalse);
+    handle.dispose();
+  });
+
+  for (final brightness in Brightness.values) {
+    testWidgets('the "Retrying…" label is in the text colour, at least 7:1 on '
+        'the banner in ${brightness.name}', (tester) async {
+      final theme = brightness == Brightness.light
+          ? buildHermesLightTheme()
+          : buildHermesDarkTheme();
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: theme,
+          home: const Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 680,
+                child: ChatEarlierMessagesFailedRow(
+                  status: ChatEarlierMessagesStatus.retrying,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final color = tester
+          .widget<RichText>(
+            find.descendant(
+              of: find.byType(TextButton),
+              matching: find.byType(RichText),
+            ),
+          )
+          .text
+          .style!
+          .color!;
+      final warning = tester
+          .element(find.byType(AppBanner))
+          .hermesColors
+          .warning;
+      final background = Color.alphaBlend(
+        warning.withValues(alpha: 0.1),
+        theme.scaffoldBackgroundColor,
+      );
+      final hi = color.computeLuminance() > background.computeLuminance()
+          ? color
+          : background;
+      final lo = identical(hi, color) ? background : color;
+      final ratio =
+          (hi.computeLuminance() + 0.05) / (lo.computeLuminance() + 0.05);
+      expect(ratio, greaterThanOrEqualTo(7));
     });
   }
 }

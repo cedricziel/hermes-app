@@ -615,7 +615,7 @@ void main() {
         expect(find.text("Couldn't load earlier messages"), findsOneWidget);
         s3Gate = Completer<void>();
         await tester.tap(find.text('Retry'));
-        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 250));
         await shots.capture(tester, 'earlier-retrying');
         expect(find.text('Retrying…'), findsOneWidget);
         s3Gate.complete();
