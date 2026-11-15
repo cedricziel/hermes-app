@@ -122,4 +122,51 @@ void main() {
     }
     expect(marker.existsSync(), isFalse, reason: 'flutter test was started');
   });
+
+  test(
+    'the four shards of scripts/test-shard.sh cover every test file once',
+    () {
+      if (Platform.isWindows) return;
+      // Independent of tool/: what `find test -name '*_test.dart'` returns.
+      final found = Process.runSync('find', ['test', '-name', '*_test.dart']);
+      expect(found.exitCode, 0);
+      final expected =
+          (found.stdout as String)
+              .split('\n')
+              .where((l) => l.isNotEmpty)
+              .toList()
+            ..sort();
+      expect(expected, isNotEmpty);
+
+      final listed = <String>[];
+      for (var shard = 0; shard < 4; shard++) {
+        final result = Process.runSync(
+          'bash',
+          ['scripts/test-shard.sh', '$shard', '4'],
+          environment: {'TEST_SHARD_LIST': '1'},
+        );
+        expect(result.exitCode, 0, reason: 'shard $shard: ${result.stderr}');
+        listed.addAll(
+          (result.stdout as String).split('\n').where((l) => l.isNotEmpty),
+        );
+      }
+
+      final counts = <String, int>{};
+      for (final f in listed) {
+        counts[f] = (counts[f] ?? 0) + 1;
+      }
+      final missing = expected.where((f) => !counts.containsKey(f)).toList();
+      final extra = counts.keys.where((f) => !expected.contains(f)).toList();
+      final duplicated = [
+        for (final e in counts.entries)
+          if (e.value > 1) e.key,
+      ];
+      expect(
+        [missing, extra, duplicated],
+        everyElement(isEmpty),
+        reason:
+            'missing: $missing, not on disk: $extra, listed twice: $duplicated',
+      );
+    },
+  );
 }
