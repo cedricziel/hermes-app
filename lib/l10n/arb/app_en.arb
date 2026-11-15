@@ -2629,6 +2629,14 @@
   "@@x-area-network": "",
 
   "@@x-area-notifications": "",
+  "notificationsDeniedWarning": "Turn on notifications for Hermes in system settings.",
+  "@notificationsDeniedWarning": {
+    "description": "Warning under the Notify me switch after the system refused notifications; the Open settings button sits under it. Keep it to two lines."
+  },
+  "notificationsOpenSettings": "Open settings",
+  "@notificationsOpenSettings": {
+    "description": "Button under the Notify me switch's warning after the system refused notifications; opens the app's notification settings in the system."
+  },
   "notificationsReplyFootnote": "On iPhone, iPad and Mac you can reply to a finished reply from its notification. Not while App Lock is on.",
   "@notificationsReplyFootnote": {
     "description": "Last sentence of the footer under the Notify me switch, shown on iOS and macOS: a finished reply's notification has a Reply button, and it is not offered while App Lock is on."

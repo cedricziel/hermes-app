@@ -28,6 +28,7 @@ import 'needs_you_dock_use_cases.dart';
 import 'activity_line_use_cases.dart';
 import 'moa_progress_use_cases.dart';
 import 'background_check_status_use_cases.dart';
+import 'open_settings_button_use_cases.dart';
 import 'queue_recovery_use_cases.dart';
 import 'chat_checkpoints_use_cases.dart';
 import 'chat_checkpoint_restore_use_cases.dart';
@@ -121,6 +122,7 @@ final List<WidgetbookNode> directories = [
   activityWaitingMarkerNode(),
   moaProgressNode(),
   backgroundCheckStatusNode(),
+  openSettingsButtonNode(),
   queueRecoveryNode(),
   connectionNode(),
   handoffNode(),

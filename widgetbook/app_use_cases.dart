@@ -102,7 +102,9 @@ Widget _notificationsDenied() => Hosted<NotificationSettings>(
   dispose: (settings) => settings.dispose(),
   builder: (_, settings) => withAppProviders(
     CatalogAuth(),
-    _dialog(showNotificationsDialog),
+    _dialog(
+      (context) => showNotificationsDialog(context, openSettings: () async {}),
+    ),
     notificationSettings: settings,
   ),
 );

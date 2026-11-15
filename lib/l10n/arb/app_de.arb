@@ -560,6 +560,8 @@
   "@@x-area-network": "",
 
   "@@x-area-notifications": "",
+  "notificationsDeniedWarning": "In den Systemeinstellungen für Hermes aktivieren.",
+  "notificationsOpenSettings": "Einstellungen öffnen",
   "notificationsReplyFootnote": "Auf iPhone, iPad und Mac kannst du direkt in der Mitteilung auf eine fertige Antwort antworten. Nicht, solange die App-Sperre aktiv ist.",
 
   "@@x-area-platform_hint": "",

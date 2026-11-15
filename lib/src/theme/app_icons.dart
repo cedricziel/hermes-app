@@ -173,6 +173,10 @@ abstract final class AppIcons {
     Icons.tune,
     CupertinoIcons.slider_horizontal_3,
   );
+  static const settings = AppIconSet(
+    Icons.settings_outlined,
+    CupertinoIcons.settings,
+  );
   static const stop = AppIconSet(
     Icons.stop_circle_outlined,
     CupertinoIcons.stop_circle,
@@ -519,6 +523,7 @@ abstract final class AppIcons {
     'undo': undo,
     'redo': redo,
     'tune': tune,
+    'settings': settings,
     'stop': stop,
     'mic': mic,
     'stopRecording': stopRecording,

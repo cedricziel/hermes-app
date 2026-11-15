@@ -132,6 +132,7 @@ dependencies:
   # Syntax colours for the Files code preview. Already in the tree through
   # gpt_markdown, so this adds no package; see the server-files change.
   val_highlight: ^0.1.1
+  app_settings: ^9.0.1
 
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
 # upstream SPM implementation until those packages publish their next release.
