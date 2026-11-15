@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/tool_value_language.dart';
 import 'package:hermes_app/src/chat/widgets/tool_hidden_chars.dart';
+import 'package:hermes_app/src/chat/widgets/tool_json_tree.dart';
 import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/src/files/code_highlight.dart';
 import 'package:hermes_app/src/theme/hermes_code_colors.dart';
@@ -44,10 +45,16 @@ Widget _host(
   );
 }
 
+/// The one flat text (not a box, not a tree row) on screen.
+final _flat = find.descendant(
+  of: find.byType(ToolValueView),
+  matching: find.byWidgetPredicate((w) => w is Text && w.textSpan != null),
+);
+
 /// The spans of the one selectable text on screen.
 List<InlineSpan> _spans(WidgetTester tester) {
-  final text = tester.widget<SelectableText>(find.byType(SelectableText));
-  return text.textSpan!.children!;
+  final text = tester.widget<Text>(_flat);
+  return (text.textSpan! as TextSpan).children!;
 }
 
 String _shown(List<InlineSpan> spans) =>
@@ -145,7 +152,7 @@ void main() {
           const ToolValueView(text: '{"a": 1, "b": "x"}', language: 'json'),
         ),
       );
-      final palette = tester.element(find.byType(SelectableText)).codeColors;
+      final palette = tester.element(_flat).codeColors;
       Color? colourOf(String text) =>
           _spans(tester)
               .whereType<TextSpan>()
@@ -194,12 +201,16 @@ void main() {
           expect(find.text(code), findsOneWidget);
         }
         expect(
-          // The boxes are one run of the text for a screen reader.
+          // The text and its boxes read as one run.
           _boxLabel(tester, 0),
           [
+            'a',
             'hidden character U+202E',
+            'b',
             'hidden character U+001B',
+            'c',
             'hidden character U+FEFF',
+            'd',
           ].join('\n'),
         );
         handle.dispose();
@@ -795,11 +806,11 @@ void main() {
       await tester.tap(find.byKey(_toggle));
       await tester.pump();
       expect(find.byKey(_treeKey), findsOneWidget);
-      expect(find.byType(SelectableText), findsNothing);
+      expect(_flat, findsNothing);
       await tester.tap(find.byKey(_toggle));
       await tester.pump();
       expect(find.byKey(_treeKey), findsNothing);
-      expect(find.byType(SelectableText), findsOneWidget);
+      expect(_flat, findsOneWidget);
     });
 
     testWidgets('targets are 48 dp, 44 pt on iOS, 28 pt on a Mac', (
@@ -921,7 +932,7 @@ void main() {
     testWidgets('the tree caps at 220 too, and builds rows lazily', (
       tester,
     ) async {
-      final text = '[${List.generate(5000, (i) => '$i').join(',')}]';
+      final text = '[${List.generate(1500, (i) => '$i').join(',')}]';
       expect(text.length, lessThan(kToolJsonSniffMaxChars));
       await tester.pumpWidget(
         _host(
@@ -934,7 +945,7 @@ void main() {
         ),
       );
       expect(tester.getSize(find.byKey(_treeKey)).height, 220);
-      expect(find.text('4999'), findsNothing);
+      expect(_rich('1499'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -946,7 +957,7 @@ void main() {
         _host(ToolValuePanel(label: 'Output', text: line)),
       );
       expect(tester.takeException(), isNull);
-      final text = tester.getSize(find.byType(SelectableText));
+      final text = tester.getSize(_flat);
       expect(text.width, lessThanOrEqualTo(390));
       expect(text.height, greaterThan(40));
       for (final scroll in tester.widgetList<SingleChildScrollView>(
@@ -1082,7 +1093,7 @@ void main() {
           ),
         ),
       );
-      expect(find.byType(SelectableText), findsNothing);
+      expect(_flat, findsNothing);
       // The panel is selectable (it has a registrar), the tree opts out.
       expect(
         SelectionContainer.maybeOf(tester.element(find.byType(ToolValuePanel))),
@@ -1142,13 +1153,7 @@ void main() {
       await tester.pumpWidget(
         _host(const ToolValuePanel(label: 'Result', text: 'a 😀 b')),
       );
-      expect(
-        tester
-            .widget<SelectableText>(find.byType(SelectableText))
-            .textSpan!
-            .toPlainText(),
-        'a 😀 b',
-      );
+      expect(tester.widget<Text>(_flat).textSpan!.toPlainText(), 'a 😀 b');
     });
 
     testWidgets('JSON nested too deep is flat text with no tree or switch', (
@@ -1170,7 +1175,7 @@ void main() {
           expect(tester.takeException(), isNull, reason: '$depth');
           expect(find.byKey(_treeKey), findsNothing, reason: '$depth');
           expect(find.byKey(_toggle), findsNothing, reason: '$depth');
-          expect(find.byType(SelectableText), findsOneWidget);
+          expect(_flat, findsOneWidget);
         }
       }
       await tester.pumpWidget(_host(const SizedBox()));
@@ -1194,6 +1199,225 @@ void main() {
       );
       expect(find.byKey(_toggle), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('hidden character set', () {
+    // Legitimate in Persian and Indic scripts and in emoji sequences.
+    final persian = 'می${_char(0x200C)}خواهم';
+    final family = '👨${_char(0x200D)}👩${_char(0x200D)}👧';
+
+    testWidgets('ZWNJ and ZWJ are shown unboxed and copied unchanged', (
+      tester,
+    ) async {
+      final channels = _listen(tester);
+      final text = '$persian $family';
+      await tester.pumpWidget(
+        _host(ToolValuePanel(label: 'Result', text: text)),
+      );
+      expect(find.byType(HiddenCharBox), findsNothing);
+      expect(_shown(_spans(tester)), text);
+      await tester.tap(find.byKey(_copyKey));
+      await tester.pump();
+      expect(channels.copied, text);
+      expect(isHiddenToolRune(0x200C), isFalse);
+      expect(isHiddenToolRune(0x200D), isFalse);
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('U+200B, U+2060 and U+FEFF are boxed', (tester) async {
+      final text = 'a${_char(0x200B)}b${_char(0x2060)}c${_char(0xFEFF)}d';
+      await tester.pumpWidget(_host(ToolValueView(text: text)));
+      expect(find.byType(HiddenCharBox), findsNWidgets(3));
+      for (final code in ['U+200B', 'U+2060', 'U+FEFF']) {
+        expect(find.text(code), findsOneWidget);
+      }
+      expect(_shown(_spans(tester)), 'abcd');
+    });
+  });
+
+  group('selecting a box', () {
+    testWidgets('copies its escape text, the button copies the original', (
+      tester,
+    ) async {
+      final channels = _listen(tester);
+      final original = 'a${_char(0x202E)}b';
+      await tester.pumpWidget(
+        _host(ToolValuePanel(label: 'Result', text: original)),
+      );
+      final area = tester.state<SelectionAreaState>(find.byType(SelectionArea));
+      area.selectableRegion.selectAll(SelectionChangedCause.toolbar);
+      await tester.pump();
+      // ignore: deprecated_member_use
+      area.selectableRegion.copySelection(SelectionChangedCause.toolbar);
+      await tester.pump();
+      expect(channels.copied, 'aU+202Eb');
+      expect(channels.copied, isNot(contains('￼')));
+
+      await tester.tap(find.byKey(_copyKey));
+      await tester.pump();
+      expect(channels.copied, original);
+      await tester.pump(const Duration(seconds: 3));
+    });
+  });
+
+  group('JSON tag for a text above 64 KB', () {
+    String big(String open, String close, {String tail = ''}) =>
+        '$open${List.filled(kToolJsonSniffMaxChars ~/ 4, '"abc"').join(',')}$close$tail';
+
+    Future<void> pump(WidgetTester tester, String text) => tester.pumpWidget(
+      _host(
+        ToolValuePanel(
+          label: 'Result',
+          text: text,
+          language: toolValueLanguage(text),
+        ),
+      ),
+    );
+
+    testWidgets('a text that starts and ends like JSON is tagged', (
+      tester,
+    ) async {
+      await pump(tester, big('[', ']'));
+      expect(tester.widget<Text>(find.byKey(_tagKey)).data, 'JSON');
+      expect(_coloured(_spans(tester)), isFalse, reason: 'worker pending');
+      await tester.pumpWidget(_host(const SizedBox()));
+      await _workersGone(tester);
+    });
+
+    testWidgets('trailing blanks and newlines are trimmed first', (
+      tester,
+    ) async {
+      await pump(tester, '\n  ${big('{', '}')}  \r\n\n');
+      expect(find.byKey(_tagKey), findsOneWidget);
+      await tester.pumpWidget(_host(const SizedBox()));
+      await _workersGone(tester);
+    });
+
+    testWidgets('a start without its end is plain and has no tag', (
+      tester,
+    ) async {
+      for (final text in [
+        big('[', '', tail: ',1'),
+        big('[', '}'),
+        big('{', ']'),
+      ]) {
+        await pump(tester, text);
+        expect(find.byKey(_tagKey), findsNothing);
+        expect(find.byKey(_noticeKey), findsNothing);
+        expect(_coloured(_spans(tester)), isFalse);
+      }
+      expect(CodeHighlightWorker.alive, 0);
+    });
+
+    test('no string claims the text is valid', () {
+      for (final locale in ['en', 'de']) {
+        final l10n = lookupAppLocalizations(Locale(locale));
+        for (final s in [
+          l10n.chatWidgetsToolValueTagJson,
+          l10n.chatWidgetsToolValueNoticeTooLongForTree,
+          l10n.chatWidgetsToolValueNoticeTooLongToColour,
+          l10n.chatWidgetsToolValueNoticeTooDeepForTree,
+        ]) {
+          expect(s.toLowerCase(), isNot(contains('valid')));
+          expect(s.toLowerCase(), isNot(contains('gültig')));
+        }
+      }
+    });
+  });
+
+  group('tree size', () {
+    int rows(WidgetTester tester) => find
+        .descendant(
+          of: find.byKey(_treeKey),
+          matching: find.byType(Text),
+          skipOffstage: false,
+        )
+        .evaluate()
+        .length;
+
+    Map<String, Object?> wide(int keys) => {
+      for (var i = 0; i < keys; i++) 'key$i': i,
+    };
+
+    testWidgets('a closed node with 10,000 children builds none', (
+      tester,
+    ) async {
+      final value = {
+        'a': {'b': wide(10000)},
+      };
+      final watch = Stopwatch()..start();
+      await tester.pumpWidget(_host(ToolJsonTree(value: value)));
+      debugPrint(
+        'closed node with 10,000 keys: ${watch.elapsedMilliseconds} ms',
+      );
+      // root, a and the closed b; none of its keys.
+      expect(rows(tester), 3);
+      expect(find.textContaining('key0', findRichText: true), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an open object of 10,000 keys builds only what is in view', (
+      tester,
+    ) async {
+      final watch = Stopwatch()..start();
+      await tester.pumpWidget(
+        _host(SizedBox(height: 220, child: ToolJsonTree(value: wide(10000)))),
+      );
+      debugPrint('open object, 10,000 keys: ${watch.elapsedMilliseconds} ms');
+      expect(rows(tester), lessThan(60));
+      expect(rows(tester), greaterThan(5));
+    });
+
+    testWidgets(
+      'an open array of 10,000 elements builds only what is in view',
+      (tester) async {
+        final watch = Stopwatch()..start();
+        await tester.pumpWidget(
+          _host(
+            SizedBox(
+              height: 220,
+              child: ToolJsonTree(value: List.generate(10000, (i) => i)),
+            ),
+          ),
+        );
+        debugPrint('open array, 10,000 items: ${watch.elapsedMilliseconds} ms');
+        expect(rows(tester), lessThan(60));
+      },
+    );
+
+    testWidgets('the panel falls back to flat text past the node cap', (
+      tester,
+    ) async {
+      for (final (keys, tree) in [
+        (kToolJsonTreeMaxNodes - 1, true),
+        (kToolJsonTreeMaxNodes, false),
+      ]) {
+        // The object and its values are keys * 1 + 1 nodes.
+        final text =
+            '{${[for (var i = 0; i < keys; i++) '"k$i":$i'].join(',')}}';
+        expect(text.length, lessThan(kToolJsonSniffMaxChars));
+        await tester.pumpWidget(
+          _host(ToolValuePanel(label: 'Result', text: text, language: 'json')),
+        );
+        expect(
+          find.byKey(_toggle).evaluate().isNotEmpty,
+          tree,
+          reason: '$keys',
+        );
+        expect(
+          find.byKey(_noticeKey).evaluate().isNotEmpty,
+          !tree,
+          reason: '$keys',
+        );
+        if (!tree) {
+          expect(
+            tester.widget<Text>(find.byKey(_noticeKey)).data,
+            'Too long for the tree view.',
+          );
+          expect(find.byKey(_tagKey), findsOneWidget);
+        }
+      }
     });
   });
 }

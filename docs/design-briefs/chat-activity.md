@@ -129,6 +129,12 @@ The Claude Design canvas for this section is https://claude.ai/artifact/Y5SRsysG
 - **The tree** is its own widget (`ToolJsonTree`), not `flutter_json_view`: rows are built lazily, are not selectable, show "{count} keys" or "{count} items", start open to the second level and fold on tap (a container row is as high as the hit area). The card still uses the package until the wiring.
 - **Text size.** The 220 px inner-scrolling box stays, there is no "Show more", long lines wrap and nothing scrolls sideways.
 
+- **Hit-area rule, as implemented.** The canvas rule (a hit area of 44 pt, 48 dp or 28 pt that does not make the row grow) is implemented as: no top padding on the section and a row as high as the hit area, with the pill centred in it. Rows therefore are not shorter than the hit area; the comparison of card heights with `main` is done when the sections are wired in, since nothing in the app uses them yet.
+- **What is boxed, and what is not.** Boxed: the C0 and C1 controls except tab and line break, U+200B, U+2060 to U+2064, U+206A to U+206F, the bidirectional marks (U+200E, U+200F, U+061C), overrides (U+202A to U+202E) and isolates (U+2066 to U+2069), the BOM (U+FEFF), the line and paragraph separators and the invisible-but-not-space characters Files escapes. Not boxed: the zero-width non-joiner (U+200C) and joiner (U+200D), which Persian and Indic scripts and emoji sequences need; boxing them would break ordinary text. They are shown and copied unchanged.
+- **Tree size.** The Tree is offered for at most 2,000 nodes (every object, array and scalar, the root included; `kToolJsonTreeMaxNodes`), counted on the decoded value before any widget exists. Above it the JSON is coloured flat with "Too long for the tree view." and no switch. A closed node builds no rows, and rows of an open node are built lazily.
+- **The JSON tag above 64 KB** is shown only when, after trimming blanks and line breaks, the text starts with `{` and ends with `}` or starts with `[` and ends with `]`. Otherwise it is plain with no tag. "JSON" is a content tag only; nothing on screen says a text is valid.
+- **Selecting a box.** A flat text is a `Text.rich` in a `SelectionArea` (the chat's, when there is one), so a selection that spans a box copies its escape text (`U+202E`); `SelectableText` would copy U+FFFC. The Copy button copies the original text. The tree is not selectable.
+
 ### Cost
 
 The colouring is the Files one and obeys its rules:

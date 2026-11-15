@@ -195,4 +195,40 @@ void main() {
       expect(shape.notice, ToolValueNotice.none);
     });
   });
+
+  group('node cap', () {
+    test('the number', () => expect(kToolJsonTreeMaxNodes, 2000));
+
+    test('counts every node, the root included, without recursion', () {
+      expect(
+        jsonNodeCount({
+          'a': 1,
+          'b': [true, null],
+        }),
+        5,
+      );
+      expect(jsonNodeCount(1), 1);
+      expect(jsonNodeCount(List.filled(10000, 0), max: 50), 51);
+    });
+
+    String array(int items) => '[${List.filled(items, '1').join(',')}]';
+
+    test('2,000 nodes still get the tree, 2,001 do not', () {
+      final ok = toolValueShape(array(1999), language: 'json');
+      expect(ok.offersTree, isTrue);
+      final over = toolValueShape(array(2000), language: 'json');
+      expect(over.offersTree, isFalse);
+      expect(over.language, 'json');
+      expect(over.notice, ToolValueNotice.tooLongForTree);
+    });
+
+    test('a large text is tagged only by the outline at both ends', () {
+      final body = List.filled(kToolJsonSniffMaxChars ~/ 4, '"abc"').join(',');
+      expect(toolValueLanguage('[$body]'), 'json');
+      expect(toolValueLanguage('\n {$body} \r\n\n'), 'json');
+      expect(toolValueLanguage('[$body'), isNull);
+      expect(toolValueLanguage('[$body}'), isNull);
+      expect(toolValueLanguage('$body]'), isNull);
+    });
+  });
 }

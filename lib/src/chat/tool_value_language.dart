@@ -27,6 +27,30 @@ bool isJsonContainerText(String text) => tryDecodeJsonContainer(text) != null;
 /// so deeper JSON shows as flat text only.
 const int kToolJsonTreeMaxDepth = 64;
 
+/// The most nodes (every object, array and scalar, the root included) the
+/// Tree view is offered for. The tree keeps one entry per node and builds a
+/// row only for what is in view, but a JSON of 64 KB can still hold tens of
+/// thousands of values; past this it is coloured flat and says "Too long for
+/// the tree view." Checked on the decoded value, before any widget exists.
+const int kToolJsonTreeMaxNodes = 2000;
+
+/// How many nodes [value] has, counted without recursion and given up on once
+/// it passes [max] (the result is then `max + 1`).
+int jsonNodeCount(Object? value, {int max = kToolJsonTreeMaxNodes}) {
+  var count = 0;
+  final stack = <Object?>[value];
+  while (stack.isNotEmpty) {
+    final node = stack.removeLast();
+    if (++count > max) return count;
+    if (node is Map) {
+      stack.addAll(node.values);
+    } else if (node is List) {
+      stack.addAll(node);
+    }
+  }
+  return count;
+}
+
 /// How deep [text] nests brackets outside string literals, counted without
 /// recursion and given up on once it passes [kToolJsonTreeMaxDepth]
 /// (the result is then [kToolJsonTreeMaxDepth] + 1).
@@ -212,7 +236,8 @@ enum ToolValueNotice {
   /// Above [kToolValueColourMaxChars]: plain text, no switch.
   tooLongToColour,
 
-  /// JSON above [kToolJsonSniffMaxChars]: coloured flat, no switch.
+  /// JSON above [kToolJsonSniffMaxChars] characters or [kToolJsonTreeMaxNodes]
+  /// nodes: coloured flat, no switch.
   tooLongForTree,
 
   /// JSON nested deeper than [kToolJsonTreeMaxDepth]: coloured flat, no
@@ -274,6 +299,12 @@ ToolValueShape toolValueShape(
     return const ToolValueShape(
       language: 'json',
       notice: ToolValueNotice.tooDeepForTree,
+    );
+  }
+  if (jsonNodeCount(decoded) > kToolJsonTreeMaxNodes) {
+    return const ToolValueShape(
+      language: 'json',
+      notice: ToolValueNotice.tooLongForTree,
     );
   }
   return ToolValueShape(

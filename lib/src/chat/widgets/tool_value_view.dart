@@ -35,7 +35,7 @@ enum ToolValueSection { input, result, error }
 /// grows with every delta, and colouring it would start over each time.
 /// [language] is a grammar name from [toolValueLanguage]; null is plain.
 ///
-/// Selecting copies what is shown, boxes included as a placeholder character.
+/// Selecting copies what is shown: a box copies as its escape text.
 /// [ToolValuePanel] has the button that copies the original.
 class ToolValueView extends StatefulWidget {
   const ToolValueView({
@@ -131,7 +131,14 @@ class _ToolValueViewState extends State<ToolValueView> {
           TextSpan(text: text, style: codeTokenStyle(token, palette)),
     ];
     final span = TextSpan(style: base, children: children);
-    return widget.selectable ? SelectableText.rich(span) : Text.rich(span);
+    final text = Text.rich(span);
+    // A selection copies the text of a box too (its escape, `U+202E`), which
+    // SelectableText cannot: it turns each box into U+FFFC. Inside a
+    // SelectionArea (the chat's) the text just joins that.
+    if (!widget.selectable || SelectionContainer.maybeOf(context) != null) {
+      return text;
+    }
+    return SelectionArea(child: text);
   }
 }
 
