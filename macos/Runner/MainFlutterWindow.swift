@@ -36,7 +36,12 @@ class MainFlutterWindow: NSWindow {
   /// A remembered frame can be below the minimum or on a display that is gone.
   private func correctSavedFrame() {
     var frame = self.frame
-    let smallest = frameRect(forContentRect: NSRect(origin: .zero, size: Self.minimumContentSize)).size
+    // The smallest frame is the live minimum content size under the style mask
+    // the window has once macos_window_utils adds the full-size content view.
+    let mask = styleMask.union(.fullSizeContentView)
+    let smallest = NSWindow.frameRect(
+      forContentRect: NSRect(origin: .zero, size: contentMinSize), styleMask: mask
+    ).size
     frame.size.width = max(frame.width, smallest.width)
     frame.size.height = max(frame.height, smallest.height)
     setFrame(frame, display: false)
@@ -54,9 +59,6 @@ class MainFlutterWindow: NSWindow {
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
     self.contentMinSize = Self.minimumContentSize
-    // The remembered frame is the only source of the frame after the first
-    // launch, so AppKit's own window restoration stays out of it.
-    self.isRestorable = false
     if setFrameUsingName(Self.frameAutosaveName) {
       correctSavedFrame()
     } else {

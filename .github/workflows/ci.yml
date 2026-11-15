@@ -368,9 +368,10 @@ jobs:
         run: flutter build macos --debug
 
       # The debug build alone has the HERMES_REPORT_WINDOW branch in
-      # AppDelegate.swift: it prints the main window's frame, title bar height
-      # and minimum content size once launch has settled, optionally resizes the
-      # frame (HERMES_REPORT_WINDOW_SET) and quits normally, so AppKit writes
+      # AppDelegate.swift: once launch has settled it prints the main window's
+      # frame, title bar height, minimum content size, whether the style has the
+      # full-size content view and the screen's visible size, optionally resizes
+      # the frame (HERMES_REPORT_WINDOW_SET) and quits normally, so AppKit writes
       # the frame it remembers. Launch 1 must show the defaults, launch 2 the
       # resized frame. The defaults are kMacMainWindowDefaultSize and
       # kMacMainWindowMinSize in lib/src/theme/breakpoints.dart; keep them in step.
@@ -382,12 +383,23 @@ jobs:
           bin="$app/Contents/MacOS/$name"
           [ -x "$bin" ] || { echo "::error::No debug binary at $bin"; exit 1; }
           bundle="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")"
+          # The Debug app is sandboxed, so its defaults live in its container, not
+          # in ~/Library/Preferences.
+          prefs="$HOME/Library/Containers/$bundle/Data/Library/Preferences/$bundle.plist"
           key="NSWindow Frame HermesMainWindow"
-          forget() { defaults delete "$bundle" "$key" 2>/dev/null || true; }
+          forget() { defaults delete "$prefs" "$key" 2>/dev/null || true; }
+          trap 'rm -f window.log' EXIT
           # One launch: prints the HERMES_WINDOW line, or fails with the log.
           launch() { # <label> [WxH to resize to before quitting]
-            HERMES_REPORT_WINDOW=1 HERMES_REPORT_WINDOW_SET="${2:-}" perl -e 'alarm 60; exec @ARGV' "$bin" \
-              -ApplePersistenceIgnoreState YES > window.log 2>&1 || true
+            start=$SECONDS
+            if HERMES_REPORT_WINDOW=1 HERMES_REPORT_WINDOW_SET="${2:-}" perl -e 'alarm 60; exec @ARGV' "$bin" \
+              -ApplePersistenceIgnoreState YES > window.log 2>&1; then status=0; else status=$?; fi
+            echo "launch $1 took $(( SECONDS - start )) s, exit status $status"
+            if [ "$status" -eq 142 ]; then
+              echo "::error::Launch $1 did not quit within 60 s (SIGALRM); log follows."; tail -n 40 window.log; forget; exit 1
+            elif [ "$status" -ne 0 ]; then
+              echo "::error::Launch $1 exited with status $status; log follows."; tail -n 40 window.log; forget; exit 1
+            fi
             line="$(grep -E '^HERMES_WINDOW ' window.log | head -n 1 || true)"
             if [ -z "$line" ]; then
               echo "::error::Launch $1 printed no HERMES_WINDOW line (crashed, or the window never appeared); log follows."
@@ -395,26 +407,35 @@ jobs:
               forget; exit 1
             fi
             echo "launch $1: $line"
-            if [[ "$line" =~ ^HERMES_WINDOW\ frame=([0-9]+)x([0-9]+)\ chrome=([0-9]+)\ min=([0-9]+x[0-9]+)$ ]]; then
+            if [[ "$line" =~ ^HERMES_WINDOW\ frame=([0-9]+)x([0-9]+)\ chrome=([0-9]+)\ min=([0-9]+x[0-9]+)\ full=(true|false)\ screen=([0-9]+x[0-9]+)$ ]]; then
               frame="${BASH_REMATCH[1]}x${BASH_REMATCH[2]}"
               content="${BASH_REMATCH[1]}x$(( BASH_REMATCH[2] - BASH_REMATCH[3] ))"
-              min="${BASH_REMATCH[4]}"
+              min="${BASH_REMATCH[4]}"; full="${BASH_REMATCH[5]}"; screen="${BASH_REMATCH[6]}"
             else
               echo "::error::Unreadable HERMES_WINDOW line: $line"; forget; exit 1
             fi
+            # The frame is only the xib's content size plus the title bar once the
+            # full-size content view is in; the report waits up to 5 s for it.
+            if [ "$full" != "true" ]; then
+              echo "::error::Launch $1: the window never got the full-size content view: $line"; forget; exit 1
+            fi
             if [ "$min" != "640x480" ]; then
-              echo "::error::Launch $1: minimum content size is $min, expected 640x480: $line"; forget; exit 1
+              echo "::error::Launch $1: minimum content size is $min, expected 640x480 (screen $screen): $line"; forget; exit 1
             fi
           }
           forget   # nothing may depend on what the runner remembered
           # frame minus the title bar is the xib's content size
           launch 1 900x600
           if [ "$content" != "1100x760" ]; then
-            echo "::error::Launch 1: default content size is $content, expected 1100x760: $line"; forget; exit 1
+            echo "::error::Launch 1: default content size is $content, expected 1100x760 (screen $screen): $line"; forget; exit 1
           fi
           launch 2
+          # AppKit must have written the frame to the sandbox container's defaults.
+          if ! defaults read "$prefs" "$key"; then
+            echo "::error::No '$key' in $prefs after launch 2; the frame was not saved there."; ls -la "$(dirname "$prefs")" || true; forget; exit 1
+          fi
           if [ "$frame" != "900x600" ]; then
-            echo "::error::Launch 2: the window came back as a $frame frame, expected the 900x600 it was resized to: $line"; forget; exit 1
+            echo "::error::Launch 2: the window came back as a $frame frame, expected the 900x600 it was resized to (screen $screen): $line"; forget; exit 1
           fi
           forget
 

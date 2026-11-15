@@ -81,7 +81,8 @@ version>`. Check the editable version on App Store Connect first and pass
   screenshot test resizes it through the `setContentSize` call (followed by
   `center()`) on the `hermes_app/window` channel (`SHOT_WINDOW`) every run, so a
   remembered frame never reaches a screenshot; `scripts/store-screenshots.sh`
-  deletes the frame the run leaves in the dev app's defaults afterwards.
+  deletes the frame the run leaves in the dev app's defaults afterwards (the
+  sandbox container's plist under ~/Library/Containers/com.cedricziel.hermesApp.dev).
 - Don't add erase boxes for the dev address by hand. The test finds the
   address text and writes its pixel box to `<screen>.erase`; `finish` erases
   that. A fixed box goes stale with the next layout change.

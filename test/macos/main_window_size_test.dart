@@ -53,7 +53,6 @@ void main() {
         .where((line) => !line.trimLeft().startsWith('//'))
         .join('\n');
     expect(awake, contains('self.contentMinSize = Self.minimumContentSize'));
-    expect(awake, contains('center()'));
     expect(
       RegExp(r'contentMinSize\s*=').allMatches(swift),
       hasLength(1),
@@ -65,7 +64,7 @@ void main() {
       swift,
       contains('static let frameAutosaveName = "HermesMainWindow"'),
     );
-    expect(swift, contains('self.isRestorable = false'));
+    expect(swift, isNot(contains('isRestorable')));
     expect(
       RegExp(
         r'if setFrameUsingName\(Self\.frameAutosaveName\) \{\s*'

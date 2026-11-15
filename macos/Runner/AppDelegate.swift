@@ -91,21 +91,28 @@ class AppDelegate: FlutterAppDelegate {
         #if DEBUG
         // CI measures the main window's size here (build-macos in ci.yml). Debug builds only.
         if ProcessInfo.processInfo.environment["HERMES_REPORT_WINDOW"] == "1" {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-                if let window = self?.mainFlutterWindow {
-                    // The frame is stable: the xib content size plus the title bar. The
-                    // content rect is not, since macos_window_utils adds the full-size
-                    // content view and that makes it equal the frame.
-                    let frame = window.frame.size
-                    let mask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
-                    let chrome = NSWindow.frameRect(forContentRect: .zero, styleMask: mask).height
-                    let minimum = window.contentMinSize
-                    print("HERMES_WINDOW frame=\(Int(frame.width.rounded()))x\(Int(frame.height.rounded())) chrome=\(Int(chrome.rounded())) min=\(Int(minimum.width.rounded()))x\(Int(minimum.height.rounded()))")
-                    fflush(stdout)
+            var waited = 0.0
+            func report() {
+                guard let window = mainFlutterWindow else { NSApp.terminate(nil); return }
+                // macos_window_utils adds the full-size content view when Dart initializes it;
+                // wait up to 5 s for that, so the frame is measured in its final style.
+                if !window.styleMask.contains(.fullSizeContentView) && waited < 5 {
+                    waited += 0.25
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { report() }
+                    return
                 }
+                // The frame is stable: the xib content size plus the title bar. The
+                // content rect is not, since the full-size content view makes it the frame.
+                let frame = window.frame.size
+                let mask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+                let chrome = NSWindow.frameRect(forContentRect: .zero, styleMask: mask).height
+                let minimum = window.contentMinSize
+                let full = window.styleMask.contains(.fullSizeContentView)
+                let screen = NSScreen.main?.visibleFrame.size ?? .zero
+                print("HERMES_WINDOW frame=\(Int(frame.width.rounded()))x\(Int(frame.height.rounded())) chrome=\(Int(chrome.rounded())) min=\(Int(minimum.width.rounded()))x\(Int(minimum.height.rounded())) full=\(full) screen=\(Int(screen.width.rounded()))x\(Int(screen.height.rounded()))")
+                fflush(stdout)
                 // Resize, then quit normally so AppKit has written the frame it remembers.
-                if let spec = ProcessInfo.processInfo.environment["HERMES_REPORT_WINDOW_SET"],
-                   let window = self?.mainFlutterWindow {
+                if let spec = ProcessInfo.processInfo.environment["HERMES_REPORT_WINDOW_SET"] {
                     let size = spec.split(separator: "x").compactMap { Double($0) }
                     if size.count == 2 {
                         window.setFrame(
@@ -118,6 +125,7 @@ class AppDelegate: FlutterAppDelegate {
                     NSApp.terminate(nil)
                 }
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { report() }
         }
         #endif
         super.applicationDidFinishLaunching(notification)
