@@ -21,7 +21,7 @@ Decisions taken in the design pass (each bullet is one decision; code references
 
 B3, attach menu and skill job status:
 
-- Width: `showAdaptiveSheet` switches on `isWideLayout` (`lib/src/theme/breakpoints.dart`): 900 pt on every platform, and 700 pt only on a full-screen iPad (iOS chrome, shortest side at least 600 pt). Above the switch both are dialogs, 420 pt for the attach menu and 520 pt for the skill job status. Android, Windows and Linux at 800 pt keep the sheet. The 700/900 rule is F.187, not F.160.
+- Width: on macOS `showAdaptiveSheet` always opens a dialog, at any width, before it checks the layout. Elsewhere it switches on `isWideLayout` (`lib/src/theme/breakpoints.dart`): 900 pt on every platform, and 700 pt only on a full-screen iPad (iOS chrome, shortest side at least 600 pt). Above the switch both are dialogs, 420 pt for the attach menu and 520 pt for the skill job status. Android, Windows and Linux at 800 pt keep the sheet. The 700/900 rule is F.187, not F.160.
 - Phone: keeps the bottom sheet. Today's sheets set `showDragHandle: true` (`attachment_surface.dart` ~36, `skill_job_sheet.dart` ~36); the sheet branch of `showAdaptiveSheet` (`adaptive_sheet.dart` ~25-30) does not, and sets `isScrollControlled` and `useSafeArea`. Decision: keep the handle, so `showAdaptiveSheet` gets a `showDragHandle` option that the two call sites pass.
 - Content, rows and copy do not change. Photo Library, Take Photo and Files keep their rows.
 - One origin only (Mac and desktop: Files): `+` opens the file picker directly and shows no menu. This single origin also satisfies the macOS brief's no-bottom-sheets rule. iPhone and iPad keep the menu.
