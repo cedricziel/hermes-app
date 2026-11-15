@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show SocketException;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fake_async/fake_async.dart';
@@ -139,7 +140,7 @@ void main() {
 
     test('on Linux a plugin that throws on listen leaves no uncaught error and resume still nudges', () async {
       final broken = StreamController<List<ConnectivityResult>>(
-        onListen: () => throw StateError('no NetworkManager'),
+        onListen: () => throw const SocketException('no NetworkManager'),
       );
       final s = ConnectivityNetworkSignals(
         results: broken.stream,
@@ -156,6 +157,56 @@ void main() {
       s.didChangeAppLifecycleState(AppLifecycleState.resumed);
 
       await changes.timeout(const Duration(seconds: 2));
+    });
+
+    ConnectivityNetworkSignals linuxSignals(
+      Future<List<ConnectivityResult>> Function() check,
+    ) => ConnectivityNetworkSignals(
+      results: results.stream,
+      check: check,
+      onLinux: true,
+      hasSystemBus: () => true,
+      debounce: const Duration(milliseconds: 10),
+    );
+
+    test('on Linux a bus error from the plugin is swallowed', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final s = linuxSignals(() {
+          Future<void>(() => throw const SocketException('dead bus'));
+          return Future.value(current);
+        });
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught, isEmpty);
+    });
+
+    test('on Linux any other error reaches the parent zone', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final s = linuxSignals(() {
+          Future<void>(() => throw StateError('a bug'));
+          return Future.value(current);
+        });
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught.single, isA<StateError>());
+    });
+
+    test('on Linux a check that never answers is given up on', () {
+      fakeAsync((async) {
+        final s = linuxSignals(
+          () => Completer<List<ConnectivityResult>>().future,
+        );
+        expect(async.pendingTimers, isNotEmpty);
+
+        async.elapse(kLinuxCheckTimeout);
+
+        expect(async.pendingTimers, isEmpty);
+        s.dispose();
+      });
     });
 
     group('linuxSystemBusAvailable', () {

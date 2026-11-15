@@ -28,7 +28,7 @@ Everything below is read from code and plugin metadata. Neither platform was run
 | Receive share (iOS, Android and macOS only, `share_inbox.dart`), Spotlight, quick actions, widgets, Live Activities, Watch | `share/share_inbox.dart`, `spotlight_*`, `surface_providers.dart`, `watch_providers.dart`: iOS, Android or macOS only | Not available | Not available |
 | Drag out, quick panel, menu bar, Dock, conversation windows, Quick Look | `drag_out/mac_drag_out_source.dart`, `windows/conversation_window_app.dart` and the others check macOS; `desktop_multi_window` is linked on both but only macOS starts a second engine | Not available | Not available |
 | Update check | `update/github_release_store.dart` (`onLinux`, `onWindows`): `/releases/latest`, so only the latest full release, not a pre-release; link only | Works | Works |
-| Network | `network/network_signals.dart` reports VPN on Windows and Android; user-installed CAs are loaded on Android only (Dart uses the system store on the desktops) | Works | Works |
+| Network | `network/network_signals.dart` reports VPN on Windows and Android; user-installed CAs are loaded on Android only (Dart uses the system store on the desktops) | Works | Works; on Linux `connectivity_plus` is used only when a system D-Bus exists (and only bus errors are swallowed, in its own error zone); with none (containers, headless) it is not created and only the app-resume nudge remains |
 
 ## Gaps
 
