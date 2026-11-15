@@ -129,6 +129,42 @@ void main() {
       }
     });
 
+    test('the detail of a 400, 409 or 500 is kept for the screen', () async {
+      for (final (status, body) in <(int, Map<String, Object?>)>[
+        (400, waBadMode),
+        (400, waProfileBadName),
+        (500, waSaveFailed),
+      ]) {
+        server.on('POST', waStartPath, body, status: status);
+        try {
+          await repository.startWhatsAppPairing(mode: WhatsAppMode.bot);
+          fail('expected a failure');
+        } on WhatsAppPairingFailure catch (failure) {
+          expect(failure.serverText?.text, body['detail']);
+          expect('$failure', isNot(contains('a b')));
+          expect(failure.message, isNot(contains(body['detail'] as String)));
+        }
+      }
+    });
+
+    test('a detail that is not a string, or a 404, keeps no text', () async {
+      for (final (status, body) in <(int, Object?)>[
+        (422, waValidation),
+        (400, {'detail': 5}),
+        (400, {'detail': ''}),
+        (404, waProfileGone),
+        (503, {'detail': 'down'}),
+      ]) {
+        server.on('POST', waStartPath, body, status: status);
+        try {
+          await repository.startWhatsAppPairing(mode: WhatsAppMode.bot);
+          fail('expected a failure');
+        } on WhatsAppPairingFailure catch (failure) {
+          expect(failure.serverText, isNull, reason: '$status');
+        }
+      }
+    });
+
     test('a lost answer is lostAnswer and is not sent again', () async {
       server.onRequest('POST', waStartPath, (r) => throw connectionLoss(r));
       expect(
@@ -298,6 +334,53 @@ void main() {
       }
     });
 
+    test(
+      'the server text is kept for the screen, hidden from output',
+      () async {
+        server.on('GET', waStatusPath, waStatusErrorOther);
+        final state =
+            (await repository.whatsAppPairingStatus(id)).state
+                as WhatsAppPairingFailed;
+        expect(
+          state.serverText?.text,
+          'Something at /srv/x went wrong for +15555550123.',
+        );
+        expect('${state.serverText}', 'WhatsAppServerText(<hidden>)');
+      },
+    );
+
+    test('an error without text has no server text', () async {
+      server.on('GET', waStatusPath, {'pairing_id': waId, 'status': 'error'});
+      final state =
+          (await repository.whatsAppPairingStatus(id)).state
+              as WhatsAppPairingFailed;
+      expect(state.serverText, isNull);
+    });
+
+    test('a body naming another pairing is malformed, id not echoed', () async {
+      for (final other in <Object?>['someone-else', 5, null]) {
+        server.on('GET', waStatusPath, {
+          ...waStatusWaiting,
+          'pairing_id': other,
+        });
+        try {
+          await repository.whatsAppPairingStatus(id);
+          fail('expected a failure');
+        } on WhatsAppPairingFailure catch (failure) {
+          expect(failure.kind, WhatsAppPairingFailureKind.malformed);
+          expect('$failure${failure.message}', isNot(contains('someone')));
+        }
+      }
+    });
+
+    test('a body without a pairing id is read as it is', () async {
+      server.on('GET', waStatusPath, {'status': 'starting'});
+      expect(
+        (await repository.whatsAppPairingStatus(id)).state,
+        const WhatsAppWorking(WhatsAppWorkStage.starting),
+      );
+    });
+
     test('cancelled is superseded', () async {
       expect(
         await stateOf(waStatusSuperseded),
@@ -412,7 +495,10 @@ void main() {
     });
 
     test('a url-safe id is sent as one segment', () async {
-      server.on('GET', '$waBase/Ab_-9', waStatusWaiting);
+      server.on('GET', '$waBase/Ab_-9', {
+        ...waStatusWaiting,
+        'pairing_id': 'Ab_-9',
+      });
       await repository.whatsAppPairingStatus(const WhatsAppPairingId('Ab_-9'));
       final uri = server.requests.single.uri;
       expect(uri.pathSegments, [
@@ -504,6 +590,23 @@ void main() {
           kind,
           reason: '$status $body',
         );
+      }
+    });
+
+    test('the detail of a 400, 409 or 500 is kept for the screen', () async {
+      for (final (status, body) in <(int, Map<String, Object?>)>[
+        (400, waBadMode),
+        (409, waNotConnected),
+        (500, waSaveFailed),
+      ]) {
+        server.on('POST', waApplyPath, body, status: status);
+        try {
+          await repository.applyWhatsAppPairing(id);
+          fail('expected a failure');
+        } on WhatsAppPairingFailure catch (failure) {
+          expect(failure.serverText?.text, body['detail']);
+          expect('$failure ${failure.message}', isNot(contains('setup')));
+        }
       }
     });
 
@@ -608,11 +711,64 @@ void main() {
       },
     );
 
+    test('the holder prints a fixed string and its text only on .text', () {
+      const held = WhatsAppServerText('/srv/secret 5555');
+      expect('$held', 'WhatsAppServerText(<hidden>)');
+      expect(held, const WhatsAppServerText('/srv/secret 5555'));
+      const failed = WhatsAppPairingFailed(
+        WhatsAppFailReason.other,
+        serverText: held,
+      );
+      const failure = WhatsAppPairingFailure(
+        WhatsAppPairingFailureKind.server,
+        serverText: held,
+      );
+      for (final text in ['$failed', '$failure', failure.message]) {
+        expect(text, allOf(isNot(contains('/srv')), isNot(contains('5555'))));
+      }
+      expect(failed, const WhatsAppPairingFailed(WhatsAppFailReason.other));
+    });
+
     test('a refused answer is not echoed in a state either', () async {
       server.on('GET', waStatusPath, waStatusErrorOther);
       final snapshot = await repository.whatsAppPairingStatus(id);
       expect('$snapshot', isNot(contains('5555')));
       expect('$snapshot', isNot(contains('/srv')));
+    });
+  });
+
+  group('error categories', () {
+    test('match the server opening words, status prefix optional', () {
+      final cases = {
+        '500: Node.js preparation failed: x':
+            WhatsAppFailReason.nodeUnavailable,
+        'Node.js preparation failed: x': WhatsAppFailReason.nodeUnavailable,
+        'npm install failed for WhatsApp bridge: x':
+            WhatsAppFailReason.installFailed,
+        '500: npm install failed: needs a newer version of node.js':
+            WhatsAppFailReason.installFailed,
+        '500: Installing WhatsApp bridge dependencies timed out':
+            WhatsAppFailReason.installFailed,
+        'Failed to install WhatsApp bridge dependencies.':
+            WhatsAppFailReason.installFailed,
+        '500: Installing WhatsApp bridge dependencies failed on node.js 12':
+            WhatsAppFailReason.installFailed,
+        'WhatsApp bridge script was not found at /x.':
+            WhatsAppFailReason.bridgeMissing,
+        '500: WhatsApp bridge script was not found at /x.':
+            WhatsAppFailReason.bridgeMissing,
+        'WhatsApp pairing process exited with code 1.':
+            WhatsAppFailReason.processExited,
+        'WhatsApp pairing process exited before pairing completed.':
+            WhatsAppFailReason.processExited,
+        'logged_out': WhatsAppFailReason.loggedOut,
+        'Something else': WhatsAppFailReason.other,
+        '': WhatsAppFailReason.other,
+      };
+      for (final MapEntry(key: text, value: reason) in cases.entries) {
+        expect(whatsAppFailReason(text), reason, reason: text);
+      }
+      expect(whatsAppFailReason(null), WhatsAppFailReason.other);
     });
   });
 }

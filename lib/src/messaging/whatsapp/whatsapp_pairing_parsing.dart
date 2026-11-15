@@ -41,7 +41,15 @@ WhatsAppPairingFailure? whatsAppFailureFor(
   }
   final status = response.statusCode ?? 0;
   if (status == 401) return null;
-  return WhatsAppPairingFailure(switch (status) {
+  final detail = response.data is Map ? (response.data as Map)['detail'] : null;
+  final shown =
+      (route == WhatsAppRoute.start || route == WhatsAppRoute.apply) &&
+          (status == 400 || status == 409 || status == 500) &&
+          detail is String &&
+          detail.isNotEmpty
+      ? WhatsAppServerText(detail)
+      : null;
+  return WhatsAppPairingFailure(serverText: shown, switch (status) {
     404 => switch (route) {
       WhatsAppRoute.start =>
         namesMissingProfile(response.data)
@@ -65,8 +73,8 @@ WhatsAppPairingFailure? whatsAppFailureFor(
 }
 
 /// The state a `status` string and the rest of the payload make. An unknown
-/// status is work in progress; the server's `error` text is reduced to its
-/// category.
+/// status is work in progress; the server's `error` text gives the category
+/// and rides along, hidden, for the screen.
 WhatsAppPairingState whatsAppStateFrom(Map<Object?, Object?> body) {
   final status = body['status'];
   switch (status) {
@@ -90,7 +98,13 @@ WhatsAppPairingState whatsAppStateFrom(Map<Object?, Object?> body) {
         ),
       );
     case 'error':
-      return WhatsAppPairingFailed(whatsAppFailReason(body['error']));
+      final error = body['error'];
+      return WhatsAppPairingFailed(
+        whatsAppFailReason(error),
+        serverText: error is String && error.isNotEmpty
+            ? WhatsAppServerText(error)
+            : null,
+      );
     case 'expired':
       return const WhatsAppPairingExpired();
     case 'cancelled':

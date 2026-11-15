@@ -127,7 +127,7 @@ final waStatusErrorNode = _payload(
 final waStatusErrorInstall = _payload(
   status: 'error',
   error:
-      'npm install failed for WhatsApp bridge: ENOENT /srv/hermes/'
+      '500: npm install failed for WhatsApp bridge: ENOENT /srv/hermes/'
       'scripts/whatsapp-bridge',
 );
 
@@ -135,7 +135,7 @@ final waStatusErrorInstall = _payload(
 final waStatusErrorBridge = _payload(
   status: 'error',
   error:
-      'WhatsApp bridge script was not found at '
+      '500: WhatsApp bridge script was not found at '
       '/srv/hermes/scripts/whatsapp-bridge/bridge.js.',
 );
 
@@ -185,8 +185,8 @@ const waApplyRestartFailed = {
   'restart_error': 'could not run /usr/bin/hermes',
 };
 
-/// RECORDED: start, status or apply of an id the server does not hold; also
-/// what a cancelled or dropped record answers on a read.
+/// RECORDED: status or apply of an id the server does not hold; also what a
+/// cancelled or dropped record answers on a read. (Start takes no id.)
 const waRecordGone = {
   'detail': 'WhatsApp setup session was not found. Start a new setup.',
 };

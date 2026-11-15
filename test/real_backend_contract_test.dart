@@ -2328,13 +2328,16 @@ void main() {
     );
   }, skip: skip);
 
-  // Read-only on purpose: start would spawn the Baileys bridge on the backend
-  // (it reaches WhatsApp's servers) and apply would save settings and restart
-  // the messaging gateway, so neither is called against a shared backend.
+  // Start would spawn the Baileys bridge on the backend (it reaches
+  // WhatsApp's servers) and apply would save settings and restart the
+  // messaging gateway, so neither is called against a shared backend. Both
+  // probes below spawn nothing.
   test('an unknown WhatsApp pairing is reported as gone, not as an old '
       'server', () async {
     final repository = HermesMessagingRepository(client.raw);
 
+    // A route-missing 404 also reads recordGone, so the detail tells the two
+    // apart: only this server answers "setup session was not found".
     await expectLater(
       repository.whatsAppPairingStatus(
         const WhatsAppPairingId('no-such-pairing'),
@@ -2346,6 +2349,30 @@ void main() {
           WhatsAppPairingFailureKind.recordGone,
         ),
       ),
+    );
+    await expectLater(
+      client.raw
+          .getWhatsappOnboardingStatusApiMessagingWhatsappOnboardingPairingIdGet(
+            pairingId: 'no-such-pairing',
+          ),
+      throwsA(
+        isA<DioException>()
+            .having((e) => e.response?.statusCode, 'status', 404)
+            .having(
+              (e) => (e.response?.data as Map?)?['detail'],
+              'detail',
+              startsWith('WhatsApp setup session was not found'),
+            ),
+      ),
+    );
+  }, skip: skip);
+
+  test('cancelling an unknown WhatsApp pairing is accepted, and spawns '
+      'nothing', () async {
+    final repository = HermesMessagingRepository(client.raw);
+
+    await repository.cancelWhatsAppPairing(
+      const WhatsAppPairingId('no-such-pairing'),
     );
   }, skip: skip);
 

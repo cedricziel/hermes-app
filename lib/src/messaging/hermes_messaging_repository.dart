@@ -255,7 +255,8 @@ class HermesMessagingRepository {
     return WhatsAppPairingStart(id: WhatsAppPairingId(id), snapshot: snapshot);
   }
 
-  /// Reads one pairing. The route takes no profile. A 410 is a state
+  /// Reads one pairing. The route takes no profile. A body that names another
+  /// pairing is malformed. A 410 is a state
   /// ([WhatsAppPairingExpired]), not a failure.
   ///
   /// Throws [WhatsAppPairingFailure], or the [DioException] of a 401.
@@ -275,7 +276,13 @@ class HermesMessagingRepository {
       }
       throw whatsAppFailureFor(e, WhatsAppRoute.status) ?? e;
     }
-    return whatsAppSnapshotFrom(response.data) ??
+    final data = response.data;
+    final answered = data is Map ? data['pairing_id'] : null;
+    // A body about another pairing is not this one's state; never echo ids.
+    if (data is Map && data.containsKey('pairing_id') && answered != id.value) {
+      throw const WhatsAppPairingFailure(WhatsAppPairingFailureKind.malformed);
+    }
+    return whatsAppSnapshotFrom(data) ??
         (throw const WhatsAppPairingFailure(
           WhatsAppPairingFailureKind.malformed,
         ));
@@ -314,8 +321,10 @@ class HermesMessagingRepository {
     return whatsAppApplyResultFrom(response.data);
   }
 
-  /// Drops a pairing and stops its bridge. The server answers ok for an
-  /// unknown id, and a 404 counts the same. Credentials of an account that
+  /// Drops a pairing and stops its bridge. The server answers ok (200) for an
+  /// unknown id and spawns nothing, so this is also the probe for "is the route
+  /// there" (an old server answers 405 here: `unsupported`). A 404 counts as
+  /// done. Credentials of an account that
   /// already linked stay on the server.
   ///
   /// Throws [WhatsAppPairingFailure], or the [DioException] of a 401.

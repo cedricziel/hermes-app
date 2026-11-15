@@ -3,10 +3,34 @@
 /// [WhatsAppPairingFailureKind].
 ///
 /// The pairing id and the QR text are credentials, and the account is a
-/// person's phone number: each of them prints as a fixed string, and no
-/// failure, state or snapshot carries a text the server wrote (it can hold
-/// paths) or a name the user typed.
+/// person's phone number: each of them prints as a fixed string. The text the
+/// server wrote (an `error` or a `detail`; it can hold paths) is kept in a
+/// [WhatsAppServerText] for the screen to show as given, and that holder
+/// never prints it. No failure, state or snapshot prints a text the server
+/// wrote or a name the user typed.
 library;
+
+/// A text the server wrote, held for the screen to show as given (it can hold
+/// the server's paths and the profile name). It is opaque: [toString] is fixed
+/// and [==] and [hashCode] never print or expose it. Read [text] only to
+/// draw it on the screen, never to log, report or store it, and drop the
+/// holder when the screen closes, App Lock locks or the user signs out.
+class WhatsAppServerText {
+  const WhatsAppServerText(this.text);
+
+  /// For display only.
+  final String text;
+
+  @override
+  bool operator ==(Object other) =>
+      other is WhatsAppServerText && other.text == text;
+
+  @override
+  int get hashCode => text.hashCode;
+
+  @override
+  String toString() => 'WhatsAppServerText(<hidden>)';
+}
 
 /// How the linked WhatsApp account talks to the agent: `bot` or `self-chat`.
 enum WhatsAppMode {
@@ -90,8 +114,8 @@ enum WhatsAppWorkStage {
   other,
 }
 
-/// Why a pairing ended in `error`, as a fixed category. The server's text can
-/// hold its paths and is dropped.
+/// Why a pairing ended in `error`, as a fixed category for the headline. The
+/// server's own text travels beside it in a [WhatsAppServerText].
 enum WhatsAppFailReason {
   /// Node.js could not be found or prepared.
   nodeUnavailable,
@@ -169,11 +193,14 @@ class WhatsAppConnected extends WhatsAppPairingState {
   String toString() => 'WhatsAppConnected';
 }
 
-/// The bridge or the server gave up; see [reason].
+/// The bridge or the server gave up; see [reason]. [serverText] is the
+/// server's `error` as given, for the screen only (null when it sent none).
+/// Equality looks at [reason] alone.
 class WhatsAppPairingFailed extends WhatsAppPairingState {
-  const WhatsAppPairingFailed(this.reason);
+  const WhatsAppPairingFailed(this.reason, {this.serverText});
 
   final WhatsAppFailReason reason;
+  final WhatsAppServerText? serverText;
 
   @override
   bool operator ==(Object other) =>
@@ -303,12 +330,14 @@ enum WhatsAppPairingFailureKind {
   unexpected,
 }
 
-/// A refused or unanswered pairing request. Carries a kind and a fixed line,
-/// never the response body.
+/// A refused or unanswered pairing request. Carries a kind and a fixed line;
+/// the `detail` of a 400, 409 or 500 on start or apply rides along in
+/// [serverText] for the screen. It never reaches [message] or [toString].
 class WhatsAppPairingFailure implements Exception {
-  const WhatsAppPairingFailure(this.kind);
+  const WhatsAppPairingFailure(this.kind, {this.serverText});
 
   final WhatsAppPairingFailureKind kind;
+  final WhatsAppServerText? serverText;
 
   String get message => switch (kind) {
     WhatsAppPairingFailureKind.badRequest => 'The server refused the request.',
@@ -333,19 +362,31 @@ class WhatsAppPairingFailure implements Exception {
   String toString() => 'WhatsAppPairingFailure(${kind.name})';
 }
 
-/// The fixed category of an `error` text. The text is read here and dropped.
+/// The fixed category of an `error` text, matched on the server's own opening
+/// words after an optional `<status>: ` prefix (Starlette writes an
+/// `HTTPException` as `500: detail`). The text itself is not kept here.
 WhatsAppFailReason whatsAppFailReason(Object? text) {
-  final lower = text is String ? text.toLowerCase() : '';
-  if (lower.contains('node.js')) return WhatsAppFailReason.nodeUnavailable;
-  if (lower.contains('npm install') || lower.contains('bridge dependencies')) {
+  final lower = (text is String ? text : '').toLowerCase().replaceFirst(
+    RegExp(r'^\d+: '),
+    '',
+  );
+  bool starts(String prefix) => lower.startsWith(prefix);
+  if (starts('node.js preparation failed')) {
+    return WhatsAppFailReason.nodeUnavailable;
+  }
+  if (starts('npm install failed') ||
+      starts('installing whatsapp bridge dependencies') ||
+      starts('failed to install whatsapp bridge dependencies')) {
     return WhatsAppFailReason.installFailed;
   }
-  if (lower.contains('bridge script')) return WhatsAppFailReason.bridgeMissing;
+  if (starts('whatsapp bridge script was not found')) {
+    return WhatsAppFailReason.bridgeMissing;
+  }
+  if (starts('whatsapp pairing process exited')) {
+    return WhatsAppFailReason.processExited;
+  }
   if (lower.contains('logged out') || lower.contains('logged_out')) {
     return WhatsAppFailReason.loggedOut;
-  }
-  if (lower.contains('pairing process exited')) {
-    return WhatsAppFailReason.processExited;
   }
   return WhatsAppFailReason.other;
 }
