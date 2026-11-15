@@ -20,6 +20,8 @@ class GroupedChoiceRow<T> extends StatelessWidget {
     this.titleMaxLines = 1,
     this.subtitle,
     this.subtitleMaxLines = 1,
+    this.titleMiddleEllipsis = false,
+    this.subtitleMiddleEllipsis = false,
     this.meta,
     this.warning,
     this.details = const [],
@@ -33,6 +35,11 @@ class GroupedChoiceRow<T> extends StatelessWidget {
 
   /// How many lines the [subtitle] may take; null lets it wrap in full.
   final int? subtitleMaxLines;
+
+  /// Cut the title or the subtitle in the middle, for an identifier. See
+  /// [GroupedRow.titleMiddleEllipsis].
+  final bool titleMiddleEllipsis;
+  final bool subtitleMiddleEllipsis;
   final String? meta;
   final String? warning;
 
@@ -63,6 +70,8 @@ class GroupedChoiceRow<T> extends StatelessWidget {
       titleMaxLines: titleMaxLines,
       subtitle: subtitle,
       subtitleMaxLines: subtitleMaxLines,
+      titleMiddleEllipsis: titleMiddleEllipsis,
+      subtitleMiddleEllipsis: subtitleMiddleEllipsis,
       meta: meta,
       warning: warning,
       details: details,
