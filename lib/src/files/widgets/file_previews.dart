@@ -299,8 +299,11 @@ class _HighlightedCodeState extends State<HighlightedCode> {
   @override
   void didUpdateWidget(HighlightedCode oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // A new budget (the document changed) is charged again by every fence,
+    // those this State kept included, so the document never exceeds it.
     if (oldWidget.text != widget.text ||
-        oldWidget.language != widget.language) {
+        oldWidget.language != widget.language ||
+        oldWidget.budget != widget.budget) {
       _colour();
     }
   }
@@ -439,7 +442,7 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
           child: _themed(
             context,
             GptMarkdown(
-              inertMarkdown(safeContentText(text), notLoaded: notLoaded),
+              inertMarkdown(safeMarkdownText(text), notLoaded: notLoaded),
               // Markdown here comes from the agent: HTML in it is text, never
               // a tag that renders (an <img> would be a request).
               html: false,

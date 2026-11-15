@@ -1,4 +1,5 @@
 import 'package:characters/characters.dart';
+import 'package:gpt_markdown/plusparse/entities.dart' show entityAt;
 
 /// [text] made safe to show: a character that changes how text reads or that
 /// the terminal and the screen treat as a command is drawn as a visible
@@ -22,6 +23,35 @@ String safePathText(String text) => _escaped(text, keepLineBreaks: false);
 /// so a file cannot reorder what a person reads (a Trojan Source line) or
 /// hide text behind an escape sequence.
 String safeContentText(String text) => _escaped(text, keepLineBreaks: true);
+
+/// [text], Markdown from a file, made safe to render: [safeContentText], and
+/// a character reference that decodes to an unsafe character (`&#x202E;`,
+/// `&#8238;`, `&lrm;`, `&ZeroWidthSpace;`) is replaced by its `<U+XXXX>`
+/// placeholder, because the Markdown renderer decodes references after the
+/// escaping of the raw text and would otherwise draw the character itself.
+/// Ordinary references (`&amp;`, `&lt;`, `&copy;`) are left for the renderer.
+String safeMarkdownText(String text) {
+  final raw = safeContentText(text);
+  StringBuffer? out;
+  var copied = 0;
+  var i = raw.indexOf('&');
+  while (i >= 0) {
+    final entity = entityAt(raw, i);
+    if (entity == null) {
+      i = raw.indexOf('&', i + 1);
+      continue;
+    }
+    final safe = safeContentText(entity.value);
+    if (safe != entity.value) {
+      (out ??= StringBuffer()).write(raw.substring(copied, i));
+      out.write(safe);
+      copied = entity.next;
+    }
+    i = raw.indexOf('&', entity.next);
+  }
+  if (out == null) return raw;
+  return (out..write(raw.substring(copied))).toString();
+}
 
 String _escaped(String text, {required bool keepLineBreaks}) {
   var changed = false;

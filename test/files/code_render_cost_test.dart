@@ -146,4 +146,20 @@ void main() {
       expect(_leafSpans(tester), 1);
     });
   });
+
+  testWidgets('a grown Markdown document never exceeds its fence budget', (
+    tester,
+  ) async {
+    String doc(int n) =>
+        List.generate(n, (i) => '```python\ndef f$i(): pass\n```').join('\n\n');
+    Future<void> show(String text) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: MarkdownPreview(text: text)),
+      ),
+    );
+    await show(doc(8));
+    expect(_keywordFences(tester), 8);
+    await show(doc(16));
+    expect(_keywordFences(tester), lessThanOrEqualTo(8));
+  });
 }

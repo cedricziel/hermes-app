@@ -272,6 +272,61 @@ void main() {
     });
   });
 
+  group('character references in Markdown', () {
+    const unsafe = '\u202E\u202C\u200E\u200F\u200B\uFEFF';
+
+    String rendered(WidgetTester tester) {
+      final out = StringBuffer();
+      for (final rich in tester.widgetList<RichText>(find.byType(RichText))) {
+        out.write(rich.text.toPlainText());
+      }
+      return out.toString();
+    }
+
+    testWidgets('that decode to bidi or invisible characters are shown', (
+      tester,
+    ) async {
+      await pumpFiles(
+        tester,
+        const MarkdownPreview(
+          text:
+              'safe &#x202E;abc&#x202C; &#8238; &lrm;&rlm; '
+              '&#x200B; &#xFEFF; &ZeroWidthSpace;',
+        ),
+      );
+      final text = rendered(tester);
+      for (final char in unsafe.split('')) {
+        expect(
+          text.contains(char),
+          isFalse,
+          reason: 'U+${char.codeUnitAt(0).toRadixString(16)}',
+        );
+      }
+      for (final name in ['202E', '202C', '200E', '200F', '200B', 'FEFF']) {
+        expect(text, contains('<U+$name>'));
+      }
+    });
+
+    testWidgets('that decode to ordinary characters still render', (
+      tester,
+    ) async {
+      await pumpFiles(
+        tester,
+        const MarkdownPreview(text: 'a &amp; b &lt; c &copy; d &#65;'),
+      );
+      expect(rendered(tester), contains('a & b < c \u00A9 d A'));
+    });
+
+    test('safeMarkdownText leaves ordinary references and text alone', () {
+      const text = 'a &amp; b &#65; &copy; & lone &x; &#xZZ;';
+      expect(identical(safeMarkdownText(text), text), isTrue);
+    });
+
+    test('safeMarkdownText names the unsafe ones', () {
+      expect(safeMarkdownText('x&#x202E;y&lrm;z'), 'x<U+202E>y<U+200E>z');
+    });
+  });
+
   group('safeContentText', () {
     test('keeps line feeds and tabs, folds CRLF', () {
       expect(safeContentText('a\nb\tc\r\nd'), 'a\nb\tc\nd');
