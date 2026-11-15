@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../chat/widgets/thread_actions_menu.dart';
 import '../macos/mac_commands.dart';
 import 'conversation_windows.dart';
@@ -55,7 +56,9 @@ class ConversationWindowsMenu extends StatelessWidget {
               MacCommand.nextChange: const MacCommandHandler(null),
               MacCommand.pinThread: run(
                 ThreadAction.pin,
-                title: key.pinned ? 'Unpin' : 'Pin',
+                title: key.pinned
+                    ? context.l10n.macosMenuUnpin
+                    : context.l10n.macosMenuPin,
               ),
               MacCommand.renameThread: run(ThreadAction.rename),
               MacCommand.copyTranscript: run(ThreadAction.copyTranscript),
@@ -79,7 +82,7 @@ class ConversationWindowsMenu extends StatelessWidget {
               MacCommand.changeFolder: const MacCommandHandler(null),
               MacCommand.toggleInspector: MacCommandHandler(
                 windows.toggleKeyWindowInspector,
-                title: 'Show Inspector',
+                title: context.l10n.chatActivityInspectorShow,
               ),
             },
       child: child,
