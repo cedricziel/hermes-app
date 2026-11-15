@@ -161,8 +161,11 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    `hermes` call; every later path is the resolved one, and `verify.sh` applies
    the canonical-path and real-home rules to its temp root. Limits: a bind mount
    of `~/.hermes` is not detected (nothing compares devices or inodes), so
-   don't point the state dir into one, and a live process that plants a link
-   between the check and the start is outside the threat model.
+   don't point the state dir into one; a live process that plants a link
+   between the check and the start is outside the threat model; and a `find`
+   that exits 0 but lies is not defended against (a hostile PATH could shadow
+   `hermes` itself). The check writes no temp file: `find`'s output is read into
+   a variable.
 
    Which `HOME` a `hermes` call gets: the profile commands of a launch-profile
    start and its dashboard run with `HOME=$STATE_DIR/userhome` (and without

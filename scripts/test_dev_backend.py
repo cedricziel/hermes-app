@@ -648,9 +648,19 @@ class DevBackendTest(unittest.TestCase):
         setpriv = shutil.which("setpriv")
         if setpriv is None:
             self.skipTest("running as root and setpriv is not available to drop privileges")
-        # The tree must be reachable by the unprivileged user.
+        prefix = [setpriv, "--reuid=65534", "--regid=65534", "--clear-groups"]
+        # The checkout must be reachable by the unprivileged user.
+        reach = subprocess.run(
+            [*prefix, "test", "-r", str(DEV_BACKEND)], capture_output=True
+        )
+        if reach.returncode != 0:
+            self.skipTest(
+                "uid 65534 cannot read the checkout (scripts/dev-backend.sh), so "
+                "the script cannot run as an unprivileged user here"
+            )
+        # The test tree must be reachable by the unprivileged user.
         os.chmod(self.tmp, 0o755)
-        return [setpriv, "--reuid=65534", "--regid=65534", "--clear-groups"]
+        return prefix
 
     def shim_dir(self, name, body):
         shims = self.tmp / "shims"
@@ -736,6 +746,19 @@ exec {REAL_FIND} "$@"
         self.assertEqual(result.returncode, 3, result.stderr)
         self.assertIn("planted", result.stderr)
         self.assertEqual(self.calls(), "", "hermes was called")
+
+    def test_the_check_writes_no_temp_file(self):
+        watched = self.tmp / "watched-tmp"
+        watched.mkdir()
+        # Accepted, refused by a link, and refused by a failing find.
+        self.start(TMPDIR=str(watched))
+        (self.tmp / "state" / "home").mkdir(exist_ok=True)
+        (self.tmp / "state" / "home" / "l").symlink_to(self.tmp)
+        self.start(TMPDIR=str(watched))
+        (self.tmp / "state" / "home" / "l").unlink()
+        shims = self.shim_dir("find", '#!/bin/sh\necho boom >&2\nexit 2\n')
+        self.start(TMPDIR=str(watched), PATH=f"{shims}:{self.bin}:{os.environ['PATH']}")
+        self.assertEqual(os.listdir(watched), [])
 
     def test_a_name_with_a_newline_is_refused_and_said_so(self):
         victim = self.tmp / "victim.txt"

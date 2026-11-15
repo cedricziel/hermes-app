@@ -38,7 +38,9 @@
 # keeps a plain start away from the real home; its dashboard keeps the caller's
 # HOME. The profile commands and a launch-profile dashboard run with a
 # throwaway HOME ($STATE_DIR/userhome) and do not see the real one's
-# file-based logins. A bind mount of ~/.hermes is not detected, and a live
+# file-based logins. A bind mount of ~/.hermes is not detected, a `find` that
+# exits 0 but lies is not defended against (a hostile PATH could shadow hermes
+# itself), and a live
 # process that plants a link between the check and the start is outside the
 # threat model.
 #
@@ -174,28 +176,24 @@ check_dirs_readable() {
 }
 
 # find_none WHAT FIND-ARGS...: runs find over the state directory and exits 3
-# if it fails (its stderr is named in the message) or reports anything.
+# if it fails (what it printed is named in the message) or reports anything.
+# Its output is read into a variable: no temp file is made anywhere, so nothing
+# can land in a real home or be left behind by a kill. stderr is merged in, so
+# a warning is read as a finding: that fails closed.
 find_none() {
-  local what="$1" out err rc=0 first
+  local what="$1" out rc=0 first
   shift
-  out="$(mktemp "${TMPDIR:-/tmp}/dev-backend-find.XXXXXX")" || {
-    echo "refusing: cannot make a temporary file to check $STATE_DIR" >&2
-    exit 3
-  }
-  err="$out.err"
-  find "$STATE_DIR" "$@" -print >"$out" 2>"$err" || rc=$?
+  out="$(find "$STATE_DIR" "$@" -print 2>&1)" || rc=$?
   if ((rc != 0)); then
-    echo "refusing: find failed (exit $rc) while looking for $what in $STATE_DIR: $(head -n 3 "$err" | tr '\n' ' ')" >&2
-    rm -f "$out" "$err"
+    echo "refusing: find failed (exit $rc) while looking for $what in $STATE_DIR: $(printf '%s\n' "$out" | head -n 3 | tr '\n' ' ')" >&2
     exit 3
   fi
-  first="$(head -n 1 "$out")"
-  rm -f "$out" "$err"
+  first="$(printf '%s\n' "$out" | head -n 1)"
   if [[ -n "$first" ]]; then
     if [[ -e "$first" || -L "$first" ]]; then
       first="$(printf %q "$first")"
     else
-      first="a path containing a newline, starting $(printf %q "$first")"
+      first="a path containing a newline, or find's own message, starting $(printf %q "$first")"
     fi
     echo "refusing: $first is $what; remove it or use another state directory" >&2
     exit 3
