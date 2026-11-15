@@ -1,77 +1,73 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.dart';
+import 'package:hermes_app/src/bot_mode/groups/widgets/group_widgets.dart';
 import 'package:hermes_app/src/skills/widgets/skill_markdown_panel.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import 'bot_mode/group_protocol/groups_repository_test.dart' as fixtures;
+import 'support/markdown_contrast.dart';
 import 'support/screenshot_recorder.dart';
 
-double _contrast(Color a, Color b) {
-  final la = a.computeLuminance();
-  final lb = b.computeLuminance();
-  return (max(la, lb) + 0.05) / (min(la, lb) + 0.05);
-}
+const _markdown =
+    '# Web scraper\n\nFetch pages.\n\n## When to use it\n\n'
+    'See [the docs](https://example.com/docs).';
 
-/// The colour a run of [text] is painted in, found by walking the spans of the
-/// [RichText] that holds it.
-Color _inkOf(WidgetTester tester, String text) {
-  final rich = tester.widget<RichText>(
-    find.byWidgetPredicate(
-      (w) => w is RichText && w.text.toPlainText().contains(text),
+const _texts = ['Web scraper', 'When to use it', 'the docs'];
+
+Future<void> _pump(
+  WidgetTester tester,
+  ScreenshotRecorder shots,
+  Widget body, {
+  required bool dark,
+}) async {
+  await shots.start(tester, const Size(390, 500));
+  await tester.pumpWidget(
+    shots.frame(
+      MaterialApp(
+        theme: dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
+        home: Scaffold(body: SingleChildScrollView(child: body)),
+      ),
     ),
   );
-  Color? found;
-  void visit(InlineSpan span, TextStyle inherited) {
-    final style = inherited.merge(span.style);
-    if (span is TextSpan) {
-      if (span.text != null && span.text!.contains(text)) found = style.color;
-      for (final child in span.children ?? const <InlineSpan>[]) {
-        visit(child, style);
-      }
-    }
-  }
-
-  visit(
-    rich.text,
-    DefaultTextStyle.of(tester.element(find.byWidget(rich))).style,
-  );
-  return found!;
 }
 
 void main() {
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
-    testWidgets('skill markdown headings are readable in $mode', (
+
+    testWidgets('skill markdown headings and links are readable in $mode', (
       tester,
     ) async {
       final shots = ScreenshotRecorder('skill-markdown-$mode');
-      await shots.start(tester, const Size(390, 500));
-      final theme = dark ? buildHermesDarkTheme() : buildHermesLightTheme();
-      await tester.pumpWidget(
-        shots.frame(
-          MaterialApp(
-            theme: theme,
-            home: const Scaffold(
-              body: SingleChildScrollView(
-                child: SkillMarkdownPanel(
-                  text: '# Web scraper\n\nFetch pages.\n\n## When to use it\n\nOften.',
-                ),
-              ),
-            ),
-          ),
-        ),
+      await _pump(
+        tester,
+        shots,
+        const SkillMarkdownPanel(text: _markdown),
+        dark: dark,
       );
       await shots.capture(tester, 'headings');
-      final background = theme.scaffoldBackgroundColor;
-      for (final heading in ['Web scraper', 'When to use it']) {
-        final ink = _inkOf(tester, heading);
-        expect(
-          _contrast(ink, background),
-          greaterThanOrEqualTo(4.5),
-          reason: '$heading: $ink on $background',
-        );
-      }
+      expectReadableOnSurface(tester, _texts);
+    });
+
+    testWidgets('group event markdown is readable in $mode', (tester) async {
+      final shots = ScreenshotRecorder('group-event-$mode');
+      final event = GroupEvent.fromJson({
+        ...fixtures.event(1, kind: 'message.assistant'),
+        'actor': {'kind': 'member', 'id': 'one'},
+        'payload': {'text': _markdown},
+      });
+      await _pump(
+        tester,
+        shots,
+        GroupEventRow(
+          event: event,
+          members: [GroupMember.fromJson(fixtures.member('one'))],
+        ),
+        dark: dark,
+      );
+      await shots.capture(tester, 'event');
+      expectReadableOnSurface(tester, _texts);
     });
   }
 }

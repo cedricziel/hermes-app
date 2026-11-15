@@ -12,6 +12,7 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/skills_screen.dart';
 
 import '../support/fake_hermes_server.dart';
+import '../support/markdown_contrast.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 
@@ -652,6 +653,7 @@ void main() {
       await tester.tap(find.text('Preview'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'preview');
+      expectReadableOnSurface(tester, ['Ship a release']);
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
 
