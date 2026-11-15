@@ -371,6 +371,45 @@ void main() {
       expect(controller.status, SoulStatus.saved);
     });
 
+    test(
+      'a missing file is never Saved without a PUT, even for empty text',
+      () async {
+        await loaded('Mine');
+        controller.setText('');
+        fileExists = false;
+        fileText = '';
+        await save();
+        expect(controller.status, SoulStatus.changedOnServer);
+        expect(puts, isEmpty);
+        await controller.replaceAnyway();
+        expect(puts, ['']);
+        expect(controller.status, SoulStatus.saved);
+      },
+    );
+
+    test('Keep editing after a save conflict logs conflict_kept', () async {
+      await loaded('Mine');
+      fileText = 'Theirs';
+      await save();
+      controller.keepEditing();
+      expect(events.named('profile_soul.saved').last, {
+        'outcome': 'conflict_kept',
+        'empty': false,
+      });
+    });
+
+    test('Try again after a failed check read adds no second crumb', () async {
+      await loaded('Mine');
+      server.on('GET', soulPath, soulPlainServerError, status: 500);
+      await save();
+      routes();
+      await controller.confirmSave();
+      expect(
+        trail.recent.where((c) => c.name == 'profile_soul.save.confirmed'),
+        hasLength(1),
+      );
+    });
+
     test('a refused write keeps the text and is never resent', () async {
       await loaded('Mine');
       for (final status in [400, 404, 422, 500]) {
@@ -554,6 +593,50 @@ void main() {
       expect(controller.status, SoulStatus.saved);
     });
 
+    test(
+      'an earlier save that landed does not make a later edit a conflict',
+      () async {
+        await lose('A');
+        fileText = 'A';
+        controller.setText('AB');
+        applyPuts = true;
+        routes();
+        await save();
+        expect(controller.status, SoulStatus.saved);
+        expect(puts, ['A', 'AB']);
+        expect(fileText, 'AB');
+        expect(controller.dirty, isFalse);
+      },
+    );
+
+    test('a refused save after a lost answer still offers Check', () async {
+      await lose('Mine');
+      controller.setText('Other');
+      putStatus = 500;
+      putBody = {'detail': 'boom'};
+      server.onRequest('PUT', soulPath, (_) => (status: 500, body: putBody));
+      await save();
+      expect(controller.status, SoulStatus.saveFailed);
+      expect(controller.canCheck, isTrue);
+      fileText = 'Mine';
+      await controller.check();
+      expect(controller.status, SoulStatus.saved);
+    });
+
+    test('Keep editing after Check logs no conflict_kept', () async {
+      await lose('Mine');
+      fileText = 'Someone else';
+      await controller.check();
+      expect(controller.status, SoulStatus.changedOnServer);
+      controller.keepEditing();
+      expect(
+        events
+            .named('profile_soul.saved')
+            .where((e) => e['outcome'] == 'conflict_kept'),
+        isEmpty,
+      );
+    });
+
     test('Check is only offered after a lost answer', () async {
       await loaded('Mine');
       final before = gets();
@@ -710,6 +793,109 @@ void main() {
       expect(controller.status, SoulStatus.idle);
       expect(puts, ['Mine']);
     });
+
+    test('the unlocked editor stays read-only until the PUT is out and the '
+        'reload lands', () async {
+      final gate = Completer<void>();
+      await loaded('Mine');
+      server.onRequest('PUT', soulPath, (request) async {
+        puts.add('Mine');
+        await gate.future;
+        fileText = 'Mine';
+        return (status: 200, body: soulSaved);
+      });
+      expect(controller.requestSave(), isNotNull);
+      final running = controller.confirmSave();
+      await pumpEventQueue();
+      controller.cover();
+      final reads = gets();
+      controller.uncover();
+      await pumpEventQueue();
+      expect(controller.showsEditor, isFalse);
+      expect(controller.busy, isTrue);
+      expect(controller.readOnly, isTrue);
+      expect(gets(), reads, reason: 'no read while the PUT is out');
+      controller.setText('Sneaky');
+      expect(controller.text, '');
+      gate.complete();
+      await running;
+      await pumpEventQueue();
+      expect(controller.busy, isFalse);
+      expect(controller.showsEditor, isTrue);
+      expect(controller.text, 'Mine');
+      expect(controller.status, SoulStatus.idle);
+      expect(puts, ['Mine']);
+    });
+
+    test('a hung PUT at unlock does not hold the reload past the timeout', () {
+      fakeAsync((async) {
+        build(timeout: const Duration(seconds: 10));
+        unawaited(controller.start());
+        settle(async);
+        controller.setText('Mine');
+        server.onRequest('PUT', soulPath, (_) => Completer<Never>().future);
+        controller.requestSave();
+        unawaited(controller.confirmSave());
+        settle(async);
+        controller.cover();
+        controller.uncover();
+        async.elapse(const Duration(seconds: 11));
+        settle(async);
+        expect(controller.showsEditor, isTrue);
+        expect(controller.text, fileText);
+      });
+    });
+
+    test('start twice, or while a reload runs, reads once', () async {
+      build();
+      final first = controller.start();
+      final second = controller.start();
+      await Future.wait([first, second]);
+      expect(gets(), 1);
+    });
+
+    test('a late answer after clear is ignored', () async {
+      final gate = Completer<void>();
+      await loaded('Mine');
+      server.onRequest('PUT', soulPath, (request) async {
+        puts.add('Mine');
+        await gate.future;
+        return (status: 200, body: soulSaved);
+      });
+      expect(controller.requestSave(), isNotNull);
+      final running = controller.confirmSave();
+      await pumpEventQueue();
+      controller.clear();
+      final seen = notified;
+      gate.complete();
+      await running;
+      expect(notified, seen);
+      expect(controller.status, isNot(SoulStatus.saved));
+      expect(controller.text, '');
+      expect(controller.exists, isFalse);
+    });
+
+    test(
+      'cover before start still records opened once, on the first read',
+      () async {
+        build();
+        controller.cover();
+        await controller.start();
+        expect(
+          trail.recent.where((c) => c.name == 'profile_soul.opened'),
+          isEmpty,
+        );
+        controller.uncover();
+        await pumpEventQueue();
+        controller.cover();
+        controller.uncover();
+        await pumpEventQueue();
+        expect(
+          trail.recent.where((c) => c.name == 'profile_soul.opened'),
+          hasLength(1),
+        );
+      },
+    );
 
     test('a check in flight at App Lock is dropped too', () async {
       final gate = Completer<void>();

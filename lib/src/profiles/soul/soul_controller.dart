@@ -159,6 +159,16 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   var _closed = false;
   var _toldUnsupported = false;
 
+  /// Whether the open conflict came from a confirmed save (not from Check).
+  var _conflictFromSave = false;
+
+  /// Writes and verifying or Check reads that have not answered yet. App Lock
+  /// drops their outcome but not the request: a reload waits for them.
+  final _inFlight = <Future<void>>{};
+
+  /// Reloads waiting for [_inFlight] or reading; the controller is busy.
+  var _reloads = 0;
+
   SoulLoad get load => _load;
   SoulStatus get status => _status;
 
@@ -185,6 +195,7 @@ class SoulController extends ChangeNotifier with SafeNotifier {
 
   /// A read or a write is running.
   bool get busy =>
+      _reloads > 0 ||
       _status == SoulStatus.verifying ||
       _status == SoulStatus.saving ||
       _status == SoulStatus.checking;
@@ -226,18 +237,14 @@ class SoulController extends ChangeNotifier with SafeNotifier {
 
   /// Records that the page opened and reads the file.
   Future<void> start() async {
-    if (_closed || _covered) return;
-    if (!_opened) {
-      _opened = true;
-      _telemetry.opened(_openedFrom);
-    }
-    await _read();
+    if (_closed || _covered || busy) return;
+    await _reload();
   }
 
   /// Reads the file again (Try again). Drops the editor's text.
   Future<void> reload() async {
     if (_closed || _covered || busy) return;
-    await _read();
+    await _reload();
   }
 
   void setText(String value) {
@@ -305,7 +312,7 @@ class SoulController extends ChangeNotifier with SafeNotifier {
       return;
     }
     final generation = _generation;
-    _telemetry.saveConfirmed();
+    if (_status == SoulStatus.asking) _telemetry.saveConfirmed();
     final span = _telemetry.startSave();
     _status = SoulStatus.verifying;
     notifyListeners();
@@ -346,8 +353,16 @@ class SoulController extends ChangeNotifier with SafeNotifier {
       notifyListeners();
       return;
     }
+    // An earlier unconfirmed save landed and the editor moved on: that text is
+    // what the server holds now, so it is the baseline, not a foreign change.
+    final earlier = _sentText;
+    if (earlier != null && soul.exists && soul.content == earlier) {
+      _baseline = (exists: true, content: earlier);
+      _sentText = null;
+      _pendingNote = false;
+    }
     if (_differsFromBaseline(soul)) {
-      _conflict(soul, text);
+      _conflict(soul, text, fromSave: true);
       _telemetry.endSave(
         span,
         SoulSaveOutcome.conflict,
@@ -364,10 +379,13 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   void keepEditing() {
     if (_status != SoulStatus.changedOnServer) return;
     final empty = (_pendingText ?? _text).isEmpty;
+    final fromSave = _conflictFromSave;
     _dropServerText();
     _pendingText = null;
     _status = _resting();
-    _telemetry.saved(SoulSaveOutcome.conflictKept, empty: empty);
+    if (fromSave) {
+      _telemetry.saved(SoulSaveOutcome.conflictKept, empty: empty);
+    }
     notifyListeners();
   }
 
@@ -436,7 +454,7 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   void uncover() {
     if (_closed || !_covered) return;
     _covered = false;
-    unawaited(_read());
+    unawaited(_reload());
   }
 
   /// Sign-out, server change or profile switch: drops everything and ends the
@@ -459,13 +477,36 @@ class SoulController extends ChangeNotifier with SafeNotifier {
     super.dispose();
   }
 
+  /// Reads the file once nothing of an earlier write or check is still out, so
+  /// the text shown is what the server holds after it. The wait is bounded by
+  /// the answer timeout; the controller stays busy (read-only) meanwhile.
+  Future<void> _reload() async {
+    _reloads++;
+    try {
+      final generation = _generation;
+      while (_inFlight.isNotEmpty) {
+        await Future.wait(_inFlight.toList());
+        if (_closed || _covered || generation != _generation) return;
+      }
+      if (_closed || _covered || generation != _generation) return;
+      await _read();
+    } finally {
+      _reloads--;
+      if (!_closed && _reloads == 0) notifyListeners();
+    }
+  }
+
   Future<void> _read() async {
+    if (!_opened) {
+      _opened = true;
+      _telemetry.opened(_openedFrom);
+    }
     final generation = ++_generation;
     _dropAll();
     _load = SoulLoad.loading;
     notifyListeners();
     final span = _telemetry.startFetch();
-    final (:soul, :failure) = await _tryRead();
+    final (:soul, :failure) = await _tryRead(track: false);
     if (generation != _generation) {
       _telemetry.endFetch(span, 'discarded');
       return;
@@ -542,7 +583,8 @@ class SoulController extends ChangeNotifier with SafeNotifier {
     _status = SoulStatus.saved;
   }
 
-  void _conflict(ProfileSoul soul, String pending) {
+  void _conflict(ProfileSoul soul, String pending, {bool fromSave = false}) {
+    _conflictFromSave = fromSave;
     _serverText = soul.content;
     _serverExists = soul.exists;
     _pendingText = pending;
@@ -608,7 +650,23 @@ class SoulController extends ChangeNotifier with SafeNotifier {
     _ => 'failed',
   };
 
-  Future<({ProfileSoul? soul, SoulFailureKind? failure})> _tryRead() async {
+  Future<T> _track<T>(Future<T> run) {
+    late final Future<void> marker;
+    marker = run.then<void>((_) {}, onError: (_) {}).whenComplete(() {
+      _inFlight.remove(marker);
+    });
+    _inFlight.add(marker);
+    return run;
+  }
+
+  Future<({ProfileSoul? soul, SoulFailureKind? failure})> _tryRead({
+    bool track = true,
+  }) {
+    final run = _readOnce();
+    return track ? _track(run) : run;
+  }
+
+  Future<({ProfileSoul? soul, SoulFailureKind? failure})> _readOnce() async {
     try {
       final soul = await _repository.read(profile).timeout(_answerTimeout);
       return (soul: soul, failure: null);
@@ -626,6 +684,10 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   }
 
   Future<({SoulWriteResult? result, SoulFailureKind? failure})> _tryWrite(
+    String text,
+  ) => _track(_writeOnce(text));
+
+  Future<({SoulWriteResult? result, SoulFailureKind? failure})> _writeOnce(
     String text,
   ) async {
     try {
