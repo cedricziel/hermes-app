@@ -267,24 +267,29 @@ void main() {
       Locale? locale,
       String title = 'Title',
       bool actionIsButton = true,
+      TargetPlatform platform = TargetPlatform.iOS,
+      TextDirection direction = TextDirection.ltr,
     }) => MaterialApp(
-      theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+      theme: buildHermesLightTheme().copyWith(platform: platform),
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-        child: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: 360,
-              child: AppBanner(
-                tone: AppBannerTone.warning,
-                title: title,
-                detail: 'Detail',
-                action: action,
-                actionIsButton: actionIsButton,
+        child: Directionality(
+          textDirection: direction,
+          child: Scaffold(
+            body: Align(
+              alignment: AlignmentDirectional.topStart,
+              child: SizedBox(
+                width: 360,
+                child: AppBanner(
+                  tone: AppBannerTone.warning,
+                  title: title,
+                  detail: 'Detail',
+                  action: action,
+                  actionIsButton: actionIsButton,
+                ),
               ),
             ),
           ),
@@ -325,6 +330,51 @@ void main() {
           greaterThanOrEqualTo(tester.getBottomLeft(find.text('Detail')).dy),
         );
       });
+    }
+
+    for (final platform in [
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.macOS,
+    ]) {
+      for (final direction in TextDirection.values) {
+        for (final (name, scale, locale) in [
+          ('3x', 3.0, null),
+          ('German', 1.0, const Locale('de')),
+        ]) {
+          testWidgets(
+            'a padded button taps at both edges: $platform $direction $name',
+            (tester) async {
+              var taps = 0;
+              await tester.pumpWidget(
+                host(
+                  action: TextButton(
+                    onPressed: () => taps++,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: const Text('OK'),
+                  ),
+                  scale: scale,
+                  locale: locale,
+                  platform: platform,
+                  direction: direction,
+                ),
+              );
+              final rect = tester.getRect(find.byType(TextButton));
+              final minimum = switch (platform) {
+                TargetPlatform.iOS => 44.0,
+                TargetPlatform.macOS => 28.0,
+                _ => 48.0,
+              };
+              expect(rect.width, greaterThanOrEqualTo(minimum));
+              await tester.tapAt(rect.centerLeft + const Offset(2, 0));
+              await tester.tapAt(rect.centerRight - const Offset(2, 0));
+              expect(taps, 2);
+            },
+          );
+        }
+      }
     }
 
     testWidgets('a styled button stays tappable where it was moved', (

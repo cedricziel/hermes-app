@@ -68,8 +68,21 @@ class AppBanner extends StatelessWidget {
   /// label vertically. A button that sets its own side padding through
   /// `style:` is moved toward the leading edge by that padding instead (the
   /// theme cannot beat a button's own style; a button inside a wrapper widget
-  /// is not seen and is not moved). With [isButton] false the widget is
+  /// is not seen and is not moved). The move is done in layout, by the
+  /// caller, through [_stackedShift], so the whole button stays tappable.
+  /// With [isButton] false the widget is
   /// placed as it is.
+  static double _stackedShift(BuildContext context, Widget action) {
+    final own = action is ButtonStyleButton
+        ? action.style?.padding?.resolve(const <WidgetState>{})
+        : null;
+    if (own == null) return 0;
+    final direction = Directionality.of(context);
+    final resolved = own.resolve(direction);
+    return (direction == TextDirection.ltr ? resolved.left : resolved.right)
+        .clamp(0.0, _iconSize + _iconGap);
+  }
+
   static Widget _target(
     BuildContext context,
     Widget action,
@@ -95,21 +108,6 @@ class AppBanner extends StatelessWidget {
         constraints: BoxConstraints(minWidth: minimum, minHeight: minimum),
         child: action,
       );
-      final own = action is ButtonStyleButton
-          ? action.style?.padding?.resolve(const <WidgetState>{})
-          : null;
-      if (flush && own != null) {
-        final ltr = Directionality.of(context) == TextDirection.ltr;
-        final resolved = own.resolve(Directionality.of(context));
-        final shift = (ltr ? resolved.left : resolved.right).clamp(
-          0.0,
-          _iconSize + _iconGap,
-        );
-        child = Transform.translate(
-          offset: Offset(ltr ? -shift : shift, 0),
-          child: child,
-        );
-      }
     }
     return TextButtonTheme(
       data: TextButtonThemeData(style: base?.merge(style) ?? style),
@@ -127,6 +125,9 @@ class AppBanner extends StatelessWidget {
       AppBannerTone.neutral => context.hermesColors.subtleText,
     };
     final stacked = action != null && stacksAction(context);
+    final shift = stacked && actionIsButton
+        ? _stackedShift(context, action!)
+        : 0.0;
     final text = ExcludeSemantics(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,8 +172,8 @@ class AppBanner extends StatelessWidget {
                 children: [
                   head,
                   Padding(
-                    padding: const EdgeInsetsDirectional.only(
-                      start: _iconSize + _iconGap,
+                    padding: EdgeInsetsDirectional.only(
+                      start: _iconSize + _iconGap - shift,
                     ),
                     child: Align(
                       alignment: AlignmentDirectional.centerStart,
