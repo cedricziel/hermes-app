@@ -200,3 +200,19 @@ a red required check. Reading the label through the API needs
 everything, and a failed gate step in `Changes` falls back to full. Push and
 dispatch never depend on that step. `merge_group`
 is classified as full but `ci.yml` does not trigger on it today.
+
+**Aggregate tests.** `scripts/test_ci_aggregates.py` (PyYAML is installed in
+the `Test scripts` step; a missing module fails the test) runs the real `run:`
+scripts of `Analyze & test` under `bash -e` for every outcome of its needs
+(success, failure, cancelled, skipped, empty), so the aggregate can be the only
+required test context. It also evaluates each job's `if:` over every
+combination of the Changes outputs (a small evaluator that fails on any syntax
+it does not know), runs the real aggregate with the resulting results, and
+asserts that a pass never hides a skip the outputs did not allow. The aggregate
+rejects a `code` or `watch` output that is not exactly `true` or `false`, so an
+empty output never reads as "not needed". Its `if:` must stay `always()`: a job
+skipped by its `if:` reports success to required checks. A process
+substitution (`<(...)`, `>(...)`) in a workflow `run:` script fails the test
+unless the command carries `# process-substitution-ok: <reason>`, because
+`pipefail` does not see a failure inside it. A `Builds` aggregate gets the same
+matrix when it exists.

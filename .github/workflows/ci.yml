@@ -125,7 +125,7 @@ jobs:
                   if [ "$base_versions" = 1 ] && [ "$head_versions" = 1 ] \
                     && diff -q \
                       <(git show HEAD^1:pubspec.yaml | sed '/^version: /d') \
-                      <(git show HEAD:pubspec.yaml | sed '/^version: /d') > /dev/null 2>&1; then
+                      <(git show HEAD:pubspec.yaml | sed '/^version: /d') > /dev/null 2>&1; then # process-substitution-ok: both files were already shown above with grep -c (a failure there leaves the count at 0 and the condition false), and a differing or failed diff only makes the pull request normal
                     echo "release-please pull request: treated as docs-only"
                     code=false
                     watch=false
@@ -196,7 +196,7 @@ jobs:
       - name: Install screenshot test dependencies
         run: |
           python3 -m venv "$RUNNER_TEMP/script-tests"
-          "$RUNNER_TEMP/script-tests/bin/pip" install Pillow
+          "$RUNNER_TEMP/script-tests/bin/pip" install Pillow pyyaml==6.0.2
           echo "$RUNNER_TEMP/script-tests/bin" >> "$GITHUB_PATH"
 
       - name: Test scripts
@@ -358,6 +358,17 @@ jobs:
           }
           expect changes "$CHANGES" success
           expect analyze "$ANALYZE" success
+          # An empty or odd output must not read as "not needed": it would let
+          # a skipped job pass. Only an exact true or false is an answer.
+          for output in NEED_TEST NEED_WATCH; do
+            case "${!output}" in
+              true | false) ;;
+              *)
+                echo "::error::Changes output for $output is '${!output}', not true or false"
+                fail=1
+                ;;
+            esac
+          done
           if [ "$CHANGES" = success ] && [ "$NEED_TEST" = true ] && [ "$FULL" != true ]; then
             msg="Tests deferred: add the ci:full label when the PR is ready (fleet rules). Nothing merges until the tests ran on this head."
             echo "::error::$msg"
