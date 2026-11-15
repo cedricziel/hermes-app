@@ -152,13 +152,24 @@ bool _atBoundary(Rect child, Rect parent) =>
 /// One screen measured: what it was, which platform's minimum judges it, and
 /// its targets.
 class TapSample {
-  const TapSample(this.source, this.platform, this.targets, [this.rendered]);
+  const TapSample(
+    this.source,
+    this.platform,
+    this.targets, [
+    this.rendered,
+    this.reason,
+  ]);
 
-  factory TapSample.fromJson(Map<String, Object?> json) =>
-      TapSample(json['source']! as String, json['platform']! as String, [
-        for (final t in json['targets']! as List)
-          TapTarget.fromJson((t as Map).cast<String, Object?>()),
-      ], json['rendered'] as String?);
+  factory TapSample.fromJson(Map<String, Object?> json) => TapSample(
+    json['source']! as String,
+    json['platform']! as String,
+    [
+      for (final t in json['targets']! as List)
+        TapTarget.fromJson((t as Map).cast<String, Object?>()),
+    ],
+    json['rendered'] as String?,
+    json['reason'] as String?,
+  );
 
   final String source;
 
@@ -170,12 +181,16 @@ class TapSample {
   /// The platform the theme was built for, when it is not the judged one.
   final String? rendered;
 
+  /// Why a skipped pass was not judged, e.g. `pins android`.
+  final String? reason;
+
   bool get skipped => platform == 'skip';
 
   Map<String, Object?> toJson() => {
     'source': source,
     'platform': platform,
     if (rendered != null) 'rendered': rendered,
+    if (reason != null) 'reason': reason,
     'targets': [for (final t in targets) t.toJson()],
   };
 }
@@ -202,6 +217,43 @@ String judgedPlatform(TargetPlatform rendered, double width) {
     TargetPlatform.iOS => 'ios',
     _ => 'skip',
   };
+}
+
+/// The platform key a use case pins: the first of [themePlatforms] (the
+/// `Theme.data.platform` of every `Theme` the use case itself builds) when
+/// none of them is judged by the same minimum as [pass]. A use case that shows
+/// several platforms side by side matches each of its passes and is measured
+/// in all of them; one that builds no Theme pins nothing and follows the app's
+/// root theme, which is the pass platform. Null when the pass is to be judged.
+String? pinnedPlatform(
+  Iterable<TargetPlatform> themePlatforms,
+  TargetPlatform pass,
+) {
+  final passKey = platformKey(pass);
+  String? other;
+  for (final p in themePlatforms) {
+    final key = platformKey(p);
+    if (key == passKey) return null;
+    other ??= key;
+  }
+  return other;
+}
+
+/// The platforms of every `Theme` the use case builds, read from the element
+/// tree below the app's `Scaffold` (the app's own root theme is above it).
+List<TargetPlatform> themePlatformsOf(WidgetTester tester) {
+  final out = <TargetPlatform>[];
+  void visit(Element e) {
+    final w = e.widget;
+    if (w is Theme) out.add(w.data.platform);
+    e.visitChildren(visit);
+  }
+
+  final scaffolds = find.byType(Scaffold);
+  if (scaffolds.evaluate().isNotEmpty) {
+    scaffolds.evaluate().first.visitChildren(visit);
+  }
+  return out;
 }
 
 /// Measures what is on screen now. Semantics are switched on for the call.
@@ -369,8 +421,17 @@ class TapReport {
 
   Map<String, int> get skippedByPlatform {
     final out = <String, int>{};
-    for (final s in samples.where((s) => s.skipped)) {
+    for (final s in samples.where((s) => s.skipped && s.reason == null)) {
       out[s.rendered ?? '?'] = (out[s.rendered ?? '?'] ?? 0) + 1;
+    }
+    return out;
+  }
+
+  /// Passes not judged because the use case pins another platform, by reason.
+  Map<String, int> get skippedPasses {
+    final out = <String, int>{};
+    for (final s in samples.where((s) => s.reason != null)) {
+      out[s.reason!] = (out[s.reason!] ?? 0) + 1;
     }
     return out;
   }
@@ -381,6 +442,7 @@ class TapReport {
     'thresholds': tapThresholds,
     'screensMeasured': _judged.length,
     'screensSkipped': skippedByPlatform,
+    'passesSkipped': skippedPasses,
     'targetsMeasured': _judged.fold<int>(0, (n, s) => n + s.targets.length),
     // Distinct (platform, screen, label, size): the number to climb down.
     'totals': {
@@ -428,6 +490,9 @@ class TapReport {
     b.writeln(
       '  macOS inflated to 44/48: ${inflated().length} [${rawInflated().length}]',
     );
+    if (skippedPasses.isNotEmpty) {
+      b.writeln('  skipped passes (use case pins a platform): $skippedPasses');
+    }
     if (skippedByPlatform.isNotEmpty) {
       b.writeln('  skipped screens by rendered platform: $skippedByPlatform');
     }

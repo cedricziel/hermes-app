@@ -302,6 +302,150 @@ void main() {
     });
   });
 
+  group('const and prefixed forms', () {
+    const pre = "import 'package:flutter/material.dart' as m;\n";
+    int count(String body, String cat, {String imports = _imports}) =>
+        scan(body, imports: imports).where((c) => c == cat).length;
+
+    test('const named constructors count like the plain ones', () {
+      expect(scan('final a = const EdgeInsets.all(7);'), ['a.spacing']);
+      expect(scan('final a = const EdgeInsets.symmetric(horizontal: 7);'), [
+        'a.spacing',
+      ]);
+      expect(scan('final a = const EdgeInsets.all(8);'), isEmpty);
+      expect(scan('final a = const BorderRadius.circular(7);'), ['a.radius']);
+      expect(scan('final a = const BorderRadius.circular(14);'), isEmpty);
+      expect(scan('final a = const Radius.circular(7);'), ['a.radius']);
+      expect(scan('final a = [const SizedBox.square(dimension: 7)];'), [
+        'a.spacing',
+      ]);
+      expect(scan('final a = const Color.fromARGB(1, 2, 3, 4);'), ['a.color']);
+      expect(scan('final a = const Color(0xFF000000);'), ['a.color']);
+      expect(scan('final a = const Switch(value: true);'), ['c.adaptive']);
+      expect(scan('final a = const BoxShadow(blurRadius: 4);'), [
+        'a.elevation',
+      ]);
+      expect(scan('final a = const AlertDialog();'), ['b.dialog']);
+    });
+
+    test('prefixed constructors and calls count for every rule', () {
+      expect(
+        count('final a = m.EdgeInsets.all(7);', 'a.spacing', imports: pre),
+        1,
+      );
+      expect(
+        count(
+          'final a = const m.EdgeInsets.all(7);',
+          'a.spacing',
+          imports: pre,
+        ),
+        1,
+      );
+      expect(
+        count(
+          'final a = [m.SizedBox.square(dimension: 7)];',
+          'a.spacing',
+          imports: pre,
+        ),
+        1,
+      );
+      expect(
+        count(
+          'final a = [const m.SizedBox.square(dimension: 7)];',
+          'a.spacing',
+          imports: pre,
+        ),
+        1,
+      );
+      expect(
+        count(
+          'final a = [const m.SizedBox(width: 7)];',
+          'a.spacing',
+          imports: pre,
+        ),
+        1,
+      );
+      expect(
+        count(
+          'final a = m.BorderRadius.circular(7);',
+          'a.radius',
+          imports: pre,
+        ),
+        1,
+      );
+      expect(
+        count(
+          'final a = const m.BorderRadius.circular(7);',
+          'a.radius',
+          imports: pre,
+        ),
+        1,
+      );
+      expect(
+        count(
+          'final a = const m.Color.fromARGB(1, 2, 3, 4);',
+          'a.color',
+          imports: pre,
+        ),
+        1,
+      );
+      expect(count('final a = m.Color(0xFF);', 'a.color', imports: pre), 1);
+      expect(
+        count(
+          'final a = const m.Switch(value: true);',
+          'c.adaptive',
+          imports: pre,
+        ),
+        1,
+      );
+      expect(count('final a = m.Switch();', 'c.adaptive', imports: pre), 1);
+      expect(
+        count('final a = const m.AlertDialog();', 'b.dialog', imports: pre),
+        1,
+      );
+      expect(
+        count(
+          'void f() { m.showDialog(context: c); }',
+          'b.dialog',
+          imports: pre,
+        ),
+        1,
+      );
+    });
+
+    test('prefixed Colors count once, transparent does not', () {
+      expect(count('final a = m.Colors.red;', 'a.color', imports: pre), 1);
+      expect(
+        count('final a = m.Colors.red.shade50;', 'a.color', imports: pre),
+        1,
+      );
+      expect(
+        count('final a = m.Colors.transparent;', 'a.color', imports: pre),
+        0,
+      );
+      expect(count('final a = Colors.red.shade50;', 'a.color'), 1);
+    });
+
+    test('on-scale and non-prefix targets stay uncounted', () {
+      expect(
+        count('final a = m.EdgeInsets.all(8);', 'a.spacing', imports: pre),
+        0,
+      );
+      expect(
+        count('final a = other.EdgeInsets.all(7);', 'a.spacing', imports: pre),
+        0,
+      );
+      expect(
+        count(
+          'final a = [const m.SizedBox.square(dimension: 7, child: x)];',
+          'a.spacing',
+          imports: pre,
+        ),
+        0,
+      );
+    });
+  });
+
   group('b.dialog prefixes', () {
     const prefixed = "import 'package:flutter/material.dart' as material;\n";
     test('counts a call through an import prefix', () {
