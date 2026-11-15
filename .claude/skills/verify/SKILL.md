@@ -140,10 +140,15 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    directory outlives a run, so a start reuses a profile that is there and
    removes `active_profile` unless `--sticky-profile` is given: a plain start
    after a launch-profile one launches the default profile again. Before any
-   `hermes` call it refuses a state directory at or under `$HOME/.hermes` or an
-   ambient `HERMES_HOME`, where Hermes would write the real profiles (exit 3;
-   `scripts/test_dev_backend.sh` checks this with a stand-in `hermes`), and its
-   profile commands run with a throwaway `HOME`.
+   `hermes` call it refuses a state directory at or under `$HOME/.hermes`, the
+   passwd entry's `.hermes` or an ambient `HERMES_HOME`, where Hermes would
+   write the real profiles, any `.` or `..` segment in the state directory or
+   `HERMES_HOME`, and a run whose home it cannot tell (HOME unset and no passwd
+   entry): exit 3. `verify.sh` applies the same rule to its temp root.
+   `scripts/test_dev_backend.py` (run by CI's `unittest discover`, no network or
+   `hermes`) checks all of it with a stand-in `hermes` and a fake HOME. Profile
+   commands and a launch-profile dashboard run with a throwaway `HOME`; a plain
+   start keeps the caller's `HOME`, as `dev-app.sh` has always used.
 
 **Not proven here:** anything native outside Linux desktop: iOS, macOS,
 Android, Windows builds and behaviour; notifications, Home Screen widgets,

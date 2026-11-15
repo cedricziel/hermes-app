@@ -22,3 +22,27 @@ profile_name_problem() {
   esac
   return 1
 }
+
+# The home directory Hermes (Python's Path.home()) would use: $HOME when set,
+# else the passwd entry of the current user. Prints nothing when neither is
+# known.
+real_passwd_home() {
+  getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6
+}
+
+real_user_home() {
+  if [[ -n "${HOME:-}" ]]; then
+    echo "$HOME"
+  else
+    real_passwd_home
+  fi
+}
+
+# Whether path $1 has a `.` or `..` segment, which a lexical check of a path
+# that does not exist yet would take at face value.
+has_dot_segment() {
+  case "/$1/" in
+    */./* | */../*) return 0 ;;
+  esac
+  return 1
+}

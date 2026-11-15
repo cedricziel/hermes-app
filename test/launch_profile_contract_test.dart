@@ -60,8 +60,9 @@ import 'support/memory_token_store.dart';
 ///       test/launch_profile_contract_test.dart
 ///
 /// Skipped unless both `HERMES_DEV_URL` and `HERMES_DEV_LAUNCH_PROFILE` are
-/// set, and CI sets neither. Read only: nothing is written on the backend, no
-/// model is called. Every surface is driven through the app's own repository
+/// set, and CI sets neither. Nothing is written on the backend but transient
+/// gateway sessions (the Memory commands open them, with slash workers that
+/// the verify.sh trap reaps), and no model is called. Every surface is driven through the app's own repository
 /// or controller code, on the real generated client and Dio pipeline, with an
 /// interceptor that records the `profile` each request names; the gateway
 /// surfaces record the `profile` of each JSON-RPC call. Each test prints what

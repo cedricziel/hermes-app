@@ -204,8 +204,11 @@ resolve_tmp_root() {
     "$(cd "$ROOT_DIR" && pwd -P)"/*) die "refusing: $TMP_ROOT is inside the working tree" ;;
   esac
   # Where Hermes would take a run's home for the real one.
-  local real
-  for real in "${HOME:-/nonexistent}/.hermes" "${HERMES_HOME:-}"; do
+  local real home passwd_home
+  home="$(real_user_home || true)"
+  [[ -n "$home" ]] || die "refusing: HOME is unset and the passwd entry names no home, so the real Hermes home cannot be told"
+  passwd_home="$(real_passwd_home || true)"
+  for real in "$home/.hermes" "${passwd_home:+$passwd_home/.hermes}" "${HERMES_HOME:-}"; do
     [[ -n "$real" && -d "$real" ]] || continue
     real="$(cd "$real" && pwd -P)"
     case "$TMP_ROOT/" in
@@ -408,7 +411,9 @@ EOF
 # A backend started with a launch profile other than `default` while another
 # profile is the sticky active one, and test/launch_profile_contract_test.dart
 # against it: every surface must name the launch profile for a chat that has
-# none. Read only.
+# none. It changes nothing on the backend but transient gateway sessions (the
+# Memory commands open them, with slash workers); the backend is stopped as
+# soon as the test ends, and the trap reaps what is left.
 run_launch_profile() {
   local name="$LAUNCH_PROFILE" sticky="other-launch-profile"
   [[ "$name" != "$sticky" ]] || sticky="other-launch-profile-2"
@@ -422,8 +427,8 @@ run_launch_profile() {
     test/launch_profile_contract_test.dart) >"$RUN_DIR/launch-test.log" 2>&1 &
   echo "$!" >>"$RUN_DIR/sids"
   wait "$!" || status=$?
-  tail -n 40 "$RUN_DIR/launch-test.log" >&2
   HERMES_DEV_STATE_DIR="$RUN_DIR/launch" "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
+  tail -n 40 "$RUN_DIR/launch-test.log" >&2
   ((status == 0)) || die "launch-profile step failed (log: $OUT_DIR/launch-test.log)"
   log "launch-profile step passed"
 }

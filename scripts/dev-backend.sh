@@ -91,14 +91,30 @@ resolve_path() {
 # Exits unless the state directory is clear of the real Hermes home: with
 # HERMES_HOME at or under ~/.hermes (or an ambient HERMES_HOME) Hermes takes
 # that directory for its root, and `profile create` and `profile use` would
-# write the real profiles and the real `active_profile`.
+# write the real profiles and the real `active_profile`. A `.` or `..` segment
+# is refused outright (a path that does not exist yet is only checked
+# lexically), and so is a run where the real home cannot be found.
 refuse_real_hermes_home() {
-  local state real
+  local state real home path
+  for path in "$STATE_DIR" "${HERMES_HOME:-}"; do
+    if has_dot_segment "$path"; then
+      echo "refusing: '$path' has a . or .. segment; give an absolute path without them" >&2
+      exit 3
+    fi
+  done
+  home="$(real_user_home || true)"
+  if [[ -z "$home" ]]; then
+    echo "refusing: HOME is unset and the passwd entry names no home, so the real Hermes home cannot be told" >&2
+    exit 3
+  fi
   state="$(resolve_path "$STATE_DIR")"
-  local guarded=()
-  [[ -n "${HOME:-}" ]] && guarded+=("$(resolve_path "$HOME/.hermes")")
+  local guarded=("$(resolve_path "$home/.hermes")")
+  # Python takes HOME first, the passwd entry otherwise: guard both.
+  local passwd_home
+  passwd_home="$(real_passwd_home || true)"
+  [[ -n "$passwd_home" ]] && guarded+=("$(resolve_path "$passwd_home/.hermes")")
   [[ -n "${HERMES_HOME:-}" ]] && guarded+=("$(resolve_path "$HERMES_HOME")")
-  for real in ${guarded[@]+"${guarded[@]}"}; do
+  for real in "${guarded[@]}"; do
     if [[ "$state" == "$real" || "$state" == "$real"/* ]]; then
       echo "refusing: the state directory $state is at or under $real, a real Hermes home" >&2
       echo "set HERMES_DEV_STATE_DIR to a directory elsewhere" >&2
@@ -189,7 +205,16 @@ cmd_start() {
     echo "$launch" >"$LAUNCH_FILE"
     launch_args=(-p "$launch")
   fi
-  HERMES_HOME="$HOME_DIR" nohup hermes ${launch_args[@]+"${launch_args[@]}"} dashboard --isolated --no-open \
+  # A launch-profile start runs the dashboard with a throwaway HOME too, so
+  # nothing it does can reach the real home. A plain start keeps the caller's
+  # HOME as before: it is what `dev-app.sh` and the verify-in-app recipe have
+  # always used, and nothing shows the dashboard needs none of it.
+  local run_home="${HOME:-}"
+  if [[ -n "$launch" ]]; then
+    mkdir -p "$STATE_DIR/userhome"
+    run_home="$STATE_DIR/userhome"
+  fi
+  HOME="$run_home" HERMES_HOME="$HOME_DIR" nohup hermes ${launch_args[@]+"${launch_args[@]}"} dashboard --isolated --no-open \
     --port "${HERMES_DEV_PORT:-0}" >>"$LOG_FILE" 2>&1 &
   local launcher=$!
 
