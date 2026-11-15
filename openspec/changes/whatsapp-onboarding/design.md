@@ -51,9 +51,32 @@ Requires `connected`, else 409 "WhatsApp setup is not connected yet." Unknown or
 
 `DELETE` removes the record, terminates the bridge and returns `{ok: true}` even for an unknown id (idempotent). It does not delete credentials: a session that already reached `connected` stays linked on disk, and the next start reports it as already linked.
 
+### Recorded answers
+
+Recorded on 2026-11-15 from a throwaway dashboard at `d923a5eb` (`scripts/install-hermes.sh` cache, `scripts/dev-backend.sh` with its own `HERMES_HOME` and HOME, a loopback port, stopped and deleted after; the real `~/.hermes` was never touched). Node 22 exists on that machine but the bridge's `node_modules` do not, so a `start` on an unlinked folder would have run `npm install` and then connected to WhatsApp's servers. It was never made: the bridge was not started and nothing contacted WhatsApp. "Already linked" was reached by putting an invented `creds.json` (invented number and name) in the throwaway session folder, which makes `start` answer `connected` without spawning. `apply` was never called with a valid body (it saves settings and spawns a gateway restart); only its refusals before the save were. The fixtures are in `test/messaging/whatsapp/whatsapp_fixtures.dart`, each marked recorded or from source.
+
+| Answer | How known |
+| --- | --- |
+| Status, apply and cancel of an unknown id: 404 `WhatsApp setup session was not found. Start a new setup.` (status, apply); cancel 200 `{"ok": true}` | recorded |
+| Cancel of a known (linked) record 200, then a read of it 404 | recorded |
+| `start` with `mode` not `bot`/`self-chat`: 400 `WhatsApp mode must be 'bot' or 'self-chat'.`; apply with a bad mode on a connected record: the same 400, record kept | recorded |
+| Wrong types, bad JSON: 422 (FastAPI list) on start and apply | recorded |
+| `start` with an unknown profile: 404 `Profile 'ghost' does not exist.`; with an invalid name (`../x`, `a b`): 400 naming the name, both before any record or spawn | recorded |
+| Already linked: `start` 200 `connected` with `account_id`, `account_name`, `account_phone` (digits), no code; `allowed_users` normalised (`+1 555 555 0100, 15555550101` became `+15555550100,15555550101`); a second start on the same folder is a second `connected` record, the first is not superseded (only live records are); `self-chat` with no numbers keeps `allowed_users` empty at start | recorded |
+| A route this server lacks, or an id with `/` (also `%2F`, which the server decodes): 404 `No such API endpoint: ...`; a POST to a missing route: 405 `Method Not Allowed` | recorded |
+| 401 without a session: `{"detail": "Unauthorized"}` on a dashboard without the password gate (no session token header), `{"error": "unauthenticated", "detail": "Unauthorized", "reason": "no_cookie", "login_url": "/login"}` on a gated one, on all four routes | recorded |
+| `start` on an unlinked folder: `starting` first, then `installing`, `waiting` with `qr_payload`, rotating codes, `connected` after a scan | from source, not recorded (needs Node, npm and a phone) |
+| `error` texts: Node preparation, npm install, bridge script missing, process exit; superseded (`cancelled`, "Superseded by a newer WhatsApp setup session.") | from source, not recorded (invented paths in the fixtures) |
+| 410 `WhatsApp QR setup expired. Start a new setup.`; a finished record gone after 900 s | from source, not recorded (a clock of 10 minutes; no way to shorten it) |
+| apply success: `{ok, platform, needs_restart, restart_started, restart_action, restart_pid}`, and the failed restart `{..., restart_started: false, restart_error}`; 409 `WhatsApp setup is not connected yet.`; 500 `Failed to save WhatsApp setup.` | from source, not recorded (409 needs an unlinked live record; apply restarts a gateway) |
+| The platform list after a save | not recorded: needs an apply; the existing platform fixtures stay as they are |
+| A real QR, the rotation interval, a scan | needs a device and an account |
+
+The repository reads a 404 on start by its detail (`Profile '` for the profile, anything else or a 405 for a missing route), a 404 on a read or apply as "record gone" (a `Profile '` detail on apply as the profile), and never keeps a server text: errors are mapped to a fixed category (`nodeUnavailable`, `installFailed`, `bridgeMissing`, `processExited`, `loggedOut`, `other`), since the texts can hold paths. That is a change from "shows the text as given" above: the screen shows its own line for each category.
+
 ### Not verified
 
-Baileys' QR interval; the exact text a failing bridge sends; behaviour on Windows hosts (`windows_hide_flags` exists); no live run was made (needs Node and a phone). The fixtures task (2.1) records the shapes from `scripts/dev-backend.sh`, with the bridge replaced by a stub where Node is absent.
+Baileys' QR interval; the exact text a failing bridge sends; behaviour on Windows hosts (`windows_hide_flags` exists); no live run was made (needs a phone with WhatsApp). The states that need the bridge are fixtures from the source, not recordings (next section).
 
 ## The phone question
 
@@ -75,7 +98,7 @@ Spans: `whatsapp.pair.start`, `whatsapp.pair.apply` (they cross the network; att
 
 ## Design pass
 
-Design (done): canvas reviewed.
+Design (done): canvas published, local render reviewed.
 
 Canvas: https://claude.ai/artifact/PPwKxdh8zKokvagfxS3Gho (private; ask its owner for access). 26 boards, one parametric page, nine rows: entry and setup (A), handset notice and QR (B), linked and end states (C), Finish question and saved outcomes (D), dark (E), largest text (F), German (G), Android (H), Mac and iPad (I). Checked in a local headless Chrome render in both themes, at phone and desktop width and at text scale 1 and 2; not checked: the claude.ai viewer, real devices, a scannable QR, screen readers and focus order, Mac targets, the App Lock cover, the countdown announcements (details in the brief's "Local render review"). The brief `docs/design-briefs/whatsapp-onboarding.md` was written from the design system README, the merged briefs and the shared widgets, and reviewed. Decisions that change behaviour:
 

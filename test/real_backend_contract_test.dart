@@ -27,6 +27,7 @@ import 'package:hermes_app/src/memory/memory_proposals.dart';
 import 'package:hermes_app/src/memory/memory_proposals_repository.dart';
 import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/messaging/whatsapp/whatsapp_pairing.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
@@ -2324,6 +2325,27 @@ void main() {
     await expectLater(
       repository.telegramPairingStatus('no-such-pairing'),
       throwsA(isA<MessagingSetupRejected>()),
+    );
+  }, skip: skip);
+
+  // Read-only on purpose: start would spawn the Baileys bridge on the backend
+  // (it reaches WhatsApp's servers) and apply would save settings and restart
+  // the messaging gateway, so neither is called against a shared backend.
+  test('an unknown WhatsApp pairing is reported as gone, not as an old '
+      'server', () async {
+    final repository = HermesMessagingRepository(client.raw);
+
+    await expectLater(
+      repository.whatsAppPairingStatus(
+        const WhatsAppPairingId('no-such-pairing'),
+      ),
+      throwsA(
+        isA<WhatsAppPairingFailure>().having(
+          (e) => e.kind,
+          'kind',
+          WhatsAppPairingFailureKind.recordGone,
+        ),
+      ),
     );
   }, skip: skip);
 
