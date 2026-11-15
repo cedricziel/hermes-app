@@ -395,7 +395,7 @@ class _ModelPickerState extends State<ModelPicker> {
     final scheme = Theme.of(context).colorScheme;
     final muted = context.hermesColors.subtleText;
     final popover = widget.presentation == ModelPickerPresentation.popover;
-    final gutter = popover ? 12.0 : metrics.gutter;
+    final gutter = popover ? 20.0 : metrics.gutter;
     final selected = _selected;
     final efforts = selected == null || !widget.withEffort
         ? const <String>[]
