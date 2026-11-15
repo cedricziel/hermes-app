@@ -43,7 +43,7 @@ B2, chat-row actions on iPad:
 - Delete: today's confirmation is `showConfirmDialog(destructive: true)` with a filled, default confirm (`runThreadAction`, `thread_actions_menu.dart` ~280-287; Bot Chat retire at ~266-271), which breaks the no-filled-destructive rule. This menu's Delete goes through `showDestructiveConfirm` (`adaptive_dialog.dart` ~251): Cancel is the default and Delete is red text. The sweep of the other raw dialogs belongs to the style session.
 - Accessible name: "Chat actions for <title>" (`thread_actions_menu.dart` ~168).
 - The doc comment at `thread_sidebar.dart` ~50 says the menu opens from a secondary click; iOS has none today. Fix it with the wrapper.
-- Overlap: Android brief E7 also touches `_ThreadRow` and `ThreadActionsButton`; the two PRs must be sequenced.
+- Overlap: Android brief E7 also touches `_ThreadRow` and `ThreadActionsButton`; the two PRs must be sequenced. After E7 (PR #1163) the iOS-only flag in `_ThreadRow` is named `ios` and `touch` means iOS or Android, so the iPad menu wrapper keys on `ios` (and the iPad layout), never on `touch`.
 
 D2 (GroupedDialog header at large text):
 
@@ -126,13 +126,13 @@ Where a decision differs from the canvas:
 
 Every new string needs English and German in `app_en.arb` and `app_de.arb`, under its area anchor.
 
-| English                                                | German                                               | Area anchor                      |
-| ------------------------------------------------------ | ---------------------------------------------------- | -------------------------------- |
-| Couldn't refresh your chats.                           | Chats konnten nicht aktualisiert werden.             | `@@x-area-chat` (thread list)    |
-| Pull down to try again.                                | Zum Wiederholen nach unten ziehen.              | `@@x-area-chat` (thread list)    |
-| Refreshing chats                                       | Chats werden aktualisiert                            | `@@x-area-chat` (thread list)    |
-| Attach                                                 | Anhängen                                             | `@@x-area-chat/attachments`      |
-| Photo Library, Take Photo, Files (hard-coded today)    | Fotomediathek, Foto aufnehmen, Dateien               | `@@x-area-chat/attachments`      |
+| English                                                | German                                                          | Area anchor                      |
+| ------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------- |
+| Couldn't refresh your chats.                           | Chats konnten nicht aktualisiert werden.                        | `@@x-area-chat` (thread list)    |
+| Pull down to try again.                                | Zum Wiederholen nach unten ziehen.                              | `@@x-area-chat` (thread list)    |
+| Refreshing chats                                       | Chats werden aktualisiert                                       | `@@x-area-chat` (thread list)    |
+| Attach                                                 | Anhängen                                                        | `@@x-area-chat/attachments`      |
+| Photo Library, Take Photo, Files (hard-coded today)    | Fotomediathek, Foto aufnehmen, Dateien                          | `@@x-area-chat/attachments`      |
 | Rename, Pin, Unpin, Archive, Delete (hard-coded today) | Umbenennen, Anheften, Nicht mehr anheften, Archivieren, Löschen | `@@x-area-chat` (thread actions) |
 
 The "Set up a model" alert text is the existing English text moved under `@@x-area-models` with a German translation. The memory dialogs keep their current wording ("Leave this memory?", "Permanently delete this memory?", "Keep draft", "Discard and leave", "Cancel", "Delete permanently"); they move into the ARB files under `@@x-area-memory` (PR #1136 keeps the key `memoryDeleteConfirmAction`).
