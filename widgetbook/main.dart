@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'directories.dart';
@@ -24,8 +25,15 @@ class HermesWidgetbook extends StatelessWidget {
         ),
         LocalizationAddon(
           locales: AppLocalizations.supportedLocales,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: [
+            ...AppLocalizations.localizationsDelegates,
+            ...kMaterialUiLocalizationsDelegates,
+          ],
           initialLocale: const Locale('en'),
+        ),
+        BuilderAddon(
+          name: 'App theme scopes',
+          builder: (context, child) => AppThemeScopes(child: child),
         ),
         TextScaleAddon(min: 1, max: 3),
         ViewportAddon([phone, desktop]),

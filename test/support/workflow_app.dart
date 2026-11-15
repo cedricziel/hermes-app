@@ -13,6 +13,7 @@ import 'package:hermes_app/src/settings/theme_controller.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -151,8 +152,12 @@ Future<void> pumpScreen(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: [
+            ...AppLocalizations.localizationsDelegates,
+            ...kMaterialUiLocalizationsDelegates,
+          ],
           supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => AppThemeScopes(child: child!),
           theme: withScreenshotFont(
             dark
                 ? buildHermesDarkTheme(platform: platform)

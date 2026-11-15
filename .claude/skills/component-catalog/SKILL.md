@@ -115,6 +115,10 @@ real fonts, so the PNGs read like the app. Don't commit the test.
   screen calls (see `kanbanServer()` in `kanban_screen_use_cases.dart`), and
   let `Hosted` (`host.dart`) create and dispose the controller. Never mock the
   repository itself.
+- `widgetbook/main.dart` mounts the app's `AppThemeScopes` through a
+  `BuilderAddon` after the theme addon (`gpt_markdown` draws near-black
+  headings in dark without it). `test/widgetbook_test.dart` builds its own
+  `MaterialApp` and does not mount it; it only checks that use cases build.
 - `test/widgetbook_test.dart` sets in-memory shared preferences, so a use case
   may build an `AuthController`, and it unmounts each use case and lets timers
   run out, so a screen that polls must cancel its timer on dispose.
