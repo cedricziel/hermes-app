@@ -78,9 +78,9 @@ version>`. Check the editable version on App Store Connect first and pass
 - The main window now has a 1100 x 760 xib default and a 640 x 480 content
   minimum set in `awakeFromNib` (PR #1132). An earlier observation was that a
   size in the xib or in `MainFlutterWindow.swift` never reached the built app;
-  a probable reason is AppKit state restoration, which brings back the last saved frame over the xib default (the 640 x 480 minimum is not affected). Whether that is the whole story is unverified. Check on a Mac with
-  `scripts/dev-app.sh start` and `screenshot`: a fresh launch should be
-  1100 x 760 and centred, and not shrink below 640 x 480. Keep resizing for
+  a probable reason is AppKit state restoration, which brings back the last saved frame over the xib default (the 640 x 480 minimum is not affected). The `build-macos` CI job measures the default and the minimum on every
+  build (`HERMES_WINDOW` line, see docs/architecture/macos.md); to look at it
+  yourself, `scripts/dev-app.sh start` and `screenshot`. Keep resizing for
   screenshots through the `setContentSize` call on the `hermes_app/window`
   channel (`SHOT_WINDOW`), whatever the default is.
 - Don't add erase boxes for the dev address by hand. The test finds the

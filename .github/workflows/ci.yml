@@ -367,6 +367,38 @@ jobs:
       - name: Build debug app with share extension
         run: flutter build macos --debug
 
+      # The debug build alone has the HERMES_REPORT_WINDOW branch in
+      # AppDelegate.swift: it prints the main window's frame, title bar height and minimum content size
+      # once restoration and macos_window_utils have run, then quits. The numbers
+      # are kMacMainWindowDefaultSize and kMacMainWindowMinSize in
+      # lib/src/theme/breakpoints.dart; keep them in step.
+      - name: Measure the main window size
+        run: |
+          set -o pipefail
+          name="$(sed -n 's/^PRODUCT_NAME *= *//p' macos/Runner/Configs/AppInfo.xcconfig)"
+          bin="build/macos/Build/Products/Debug/$name.app/Contents/MacOS/$name"
+          [ -x "$bin" ] || { echo "::error::No debug binary at $bin"; exit 1; }
+          HERMES_REPORT_WINDOW=1 perl -e 'alarm 60; exec @ARGV' "$bin" \
+            -ApplePersistenceIgnoreState YES > window.log 2>&1 || true
+          line="$(grep -E '^HERMES_WINDOW ' window.log | head -n 1 || true)"
+          if [ -z "$line" ]; then
+            echo "::error::The app printed no HERMES_WINDOW line (crashed, or the window never appeared); log follows."
+            tail -n 40 window.log
+            exit 1
+          fi
+          echo "$line"
+          # frame is the window frame, chrome the title bar the xib's content
+          # size sits under (frameRect(forContentRect:) for the titled mask).
+          if [[ "$line" =~ ^HERMES_WINDOW\ frame=([0-9]+)x([0-9]+)\ chrome=([0-9]+)\ min=([0-9]+x[0-9]+)$ ]]; then
+            width="${BASH_REMATCH[1]}"; height=$(( BASH_REMATCH[2] - BASH_REMATCH[3] )); min="${BASH_REMATCH[4]}"
+          else
+            echo "::error::Unreadable HERMES_WINDOW line: $line"; exit 1
+          fi
+          if [ "${width}x${height}" != "1100x760" ] || [ "$min" != "640x480" ]; then
+            echo "::error::Main window is ${width}x${height} content with minimum $min, expected 1100x760 and 640x480: $line"
+            exit 1
+          fi
+
   # The only test of the real libmpv decoder path in lib/src/voice/. It runs
   # for every code pull request, not only when a platform build does.
   native-audio-test:

@@ -51,7 +51,35 @@ void main() {
     expect(swift.indexOf('contentMinSize = '), greaterThan(awake));
     expect(xib, isNot(contains('restorable="NO"')));
     final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
-    expect(delegate, isNot(contains('contentMinSize')));
+    expect(delegate, isNot(contains('contentMinSize =')));
+  });
+
+  test('the CI window report exists only in debug builds and then quits', () {
+    final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
+    const flag = 'HERMES_REPORT_WINDOW';
+    final starts = RegExp(r'^\s*#if DEBUG\s*$', multiLine: true);
+    final ends = RegExp(r'^\s*#endif\s*$', multiLine: true);
+    final hits = flag.allMatches(delegate).toList();
+    expect(hits, hasLength(greaterThanOrEqualTo(1)));
+    for (final hit in hits) {
+      final before = delegate.substring(0, hit.start);
+      expect(
+        ends.allMatches(before).length,
+        lessThan(starts.allMatches(before).length),
+        reason: '$flag is not inside an #if DEBUG ... #endif',
+      );
+    }
+    final block = delegate.substring(
+      hits.first.start,
+      delegate.indexOf('#endif', hits.last.end),
+    );
+    expect(block, contains('NSApp.terminate(nil)'));
+    expect(block, contains('HERMES_WINDOW frame='));
+    // No conditional other than the DEBUG one wraps it.
+    expect(
+      RegExp(r'^\s*#if (?!DEBUG\s*$)', multiLine: true).hasMatch(delegate),
+      isFalse,
+    );
   });
 
   group('home shell', () {

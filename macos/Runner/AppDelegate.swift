@@ -88,6 +88,25 @@ class AppDelegate: FlutterAppDelegate {
             ChatHandoff.shared.install(messenger: controller.engine.binaryMessenger)
             Spotlight.shared.install(messenger: controller.engine.binaryMessenger)
         }
+        #if DEBUG
+        // CI measures the main window's size here (build-macos in ci.yml). Debug builds only.
+        if ProcessInfo.processInfo.environment["HERMES_REPORT_WINDOW"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                if let window = self?.mainFlutterWindow {
+                    // The frame is stable: the xib content size plus the title bar. The
+                    // content rect is not, since macos_window_utils adds the full-size
+                    // content view and that makes it equal the frame.
+                    let frame = window.frame.size
+                    let mask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+                    let chrome = NSWindow.frameRect(forContentRect: .zero, styleMask: mask).height
+                    let minimum = window.contentMinSize
+                    print("HERMES_WINDOW frame=\(Int(frame.width.rounded()))x\(Int(frame.height.rounded())) chrome=\(Int(chrome.rounded())) min=\(Int(minimum.width.rounded()))x\(Int(minimum.height.rounded()))")
+                    fflush(stdout)
+                }
+                NSApp.terminate(nil)
+            }
+        }
+        #endif
         super.applicationDidFinishLaunching(notification)
     }
 
