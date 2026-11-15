@@ -37,7 +37,7 @@ bool linuxSessionBusAvailable({
 }) {
   final env = environment ?? Platform.environment;
   final address = env['DBUS_SESSION_BUS_ADDRESS'];
-  if (address != null) return address.split(';').any(_usableBusAddress);
+  if (address != null) return usableBusAddress(address);
   final userDir = env['XDG_USER_DIR'];
   final dir = userDir ?? '/run/user/${(uid ?? _currentUid)()}';
   if (dir.isEmpty) return false;
@@ -45,23 +45,38 @@ bool linuxSessionBusAvailable({
   return (exists ?? _socketExists)(path);
 }
 
-/// A D-Bus address entry the `dbus` package can open: `unix:` with `path=`,
-/// `abstract=`, `dir=` or `tmpdir=`, or `tcp:`. Anything else (such as the
-/// `disabled:` that switches D-Bus off) makes it throw plain strings.
-bool _usableBusAddress(String entry) {
-  final e = entry.trim();
-  if (e.startsWith('tcp:')) return true;
-  if (!e.startsWith('unix:')) return false;
-  return e
-      .substring(5)
-      .split(',')
-      .any(
-        (p) =>
-            p.startsWith('path=') && p.length > 5 ||
-            p.startsWith('abstract=') && p.length > 9 ||
-            p.startsWith('dir=') && p.length > 4 ||
-            p.startsWith('tmpdir=') && p.length > 7,
-      );
+/// An address the `dbus` package can open. It reads the whole value as one
+/// address (no `;` list) and opens only `unix:` with a `path=` or `abstract=`
+/// and `tcp:` with a `host=`, a numeric `port=` and, if given, `family=` ipv4
+/// or ipv6; every property must be `key=value`. Anything else (such as the
+/// `disabled:` that switches D-Bus off) makes the package throw, so the plugin
+/// is not started for it.
+bool usableBusAddress(String address) {
+  Map<String, String>? props(String rest) {
+    final out = <String, String>{};
+    for (final p in rest.split(',')) {
+      final eq = p.indexOf('=');
+      if (eq <= 0) return null;
+      out[p.substring(0, eq)] = p.substring(eq + 1);
+    }
+    return out;
+  }
+
+  if (address.startsWith('unix:')) {
+    final p = props(address.substring(5));
+    return p != null &&
+        ((p['path']?.isNotEmpty ?? false) ||
+            (p['abstract']?.isNotEmpty ?? false));
+  }
+  if (address.startsWith('tcp:')) {
+    final p = props(address.substring(4));
+    final family = p?['family'];
+    return p != null &&
+        (p['host']?.isNotEmpty ?? false) &&
+        int.tryParse(p['port'] ?? '') != null &&
+        (family == null || family == 'ipv4' || family == 'ipv6');
+  }
+  return false;
 }
 
 bool _socketExists(String path) {
@@ -93,9 +108,10 @@ int _currentUid() {
 bool isLinuxBusError(Object error) =>
     error is SocketException ||
     error is OSError ||
-    (error is String &&
-        (error.startsWith('D-Bus') ||
-            error.startsWith('Unable to determine D-Bus'))) ||
+    // The dbus package is the only thing in these zones that throws raw
+    // Strings (and FormatExceptions) for a malformed address.
+    error is String ||
+    error is FormatException ||
     error.runtimeType.toString().startsWith('DBus');
 
 /// How long a Linux plugin call may take. The D-Bus client of the plugin never

@@ -1426,6 +1426,30 @@ void main() {
       );
     });
 
+    test('a FormatException and any String end the bus', () async {
+      for (final error in [
+        const FormatException('bogus transport'),
+        'Invalid D-Bus address family',
+        'Failed to resolve host',
+      ]) {
+        late Zone pluginZone;
+        final plugin = _FakePlugin()
+          ..duringInitialize = () {
+            pluginZone = Zone.current;
+          }
+          ..onResolve = () =>
+              pluginZone.handleUncaughtError(error, StackTrace.current);
+        final service = serviceWith(plugin, bus: true);
+        addTearDown(service.dispose);
+
+        expect(
+          (await service.post(note)).status,
+          NotificationPostStatus.unsupported,
+          reason: '$error',
+        );
+      }
+    });
+
     test('an unrelated TimeoutException reaches the parent zone', () async {
       final uncaught = <Object>[];
       late StreamController<int> controller;
@@ -1476,17 +1500,10 @@ void main() {
         };
       final service = serviceWith(plugin, bus: true);
       addTearDown(service.dispose);
-      const reply = AttentionNotification(
-        threadId: 's1',
-        profile: 'work',
-        title: 'Cleanup',
-        body: 'Done.',
-      );
-
       // The test zone fails the test on an uncaught error.
-      await service.post(reply);
+      await service.post(note);
       await pumpEventQueue();
-      final result = await service.post(reply);
+      final result = await service.post(note);
 
       expect(result.status, NotificationPostStatus.unsupported);
       expect(plugin.initializeCalls, 1);
@@ -1540,9 +1557,8 @@ void main() {
       },
     );
 
-    test(
-      'a connection that fails while show is pending ends the post',
-      () async {
+    test('a connection that fails while show is pending ends the post', () {
+      fakeAsync((async) {
         late StreamController<int> controller;
         final plugin = _FakePlugin()
           ..showGate = Completer<void>()
@@ -1551,21 +1567,24 @@ void main() {
             controller.stream.listen((_) {});
           };
         final service = serviceWith(plugin, bus: true);
-        addTearDown(service.dispose);
+        NotificationPostResult? result;
+        service.post(note).then((r) => result = r);
+        async.flushMicrotasks();
+        expect(result, isNull);
 
-        final pending = service.post(note);
-        await pumpEventQueue();
+        // No time passes: only the failure signal can end the post.
         controller.addError(const SocketException('dead bus'));
+        async.flushMicrotasks();
 
-        final result = await pending.timeout(const Duration(seconds: 2));
-        expect(result.status, NotificationPostStatus.failed);
-        expect(
-          (await service.post(note)).status,
-          NotificationPostStatus.unsupported,
-        );
+        expect(result?.status, NotificationPostStatus.failed);
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+        expect(next?.status, NotificationPostStatus.unsupported);
         unawaited(controller.close());
-      },
-    );
+        debugDefaultTargetPlatformOverride = null;
+      });
+    });
 
     test('a show that never answers ends by the timeout', () {
       fakeAsync((async) {
@@ -1613,14 +1632,37 @@ void main() {
       }
     });
 
+    test('an address that does not parse into a transport is no bus', () {
+      for (final address in [
+        'bogus',
+        'tcp:host=x,port=y',
+        'tcp:host=x',
+        'tcp:host=x,port=1,family=ipv5',
+        'tcp:port=1',
+        'unix:path=/x,bad',
+        'unix:dir=/tmp',
+        'disabled:;unix:path=/x',
+      ]) {
+        expect(
+          check({'DBUS_SESSION_BUS_ADDRESS': address}, {}),
+          isFalse,
+          reason: address,
+        );
+      }
+    });
+
+    test('a well-formed tcp address is a bus', () {
+      expect(
+        check({'DBUS_SESSION_BUS_ADDRESS': 'tcp:host=x,port=1'}, {}),
+        isTrue,
+      );
+    });
+
     test('an address with a usable entry is a bus', () {
       for (final address in [
         'unix:path=/x',
         'unix:abstract=/tmp/dbus-x',
-        'unix:dir=/tmp',
-        'unix:tmpdir=/tmp',
         'tcp:host=localhost,port=1',
-        'disabled:;unix:path=/x',
       ]) {
         expect(
           check({'DBUS_SESSION_BUS_ADDRESS': address}, {}),
@@ -1632,17 +1674,6 @@ void main() {
 
     test('is false with nothing set and no socket', () {
       expect(check({}, {}), isFalse);
-    });
-
-    test('is true when the address is set, even with no socket', () {
-      expect(check({'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/x'}, {}), isTrue);
-    });
-
-    test('an empty address is no bus', () {
-      expect(
-        check({'DBUS_SESSION_BUS_ADDRESS': ''}, {'/run/user/1000/bus'}),
-        isFalse,
-      );
     });
 
     test('falls back to XDG_USER_DIR/bus', () {
