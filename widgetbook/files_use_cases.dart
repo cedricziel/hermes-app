@@ -918,6 +918,14 @@ WidgetbookComponent _previewViewComponent() => WidgetbookComponent(
       ),
     ),
     _case(
+      'Markdown with a task list',
+      (_) => _view(
+        const MarkdownContent(
+          '# Plan\n\n- [x] Calibrate probes\n- [ ] Replace the north gateway\n',
+        ),
+      ),
+    ),
+    _case(
       'Markdown, source',
       (_) => _view(const MarkdownContent(_markdown, showSource: true)),
     ),
