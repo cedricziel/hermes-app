@@ -576,6 +576,8 @@
   "profilesSoulBannerNothingSent": "Der Server konnte vorher nicht geprüft werden, deshalb wurde nichts gesendet.",
   "profilesSoulBannerOfflineDetail": "Die Persönlichkeit konnte nicht geladen werden.",
   "profilesSoulBannerOfflineTitle": "Du bist offline.",
+  "profilesSoulBannerPausedDetail": "Dein Text bleibt erhalten. Er lässt sich wieder bearbeiten, sobald die Verbindung zurück ist.",
+  "profilesSoulBannerPausedTitle": "Die Verbindung ist pausiert.",
   "profilesSoulBannerReadFailed": "Die Persönlichkeitsdatei auf dem Server konnte nicht gelesen werden.",
   "profilesSoulBannerSaveFailedDetail": "Hermes hat ein Problem gemeldet. Auf dem Server wurde nichts geändert.",
   "profilesSoulBannerSaveFailedTitle": "Konnte nicht gespeichert werden",

@@ -112,12 +112,17 @@ enum SoulBannerKind {
 
   /// Loading got no answer because the device is offline. Offers Try again.
   offline,
+
+  /// Protected requests are closed for a moment: the page is read-only and
+  /// sends nothing until the connection is back. No action.
+  paused,
 }
 
 /// An [AppBanner] for one of the [SoulBannerKind] states, worded from the
 /// ARB files. [onAction] is Check, Check again or Try again, whichever the
-/// state offers; it is ignored for [SoulBannerKind.saveFailed] and
-/// [SoulBannerKind.checking], which have none to press.
+/// state offers; it is ignored for [SoulBannerKind.saveFailed],
+/// [SoulBannerKind.checking] and [SoulBannerKind.paused], which have none to
+/// press. A null [onAction] shows the button disabled.
 ///
 /// The action stacks under the text at large text sizes and in German, and
 /// has the platform's minimum target, both by [AppBanner].
@@ -184,6 +189,11 @@ class SoulStatusBanner extends StatelessWidget {
         title: l10n.profilesSoulBannerOfflineTitle,
         detail: l10n.profilesSoulBannerOfflineDetail,
         action: button(l10n.profilesSoulBannerTryAgain),
+      ),
+      SoulBannerKind.paused => AppBanner(
+        tone: AppBannerTone.warning,
+        title: l10n.profilesSoulBannerPausedTitle,
+        detail: l10n.profilesSoulBannerPausedDetail,
       ),
     };
   }

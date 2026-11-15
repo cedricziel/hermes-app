@@ -372,7 +372,10 @@ class _SoulScreenState extends State<SoulScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: SoulStatusBanner(kind: kind, onAction: c.reload),
+          child: SoulStatusBanner(
+            kind: kind,
+            onAction: c.paused ? null : c.reload,
+          ),
         ),
       ],
     );
@@ -415,11 +418,16 @@ class _SoulScreenState extends State<SoulScreen> {
     _ => null,
   };
 
-  VoidCallback? _bannerAction() => switch (_controller.status) {
-    SoulStatus.lostAnswer || SoulStatus.lostCheckFailed => _controller.check,
-    SoulStatus.saveCheckFailed => () => unawaited(_controller.confirmSave()),
-    _ => null,
-  };
+  VoidCallback? _bannerAction() => _controller.paused
+      ? null
+      : switch (_controller.status) {
+          SoulStatus.lostAnswer ||
+          SoulStatus.lostCheckFailed => _controller.check,
+          SoulStatus.saveCheckFailed => () => unawaited(
+            _controller.confirmSave(),
+          ),
+          _ => null,
+        };
 
   SoulStatusKind? _statusLine() => switch (_controller.status) {
     SoulStatus.saved => SoulStatusKind.saved,
@@ -436,6 +444,11 @@ class _SoulScreenState extends State<SoulScreen> {
     final status = _statusLine();
     return GroupedListView(
       children: [
+        if (c.paused)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: SoulStatusBanner(kind: SoulBannerKind.paused),
+          ),
         if (banner != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),

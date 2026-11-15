@@ -2675,6 +2675,14 @@
   "@profilesSoulBannerOfflineTitle": {
     "description": "Title of the warning banner when the personality could not be loaded because the device is offline."
   },
+  "profilesSoulBannerPausedDetail": "Your text is kept. It can be edited again once the connection is back.",
+  "@profilesSoulBannerPausedDetail": {
+    "description": "Detail of the warning banner on the personality page while the connection is paused (an expired session that may still be restored)."
+  },
+  "profilesSoulBannerPausedTitle": "The connection is paused.",
+  "@profilesSoulBannerPausedTitle": {
+    "description": "Title of the warning banner on the personality page while the connection is paused. The page is read-only and nothing is sent."
+  },
   "profilesSoulBannerReadFailed": "Couldn't read the personality file on the server.",
   "@profilesSoulBannerReadFailed": {
     "description": "Error banner when loading the personality failed. No editor is shown."

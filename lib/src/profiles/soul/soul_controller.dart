@@ -158,6 +158,9 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   var _covered = false;
   var _closed = false;
   var _paused = false;
+
+  /// A reload was due while paused (a Discard, or an unlock): it runs at
+  /// [resume] and is cleared by whichever read actually runs.
   var _staleWhilePaused = false;
   var _toldUnsupported = false;
 
@@ -329,6 +332,19 @@ class SoulController extends ChangeNotifier with SafeNotifier {
 
     final (:soul, :failure) = await _tryRead();
     if (generation != _generation) return _discardSave(span, text);
+    if (_paused) {
+      // The connection closed while the read was out: whatever it answered,
+      // nothing is sent. The text stays; Try again asks after the resume.
+      _status = SoulStatus.saveCheckFailed;
+      _telemetry.endSave(
+        span,
+        SoulSaveOutcome.checkFailed,
+        empty: text.isEmpty,
+        length: text.length,
+      );
+      notifyListeners();
+      return;
+    }
     if (soul == null) {
       if (_leaveFor(failure!)) {
         _telemetry.endSave(
@@ -465,6 +481,10 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   void uncover() {
     if (_closed || !_covered) return;
     _covered = false;
+    if (_paused) {
+      _staleWhilePaused = true;
+      return;
+    }
     unawaited(_reload());
   }
 
@@ -481,8 +501,7 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   void resume() {
     if (_closed || !_paused) return;
     _paused = false;
-    if (_staleWhilePaused && !_covered) {
-      _staleWhilePaused = false;
+    if (_staleWhilePaused && !_covered && !dirty) {
       notifyListeners();
       unawaited(_reload());
       return;
@@ -532,6 +551,10 @@ class SoulController extends ChangeNotifier with SafeNotifier {
   /// the text shown is what the server holds after it. The wait is bounded by
   /// the answer timeout; the controller stays busy (read-only) meanwhile.
   Future<void> _reload() async {
+    if (_paused) {
+      _staleWhilePaused = true;
+      return;
+    }
     _reloads++;
     try {
       final generation = _generation;
@@ -540,6 +563,10 @@ class SoulController extends ChangeNotifier with SafeNotifier {
         if (_closed || _covered || generation != _generation) return;
       }
       if (_closed || _covered || generation != _generation) return;
+      if (_paused) {
+        _staleWhilePaused = true;
+        return;
+      }
       await _read();
     } finally {
       _reloads--;
@@ -553,6 +580,7 @@ class SoulController extends ChangeNotifier with SafeNotifier {
       _telemetry.opened(_openedFrom);
     }
     final generation = ++_generation;
+    _staleWhilePaused = false;
     _dropAll();
     _load = SoulLoad.loading;
     notifyListeners();
@@ -560,6 +588,16 @@ class SoulController extends ChangeNotifier with SafeNotifier {
     final (:soul, :failure) = await _tryRead(track: false);
     if (generation != _generation) {
       _telemetry.endFetch(span, 'discarded');
+      return;
+    }
+    if (soul == null &&
+        _paused &&
+        failure != SoulFailureKind.profileGone &&
+        failure != SoulFailureKind.unsupported) {
+      // The connection closed under the read: no banner, read again at resume.
+      _telemetry.endFetch(span, _fetchOutcome(failure!));
+      _staleWhilePaused = true;
+      notifyListeners();
       return;
     }
     if (soul == null) {

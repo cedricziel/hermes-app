@@ -819,6 +819,64 @@ void main() {
       expect(puts, isEmpty);
     });
 
+    pageTest('a pause says so and a lost answer cannot be checked until it '
+        'ends', (tester) async {
+      final auth = _Auth();
+      addTearDown(auth.dispose);
+      await pump(tester, auth: auth);
+      await type(tester, 'You are Mara.');
+      putBody = <String, Object?>{};
+      await tester.tap(phoneSave());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Replace'));
+      await tester.pumpAndSettle();
+      expect(find.text('The connection is paused.'), findsNothing);
+
+      auth.pauseRequests();
+      await tester.pumpAndSettle();
+      expect(find.text('The connection is paused.'), findsOneWidget);
+      expect(find.text("Couldn't confirm the save"), findsOneWidget);
+      final check = find.widgetWithText(TextButton, 'Check');
+      expect(tester.widget<TextButton>(check).onPressed, isNull);
+      final before = server.requests.length;
+      await tester.tap(check, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(server.requests.length, before);
+
+      auth.restoreRequests();
+      await tester.pumpAndSettle();
+      expect(find.text('The connection is paused.'), findsNothing);
+      expect(tester.widget<TextButton>(check).onPressed, isNotNull);
+    });
+
+    pageTest('App Lock unlocking during a pause reads nothing; the rescue '
+        'shows the editor', (tester) async {
+      final auth = _Auth();
+      addTearDown(auth.dispose);
+      await tester.runAsync(lock.load);
+      await pump(tester, auth: auth, withLock: true);
+      await tester.runAsync(() => lock.setEnabled(true));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      auth.pauseRequests();
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.runAsync(lock.unlock);
+      // The spinner never settles while the page waits for the rescue.
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(gets(), 1, reason: 'nothing is read while paused');
+      expect(find.text("You're offline."), findsNothing);
+
+      auth.restoreRequests();
+      await tester.pumpAndSettle();
+      expect(gets(), 2);
+      expect(find.text('You are Quill.'), findsOneWidget);
+      expect(find.text("You're offline."), findsNothing);
+      expect(tester.widget<TextField>(editor()).readOnly, isFalse);
+    });
+
     pageTest('an expiry that is not rescued clears the text at once', (
       tester,
     ) async {
