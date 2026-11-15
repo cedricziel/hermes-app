@@ -21,6 +21,7 @@ import '../voice/on_device_speech.dart';
 import 'watch_complication.dart';
 import 'watch_context.dart';
 import 'watch_send_journal.dart';
+import 'watch_status_source.dart';
 import 'watch_request_handler.dart';
 import 'watch_request_actions.dart';
 import '../telemetry/report_bug.dart';
@@ -404,7 +405,9 @@ class WatchBridge {
         return api == null ? null : HermesChatRepository(api.raw);
       },
       transport: () => gatewayTransportFor(auth, events: events),
-      statusTransport: () => gatewayTransportFor(auth, events: events),
+      statusSource: WatchStatusSource(
+        () => gatewayTransportFor(auth, events: events),
+      ),
       serverUrl: () {
         final url = auth.baseUrl;
         return url == null ? null : HandoffActivity.server(url);
