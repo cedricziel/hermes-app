@@ -16,7 +16,9 @@ import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/motion_spinner.dart';
+import 'package:hermes_app/src/widgets/named_icon_button.dart';
 import 'package:hermes_app/src/widgets/platform_refresh.dart';
 
 import 'hermes_plugin_manager_repository_test.dart'
@@ -328,5 +330,35 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(MotionSpinner), findsNothing);
     });
+  });
+
+  testWidgets('a busy icon button says it is refreshing', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      app(
+        TargetPlatform.macOS,
+        Scaffold(
+          body: NamedIconButton(
+            label: 'Refresh',
+            icon: AppIcons.refresh,
+            busy: true,
+            onPressed: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      tester.getSemantics(find.byType(IconButton)),
+      matchesSemantics(
+        label: 'Refresh',
+        value: 'Refreshing',
+        hasEnabledState: true,
+        isEnabled: false,
+        isButton: true,
+        hasTapAction: false,
+      ),
+    );
+    semantics.dispose();
   });
 }

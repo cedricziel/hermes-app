@@ -33,6 +33,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<HermesStatus> _loadStatus() =>
       context.read<AuthController>().api!.fetchStatus();
 
+  bool _reloading = false;
+
+  /// A reload the user asked for, from the bar or View > Reload.
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    try {
+      await _refresh();
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
+
   Future<void> _refresh() async {
     final future = _loadStatus();
     setState(() {
@@ -54,7 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
           label: context.l10n.screensRefreshAction,
           icon: AppIcons.refresh,
           shortcut: mac ? '⌘R' : null,
-          onPressed: _refresh,
+          busy: _reloading,
+          onPressed: _reload,
         ),
       ],
       body: PlatformRefresh(
@@ -94,7 +107,9 @@ class _HomeScreenState extends State<HomeScreen> {
     // View > Reload owns ⌘R.
     return MacCommandScope(
       commands: {
-        MacCommand.reload: MacCommandHandler(() => unawaited(_refresh())),
+        MacCommand.reload: MacCommandHandler(
+          _reloading ? null : () => unawaited(_reload()),
+        ),
       },
       child: scaffold,
     );

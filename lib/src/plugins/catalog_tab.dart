@@ -6,7 +6,6 @@ import '../theme/platform_chrome.dart';
 import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/platform_refresh.dart';
-import 'plugins_refresh.dart';
 import '../widgets/settings_search_field.dart';
 
 import 'catalog_controller.dart';
@@ -14,6 +13,7 @@ import 'catalog_detail.dart';
 import 'catalog_entry.dart';
 import 'install_report.dart';
 import 'plugins_controller.dart' show PluginsFailure;
+import 'plugins_refresh.dart';
 import 'sheet_host.dart';
 import 'widgets/catalog_row.dart';
 

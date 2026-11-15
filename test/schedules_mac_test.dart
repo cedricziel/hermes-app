@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +14,7 @@ import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_detail_view.dart';
 import 'package:hermes_app/src/schedules/widgets/schedules_mac_toolbar.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/motion_spinner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -129,6 +132,29 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(server.requestsTo('GET', '/api/cron/jobs').length, before + 1);
+    });
+
+    testWidgets('Refresh shows a spinner and disables Reload while it runs', (
+      tester,
+    ) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pumpScreen(tester, commands: commands);
+      final release = Completer<void>();
+      server.onRequest('GET', '/api/cron/jobs', (_) async {
+        await release.future;
+        return (status: 200, body: [healthy, failing]);
+      });
+
+      await tester.tap(find.byTooltip('Refresh ⌘R'));
+      await tester.pump();
+      expect(find.byType(MotionSpinner), findsOneWidget);
+      expect(commands.handlerFor(MacCommand.reload)?.enabled, isFalse);
+
+      release.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(MotionSpinner), findsNothing);
+      expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
     });
 
     testWidgets('Refresh lists the jobs again', (tester) async {

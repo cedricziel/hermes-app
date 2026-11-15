@@ -174,6 +174,19 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     );
   }
 
+  bool _reloading = false;
+
+  /// A reload the user asked for, from the toolbar or View > Reload. The
+  /// minute timer and the change feed read without it.
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    try {
+      await _controller.refresh();
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => MacCommandScope(
     commands: {
@@ -183,7 +196,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
       ),
       if (platformChromeOf(context) == PlatformChrome.macos)
         MacCommand.reload: MacCommandHandler(
-          () => unawaited(_controller.refresh()),
+          _reloading ? null : () => unawaited(_reload()),
         ),
     },
     child: _page(context),
@@ -225,6 +238,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 detail: detail,
                 filterMenu: _filterMenu(),
                 onNew: () => _new(wide: true),
+                onRefresh: () => unawaited(_reload()),
+                refreshing: _reloading,
               );
             }
             final ios = platformChromeOf(context) == PlatformChrome.ios;
@@ -289,6 +304,8 @@ class _MacLayout extends StatelessWidget {
     required this.detail,
     required this.filterMenu,
     required this.onNew,
+    required this.onRefresh,
+    required this.refreshing,
   });
 
   final SchedulesController controller;
@@ -298,6 +315,8 @@ class _MacLayout extends StatelessWidget {
   final Widget detail;
   final Widget filterMenu;
   final VoidCallback onNew;
+  final VoidCallback onRefresh;
+  final bool refreshing;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -308,8 +327,8 @@ class _MacLayout extends StatelessWidget {
           allProfiles: controller.allProfiles,
           onScopeChanged: (all) => controller.allProfiles = all,
           filterMenu: filterMenu,
-          refreshing: controller.loading,
-          onRefresh: controller.refresh,
+          refreshing: refreshing,
+          onRefresh: onRefresh,
           onNew: onNew,
         ),
         Expanded(

@@ -10,6 +10,10 @@
   "@commonOn": {
     "description": "A setting that is switched on."
   },
+  "commonRefreshing": "Refreshing",
+  "@commonRefreshing": {
+    "description": "Spoken state of a Refresh button while its reload is running."
+  },
   "commonRetry": "Retry",
   "@commonRetry": {
     "description": "Button that tries a failed load again."

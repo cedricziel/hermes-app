@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_icons.dart';
 import 'plugins_controller.dart' show PluginsFailure;
+import 'plugins_refresh.dart';
 import 'provider_settings.dart';
 import 'providers_controller.dart';
 
@@ -11,7 +12,6 @@ import '../widgets/grouped_choice_row.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/named_icon_button.dart';
 import '../widgets/platform_refresh.dart';
-import 'plugins_refresh.dart';
 
 /// Where the agent keeps its memory and how it compresses long chats. It
 /// loads when it is first shown, and keeps what the user picked but has not

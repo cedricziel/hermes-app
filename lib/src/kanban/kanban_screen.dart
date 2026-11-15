@@ -147,7 +147,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
   VoidCallback? get _newTask =>
       _controller.board == null || _controller.selecting ? null : _create;
 
-  /// What File > New and View > Inspector do while the board is in front.
   bool _reloading = false;
 
   /// A reload the user asked for, from the toolbar or View > Reload.
@@ -160,6 +159,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     }
   }
 
+  /// What File > New and View > Inspector do while the board is in front.
   Map<MacCommand, MacCommandHandler> _menuCommands() => {
     MacCommand.newChat: MacCommandHandler(_newTask, title: 'New Task'),
     if (_mac)

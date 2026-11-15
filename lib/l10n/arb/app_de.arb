@@ -4,6 +4,7 @@
   "@@x-area-common": "",
   "commonOff": "Aus",
   "commonOn": "Ein",
+  "commonRefreshing": "Wird aktualisiert",
   "commonRetry": "Erneut versuchen",
 
   "@@x-area-agent_messages": "",

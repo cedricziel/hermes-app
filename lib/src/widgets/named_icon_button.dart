@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
+import '../../l10n/l10n.dart';
 import 'motion_spinner.dart';
 
 /// An [IconButton] whose [label] is its accessible name and, unless [tooltip]
@@ -62,7 +63,11 @@ class NamedIconButton extends StatelessWidget {
       excludeFromSemantics: true,
       child: button(
         icon: busy
-            ? Semantics(label: label, child: const MotionSpinner())
+            ? Semantics(
+                label: label,
+                value: context.l10n.commonRefreshing,
+                child: const MotionSpinner(),
+              )
             : AppIcon(icon, semanticLabel: label),
         color: color,
         style: style,
