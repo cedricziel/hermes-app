@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/l10n.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
+import '../macos/mac_commands.dart';
 import '../theme/app_icons.dart';
 import '../theme/breakpoints.dart';
 import '../theme/platform_chrome.dart';
@@ -662,15 +662,11 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
         );
       },
     );
-    if (mac) {
-      screen = CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
-              _controller.load,
-        },
-        child: Focus(autofocus: true, child: screen),
-      );
-    }
+    // The View > Reload menu item owns ⌘R.
+    screen = MacCommandScope(
+      commands: {MacCommand.reload: MacCommandHandler(_controller.load)},
+      child: screen,
+    );
     return screen;
   }
 }

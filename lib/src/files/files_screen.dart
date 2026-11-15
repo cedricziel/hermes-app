@@ -9,6 +9,7 @@ import '../../l10n/l10n.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
 import '../chat/media/media_store.dart';
+import '../macos/mac_commands.dart';
 import '../chat/widgets/quick_look_target.dart';
 import '../drag_out/drag_out_item.dart';
 import '../drag_out/drag_out_source.dart';
@@ -431,13 +432,15 @@ class _FilesScreenState extends State<FilesScreen> {
           },
           child: scaffold,
         );
-        if (!mac) return guarded;
-        return CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.arrowUp, meta: true): () =>
-                unawaited(_controller.up()),
-            const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
-                unawaited(_controller.refresh()),
+        // View > Reload and Enclosing Folder own ⌘R and ⌘↑.
+        return MacCommandScope(
+          commands: {
+            MacCommand.reload: MacCommandHandler(
+              () => unawaited(_controller.refresh()),
+            ),
+            MacCommand.enclosingFolder: MacCommandHandler(
+              _controller.canGoUp ? () => unawaited(_controller.up()) : null,
+            ),
           },
           child: guarded,
         );

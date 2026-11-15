@@ -35,7 +35,7 @@ void main() {
         'Sign Out…',
       ],
       'File': ['New Chat ⌘N'],
-      'View': ['Back ⌘['],
+      'View': ['Back ⌘[', 'Enclosing Folder', '-', 'Reload ⌘R'],
       'Chat': [
         'Find… ⌘F',
         '-',
@@ -88,6 +88,36 @@ void main() {
       }),
       isEmpty,
     );
+  });
+
+  test(
+    'the Mac lists Reload, Enclosing Folder and the change steps in View',
+    () {
+      final view = menuLayout.firstWhere((section) => section.id == 'view');
+      final entries = {
+        for (final group in view.groupsOn(MenuPlatform.mac))
+          for (final entry in group) entry.command: entry,
+      };
+      String chord(MacCommand command) =>
+          _chord(entries[command]!.shortcutOn(MenuPlatform.mac)!);
+      expect(chord(MacCommand.reload), '⌘R');
+      expect(chord(MacCommand.enclosingFolder), '⌘Arrow Up');
+      expect(chord(MacCommand.previousChange), '⌥Arrow Up');
+      expect(chord(MacCommand.nextChange), '⌥Arrow Down');
+      expect(entries[MacCommand.previousChange]!.label, 'Previous Change');
+      expect(entries[MacCommand.nextChange]!.label, 'Next Change');
+    },
+  );
+
+  test('the iPad keeps the arrow keys for text and has no change steps', () {
+    final entries = {
+      for (final section in menuLayout)
+        for (final group in section.groupsOn(ipad))
+          for (final entry in group) entry.command: entry,
+    };
+    expect(entries[MacCommand.enclosingFolder]!.shortcutOn(ipad), isNull);
+    expect(entries.containsKey(MacCommand.previousChange), isFalse);
+    expect(entries.containsKey(MacCommand.nextChange), isFalse);
   });
 
   test('the Mac keeps Delete… on Command-Delete', () {
