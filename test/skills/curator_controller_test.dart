@@ -218,6 +218,27 @@ void main() {
       expect((await opened()).load, CuratorLoad.offline);
     });
 
+    test('a status read with no answer in time is lost, not failed', () async {
+      server.onRequest(
+        'GET',
+        '/api/curator',
+        (r) => throw DioException(
+          requestOptions: r,
+          type: DioExceptionType.receiveTimeout,
+        ),
+      );
+      final c = await opened();
+
+      expect(c.load, CuratorLoad.lost);
+      expect(c.visible, isTrue);
+      expect(c.canRunNow, isFalse);
+
+      // Reads are safe to repeat: Try again reads again and recovers.
+      server.on('GET', '/api/curator', recordedCuratorRan);
+      await c.reload();
+      expect(c.load, CuratorLoad.loaded);
+    });
+
     test('off in config offers no Run now', () async {
       server.on('GET', '/api/curator', recordedCuratorDisabled);
       final c = await opened();

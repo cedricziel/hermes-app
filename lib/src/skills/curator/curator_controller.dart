@@ -23,6 +23,9 @@ enum CuratorLoad {
   offline,
   unavailable,
   failed,
+
+  /// The read got no answer in time (10 s). Reads are safe to repeat.
+  lost,
   profileGone,
   unsupported,
 }
@@ -334,6 +337,7 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
         _load = switch (kind) {
           CuratorFailure.offline => CuratorLoad.offline,
           CuratorFailure.unavailable => CuratorLoad.unavailable,
+          CuratorFailure.timeout => CuratorLoad.lost,
           _ => CuratorLoad.failed,
         };
     }
