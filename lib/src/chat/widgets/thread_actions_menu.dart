@@ -21,6 +21,7 @@ enum ThreadAction {
   showFiles,
   changeFolder,
   copyTranscript,
+  exportJson,
   branch,
   rename,
   pin,
@@ -37,6 +38,16 @@ class ChangeFolderOffer {
   final bool enabled;
 }
 
+/// "Export Chat as JSON…" in a thread's menu: offered for a chat the server
+/// holds under a known profile, and disabled while an export runs.
+/// [onSelected] opens the confirmation for that chat.
+class ExportJsonOffer {
+  const ExportJsonOffer({required this.onSelected, this.enabled = true});
+
+  final VoidCallback onSelected;
+  final bool enabled;
+}
+
 /// The menu of one thread as a Mac app lists it, with the shortcuts the menu
 /// bar gives them. Without [manageable] (a thread the dashboard does not
 /// hold) only copying the transcript is offered; "Open in New Window" only
@@ -48,6 +59,7 @@ List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
   bool canonical = false,
   bool canBranch = false,
   ChangeFolderOffer? changeFolder,
+  ExportJsonOffer? exportJson,
 }) => [
   if (canOpenInNewWindow) ...[
     const AdaptiveMenuItem(
@@ -79,6 +91,12 @@ List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
     value: ThreadAction.copyTranscript,
     child: Text('Copy Transcript'),
   ),
+  if (exportJson != null)
+    AdaptiveMenuItem(
+      value: ThreadAction.exportJson,
+      enabled: exportJson.enabled,
+      child: const Text('Export Chat as JSON…'),
+    ),
   if (manageable && canBranch && !canonical)
     const AdaptiveMenuItem(
       value: ThreadAction.branch,
@@ -114,9 +132,14 @@ class ThreadActionsButton extends StatefulWidget {
     this.onOpenInNewWindow,
     this.onShowFiles,
     this.changeFolder,
+    this.exportJson,
   });
 
   final ChatThread thread;
+
+  /// "Export Chat as JSON…" after Copy transcript; null leaves it out. Only a
+  /// menu with [includeCopyTranscript] (or the Mac's) shows it.
+  final ExportJsonOffer? exportJson;
 
   /// "Change Folder…" in the Mac menu; null leaves it out.
   final ChangeFolderOffer? changeFolder;
@@ -157,6 +180,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
           thread: _thread,
           housekeeping: widget.housekeeping,
           onOpenInNewWindow: widget.onOpenInNewWindow,
+          exportJson: widget.exportJson,
         );
 
   @override
@@ -189,6 +213,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
             canOpenInNewWindow: widget.onOpenInNewWindow != null,
             canBranch: housekeeping?.branch != null && _thread.remote,
             changeFolder: widget.changeFolder,
+            exportJson: widget.exportJson,
           )
         else ...[
           if (widget.onShowFiles != null)
@@ -201,6 +226,12 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
               value: ThreadAction.copyTranscript,
               child: Text('Copy transcript'),
             ),
+            if (widget.exportJson case final offer?)
+              PopupMenuItem(
+                value: ThreadAction.exportJson,
+                enabled: offer.enabled,
+                child: const Text('Export chat as JSON…'),
+              ),
             if (housekeeping != null) const PopupMenuDivider(),
           ],
           if (housekeeping != null) ...[
@@ -231,7 +262,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
 }
 
 /// Carries out [action] on [thread]: copying needs no [housekeeping], the rest
-/// do. Rename asks for a title and delete for confirmation first. Copying
+/// do. Exporting goes through [exportJson] and only while it is enabled. Rename asks for a title and delete for confirmation first. Copying
 /// reads the whole history of a thread that is not loaded through
 /// [housekeeping].
 Future<void> runThreadAction(
@@ -240,6 +271,7 @@ Future<void> runThreadAction(
   required ChatThread thread,
   required ThreadHousekeeping? housekeeping,
   ValueChanged<ChatThread>? onOpenInNewWindow,
+  ExportJsonOffer? exportJson,
 }) async {
   switch ((action, housekeeping)) {
     case (ThreadAction.showFiles, _) || (ThreadAction.changeFolder, _):
@@ -248,6 +280,8 @@ Future<void> runThreadAction(
       onOpenInNewWindow?.call(thread);
     case (ThreadAction.copyTranscript, _):
       await _copyTranscript(context, thread, housekeeping);
+    case (ThreadAction.exportJson, _):
+      if (exportJson != null && exportJson.enabled) exportJson.onSelected();
     case (_, null):
       break;
     case (ThreadAction.branch, final housekeeping?):

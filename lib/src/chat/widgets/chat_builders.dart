@@ -44,6 +44,7 @@ import 'scroll_to_latest_button.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
 import 'subagent_card.dart';
+import 'tool_call_expansion.dart';
 import 'tool_call_group.dart';
 import 'transcript_outcome_line.dart';
 import 'unsupported_request_card.dart';
@@ -119,6 +120,7 @@ Builders buildChatBuilders({
   LinkOpener? openLink,
   ScreenPreviewBuilder? screenPreview,
   ValueChanged<String>? onShowAgentDetails,
+  ToolCallExpansionStore? toolCallExpansion,
 }) {
   final onLinkTap = markdownLinkHandler(open: openLink);
   return Builders(
@@ -170,6 +172,7 @@ Builders buildChatBuilders({
               onAnswerVault: onAnswerVault,
               screenPreview: screenPreview,
               onShowAgentDetails: onShowAgentDetails,
+              toolCallExpansion: toolCallExpansion,
             ),
     chatMessageBuilder:
         (
@@ -369,6 +372,7 @@ Widget _buildCustom(
   onAnswerVault,
   ScreenPreviewBuilder? screenPreview,
   ValueChanged<String>? onShowAgentDetails,
+  ToolCallExpansionStore? toolCallExpansion,
 }) {
   final metadata = message.metadata;
   switch (metadata?[kMetaKind]) {
@@ -379,6 +383,8 @@ Widget _buildCustom(
             metadata[kMetaToolApprovals] as Map<int, ApprovalRequest>? ??
             const {},
         onAnswerApproval: onAnswerApproval,
+        expansion: toolCallExpansion,
+        expansionScope: message.id,
         preview: switch (metadata[kMetaScreenPreview]) {
           final ScreenPreviewRun run => screenPreview?.call(run),
           _ => null,
