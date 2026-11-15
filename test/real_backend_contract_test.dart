@@ -7092,6 +7092,19 @@ $extra''',
 
         await send('Many reads a', thread);
         await send('Many reads b', thread);
+        // The reply stream ends on `message.complete`, a moment before Hermes
+        // marks the session idle, and a compress asked inside that gap is
+        // answered 4009. Wait for the server to list the chat as not running.
+        final settled = DateTime.now().add(const Duration(seconds: 30));
+        while (true) {
+          final statuses = await transport.activeStatuses(profile: 'default');
+          const live = {'starting', 'waiting', 'working', 'streaming'};
+          if (!live.contains(statuses[thread])) break;
+          if (DateTime.now().isAfter(settled)) {
+            fail('the chat was still running 30 s after its last reply');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
         final compressed = await transport.compressSession(
           thread,
           profile: 'default',
