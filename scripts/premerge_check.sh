@@ -88,6 +88,23 @@ NOHOOKS=(-c core.hooksPath=/dev/null)
 RGIT=(git -C "$REPO" "${NOHOOKS[@]}")
 COMMON="$("${RGIT[@]}" rev-parse --git-common-dir)"
 case "$COMMON" in /*) ;; *) COMMON="$REPO/$COMMON" ;; esac
+COMMON="$(cd "$COMMON" && pwd -P)"
+HOST="$(hostname 2>/dev/null || echo unknown)"
+
+# Where the trial worktree lives. A TMPDIR inside the repo would put the
+# worktree in the caller's tree, so fall back to /tmp.
+REPO_PHYS="$(cd "$REPO" && pwd -P)"
+TMPBASE="${TMPDIR:-/tmp}"
+TMPBASE="${TMPBASE%/}"
+if [ -z "$TMPBASE" ] || [ ! -d "$TMPBASE" ]; then TMPBASE=/tmp; fi
+TMPBASE_PHYS="$(cd "$TMPBASE" && pwd -P)"
+case "$TMPBASE_PHYS/" in
+  "$REPO_PHYS"/*)
+    echo "premerge: TMPDIR is inside the repository; using /tmp for the trial worktree" >&2
+    TMPBASE=/tmp
+    TMPBASE_PHYS="$(cd /tmp && pwd -P)"
+    ;;
+esac
 
 # Optional: open PRs that already have auto-merge armed.
 if [ "${PREMERGE_LIST_OPEN:-}" = "1" ]; then
@@ -107,6 +124,12 @@ if [ "${PREMERGE_LIST_OPEN:-}" = "1" ]; then
     echo "premerge: PREMERGE_LIST_OPEN is set but gh is not installed; using --others only" >&2
   fi
 fi
+
+FILTERED=()
+for o in ${OTHERS[@]+"${OTHERS[@]}"}; do
+  [ "$o" = "$PR" ] || FILTERED+=("$o")
+done
+OTHERS=(${FILTERED[@]+"${FILTERED[@]}"})
 
 NS="refs/premerge/$$"
 TMP=""
@@ -155,12 +178,37 @@ trap 'echo "premerge: interrupted during $STAGE; cleaning up" >&2; exit 130' INT
 trap 'echo "premerge: hangup during $STAGE; cleaning up" >&2; exit 129' HUP
 trap 'echo "premerge: terminated during $STAGE; cleaning up" >&2; exit 143' TERM
 
-# Remove what a SIGKILLed run left: refs, registered worktrees and temp dirs
-# whose pid is dead. A dir without a pid file (--keep) is left alone.
-pid_dead() { ! kill -0 "$1" 2>/dev/null; }
+# Remove what a SIGKILLed run left: refs, registered worktrees and temp dirs.
+# Only directories this script made are touched: directly under TMPBASE, named
+# like its mktemp template, holding a pid file "premerge_check <pid> <host>
+# <git-common-dir>" that matches this host and repo, with a dead pid. Anything
+# else named premerge.* (another tool's, a project folder) is left alone. A dir
+# without the marker (--keep) is left alone too.
+# A pid is dead only if neither ps nor kill -0 finds it: kill -0 also fails
+# with EPERM for another user's live process.
+pid_dead() {
+  if ps -p "$1" >/dev/null 2>&1; then return 1; fi
+  ! kill -0 "$1" 2>/dev/null
+}
+
+read_marker() {
+  local tag
+  IFS=' ' read -r tag M_PID M_HOST M_COMMON <"$1/pid" 2>/dev/null || return 1
+  [ "$tag" = premerge_check ] && is_num "$M_PID"
+}
+
+is_dead_run_of_ours() {
+  local dir="$1"
+  case "${dir##*/}" in premerge.??????) ;; *) return 1 ;; esac
+  [ -d "$dir" ] && [ -f "$dir/pid" ] || return 1
+  [ "$(cd "$dir/.." && pwd -P)" = "$TMPBASE_PHYS" ] || return 1
+  read_marker "$dir" || return 1
+  [ "$M_HOST" = "$HOST" ] && [ "$M_COMMON" = "$COMMON" ] || return 1
+  pid_dead "$M_PID"
+}
 
 sweep_dead_runs() {
-  local ref p admin gitdir tree dir pid
+  local ref p admin gitdir dir
   for ref in $("${RGIT[@]}" for-each-ref --format='%(refname)' refs/premerge 2>/dev/null || true); do
     p="${ref#refs/premerge/}"
     p="${p%%/*}"
@@ -172,21 +220,14 @@ sweep_dead_runs() {
     [ -f "$admin/gitdir" ] || continue
     gitdir="$(cat "$admin/gitdir")"
     case "$gitdir" in
-      */premerge.*/tree/.git)
-        tree="${gitdir%/.git}"
-        dir="${tree%/tree}"
-        [ -f "$dir/pid" ] || continue
-        pid="$(cat "$dir/pid" 2>/dev/null || true)"
-        if is_num "$pid" && pid_dead "$pid"; then
-          rm -rf "$admin" "$dir"
-        fi
+      */premerge.??????/tree/.git)
+        dir="${gitdir%/tree/.git}"
+        if is_dead_run_of_ours "$dir"; then rm -rf "$admin" "$dir"; fi
         ;;
     esac
   done
-  for dir in "${TMPDIR:-/tmp}"/premerge.*; do
-    [ -d "$dir" ] && [ -f "$dir/pid" ] && [ ! -e "$dir/tree" ] || continue
-    pid="$(cat "$dir/pid" 2>/dev/null || true)"
-    if is_num "$pid" && pid_dead "$pid"; then rm -rf "$dir"; fi
+  for dir in "$TMPBASE"/premerge.??????; do
+    if is_dead_run_of_ours "$dir"; then rm -rf "$dir"; fi
   done
 }
 sweep_dead_runs
@@ -297,8 +338,8 @@ fi
 # 3. Trial merge in a throwaway worktree outside the repo --------------------
 # Every git call in the trial tree runs with hooks off, rerere off, no signing.
 step_start "trial merge of #$PR into origin/$BASE"
-TMP="$(mktemp -d "${TMPDIR:-/tmp}/premerge.XXXXXX")"
-echo "$$" >"$TMP/pid"
+TMP="$(mktemp -d "$TMPBASE/premerge.XXXXXX")"
+printf 'premerge_check %s %s %s\n' "$$" "$HOST" "$COMMON" >"$TMP/pid"
 WT="$TMP/tree"
 "${RGIT[@]}" worktree add --quiet --detach "$WT" "$BASE_SHA"
 WT_ADMIN="$(git -C "$WT" rev-parse --absolute-git-dir)"
@@ -355,5 +396,5 @@ echo "PASS: origin/$BASE ($BASE_SHA) + #$PR ($PR_SHA) analyzes and passes the ar
 if [ "$OVERLAP" = 1 ]; then
   echo "WARNING: overlap reported above. Arm #$PR only if no overlapping PR is armed."
 fi
-echo "Next: safe to arm #$PR at exactly $PR_SHA: arm with a head-SHA match (\`gh pr merge --auto --match-head-commit $PR_SHA\` locally, or the auto-merge route with that sha); rerun after ANY push to the PR or to main."
+echo "Next: safe to arm #$PR at exactly $PR_SHA: arm with a head-SHA match (\`gh pr merge --auto --squash --match-head-commit $PR_SHA\` locally, or the auto-merge route with that sha); rerun after ANY push to the PR or to main."
 exit 0

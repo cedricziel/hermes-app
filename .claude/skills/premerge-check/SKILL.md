@@ -43,9 +43,14 @@ What it does, in order:
 
 The worktree, temp dir and refs are removed on every exit, including failure,
 INT, TERM and HUP. `--keep` leaves the worktree and prints how to remove it.
-A SIGKILL cannot be trapped: it leaves `refs/premerge/<pid>`, a `premerge.*`
-temp dir and its worktree behind, and the next run sweeps those whose pid is
-dead. A full run takes about two minutes.
+A SIGKILL cannot be trapped: it leaves `refs/premerge/<pid>`, a temp dir and
+its worktree behind, and the next run sweeps those whose pid is dead (ps and
+`kill -0` both fail; another user's live run counts as alive). It only touches
+directories directly under `$TMPDIR` (or `/tmp`) named `premerge.XXXXXX` that
+hold the script's own marker file `pid`: `premerge_check <pid> <host>
+<git-common-dir>`, matching this host and repo. A `premerge.*` folder anywhere
+else, or without the marker, is never removed. A `TMPDIR` inside the repo is
+replaced by `/tmp`. A full run takes about two minutes.
 
 ## Exit codes and what to do
 
@@ -60,8 +65,8 @@ dead. A full run takes about two minutes.
 ## Arming: tie it to the head
 
 A pass is about one PR head and one main. On exit 0 the script prints the exact
-head SHA: arm with a head-SHA match (`gh pr merge --auto --match-head-commit
-<sha>` locally, or the auto-merge route with that sha), so a later push to the
+head SHA: arm with a head-SHA match (`gh pr merge --auto --squash
+--match-head-commit <sha>` locally, or the auto-merge route with that sha), so a later push to the
 PR cannot ride on this result. Rerun after ANY push to the PR or to main. On an
 overlap `WARNING`, arm one of the overlapping PRs, wait for it to merge, then
 rerun the check for the other.

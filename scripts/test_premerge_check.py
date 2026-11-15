@@ -617,7 +617,7 @@ class PremergeTest(unittest.TestCase):
         head = git(self.origin, "rev-parse", "refs/pull/10/head").strip()
         r = self.run_check(10)
         self.assertEqual(r.returncode, 0)
-        self.assertIn(f"gh pr merge --auto --match-head-commit {head}", r.stdout)
+        self.assertIn(f"gh pr merge --auto --squash --match-head-commit {head}", r.stdout)
         self.assertIn("rerun after ANY push to the PR or to main", r.stdout)
 
     def test_sigkill_leftovers_are_swept_by_the_next_run(self):
@@ -722,6 +722,126 @@ class PremergeTest(unittest.TestCase):
         self.assertIn("overlap UNKNOWN for #11 (no merge base", out)
         self.assertNotIn("no shared library directory with #11", out)
         self.assertIn("WARNING", out)
+
+    # sweep safety and nits ----------------------------------------------
+
+    def marker(self, pid, host=None, common=None):
+        host = host or subprocess.run(["hostname"], capture_output=True,
+                                      text=True).stdout.strip()
+        common = common or os.path.realpath(self.caller / ".git")
+        return f"premerge_check {pid} {host} {common}\n"
+
+    def lookalike(self, base, name, pidfile_text, with_tree=True):
+        d = Path(base) / name
+        d.mkdir(parents=True)
+        (d / "important.txt").write_text("keep me\n")
+        (d / "pid").write_text(pidfile_text)
+        if with_tree:
+            git(self.caller, "worktree", "add", "-q", "--detach", str(d / "tree"))
+        return d
+
+    def test_lookalike_folder_elsewhere_survives_the_sweep(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        d = self.lookalike(self.root / "projects", "premerge.docs12", "99999999\n")
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((d / "important.txt").exists())
+        self.assertIn(str(d / "tree"), git(self.caller, "worktree", "list"))
+
+    def test_lookalike_folder_with_a_forged_marker_elsewhere_survives(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        d = self.lookalike(self.root / "projects", "premerge.docs12",
+                           self.marker(99999999))
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((d / "important.txt").exists())
+
+    def test_lookalike_folder_in_tmpdir_survives_the_sweep(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        d = self.lookalike(self.tmp, "premerge.docs12", "99999999\n")
+        bare = self.tmp / "premerge.other1"
+        bare.mkdir()
+        (bare / "pid").write_text("99999999\n")
+        (bare / "important.txt").write_text("keep me\n")
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((d / "important.txt").exists())
+        self.assertTrue((bare / "important.txt").exists())
+
+    def test_sweep_removes_a_bare_dir_with_our_marker_and_a_dead_pid(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        bare = self.tmp / "premerge.dead12"
+        bare.mkdir()
+        (bare / "pid").write_text(self.marker(99999999))
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(bare.exists())
+
+    def test_sweep_skips_a_marker_from_another_host(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        bare = self.tmp / "premerge.host12"
+        bare.mkdir()
+        (bare / "pid").write_text(self.marker(99999999, host="some-other-host"))
+        self.run_check(10)
+        self.assertTrue(bare.exists())
+
+    def test_sweep_skips_a_marker_from_another_repo(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        bare = self.tmp / "premerge.repo12"
+        bare.mkdir()
+        (bare / "pid").write_text(self.marker(99999999, common="/somewhere/else/.git"))
+        self.run_check(10)
+        self.assertTrue(bare.exists())
+
+    def test_sweep_keeps_a_run_that_ps_still_sees(self):
+        # kill -0 reports EPERM as failure; a pid that exists but belongs to
+        # another user must count as alive. ps shows every user's processes.
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        real_ps = shutil.which("ps")
+        stub = self.bin / "ps"
+        stub.write_text(
+            '#!/bin/bash\n[ "$1" = -p ] && [ "$2" = 99999999 ] && exit 0\n'
+            f'exec {real_ps} "$@"\n')
+        stub.chmod(0o755)
+        bare = self.tmp / "premerge.live12"
+        bare.mkdir()
+        (bare / "pid").write_text(self.marker(99999999))
+        self.run_check(10)
+        self.assertTrue(bare.exists())
+
+    def test_cleanup_falls_back_when_worktree_remove_is_refused(self):
+        # A locked worktree makes `worktree remove --force` fail; the script
+        # must still leave no registration and no temp dir.
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        stub = self.bin / "flutter"
+        stub.write_text(STUB_FLUTTER.replace(
+            'echo "$PWD $*" >> "$STUB_LOG"',
+            'echo "$PWD $*" >> "$STUB_LOG"\n'
+            '[ "$1" = analyze ] && git worktree lock "$PWD"'))
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assert_clean_up()
+
+    def test_others_equal_to_the_pr_are_dropped(self):
+        self.pr(10, {"lib/src/theme/a.dart": "10\n"})
+        self.pr(11, {"lib/src/theme/b.dart": "11\n"})
+        r = self.run_check(10, "--others", 10, 11)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("#10: ", r.stdout.replace("head  #10  ", ""))
+        self.assertNotIn("overlap with #10", r.stdout)
+        self.assertIn("overlap with #11", r.stdout)
+
+    def test_tmpdir_inside_the_repo_falls_back_to_tmp(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        inside = self.caller / "scratch"
+        inside.mkdir()
+        before = self.snapshot()
+        r = self.run_check(10, TMPDIR=str(inside))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(list(inside.iterdir()), [])
+        for line in self.log.read_text().splitlines():
+            self.assertFalse(line.startswith(str(self.caller)), line)
+        self.assertEqual(self.snapshot(), before)
 
 
 if __name__ == "__main__":
