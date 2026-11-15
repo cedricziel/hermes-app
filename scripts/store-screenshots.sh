@@ -108,13 +108,13 @@ cmd_ios() { # [iphone|ipad]
   "$ROOT_DIR/scripts/dev-backend.sh" stop || true
 }
 
-# The Mac window opens at 800x600, below the 900 point breakpoint of the wide
-# layout, so the test resizes it to SHOT_MAC_WINDOW first (points; the
-# finished image is 2880x1800 pixels). `mac compact` keeps the default size,
-# into mac-compact-*.
+# The test always resizes the Mac window first, to SHOT_MAC_WINDOW (points; the
+# finished image is 2880x1800 pixels), whatever the window's default size is.
+# `mac compact` uses SHOT_MAC_COMPACT_WINDOW (800x600, below the 900 point
+# breakpoint of the wide layout) into mac-compact-*.
 cmd_mac() { # [compact]
   local url process label=mac size="${SHOT_MAC_WINDOW:-1440x900}"
-  if [[ "${1:-}" == compact ]]; then label=mac-compact size=""; fi
+  if [[ "${1:-}" == compact ]]; then label=mac-compact size="${SHOT_MAC_COMPACT_WINDOW:-800x600}"; fi
   process="$(sed -n 's/^PRODUCT_NAME *= *//p' "$ROOT_DIR/macos/Runner/Configs/AppInfo.xcconfig")"
   url="$(start_backend)"
   for appearance in dark light; do

@@ -1,6 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -13,37 +15,63 @@ import '../support/fake_hermes_server.dart';
 /// The Mac main window cannot be resized below [kMacMainWindowMinSize], and
 /// the home shell must lay out there without an overflow.
 void main() {
-  late FakeHermesServer server;
+  test('the native sizes match the Dart constants', () {
+    final xib = File('macos/Runner/Base.lproj/MainMenu.xib').readAsStringSync();
+    final window = RegExp(
+      r'<window [^>]*customClass="MainFlutterWindow".*?'
+      r'<rect key="contentRect" x="[\d.]+" y="[\d.]+" '
+      r'width="(\d+)" height="(\d+)"/>',
+      dotAll: true,
+    ).firstMatch(xib);
+    expect(window, isNotNull);
+    expect(
+      Size(double.parse(window![1]!), double.parse(window[2]!)),
+      kMacMainWindowDefaultSize,
+    );
 
-  setUp(() {
-    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-    SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
-    server = FakeHermesServer()
-      ..on(
-        'GET',
-        '/api/profiles',
-        profileListBody([profileRow(name: 'default', isDefault: true)]),
-      )
-      ..on('GET', '/api/profiles/active', activeProfileBody(active: 'default'))
-      ..on(
-        'GET',
-        '/api/sessions',
-        sessionListBody([
-          sessionRow(id: 'd1', title: 'Plan the release', pinned: true),
-          sessionRow(id: 'd2', title: 'Fix the flaky login test'),
-        ]),
-      )
-      ..on('GET', '/api/mcp/servers', mcpServerListBody([]));
+    final swift = File('macos/Runner/MainFlutterWindow.swift')
+        .readAsStringSync();
+    final minimum = RegExp(
+      r'minimumContentSize = NSSize\(width: (\d+), height: (\d+)\)',
+    ).firstMatch(swift);
+    expect(minimum, isNotNull);
+    expect(
+      Size(double.parse(minimum![1]!), double.parse(minimum[2]!)),
+      kMacMainWindowMinSize,
+    );
+    expect(swift, contains('contentMinSize = Self.minimumContentSize'));
   });
 
-  for (final (name, size) in [
-    ('minimum', kMacMainWindowMinSize),
-    ('default', const Size(1100, 760)),
-  ]) {
-    testWidgets('home shell at the $name window size has no overflow', (
-      tester,
-    ) async {
+  group('home shell', () {
+    late FakeHermesServer server;
+
+    setUp(() {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      server = FakeHermesServer()
+        ..on(
+          'GET',
+          '/api/profiles',
+          profileListBody([profileRow(name: 'default', isDefault: true)]),
+        )
+        ..on(
+          'GET',
+          '/api/profiles/active',
+          activeProfileBody(active: 'default'),
+        )
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([
+            sessionRow(id: 'd1', title: 'Plan the release', pinned: true),
+            sessionRow(id: 'd2', title: 'Fix the flaky login test'),
+          ]),
+        )
+        ..on('GET', '/api/sessions/d1/messages', messageListBody('d1', []))
+        ..on('GET', '/api/mcp/servers', mcpServerListBody([]));
+    });
+
+    Future<void> pumpShell(WidgetTester tester, Size size) async {
       tester.view
         ..physicalSize = size
         ..devicePixelRatio = 1;
@@ -61,15 +89,37 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+    }
 
-      expect(find.byType(AppShell), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      debugDefaultTargetPlatformOverride = null;
-    });
-  }
+    for (final (name, size) in [
+      ('minimum', kMacMainWindowMinSize),
+      ('default', kMacMainWindowDefaultSize),
+    ]) {
+      testWidgets('at the $name window size has no overflow', (tester) async {
+        await pumpShell(tester, size);
 
-  test('the default window is wide, the minimum is not', () {
-    expect(1100, greaterThanOrEqualTo(kWideLayoutBreakpoint));
-    expect(kMacMainWindowMinSize.width, lessThan(kWideLayoutBreakpoint));
+        expect(find.byType(AppShell), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+      testWidgets(
+        'with an open chat at the $name window size has no overflow',
+        (tester) async {
+          await pumpShell(tester, size);
+          if (find.text('Plan the release').evaluate().isEmpty) {
+            await tester.tap(
+              find.byKey(const Key('mac-sidebar-toggle')).hitTestable().first,
+            );
+            await tester.pumpAndSettle();
+          }
+          await tester.tap(find.text('Plan the release').first);
+          await tester.pumpAndSettle();
+
+          expect(find.byType(ChatScreen), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      );
+    }
   });
 }

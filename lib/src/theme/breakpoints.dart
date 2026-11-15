@@ -48,3 +48,7 @@ const double kDetailContentMaxWidth = 720;
 /// `MainFlutterWindow.minimumContentSize`. The default size, 1100x760
 /// (`MainMenu.xib`), is above [kWideLayoutBreakpoint].
 const Size kMacMainWindowMinSize = Size(640, 480);
+
+/// The default content size of the Mac main window, set in
+/// `MainMenu.xib`; above [kWideLayoutBreakpoint].
+const Size kMacMainWindowDefaultSize = Size(1100, 760);
