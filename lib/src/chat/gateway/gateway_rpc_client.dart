@@ -102,6 +102,18 @@ class GatewaySessionGone extends GatewayConnectionClosed {
   String toString() => 'The gateway no longer has the session ($code)';
 }
 
+/// The connection was lost under a reply the server had accepted (the prompt
+/// was answered), and the reconnect gave up: the server was not reached, so the
+/// turn may well still run. A [GatewayConnectionClosed], and the one kind of it
+/// that says the prompt was accepted whether or not any frame of the reply
+/// came, so the reply waits instead of failing.
+class GatewayReplyLost extends GatewayConnectionClosed {
+  const GatewayReplyLost();
+
+  @override
+  String toString() => 'The gateway connection was lost under a reply';
+}
+
 /// The reply cannot be waited for: the server answered and the turn is no
 /// longer running with nothing to show (the silence probe no longer lists it,
 /// or a resume found it over with no stored reply), or a turn handed over live

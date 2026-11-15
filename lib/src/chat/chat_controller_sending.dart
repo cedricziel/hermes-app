@@ -254,7 +254,7 @@ extension _ChatControllerSending on ChatController {
         isConnectionLost(error) &&
         // Only what this send itself saw: the transport's acceptance flag
         // belongs to its latest send, which may be another chat's.
-        (begun || error is SendFailure);
+        (begun || error is SendFailure || error is GatewayReplyLost);
     String outcome(Object? error) {
       if (withdrawn != null) return withdrawn!;
       if (lost(error)) return 'reconnecting';

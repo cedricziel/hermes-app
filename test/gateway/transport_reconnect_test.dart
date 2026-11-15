@@ -1393,6 +1393,24 @@ void main() {
       });
     });
 
+    test('says the prompt was accepted even with no row id and no frame', () {
+      fake((async) {
+        gateway.silent.add('session.resume');
+        // The turn starts nothing before the socket goes.
+        gateway.turn = (g, sid) => g.drop();
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 61));
+
+        expect(seen.events.whereType<PromptAcknowledged>(), isEmpty);
+        expect(seen.events.whereType<ReplyDelta>(), isEmpty);
+        expect(seen.error, isA<GatewayReplyLost>());
+        expect(
+          gateway.methods.where((m) => m == 'prompt.submit'),
+          hasLength(1),
+        );
+      });
+    });
+
     test('is picked up again from the seq it had, and submits nothing', () {
       fake((async) {
         lose(async);

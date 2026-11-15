@@ -210,7 +210,7 @@ extension _FollowUps on HermesGatewayTransport {
         final made = drops.dropped();
         if (made >= _maxReplyReconnects) {
           _lostReplies[key] = runtimeId;
-          out.addError(const GatewayConnectionClosed());
+          out.addError(const GatewayReplyLost());
           return;
         }
         drops.attempt();

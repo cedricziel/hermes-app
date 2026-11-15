@@ -76,8 +76,7 @@ final class _Resumed {
   /// [GatewayConnectionClosed] means the server was not reached: the turn may
   /// still be running, and the reply is picked up again later.
   GatewayConnectionClosed get failure =>
-      gone ??
-      (turnEnded ? const GatewayTurnEnded() : const GatewayConnectionClosed());
+      gone ?? (turnEnded ? const GatewayTurnEnded() : const GatewayReplyLost());
 
   /// How the reconnect went, for telemetry: `replayed` when the gap was filled
   /// from the server's ring, `rest_refetch` when the reply had to be rebuilt

@@ -75,7 +75,7 @@ import '../app_lock/app_lock_controller.dart';
 import 'process_output_state.dart';
 import 'reactions/reaction_state.dart';
 import 'gateway/gateway_rpc_client.dart'
-    show GatewayRpcException, GatewayConnectionClosed;
+    show GatewayRpcException, GatewayConnectionClosed, GatewayReplyLost;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'queued_prompt.dart';

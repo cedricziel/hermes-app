@@ -671,7 +671,7 @@ extension _Sending on HermesGatewayTransport {
           // is kept to wait on, so the reply fails (and the thread refetches).
           if (claimedShown) throw const GatewayTurnEnded();
           _lostReplies[owner] = runtimeId;
-          throw const GatewayConnectionClosed();
+          throw const GatewayReplyLost();
         }
         drops.attempt();
         final resumed = await _reattach(

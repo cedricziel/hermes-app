@@ -425,7 +425,13 @@ extension _ChatControllerStreaming on ChatController {
     }
     _reconnectTimers.remove(thread)?.cancel();
     // Only the chat in front is tried by itself; opening another one tries it.
-    if (selectedThread != thread) return;
+    // Until then the note must not claim that something is trying.
+    if (selectedThread != thread) {
+      if (!reply.reconnectIdle) {
+        _updateReply(thread, reply, () => reply.reconnectIdle = true);
+      }
+      return;
+    }
     final tries = _reconnectTries[thread] ?? 0;
     if (tries >= _maxReconnectTries) {
       if (!reply.reconnectIdle) {
@@ -437,7 +443,11 @@ extension _ChatControllerStreaming on ChatController {
     _reconnectTimers[thread] = Timer(reconnectRetry, () {
       _reconnectTimers.remove(thread);
       if (!active || !_threads.contains(thread)) return;
-      if (selectedThread != thread || _reconnectingReply(thread) == null) {
+      final waiting = _reconnectingReply(thread);
+      if (waiting == null) return;
+      if (selectedThread != thread) {
+        // Left meanwhile: opening it tries again, and until then nothing does.
+        _updateReply(thread, waiting, () => waiting.reconnectIdle = true);
         return;
       }
       _pickUp(thread, retry: true);

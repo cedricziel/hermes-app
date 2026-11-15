@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show CustomMessage, TextMessage;
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,7 @@ import 'package:hermes_app/src/chat/chat_message_mapper.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/chat_warning_state.dart' show AgentNotice;
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 
@@ -478,6 +480,121 @@ void main() {
       chat.select('s1');
       await pumpEventQueue();
       expect(transport.followUpCalls, greaterThan(calls));
+    });
+  });
+
+  group('Review round two', () {
+    test('a typed prompt the server accepted with no row id and no frame '
+        'waits when the connection is lost', () async {
+      chat.newThread();
+      thread = chat.selectedThread!;
+      chat.submit('Hello', const []);
+      send = transport.sends.single;
+      send.emit(const ThreadBound('s1'));
+      await pumpEventQueue();
+      // The transport reports a reply lost after its prompt was answered.
+      await lose(const GatewayReplyLost());
+
+      expect(assistant().reconnecting, isTrue);
+      expect(assistant().error, isNull);
+      expectOneSubmit();
+    });
+
+    test('a lost send keeps its notices: nothing of the turn ended', () async {
+      await startTurn();
+      send.emit(
+        const NoticeShown(AgentNotice(text: 'Heads up'), runtimeId: 'rt-1'),
+      );
+      await pumpEventQueue();
+      expect(chat.noticesIn(thread), hasLength(1));
+
+      await lose();
+
+      expect(chat.noticesIn(thread), hasLength(1));
+      expectOneSubmit();
+    });
+
+    test('a failed send drops its notices', () async {
+      await startTurn();
+      send.emit(
+        const NoticeShown(AgentNotice(text: 'Heads up'), runtimeId: 'rt-1'),
+      );
+      await pumpEventQueue();
+
+      await lose(StateError('boom'));
+
+      expect(chat.noticesIn(thread), isEmpty);
+    });
+
+    test('a follow-up that is lost again keeps the notices too', () async {
+      await startTurn();
+      await lose();
+      chat.checkConnection();
+      await pumpEventQueue();
+      final follow = transport.followUpStreams['s1']!;
+      follow
+        ..emit(const ReplyStarted())
+        ..emit(
+          const NoticeShown(AgentNotice(text: 'Heads up'), runtimeId: 'rt-1'),
+        );
+      await pumpEventQueue();
+      follow.fail(const GatewayReplyLost());
+      await pumpEventQueue();
+
+      expect(assistant().reconnecting, isTrue);
+      expect(chat.noticesIn(thread), hasLength(1));
+    });
+
+    test('a chat that is not in front says nothing is trying', () async {
+      await startTurn();
+      chat.newThread();
+      await lose();
+
+      expect(assistant().reconnecting, isTrue);
+      expect(assistant().reconnectIdle, isTrue);
+
+      chat.select('s1');
+      await pumpEventQueue();
+      expect(assistant().reconnectIdle, isFalse);
+    });
+
+    test('suspending ends the timers', () async {
+      final activity = ValueNotifier<bool>(true);
+      addTearDown(activity.dispose);
+      final attention = AttentionNotifier(
+        service: null,
+        settings: null,
+        onOpen: (_) {},
+      );
+      addTearDown(attention.dispose);
+      final other = ChatController(
+        transport: transport,
+        attention: attention,
+        activity: activity,
+        report: reports.add,
+        reconnectRetry: const Duration(milliseconds: 10),
+      );
+      addTearDown(other.dispose);
+      other.newThread();
+      thread = other.selectedThread!;
+      other.submit('Run the build', const []);
+      send = transport.sends.single;
+      send
+        ..emit(const ThreadBound('s1'))
+        ..emit(const PromptAcknowledged(1))
+        ..emit(const ReplyDelta('x'));
+      await pumpEventQueue();
+      await lose();
+      activity.value = false;
+      await pumpEventQueue();
+      // Back in front before the timer would have run: it must not run.
+      activity.value = true;
+      await pumpEventQueue();
+      final calls = transport.followUpCalls;
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(transport.followUpCalls, calls);
     });
   });
 

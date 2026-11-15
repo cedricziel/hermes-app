@@ -79,6 +79,42 @@ void main() {
     expect(announced, hasLength(2));
   });
 
+  testWidgets('a new key on the same row is announced, as when the tries run '
+      'out', (tester) async {
+    Future<void> pump(String text, String key) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: Scaffold(
+            body: ReplyReconnectingNote(text: text, announceKey: key),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
+      SystemChannels.accessibility,
+      (message) async {
+        if (message is Map && message['type'] == 'announce') {
+          announced.add((message['data'] as Map)['message'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(
+            SystemChannels.accessibility,
+            null,
+          ),
+    );
+    await pump('Reconnecting', 'r#1');
+    await pump("Couldn't reconnect", 'r#1i');
+
+    expect(announced, ['Reconnecting', "Couldn't reconnect"]);
+  });
+
   testWidgets('without a key it never announces', (tester) async {
     await pumpNote(tester);
 

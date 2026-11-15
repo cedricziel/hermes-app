@@ -40,6 +40,18 @@ class _ReplyReconnectingNoteState extends State<ReplyReconnectingNote> {
   @override
   void initState() {
     super.initState();
+    _announce();
+  }
+
+  /// The row is kept by the list while its sentence changes (the tries ran
+  /// out), so a new key announces here as well.
+  @override
+  void didUpdateWidget(ReplyReconnectingNote oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.announceKey != widget.announceKey) _announce();
+  }
+
+  void _announce() {
     final key = widget.announceKey;
     if (key == null || !ReplyReconnectingNote._announced.add(key)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
