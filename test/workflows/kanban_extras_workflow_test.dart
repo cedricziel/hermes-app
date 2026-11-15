@@ -573,9 +573,6 @@ void main() {
 
       await showColumn(tester, size, 'Todo');
       await shots.capture(tester, 'todo-long-titles');
-      debugPrint(
-        'DBG ${tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).toList()}',
-      );
       // (A phone keeps the scroll position of the list it had before.)
       expect(card('Todo 3'), findsOneWidget);
       expect(card('Todo 5'), findsOneWidget);
