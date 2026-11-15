@@ -42,15 +42,18 @@ void main() {
       current = [ConnectivityResult.wifi];
     });
 
-    tearDown(() => results.close());
+    tearDown(() => unawaited(results.close()));
 
-    ConnectivityNetworkSignals signals({bool reportsVpn = true}) =>
-        ConnectivityNetworkSignals(
-          results: results.stream,
-          check: () async => current,
-          reportsVpn: reportsVpn,
-          debounce: const Duration(milliseconds: 10),
-        );
+    ConnectivityNetworkSignals signals({
+      bool reportsVpn = true,
+      bool onLinux = false,
+    }) => ConnectivityNetworkSignals(
+      results: results.stream,
+      check: () async => current,
+      reportsVpn: reportsVpn,
+      onLinux: onLinux,
+      debounce: const Duration(milliseconds: 10),
+    );
 
     test('emits a change when the connection changes', () async {
       final s = signals();
@@ -85,6 +88,32 @@ void main() {
         results.add([ConnectivityResult.wifi]);
         await pumpEventQueue();
         expect(s.vpnActive, isFalse);
+      },
+    );
+
+    test(
+      'on Linux it never touches connectivity but still nudges on resume',
+      () async {
+        var checks = 0;
+        final s = ConnectivityNetworkSignals(
+          results: results.stream,
+          check: () async {
+            checks++;
+            return current;
+          },
+          onLinux: true,
+          debounce: const Duration(milliseconds: 10),
+        );
+        addTearDown(s.dispose);
+        final changes = s.changes.first;
+
+        expect(results.hasListener, isFalse);
+        results.add([ConnectivityResult.mobile]);
+        s.didChangeAppLifecycleState(AppLifecycleState.resumed);
+
+        await changes.timeout(const Duration(seconds: 2));
+        expect(checks, 0);
+        expect(s.vpnActive, isNull);
       },
     );
 

@@ -51,6 +51,11 @@ Stream<T> debounced<T>(Stream<T> source, Duration quiet) {
 
 /// [NetworkSignals] from `connectivity_plus` and the app lifecycle. Only
 /// Android and Windows report a VPN; iOS and macOS report `other` for it.
+///
+/// On Linux the plugin is never created: it talks to NetworkManager over the
+/// system D-Bus, and without one its errors escape every handler as uncaught
+/// async errors. Linux has no VPN signal to give anyway, so only the
+/// lifecycle nudge remains there. [results] and [check] are ignored then.
 class ConnectivityNetworkSignals
     with WidgetsBindingObserver
     implements NetworkSignals {
@@ -58,25 +63,31 @@ class ConnectivityNetworkSignals
     Stream<List<ConnectivityResult>>? results,
     Future<List<ConnectivityResult>> Function()? check,
     bool? reportsVpn,
+    bool? onLinux,
     Duration debounce = const Duration(seconds: 1),
   }) : _reportsVpn = reportsVpn ?? (Platform.isAndroid || Platform.isWindows) {
-    final connectivity = results == null || check == null
-        ? Connectivity()
-        : null;
-    _subscription = (results ?? connectivity!.onConnectivityChanged).listen((
-      current,
-    ) {
-      _update(current);
-      _raw.add(null);
-    }, onError: (Object _) {});
-    (check ?? connectivity!.checkConnectivity)().then(_update, onError: (_) {});
+    if (!(onLinux ?? Platform.isLinux)) {
+      final connectivity = results == null || check == null
+          ? Connectivity()
+          : null;
+      _subscription = (results ?? connectivity!.onConnectivityChanged).listen((
+        current,
+      ) {
+        _update(current);
+        _raw.add(null);
+      }, onError: (Object _) {});
+      (check ?? connectivity!.checkConnectivity)().then(
+        _update,
+        onError: (_) {},
+      );
+    }
     WidgetsBinding.instance.addObserver(this);
     changes = debounced(_raw.stream, debounce);
   }
 
   final bool _reportsVpn;
   final _raw = StreamController<void>.broadcast();
-  late final StreamSubscription<List<ConnectivityResult>> _subscription;
+  StreamSubscription<List<ConnectivityResult>>? _subscription;
   bool? _vpnActive;
 
   @override
@@ -96,7 +107,7 @@ class ConnectivityNetworkSignals
 
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _subscription.cancel();
+    _subscription?.cancel();
     _raw.close();
   }
 }
