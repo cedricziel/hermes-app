@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -13,6 +14,7 @@ import 'media/media_store.dart';
 import 'session_export_controller.dart';
 import 'session_export_telemetry.dart';
 import 'thread_export.dart';
+import 'widgets/chat_composer.dart';
 import 'widgets/session_export_alert.dart';
 
 /// The controller a screen owns for "Export chat as JSON". The file goes out
@@ -75,7 +77,15 @@ Future<void> showSessionExport(
   Future<void> confirm() async {
     final result = await controller.confirm();
     if (result == SessionExportSaveResult.saved) {
-      messenger?.showSnackBar(SnackBar(content: Text(savedText)));
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(savedText),
+          behavior: SnackBarBehavior.floating,
+          margin: context.mounted
+              ? _aboveComposer(context)
+              : const EdgeInsets.all(_snackBarInset),
+        ),
+      );
     } else if (!open && controller.phase is SessionExportFailed) {
       // The save sheet failed after the alert had closed behind it: show the
       // failure again, or nothing could close it and a new export would be
@@ -113,6 +123,45 @@ Future<void> showSessionExport(
   };
 
   await present();
+}
+
+const _snackBarInset = 16.0;
+
+/// The floating snack bar's margin: the design's 16 px inset, with the bottom
+/// raised above the composer when the screen under [context] has one. A
+/// Scaffold only lifts a snack bar above its own bottom widgets, and the
+/// composer sits in the body, so without this the bar covers the send button.
+EdgeInsets _aboveComposer(BuildContext context) {
+  const inset = EdgeInsets.all(_snackBarInset);
+  Element? composer;
+  void find(Element element) {
+    if (composer != null) return;
+    if (element.widget.key == chatComposerKey) {
+      composer = element;
+      return;
+    }
+    element.visitChildren(find);
+  }
+
+  (context as Element).visitChildren(find);
+  final found = composer;
+  final scaffold = found == null ? null : Scaffold.maybeOf(found);
+  final box = found?.renderObject;
+  final scaffoldBox = scaffold?.context.findRenderObject();
+  if (found == null ||
+      box is! RenderBox ||
+      !box.attached ||
+      scaffoldBox is! RenderBox ||
+      !scaffoldBox.attached) {
+    return inset;
+  }
+  final composerTop = box.localToGlobal(Offset.zero).dy;
+  final contentBottom =
+      scaffoldBox.localToGlobal(Offset(0, scaffoldBox.size.height)).dy -
+      MediaQuery.viewInsetsOf(found).bottom;
+  return inset.copyWith(
+    bottom: max(_snackBarInset, contentBottom - composerTop + _snackBarInset),
+  );
 }
 
 class _SessionExportDialog extends StatefulWidget {

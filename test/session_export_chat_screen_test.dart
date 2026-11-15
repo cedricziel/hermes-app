@@ -11,6 +11,7 @@ import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/voice/widgets/voice_recording_controls.dart';
 import 'package:hermes_app/src/chat/widgets/session_export_alert.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -125,6 +126,7 @@ void main() {
     WidgetTester tester, {
     bool signedIn = true,
     TargetPlatform? platform,
+    Size? size,
   }) async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
@@ -143,6 +145,7 @@ void main() {
     await pumpChatScreen(
       tester,
       platform: platform,
+      size: size ?? const Size(1400, 900),
       wrap: platform == TargetPlatform.macOS
           ? (app) => MacSidebarScope(child: app)
           : null,
@@ -207,6 +210,37 @@ void main() {
     expect(actions.saved.single.name, 'Run failure.json');
     expect(actions.saved.single.bytes, _body);
     expect(find.text('Chat saved'), findsOneWidget);
+  });
+
+  testWidgets('"Chat saved" floats above the composer on a phone', (
+    tester,
+  ) async {
+    await pump(tester, size: const Size(390, 844));
+    await tester.tap(find.text('Run failure').first);
+    await frames(tester);
+
+    commands.invoke(MacCommand.exportThread);
+    await frames(tester);
+    await tester.tap(find.text('Export'));
+    await frames(tester);
+
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.behavior, SnackBarBehavior.floating);
+    final margin = snackBar.margin!.resolve(TextDirection.ltr);
+    expect(margin.left, 16);
+    expect(margin.right, 16);
+    // The SnackBar widget's own box includes its margin; the card is inside.
+    final bar = tester.getRect(
+      find
+          .descendant(
+            of: find.byType(SnackBar),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    final send = tester.getRect(find.byType(HoldToRecordSend));
+    expect(bar.overlaps(send), isFalse, reason: '$bar covers send $send');
+    expect(bar.bottom, lessThanOrEqualTo(send.top));
   });
 
   testWidgets('a cancelled save sheet shows no snack bar', (tester) async {
