@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'safe_path_text.dart';
+import '../files/widgets/safe_path_text.dart';
 
 /// [text] cut to at most [maxChars] characters, the middle replaced by an
 /// ellipsis. With [keepExtension] the end is the extension and a few
@@ -24,21 +24,36 @@ String elideMiddle(
   return '${chars.take(head).join()}…${chars.sublist(chars.length - tail).join()}';
 }
 
+/// What the end of a [MiddleEllipsisText] keeps when the text is cut.
+enum MiddleTail {
+  /// A file name: the extension and three characters before it, else the
+  /// last three characters.
+  extension,
+
+  /// An identifier such as a model id: about 40 percent of what fits, and at
+  /// least 8 characters, so `claude-sonnet-4-5-20…250929` keeps the part that
+  /// tells versions apart. A `.` is never an extension (`gpt-5.1`).
+  balanced,
+}
+
 /// A name drawn on at most [maxLines] lines, wrapped at word boundaries (a
 /// word breaks only when nothing else fits). A name too long for them is cut
-/// in the middle, keeping its extension, so the end that tells files apart
-/// stays. With no [maxLines] the whole name wraps.
+/// in the middle, so the end that tells names apart stays: with the default
+/// [tail] its extension. With no [maxLines] the whole name wraps. The full
+/// text is what assistive technology reads.
 class MiddleEllipsisText extends StatelessWidget {
   const MiddleEllipsisText(
     this.text, {
     super.key,
     this.style,
     this.maxLines = 2,
+    this.tail = MiddleTail.extension,
   });
 
   final String text;
   final TextStyle? style;
   final int? maxLines;
+  final MiddleTail tail;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +82,8 @@ class MiddleEllipsisText extends StatelessWidget {
         }
 
         return Text(
-          fits(text) ? text : _cut(text, fits),
+          fits(text) ? text : _cut(text, fits, tail),
+          semanticsLabel: text,
           style: style,
           maxLines: lines,
           overflow: TextOverflow.clip,
@@ -76,9 +92,10 @@ class MiddleEllipsisText extends StatelessWidget {
     );
   }
 
-  /// The longest `head…tail` that fits, found by bisection on the head.
-  static String _cut(String text, bool Function(String) fits) {
+  /// The longest `head…tail` that fits, found by bisection.
+  static String _cut(String text, bool Function(String) fits, MiddleTail mode) {
     final chars = safeTextUnits(text);
+    if (mode == MiddleTail.balanced) return _cutBalanced(chars, fits);
     final dot = text.lastIndexOf('.');
     final extension = dot > 0 ? text.substring(dot) : '';
     final keep = extension.isNotEmpty && extension.length <= 8
@@ -97,5 +114,28 @@ class MiddleEllipsisText extends StatelessWidget {
       }
     }
     return '${chars.take(low).join()}…$tail';
+  }
+
+  /// The most units that fit, the last 40 percent of them (at least 8) as
+  /// the tail.
+  static String _cutBalanced(List<String> chars, bool Function(String) fits) {
+    String candidate(int kept) {
+      final wanted = (kept * 0.4).round();
+      final tail = kept < 8 ? kept : (wanted < 8 ? 8 : wanted);
+      return '${chars.take(kept - tail).join()}…'
+          '${chars.sublist(chars.length - tail).join()}';
+    }
+
+    var low = 0;
+    var high = chars.length - 1;
+    while (low < high) {
+      final mid = (low + high + 1) ~/ 2;
+      if (fits(candidate(mid))) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return candidate(low);
   }
 }

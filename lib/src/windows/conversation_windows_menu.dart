@@ -47,6 +47,12 @@ class ConversationWindowsMenu extends StatelessWidget {
               // A settings page in the main window stays put.
               MacCommand.back: const MacCommandHandler(null),
               MacCommand.forward: const MacCommandHandler(null),
+              // Pages of the main window: the window has none to reload or
+              // step through.
+              MacCommand.reload: const MacCommandHandler(null),
+              MacCommand.enclosingFolder: const MacCommandHandler(null),
+              MacCommand.previousChange: const MacCommandHandler(null),
+              MacCommand.nextChange: const MacCommandHandler(null),
               MacCommand.pinThread: run(
                 ThreadAction.pin,
                 title: key.pinned ? 'Unpin' : 'Pin',
