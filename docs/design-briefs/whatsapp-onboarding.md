@@ -2,9 +2,9 @@
 
 Change: `openspec/changes/whatsapp-onboarding/`. Read its design.md for the server facts (statuses, the 600 s expiry, the 900 s drop, what apply does, what cancel does not do); this brief is the visual and copy pass.
 
-## Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC)
+## Design (done): canvas reviewed
 
-No Claude Design canvas exists yet, so there is no canvas link and none should be assumed. The brief was written from the Hermes App design system README, the merged briefs (`server-care.md`, `toolsets.md`), the shared widgets in `lib/src/widgets/` and the change's own files, then reviewed against the app-wide rules. No build starts before the canvas exists; when it does, run the design pass and bring this brief in line with it. The catalog PR (task 1 in tasks.md) is where the states below are first drawn, and it is the first place a human sees them; where a catalog use case shows that a decision here does not work, correct the brief in that PR, in a "Corrections" paragraph like the other briefs.
+Canvas: https://claude.ai/artifact/PPwKxdh8zKokvagfxS3Gho (private; ask its owner for access). 26 boards and one parametric page, in nine rows: A entry, setup and start (3 boards); B handset notice and QR (3); C linked and end states (3); D Finish question and saved outcomes (4); E dark (3); F largest text (2); G German (2); H Android (2); I Mac and iPad (4). What was checked and what was not is under "Local render review" below. The brief was written from the Hermes App design system README, the merged briefs (`server-care.md`, `toolsets.md`), the shared widgets in `lib/src/widgets/` and the change's own files, then reviewed against the app-wide rules. The catalog PR (task 1 in tasks.md) is where the states below are first drawn, and it is the first place a human sees them; where a catalog use case shows that a decision here does not work, correct the brief in that PR, in a "Corrections" paragraph like the other briefs.
 
 Screens and states decided (one pushed screen, "Link WhatsApp", whose body follows a phase; plus the entry button and the Finish confirmation):
 
@@ -268,7 +268,7 @@ English strings are shorter than German; the long-string risks are: "Link WhatsA
 
 ## Local render review
 
-The canvas is staged locally and is not published: 26 boards and one parametric page, published after the quota resets on 2026-11-15. It was rendered in headless Chrome against the design-system bundle (version 1792838541-f89d) and every board was looked at in light and dark, at phone and desktop width and at text scale 1 and 2. The findings are folded into the sections above.
+The canvas is published (link above) and was not opened in the claude.ai viewer. Before publishing it was rendered in headless Chrome against the design-system bundle (version 1792838541-f89d) and every board was looked at in light and dark, at phone and desktop width and at text scale 1 and 2. The findings are folded into the sections above.
 
 Not checked: the claude.ai viewer, real devices, a scannable QR (the drawn pattern is invented), screen readers, live regions, focus order, Return and Escape on desktop, Mac targets at 28 pt, the App Lock cover, the animated countdown and its 60/30/10 s announcements, and a real Open Server target. Text scale 2 is CSS `zoom: 2`, harsher than a device because it also scales padding and gutters. Contrast was read from the bundle's tokens only (warning and muted pass AA on white; the banner tints were not measured). The German strings are the designer's own; WhatsApp's German labels are unconfirmed.
 
