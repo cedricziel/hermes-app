@@ -718,7 +718,6 @@ class GroupedSwitchRow extends StatelessWidget {
     this.caption,
     this.warning,
     this.error,
-    this.details = const [],
     this.leading,
     this.onTap,
     this.selected = false,
@@ -739,10 +738,6 @@ class GroupedSwitchRow extends StatelessWidget {
   final String? caption;
   final String? warning;
   final String? error;
-
-  /// Further lines under the [error] line, such as a button that fixes the
-  /// [warning].
-  final List<Widget> details;
   final Widget? leading;
 
   /// Opens the row's details; the switch alone changes [value].
@@ -762,7 +757,6 @@ class GroupedSwitchRow extends StatelessWidget {
     caption: caption,
     warning: warning,
     error: error,
-    details: details,
     leading: leading,
     onTap: onTap,
     selected: selected,

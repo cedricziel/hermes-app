@@ -107,13 +107,11 @@ class _NotificationsDialog extends StatelessWidget {
               key: const Key('notify-me'),
               title: 'Notify me',
               warning: denied ? context.l10n.notificationsDeniedWarning : null,
-              details: [
-                if (denied && canOpenNotificationSettings(platform))
-                  OpenSettingsButton(onPressed: openSettings),
-              ],
               value: settings.enabled,
               onChanged: (value) => settings.setEnabled(value),
             ),
+            if (denied && canOpenNotificationSettings(platform))
+              OpenSettingsButton(onPressed: openSettings),
           ],
         ),
         GroupedSection(

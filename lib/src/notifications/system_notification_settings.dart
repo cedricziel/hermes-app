@@ -13,8 +13,9 @@ bool canOpenNotificationSettings(TargetPlatform platform) =>
     platform == TargetPlatform.iOS ||
     platform == TargetPlatform.macOS;
 
-/// The app's notification settings on Android 8 and later, the app's own
-/// settings page on iOS and macOS. A failure is swallowed: the user is left
+/// The app's notification settings on Android 8 and later and on iOS 16 and
+/// later, the system's general Notifications pane on macOS (where the user
+/// picks Hermes from the list). A failure is swallowed: the user is left
 /// where they were and can still open system settings by hand.
 Future<void> openSystemNotificationSettings() async {
   try {
