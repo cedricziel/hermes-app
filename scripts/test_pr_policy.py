@@ -855,6 +855,33 @@ class MergeReviewTest(unittest.TestCase):
         out = self.review(h, blk(h, self.root, rng=False))
         self.assertIn("is not on the base branch", out[0])
 
+    def test_corrected_block_below_a_bad_range_block_is_accepted(self):
+        self.r.sync_origin()
+        bad = f"Reviewer: r Head: {self.rev} Verdict: clean\nRange: {self.rev}..{self.rev}\n"
+        good = blk(self.rev, self.root)
+        self.assertIn("is empty", self.review(self.rev, bad)[0])
+        for review in (bad + good, good + bad):
+            self.assertEqual(self.review(self.rev, review), [])
+        # Still refused when no block is valid, and when one asks for changes.
+        self.assertIn("is empty", self.review(self.rev, bad + bad)[0])
+        worse = blk(self.rev, self.root, verdict="changes-requested")
+        for review in (good + worse, worse + good):
+            self.assertIn("requested changes", self.review(self.rev, review)[0])
+
+    def test_legacy_block_naming_an_inner_merge_does_not_accept_the_head(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        late = r.commit("late.txt")  # unreviewed first parent of the inner merge
+        inner = r.merge("main")
+        self.advance_main("m2.txt")
+        head = r.merge("main")
+        self.assertEqual(self.review(inner, blk(inner, self.root, rng=False)), [])
+        out = self.review(head, blk(inner, self.root, rng=False))
+        self.assertTrue(out)
+        self.assertIn(f"commit {late} (reached from head {head}", out[0])
+        # The same block naming the head itself still passes in the transition.
+        self.assertEqual(self.review(head, blk(head, self.root, rng=False)), [])
+
     def test_non_clean_block_for_a_clean_merge_head_blocks_it(self):
         h = self.clean_merge_of_main()
         p = blk(self.rev, self.root)
@@ -1102,6 +1129,10 @@ class MergeReviewTest(unittest.TestCase):
             out[0],
         )
         self.assertNotIn("Merge-review", out[0])
+        self.assertIn("Head: <new head sha>", out[0])
+        self.assertIn("Range: <merge-base>..<new head sha>", out[0])
+        self.assertNotIn(f"Head: {head} ", out[0])
+        self.assertIn("template for that squashed or rebased head", out[0])
 
     def test_chain_at_the_budget_passes_and_one_more_fails(self):
         head, _ = self.r.fast_chain(self.rev, 5)

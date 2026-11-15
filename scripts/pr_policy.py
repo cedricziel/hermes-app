@@ -335,7 +335,7 @@ def check(
 #        the files cover every file whose content differs from merge-tree.
 # A plain block never accepts a merge commit by itself. Any block, plain or
 # Merge-review, naming a commit with a verdict other than clean keeps it from
-# being accepted. The Range base to ask for is merge-base(base tip, commit).
+# being accepted; otherwise any clean block with a valid Range accepts it. The Range base to ask for is merge-base(base tip, commit).
 # A Merge-review whose second parent is not on the base branch must list
 # everything the merge brings into its first parent, since merge-tree proves
 # nothing about that parent's content.
@@ -608,10 +608,17 @@ class _Review:
                 f"No isolated review recorded for {self.where(commit)}: ask "
                 f"the isolated reviewer for a full review of {commit}. {paste}"
             ]
-        block = mine[0]
-        if block.range is None and ACCEPT_LEGACY_REVIEW_BLOCK:
-            return []
-        return self.range_failures(block, commit)
+        # Any clean block with a valid Range accepts the commit, so a
+        # corrected block pasted below a bad one works. A verdict other than
+        # clean was refused before this point. Otherwise report the last block.
+        failures = []
+        for block in mine:
+            if block.range is None and ACCEPT_LEGACY_REVIEW_BLOCK:
+                return []
+            failures = self.range_failures(block, commit)
+            if not failures:
+                return []
+        return failures
 
     def required_files(self, h, p, m):
         """Files a Merge-review of h must list: those whose content differs
@@ -704,8 +711,12 @@ class _Review:
         failures = self.tree_failures(commit, p, m)
         if not failures:
             # (b1): the merge is the clean automatic merge.
-            if ACCEPT_LEGACY_REVIEW_BLOCK and any(
-                b.head == commit and b.range is None for b in self.plain
+            # Only for the head: the in-flight PRs name their merge head, and
+            # a legacy block naming an inner merge must not vouch for the chain.
+            if (
+                ACCEPT_LEGACY_REVIEW_BLOCK
+                and commit == self.head
+                and any(b.head == commit and b.range is None for b in self.plain)
             ):
                 return []  # the known transition gap described above
             parent_failures = yield p
@@ -780,8 +791,10 @@ def review_recorded(body, head_sha, git=None, base_tip=None):
     return [
         f"The chain behind {head_sha} is longer than {MAX_CHAIN_COMMITS} "
         f"commits; squash or rebase the branch onto the base branch (tip "
-        f"{base_tip}) and get a full review of the new head. "
-        f"{_paste(head_sha, git.merge_base(base_tip, head_sha) or base_tip)}"
+        f"{base_tip}) and get a full review of the new head. This block is a "
+        "template for that squashed or rebased head, not for the current one: "
+        "replace <new head sha> with it and <merge-base> with `git merge-base "
+        f"{base_tip} <new head sha>`. {_paste('<new head sha>', '<merge-base>')}"
     ]
 
 
