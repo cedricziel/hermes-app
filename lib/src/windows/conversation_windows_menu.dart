@@ -53,6 +53,11 @@ class ConversationWindowsMenu extends StatelessWidget {
               ),
               MacCommand.renameThread: run(ThreadAction.rename),
               MacCommand.copyTranscript: run(ThreadAction.copyTranscript),
+              // Present in the menu bar, disabled without a profile; the
+              // window itself stays idle while its own export runs.
+              MacCommand.exportThread: key.args.profile == null
+                  ? const MacCommandHandler(null)
+                  : run(ThreadAction.exportJson),
               // A conversation window holds no checkpoint or context
               // controllers, so the main window's chat is not compressed
               // from it.

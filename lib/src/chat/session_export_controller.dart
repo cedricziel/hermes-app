@@ -25,13 +25,19 @@ enum SessionExportSaveResult {
   /// The user cancelled the save sheet; the caller shows nothing.
   cancelled,
 
-  /// App Lock locked while the sheet was open; the caller shows nothing.
+  /// App Lock locked while the sheet was open; the caller shows nothing. The
+  /// app cannot dismiss the native sheet, so the file may still have been
+  /// written if the user finished it after unlocking.
   droppedByLock,
 }
 
 /// How long the request may stay without a first byte before the alert says it
 /// is still waiting.
 const sessionExportStallAfter = Duration(seconds: 10);
+
+/// How long the picker's temporary files may take to clear before the export
+/// is let go anyway, so [SessionExportController.busy] never stays stuck.
+const sessionExportClearTimeout = Duration(seconds: 5);
 
 /// Runs "Export chat as JSON": confirm, fetch, save, one at a time. It never
 /// resends a request: a failure, a retry or a lock ends in the confirmation or
@@ -291,7 +297,7 @@ class SessionExportController extends ChangeNotifier {
 
   Future<void> _clearTemporary() async {
     try {
-      await clearTemporaryFiles?.call();
+      await clearTemporaryFiles?.call().timeout(sessionExportClearTimeout);
     } on Object {
       return;
     }
