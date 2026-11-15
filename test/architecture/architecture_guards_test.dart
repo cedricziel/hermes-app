@@ -111,6 +111,22 @@ int _bodyEnd(String code, int from) {
   return code.length;
 }
 
+/// Parameters typed [types] (a regex alternation), each visible in its own
+/// function or closure body: (start, end, {name}).
+List<(int, int, Set<String>)> _typedParamRanges(String code, String types) {
+  final out = <(int, int, Set<String>)>[];
+  for (final m in RegExp('\\b(?:$types)\\??\\s+(\\w+)').allMatches(code)) {
+    var depth = 0;
+    var i = m.end;
+    for (; i < code.length; i++) {
+      if (code[i] == '(') depth++;
+      if (code[i] == ')' && depth-- == 0) break;
+    }
+    out.add((m.start, _bodyEnd(code, i + 1), {m.group(1)!}));
+  }
+  return out;
+}
+
 /// Where an error name is bound as a parameter or catch variable:
 /// (start, end, names) of the code the names are visible in.
 List<(int, int, Set<String>)> _errorBindings(String code) {
@@ -124,7 +140,8 @@ List<(int, int, Set<String>)> _errorBindings(String code) {
   final handler = RegExp(
     r'\b(?:catchError|handleError)\s*\(\s*\(([^)]*)\)'
     r'|\bonError\s*:\s*\(([^)]*)\)'
-    r'|\b(?:FlutterError|PlatformDispatcher\.instance)\.onError\s*=\s*\(([^)]*)\)',
+    r'|\b(?:FlutterError|[\w.]*[Pp]latformDispatcher(?:\.instance)?)'
+    r'\.onError\s*=\s*\(([^)]*)\)',
   );
   for (final m in handler.allMatches(code)) {
     final params = m.group(1) ?? m.group(2) ?? m.group(3)!;
@@ -142,17 +159,7 @@ List<(int, int, Set<String>)> _errorBindings(String code) {
     }
   }
   // Any parameter typed StackTrace or FlutterErrorDetails, in its function.
-  for (final m in RegExp(
-    r'\b(?:StackTrace|FlutterErrorDetails)\??\s+(\w+)',
-  ).allMatches(code)) {
-    var depth = 0;
-    var i = m.end;
-    for (; i < code.length; i++) {
-      if (code[i] == '(') depth++;
-      if (code[i] == ')' && depth-- == 0) break;
-    }
-    out.add((m.start, _bodyEnd(code, i + 1), {m.group(1)!}));
-  }
+  out.addAll(_typedParamRanges(code, 'StackTrace|FlutterErrorDetails'));
   return out;
 }
 
@@ -171,12 +178,7 @@ List<Hit> errorInterpolationHits(SourceFile file) {
   final bindings = _errorBindings(file.code);
   // `details.exception` / `details.stack` of a FlutterErrorDetails: a
   // parameter typed so, or the parameter of a FlutterError.onError handler.
-  final typedDetails = {
-    for (final m in RegExp(
-      r'\bFlutterErrorDetails\??\s+(\w+)',
-    ).allMatches(file.code))
-      m.group(1)!,
-  };
+  final typedDetails = _typedParamRanges(file.code, 'FlutterErrorDetails');
   final flutterHandlers = <(int, int, Set<String>)>[
     for (final m in RegExp(
       r'\bFlutterError\.onError\s*=\s*\(([^)]*)\)',
@@ -192,8 +194,7 @@ List<Hit> errorInterpolationHits(SourceFile file) {
     };
     final n = '(?:${names.join('|')})';
     final detailNames = {
-      ...typedDetails,
-      for (final (start, end, bound) in flutterHandlers)
+      for (final (start, end, bound) in [...typedDetails, ...flutterHandlers])
         if (offset > start && offset < end) ...bound,
     };
     final details = detailNames.isEmpty
@@ -494,6 +495,38 @@ void main() {
       expect(count(r"f(FlutterErrorDetails d) { debugPrint('$d'); }"), 1);
       expect(
         count(r"f(Object details) { debugPrint('${details.runtimeType}'); }"),
+        0,
+      );
+    });
+
+    test('binds the platform dispatcher through any receiver', () {
+      expect(
+        count(
+          r"f() { WidgetsBinding.instance.platformDispatcher.onError = (e, st) { debugPrint('$e'); return true; }; }",
+        ),
+        1,
+      );
+      expect(
+        count(
+          r"f(b) { b.platformDispatcher.onError = (e, st) { debugPrint('$st'); return true; }; }",
+        ),
+        1,
+      );
+      expect(
+        count(r"f(b) { b.other.onError = (e, st) { debugPrint('$e'); }; }"),
+        0,
+      );
+    });
+
+    test('a FlutterErrorDetails parameter is scoped to its own function', () {
+      expect(
+        count(r"f(FlutterErrorDetails d) { debugPrint('${d.exception}'); }"),
+        1,
+      );
+      expect(
+        count(
+          r"f(FlutterErrorDetails d) { } g(Object d) { debugPrint('${d.exception}'); }",
+        ),
         0,
       );
     });
