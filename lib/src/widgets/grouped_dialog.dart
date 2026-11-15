@@ -158,13 +158,14 @@ class _Title extends StatelessWidget {
       minHeight: ios ? kAppleNavBarHeight + 8 : 44,
       doneInset: ios ? 4 : 8,
       textDirection: Directionality.of(context),
+      // Screen readers follow the sort keys, not the position: stacked, Done
+      // sits above the title but is still read after it.
       title: Semantics(
+        sortKey: const OrdinalSortKey(0),
         header: true,
         child: Text(
           title,
           textAlign: TextAlign.center,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: fontSize,
             fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
@@ -173,16 +174,24 @@ class _Title extends StatelessWidget {
         ),
       ),
       done: showDone
-          ? TextButton(
-              key: const Key('grouped-dialog-done'),
-              style: TextButton.styleFrom(
-                textStyle: Theme.of(context).textTheme.labelLarge
-                    ?.copyWith(fontSize: fontSize, fontWeight: FontWeight.w600),
-                minimumSize: Size(ios ? kAppleMinTapTarget : 0, ios ? 44 : 28),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ? Semantics(
+              sortKey: const OrdinalSortKey(1),
+              child: TextButton(
+                key: const Key('grouped-dialog-done'),
+                style: TextButton.styleFrom(
+                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  minimumSize: Size(
+                    ios ? kAppleMinTapTarget : 0,
+                    ios ? 44 : 28,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(context.l10n.widgetsDone),
               ),
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(context.l10n.widgetsDone),
             )
           : null,
     );
@@ -191,8 +200,8 @@ class _Title extends StatelessWidget {
 
 /// The header of an Apple or desktop [GroupedDialog]: the title centred, the
 /// Done button at the end. It grows with the text instead of keeping a fixed
-/// height, hands the title what Done leaves, and moves the title under Done
-/// when even its longest word would not fit beside it.
+/// height, hands the title what Done leaves, and when the title does not fit
+/// on one line beside Done, gives Done its own row with the title under it.
 class _TitleBar extends MultiChildRenderObjectWidget {
   _TitleBar({
     required this.minHeight,
@@ -270,16 +279,34 @@ class _RenderTitleBar extends RenderBox
   RenderBox? get _done => childAfter(_title);
 
   @override
-  double computeMinIntrinsicHeight(double width) => _minHeight;
+  double computeMinIntrinsicHeight(double width) =>
+      computeMaxIntrinsicHeight(width);
 
   @override
-  double computeMaxIntrinsicHeight(double width) => _minHeight;
+  double computeMaxIntrinsicHeight(double width) => getDryLayout(
+    BoxConstraints(maxWidth: width.isFinite ? width : _maxWidth(null)),
+  ).height;
 
   @override
-  double computeMinIntrinsicWidth(double height) => 0;
+  double computeMinIntrinsicWidth(double height) {
+    final done = _done;
+    final doneWidth = done == null ? 0.0 : done.getMinIntrinsicWidth(height);
+    return math.max(
+      _title.getMinIntrinsicWidth(height) + 2 * _sidePadding,
+      doneWidth + 2 * _doneInset,
+    );
+  }
 
   @override
-  double computeMaxIntrinsicWidth(double height) => 0;
+  double computeMaxIntrinsicWidth(double height) => _maxWidth(height);
+
+  double _maxWidth(double? height) {
+    final h = height ?? double.infinity;
+    final done = _done;
+    final doneWidth = done == null ? 0.0 : done.getMaxIntrinsicWidth(h);
+    final doneSpan = done == null ? 0.0 : doneWidth + _doneInset + _gap;
+    return _title.getMaxIntrinsicWidth(h) + _sidePadding + doneSpan;
+  }
 
   @override
   Size computeDryLayout(BoxConstraints constraints) =>
@@ -313,7 +340,7 @@ class _RenderTitleBar extends RenderBox
     final doneSpan = done == null ? 0.0 : doneSize.width + _doneInset + _gap;
     final beside = width - doneSpan - _sidePadding;
     final stacked =
-        done != null && _title.getMinIntrinsicWidth(double.infinity) > beside;
+        done != null && _title.getMaxIntrinsicWidth(double.infinity) > beside;
 
     final titleMax = stacked ? width - 2 * _sidePadding : beside;
     final titleSize = layoutChild(
