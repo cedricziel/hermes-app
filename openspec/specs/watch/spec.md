@@ -228,17 +228,27 @@ The phone SHALL add `serverUrl` (the canonical server address), `profile` and `s
 
 ### Requirement: Quick replies and double tap
 
-The watch SHALL show the fixed quick replies "Continue", "Yes", "No" and "Summarize" above the reply field of a chat. Tapping one SHALL send its text as a message under the rules of "Sending from the watch", and the quick replies SHALL be disabled whenever the field is, in particular while a reply is pending. They SHALL NOT be shown while a voice message is being recorded. On watchOS 11 and later, the double-tap gesture SHALL start a voice message when the chat is idle, and stop and send the recording while one is being made; it SHALL do nothing while the voice button is disabled.
+The watch SHALL show built-in starters, "Plan my day" and "Explain something", in an empty new chat with an empty composer. Selecting one SHALL insert an editable draft ("Help me plan my day." or "Help me understand this topic: ") and SHALL NOT send it. After a successfully completed assistant reply, the watch SHALL offer the fixed follow-ups "Continue" and "Summarize" while the chat is idle with no draft, no pending request and no unresolved delivery. Tapping a follow-up SHALL send its text as a message under the rules of "Sending from the watch". Starters and follow-ups SHALL be hidden whenever the composer is not idle, in particular while a reply is pending, a voice message is being recorded, transcribed or reviewed, a request is waiting for an answer, or delivery is uncertain, and an activation that arrives after they were hidden SHALL send nothing. The watch SHALL NOT offer generic "Yes" or "No" chips and SHALL NOT store or edit custom favorites. On watchOS 11 and later, the double-tap gesture SHALL start a voice message when the chat is idle, and stop and send the recording while one is being made; it SHALL do nothing while the voice button is disabled.
 
-#### Scenario: Tap a quick reply
+#### Scenario: Select a starter
 
-- **WHEN** the user taps "Yes" in an idle chat
-- **THEN** the watch sends "Yes" into that chat and shows "Hermes is thinking…"
+- **WHEN** the user selects "Plan my day" in an empty new chat
+- **THEN** an editable planning draft appears and nothing is sent
+
+#### Scenario: Tap a follow-up
+
+- **WHEN** the user taps "Continue" after a completed reply in an idle chat
+- **THEN** the watch sends "Continue" into that chat and shows "Hermes is thinking…"
+
+#### Scenario: Existing draft
+
+- **WHEN** the composer holds a typed draft or a voice transcript
+- **THEN** no starter or follow-up is shown and none can overwrite the draft
 
 #### Scenario: Reply pending
 
 - **WHEN** a reply is pending
-- **THEN** the quick replies are disabled and a tap sends nothing
+- **THEN** the starters and follow-ups are hidden and a stale tap sends nothing
 
 #### Scenario: Double tap while idle
 
