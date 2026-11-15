@@ -45,15 +45,25 @@ extension _Reconnect on HermesGatewayTransport {
     // Attempts the server answered, for telemetry and the attempt limit.
     var tried = 0;
     var unanswered = 0;
+    var finished = false;
+    // The app asking the connection again (coming to the front) gives the
+    // wait a new window at once, whatever the loop is doing.
+    void watchNudge() {
+      unawaited(
+        _nudge.future.then((_) {
+          if (finished || answeredYet || expired.isCompleted) return;
+          startTimer(_reconnectWindow);
+          watchNudge();
+        }),
+      );
+    }
+
+    if (patient) watchNudge();
     var nudge = _nudge;
     try {
       while (tried < maxAttempts && unanswered < _maxUnansweredAttempts) {
         if (stop()) break;
-        if (!answeredYet && !identical(nudge, _nudge)) {
-          // The app asked the connection again: a new window.
-          nudge = _nudge;
-          startTimer(_reconnectWindow);
-        }
+        nudge = _nudge;
         final index = tried + unanswered + drops;
         if (index > 0) {
           final delay = reconnectDelay(
@@ -107,6 +117,7 @@ extension _Reconnect on HermesGatewayTransport {
       }
       return failed;
     } finally {
+      finished = true;
       timer?.cancel();
     }
   }
@@ -149,7 +160,6 @@ extension _Reconnect on HermesGatewayTransport {
         'profile': ?owner.$1,
         'source': gatewaySessionSource,
       }, timeout: reattachTimeout);
-      attempt.answered = true;
     } on GatewayRpcException catch (error) {
       tap.close();
       attempt.answered = true;
@@ -191,7 +201,9 @@ extension _Reconnect on HermesGatewayTransport {
           'session_id': runtimeId,
           'last_seen': _ledger.lastSeen(runtimeId),
         }, timeout: reattachTimeout);
+        attempt.answered = true;
       } on GatewayRpcException catch (error) {
+        attempt.answered = true;
         // A gateway that predates the replay cannot fill the gap, so the
         // reply is rebuilt from the resume answer instead.
         if (error.code != kGatewayMethodNotFound) {
@@ -202,6 +214,9 @@ extension _Reconnect on HermesGatewayTransport {
         tap.close();
         return null;
       }
+    } else {
+      // Nothing more to ask: the resume answer is the server's.
+      attempt.answered = true;
     }
     // An attempt the budget or the consumer gave up on must not move the
     // watermark or park a watch.

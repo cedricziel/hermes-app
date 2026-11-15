@@ -728,6 +728,27 @@ void main() {
       });
     });
 
+    test('a resume refused as gone is reported as gone after one attempt', () {
+      fake((async) {
+        gateway.resumeResult = null;
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid);
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 30));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(events.named('gateway.reconnect'), [
+          {
+            'attempt': 1,
+            'outcome': 'gone',
+            'replayed_count': 0,
+            'truncated': false,
+            'epoch_changed': false,
+          },
+        ]);
+      });
+    });
+
     test('the replayed text is never part of the event', () {
       fake((async) {
         gateway.resumeResult = {'session_id': 'rt-1', 'running': true};

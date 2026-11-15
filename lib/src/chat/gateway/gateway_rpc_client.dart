@@ -119,15 +119,16 @@ class GatewayTurnEnded extends GatewayConnectionClosed {
 /// The codes are those Hermes' `session.resume` answers for a session it does
 /// not have or will not resume: `4000` (params refused), `4006` (no id),
 /// `4007` "session not found", `4064` (profile gone), `4130` (transcript too
-/// large) and `4132` (a Kanban worker's session). A `4007` that asks for a
-/// retry ("session no longer live; retry resume") is a race the next attempt
-/// wins, and `4009` and `5000` are transient too.
+/// large) and `4132` (a Kanban worker's session). `4007` is final only when its
+/// message says "not found"; any other `4007` (such as "session no longer
+/// live; retry resume", a race the next attempt wins) is retried, as are `4009`
+/// and `5000`.
 bool isFinalResumeRefusal(GatewayRpcException error) {
   switch (error.code) {
     case kGatewayInvalidParams || 4006 || 4064 || 4130 || 4132:
       return true;
     case 4007:
-      return !error.message.toLowerCase().contains('retry');
+      return error.message.toLowerCase().contains('not found');
     default:
       return false;
   }

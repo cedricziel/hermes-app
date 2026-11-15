@@ -1209,7 +1209,14 @@ void main() {
         var opened = 0;
         transport = HermesGatewayTransport(
           random: _FixedRandom(0.5),
-          sleep: (delay) async => waits.add(delay),
+          // Instant waits, until far past the backstop: without it the loop
+          // would stop here, and the test fails instead of hanging.
+          sleep: (delay) {
+            waits.add(delay);
+            return waits.length > 150
+                ? Completer<void>().future
+                : Future.value();
+          },
           connect: () async {
             if (opened++ == 0) return gateway.connect();
             throw StateError('gateway unreachable');
