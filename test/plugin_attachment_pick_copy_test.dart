@@ -1,0 +1,164 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
+import 'package:hermes_app/src/chat/attachments/plugin_attachment_source.dart';
+import 'package:hermes_app/src/chat/chat_controller.dart';
+import 'package:hermes_app/src/chat/media/media_source.dart';
+import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/notifications/attention_notifier.dart';
+
+import 'support/attachment_fixtures.dart';
+import 'support/fake_chat_transport.dart';
+
+base class _Picked extends PlatformFile {
+  _Picked(String path, this.name) : uri = Uri.file(path);
+
+  @override
+  final String name;
+
+  @override
+  final Uri uri;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _NoSource implements MediaSource {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late Directory pluginDir;
+  late Directory cache;
+  late MediaStore store;
+
+  setUp(() {
+    pluginDir = tempDir('file_picker_tmp');
+    cache = tempDir('app_cache');
+    store = MediaStore(source: _NoSource(), cacheDirectory: () async => cache);
+  });
+
+  PluginAttachmentSource sourceFor(
+    List<File> picked, {
+    TargetPlatform platform = TargetPlatform.iOS,
+  }) => PluginAttachmentSource(
+    platform: platform,
+    staging: store,
+    pickFiles: () async => [
+      for (final file in picked) _Picked(file.path, file.uri.pathSegments.last),
+    ],
+  );
+
+  List<File> partsIn(Directory dir) => dir
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((f) => f.path.endsWith('.part'))
+      .toList();
+
+  test('a picked file is copied out of the plugin directory', () async {
+    final file = writeTemp(pluginDir, 'report.pdf', [1, 2, 3, 4]);
+
+    final picked = await sourceFor([file]).pick(AttachOrigin.files);
+
+    expect(picked.single.name, 'report.pdf');
+    expect(picked.single.path, isNot(startsWith(pluginDir.path)));
+    expect(picked.single.path, startsWith(cache.path));
+    expect(File(picked.single.path).readAsBytesSync(), [1, 2, 3, 4]);
+    expect(partsIn(cache), isEmpty);
+  });
+
+  test('clearing the plugin directory leaves the draft sendable', () async {
+    final file = writeTemp(pluginDir, 'report.pdf', [9, 8, 7]);
+    final picked = await sourceFor([file]).pick(AttachOrigin.files);
+
+    // What FilePicker.clearTemporaryFiles does on iOS.
+    pluginDir.deleteSync(recursive: true);
+    pluginDir.createSync();
+
+    final transport = FakeChatTransport();
+    final attention = AttentionNotifier(
+      service: null,
+      settings: null,
+      onOpen: (_) {},
+    );
+    final chat = ChatController(
+      transport: transport,
+      attention: attention,
+      report: (_) {},
+    );
+    addTearDown(() {
+      chat.dispose();
+      attention.dispose();
+    });
+    chat.newThread();
+    expect(chat.submit('Read this', picked), isTrue);
+
+    final sent = transport.sends.last.attachments.single;
+    expect(sent.name, 'report.pdf');
+    expect(await sent.read(), [9, 8, 7]);
+  });
+
+  test('a failed copy is an error and leaves no .part file', () async {
+    final file = writeTemp(pluginDir, 'gone.pdf', [1]);
+    final source = sourceFor([file]);
+    file.deleteSync();
+
+    await expectLater(source.pick(AttachOrigin.files), throwsException);
+
+    expect(partsIn(cache), isEmpty);
+  });
+
+  test('a copy that fails midway leaves no .part file', () async {
+    final file = writeTemp(pluginDir, 'report.pdf', [1]);
+    final failing = MediaStore(
+      source: _NoSource(),
+      cacheDirectory: () async => cache,
+    );
+    final source = PluginAttachmentSource(
+      platform: TargetPlatform.iOS,
+      staging: failing,
+      pickFiles: () async => [
+        _Picked(file.path, 'report.pdf'),
+        _Picked('${pluginDir.path}/nope.pdf', 'n'),
+      ],
+    );
+
+    await expectLater(source.pick(AttachOrigin.files), throwsException);
+
+    expect(partsIn(cache), isEmpty);
+  });
+
+  test('a desktop pick is not copied', () async {
+    final file = writeTemp(pluginDir, 'report.pdf', [1]);
+
+    final picked = await sourceFor([
+      file,
+    ], platform: TargetPlatform.macOS).pick(AttachOrigin.files);
+
+    expect(picked.single.path, file.path);
+    expect(cache.listSync(), isEmpty);
+  });
+
+  test('sign-out removes the copies like other staged files', () async {
+    final file = writeTemp(pluginDir, 'report.pdf', [1]);
+    final picked = await sourceFor([file]).pick(AttachOrigin.files);
+
+    await store.clear();
+
+    expect(File(picked.single.path).existsSync(), isFalse);
+  });
+
+  test('clearing the files downloads at App Lock keeps the copies', () async {
+    final file = writeTemp(pluginDir, 'report.pdf', [1]);
+    final picked = await sourceFor([file]).pick(AttachOrigin.files);
+
+    await store.clearFileDownloads();
+
+    expect(File(picked.single.path).existsSync(), isTrue);
+  });
+}
