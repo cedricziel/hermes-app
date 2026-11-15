@@ -35,7 +35,7 @@ void main() {
         'Sign Out…',
       ],
       'File': ['New Chat ⌘N'],
-      'View': ['Back ⌘[', 'Enclosing Folder', '-', 'Reload ⌘R'],
+      'View': ['Reload ⌘R', '-', 'Back ⌘[', 'Enclosing Folder'],
       'Chat': [
         'Find… ⌘F',
         '-',

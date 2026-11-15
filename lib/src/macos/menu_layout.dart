@@ -109,6 +109,13 @@ final menuLayout = <MenuSection>[
   MenuSection('view', 'View', [
     [
       MenuEntry(
+        MacCommand.reload,
+        'Reload',
+        shortcut: metaActivator(LogicalKeyboardKey.keyR),
+      ),
+    ],
+    [
+      MenuEntry(
         MacCommand.back,
         'Back',
         shortcut: metaActivator(LogicalKeyboardKey.bracketLeft),
@@ -125,13 +132,6 @@ final menuLayout = <MenuSection>[
         'Enclosing Folder',
         shortcut: metaActivator(LogicalKeyboardKey.arrowUp),
         ipadShortcut: false,
-      ),
-    ],
-    [
-      MenuEntry(
-        MacCommand.reload,
-        'Reload',
-        shortcut: metaActivator(LogicalKeyboardKey.keyR),
       ),
     ],
     [
