@@ -1,0 +1,12 @@
+{
+  "revision": "d923a5eb487a17c0a68801bba9ef0f56c81040a8",
+  "request": "GET /api/sessions/no-such-chat/export?profile=garden",
+  "status": 404,
+  "headers": {
+    "content-type": "application/json",
+    "content-length": "30"
+  },
+  "body": {
+    "detail": "Session not found"
+  }
+}
