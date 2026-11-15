@@ -159,9 +159,13 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   int _runId = 0;
   int _confirmId = 0;
 
-  /// Numbers the config reads: only the newest one writes the cache, even
-  /// after its question closed.
+  /// Numbers the config reads. A read that answers writes the cache unless a
+  /// newer one already did, even after its question closed.
   int _configSeq = 0;
+
+  /// The number of the read that wrote the cache last (never reset: numbers
+  /// only grow, and a profile switch drops the answers of the old epoch).
+  int _cacheSeq = 0;
   int _statusSeq = 0;
 
   /// Status reads sent before this number are older than the last pause
@@ -424,7 +428,8 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
     unawaited(() async {
       final config = await readConfig(_profile);
-      if (_gone(epoch) || seq != _configSeq) return;
+      if (_gone(epoch) || seq < _cacheSeq) return;
+      _cacheSeq = seq;
       // A failed read forgets the earlier one: the next opening is hedged.
       _lastConfig = config;
       if (id != _confirmId || _confirmation == null) return;

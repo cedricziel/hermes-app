@@ -525,6 +525,43 @@ void main() {
         },
       );
 
+      test('a newer failed read clears a cache an older read filled', () async {
+        final c = await opened();
+        final gates = await firstRead(c, true);
+
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+        c.beginRun();
+        await until(() => gates.length == 3);
+        c.cancelRun();
+
+        gates[1].complete((status: 500, body: 'oops'));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      });
+
+      test('an older failure answering last keeps the newer success', () async {
+        final c = await opened();
+        final gates = gated();
+        c.beginRun();
+        await until(() => gates.length == 1);
+        c.cancelRun();
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+
+        gates[1].complete((status: 200, body: cfg(true)));
+        await pumpEventQueue();
+        gates[0].complete((status: 500, body: 'oops'));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isTrue);
+      });
+
       test('a read for the old profile does not fill the new cache', () async {
         final c = await opened();
         final gates = gated();
