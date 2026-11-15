@@ -264,6 +264,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _activeRefresh++;
     _pauses++;
     _loadingThreads = false;
+    // A read that is cut short leaves its chat unloaded, so the transcript
+    // keeps showing it as loading rather than as a new chat.
+    _unloaded.addAll(_loadingMessages.keys);
     _loadingMessages.clear();
     _interruptedOpening = _requestedOpening ?? _interruptedOpening;
     _requestedOpening = null;
@@ -1585,7 +1588,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (!active || _selectedId != thread.id) return;
     if (!_historyFailed.contains(thread.id)) return;
     breadcrumbs('chat.history.retry');
-    select(thread.id);
+    final epoch = _activityEpoch;
+    final profile = _profile;
+    final id = thread.id;
+    final load = _loadMessages(id);
+    notifyListeners();
+    unawaited(
+      load.then((_) {
+        if (_currentActivity(epoch) &&
+            _profile == profile &&
+            _selectedId == id &&
+            _threads.contains(thread)) {
+          _pickUp(thread);
+        }
+      }),
+    );
   }
 
   void select(String id) {

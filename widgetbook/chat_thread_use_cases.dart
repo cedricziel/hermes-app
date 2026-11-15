@@ -384,5 +384,56 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
         ], replying: true),
       ],
     ),
+    WidgetbookComponent(
+      name: 'ChatHistoryState',
+      useCases: [
+        _historyCase('Loading', ChatHistoryStatus.loading),
+        _historyCase(
+          'Loading, short area (clipped)',
+          ChatHistoryStatus.loading,
+          height: 150,
+        ),
+        _historyCase('Loading, text 2x', ChatHistoryStatus.loading, scale: 2),
+        _historyCase(
+          'Loading, reduced motion',
+          ChatHistoryStatus.loading,
+          reducedMotion: true,
+        ),
+        _historyCase('Failed', ChatHistoryStatus.failed),
+        _historyCase(
+          'Failed, short area',
+          ChatHistoryStatus.failed,
+          height: 150,
+        ),
+        _historyCase('Failed, text 2x', ChatHistoryStatus.failed, scale: 2),
+      ],
+    ),
   ],
+);
+
+WidgetbookUseCase _historyCase(
+  String name,
+  ChatHistoryStatus status, {
+  double? height,
+  double scale = 1,
+  bool reducedMotion = false,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(
+      textScaler: TextScaler.linear(scale),
+      disableAnimations: reducedMotion,
+    ),
+    child: Align(
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        height: height,
+        child: ChatHistoryState(
+          status: status,
+          onRetry: () {},
+          delay: Duration.zero,
+        ),
+      ),
+    ),
+  ),
 );

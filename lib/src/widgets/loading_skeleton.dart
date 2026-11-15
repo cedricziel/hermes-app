@@ -4,7 +4,8 @@ import 'busy_bar.dart';
 
 /// Line-shaped blocks standing in for rows that are loading. The whole thing
 /// is one node for screen readers, named [label]; the blocks are decorative.
-/// Under reduced motion the blocks do not pulse.
+/// The blocks scale with the text size. Under reduced motion they do not
+/// pulse; otherwise they pulse for as long as the skeleton is on screen.
 class LoadingSkeleton extends StatefulWidget {
   const LoadingSkeleton({
     super.key,
@@ -56,6 +57,10 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
   Widget build(BuildContext context) {
     final color =
         widget.color ?? Theme.of(context).colorScheme.surfaceContainerHighest;
+    // Bars and gaps grow with the text size, like the rows they stand in for.
+    final scaler = MediaQuery.textScalerOf(context);
+    final barHeight = scaler.scale(16);
+    final gap = scaler.scale(8);
     return Semantics(
       container: true,
       liveRegion: widget.liveRegion,
@@ -70,7 +75,7 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
               children: [
                 for (var i = 0; i < widget.lines; i++)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: EdgeInsets.symmetric(vertical: gap),
                     child: FractionallySizedBox(
                       widthFactor: i.isOdd ? 0.7 : 1,
                       child: DecoratedBox(
@@ -78,7 +83,7 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
                           color: color,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const SizedBox(height: 16),
+                        child: SizedBox(height: barHeight),
                       ),
                     ),
                   ),

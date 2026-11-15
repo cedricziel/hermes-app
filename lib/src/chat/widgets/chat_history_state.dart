@@ -62,42 +62,71 @@ class _ChatHistoryStateState extends State<ChatHistoryState> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
     final Widget content = switch (widget.status) {
-      ChatHistoryStatus.failed => StateMessage(
-        icon: AppIcons.error,
-        title: l10n.chatHistoryFailedTitle,
-        detail: l10n.chatHistoryFailedDetail,
-        action: widget.onRetry == null
-            ? null
-            : FilledButton(
-                onPressed: widget.onRetry,
-                child: Text(l10n.commonRetry),
-              ),
+      // Read out once when it appears, so a screen reader hears that the
+      // messages did not load without hunting for the text.
+      ChatHistoryStatus.failed => _FadeIn(
+        key: const ValueKey('failed'),
+        child: Semantics(
+          container: true,
+          liveRegion: true,
+          child: StateMessage(
+            icon: AppIcons.error,
+            title: l10n.chatWidgetsHistoryFailedTitle,
+            detail: l10n.chatWidgetsHistoryFailedDetail,
+            action: widget.onRetry == null
+                ? null
+                : FilledButton(
+                    onPressed: widget.onRetry,
+                    child: Text(l10n.commonRetry),
+                  ),
+          ),
+        ),
       ),
       ChatHistoryStatus.loading =>
         !_due
             ? const SizedBox.expand()
-            : Align(
-                alignment: Alignment.topCenter,
-                child: Padding(
+            // A box shorter than the skeleton (a phone on its side with the
+            // keyboard open) clips it from the bottom instead of overflowing.
+            : _FadeIn(
+                key: const ValueKey('skeleton'),
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
                   child: LoadingSkeleton(
-                    label: l10n.chatHistoryLoading,
+                    label: l10n.chatWidgetsHistoryLoading,
                     lines: 6,
                     liveRegion: true,
+                    // The default bar colour is the page's own on light
+                    // surfaces; this one reads on both themes.
+                    color: scheme.onSurface.withValues(alpha: 0.16),
                   ),
                 ),
               ),
     };
     return Padding(
       padding: EdgeInsets.only(bottom: widget.bottomPadding),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: reduceMotionOf(context) ? 1 : 0, end: 1),
-        duration: const Duration(milliseconds: 150),
-        builder: (context, opacity, child) =>
-            Opacity(opacity: opacity, child: child),
-        child: content,
-      ),
+      child: content,
     );
   }
 }
+
+/// Fades its child in when it is first built, unless the system asks to
+/// reduce motion. Keyed by what it shows, so each state fades in on its own.
+class _FadeIn extends StatelessWidget {
+  const _FadeIn({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween(begin: reduceMotionOf(context) ? 1 : 0, end: 1),
+    duration: const Duration(milliseconds: 150),
+    builder: (context, opacity, child) =>
+        Opacity(key: _fadeKey, opacity: opacity, child: child),
+    child: child,
+  );
+}
+
+const _fadeKey = ValueKey('chat-history-fade');

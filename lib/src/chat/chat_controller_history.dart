@@ -454,8 +454,10 @@ extension _ChatControllerHistory on ChatController {
       _unloaded.add(id);
       if (!active) return;
       _historyFailed.add(id);
+      // The failed state is read from the notification, so the read is no
+      // longer in flight by then. Reselecting the chat or Retry reads again.
+      _loadingMessages.removeWhere((key, _) => key == id);
       _readAgainUnderNewId(reading, id);
-      report('Could not load this chat');
       notifyListeners();
     }
   }

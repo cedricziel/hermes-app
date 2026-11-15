@@ -172,6 +172,14 @@ WidgetbookNode sharedWidgetsNode() => WidgetbookFolder(
             frame(const LoadingSkeleton(label: 'Loading logs', lines: 5)),
           ),
         ),
+        WidgetbookUseCase(
+          name: 'Large text (2x)',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: frame(const LoadingSkeleton(label: 'Loading logs')),
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(

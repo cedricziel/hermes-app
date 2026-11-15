@@ -2018,17 +2018,17 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
-  "chatHistoryLoading": "Loading chat",
-  "@chatHistoryLoading": {
-    "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
+  "chatWidgetsHistoryFailedDetail": "Check your connection, then try again.",
+  "@chatWidgetsHistoryFailedDetail": {
+    "description": "Detail under the title shown when a stored chat's messages could not be loaded; the Retry button sits below it."
   },
-  "chatHistoryFailedTitle": "Could not load the messages",
-  "@chatHistoryFailedTitle": {
+  "chatWidgetsHistoryFailedTitle": "Could not load the messages",
+  "@chatWidgetsHistoryFailedTitle": {
     "description": "Title shown in a stored chat's transcript when reading its messages failed."
   },
-  "chatHistoryFailedDetail": "Check your connection, then try again.",
-  "@chatHistoryFailedDetail": {
-    "description": "Detail under the title shown when a stored chat's messages could not be loaded; the Retry button sits below it."
+  "chatWidgetsHistoryLoading": "Loading chat",
+  "@chatWidgetsHistoryLoading": {
+    "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
   },
   "chatWidgetsProgramConfirmCancel": "Cancel",
   "@chatWidgetsProgramConfirmCancel": {
