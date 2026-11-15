@@ -136,6 +136,7 @@ void main() {
           'text':
               '# Field notes\n\nSoil moisture readings from the **north '
               'field**.\n\n- Sensors: 12\n- Interval: 15 minutes\n\n'
+              '- [x] Calibrate probes\n- [ ] Replace the north gateway\n\n'
               'See [the method](https://example.org/method).',
           'truncated': false,
         },
@@ -254,6 +255,11 @@ void main() {
         await tapRow(tester, 'README.md');
         expect(
           find.textContaining('Soil moisture', findRichText: true),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        expect(
+          find.textContaining('Replace the north gateway', findRichText: true),
           findsOneWidget,
         );
         await shots.capture(tester, 'markdown');
