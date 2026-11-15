@@ -1,6 +1,6 @@
 # Tasks
 
-Design status: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC). No build starts before the canvas exists: once it does, bring the brief in line with it (design-pass skill), then start PR 1. Two PRs, catalog first. No OpenAPI change: all four routes are in `openapi/hermes-agent.openapi.json` and the generated methods exist.
+Design status (done): canvas reviewed, https://claude.ai/artifact/PPwKxdh8zKokvagfxS3Gho (private; ask its owner for access; 26 boards, one parametric page; the brief's "Local render review" lists what was and was not checked). Bring the brief in line with it (design-pass skill), then start PR 1. Two PRs, catalog first. No OpenAPI change: all four routes are in `openapi/hermes-agent.openapi.json` and the generated methods exist.
 
 ## 1. PR 1 - `feat(messaging): add the WhatsApp link widgets to the catalog`
 
