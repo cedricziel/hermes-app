@@ -189,15 +189,27 @@ check runs before the invented-transcript and stop-phrase checks.
 guard only counts for speech that began (the speech detector's onset, not the
 end of the utterance or the time the transcript came back) while the reply was
 playing or within 1.5 s after its audio drained (`VoiceCall.echoTail`). The
-reply begins at its first spoken text; its audio ends when the speech drained
+reply begins at its first text handed to the speech; its audio ends when the speech drained
 or was cut off (the user speaking over it, End, an error). Speech that began
 later is never an echo, whatever it says and however alike: "Goodbye." said
 3 s after a reply of "Goodbye." ends the call as a stop phrase, and "Turn the
 lights on" after "Should I turn the lights on or off?" is sent. Where there is
 no barge-in the microphone is closed through the playback and reopens 400 ms
 after it, so only speech inside that 1.5 s tail can count there. A transcript
-outside the window still spends the guard. The rule below applies to what is
-inside the window.
+outside the window still spends the guard (an empty transcript does not: it is
+dropped first). The rule below applies to what is inside the window.
+
+**What this costs, plainly.** An answer that begins within 1.5 s of the reply
+and consists of the reply's own words is dropped silently, with no notice.
+Normal turn-taking gaps (0.2 to 1 s) are inside the window, so a quick "turn
+the lights on" after "Should I turn the lights on or off?" is dropped; said
+after a longer pause it is sent. Where barge-in is off the microphone reopens
+400 ms after the audio, so the 1.5 s tail there mostly catches the user's own
+answers, not the room. The tail stays 1.5 s on every platform: shortening it
+for the no-barge-in case would need the portable bridge's real output latency
+(SoLoud's buffer plus the device's) and the room's reverberation, and neither
+has been measured on a device (see the device checks). If the device checks show
+a shorter tail still catches the echo, shorten it then.
 
 **The exact rule.** Both texts are lowercased and reduced to words (letters and
 digits; everything else is a space). For a transcript T and a stretch S of the

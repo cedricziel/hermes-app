@@ -73,7 +73,7 @@ The app SHALL detect speech from the microphone level and end the turn after a p
 
 ### Requirement: Which transcripts are sent
 
-A transcript SHALL be checked in this order, and the first match decides: empty (dropped), echo of the reply just spoken, similarity 0.6 or more (dropped), a known Whisper hallucination on silence such as "Thank you." or "Bye" (dropped), a stop phrase (ends the call), else sent. A dropped transcript SHALL leave the state Listening and send nothing.
+A transcript SHALL be checked in this order, and the first match decides: empty (dropped, and it does not spend the echo guard), echo of the reply just spoken (dropped: the speech began while the reply played or within 1.5 s after its audio drained, the transcript is at least 0.6 alike to the reply or a same-length run of it, and at most one word in eight is missing from it; speech that began later is never an echo), a known Whisper hallucination on silence such as "Thank you." or "Bye" (dropped), a stop phrase (ends the call), else sent. A dropped transcript SHALL leave the state Listening and send nothing.
 
 #### Scenario: Near silence
 

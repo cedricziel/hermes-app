@@ -765,9 +765,12 @@ class VoiceCall extends ChangeNotifier {
       // One order, the first match decides: empty, echo, hallucination, stop
       // phrase, else sent. A dropped transcript says nothing, and the reply
       // that may still be running is left alone.
-      // The guard is spent by this transcript whatever the answer; it only
-      // counts for speech that began while the reply played or just after.
-      final looksLikeEcho = echoGuard?.call(text) ?? _echo.isEcho(text);
+      // An empty transcript is dropped before the guard, which it must not
+      // spend. A non-empty one spends it whatever the answer, and counts as
+      // an echo only for speech that began while the reply played or just
+      // after.
+      final looksLikeEcho =
+          text.isNotEmpty && (echoGuard?.call(text) ?? _echo.isEcho(text));
       if (text.isEmpty ||
           (looksLikeEcho && _beganInEchoWindow(onset)) ||
           isWhisperHallucination(text)) {

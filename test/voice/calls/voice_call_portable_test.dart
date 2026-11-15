@@ -200,17 +200,36 @@ void main() {
         },
       );
 
-      test('"$answer" inside the window is dropped only because it is the '
-          'reply\'s own wording', () async {
+      test('"$answer" said 0.5 s after "$reply" is dropped', () async {
         await h.activate();
         await spokenThrough('Ask me', reply);
         await saysAfter(answer, const Duration(milliseconds: 500));
-        // Whether the rule takes it for the echo is the rule's table; the
-        // window never lets one through that the rule would drop.
-        final dropped = (EchoGuard()..spoken(reply)).isEcho(answer);
-        expect(h.agent.prompts, dropped ? ['Ask me'] : ['Ask me', answer]);
+        expect(h.agent.prompts, ['Ask me']);
       });
     }
+
+    test('an empty transcript does not use up the guard', () async {
+      await h.activate();
+      await spokenThrough('Say bye', 'Goodbye.');
+      await saysAfter('', const Duration(milliseconds: 200));
+      await saysAfter('Goodbye.', const Duration(milliseconds: 300));
+      expect(h.call.ended, isFalse);
+      expect(h.agent.prompts, ['Say bye']);
+    });
+
+    test('a reply cut off by speech that makes no transcript closes the '
+        'window', () async {
+      await h.activate();
+      await speaks('Say bye', 'Goodbye.');
+      // The user starts talking over it, then mutes before the pause.
+      h.bridge.emit('pcm', {'data': pcm()});
+      await pumpEventQueue();
+      await h.call.setMuted(true);
+      h.clock = h.clock.add(const Duration(seconds: 3));
+      await h.call.setMuted(false);
+      await saysAfter('goodbye', const Duration(milliseconds: 100));
+      expect(h.call.endReason, 'stop_phrase');
+    });
 
     test('an answer that is not the reply is sent inside the window', () async {
       await h.activate();
