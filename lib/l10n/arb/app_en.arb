@@ -10,6 +10,10 @@
   "@commonOn": {
     "description": "A setting that is switched on."
   },
+  "commonRefreshing": "Refreshing",
+  "@commonRefreshing": {
+    "description": "Spoken state of a Refresh button while its reload is running."
+  },
   "commonRetry": "Retry",
   "@commonRetry": {
     "description": "Button that tries a failed load again."
@@ -1029,6 +1033,10 @@
   "chatCheckpointsPageRefresh": "Refresh",
   "@chatCheckpointsPageRefresh": {
     "description": "Bar button of the File checkpoints page that reads the list again."
+  },
+  "chatCheckpointsPageRefreshTooltip": "Refresh ⌘R",
+  "@chatCheckpointsPageRefreshTooltip": {
+    "description": "Hover text of the File checkpoints page Refresh button on a Mac; names the key."
   },
   "chatCheckpointsPageRestoring": "Restoring files…",
   "@chatCheckpointsPageRestoring": {
@@ -2663,6 +2671,10 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanRefreshAction": "Refresh",
+  "@kanbanRefreshAction": {
+    "description": "Name of the Refresh button on the board and the workers page; reads the list again."
+  },
 
   "@@x-area-live_activities": "",
 
@@ -2905,6 +2917,10 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsRefreshAction": "Refresh",
+  "@pluginsRefreshAction": {
+    "description": "Name of the Mac toolbar button that reads the open Plugins tab again."
+  },
 
   "@@x-area-profiles": "",
   "profilesSoulBannerCheck": "Check",
@@ -4457,8 +4473,16 @@
   "@@x-area-quick_panel": "",
 
   "@@x-area-schedules": "",
+  "schedulesRefreshAction": "Refresh",
+  "@schedulesRefreshAction": {
+    "description": "Name of the Refresh button of the Schedules bar; reads the jobs again."
+  },
 
   "@@x-area-screens": "",
+  "screensRefreshAction": "Refresh",
+  "@screensRefreshAction": {
+    "description": "Name of the Refresh button of the Connection page; reads the server status again."
+  },
 
   "@@x-area-server_care": "",
   "serverCareAccountButtonLabel": "Account",

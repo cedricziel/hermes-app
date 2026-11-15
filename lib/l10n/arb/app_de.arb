@@ -4,6 +4,7 @@
   "@@x-area-common": "",
   "commonOff": "Aus",
   "commonOn": "Ein",
+  "commonRefreshing": "Wird aktualisiert",
   "commonRetry": "Erneut versuchen",
 
   "@@x-area-agent_messages": "",
@@ -214,6 +215,7 @@
   "chatCheckpointsPageFileNext": "Nächste Datei",
   "chatCheckpointsPageFilePrevious": "Vorherige Datei",
   "chatCheckpointsPageRefresh": "Aktualisieren",
+  "chatCheckpointsPageRefreshTooltip": "Aktualisieren ⌘R",
   "chatCheckpointsPageRestoring": "Dateien werden wiederhergestellt …",
   "chatCheckpointsPageRowCount": "Datei-Checkpoints · {count}",
   "chatCheckpointsPageRowFailed": "Checkpoints konnten nicht gelesen werden",
@@ -555,6 +557,7 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanRefreshAction": "Aktualisieren",
 
   "@@x-area-live_activities": "",
 
@@ -620,6 +623,7 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsRefreshAction": "Aktualisieren",
 
   "@@x-area-profiles": "",
   "profilesSoulBannerCheck": "Prüfen",
@@ -914,8 +918,10 @@
   "@@x-area-quick_panel": "",
 
   "@@x-area-schedules": "",
+  "schedulesRefreshAction": "Aktualisieren",
 
   "@@x-area-screens": "",
+  "screensRefreshAction": "Aktualisieren",
 
   "@@x-area-server_care": "",
   "serverCareAccountButtonLabel": "Konto",
