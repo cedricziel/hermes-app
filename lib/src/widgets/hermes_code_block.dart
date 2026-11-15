@@ -122,11 +122,16 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
               highlightColor: scheme.onSurface.withValues(alpha: 0.12),
               onTap: _copyCode,
               child: Center(
-                child: Icon(
-                  icon,
-                  key: ValueKey(_copied),
-                  size: _copyIconSize,
-                  color: scheme.onSurfaceVariant,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
+                  child: Icon(
+                    icon,
+                    key: ValueKey(_copied),
+                    size: _copyIconSize,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),
