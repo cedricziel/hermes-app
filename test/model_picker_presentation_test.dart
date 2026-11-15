@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -168,14 +169,12 @@ void main() {
       );
       await _open(tester);
 
-      final search = tester.getRect(
-        find.byKey(const Key('toolbar-search-field')),
-      );
+      final search = tester.getRect(find.byType(MacToolbarSearchField));
       final surface = tester.getRect(
         find.ancestor(of: _popover, matching: find.byType(Material)).first,
       );
-      // The 20 pt gutters either side, and the field's own icon and padding.
-      expect(search.width, greaterThan(surface.width - 40 - 40));
+      // The 20 pt gutters either side.
+      expect(search.width, closeTo(surface.width - 40, 0.5));
     });
 
     testWidgets('in a right-to-left window the popover ends on the pill', (

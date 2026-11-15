@@ -133,7 +133,7 @@ void main() {
       'the hint centred on it', (tester) async {
     await _pump(tester, brightness: Brightness.light);
     final field = tester.getRect(find.byType(MacToolbarSearchField));
-    final hint = tester.getRect(find.byType(TextField));
+    final hint = tester.getRect(find.text('Search models'));
     final editable = tester.getRect(find.byType(EditableText));
 
     expect(field.height, 26);
