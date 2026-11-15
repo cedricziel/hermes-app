@@ -517,10 +517,18 @@ void main() {
         final config = await client.raw
             .getClientVoiceConfigApiAudioVoiceConfigGet();
         final usable = VoiceSupport.fromJson(config.data).textToSpeech;
+        // The default provider (Edge TTS) calls out to the internet. Without
+        // a route it takes about 15 s to fail, and under CPU load a stalled
+        // call outlasts the test's own 30 s limit, so the wait is bounded here
+        // and an unanswered provider is skipped like a failed one.
+        final cancel = CancelToken();
         try {
-          final response = await client.raw.speakTextApiAudioSpeakPost(
-            tTSSpeakRequest: TTSSpeakRequest(text: 'Hello.'),
-          );
+          final response = await client.raw
+              .speakTextApiAudioSpeakPost(
+                tTSSpeakRequest: TTSSpeakRequest(text: 'Hello.'),
+                cancelToken: cancel,
+              )
+              .timeout(const Duration(seconds: 20));
           final body = response.data! as Map;
           if (body['ok'] == true) {
             // The shape Read aloud and voice calls decode.
@@ -533,6 +541,10 @@ void main() {
         } on DioException catch (error) {
           expect(error.response?.statusCode, greaterThanOrEqualTo(400));
           if (usable) markTestSkipped('the TTS provider failed: $error');
+        } on TimeoutException {
+          cancel.cancel('no answer');
+          expect(usable, isTrue, reason: 'voice-config said it cannot speak');
+          markTestSkipped('the TTS provider did not answer within 20 s');
         }
       },
       skip: skip,
@@ -4159,9 +4171,9 @@ void main() {
 
     test('a profile that does not exist is told apart from a missing '
         'route', () async {
-      final gone = tools.forProfile(
-        'contract-missing-${DateTime.now().millisecondsSinceEpoch}',
-      );
+      final gone = HermesToolsRoot(
+        client.raw,
+      ).forProfile('contract-missing-${DateTime.now().millisecondsSinceEpoch}');
 
       expect(await gone.list(), isA<ToolsProfileGone<ToolsetList>>());
     });

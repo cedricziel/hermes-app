@@ -130,4 +130,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(tester.hasRunningAnimations, isFalse);
   });
+
+  testWidgets('in a Center it is only as tall as its lines', (tester) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _host(const Center(child: LoadingSkeleton(label: 'Loading', lines: 3))),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    // Three lines of a 16 pt bar with 8 pt above and below each.
+    expect(tester.getSize(find.byType(LoadingSkeleton)).height, 3 * 32);
+  });
 }

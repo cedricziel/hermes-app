@@ -145,10 +145,33 @@ extension _ChatControllerRequests on ChatController {
           _Hold.paused => others ? _Hold.paused : _Hold.none,
           _ => hold,
         });
+        // The server was reached and ends the turn: a reply that lost its
+        // connection hears how it ended now, not at the next try.
+        if (_reconnectingReply(thread) != null) _pickUp(thread);
         return;
       }
       if (stopped != false) {
         _setHold(thread, others ? hold : _Hold.none);
+        return;
+      }
+      final waiting = [
+        for (final reply in pending)
+          if (reply.reconnecting &&
+              reply.isPending &&
+              thread.messages.contains(reply))
+            reply,
+      ];
+      if (waiting.isNotEmpty) {
+        // The server has no turn to interrupt, but this reply never heard how
+        // its turn ended: it is read back into the same bubble, not closed as
+        // stopped with the text it had.
+        _setHold(
+          thread,
+          others || hold == _Hold.stopping || hold == _Hold.paused
+              ? _Hold.paused
+              : _Hold.none,
+        );
+        _pickUp(thread);
         return;
       }
       final stale = [

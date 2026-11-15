@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../l10n/l10n.dart';
+import '../../../macos/mac_commands.dart';
 import '../../../theme/app_icons.dart';
+import '../../../theme/platform_chrome.dart';
 import '../../activity/activity_page_binding.dart';
 import '../../activity/widgets/activity_page_scaffold.dart';
 import '../../chat_controller.dart';
@@ -137,46 +139,66 @@ class _FileChangePageState extends State<FileChangePage>
     }
     final (folder, name) = splitChangedPath(file.path);
     final hasPrevious = at > 0, hasNext = at < files.length - 1;
-    return ActivityPageScaffold(
-      title: breakableFileName(name),
-      titleLabel: name,
-      subtitle: folder.isEmpty
-          ? l10n.chatCheckpointsChangesTopOfFolder
-          : folder,
-      onBack: back,
-      actions: [
-        ActivityPageAction(
-          key: const Key('file-previous'),
-          label: l10n.chatCheckpointsPageFilePrevious,
-          icon: AppIcons.expandLess,
-          onPressed: hasPrevious ? () => _step(files, -1) : null,
+    // On a Mac the menu's Previous and Next Change own ⌥↑ and ⌥↓.
+    final menuOwnsKeys = platformChromeOf(context) == PlatformChrome.macos;
+    return MacCommandScope(
+      commands: {
+        MacCommand.previousChange: MacCommandHandler(
+          hasPrevious ? () => _step(files, -1) : null,
         ),
-        ActivityPageAction(
-          key: const Key('file-next'),
-          label: l10n.chatCheckpointsPageFileNext,
-          icon: AppIcons.expandMore,
-          onPressed: hasNext ? () => _step(files, 1) : null,
+        MacCommand.nextChange: MacCommandHandler(
+          hasNext ? () => _step(files, 1) : null,
         ),
-      ],
-      shortcuts: {
-        const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true): () =>
-            _step(files, -1),
-        const SingleActivator(LogicalKeyboardKey.arrowDown, alt: true): () =>
-            _step(files, 1),
       },
-      body: SingleChildScrollView(
-        key: ValueKey(file.path),
-        child: FileDiffView(
-          file: file,
-          truncated: changes?.truncated ?? false,
-          showAction: false,
+      child: ActivityPageScaffold(
+        title: breakableFileName(name),
+        titleLabel: name,
+        subtitle: folder.isEmpty
+            ? l10n.chatCheckpointsChangesTopOfFolder
+            : folder,
+        onBack: back,
+        actions: [
+          ActivityPageAction(
+            key: const Key('file-previous'),
+            label: l10n.chatCheckpointsPageFilePrevious,
+            icon: AppIcons.expandLess,
+            onPressed: hasPrevious ? () => _step(files, -1) : null,
+          ),
+          ActivityPageAction(
+            key: const Key('file-next'),
+            label: l10n.chatCheckpointsPageFileNext,
+            icon: AppIcons.expandMore,
+            onPressed: hasNext ? () => _step(files, 1) : null,
+          ),
+        ],
+        shortcuts: menuOwnsKeys
+            ? const {}
+            : {
+                const SingleActivator(
+                  LogicalKeyboardKey.arrowUp,
+                  alt: true,
+                ): () =>
+                    _step(files, -1),
+                const SingleActivator(
+                  LogicalKeyboardKey.arrowDown,
+                  alt: true,
+                ): () =>
+                    _step(files, 1),
+              },
+        body: SingleChildScrollView(
+          key: ValueKey(file.path),
+          child: FileDiffView(
+            file: file,
+            truncated: changes?.truncated ?? false,
+            showAction: false,
+          ),
         ),
-      ),
-      bottom: FileRestoreAction(
-        file: file,
-        refusal: controller.restoreRefusal(filePath: file.path),
-        restoring: controller.restoring,
-        onRestore: () => _restore(file),
+        bottom: FileRestoreAction(
+          file: file,
+          refusal: controller.restoreRefusal(filePath: file.path),
+          restoring: controller.restoring,
+          onRestore: () => _restore(file),
+        ),
       ),
     );
   }

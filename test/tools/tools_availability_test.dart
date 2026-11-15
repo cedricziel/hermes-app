@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
+import 'package:hermes_app/src/tools/hermes_tools_repository.dart'
+    show HermesToolsRoot;
 import 'package:hermes_app/src/tools/tools_availability.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -18,7 +20,7 @@ void main() {
       ..on('GET', '/api/tools/toolsets', toolsetsFixture);
     events = [];
     availability = ToolsAvailability(
-      toolsRepository(server),
+      HermesToolsRoot(server.client().raw),
       telemetry: ConnectionTelemetry(
         events: (name, [attributes = const {}]) =>
             events.add('$name $attributes'),
