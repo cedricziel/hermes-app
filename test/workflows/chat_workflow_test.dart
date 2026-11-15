@@ -654,6 +654,30 @@ void main() {
     await shots.capture(tester, 'results');
   });
 
+  testWidgets('the Mac model popover in dark, at the default window width', (
+    tester,
+  ) async {
+    final shots = ScreenshotRecorder('chat-mac-dark');
+    await pumpScreen(
+      tester,
+      shots,
+      MacSidebarScope(
+        child: ChatScreen(
+          repository: HermesChatRepository(server.client().raw),
+          models: HermesModelsRepository(server.client().raw),
+          transport: transport,
+        ),
+      ),
+      size: const Size(900, 760),
+      brightness: Brightness.dark,
+      platform: TargetPlatform.macOS,
+    );
+    await tester.tap(find.byKey(const Key('composer-model-pill')));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    await shots.capture(tester, 'model-picker');
+  });
+
   testWidgets('the Mac sidebar and toolbar search', (tester) async {
     server.on('GET', '/api/sessions/search', {
       'results': [
@@ -685,6 +709,13 @@ void main() {
         platform: TargetPlatform.macOS,
       );
       await shots.capture(tester, 'sidebar');
+      // The picker is a popover on the pill at every Mac width, never a sheet.
+      await tester.tap(find.byKey(const Key('composer-model-pill')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      await shots.capture(tester, 'model-picker');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
       if (name == 'compact') {
         await tester.tap(find.byKey(const Key('mac-sidebar-toggle')));
         await tester.pumpAndSettle();

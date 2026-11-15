@@ -433,29 +433,36 @@ void main() {
       }
     });
 
-    testWidgets('a tap in the margin of the 44 point hit area picks the '
-        'effort', (tester) async {
-      final picked = <ModelChoice>[];
-      tester.view
-        ..physicalSize = const Size(320, 900)
-        ..devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
-          home: Scaffold(
-            body: ModelPicker(
-              options: long,
-              selected: const ModelChoice('acme', longId),
-              onChanged: picked.add,
+    testWidgets('a tap outside the drawn pill but inside the hit area picks '
+        'the effort (44 on iOS, 48 on Material)', (tester) async {
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+        final picked = <ModelChoice>[];
+        tester.view
+          ..physicalSize = const Size(320, 900)
+          ..devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildHermesLightTheme().copyWith(platform: platform),
+            home: Scaffold(
+              body: ModelPicker(
+                options: long,
+                selected: const ModelChoice('acme', longId),
+                onChanged: picked.add,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      final rect = tester.getRect(find.byKey(const Key('effort-high')));
-      await tester.tapAt(Offset(rect.center.dx, rect.top + 2));
-      expect(picked.last.effort, 'high');
+        final pill = find.byKey(const Key('effort-high'));
+        final drawn = tester.getRect(under(pill, find.byType(Material)).first);
+        expect(tester.getRect(pill).top, lessThan(drawn.top - 3));
+        await tester.tapAt(Offset(drawn.center.dx, drawn.top - 3));
+        expect(picked.last.effort, 'high', reason: '$platform above');
+        picked.clear();
+        await tester.tapAt(Offset(drawn.center.dx, drawn.bottom + 3));
+        expect(picked.last.effort, 'high', reason: '$platform below');
+      }
     });
 
     testWidgets('the effort block is pinned at the normal size and moves '
