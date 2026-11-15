@@ -9,12 +9,16 @@ import 'grouped_list.dart';
 /// A disclosure row that opens lines of command output, in monospace in a
 /// tinted box. Closed unless [initiallyOpen]. The caller words every text.
 ///
-/// The lines are selectable unless [selectable] is false. The box is at most
-/// 320 pt or 40 percent of the window tall, whichever is less, and scrolls
-/// inside itself beyond that. With [maxLines] only the last lines show, and
-/// [earlierLabel] says how many came before them (plus [earlierLines], which
+/// The lines are selectable unless [selectable] is false, which also keeps
+/// them out of an ancestor's selection area. With [capHeight] the box is at
+/// most 320 pt or 40 percent of the window tall, whichever is less, and
+/// scrolls inside itself beyond that, with a scrollbar that stays visible on
+/// desktop; without it the box grows with its lines. With [maxLines] only the
+/// last lines show, and [earlierLabel] (required then, and for
+/// [earlierLines]) says how many came before them (plus [earlierLines], which
 /// the caller already left out) in a first line. A [footnote] sits under the
-/// box. With [blank] the box holds no lines, only the muted [blankNote].
+/// box. With [blank] the box holds no lines, only the muted [blankNote]. The
+/// lines run left to right in any locale.
 class OutputLinesTile extends StatefulWidget {
   const OutputLinesTile({
     super.key,
@@ -29,7 +33,12 @@ class OutputLinesTile extends StatefulWidget {
     this.blank = false,
     this.blankNote,
     this.semanticsLabel,
-  });
+    this.capHeight = false,
+  }) : assert(maxLines == null || maxLines >= 0),
+       assert(
+         (maxLines == null && earlierLines == 0) || earlierLabel != null,
+         'Dropped lines need an earlierLabel to say so.',
+       );
 
   final String label;
   final List<String> lines;
@@ -44,6 +53,10 @@ class OutputLinesTile extends StatefulWidget {
 
   /// Read in place of [label], for a name with the line count.
   final String? semanticsLabel;
+
+  /// Limits the box to 320 pt or 40 percent of the window height and scrolls
+  /// inside it.
+  final bool capHeight;
 
   @override
   State<OutputLinesTile> createState() => _OutputLinesTileState();
@@ -74,12 +87,26 @@ class _OutputLinesTileState extends State<OutputLinesTile> {
       if (earlier > 0 && earlierLabel != null) earlierLabel(earlier),
       ...shown,
     ].join('\n');
+    final desktop = switch (Theme.of(context).platform) {
+      TargetPlatform.macOS ||
+      TargetPlatform.windows ||
+      TargetPlatform.linux => true,
+      _ => false,
+    };
     final style = TextStyle(
       fontFamily: 'monospace',
       fontSize: metrics.footerSize,
       color: scheme.onSurface,
     );
     final maxHeight = math.min(320.0, MediaQuery.sizeOf(context).height * 0.4);
+    final Widget body = SizedBox(
+      width: double.infinity,
+      child: widget.selectable
+          ? SelectableText(text, style: style, textDirection: TextDirection.ltr)
+          : SelectionContainer.disabled(
+              child: Text(text, style: style, textDirection: TextDirection.ltr),
+            ),
+    );
     final title = Text(
       widget.label,
       style: TextStyle(fontSize: metrics.titleSize),
@@ -119,21 +146,19 @@ class _OutputLinesTileState extends State<OutputLinesTile> {
                       color: muted,
                     ),
                   )
-                : ConstrainedBox(
+                : widget.capHeight
+                ? ConstrainedBox(
                     constraints: BoxConstraints(maxHeight: maxHeight),
                     child: Scrollbar(
                       controller: _scroll,
+                      thumbVisibility: desktop,
                       child: SingleChildScrollView(
                         controller: _scroll,
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: widget.selectable
-                              ? SelectableText(text, style: style)
-                              : Text(text, style: style),
-                        ),
+                        child: body,
                       ),
                     ),
-                  ),
+                  )
+                : body,
           ),
         ),
         if (widget.footnote != null)

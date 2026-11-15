@@ -18,6 +18,57 @@ Widget _largest(BuildContext context, Widget child) => MediaQuery(
   child: child,
 );
 
+Widget _german(BuildContext context, Widget child) => Localizations.override(
+  context: context,
+  locale: const Locale('de'),
+  child: child,
+);
+
+Widget _neutralRow({bool german = false}) => frame(
+  GroupedSection(
+    children: [
+      GroupedActionRow(
+        title: german ? 'Jetzt ausführen' : 'Run now',
+        subtitle: german
+            ? 'Auf diesem Server läuft gerade ein Durchgang'
+            : 'A pass is running on this server',
+        icon: AppIcons.play,
+        onPressed: null,
+        touchTargetButtons: true,
+        status: GroupedActionStatus(
+          phase: GroupedActionPhase.neutral,
+          text: german
+              ? 'Läuft noch auf dem Server.'
+              : 'Still running on the server.',
+          buttons: [
+            GroupedActionButton(
+              label: german ? 'Status prüfen' : 'Check status',
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
+    ],
+  ),
+  maxWidth: german ? 320 : 480,
+);
+
+Widget _disabledRow({bool german = false}) => frame(
+  GroupedSection(
+    children: [
+      GroupedActionRow(
+        title: german ? 'Jetzt ausführen' : 'Run now',
+        subtitle: german
+            ? 'Auf diesem Server läuft gerade ein Durchgang'
+            : 'A pass is running on this server',
+        icon: AppIcons.play,
+        onPressed: null,
+      ),
+    ],
+  ),
+  maxWidth: german ? 320 : 480,
+);
+
 Widget _reduceMotion(BuildContext context, Widget child) => MediaQuery(
   data: MediaQuery.of(context).copyWith(disableAnimations: true),
   child: child,
@@ -82,6 +133,7 @@ Widget _output(
         lines: lines,
         initiallyOpen: open,
         selectable: !curator,
+        capHeight: curator,
         maxLines: curator ? 30 : null,
         earlierLabel: (n) => '$n earlier lines not shown',
         footnote: curator ? 'Hermes keeps one log for every profile.' : null,
@@ -248,18 +300,7 @@ WidgetbookNode sharedWidgetsNode() => WidgetbookFolder(
             ),
           ),
         ),
-        WidgetbookUseCase(
-          name: 'Neutral with Check status',
-          builder: (_) => _subtitleRow(
-            status: GroupedActionStatus(
-              phase: GroupedActionPhase.neutral,
-              text: 'Still running on the server.',
-              buttons: [
-                GroupedActionButton(label: 'Check status', onPressed: () {}),
-              ],
-            ),
-          ),
-        ),
+        ...onEachPlatform('Neutral with Check status', (_) => _neutralRow()),
         ...onEachPlatform(
           'Working with a spinner',
           (_) => frame(
@@ -280,17 +321,40 @@ WidgetbookNode sharedWidgetsNode() => WidgetbookFolder(
             ),
           ),
         ),
+        ...onEachPlatform('Disabled with subtitle', (_) => _disabledRow()),
         WidgetbookUseCase(
-          name: 'Disabled',
-          builder: (_) => frame(
-            GroupedSection(
-              children: [
-                GroupedActionRow(
-                  title: 'Run now',
-                  icon: AppIcons.play,
-                  onPressed: null,
+          name: 'Largest text, German, 320 pt, stacked',
+          builder: (context) =>
+              _largest(context, _german(context, _neutralRow(german: true))),
+        ),
+        WidgetbookUseCase(
+          name: 'Largest text, German, 320 pt, disabled',
+          builder: (context) =>
+              _largest(context, _german(context, _disabledRow(german: true))),
+        ),
+        WidgetbookUseCase(
+          name: 'Largest text, working with a spinner',
+          builder: (context) => _largest(
+            context,
+            _reduceMotion(
+              context,
+              frame(
+                GroupedSection(
+                  children: [
+                    GroupedActionRow(
+                      title: 'Run now',
+                      icon: AppIcons.play,
+                      onPressed: null,
+                      spinnerWhileWorking: true,
+                      status: const GroupedActionStatus(
+                        phase: GroupedActionPhase.working,
+                        text: 'Running on the server…',
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+                maxWidth: 320,
+              ),
             ),
           ),
         ),

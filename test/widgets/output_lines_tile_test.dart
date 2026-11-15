@@ -3,13 +3,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/output_lines_tile.dart';
 
-Widget _host(Widget child, {double scale = 1}) => MaterialApp(
-  theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
-  home: MediaQuery(
-    data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-    child: Scaffold(body: SingleChildScrollView(child: child)),
+Widget _host(
+  Widget child, {
+  double scale = 1,
+  TargetPlatform platform = TargetPlatform.iOS,
+}) => MaterialApp(
+  themeAnimationDuration: Duration.zero,
+  theme: buildHermesLightTheme(platform: platform),
+  builder: (context, child) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+    child: child!,
   ),
+  home: Scaffold(body: SingleChildScrollView(child: child)),
 );
+
+void _window(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
+Widget _tall({bool capHeight = true, TargetPlatform? platform}) => _host(
+  OutputLinesTile(
+    label: 'Show output',
+    lines: [for (var i = 1; i <= 200; i++) 'line $i'],
+    initiallyOpen: true,
+    selectable: false,
+    capHeight: capHeight,
+  ),
+  platform: platform ?? TargetPlatform.iOS,
+);
+
+double _boxHeight(WidgetTester tester) =>
+    tester.getSize(find.byType(SingleChildScrollView).last).height;
 
 void main() {
   const lines = ['first line', 'second line'];
@@ -137,24 +163,119 @@ void main() {
       expect(find.textContaining('first line'), findsNothing);
     });
 
-    testWidgets('a tall box is capped at 40 percent of the window', (
+    testWidgets('the cap is 40 percent of a short window', (tester) async {
+      _window(tester, const Size(600, 500));
+      await tester.pumpWidget(_tall());
+      expect(_boxHeight(tester), closeTo(200, 0.5));
+    });
+
+    testWidgets('the cap stops at 320 pt in a tall window', (tester) async {
+      _window(tester, const Size(600, 2000));
+      await tester.pumpWidget(_tall());
+      expect(_boxHeight(tester), closeTo(320, 0.5));
+    });
+
+    testWidgets('a tiny window gives a tiny box', (tester) async {
+      _window(tester, const Size(600, 100));
+      await tester.pumpWidget(_tall());
+      expect(_boxHeight(tester), closeTo(40, 0.5));
+    });
+
+    testWidgets('without capHeight the box grows with its lines', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(600, 500);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      _window(tester, const Size(600, 500));
+      await tester.pumpWidget(_tall(capHeight: false));
+      expect(find.byType(Scrollbar), findsNothing);
+      final text = tester.getSize(find.textContaining('line 1\n'));
+      expect(text.height, greaterThan(1000));
+    });
+
+    testWidgets('the capped box shows its scrollbar on desktop only', (
+      tester,
+    ) async {
+      _window(tester, const Size(600, 800));
+      bool anyAlwaysVisible() => tester
+          .widgetList<Scrollbar>(find.byType(Scrollbar))
+          .any((s) => s.thumbVisibility == true);
+      await tester.pumpWidget(_tall(platform: TargetPlatform.macOS));
+      expect(anyAlwaysVisible(), isTrue);
+      await tester.pumpWidget(_tall(platform: TargetPlatform.iOS));
+      expect(anyAlwaysVisible(), isFalse);
+    });
+
+    testWidgets('plain lines stay unselectable under a SelectionArea', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(
-          OutputLinesTile(
-            label: 'Show output',
-            lines: [for (var i = 1; i <= 200; i++) 'line $i'],
-            initiallyOpen: true,
-            selectable: false,
+          SelectionArea(
+            child: Column(
+              children: const [
+                Text('control'),
+                OutputLinesTile(
+                  label: 'Show output',
+                  lines: lines,
+                  initiallyOpen: true,
+                  selectable: false,
+                ),
+              ],
+            ),
           ),
         ),
       );
-      final box = tester.getSize(find.byType(SingleChildScrollView).last);
-      expect(box.height, lessThanOrEqualTo(200));
+      expect(
+        SelectionContainer.maybeOf(tester.element(find.text('control'))),
+        isNotNull,
+      );
+      expect(
+        SelectionContainer.maybeOf(
+          tester.element(find.text('first line\nsecond line')),
+        ),
+        isNull,
+      );
+    });
+
+    testWidgets('lines run left to right even in a right-to-left app', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const Directionality(
+            textDirection: TextDirection.rtl,
+            child: OutputLinesTile(
+              label: 'Show output',
+              lines: lines,
+              initiallyOpen: true,
+              selectable: false,
+            ),
+          ),
+        ),
+      );
+      expect(
+        tester.widget<Text>(find.text('first line\nsecond line')).textDirection,
+        TextDirection.ltr,
+      );
+    });
+
+    test('dropped lines need a label and a cap cannot be negative', () {
+      expect(
+        () => OutputLinesTile(label: 'x', lines: const [], maxLines: 3),
+        throwsAssertionError,
+      );
+      expect(
+        () => OutputLinesTile(label: 'x', lines: const [], earlierLines: 2),
+        throwsAssertionError,
+      );
+      expect(
+        () => OutputLinesTile(
+          label: 'x',
+          lines: const [],
+          maxLines: -1,
+          earlierLabel: (n) => '$n',
+        ),
+        throwsAssertionError,
+      );
     });
 
     testWidgets('semanticsLabel names the tile', (tester) async {

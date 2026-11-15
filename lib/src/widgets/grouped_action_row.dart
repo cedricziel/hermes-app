@@ -60,10 +60,14 @@ class GroupedActionStatus {
 /// shows the action's progress and outcome in the row.
 ///
 /// A null [onPressed] disables the row: it reads as a disabled button and
-/// ignores taps, and its [status] line and buttons still work. With
-/// [spinnerWhileWorking] the working phase leads with a spinner, on the Mac
-/// too, where the row has no icon otherwise. The icon and spinner follow the
-/// text size.
+/// ignores taps, and its [status] line and buttons still work. Colour and a
+/// fainter icon are the only visual cues, so a disabled row carries a
+/// [subtitle] (or a [status]) that says why. With [spinnerWhileWorking] the
+/// working phase leads with a spinner, on the Mac too, where the row has no
+/// icon otherwise. The icon and spinner follow the text size; beyond twice
+/// the normal size they stack above the text so it keeps the full width.
+/// The status buttons keep their compact look unless [touchTargetButtons]
+/// asks for the full 44 / 48 / 28 pt targets.
 class GroupedActionRow extends StatelessWidget {
   const GroupedActionRow({
     super.key,
@@ -74,7 +78,11 @@ class GroupedActionRow extends StatelessWidget {
     this.status,
     this.spinnerWhileWorking = false,
     this.semanticLabel,
-  });
+    this.touchTargetButtons = false,
+  }) : assert(
+         onPressed != null || subtitle != null || status != null,
+         'A disabled row needs a subtitle or status that says why.',
+       );
 
   final String title;
   final AppIconSet icon;
@@ -91,6 +99,14 @@ class GroupedActionRow extends StatelessWidget {
   /// Read in place of the title, subtitle and status text, for a row whose
   /// state needs a fuller name, such as "Run now, running".
   final String? semanticLabel;
+
+  /// Status buttons at 44 pt (iOS), 48 pt (Material) or 28 pt (Mac) at the
+  /// standard density, instead of the compact 44 pt Server care has always
+  /// had.
+  final bool touchTargetButtons;
+
+  /// Text scale beyond which the leading icon stacks above the text.
+  static const stackedScale = 2.0;
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +132,10 @@ class GroupedActionRow extends StatelessWidget {
       metrics.leadingSize,
       scaler.scale(metrics.leadingSize),
     );
-    final textStart = showLeading
+    final stacked =
+        showLeading &&
+        scaler.scale(metrics.titleSize) > metrics.titleSize * stackedScale;
+    final textStart = showLeading && !stacked
         ? metrics.rowPadding + leadingSize + metrics.leadingGap
         : metrics.rowPadding;
     final line = switch (status?.phase) {
@@ -125,11 +144,55 @@ class GroupedActionRow extends StatelessWidget {
       GroupedActionPhase.neutral => (AppIcons.info, colors.subtleText),
       _ => null,
     };
-    final buttonHeight = switch (platformChromeOf(context)) {
-      PlatformChrome.macos => 28.0,
-      PlatformChrome.material => 48.0,
-      PlatformChrome.ios => kAppleMinTapTarget,
-    };
+    final buttonStyle = touchTargetButtons
+        ? ButtonStyle(
+            minimumSize: WidgetStatePropertyAll(
+              Size(0, switch (platformChromeOf(context)) {
+                PlatformChrome.macos => 28.0,
+                PlatformChrome.material => 48.0,
+                PlatformChrome.ios => kAppleMinTapTarget,
+              }),
+            ),
+            visualDensity: VisualDensity.standard,
+          )
+        : const ButtonStyle(
+            minimumSize: WidgetStatePropertyAll(Size(0, 44)),
+            visualDensity: VisualDensity.compact,
+          );
+    final Widget leadingWidget = spinner
+        ? SizedBox.square(
+            dimension: leadingSize,
+            child: const FittedBox(child: MotionSpinner()),
+          )
+        : ExcludeSemantics(
+            child: AppIcon(
+              leading,
+              size: leadingSize,
+              color: disabled
+                  ? leadingColor.withValues(alpha: 0.6)
+                  : leadingColor,
+            ),
+          );
+    final textColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          shownTitle,
+          style: TextStyle(
+            fontSize: metrics.titleSize,
+            color: done ? colors.success : accent,
+          ),
+        ),
+        if (subtitle != null)
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: metrics.subtitleSize,
+              color: colors.subtleText,
+            ),
+          ),
+      ],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -150,49 +213,24 @@ class GroupedActionRow extends StatelessWidget {
                       horizontal: metrics.rowPadding,
                       vertical: metrics.rowVerticalPadding,
                     ),
-                    child: Row(
-                      children: [
-                        if (showLeading) ...[
-                          spinner
-                              ? SizedBox.square(
-                                  dimension: leadingSize,
-                                  child: const FittedBox(
-                                    child: MotionSpinner(),
-                                  ),
-                                )
-                              : ExcludeSemantics(
-                                  child: AppIcon(
-                                    leading,
-                                    size: leadingSize,
-                                    color: leadingColor,
-                                  ),
-                                ),
-                          SizedBox(width: metrics.leadingGap),
-                        ],
-                        Expanded(
-                          child: Column(
+                    child: stacked
+                        ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                shownTitle,
-                                style: TextStyle(
-                                  fontSize: metrics.titleSize,
-                                  color: done ? colors.success : accent,
-                                ),
-                              ),
-                              if (subtitle != null)
-                                Text(
-                                  subtitle,
-                                  style: TextStyle(
-                                    fontSize: metrics.subtitleSize,
-                                    color: colors.subtleText,
-                                  ),
-                                ),
+                              leadingWidget,
+                              SizedBox(height: metrics.leadingGap),
+                              textColumn,
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              if (showLeading) ...[
+                                leadingWidget,
+                                SizedBox(width: metrics.leadingGap),
+                              ],
+                              Expanded(child: textColumn),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),
@@ -263,12 +301,7 @@ class GroupedActionRow extends StatelessWidget {
               children: [
                 for (final button in status.buttons)
                   OutlinedButton(
-                    style: ButtonStyle(
-                      minimumSize: WidgetStatePropertyAll(
-                        Size(0, buttonHeight),
-                      ),
-                      visualDensity: VisualDensity.standard,
-                    ),
+                    style: buttonStyle,
                     onPressed: button.onPressed,
                     child: Text(button.label),
                   ),
