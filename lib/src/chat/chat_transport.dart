@@ -209,7 +209,20 @@ final class PromptAccepted extends ChatEvent {
     'redirected',
     'steered',
   };
+
+  /// The made-up status of an answer with none: Hermes ended a spoken or typed
+  /// stop phrase itself (`voice_stopped`, no `status`), so no turn runs and
+  /// the prompt has no reply. Not one of [allowedStatuses].
+  static const voiceStopped = 'voice_stopped';
   final String status;
+}
+
+/// A send that asked for [ChatTransport.send]'s `authorize` was withdrawn
+/// before `prompt.submit` was written: nothing reached the server.
+final class PromptNotSent implements Exception {
+  const PromptNotSent();
+  @override
+  String toString() => 'The prompt was withdrawn before it was sent.';
 }
 
 final class QueueSubmissionNotStarted implements Exception {
@@ -819,6 +832,15 @@ abstract interface class ChatTransport {
   /// [workspace] is the folder picked for a new chat. It is sent only when
   /// [threadId] is null; a resumed thread keeps the folder it has.
   ///
+  /// [voiceTurn] marks a prompt spoken in a call: it runs on the profile's
+  /// voice model route and never carries [queued]. [interrupted] (only with
+  /// [voiceTurn]) says the user cut off the reply before it. A voice turn also
+  /// reports every answer as a [PromptAccepted], `voice_stopped` included.
+  ///
+  /// [authorize] is asked right before `prompt.submit` is written, and again
+  /// as it is written; once it says no, nothing is written and the stream
+  /// ends with a [PromptNotSent] (never with a [SendFailure]).
+  ///
   /// [onSubmitting] runs once, just before `prompt.submit` is written and
   /// never earlier. A send given one also ends with a [SendFailure] instead
   /// of the raw error (a [ProfileUnavailableException] and a
@@ -834,6 +856,9 @@ abstract interface class ChatTransport {
     bool queued = false,
     WorkspaceChoice? workspace,
     void Function()? onSubmitting,
+    bool voiceTurn = false,
+    bool interrupted = false,
+    bool Function()? authorize,
   });
 
   /// The turns Hermes starts on its own in [threadId] after the reply of the

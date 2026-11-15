@@ -11,6 +11,7 @@ extension _ChatControllerSending on ChatController {
     List<ChatAttachment>? readyAttachments,
     List<OutgoingAttachment>? readyOutgoing,
     _ProtectedQueuedSend? protectedSend,
+    _VoiceTurn? voice,
   }) {
     if (protectedSend != null &&
         (selected == null || !_bound.contains(selected))) {
@@ -23,6 +24,12 @@ extension _ChatControllerSending on ChatController {
       return false;
     }
     final epoch = _activityEpoch;
+    final undo = _SendUndo(
+      title: selected?.title ?? 'New chat',
+      prior: selected == null ? null : _sentPrompts[selected],
+      settled: selected != null && _queueSettled.contains(selected),
+      bound: selected != null && _bound.contains(selected),
+    );
     final sizes = readyAttachments == null ? _sizesOrExplain(files) : <int>[];
     if (sizes == null) return false;
     final attachments = <ChatAttachment>[...?readyAttachments];
@@ -79,6 +86,9 @@ extension _ChatControllerSending on ChatController {
         ..title = label.length > 48 ? '${label.substring(0, 48)}…' : label
         ..named = false;
     }
+    if (protectedSend == null && !thread.named) {
+      undo.appliedTitle = thread.title;
+    }
 
     final threadId = _bound.contains(thread) ? thread.id : null;
     final userMessage = ChatMessage(
@@ -127,6 +137,8 @@ extension _ChatControllerSending on ChatController {
         submittedUser: userMessage,
         protectedSend: protectedSend,
         deferredUser: protectedSend == null ? null : userMessage,
+        voice: voice,
+        undo: undo,
       );
       if (!_currentActivity(epoch)) return false;
       unawaited(_attention.askForPermission());
@@ -207,6 +219,8 @@ extension _ChatControllerSending on ChatController {
     required ChatMessage submittedUser,
     _ProtectedQueuedSend? protectedSend,
     ChatMessage? deferredUser,
+    _VoiceTurn? voice,
+    required _SendUndo undo,
   }) {
     _beginMoaTurn(thread, reply);
     final epoch = _activityEpoch;
@@ -220,8 +234,12 @@ extension _ChatControllerSending on ChatController {
     var stopped = false;
     var folded = false;
     var settled = false;
+    // Set when a spoken turn left no trace: it was withdrawn before it was
+    // written, or Hermes took it as a stop phrase. Fixed words, for telemetry.
+    String? withdrawn;
     final own = _OwnTurn();
     String outcome(Object? error) {
+      if (withdrawn != null) return withdrawn!;
       if (error != null || reply.isPending && !folded) return 'failed';
       if (folded) return 'folded';
       if (stopped) return 'stopped';
@@ -261,7 +279,22 @@ extension _ChatControllerSending on ChatController {
         announceFailure: !reply.isPending,
       );
       if (!_currentActivity(epoch)) return;
-      if (folded) {
+      if (withdrawn != null) {
+        _abandon(thread);
+        // Nothing ran, so the queue (a typed prompt may have joined it while
+        // this turn was being opened) goes on as after any turn that ended.
+        if (_turnEnded(thread)) {
+          _drainQueue(thread);
+        }
+        // Opening the session closed the watch that listened between turns:
+        // listen again, as after a send that ended any other way.
+        if (_bound.contains(thread)) {
+          _followUps(transport, thread, profile);
+          if (!_currentActivity(epoch)) return;
+          _refetchIfIdle(thread);
+        }
+        notifyListeners();
+      } else if (folded) {
         // The prompt went into the turn already running, whose events follow
         // on the thread's follow-ups.
         if (error == null) {
@@ -344,6 +377,10 @@ extension _ChatControllerSending on ChatController {
         model: thread.modelChoice,
         queued: queued,
         workspace: _choiceForSend(thread, threadId),
+        voiceTurn: voice != null,
+        interrupted: voice?.interrupted ?? false,
+        authorize: voice?.wanted,
+        onSubmitting: voice?.onSubmitting,
       );
     } else {
       stream = (transport as QueueSubmissionTransport).sendQueued(
@@ -423,6 +460,32 @@ extension _ChatControllerSending on ChatController {
           return;
         }
         if (event is PromptAccepted &&
+            event.status == PromptAccepted.voiceStopped) {
+          // Hermes took the words as a stop phrase, typed or spoken: no turn
+          // runs, so neither the prompt nor its placeholder is shown.
+          withdrawn = 'voice_stopped';
+          // A durable queued prompt Hermes consumed is settled, not failed.
+          if (protectedSend != null) _acceptedQueue(thread, protectedSend);
+          voice?.answer(VoiceTurnAnswer.voiceStopped);
+          _dropUnsentTurn(thread, submittedUser, reply, undo);
+          // A typed prompt has no call turn to hear it: tell the calls.
+          if (voice == null) {
+            for (final listener in [..._voiceStoppedListeners]) {
+              listener(thread);
+            }
+          }
+          return;
+        }
+        if (voice != null && event is PromptAccepted) {
+          voice.answer(switch (event.status) {
+            'queued' => VoiceTurnAnswer.queued,
+            'steered' => VoiceTurnAnswer.steered,
+            'redirected' => VoiceTurnAnswer.redirected,
+            _ => VoiceTurnAnswer.started,
+          });
+          return;
+        }
+        if (event is PromptAccepted &&
             protectedSend != null &&
             PromptAccepted.allowedStatuses.contains(event.status)) {
           if (deferredUser != null &&
@@ -474,7 +537,15 @@ extension _ChatControllerSending on ChatController {
         }
         _onReplyEvent(thread, reply, event, profile);
       },
-      onError: end,
+      onError: (Object error) {
+        if (voice != null && error is PromptNotSent) {
+          if (!_currentActivity(epoch)) return;
+          withdrawn = 'not_sent';
+          voice.answer(VoiceTurnAnswer.withdrawn);
+          _dropUnsentTurn(thread, submittedUser, reply, undo);
+        }
+        end(error);
+      },
       onDone: end,
       cancelOnError: true,
     );
