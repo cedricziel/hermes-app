@@ -10,12 +10,11 @@ Future<void> _open(
   required TargetPlatform platform,
   required String title,
   Locale locale = const Locale('en'),
+  Size size = const Size(320, 568),
+  List<Widget>? actions,
 }) async {
   tester.view
-    // Ahem is so wide that the long title takes six lines at x3.1, taller
-    // than a 568 pt window; a real font takes about three (see the
-    // screenshots in the PR).
-    ..physicalSize = Size(320, scale > 3 ? 900 : 568)
+    ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -33,8 +32,11 @@ Future<void> _open(
         builder: (context) => TextButton(
           onPressed: () => showDialog<void>(
             context: context,
-            builder: (_) =>
-                GroupedDialog(title: title, children: const [Text('Row')]),
+            builder: (_) => GroupedDialog(
+              title: title,
+              actions: actions,
+              children: const [Text('Row')],
+            ),
           ),
           child: const Text('open'),
         ),
@@ -50,14 +52,32 @@ Future<void> _open(
 // x1.0 here. Cases that need the one-line layout use a short title.
 const _short = 'Set';
 const _long = 'Appearance and display';
+const _bot = 'Edit Research assistant for quarterly reports';
+final _footer = <Widget>[
+  TextButton(onPressed: () {}, child: const Text('Cancel')),
+  FilledButton(onPressed: () {}, child: const Text('Save')),
+];
 const _wraps = 'Notifications, sounds and everything else you can change';
 
 Rect _doneRect(WidgetTester tester) =>
     tester.getRect(find.byKey(const Key('grouped-dialog-done')));
 
-Rect _titleRect(WidgetTester tester, String title) => tester.getRect(
-  find.descendant(of: find.byType(GroupedDialog), matching: find.text(title)),
-);
+/// The part of the title that is on screen: the text clipped to its scroll
+/// view, which caps the header's height.
+Rect _titleRect(WidgetTester tester, String title) {
+  final text = tester.getRect(
+    find.descendant(of: find.byType(GroupedDialog), matching: find.text(title)),
+  );
+  final viewport = tester.getRect(
+    find
+        .descendant(
+          of: find.byType(GroupedDialog),
+          matching: find.byType(SingleChildScrollView),
+        )
+        .first,
+  );
+  return text.intersect(viewport);
+}
 
 Rect _dialogRect(WidgetTester tester) => tester.getRect(
   find
@@ -153,11 +173,59 @@ void main() {
         expect(titleRect.center.dx, closeTo(dialog.center.dx, 0.5));
         // Done's row is at least a tap target tall.
         expect(titleRect.top - dialog.top, greaterThanOrEqualTo(44));
-        // Nothing is cut: the header grew to hold every line.
+        // Nothing is cut: the header grew to hold every line (or, past its
+        // cap, the title scrolls; see the capped cases below).
         expect(
           tester.getRect(find.text('Row')).top - dialog.top,
           greaterThanOrEqualTo(titleRect.bottom - dialog.top),
         );
+      });
+    }
+
+    // Each word fits beside Done, the whole title does not fit on one line:
+    // the header stacks anyway. A rule that only looked at the longest word
+    // would wrap this title off-centre beside Done.
+    testWidgets('a title that wraps but whose words fit still stacks: '
+        '${platform.name}', (tester) async {
+      await _open(
+        tester,
+        scale: 1,
+        platform: platform,
+        title: 'Settings and more',
+      );
+      final done = _doneRect(tester);
+      final titleRect = _titleRect(tester, 'Settings and more');
+      expect(done.bottom, lessThanOrEqualTo(titleRect.top));
+    });
+
+    for (final (name, size, title, actions) in [
+      ('portrait with a footer', const Size(320, 568), _bot, _footer),
+      ('landscape with a footer', const Size(844, 390), _bot, _footer),
+      ('portrait with Done', const Size(320, 568), _long, null),
+      ('landscape with Done', const Size(844, 390), _bot, null),
+    ]) {
+      testWidgets('a long title at x3.1 scrolls instead of overflowing: '
+          '${platform.name} $name', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await _open(
+          tester,
+          scale: 3.1,
+          platform: platform,
+          title: title,
+          size: size,
+          actions: actions,
+        );
+        expect(tester.takeException(), isNull);
+        final dialog = _dialogRect(tester);
+        final rows = tester.getRect(find.text('Row'));
+        // The rows are reachable: on screen, below the header, which stays
+        // within its share of the window.
+        expect(rows.height, greaterThan(0));
+        expect(rows.bottom, lessThanOrEqualTo(size.height));
+        expect(rows.top - dialog.top, lessThan(0.5 * size.height));
+        expect(dialog.height, lessThanOrEqualTo(size.height));
+        expect(_readingOrder(tester), contains('Row'));
+        semantics.dispose();
       });
     }
   }

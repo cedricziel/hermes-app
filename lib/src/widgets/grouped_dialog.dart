@@ -154,7 +154,14 @@ class _Title extends StatelessWidget {
     }
     final ios = chrome == PlatformChrome.ios;
     final fontSize = ios ? 17.0 : 13.0;
+    // A long title (it can come from user data) grows the header, but never
+    // past a share of the screen: beyond that the title scrolls, so the rows
+    // below keep their room and Done stays in view.
+    final media = MediaQuery.of(context);
+    final available =
+        media.size.height - media.viewInsets.bottom - media.padding.vertical;
     return _TitleBar(
+      maxHeight: math.max(120, 0.4 * (available - 48)),
       minHeight: ios ? kAppleNavBarHeight + 8 : 44,
       doneInset: ios ? 4 : 8,
       textDirection: Directionality.of(context),
@@ -163,13 +170,16 @@ class _Title extends StatelessWidget {
       title: Semantics(
         sortKey: const OrdinalSortKey(0),
         header: true,
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
-            color: onSurface,
+        child: SingleChildScrollView(
+          primary: false,
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
+              color: onSurface,
+            ),
           ),
         ),
       ),
@@ -204,6 +214,7 @@ class _Title extends StatelessWidget {
 /// on one line beside Done, gives Done its own row with the title under it.
 class _TitleBar extends MultiChildRenderObjectWidget {
   _TitleBar({
+    required this.maxHeight,
     required this.minHeight,
     required this.doneInset,
     required this.textDirection,
@@ -211,12 +222,14 @@ class _TitleBar extends MultiChildRenderObjectWidget {
     Widget? done,
   }) : super(children: [title, ?done]);
 
+  final double maxHeight;
   final double minHeight;
   final double doneInset;
   final TextDirection textDirection;
 
   @override
   RenderObject createRenderObject(BuildContext context) => _RenderTitleBar(
+    maxHeight: maxHeight,
     minHeight: minHeight,
     doneInset: doneInset,
     textDirection: textDirection,
@@ -225,6 +238,7 @@ class _TitleBar extends MultiChildRenderObjectWidget {
   @override
   void updateRenderObject(BuildContext context, _RenderTitleBar renderObject) {
     renderObject
+      ..maxHeight = maxHeight
       ..minHeight = minHeight
       ..doneInset = doneInset
       ..textDirection = textDirection;
@@ -238,6 +252,7 @@ class _RenderTitleBar extends RenderBox
         ContainerRenderObjectMixin<RenderBox, _TitleBarParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _TitleBarParentData> {
   _RenderTitleBar({
+    required this._maxHeight,
     required this._minHeight,
     required this._doneInset,
     required this._textDirection,
@@ -246,6 +261,13 @@ class _RenderTitleBar extends RenderBox
   static const _sidePadding = 16.0;
   static const _gap = 8.0;
   static const _verticalPadding = 8.0;
+
+  double _maxHeight;
+  set maxHeight(double value) {
+    if (_maxHeight == value) return;
+    _maxHeight = value;
+    markNeedsLayout();
+  }
 
   double _minHeight;
   set minHeight(double value) {
@@ -343,16 +365,23 @@ class _RenderTitleBar extends RenderBox
         done != null && _title.getMaxIntrinsicWidth(double.infinity) > beside;
 
     final titleMax = stacked ? width - 2 * _sidePadding : beside;
+    // The title scrolls once the header would pass its share of the screen.
+    final doneRow = math.max(doneSize.height, kAppleMinTapTarget);
+    final titleRoom = stacked
+        ? _maxHeight - doneRow - _verticalPadding
+        : _maxHeight - 2 * _verticalPadding;
     final titleSize = layoutChild(
       _title,
-      BoxConstraints(maxWidth: math.max(0, titleMax)),
+      BoxConstraints(
+        maxWidth: math.max(0, titleMax),
+        maxHeight: math.max(titleRoom, 44),
+      ),
     );
 
     final double height;
     if (stacked) {
       // Done keeps its own row of at least a tap target, the title wraps
       // under it.
-      final doneRow = math.max(doneSize.height, kAppleMinTapTarget);
       height = math.max(
         _minHeight,
         doneRow + titleSize.height + _verticalPadding,
