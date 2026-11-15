@@ -20,6 +20,7 @@ class ComposerModelPill extends StatelessWidget {
     this.onPickerOpened,
     this.pickerUpdates,
     this.pickerOptions,
+    this.pickerChoice,
   });
 
   final ModelOptions? options;
@@ -39,6 +40,19 @@ class ComposerModelPill extends StatelessWidget {
   /// The newest options, which an open picker redraws with.
   final ModelOptions? Function()? pickerOptions;
 
+  /// The newest pick (null: none), which an open picker checks. Without it
+  /// the picker follows [choice] as it was when it opened.
+  final ModelChoice? Function()? pickerChoice;
+
+  /// The choice to show for [options]: a pick or the server's current
+  /// model, and only one the options list.
+  static ModelChoice? _shown(ModelChoice? choice, ModelOptions? options) {
+    final candidate = choice ?? options?.current;
+    return candidate != null && options?.model(candidate) != null
+        ? candidate
+        : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final options = this.options;
@@ -50,9 +64,7 @@ class ComposerModelPill extends StatelessWidget {
             ? ModelOptionsState.incomplete
             : ModelOptionsState.ready);
     final candidate = choice ?? options?.current;
-    final shown = candidate != null && options?.model(candidate) != null
-        ? candidate
-        : null;
+    final shown = _shown(choice, options);
     final model =
         shown?.modelId ??
         (onUseDefault == null ? 'Choose a model' : 'Profile default');
@@ -92,6 +104,10 @@ class ComposerModelPill extends StatelessWidget {
             onUseDefault: onUseDefault,
             updates: pickerUpdates,
             latest: pickerOptions,
+            latestSelected: pickerChoice == null
+                ? null
+                : () =>
+                      _shown(pickerChoice!(), pickerOptions?.call() ?? options),
           );
         },
         ModelOptionsState.incomplete ||

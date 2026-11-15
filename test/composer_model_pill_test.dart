@@ -258,4 +258,60 @@ void main() {
 
     expect(find.byKey(const Key('model-default')), findsNothing);
   });
+
+  testWidgets('an open picker checks the row of a default that changes', (
+    tester,
+  ) async {
+    ModelOptions optionsFor(String model) => ModelOptions(
+      current: ModelChoice('anthropic', model),
+      providers: const [
+        ModelProviderOption(
+          id: 'anthropic',
+          label: 'Anthropic',
+          models: [
+            ModelOption(id: 'claude-opus-4'),
+            ModelOption(id: 'claude-haiku-4-5'),
+          ],
+        ),
+      ],
+    );
+    var current = optionsFor('claude-opus-4');
+    final updates = ValueNotifier<int>(0);
+    addTearDown(updates.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(),
+        home: Scaffold(
+          body: ComposerModelPill(
+            options: current,
+            choice: null,
+            onChanged: (_) {},
+            pickerUpdates: updates,
+            pickerOptions: () => current,
+            pickerChoice: () => null,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('composer-model-pill')));
+    await tester.pumpAndSettle();
+    Finder row(String id) => find.byKey(Key('model-anthropic-$id'));
+    expect(
+      tester.getSemantics(row('claude-opus-4')),
+      isSemantics(hasCheckedState: true, isChecked: true),
+    );
+
+    current = optionsFor('claude-haiku-4-5');
+    updates.value++;
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSemantics(row('claude-haiku-4-5')),
+      isSemantics(hasCheckedState: true, isChecked: true),
+    );
+    expect(
+      tester.getSemantics(row('claude-opus-4')),
+      isSemantics(hasCheckedState: true, isChecked: false),
+    );
+  });
 }

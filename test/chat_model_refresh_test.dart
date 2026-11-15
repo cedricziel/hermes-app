@@ -110,4 +110,47 @@ void main() {
 
     expect(chat.modelOptions?.current?.modelId, 'deepseek-v3');
   });
+
+  group('on resume', () {
+    late DateTime now;
+
+    ChatController timed() => ChatController(
+      activity: activity,
+      repository: HermesChatRepository(server.client().raw),
+      models: HermesModelsRepository(server.client().raw),
+      attention: attention,
+      report: (_) {},
+      now: () => now,
+    );
+
+    test('two resumes within the interval read once', () async {
+      now = DateTime(2026, 1, 1, 12);
+      final chat = timed();
+      addTearDown(chat.dispose);
+      await chat.loadThreads();
+      await pumpEventQueue();
+      final before = server.requestsTo('GET', '/api/model/options').length;
+
+      await chat.refreshModelOptionsOnResume();
+      now = now.add(const Duration(seconds: 5));
+      await chat.refreshModelOptionsOnResume();
+
+      expect(server.requestsTo('GET', '/api/model/options').length, before + 1);
+    });
+
+    test('a resume after the interval reads again', () async {
+      now = DateTime(2026, 1, 1, 12);
+      final chat = timed();
+      addTearDown(chat.dispose);
+      await chat.loadThreads();
+      await pumpEventQueue();
+      await chat.refreshModelOptionsOnResume();
+      final before = server.requestsTo('GET', '/api/model/options').length;
+
+      now = now.add(ChatController.modelResumeInterval);
+      await chat.refreshModelOptionsOnResume();
+
+      expect(server.requestsTo('GET', '/api/model/options').length, before + 1);
+    });
+  });
 }

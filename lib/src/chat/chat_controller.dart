@@ -797,11 +797,30 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> refreshModelOptionsQuietly() {
     if (!active || models == null) return Future.value();
     if (_modelOptionsState == ModelOptionsState.loading) return Future.value();
-    return _quietModelRefresh ??= _loadModelOptions(
-      _profile,
-      _loadGeneration,
-      quiet: true,
-    ).whenComplete(() => _quietModelRefresh = null);
+    return _quietModelRefresh ??=
+        _loadModelOptions(_profile, _loadGeneration, quiet: true).whenComplete(
+          () {
+            _quietModelRefresh = null;
+            _lastQuietModelRead = _clock();
+          },
+        );
+  }
+
+  DateTime? _lastQuietModelRead;
+
+  /// How soon after the last finished quiet read a foreground resume reads
+  /// again, so a brief inactive-to-resumed flap (Control Centre, a system
+  /// dialog, the App Lock prompt) does not fetch.
+  static const modelResumeInterval = Duration(seconds: 30);
+
+  /// [refreshModelOptionsQuietly] for a return to the foreground: skipped
+  /// within [modelResumeInterval] of the last finished quiet read.
+  Future<void> refreshModelOptionsOnResume() {
+    final last = _lastQuietModelRead;
+    if (last != null && _clock().difference(last) < modelResumeInterval) {
+      return Future.value();
+    }
+    return refreshModelOptionsQuietly();
   }
 
   bool _warmingUnchanged = false;
