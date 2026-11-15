@@ -450,8 +450,6 @@ void main() {
       await newMessage(tester, 'Personal assistant');
       await tester.tap(find.byTooltip('Add attachment'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Choose files'));
-      await tester.pumpAndSettle();
       expect(find.text('release-checklist.txt'), findsOneWidget);
 
       await tester.tap(find.byType(ProfileRecipientChip));
@@ -493,8 +491,6 @@ void main() {
       await newMessage(tester, 'Personal assistant');
       await tester.enterText(composerField, 'Private planning draft');
       await tester.tap(find.byTooltip('Add attachment'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Choose files'));
       await tester.pumpAndSettle();
       expect(find.text('private-planning.txt'), findsOneWidget);
       final pending = Completer<FakeResponse>();

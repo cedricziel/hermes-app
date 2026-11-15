@@ -593,6 +593,22 @@
     "description": "Note under the process output cards in the Activity panel when older cards were dropped."
   },
   "@@x-area-chat/attachments": "",
+  "chatAttachmentsMenuTitle": "Attach",
+  "@chatAttachmentsMenuTitle": {
+    "description": "Title of the attach menu when it opens as a dialog on wide screens and macOS."
+  },
+  "chatAttachmentsOriginCamera": "Take a photo",
+  "@chatAttachmentsOriginCamera": {
+    "description": "Attach menu row that opens the camera."
+  },
+  "chatAttachmentsOriginFiles": "Choose files",
+  "@chatAttachmentsOriginFiles": {
+    "description": "Attach menu row that opens the file picker."
+  },
+  "chatAttachmentsOriginPhotos": "Photo library",
+  "@chatAttachmentsOriginPhotos": {
+    "description": "Attach menu row that opens the photo library."
+  },
 
   "@@x-area-chat/checkpoints": "",
   "chatCheckpointsChangesBarCount": "{count, plural, =1{1 file differs} other{{count} files differ}}",
