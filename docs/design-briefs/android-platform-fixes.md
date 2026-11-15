@@ -28,7 +28,7 @@ New components needed: none. Widget changes are minimum-height and hit-area chan
 
 Corrections after the pass: (a) E5's mechanism and the German string are new, see the E5 item (the warning is not localised today, so "the German warning is shortened" is a new string, not an edit); (b) E7's glyph is 16 dp, not 18; (c) every E7 change is Android-only. The canvas boards are otherwise unchanged.
 
-Where the brief did not work: nothing needed to change. The first guess for E3 was to use the foreground mipmap with a colour; the pass showed the launcher art cannot be a status icon at all, since it is opaque, and that the safe-zone check fails at 0.86.
+Where the brief did not work: nothing beyond the corrections above. The first guess for E3 was to use the foreground mipmap with a colour; the pass showed the launcher art cannot be a status icon at all, since it is opaque, and that the safe-zone check fails at 0.86.
 
 Not checked: the real status bar and shade (the mock is a drawn approximation), a real themed-icon launcher, TalkBack, and the largest text size on the dialog (the row uses a minimum height so it can grow).
 
