@@ -12,10 +12,13 @@ Future<void> _open(
   Locale locale = const Locale('en'),
   Size size = const Size(320, 568),
   List<Widget>? actions,
+  List<Widget> children = const [Text('Row')],
+  double keyboard = 0,
 }) async {
   tester.view
     ..physicalSize = size
-    ..devicePixelRatio = 1;
+    ..devicePixelRatio = 1
+    ..viewInsets = FakeViewPadding(bottom: keyboard);
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
@@ -35,7 +38,7 @@ Future<void> _open(
             builder: (_) => GroupedDialog(
               title: title,
               actions: actions,
-              children: const [Text('Row')],
+              children: children,
             ),
           ),
           child: const Text('open'),
@@ -292,4 +295,66 @@ void main() {
     final dialog = tester.getRect(find.byType(GroupedDialog));
     expect(done.left - dialog.left, lessThan(30));
   });
+
+  testWidgets('the heading trait is on the node that carries the title', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await _open(tester, scale: 1, platform: TargetPlatform.iOS, title: _short);
+    final heading = tester.getSemantics(
+      find.descendant(
+        of: find.byType(GroupedDialog),
+        matching: find.text(_short),
+      ),
+    );
+    expect(heading.flagsCollection.isHeader, isTrue);
+    expect(heading.label, _short);
+    semantics.dispose();
+  });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    for (final (name, size, keyboard) in [
+      ('landscape', const Size(844, 390), 209.0),
+      ('portrait', const Size(320, 568), 260.0),
+    ]) {
+      // A landscape keyboard at x3.1 leaves 133 pt, which the fixed footer
+      // alone (padding plus one 3.1x button) already exceeds, with or
+      // without this header; main overflows there too.
+      for (final scale in name == 'landscape' ? [2.0] : [2.0, 3.1]) {
+        testWidgets('a dialog with fields and a footer fits above the '
+            'keyboard: ${platform.name} $name x$scale', (tester) async {
+          final fields = [
+            for (var i = 0; i < 3; i++)
+              TextField(key: Key('field-$i'), decoration: null),
+          ];
+          await _open(
+            tester,
+            scale: scale,
+            platform: platform,
+            title: _bot,
+            size: size,
+            keyboard: keyboard,
+            actions: [
+              FilledButton(onPressed: () {}, child: const Text('Save')),
+            ],
+            children: fields,
+          );
+          expect(tester.takeException(), isNull);
+          // The body scrolls to the field; the keyboard room is what it has.
+          await tester.ensureVisible(find.byKey(const Key('field-2')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('field-2')));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          final field = tester.getRect(find.byKey(const Key('field-2')));
+          expect(field.top, greaterThanOrEqualTo(0));
+          expect(field.bottom, lessThanOrEqualTo(size.height - keyboard));
+          expect(
+            tester.getRect(find.text('Save')).bottom,
+            lessThanOrEqualTo(size.height - keyboard),
+          );
+        });
+      }
+    }
+  }
 }

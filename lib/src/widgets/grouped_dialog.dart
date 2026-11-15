@@ -55,38 +55,47 @@ class GroupedDialog extends StatelessWidget {
         label: title,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Title(title: title, chrome: chrome, showDone: actions == null),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    metrics.gutter,
-                    0,
-                    metrics.gutter,
-                    metrics.gutter,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: children,
+          // The room the dialog really gets (Dialog has already taken the
+          // keyboard and the insets off it) decides how tall the header may be.
+          child: LayoutBuilder(
+            builder: (context, constraints) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _Title(
+                  title: title,
+                  chrome: chrome,
+                  showDone: actions == null,
+                  room: constraints.maxHeight,
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      metrics.gutter,
+                      0,
+                      metrics.gutter,
+                      metrics.gutter,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
                   ),
                 ),
-              ),
-              if (actions != null) ...[
-                const Divider(height: 1),
-                Padding(
-                  padding: EdgeInsets.all(metrics.gutter),
-                  child: Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: actions!,
+                if (actions != null) ...[
+                  const Divider(height: 1),
+                  Padding(
+                    padding: EdgeInsets.all(metrics.gutter),
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: actions!,
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -127,11 +136,15 @@ class _Title extends StatelessWidget {
     required this.title,
     required this.chrome,
     required this.showDone,
+    required this.room,
   });
 
   final String title;
   final PlatformChrome chrome;
   final bool showDone;
+
+  /// The height the dialog may take, with the keyboard already off it.
+  final double room;
 
   @override
   Widget build(BuildContext context) {
@@ -155,31 +168,28 @@ class _Title extends StatelessWidget {
     final ios = chrome == PlatformChrome.ios;
     final fontSize = ios ? 17.0 : 13.0;
     // A long title (it can come from user data) grows the header, but never
-    // past a share of the screen: beyond that the title scrolls, so the rows
-    // below keep their room and Done stays in view.
-    final media = MediaQuery.of(context);
-    final available =
-        media.size.height - media.viewInsets.bottom - media.padding.vertical;
+    // past a share of the dialog's room: beyond that the title scrolls, so
+    // the rows below keep theirs and Done stays in view.
+    final minHeight = ios ? kAppleNavBarHeight + 8 : 44.0;
     return _TitleBar(
-      maxHeight: math.max(120, 0.4 * (available - 48)),
-      minHeight: ios ? kAppleNavBarHeight + 8 : 44,
+      // Tight room (a landscape keyboard) keeps the resting height: the title
+      // scrolls in a one-line bar rather than taking room from the rows.
+      maxHeight: !room.isFinite
+          ? 1e9
+          : (0.4 * room < 1.5 * minHeight ? minHeight : 0.4 * room),
+      minHeight: minHeight,
       doneInset: ios ? 4 : 8,
       textDirection: Directionality.of(context),
       // Screen readers follow the sort keys, not the position: stacked, Done
       // sits above the title but is still read after it.
       title: Semantics(
         sortKey: const OrdinalSortKey(0),
-        header: true,
-        child: SingleChildScrollView(
-          primary: false,
-          child: Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
-              color: onSurface,
-            ),
+        child: _ScrollingTitle(
+          title: title,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
+            color: onSurface,
           ),
         ),
       ),
@@ -206,6 +216,59 @@ class _Title extends StatelessWidget {
           : null,
     );
   }
+}
+
+/// The title of the header: it scrolls when the header's cap clips it, and a
+/// fade at the bottom edge says there is more.
+class _ScrollingTitle extends StatefulWidget {
+  const _ScrollingTitle({required this.title, required this.style});
+
+  final String title;
+  final TextStyle style;
+
+  @override
+  State<_ScrollingTitle> createState() => _ScrollingTitleState();
+}
+
+class _ScrollingTitleState extends State<_ScrollingTitle> {
+  static const _fade = 20.0;
+
+  bool _more = false;
+
+  bool _update(ScrollMetrics metrics) {
+    final more = metrics.extentAfter > 0.5;
+    if (more != _more) setState(() => _more = more);
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      NotificationListener<ScrollMetricsNotification>(
+        onNotification: (n) => _update(n.metrics),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (n) => _update(n.metrics),
+          child: ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (rect) => LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: const [Colors.white, Colors.white, Colors.transparent],
+              stops: [0, _more ? math.max(0, 1 - _fade / rect.height) : 1, 1],
+            ).createShader(rect),
+            child: SingleChildScrollView(
+              primary: false,
+              child: Semantics(
+                header: true,
+                child: Text(
+                  widget.title,
+                  textAlign: TextAlign.center,
+                  style: widget.style,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 /// The header of an Apple or desktop [GroupedDialog]: the title centred, the
@@ -368,14 +431,14 @@ class _RenderTitleBar extends RenderBox
     // The title scrolls once the header would pass its share of the screen.
     final doneRow = math.max(doneSize.height, kAppleMinTapTarget);
     final titleRoom = stacked
-        ? _maxHeight - doneRow - _verticalPadding
-        : _maxHeight - 2 * _verticalPadding;
+        ? math.max(_maxHeight - doneRow - _verticalPadding, 24.0)
+        : math.max(
+            _maxHeight - 2 * _verticalPadding,
+            _minHeight - 2 * _verticalPadding,
+          );
     final titleSize = layoutChild(
       _title,
-      BoxConstraints(
-        maxWidth: math.max(0, titleMax),
-        maxHeight: math.max(titleRoom, 44),
-      ),
+      BoxConstraints(maxWidth: math.max(0, titleMax), maxHeight: titleRoom),
     );
 
     final double height;
