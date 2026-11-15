@@ -68,13 +68,12 @@ class _MemoryProposalsScreenState extends State<MemoryProposalsScreen> {
   Future<void> _rejectAll() async {
     final count = _controller.waiting ?? 0;
     final l10n = context.l10n;
-    final confirmed = await showConfirmDialog(
+    final confirmed = await showDestructiveConfirm(
       context,
       title: l10n.memoryRejectAllTitle,
       message: l10n.memoryRejectAllMessage(count),
       confirmLabel: l10n.memoryRejectAllAction,
       cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,
-      destructive: true,
     );
     if (confirmed && mounted) await _controller.decideAll(approve: false);
   }

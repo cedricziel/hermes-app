@@ -559,7 +559,7 @@
   "memoryLeaveMessageUnsaved": "Wenn du gehst, wird dein ungespeicherter Entwurf verworfen. Eine unbestätigte Änderung kann trotzdem durchgegangen sein.",
   "memoryLeaveTitle": "Diese Erinnerung verlassen?",
   "memoryRejectAllAction": "Alle ablehnen",
-  "memoryRejectAllMessage": "{count, plural, =1{Hermes verwirft die 1 Änderung, die hier aufgelistet ist. Das lässt sich nicht rückgängig machen.} other{Hermes verwirft die {count} Änderungen, die hier aufgelistet sind. Das lässt sich nicht rückgängig machen.}}",
+  "memoryRejectAllMessage": "{count, plural, =1{Hermes verwirft die eine Änderung, die hier aufgelistet ist. Das lässt sich nicht rückgängig machen.} other{Hermes verwirft die {count} Änderungen, die hier aufgelistet sind. Das lässt sich nicht rückgängig machen.}}",
   "memoryRejectAllTitle": "Alle Änderungen ablehnen?",
   "memoryResetAboutYou": "„Über dich“ zurücksetzen",
   "memoryResetAgentNotes": "Agent-Notizen zurücksetzen",
