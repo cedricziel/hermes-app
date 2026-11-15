@@ -484,6 +484,245 @@ class PremergeTest(unittest.TestCase):
         self.assertIn("Do not arm", bad.stdout + bad.stderr)
         self.assertIn("rerun", ok.stdout.lower())
 
+    # review fixes -----------------------------------------------------
+
+    def spawn_sleeping(self, pr=10):
+        marker = self.root / "marker"
+        out = (self.root / "out.txt").open("w")
+        self.addCleanup(out.close)
+        p = subprocess.Popen(
+            ["bash", str(SCRIPT), str(pr)], cwd=self.caller,
+            env=self.env(STUB_SLEEP="60", STUB_MARKER=str(marker)),
+            stdout=out, stderr=subprocess.STDOUT, start_new_session=True,
+        )
+        self.addCleanup(lambda: p.poll() is None and os.killpg(p.pid, signal.SIGKILL))
+        deadline = time.time() + 60
+        while not marker.exists() and time.time() < deadline:
+            time.sleep(0.1)
+        self.assertTrue(marker.exists(), "stub analyze never started")
+        return p
+
+    def test_inherited_git_dir_is_ignored(self):
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})
+        self.dirty_caller()
+        before = self.snapshot()
+        gitdir = git(self.caller, "rev-parse", "--absolute-git-dir").strip()
+        r = self.run_check(10, GIT_DIR=gitdir, GIT_WORK_TREE=str(self.caller))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.snapshot(), before)
+        self.assert_clean_up()
+
+    def test_inherited_git_index_file_is_ignored(self):
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})
+        self.dirty_caller()
+        before = self.snapshot()
+        gitdir = git(self.caller, "rev-parse", "--absolute-git-dir").strip()
+        r = self.run_check(10, GIT_INDEX_FILE=gitdir + "/index")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_inherited_git_config_parameters_are_ignored(self):
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})
+        r = self.run_check(10, GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.bare",
+                           GIT_CONFIG_VALUE_0="true")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_hooks_do_not_run(self):
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})
+        marker = self.root / "hook-ran"
+        for name in ("post-checkout", "post-merge", "pre-merge-commit",
+                     "prepare-commit-msg", "commit-msg", "reference-transaction"):
+            hook = self.caller / ".git" / "hooks" / name
+            hook.write_text(f"#!/bin/sh\necho {name} >> '{marker}'\n")
+            hook.chmod(0o755)
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(marker.exists(), marker.read_text() if marker.exists() else "")
+
+    def test_hook_on_worktree_add_does_not_run(self):
+        # Only post-checkout: the one hook worktree add itself triggers.
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})
+        marker = self.root / "hook-ran"
+        hook = self.caller / ".git" / "hooks" / "post-checkout"
+        hook.write_text(f"#!/bin/sh\necho ran >> '{marker}'\n")
+        hook.chmod(0o755)
+        self.run_check(10)
+        self.assertFalse(marker.exists())
+
+    def test_hook_on_merge_does_not_run(self):
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})
+        self.advance_main({"lib/src/chat/later.dart": "l\n"})
+        marker = self.root / "hook-ran"
+        hook = self.caller / ".git" / "hooks" / "post-merge"
+        hook.write_text(f"#!/bin/sh\necho ran >> '{marker}'\n")
+        hook.chmod(0o755)
+        self.run_check(10)
+        self.assertFalse(marker.exists())
+
+    def test_moved_worktree_of_caller_survives(self):
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})
+        other = self.root / "other-wt"
+        git(self.caller, "worktree", "add", "-q", "--detach", str(other))
+        moved = self.root / "other-wt.away"
+        other.rename(moved)
+        try:
+            r = self.run_check(10)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            gitdir = git(self.caller, "rev-parse", "--absolute-git-dir").strip()
+            self.assertTrue((Path(gitdir) / "worktrees" / "other-wt").is_dir(),
+                            "the caller's worktree record was pruned")
+        finally:
+            if moved.exists():
+                moved.rename(other)
+        self.assertIn(str(other), git(self.caller, "worktree", "list"))
+
+    def test_overlap_unknown_without_merge_base_is_not_all_clear(self):
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})
+        self.pr(11, {"lib/src/theme/other.dart": "o\n"})
+        self.advance_main({"lib/src/chat/m1.dart": "1\n"})
+        self.advance_main({"lib/src/chat/m2.dart": "2\n"})
+        shallow = self.root / "shallow"
+        git(self.root, "clone", "-q", "--depth", "1", "file://" + str(self.origin),
+            str(shallow))
+        r = self.run_check(10, "--others", 11, cwd=shallow)
+        out = r.stdout + r.stderr
+        self.assertIn("overlap UNKNOWN for #11 (no merge base; shallow clone? "
+                      "git fetch --unshallow)", out)
+        self.assertIn("WARNING", out)
+        self.assertNotIn("no shared library directory with #11", out)
+
+    def test_rename_counts_source_and_target_directory(self):
+        git(self.seed, "checkout", "-q", "-B", "pr10", "main")
+        (self.seed / "lib/src/chat").mkdir(parents=True, exist_ok=True)
+        git(self.seed, "mv", "lib/src/theme/a.dart", "lib/src/chat/a.dart")
+        git(self.seed, "commit", "-q", "-m", "rename")
+        git(self.seed, "push", "-q", "origin", "pr10:refs/pull/10/head")
+        git(self.seed, "checkout", "-q", "main")
+        self.pr(11, {"lib/src/theme/b.dart": "11\n"})
+        self.pr(12, {"lib/src/chat/zzz.dart": "12\n"})
+        r = self.run_check(10, "--others", 11, 12)
+        self.assertIn("overlap with #11: lib/src/theme/ (1 files here, 1 there)", r.stdout)
+        self.assertIn("overlap with #12: lib/src/chat/ (1 files here, 1 there)", r.stdout)
+
+    def test_already_merged_pr_exits_1(self):
+        git(self.seed, "push", "-q", "origin", "main:refs/pull/10/head")
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("already contained in base", r.stdout + r.stderr)
+        self.assertFalse(self.log.exists())
+        self.assert_clean_up()
+
+    def test_pass_names_head_sha_and_how_to_arm(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        head = git(self.origin, "rev-parse", "refs/pull/10/head").strip()
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0)
+        self.assertIn(f"gh pr merge --auto --match-head-commit {head}", r.stdout)
+        self.assertIn("rerun after ANY push to the PR or to main", r.stdout)
+
+    def test_sigkill_leftovers_are_swept_by_the_next_run(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        p = self.spawn_sleeping()
+        os.killpg(p.pid, signal.SIGKILL)
+        p.wait(timeout=30)
+        self.assertEqual(len(self.worktrees()), 2)
+        self.assertTrue(list(self.tmp.iterdir()))
+        self.assertIn("refs/premerge/", git(self.caller, "for-each-ref", "refs/premerge"))
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assert_clean_up()
+
+    def test_sweep_leaves_a_live_runs_files_alone(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        p = self.spawn_sleeping()
+        try:
+            r = self.run_check(10)  # a second run while the first is alive
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(len(self.worktrees()), 2)  # the live run's tree
+            self.assertTrue(list(self.tmp.iterdir()))
+        finally:
+            os.killpg(p.pid, signal.SIGKILL)
+            p.wait(timeout=30)
+
+    def test_keep_survives_the_next_run(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        self.assertEqual(self.run_check(10, "--keep").returncode, 0)
+        self.assertEqual(self.run_check(10).returncode, 0)
+        self.assertEqual(len(self.worktrees()), 2)
+        self.assertEqual(len(list(self.tmp.iterdir())), 1)
+
+    def test_fetch_leaves_remote_tracking_ref_and_fetch_head_alone(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        self.advance_main({"lib/src/chat/later.dart": "l\n"})
+        tracking = git(self.caller, "rev-parse", "refs/remotes/origin/main")
+        gitdir = Path(git(self.caller, "rev-parse", "--absolute-git-dir").strip())
+        self.assertFalse((gitdir / "FETCH_HEAD").exists())
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(git(self.caller, "rev-parse", "refs/remotes/origin/main"),
+                         tracking)
+        self.assertFalse((gitdir / "FETCH_HEAD").exists())
+
+    def test_rerere_does_not_hide_a_conflict(self):
+        self.pr(10, {"lib/src/theme/a.dart": "pr side\n"})
+        self.advance_main({"lib/src/theme/a.dart": "main side\n"})
+        git(self.caller, "config", "rerere.enabled", "true")
+        git(self.caller, "config", "rerere.autoUpdate", "true")
+        git(self.caller, "fetch", "-q", "origin", "refs/pull/10/head:refs/heads/pr10")
+        git(self.caller, "pull", "-q", "origin", "main")
+        git(self.caller, "merge", "-q", "pr10", check=False)
+        self.write(self.caller, "lib/src/theme/a.dart", "resolved\n")
+        git(self.caller, "add", "lib/src/theme/a.dart")
+        git(self.caller, "commit", "-q", "-m", "resolve")
+        git(self.caller, "reset", "-q", "--hard", "origin/main")
+        self.assertTrue(list((self.caller / ".git" / "rr-cache").iterdir()))
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("lib/src/theme/a.dart", r.stdout)
+
+    def test_conflict_list_keeps_names_with_spaces_whole(self):
+        self.pr(10, {"lib/src/theme/my file.dart": "pr\n"})
+        self.advance_main({"lib/src/theme/my file.dart": "main\n"})
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("  lib/src/theme/my file.dart\n", r.stdout)
+
+    def test_sighup_exits_129_and_cleans_up(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        p = self.spawn_sleeping()
+        p.send_signal(signal.SIGHUP)
+        p.wait(timeout=30)
+        self.assertEqual(p.returncode, 129)
+        self.assert_clean_up()
+
+    def test_overlap_unknown_when_only_this_prs_merge_base_is_missing(self):
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})
+        self.advance_main({"lib/src/chat/m1.dart": "1\n"})
+        self.advance_main({"lib/src/chat/m2.dart": "2\n"})
+        self.pr(11, {"lib/src/theme/other.dart": "o\n"})  # branches from main's tip
+        shallow = self.root / "shallow"
+        git(self.root, "clone", "-q", "--depth", "1", "file://" + str(self.origin),
+            str(shallow))
+        r = self.run_check(10, "--others", 11, cwd=shallow)
+        out = r.stdout + r.stderr
+        self.assertIn("overlap UNKNOWN for #11", out)
+        self.assertNotIn("no shared library directory with #11", out)
+        self.assertIn("WARNING", out)
+
+    def test_overlap_unknown_when_only_the_other_prs_merge_base_is_missing(self):
+        self.pr(11, {"lib/src/theme/other.dart": "o\n"})
+        self.advance_main({"lib/src/chat/m1.dart": "1\n"})
+        self.advance_main({"lib/src/chat/m2.dart": "2\n"})
+        self.pr(10, {"lib/src/theme/new.dart": "n\n"})  # branches from main's tip
+        shallow = self.root / "shallow"
+        git(self.root, "clone", "-q", "--depth", "1", "file://" + str(self.origin),
+            str(shallow))
+        r = self.run_check(10, "--others", 11, cwd=shallow)
+        out = r.stdout + r.stderr
+        self.assertIn("overlap UNKNOWN for #11 (no merge base", out)
+        self.assertNotIn("no shared library directory with #11", out)
+        self.assertIn("WARNING", out)
+
 
 if __name__ == "__main__":
     unittest.main()
