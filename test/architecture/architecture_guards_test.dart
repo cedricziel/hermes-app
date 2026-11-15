@@ -9,6 +9,8 @@
 /// The `architecture-guards` skill says how to add a rule and prove it fails.
 library;
 
+import 'package:flutter_test/flutter_test.dart';
+
 import 'ratchet.dart';
 import 'source_scan.dart';
 
@@ -57,7 +59,16 @@ Rule _custom({
   );
 }
 
-const _errNames = r'(?:e|ex|err|error|exception|cause)';
+/// Names that are an error in any scope.
+const _errorNames = [
+  'err',
+  'error',
+  'exception',
+  'cause',
+  'failure',
+  'stackTrace',
+  'stack',
+];
 
 /// Calls that reach telemetry or logs: app events, breadcrumbs, span
 /// attributes, `debugPrint`.
@@ -66,34 +77,103 @@ final _telemetryCall = RegExp(
   r'setAttributes|startSpan|addEvent)\s*\(',
 );
 
-final _errorInText = RegExp(
-  // `$e`, `$error` (the rest of the name is literal text)
-  '\\\$$_errNames\\b'
-  // `${error}`, `${error.message}`, `${e.toString()}`; not `${e.runtimeType}`
-  '|\\\$\\{\\s*$_errNames\\b(?!\\.runtimeType)'
-  // `error.toString()` passed as an argument
-  '|\\b$_errNames\\.toString\\(\\)',
-);
+final _catchClause = RegExp(r'\bcatch\s*\(([^)]*)\)\s*\{');
 
-List<Hit> _errorInterpolation() {
+/// Matches the end of the brace block that opens at [open] in [code].
+int _blockEnd(String code, int open) {
+  var depth = 0;
+  for (var i = open; i < code.length; i++) {
+    if (code[i] == '{') depth++;
+    if (code[i] == '}' && --depth == 0) return i;
+  }
+  return code.length;
+}
+
+/// The end offset of the call whose `(` just before [from] opened.
+int _callEnd(String code, int from) {
+  var depth = 1;
+  var end = from;
+  while (end < code.length && depth > 0) {
+    final c = code[end];
+    if (c == '(') depth++;
+    if (c == ')') depth--;
+    end++;
+  }
+  return end;
+}
+
+/// Arguments (from the `text` view) of every call in [file] whose callee
+/// matches [callee], as (callee offset, argument text).
+List<(int, String)> callArguments(SourceFile file, RegExp callee) => [
+  for (final call in callee.allMatches(file.code))
+    (call.start, file.text.substring(call.end, _callEnd(file.code, call.end))),
+];
+
+/// Hits of the telemetry-error rule in one file: a telemetry call whose
+/// arguments carry an error's message or stack. Names bound by an enclosing
+/// `catch (e, st)` count in that block; `error`, `err`, `exception`, `cause`,
+/// `failure`, `stackTrace` and `stack` count anywhere. A bare `e`, `ex` or
+/// `st` outside a catch block (a loop variable, say) does not.
+List<Hit> errorInterpolationHits(SourceFile file) {
+  final catches = <(int, int, Set<String>)>[];
+  for (final m in _catchClause.allMatches(file.code)) {
+    final bound = {
+      for (final name in m.group(1)!.split(','))
+        if (RegExp(r'(\w+)\s*$').firstMatch(name.trim()) case final n?)
+          n.group(1)!,
+    };
+    catches.add((m.end - 1, _blockEnd(file.code, m.end - 1), bound));
+  }
   final hits = <Hit>[];
+  for (final (offset, args) in callArguments(file, _telemetryCall)) {
+    final names = {
+      ..._errorNames,
+      for (final (start, end, bound) in catches)
+        if (offset > start && offset < end) ...bound,
+    };
+    final n = '(?:${names.join('|')})';
+    final bad = RegExp(
+      // `$e`, `$error` (the rest of the name is literal text)
+      '\\\$$n\\b'
+      // `${error}`, `${error.message}`, `${e.toString()}`, not `${e.runtimeType}`
+      '|\\\$\\{\\s*$n\\b(?!\\.runtimeType)'
+      // `error.toString()`, `error.message` passed as an argument
+      '|\\b$n\\.(?:toString\\(\\)|message\\b)'
+      // `'text' + error`, `error + 'text'`
+      '|\\+\\s*$n\\b(?!\\.runtimeType)|\\b$n\\s*\\+\\s*[\'"]',
+    );
+    if (bad.hasMatch(args)) {
+      final line = file.lineOf(offset);
+      hits.add(Hit(file.path, line, file.lineText(line)));
+    }
+  }
+  return hits;
+}
+
+List<Hit> _errorInterpolation() => [
+  for (final file in dartFiles('lib')) ...errorInterpolationHits(file),
+];
+
+/// `--fix` anywhere, and `fix: true` or a `'fix'` key in a call that names
+/// the doctor.
+List<Hit> _doctorFix() {
+  const allow = ['lib/src/server_care/widgets/server_check_body.dart'];
+  final hits = <Hit>[];
+  final flag = RegExp(r'--fix');
+  final fixArg = RegExp(r"""\bfix\s*:\s*true\b|['"]fix['"]""");
+  final doctorCall = RegExp(r'\b\w*[Dd]octor\w*\s*\(');
   for (final file in dartFiles('lib')) {
-    final code = file.code;
-    final text = file.text;
-    for (final call in _telemetryCall.allMatches(code)) {
-      var depth = 1;
-      var end = call.end;
-      while (end < code.length && depth > 0) {
-        final c = code[end];
-        if (c == '(') depth++;
-        if (c == ')') depth--;
-        end++;
-      }
-      final args = text.substring(call.end, end);
-      if (_errorInText.hasMatch(args)) {
-        final line = file.lineOf(call.start);
-        hits.add(Hit(file.path, line, file.lineText(line)));
-      }
+    if (isAllowed(file.path, allow)) continue;
+    void add(int offset) {
+      final line = file.lineOf(offset);
+      hits.add(Hit(file.path, line, file.lineText(line)));
+    }
+
+    for (final m in flag.allMatches(file.text)) {
+      add(m.start);
+    }
+    for (final (offset, args) in callArguments(file, doctorCall)) {
+      if (fixArg.hasMatch(args)) add(offset);
     }
   }
   return hits;
@@ -130,15 +210,7 @@ final guardRules = <Rule>[
         'build the link with deepLinkUri and read it with parseDeepLink '
         '(lib/src/deep_links/), never a hand-written hermes: URL.',
     pattern: RegExp(
-      r'hermes://|['
-      "'"
-      r'"]hermes:['
-      "'"
-      r'"]|scheme\s*(?:==|:)\s*['
-      "'"
-      r'"]hermes['
-      "'"
-      r'"]',
+      r"""hermes://|['"]hermes:(?:['"]|[A-Za-z])|scheme\s*(?:==|:)\s*['"]hermes['"]""",
     ),
     allow: {
       'lib/src/deep_links/': 'owns the scheme: deepLinkUri, parseDeepLink',
@@ -185,23 +257,13 @@ final guardRules = <Rule>[
   ),
 
   // CLAUDE.md "Server care": doctor never runs with --fix.
-  _guard(
+  _custom(
     name: 'doctor-fix',
     message:
         'doctor never runs with --fix: call '
         'ServerCareRepository.startDoctor (profile only) and show the footer '
         'tip; strip --fix from copied commands as server_check_body.dart does.',
-    pattern: RegExp(
-      r'--fix|\bfix\s*:\s*true\b|['
-      "'"
-      r'"]fix['
-      "'"
-      r'"]',
-    ),
-    allow: {
-      'lib/src/server_care/widgets/server_check_body.dart':
-          'strips --fix from a copied command',
-    },
+    hits: _doctorFix,
   ),
 
   // CLAUDE.md "Two API layers": reach the client through
@@ -250,7 +312,8 @@ final guardRules = <Rule>[
     message:
         'a widgets/ file takes models and callbacks only: move the '
         'repository, controller or hermes_api use to the screen that builds '
-        'the widget (component-catalog skill).',
+        'the widget, or move the model type out of that file '
+        '(component-catalog skill).',
     pattern: RegExp(
       '''^\\s*(?:import|export)\\s+['"][^'"]*'''
       r'''(?:_repository\.dart|_controller\.dart|package:hermes_api/)[^'"]*['"]''',
@@ -281,4 +344,37 @@ final guardRules = <Rule>[
   ),
 ];
 
-void main() => ratchetTests(guardRules, namespace: 'arch');
+void main() {
+  ratchetTests(guardRules, namespace: 'arch');
+
+  group('error-interpolation scan', () {
+    int count(String body) =>
+        errorInterpolationHits(SourceFile('lib/x.dart', body)).length;
+
+    test('flags the message and stack of a caught error', () {
+      expect(count("f() { try {} catch (e) { debugPrint('x \$e'); } }"), 1);
+      expect(
+        count("f() { try {} on X catch (ex, st) { debugPrint('\$st'); } }"),
+        1,
+      );
+      expect(
+        count("f() { try {} catch (p, q) { debugPrint('\${p.message}'); } }"),
+        1,
+      );
+      expect(count("f(Object error) { debugPrint('a' + error.message); }"), 1);
+      expect(count("f(Object err) { events('x', {'m': err.toString()}); }"), 1);
+      expect(count("f(Object stackTrace) { debugPrint('\$stackTrace'); }"), 1);
+      expect(count("f(Object failure) { debugPrint('\${failure}'); }"), 1);
+    });
+
+    test('lets the type through, and a loop variable named e', () {
+      expect(
+        count("f(Object error) { debugPrint('\${error.runtimeType}'); }"),
+        0,
+      );
+      expect(count("f(xs) { for (final e in xs) { debugPrint('\$e'); } }"), 0);
+      expect(count("f(xs) { xs.map((e) => events('n', {'v': '\$e'})); }"), 0);
+      expect(count("f() { debugPrint('a // \$e comment-like'); }"), 0);
+    });
+  });
+}
