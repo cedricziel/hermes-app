@@ -151,12 +151,16 @@ class FakeChatTransport
   /// What [activeStatuses] answers for a profile asked about by name.
   final activeInProfile = <String, Map<String, String>>{};
 
+  /// When set, [activeStatuses] throws it: the server cannot be asked.
+  Object? activeError;
+
   /// The profiles [activeStatuses] was asked about, in order.
   final activeAsked = <String?>[];
 
   @override
   Future<Map<String, String>> activeStatuses({String? profile}) async {
     activeAsked.add(profile);
+    if (activeError case final error?) throw error; // ignore: only_throw_errors
     return Map.of(profile == null ? active : activeInProfile[profile] ?? {});
   }
 

@@ -11,6 +11,7 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/l10n.dart' show l10nForPlatformLocale;
 import '../background/running_replies.dart';
 import '../core/safe_notifier.dart';
 import '../bot_mode/bot_chat_context.dart';
@@ -89,7 +90,8 @@ import 'slash_command.dart';
 import 'thread_housekeeping.dart';
 import 'thread_search.dart';
 import 'thread_sections.dart' show sessionFolderPath;
-import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
+import 'widgets/message_actions.dart'
+    show TurnAction, TurnActionProblem, TurnActionStatus, TurnProblemKind;
 import '../telemetry/report_bug.dart';
 
 part 'chat_controller_billing.dart';
@@ -1866,7 +1868,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             statuses[thread.id] == 'waiting')
           thread.id,
     };
-    var changed = working.length != _active.length;
+    // A server that lists the session as not working has no turn of it to
+    // finish: the held actions of a reply that ended on a lost connection
+    // come back.
+    var changed = false;
+    for (final thread in _threads) {
+      if (working.contains(thread.id)) continue;
+      final held = _ChatControllerCommands(this)._lastReplyHeld(thread);
+      if (held == null) continue;
+      _ChatControllerStreaming(this)
+          ._updateReply(thread, held, () => held.serverMayRun = false);
+      changed = true;
+    }
+    if (working.length != _active.length) changed = true;
     if (!changed) {
       for (final id in working) {
         if (!_active.contains(id)) {
@@ -1934,8 +1948,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Whether the last prompt of [thread] can be taken back on the server:
   /// edited, or sent again in place of its turn.
-  bool canEditLastPrompt(ChatThread thread) =>
-      _ChatControllerCommands(this)._canEditLastPromptImpl(thread);
+  ///
+  /// False while the server may still run the turn of the last reply
+  /// ([turnActionsHeld]); [ignoringHold] asks whether it would otherwise be
+  /// offered, so the action can be shown dimmed with the reason.
+  bool canEditLastPrompt(ChatThread thread, {bool ignoringHold = false}) =>
+      _ChatControllerCommands(this)
+          ._canEditLastPromptImpl(thread, ignoringHold: ignoringHold);
+
+  /// Whether the server may still be running the turn of the last reply of
+  /// [thread], because it ended on a lost connection or on a server that could
+  /// not say (`ChatMessage.serverMayRun`). Retry, Edit and Branch wait until
+  /// the server lists the session as not running; nothing is sent meanwhile.
+  bool turnActionsHeld(ChatThread thread) =>
+      _ChatControllerCommands(this)._turnHeldImpl(thread);
 
   /// Sends the text of the last prompt again. The server drops the turn it
   /// replaces first, so the model does not see that reply again. A command, a
@@ -1977,7 +2003,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Why the last retry or edit of a thread failed, until the next one or the
   /// next prompt.
-  final _turnProblems = <ChatThread, String>{};
+  final _turnProblems = <ChatThread, TurnActionProblem>{};
 
   /// The prompts waiting in [thread] for its reply to end.
   List<QueuedPrompt> queuedIn(ChatThread thread) =>

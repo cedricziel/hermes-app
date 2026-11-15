@@ -298,7 +298,8 @@ void main() {
     applyReplyEvent(reply, const ReplyCompleted('', failed: true));
 
     expect(reply.content, isEmpty);
-    expect(reply.error, kReplyFailedMessage);
+    expect(reply.error, isNull);
+    expect(reply.failure, ReplyFailure.generic);
     expect(reply.status, MessageStatus.error);
   });
 
@@ -309,7 +310,8 @@ void main() {
     applyReplyEvent(reply, const ReplyCompleted('', failed: true));
 
     expect(reply.content, 'Partial');
-    expect(reply.error, kReplyFailedMessage);
+    expect(reply.error, isNull);
+    expect(reply.failure, ReplyFailure.generic);
     expect(reply.status, MessageStatus.error);
   });
 
@@ -993,7 +995,8 @@ void main() {
       failReply(reply);
 
       expect(reply.content, isEmpty);
-      expect(reply.error, kReplyFailedMessage);
+      expect(reply.error, isNull);
+      expect(reply.failure, ReplyFailure.generic);
       expect(reply.status, MessageStatus.error);
     });
 
@@ -1004,7 +1007,8 @@ void main() {
       failReply(reply);
 
       expect(reply.content, 'Half an ans');
-      expect(reply.error, kReplyFailedMessage);
+      expect(reply.error, isNull);
+      expect(reply.failure, ReplyFailure.generic);
       expect(reply.status, MessageStatus.error);
     });
 
@@ -1013,11 +1017,8 @@ void main() {
 
       failReply(reply, const ProfileUnavailableException());
 
-      expect(reply.error, kProfileUnavailableMessage);
-      expect(
-        reply.error,
-        'That profile is no longer available. Pick another one.',
-      );
+      expect(reply.error, isNull);
+      expect(reply.failure, ReplyFailure.profileUnavailable);
       expect(reply.status, MessageStatus.error);
     });
 
@@ -1026,15 +1027,29 @@ void main() {
 
       failReply(reply, Exception('socket closed'));
 
-      expect(reply.error, kReplyFailedMessage);
+      expect(reply.error, isNull);
+      expect(reply.failure, ReplyFailure.generic);
     });
 
-    test('stops tools that were still running', () {
+    test('settles tools that were still running as not finished, not failed, '
+        'when only the stream broke', () {
       final reply = _placeholder();
       applyReplyEvent(reply, const ToolStarted(name: 'search'));
 
       failReply(reply);
 
+      expect(reply.toolCalls.single.status, ToolCallStatus.cancelled);
+    });
+
+    test('marks tools that were still running failed when the server '
+        'reported the error', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ToolStarted(name: 'search'));
+      applyReplyEvent(reply, const ReplyErrored('rate limited'));
+
+      failReply(reply);
+
+      expect(reply.error, 'rate limited');
       expect(reply.toolCalls.single.status, ToolCallStatus.error);
     });
   });

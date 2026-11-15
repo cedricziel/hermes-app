@@ -102,6 +102,18 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatReplyFailedGeneric": "Something went wrong. Try sending it again.",
+  "@chatReplyFailedGeneric": {
+    "description": "Error line under a reply that failed when the server gave no explanation of its own and the server does not have the turn any more. Tells the person to send the prompt again. Wraps at any text size."
+  },
+  "chatReplyFailedMayStillRun": "Something went wrong. Hermes may still be working on this.",
+  "@chatReplyFailedMayStillRun": {
+    "description": "Error line under a reply that failed because the connection to Hermes broke, when the server may still be running the turn. Does not tell the person to send the prompt again, as Hermes would refuse it or run it twice. Wraps at any text size."
+  },
+  "chatReplyFailedProfileUnavailable": "That profile is no longer available. Pick another one.",
+  "@chatReplyFailedProfileUnavailable": {
+    "description": "Error line under a reply that could not be sent because the profile it was written for no longer exists on the server. A profile is a separate Hermes setup with its own chats."
+  },
   "chatReplyInterruptedGone": "This reply is no longer on the server.",
   "@chatReplyInterruptedGone": {
     "description": "Note under a reply that was settled because the server answered that it no longer has the turn or its session (and did not restart). Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
@@ -120,7 +132,7 @@
   },
   "chatReplyUnconfirmed": "Couldn't confirm how this reply ended. It may have finished; check the conversation first.",
   "@chatReplyUnconfirmed": {
-    "description": "Note under a reply that was settled because the server could not be made to say whether its turn still runs or how it ended (its answers were refused, or it went silent for longer than any live turn). Nothing was resent. Announced once to screen readers. Wraps at any text size."
+    "description": "Note under a reply that was settled because the server could not be made to say whether its turn still runs or how it ended (its answers were refused, or unreadable for as long as the app is willing to ask). Nothing was resent. Announced once to screen readers. Wraps at any text size."
   },
   "chatScrollToLatest": "Scroll to latest message",
   "@chatScrollToLatest": {
@@ -237,6 +249,28 @@
   "chatStatusCompressing": "Compressing the conversation…",
   "@chatStatusCompressing": {
     "description": "Status line under the agent’s thinking row while the conversation is being compressed."
+  },
+  "chatTurnBusy": "Hermes is still working on this. Try again when it is done.",
+  "@chatTurnBusy": {
+    "description": "Said under the last reply when Hermes answered Try again, Edit prompt or Branch in new chat with \"busy\" because its turn is still running. True, not an error of the app: nothing was changed and nothing was sent. Wraps at any text size."
+  },
+  "chatTurnHeld": "Hermes may still be working on this.",
+  "@chatTurnHeld": {
+    "description": "One line under the actions of the last reply, whose Try again, Edit prompt and Branch in new chat are dimmed because the connection broke and the server may still be running the turn. Says why they are off; they come back by themselves once Hermes reports the turn is over. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatTurnRejected": "{action, select, retry{Hermes couldn't try again.} edit{Hermes couldn't edit the prompt.} branch{Hermes couldn't branch the chat.} other{Hermes couldn't do that.}}",
+  "@chatTurnRejected": {
+    "description": "Said under the last reply when Hermes refused to take the turn back or to branch the chat, for a reason other than being busy. The refusal text itself is not shown.",
+    "placeholders": {
+      "action": {"type": "String", "example": "retry"}
+    }
+  },
+  "chatTurnUnreachable": "{action, select, retry{Couldn't reach Hermes to try again. Check your connection.} edit{Couldn't reach Hermes to edit the prompt. Check your connection.} branch{Couldn't reach Hermes to branch the chat. Check your connection.} other{Couldn't reach Hermes. Check your connection.}}",
+  "@chatTurnUnreachable": {
+    "description": "Said under the last reply when taking the turn back or branching the chat could not reach Hermes at all.",
+    "placeholders": {
+      "action": {"type": "String", "example": "retry"}
+    }
   },
 
   "@@x-area-chat/activity": "",
