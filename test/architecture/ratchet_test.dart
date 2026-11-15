@@ -310,6 +310,34 @@ void main() {
       expect(scan().byNamespace.keys, unorderedEquals(['arch', 'style']));
     });
 
+    test('main with any return type, or none, counts', () {
+      write('a_test.dart', "main() => ratchetTests(r, namespace: 'arch');");
+      write(
+        'b_test.dart',
+        "dynamic main() {\n  ratchetTests(r, namespace: 'style');\n}\n",
+      );
+      write(
+        'c_test.dart',
+        "Future<void> main() async {\n  ratchetTests(r, namespace: 'test');\n}\n",
+      );
+      final found = scan();
+      expect(found.problems, isEmpty);
+      expect(
+        found.byNamespace.keys,
+        unorderedEquals(['arch', 'style', 'test']),
+      );
+    });
+
+    test('a prefix qualifier in an arrow main is accepted', () {
+      write(
+        'a_test.dart',
+        "void main() => ratchet.ratchetTests(r, namespace: 'arch');",
+      );
+      final found = scan();
+      expect(found.problems, isEmpty);
+      expect(found.byNamespace.keys, ['arch']);
+    });
+
     test('a helper wrapper outside a *_test.dart file fails', () {
       write('helper.dart', "void reg() => ratchetTests(r, namespace: 'arch');");
       expect(scan().problems.single, contains('not called directly'));

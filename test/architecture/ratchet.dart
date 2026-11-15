@@ -380,7 +380,8 @@ bool _isDeclaration(String code, int start) {
 List<(int, int, bool)> _mainBodies(String code) {
   final out = <(int, int, bool)>[];
   for (final m in RegExp(
-    r'\b(?:void|Future<void>)\s+main\s*\(',
+    r'^(?:[\w<>?.]+\s+)?main\s*\(',
+    multiLine: true,
   ).allMatches(code)) {
     final params = callEnd(code, m.end);
     var i = params;
@@ -408,7 +409,10 @@ bool _directlyInMain(String code, int offset, List<(int, int, bool)> mains) {
   for (final (start, end, arrow) in mains) {
     if (offset <= start || offset >= end) continue;
     if (arrow) {
-      if (code.substring(start, offset).trim().isEmpty) return true;
+      if (RegExp(r'^\s*(?:\w+\s*\.\s*)?$')
+          .hasMatch(code.substring(start, offset))) {
+        return true;
+      }
       continue;
     }
     var braces = 0;
