@@ -45,6 +45,9 @@ import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart'
+    show ActivityButton;
+import 'package:hermes_app/src/profiles/widgets/profile_avatar.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_arguments_view.dart';
@@ -105,35 +108,96 @@ WidgetbookUseCase _phoneBar(
   String name,
   TargetPlatform platform, {
   double textScale = 1,
+  double? width,
+  String? title,
+  bool persona = false,
+  bool pill = false,
+  Locale? locale,
 }) => WidgetbookUseCase(
   name: name,
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: platform),
-    child: MediaQuery(
-      data: MediaQuery.of(context)
-          .copyWith(textScaler: TextScaler.linear(textScale)),
-      child: Builder(
-        builder: (context) {
-          final below = chatTitleBelowBar(context);
-          return Scaffold(
-            appBar: buildChatAppBar(
-              context,
-              leading: IconButton(
-                icon: const Icon(Icons.menu),
-                tooltip: 'Open navigation menu',
-                onPressed: () {},
-              ),
-              title: below ? null : Text(threads[0].title),
-              bottom: below
-                  ? chatTitleBelowBarRow(context, text: threads[0].title)
-                  : null,
-              actions: [NewChatButton(onPressed: () {})],
+  builder: (context) {
+    Widget bar(BuildContext context) {
+      final text = title ?? threads[0].title;
+      final below = chatTitleBelowBar(context);
+      final avatar = persona
+          ? ProfileAvatar(profile: messengerRecipients.first, size: 32)
+          : null;
+      return Scaffold(
+        appBar: buildChatAppBar(
+          context,
+          leading: IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Open navigation menu',
+            onPressed: () {},
+          ),
+          title: below
+              ? null
+              : Row(
+                  children: [
+                    if (avatar != null) ...[avatar, const SizedBox(width: 8)],
+                    Expanded(
+                      child: Text(
+                        text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+          bottom: below
+              ? chatTitleBelowBarRow(context, text: text, avatar: avatar)
+              : null,
+          actions: [
+            ThreadActionsButton(
+              thread: threads[0],
+              includeCopyTranscript: true,
             ),
-          );
-        },
+            ActivityButton(open: false, waiting: 0, onPressed: () {}),
+            NewChatButton(onPressed: () {}),
+          ],
+        ),
+        body: pill
+            ? Align(
+                alignment: Alignment.bottomLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ComposerModelPill(
+                    options: modelOptions,
+                    choice: null,
+                    onChanged: (_) {},
+                  ),
+                ),
+              )
+            : null,
+      );
+    }
+
+    Widget content = Theme(
+      data: Theme.of(context).copyWith(platform: platform),
+      child: MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(textScale),
+          size: width == null
+              ? MediaQuery.sizeOf(context)
+              : Size(width, MediaQuery.sizeOf(context).height),
+        ),
+        child: Builder(builder: bar),
       ),
-    ),
-  ),
+    );
+    if (width != null) {
+      // Wider than the viewport: draw at its own width, scaled to fit.
+      content = FittedBox(
+        child: SizedBox(width: width, height: 320, child: content),
+      );
+    }
+    return locale == null
+        ? content
+        : Localizations.override(
+            context: context,
+            locale: locale,
+            child: content,
+          );
+  },
 );
 
 WidgetbookUseCase _tool(String name, Widget card) =>
@@ -421,6 +485,57 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           'Material (Android), large text',
           TargetPlatform.android,
           textScale: 2,
+        ),
+        _phoneBar(
+          'Material (Android), text scale 1.3',
+          TargetPlatform.android,
+          textScale: 1.3,
+        ),
+        _phoneBar(
+          'Material (Android), text scale 3.1',
+          TargetPlatform.android,
+          textScale: 3.1,
+        ),
+        _phoneBar(
+          'Material (Android), tablet width',
+          TargetPlatform.android,
+          textScale: 2,
+          width: 820,
+        ),
+        _phoneBar(
+          'Material (Android), large text, with persona',
+          TargetPlatform.android,
+          textScale: 2,
+          persona: true,
+        ),
+        _phoneBar(
+          'Material (Android), large text, with model pill',
+          TargetPlatform.android,
+          textScale: 2,
+          pill: true,
+        ),
+        _phoneBar(
+          'Material (Android), large text, with persona and model pill',
+          TargetPlatform.android,
+          textScale: 2,
+          persona: true,
+          pill: true,
+        ),
+        _phoneBar(
+          'Material (Android), large text, long title',
+          TargetPlatform.android,
+          textScale: 2,
+          title:
+              'Plan the quarterly release, migrate the staging database and '
+              'write up the rollback notes for the on-call team',
+        ),
+        _phoneBar(
+          'Material (Android), large text, German',
+          TargetPlatform.android,
+          textScale: 2,
+          locale: const Locale('de'),
+          title: 'Wochenplanung für das Release',
+          persona: true,
         ),
       ],
     ),
