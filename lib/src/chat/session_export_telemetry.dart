@@ -82,20 +82,28 @@ class SessionExportTelemetry {
     bool cancelled = false,
     int bytes = 0,
     int? messages,
-  }) => _quiet(() {
+  }) {
     final outcome = cancelled ? 'cancelled' : (failure?.slug ?? 'ready');
-    span?.setAttributes({
-      'outcome': outcome,
-      if (bytes > 0) 'bytes_bucket': sessionExportBytesBucket(bytes),
-      if (messages != null)
-        'messages_bucket': sessionExportMessagesBucket(messages),
-    });
-    if (failure != null) span?.setStatus(StatusCode.error);
-    span?.end();
+    // Each call has its own guard: one that throws must not leave the span
+    // open or skip the failure event.
+    _quiet(
+      () => span?.setAttributes({
+        'outcome': outcome,
+        if (bytes > 0) 'bytes_bucket': sessionExportBytesBucket(bytes),
+        if (messages != null)
+          'messages_bucket': sessionExportMessagesBucket(messages),
+      }),
+    );
+    if (failure != null) _quiet(() => span?.setStatus(StatusCode.error));
+    _quiet(() => span?.end());
     if (failure != null) {
-      connection.events('session_export.failed', {'reason': failure.slug});
+      _quiet(
+        () => connection.events('session_export.failed', {
+          'reason': failure.slug,
+        }),
+      );
     }
-  });
+  }
 
   static void _quiet(void Function() action) {
     try {

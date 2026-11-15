@@ -4,6 +4,8 @@ import 'dart:io' show HttpException;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show Span, SpanContext, SpanKind, SpanLink, StatusCode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/chat/session_export_controller.dart';
@@ -49,6 +51,60 @@ class _ChunkedServer implements HttpClientAdapter {
   HermesApiClient client() => HermesApiClient(
     Dio(BaseOptions(baseUrl: 'http://hermes.test'))..httpClientAdapter = this,
   );
+}
+
+/// Rejects like the auth interceptor does on sign-out or an owner change.
+class _CancelRejecting implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) => throw DioException(
+    requestOptions: options,
+    type: DioExceptionType.cancel,
+  );
+
+  @override
+  void close({bool force = false}) {}
+}
+
+/// A span whose attribute setter breaks; the rest records normally.
+class _AttributeBreakingTracer extends RecordingTracer {
+  @override
+  Span startSpan(
+    String name, {
+    SpanKind kind = SpanKind.internal,
+    Map<String, Object?>? attributes,
+    SpanContext? parentContext,
+    List<SpanLink> links = const [],
+  }) {
+    final real = super.startSpan(name, kind: kind) as RecordingSpan;
+    return _BreakingSpan(real);
+  }
+}
+
+class _BreakingSpan implements Span {
+  _BreakingSpan(this.inner);
+  final RecordingSpan inner;
+
+  @override
+  void setAttributes(Map<String, Object?> attributes) =>
+      throw StateError('setAttributes broke');
+
+  @override
+  void setAttribute(String key, Object? value) =>
+      throw StateError('setAttribute broke');
+
+  @override
+  void setStatus(StatusCode code, {String? description}) =>
+      inner.setStatus(code, description: description);
+
+  @override
+  void end([DateTime? endTime]) => inner.end(endTime);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
 class _FakeTimer implements Timer {
@@ -176,6 +232,29 @@ void main() {
         expect(crumbs.named('session_export.saved'), isEmpty);
       },
     );
+
+    test('confirm after a failure, a close or a save sends nothing', () async {
+      server.on('GET', '/api/sessions/abc/export', {}, status: 500);
+      final c = build(server.client())..begin('abc', 'work');
+      await c.confirm();
+      expect(await c.confirm(), isNull);
+      c.close();
+      expect(await c.confirm(), isNull);
+      expect(server.requests, hasLength(1));
+
+      server.on('GET', '/api/sessions/abc/export', _session());
+      c.begin('abc', 'work');
+      expect(await c.confirm(), SessionExportSaveResult.saved);
+      expect(await c.confirm(), isNull);
+      expect(server.requests, hasLength(2));
+      expect(saves, hasLength(1));
+    });
+
+    test('an empty id is not offered', () {
+      final c = build(server.client());
+      expect(c.begin('', 'work'), isFalse);
+      expect(c.phase, isNull);
+    });
 
     test('a second press while it runs sends nothing', () async {
       final chunked = _ChunkedServer();
@@ -365,7 +444,7 @@ void main() {
       });
     }
 
-    test('a lock while the body is held drops it before the save', () async {
+    test('a lock before the response arrives drops the request', () async {
       server.on('GET', '/api/sessions/abc/export', _session());
       final c = build(server.client())..begin('abc', 'work');
       final done = c.confirm();
@@ -392,6 +471,98 @@ void main() {
       expect(c.busy, isFalse);
       expect(crumbs.named('session_export.saved'), isEmpty);
     });
+
+    for (final (name, drop)
+        in <(String, void Function(SessionExportController))>[
+          ('a profile or server change', (c) => c.contextChanged()),
+          ('sign-out', (c) => c.signedOut()),
+          ('App Lock', (c) => c.locked()),
+        ]) {
+      test('$name during a save still tells listeners busy ended', () async {
+        server.on('GET', '/api/sessions/abc/export', _session());
+        saveGate = Completer<bool>();
+        final c = build(server.client())..begin('abc', 'work');
+        final done = c.confirm();
+        await tick();
+        await tick();
+        await tick();
+        expect(saves, hasLength(1));
+        drop(c);
+        var notified = 0;
+        bool? busyAtNotify;
+        c.addListener(() {
+          notified++;
+          busyAtNotify = c.busy;
+        });
+        expect(c.busy, isTrue);
+        saveGate!.complete(true);
+        await done;
+        expect(notified, greaterThan(0));
+        expect(busyAtNotify, isFalse);
+        expect(c.busy, isFalse);
+      });
+    }
+
+    test('a save that throws after a lock shows nothing', () async {
+      server.on('GET', '/api/sessions/abc/export', _session());
+      saveGate = Completer<bool>();
+      final c = build(server.client())..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      await tick();
+      await tick();
+      c.locked();
+      saveGate!.completeError(StateError('sheet broke'));
+      expect(await done, SessionExportSaveResult.droppedByLock);
+      expect(c.phase, isNull);
+      expect(c.busy, isFalse);
+    });
+
+    test('a lock decoding a large body drops it before the save', () async {
+      final chunked = _ChunkedServer();
+      final c = build(chunked.client())..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      chunked.chunks.add(_session(messages: 1, content: 'x' * 1200000));
+      await chunked.chunks.close();
+      while (!c.holdsBytes) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      c.locked();
+      expect(await done, isNull);
+      expect(saves, isEmpty);
+      expect(c.holdsBytes, isFalse);
+      expect(c.busy, isFalse);
+      expect(c.phase, isNull);
+    });
+
+    test('disposing mid-fetch cancels the request and the span', () async {
+      final chunked = _ChunkedServer();
+      final c = build(chunked.client())..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      expect(chunked.requests.single.cancelToken?.isCancelled, isFalse);
+      final token = chunked.requests.single.cancelToken;
+      c.dispose();
+      expect(token?.isCancelled, isTrue);
+      expect(await done, isNull);
+      expect(saves, isEmpty);
+      expect(tracer.spans.single.attributes['outcome'], 'cancelled');
+      expect(tracer.spans.single.ended, isTrue);
+    });
+
+    test('an auth-interceptor cancel rejection ends silently', () async {
+      final c = SessionExportController(
+        api: HermesApiClient(
+          Dio(BaseOptions(baseUrl: 'http://hermes.test'))
+            ..httpClientAdapter = _CancelRejecting(),
+        ),
+        save: (n, b) async => true,
+      )..begin('abc', 'work');
+      expect(await c.confirm(), isNull);
+      expect(c.phase, isNull);
+      expect(c.busy, isFalse);
+    });
   });
 
   group('temporary files', () {
@@ -412,6 +583,52 @@ void main() {
       expect(cleared, 1);
       c.signedOut();
       expect(cleared, 2);
+    });
+
+    test('a lock during a save leaves the sheet alone, then clears', () async {
+      server.on('GET', '/api/sessions/abc/export', _session());
+      saveGate = Completer<bool>();
+      final c = build(server.client())..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      await tick();
+      await tick();
+      c.locked();
+      await tick();
+      expect(cleared, 0);
+      saveGate!.complete(true);
+      expect(await done, SessionExportSaveResult.droppedByLock);
+      expect(cleared, 1);
+    });
+
+    test('a disposed controller does not clear what it does not own', () async {
+      server.on('GET', '/api/sessions/abc/export', _session());
+      saveGate = Completer<bool>();
+      final c = build(server.client())..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      await tick();
+      await tick();
+      c.dispose();
+      saveGate!.complete(true);
+      await done;
+      await tick();
+      expect(cleared, 0);
+    });
+
+    test('a lock then dispose still clears once the sheet returns', () async {
+      server.on('GET', '/api/sessions/abc/export', _session());
+      saveGate = Completer<bool>();
+      final c = build(server.client())..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      await tick();
+      await tick();
+      c.locked();
+      c.dispose();
+      saveGate!.complete(true);
+      await done;
+      expect(cleared, 1);
     });
 
     test('nothing to clear where no hook is given', () async {
@@ -547,6 +764,28 @@ void main() {
       expect(sessionExportBytesBucket(60 * 1024 * 1024), '>=50MB');
       expect(sessionExportMessagesBucket(0), '0');
       expect(sessionExportMessagesBucket(501), '>500');
+    });
+
+    test('a throwing span call does not skip the rest of endFetch', () async {
+      server.on('GET', '/api/sessions/abc/export', {}, status: 500);
+      final broken = _AttributeBreakingTracer();
+      final c = SessionExportController(
+        api: server.client(),
+        save: (n, b) async => true,
+        telemetry: SessionExportTelemetry(
+          ConnectionTelemetry(
+            events: (n, [a = const {}]) => events(n, a),
+            tracer: broken,
+          ),
+        ),
+      )..begin('abc', 'work');
+      await c.confirm();
+      final span = broken.spans.single;
+      expect(span.status, StatusCode.error);
+      expect(span.ended, isTrue);
+      expect(events.named('session_export.failed'), [
+        {'reason': 'failed'},
+      ]);
     });
 
     test('a broken tracer never breaks the export', () async {

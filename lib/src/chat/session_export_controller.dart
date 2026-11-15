@@ -84,6 +84,8 @@ class SessionExportController extends ChangeNotifier {
   @visibleForTesting
   bool get holdsBytes => _bytes != null;
 
+  static String _defaultFileName(String sessionId) => 'session-$sessionId.json';
+
   /// Opens the confirmation for [sessionId]. False, with nothing shown or
   /// sent, when the chat has no [profile] or an export is already running.
   /// [fileName] is what the save sheet proposes; it stays on the device.
@@ -91,7 +93,7 @@ class SessionExportController extends ChangeNotifier {
     if (_running || profile == null || sessionId.isEmpty) return false;
     _sessionId = sessionId;
     _profile = profile;
-    _fileName = fileName ?? 'session-$sessionId.json';
+    _fileName = fileName ?? _defaultFileName(sessionId);
     _set(const SessionExportConfirm());
     return true;
   }
@@ -102,7 +104,9 @@ class SessionExportController extends ChangeNotifier {
   Future<SessionExportSaveResult?> confirm() async {
     final id = _sessionId;
     final profile = _profile;
-    if (_running || _phase is! SessionExportConfirm) return null;
+    // Running or not, only the confirmation sends; while one runs the phase
+    // is progress or, behind the save sheet, null.
+    if (_phase is! SessionExportConfirm) return null;
     if (id == null || profile == null) return null;
     _running = true;
     final run = ++_run;
@@ -159,10 +163,10 @@ class SessionExportController extends ChangeNotifier {
     }
     _span = null;
     telemetry.endFetch(span, bytes: _received, messages: messages);
-    return _saveBytes(run, id);
+    return _saveBytes(run);
   }
 
-  Future<SessionExportSaveResult?> _saveBytes(int run, String id) async {
+  Future<SessionExportSaveResult?> _saveBytes(int run) async {
     final bytes = _bytes!;
     _saving = true;
     _lockedDuringSave = false;
@@ -170,7 +174,7 @@ class SessionExportController extends ChangeNotifier {
     _set(null);
     SessionExportSaveResult? result;
     try {
-      final saved = await _save(_fileName ?? 'session-$id.json', bytes);
+      final saved = await _save(_fileName!, bytes);
       result = saved
           ? SessionExportSaveResult.saved
           : SessionExportSaveResult.cancelled;
@@ -178,27 +182,43 @@ class SessionExportController extends ChangeNotifier {
       result = null;
     }
     final locked = _lockedDuringSave;
+    final dropped = run != _run;
     _bytes = null;
     _saving = false;
     _lockedDuringSave = false;
-    await _clearTemporary();
-    if (run != _run && !locked) {
+    // A disposed instance owns nothing to clear, unless a lock left the
+    // clearing for this moment: the home shell builds the next State before
+    // the old one disposes, and that one may already hold its own files.
+    if (!_disposed || locked) await _clearTemporary();
+    if (locked) {
+      // App Lock closed everything while the sheet was open: show nothing.
+      if (result == null) telemetry.saveFailed();
+      _finishSave();
+      return SessionExportSaveResult.droppedByLock;
+    }
+    if (dropped) {
       // Dropped by a sign-out or a change while the sheet was open.
-      _running = false;
+      _finishSave();
       return null;
     }
-    _running = false;
     if (result == null) {
       telemetry.saveFailed();
-      _set(const SessionExportFailed(SessionExportFailure.failed));
+      _phase = const SessionExportFailed(SessionExportFailure.failed);
+      _finishSave();
       return null;
     }
-    if (locked) return SessionExportSaveResult.droppedByLock;
     result == SessionExportSaveResult.saved
         ? telemetry.saved()
         : telemetry.cancelled();
-    notifyListeners();
+    _finishSave();
     return result;
+  }
+
+  /// The save sheet returned: free for the next export, and every listener
+  /// hears it, whichever way the export ended.
+  void _finishSave() {
+    _running = false;
+    if (!_disposed) notifyListeners();
   }
 
   /// The user pressed Cancel: ends the request and closes the alert silently.
@@ -231,9 +251,16 @@ class SessionExportController extends ChangeNotifier {
   }
 
   /// App Lock locked: drops everything, and a save sheet that is open will
-  /// report [SessionExportSaveResult.droppedByLock].
+  /// report [SessionExportSaveResult.droppedByLock]. Staged files are cleared
+  /// at once, or when that sheet returns.
   void locked() {
-    if (_saving) _lockedDuringSave = true;
+    if (_saving) {
+      // The sheet stays open and a user who finishes after unlocking gets the
+      // file; the temporary files go when it returns.
+      _lockedDuringSave = true;
+      _drop();
+      return;
+    }
     _drop();
     unawaited(_clearTemporary());
   }
