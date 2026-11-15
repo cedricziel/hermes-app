@@ -12,10 +12,20 @@ import '../navigation/desktop_navigation_history.dart';
 /// `leadingWidth: adaptiveBackLeadingWidth(context)`. It draws nothing when
 /// there is no route to go back to.
 class AdaptiveBackButton extends StatelessWidget {
-  const AdaptiveBackButton({super.key, this.previousTitle});
+  const AdaptiveBackButton({
+    super.key,
+    this.previousTitle,
+    this.collapseLabel = false,
+  });
 
   /// The title of the screen underneath, or null to show "Back".
   final String? previousTitle;
+
+  /// On iOS, draws the chevron alone, in a 44 point target, and keeps the
+  /// label as the button's accessible name. It does so by itself from
+  /// [kLargeBarTextScale], matching [adaptiveBackLeadingWidth]; pass true to
+  /// collapse at smaller text too.
+  final bool collapseLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +45,15 @@ class AdaptiveBackButton extends StatelessWidget {
             : () => history.back(),
       );
     }
+    if (collapseLabel || largeBarText(context)) {
+      final title = previousTitle;
+      return _ChevronOnlyBackButton(
+        label: title == null || title.isEmpty
+            ? MaterialLocalizations.of(context).backButtonTooltip
+            : title,
+        color: Theme.of(context).colorScheme.primary,
+      );
+    }
     return CupertinoNavigationBarBackButton(
       previousPageTitle: previousTitle,
       color: Theme.of(context).colorScheme.primary,
@@ -46,9 +65,58 @@ class AdaptiveBackButton extends StatelessWidget {
 /// The `AppBar.leadingWidth` that leaves room for the iOS label, or null for
 /// the default.
 double? adaptiveBackLeadingWidth(BuildContext context) =>
-    platformChromeOf(context) == PlatformChrome.ios
-    ? scaledLeadingWidth(context, 120)
-    : null;
+    platformChromeOf(context) != PlatformChrome.ios
+    ? null
+    : largeBarText(context)
+    ? kCollapsedLeadingWidth
+    : scaledLeadingWidth(context, 120);
+
+/// The text scale from which a bar drops its leading label (the back button's
+/// title, "Cancel") for an icon, so the title and the trailing action fit.
+const double kLargeBarTextScale = 1.5;
+
+/// The width of a collapsed leading item: a 44 point target and a margin.
+const double kCollapsedLeadingWidth = 52;
+
+/// Whether the text is large enough that a bar's leading label collapses.
+bool largeBarText(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(17) / 17 >= kLargeBarTextScale;
+
+class _ChevronOnlyBackButton extends StatelessWidget {
+  const _ChevronOnlyBackButton({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    void back() => Navigator.of(context).maybePop();
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Semantics(
+        button: true,
+        label: label,
+        onTap: back,
+        excludeSemantics: true,
+        child: InkResponse(
+          onTap: back,
+          radius: 22,
+          child: SizedBox.square(
+            dimension: 44,
+            child: Icon(
+              CupertinoIcons.back,
+              size: 30,
+              color: color,
+              // Mirrors the chevron in a right-to-left layout.
+              textDirection: Directionality.of(context),
+              applyTextScaling: false,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// [base] widened with the text size, so a bar label such as "Cancel" or the
 /// back button's title is not cut at the largest sizes, up to half the
