@@ -532,12 +532,15 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 onRefresh: _controller.refresh,
                 child: tasks.isEmpty
                     ? ListView(
+                        key: PageStorageKey<String>('kanban-status-$shown'),
                         children: const [
                           SizedBox(height: 80),
                           Center(child: Text('No tasks here')),
                         ],
                       )
                     : ListView.separated(
+                        // One saved offset per status chip.
+                        key: PageStorageKey<String>('kanban-status-$shown'),
                         padding: EdgeInsets.fromLTRB(
                           12,
                           12,
