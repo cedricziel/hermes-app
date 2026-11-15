@@ -60,7 +60,13 @@ void main() {
       final ms = await _render(tester, _empty(n));
       // ignore: avoid_print
       print('FENCE-COST $n fences: ${ms}ms');
-      expect(tester.widgetList(find.byType(CodeField)), hasLength(n));
+      expect(
+        tester.widgetList(find.byType(CodeField)),
+        hasLength(n),
+        reason:
+            'baseline without a fence cap; when the chat-speed cap lands, '
+            'assert the cap here instead',
+      );
     }, timeout: const Timeout(Duration(minutes: 4)));
   }
 }
