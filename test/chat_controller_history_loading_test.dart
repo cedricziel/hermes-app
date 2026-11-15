@@ -315,4 +315,22 @@ void main() {
       expect(chat.earlierMessagesStatusOf(thread('s1')), isNull);
     });
   });
+
+  test('reselecting a chat while its page is being read waits for that read '
+      'before following it', () async {
+    chat.select('s2');
+    await flush();
+    chat.select('s1');
+    await flush();
+    final follows = transport.followUpCalls;
+
+    chat.select('s2');
+    await flush();
+    expect(s2Reads, hasLength(1), reason: 'no second read');
+    expect(transport.followUpCalls, follows, reason: 'still reading');
+
+    s2Reads.first.complete(emptyPage());
+    await flush();
+    expect(transport.followUpCalls, follows + 1);
+  });
 }

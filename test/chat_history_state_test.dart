@@ -220,10 +220,41 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
 
-    final node = tester.getSemantics(find.byType(StateMessage));
-    expect(node.flagsCollection.isLiveRegion, isTrue);
+    // The live region is the title alone, labelled with it; the detail and
+    // Retry stay outside it.
+    final title = tester.getSemantics(find.text('Could not load the messages'));
+    expect(title.flagsCollection.isLiveRegion, isTrue);
+    expect(title.label, 'Could not load the messages');
+    final stateNode = tester.getSemantics(find.byType(StateMessage));
+    expect(stateNode.flagsCollection.isLiveRegion, isFalse);
+    final retryNode = tester.getSemantics(
+      find.widgetWithText(FilledButton, 'Retry'),
+    );
+    expect(retryNode.flagsCollection.isLiveRegion, isFalse);
+    expect(retryNode.label, 'Retry');
     await tester.tap(find.text('Retry'));
     expect(retried, 1);
     handle.dispose();
+  });
+
+  testWidgets('on a Mac Retry meets the 28 pt floor', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: ChatHistoryState(
+            status: ChatHistoryStatus.failed,
+            onRetry: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      tester.getSize(find.widgetWithText(FilledButton, 'Retry')).height,
+      greaterThanOrEqualTo(28),
+    );
   });
 }

@@ -12,12 +12,17 @@ class StateMessage extends StatelessWidget {
     required this.title,
     this.detail,
     this.action,
+    this.announceTitle = false,
   });
 
   final AppIconSet? icon;
   final String title;
   final String? detail;
   final Widget? action;
+
+  /// Makes the title a polite live region (read once when the message
+  /// appears) without covering the detail or the [action].
+  final bool announceTitle;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -44,10 +49,14 @@ class StateMessage extends StatelessWidget {
           AppIcon(icon!, size: 40),
           const SizedBox(height: 8),
         ],
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium,
-          textAlign: TextAlign.center,
+        Semantics(
+          container: announceTitle,
+          liveRegion: announceTitle,
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
         ),
         if (detail != null) ...[
           const SizedBox(height: 8),

@@ -423,7 +423,10 @@ extension _ChatControllerHistory on ChatController {
   }
 
   Future<void> _loadMessages(String id) {
-    if (!active || !_unloaded.remove(id)) return Future.value();
+    if (!active) return Future.value();
+    // Already read, or being read: a caller waits for that read, so a
+    // reselect during Retry does not act on a chat still without its page.
+    if (!_unloaded.remove(id)) return _loadingMessages[id] ?? Future.value();
     _historyFailed.remove(id);
     final load = _readFirstPage(id);
     _loadingMessages[id] = load;
