@@ -81,6 +81,7 @@ extension _Reconnect on HermesGatewayTransport {
         }
         if (stop()) break;
         final attempt = _Attempt();
+        final startedAt = clock.now();
         final resumed = await _within(
           _resumeOnce(owner, runtimeId, shown, stop, attempt),
           expired.future,
@@ -90,6 +91,17 @@ extension _Reconnect on HermesGatewayTransport {
           // From here the server is reachable: the usual budget runs.
           answeredYet = true;
           startTimer(_reconnectBudget);
+        }
+        if (runtimeId != null && !cancelled()) {
+          _reportAttempt(
+            tried + unanswered + 1,
+            attempt,
+            resumed,
+            took: clock.now().difference(startedAt),
+            drops: drops,
+            patient: patient,
+            windowExpired: expired.isCompleted,
+          );
         }
         if (resumed != null) {
           if (!cancelled()) {
@@ -122,6 +134,43 @@ extension _Reconnect on HermesGatewayTransport {
     }
   }
 
+  /// Logs one reconnect attempt of a reply: how it ended, with fixed names
+  /// only (see [diagnoseReconnectError]). [resumed] is null when the attempt
+  /// failed and may be retried.
+  void _reportAttempt(
+    int number,
+    _Attempt attempt,
+    _Resumed? resumed, {
+    required Duration took,
+    required int drops,
+    required bool patient,
+    required bool windowExpired,
+  }) {
+    final ReconnectDiagnosis diagnosis;
+    if (resumed != null) {
+      diagnosis = (
+        result: resumed.gone != null ? 'resume_gone' : 'connected',
+        errorType: resumed.gone != null ? 'rpc' : 'none',
+      );
+    } else if (attempt.error == null && windowExpired) {
+      diagnosis = (result: 'window_expired', errorType: 'none');
+    } else {
+      diagnosis = diagnoseReconnectError(attempt.error);
+    }
+    _record('gateway.reconnect_attempt', {
+      'attempt': number,
+      'drops': drops,
+      'pick_up': !patient,
+      'stage': resumed != null ? 'done' : attempt.stage,
+      'result': diagnosis.result,
+      'error_type': diagnosis.errorType,
+      'close_code': closeCodeBucket(attempt.client?.closeCode),
+      'duration': durationBucket(took),
+      'answered': attempt.answered,
+      'final': resumed != null,
+    });
+  }
+
   /// Logs how a reconnect of a reply on screen went, after [attempt] tries.
   void _reportReconnect(int attempt, _Resumed resumed) =>
       _record('gateway.reconnect', {
@@ -144,9 +193,12 @@ extension _Reconnect on HermesGatewayTransport {
     final GatewayRpcClient client;
     try {
       client = await _client();
-    } on Object {
+    } on Object catch (error) {
+      attempt.error = error;
       return null;
     }
+    attempt.client = client;
+    attempt.stage = 'resume';
     if (stop()) return null;
     // Listening starts before the resume is sent, so the frames the gateway
     // pushes ahead of its answer are kept rather than dropped.
@@ -163,6 +215,7 @@ extension _Reconnect on HermesGatewayTransport {
     } on GatewayRpcException catch (error) {
       tap.close();
       attempt.answered = true;
+      attempt.error = error;
       // A refusal that says the session is gone is final: asking again
       // cannot change it, and the reply says so instead of waiting it out.
       if (isFinalResumeRefusal(error)) {
@@ -174,10 +227,11 @@ extension _Reconnect on HermesGatewayTransport {
         );
       }
       return null;
-    } on Object {
+    } on Object catch (error) {
       // No answer in time (the socket is dropped by the call) or a closed
       // socket: nothing was heard from the server.
       tap.close();
+      attempt.error = error;
       return null;
     }
     if (stop()) {
@@ -195,6 +249,7 @@ extension _Reconnect on HermesGatewayTransport {
         runtimeId == previous &&
         _ledger.hasWatermark(runtimeId);
     Map<String, Object?>? since;
+    attempt.stage = 'replay';
     if (replay) {
       try {
         since = await _call(client, 'session.events.since', {
@@ -208,10 +263,12 @@ extension _Reconnect on HermesGatewayTransport {
         // reply is rebuilt from the resume answer instead.
         if (error.code != kGatewayMethodNotFound) {
           tap.close();
+          attempt.error = error;
           return null;
         }
-      } on Object {
+      } on Object catch (error) {
         tap.close();
+        attempt.error = error;
         return null;
       }
     } else {

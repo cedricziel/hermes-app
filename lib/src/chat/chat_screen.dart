@@ -959,6 +959,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _chat.appLifecycleChanged(state);
     _foreground = state == AppLifecycleState.resumed;
     _voiceCall?.lifecycleChanged(state);
     _syncBotScreenGates();

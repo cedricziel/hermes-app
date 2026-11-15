@@ -71,6 +71,10 @@ extension _ChatControllerRequests on ChatController {
     bool idleOnly = false,
   }) {
     final ready = _finishTurnHold(thread, halted: halted, idleOnly: idleOnly);
+    final waiting = _queues[thread]?.length ?? 0;
+    if (!ready && waiting > 0 && !_diag.isHeld(thread)) {
+      _diag.queue(thread, 'paused', waiting);
+    }
     ready ? _queueTurnReady.add(thread) : _queueTurnReady.remove(thread);
     _ChatControllerCheckpoints(this)._actionsTurnEnded(thread);
     return ready;

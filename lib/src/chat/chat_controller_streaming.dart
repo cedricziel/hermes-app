@@ -240,6 +240,7 @@ extension _ChatControllerStreaming on ChatController {
         // A stream that ended quietly before saying anything changes nothing.
         if (isConnectionLost(error) ||
             (error == null && pending.reconnecting)) {
+          _diag.holdAgain(thread);
           _holdForReconnect(thread, pending);
           return;
         }
@@ -250,6 +251,12 @@ extension _ChatControllerStreaming on ChatController {
       if (!disposed) notifyListeners();
       if (pending != null) _finishMoaTurn(thread, pending);
       if (pending != null && pending.isPending) {
+        _diag.endedHeld(
+          thread,
+          outcome: 'failed',
+          error: error,
+          queued: _queues[thread]?.length ?? 0,
+        );
         _turnEnded(thread, halted: true);
         _updateReply(thread, pending, () => failReply(pending, error));
         if (!_currentActivity(epoch)) return;
@@ -262,6 +269,7 @@ extension _ChatControllerStreaming on ChatController {
         .listen(
           (event) {
             if (!_currentActivity(epoch)) return;
+            _diag.follow(thread, event);
             if (reply == null && opensTurn(event)) {
               // A stop in flight may be aimed at the turn this opens a reply
               // for (a folded prompt's), so the hold stays.
@@ -284,6 +292,16 @@ extension _ChatControllerStreaming on ChatController {
             _onReplyEvent(thread, current, event, profile);
             if (!_currentActivity(epoch)) return;
             if (event is ReplyCompleted) {
+              _diag.endedHeld(
+                thread,
+                outcome: event.failed
+                    ? 'failed'
+                    : event.stopped
+                    ? 'stopped'
+                    : 'completed',
+                error: null,
+                queued: _queues[thread]?.length ?? 0,
+              );
               reply = null;
               final drain = _turnEnded(
                 thread,
@@ -296,6 +314,14 @@ extension _ChatControllerStreaming on ChatController {
               // The session reports the turn over without a completion. It is
               // closed all the same, so the next chained turn gets a reply of
               // its own, and the queue goes on now that the session settled.
+              _diag.endedHeld(
+                thread,
+                outcome: current.status == MessageStatus.error
+                    ? 'failed'
+                    : 'completed',
+                error: null,
+                queued: _queues[thread]?.length ?? 0,
+              );
               reply = null;
               final drain = _turnEnded(
                 thread,
