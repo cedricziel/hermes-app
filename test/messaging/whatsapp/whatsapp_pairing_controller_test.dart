@@ -1195,47 +1195,106 @@ void main() {
       });
     });
 
-    test('a poll still out when the apply is sent is ignored, and a 404 '
-        'from it does not turn a saved apply into gone', () {
+    test('once the refresh answered, a connected record is not polled and a '
+        'saved apply never ends as gone', () {
       fakeAsync((async) {
         linked(async);
         statusReply = (_) => _ok(waStatusConnected);
         controller.cover();
         controller.uncover();
         settle(async);
-        // The refresh answered; now a connected record is not polled at all.
         settle(async, const Duration(minutes: 1));
         expect(polls(), 1);
-        final gate = Completer<FakeResponse>();
-        statusReply = (_) => gate.future;
+        statusReply = (_) => (status: 404, body: waRecordGone);
         finish(async);
         expect(controller.applyStatus, WhatsAppApplyStatus.saved);
-        gate.complete((status: 404, body: waRecordGone));
         settle(async, const Duration(minutes: 1));
+        expect(polls(), 1);
         expect(controller.phase, WhatsAppPairingPhase.connected);
-        expect(controller.applyStatus, WhatsAppApplyStatus.saved);
         expect(controller.canStartAgain, isFalse);
         expect(controller.polling, isFalse);
       });
     });
 
-    test('a poll in flight when the apply is sent is discarded', () {
+    test('an apply refused after cover and uncover during it is read again, '
+        'never polled while it was out', () {
       fakeAsync((async) {
-        waiting(async);
-        statusReply = (_) => _ok(waStatusConnectedAfterScan);
-        settle(async, const Duration(seconds: 2));
-        expect(controller.phase, WhatsAppPairingPhase.connected);
-        // Cover and uncover leave a refresh read in flight.
+        linked(async);
         final gate = Completer<FakeResponse>();
-        statusReply = (_) => gate.future;
+        applyReply = (_) => gate.future;
+        expect(controller.requestFinish(), isTrue);
+        unawaited(controller.confirmFinish());
+        settle(async);
         controller.cover();
         controller.uncover();
+        settle(async, const Duration(seconds: 5));
+        expect(polls(), 0);
+        expect(controller.polling, isFalse);
+        statusReply = (_) => _ok(waStatusConnected);
+        gate.complete((status: 409, body: waNotConnected));
         settle(async);
-        gate.complete((status: 404, body: waRecordGone));
-        settle(async);
-        // The 404 of the read is a real "gone": nothing was applied.
-        expect(controller.phase, WhatsAppPairingPhase.gone);
-        expect(controller.goneDuringApply, isFalse);
+        expect(controller.applyStatus, WhatsAppApplyStatus.refused);
+        expect(controller.refreshing, isTrue);
+        expect(controller.canFinish, isFalse);
+        settle(async, const Duration(seconds: 2));
+        expect(polls(), 1);
+        expect(controller.account?.phone, waPhone);
+        expect(controller.refreshing, isFalse);
+        expect(controller.canFinish, isTrue);
+      });
+    });
+
+    test(
+      'a refresh that keeps failing is bounded, offers Start again and '
+      'never Finish, and a later answer restores both account and Finish',
+      () {
+        fakeAsync((async) {
+          linked(async);
+          statusReply = down;
+          controller.cover();
+          controller.uncover();
+          settle(async);
+          expect(controller.refreshing, isTrue);
+          expect(controller.canStartAgain, isFalse);
+          settle(async, const Duration(seconds: 30));
+          expect(controller.refreshing, isFalse);
+          expect(controller.refreshFailed, isTrue);
+          expect(controller.canStartAgain, isTrue);
+          expect(controller.canFinish, isFalse);
+          expect(controller.requestFinish(), isFalse);
+          settle(async, const Duration(minutes: 30));
+          // 10 reads at 2 s, then one every 10 s.
+          expect(polls(), lessThan(200));
+          expect(polls(), greaterThan(100));
+          expect(controller.canStartAgain, isTrue);
+          expect(controller.canFinish, isFalse);
+          expect(controller.account, isNull);
+          statusReply = (_) => _ok(waStatusConnected);
+          settle(async, const Duration(seconds: 10));
+          expect(controller.refreshFailed, isFalse);
+          expect(controller.account?.phone, waPhone);
+          expect(controller.canFinish, isTrue);
+          expect(controller.canStartAgain, isFalse);
+          expect(controller.polling, isFalse);
+        });
+      },
+    );
+
+    test('Start again after a failed refresh returns to the form', () {
+      fakeAsync((async) {
+        linked(async);
+        statusReply = down;
+        controller.cover();
+        controller.uncover();
+        settle(async, const Duration(seconds: 30));
+        expect(controller.canStartAgain, isTrue);
+        controller.startAgain();
+        expect(controller.phase, WhatsAppPairingPhase.setup);
+        expect(controller.refreshFailed, isFalse);
+        expect(controller.polling, isFalse);
+        final before = polls();
+        settle(async, const Duration(minutes: 1));
+        expect(polls(), before);
       });
     });
 
@@ -1249,7 +1308,7 @@ void main() {
         expect(controller.pollFailing, isTrue);
         expect(controller.phase, WhatsAppPairingPhase.connected);
         statusReply = (_) => _ok(waStatusConnected);
-        settle(async, const Duration(seconds: 2));
+        settle(async, const Duration(seconds: 10));
         expect(controller.phase, WhatsAppPairingPhase.connected);
         expect(controller.account?.phone, waPhone);
       });
@@ -1287,6 +1346,8 @@ void main() {
         settle(async, const Duration(seconds: 2));
         expect(controller.phase, WhatsAppPairingPhase.superseded);
         controller.startAgain();
+        // Before the next start: only startAgain's own reset can show this.
+        expect(controller.codeVisibility, WhatsAppCodeVisibility.needsTap);
         statusReply = (_) => _ok(waStatusWaiting);
         begin(async);
         settle(async, const Duration(seconds: 2));
@@ -1303,6 +1364,9 @@ void main() {
         build(async, handset: true);
         controller.revealQr();
         begin(async);
+        expect(controller.phase, WhatsAppPairingPhase.working);
+        expect(controller.qr, isNull);
+        expect(controller.codeVisibility, isNot(WhatsAppCodeVisibility.shown));
         controller.revealQr();
         statusReply = (_) => _ok(waStatusWaiting);
         settle(async, const Duration(seconds: 2));
@@ -1335,22 +1399,14 @@ void main() {
       });
     });
 
-    test('a lost apply stops the polling and a late poll is ignored', () {
+    test('a lost apply stops the polling and nothing reads the record '
+        'afterwards', () {
       fakeAsync((async) {
         applyReply = hang;
         waiting(async);
         statusReply = (_) => _ok(waStatusConnectedAfterScan);
         settle(async, const Duration(seconds: 2));
         expect(controller.phase, WhatsAppPairingPhase.connected);
-        // A poll from a refresh is out when the apply goes.
-        controller.cover();
-        final gate = Completer<FakeResponse>();
-        statusReply = (_) => gate.future;
-        controller.uncover();
-        settle(async);
-        statusReply = (_) => _ok(waStatusConnectedAfterScan);
-        gate.complete(_ok(waStatusConnectedAfterScan));
-        settle(async);
         finish(async);
         settle(async, const Duration(seconds: 10));
         expect(controller.applyStatus, WhatsAppApplyStatus.lostAnswer);
@@ -1359,29 +1415,6 @@ void main() {
         statusReply = (_) => (status: 404, body: waRecordGone);
         settle(async, const Duration(minutes: 1));
         expect(polls(), before);
-        expect(controller.phase, WhatsAppPairingPhase.connected);
-        expect(controller.applyStatus, WhatsAppApplyStatus.lostAnswer);
-      });
-    });
-
-    test('a hung apply adopts no 404 from an earlier poll as gone', () {
-      fakeAsync((async) {
-        waiting(async);
-        statusReply = (_) => _ok(waStatusConnectedAfterScan);
-        settle(async, const Duration(seconds: 2));
-        controller.cover();
-        final gate = Completer<FakeResponse>();
-        statusReply = (_) => gate.future;
-        controller.uncover();
-        settle(async);
-        gate.complete(_ok(waStatusConnectedAfterScan));
-        settle(async);
-        applyReply = hang;
-        final poll = Completer<FakeResponse>();
-        statusReply = (_) => poll.future;
-        finish(async);
-        poll.complete((status: 404, body: waRecordGone));
-        settle(async, const Duration(seconds: 10));
         expect(controller.phase, WhatsAppPairingPhase.connected);
         expect(controller.applyStatus, WhatsAppApplyStatus.lostAnswer);
       });

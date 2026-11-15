@@ -13,6 +13,17 @@ import 'whatsapp_pairing_telemetry.dart';
 /// How often a live pairing is read while the app is in front and unlocked.
 const kWhatsAppPollInterval = Duration(seconds: 2);
 
+/// How many failed reads in a row a refresh after App Lock gets (about 20 s at
+/// [kWhatsAppPollInterval]) before it stops counting as pending: Finish stays
+/// not offered, Start again is, and the read goes on only at
+/// [kWhatsAppRefreshBackoffFactor] times the interval.
+const kWhatsAppRefreshFailureCap = 10;
+
+/// The slower rhythm (5 x 2 s = 10 s) of the refresh read once it has failed
+/// [kWhatsAppRefreshFailureCap] times in a row. A later answer restores the
+/// account and Finish, and 30 minutes of failures cost under 200 reads.
+const kWhatsAppRefreshBackoffFactor = 5;
+
 /// How long a start, an apply, a Check or a poll may go unanswered. One that
 /// gets none ends in a state the user can act on; nothing is ever resent.
 const kWhatsAppAnswerTimeout = Duration(seconds: 10);
@@ -224,8 +235,10 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   final String profile;
 
   /// A handset (shortest side under 600 dp) cannot scan its own screen: the
-  /// code needs a tap, again after every hide, and window focus does not
-  /// matter. Tablets and computers show it at once.
+  /// code needs a tap, again after every hide from the lifecycle or App Lock.
+  /// Window focus is the exception: on a computer OS (see
+  /// [followsWindowFocus]) its loss hides the code and its return shows it
+  /// again without a tap, whatever the window's size. Tablets and computers show it at once.
   final bool handset;
 
   /// Whether the code is hidden while the window has no focus. The shell sets
@@ -233,6 +246,8 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   /// the window's size: a narrow window can be [handset] by size and must
   /// still hide on focus loss. It defaults to `!handset`, which is right for
   /// the phone and tablet classes, where no window focus is ever reported.
+  /// On these systems losing focus hides the code and regaining it shows it
+  /// again without a tap; the tap rule is for phone-class devices only.
   final bool followsWindowFocus;
 
   final Duration pollInterval;
@@ -273,6 +288,8 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   var _pausedLine = false;
   var _pollFailing = false;
   var _needsRefresh = false;
+  var _refreshFailures = 0;
+  var _slowTimer = false;
 
   /// Moves when an answer in flight stops mattering for good: Start again,
   /// leaving, [clear].
@@ -392,6 +409,25 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
 
   /// Finish is offered only with the record read: after App Lock the account
   /// is unknown until the read again answers (`_needsRefresh`).
+  /// The account was dropped by App Lock on a connected record and the read
+  /// that restores it has not answered yet (nor failed [kWhatsAppRefreshFailureCap]
+  /// times in a row, see [refreshFailed]). Finish is not offered meanwhile.
+  bool get refreshing =>
+      !_closed &&
+      _phase == WhatsAppPairingPhase.connected &&
+      _needsRefresh &&
+      _refreshFailures < kWhatsAppRefreshFailureCap;
+
+  /// The read after App Lock failed [kWhatsAppRefreshFailureCap] times in a
+  /// row. Finish stays not offered until a read succeeds; Start again is
+  /// offered (a start over a linked session reports connected at once), and
+  /// the read goes on at a slower rhythm.
+  bool get refreshFailed =>
+      !_closed &&
+      _phase == WhatsAppPairingPhase.connected &&
+      _needsRefresh &&
+      _refreshFailures >= kWhatsAppRefreshFailureCap;
+
   bool get canFinish =>
       !_closed &&
       !_covered &&
@@ -427,6 +463,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
           _phase == WhatsAppPairingPhase.superseded ||
           _phase == WhatsAppPairingPhase.gone ||
           _phase == WhatsAppPairingPhase.startLost ||
+          refreshFailed ||
           (_phase == WhatsAppPairingPhase.connected &&
               _applyStatus == WhatsAppApplyStatus.checkNotEnabled));
 
@@ -617,8 +654,8 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
 
   /// A desktop window's focus, reported only by the computer operating
   /// systems. With [followsWindowFocus] the code is hidden while the window
-  /// has none and shows again with focus (after the tap, on a handset-sized
-  /// window); without it, the focus is ignored.
+  /// has none and shows again with focus, without a tap, on any window size
+  /// (a tap already given still counts); without it, the focus is ignored.
   void setWindowFocused(bool value) {
     if (_closed || value == _windowFocused) return;
     _windowFocused = value;
@@ -630,7 +667,8 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   /// is dropped (an apply's is kept: it happened, but its text is not shown).
   /// [uncover] reads the pairing again whenever the account, the code or the
   /// text was dropped from a record that is still live; until it answers,
-  /// Finish is not offered.
+  /// Finish is not offered ([refreshing]). If the read keeps failing, see
+  /// [refreshFailed].
   void cover() {
     if (_closed || _covered) return;
     _covered = true;
@@ -640,6 +678,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     _serverText = null;
     _startFailure = null;
     _applyFailure = null;
+    _refreshFailures = 0;
     if (_applyStatus == WhatsAppApplyStatus.asking) {
       _applyStatus = _statusBeforeQuestion;
     }
@@ -781,9 +820,11 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
           kind: failure,
           serverText: _covered ? null : failureText,
         );
-        // Answered while App Lock covered: the account was dropped, read it
-        // again after unlock.
-        _needsRefresh = _covered;
+        // The account was dropped while the apply was out (App Lock covered
+        // and let go, or it answers covered): read it again, never poll while
+        // the apply is out.
+        _needsRefresh = _covered || _account == null;
+        _refreshFailures = 0;
         _syncPolling();
     }
     _changed();
@@ -874,6 +915,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     _pollEpoch++;
     _timer?.cancel();
     _timer = null;
+    _slowTimer = false;
     _dropPairing();
     _numbersProblem = null;
     _startFailure = null;
@@ -909,6 +951,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     _pausedLine = false;
     _pausedBefore = false;
     _needsRefresh = false;
+    _refreshFailures = 0;
   }
 
   /// Takes the server's reading of the pairing into the state.
@@ -916,6 +959,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     _pollFailing = false;
     _pausedLine = false;
     _needsRefresh = false;
+    _refreshFailures = 0;
     switch (state) {
       case WhatsAppWorking(:final stage):
         _phase = WhatsAppPairingPhase.working;
@@ -989,7 +1033,16 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     final wanted = _pollWanted;
     final open = _gateOpen;
     if (wanted && open) {
-      if (_timer != null) return;
+      if (_timer != null) {
+        // A read that answered since the slow rhythm began goes back to the
+        // normal one.
+        if (_slowTimer && _refreshFailures < kWhatsAppRefreshFailureCap) {
+          _timer!.cancel();
+          _timer = Timer.periodic(pollInterval, (_) => unawaited(_tick()));
+          _slowTimer = false;
+        }
+        return;
+      }
       final resuming = _pausedBefore;
       _pausedBefore = false;
       if (resuming) {
@@ -1004,12 +1057,14 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
         }
       }
       _timer = Timer.periodic(pollInterval, (_) => unawaited(_tick()));
+      _slowTimer = false;
       if (resuming) unawaited(_tick());
       return;
     }
     if (_timer != null) {
       _timer!.cancel();
       _timer = null;
+      _slowTimer = false;
       _pollEpoch++;
     }
     if (wanted && !open) {
@@ -1076,6 +1131,25 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
             (_phase == WhatsAppPairingPhase.working ||
                 _phase == WhatsAppPairingPhase.waiting)) {
           _expireLocally();
+          _changed();
+          return;
+        }
+        // A read that only restores what App Lock dropped gives up being
+        // "pending" after the cap and then runs at the slower rhythm.
+        if (_needsRefresh &&
+            (_phase == WhatsAppPairingPhase.connected ||
+                _phase == WhatsAppPairingPhase.failed) &&
+            _refreshFailures < kWhatsAppRefreshFailureCap) {
+          _refreshFailures++;
+          if (_refreshFailures == kWhatsAppRefreshFailureCap &&
+              _timer != null) {
+            _timer!.cancel();
+            _timer = Timer.periodic(
+              pollInterval * kWhatsAppRefreshBackoffFactor,
+              (_) => unawaited(_tick()),
+            );
+            _slowTimer = true;
+          }
         }
     }
     _changed();
