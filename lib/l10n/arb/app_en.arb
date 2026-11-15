@@ -94,6 +94,10 @@
   "@chatNoticeStopCommand": {
     "description": "Notice in the chat when a typed or queued message was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The text goes back into the message box."
   },
+  "chatNoticeStopCommandElsewhere": "Hermes took a message in another chat as a stop command. Nothing was sent; the words wait in that chat.",
+  "@chatNoticeStopCommandElsewhere": {
+    "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
+  },
   "chatSessionExportConfirmButton": "Export",
   "@chatSessionExportConfirmButton": {
     "description": "Button of the export confirmation that starts fetching the chat file."
@@ -2018,6 +2022,18 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsHistoryFailedDetail": "Check your connection, then try again.",
+  "@chatWidgetsHistoryFailedDetail": {
+    "description": "Detail under the title shown when a stored chat's messages could not be loaded; the Retry button sits below it."
+  },
+  "chatWidgetsHistoryFailedTitle": "Could not load the messages",
+  "@chatWidgetsHistoryFailedTitle": {
+    "description": "Title shown in a stored chat's transcript when reading its messages failed."
+  },
+  "chatWidgetsHistoryLoading": "Loading chat",
+  "@chatWidgetsHistoryLoading": {
+    "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
+  },
   "chatWidgetsProgramConfirmCancel": "Cancel",
   "@chatWidgetsProgramConfirmCancel": {
     "description": "Cancel button of the program stop confirmation."

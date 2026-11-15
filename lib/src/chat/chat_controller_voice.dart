@@ -33,6 +33,9 @@ enum ChatSendNotice {
   /// The words were exactly a stop phrase of Hermes' voice mode, which Hermes
   /// answers without running a turn, so nothing reached the agent.
   stopCommand,
+
+  /// The same, in a chat that is not open: the words wait for that chat.
+  stopCommandElsewhere,
 }
 
 /// What Hermes (or the transport) did with a spoken turn that was handed over.
@@ -194,20 +197,35 @@ extension _ChatControllerVoice on ChatController {
   /// the user is told and, while that chat is open, gets the words back in
   /// the composer (under any new draft) rather than losing them.
   void _stopCommandTyped(ChatThread thread, String text) {
-    onSendNotice?.call(ChatSendNotice.stopCommand);
+    final open = identical(selectedThread, thread);
+    final keep = !open && text.isNotEmpty && _threads.contains(thread);
+    onSendNotice?.call(
+      keep ? ChatSendNotice.stopCommandElsewhere : ChatSendNotice.stopCommand,
+    );
     if (text.isEmpty) return;
-    if (identical(selectedThread, thread)) {
+    if (open) {
       onDraft?.call(text);
-    } else if (_threads.contains(thread)) {
+    } else if (keep) {
       // Another chat's composer is not its to fill: wait for the chat.
-      _stopHandBacks[thread] = text;
+      _stopHandBacks.update(
+        _stopKey(thread.id),
+        (kept) => '$kept\n$text',
+        ifAbsent: () => text,
+      );
     }
+  }
+
+  (String, String) _stopKey(String id) => (_profile ?? kDefaultProfile, id);
+
+  void _rekeyStopHandBack(String from, String to) {
+    final text = _stopHandBacks.remove(_stopKey(from));
+    if (text != null) _stopHandBacks[_stopKey(to)] = text;
   }
 
   /// The selected chat has words waiting from a stop phrase: hand them over.
   void _stopHandBackSelected() {
-    final thread = selectedThread;
-    final text = thread == null ? null : _stopHandBacks.remove(thread);
+    final id = _selectedId;
+    final text = id == null ? null : _stopHandBacks.remove(_stopKey(id));
     if (text != null) onDraft?.call(text);
   }
 
