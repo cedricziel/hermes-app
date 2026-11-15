@@ -5,13 +5,13 @@ import '../../l10n/l10n.dart';
 import '../theme/app_icons.dart';
 import '../theme/breakpoints.dart';
 import '../telemetry/breadcrumbs.dart';
-import '../widgets/adaptive_dialog.dart';
 import '../widgets/settings_scaffold.dart';
 import 'memory_decisions.dart';
 import 'memory_proposals.dart';
 import 'memory_proposals_controller.dart';
 import 'memory_settings.dart';
 import 'memory_settings_controller.dart';
+import 'widgets/memory_confirm_dialogs.dart';
 import 'widgets/memory_proposal_detail.dart';
 import 'widgets/memory_proposals_list.dart';
 import 'widgets/memory_proposals_split.dart';
@@ -67,14 +67,7 @@ class _MemoryProposalsScreenState extends State<MemoryProposalsScreen> {
 
   Future<void> _rejectAll() async {
     final count = _controller.waiting ?? 0;
-    final l10n = context.l10n;
-    final confirmed = await showDestructiveConfirm(
-      context,
-      title: l10n.memoryRejectAllTitle,
-      message: l10n.memoryRejectAllMessage(count),
-      confirmLabel: l10n.memoryRejectAllAction,
-      cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,
-    );
+    final confirmed = await showMemoryRejectAllConfirm(context, count: count);
     if (confirmed && mounted) await _controller.decideAll(approve: false);
   }
 
@@ -98,20 +91,21 @@ class _MemoryProposalsScreenState extends State<MemoryProposalsScreen> {
       final controller = _controller;
       final settings = widget.settings?.settings;
       final waiting = controller.waiting ?? 0;
+      final l10n = context.l10n;
       return SettingsScaffold(
-        title: 'Waiting for you',
+        title: l10n.memoryWaitingTitle,
         subtitle: controller.profile,
         actions: [
           SettingsBarAction(
             key: const Key('proposals-refresh'),
-            label: 'Refresh',
+            label: l10n.memoryRefresh,
             icon: AppIcons.refresh,
             onPressed: controller.loading ? null : controller.load,
           ),
           if (waiting > 0)
             SettingsBarAction(
               key: const Key('proposals-approve-all'),
-              label: 'Approve all',
+              label: l10n.memoryApproveAll,
               icon: AppIcons.checkCircle,
               onPressed: controller.deciding
                   ? null
@@ -209,8 +203,8 @@ class _MemoryProposalPageState extends State<MemoryProposalPage> {
         });
       }
       return SettingsScaffold(
-        title: proposal?.action.label ?? 'Change',
-        previousTitle: 'Waiting for you',
+        title: proposal?.action.label ?? context.l10n.memoryChangeTitle,
+        previousTitle: context.l10n.memoryWaitingTitle,
         body: proposal == null
             ? const SizedBox.shrink()
             : SingleChildScrollView(

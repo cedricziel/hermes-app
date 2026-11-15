@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
-import '../widgets/adaptive_dialog.dart';
 import '../widgets/content_column.dart';
-import '../widgets/dialog_presentation.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'memory_controller.dart';
@@ -11,7 +9,9 @@ import 'memory_repository.dart';
 import 'memory_settings_controller.dart';
 import 'memory_proposals_controller.dart';
 import 'memory_proposals_screen.dart';
+import 'memory_tab_label.dart';
 import 'memory_usage.dart';
+import 'widgets/memory_confirm_dialogs.dart';
 import 'widgets/memory_entry_editor.dart';
 import 'widgets/memory_entry_list.dart';
 import 'widgets/memory_learning_section.dart';
@@ -88,54 +88,28 @@ class _MemoryScreenState extends State<MemoryScreen>
   String? _place() {
     final open = controller.selected, position = controller.position;
     if (open == null || position == null) return null;
-    return 'Entry ${position.index} of ${position.count} in '
-        '${open.tab.label} (${open.tab.file})';
+    final l10n = context.l10n;
+    return l10n.memoryEntryPlace(
+      position.index,
+      position.count,
+      open.tab.localizedLabel(l10n),
+      open.tab.file,
+    );
   }
 
   Future<bool> _leave() async {
     if (!controller.needsLeaveConfirmation) return true;
     FocusManager.instance.primaryFocus?.unfocus();
-    final l10n = context.l10n;
-    final pending = controller.mutation == MemoryMutation.pending;
-    final discard = await showAppDialog<bool>(
-      context: context,
-      builder: (dialog) => AppAlertDialog(
-        scrollable: true,
-        title: Text(l10n.memoryLeaveTitle),
-        content: Text(
-          pending
-              ? l10n.memoryLeaveMessagePending
-              : l10n.memoryLeaveMessageUnsaved,
-        ),
-        actions: [
-          AppDialogAction(
-            isDefault: true,
-            filledOnMaterial: false,
-            onPressed: () => Navigator.pop(dialog, false),
-            child: Text(l10n.memoryLeaveKeepDraft),
-          ),
-          AppDialogAction(
-            isDestructive: true,
-            onPressed: () => Navigator.pop(dialog, true),
-            child: Text(l10n.memoryLeaveDiscard),
-          ),
-        ],
-      ),
+    return showMemoryLeaveConfirm(
+      context,
+      pending: controller.mutation == MemoryMutation.pending,
     );
-    return discard == true;
   }
 
   Future<void> _delete() async {
     final original = controller.detail;
     final profile = controller.profile;
-    final l10n = context.l10n;
-    final confirmed = await showDestructiveConfirm(
-      context,
-      title: l10n.memoryDeleteConfirmTitle,
-      message: l10n.memoryDeleteConfirmMessage,
-      confirmLabel: l10n.memoryDeleteConfirmAction,
-      cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,
-    );
+    final confirmed = await showMemoryDeleteConfirm(context);
     if (confirmed &&
         mounted &&
         identical(original, controller.detail) &&
@@ -156,12 +130,12 @@ class _MemoryScreenState extends State<MemoryScreen>
         if (context.mounted) Navigator.of(context).pop();
       },
       child: SettingsScaffold(
-        title: 'Memory',
+        title: context.l10n.memoryTitle,
         subtitle: controller.profile,
         subtitleMenu: widget.profiles.isEmpty
             ? null
             : SettingsSubtitleMenu<Object?>(
-                label: 'Choose memory profile',
+                label: context.l10n.memoryChooseProfile,
                 onSelected: (value) async {
                   if (value is String &&
                       value != controller.profile &&
@@ -178,7 +152,9 @@ class _MemoryScreenState extends State<MemoryScreen>
                     ),
                 ],
               ),
-        tabs: [for (final tab in MemoryTab.values) tab.label],
+        tabs: [
+          for (final tab in MemoryTab.values) tab.localizedLabel(context.l10n),
+        ],
         tabController: _tabs,
         body: MemoryView(
           header: [
@@ -390,7 +366,7 @@ class MemoryView extends StatelessWidget {
           title: error.message,
           action: FilledButton(
             onPressed: onRefresh,
-            child: const Text('Refresh'),
+            child: Text(context.l10n.memoryRefresh),
           ),
         ),
       );
@@ -403,7 +379,10 @@ class MemoryView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextButton(onPressed: onBack, child: const Text('All memories')),
+              TextButton(
+                onPressed: onBack,
+                child: Text(context.l10n.memoryAllMemories),
+              ),
               if (place != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),

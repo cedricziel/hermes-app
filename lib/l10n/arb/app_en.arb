@@ -2623,6 +2623,22 @@
   "@@x-area-mcp": "",
 
   "@@x-area-memory": "",
+  "memoryAllMemories": "All memories",
+  "@memoryAllMemories": {
+    "description": "Link on an open memory entry that goes back to the list of entries."
+  },
+  "memoryApproveAll": "Approve all",
+  "@memoryApproveAll": {
+    "description": "Action of the Waiting for you page: approves every listed change."
+  },
+  "memoryChangeTitle": "Change",
+  "@memoryChangeTitle": {
+    "description": "Title of the page of one waiting change whose kind is not known yet."
+  },
+  "memoryChooseProfile": "Choose memory profile",
+  "@memoryChooseProfile": {
+    "description": "Accessible name of the menu that switches the profile whose memory is shown."
+  },
   "memoryDeleteConfirmAction": "Delete permanently",
   "@memoryDeleteConfirmAction": {
     "description": "Destructive button of the delete-memory confirmation. Keep it short."
@@ -2634,6 +2650,24 @@
   "memoryDeleteConfirmTitle": "Permanently delete this memory?",
   "@memoryDeleteConfirmTitle": {
     "description": "Title of the confirmation before one memory entry is deleted."
+  },
+  "memoryEntryPlace": "Entry {index} of {count} in {tab} ({file})",
+  "@memoryEntryPlace": {
+    "description": "Position line of an open memory entry. {index} and {count} are numbers, {tab} the name of the memory file and {file} its file name.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      },
+      "tab": {
+        "type": "String"
+      },
+      "file": {
+        "type": "String"
+      }
+    }
   },
   "memoryLeaveDiscard": "Discard and leave",
   "@memoryLeaveDiscard": {
@@ -2654,6 +2688,10 @@
   "memoryLeaveTitle": "Leave this memory?",
   "@memoryLeaveTitle": {
     "description": "Title of the confirmation shown when the user leaves a memory entry that has an unsaved draft."
+  },
+  "memoryRefresh": "Refresh",
+  "@memoryRefresh": {
+    "description": "Reads the memory entries or the waiting changes again."
   },
   "memoryRejectAllAction": "Reject all",
   "@memoryRejectAllAction": {
@@ -2697,6 +2735,22 @@
   "memoryResetTitle": "Reset memory?",
   "@memoryResetTitle": {
     "description": "Title of the dialog that asks which memory files to erase."
+  },
+  "memoryTabAboutYou": "About you",
+  "@memoryTabAboutYou": {
+    "description": "Name of the memory file about the user, used as a tab and in the position line."
+  },
+  "memoryTabAgentNotes": "Agent notes",
+  "@memoryTabAgentNotes": {
+    "description": "Name of the memory file with the agent's own notes, used as a tab and in the position line."
+  },
+  "memoryTitle": "Memory",
+  "@memoryTitle": {
+    "description": "Title of the Memory screen."
+  },
+  "memoryWaitingTitle": "Waiting for you",
+  "@memoryWaitingTitle": {
+    "description": "Title of the page that lists the memory and skill changes Hermes holds for approval."
   },
 
   "@@x-area-messaging": "",

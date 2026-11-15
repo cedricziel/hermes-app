@@ -1,18 +1,21 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_screen.dart';
+import 'package:hermes_app/src/memory/widgets/memory_confirm_dialogs.dart';
 import 'package:hermes_app/src/memory/widgets/memory_reset_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'memory_fixtures.dart';
 
-Widget _german(Widget home) => MaterialApp(
+Widget _german(Widget home, {TargetPlatform? platform}) => MaterialApp(
+  theme: ThemeData(platform: platform),
   locale: const Locale('de'),
   localizationsDelegates: AppLocalizations.localizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
@@ -33,7 +36,13 @@ void main() {
       ),
     );
     expect(find.text('Gedächtnis zurücksetzen?'), findsOneWidget);
-    expect(find.textContaining('für das Profil work'), findsOneWidget);
+    expect(
+      find.text(
+        'Hermes vergisst auf dem Server für das Profil work, was du '
+        'auswählst. Das lässt sich nicht rückgängig machen.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Beides zurücksetzen'), findsOneWidget);
     expect(find.text('Abbrechen'), findsOneWidget);
     expect(find.text('Reset memory?'), findsNothing);
@@ -73,32 +82,32 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), 'Changed');
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('All memories'));
+    await tester.ensureVisible(find.text('Alle Erinnerungen'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('All memories'));
+    await tester.tap(find.text('Alle Erinnerungen'));
     await tester.pumpAndSettle();
-    expect(find.text('Diese Erinnerung verlassen?'), findsOneWidget);
+    expect(find.text('Bearbeitung verlassen?'), findsOneWidget);
     await tester.tap(find.text('Entwurf behalten'));
     await tester.pumpAndSettle();
     expect(controller.draft, 'Changed');
     expect(
       find.text(
         'Wenn du gehst, wird dein ungespeicherter Entwurf verworfen. '
-        'Eine unbestätigte Änderung kann trotzdem durchgegangen sein.',
+        'Eine unbestätigte Änderung kann trotzdem schon gespeichert worden sein.',
       ),
       findsNothing,
     );
 
-    await tester.tap(find.text('All memories'));
+    await tester.tap(find.text('Alle Erinnerungen'));
     await tester.pumpAndSettle();
     expect(
       find.text(
         'Wenn du gehst, wird dein ungespeicherter Entwurf verworfen. '
-        'Eine unbestätigte Änderung kann trotzdem durchgegangen sein.',
+        'Eine unbestätigte Änderung kann trotzdem schon gespeichert worden sein.',
       ),
       findsOneWidget,
     );
-    await tester.tap(find.text('Verwerfen und verlassen'));
+    await tester.tap(find.text('Entwurf verwerfen'));
     await tester.pumpAndSettle();
     expect(controller.draft, isNull);
   });
@@ -125,9 +134,9 @@ void main() {
     controller.setDraft('Changed');
     unawaited(controller.mutate(delete: false));
     await tester.pump();
-    await tester.ensureVisible(find.text('All memories'));
+    await tester.ensureVisible(find.text('Alle Erinnerungen'));
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.text('All memories'));
+    await tester.tap(find.text('Alle Erinnerungen'));
     await tester.pump(const Duration(milliseconds: 400));
     expect(
       find.text(
@@ -176,7 +185,7 @@ void main() {
   for (final (count, text) in [
     (
       1,
-      'Hermes verwirft die eine Änderung, die hier aufgelistet ist. '
+      'Hermes verwirft die hier aufgeführte Änderung. '
           'Das lässt sich nicht rückgängig machen.',
     ),
     (
@@ -212,4 +221,95 @@ void main() {
       expect(find.text('Alle ablehnen'), findsOneWidget);
     });
   }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    final apple = platform == TargetPlatform.iOS;
+    final alerts = <(String, Widget, String, String, String)>[
+      (
+        'leave',
+        MemoryLeaveAlert(pending: false, onKeep: () {}, onDiscard: () {}),
+        'Bearbeitung verlassen?',
+        'Entwurf behalten',
+        'Entwurf verwerfen',
+      ),
+      (
+        'delete',
+        MemoryDeleteAlert(onCancel: () {}, onDelete: () {}),
+        'Diese Erinnerung endgültig löschen?',
+        'Abbrechen',
+        'Endgültig löschen',
+      ),
+      (
+        'reject all',
+        MemoryRejectAllAlert(count: 2, onCancel: () {}, onReject: () {}),
+        'Alle Änderungen ablehnen?',
+        'Abbrechen',
+        'Alle ablehnen',
+      ),
+    ];
+    for (final (name, alert, title, safe, destructive) in alerts) {
+      testWidgets('the $name alert on ${platform.name}', (tester) async {
+        await tester.pumpWidget(
+          _german(Scaffold(body: alert), platform: platform),
+        );
+        expect(find.text(title), findsOneWidget);
+        expect(find.byType(FilledButton), findsNothing);
+        if (apple) {
+          expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+          final actions = tester.widgetList<CupertinoDialogAction>(
+            find.byType(CupertinoDialogAction),
+          );
+          expect(actions.map((a) => a.isDefaultAction), [true, false]);
+          expect(actions.map((a) => a.isDestructiveAction), [false, true]);
+          expect(
+            find.descendant(
+              of: find.byWidgetPredicate(
+                (w) => w is CupertinoDialogAction && w.isDefaultAction,
+              ),
+              matching: find.text(safe),
+            ),
+            findsOneWidget,
+          );
+        } else {
+          expect(find.byType(AlertDialog), findsOneWidget);
+          expect(find.byType(CupertinoAlertDialog), findsNothing);
+          expect(find.byType(TextButton), findsNWidgets(2));
+          expect(find.text(safe), findsOneWidget);
+        }
+        expect(find.text(destructive), findsOneWidget);
+      });
+    }
+  }
+
+  testWidgets('the delete confirmation on iOS is a Cupertino alert', (
+    tester,
+  ) async {
+    final server = FakeHermesServer()
+      ..on('GET', '/api/learning/graph', memoryGraph)
+      ..on('GET', '/api/learning/node', memoryDetail)
+      ..on('GET', '/api/config', memoryConfig());
+    final controller = MemoryController();
+    addTearDown(controller.dispose);
+    await tester.runAsync(() async {
+      controller.bind(MemoryRepository(server.client().raw), 'work');
+      await pumpEventQueue();
+      await controller.open(controller.entries.first);
+    });
+    await tester.pumpWidget(
+      _german(
+        MemoryScreen(controller: controller),
+        platform: TargetPlatform.iOS,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Delete entry'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete entry'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+    expect(find.text('Endgültig löschen'), findsOneWidget);
+    await tester.tap(find.text('Abbrechen'));
+    await tester.pumpAndSettle();
+    expect(server.requestsTo('DELETE', '/api/learning/node'), isEmpty);
+  });
 }
