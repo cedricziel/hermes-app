@@ -40,7 +40,7 @@ extension _Reconnect on HermesGatewayTransport {
     }
 
     var answeredYet = !patient;
-    startTimer(patient ? _reconnectWindow : _reconnectBudget);
+    startTimer(patient ? reconnectWindow : _reconnectBudget);
     bool stop() => expired.isCompleted || _closed || cancelled();
     // Attempts the server answered, for telemetry and the attempt limit.
     var tried = 0;
@@ -52,7 +52,7 @@ extension _Reconnect on HermesGatewayTransport {
       unawaited(
         _nudge.future.then((_) {
           if (finished || answeredYet || expired.isCompleted) return;
-          startTimer(_reconnectWindow);
+          startTimer(reconnectWindow);
           watchNudge();
         }),
       );
