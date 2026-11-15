@@ -107,6 +107,29 @@ class _BreakingSpan implements Span {
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
+/// A span whose end() breaks; the rest records normally.
+class _EndBreakingTracer extends RecordingTracer {
+  @override
+  Span startSpan(
+    String name, {
+    SpanKind kind = SpanKind.internal,
+    Map<String, Object?>? attributes,
+    SpanContext? parentContext,
+    List<SpanLink> links = const [],
+  }) => _EndBreakingSpan(super.startSpan(name, kind: kind) as RecordingSpan);
+}
+
+class _EndBreakingSpan extends _BreakingSpan {
+  _EndBreakingSpan(super.inner);
+
+  @override
+  void setAttributes(Map<String, Object?> attributes) =>
+      inner.setAttributes(attributes);
+
+  @override
+  void end([DateTime? endTime]) => throw StateError('end broke');
+}
+
 class _FakeTimer implements Timer {
   _FakeTimer(this.callback);
   final void Function() callback;
@@ -144,6 +167,7 @@ void main() {
   late List<_FakeTimer> timers;
   late int cleared;
   late Completer<bool>? saveGate;
+  late Completer<void>? clearGate;
   var saveResult = true;
 
   SessionExportController build(
@@ -165,7 +189,12 @@ void main() {
       ),
       crumbs.breadcrumbs,
     ),
-    clearTemporaryFiles: withClear ? () async => cleared++ : null,
+    clearTemporaryFiles: withClear
+        ? () async {
+            cleared++;
+            await clearGate?.future;
+          }
+        : null,
     timer: (d, cb) {
       final t = _FakeTimer(cb);
       timers.add(t);
@@ -182,6 +211,7 @@ void main() {
     timers = [];
     cleared = 0;
     saveGate = null;
+    clearGate = null;
     saveResult = true;
   });
 
@@ -516,6 +546,65 @@ void main() {
       expect(await done, SessionExportSaveResult.droppedByLock);
       expect(c.phase, isNull);
       expect(c.busy, isFalse);
+      expect(events.named('session_export.failed'), [
+        {'reason': 'failed'},
+      ]);
+    });
+
+    test('a save that throws after a drop logs it and shows nothing', () async {
+      server.on('GET', '/api/sessions/abc/export', _session());
+      saveGate = Completer<bool>();
+      final c = build(server.client())..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      await tick();
+      await tick();
+      c.contextChanged();
+      saveGate!.completeError(StateError('sheet broke'));
+      expect(await done, isNull);
+      expect(c.phase, isNull);
+      expect(c.busy, isFalse);
+      expect(events.named('session_export.failed'), [
+        {'reason': 'failed'},
+      ]);
+    });
+
+    test('a drop while the failed save clears leaves the run intact', () async {
+      server.on('GET', '/api/sessions/abc/export', _session());
+      clearGate = Completer<void>();
+      final c = build(server.client(), throwsOnSave: true)
+        ..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      await tick();
+      expect(cleared, 1);
+      c.contextChanged();
+      // The old run still owns the controller until its clear returns.
+      expect(c.begin('abc', 'work'), isFalse);
+      expect(c.busy, isTrue);
+      clearGate!.complete();
+      expect(await done, isNull);
+      expect(c.phase, isNull);
+      expect(c.busy, isFalse);
+      expect(c.begin('abc', 'work'), isTrue);
+      expect(c.phase, isA<SessionExportConfirm>());
+    });
+
+    test('a lock while a good save clears reports droppedByLock', () async {
+      server.on('GET', '/api/sessions/abc/export', _session());
+      clearGate = Completer<void>();
+      final c = build(server.client())..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      await tick();
+      expect(cleared, 1);
+      c.locked();
+      clearGate!.complete();
+      expect(await done, SessionExportSaveResult.droppedByLock);
+      expect(cleared, 1);
+      expect(crumbs.named('session_export.saved'), isEmpty);
+      expect(c.phase, isNull);
+      expect(c.busy, isFalse);
     });
 
     test('a lock decoding a large body drops it before the save', () async {
@@ -600,6 +689,43 @@ void main() {
       expect(await done, SessionExportSaveResult.droppedByLock);
       expect(cleared, 1);
     });
+
+    test(
+      'a sign-out during a save clears now and when the sheet returns',
+      () async {
+        server.on('GET', '/api/sessions/abc/export', _session());
+        saveGate = Completer<bool>();
+        final c = build(server.client())..begin('abc', 'work');
+        final done = c.confirm();
+        await tick();
+        await tick();
+        await tick();
+        c.signedOut();
+        await tick();
+        expect(cleared, 1);
+        saveGate!.complete(true);
+        expect(await done, isNull);
+        expect(cleared, 2);
+      },
+    );
+
+    test(
+      'a sign-out then dispose still clears once the sheet returns',
+      () async {
+        server.on('GET', '/api/sessions/abc/export', _session());
+        saveGate = Completer<bool>();
+        final c = build(server.client())..begin('abc', 'work');
+        final done = c.confirm();
+        await tick();
+        await tick();
+        await tick();
+        c.signedOut();
+        c.dispose();
+        saveGate!.complete(true);
+        await done;
+        expect(cleared, 2);
+      },
+    );
 
     test('a disposed controller does not clear what it does not own', () async {
       server.on('GET', '/api/sessions/abc/export', _session());
@@ -783,6 +909,26 @@ void main() {
       final span = broken.spans.single;
       expect(span.status, StatusCode.error);
       expect(span.ended, isTrue);
+      expect(events.named('session_export.failed'), [
+        {'reason': 'failed'},
+      ]);
+    });
+
+    test('a throwing span end does not skip the failure event', () async {
+      server.on('GET', '/api/sessions/abc/export', {}, status: 500);
+      final broken = _EndBreakingTracer();
+      final c = SessionExportController(
+        api: server.client(),
+        save: (n, b) async => true,
+        telemetry: SessionExportTelemetry(
+          ConnectionTelemetry(
+            events: (n, [a = const {}]) => events(n, a),
+            tracer: broken,
+          ),
+        ),
+      )..begin('abc', 'work');
+      await c.confirm();
+      expect(c.phase, isA<SessionExportFailed>());
       expect(events.named('session_export.failed'), [
         {'reason': 'failed'},
       ]);

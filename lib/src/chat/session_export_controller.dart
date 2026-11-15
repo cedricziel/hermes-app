@@ -68,6 +68,7 @@ class SessionExportController extends ChangeNotifier {
   bool _running = false;
   bool _saving = false;
   bool _lockedDuringSave = false;
+  bool _clearAfterSave = false;
   bool _disposed = false;
   int _run = 0;
   CancelToken? _token;
@@ -170,6 +171,7 @@ class SessionExportController extends ChangeNotifier {
     final bytes = _bytes!;
     _saving = true;
     _lockedDuringSave = false;
+    _clearAfterSave = false;
     // The alert closes behind the save sheet.
     _set(null);
     SessionExportSaveResult? result;
@@ -181,18 +183,23 @@ class SessionExportController extends ChangeNotifier {
     } on Object {
       result = null;
     }
+    _bytes = null;
+    // A disposed instance owns nothing to clear, unless a lock or sign-out
+    // left the clearing for this moment: the home shell builds the next State
+    // before the old one disposes, and that one may already hold its own
+    // files. The save run stays in charge (_saving, _running) across the
+    // await, so nothing can start a second export or be overwritten by this
+    // one's stale flags; they are read only afterwards.
+    if (!_disposed || _clearAfterSave) await _clearTemporary();
     final locked = _lockedDuringSave;
     final dropped = run != _run;
-    _bytes = null;
     _saving = false;
     _lockedDuringSave = false;
-    // A disposed instance owns nothing to clear, unless a lock left the
-    // clearing for this moment: the home shell builds the next State before
-    // the old one disposes, and that one may already hold its own files.
-    if (!_disposed || locked) await _clearTemporary();
+    _clearAfterSave = false;
+    // One rule for a throwing sheet, whatever dropped the export meanwhile.
+    if (result == null) telemetry.saveFailed();
     if (locked) {
       // App Lock closed everything while the sheet was open: show nothing.
-      if (result == null) telemetry.saveFailed();
       _finishSave();
       return SessionExportSaveResult.droppedByLock;
     }
@@ -202,7 +209,6 @@ class SessionExportController extends ChangeNotifier {
       return null;
     }
     if (result == null) {
-      telemetry.saveFailed();
       _phase = const SessionExportFailed(SessionExportFailure.failed);
       _finishSave();
       return null;
@@ -246,6 +252,8 @@ class SessionExportController extends ChangeNotifier {
 
   /// The user signed out.
   void signedOut() {
+    // A sheet that is open may stage more; clear again when it returns.
+    if (_saving) _clearAfterSave = true;
     _drop();
     unawaited(_clearTemporary());
   }
@@ -258,6 +266,7 @@ class SessionExportController extends ChangeNotifier {
       // The sheet stays open and a user who finishes after unlocking gets the
       // file; the temporary files go when it returns.
       _lockedDuringSave = true;
+      _clearAfterSave = true;
       _drop();
       return;
     }
