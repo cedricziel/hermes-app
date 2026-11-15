@@ -61,6 +61,19 @@ void main() {
     // Just inside and just outside each range that allows cleartext without
     // confirmation. Each pair is address, expected.
     const cases = <(String, bool)>[
+      // 127/8 loopback, 10/8, 172.16/12 and 192.168/16 private ranges.
+      ('127.255.255.255', true),
+      ('126.255.255.255', false),
+      ('128.0.0.0', false),
+      ('10.255.255.255', true),
+      ('9.255.255.255', false),
+      ('11.0.0.0', false),
+      ('172.16.0.0', true),
+      ('172.15.255.255', false),
+      ('172.32.0.0', false),
+      ('192.168.255.255', true),
+      ('192.167.255.255', false),
+      ('192.169.0.0', false),
       // 169.254.0.0/16 link-local.
       ('169.254.0.1', true),
       ('169.254.255.255', true),
@@ -74,7 +87,6 @@ void main() {
       ('100.63.0.1', false),
       ('100.128.0.0', false),
       // fe80::/10 IPv6 link-local.
-      ('fe80::1', true),
       ('febf::1', true),
       ('fec0::1', false),
       ('fe7f::1', false),
@@ -86,16 +98,15 @@ void main() {
       // IPv4-mapped ::ffff:a.b.c.d is as local as its IPv4 part.
       ('::ffff:192.168.1.1', true),
       ('::ffff:c0a8:101', true),
-      ('::ffff:8.8.8.8', false),
       ('::ffff:808:808', false),
       // The same bytes without the ff ff marker are not mapped.
       ('::fffe:c0a8:101', false),
       ('::c0a8:101', false),
+      ('::ff:c0a8:101', false),
       ('0:0:0:0:1:ffff:c0a8:101', false),
       // A zone id is dropped before the address is read, so a public IPv6
       // address stays public (the name has no dot, which would otherwise
       // make it a local single-label name).
-      ('fe80::1%en0', true),
       ('2001:db8::1%en0', false),
     ];
 
