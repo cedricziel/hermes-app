@@ -8,7 +8,7 @@ import '../../widgets/named_popup_menu_button.dart';
 import 'file_glyph.dart';
 import 'file_size.dart';
 import 'files_metrics.dart';
-import 'middle_ellipsis.dart';
+import '../../widgets/middle_ellipsis.dart';
 
 /// "Python · 1.8 KB": the file's type word and, once known, its size. The
 /// subtitle of a phone's preview bar and the second line of the pane header.
