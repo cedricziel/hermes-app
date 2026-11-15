@@ -298,7 +298,52 @@ run_contract() {
   tail -n 60 "$RUN_DIR/contract-test.log" >&2
   HERMES_DEV_STATE_DIR="$RUN_DIR/contract" "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
   ((status == 0)) || die "contract tier failed (log: $OUT_DIR/contract-test.log)"
+  run_reconnect_contract
   log "contract tier passed"
+}
+
+# A backend of its own for test/gateway_reconnect_contract_test.dart: its
+# restart group stops the dashboard (`term` or `kill`) and starts it again on
+# the same port and HERMES_HOME, which would break every other contract test.
+# The script it is given does that from the same minimal environment
+# start_backend uses.
+run_reconnect_contract() {
+  log "contract tier: gateway reconnect and restart against a backend of its own"
+  start_backend reconnect 0
+  local url="$BACKEND_URL" state="$RUN_DIR/reconnect"
+  local port="${BACKEND_URL##*:}" script="$RUN_DIR/restart-backend.sh"
+  {
+    printf '#!/usr/bin/env bash\nset -euo pipefail\n'
+    printf 'state=%q port=%q root=%q\n' "$state" "$port" "$ROOT_DIR"
+    printf 'env_path=%q web=%q run=%q\n' "$HERMES_DIR/.venv/bin:$PATH" "$HERMES_DIR/hermes_cli/web_dist" "$RUN_DIR"
+    cat <<'EOF'
+pid="$(cat "$state/pid")"
+case "${1:-}" in
+  term) kill "$pid" ;;
+  kill) kill -9 "$pid" ;;
+  *) echo "usage: $0 term|kill" >&2; exit 2 ;;
+esac
+for _ in $(seq 60); do
+  [[ -z "$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null)" ]] && break
+  sleep 0.5
+done
+rm -f "$state/pid" "$state/port"
+exec env -i PATH="$env_path" HOME="$state/userhome" LANG=C.UTF-8 HERMES_VERIFY_RUN="$run" \
+  HERMES_DEV_STATE_DIR="$state" HERMES_DEV_PORT="$port" HERMES_WEB_DIST="$web" \
+  setsid "$root/scripts/dev-backend.sh" start
+EOF
+  } >"$script"
+  chmod 700 "$script"
+  local status=0
+  (cd "$ROOT_DIR" && TMPDIR="$RUN_DIR/tmp" HERMES_DEV_URL="$url" HERMES_DEV_HOME="$state/home" \
+    HERMES_DEV_RESTART_SCRIPT="$script" \
+    exec setsid flutter test --no-pub --suppress-analytics --concurrency=1 \
+    test/gateway_reconnect_contract_test.dart) >"$RUN_DIR/reconnect-test.log" 2>&1 &
+  echo "$!" >>"$RUN_DIR/sids"
+  wait "$!" || status=$?
+  tail -n 40 "$RUN_DIR/reconnect-test.log" >&2
+  HERMES_DEV_STATE_DIR="$state" "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
+  ((status == 0)) || die "gateway reconnect contract failed (log: $OUT_DIR/reconnect-test.log)"
 }
 
 # mimalloc's GitHub archive URL (media_kit_libs_linux) is refused by some
@@ -431,7 +476,7 @@ cleanup() {
   done
   kill_run "$RUN_DIR"
   mkdir -p "$OUT_DIR"
-  for state in contract-test.log app-test.log browser.log model.log contract/dashboard.log app/dashboard.log; do
+  for state in contract-test.log reconnect-test.log app-test.log browser.log model.log contract/dashboard.log reconnect/dashboard.log app/dashboard.log; do
     [[ -f "$RUN_DIR/$state" ]] && cp "$RUN_DIR/$state" "$OUT_DIR/${state//\//-}"
   done
   # Builtins only: an external command here would carry the marker itself.

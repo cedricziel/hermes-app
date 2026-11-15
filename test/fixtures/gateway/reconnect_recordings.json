@@ -1,0 +1,86 @@
+{
+  "note": "Shapes recorded from the pinned Hermes (see openapi/HERMES_REF) when a gateway socket dropped mid-turn and when the backend restarted; ids, epochs, timestamps and text are invented. test/gateway_reconnect_contract_test.dart checks the live answers.",
+  "events_since_turn_finished_while_away": {
+    "last_seen": 9,
+    "answer": {
+      "events": [
+        {
+          "type": "tool.complete",
+          "session_id": "rt000001",
+          "payload": {
+            "tool_id": "call_demo",
+            "name": "terminal",
+            "args": { "command": "sleep 3; echo woke", "timeout": 600 },
+            "duration_s": 3.4,
+            "result": { "output": "woke", "exit_code": 0, "error": null }
+          },
+          "seq": 10
+        },
+        {
+          "type": "message.delta",
+          "session_id": "rt000001",
+          "payload": { "text": "Invented reply." },
+          "seq": 11
+        },
+        {
+          "type": "message.complete",
+          "session_id": "rt000001",
+          "payload": { "text": "Invented reply.", "status": "complete" },
+          "seq": 12
+        },
+        {
+          "type": "session.info",
+          "session_id": "rt000001",
+          "payload": { "model": "demo", "running": false },
+          "seq": 13
+        }
+      ],
+      "latest_seq": 13,
+      "truncated": false,
+      "count": 4,
+      "epoch": "epoch-a",
+      "open_requests": []
+    }
+  },
+  "events_since_after_restart": {
+    "last_seen": 9,
+    "answer": {
+      "events": [],
+      "latest_seq": 0,
+      "truncated": false,
+      "count": 0,
+      "epoch": "epoch-b",
+      "open_requests": []
+    }
+  },
+  "resume_still_running": {
+    "session_id": "rt000001",
+    "resumed": "20260101_000000_abc123",
+    "session_key": "20260101_000000_abc123",
+    "running": true,
+    "status": "working",
+    "inflight": {
+      "assistant": "",
+      "streaming": true,
+      "user": "Invented prompt"
+    },
+    "message_count": 1,
+    "messages": [{ "role": "user", "text": "Invented prompt", "row_id": 1 }]
+  },
+  "resume_after_kill": {
+    "session_id": "rt000002",
+    "resumed": "20260101_000000_abc123",
+    "session_key": "20260101_000000_abc123",
+    "running": false,
+    "status": "idle",
+    "inflight": null,
+    "auto_continue": { "attempt": 1, "interrupted_at": 1767225600.5 },
+    "message_count": 1,
+    "messages": [{ "role": "user", "text": "Invented prompt", "row_id": 1 }]
+  },
+  "errors": {
+    "resume_unknown_id": { "code": 4007, "message": "session not found" },
+    "runtime_id_gone": { "code": 4001, "message": "session not found" },
+    "undo_while_running": { "code": 4009, "message": "session busy" }
+  }
+}
