@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -101,6 +102,160 @@ void main() {
       tester.getTopLeft(find.text('Retry')).dy,
       greaterThanOrEqualTo(tester.getBottomLeft(find.text('Title')).dy),
     );
+  });
+
+  group('action target and stacked layout', () {
+    const german = 'Die Speicherung konnte nicht bestätigt werden';
+    const germanAction = 'Erneut prüfen';
+
+    Widget build({
+      required TargetPlatform platform,
+      double scale = 1,
+      String title = 'Title',
+      Locale? locale,
+      double width = 360,
+    }) {
+      final theme = buildHermesLightTheme().copyWith(
+        platform: platform,
+        // A Mac theme draws compact buttons; the banner must not inherit that.
+        visualDensity: platform == TargetPlatform.macOS
+            ? VisualDensity.compact
+            : null,
+      );
+      return MaterialApp(
+        theme: theme,
+        locale: locale,
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('en'), Locale('de')],
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: width,
+                child: AppBanner(
+                  tone: AppBannerTone.warning,
+                  title: title,
+                  detail: 'It may have gone through.',
+                  action: TextButton(
+                    onPressed: () {},
+                    child: Text(
+                      locale?.languageCode == 'de' ? germanAction : 'Check',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Finder button() => find.byType(TextButton);
+
+    for (final (platform, minimum) in [
+      (TargetPlatform.iOS, 44.0),
+      (TargetPlatform.android, 48.0),
+      (TargetPlatform.macOS, 28.0),
+    ]) {
+      for (final scale in [1.0, 3.0]) {
+        testWidgets(
+          'the action is at least $minimum high on $platform at ${scale}x',
+          (tester) async {
+            await tester.pumpWidget(build(platform: platform, scale: scale));
+            final size = tester.getSize(button());
+            expect(size.height, greaterThanOrEqualTo(minimum));
+            expect(size.width, greaterThanOrEqualTo(minimum));
+          },
+        );
+      }
+    }
+
+    testWidgets('a custom-styled action still gets the minimum', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          home: Scaffold(
+            body: AppBanner(
+              tone: AppBannerTone.neutral,
+              title: 'T',
+              action: TextButton(
+                style: TextButton.styleFrom(
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () {},
+                child: const Text('Go'),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.getSize(find.byType(TextButton)).height, 44);
+    });
+
+    testWidgets('at 3.0x the text takes the full width and the action sits '
+        'under it, at the text\'s leading edge', (tester) async {
+      await tester.pumpWidget(build(platform: TargetPlatform.iOS, scale: 3));
+      final title = find.text('Title');
+      final detail = find.text('It may have gone through.');
+      final label = find.text('Check');
+      expect(
+        tester.getTopLeft(button()).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(detail).dy),
+      );
+      expect(
+        tester.getTopLeft(label).dx,
+        closeTo(tester.getTopLeft(title).dx, 0.5),
+      );
+      // 360 wide, 1 border, 12 padding: the text column runs to the edge.
+      expect(
+        tester
+            .getRect(
+              find.ancestor(of: title, matching: find.byType(Column)).first,
+            )
+            .right,
+        closeTo(360 - 1 - 12, 0.5),
+      );
+    });
+
+    testWidgets('in German the action stacks even at the normal size', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        build(
+          platform: TargetPlatform.iOS,
+          title: german,
+          locale: const Locale('de'),
+        ),
+      );
+      final title = find.text(german);
+      expect(
+        tester.getTopLeft(find.text(germanAction)).dy,
+        greaterThanOrEqualTo(
+          tester.getBottomLeft(find.text('It may have gone through.')).dy,
+        ),
+      );
+      expect(
+        tester.getTopLeft(find.text(germanAction)).dx,
+        closeTo(tester.getTopLeft(title).dx, 0.5),
+      );
+      // The title wraps in the full-width column instead of a squeezed one.
+      expect(tester.getSize(title).width, greaterThan(360 - 12 * 2 - 28 - 60));
+    });
+
+    testWidgets('in English at the normal size the action stays beside', (
+      tester,
+    ) async {
+      await tester.pumpWidget(build(platform: TargetPlatform.iOS));
+      expect(
+        tester.getTopLeft(button()).dy,
+        lessThan(tester.getBottomLeft(find.text('Title')).dy),
+      );
+    });
   });
 
   testWidgets('every tone builds in both themes', (tester) async {
