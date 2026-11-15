@@ -59,6 +59,11 @@ extension _ChatScreenLayout on _ChatScreenState {
             macSidebar || isWideLayout(context, width: constraints.maxWidth);
         _wide = isWide;
         final selected = chat.selectedThread;
+        _toolCallExpansion.follow(
+          profile: chat.profile,
+          chat: selected,
+          chatId: selected?.id,
+        );
         final bot = selected?.botContext;
         final showFiles = selected != null && filesShown(context)
             ? () => _showFiles(FilesOpenedFrom.header)
@@ -82,6 +87,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           avatarBuilder: (_) => _avatar(24),
           navigation: navigation,
           changeFolderFor: _changeFolderOffer,
+          exportJsonFor: _exportJsonOffer,
           onOpenInNewWindow: _windows == null
               ? null
               : (thread) => unawaited(_openInWindow(thread)),
@@ -142,6 +148,7 @@ extension _ChatScreenLayout on _ChatScreenState {
             screen: _screen,
             onOpenScreen: () => _openViewer('preview'),
             onShowAgentDetails: _showAgentDetails,
+            toolCallExpansion: _toolCallExpansion,
             needsYou: _needsYou,
             // The inspector lists the same items, so it replaces the line
             // (a phone's sheet covers the chat, so there the line stays); the
@@ -205,6 +212,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                       onCopyTranscript: selected == null
                           ? null
                           : () => _copyTranscript(selected),
+                      exportJson: _exportJsonOffer(selected),
                       onShowFiles: showFiles,
                       folderButton: workspacesOffered(chat)
                           ? BoundFolderToolbarButton(
@@ -230,6 +238,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                     onNewChat: _newThread,
                     callButton: _callButton,
                     onShowFiles: showFiles,
+                    exportJson: _exportJsonOffer(selected),
                     folderLine: folderLine,
                     activityOpen: _activityOpen,
                     activityWaiting: _needsYou.count,
@@ -302,6 +311,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                         includeCopyTranscript: true,
                         onShowFiles: showFiles,
                         changeFolder: _changeFolderOffer(selected),
+                        exportJson: _exportJsonOffer(selected),
                       ),
                     if (selected != null)
                       ActivityButton(

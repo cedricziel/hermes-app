@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import 'whatsapp/whatsapp_pairing.dart';
+import 'whatsapp/whatsapp_pairing_parsing.dart';
+
 /// One credential or setting a platform reads from its environment.
 ///
 /// The dashboard only ever sends [redactedValue], never the value itself.
@@ -216,6 +219,143 @@ class HermesMessagingRepository {
         .cancelTelegramOnboardingApiMessagingTelegramOnboardingPairingIdDelete(
           pairingId: id,
         );
+  }
+
+  /// Asks the dashboard to link a WhatsApp account for [profile] (the
+  /// repository's), with the numbers allowed to talk to it in [allowedUsers]
+  /// (comma-separated; left out when null). Sent once: a lost answer is a
+  /// [WhatsAppPairingFailure] of kind `lostAnswer`, and starting again
+  /// supersedes whatever began.
+  ///
+  /// Throws [WhatsAppPairingFailure], or the [DioException] of a 401.
+  Future<WhatsAppPairingStart> startWhatsAppPairing({
+    required WhatsAppMode mode,
+    String? allowedUsers,
+  }) async {
+    _checkWhatsAppProfile();
+    final Response<Object> response;
+    try {
+      response = await _api
+          .startWhatsappOnboardingApiMessagingWhatsappOnboardingStartPost(
+            whatsAppOnboardingStart: WhatsAppOnboardingStart(
+              mode: mode.wire,
+              allowedUsers: allowedUsers,
+              profile: profile,
+            ),
+          );
+    } on DioException catch (e) {
+      throw whatsAppFailureFor(e, WhatsAppRoute.start) ?? e;
+    }
+    final data = response.data;
+    final id = data is Map ? data['pairing_id'] : null;
+    final snapshot = whatsAppSnapshotFrom(data);
+    if (id is! String || id.isEmpty || snapshot == null) {
+      throw const WhatsAppPairingFailure(WhatsAppPairingFailureKind.malformed);
+    }
+    return WhatsAppPairingStart(id: WhatsAppPairingId(id), snapshot: snapshot);
+  }
+
+  /// Reads one pairing. The route takes no profile. A body that names another
+  /// pairing is malformed. A 410 is a state
+  /// ([WhatsAppPairingExpired]), not a failure.
+  ///
+  /// Throws [WhatsAppPairingFailure], or the [DioException] of a 401.
+  Future<WhatsAppPairingSnapshot> whatsAppPairingStatus(
+    WhatsAppPairingId id,
+  ) async {
+    final segment = _whatsAppSegment(id);
+    final Response<Object> response;
+    try {
+      response = await _api
+          .getWhatsappOnboardingStatusApiMessagingWhatsappOnboardingPairingIdGet(
+            pairingId: segment,
+          );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 410) {
+        return const WhatsAppPairingSnapshot(state: WhatsAppPairingExpired());
+      }
+      throw whatsAppFailureFor(e, WhatsAppRoute.status) ?? e;
+    }
+    final data = response.data;
+    final answered = data is Map ? data['pairing_id'] : null;
+    // A body about another pairing is not this one's state; never echo ids.
+    if (data is Map && data.containsKey('pairing_id') && answered != id.value) {
+      throw const WhatsAppPairingFailure(WhatsAppPairingFailureKind.malformed);
+    }
+    return whatsAppSnapshotFrom(data) ??
+        (throw const WhatsAppPairingFailure(
+          WhatsAppPairingFailureKind.malformed,
+        ));
+  }
+
+  /// Saves the linked account's setup for the repository's profile and asks
+  /// the dashboard to restart the messaging gateway. [mode] and [allowedUsers]
+  /// default to what start stored (left out when null). The profile goes in
+  /// the query and in the body, as the route reads either. Sent once: the
+  /// record is gone after a success, so a resend would only 404; a lost answer
+  /// is `lostAnswer` and the caller checks the platform list instead.
+  ///
+  /// Throws [WhatsAppPairingFailure], or the [DioException] of a 401.
+  Future<WhatsAppApplyResult> applyWhatsAppPairing(
+    WhatsAppPairingId id, {
+    WhatsAppMode? mode,
+    String? allowedUsers,
+  }) async {
+    final segment = _whatsAppSegment(id);
+    _checkWhatsAppProfile();
+    final Response<Object> response;
+    try {
+      response = await _api
+          .applyWhatsappOnboardingApiMessagingWhatsappOnboardingPairingIdApplyPost(
+            pairingId: segment,
+            profile: profile,
+            whatsAppOnboardingApply: WhatsAppOnboardingApply(
+              mode: mode?.wire,
+              allowedUsers: allowedUsers,
+              profile: profile,
+            ),
+          );
+    } on DioException catch (e) {
+      throw whatsAppFailureFor(e, WhatsAppRoute.apply) ?? e;
+    }
+    return whatsAppApplyResultFrom(response.data);
+  }
+
+  /// Drops a pairing and stops its bridge. The server answers ok (200) for an
+  /// unknown id and spawns nothing, so this is also the probe for "is the route
+  /// there" (an old server answers 405 here: `unsupported`). A 404 counts as
+  /// done. Credentials of an account that
+  /// already linked stay on the server.
+  ///
+  /// Throws [WhatsAppPairingFailure], or the [DioException] of a 401.
+  Future<void> cancelWhatsAppPairing(WhatsAppPairingId id) async {
+    final segment = _whatsAppSegment(id);
+    try {
+      await _api
+          .cancelWhatsappOnboardingApiMessagingWhatsappOnboardingPairingIdDelete(
+            pairingId: segment,
+          );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return;
+      throw whatsAppFailureFor(e, WhatsAppRoute.cancel) ?? e;
+    }
+  }
+
+  /// The generated client pastes the id into the path as it is, so an id with
+  /// `/`, `?`, `#` or `..` would reach another route. Refused before anything
+  /// is sent.
+  static String _whatsAppSegment(WhatsAppPairingId id) {
+    if (!isSafeWhatsAppToken(id.value)) {
+      throw const WhatsAppPairingFailure(WhatsAppPairingFailureKind.badRequest);
+    }
+    return Uri.encodeComponent(id.value);
+  }
+
+  void _checkWhatsAppProfile() {
+    final name = profile;
+    if (name != null && !isSafeWhatsAppToken(name)) {
+      throw const WhatsAppPairingFailure(WhatsAppPairingFailureKind.badRequest);
+    }
   }
 
   /// The dashboard answers a refused request with a `detail` fit to show a

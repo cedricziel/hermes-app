@@ -24,6 +24,7 @@ import 'package:hermes_app/src/windows/conversation_windows.dart'
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
+import 'package:hermes_app/src/chat/widgets/following_chat_list.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -441,6 +442,32 @@ void main() {
     expect(gateway.methods.where((m) => m.startsWith('display.')), isEmpty);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(gatewayTransport.close);
+  });
+
+  testWidgets('a tool call the reader opened stays open when the list is '
+      'built anew', (tester) async {
+    await pump(tester);
+    await tester.enterText(composerField, 'Hello');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    final send = transport.sends.last;
+    send
+      ..emit(const ReplyStarted())
+      ..emit(const ToolStarted(id: 't1', name: 'tool1', summary: 's', args: {}))
+      ..emit(const ToolFinished(id: 't1', name: 'tool1', result: 'RESULT-w'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byType(ToolCallCard));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.textContaining('RESULT-w'), findsOneWidget);
+
+    (tester.state(find.byType(FollowingChatList)) as dynamic).recoverForTest();
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(find.textContaining('RESULT-w'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('shows the requests of its own chat only, and marks the '

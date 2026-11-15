@@ -234,7 +234,9 @@ void main() {
 
     await tester.tap(find.text('Release notes'));
     await tester.pumpAndSettle();
-    expect(find.text('Could not load this chat'), findsOneWidget);
+    // The transcript says so; no snackbar repeats it.
+    expect(find.text('Could not load the messages'), findsOneWidget);
+    expect(find.text('Could not load this chat'), findsNothing);
 
     server.on(
       'GET',
