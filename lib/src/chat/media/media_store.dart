@@ -5,6 +5,7 @@ import 'dart:math' show Random;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../chat_models.dart' show fileNameOf;
 import 'media_actions.dart';
@@ -12,6 +13,9 @@ import 'media_source.dart';
 import 'quick_look.dart';
 
 const _folder = 'hermes_media';
+
+/// The folder of a [MediaStore.stageCopy] file: a hash, with no `fs` mark.
+final _stagedCopyFolder = RegExp(r'^[0-9a-f]{16}$');
 
 /// How long a downloaded file may stay in the cache before the next launch
 /// deletes it.
@@ -49,7 +53,7 @@ class MediaStore {
     this._quickLook = const NoQuickLook(),
     this._imageBudget = 32 * 1024 * 1024,
     Future<void> Function(Directory folder)? deleteFolder,
-    Future<void> Function(File source, String to)? copyFile,
+    @visibleForTesting Future<void> Function(File source, String to)? copyFile,
   }) : _actions = actions ?? PlatformMediaActions(),
        _deleteFolder = deleteFolder ?? _deleteRecursively,
        _copyFile = copyFile ?? ((source, to) => source.copy(to));
@@ -188,7 +192,12 @@ class MediaStore {
   /// directory, so nothing outside the app's container has to be read. The
   /// copy is made on disk, never through memory. A changed file is copied
   /// again.
-  Future<File> stageCopy(String name, File source) async {
+  Future<File> stageCopy(String name, File source) async =>
+      (await stageCopyTracked(name, source)).$1;
+
+  /// [stageCopy], also saying whether this call made the file (false when it
+  /// was already there or another request was making it).
+  Future<(File, bool)> stageCopyTracked(String name, File source) async {
     final FileStat stat;
     try {
       stat = await source.stat();
@@ -199,23 +208,37 @@ class MediaStore {
       throw const MediaFetchException(MediaFailure.missing);
     }
     final modified = stat.modified.microsecondsSinceEpoch;
-    return _stage('local:${source.path}:${stat.size}:$modified', name, (
-      part,
-    ) async {
-      try {
-        await _copyFile(source, part.path);
-      } on FileSystemException {
-        throw const MediaFetchException(MediaFailure.failed);
-      }
-      // A copy can keep the source's date, and the sweep goes by that date.
-      await _quietly(() => part.setLastModified(DateTime.now()));
-    });
+    var created = false;
+    final file = await _stage(
+      'local:${source.path}:${stat.size}:$modified',
+      name,
+      (part) async {
+        created = true;
+        try {
+          await _copyFile(source, part.path);
+        } on FileSystemException {
+          throw const MediaFetchException(MediaFailure.failed);
+        }
+        // A copy can keep the source's date, and the sweep goes by that date.
+        await _quietly(() => part.setLastModified(DateTime.now()));
+      },
+    );
+    return (file, created);
   }
 
-  /// Deletes a file [stageCopy] returned, with its folder. Best effort.
+  /// Deletes a file [stageCopy] returned, with its folder; anything else,
+  /// such as a path outside the staging root or a Files-page folder, is left
+  /// alone. Best effort.
   Future<void> discard(File staged) => _quietly(() async {
-    final root = await _root();
-    if (staged.parent.parent.path != root.path) return;
+    final root = Uri.directory((await _root()).absolute.path).normalizePath();
+    final path = Uri.file(staged.absolute.path).normalizePath();
+    final rootSegments = root.pathSegments.where((s) => s.isNotEmpty).toList();
+    final segments = path.pathSegments;
+    if (segments.length != rootSegments.length + 2) return;
+    for (var i = 0; i < rootSegments.length; i++) {
+      if (segments[i] != rootSegments[i]) return;
+    }
+    if (!_stagedCopyFolder.hasMatch(segments[rootSegments.length])) return;
     await staged.parent.delete(recursive: true);
   });
 
@@ -271,6 +294,10 @@ class MediaStore {
       if (leftover != null) {
         await _quietly(() async {
           await leftover.delete();
+        });
+        // A fill that failed leaves its folder; delete only an empty one.
+        await _quietly(() async {
+          await leftover.parent.delete();
         });
       }
       if (e is MediaFetchException || identical(e, fillFailure)) rethrow;

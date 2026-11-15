@@ -147,7 +147,10 @@ void main() {
       ],
     );
 
-    await expectLater(source.pick(AttachOrigin.files), throwsException);
+    await expectLater(
+      source.pick(AttachOrigin.files),
+      throwsA(isA<MediaFetchException>()),
+    );
 
     expect(cache.listSync(recursive: true).whereType<File>(), isEmpty);
     expect(
@@ -157,6 +160,23 @@ void main() {
           .where((d) => d.path != '${cache.path}/hermes_media'),
       isEmpty,
     );
+  });
+
+  test('a copy an earlier pick made survives a later failed pick', () async {
+    final first = writeTemp(pluginDir, 'one.pdf', [1]);
+    final earlier = await sourceFor([first]).pick(AttachOrigin.files);
+    final source = PluginAttachmentSource(
+      platform: TargetPlatform.iOS,
+      staging: store,
+      pickFiles: () async => [
+        _Picked(first.path, 'one.pdf'),
+        _Picked('${pluginDir.path}/nope.pdf', 'two.pdf'),
+      ],
+    );
+
+    await expectLater(source.pick(AttachOrigin.files), throwsException);
+
+    expect(File(earlier.single.path).existsSync(), isTrue);
   });
 
   testWidgets('.of hands the provided MediaStore to the source', (

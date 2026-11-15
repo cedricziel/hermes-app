@@ -578,12 +578,57 @@ void main() {
       expect(picked.existsSync(), isTrue);
     });
 
-    test('discard leaves a file outside the staging folder', () async {
+    group('discard leaves everything but a staged copy', () {
+      for (final (label, relative) in [
+        ('a path climbing out of the root', 'hermes_media/../x/f'),
+        ('a path through a dot segment', 'hermes_media/./x/f'),
+        ('the root itself', 'hermes_media'),
+        (
+          'a sibling with the root as prefix',
+          'hermes_media2/0123456789abcdef/a',
+        ),
+        ('a Files-page folder', 'hermes_media/x0123456789abcdef/a'),
+        ('a secret folder', 'hermes_media/s0123456789abcdef/a'),
+        ('a folder that is not a hash', 'hermes_media/notes/a'),
+        (
+          'a file nested below a staged folder',
+          'hermes_media/0123456789abcdef/sub/a',
+        ),
+      ]) {
+        test(label, () async {
+          final keep = File('${cache.path}/hermes_media/keep/f')
+            ..createSync(recursive: true);
+          final other = File('${cache.path}/x/f')..createSync(recursive: true);
+          final target = File('${cache.path}/$relative');
+          if (relative == 'hermes_media') {
+            await newStore().discard(File(target.path));
+          } else {
+            target.parent.createSync(recursive: true);
+            target.writeAsBytesSync([1]);
+            await newStore().discard(target);
+          }
+
+          expect(keep.existsSync(), isTrue);
+          expect(other.existsSync(), isTrue);
+          if (relative != 'hermes_media') expect(target.existsSync(), isTrue);
+        });
+      }
+    });
+
+    test('a failed fill removes its empty folder too', () async {
       final picked = writeTemp(tempDir('picked'), 'notes.txt', [1]);
+      final store = MediaStore(
+        source: HermesMediaSource(() => server.client()),
+        cacheDirectory: () async => cache,
+        copyFile: (source, to) async => throw const FileSystemException('x'),
+      );
 
-      await newStore().discard(picked);
+      await expectLater(
+        store.stageCopy('notes.txt', picked),
+        throwsA(isA<MediaFetchException>()),
+      );
 
-      expect(picked.existsSync(), isTrue);
+      expect(Directory('${cache.path}/hermes_media').listSync(), isEmpty);
     });
 
     test('stageCopy copies again when the file changed', () async {

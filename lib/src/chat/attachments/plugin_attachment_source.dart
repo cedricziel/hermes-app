@@ -134,8 +134,12 @@ class PluginAttachmentSource implements AttachmentSource {
             if (path == null) continue;
             var staged = path;
             if (store != null) {
-              final copy = await store.stageCopy(file.name, File(path));
-              copies.add(copy);
+              final (copy, created) = await store.stageCopyTracked(
+                file.name,
+                File(path),
+              );
+              // A copy an earlier pick made is not ours to roll back.
+              if (created) copies.add(copy);
               staged = copy.path;
             }
             picked.add(sharedFileFromPath(staged, name: file.name));
