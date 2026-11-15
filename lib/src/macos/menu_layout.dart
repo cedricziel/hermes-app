@@ -109,6 +109,13 @@ final menuLayout = <MenuSection>[
   MenuSection('view', 'View', [
     [
       MenuEntry(
+        MacCommand.reload,
+        'Reload',
+        shortcut: metaActivator(LogicalKeyboardKey.keyR),
+      ),
+    ],
+    [
+      MenuEntry(
         MacCommand.back,
         'Back',
         shortcut: metaActivator(LogicalKeyboardKey.bracketLeft),
@@ -118,6 +125,13 @@ final menuLayout = <MenuSection>[
         'Forward',
         shortcut: metaActivator(LogicalKeyboardKey.bracketRight),
         platforms: _macOnly,
+      ),
+      // ⌘↑ moves a text field's caret on iPad, so there the key stays with it.
+      MenuEntry(
+        MacCommand.enclosingFolder,
+        'Enclosing Folder',
+        shortcut: metaActivator(LogicalKeyboardKey.arrowUp),
+        ipadShortcut: false,
       ),
     ],
     [
@@ -137,6 +151,25 @@ final menuLayout = <MenuSection>[
         MacCommand.showFiles,
         'Show Files',
         shortcut: metaActivator(LogicalKeyboardKey.keyF, shift: true),
+        platforms: _macOnly,
+      ),
+    ],
+    // Stepping through the files of a change; ⌥↑ and ⌥↓ move by paragraph in
+    // an iPad text field, so these stay Mac only.
+    [
+      MenuEntry(
+        MacCommand.previousChange,
+        'Previous Change',
+        shortcut: const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true),
+        platforms: _macOnly,
+      ),
+      MenuEntry(
+        MacCommand.nextChange,
+        'Next Change',
+        shortcut: const SingleActivator(
+          LogicalKeyboardKey.arrowDown,
+          alt: true,
+        ),
         platforms: _macOnly,
       ),
     ],
@@ -163,6 +196,8 @@ final menuLayout = <MenuSection>[
         platforms: _macOnly,
       ),
       const MenuEntry(MacCommand.copyTranscript, 'Copy Transcript'),
+      // No chord: a dialog follows, and the file can hold secrets.
+      const MenuEntry(MacCommand.exportThread, 'Export Chat as JSON…'),
       // The screen titles it from the localizations; this is the fallback.
       const MenuEntry(
         MacCommand.compress,

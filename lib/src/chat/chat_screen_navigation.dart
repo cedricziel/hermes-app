@@ -183,6 +183,15 @@ extension _ChatScreenNavigation on _ChatScreenState {
           when: thread != null && thread.messages.isNotEmpty,
         ),
       ),
+      // Offered in the menu bar for every chat, disabled where the context
+      // menus leave the row out (no chat, a local chat, no profile) and while
+      // an export runs.
+      MacCommand.exportThread: MacCommandHandler(switch (_exportJsonOffer(
+        thread,
+      )) {
+        final offer? when offer.enabled => offer.onSelected,
+        _ => null,
+      }),
       MacCommand.archiveThread: MacCommandHandler(
         on(ThreadAction.archive, when: managed),
       ),

@@ -21,6 +21,13 @@ import 'kanban_task_use_cases.dart';
 WidgetbookUseCase _card(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card, maxWidth: 320));
 
+Widget _scaled(double scale, Widget child) => Builder(
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+    child: child,
+  ),
+);
+
 Widget _material(Widget child) => Builder(
   builder: (context) => Theme(
     data: Theme.of(context).copyWith(platform: TargetPlatform.android),
@@ -39,6 +46,7 @@ KanbanMacToolbar _macToolbar({
   String? profile,
   bool inspectorShown = true,
   bool live = true,
+  bool refreshing = false,
 }) => KanbanMacToolbar(
   taskCount: 12,
   boards: _boards,
@@ -52,6 +60,8 @@ KanbanMacToolbar _macToolbar({
   onManageBoards: () {},
   onProfileChanged: (_) {},
   onToggleInspector: () {},
+  onRefresh: () {},
+  refreshing: refreshing,
 );
 
 Widget _boardColumns() => SingleChildScrollView(
@@ -168,6 +178,27 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
         _card('Busy', const KanbanCard(task: busyTask)),
         _card('Selected', const KanbanCard(task: busyTask, selected: true)),
         _card(
+          'Large text, long assignee',
+          _scaled(
+            2,
+            const SizedBox(
+              width: 200,
+              child: KanbanCard(
+                task: KanbanTask(
+                  id: 't_4d5e6f',
+                  title: 'Migrate the settings screen to the new layout',
+                  status: 'running',
+                  assignee: 'a-very-long-assignee-profile-name',
+                  commentCount: 12,
+                  progressDone: 2,
+                  progressTotal: 5,
+                  warningCount: 1,
+                ),
+              ),
+            ),
+          ),
+        ),
+        _card(
           'With drag handle',
           const KanbanCard(
             task: plainTask,
@@ -229,6 +260,7 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
           ),
           maxWidth: 1000,
         ),
+        _use('Reloading', _mac(_macToolbar(refreshing: true)), maxWidth: 1000),
         _use('Compact window', _mac(_macToolbar()), maxWidth: 680),
       ],
     ),
@@ -278,7 +310,19 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
     ),
     WidgetbookComponent(
       name: 'KanbanDropStrip',
-      useCases: [_use('Dragging', KanbanDropStrip(onDrop: (_, _) {}))],
+      useCases: [
+        _use('Dragging', KanbanDropStrip(onDrop: (_, _) {})),
+        _use(
+          'Card over a status',
+          const Wrap(
+            spacing: 8,
+            children: [
+              KanbanDropStripChip(label: 'Todo', active: false),
+              KanbanDropStripChip(label: 'Blocked', active: true),
+            ],
+          ),
+        ),
+      ],
     ),
     WidgetbookComponent(
       name: 'KanbanBulkBar',

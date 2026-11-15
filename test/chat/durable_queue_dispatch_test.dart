@@ -24,6 +24,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_gateway.dart';
 import '../support/fake_queue_keys.dart';
 import '../support/fake_queue_transport.dart';
+import '../support/queue_store_dir.dart';
 
 QueueScope scope([String? profile = 'work']) => QueueScope(
   serverKey: 'server',
@@ -102,7 +103,7 @@ void main() {
     visible.dispose();
     activity.dispose();
     attention.dispose();
-    await directory.delete(recursive: true);
+    await deleteQueueStoreDir(directory);
   });
 
   Future<ChatController> open({
@@ -224,7 +225,7 @@ void main() {
     await pumpEventQueue();
     transport.sends.last.finish();
     await pumpEventQueue();
-    expect(notices, [ChatSendNotice.stopCommand]);
+    expect(notices, [ChatSendNotice.stopCommandElsewhere]);
     expect(drafts, isEmpty);
     chat.select(thread.id);
     await pumpEventQueue();
@@ -304,9 +305,22 @@ void main() {
         expect(thread.isReplying, isFalse);
         expect(chat.queuedIn(thread).map((p) => p.text), ['typed meanwhile']);
         expect(chat.queuePaused(thread), isTrue);
+        // The voice turn and the one failed queued attempt; nothing retried.
+        expect(transport.sends, hasLength(2));
+        await pumpEventQueue();
+        expect(transport.sends, hasLength(2));
         // Known limit (docs/architecture/chat.md): the chat stays bound to the
-        // lost id, so a later send resumes it again. Hermes would have to
-        // restart between the create and this send.
+        // lost id, so a later send resumes it again and fails the same way.
+        // Hermes would have to restart between the create and this send.
+        chat.sendQueued(thread);
+        await queueIdle(chat);
+        await pumpEventQueue();
+        expect(transport.sends, hasLength(3));
+        expect(transport.sends.last.threadId, 'fresh');
+        expect(transport.sends.last.text, 'typed meanwhile');
+        expect(thread.isReplying, isFalse);
+        expect(chat.queuedIn(thread).map((p) => p.text), ['typed meanwhile']);
+        expect(chat.queuePaused(thread), isTrue);
         expect(reports, isEmpty);
       },
     );

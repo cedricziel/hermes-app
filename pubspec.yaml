@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.1.78 # x-release-please-version
+version: 0.1.79 # x-release-please-version
 
 environment:
   sdk: ^3.13.4
@@ -67,7 +67,6 @@ dependencies:
   flutter_chat_ui: ^2.12.0
   flutter_chat_core: ^2.9.1
   gpt_markdown: ^1.4.1
-  flyer_chat_text_message: ^2.6.1
   material_ui: ^1.11.0
   cupertino_ui: ^1.1.6
   # OpenTelemetry logs and traces, exported to SignalDB.
@@ -155,6 +154,9 @@ dev_dependencies:
     sdk: flutter
   # In-memory SharedPreferencesAsyncPlatform for widget tests.
   shared_preferences_platform_interface: ^2.4.2
+
+  # Reads test/architecture/baseline/<ns>.yaml (the source-guard ratchet).
+  yaml: ^3.1.4
 
   # Component catalog (widgetbook/), run with -t widgetbook/main.dart.
   widgetbook: ^3.25.0

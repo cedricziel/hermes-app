@@ -1,5 +1,9 @@
 part of 'chat_controller.dart';
 
+/// How many times a reply that lost its connection is picked up again by the
+/// timer before it waits for the app coming to the front or the chat opening.
+const _maxReconnectTries = 40;
+
 /// Follow-up turns and mapping streamed events into chat messages.
 extension _ChatControllerStreaming on ChatController {
   /// The prompt [reply] answers: the user message before it, which the turn
@@ -222,17 +226,28 @@ extension _ChatControllerStreaming on ChatController {
     final epoch = _activityEpoch;
     final threadId = thread.id;
     if (!_followingIds.add(threadId)) return;
-    ChatMessage? reply;
+    // A reply that lost its connection takes what the server still runs back
+    // into itself: the turn has one bubble, never a second one beside it.
+    ChatMessage? reply = _reconnectingReply(thread);
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
       _following.remove(subscription);
       _followingIds.remove(thread.id);
+      final pending = reply;
+      if (pending != null && pending.isPending) {
+        // Still not reached, or reached and lost again: the turn may run on.
+        // A stream that ended quietly before saying anything changes nothing.
+        if (isConnectionLost(error) ||
+            (error == null && pending.reconnecting)) {
+          _holdForReconnect(thread, pending);
+          return;
+        }
+      }
       if (error != null || !_sending.containsKey(thread)) {
         _discardWarnings(thread);
       }
       if (!disposed) notifyListeners();
-      final pending = reply;
       if (pending != null) _finishMoaTurn(thread, pending);
       if (pending != null && pending.isPending) {
         _turnEnded(thread, halted: true);
@@ -256,6 +271,15 @@ extension _ChatControllerStreaming on ChatController {
             if (current == null) {
               _onIdleEvent(thread, event, profile);
               return;
+            }
+            if (current.reconnecting) {
+              // Something came over the new connection: the loss is over.
+              _updateReply(thread, current, () {
+                current.reconnecting = false;
+                current.reconnectIdle = false;
+              });
+              _reconnectTimers.remove(thread)?.cancel();
+              _reconnectTries.remove(thread);
             }
             _onReplyEvent(thread, current, event, profile);
             if (!_currentActivity(epoch)) return;
@@ -369,6 +393,84 @@ extension _ChatControllerStreaming on ChatController {
       }
     }
     return null;
+  }
+
+  /// The reply of [thread] that lost its connection while its turn may still
+  /// run on the server, if there is one: what a pick-up feeds instead of
+  /// opening a reply of its own.
+  ChatMessage? _reconnectingReply(ChatThread thread) {
+    for (final message in thread.messages.reversed) {
+      if (message.role != ChatRole.assistant) continue;
+      return message.reconnecting && message.isPending ? message : null;
+    }
+    return null;
+  }
+
+  /// Keeps [reply], whose connection was lost, as it is and says so, instead of
+  /// failing it: its text and running tool calls stay, no error is shown or
+  /// announced, the queue keeps waiting behind it, and Retry, Edit and Branch
+  /// stay off, since the turn is still running. While the chat is open it is
+  /// picked up again every [reconnectRetry], up to [_maxReconnectTries] times;
+  /// then the note says nothing is being tried any more
+  /// ([ChatMessage.reconnectIdle]). The app coming to the front, the chat being
+  /// opened and a stop that reaches the server try again at once.
+  void _holdForReconnect(ChatThread thread, ChatMessage reply) {
+    if (!active) return;
+    final first = !reply.reconnecting;
+    _updateReply(thread, reply, () => markReconnecting(reply));
+    if (!_currentActivity(_activityEpoch)) return;
+    if (first) {
+      _reconnectTries.remove(thread);
+      breadcrumbs('chat.reply.reconnecting');
+    }
+    _reconnectTimers.remove(thread)?.cancel();
+    // Only the chat in front is tried by itself; opening another one tries it.
+    // Until then the note must not claim that something is trying.
+    if (selectedThread != thread) {
+      if (!reply.reconnectIdle) {
+        _updateReply(thread, reply, () => reply.reconnectIdle = true);
+      }
+      return;
+    }
+    final tries = _reconnectTries[thread] ?? 0;
+    if (tries >= _maxReconnectTries) {
+      if (!reply.reconnectIdle) {
+        _updateReply(thread, reply, () => reply.reconnectIdle = true);
+      }
+      return;
+    }
+    _reconnectTries[thread] = tries + 1;
+    _reconnectTimers[thread] = Timer(reconnectRetry, () {
+      _reconnectTimers.remove(thread);
+      if (!active || !_threads.contains(thread)) return;
+      final waiting = _reconnectingReply(thread);
+      if (waiting == null) return;
+      if (selectedThread != thread) {
+        // Left meanwhile: opening it tries again, and until then nothing does.
+        _updateReply(thread, waiting, () => waiting.reconnectIdle = true);
+        return;
+      }
+      _pickUp(thread, retry: true);
+    });
+  }
+
+  /// Forgets what the timer tried, for a try the person or the app asked for:
+  /// the note says it is trying again.
+  void _restartReconnect(ChatThread thread) {
+    _reconnectTries.remove(thread);
+    final reply = _reconnectingReply(thread);
+    if (reply != null && reply.reconnectIdle) {
+      _updateReply(thread, reply, () => reply.reconnectIdle = false);
+    }
+  }
+
+  /// Ends the timers of every reply that lost its connection.
+  void _cancelReconnects() {
+    for (final timer in _reconnectTimers.values) {
+      timer.cancel();
+    }
+    _reconnectTimers.clear();
+    _reconnectTries.clear();
   }
 
   /// The reply a turn ended without its completion, which a completion

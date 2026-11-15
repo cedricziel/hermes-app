@@ -16,13 +16,14 @@
 
 ## Implementation evidence
 
-The frozen conversation source is in PR #709. It includes outgoing delivery evidence, guarded Edit, explicit recovery, answer anchors, and regression tests for reading position and focus decisions.
+Merged to main in PR #709 (`feat(watch): preserve conversation reading and delivery evidence`): outgoing delivery evidence, guarded Edit, explicit recovery, answer anchors, and regression tests for reading position and focus decisions.
 
 Checked implementation tasks describe source and authored regression coverage. They do not
-mean that an open PR has merged or that a native acceptance check has passed. Combined
-verification tasks remain open until their specified evidence is available. Native visual,
-VoiceOver, gesture, microphone, and paired lifecycle checks have not run. The user excluded
-watch simulators, and local native builds remain paused to limit host load.
+mean that a native acceptance check has passed. Combined verification tasks remain open
+until their specified evidence is available. Tasks 1.1 (native fixtures), 2.2 (accessibility
+on device) and 3.3 (device and native verification) stay open. Native visual, VoiceOver,
+gesture, microphone, and paired lifecycle checks have not run. The user excluded watch
+simulators, and local native builds remain paused to limit host load.
 
 The shared watch verification procedure now documents this change's portable
 regressions and native acceptance cases. The existing `.claude` procedure links
