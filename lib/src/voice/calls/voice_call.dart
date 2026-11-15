@@ -559,6 +559,9 @@ class VoiceCall extends ChangeNotifier {
       _holdLease();
     } else {
       _stopSpeech();
+      // The voice is gone; the reply goes on in the chat, so the orb must not
+      // offer to interrupt it.
+      if (_phase == CallPhase.speaking) phase = CallPhase.thinking;
       unawaited(_releaseHeldLease());
     }
     _notify();
@@ -584,10 +587,16 @@ class VoiceCall extends ChangeNotifier {
     if (!_leaseHeld || release == null) return Future.value();
     _leaseHeld = false;
     return _leaseWork = _leaseWork.then((_) async {
-      try {
-        await release().timeout(const Duration(seconds: 30));
-      } on Object {
-        // A lease the server keeps ends with its own expiry.
+      // Hermes keeps the lease in a set with no expiry, so a missed release
+      // keeps a local speech model loaded until the server restarts: one
+      // retry, then give up.
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          await release().timeout(const Duration(seconds: 10));
+          return;
+        } on Object {
+          // Tried again once.
+        }
       }
     });
   }
@@ -855,6 +864,10 @@ class VoiceCall extends ChangeNotifier {
         final opening = _now();
         try {
           await stream.open(profile);
+        } on Object {
+          // The switch went off while the socket opened: the voice was
+          // stopped on purpose, so its failed open is not the call's.
+          if (identical(_speech, stream)) rethrow;
         } finally {
           speechOpen = _now().difference(opening);
           _speechRetries += stream.openRetries;
@@ -952,8 +965,11 @@ class VoiceCall extends ChangeNotifier {
       if (voice.usedFallback) _fallbacks++;
       if (!_current(epoch)) return;
       _turns++;
+      // A switch turned off while the voice finished stopped it partway.
+      final spokenToEnd = identical(_speech, voice);
       _speech = null;
-      outcome = 'spoken';
+      outcome = spokenToEnd ? 'spoken' : 'in_chat';
+      replyInChat = !spokenToEnd;
       // The turn is over: its words move from the caption to the two lines.
       caption = '';
       phase = _idlePhase;

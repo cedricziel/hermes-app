@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart' show VoiceTurnRefusal;
 import 'package:hermes_app/src/voice/calls/call_agent.dart';
 import 'package:hermes_app/src/voice/calls/call_tones.dart';
@@ -163,6 +164,7 @@ void main() {
       h.call.setSpeakReplies(false);
       await pumpEventQueue();
       expect(h.bridge.stops, greaterThan(stops));
+      expect(h.call.phase, CallPhase.thinking, reason: 'not Speaking any more');
       // The rest of the reply goes on in the chat and is not spoken.
       h.agent.text!('and more.');
       h.agent.pending!.complete();
@@ -171,6 +173,59 @@ void main() {
       expect(h.call.ended, isFalse);
       expect(h.call.replyInChat, isTrue);
       expect(h.sockets, 1, reason: 'no new socket');
+    });
+
+    test('turned off while the socket opens, the call goes on', () async {
+      final gate = Completer<StreamChannel<Object?>>();
+      h.openSocket = () => gate.future;
+      await h.activate();
+      await h.say('First');
+      expect(h.call.phase, CallPhase.sending);
+      h.call.setSpeakReplies(false);
+      gate.completeError(StateError('socket failed'));
+      await pumpEventQueue();
+      expect(h.call.ended, isFalse);
+      h.agent.text!('Answer.');
+      h.agent.pending!.complete();
+      await pumpEventQueue();
+      expect(h.call.ended, isFalse);
+      expect(h.call.phase, CallPhase.listening);
+      expect(h.call.replyInChat, isTrue);
+    });
+
+    test(
+      'turned off while the voice finishes, the turn is in the chat',
+      () async {
+        await h.activate();
+        await h.say('First');
+        h.agent.text!('Answer.');
+        h.agent.pending!.complete();
+        h.socket.foreign.sink
+          ..add(
+            jsonEncode({'type': 'start', 'sample_rate': 24000, 'channels': 1}),
+          )
+          ..add([0, 1, 2, 3]);
+        await pumpEventQueue();
+        h.call.setSpeakReplies(false);
+        await pumpEventQueue();
+        expect(h.call.replyInChat, isTrue);
+        final turn = h.logged.singleWhere((e) => e.$1 == 'voice_call.turn').$2;
+        expect(turn['outcome'], 'in_chat');
+      },
+    );
+
+    test('a failed release is retried once', () async {
+      var tries = 0;
+      await h.rebuild(
+        holdLease: () async {},
+        releaseLease: () async {
+          tries++;
+          throw StateError('offline');
+        },
+      );
+      await h.activate();
+      await h.call.end();
+      expect(tries, 2);
     });
 
     test('turned on again, the next reply is spoken', () async {

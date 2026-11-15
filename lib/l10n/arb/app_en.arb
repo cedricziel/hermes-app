@@ -6838,7 +6838,7 @@
   },
   "voiceCallSpeakReplies": "Speak replies",
   "@voiceCallSpeakReplies": {
-    "description": "Label of the switch under the call controls: whether Hermes reads its replies aloud during this call. Off again for the next call."
+    "description": "Label of the switch under the call controls: whether Hermes reads its replies aloud during this call. On again for the next call."
   },
   "voiceCallSpeaker": "Speaker",
   "@voiceCallSpeaker": {

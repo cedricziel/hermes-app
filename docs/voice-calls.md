@@ -335,7 +335,7 @@ The call shipped first without these rules. This version changes it:
   name (it holds no server, profile or chat name) so the profile's speech
   provider is warm for the first reply. A failure is ignored. It is released
   once on the teardown step after the audio session and focus, or when Speak
-  replies is switched off, and never taken while it is off.
+  replies is switched off, and never taken while it is off. A release that fails is retried once; a missed release keeps a local speech model loaded until the server restarts.
 
 ## Telemetry
 
