@@ -36,6 +36,10 @@ import '../../widgets/disclosure_toggled.dart';
 /// and scrolling back to the bottom follows again. A disclosure at the end
 /// (the live reasoning) still grows into view.
 ///
+/// The watchdog stands down while that window lasts: the opening animation
+/// resizes the list every frame without building an item, and would otherwise
+/// read as a blank list and remount it, closing what the reader just opened.
+///
 /// While following a streaming reply it also arms [BlankListWatchdog]: if the
 /// list churns its metrics but paints no items, it has lost its sliver state
 /// (the blank-thread bug) and one remount recovers it, without losing any
@@ -107,6 +111,9 @@ class _FollowingChatListState extends State<FollowingChatList> {
   bool _onNotification(Notification notification) {
     if (notification is DisclosureToggledNotification) {
       _toggled = notification.context;
+      // The animation resizes the list for a while without any item build,
+      // which is not the blank-list state.
+      _watchdog.disarm();
       _toggledTimer?.cancel();
       _toggledTimer = Timer(_toggleWindow, () => _toggled = null);
       return false;
@@ -160,7 +167,9 @@ class _FollowingChatListState extends State<FollowingChatList> {
     // is streaming): every such step without an item build counts against
     // the blank-thread state. An empty list has no items to paint, so it
     // never arms the watchdog.
-    if (position.maxScrollExtent > 0 && _watchdog.onFollowingStep()) {
+    if (_toggled == null &&
+        position.maxScrollExtent > 0 &&
+        _watchdog.onFollowingStep()) {
       _recover();
     }
   }
@@ -178,6 +187,10 @@ class _FollowingChatListState extends State<FollowingChatList> {
     final headerAtTop = viewport.getOffsetToReveal(box, 0).offset;
     return position.maxScrollExtent > headerAtTop + 0.5;
   }
+
+  /// Remounts the list as the watchdog does, for tests of what survives it.
+  @visibleForTesting
+  void recoverForTest() => _recover();
 
   void _recover() {
     if (!mounted) return;

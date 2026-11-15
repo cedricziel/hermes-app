@@ -20,6 +20,7 @@ import 'slash_command.dart';
 import 'starter_prompts.dart';
 import 'widgets/chat_thread_view.dart';
 import 'widgets/message_actions.dart' show TurnActionStatus;
+import 'widgets/tool_call_expansion.dart';
 
 /// The current chat model, its discovery state, and recovery actions.
 Widget composerModelPill(ChatController chat, {VoidCallback? onSetupModel}) =>
@@ -129,7 +130,8 @@ Widget? protectedQueueView(ChatController chat, ChatThread? t) =>
 /// screen owns it) the requests that wait on the user dock above the
 /// composer. [onOpenActivity] draws the activity line under the header and
 /// opens the Activity panel from it; without it no line is drawn (the Mac
-/// toolbar and the quick panel).
+/// toolbar and the quick panel). A [toolCallExpansion] keeps the tool calls the
+/// reader opened while the list is rebuilt.
 ChatThreadView boundChatThreadView({
   required ChatController chat,
   required ChatThread? thread,
@@ -165,6 +167,7 @@ ChatThreadView boundChatThreadView({
   VoidCallback? onOpenActivity,
   Widget? workingDirectoryRow,
   Widget? workspaceNotice,
+  ToolCallExpansionStore? toolCallExpansion,
 }) {
   final t = thread;
   return ChatThreadView(
@@ -177,6 +180,7 @@ ChatThreadView boundChatThreadView({
         ? null
         : BoundActivityLine(chat: chat, thread: t, onOpen: onOpenActivity),
     onShowAgentDetails: onShowAgentDetails,
+    toolCallExpansion: toolCallExpansion,
     screenPreview: screen == null
         ? null
         : (run) => BoundBotScreenPreview(

@@ -7,6 +7,7 @@ import '../../widgets/disclosure_toggled.dart';
 import '../chat_models.dart';
 import '../tool_call_presentation.dart';
 import 'tool_call_card.dart';
+import 'tool_call_expansion.dart';
 
 /// A run of tool calls the agent made back to back, with no reasoning
 /// between them — assistant-ui folds a burst of tool use into one row
@@ -24,6 +25,11 @@ import 'tool_call_card.dart';
 /// group (which then opens, so the card does not fold away under the reader),
 /// and when the group is folded and opened again. A group the reader folded
 /// stays folded when more calls arrive.
+///
+/// That is kept in [expansion] under [expansionScope] when both are given, so
+/// it outlives this widget: a row scrolled out of the list and back, or the
+/// list mounted anew, shows the cards and the group as the reader left them.
+/// Without them it is kept here, for as long as the widget lives.
 class ToolCallGroup extends StatefulWidget {
   const ToolCallGroup({
     super.key,
@@ -31,6 +37,8 @@ class ToolCallGroup extends StatefulWidget {
     this.approvals = const {},
     this.onAnswerApproval,
     this.preview,
+    this.expansion,
+    this.expansionScope = '',
   });
 
   final List<ToolCall> calls;
@@ -47,17 +55,28 @@ class ToolCallGroup extends StatefulWidget {
   final Future<void> Function(String requestId, String choice)?
   onAnswerApproval;
 
+  /// Where what the reader opened is kept beyond this widget; this widget's
+  /// own state when null.
+  final ToolCallExpansionStore? expansion;
+
+  /// Tells this run from the others in [expansion]: the id of its message.
+  final String expansionScope;
+
   @override
   State<ToolCallGroup> createState() => _ToolCallGroupState();
 }
 
 class _ToolCallGroupState extends State<ToolCallGroup> {
-  var _open = false;
+  final _local = ToolCallExpansionStore();
 
-  /// The calls whose cards the reader has open: the call's id, or its place
-  /// in the run for a call the server sent no id for.
-  final _openCards = <String>{};
+  ToolCallExpansionStore get _store => widget.expansion ?? _local;
 
+  String get _scope => widget.expansionScope;
+
+  bool get _open => _store.groupOpen(_scope);
+
+  /// The key of a card: the call's id, or its place in the run for a call the
+  /// server sent no id for.
   static String _key(List<ToolCall> calls, int i) =>
       calls[i].id.isNotEmpty ? 'id:${calls[i].id}' : 'at:$i';
 
@@ -68,17 +87,18 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
     super.didUpdateWidget(old);
     // A call that was still being written has no id until it starts.
     for (var i = 0; i < old.calls.length && i < widget.calls.length; i++) {
-      if (old.calls[i].id.isEmpty &&
-          widget.calls[i].id.isNotEmpty &&
-          _openCards.remove(_key(old.calls, i))) {
-        _openCards.add(_keyOf(i));
+      if (old.calls[i].id.isEmpty && widget.calls[i].id.isNotEmpty) {
+        _store.moveCard(_scope, _key(old.calls, i), _keyOf(i));
       }
     }
     if (old.calls.length == 1 &&
         widget.calls.length > 1 &&
-        _openCards.contains(_keyOf(0))) {
-      _open = true;
+        _store.cardOpen(_scope, _keyOf(0))) {
+      _store.setGroupOpen(_scope, true);
     }
+    _store.retainCards(_scope, {
+      for (var i = 0; i < widget.calls.length; i++) _keyOf(i),
+    });
   }
 
   @override
@@ -89,9 +109,8 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
       final answer = widget.onAnswerApproval;
       return ToolCallCard(
         call: calls[i],
-        initiallyOpen: _openCards.contains(_keyOf(i)),
-        onOpenChanged: (open) =>
-            open ? _openCards.add(_keyOf(i)) : _openCards.remove(_keyOf(i)),
+        initiallyOpen: _store.cardOpen(_scope, _keyOf(i)),
+        onOpenChanged: (open) => _store.setCardOpen(_scope, _keyOf(i), open),
         approval: approval,
         onAnswerApproval: approval == null || answer == null
             ? null
@@ -150,7 +169,7 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
             borderRadius: BorderRadius.circular(8),
             onTap: () {
               DisclosureToggledNotification.send(context);
-              setState(() => _open = !_open);
+              setState(() => _store.setGroupOpen(_scope, !_open));
             },
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: minTap),
