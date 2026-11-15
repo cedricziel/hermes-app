@@ -75,6 +75,19 @@ void main() {
       expect(status.lastRunAt, isNull);
     });
 
+    test('the largest sane count is kept and one more is unknown', () {
+      final kept = CuratorStatus.parse({
+        ...recordedCuratorNeverRun,
+        'interval_hours': 1000000,
+        'stale_after_days': 1000001,
+        'archive_after_days': 24.0,
+      })!;
+
+      expect(kept.intervalHours, 1000000);
+      expect(kept.staleAfterDays, isNull);
+      expect(kept.archiveAfterDays, 24);
+    });
+
     test('a count that is not a whole, sane number is unknown', () {
       final status = CuratorStatus.parse({
         ...recordedCuratorNeverRun,
