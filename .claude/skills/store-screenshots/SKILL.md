@@ -75,11 +75,12 @@ version>`. Check the editable version on App Store Connect first and pass
   only the light Kanban board and task details, preserving other raw captures.
 - The seed script uses `DEMO_SERVER_URL` to create Kanban tasks through the
   backend API after checking that `/api/status` reports the throwaway home.
-- The main window has a 1100 x 760 xib default and a 640 x 480 content
-  minimum set in `awakeFromNib`. An earlier note said a size in the xib or in
+- The main window has a 1100 x 760 xib default and a 640 x 480 minimum set in
+  `awakeFromNib`. An earlier note said a size in the xib or in
   `MainFlutterWindow.swift` never reached the built app. The likely reason:
-  the xib window is restorable, and AppKit's saved state brings the last
-  frame back after a kill (`dev-app.sh stop`, `flutter run`) or when "Close
+  the xib window is restorable, and AppKit's saved state can bring the last
+  frame back after a kill (`dev-app.sh stop`, `flutter run`), a crash, Quit
+  and Keep Windows (⌥⌘Q), a logout with "Reopen windows", or when "Close
   windows when quitting an application" is off; with the default setting a
   Cmd-Q throws the state away, so a normal relaunch starts at 1100 x 760.
   This is unverified on a Mac (`scripts/dev-app.sh start` and `screenshot`

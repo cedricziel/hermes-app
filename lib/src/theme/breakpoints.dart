@@ -44,14 +44,15 @@ const double kKanbanColumnsBreakpoint = 720;
 /// The widest a skill's detail page or the skills list grows on a wide window.
 const double kDetailContentMaxWidth = 720;
 
-/// The smallest content size of the Mac app's main window, set natively in
-/// `MainFlutterWindow.minimumContentSize`. "Content" is the xib's content
-/// rect before the title bar merges in (the Flutter view is 640x480 at this
-/// size, toolbar included). The default size, 1100x760 (`MainMenu.xib`), is
-/// above [kWideLayoutBreakpoint].
+/// The smallest size of the Mac app's main window, set natively in
+/// `MainFlutterWindow.minimumContentSize` (`contentMinSize`). AppKit applies it
+/// against the window's full-size style mask, so it is read as a 640x480
+/// frame: the Flutter view is 640x480 with the toolbar included. Its exact
+/// effect is unmeasured until the CI measurement of the window.
 const Size kMacMainWindowMinSize = Size(640, 480);
 
-/// The default content size of the Mac main window, set in `MainMenu.xib`,
-/// in the same sense as [kMacMainWindowMinSize] (the Flutter view is about
-/// 1100x788); above [kWideLayoutBreakpoint].
+/// The default size of the Mac main window, the xib's content rect
+/// (`MainMenu.xib`) before the title bar merges in: AppKit makes a 1100x788
+/// frame and, with full-size content, the Flutter view is 1100x788. Above
+/// [kWideLayoutBreakpoint]. Not the same sense as [kMacMainWindowMinSize].
 const Size kMacMainWindowDefaultSize = Size(1100, 760);

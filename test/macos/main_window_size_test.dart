@@ -21,6 +21,9 @@ void main() {
     final window = RegExp(
       r'<window [^>]*customClass="MainFlutterWindow".*?'
       r'<rect key="contentRect" x="[\d.]+" y="[\d.]+" '
+      r'width="(\d+)" height="(\d+)"/>.*?'
+      r'<view key="contentView"[^>]*>\s*'
+      r'<rect key="frame" x="[\d.]+" y="[\d.]+" '
       r'width="(\d+)" height="(\d+)"/>',
       dotAll: true,
     ).firstMatch(xib);
@@ -28,6 +31,11 @@ void main() {
     expect(
       Size(double.parse(window![1]!), double.parse(window[2]!)),
       kMacMainWindowDefaultSize,
+    );
+    expect(
+      Size(double.parse(window[3]!), double.parse(window[4]!)),
+      kMacMainWindowDefaultSize,
+      reason: 'the content view frame matches the content rect',
     );
 
     final swift = File('macos/Runner/MainFlutterWindow.swift')
@@ -42,21 +50,29 @@ void main() {
     );
     // The decisive places: the minimum and the centring are set in
     // awakeFromNib and nothing after it (macos_window_utils included) resets
-    // the minimum; no Dart code resizes the window at startup; the xib window
-    // stays restorable.
+    // the minimum; no Dart code resizes the window at startup.
     final start = swift.indexOf('override func awakeFromNib()');
     final end = swift.indexOf('super.awakeFromNib()');
     expect(start, isNonNegative);
     expect(end, greaterThan(start));
     final awake = swift
         .substring(start, end)
+        .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), '')
         .split('\n')
         .where((line) => !line.trimLeft().startsWith('//'))
         .join('\n');
     expect(awake, contains('self.contentMinSize = Self.minimumContentSize'));
-    expect(awake, contains('self.center()'));
+    final setFrame = awake.indexOf('self.setFrame(windowFrame');
+    final center = awake.indexOf('self.center()');
+    expect(setFrame, isNonNegative);
+    expect(center, isNonNegative);
     expect(
-      RegExp(r'contentMinSize\s*=').allMatches(swift),
+      center,
+      greaterThan(setFrame),
+      reason: 'setFrame restores the xib origin, so center() must follow it',
+    );
+    expect(
+      RegExp(r'contentMinSize[\w.]*\s*=[^=]').allMatches(swift),
       hasLength(1),
       reason: 'contentMinSize is set only in awakeFromNib',
     );
@@ -68,7 +84,6 @@ void main() {
         reason: file.path,
       );
     }
-    expect(xib, isNot(contains('restorable="NO"')));
     final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
     expect(delegate, isNot(contains('contentMinSize')));
   });
