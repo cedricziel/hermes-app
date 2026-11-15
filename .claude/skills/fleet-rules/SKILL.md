@@ -180,10 +180,10 @@ one-armed-Dart-PR limit), and then only after the trial check.
   ends when the owner drops the per-shard required checks.
 
 Stacked PRs: merge bottom-up. After the lower PR merges, retarget the next one
-to main, merge main into its branch, get a review of the new head, and arm it
-only once that head's checks are green: a retarget does not rerun CI by itself.
-See `parallel-ui-rollout` for the rest of the stack and fan-out
-practice.
+to main, merge main into its branch, get a review of the new head (a clean
+merge-only review is enough, as for any main merge), then report READY as
+usual. A retarget alone does not rerun CI, so the checks are read on the new
+head. See `parallel-ui-rollout` for the rest of the stack and fan-out practice.
 
 ## Device-only checks
 

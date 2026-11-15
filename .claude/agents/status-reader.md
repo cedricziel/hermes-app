@@ -15,8 +15,8 @@ runs for `ci.yml` (`resource_id`), match `head_sha` by hand, then list that
 run's jobs to get the `Analyze & test` conclusion. That is the only job read
 on this path: `PR policy` and `Review recorded` (from `pr-policy.yml`) are not
 read, so say so in the result and the caller must not take it as the full check
-set. If the GitHub tools are not
-available to you, report "checks unread" and ask the caller to read them.
+set. If the GitHub tools are not available to you, report "checks unread" and
+ask the caller to read them.
 
 Return only:
 
