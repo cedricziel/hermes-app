@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../share/shared_item.dart';
-import '../../theme/app_icons.dart';
 import '../../widgets/adaptive_sheet.dart';
 import 'attachment_paste.dart';
 import 'attachment_source.dart';
+import 'widgets/attach_menu.dart';
 
 const _couldNotAttach = 'Could not attach that.';
 
@@ -34,26 +34,33 @@ class AttachmentSurface extends StatefulWidget {
 class _AttachmentSurfaceState extends State<AttachmentSurface> {
   var _dragging = false;
 
+  /// Set while the menu or a picker is open, so a second click cannot open
+  /// another one (the Linux picker does not block the window).
+  var _picking = false;
+
   Future<void> _openMenu() async {
-    final origins = widget.source.origins;
-    if (origins.length == 1) return _pick(origins.single);
-    final origin = await showAdaptiveSheet<AttachOrigin>(
-      context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final origin in widget.source.origins)
-              ListTile(
-                leading: AppIcon(_icon(origin)),
-                title: Text(_label(origin)),
-                onTap: () => Navigator.of(context).pop(origin),
-              ),
-          ],
+    if (_picking) return;
+    _picking = true;
+    try {
+      final origins = widget.source.origins;
+      if (origins.length == 1) {
+        await _pick(origins.single);
+        return;
+      }
+      final origin = await showAdaptiveSheet<AttachOrigin>(
+        context,
+        maxWidth: 420,
+        showDragHandle: true,
+        maxSheetHeightFraction: 0.9,
+        builder: (sheet) => AttachMenu(
+          origins: origins,
+          onPick: (origin) => Navigator.of(sheet).pop(origin),
         ),
-      ),
-    );
-    if (origin != null && mounted) await _pick(origin);
+      );
+      if (origin != null && mounted) await _pick(origin);
+    } finally {
+      _picking = false;
+    }
   }
 
   Future<void> _pick(AttachOrigin origin) async {
@@ -150,18 +157,6 @@ class _AttachmentSurfaceState extends State<AttachmentSurface> {
 class _PasteAttachmentIntent extends Intent {
   const _PasteAttachmentIntent();
 }
-
-AppIconSet _icon(AttachOrigin origin) => switch (origin) {
-  AttachOrigin.files => AppIcons.file,
-  AttachOrigin.photos => AppIcons.photoLibrary,
-  AttachOrigin.camera => AppIcons.camera,
-};
-
-String _label(AttachOrigin origin) => switch (origin) {
-  AttachOrigin.files => 'Choose files',
-  AttachOrigin.photos => 'Photo library',
-  AttachOrigin.camera => 'Take a photo',
-};
 
 /// Shown over the chat while files are dragged over it.
 class _DropHint extends StatelessWidget {

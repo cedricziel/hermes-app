@@ -14,8 +14,9 @@ The composer SHALL show an attach control. Choosing files from it SHALL open the
 
 #### Scenario: Camera is mobile only
 
-- **WHEN** the attach control opens on macOS
-- **THEN** it offers files but not the camera
+- **WHEN** the attach control is pressed on macOS, Windows or Linux, where files are the only origin
+- **THEN** the file picker opens directly, with no menu, and the camera is not offered
+- **AND** a second press while the picker is open does not open another one
 
 #### Scenario: Cancel
 

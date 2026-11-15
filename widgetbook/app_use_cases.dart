@@ -14,7 +14,10 @@ import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
 import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/connect_failure.dart';
+import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/attachment_surface.dart';
+import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
+import 'package:hermes_app/src/widgets/adaptive_sheet.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
@@ -645,6 +648,38 @@ WidgetbookNode appNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
+      name: 'AttachMenu',
+      useCases: [
+        WidgetbookUseCase(
+          name: 'Rows',
+          builder: (_) => frame(
+            const Card(
+              child: AttachMenu(
+                origins: AttachOrigin.values,
+                onPick: _ignoreOrigin,
+              ),
+            ),
+            maxWidth: 420,
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Presented (sheet on phone, dialog when wide)',
+          builder: (_) => openOnShow(
+            (context) => showAdaptiveSheet<AttachOrigin>(
+              context,
+              maxWidth: 420,
+              showDragHandle: true,
+              maxSheetHeightFraction: 0.9,
+              builder: (sheet) => AttachMenu(
+                origins: AttachOrigin.values,
+                onPick: (origin) => Navigator.of(sheet).pop(origin),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
       name: 'AttachmentSurface',
       useCases: [
         for (final (name, drops) in [
@@ -838,3 +873,5 @@ Widget _shortShellSidebar() => Builder(
     ),
   ),
 );
+
+void _ignoreOrigin(AttachOrigin _) {}

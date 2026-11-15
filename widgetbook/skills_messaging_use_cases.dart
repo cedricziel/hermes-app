@@ -250,7 +250,20 @@ WidgetbookUseCase _sheet(String name, SkillJob Function() job) =>
       builder: (_) => Hosted<SkillJob>(
         create: job,
         dispose: (job) => job.dispose(),
-        builder: (_, job) => Scaffold(body: SkillJobSheet(job: job)),
+        // Shown as the sheet or dialog shows it, with its rounded top edge,
+        // so the top padding is visible.
+        builder: (context, job) => Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+              child: SkillJobSheet(job: job),
+            ),
+          ),
+        ),
       ),
     );
 

@@ -581,6 +581,10 @@
     "description": "Note under the process output cards in the Activity panel when older cards were dropped."
   },
   "@@x-area-chat/attachments": "",
+  "chatAttachmentsMenuTitle": "Attach",
+  "@chatAttachmentsMenuTitle": {
+    "description": "Title of the attach menu when it opens as a dialog on wide screens and macOS."
+  },
 
   "@@x-area-chat/checkpoints": "",
   "chatCheckpointsChangesBarCount": "{count, plural, =1{1 file differs} other{{count} files differ}}",

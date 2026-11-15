@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/busy_bar.dart';
+import '../theme/breakpoints.dart';
 import '../widgets/adaptive_sheet.dart';
+import '../widgets/busy_bar.dart';
 import 'skill_job.dart';
 import 'skills_hub_controller.dart';
 
@@ -22,6 +23,8 @@ Future<void> showSkillJobSheet(BuildContext context, SkillsHubController hub) {
 Future<void> showSkillJobStatus(BuildContext context, SkillJob job) {
   return showAdaptiveSheet<void>(
     context,
+    showDragHandle: true,
+    maxSheetHeightFraction: 0.9,
     builder: (_) => SkillJobSheet(job: job),
   );
 }
@@ -40,7 +43,8 @@ class SkillJobSheet extends StatelessWidget {
         final tail = job.lines.length > 6
             ? job.lines.sublist(job.lines.length - 6)
             : job.lines;
-        final desktop = theme.platform == TargetPlatform.macOS;
+        final dialog =
+            theme.platform == TargetPlatform.macOS || isWideLayout(context);
         final close = Align(
           alignment: Alignment.centerRight,
           child: TextButton(
@@ -88,8 +92,8 @@ class SkillJobSheet extends StatelessWidget {
         );
         return SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, desktop ? 16 : 0, 16, 16),
-            child: desktop
+            padding: const EdgeInsets.all(16),
+            child: dialog
                 ? Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
