@@ -226,7 +226,11 @@ final class WatchRelay: NSObject, WCSessionDelegate {
       // Keeps the held context's complication keys equal to the latest payload,
       // so a later context delivery (deliverSessionState) cannot bring back an
       // older title. The watch drops it by `seq`.
-      try? session.updateApplicationContext(Self.complicationContext(merging: payload, into: session.applicationContext))
+      do {
+        try session.updateApplicationContext(Self.complicationContext(merging: payload, into: session.applicationContext))
+      } catch {
+        logger.error("Complication context failed code=\((error as NSError).code)")
+      }
       return result("complication")
     }
     do {
