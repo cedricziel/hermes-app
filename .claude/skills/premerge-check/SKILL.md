@@ -65,6 +65,10 @@ The deduplicated union, in this priority order, of:
   changed test helper (a non-`_test.dart` Dart file under `test/`, such as
   `test/support/`); with an ARB or `l10n.yaml` change, also every test under
   `test/l10n*`;
+  (c1) is never capped, so a change to a widely imported helper or lib file
+  selects hundreds of files (`test/support/fake_hermes_server.dart` alone has
+  about 386 importers). At about 3 s per file that exceeds the default budget
+  and the run exits 6; raise `PREMERGE_TEST_BUDGET` for such a PR.
 - (c2) for each `lib/src/<dir>/` the PR touches, every test file that imports
   any file under it, or imports a test helper that does (one level); an ARB or
   `l10n.yaml` change adds `lib/l10n/` as such a directory (importers of the
@@ -98,8 +102,8 @@ Environment (positive integers; a bad value exits 1):
 | `PREMERGE_TEST_CONCURRENCY`  | 4       | `flutter test --concurrency`                                    |
 | `PREMERGE_TEST_BATCH`        | 20      | Files per `flutter test` call (the budget is checked per batch) |
 
-Over the cap it prints `affected tests: CAPPED` and names the `lib/src`
-directories whose (c2) tests were skipped. The PASS line says
+Over the cap it prints `affected tests: CAPPED` and names the `lib/src/<dir>/`
+or `lib/l10n/` directories whose (c2) tests were skipped. The PASS line says
 `affected tests: N files run` (N may be 0; nothing is run then) and `CAPPED` when
 it applies. A budget cut prints `affected tests CUT SHORT after N/M files
 (budget X s); not a pass` and lists the files not run: exit 6, never 0. A
