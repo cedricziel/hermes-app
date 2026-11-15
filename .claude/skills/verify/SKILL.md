@@ -149,13 +149,17 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    entry; compared ignoring case, for case-insensitive volumes), nor under an
    ambient `HERMES_HOME`. It also refuses a caller's `HERMES_DATA_DIR_SUFFIX`
    (it moves Hermes' default home to `~/.hermes<suffix>`), a run whose home it
-   cannot tell (HOME unset and no passwd entry), and a symlink at the state
-   directory's `home`, `userhome`, `profiles`, a profile, or a state file (the
-   directory outlives a run, and a link in it can lead into the real home). All
-   of that is exit 3, before any write or `hermes` call; every later path is the
-   resolved one, and `verify.sh` applies the same rule to its temp root.
-   A bind mount of `~/.hermes` is not detected (nothing compares devices or
-   inodes): don't point the state dir into one.
+   cannot tell (HOME unset and no passwd entry), and any symlink, and any file
+   with more than one hard link, anywhere in the state directory (it outlives a
+   run, and Hermes writes through such a link into wherever it points: a linked
+   `state.db` or `config.yaml` reaches the real home). That is one `find` over
+   the whole tree, before and after the directories are made, and the message
+   names the first offender. All of that is exit 3, before any write or
+   `hermes` call; every later path is the resolved one, and `verify.sh` applies
+   the canonical-path and real-home rules to its temp root. Limits: a bind mount
+   of `~/.hermes` is not detected (nothing compares devices or inodes), so
+   don't point the state dir into one, and a live process that plants a link
+   between the check and the start is outside the threat model.
 
    Which `HOME` a `hermes` call gets: the profile commands of a launch-profile
    start and its dashboard run with `HOME=$STATE_DIR/userhome` (and without
@@ -165,8 +169,10 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    real HOME** (`~/.claude/.credentials.json`, `gh auth token`, `~/.codex`), and
    its providers do not show as signed in from them. A plain start's dashboard
    keeps the caller's `HOME`, exactly as before, so Hermes can still borrow those
-   logins; it is kept from the real Hermes home by the checks above and by
-   dropping `HERMES_DATA_DIR_SUFFIX` and `SUDO_USER`, not by a throwaway `HOME`.
+   logins. A plain start is kept from the real Hermes home by the canonical
+   absolute paths, the resolved `.hermes*` check, no symlink or hard link
+   anywhere in the state dir, and dropping `HERMES_DATA_DIR_SUFFIX` and
+   `SUDO_USER`, not by a throwaway `HOME`.
    `verify.sh` runs every backend on a throwaway `HOME`, as always.
    `scripts/test_dev_backend.py` (run by CI's `unittest discover`, no network or
    `hermes`) checks all of it with a stand-in `hermes` and a fake HOME: one test

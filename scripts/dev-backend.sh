@@ -31,12 +31,15 @@
 # HERMES_HOME that is not a canonical absolute path (no //, ., .., ~, $, backtick
 # or control character), a state directory at or under the real Hermes home
 # (~/.hermes or ~/.hermes<anything>, any case) or an ambient HERMES_HOME, a
-# caller's HERMES_DATA_DIR_SUFFIX, and a symlink at home, userhome, profiles, a
-# profile or a state file. Every path is then used resolved. The profile
-# commands and a launch-profile dashboard run with a throwaway HOME
-# ($STATE_DIR/userhome); a plain start's dashboard keeps the caller's HOME.
-# Neither gets HERMES_DATA_DIR_SUFFIX or SUDO_USER. A bind mount of ~/.hermes
-# is not detected.
+# caller's HERMES_DATA_DIR_SUFFIX, and any symlink or hard-linked file anywhere
+# in the state directory. Every path is then used resolved. That, with the
+# removal of HERMES_DATA_DIR_SUFFIX and SUDO_USER from the environment, is what
+# keeps a plain start away from the real home; its dashboard keeps the caller's
+# HOME. The profile commands and a launch-profile dashboard run with a
+# throwaway HOME ($STATE_DIR/userhome) and do not see the real one's
+# file-based logins. A bind mount of ~/.hermes is not detected, and a live
+# process that plants a link between the check and the start is outside the
+# threat model.
 #
 # Never use `hermes dashboard --stop` here: it kills every Hermes web server
 # on the machine, including ones other sessions or the developer started.
@@ -129,26 +132,27 @@ bind_state_dir() {
   LAUNCH_FILE="$STATE_DIR/launch-profile"
 }
 
-# Exits 3 when something the script is about to write through is a symlink
-# (the state directory outlives a run, and a link in it can lead into the real
-# home), or when the resolved Hermes home is inside the real one. Looks at
-# what exists; a missing path is made later, as a real directory.
+# Exits 3 when anything under the state directory is a symlink or a file with
+# more than one hard link (the directory outlives a run, and Hermes writes
+# through such a link into wherever it points, the real home included), or when
+# the resolved Hermes home is inside the real one. One rule for the whole tree,
+# run before and after the directories are made; it names the first offender.
+# `find -type l` and `-links +1` are in BSD find too, and `head` stands in for
+# GNU's `-quit`. A live process that plants a link between this check and the
+# start is outside the threat model.
 check_state_tree() {
-  local path where
-  for path in "$STATE_DIR/home" "$STATE_DIR/userhome" "$PID_FILE" "$PORT_FILE" \
-    "$LOG_FILE" "$LAUNCH_FILE" "$HOME_DIR/active_profile" "$HOME_DIR/profiles"; do
-    if [[ -L "$path" ]]; then
-      echo "refusing: $path is a symlink; remove it or use another state directory" >&2
+  local found where
+  if [[ -d "$STATE_DIR" ]]; then
+    found="$(find "$STATE_DIR" -type l -print 2>/dev/null | head -n 1 || true)"
+    if [[ -n "$found" ]]; then
+      echo "refusing: $found is a symlink; remove it or use another state directory" >&2
       exit 3
     fi
-  done
-  if [[ -d "$HOME_DIR/profiles" ]]; then
-    for path in "$HOME_DIR"/profiles/*; do
-      if [[ -L "$path" ]]; then
-        echo "refusing: $path is a symlink; remove it or use another state directory" >&2
-        exit 3
-      fi
-    done
+    found="$(find "$STATE_DIR" -type f -links +1 -print 2>/dev/null | head -n 1 || true)"
+    if [[ -n "$found" ]]; then
+      echo "refusing: $found has more than one hard link; remove it or use another state directory" >&2
+      exit 3
+    fi
   fi
   if where="$(inside_real_hermes_home "$(resolve_path "$HOME_DIR")")"; then
     echo "refusing: the Hermes home $HOME_DIR is at or under $where, a real Hermes home" >&2

@@ -577,6 +577,66 @@ class DevBackendTest(unittest.TestCase):
         self.assertRefused(self.start(), message="symlink")
         self.assertEqual(victim.read_text(), "keep\n")
 
+    def real_state_db(self):
+        db = self.home / ".hermes" / "state.db"
+        db.write_text("real database\n")
+        return db
+
+    def test_refuses_a_symlinked_state_db_in_the_home(self):
+        db = self.real_state_db()
+        home = self.tmp / "state" / "home"
+        home.mkdir()
+        (home / "state.db").symlink_to(db)
+        self.mark()
+        for args in ((), ("--launch-profile", "lp")):
+            self.assertRefused(self.start(*args), message="state.db is a symlink")
+        self.assertEqual(db.read_text(), "real database\n")
+
+    def test_refuses_a_symlinked_config_in_a_profile(self):
+        config = self.home / ".hermes" / "config.yaml"
+        config.write_text("model: real\n")
+        profile = self.tmp / "state" / "home" / "profiles" / "lp"
+        profile.mkdir(parents=True)
+        (profile / "config.yaml").symlink_to(config)
+        self.mark()
+        self.assertRefused(
+            self.start("--launch-profile", "lp"), message="config.yaml is a symlink"
+        )
+        self.assertEqual(config.read_text(), "model: real\n")
+
+    def test_refuses_a_hard_linked_state_db(self):
+        db = self.real_state_db()
+        home = self.tmp / "state" / "home"
+        home.mkdir()
+        os.link(db, home / "state.db")
+        self.mark()
+        for args in ((), ("--launch-profile", "lp")):
+            self.assertRefused(self.start(*args), message="more than one hard link")
+        self.assertEqual(db.read_text(), "real database\n")
+
+    def test_refuses_a_symlinked_directory_two_levels_deep(self):
+        deep = self.tmp / "state" / "home" / "a"
+        deep.mkdir(parents=True)
+        (deep / "b").symlink_to(self.home / ".hermes")
+        self.mark()
+        self.assertRefused(self.start(), message="a/b is a symlink")
+
+    def test_the_first_offender_is_named_before_and_after_the_directories_are_made(self):
+        # Before: a link already there. The refusal comes before anything is made.
+        (self.tmp / "state" / "dashboard.log").symlink_to(self.home)
+        self.mark()
+        result = self.start()
+        self.assertRefused(result, message="dashboard.log is a symlink")
+        self.assertFalse((self.tmp / "state" / "home").exists())
+
+    def test_a_tree_without_links_is_accepted(self):
+        home = self.tmp / "state" / "home" / "profiles" / "lp"
+        home.mkdir(parents=True)
+        (home / "state.db").write_text("own database\n")
+        result = self.start("--launch-profile", "lp")
+        self.assertEqual(result.returncode, 1, result.stderr)  # the stand-in dashboard exits 1
+        self.assertNotIn("refusing", result.stderr)
+
     def test_hermes_only_ever_sees_the_resolved_state_dir(self):
         real = self.tmp / "real"
         real.mkdir()
