@@ -5925,6 +5925,354 @@
   "@@x-area-shell": "",
 
   "@@x-area-skills": "",
+  "skillsCuratorCantReach": "Can't reach Hermes",
+  "@skillsCuratorCantReach": {
+    "description": "Title of the banner and of error lines when the request never left the device."
+  },
+  "skillsCuratorCantReachDetail": "Check that the server is on and that you're connected to its network.",
+  "@skillsCuratorCantReachDetail": {
+    "description": "Detail of the offline banner."
+  },
+  "skillsCuratorCheckStatus": "Check status",
+  "@skillsCuratorCheckStatus": {
+    "description": "Button that reads the server once to see whether a pass runs."
+  },
+  "skillsCuratorCheckedNothing": "No pass is running now.",
+  "@skillsCuratorCheckedNothing": {
+    "description": "Line after Check status found nothing running."
+  },
+  "skillsCuratorCouldntConfirm": "Couldn't confirm.",
+  "@skillsCuratorCouldntConfirm": {
+    "description": "Warning line when Check status got no answer."
+  },
+  "skillsCuratorElsewhere": "A pass is running on this server",
+  "@skillsCuratorElsewhere": {
+    "description": "Subtitle of the disabled Run now row when a pass the app did not start is running."
+  },
+  "skillsCuratorElsewhereNote": "This app didn't start it, so it shows no output.",
+  "@skillsCuratorElsewhereNote": {
+    "description": "Neutral line under the disabled Run now row."
+  },
+  "skillsCuratorEveryDays": "{count, plural, =1{Every day} other{Every {count} days}}",
+  "@skillsCuratorEveryDays": {
+    "description": "Interval value for a whole number of days.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorEveryHour": "Every hour",
+  "@skillsCuratorEveryHour": {
+    "description": "Interval value: one hour."
+  },
+  "skillsCuratorEveryHours": "Every {count} hours",
+  "@skillsCuratorEveryHours": {
+    "description": "Interval value for a number of hours that is not a whole number of days.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorFailed": "Failed",
+  "@skillsCuratorFailed": {
+    "description": "Result headline when the pass ended with an error."
+  },
+  "skillsCuratorFailedWith": "Failed: {line}",
+  "@skillsCuratorFailedWith": {
+    "description": "Error line when a pass failed. {line} is the last line Hermes printed, shown as it is.",
+    "placeholders": {
+      "line": {
+        "type": "String",
+        "example": "curator: disabled via config"
+      }
+    }
+  },
+  "skillsCuratorFinished": "The pass finished",
+  "@skillsCuratorFinished": {
+    "description": "Result headline when the pass ended."
+  },
+  "skillsCuratorFinishedNote": "See Hermes' output for what changed.",
+  "@skillsCuratorFinishedNote": {
+    "description": "Line under the result headline."
+  },
+  "skillsCuratorFooter": "Hermes tidies skills the agent made. Unused ones are marked stale, then archived, never deleted. Passes also start by themselves on the server, whether or not this app is open.",
+  "@skillsCuratorFooter": {
+    "description": "Footer under the curator section. A pass is one run of the curator."
+  },
+  "skillsCuratorLastRan": "Last pass or first check",
+  "@skillsCuratorLastRan": {
+    "description": "Row title. Hermes also sets this time the first time it sees a profile, so it can be a first check rather than a pass."
+  },
+  "skillsCuratorLastRanExact": "{date}, {time}",
+  "@skillsCuratorLastRanExact": {
+    "description": "The exact time of the last pass, shown under the row when tapped.",
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "yMMMd"
+      },
+      "time": {
+        "type": "DateTime",
+        "format": "Hm"
+      }
+    }
+  },
+  "skillsCuratorLastRanFootnote": "Hermes also sets this time the first time it sees a profile, without a pass.",
+  "@skillsCuratorLastRanFootnote": {
+    "description": "Muted line directly under the last pass row."
+  },
+  "skillsCuratorLastRanNever": "Hasn't run yet",
+  "@skillsCuratorLastRanNever": {
+    "description": "Value of the last pass row when there is no time yet."
+  },
+  "skillsCuratorLastRanNeverNote": "The first scheduled pass waits one interval ({length}).",
+  "@skillsCuratorLastRanNeverNote": {
+    "description": "Subtitle when the curator has not run. {length} is the interval, such as \"7 days\".",
+    "placeholders": {
+      "length": {
+        "type": "String",
+        "example": "7 days"
+      }
+    }
+  },
+  "skillsCuratorLastRanNeverNoteUnknown": "The first scheduled pass waits one interval.",
+  "@skillsCuratorLastRanNeverNoteUnknown": {
+    "description": "Subtitle when the curator has not run and the interval is unknown."
+  },
+  "skillsCuratorLastRanSemantics": "Last ran {relative}, {exact}",
+  "@skillsCuratorLastRanSemantics": {
+    "description": "Accessibility label of the last pass row. {relative} is a relative time such as \"3 days ago\", {exact} an exact date and time.",
+    "placeholders": {
+      "relative": {
+        "type": "String",
+        "example": "3 days ago"
+      },
+      "exact": {
+        "type": "String",
+        "example": "12 November 2026 at 09:12"
+      }
+    }
+  },
+  "skillsCuratorLeaveNote": "Leaving this screen doesn't stop it.",
+  "@skillsCuratorLeaveNote": {
+    "description": "Subtitle under the running pass."
+  },
+  "skillsCuratorLengthDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@skillsCuratorLengthDays": {
+    "description": "A length of time in days, inside a sentence.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorLengthHours": "{count, plural, =1{1 hour} other{{count} hours}}",
+  "@skillsCuratorLengthHours": {
+    "description": "A length of time in hours, inside a sentence.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorLoadFailed": "Couldn't load the curator",
+  "@skillsCuratorLoadFailed": {
+    "description": "Title of the banner for any other failure reading the curator."
+  },
+  "skillsCuratorLoading": "Loading the curator",
+  "@skillsCuratorLoading": {
+    "description": "Accessibility label of the loading placeholder."
+  },
+  "skillsCuratorLostStart": "We couldn't tell if it started. Nothing was sent again. It may be running on the server.",
+  "@skillsCuratorLostStart": {
+    "description": "Warning line when no answer came to the request that starts a pass."
+  },
+  "skillsCuratorNoOutput": "Hermes printed no output.",
+  "@skillsCuratorNoOutput": {
+    "description": "Muted line instead of the output tile when the pass printed nothing."
+  },
+  "skillsCuratorNotStartedFailed": "Nothing started.",
+  "@skillsCuratorNotStartedFailed": {
+    "description": "Error line when Hermes could not start the pass; Hermes' own text follows it."
+  },
+  "skillsCuratorNotStartedOffline": "Can't reach Hermes. Nothing started.",
+  "@skillsCuratorNotStartedOffline": {
+    "description": "Error line when the request to start a pass never left the device."
+  },
+  "skillsCuratorNotStartedProfile": "This profile no longer exists. Nothing started.",
+  "@skillsCuratorNotStartedProfile": {
+    "description": "Error line when the profile was deleted before the pass."
+  },
+  "skillsCuratorNotStartedRefused": "Nothing started. Hermes needs to know which profile to run.",
+  "@skillsCuratorNotStartedRefused": {
+    "description": "Error line when Hermes refused a run for lack of a profile."
+  },
+  "skillsCuratorOffNote": "Turned off in the server's config. Change it there to use the curator.",
+  "@skillsCuratorOffNote": {
+    "description": "Subtitle of the Status row when the curator is switched off in the server config (value Off)."
+  },
+  "skillsCuratorOutputEarlier": "{count, plural, =1{1 earlier line not shown} other{{count} earlier lines not shown}}",
+  "@skillsCuratorOutputEarlier": {
+    "description": "First line of the output box when older lines were left out.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorOutputFootnote": "Hermes keeps one log for every profile on this server, so these lines can include another profile's run.",
+  "@skillsCuratorOutputFootnote": {
+    "description": "Footnote under the output box."
+  },
+  "skillsCuratorOutputHidden": "Hidden while the app is locked or away",
+  "@skillsCuratorOutputHidden": {
+    "description": "One muted line shown in place of the output while App Lock covers the app or it is inactive."
+  },
+  "skillsCuratorOutputSemantics": "Show output, {count, plural, =1{1 line} other{{count} lines}}",
+  "@skillsCuratorOutputSemantics": {
+    "description": "Accessibility label of the output disclosure. The disclosure state is added by the system.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorPause": "Pause scheduled passes",
+  "@skillsCuratorPause": {
+    "description": "Title of the switch that pauses scheduled curator passes."
+  },
+  "skillsCuratorPauseFailed": "Couldn't change it",
+  "@skillsCuratorPauseFailed": {
+    "description": "Error line under the pause switch when Hermes refused the change."
+  },
+  "skillsCuratorPauseLost": "Couldn't confirm whether this changed.",
+  "@skillsCuratorPauseLost": {
+    "description": "Warning line under the pause switch when no answer came; the switch is back at its last known value."
+  },
+  "skillsCuratorPauseNote": "Run now still works while paused.",
+  "@skillsCuratorPauseNote": {
+    "description": "Subtitle of the pause switch."
+  },
+  "skillsCuratorPauseSaving": "Saving…",
+  "@skillsCuratorPauseSaving": {
+    "description": "Subtitle of the pause switch while the change is being sent."
+  },
+  "skillsCuratorPauseUnreadable": "Couldn't read the pause setting.",
+  "@skillsCuratorPauseUnreadable": {
+    "description": "Muted line shown in place of the pause switch when the server did not say whether passes are paused."
+  },
+  "skillsCuratorPausedNote": "Scheduled passes are paused.",
+  "@skillsCuratorPausedNote": {
+    "description": "Subtitle of the Status row while paused."
+  },
+  "skillsCuratorProfileGone": "This profile no longer exists",
+  "@skillsCuratorProfileGone": {
+    "description": "Title of the banner when the profile was deleted; also a line under the pause switch."
+  },
+  "skillsCuratorProgressLost": "Couldn't confirm how the pass is going.",
+  "@skillsCuratorProgressLost": {
+    "description": "Warning line when following a running pass failed."
+  },
+  "skillsCuratorRunAgain": "Run again",
+  "@skillsCuratorRunAgain": {
+    "description": "Title of the row that starts another pass after one ended."
+  },
+  "skillsCuratorRunNow": "Run now",
+  "@skillsCuratorRunNow": {
+    "description": "Title of the row that starts a curator pass."
+  },
+  "skillsCuratorRunNowNote": "Hermes reviews skills on the server.",
+  "@skillsCuratorRunNowNote": {
+    "description": "Subtitle of the Run now row."
+  },
+  "skillsCuratorRunNowRunning": "Run now, running",
+  "@skillsCuratorRunNowRunning": {
+    "description": "Accessibility label of the Run now row while a pass runs."
+  },
+  "skillsCuratorRunning": "Running on the server…",
+  "@skillsCuratorRunning": {
+    "description": "Status text of the Run now row while a pass runs."
+  },
+  "skillsCuratorSchedule": "Schedule",
+  "@skillsCuratorSchedule": {
+    "description": "Row title: how often scheduled passes run."
+  },
+  "skillsCuratorShowOutput": "Show output",
+  "@skillsCuratorShowOutput": {
+    "description": "Label of the closed disclosure that opens the lines Hermes printed."
+  },
+  "skillsCuratorStartedAt": "A pass started at {time}",
+  "@skillsCuratorStartedAt": {
+    "description": "Subtitle when a newer last pass time was seen. {time} is a time of day.",
+    "placeholders": {
+      "time": {
+        "type": "DateTime",
+        "format": "Hm"
+      }
+    }
+  },
+  "skillsCuratorStatus": "Status",
+  "@skillsCuratorStatus": {
+    "description": "Row title: whether the curator is on."
+  },
+  "skillsCuratorStatusActive": "Active",
+  "@skillsCuratorStatusActive": {
+    "description": "Value of the Status row when the curator is on and scheduled passes run."
+  },
+  "skillsCuratorStatusPaused": "Paused",
+  "@skillsCuratorStatusPaused": {
+    "description": "Value of the Status row when scheduled passes are paused."
+  },
+  "skillsCuratorStatusUnknown": "Unknown",
+  "@skillsCuratorStatusUnknown": {
+    "description": "Value shown in muted text when the server did not say. Used for several rows."
+  },
+  "skillsCuratorStillRunning": "Still running on the server.",
+  "@skillsCuratorStillRunning": {
+    "description": "Neutral line after 15 minutes of following; the app stopped following but not the pass."
+  },
+  "skillsCuratorStopped": "Hermes stopped, but the app can't tell whether the pass finished.",
+  "@skillsCuratorStopped": {
+    "description": "Neutral line when the server restarted during a pass and gave no exit code."
+  },
+  "skillsCuratorTitle": "Skill curator",
+  "@skillsCuratorTitle": {
+    "description": "Header of the section on the Skills screen that shows the curator, the Hermes job that tidies unused skills."
+  },
+  "skillsCuratorTryAgain": "Try again",
+  "@skillsCuratorTryAgain": {
+    "description": "Button that reads or starts again."
+  },
+  "skillsCuratorUnavailable": "The server's curator could not load",
+  "@skillsCuratorUnavailable": {
+    "description": "Title of the banner when the server answers that its curator module failed to load."
+  },
+  "skillsCuratorUnchecked": "Couldn't confirm whether a pass is running.",
+  "@skillsCuratorUnchecked": {
+    "description": "Warning line when the first read of the running state failed."
+  },
+  "skillsCuratorUnconfirmed": "Couldn't confirm it finished.",
+  "@skillsCuratorUnconfirmed": {
+    "description": "Warning line when the server shows a newer time but no proof the pass ended."
+  },
+  "skillsCuratorUnused": "Unused skills",
+  "@skillsCuratorUnused": {
+    "description": "Row title: when unused skills are marked stale and archived."
+  },
+  "skillsCuratorUnusedNote": "Marked stale after {stale, plural, =1{1 day} other{{stale} days}}, archived after {archive}.",
+  "@skillsCuratorUnusedNote": {
+    "description": "Subtitle of the unused skills row: after how many days unused skills are marked stale, and after how many (a bare number) archived.",
+    "placeholders": {
+      "stale": {
+        "type": "int"
+      },
+      "archive": {
+        "type": "int"
+      }
+    }
+  },
 
   "@@x-area-spotlight": "",
 
