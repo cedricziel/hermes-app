@@ -655,17 +655,33 @@ void main() {
     test(
       'a profile switch during the read before the POST sends none',
       () async {
-        final gate = gatePreRead();
+        // The 2nd read (before the POST) and the 3rd (the new profile's open
+        // read) are held.
+        final gate = Completer<FakeResponse>();
+        final newOpen = Completer<FakeResponse>();
+        var reads = 0;
+        server.onRequest('GET', _statusPath, (_) {
+          final i = reads++;
+          if (i == 1) return gate.future;
+          if (i == 2) return newOpen.future;
+          return (status: 200, body: recordedStatusFinished);
+        });
         final c = await opened();
         c.beginRun();
         final run = c.confirmRun();
         await until(() => count('GET', _statusPath) == 2);
 
         c.switchProfile('demo-b');
+        await until(() => c.load == CuratorLoad.loaded);
+        // The new profile's status is on, so the re-check alone would pass.
         gate.complete((status: 200, body: recordedStatusFinished));
         await run;
         await pumpEventQueue();
 
+        expect(count('POST', '/api/curator/run'), 0);
+        expect(c.phase, CuratorRunPhase.opening);
+        newOpen.complete((status: 200, body: recordedStatusFinished));
+        await until(() => c.phase == CuratorRunPhase.idle);
         expect(count('POST', '/api/curator/run'), 0);
         expect(tracer.spans, isEmpty);
         expect(crumbs.named('skills_curator.run.confirmed'), isEmpty);

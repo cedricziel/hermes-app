@@ -59,7 +59,7 @@ Scheduled passes go through `maybe_run_curator`, gated by `should_run_now` (enab
 | --- | --- | --- |
 | span `skills_curator.run` | `CuratorController`, POST to end | `outcome` (done, failed, unknown, timed_out), `trigger_lost` |
 | log `skills_curator.run_finished` | `CuratorController` | `outcome`, `archived` (the number parsed from Hermes' `archived=N` line; absent when no such line is found) |
-| breadcrumb `skills_curator.run.confirmed` | confirmation | none |
+| breadcrumb `skills_curator.run.confirmed` | just before the POST (after the pre-read and re-check), so it counts sends | none |
 | breadcrumb `skills_curator.paused` | switch | `paused` |
 
 Spans carry the connection's `hermes.*` attributes. None holds a skill name, output line, profile or action id.
