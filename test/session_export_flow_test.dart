@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,6 +59,42 @@ void main() {
       },
     );
     addTearDown(controller.dispose);
+  });
+
+  group('the temporary-file clear hook', () {
+    Future<SessionExportController> built(
+      WidgetTester tester,
+      TargetPlatform platform,
+    ) async {
+      debugDefaultTargetPlatformOverride = platform;
+      late SessionExportController made;
+      await tester.pumpWidget(
+        Builder(
+          builder: (context) {
+            made = newSessionExportController(context, api: server.client());
+            return const SizedBox();
+          },
+        ),
+      );
+      debugDefaultTargetPlatformOverride = null;
+      addTearDown(made.dispose);
+      return made;
+    }
+
+    testWidgets('is wired on iOS only', (tester) async {
+      expect(
+        (await built(tester, TargetPlatform.iOS)).clearTemporaryFiles,
+        isNotNull,
+      );
+      expect(
+        (await built(tester, TargetPlatform.android)).clearTemporaryFiles,
+        isNull,
+      );
+      expect(
+        (await built(tester, TargetPlatform.macOS)).clearTemporaryFiles,
+        isNull,
+      );
+    });
   });
 
   Future<void> pump(

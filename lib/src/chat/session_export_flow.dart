@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +18,7 @@ import 'widgets/session_export_alert.dart';
 /// The controller a screen owns for "Export chat as JSON". The file goes out
 /// through the system save sheet only: the screen's [MediaStore] saves it from
 /// memory (it never stages it), or the platform's own save where there is no
-/// store. On iOS the picker's temporary copy is not cleared yet (see below).
+/// store. On iOS the picker's temporary copy is cleared when the sheet returns.
 SessionExportController newSessionExportController(
   BuildContext context, {
   required HermesApiClient api,
@@ -35,10 +36,12 @@ SessionExportController newSessionExportController(
     api: api,
     save: save,
     telemetry: telemetry,
-    // No clear hook on any platform yet: FilePicker.clearTemporaryFiles is
-    // global and can delete a pending composer attachment on iOS. It is wired
-    // after picked files are copied out of the plugin's directory.
-    clearTemporaryFiles: null,
+    // iOS only: file_picker writes a temporary copy before the save sheet. The
+    // clear is global, which is safe because picked composer files are copied
+    // out of the plugin's directory at pick time.
+    clearTemporaryFiles: defaultTargetPlatform == TargetPlatform.iOS
+        ? FilePicker.clearTemporaryFiles
+        : null,
   );
 }
 
