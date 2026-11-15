@@ -257,6 +257,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   void _suspendActivity() {
     _ChatControllerSubagents(this)._clearSubagents();
+    _stopHandBacks.clear();
     search?.setActivity(false);
     housekeeping?.setActivity(false);
     _loadGeneration++;
@@ -1276,6 +1277,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _selectedId = runningThread!.id;
         _markRead(runningThread);
         notifyListeners();
+        _ChatControllerVoice(this)._stopHandBackSelected();
         if (!current()) return false;
         onOpened?.call();
         return true;
@@ -1323,6 +1325,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           .setMessages(_ChatControllerCheckpoints(this)._flyerOf(selected));
       if (!current()) return false;
       notifyListeners();
+      _ChatControllerVoice(this)._stopHandBackSelected();
       if (!current()) return false;
       _pickUp(selected);
       if (!current()) return false;
@@ -1441,10 +1444,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _carried.remove((_profile, thread.id));
     _rememberedSince.remove((_profile, thread.id));
     _touched.remove(thread);
+    _stopHandBacks.remove(_ChatControllerVoice(this)._stopKey(thread.id));
     _reportSurface(SurfaceTrigger.threads);
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);
+    _ChatControllerVoice(this)._stopHandBackSelected();
   }
 
   /// Asks the transport to drop a connection the OS killed during sleep, and
@@ -1969,6 +1974,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final controller = _chatControllers.remove(thread.id);
     if (_selectedId == thread.id) _selectedId = id;
     _ChatControllerCheckpoints(this)._rekeyActions(thread.id, id);
+    _ChatControllerVoice(this)._rekeyStopHandBack(thread.id, id);
     thread.id = id;
     thread.remote = true;
     _ChatControllerWorkspace(this)._workspaceCreated(thread);
@@ -1985,6 +1991,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _removeTodo((_profile, previousId));
     _removeConnector((_profile, previousId));
     _removeBilling((_profile, previousId));
+    _ChatControllerVoice(this)._rekeyStopHandBack(previousId, id);
     final controller = _chatControllers.remove(previousId);
     if (_selectedId == previousId) _selectedId = id;
     _unloaded.remove(previousId);
@@ -2033,7 +2040,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// A prompt withdrawn from a chat that was not open: its words wait for the
   /// chat to be selected, then go to the composer.
-  final _stopHandBacks = <ChatThread, String>{};
+  final _stopHandBacks = <(String, String), String>{};
 
   Future<void> stopReply(ChatThread thread) =>
       _ChatControllerRequests(this)._stopReplyImpl(thread);
