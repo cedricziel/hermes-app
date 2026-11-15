@@ -12,6 +12,7 @@ import '../chat/media/media_source.dart';
 import '../chat/media/media_store.dart';
 import '../settings/theme_controller.dart';
 import '../theme/hermes_theme.dart';
+import '../theme/material_ui_bridge.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
 import '../voice/voice_recorder.dart';
@@ -19,7 +20,6 @@ import '../windows/conversation_window_args.dart';
 import '../windows/desktop_conversation_windows.dart';
 import '../windows/window_api_client.dart';
 import 'quick_panel_screen.dart';
-import '../theme/material_ui_bridge.dart';
 
 /// Runs the quick panel's engine (macOS), which desktop_multi_window started
 /// for [windowId]. Like a conversation window it starts no telemetry or

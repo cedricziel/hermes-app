@@ -114,8 +114,17 @@ one use case per platform this way (`_onEach`).
 
 For PR screenshots without running the catalog, render use cases in a
 throwaway test with `ScreenshotRecorder` (`test/support/screenshot_recorder.dart`):
-pump `rec.frame(MaterialApp(theme: withScreenshotFont(theme), builder: (c, child)
-=> AppThemeScopes(child: child!), home: Scaffold(body: Builder(builder: useCase.builder))))` and `rec.capture`. It loads
+pump this and `rec.capture`:
+
+```dart
+rec.frame(MaterialApp(
+  theme: withScreenshotFont(theme),
+  builder: (c, child) => AppThemeScopes(child: child!),
+  home: Scaffold(body: Builder(builder: useCase.builder)),
+))
+```
+
+It loads
 real fonts, so the PNGs read like the app. Don't commit the test.
 
 ## Rules

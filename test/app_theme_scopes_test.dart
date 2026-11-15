@@ -16,10 +16,6 @@ import 'support/fake_device_authenticator.dart';
 import 'support/screenshot_recorder.dart';
 import 'support/workflow_app.dart';
 
-/// `HermesApp` and the workflow tests' `pumpScreen` must draw third-party
-/// widgets with the same theme. `gpt_markdown` reads `material_ui`'s theme from
-/// [AppThemeScopes]; without it a dark screenshot shows near-black headings
-/// the app never draws.
 /// Inherited widgets the app's chrome adds that say nothing about how a child
 /// draws: focus scopes, the ticker mode of a hidden route, the desktop
 /// navigation history and the menu bar's registry.
@@ -30,6 +26,10 @@ const _notTheme = {
   '_RegistryScope',
 };
 
+/// `HermesApp` and the workflow tests' `pumpScreen` must draw third-party
+/// widgets with the same theme. `gpt_markdown` reads `material_ui`'s theme from
+/// [AppThemeScopes]; without it a dark screenshot shows near-black headings
+/// the app never draws.
 void main() {
   Color headingColor(WidgetTester tester) {
     final span = tester
@@ -146,7 +146,7 @@ void main() {
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'pumpScreen inherits the same theme widgets as HermesApp (${brightness.name})',
+      'pumpScreen (${brightness.name}) inherits the same theme widgets as HermesApp',
       (tester) async {
         await pumpHermesApp(tester);
         final app = inheritedAbove(tester, find.byType(Navigator).first);
@@ -165,19 +165,25 @@ void main() {
     );
   }
 
-  test('every engine that builds a MaterialApp mounts AppThemeScopes', () {
+  test('every source file that builds an app mounts AppThemeScopes', () {
     // The conversation window and the quick panel are engines of their own
     // that `runApp` a MaterialApp, which no test can start without native
-    // channels, so check their source.
-    final missing = [
-      for (final f in Directory('lib').listSync(recursive: true))
-        if (f is File &&
-            f.path.endsWith('.dart') &&
-            !f.path.contains('generated') &&
-            f.readAsStringSync().contains('MaterialApp(') &&
-            !f.readAsStringSync().contains('AppThemeScopes('))
-          f.path,
-    ];
-    expect(missing, isEmpty);
+    // channels, so this reads the source: comments are stripped, then a file
+    // may not build more apps than it mounts scopes.
+    final apps = RegExp(
+      r'\b(?:MaterialApp(?:\.router)?|CupertinoApp|WidgetsApp)\(',
+    );
+    final scopes = RegExp(r'\bAppThemeScopes\(');
+    final comments = RegExp(r'//[^\n]*|/\*[\s\S]*?\*/');
+    final short = <String>[];
+    for (final f in Directory('lib').listSync(recursive: true)) {
+      if (f is! File || !f.path.endsWith('.dart')) continue;
+      if (f.path.contains('generated')) continue;
+      final code = f.readAsStringSync().replaceAll(comments, '');
+      if (apps.allMatches(code).length > scopes.allMatches(code).length) {
+        short.add(f.path);
+      }
+    }
+    expect(short, isEmpty);
   });
 }

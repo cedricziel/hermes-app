@@ -39,9 +39,12 @@ To see one widget in every state without a flow around it, use the
   theme scopes inside `AppThemeScopes`. `test/app_theme_scopes_test.dart` compares
   the theme-like inherited widgets above the `Navigator` in `HermesApp` and
   `pumpScreen` (a scope added in `app.dart` that the harness lacks fails it; a
-  chrome-only inherited widget goes on its `_notTheme` list) and checks that every
-  `MaterialApp` in `lib/` (the conversation window and quick panel engines too)
-  mounts `AppThemeScopes`.
+  chrome-only inherited widget goes on its `_notTheme` list) and, as a source check
+  (comments stripped, a file may not build more `MaterialApp`, `.router`,
+  `CupertinoApp` or `WidgetsApp` constructors than `AppThemeScopes(` calls), that
+  every app in `lib/` (the conversation window and quick panel engines too)
+  mounts it. It does not catch a scope added between the `Navigator` and a
+  route, or a value changed inside an existing type such as `scrollBehavior`.
 - Fonts must be loaded inside the test body (`shots.start` does it). Loaded in a
   `setUpAll` they are ignored, and all text is drawn as black boxes.
 - Text with no font family (the AppBar title, some third-party widgets such as
