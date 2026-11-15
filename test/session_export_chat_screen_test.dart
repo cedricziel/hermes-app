@@ -11,6 +11,8 @@ import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/chat/session_export_flow.dart';
+import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/voice/widgets/voice_recording_controls.dart';
 import 'package:hermes_app/src/chat/widgets/session_export_alert.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
@@ -241,6 +243,65 @@ void main() {
     final send = tester.getRect(find.byType(HoldToRecordSend));
     expect(bar.overlaps(send), isFalse, reason: '$bar covers send $send');
     expect(bar.bottom, lessThanOrEqualTo(send.top));
+  });
+
+  testWidgets(
+    '"Chat saved" sits just above the composer with the keyboard open',
+    (tester) async {
+      await pump(tester, size: const Size(390, 844));
+      await tester.tap(find.text('Run failure').first);
+      await frames(tester);
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: 300 * tester.view.devicePixelRatio,
+      );
+      addTearDown(tester.view.resetViewInsets);
+      await frames(tester);
+
+      commands.invoke(MacCommand.exportThread);
+      await frames(tester);
+      await tester.tap(find.text('Export'));
+      await frames(tester);
+
+      final bar = tester.getRect(
+        find
+            .descendant(
+              of: find.byType(SnackBar),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      final composer = tester.getRect(find.byKey(chatComposerKey));
+      final send = tester.getRect(find.byType(HoldToRecordSend));
+      expect(bar.overlaps(send), isFalse, reason: '$bar covers send $send');
+      expect(
+        composer.top - bar.bottom,
+        closeTo(16, 1),
+        reason: 'bar $bar, composer $composer',
+      );
+    },
+  );
+
+  testWidgets('"Chat saved" still shows when the composer cannot be measured', (
+    tester,
+  ) async {
+    await pump(tester, size: const Size(390, 844));
+    await tester.tap(find.text('Run failure').first);
+    await frames(tester);
+
+    debugSessionExportMeasureHook = () => throw StateError('no size');
+    addTearDown(() => debugSessionExportMeasureHook = null);
+    commands.invoke(MacCommand.exportThread);
+    await frames(tester);
+    await tester.tap(find.text('Export'));
+    await frames(tester);
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Chat saved'), findsOneWidget);
+    final margin = tester
+        .widget<SnackBar>(find.byType(SnackBar))
+        .margin!
+        .resolve(TextDirection.ltr);
+    expect(margin, const EdgeInsets.all(16));
   });
 
   testWidgets('a cancelled save sheet shows no snack bar', (tester) async {

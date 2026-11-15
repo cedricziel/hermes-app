@@ -133,36 +133,51 @@ const _snackBarInset = 16.0;
 /// composer sits in the body, so without this the bar covers the send button.
 EdgeInsets _aboveComposer(BuildContext context) {
   const inset = EdgeInsets.all(_snackBarInset);
-  Element? composer;
-  void find(Element element) {
-    if (composer != null) return;
-    if (element.widget.key == chatComposerKey) {
-      composer = element;
-      return;
+  // The save already succeeded: a measuring failure must not cost the notice.
+  try {
+    debugSessionExportMeasureHook?.call();
+    Element? composer;
+    void find(Element element) {
+      if (composer != null) return;
+      if (element.widget.key == chatComposerKey) {
+        composer = element;
+        return;
+      }
+      element.visitChildren(find);
     }
-    element.visitChildren(find);
-  }
 
-  (context as Element).visitChildren(find);
-  final found = composer;
-  final scaffold = found == null ? null : Scaffold.maybeOf(found);
-  final box = found?.renderObject;
-  final scaffoldBox = scaffold?.context.findRenderObject();
-  if (found == null ||
-      box is! RenderBox ||
-      !box.attached ||
-      scaffoldBox is! RenderBox ||
-      !scaffoldBox.attached) {
+    (context as Element).visitChildren(find);
+    final found = composer;
+    final scaffold = found == null ? null : Scaffold.maybeOf(found);
+    final box = found?.renderObject;
+    final scaffoldBox = scaffold?.context.findRenderObject();
+    if (found == null ||
+        scaffold == null ||
+        box is! RenderBox ||
+        !box.attached ||
+        !box.hasSize ||
+        scaffoldBox is! RenderBox ||
+        !scaffoldBox.attached ||
+        !scaffoldBox.hasSize) {
+      return inset;
+    }
+    // The Scaffold strips the keyboard inset from its body's MediaQuery, so
+    // it is read from the Scaffold's own context; the body ends above it.
+    final composerTop = box.localToGlobal(Offset.zero).dy;
+    final contentBottom =
+        scaffoldBox.localToGlobal(Offset(0, scaffoldBox.size.height)).dy -
+        MediaQuery.viewInsetsOf(scaffold.context).bottom;
+    final bottom = contentBottom - composerTop + _snackBarInset;
+    if (!bottom.isFinite) return inset;
+    return inset.copyWith(bottom: max(_snackBarInset, bottom));
+  } on Object {
     return inset;
   }
-  final composerTop = box.localToGlobal(Offset.zero).dy;
-  final contentBottom =
-      scaffoldBox.localToGlobal(Offset(0, scaffoldBox.size.height)).dy -
-      MediaQuery.viewInsetsOf(found).bottom;
-  return inset.copyWith(
-    bottom: max(_snackBarInset, contentBottom - composerTop + _snackBarInset),
-  );
 }
+
+/// Runs inside [_aboveComposer]'s measuring; a test makes it throw.
+@visibleForTesting
+void Function()? debugSessionExportMeasureHook;
 
 class _SessionExportDialog extends StatefulWidget {
   const _SessionExportDialog({
