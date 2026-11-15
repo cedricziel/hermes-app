@@ -258,7 +258,9 @@ void main() {
           final controller = BotScreenController(
             BotScreenRepository(recordedRpc),
             const Stream.empty(),
-            profile: chat.profile,
+            // ChatScreen._syncBotScreen: a chat on the server's default
+            // profile names none, and display calls always name one.
+            profile: chat.profile ?? kDefaultProfile,
           );
           final watch = controller.watch(frames: false);
           await _until(
@@ -390,19 +392,14 @@ void main() {
         // AppShell._resolveServerCareProfile: the server's own default.
         final name = serverDefaultProfile(await profiles.loadActive());
         expect(name, isNotNull);
-        final availability = ToolsAvailability(
-          HermesToolsRepository(api.raw, profile: ''),
-        );
+        final availability = ToolsAvailability(HermesToolsRoot(api.raw));
         addTearDown(availability.dispose);
         // AppShell._followToolsProfile
         await availability.refresh(name!);
         // ChatScreen._openTools
         final opened = toolsProfileFor(chat.profile, availability);
         expect(opened, isNotNull);
-        await HermesToolsRepository(
-          api.raw,
-          profile: '',
-        ).forProfile(opened!).list();
+        await HermesToolsRoot(api.raw).forProfile(opened!).list();
       });
       check('Tools /api/tools/toolsets', profilesSent);
     });
