@@ -391,7 +391,7 @@ jobs:
         run: flutter pub get
 
       - name: Test native voice codecs
-        run: flutter test test/voice/native_voice_player_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
+        run: flutter test test/voice/native_voice_player_test.dart test/voice/native_voice_player_session_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
 
   # Builds the release bundle and packages it exactly as the release workflow
   # does, so a broken tarball or .deb shows up on the PR instead of at release.

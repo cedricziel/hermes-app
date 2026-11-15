@@ -56,7 +56,7 @@ class NativeVoicePlayer extends VoicePlayer {
         _completed = value;
         if (value) {
           _playing = false;
-          if (!VoiceAudioFocus.shared.inCall) unawaited(_audio.release(this));
+          unawaited(_giveBack());
         }
         notifyListeners();
       }, onError: _onError),
@@ -139,11 +139,18 @@ class NativeVoicePlayer extends VoicePlayer {
       throw StateError('Audio focus unavailable');
     }
     if (_disposed || intent != _intent || VoiceAudioFocus.shared.inCall) {
-      if (!VoiceAudioFocus.shared.inCall) await _audio.release(this);
+      await _giveBack();
       return;
     }
     await _player.play();
   }
+
+  // A call that has taken the session (it is the focus owner before it pauses
+  // the players) is told nothing by this player: it is only dropped from the
+  // session's owners, so a later recording finds the session free.
+  Future<void> _giveBack() => VoiceAudioFocus.shared.inCall
+      ? _audio.forget(this)
+      : _audio.release(this);
 
   Future<void> _prepareSession() async {
     final session = await AudioSession.instance;
@@ -165,7 +172,7 @@ class NativeVoicePlayer extends VoicePlayer {
     ++_intent;
     await _sessionReady?.catchError((Object _) {});
     await _player.pause();
-    if (!VoiceAudioFocus.shared.inCall) await _audio.release(this);
+    await _giveBack();
   }
 
   @override
@@ -179,7 +186,7 @@ class NativeVoicePlayer extends VoicePlayer {
       unawaited(subscription.cancel());
     }
     unawaited(_player.dispose().catchError((Object _) {}));
-    if (!VoiceAudioFocus.shared.inCall) unawaited(_audio.release(this));
+    unawaited(_giveBack());
     VoiceAudioFocus.shared.removeListener(_focusChanged);
     super.dispose();
   }

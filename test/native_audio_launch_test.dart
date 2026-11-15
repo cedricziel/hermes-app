@@ -21,6 +21,21 @@ final _forbidden = RegExp(
   r'setVoiceProcessingEnabled|requestRecordPermission',
 );
 
+/// What runs at launch may not call a helper that builds either: the
+/// `make...` factories and any use of the engine count as building.
+final _launchForbidden = RegExp(
+  '${_forbidden.pattern}|\\bmake\\w*\\(|\\bengine\\.',
+);
+
+String _stripComments(String source) =>
+    source.replaceAll(RegExp(r'//[^\n]*'), '');
+
+/// Every brace block that opens after an `init(` of any signature.
+Iterable<String> _initBlocks(String source) => [
+  for (final match in RegExp(r'\binit\(').allMatches(source))
+    _block(source, source.substring(match.start)),
+];
+
 /// The text of the brace block that opens after [header].
 String _block(String source, String header) {
   final start = source.indexOf(header);
@@ -45,20 +60,27 @@ String _members(String source) => source
 
 void main() {
   test('the calls plugin builds nothing audio or CallKit at launch', () {
-    final source = File(_calls).readAsStringSync();
+    final source = _stripComments(File(_calls).readAsStringSync());
 
     expect(
       _block(source, 'static func register('),
-      isNot(contains(_forbidden)),
+      isNot(contains(_launchForbidden)),
     );
-    expect(_block(source, 'override init()'), isNot(contains(_forbidden)));
-    expect(_members(source), isNot(contains(_forbidden)));
+    final inits = _initBlocks(source);
+    expect(inits, isNotEmpty);
+    for (final body in inits) {
+      expect(body, isNot(contains(_launchForbidden)));
+    }
+    expect(_members(source), isNot(contains(_launchForbidden)));
   });
 
   test('call audio wires its engine only when started', () {
-    final source = File(_callAudio).readAsStringSync();
+    final source = _stripComments(File(_callAudio).readAsStringSync());
 
-    expect(source, isNot(contains('  init()')));
+    for (final body in _initBlocks(source)) {
+      expect(body, isNot(contains(_launchForbidden)));
+    }
+    expect(source, isNot(contains(RegExp(r'\binit\('))));
     expect(_block(source, 'func start()'), contains('mainMixerNode'));
     expect(
       _members(source).replaceAll('AVAudioEngine()', ''),
@@ -67,12 +89,15 @@ void main() {
   });
 
   test('the speech plugin builds no audio at launch', () {
-    final source = File(_speech).readAsStringSync();
+    final source = _stripComments(File(_speech).readAsStringSync());
 
     expect(
       _block(source, 'static func register('),
-      isNot(contains(_forbidden)),
+      isNot(contains(_launchForbidden)),
     );
+    for (final body in _initBlocks(source)) {
+      expect(body, isNot(contains(_launchForbidden)));
+    }
     expect(_members(source), isNot(contains(_forbidden)));
   });
 

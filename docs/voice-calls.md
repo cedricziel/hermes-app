@@ -239,8 +239,11 @@ but never deactivates it, so `VoiceAudioSession`
 deactivates it with `notifyOthersOnDeactivation` afterwards (Android: audio
 focus is given back); voice-message playback and read-aloud use the same owner,
 each starting from its own category, so a spoken reply after a recording plays
-as playback again. Playback pauses other audio instead of ducking it, because
-libmpv's own output, not the app's session, would decide whether ducking holds.
+as playback again. On iOS playback pauses other audio instead of ducking it, because
+libmpv's own output, not the app's session, would decide whether ducking holds;
+on Android playback asks for transient focus that may duck, so other apps may
+lower their volume instead of pausing, and a recording asks for plain
+transient focus.
 Manual iPhone check: play music, record, stop: the music resumes within about
 two seconds; the same on cancel, after a failed recording (microphone denied)
 and with Bluetooth headphones connected.

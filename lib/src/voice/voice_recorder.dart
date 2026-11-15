@@ -40,7 +40,9 @@ class RecordVoiceRecorder implements VoiceRecorder {
   @override
   Future<Stream<Uint8List>> start({required int sampleRate}) async {
     final inCall = VoiceAudioFocus.shared.inCall;
-    if (!inCall) await _session.acquire(this, voiceRecordingSession);
+    if (!inCall) {
+      await _session.acquire(this, voiceRecordingSession, reconfigure: true);
+    }
     try {
       return await _recorder.startStream(
         RecordConfig(
