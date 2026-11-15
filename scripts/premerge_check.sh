@@ -29,11 +29,14 @@
 # --others. The caller's working tree, index, branch and stash are never
 # touched; nothing is pushed.
 #
-# A SIGKILL cannot be trapped and leaves refs/premerge/<pid>, a premerge.*
-# temp dir and its registered worktree behind. The next run sweeps those whose
-# pid is dead (the pid file is <tempdir>/pid). --keep removes the pid file, so a
-# kept worktree is never swept. A run from another pid namespace (container) is
-# never swept: its pid means nothing here.
+# A SIGKILL cannot be trapped and leaves refs/premerge/<host>.<ns>.<pid>, a
+# premerge.* temp dir and its registered worktree behind. The next run sweeps
+# those whose pid is dead (the pid file is <tempdir>/pid), and only when host
+# and pid namespace match too: a pid from another host or container means
+# nothing here (an unknown namespace, "-" or "x", matches any). --keep removes
+# the pid file, so a kept worktree is never swept. Leftovers of older versions
+# (refs/premerge/<pid>) are never swept; an old 4-field pid file is swept when
+# its host and repo match and its pid is dead.
 set -euo pipefail
 
 # An inherited git environment would aim every git call below at the caller's
@@ -184,15 +187,20 @@ STACK_DESC=""
 for s in ${STACK[@]+"${STACK[@]}"}; do STACK_DESC="$STACK_DESC #$s"; done
 STACK_DESC="${STACK_DESC# }"
 
-NS="refs/premerge/$$"
+OUR_NS="$(readlink /proc/self/ns/pid 2>/dev/null || true)"
+OUR_NS="${OUR_NS:--}"
+# Ref names cannot hold "[" or ":", so the run's refs carry the host and the
+# namespace id as plain characters: refs/premerge/<host>.<ns>.<pid>/...
+HOSTTAG="$(printf '%s' "$HOST" | tr -c 'A-Za-z0-9-' '_')"
+NSTAG="${OUR_NS//[^0-9]/}"
+NSTAG="${NSTAG:-x}"
+NS="refs/premerge/$HOSTTAG.$NSTAG.$$"
 TMP=""
 WT=""
 WT_ADMIN=""
 CHILD=""
 WATCH=""
 STAGE="setup"
-OUR_NS="$(readlink /proc/self/ns/pid 2>/dev/null || true)"
-OUR_NS="${OUR_NS:--}"
 
 kill_tree() {
   local pid="$1" kid
@@ -279,6 +287,13 @@ pid_dead() {
 read_marker() {
   local tag
   IFS=' ' read -r tag M_PID M_HOST M_NS M_COMMON <"$1/pid" 2>/dev/null || return 1
+  case "$M_NS" in
+    - | pid:\[*\]) ;;
+    *) # old 4-field marker (no namespace): the repo path was read into M_NS
+      M_COMMON="$M_NS${M_COMMON:+ $M_COMMON}"
+      M_NS="-"
+      ;;
+  esac
   [ "$tag" = premerge_check ] && is_num "$M_PID"
 }
 
@@ -295,13 +310,20 @@ is_dead_run_of_ours() {
 }
 
 sweep_dead_runs() {
-  local ref p admin gitdir dir
+  local ref p admin gitdir dir rhost rns rpid
   for ref in $("${RGIT[@]}" for-each-ref --format='%(refname)' refs/premerge 2>/dev/null || true); do
     p="${ref#refs/premerge/}"
     p="${p%%/*}"
-    is_num "$p" || continue
-    [ "$p" = "$$" ] && continue
-    if pid_dead "$p"; then "${RGIT[@]}" update-ref -d "$ref" 2>/dev/null || true; fi
+    [ "$p" = "${NS#refs/premerge/}" ] && continue
+    case "$p" in *.*.*) ;; *) continue ;; esac # legacy refs/premerge/<pid>: keep
+    rhost="${p%%.*}"
+    rpid="${p#*.}"
+    rns="${rpid%%.*}"
+    rpid="${rpid#*.}"
+    is_num "$rpid" || continue
+    [ "$rhost" = "$HOSTTAG" ] || continue
+    if [ "$rns" != "$NSTAG" ] && [ "$rns" != x ] && [ "$NSTAG" != x ]; then continue; fi
+    if pid_dead "$rpid"; then "${RGIT[@]}" update-ref -d "$ref" 2>/dev/null || true; fi
   done
   for admin in "$COMMON"/worktrees/*; do
     [ -f "$admin/gitdir" ] || continue

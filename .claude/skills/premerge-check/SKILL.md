@@ -49,9 +49,11 @@ What it does, in order:
    nothing is pushed.
 4. Runs `flutter pub get`, `flutter analyze --no-pub`,
    `flutter test --no-pub test/architecture` there, timing each step.
-5. Selects and runs the affected tests (below), with `python3`
-   (`scripts/premerge_affected_tests.py`, taken from the script's own checkout,
-   never from the PR).
+5. Selects and runs the affected tests (below), with `python3`. The selection
+   script (`scripts/premerge_affected_tests.py`) is the one beside the script
+   you run, not the PR's copy. Run `scripts/premerge_check.sh` from a checkout
+   of origin/main, not from the PR branch: that is what keeps both scripts out
+   of the PR's control.
 
 ### Affected tests
 
@@ -59,23 +61,32 @@ The deduplicated union, in this priority order, of:
 
 - (a) test files (`test/**/*_test.dart`) changed by the PR, merge base to head;
 - (b) test files changed on main since the merge base;
-- (c1) test files that import (directly) any `lib/` file the PR changes;
+- (c1) test files that import (directly) any `lib/` file the PR changes, or any
+  changed test helper (a non-`_test.dart` Dart file under `test/`, such as
+  `test/support/`); with an ARB or `l10n.yaml` change, also every test under
+  `test/l10n*`;
 - (c2) for each `lib/src/<dir>/` the PR touches, every test file that imports
-  any file under it.
+  any file under it, or imports a test helper that does (one level); an ARB or
+  `l10n.yaml` change adds `lib/l10n/` as such a directory (importers of the
+  localizations entry; it can be broad, so it is cut by the cap, and the
+  `test/l10n*` tests in (c1) always run).
 
 With `--stack`, each stacked PR contributes to all four (its own merge base).
 Imports match as `package:<pubspec name>/...` and as relative imports. One level
 of re-export is followed: a lib file that `export`s a changed file counts as
-changed for (c1). A change to a `part` file counts as a change to its library.
-Deleted test files are never run; renames count both sides (`--no-renames`);
-file names travel NUL-safely. Test files live flat under `test/` plus
-`test/workflows/`, so selection is by import, never by directory name.
+changed for (c1), for lib files and test helpers alike. A change to a `part`
+file counts as a change to its library. Deleted test files are never run;
+renames count both sides (`--no-renames`); file names travel NUL-safely. Test
+files live at any depth (`test/**/*_test.dart`), so selection is by import,
+never by directory name.
 
-It does NOT follow: imports beyond one level (a test reaching `lib/` through
-`test/support/` or through a re-export of a re-export), conditional imports
+It does NOT follow: imports beyond one level (a test reaching a changed `lib/`
+file through a test helper in (c1), a helper that imports another helper that
+imports a touched directory, a re-export of a re-export), conditional imports
 (only the first URI counts), tests that reach code only through `widgetbook/` or
-generated code, changes to test helpers that are not `*_test.dart`, and changes
-outside `lib/` and `test/` (`packages/`, `ios/`, assets). A green run is not a
+generated code (an ARB change selects by the generated entry's path, not by which
+strings a test reads), and changes outside `lib/`, `test/` and `l10n.yaml`
+(`packages/`, `ios/`, assets). A green run is not a
 full test run; CI's shards remain the full check.
 
 Environment (positive integers; a bad value exits 1):
@@ -91,19 +102,25 @@ Over the cap it prints `affected tests: CAPPED` and names the `lib/src`
 directories whose (c2) tests were skipped. The PASS line says
 `affected tests: N files run` (N may be 0; nothing is run then) and `CAPPED` when
 it applies. A budget cut prints `affected tests CUT SHORT after N/M files
-(budget X s); not a pass` and lists the files not run: exit 6, never 0.
+(budget X s); not a pass` and lists the files not run: exit 6, never 0. A
+failure in a batch that ran before the cut exits 5, not 6, and the cut notice is
+printed too.
 
 The worktree, temp dir and refs are removed on every exit, including failure,
 INT, TERM and HUP. `--keep` leaves the worktree and prints how to remove it.
-A SIGKILL cannot be trapped: it leaves `refs/premerge/<pid>`, a temp dir and
-its worktree behind, and the next run sweeps those whose pid is dead (ps and
-`kill -0` both fail; another user's live run counts as alive). It only touches
-directories directly under `$TMPDIR` (or `/tmp`) named `premerge.XXXXXX` that
-hold the script's own marker file `pid`: `premerge_check <pid> <host>
-<pid-namespace> <git-common-dir>`, matching this host, repo and pid namespace
-(`readlink /proc/self/ns/pid`; `-` where there is no `/proc`). A run from another
-pid namespace, such as another container sharing the temp dir, counts as alive. A `premerge.*` folder anywhere
-else, or without the marker, is never removed. A `TMPDIR` inside the repo is
+A SIGKILL cannot be trapped: it leaves `refs/premerge/<host>.<ns>.<pid>/...`, a
+temp dir and its worktree behind, and the next run sweeps those whose pid is
+dead (ps and `kill -0` both fail; another user's live run counts as alive). The
+ref name carries the host and the pid-namespace id, so a run of another host or
+container is not swept; refs of the older `refs/premerge/<pid>` form are never
+swept. It only touches directories directly under `$TMPDIR` (or `/tmp`) named
+`premerge.XXXXXX` that hold the script's own marker file `pid`: `premerge_check
+<pid> <host> <pid-namespace> <git-common-dir>`, matching this host, repo and pid
+namespace (`readlink /proc/self/ns/pid`; `-` where there is no `/proc`, which
+matches any). A run from another pid namespace, such as another container
+sharing the temp dir, counts as alive. An old 4-field marker (no namespace) is
+swept when host and repo match and its pid is dead. A `premerge.*` folder
+anywhere else, or without the marker, is never removed. A `TMPDIR` inside the repo is
 replaced by `/tmp`. A full run takes about two minutes.
 
 ## Exit codes and what to do

@@ -10,9 +10,12 @@ The union, in this priority order, deduplicated:
 
   (a)  test files (test/**/*_test.dart) the PRs changed, merge base to PR head
   (b)  test files changed on main since each merge base
-  (c1) test files that import, directly, a lib/ file the PRs changed
-  (c2) for each lib/src/<dir>/ a PR touches, every test file that imports any
-       file under it
+  (c1) test files that import, directly, a lib/ file or a test helper (a
+       non-_test.dart file under test/) the PRs changed; with an ARB or
+       l10n.yaml change, also the tests under test/l10n*
+  (c2) for each lib/src/<dir>/ a PR touches (and lib/l10n/ for an ARB or
+       l10n.yaml change), every test file that imports any file under it, or
+       imports a test helper that does (one level)
 
 (a), (b) and (c1) are always kept whole. (c2) is dropped beyond --cap files.
 
@@ -21,11 +24,13 @@ imports, resolved to repo paths. One level of re-export is followed (a lib file
 that `export`s a changed file counts as changed). A change to a `part` file
 counts as a change to its library. Deleted test files are never selected.
 
-NOT followed: imports further than one level (a test reaching lib/ through
-test/support/ or through a re-export of a re-export), conditional imports
-(`import 'a.dart' if (...) 'b.dart'` counts only 'a.dart'), tests that reach code
-only through widgetbook/ or generated code, changes to test helpers that are not
-*_test.dart files, and anything outside lib/ and test/ (packages/, ios/, assets).
+NOT followed: imports further than one level (a test reaching a changed lib/ file
+through a test helper in (c1), a test reaching a touched directory through a
+helper that imports another helper, a re-export of a re-export), conditional
+imports (`import 'a.dart' if (...) 'b.dart'` counts only 'a.dart'), tests that
+reach code only through widgetbook/ or generated code (an ARB change selects by
+the generated entry's path, not by which strings a test reads), and anything
+outside lib/, test/ and l10n.yaml (packages/, ios/, assets).
 """
 
 import argparse
@@ -132,14 +137,20 @@ def main():
 
     pkg = package_name(repo)
     lib = scan(repo, "lib", pkg)
-    tests = {t: d for t, d in scan(repo, "test", pkg).items() if TEST_RE.match(t)}
+    test_files = scan(repo, "test", pkg)
+    tests = {t: d for t, d in test_files.items() if TEST_RE.match(t)}
+    helpers = {t: d for t, d in test_files.items() if not TEST_RE.match(t)}
 
     changed_tests, main_tests, changed_lib = set(), set(), set()
+    l10n_changed = False
     for mb, head in args.pr:
         for n in git_names(repo, mb, head):
+            if n.startswith("lib/l10n/") or n == "l10n.yaml":
+                l10n_changed = True
             if TEST_RE.match(n):
                 changed_tests.add(n)
-            elif n.startswith("lib/") and n.endswith(".dart"):
+            elif n.endswith(".dart") and (n.startswith("lib/") or n.startswith("test/")):
+                # lib/ files and test helpers (test/support/...) are sources
                 changed_lib.add(n)
         for n in git_names(repo, mb, args.main_tip):
             if TEST_RE.match(n):
@@ -152,14 +163,16 @@ def main():
     group_b = present(main_tests)
 
     # A part file's change is its library's change.
+    graph = dict(lib)
+    graph.update(helpers)
     libs = set(changed_lib)
-    for f, directives in lib.items():
+    for f, directives in graph.items():
         for kind, target in directives:
             if kind == "part" and target in changed_lib:
                 libs.add(f)
     # One level of re-export.
     direct = set(libs)
-    for f, directives in lib.items():
+    for f, directives in graph.items():
         for kind, target in directives:
             if kind == "export" and target in libs:
                 direct.add(f)
@@ -173,16 +186,40 @@ def main():
             )
         )
 
-    group_c1 = importers(lambda target: target in direct)
-
-    dirs = sorted(
-        {
-            "/".join(f.split("/")[:3]) + "/"
-            for f in changed_lib
-            if f.startswith("lib/src/") and f.count("/") >= 3
-        }
+    # An ARB or l10n.yaml change regenerates the localizations: the l10n tests
+    # always run (c1); every importer of lib/l10n/ is a capped (c2) group.
+    l10n_tests = [t for t in sorted(tests) if t.startswith("test/l10n")]
+    group_c1 = sorted(
+        set(importers(lambda target: target in direct))
+        | (set(l10n_tests) if l10n_changed else set())
     )
-    c2 = [(d, importers(lambda target, d=d: target.startswith(d))) for d in dirs]
+
+    dirs = {
+        "/".join(f.split("/")[:3]) + "/"
+        for f in changed_lib
+        if f.startswith("lib/src/") and f.count("/") >= 3
+    }
+    if l10n_changed:
+        dirs.add("lib/l10n/")
+    dirs = sorted(dirs)
+
+    def reach(d):
+        """Importers of anything under d, plus, one level further, importers of
+        a test helper that imports something under d."""
+        via = {
+            h
+            for h, directives in helpers.items()
+            if any(
+                k in ("import", "export") and target.startswith(d)
+                for k, target in directives
+            )
+        }
+        return sorted(
+            set(importers(lambda target: target.startswith(d)))
+            | set(importers(lambda target: target in via))
+        )
+
+    c2 = [(d, reach(d)) for d in dirs]
 
     selected, seen = [], set()
     for group in (group_a, group_b, group_c1):
@@ -220,9 +257,9 @@ def main():
     )
     print("(a) changed by the PR(s): %d" % len(group_a))
     print("(b) changed on main since the merge base: %d" % len(group_b))
-    print("(c1) import a changed lib file: %d" % len(group_c1))
+    print("(c1) import a changed lib file or test helper: %d" % len(group_c1))
     print(
-        "(c2) import anything under a touched lib/src/<dir>/ (%s): %d added"
+        "(c2) import (or import a test helper importing) anything under a touched dir (%s): %d added"
         % (", ".join(dirs) or "no directory", added)
     )
     for t in selected:

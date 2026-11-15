@@ -964,6 +964,17 @@ class PremergeTest(unittest.TestCase):
         "test/transitive_test.dart": "import 'support/helper.dart';\n",
         "test/support/helper.dart":
             "import 'package:hermes_app/src/kanban/kanban_model.dart';\n",
+        "test/support/outer_helper.dart": "import 'helper.dart';\n",
+        "test/support/helper_barrel.dart": "export 'helper.dart';\n",
+        "test/deep_test.dart": "import 'support/outer_helper.dart';\n",
+        "test/helper_barrel_test.dart": "import 'support/helper_barrel.dart';\n",
+        "lib/l10n/l10n.dart": "// entry\n",
+        "lib/l10n/arb/app_en.arb": "{}\n",
+        "test/l10n/l10n_test.dart":
+            "import 'package:hermes_app/l10n/l10n.dart';\n",
+        "test/l10n_extra_test.dart": "void main() {}\n",
+        "test/uses_l10n_test.dart":
+            "import 'package:hermes_app/l10n/l10n.dart';\n",
         "test/other_pkg_test.dart":
             "import 'package:other_pkg/src/kanban/kanban_model.dart';\n",
         "test/conditional_test.dart":
@@ -993,15 +1004,17 @@ class PremergeTest(unittest.TestCase):
                 "test/kanban_direct_test.dart",
                 "test/shared_barrel_test.dart",
                 # (c2): every other importer of anything under lib/src/kanban/,
-                # relative imports and subdirectories included. Not selected:
-                # a re-export of a re-export, transitive, conditional, another
-                # package, unrelated.
+                # relative imports and subdirectories included, and through one
+                # test helper (transitive_test). Not selected: a re-export of a
+                # re-export, a helper of a helper (deep_test), conditional,
+                # another package, unrelated.
                 "test/kanban_card_test.dart",
                 "test/kanban_screen_test.dart",
+                "test/transitive_test.dart",
                 "test/workflows/kanban_extras_workflow_test.dart",
             ],
         )
-        self.assertIn("affected tests: 6 files run", r.stdout)
+        self.assertIn("affected tests: 7 files run", r.stdout)
         self.assertNotIn("CAPPED", r.stdout)
 
     def test_cap_drops_only_c2_and_names_the_directories(self):
@@ -1043,8 +1056,8 @@ class PremergeTest(unittest.TestCase):
     def test_cap_that_fits_everything_is_not_capped(self):
         self.fixture()
         self.pr(10, {"lib/src/kanban/kanban_model.dart": "// changed\n"})
-        r = self.run_check(10, PREMERGE_TEST_CAP="6")
-        self.assertEqual(len(self.ran()), 6)
+        r = self.run_check(10, PREMERGE_TEST_CAP="7")
+        self.assertEqual(len(self.ran()), 7)
         self.assertNotIn("CAPPED", r.stdout)
 
     def test_part_file_change_selects_the_library_importers(self):
@@ -1101,13 +1114,52 @@ class PremergeTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("test/chat_test.dart", self.ran())
 
-    def test_changed_test_helpers_are_not_followed(self):
-        # Documented limit: only *_test.dart files count as tests.
+    def test_changed_test_helper_selects_its_importers_one_level(self):
         self.fixture()
         self.pr(10, {"test/support/helper.dart": "// edited\n"})
         r = self.run_check(10)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(self.ran(), [])
+        # direct importer and importer of a re-export of the helper; not
+        # deep_test, which reaches it through another helper
+        self.assertEqual(
+            self.ran(), ["test/helper_barrel_test.dart", "test/transitive_test.dart"]
+        )
+
+    def test_arb_change_selects_l10n_tests_then_entry_importers(self):
+        self.fixture()
+        self.pr(10, {"lib/l10n/arb/app_en.arb": '{"a": "b"}\n'})
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(
+            self.ran(),
+            [
+                "test/l10n/l10n_test.dart",  # test/l10n* always (c1)
+                "test/l10n_extra_test.dart",
+                "test/uses_l10n_test.dart",  # (c2) importer of lib/l10n/
+            ],
+        )
+
+    def test_arb_change_under_a_small_cap_keeps_l10n_tests_and_names_the_dir(self):
+        self.fixture()
+        self.pr(10, {"lib/l10n/arb/app_de.arb": '{"a": "b"}\n'})
+        r = self.run_check(10, PREMERGE_TEST_CAP="1")
+        self.assertEqual(
+            self.ran(), ["test/l10n/l10n_test.dart", "test/l10n_extra_test.dart"]
+        )
+        line = [l for l in r.stdout.splitlines() if l.startswith("affected tests: CAPPED")]
+        self.assertIn("lib/l10n/", line[0])
+
+    def test_l10n_yaml_change_selects_like_an_arb_change(self):
+        self.fixture()
+        self.pr(10, {"l10n.yaml": "arb-dir: lib/l10n/arb\n"})
+        r = self.run_check(10)
+        self.assertEqual(len(self.ran()), 3, r.stdout)
+
+    def test_non_l10n_change_does_not_select_l10n_tests(self):
+        self.fixture()
+        self.pr(10, {"lib/src/chat/c.dart": "changed\n"})
+        self.run_check(10)
+        self.assertEqual(self.ran(), ["test/chat_test.dart"])
 
     def test_the_budget_covers_the_whole_affected_run(self):
         self.fixture()
@@ -1115,7 +1167,7 @@ class PremergeTest(unittest.TestCase):
         r = self.run_check(10, PREMERGE_TEST_BUDGET="3", PREMERGE_TEST_BATCH="1",
                            STUB_SLEEP_ALL="2")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertIn("CUT SHORT after 1/6 files", r.stderr)
+        self.assertIn("CUT SHORT after 1/7 files", r.stderr)
 
     def test_the_incident_workflow_test_is_selected(self):
         # #1196 rewrote the workflow test on main; #1213 changed the screen.
@@ -1208,7 +1260,7 @@ class PremergeTest(unittest.TestCase):
         self.assertNotIn("test/kanban_barrel_test.dart", block)
         self.assertNotIn("test/kanban_screen_test.dart", block)
         self.assertNotIn("PASS", r.stdout)
-        self.assertEqual(len(self.ran()), 6, "later batches still run after a failure")
+        self.assertEqual(len(self.ran()), 7, "later batches still run after a failure")
         self.assert_clean_up()
 
     def test_failure_without_file_names_lists_the_whole_batch(self):
@@ -1260,7 +1312,7 @@ class PremergeTest(unittest.TestCase):
         out = r.stdout + r.stderr
         self.assertEqual(r.returncode, 6, out)
         self.assertIn(
-            "affected tests CUT SHORT after 1/6 files (budget 2 s); not a pass", out
+            "affected tests CUT SHORT after 1/7 files (budget 2 s); not a pass", out
         )
         self.assertNotIn("PASS", r.stdout)
         tail = out.split("CUT SHORT")[1]
@@ -1438,6 +1490,86 @@ class PremergeTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("overlap with #12", r.stdout)
         self.assertNotIn("overlap with #11", r.stdout)
+
+
+    # ref sweep and old markers ------------------------------------------------
+
+    def tags(self):
+        host = subprocess.run(["hostname"], capture_output=True, text=True).stdout.strip()
+        import re as _re
+
+        hosttag = _re.sub(r"[^A-Za-z0-9-]", "_", host)
+        nstag = _re.sub(r"[^0-9]", "", self.pidns()) or "x"
+        return hosttag, nstag
+
+    def put_ref(self, name):
+        git(self.caller, "update-ref", f"refs/premerge/{name}/base", "HEAD")
+
+    def refs(self):
+        return git(self.caller, "for-each-ref", "--format=%(refname)", "refs/premerge")
+
+    def test_ref_sweep_removes_a_dead_run_of_this_host_and_namespace(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        host, ns = self.tags()
+        self.put_ref(f"{host}.{ns}.99999999")
+        self.assertEqual(self.run_check(10).returncode, 0)
+        self.assertNotIn("99999999", self.refs())
+
+    def test_ref_sweep_keeps_a_live_pid(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        host, ns = self.tags()
+        self.put_ref(f"{host}.{ns}.{os.getpid()}")
+        self.assertEqual(self.run_check(10).returncode, 0)
+        self.assertIn(str(os.getpid()), self.refs())
+
+    def test_ref_sweep_keeps_another_hosts_dead_pid(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        host, ns = self.tags()
+        self.put_ref(f"other-host.{ns}.99999999")
+        self.assertEqual(self.run_check(10).returncode, 0)
+        self.assertIn("other-host", self.refs())
+
+    @unittest.skipUnless(os.path.exists("/proc/self/ns/pid"), "needs /proc")
+    def test_ref_sweep_keeps_another_pid_namespaces_dead_pid(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        host, ns = self.tags()
+        self.put_ref(f"{host}.4026539999.99999999")
+        self.assertEqual(self.run_check(10).returncode, 0)
+        self.assertIn("4026539999", self.refs())
+
+    def test_ref_sweep_keeps_legacy_pid_only_refs(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        self.put_ref("99999999")
+        self.assertEqual(self.run_check(10).returncode, 0)
+        self.assertIn("refs/premerge/99999999/base", self.refs())
+
+    def old_marker(self, pid=99999999, host=None, common=None):
+        host = host or subprocess.run(["hostname"], capture_output=True,
+                                      text=True).stdout.strip()
+        common = common or os.path.realpath(self.caller / ".git")
+        return f"premerge_check {pid} {host} {common}\n"
+
+    def test_sweep_removes_an_old_four_field_marker_of_this_host_and_repo(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        bare = self.tmp / "premerge.old123"
+        bare.mkdir()
+        (bare / "pid").write_text(self.old_marker())
+        self.assertEqual(self.run_check(10).returncode, 0)
+        self.assertFalse(bare.exists())
+
+    def test_sweep_keeps_an_old_marker_of_another_host_or_repo_or_live_pid(self):
+        self.pr(10, {"lib/src/chat/new.dart": "n\n"})
+        cases = {
+            "premerge.oldh12": self.old_marker(host="some-other-host"),
+            "premerge.oldr12": self.old_marker(common="/somewhere/else/.git"),
+            "premerge.oldl12": self.old_marker(pid=os.getpid()),
+        }
+        for name, text in cases.items():
+            (self.tmp / name).mkdir()
+            (self.tmp / name / "pid").write_text(text)
+        self.assertEqual(self.run_check(10).returncode, 0)
+        for name in cases:
+            self.assertTrue((self.tmp / name).exists(), name)
 
 
 if __name__ == "__main__":
