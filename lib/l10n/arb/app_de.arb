@@ -1519,6 +1519,7 @@
 
   "@@x-area-widgets": "",
   "widgetsCancel": "Abbrechen",
+  "widgetsDone": "Fertig",
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} Zeichen eingegeben} other{{count} Zeichen eingegeben}}",
   "widgetsSecretHide": "Schlüssel ausblenden",
   "widgetsSecretHideShort": "Ausblenden",

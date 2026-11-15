@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+
+import '../../l10n/l10n.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'grouped_list.dart';
@@ -150,49 +154,235 @@ class _Title extends StatelessWidget {
     }
     final ios = chrome == PlatformChrome.ios;
     final fontSize = ios ? 17.0 : 13.0;
-    return SizedBox(
-      height: ios ? kAppleNavBarHeight + 8 : 44,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 72),
-            child: Semantics(
-              header: true,
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
-                  color: onSurface,
-                ),
-              ),
-            ),
+    return _TitleBar(
+      minHeight: ios ? kAppleNavBarHeight + 8 : 44,
+      doneInset: ios ? 4 : 8,
+      textDirection: Directionality.of(context),
+      title: Semantics(
+        header: true,
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
+            color: onSurface,
           ),
-          if (showDone)
-            PositionedDirectional(
-              end: ios ? 4 : 8,
-              child: TextButton(
-                key: const Key('grouped-dialog-done'),
-                style: TextButton.styleFrom(
-                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  minimumSize: Size(
-                    ios ? kAppleMinTapTarget : 0,
-                    ios ? 44 : 28,
-                  ),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Done'),
-              ),
-            ),
-        ],
+        ),
       ),
+      done: showDone
+          ? TextButton(
+              key: const Key('grouped-dialog-done'),
+              style: TextButton.styleFrom(
+                textStyle: Theme.of(context).textTheme.labelLarge
+                    ?.copyWith(fontSize: fontSize, fontWeight: FontWeight.w600),
+                minimumSize: Size(ios ? kAppleMinTapTarget : 0, ios ? 44 : 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(context.l10n.widgetsDone),
+            )
+          : null,
     );
   }
+}
+
+/// The header of an Apple or desktop [GroupedDialog]: the title centred, the
+/// Done button at the end. It grows with the text instead of keeping a fixed
+/// height, hands the title what Done leaves, and moves the title under Done
+/// when even its longest word would not fit beside it.
+class _TitleBar extends MultiChildRenderObjectWidget {
+  _TitleBar({
+    required this.minHeight,
+    required this.doneInset,
+    required this.textDirection,
+    required Widget title,
+    Widget? done,
+  }) : super(children: [title, ?done]);
+
+  final double minHeight;
+  final double doneInset;
+  final TextDirection textDirection;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderTitleBar(
+    minHeight: minHeight,
+    doneInset: doneInset,
+    textDirection: textDirection,
+  );
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderTitleBar renderObject) {
+    renderObject
+      ..minHeight = minHeight
+      ..doneInset = doneInset
+      ..textDirection = textDirection;
+  }
+}
+
+class _TitleBarParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderTitleBar extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _TitleBarParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _TitleBarParentData> {
+  _RenderTitleBar({
+    required this._minHeight,
+    required this._doneInset,
+    required this._textDirection,
+  });
+
+  static const _sidePadding = 16.0;
+  static const _gap = 8.0;
+  static const _verticalPadding = 8.0;
+
+  double _minHeight;
+  set minHeight(double value) {
+    if (_minHeight == value) return;
+    _minHeight = value;
+    markNeedsLayout();
+  }
+
+  double _doneInset;
+  set doneInset(double value) {
+    if (_doneInset == value) return;
+    _doneInset = value;
+    markNeedsLayout();
+  }
+
+  TextDirection _textDirection;
+  set textDirection(TextDirection value) {
+    if (_textDirection == value) return;
+    _textDirection = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _TitleBarParentData) {
+      child.parentData = _TitleBarParentData();
+    }
+  }
+
+  RenderBox get _title => firstChild!;
+  RenderBox? get _done => childAfter(_title);
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _minHeight;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _minHeight;
+
+  @override
+  double computeMinIntrinsicWidth(double height) => 0;
+
+  @override
+  double computeMaxIntrinsicWidth(double height) => 0;
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      _layout(constraints, (child, c) => child.getDryLayout(c), null);
+
+  @override
+  void performLayout() {
+    size = _layout(constraints, (child, c) {
+      child.layout(c, parentUsesSize: true);
+      return child.size;
+    }, _place);
+  }
+
+  /// Offsets are computed from the start side and mirrored for right to left
+  /// text when they are placed.
+  void _place(RenderBox child, double x, double y, double width, double bar) {
+    final dx = _textDirection == TextDirection.ltr ? x : bar - x - width;
+    (child.parentData! as _TitleBarParentData).offset = Offset(dx, y);
+  }
+
+  Size _layout(
+    BoxConstraints constraints,
+    Size Function(RenderBox child, BoxConstraints constraints) layoutChild,
+    void Function(RenderBox, double, double, double, double)? place,
+  ) {
+    final width = constraints.maxWidth;
+    final done = _done;
+    final doneSize = done == null
+        ? Size.zero
+        : layoutChild(done, BoxConstraints(maxWidth: width));
+    final doneSpan = done == null ? 0.0 : doneSize.width + _doneInset + _gap;
+    final beside = width - doneSpan - _sidePadding;
+    final stacked =
+        done != null && _title.getMinIntrinsicWidth(double.infinity) > beside;
+
+    final titleMax = stacked ? width - 2 * _sidePadding : beside;
+    final titleSize = layoutChild(
+      _title,
+      BoxConstraints(maxWidth: math.max(0, titleMax)),
+    );
+
+    final double height;
+    if (stacked) {
+      // Done keeps its own row of at least a tap target, the title wraps
+      // under it.
+      final doneRow = math.max(doneSize.height, kAppleMinTapTarget);
+      height = math.max(
+        _minHeight,
+        doneRow + titleSize.height + _verticalPadding,
+      );
+      if (place != null) {
+        place(
+          done,
+          width - doneSize.width - _doneInset,
+          (doneRow - doneSize.height) / 2,
+          doneSize.width,
+          width,
+        );
+        place(
+          _title,
+          (width - titleSize.width) / 2,
+          doneRow,
+          titleSize.width,
+          width,
+        );
+      }
+    } else {
+      height = math.max(
+        _minHeight,
+        math.max(titleSize.height + 2 * _verticalPadding, doneSize.height),
+      );
+      if (place != null) {
+        final limit = width - doneSpan;
+        final x = math.max(
+          _sidePadding,
+          math.min((width - titleSize.width) / 2, limit - titleSize.width),
+        );
+        place(
+          _title,
+          x,
+          (height - titleSize.height) / 2,
+          titleSize.width,
+          width,
+        );
+        if (done != null) {
+          place(
+            done,
+            width - doneSize.width - _doneInset,
+            (height - doneSize.height) / 2,
+            doneSize.width,
+            width,
+          );
+        }
+      }
+    }
+    return constraints.constrain(Size(width, height));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
