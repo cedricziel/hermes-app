@@ -28,7 +28,7 @@ Corrections after the pass: the canvas board "F1: Windows and Linux shortcut tab
 
 Corrections where the brief did not work: none beyond the corrections above. The task panel on a narrow Mac was checked in the code: the board opens tasks in the inspector, so the detent sheet is reached from other entry points (workers, links), which is why the fix is in `showKanbanTask`.
 
-Copy added by the design: "Reload", "Enclosing Folder", "Previous Change", "Next Change" (English), and the German menu strings on the canvas ("Neu laden", "Übergeordneter Ordner", "Vorherige Änderung", "Nächste Änderung" among them).
+Copy added by the design: "Reload", "Enclosing Folder", "Previous Change", "Next Change" (English), and the German menu strings on the canvas ("Neu laden", "Übergeordneter Ordner", "Vorherige Änderung", "Nächste Änderung" among them). The Refresh button's tooltip is "Refresh" with its chord, "Aktualisieren" in German; the chord is shown the way other Mac toolbar tooltips show it (for example "Refresh ⌘R").
 
 New components needed: none. The menu pictures on the canvas are documentation markup, not app widgets.
 
