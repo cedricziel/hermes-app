@@ -14,7 +14,8 @@ import 'package:gpt_markdown/plusparse/entities.dart' show entityAt;
 /// not spaces: the tag characters U+E0000 to U+E007F (a way to hide
 /// instructions in text), the soft hyphen U+00AD, U+034F, the Hangul fillers
 /// U+115F, U+1160 and U+3164, and the Mongolian vowel separator U+180E.
-/// Everything else, tab aside, is left as it is.
+/// Everything else, tab aside, is left as it is, except that a lone UTF-16
+/// surrogate becomes U+FFFD ([wellFormedText]).
 ///
 /// Only the display changes. A path that is sent, stored or compared is the
 /// original string.
@@ -57,10 +58,37 @@ String safeMarkdownText(String text) {
   return (out..write(raw.substring(copied))).toString();
 }
 
+/// [text] with every lone UTF-16 surrogate replaced by U+FFFD, and valid
+/// pairs (emoji) untouched. JSON can carry one (`"\ud800"`) and a truncated
+/// file or tool output can end in half a pair; painting such a string throws
+/// `ArgumentError: string is not well-formed UTF-16`. Display only.
+String wellFormedText(String text) {
+  StringBuffer? out;
+  for (var i = 0; i < text.length; i++) {
+    final unit = text.codeUnitAt(i);
+    final high = unit >= 0xD800 && unit <= 0xDBFF;
+    final low = unit >= 0xDC00 && unit <= 0xDFFF;
+    final paired =
+        high &&
+        i + 1 < text.length &&
+        (text.codeUnitAt(i + 1) & 0xFC00) == 0xDC00;
+    if (paired) {
+      out?.write(text.substring(i, i + 2));
+      i++;
+    } else if (high || low) {
+      out ??= StringBuffer(text.substring(0, i));
+      out.write('\uFFFD');
+    } else {
+      out?.writeCharCode(unit);
+    }
+  }
+  return out?.toString() ?? text;
+}
+
 String _escaped(String text, {required bool keepLineBreaks}) {
   var changed = false;
   final out = StringBuffer();
-  final runes = text.runes.toList();
+  final runes = wellFormedText(text).runes.toList();
   for (var i = 0; i < runes.length; i++) {
     final rune = runes[i];
     if (keepLineBreaks && rune == 0x0A) {
@@ -79,7 +107,7 @@ String _escaped(String text, {required bool keepLineBreaks}) {
       out.writeCharCode(rune);
     }
   }
-  return changed ? out.toString() : text;
+  return changed ? out.toString() : wellFormedText(text);
 }
 
 bool _unsafe(int rune) =>

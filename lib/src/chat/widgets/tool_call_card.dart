@@ -8,6 +8,7 @@ import '../../telemetry/breadcrumbs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_json_view/flutter_json_view.dart';
 
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../../theme/app_icons.dart';
 import '../../bot_mode/widgets/bot_handoff_body.dart';
 import '../../theme/hermes_theme.dart';
@@ -128,9 +129,9 @@ class ToolCallCard extends StatelessWidget {
     ];
     final expandable = details.isNotEmpty;
     final handoff = BotHandoffBody.of(call);
-    final summary = handoff?.label ?? call.displaySummary;
+    final summary = wellFormedText(handoff?.label ?? call.displaySummary);
     final name = Text(
-      call.displayName,
+      wellFormedText(call.displayName),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
@@ -220,7 +221,9 @@ class ToolCallCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
               child: Text(
-                'Output risk: ${risk.risk}${risk.redacted ? ' · Redacted' : ''}',
+                wellFormedText(
+                  'Output risk: ${risk.risk}${risk.redacted ? ' · Redacted' : ''}',
+                ),
                 style: TextStyle(fontSize: 12, color: scheme.error),
               ),
             ),
@@ -337,13 +340,75 @@ String formatToolDuration(Duration took) {
   return formatThinkingElapsed(took);
 }
 
-bool _isJsonContainer(String text) {
-  if (!text.startsWith('{') && !text.startsWith('[')) return false;
+const int _maxJsonTreeDepth = 64;
+
+/// How deeply [text] nests brackets outside strings, counted without
+/// recursion and stopped once past [_maxJsonTreeDepth].
+int _jsonDepth(String text) {
+  var depth = 0;
+  var inString = false;
+  var escaped = false;
+  for (var i = 0; i < text.length; i++) {
+    final c = text.codeUnitAt(i);
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (c == 0x5C) {
+        escaped = true;
+      } else if (c == 0x22) {
+        inString = false;
+      }
+    } else if (c == 0x22) {
+      inString = true;
+    } else if (c == 0x5B || c == 0x7B) {
+      if (++depth > _maxJsonTreeDepth) return depth;
+    } else if (c == 0x5D || c == 0x7D) {
+      depth--;
+    }
+  }
+  return depth;
+}
+
+/// The JSON text a tree view may show for [text], or null when [text] is not
+/// a JSON object or array, nests deeper than [_maxJsonTreeDepth], or cleaning
+/// would merge two keys: it is then shown as flat text. A lone surrogate in a
+/// decoded string or key (JSON can spell one `\ud800`) is replaced by U+FFFD,
+/// which the tree view cannot paint otherwise.
+String? _jsonTreeText(String text) {
+  if (!text.startsWith('{') && !text.startsWith('[')) return null;
+  if (_jsonDepth(text) > _maxJsonTreeDepth) return null;
   try {
     final decoded = jsonDecode(text);
-    return decoded is Map || decoded is List;
+    if (decoded is! Map && decoded is! List) return null;
+    var changed = false;
+    var merged = false;
+    String fix(String v) {
+      final out = wellFormedText(v);
+      if (!identical(out, v)) changed = true;
+      return out;
+    }
+
+    Object? clean(Object? v) => switch (v) {
+      String() => fix(v),
+      List() => [for (final e in v) clean(e)],
+      Map() => () {
+        final out = <String, Object?>{};
+        for (final e in v.entries) {
+          final key = fix('${e.key}');
+          if (out.containsKey(key)) merged = true;
+          out[key] = clean(e.value);
+        }
+        return out;
+      }(),
+      _ => v,
+    };
+    final cleaned = clean(decoded);
+    if (merged) return null;
+    return changed ? jsonEncode(cleaned) : text;
   } on FormatException {
-    return false;
+    return null;
+  } on Error {
+    return null;
   }
 }
 
@@ -360,9 +425,10 @@ class _Section extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     const mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
-    final Widget body = _isJsonContainer(text)
+    final tree = _jsonTreeText(text);
+    final Widget body = tree != null
         ? JsonView.string(
-            text,
+            tree,
             theme: JsonViewTheme(
               backgroundColor: Colors.transparent,
               defaultTextStyle: mono.copyWith(color: scheme.onSurface),
@@ -379,7 +445,10 @@ class _Section extends StatelessWidget {
             ),
           )
         : SingleChildScrollView(
-            child: Text(text, style: mono.copyWith(color: scheme.onSurface)),
+            child: Text(
+              wellFormedText(text),
+              style: mono.copyWith(color: scheme.onSurface),
+            ),
           );
     return Container(
       decoration: BoxDecoration(
