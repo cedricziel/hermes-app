@@ -161,6 +161,39 @@ void main() {
       );
     });
 
+    testWidgets('with capHeight the note stays outside the scroll area', (
+      tester,
+    ) async {
+      _window(tester, const Size(600, 500));
+      await tester.pumpWidget(
+        _host(
+          OutputLinesTile(
+            label: 'Show output',
+            lines: [for (var i = 1; i <= 200; i++) 'line $i'],
+            initiallyOpen: true,
+            selectable: false,
+            capHeight: true,
+            maxLines: 150,
+            earlierLines: 2,
+            earlierLabel: (n) => '$n earlier lines not shown',
+          ),
+        ),
+      );
+      final note = find.text('52 earlier lines not shown');
+      expect(note, findsOneWidget);
+      expect(
+        find.ancestor(of: note, matching: find.byType(SingleChildScrollView)),
+        findsOneWidget, // only the host page's own scroller
+      );
+      final before = tester.getTopLeft(note);
+      await tester.drag(
+        find.byType(SingleChildScrollView).last,
+        const Offset(0, -300),
+      );
+      await tester.pump();
+      expect(tester.getTopLeft(note), before);
+    });
+
     testWidgets('blank mode leaves no note and no line text', (tester) async {
       await tester.pumpWidget(
         _host(
@@ -279,6 +312,29 @@ void main() {
           tester.element(find.text('first line\nsecond line')),
         ),
         isNull,
+      );
+    });
+
+    testWidgets('selectable lines run left to right in a right-to-left app', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const Directionality(
+            textDirection: TextDirection.rtl,
+            child: OutputLinesTile(
+              label: 'Show output',
+              lines: lines,
+              initiallyOpen: true,
+            ),
+          ),
+        ),
+      );
+      expect(
+        tester
+            .widget<SelectableText>(find.byType(SelectableText))
+            .textDirection,
+        TextDirection.ltr,
       );
     });
 
