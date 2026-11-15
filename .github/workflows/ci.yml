@@ -143,7 +143,10 @@ jobs:
 
       - name: List failed tests
         if: failure()
-        run: python3 scripts/summarize_test_failures.py build/test-report.json
+        run: |
+          for report in build/test-report*.json; do
+            python3 scripts/summarize_test_failures.py "$report"
+          done
 
       - name: Upload coverage
         if: always()
@@ -152,6 +155,15 @@ jobs:
         with:
           name: coverage-lcov-${{ matrix.shard }}
           path: coverage/lcov.info
+          if-no-files-found: ignore
+
+      - name: Upload test report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-report-${{ matrix.shard }}
+          path: build/test-report*.json
           if-no-files-found: ignore
 
       - name: Upload workflow screenshots

@@ -19,12 +19,21 @@ fed by `--file-reporter json:build/test-report.json`) that prints every failing
 test with its file and error, adds an annotation per failure and writes them to
 the job summary. Read that step first.
 
-`scripts/test-shard.sh <index> 4` reproduces the file partition. CI's split and
-a local one match only when run on the same tree, since adding or removing a
-test file moves the rest. Shard 0 is the
-catalog; the other files are sorted and distributed round-robin. Adding a test
-file can move existing tests between shards. Start with the failing file before
-running a full shard.
+`scripts/test-shard.sh <index> 4` reproduces the file partition
+(`TEST_SHARD_LIST=1` prints the files without running them). Files are assigned
+by duration: `tool/shard_weights.dart` sorts them by the seconds in
+`test/shard_weights.json` (longest first, ties by path) and gives each to the
+lightest shard. A file missing from the weights counts as the median, so a new
+test file needs no edit, but it can move others between shards. The Widgetbook
+catalog is pinned to shard 0 and runs alone first (it runs out of memory beside
+others); shard 0's other files run in a second `flutter test`, which writes
+`build/test-report-extra.json` and whose coverage is appended to
+`coverage/lcov.info`. Start with the failing file before running a full shard.
+
+To refresh the weights when shards drift apart: download the `test-report-<shard>`
+artifacts of a recent main run, then
+`dart run tool/shard_weights.dart update <reports...>` and commit
+`test/shard_weights.json`.
 
 For timeout tests, use the existing `fake_async` dependency and advance the
 simulated clock. Keep normal success tests on the production timeout. A global

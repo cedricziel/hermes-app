@@ -1,0 +1,170 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'shard_assignment.dart';
+
+// Test sharding by measured duration.
+//
+//   dart run tool/shard_weights.dart assign <index> <total>
+//       Prints the shard's test files, one per line. The catalog is not
+//       listed: scripts/test-shard.sh runs it first on shard 0.
+//   dart run tool/shard_weights.dart list <index> <total>
+//       Same, with the catalog included.
+//   dart run tool/shard_weights.dart update <report.json>...
+//       Rebuilds test/shard_weights.json from `flutter test --file-reporter
+//       json:<path>` reports (CI uploads them as `test-report-<shard>`).
+const catalog = 'test/widgetbook_test.dart';
+const weightsPath = 'test/shard_weights.json';
+const catalogWeight = 400.0;
+
+Future<void> main(List<String> args) async {
+  exitCode = run(args);
+}
+
+int run(List<String> args) {
+  if (args.isEmpty) return _usage();
+  switch (args.first) {
+    case 'assign' || 'list':
+      if (args.length != 3) return _usage();
+      final index = int.tryParse(args[1]);
+      final total = int.tryParse(args[2]);
+      if (index == null || total == null || total < 1) return _usage();
+      if (index < 0 || index >= total) return _usage();
+      final shards = assignShards(
+        files: listTestFiles(),
+        weights: readWeights(),
+        catalog: catalog,
+        total: total,
+      );
+      for (final f in shards[index]) {
+        if (args.first == 'list' || f != catalog) stdout.writeln(f);
+      }
+      return 0;
+    case 'update':
+      if (args.length < 2) return _usage();
+      return update(args.skip(1).toList());
+  }
+  return _usage();
+}
+
+int _usage() {
+  stderr.writeln(
+    'usage: dart run tool/shard_weights.dart '
+    '(assign|list <index> <total> | update <report.json>...)',
+  );
+  return 64;
+}
+
+/// Same files as `find test -name '*_test.dart' | sort`.
+List<String> listTestFiles() {
+  final files = [
+    for (final e in Directory('test').listSync(recursive: true))
+      if (e is File && e.path.endsWith('_test.dart'))
+        e.path.replaceAll('\\', '/'),
+  ]..sort();
+  return files;
+}
+
+Map<String, double> readWeights() {
+  final file = File(weightsPath);
+  if (!file.existsSync()) return {};
+  try {
+    final decoded = jsonDecode(file.readAsStringSync());
+    if (decoded is! Map) return {};
+    return {
+      for (final e in decoded.entries)
+        if (e.key is String && e.value is num)
+          e.key as String: (e.value as num).toDouble(),
+    };
+  } on FormatException {
+    return {};
+  }
+}
+
+/// Seconds per test file: from the suite's first event to its last test
+/// finishing. Lines that are not JSON, or have odd shapes, are skipped.
+Map<String, double> weightsFromReport(String content, String root) {
+  final suitePath = <int, String>{};
+  final suiteStart = <int, int>{};
+  final suiteEnd = <int, int>{};
+  final testSuite = <int, int>{};
+  for (final line in const LineSplitter().convert(content)) {
+    final Object? event;
+    try {
+      event = jsonDecode(line);
+    } on FormatException {
+      continue;
+    }
+    if (event is! Map) continue;
+    final time = event['time'];
+    if (time is! num) continue;
+    final ms = time.toInt();
+    switch (event['type']) {
+      case 'suite':
+        final suite = event['suite'];
+        if (suite is Map && suite['id'] is int && suite['path'] is String) {
+          final id = suite['id'] as int;
+          suitePath[id] = suite['path'] as String;
+          suiteStart[id] = ms;
+          suiteEnd[id] = ms;
+        }
+      case 'testStart':
+        final test = event['test'];
+        if (test is Map && test['id'] is int && test['suiteID'] is int) {
+          testSuite[test['id'] as int] = test['suiteID'] as int;
+        }
+      case 'testDone':
+        final suite = testSuite[event['testID']];
+        if (suite != null && ms > (suiteEnd[suite] ?? 0)) suiteEnd[suite] = ms;
+    }
+  }
+  final result = <String, double>{};
+  suitePath.forEach((id, path) {
+    final name = _relative(path, root);
+    if (name == null) return;
+    final seconds = (suiteEnd[id]! - suiteStart[id]!) / 1000;
+    result[name] = (seconds * 10).round() / 10;
+  });
+  return result;
+}
+
+String? _relative(String path, String root) {
+  var p = path.startsWith('file://') ? Uri.parse(path).toFilePath() : path;
+  p = p.replaceAll('\\', '/');
+  final r = root.replaceAll('\\', '/');
+  if (p.startsWith('$r/')) p = p.substring(r.length + 1);
+  if (!p.startsWith('test/') || !p.endsWith('_test.dart')) return null;
+  return p;
+}
+
+int update(List<String> reports) {
+  final measured = <String, double>{};
+  final root = Directory.current.path;
+  for (final path in reports) {
+    final file = File(path);
+    if (!file.existsSync()) {
+      stderr.writeln('missing report: $path');
+      return 1;
+    }
+    measured.addAll(weightsFromReport(file.readAsStringSync(), root));
+  }
+  if (measured.isEmpty) {
+    stderr.writeln('no test files found in the reports');
+    return 1;
+  }
+  final old = readWeights();
+  final next = <String, double>{};
+  // Files the reports did not cover keep their old weight; deleted files drop.
+  for (final f in listTestFiles()) {
+    final w = measured[f] ?? old[f];
+    if (w != null) next[f] = w;
+  }
+  next[catalog] = measured[catalog] ?? old[catalog] ?? catalogWeight;
+  final keys = next.keys.toList()..sort();
+  final out = {for (final k in keys) k: next[k]};
+  File(
+    weightsPath,
+  ).writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(out)}\n');
+  stdout.writeln('wrote ${keys.length} weights to $weightsPath');
+  return 0;
+}
