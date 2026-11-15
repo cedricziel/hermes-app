@@ -921,6 +921,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     _showMessage(switch (notice) {
       ChatSendNotice.stopCommand => context.l10n.chatNoticeStopCommand,
+      ChatSendNotice.stopCommandElsewhere =>
+        context.l10n.chatNoticeStopCommandElsewhere,
     });
   }
 

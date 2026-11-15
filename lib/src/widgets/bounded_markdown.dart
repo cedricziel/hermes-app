@@ -110,6 +110,8 @@ class BoundedMarkdown extends StatefulWidget {
     this.style,
     this.onLinkTap,
     this.linkBuilder,
+    this.checkboxBuilder,
+    this.radioOptionBuilder,
   });
 
   final String data;
@@ -117,6 +119,8 @@ class BoundedMarkdown extends StatefulWidget {
   final void Function(String url, String title)? onLinkTap;
   // ignore: deprecated_member_use
   final LinkBuilder? linkBuilder;
+  final CheckboxBuilder? checkboxBuilder;
+  final RadioOptionBuilder? radioOptionBuilder;
 
   @override
   State<BoundedMarkdown> createState() => _BoundedMarkdownState();
@@ -161,6 +165,8 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
       onLinkTap: widget.onLinkTap,
       // ignore: deprecated_member_use
       linkBuilder: widget.linkBuilder,
+      checkboxBuilder: widget.checkboxBuilder,
+      radioOptionBuilder: widget.radioOptionBuilder,
       codeBuilder: _code,
     );
   }

@@ -11,6 +11,7 @@ import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_tab_bar.dart';
 import '../../widgets/markdown_links.dart';
+import '../../widgets/markdown_task_box.dart';
 import '../../theme/platform_chrome.dart';
 import '../code_highlight.dart';
 import 'files_metrics.dart';
@@ -453,6 +454,8 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
               html: false,
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               onLinkTap: (url, _) => unawaited(_tap(context, url)),
+              checkboxBuilder: readOnlyTaskBox,
+              radioOptionBuilder: readOnlyRadioOption,
               imageBuilder: (context, url, width, height) => Text(
                 notLoaded,
                 style: const TextStyle(fontStyle: FontStyle.italic),

@@ -141,9 +141,9 @@ measured only where a test calls `capture`, at that test's platform and theme.
 `test/architecture/style_ratchet_test.dart` registers the counted rules (`style.color`,
 `style.spacing`, `style.radius`, `style.font.role`, `style.font.offRole`,
 `style.elevation`, `style.dialog`, `style.adaptive`, `style.string`) with
-`ratchetTests(..., namespace: 'style')`. It runs the same scan and allowlist as the CLI
+`ratchetTests([...], namespace: 'style')`, called once in the body of `main()` with the literal namespace. It runs the same scan and allowlist as the CLI
 (`tool/style_score/measure.dart`) and compares per rule and file with
-`test/architecture/baseline.yaml`. `style.duration` and `style.iconSize` are not ratcheted.
+`test/architecture/baseline/style.yaml`. `style.duration` and `style.iconSize` are not ratcheted.
 General API: the `architecture-guards` skill.
 
 - **A count rises, or a new file has a hit:** the test fails with `path:line: snippet` and
@@ -152,7 +152,8 @@ General API: the `architecture-guards` skill.
 - **A count falls:** the test fails with the exact edit ("lower style.color <path> to N" or
   "remove the entry"). Make it, or run
   `UPDATE_BASELINE=1 flutter test --concurrency=1 test/architecture`, which only lowers
-  and removes. Commit `baseline.yaml`.
+  and removes; it never adds a rule or an entry. Commit `baseline/style.yaml`. Seeding or
+  adding a rule is by hand from `dart run tool/style_score.dart --ratchet-yaml`.
 - **A legitimate exception** (a brand name, a platform boundary): add an entry to
   `tool/style_score_allowlist.yaml` with a reason (see Adding an exception). The CLI and
   the ratchet both skip it, so the baseline does not change. Say why in the PR.
