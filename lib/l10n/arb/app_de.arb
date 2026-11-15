@@ -560,6 +560,15 @@
   "modelsPickerSearchHint": "Modelle suchen",
   "modelsPickerTitle": "Modell",
   "modelsPickerUseDefault": "Standard des Profils verwenden",
+  "modelsPillChoose": "Modell wählen",
+  "modelsPillDiscoveryUnavailable": "{label}. Die Modellerkennung ist nicht verfügbar.",
+  "modelsPillLoadFailed": "Modelle konnten nicht geladen werden",
+  "modelsPillLoading": "Modelle werden geladen",
+  "modelsPillProfileDefault": "Profilstandard",
+  "modelsPillRetry": "Erneut versuchen",
+  "modelsPillRetryModels": "Modelle erneut laden",
+  "modelsPillSelectedModel": "{label}, ausgewähltes Modell {model}",
+  "modelsPillSetUp": "Modell einrichten",
 
   "@@x-area-navigation": "",
 

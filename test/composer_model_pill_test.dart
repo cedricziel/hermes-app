@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/model_options_state.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
@@ -157,6 +158,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ModelPicker), findsNothing);
+  });
+
+  testWidgets('its fallback labels are localised', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: buildHermesLightTheme(),
+        home: Scaffold(
+          body: ComposerModelPill(
+            options: null,
+            choice: null,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Modelle werden geladen'), findsOneWidget);
   });
 
   testWidgets('keeps a visible loading selector without options', (

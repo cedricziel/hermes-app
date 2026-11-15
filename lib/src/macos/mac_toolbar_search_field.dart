@@ -21,6 +21,7 @@ class MacToolbarSearchField extends StatefulWidget {
     this.onSubmitted,
     this.focusNode,
     this.hint = 'Search',
+    this.fullWidth = false,
   });
 
   final String query;
@@ -35,6 +36,9 @@ class MacToolbarSearchField extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
   final FocusNode? focusNode;
   final String hint;
+
+  /// Fills the width it is given instead of the toolbar's 180 or 240 points.
+  final bool fullWidth;
 
   @override
   State<MacToolbarSearchField> createState() => _MacToolbarSearchFieldState();
@@ -90,7 +94,7 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeOut,
-        width: wide ? _activeWidth : _restingWidth,
+        width: widget.fullWidth ? null : (wide ? _activeWidth : _restingWidth),
         height: 26,
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh,

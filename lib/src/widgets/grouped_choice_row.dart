@@ -55,7 +55,8 @@ class GroupedChoiceRow<T> extends StatelessWidget {
   final bool autofocus;
 
   /// Whether the row's own tap target is a second keyboard stop beside the
-  /// radio. Off in a popover, where the arrows walk the rows.
+  /// radio. Off in a popover, where the arrows walk the rows and, with a
+  /// [focusNode], the focus is drawn across the row.
   final bool rowFocusable;
 
   /// The radio's focus node, for a caller that moves focus between rows.
@@ -100,19 +101,21 @@ class GroupedChoiceRow<T> extends StatelessWidget {
       enabled: enabled,
       onTap: group == null ? null : () => group.onChanged(value),
     );
-    // Without its own tap target in the focus order, the radio is the stop;
-    // it takes Space from the group, so Return picks here.
-    if (rowFocusable || group == null || !enabled) return row;
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            group.onChanged(value);
-            return null;
-          },
-        ),
-      },
+    // With the radio as the row's only focus stop, the focus is drawn across
+    // the whole row, not only on the radio circle.
+    final node = focusNode;
+    if (rowFocusable || node == null) return row;
+    final tint = Theme.of(context).colorScheme.primary.withValues(alpha: .14);
+    return ListenableBuilder(
+      listenable: node,
       child: row,
+      builder: (context, child) => DecoratedBox(
+        key: const Key('row-focus-highlight'),
+        decoration: BoxDecoration(
+          color: node.hasFocus ? tint : Colors.transparent,
+        ),
+        child: child,
+      ),
     );
   }
 }

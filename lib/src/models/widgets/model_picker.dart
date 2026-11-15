@@ -181,21 +181,51 @@ class _LivePickerState extends State<_LivePicker> {
   Widget build(BuildContext context) => widget.builder(_options, _selected);
 }
 
+class _RowMoveIntent extends Intent {
+  const _RowMoveIntent(this.step);
+
+  final int step;
+}
+
+/// Moves focus between rows, and only while a model row has it: elsewhere
+/// (an effort pill, the search field) the key goes on to its own handler.
+class _RowMoveAction extends Action<_RowMoveIntent> {
+  _RowMoveAction({required this.enabled, required this.move});
+
+  final bool Function() enabled;
+  final void Function(int step) move;
+
+  @override
+  bool isEnabled(_RowMoveIntent intent, [BuildContext? context]) => enabled();
+
+  @override
+  Object? invoke(_RowMoveIntent intent) {
+    move(intent.step);
+    return null;
+  }
+}
+
 /// In a popover the arrows only move focus, one row at a time, and Return or
 /// Space picks. The radio group's own arrows would pick as they move, so this
 /// sits below it, nearer the focus, and walks the rows itself.
-Widget _popoverKeys(bool popover, void Function(int step) move, Widget list) =>
-    !popover
+Widget _popoverKeys({
+  required bool popover,
+  required bool Function() enabled,
+  required void Function(int step) move,
+  required Widget list,
+}) => !popover
     ? list
     : Shortcuts(
-        shortcuts: {
-          const SingleActivator(LogicalKeyboardKey.arrowDown):
-              VoidCallbackIntent(() => move(1)),
-          const SingleActivator(LogicalKeyboardKey.arrowUp): VoidCallbackIntent(
-            () => move(-1),
-          ),
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.arrowDown): _RowMoveIntent(1),
+          SingleActivator(LogicalKeyboardKey.arrowUp): _RowMoveIntent(-1),
         },
-        child: list,
+        child: Actions(
+          actions: {
+            _RowMoveIntent: _RowMoveAction(enabled: enabled, move: move),
+          },
+          child: list,
+        ),
       );
 
 /// Where a [ModelPicker] is shown.
@@ -269,15 +299,28 @@ class _ModelPickerState extends State<ModelPicker> {
   FocusNode _nodeFor(_Pick pick) =>
       _nodes.putIfAbsent(pick, () => FocusNode(debugLabel: 'model row'));
 
-  /// Moves focus [step] rows through [order], wrapping at the ends. Starts at
-  /// the first row when none has focus.
+  /// Whether a model row has the focus: the arrows are the picker's only
+  /// then; on an effort pill or the search field they are left alone.
+  bool _rowHasFocus(List<_Pick> order) =>
+      order.any((pick) => _nodeFor(pick).hasFocus);
+
+  /// Moves focus [step] rows through [order], wrapping at the ends, and
+  /// scrolls the row into view.
   void _moveFocus(List<_Pick> order, int step) {
     if (order.isEmpty) return;
     final at = order.indexWhere((pick) => _nodeFor(pick).hasFocus);
-    final next = at < 0
-        ? (step > 0 ? 0 : order.length - 1)
-        : (at + step) % order.length;
-    _nodeFor(order[next]).requestFocus();
+    if (at < 0) return;
+    final next = (at + step) % order.length;
+    final node = _nodeFor(order[next])..requestFocus();
+    final context = node.context;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        alignmentPolicy: next > at
+            ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+            : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    }
   }
 
   @override
@@ -354,6 +397,7 @@ class _ModelPickerState extends State<ModelPicker> {
     final query = _query.trim();
     final search = modelCount > ModelPicker.searchAbove
         ? SettingsSearchField(
+            fullWidth: popover,
             search: SettingsSearch(
               query: _query,
               hint: context.l10n.modelsPickerSearchHint,
@@ -368,6 +412,13 @@ class _ModelPickerState extends State<ModelPicker> {
       for (final provider in providers)
         for (final model in provider.models) (provider.id, model.id),
     ];
+    // The row that takes the focus when a popover opens: the checked one, or
+    // the first when nothing is checked.
+    final autoPick = selected != null
+        ? (selected.providerId, selected.modelId)
+        : (widget.onUseDefault != null && query.isEmpty
+              ? _defaultPick
+              : (order.isEmpty ? null : order.first));
     final dividerIndent = GroupedChoiceRow.dividerIndent(context);
     final large =
         MediaQuery.textScalerOf(context).scale(14) / 14 >=
@@ -445,11 +496,7 @@ class _ModelPickerState extends State<ModelPicker> {
       children: [
         if (popover) ...[
           // The route is named by the title; nothing draws it.
-          Semantics(
-            header: true,
-            label: widget.title ?? context.l10n.modelsPickerTitle,
-            child: const SizedBox(height: 12),
-          ),
+          const SizedBox(height: 12),
           if (search != null)
             Padding(
               padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 8),
@@ -488,9 +535,10 @@ class _ModelPickerState extends State<ModelPicker> {
                 : (selected.providerId, selected.modelId),
             onChanged: _onPicked,
             child: _popoverKeys(
-              popover,
-              (step) => _moveFocus(order, step),
-              ListView(
+              popover: popover,
+              enabled: () => _rowHasFocus(order),
+              move: (step) => _moveFocus(order, step),
+              list: ListView(
                 shrinkWrap: true,
                 padding: EdgeInsets.fromLTRB(
                   gutter,
@@ -505,7 +553,7 @@ class _ModelPickerState extends State<ModelPicker> {
                         GroupedChoiceRow<_Pick>(
                           key: const Key('model-default'),
                           value: _defaultPick,
-                          autofocus: popover && selected == null,
+                          autofocus: popover && autoPick == _defaultPick,
                           rowFocusable: !popover,
                           focusNode: popover ? _nodeFor(_defaultPick) : null,
                           title: context.l10n.modelsPickerUseDefault,
@@ -540,10 +588,7 @@ class _ModelPickerState extends State<ModelPicker> {
                                   : null,
                               autofocus:
                                   popover &&
-                                  selected?.providerId == provider.id &&
-                                  selected?.modelId == model.id,
-                              // The server's value, drawn with its control and
-                              // bidi characters visible.
+                                  autoPick == (provider.id, model.id),
                               title: safePathText(model.id),
                               titleMaxLines: large ? 2 : 1,
                               titleMiddleEllipsis: true,

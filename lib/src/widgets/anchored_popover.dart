@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,29 +24,37 @@ const double kPopoverEdgeInset = 8;
   required double maxHeight,
   required double gap,
   required bool preferAbove,
+  TextDirection textDirection = TextDirection.ltr,
   required double Function(BoxConstraints constraints)? measure,
 }) {
+  const inset = kPopoverEdgeInset;
   final roomAbove = anchor.top - gap - kPopoverEdgeInset;
   final roomBelow = window.height - anchor.bottom - gap - kPopoverEdgeInset;
   final above = preferAbove
       ? roomAbove >= kPopoverMinRoomAbove || roomAbove >= roomBelow
       : roomBelow < kPopoverMinRoomAbove && roomAbove > roomBelow;
   final room = above ? roomAbove : roomBelow;
-  final fitted = width.clamp(0, window.width - 2 * kPopoverEdgeInset);
-  final limit = (room - 16).clamp(0, maxHeight).toDouble();
+  final fitted = math.min(width, math.max(0.0, window.width - 2 * inset));
+  final limit = math.max(0.0, math.min(maxHeight, room - 16));
   final constraints = BoxConstraints(
-    minWidth: fitted.toDouble(),
-    maxWidth: fitted.toDouble(),
+    minWidth: fitted,
+    maxWidth: fitted,
     maxHeight: limit,
   );
-  final height = measure?.call(constraints) ?? limit;
-  final maxLeft = window.width - fitted - kPopoverEdgeInset;
-  final left = anchor.left.clamp(
-    kPopoverEdgeInset,
-    maxLeft < kPopoverEdgeInset ? kPopoverEdgeInset : maxLeft,
+  final height = math.min(measure?.call(constraints) ?? limit, limit);
+  final maxLeft = math.max(inset, window.width - fitted - inset);
+  final wanted = textDirection == TextDirection.rtl
+      ? anchor.right - fitted
+      : anchor.left;
+  final left = wanted.clamp(inset, maxLeft);
+  // The anchor was read when the popover opened and can be stale: keep the
+  // popover inside the window whatever it says.
+  final maxTop = math.max(inset, window.height - inset - height);
+  final top = (above ? anchor.top - gap - height : anchor.bottom + gap).clamp(
+    inset,
+    maxTop,
   );
-  final top = above ? anchor.top - gap - height : anchor.bottom + gap;
-  return (constraints: constraints, offset: Offset(left.toDouble(), top));
+  return (constraints: constraints, offset: Offset(left, top));
 }
 
 class _PopoverLayout extends SingleChildLayoutDelegate {
@@ -54,6 +64,7 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
     required this.maxHeight,
     required this.gap,
     required this.preferAbove,
+    required this.textDirection,
   });
 
   final Rect anchor;
@@ -61,6 +72,7 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
   final double maxHeight;
   final double gap;
   final bool preferAbove;
+  final TextDirection textDirection;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
@@ -71,6 +83,7 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
         maxHeight: maxHeight,
         gap: gap,
         preferAbove: preferAbove,
+        textDirection: textDirection,
         measure: null,
       ).constraints;
 
@@ -82,6 +95,7 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
     maxHeight: maxHeight,
     gap: gap,
     preferAbove: preferAbove,
+    textDirection: textDirection,
     measure: (_) => childSize.height,
   ).offset;
 
@@ -91,7 +105,8 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
       old.width != width ||
       old.maxHeight != maxHeight ||
       old.gap != gap ||
-      old.preferAbove != preferAbove;
+      old.preferAbove != preferAbove ||
+      old.textDirection != textDirection;
 }
 
 /// Lets the owner of an anchor close its popover from outside, such as a pill
@@ -157,6 +172,7 @@ Future<T?> showAnchoredPopover<T>(
                 maxHeight: maxHeight,
                 gap: gap,
                 preferAbove: preferAbove,
+                textDirection: Directionality.of(context),
               ),
               child: Shortcuts(
                 shortcuts: const {
@@ -171,23 +187,25 @@ Future<T?> showAnchoredPopover<T>(
                       },
                     ),
                   },
-                  child: Semantics(
-                    scopesRoute: true,
-                    namesRoute: true,
-                    label: semanticLabel,
-                    explicitChildNodes: true,
-                    child: FocusTraversalGroup(
-                      policy: ReadingOrderTraversalPolicy(),
-                      child: Material(
-                        color: scheme.surface,
-                        elevation: 8,
-                        shadowColor: Colors.black54,
-                        clipBehavior: Clip.antiAlias,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: scheme.outline),
+                  child: _CloseOnResize(
+                    child: Semantics(
+                      scopesRoute: true,
+                      namesRoute: true,
+                      label: semanticLabel,
+                      explicitChildNodes: true,
+                      child: FocusTraversalGroup(
+                        policy: ReadingOrderTraversalPolicy(),
+                        child: Material(
+                          color: scheme.surface,
+                          elevation: 8,
+                          shadowColor: Colors.black54,
+                          clipBehavior: Clip.antiAlias,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: scheme.outline),
+                          ),
+                          child: Builder(builder: builder),
                         ),
-                        child: Builder(builder: builder),
                       ),
                     ),
                   ),
@@ -205,4 +223,38 @@ Future<T?> showAnchoredPopover<T>(
   );
   handle?._attach(navigator, route);
   return navigator.push<T>(route);
+}
+
+/// Closes the route it sits in when the window's size changes: the anchor was
+/// read when the popover opened and no longer says where its pill is.
+class _CloseOnResize extends StatefulWidget {
+  const _CloseOnResize({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_CloseOnResize> createState() => _CloseOnResizeState();
+}
+
+class _CloseOnResizeState extends State<_CloseOnResize> {
+  Size? _size;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final size = MediaQuery.sizeOf(context);
+    final before = _size;
+    _size = size;
+    if (before != null && before != size) {
+      final route = ModalRoute.of(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && route != null && route.isActive) {
+          Navigator.of(context).removeRoute(route);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

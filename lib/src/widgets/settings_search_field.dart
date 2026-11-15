@@ -45,9 +45,16 @@ class SettingsSearch {
 /// The search field of a settings page: 36 points with a 10 point radius on
 /// iOS, a 44 point pill on Material, and the toolbar search field on macOS.
 class SettingsSearchField extends StatefulWidget {
-  const SettingsSearchField({super.key, required this.search});
+  const SettingsSearchField({
+    super.key,
+    required this.search,
+    this.fullWidth = false,
+  });
 
   final SettingsSearch search;
+
+  /// On a Mac, fills the width it is given instead of the toolbar's size.
+  final bool fullWidth;
 
   /// The field's height on iOS or Material.
   static double heightFor({required bool ios}) => ios ? 36 : 44;
@@ -76,17 +83,19 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
     final search = widget.search;
     final chrome = platformChromeOf(context);
     if (chrome == PlatformChrome.macos) {
+      final field = MacToolbarSearchField(
+        fullWidth: widget.fullWidth,
+        query: search.query,
+        active: search.query.isNotEmpty,
+        hint: search.hint,
+        onChanged: search.onChanged,
+        onEnd: () => search.onChanged(''),
+      );
       return Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: widget.fullWidth ? MainAxisSize.max : MainAxisSize.min,
         spacing: 4,
         children: [
-          MacToolbarSearchField(
-            query: search.query,
-            active: search.query.isNotEmpty,
-            hint: search.hint,
-            onChanged: search.onChanged,
-            onEnd: () => search.onChanged(''),
-          ),
+          if (widget.fullWidth) Expanded(child: field) else field,
           if (search.filters.isNotEmpty)
             MacToolbarMenu<VoidCallback>(
               key: const Key('settings-search-filter'),

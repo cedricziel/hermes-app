@@ -37,6 +37,9 @@ Future<_Opened> _pump(
   bool withEffort = false,
   ModelChoice? selected,
   Alignment align = Alignment.bottomLeft,
+  bool rtl = false,
+  ModelOptions options = _options,
+  double textScale = 1,
 }) async {
   tester.view
     ..physicalSize = Size(width, height)
@@ -46,6 +49,14 @@ Future<_Opened> _pump(
   await tester.pumpWidget(
     MaterialApp(
       theme: buildHermesLightTheme().copyWith(platform: platform),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: Directionality(
+          textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+          child: child!,
+        ),
+      ),
       home: Scaffold(
         body: Align(
           alignment: align,
@@ -57,7 +68,7 @@ Future<_Opened> _pump(
                 final box = context.findRenderObject()! as RenderBox;
                 showModelPicker(
                   context,
-                  options: _options,
+                  options: options,
                   selected: selected,
                   onChanged: opened.picked.add,
                   withEffort: withEffort,
@@ -89,7 +100,185 @@ final _popover = find.byWidgetPredicate(
       widget.presentation == ModelPickerPresentation.popover,
 );
 
+ModelOptions _many(int count) => ModelOptions(
+  providers: [
+    ModelProviderOption(
+      id: 'acme',
+      label: 'Acme',
+      models: [for (var i = 0; i < count; i++) ModelOption(id: 'model-$i')],
+    ),
+  ],
+);
+
+Rect _focusRect() => FocusManager.instance.primaryFocus!.rect;
+
 void main() {
+  group('popover details', () {
+    testWidgets('arrows scroll the focused row into view above the effort '
+        'block', (tester) async {
+      await _pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 900,
+        height: 700,
+        options: _many(200),
+        withEffort: true,
+        selected: const ModelChoice('acme', 'model-0'),
+      );
+      await _open(tester);
+      final list = tester.getRect(find.byType(ListView));
+
+      for (var i = 0; i < 60; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+
+      final focus = _focusRect();
+      expect(focus.top, greaterThanOrEqualTo(list.top - 0.5));
+      expect(focus.bottom, lessThanOrEqualTo(list.bottom + 0.5));
+      expect(
+        focus.bottom,
+        lessThanOrEqualTo(
+          tester.getRect(find.byKey(const Key('effort-low'))).top,
+        ),
+      );
+    });
+
+    testWidgets('on a Mac the search field is as wide as the popover', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 900,
+        options: _many(12),
+      );
+      await _open(tester);
+
+      final search = tester.getRect(
+        find.byKey(const Key('toolbar-search-field')),
+      );
+      final surface = tester.getRect(
+        find.ancestor(of: _popover, matching: find.byType(Material)).first,
+      );
+      expect(search.width, greaterThan(surface.width - 24 - 40));
+    });
+
+    testWidgets('the focused row is highlighted across its whole width', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 900,
+        selected: const ModelChoice('acme', 'atlas-mini'),
+      );
+      await _open(tester);
+
+      final row = tester.getRect(
+        find.byKey(const Key('model-acme-atlas-mini')),
+      );
+      final highlight = tester.getRect(
+        find.descendant(
+          of: find.byKey(const Key('model-acme-atlas-mini')),
+          matching: find.byKey(const Key('row-focus-highlight')),
+        ),
+      );
+      expect(highlight.width, closeTo(row.width, 0.5));
+      double alphaOf(String key) {
+        final box =
+            find
+                    .descendant(
+                      of: find.byKey(Key(key)),
+                      matching: find.byKey(const Key('row-focus-highlight')),
+                    )
+                    .evaluate()
+                    .single
+                    .widget
+                as DecoratedBox;
+        return (box.decoration as BoxDecoration).color?.a ?? 0;
+      }
+
+      expect(alphaOf('model-acme-atlas-mini'), greaterThan(0));
+      expect(alphaOf('model-acme-atlas-1'), 0, reason: 'not focused');
+    });
+
+    testWidgets('in a right-to-left window the popover ends on the pill', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 900,
+        align: const Alignment(0.5, 1),
+        rtl: true,
+      );
+      final pill = tester.getRect(find.byKey(const Key('opener')));
+      await _open(tester);
+
+      final surface = tester.getRect(
+        find.ancestor(of: _popover, matching: find.byType(Material)).first,
+      );
+      expect(surface.right, closeTo(pill.right, 0.5));
+    });
+
+    testWidgets('with the effort block in the list, arrows on an effort pill '
+        'are left alone', (tester) async {
+      final opened = await _pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 900,
+        height: 1200,
+        withEffort: true,
+        selected: const ModelChoice('acme', 'atlas-1'),
+        textScale: 2,
+      );
+      await _open(tester);
+      final label = find.descendant(
+        of: find.byKey(const Key('effort-low')),
+        matching: find.byType(Text),
+      );
+      Focus.of(tester.element(label)).requestFocus();
+      await tester.pump();
+      expect(
+        FocusManager.instance.primaryFocus!.debugLabel,
+        isNot('model row'),
+        reason: 'the pill has the focus, not a row',
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+
+      // The key went on to the default handler (down to the next pill), not
+      // to the rows.
+      expect(
+        FocusManager.instance.primaryFocus!.debugLabel,
+        isNot('model row'),
+      );
+      expect(opened.picked, isEmpty);
+    });
+
+    testWidgets('with nothing checked the first row takes the focus', (
+      tester,
+    ) async {
+      await _pump(tester, platform: TargetPlatform.macOS, width: 900);
+      await _open(tester);
+
+      final row = tester.getRect(find.byKey(const Key('model-acme-atlas-1')));
+      expect(row.contains(_focusRect().center), isTrue);
+    });
+
+    testWidgets('the route is announced once', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, platform: TargetPlatform.macOS, width: 900);
+      await _open(tester);
+
+      expect(find.bySemanticsLabel('Model'), findsOneWidget);
+      handle.dispose();
+    });
+  });
+
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.windows,

@@ -2657,6 +2657,55 @@
   "@modelsPickerUseDefault": {
     "description": "Title of the first row of the model picker, which clears an explicit pick so the profile's default model is used."
   },
+  "modelsPillChoose": "Choose a model",
+  "@modelsPillChoose": {
+    "description": "Label of the composer's model pill when no model is picked and the chat has no profile default to name."
+  },
+  "modelsPillDiscoveryUnavailable": "{label}. Model discovery is unavailable.",
+  "@modelsPillDiscoveryUnavailable": {
+    "description": "Screen reader name of the model pill when the server cannot list models. {label} is what the pill shows.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPillLoadFailed": "Could not load models",
+  "@modelsPillLoadFailed": {
+    "description": "Label of the model pill when loading the model list failed."
+  },
+  "modelsPillLoading": "Loading models",
+  "@modelsPillLoading": {
+    "description": "Label of the model pill while the model list loads."
+  },
+  "modelsPillProfileDefault": "Profile default",
+  "@modelsPillProfileDefault": {
+    "description": "Label of the model pill when the profile's default model is used."
+  },
+  "modelsPillRetry": "Retry",
+  "@modelsPillRetry": {
+    "description": "Visible label of the model pill's button that loads the model list again."
+  },
+  "modelsPillRetryModels": "Retry models",
+  "@modelsPillRetryModels": {
+    "description": "Screen reader name of the model pill's retry button."
+  },
+  "modelsPillSelectedModel": "{label}, selected model {model}",
+  "@modelsPillSelectedModel": {
+    "description": "Screen reader name of the model pill while loading or after a failure: what it shows and the model that stays selected. {model} is the server's model id.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPillSetUp": "Set up a model",
+  "@modelsPillSetUp": {
+    "description": "Label of the model pill when no provider offers a model yet; it opens model setup."
+  },
 
   "@@x-area-navigation": "",
 
