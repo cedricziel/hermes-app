@@ -72,3 +72,6 @@ List<String> safeTextUnits(String text) {
   }
   return units;
 }
+
+/// Whether [rune] is one [safePathText] draws as a placeholder.
+bool isUnsafeDisplayRune(int rune) => _unsafe(rune);
