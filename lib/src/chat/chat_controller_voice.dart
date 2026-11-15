@@ -198,15 +198,14 @@ extension _ChatControllerVoice on ChatController {
   /// the composer (under any new draft) rather than losing them.
   void _stopCommandTyped(ChatThread thread, String text) {
     final open = identical(selectedThread, thread);
+    final keep = !open && text.isNotEmpty && _threads.contains(thread);
     onSendNotice?.call(
-      open || text.isEmpty
-          ? ChatSendNotice.stopCommand
-          : ChatSendNotice.stopCommandElsewhere,
+      keep ? ChatSendNotice.stopCommandElsewhere : ChatSendNotice.stopCommand,
     );
     if (text.isEmpty) return;
     if (open) {
       onDraft?.call(text);
-    } else if (_threads.contains(thread)) {
+    } else if (keep) {
       // Another chat's composer is not its to fill: wait for the chat.
       _stopHandBacks[_stopKey(thread.id)] = text;
     }

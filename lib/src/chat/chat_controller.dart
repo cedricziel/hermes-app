@@ -1449,6 +1449,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);
+    _ChatControllerVoice(this)._stopHandBackSelected();
   }
 
   /// Asks the transport to drop a connection the OS killed during sleep, and

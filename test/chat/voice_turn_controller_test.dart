@@ -632,7 +632,11 @@ void main() {
   group('a stop phrase typed in a chat that is not open', () {
     /// Two stored chats, a prompt `stop` sent in the first and the second
     /// opened, then Hermes taking the words as a stop command.
-    Future<ChatController> stopElsewhere() async {
+    Future<ChatController> stopElsewhere({
+      List<ChatEvent> after = const [],
+      bool newChat = false,
+      String? select,
+    }) async {
       server
         ..on(
           'GET',
@@ -647,12 +651,16 @@ void main() {
         ..on('GET', '/api/sessions/stored', sessionRow(id: 'stored'))
         ..on('DELETE', '/api/sessions/stored', {'ok': true});
       final chat = await open();
+      if (newChat) chat.newThread();
       await chat.submit('stop', const []);
-      chat.select('other');
+      chat.select(select ?? 'other');
       await pumpEventQueue();
-      transport.sends.single
-        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
-        ..finish();
+      final send = transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped));
+      for (final event in after) {
+        send.emit(event);
+      }
+      send.finish();
       await pumpEventQueue();
       expect(notices, [ChatSendNotice.stopCommandElsewhere]);
       expect(drafts, isEmpty);
@@ -746,6 +754,57 @@ void main() {
         expect(drafts, ['stop']);
       },
     );
+
+    test('follows the chat when its stored session id rotates', () async {
+      final chat = await stopElsewhere(
+        after: const [SessionInfo(storedSessionId: 'rotated')],
+      );
+      chat.select('rotated');
+      await pumpEventQueue();
+      expect(drafts, ['stop']);
+    });
+
+    test('follows a new chat when its session is bound', () async {
+      final chat = await stopElsewhere(
+        newChat: true,
+        select: 'stored',
+        after: const [ThreadBound('fresh')],
+      );
+      chat.select('fresh');
+      await pumpEventQueue();
+      expect(drafts, ['stop']);
+    });
+
+    test('is handed over when the open chat is removed', () async {
+      server.on('DELETE', '/api/sessions/other', {'ok': true});
+      final chat = await stopElsewhere();
+      await chat.housekeeping!.delete(chat.selectedThread!);
+      await pumpEventQueue();
+      expect(chat.selectedThread!.id, 'stored');
+      expect(drafts, ['stop']);
+    });
+
+    test('is not promised when the chat is gone before the answer', () async {
+      server
+        ..on(
+          'GET',
+          '/api/sessions/other/messages',
+          messageListBody('other', []),
+        )
+        ..on('DELETE', '/api/sessions/stored', {'ok': true});
+      final chat = await open();
+      await chat.submit('stop', const []);
+      chat.newThread();
+      await chat.housekeeping!.delete(
+        chat.threads.firstWhere((t) => t.id == 'stored'),
+      );
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(notices, [ChatSendNotice.stopCommand]);
+      expect(drafts, isEmpty);
+    });
 
     test('hands the words over when open() selects the chat', () async {
       final chat = await stopElsewhere();
