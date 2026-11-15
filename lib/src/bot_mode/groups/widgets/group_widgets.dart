@@ -11,6 +11,7 @@ import '../../../theme/platform_chrome.dart';
 import '../../../widgets/disclosure_tile.dart';
 import '../../../widgets/grouped_list.dart';
 import '../../../widgets/markdown_links.dart';
+import '../../../widgets/markdown_task_box.dart';
 import '../../../widgets/settings_search_field.dart';
 import '../../group_protocol/hermes_groups_repository.dart';
 
@@ -273,6 +274,8 @@ class GroupEventRow extends StatelessWidget {
               BoundedMarkdown(
                 event.payload['text'] as String,
                 onLinkTap: markdownLinkHandler(),
+                checkboxBuilder: readOnlyTaskBox,
+                radioOptionBuilder: readOnlyRadioOption,
               ),
               if (onReply != null && thread is String)
                 TextButton.icon(

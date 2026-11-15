@@ -117,16 +117,21 @@ class KanbanBoardsScreen extends StatelessWidget {
       context: context,
       builder: (context) => AppAlertDialog(
         title: const Text('Board exported'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('The archive is on the server, at:'),
-            const SizedBox(height: 8),
-            SelectableText(exported.archive),
-            const SizedBox(height: 8),
-            Text('${(exported.size / 1024).toStringAsFixed(1)} KB'),
-          ],
+        // A path is data: the whole block lines up at the start on every
+        // platform, where an Apple alert would centre only the wrapped lines.
+        content: DefaultTextStyle.merge(
+          textAlign: TextAlign.start,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('The archive is on the server, at:'),
+              const SizedBox(height: 8),
+              SelectableText(exported.archive),
+              const SizedBox(height: 8),
+              Text('${(exported.size / 1024).toStringAsFixed(1)} KB'),
+            ],
+          ),
         ),
         actions: [
           AppDialogAction(

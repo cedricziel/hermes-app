@@ -39,6 +39,15 @@ BorderSide hermesOverlayEdge(ColorScheme scheme) =>
     ? const BorderSide(color: HermesColors.zinc500)
     : BorderSide.none;
 
+/// The bars of a loading skeleton. The page colour's neighbours
+/// (`surfaceContainerHighest`) stand 1.10:1 off a white transcript and 1.34:1
+/// off a near-black one; zinc300 stands 1.48:1 and zinc700 1.91:1.
+///
+/// Mirrors `--h-skeleton-bar` in `design/web/src/styles/tokens.css`; change
+/// both together.
+Color skeletonBarColor(Brightness brightness) =>
+    brightness == Brightness.dark ? HermesColors.zinc700 : HermesColors.zinc300;
+
 /// Corner radius of a Material dialog and the top of a bottom sheet.
 const double _kOverlayRadius = 28;
 
