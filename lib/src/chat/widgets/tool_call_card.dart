@@ -37,9 +37,14 @@ class ToolCallCard extends StatelessWidget {
     this.approval,
     this.onAnswerApproval,
     this.initiallyOpen = false,
+    this.onOpenChanged,
   });
 
   final ToolCall call;
+
+  /// Told when the reader opens or closes the details, so a parent that
+  /// rebuilds this card in another place can open it again.
+  final ValueChanged<bool>? onOpenChanged;
 
   /// Starts with the details showing, as the catalog does to show them.
   final bool initiallyOpen;
@@ -153,6 +158,7 @@ class ToolCallCard extends StatelessWidget {
         children: [
           DisclosureTile(
             onExpansionChanged: (open) {
+              onOpenChanged?.call(open);
               if (!open || call.outputRisk == null) return;
               try {
                 context.read<Breadcrumbs>()('chat.visibility_action', {
