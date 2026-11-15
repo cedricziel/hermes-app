@@ -12,8 +12,10 @@
 # to the rule's allowlist in code with a reason, in a reviewed change.
 #
 # `UPDATE_BASELINE=1 flutter test --concurrency=1 test/architecture` rewrites
-# this file by lowering counts and removing entries. It never raises a count
-# or adds an entry. A rule with no violations has no entry.
+# this file by lowering counts, removing entries, empty rule ids and ids that
+# no rule claims. It never raises a count or adds an entry. A rule with no
+# violations has no entry. (The rewrite is locked, so parallel runs are safe;
+# --concurrency=1 is only tidier.)
 
 arch.raw-icon-button:
   lib/src/chat/widgets/agent_notice_card.dart: 1

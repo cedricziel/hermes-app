@@ -281,4 +281,4 @@ final guardRules = <Rule>[
   ),
 ];
 
-void main() => ratchetTests(guardRules);
+void main() => ratchetTests(guardRules, namespace: 'arch');

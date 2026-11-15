@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -80,10 +81,129 @@ void main() {
     });
   });
 
+  group('parseBaseline shape', () {
+    test('a rule key with no entries is empty', () {
+      expect(parseBaseline('arch.x:\n'), {'arch.x': <String, int>{}});
+      expect(
+        serializeBaseline('# h', parseBaseline('# h\narch.x:\n')),
+        '# h\n',
+      );
+    });
+
+    test('a non-string key names its line', () {
+      expect(
+        () => parseBaseline('arch.x:\n  a.dart: 1\n  7: 1\n'),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('line 3'),
+          ),
+        ),
+      );
+    });
+
+    test('a backslash path is rejected', () {
+      expect(
+        () => parseBaseline('arch.x:\n  "lib\\\\a.dart": 1\n'),
+        throwsFormatException,
+      );
+    });
+  });
+
+  group('registration', () {
+    setUp(resetRegisteredRules);
+
+    Rule named(String id) => Rule(id: id, message: 'm', scan: () => const {});
+
+    test('a duplicate id within a list throws', () {
+      expect(
+        () => claimRuleIds('arch', [named('arch.a'), named('arch.a')]),
+        throwsArgumentError,
+      );
+    });
+
+    test('a duplicate id across registrations throws', () {
+      claimRuleIds('arch', [named('arch.a')]);
+      expect(
+        () => claimRuleIds('arch', [named('arch.a')]),
+        throwsArgumentError,
+      );
+    });
+
+    test('an id outside the namespace throws', () {
+      expect(
+        () => claimRuleIds('arch', [named('style.a')]),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  test('orphanIds lists unclaimed ids of the namespace only', () {
+    final baseline = {
+      'arch.a': {'x': 1},
+      'arch.gone': {'x': 1},
+      'style.other': {'x': 1},
+    };
+    expect(orphanIds(baseline, 'arch', {'arch.a'}), ['arch.gone']);
+  });
+
+  test('the update drops empty rule ids and orphans, never adds', () {
+    final dir = Directory.systemTemp.createTempSync('ratchet_update');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final file = File('${dir.path}/baseline.yaml')
+      ..writeAsStringSync(
+        '# h\n\narch.a:\n  x.dart: 3\n\narch.gone:\n  y.dart: 1\n\n'
+        'arch.empty:\n',
+      );
+    updateBaselineFile(file, (current) {
+      current['arch.a'] = lowered({
+        'x.dart': 1,
+        'new.dart': 9,
+      }, current['arch.a']!);
+      for (final id in orphanIds(current, 'arch', {'arch.a'})) {
+        current.remove(id);
+      }
+    });
+    expect(file.readAsStringSync(), '# h\n\narch.a:\n  x.dart: 1\n');
+  });
+
+  test('concurrent writers lose no update', () async {
+    final dir = Directory.systemTemp.createTempSync('ratchet_writers');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final file = File('${dir.path}/baseline.yaml')
+      ..writeAsStringSync('# header\n');
+    await Future.wait([
+      for (var w = 0; w < 6; w++)
+        Isolate.run(() => _writer(file.path, 'arch.w$w', 8)),
+    ]);
+    final data = parseBaseline(file.readAsStringSync());
+    expect(
+      data.keys,
+      unorderedEquals([for (var w = 0; w < 6; w++) 'arch.w$w']),
+    );
+    for (final files in data.values) {
+      expect(files, {'p.dart': 8});
+    }
+    expect(dir.listSync().map((e) => e.path.split('/').last), [
+      'baseline.yaml',
+    ]);
+  });
+
   test('rule ids are namespaced', () {
     expect(
       () => Rule(id: 'nope', message: 'm', scan: () => const {}),
       throwsArgumentError,
     );
   });
+}
+
+/// One writer: raises its own rule's count one at a time, each a locked
+/// read-modify-write of the shared file.
+void _writer(String path, String id, int times) {
+  for (var i = 1; i <= times; i++) {
+    updateBaselineFile(File(path), (current) {
+      current[id] = {'p.dart': i};
+    });
+  }
 }
