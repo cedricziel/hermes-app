@@ -48,6 +48,12 @@ void main() {
           payload: {},
           seq: 12,
         ),
+        GatewayEvent(
+          type: 'session.info',
+          sessionId: 'rt000001',
+          payload: {},
+          seq: 13,
+        ),
       ],
     );
     expect((decision as Deliver).events.map((e) => e.seq), [10, 11, 12, 13]);

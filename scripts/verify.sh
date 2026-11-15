@@ -305,8 +305,9 @@ run_contract() {
 # A backend of its own for test/gateway_reconnect_contract_test.dart: its
 # restart group stops the dashboard (`term` or `kill`) and starts it again on
 # the same port and HERMES_HOME, which would break every other contract test.
-# The script it is given does that from the same minimal environment
-# start_backend uses.
+# The script it is given does that with a minimal environment (path, home,
+# locale, the run's marker and the dev-backend variables), not the exact
+# allowlisted one start_backend inherits.
 run_reconnect_contract() {
   log "contract tier: gateway reconnect and restart against a backend of its own"
   start_backend reconnect 0
@@ -318,22 +319,39 @@ run_reconnect_contract() {
     printf 'env_path=%q web=%q run=%q\n' "$HERMES_DIR/.venv/bin:$PATH" "$HERMES_DIR/hermes_cli/web_dist" "$RUN_DIR"
     cat <<'EOF'
 pid="$(cat "$state/pid")"
+# Only the process dev-backend.sh recorded, and only while it still owns the port.
+[[ "$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -n1)" == "$pid" ]] || {
+  echo "restart-backend: pid $pid does not own port $port" >&2
+  exit 1
+}
 case "${1:-}" in
   term) kill "$pid" ;;
   kill) kill -9 "$pid" ;;
   *) echo "usage: $0 term|kill" >&2; exit 2 ;;
 esac
-for _ in $(seq 60); do
-  [[ -z "$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null)" ]] && break
+# Gone means exited: a zombie (state Z) is waiting to be reaped and counts.
+gone=0
+for _ in $(seq 120); do
+  if ! kill -0 "$pid" 2>/dev/null; then gone=1; break; fi
+  read -r line <"/proc/$pid/stat" 2>/dev/null || { gone=1; break; }
+  rest="${line##*) }"
+  [[ "${rest%% *}" == Z ]] && { gone=1; break; }
   sleep 0.5
 done
+((gone)) || { echo "restart-backend: pid $pid did not exit" >&2; exit 1; }
 rm -f "$state/pid" "$state/port"
-exec env -i PATH="$env_path" HOME="$state/userhome" LANG=C.UTF-8 HERMES_VERIFY_RUN="$run" \
+env -i PATH="$env_path" HOME="$state/userhome" LANG=C.UTF-8 HERMES_VERIFY_RUN="$run" \
   HERMES_DEV_STATE_DIR="$state" HERMES_DEV_PORT="$port" HERMES_WEB_DIST="$web" \
   setsid "$root/scripts/dev-backend.sh" start
+# Recorded like start_backend does, so the run's cleanup finds the new session.
+read -r line <"/proc/$(cat "$state/pid")/stat"
+rest="${line##*) }"
+read -r -a f <<<"$rest"
+echo "${f[3]}" >>"$run/sids"
 EOF
   } >"$script"
   chmod 700 "$script"
+  mkdir -p "$RUN_DIR/tmp"
   local status=0
   (cd "$ROOT_DIR" && TMPDIR="$RUN_DIR/tmp" HERMES_DEV_URL="$url" HERMES_DEV_HOME="$state/home" \
     HERMES_DEV_RESTART_SCRIPT="$script" \

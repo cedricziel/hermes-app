@@ -10,28 +10,43 @@
           "payload": {
             "tool_id": "call_demo",
             "name": "terminal",
-            "args": { "command": "sleep 3; echo woke", "timeout": 600 },
+            "args": {
+              "command": "sleep 3; echo woke",
+              "timeout": 600
+            },
             "duration_s": 3.4,
-            "result": { "output": "woke", "exit_code": 0, "error": null }
+            "result": {
+              "output": "woke",
+              "exit_code": 0,
+              "error": null
+            }
           },
           "seq": 10
         },
         {
           "type": "message.delta",
           "session_id": "rt000001",
-          "payload": { "text": "Invented reply." },
+          "payload": {
+            "text": "Invented reply."
+          },
           "seq": 11
         },
         {
           "type": "message.complete",
           "session_id": "rt000001",
-          "payload": { "text": "Invented reply.", "status": "complete" },
+          "payload": {
+            "text": "Invented reply.",
+            "status": "complete"
+          },
           "seq": 12
         },
         {
           "type": "session.info",
           "session_id": "rt000001",
-          "payload": { "model": "demo", "running": false },
+          "payload": {
+            "model": "demo",
+            "running": false
+          },
           "seq": 13
         }
       ],
@@ -52,35 +67,5 @@
       "epoch": "epoch-b",
       "open_requests": []
     }
-  },
-  "resume_still_running": {
-    "session_id": "rt000001",
-    "resumed": "20260101_000000_abc123",
-    "session_key": "20260101_000000_abc123",
-    "running": true,
-    "status": "working",
-    "inflight": {
-      "assistant": "",
-      "streaming": true,
-      "user": "Invented prompt"
-    },
-    "message_count": 1,
-    "messages": [{ "role": "user", "text": "Invented prompt", "row_id": 1 }]
-  },
-  "resume_after_kill": {
-    "session_id": "rt000002",
-    "resumed": "20260101_000000_abc123",
-    "session_key": "20260101_000000_abc123",
-    "running": false,
-    "status": "idle",
-    "inflight": null,
-    "auto_continue": { "attempt": 1, "interrupted_at": 1767225600.5 },
-    "message_count": 1,
-    "messages": [{ "role": "user", "text": "Invented prompt", "row_id": 1 }]
-  },
-  "errors": {
-    "resume_unknown_id": { "code": 4007, "message": "session not found" },
-    "runtime_id_gone": { "code": 4001, "message": "session not found" },
-    "undo_while_running": { "code": 4009, "message": "session busy" }
   }
 }

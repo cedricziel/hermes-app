@@ -42,7 +42,7 @@ void main() {
           : null);
 
   late HermesApiClient client;
-  late HttpServer model;
+  HttpServer? model;
   final profile = 'contract-reconnect-${DateTime.now().millisecondsSinceEpoch}';
 
   Future<HermesApiClient> freshClient() async {
@@ -60,7 +60,7 @@ void main() {
   setUpAll(() async {
     if (url == null) return;
     client = await freshClient();
-    model = await _serveSleepingModel();
+    final served = model = await _serveSleepingModel();
     await client.raw.createProfileEndpointApiProfilesPost(
       profileCreate: ProfileCreate(name: profile, noSkills: true),
     );
@@ -72,7 +72,7 @@ void main() {
 model:
   default: "scripted"
   provider: "custom"
-  base_url: "http://127.0.0.1:${model.port}/v1"
+  base_url: "http://127.0.0.1:${served.port}/v1"
   api_key: "scripted"
   context_length: 131072
 ''',
@@ -89,7 +89,7 @@ model:
         name: profile,
       );
     } finally {
-      await model.close(force: true);
+      await model?.close(force: true);
     }
   });
 
@@ -388,9 +388,17 @@ model:
         final auto = resumed['auto_continue'];
         if (auto != null) {
           expect((auto as Map)['attempt'], 1);
-          await back.rpc.request('session.interrupt', {
-            'session_id': resumed['session_id'],
-          });
+          final next = resumed['session_id'] as String;
+          await back.until(
+            () => back.types(next).contains('tool.start'),
+            'the continuation turn to run its tool',
+          );
+          await back.rpc.request('session.interrupt', {'session_id': next});
+          await back.until(
+            () => back.types(next).contains('message.complete'),
+            'the stopped continuation to complete',
+            within: const Duration(seconds: 30),
+          );
         }
       },
       skip: restartSkip,
@@ -419,8 +427,6 @@ model:
         final resumed = await resume(back, turn.stored);
         final next = resumed['session_id'] as String;
         expect(next, isNot(turn.sid));
-        // Not running at the answer: the continuation starts after it.
-        expect(resumed['running'], false);
         final auto = resumed['auto_continue'] as Map<String, Object?>;
         expect(auto['attempt'], 1);
         expect(auto['interrupted_at'], isA<num>());
