@@ -65,6 +65,7 @@ import '../workspaces/workspace_telemetry.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../tools/hermes_tools_repository.dart';
 import '../tools/tools_availability.dart';
+import '../tools/tools_profile.dart';
 import '../tools/tools_screen.dart';
 import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';

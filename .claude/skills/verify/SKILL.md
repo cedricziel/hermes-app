@@ -39,8 +39,15 @@ scripts/verify.sh contract --launch-profile NAME    # contract tier, then the la
 scripts/verify.sh all --launch-profile NAME         # contract, launch-profile, app
 ```
 
-`--launch-profile NAME` is off by default; without it the steps are exactly
-those above. NAME is lowercase letters, digits, `-` and `_`, and not `default`.
+The launch-profile step is a probe, not a gate: `all` and `contract` run it
+only when `--launch-profile NAME` is given, and without it the steps are
+exactly those above. **It is red on main until the launch-profile fix lands;
+it is the fix's proof.** Do not add it to a PR's required checks before then.
+NAME is a Hermes profile name (lowercase letters, numbers, `-` and `_`, at most
+64) that Hermes does not reserve: not `default`, `hermes`, `test`, `tmp`,
+`root`, `sudo` or the name of a hermes subcommand (`status`, `config`, ...);
+`scripts/profile-names.sh` has the list, read from `hermes_cli/profiles.py` at
+the pinned revision.
 
 Exit 0 and `[verify] verify all passed` (printed last, after cleanup) mean
 every tier passed and nothing of the run survived. Screenshots
@@ -91,23 +98,28 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    `current: NAME` while a third profile is the sticky `active` one. Proves
    that a chat with no profile of its own is read, written and shown for the
    server's launch profile (`current`) on every surface, never `default` and
-   never the sticky one. Each surface is driven through the app's own
+   never the sticky one. Red on main until the fix lands; it is the fix's
+   proof, so it is an opt-in step, not part of `all`. Each surface is driven through the app's own
    repository or controller code on the real generated client and Dio (the
    gateway ones through the real socket), with a recorder of the `profile`
    each request names; a failing run prints a table of surface to profile
    sent. The surfaces and the code each drives: Chat (`ChatController.loadThreads`
    with no profile: the session list and the profile it settles on), Bot
    Screen (`BotScreenController(profile: chat.profile)`, `display.status`),
-   Files (`HermesFilesRepository(profile: chat.profile ?? kDefaultProfile)`,
-   the expression `openFiles` uses), Workspaces
+   Files (`HermesFilesRepository(profile: filesProfileFor(chat.profile))`,
+   the function `openFiles` calls), Workspaces
    (`ChatController.workspaceCatalog()`), background refresh
    (`withHeadlessHermes` + `HeadlessHermes.refreshSnapshot`: the profile the
    snapshot names), Memory (`MemoryDestination(profile: chat.profile)` in a
-   widget test) and Tools (`ToolsAvailability` seeded the way `AppShell` does,
-   then the profile `ChatScreen._openTools` picks). Files, Tools and the
-   Bot Screen's caller are reproduced from the screen's expression, because
-   the screens need a whole app around them: when one of those expressions
-   changes in `lib/`, change the test with it. Without `HERMES_DEV_URL` and
+   widget test, with a recording gateway transport so the proposals commands
+   are checked too) and Tools (`ToolsAvailability` seeded with
+   `serverDefaultProfile`, as `AppShell` does, then `toolsProfileFor`, which
+   `ChatScreen._openTools` calls). Files and Tools go through functions the
+   screens call, so the test follows the app. Bot Screen and Memory pass
+   `chat.profile` the way the screens do, copied by hand: the screens need a
+   whole app around them, so when `ChatScreen` changes what it passes, change
+   the test with it. The test is read only except for the transient gateway
+   sessions the Memory commands open. Without `HERMES_DEV_URL` and
    `HERMES_DEV_LAUNCH_PROFILE` the test skips (CI sets neither), and by hand:
 
    ```bash
@@ -123,6 +135,15 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    `hermes_home`, while the process environment still names `<home>`.
    `hermes profile use` writes the sticky `active_profile` file in `<home>`
    and does not move a running dashboard, which is what keeps the two apart.
+   `dev-backend.sh` takes these as flags only (no environment variables, so
+   the test's `HERMES_DEV_LAUNCH_PROFILE` never reaches it). The state
+   directory outlives a run, so a start reuses a profile that is there and
+   removes `active_profile` unless `--sticky-profile` is given: a plain start
+   after a launch-profile one launches the default profile again. Before any
+   `hermes` call it refuses a state directory at or under `$HOME/.hermes` or an
+   ambient `HERMES_HOME`, where Hermes would write the real profiles (exit 3;
+   `scripts/test_dev_backend.sh` checks this with a stand-in `hermes`), and its
+   profile commands run with a throwaway `HOME`.
 
 **Not proven here:** anything native outside Linux desktop: iOS, macOS,
 Android, Windows builds and behaviour; notifications, Home Screen widgets,
@@ -208,4 +229,4 @@ Then add a row to "Covered behaviour" below and run `scripts/verify.sh` twice.
 | Password sign-in via loopback + PKCE, session stored in secure storage (keyring)                                                                                                                              | app      | step 2                                                                                                                                               |
 | Send a prompt, receive the streamed reply in the chat                                                                                                                                                         | app      | step 3                                                                                                                                               |
 | Server screen: account menu, Server, status read from the dashboard (headline card and gateway state row render, no read-failed or loading state)                                                             | app      | step 4 (`04-server`)                                                                                                                                 |
-| A chat with no profile names the server's launch profile (not `default`, not the sticky one) on the chat list, Bot Screen, Files, Workspaces, background refresh, Memory and Tools                              | launch-profile | `test/launch_profile_contract_test.dart` (opt in: `launch-profile` or `--launch-profile NAME`)                                                 |
+| A chat with no profile names the server's launch profile (not `default`, not the sticky one) on the chat list, Bot Screen, Files, Workspaces, background refresh, Memory and Tools. Red on main until the fix lands; the fix's proof | launch-profile | `test/launch_profile_contract_test.dart` (opt in: `launch-profile` or `--launch-profile NAME`) |

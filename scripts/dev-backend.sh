@@ -16,13 +16,21 @@
 # and HERMES_DEV_STATE_DIR to keep the state somewhere else (scripts/verify.sh
 # puts it in a temporary directory outside the working tree).
 #
-# --launch-profile NAME (or HERMES_DEV_LAUNCH_PROFILE) makes NAME the profile
-# the dashboard was launched with, which GET /api/profiles/active reports as
-# `current`. NAME is created in the throwaway home first (no wrapper alias, so
-# nothing lands in ~/.local/bin). --sticky-profile NAME (or
-# HERMES_DEV_STICKY_PROFILE) creates another profile and makes it the sticky
-# `active` one, which `hermes profile use` writes and the launch profile does
-# not follow. Both are read at start only; without them nothing changes.
+# --launch-profile NAME makes NAME the profile the dashboard was launched with,
+# which GET /api/profiles/active reports as `current`. NAME is created in the
+# throwaway home first (once: a profile that is there already is reused), with
+# no wrapper alias, so nothing lands in ~/.local/bin. --sticky-profile NAME
+# creates another profile and makes it the sticky `active` one, which `hermes
+# profile use` writes and the launch profile does not follow. Flags only, no
+# environment variables: every start removes the home's `active_profile` unless
+# a sticky profile is given, so a plain start after a launch-profile one
+# launches the default profile again. NAME may not be one Hermes reserves
+# (scripts/profile-names.sh).
+#
+# Before any `hermes` call the script refuses a state directory at or under the
+# real Hermes home ($HOME/.hermes) or under an ambient HERMES_HOME, where
+# Hermes would write the real profiles; profile commands run with a throwaway
+# HOME of their own.
 #
 # Never use `hermes dashboard --stop` here: it kills every Hermes web server
 # on the machine, including ones other sessions or the developer started.
@@ -36,6 +44,9 @@ PORT_FILE="$STATE_DIR/port"
 LOG_FILE="$STATE_DIR/dashboard.log"
 READY_TIMEOUT="${HERMES_DEV_READY_TIMEOUT:-120}"
 LAUNCH_FILE="$STATE_DIR/launch-profile"
+
+# shellcheck source=profile-names.sh
+source "$ROOT_DIR/scripts/profile-names.sh"
 
 listening_pid() { lsof -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null | head -n1 || true; }
 
@@ -66,11 +77,42 @@ process_home() {
   tr '\0' '\n' <"$environ" | sed -n 's/^HERMES_HOME=//p' | head -n1
 }
 
-valid_profile_name() { [[ "$1" =~ ^[a-z0-9][a-z0-9_-]{0,63}$ && "$1" != default ]]; }
+# The physical path of $1 even when it, or part of it, does not exist yet:
+# nothing is created to find out.
+resolve_path() {
+  local path="$1" rest=""
+  while [[ ! -d "$path" ]]; do
+    rest="/$(basename "$path")$rest"
+    path="$(dirname "$path")"
+  done
+  echo "$(cd "$path" && pwd -P)$rest"
+}
 
-# Creates profile $1 in the throwaway home. Never writes a wrapper alias.
+# Exits unless the state directory is clear of the real Hermes home: with
+# HERMES_HOME at or under ~/.hermes (or an ambient HERMES_HOME) Hermes takes
+# that directory for its root, and `profile create` and `profile use` would
+# write the real profiles and the real `active_profile`.
+refuse_real_hermes_home() {
+  local state real
+  state="$(resolve_path "$STATE_DIR")"
+  local guarded=()
+  [[ -n "${HOME:-}" ]] && guarded+=("$(resolve_path "$HOME/.hermes")")
+  [[ -n "${HERMES_HOME:-}" ]] && guarded+=("$(resolve_path "$HERMES_HOME")")
+  for real in ${guarded[@]+"${guarded[@]}"}; do
+    if [[ "$state" == "$real" || "$state" == "$real"/* ]]; then
+      echo "refusing: the state directory $state is at or under $real, a real Hermes home" >&2
+      echo "set HERMES_DEV_STATE_DIR to a directory elsewhere" >&2
+      exit 3
+    fi
+  done
+}
+
+# Creates profile $1 in the throwaway home unless it is there already. Never
+# writes a wrapper alias, and runs with a throwaway HOME.
 create_profile() {
-  HERMES_HOME="$HOME_DIR" hermes profile create "$1" --no-alias --no-skills >>"$LOG_FILE" 2>&1 || {
+  [[ -d "$HOME_DIR/profiles/$1" ]] && return 0
+  mkdir -p "$STATE_DIR/userhome"
+  HOME="$STATE_DIR/userhome" HERMES_HOME="$HOME_DIR" hermes profile create "$1" --no-alias --no-skills >>"$LOG_FILE" 2>&1 || {
     echo "could not create profile $1; last log lines:" >&2
     tail -n 20 "$LOG_FILE" >&2
     exit 1
@@ -78,7 +120,7 @@ create_profile() {
 }
 
 cmd_start() {
-  local launch="${HERMES_DEV_LAUNCH_PROFILE:-}" sticky="${HERMES_DEV_STICKY_PROFILE:-}"
+  local launch="" sticky="" problem
   shift || true
   while (($#)); do
     case "$1" in
@@ -96,12 +138,12 @@ cmd_start() {
         ;;
     esac
   done
-  if [[ -n "$launch" ]] && ! valid_profile_name "$launch"; then
-    echo "invalid launch profile '$launch' (lowercase letters, digits, - and _; not 'default')" >&2
+  if [[ -n "$launch" ]] && ! problem="$(profile_name_problem "$launch")"; then
+    echo "invalid launch profile: $problem" >&2
     exit 2
   fi
-  if [[ -n "$sticky" ]] && ! valid_profile_name "$sticky"; then
-    echo "invalid sticky profile '$sticky' (lowercase letters, digits, - and _; not 'default')" >&2
+  if [[ -n "$sticky" ]] && ! problem="$(profile_name_problem "$sticky")"; then
+    echo "invalid sticky profile: $problem" >&2
     exit 2
   fi
   if [[ -n "$sticky" && -z "$launch" ]]; then
@@ -112,6 +154,7 @@ cmd_start() {
     echo "the sticky profile must differ from the launch profile" >&2
     exit 2
   fi
+  refuse_real_hermes_home
   if ! command -v hermes >/dev/null; then
     echo "hermes not found on PATH. Install Hermes Agent:" >&2
     echo "  https://github.com/NousResearch/hermes-agent (see its README)" >&2
@@ -129,13 +172,16 @@ cmd_start() {
 
   mkdir -p "$HOME_DIR"
   rm -f "$PID_FILE" "$PORT_FILE" "$LAUNCH_FILE"
+  # The state directory outlives a run: a sticky profile left by an earlier
+  # launch-profile start must not decide which profile this start launches.
+  [[ -n "$sticky" ]] || rm -f "$HOME_DIR/active_profile"
   : >"$LOG_FILE"
   local launch_args=()
   if [[ -n "$launch" ]]; then
     create_profile "$launch"
     if [[ -n "$sticky" ]]; then
       create_profile "$sticky"
-      HERMES_HOME="$HOME_DIR" hermes profile use "$sticky" >>"$LOG_FILE" 2>&1 || {
+      HOME="$STATE_DIR/userhome" HERMES_HOME="$HOME_DIR" hermes profile use "$sticky" >>"$LOG_FILE" 2>&1 || {
         echo "could not make $sticky the sticky profile" >&2
         exit 1
       }

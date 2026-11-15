@@ -16,18 +16,23 @@ import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
+import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/files/files_profile.dart';
 import 'package:hermes_app/src/files/hermes_files_repository.dart';
 import 'package:hermes_app/src/memory/memory_destination.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/profiles/server_default_profile.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/tools_availability.dart';
+import 'package:hermes_app/src/tools/tools_profile.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/workspace_catalog_loader.dart';
 import 'package:provider/provider.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -86,6 +91,36 @@ void main() {
     return gateway!.requestWithin(method, params, timeout: timeout);
   }
 
+  /// The dashboard's gateway socket with each outgoing JSON-RPC frame's
+  /// `profile` recorded, for a transport the app opens for itself.
+  Future<StreamChannel<String>> recordingConnect() async {
+    final channel = await hermesGatewayConnect(
+      baseUrl: url!,
+      authRequired: false,
+      api: api,
+    )();
+    final tap = StreamChannelController<String>();
+    tap.local.stream.listen((frame) {
+      try {
+        final body = jsonDecode(frame);
+        if (body is Map && body['params'] is Map) {
+          final params = body['params'] as Map<Object?, Object?>;
+          seen.add(
+            _Request('rpc', '${body['method']}', _text(params['profile'])),
+          );
+        }
+      } on Object {
+        // Not a request frame.
+      }
+      channel.sink.add(frame);
+    }, onDone: () => channel.sink.close());
+    channel.stream.listen(
+      tap.local.sink.add,
+      onDone: () => tap.local.sink.close(),
+    );
+    return tap.foreign;
+  }
+
   /// The chat the app has before its first load: no profile of its own, on a
   /// connection to the dashboard. This is what each surface is given.
   ChatController newChat() {
@@ -129,6 +164,8 @@ void main() {
           'was launched with $launch (sticky active: $sticky)',
     );
   }
+
+  setUp(seen.clear);
 
   setUpAll(() async {
     if (skip != null) return;
@@ -176,6 +213,7 @@ void main() {
         'and neither is `default`', () async {
       final answer = await profiles.loadActive();
       sticky = answer.active;
+      expect(launch, isNot('default'));
       expect(
         answer.current,
         launch,
@@ -240,10 +278,10 @@ void main() {
       final chat = newChat();
       expect(chat.profile, isNull);
       final profilesSent = await sent(() async {
-        // open_files.dart: `profile: chat.profile ?? kDefaultProfile`
+        // open_files.dart builds the repository with filesProfileFor.
         final files = HermesFilesRepository(
           api,
-          profile: chat.profile ?? kDefaultProfile,
+          profile: filesProfileFor(chat.profile),
         );
         await files.defaultCwd();
       });
@@ -285,6 +323,17 @@ void main() {
       expect(outcome, isA<HeadlessDone<SurfaceSnapshot?>>());
       final snapshot = (outcome as HeadlessDone<SurfaceSnapshot?>).value;
       expect(snapshot, isNotNull, reason: 'the snapshot was not saved');
+      // Every profile a request named is a real one (or `all`), none invented.
+      final names = {for (final p in await profiles.list()) p.name, 'all'};
+      final named = {
+        for (final r in seen)
+          if (r.profile != null) r.profile!,
+      };
+      expect(
+        named.difference(names),
+        isEmpty,
+        reason: 'the headless run named a profile the server does not have',
+      );
       check('Background refresh snapshot', {?snapshot!.profile});
     });
 
@@ -293,7 +342,13 @@ void main() {
       final repositories = HermesRepositories(api);
       final chat = newChat();
       expect(chat.profile, isNull);
-      final from = seen.length;
+      // The destination's proposals commands go over this socket.
+      final transport = HermesGatewayTransport(connect: recordingConnect);
+      addTearDown(transport.close);
+      bool memoryRead(_Request r) =>
+          r.kind == 'rpc' ||
+          r.path.startsWith('/api/memory') ||
+          r.path == '/api/config';
       await tester.runAsync(() async {
         await tester.pumpWidget(
           MaterialApp(
@@ -302,17 +357,17 @@ void main() {
             home: Provider<HermesRepositories?>.value(
               value: repositories,
               // chat_screen_navigation.dart: `profile: _chat.profile`
-              child: MemoryDestination(profile: chat.profile),
+              child: MemoryDestination(
+                profile: chat.profile,
+                transport: transport,
+              ),
             ),
           ),
         );
         await _until(
-          () => seen
-              .skip(from)
-              .any(
-                (r) =>
-                    r.path.startsWith('/api/memory') || r.path == '/api/config',
-              ),
+          () =>
+              seen.any((r) => r.path.startsWith('/api/memory')) &&
+              seen.any((r) => r.kind == 'rpc' && r.profile != null),
           pump: tester.pump,
         );
         // Let the first reads settle.
@@ -321,7 +376,7 @@ void main() {
       });
       await tester.pumpWidget(const SizedBox());
       check('Memory screen reads', {
-        for (final r in seen.skip(from))
+        for (final r in seen.where(memoryRead))
           if (r.profile != null) r.profile!,
       });
     });
@@ -331,20 +386,17 @@ void main() {
       final chat = newChat();
       expect(chat.profile, isNull);
       final profilesSent = await sent(() async {
-        // app_shell.dart _resolveServerCareProfile: the server's own default.
-        final answer = await profiles.loadActive();
-        final name = answer.current.isNotEmpty ? answer.current : answer.active;
+        // AppShell._resolveServerCareProfile: the server's own default.
+        final name = serverDefaultProfile(await profiles.loadActive());
+        expect(name, isNotNull);
         final availability = ToolsAvailability(
           HermesToolsRepository(api.raw, profile: ''),
         );
         addTearDown(availability.dispose);
-        // app_shell.dart _followToolsProfile
-        await availability.refresh(name);
-        // chat_screen_navigation.dart _openTools
-        final opened =
-            chat.profile ??
-            availability.requestedProfile ??
-            availability.profile;
+        // AppShell._followToolsProfile
+        await availability.refresh(name!);
+        // ChatScreen._openTools
+        final opened = toolsProfileFor(chat.profile, availability);
         expect(opened, isNotNull);
         await HermesToolsRepository(
           api.raw,

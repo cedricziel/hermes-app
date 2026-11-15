@@ -21,6 +21,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=profile-names.sh
+source "$ROOT_DIR/scripts/profile-names.sh"
 
 # Names that may carry a secret are never passed on, whatever the allowlist.
 secret_name() {
@@ -201,6 +203,15 @@ resolve_tmp_root() {
   case "$TMP_ROOT/" in
     "$(cd "$ROOT_DIR" && pwd -P)"/*) die "refusing: $TMP_ROOT is inside the working tree" ;;
   esac
+  # Where Hermes would take a run's home for the real one.
+  local real
+  for real in "${HOME:-/nonexistent}/.hermes" "${HERMES_HOME:-}"; do
+    [[ -n "$real" && -d "$real" ]] || continue
+    real="$(cd "$real" && pwd -P)"
+    case "$TMP_ROOT/" in
+      "$real"/*) die "refusing: $TMP_ROOT is inside the real Hermes home $real" ;;
+    esac
+  done
 }
 
 # Runs left behind by a verify.sh that was killed with SIGKILL (no trap ran).
@@ -584,8 +595,7 @@ case "$MODE" in
     ;;
 esac
 if [[ -n "$LAUNCH_PROFILE" ]]; then
-  [[ "$LAUNCH_PROFILE" =~ ^[a-z0-9][a-z0-9_-]{0,63}$ && "$LAUNCH_PROFILE" != default ]] ||
-    die "invalid launch profile '$LAUNCH_PROFILE' (lowercase letters, digits, - and _; not 'default')"
+  problem="$(profile_name_problem "$LAUNCH_PROFILE")" || die "invalid launch profile: $problem"
   [[ "$MODE" != app ]] || die "--launch-profile applies to all, contract and launch-profile, not app"
 fi
 
