@@ -47,7 +47,7 @@ B2, chat-row actions on iPad:
 
 D2 (GroupedDialog header at large text):
 
-- `GroupedDialog._Title` (`lib/src/widgets/grouped_dialog.dart` ~121) is shared by the iOS and macOS chrome. When title and Done do not fit on one line, Done takes its own 44 pt row, right-aligned, and the title wraps under it, centred. The header grows; nothing is cut.
+- `GroupedDialog._Title` (`lib/src/widgets/grouped_dialog.dart` ~121) is shared by the iOS and macOS chrome. When title and Done do not fit on one line, Done takes its own 44 pt row, right-aligned, and the title wraps under it, centred. The header grows while the rows keep the height they have on main; otherwise the title is truncated with an ellipsis (see the rows-win rule below).
 - VoiceOver reads the title first, then Done, although Done is above it on screen.
 - At the default size the header is unchanged (title centred, Done on the same line). Checked at x2.0 and x3.1 on 320 pt.
 - Rows win (decision after review of the first implementation): the header may grow past its one-line form, up to 40% of the room the dialog really gets (keyboard included), only while the rows keep at least the height they have on main for the same viewport, keyboard and text scale. Whenever growing would give the rows less, the header falls back to the one-line form (52 pt on iOS, 44 on macOS) and the title is cut with an ellipsis. The full title stays in the heading's semantics label and in a long-press or hover tooltip (excluded from semantics, so it is not read twice). Past the 40% cap the title scrolls, with a fade at its bottom edge. Nothing paints outside the header.
@@ -93,7 +93,7 @@ New components needed: one row-level touch menu wrapper for B2, built on `Cupert
 ## Accessibility
 
 - Touch targets stay at 44 pt (Done in the large-text header, popover rows).
-- Large text: nothing is capped or cut. Overflow scrolls or wraps (D2, D3).
+- Large text: overflow scrolls or wraps (D3). The one deliberate truncation is the D2 dialog title where growing the header would take room from the rows: it is cut with an ellipsis, and the full title stays in the semantics label and a tooltip.
 - The pull to refresh failure is an error line with an icon and words, not colour alone; the refreshing state is announced as "Refreshing chats".
 - Destructive actions are red text with a word, and Cancel or Keep draft is the default.
 - The popover has the accessible name "Chat actions for <title>"; it closes on Escape and on a tap outside.

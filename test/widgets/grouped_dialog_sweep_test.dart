@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -230,6 +231,23 @@ void main() {
                         if (box.bottom > bodyTop + 0.5 ||
                             box.top < dialogTop - 0.5) {
                           problems.add('$cell: title box outside the header');
+                        }
+                        // The grown form always shows at least one whole line.
+                        final paragraph = tester.renderObject<RenderParagraph>(
+                          find.descendant(
+                            of: dialogFinder,
+                            matching: find.text(cell.title),
+                          ),
+                        );
+                        // One line: the intrinsic height at unbounded width.
+                        final line = paragraph.getMinIntrinsicHeight(
+                          double.infinity,
+                        );
+                        if (box.height < line - 0.5) {
+                          problems.add(
+                            '$cell: grown title shows ${box.height} of a '
+                            '$line pt line',
+                          );
                         }
                       }
                       // The header node itself carries the full title.

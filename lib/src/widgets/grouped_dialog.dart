@@ -36,6 +36,7 @@ class GroupedDialog extends StatelessWidget {
       PlatformChrome.macos => (460.0, 10.0),
       PlatformChrome.material => (560.0, 28.0),
     };
+    final rowsHeight = _RowsHeight();
     return Dialog(
       backgroundColor: theme.scaffoldBackgroundColor,
       surfaceTintColor: Colors.transparent,
@@ -59,18 +60,24 @@ class GroupedDialog extends StatelessWidget {
           // really gets: the footer is measured first and the header is
           // capped so it never takes room the footer needs.
           child: _DialogColumn(
+            rowsHeight: rowsHeight,
             children: [
               _Title(title: title, chrome: chrome, showDone: actions == null),
               SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  metrics.gutter,
-                  0,
-                  metrics.gutter,
-                  metrics.gutter,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
+                child: _RowsProbe(
+                  probe: rowsHeight,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      metrics.gutter,
+                      0,
+                      metrics.gutter,
+                      metrics.gutter,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
+                  ),
                 ),
               ),
               if (actions != null)
@@ -633,17 +640,73 @@ class _DialogColumnParentData extends ContainerBoxParentData<RenderBox> {}
 /// that it takes room the footer needs; in tight room it falls back to the
 /// least height that still shows one whole line of the title.
 class _DialogColumn extends MultiChildRenderObjectWidget {
-  const _DialogColumn({required super.children});
+  const _DialogColumn({required this.rowsHeight, required super.children});
+
+  final _RowsHeight rowsHeight;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderDialogColumn();
+      _RenderDialogColumn(rowsHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderDialogColumn renderObject,
+  ) {
+    renderObject.rowsHeight = rowsHeight;
+  }
+}
+
+/// Where [_RowsProbe] leaves the rows' laid-out content height for the column
+/// to read in the same layout pass.
+class _RowsHeight {
+  double? value;
+}
+
+/// Records its child's height, laid out for real (the scroll view gives it
+/// all the height it wants), so the column knows how much the rows need
+/// without asking for intrinsics or a dry layout.
+class _RowsProbe extends SingleChildRenderObjectWidget {
+  const _RowsProbe({required this.probe, required super.child});
+
+  final _RowsHeight probe;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderRowsProbe(probe);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderRowsProbe renderObject) {
+    renderObject.probe = probe;
+  }
+}
+
+class _RenderRowsProbe extends RenderProxyBox {
+  _RenderRowsProbe(this._probe);
+
+  _RowsHeight _probe;
+  set probe(_RowsHeight value) {
+    _probe = value;
+    // A rebuilt dialog hands over a new probe; the rows may not be laid out
+    // again, so it gets the height they already have.
+    if (hasSize) value.value = size.height;
+  }
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    _probe.value = size.height;
+  }
 }
 
 class _RenderDialogColumn extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _DialogColumnParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _DialogColumnParentData> {
+  _RenderDialogColumn(this.rowsHeight);
+
+  _RowsHeight rowsHeight;
+
   @override
   void setupParentData(RenderBox child) {
     if (child.parentData is! _DialogColumnParentData) {
@@ -651,28 +714,20 @@ class _RenderDialogColumn extends RenderBox
     }
   }
 
+  // Rows can hold a LayoutBuilder, which has no dry layout and no intrinsics
+  // (it answers 0 in release and throws in debug), so nothing here asks for
+  // either: the column is always laid out for real. A dialog's parent never
+  // asks for a dry layout; this answer is the room it was offered.
   @override
-  Size computeDryLayout(BoxConstraints constraints) =>
-      _layout(constraints, (child, c) => child.getDryLayout(c), null);
+  Size computeDryLayout(BoxConstraints constraints) => constraints.constrain(
+    Size(
+      constraints.maxWidth,
+      constraints.hasBoundedHeight ? constraints.maxHeight : 0,
+    ),
+  );
 
   @override
   void performLayout() {
-    size = _layout(
-      constraints,
-      (child, c) {
-        child.layout(c, parentUsesSize: true);
-        return child.size;
-      },
-      (child, y) =>
-          (child.parentData! as _DialogColumnParentData).offset = Offset(0, y),
-    );
-  }
-
-  Size _layout(
-    BoxConstraints constraints,
-    Size Function(RenderBox, BoxConstraints) layoutChild,
-    void Function(RenderBox, double)? place,
-  ) {
     final width = constraints.maxWidth;
     final room = constraints.maxHeight;
     final header = firstChild!;
@@ -680,50 +735,64 @@ class _RenderDialogColumn extends RenderBox
     final footer = childAfter(body);
 
     final tight = BoxConstraints(minWidth: width, maxWidth: width);
-    final footerHeight = footer == null
-        ? 0.0
-        : layoutChild(footer, tight).height;
+    var footerHeight = 0.0;
+    if (footer != null) {
+      footer.layout(tight, parentUsesSize: true);
+      footerHeight = footer.size.height;
+    }
 
-    // Rows win: the header may grow past its one-line form (up to 40% of
-    // the room) only while the rows keep the height they would have under
-    // the one-line header. Otherwise the title is cut to one line.
-    var headerLimit = double.infinity;
+    BoxConstraints bodyBounds(double headerHeight) => tight.copyWith(
+      maxHeight: room.isFinite
+          ? math.max(0.0, room - headerHeight - footerHeight)
+          : double.infinity,
+    );
+
+    double headerHeight;
     if (header is _RenderTitleBar && room.isFinite) {
+      // Rows win: the header may grow past its one-line form (up to 40% of
+      // the room) only while the rows keep the height they have under the
+      // one-line header, which is what main gives them. So the rows are laid
+      // out first, once, under the one-line header (a bounded layout, which
+      // keeps their scroll position), and their laid-out content height says
+      // how much room is left over for the header.
       final oneLine = header.oneLineHeight(width);
+      body.layout(bodyBounds(oneLine), parentUsesSize: true);
+      final content = rowsHeight.value;
       final available = math.max(0.0, room - footerHeight);
-      // The rows' natural height from intrinsics, not from a layout of the
-      // scroll view, which would reset its scroll position. A body that
-      // cannot answer is taken to need all the room.
-      double natural;
-      try {
-        natural = body.getMaxIntrinsicHeight(width);
-      } on Object {
-        natural = double.infinity;
-      }
-      final mostForHeader = math.max(oneLine, available - natural);
+      final mostForHeader = content == null
+          ? oneLine
+          : math.max(oneLine, available - content);
       final cap = math.min(0.4 * room, mostForHeader);
-      headerLimit = cap < math.max(1.5 * oneLine, header.minGrownHeight(width))
+      final limit = cap < math.max(1.5 * oneLine, header.minGrownHeight(width))
           ? oneLine
           : cap;
+      header.layout(tight.copyWith(maxHeight: limit), parentUsesSize: true);
+      headerHeight = header.size.height;
+      // The header grows only when every row still fits, so the rows have
+      // nothing to scroll and laying them out again moves nothing.
+      if ((room - headerHeight - footerHeight) !=
+          (room - oneLine - footerHeight)) {
+        body.layout(bodyBounds(headerHeight), parentUsesSize: true);
+      }
+    } else {
+      header.layout(tight, parentUsesSize: true);
+      headerHeight = header.size.height;
+      body.layout(bodyBounds(headerHeight), parentUsesSize: true);
     }
-    final headerHeight = layoutChild(
-      header,
-      tight.copyWith(maxHeight: headerLimit),
-    ).height;
-    final bodyHeight = layoutChild(
-      body,
-      tight.copyWith(
-        maxHeight: room.isFinite
-            ? math.max(0.0, room - headerHeight - footerHeight)
-            : double.infinity,
-      ),
-    ).height;
-    if (place != null) {
-      place(header, 0);
-      place(body, headerHeight);
-      if (footer != null) place(footer, headerHeight + bodyHeight);
+
+    final bodyHeight = body.size.height;
+    (header.parentData! as _DialogColumnParentData).offset = Offset.zero;
+    (body.parentData! as _DialogColumnParentData).offset = Offset(
+      0,
+      headerHeight,
+    );
+    if (footer != null) {
+      (footer.parentData! as _DialogColumnParentData).offset = Offset(
+        0,
+        headerHeight + bodyHeight,
+      );
     }
-    return constraints.constrain(
+    size = constraints.constrain(
       Size(width, headerHeight + bodyHeight + footerHeight),
     );
   }

@@ -1,9 +1,11 @@
-import 'package:flutter/semantics.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 
+import '../support/legacy_grouped_dialog.dart';
 import '../support/screenshot_recorder.dart';
 
 Future<void> _open(
@@ -485,5 +487,151 @@ void main() {
       expect(titleRect.left - dialog.left, greaterThanOrEqualTo(15.5));
       expect(dialog.right - titleRect.right, greaterThanOrEqualTo(15.5));
     });
+  }
+
+  // A paint or layer clip of exactly the header's box, whichever way the
+  // render object clips (a canvas clip, or a layer when a child needs one).
+  bool clipsHeader(WidgetTester tester) {
+    final header = tester.renderObject<RenderBox>(
+      find.byWidgetPredicate((w) => w.runtimeType.toString() == '_TitleBar'),
+    );
+    var found = false;
+    void walk(Layer? layer) {
+      if (layer is ClipRectLayer &&
+          layer.clipRect != null &&
+          (layer.clipRect!.size.width - header.size.width).abs() < 0.5 &&
+          (layer.clipRect!.size.height - header.size.height).abs() < 0.5) {
+        found = true;
+      }
+      if (layer is ContainerLayer) {
+        var child = layer.firstChild;
+        while (child != null) {
+          walk(child);
+          child = child.nextSibling;
+        }
+      }
+    }
+
+    walk(tester.binding.renderViews.first.debugLayer);
+    if (found) return true;
+    if (header.needsCompositing) return false;
+    try {
+      expect(header, paints..clipRect(rect: Offset.zero & header.size));
+      return true;
+    } on TestFailure {
+      return false;
+    }
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    for (final (name, title, scale, actions) in [
+      ('grown form', _long, 2.0, null),
+      ('one-line form', _bot, 3.1, _footer),
+    ]) {
+      testWidgets('the header clips what it paints: $name '
+          '${platform.name}', (tester) async {
+        await _open(
+          tester,
+          scale: scale,
+          platform: platform,
+          title: title,
+          size: name == 'grown form'
+              ? const Size(320, 568)
+              : const Size(320, 568),
+          keyboard: name == 'grown form' ? 0 : 260,
+          actions: actions,
+          children: [for (var i = 0; i < 3; i++) const Text('Row')],
+        );
+        expect(clipsHeader(tester), isTrue);
+      });
+    }
+  }
+
+  // Rows that hold a LayoutBuilder (GroupedRow's value) have no intrinsics:
+  // in release they answer 0, in debug they throw. The dialog must give the
+  // rows the same room in both, never less than main.
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    for (final checking in [false, true]) {
+      testWidgets('rows with a value keep main\'s height, intrinsics '
+          '${checking ? 'as in release' : 'as in debug'}: '
+          '${platform.name}', (tester) async {
+        addTearDown(() => RenderObject.debugCheckingIntrinsics = false);
+        RenderObject.debugCheckingIntrinsics = checking;
+        Future<double> rows({
+          required bool legacy,
+          required Size size,
+          required double keyboard,
+          required double scale,
+        }) async {
+          tester.view
+            ..physicalSize = size
+            ..devicePixelRatio = 1
+            ..viewInsets = FakeViewPadding(bottom: keyboard);
+          final children = [
+            for (var i = 0; i < 10; i++)
+              GroupedRow(title: 'Row $i', value: 'Enabled'),
+          ];
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              theme: ThemeData(platform: platform),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: legacy
+                  ? LegacyGroupedDialog(
+                      title: _bot,
+                      actions: _footer,
+                      children: children,
+                    )
+                  : GroupedDialog(
+                      title: _bot,
+                      actions: _footer,
+                      children: children,
+                    ),
+            ),
+          );
+          expect(tester.takeException(), isNull);
+          return tester
+              .getRect(
+                find
+                    .ancestor(
+                      of: find.text('Row 0'),
+                      matching: find.byType(SingleChildScrollView),
+                    )
+                    .first,
+              )
+              .height;
+        }
+
+        for (final (size, keyboard, scale) in [
+          (const Size(390, 844), 0.0, 2.0),
+          (const Size(390, 844), 0.0, 1.0),
+          (const Size(320, 568), 0.0, 3.1),
+          (const Size(390, 844), 300.0, 2.0),
+        ]) {
+          final main = await rows(
+            legacy: true,
+            size: size,
+            keyboard: keyboard,
+            scale: scale,
+          );
+          final ours = await rows(
+            legacy: false,
+            size: size,
+            keyboard: keyboard,
+            scale: scale,
+          );
+          expect(
+            ours,
+            greaterThanOrEqualTo(main - 0.5),
+            reason: '$size kb$keyboard x$scale: rows $ours vs main $main',
+          );
+        }
+      });
+    }
   }
 }
