@@ -52,10 +52,13 @@ void main() {
   });
 
   test('Kanban code names no profile in a request', () {
-    // `profile:` as an argument or `'profile'` as a key. The models parse an
-    // assignee row and the screens and widgets filter by assignee; neither
-    // builds a request.
-    final pattern = RegExp(r'''\bprofile\s*:|['"]profile['"]''');
+    // A heuristic, not a proof. It looks for `profile:` as an argument,
+    // `'profile'` as a key and `profile=` inside a string. It skips the
+    // models (they parse an assignee row), `*_screen.dart` and `widgets/`
+    // (they filter by assignee), so a request built there is not seen. A
+    // query written into a URL string under another spelling is missed too,
+    // and only `listBoards` is checked on the wire above.
+    final pattern = RegExp(r'''\bprofile\s*:|['"]profile['"]|profile=''');
     final offenders = <String>[];
     for (final file in Directory('lib/src/kanban').listSync(recursive: true)) {
       if (file is! File ||
