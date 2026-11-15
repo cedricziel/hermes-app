@@ -2625,6 +2625,413 @@
   "@@x-area-memory": "",
 
   "@@x-area-messaging": "",
+  "messagingWhatsappAccountHeader": "Account",
+  "@messagingWhatsappAccountHeader": {
+      "description": "Section header above the linked account's name and number."
+  },
+  "messagingWhatsappAccountName": "Name",
+  "@messagingWhatsappAccountName": {
+      "description": "Row label: the name of the linked WhatsApp account."
+  },
+  "messagingWhatsappAccountNumber": "Number",
+  "@messagingWhatsappAccountNumber": {
+      "description": "Row label: the phone number of the linked WhatsApp account."
+  },
+  "messagingWhatsappAlreadyLinkedDetail": "This server already has a WhatsApp account linked for this profile. Hermes uses it as it is. The app can't unlink or replace it.",
+  "@messagingWhatsappAlreadyLinkedDetail": {
+      "description": "Detail of the Already linked banner."
+  },
+  "messagingWhatsappAlreadyLinkedTitle": "Already linked",
+  "@messagingWhatsappAlreadyLinkedTitle": {
+      "description": "Neutral banner title when the server already had an account linked and no scan was needed."
+  },
+  "messagingWhatsappCancelSetup": "Cancel setup",
+  "@messagingWhatsappCancelSetup": {
+      "description": "Outlined button that cancels the running WhatsApp setup."
+  },
+  "messagingWhatsappCheck": "Check",
+  "@messagingWhatsappCheck": {
+      "description": "Filled button that reads the platform list to see whether the save went through."
+  },
+  "messagingWhatsappCheckFailedTitle": "Couldn't confirm. Try again.",
+  "@messagingWhatsappCheckFailedTitle": {
+      "description": "Warning banner title when Check could not tell whether the setup was saved."
+  },
+  "messagingWhatsappChecking": "Checking...",
+  "@messagingWhatsappChecking": {
+      "description": "Label of the Check button while the read is out, next to a spinner."
+  },
+  "messagingWhatsappCountdown": "Setup closes in {time}",
+  "@messagingWhatsappCountdown": {
+      "description": "Muted line under the QR code: the time left until the server closes the setup.",
+      "placeholders": {
+          "time": {
+              "type": "String",
+              "example": "8:42"
+          }
+      }
+  },
+  "messagingWhatsappCountdownAnnounce": "Setup closes in {seconds, plural, =1{1 second} other{{seconds} seconds}}.",
+  "@messagingWhatsappCountdownAnnounce": {
+      "description": "Screen reader announcement made when 60, 30 and 10 seconds are left.",
+      "placeholders": {
+          "seconds": {
+              "type": "int"
+          }
+      }
+  },
+  "messagingWhatsappCountdownExpiring": "Setup closes in {time}.",
+  "@messagingWhatsappCountdownExpiring": {
+      "description": "Title of the warning banner in the last minute of the setup.",
+      "placeholders": {
+          "time": {
+              "type": "String",
+              "example": "0:42"
+          }
+      }
+  },
+  "messagingWhatsappEndErrorNoText": "The server gave no reason.",
+  "@messagingWhatsappEndErrorNoText": {
+      "description": "Detail when the setup ended with an error and the server sent no text."
+  },
+  "messagingWhatsappEndErrorTitle": "WhatsApp setup stopped",
+  "@messagingWhatsappEndErrorTitle": {
+      "description": "Title when the setup ended with an error. The server's own text follows under it."
+  },
+  "messagingWhatsappEndExpiredDetail": "A setup closes after 10 minutes. Start again to get a new code.",
+  "@messagingWhatsappEndExpiredDetail": {
+      "description": "Detail of the expired end state."
+  },
+  "messagingWhatsappEndExpiredTitle": "The code expired",
+  "@messagingWhatsappEndExpiredTitle": {
+      "description": "Title when the ten minutes of the setup ran out."
+  },
+  "messagingWhatsappEndGoneApplyDetail": "The settings may not have been saved.",
+  "@messagingWhatsappEndGoneApplyDetail": {
+      "description": "Detail of the gone end state when it was found while saving."
+  },
+  "messagingWhatsappEndGoneDetail": "It may have expired, or the server restarted.",
+  "@messagingWhatsappEndGoneDetail": {
+      "description": "Detail of the gone end state while polling."
+  },
+  "messagingWhatsappEndGoneTitle": "This setup is no longer on the server",
+  "@messagingWhatsappEndGoneTitle": {
+      "description": "Title when the server no longer knows the setup."
+  },
+  "messagingWhatsappEndProfileDetail": "Pick another profile to set up WhatsApp.",
+  "@messagingWhatsappEndProfileDetail": {
+      "description": "Detail of the deleted profile end state."
+  },
+  "messagingWhatsappEndProfileTitle": "This chat's profile no longer exists",
+  "@messagingWhatsappEndProfileTitle": {
+      "description": "Title when the profile of the chat was deleted on the server."
+  },
+  "messagingWhatsappEndSupersededDetail": "WhatsApp was set up again from another device or window.",
+  "@messagingWhatsappEndSupersededDetail": {
+      "description": "Detail of the superseded end state."
+  },
+  "messagingWhatsappEndSupersededTitle": "Another setup replaced this one",
+  "@messagingWhatsappEndSupersededTitle": {
+      "description": "Title when a newer setup on the same server replaced this one."
+  },
+  "messagingWhatsappEndUnsupportedDetail": "You can still enter WhatsApp's settings yourself in the form.",
+  "@messagingWhatsappEndUnsupportedDetail": {
+      "description": "Detail of the old server end state."
+  },
+  "messagingWhatsappEndUnsupportedTitle": "This server cannot link WhatsApp from the app",
+  "@messagingWhatsappEndUnsupportedTitle": {
+      "description": "Title when the server is too old to offer the WhatsApp link routes."
+  },
+  "messagingWhatsappExpiringDetail": "Scan now, or start again after it closes.",
+  "@messagingWhatsappExpiringDetail": {
+      "description": "Detail of the warning banner in the last minute of the setup."
+  },
+  "messagingWhatsappFinish": "Finish",
+  "@messagingWhatsappFinish": {
+      "description": "Filled button that saves the WhatsApp setup and restarts the gateway after a confirmation."
+  },
+  "messagingWhatsappFinishFooter": "Saves the mode and allowed numbers for {profile}, switches WhatsApp on, and asks the messaging gateway to restart.",
+  "@messagingWhatsappFinishFooter": {
+      "description": "Sentence under the Finish header. The profile name is shown to the user only.",
+      "placeholders": {
+          "profile": {
+              "type": "String",
+              "example": "work"
+          }
+      }
+  },
+  "messagingWhatsappFinishHeader": "What Finish does",
+  "@messagingWhatsappFinishHeader": {
+      "description": "Section header above the sentence that says what the Finish button does. Finish is the button label."
+  },
+  "messagingWhatsappFinishLeaveNote": "If you leave now, the account stays linked on the server, but the setup isn't saved.",
+  "@messagingWhatsappFinishLeaveNote": {
+      "description": "Muted line under the Finish button."
+  },
+  "messagingWhatsappFinishLostDetail": "Check whether WhatsApp is on for this profile.",
+  "@messagingWhatsappFinishLostDetail": {
+      "description": "Detail of the warning banner when the save request got no answer."
+  },
+  "messagingWhatsappFinishLostTitle": "Could not confirm the setup was saved.",
+  "@messagingWhatsappFinishLostTitle": {
+      "description": "Warning banner title when the save request got no answer."
+  },
+  "messagingWhatsappFinishOwnNumber": "Allowed: your own number.",
+  "@messagingWhatsappFinishOwnNumber": {
+      "description": "Sentence added to the Finish note in Self-chat mode when the allowed numbers are blank."
+  },
+  "messagingWhatsappFinishQuestionBody": "Save the WhatsApp setup and ask the messaging gateway to restart? Conversations on messaging channels will be interrupted.",
+  "@messagingWhatsappFinishQuestionBody": {
+      "description": "Body of the confirmation before the WhatsApp setup is saved."
+  },
+  "messagingWhatsappFinishQuestionConfirm": "Save and restart",
+  "@messagingWhatsappFinishQuestionConfirm": {
+      "description": "Plain confirm button of the Finish confirmation. May wrap to two lines."
+  },
+  "messagingWhatsappFinishQuestionTitle": "Save and restart?",
+  "@messagingWhatsappFinishQuestionTitle": {
+      "description": "Title of the confirmation before the WhatsApp setup is saved."
+  },
+  "messagingWhatsappFinishRefusedTitle": "Couldn't save the setup.",
+  "@messagingWhatsappFinishRefusedTitle": {
+      "description": "Error banner title when the server refused to save. The server's own text is the detail."
+  },
+  "messagingWhatsappHandsetDetail": "A phone can't scan its own screen. Open this screen on another device, or on a computer, signed in to the same server.",
+  "@messagingWhatsappHandsetDetail": {
+      "description": "Detail of the notice on a phone."
+  },
+  "messagingWhatsappHandsetTitle": "Scan this with the phone that has WhatsApp.",
+  "@messagingWhatsappHandsetTitle": {
+      "description": "Title of the notice on a phone: the QR code must be scanned by the phone that holds the WhatsApp account. Also the muted line above the code once it is shown."
+  },
+  "messagingWhatsappLinkedTitle": "WhatsApp is linked.",
+  "@messagingWhatsappLinkedTitle": {
+      "description": "Success banner title when the account was linked."
+  },
+  "messagingWhatsappModeBot": "Bot",
+  "@messagingWhatsappModeBot": {
+      "description": "Mode choice: Hermes has its own WhatsApp number."
+  },
+  "messagingWhatsappModeBotSubtitle": "Its own WhatsApp number",
+  "@messagingWhatsappModeBotSubtitle": {
+      "description": "One-line subtitle of the Bot mode choice. Keep it short."
+  },
+  "messagingWhatsappModeFooter": "Bot: Hermes has its own WhatsApp number. The people you allow message that number. Self-chat: Hermes uses your own number. You talk to it in your chat with yourself.",
+  "@messagingWhatsappModeFooter": {
+      "description": "Footer under the mode choices of the WhatsApp setup form: one sentence for each mode. Bot and Self-chat are the two mode names."
+  },
+  "messagingWhatsappModeHeader": "Mode",
+  "@messagingWhatsappModeHeader": {
+      "description": "Section header of the WhatsApp setup form above the two choices Bot and Self-chat."
+  },
+  "messagingWhatsappModeSelfChat": "Self-chat",
+  "@messagingWhatsappModeSelfChat": {
+      "description": "Mode choice: Hermes uses the owner's own WhatsApp number and is spoken to in the chat with oneself."
+  },
+  "messagingWhatsappModeSelfChatSubtitle": "Your own number",
+  "@messagingWhatsappModeSelfChatSubtitle": {
+      "description": "One-line subtitle of the Self-chat mode choice. Keep it short."
+  },
+  "messagingWhatsappNameMissing": "Name not given",
+  "@messagingWhatsappNameMissing": {
+      "description": "Value of the Name row when the server sent no name."
+  },
+  "messagingWhatsappNotSavedTitle": "Not saved yet.",
+  "@messagingWhatsappNotSavedTitle": {
+      "description": "Warning banner title when Check found WhatsApp switched off for the profile."
+  },
+  "messagingWhatsappNumberMissing": "Number not given",
+  "@messagingWhatsappNumberMissing": {
+      "description": "Value of the Number row when the server sent no number."
+  },
+  "messagingWhatsappNumbersEveryone": "Letting everyone message Hermes is a server setting. Here you can only name phone numbers.",
+  "@messagingWhatsappNumbersEveryone": {
+      "description": "Error line under the allowed phone numbers field when the user typed * or a WhatsApp address."
+  },
+  "messagingWhatsappNumbersFooter": "Digits with country code, separated by commas. Leave it blank to keep the current list. In Self-chat a blank list means your own number.",
+  "@messagingWhatsappNumbersFooter": {
+      "description": "Footer under the allowed phone numbers field."
+  },
+  "messagingWhatsappNumbersHeader": "Allowed phone numbers",
+  "@messagingWhatsappNumbersHeader": {
+      "description": "Section header above the field for the phone numbers that may message Hermes. It is also the field's accessible label."
+  },
+  "messagingWhatsappNumbersHint": "+49 151 2345678, +41 79 1234567",
+  "@messagingWhatsappNumbersHint": {
+      "description": "Placeholder of the allowed phone numbers field: two invented example numbers with country code."
+  },
+  "messagingWhatsappNumbersInvalid": "Enter phone numbers: digits, with an optional + at the start, separated by commas.",
+  "@messagingWhatsappNumbersInvalid": {
+      "description": "Error line under the allowed phone numbers field when an entry is not a phone number."
+  },
+  "messagingWhatsappOfflineChecking": "Checking again when you're back.",
+  "@messagingWhatsappOfflineChecking": {
+      "description": "Detail of the offline banner while the server prepares WhatsApp."
+  },
+  "messagingWhatsappOfflineCode": "This code may be out of date.",
+  "@messagingWhatsappOfflineCode": {
+      "description": "Detail of the offline banner while a QR code is shown."
+  },
+  "messagingWhatsappOfflineTitle": "You're offline.",
+  "@messagingWhatsappOfflineTitle": {
+      "description": "Warning banner title while the server cannot be reached during the WhatsApp setup."
+  },
+  "messagingWhatsappOpenServer": "Open Server",
+  "@messagingWhatsappOpenServer": {
+      "description": "Banner button that opens the Server screen."
+  },
+  "messagingWhatsappPausedDetail": "Checking again now. The code may have changed.",
+  "@messagingWhatsappPausedDetail": {
+      "description": "Detail of the paused banner."
+  },
+  "messagingWhatsappPausedTitle": "Paused while the app was away.",
+  "@messagingWhatsappPausedTitle": {
+      "description": "Title of the neutral banner shown after the app returns: checking the setup was paused while it was in the background or locked."
+  },
+  "messagingWhatsappPreparingDetail": "This can take a few minutes the first time. You can leave this screen; leaving cancels the setup.",
+  "@messagingWhatsappPreparingDetail": {
+      "description": "Detail of the preparing card."
+  },
+  "messagingWhatsappPreparingTitle": "Preparing WhatsApp on your server...",
+  "@messagingWhatsappPreparingTitle": {
+      "description": "Title of the card shown while the server installs or starts what WhatsApp needs."
+  },
+  "messagingWhatsappQrCannotDraw": "Couldn't draw the code.",
+  "@messagingWhatsappQrCannotDraw": {
+      "description": "Line on the tile when the code text is too long to draw as a QR code."
+  },
+  "messagingWhatsappQrHidden": "Hidden",
+  "@messagingWhatsappQrHidden": {
+      "description": "Word on the tile that stands where the QR code is while it is hidden."
+  },
+  "messagingWhatsappQrHiddenLabel": "QR code hidden",
+  "@messagingWhatsappQrHiddenLabel": {
+      "description": "Accessibility label of the QR code while it is hidden."
+  },
+  "messagingWhatsappQrLabel": "QR code to scan with WhatsApp",
+  "@messagingWhatsappQrLabel": {
+      "description": "Accessibility label of the shown QR code."
+  },
+  "messagingWhatsappQrShowsAgain": "Shows again when the app is unlocked and in front.",
+  "@messagingWhatsappQrShowsAgain": {
+      "description": "Line on the hidden tile on a tablet or computer: the code returns by itself."
+  },
+  "messagingWhatsappRefreshFailedDetail": "Start again to check the link. The account stays linked on the server.",
+  "@messagingWhatsappRefreshFailedDetail": {
+      "description": "Detail of the warning banner when the account could not be read again."
+  },
+  "messagingWhatsappRefreshFailedTitle": "Couldn't read the account.",
+  "@messagingWhatsappRefreshFailedTitle": {
+      "description": "Warning banner title when the account details could not be read again after the app was locked."
+  },
+  "messagingWhatsappRefreshingAccount": "Reading the account again...",
+  "@messagingWhatsappRefreshingAccount": {
+      "description": "Line next to a spinner after the app was locked: the account details were dropped and are being read from the server again."
+  },
+  "messagingWhatsappSavedDetail": "A restart of the messaging gateway was requested.",
+  "@messagingWhatsappSavedDetail": {
+      "description": "Detail of the success banner after a saved setup."
+  },
+  "messagingWhatsappSavedMaybeRestartDetail": "A restart was requested; if WhatsApp doesn't answer, restart it from Server.",
+  "@messagingWhatsappSavedMaybeRestartDetail": {
+      "description": "Detail when a restart was requested but the server says it may still be needed."
+  },
+  "messagingWhatsappSavedNoRestartDetail": "No restart was requested. Restart the messaging gateway from Server.",
+  "@messagingWhatsappSavedNoRestartDetail": {
+      "description": "Detail when no restart was requested. Server is the name of the Server screen."
+  },
+  "messagingWhatsappSavedTitle": "WhatsApp is set up.",
+  "@messagingWhatsappSavedTitle": {
+      "description": "Success banner title on the Messaging list after the setup was saved and a restart was requested."
+  },
+  "messagingWhatsappSavedUnknownRestartDetail": "Restart the messaging gateway from Server if WhatsApp doesn't answer.",
+  "@messagingWhatsappSavedUnknownRestartDetail": {
+      "description": "Detail after a save that Check confirmed: whether a restart happened is not known."
+  },
+  "messagingWhatsappSavedWarningTitle": "WhatsApp is saved.",
+  "@messagingWhatsappSavedWarningTitle": {
+      "description": "Warning banner title on the Messaging list after the setup was saved but the restart is not certain."
+  },
+  "messagingWhatsappSaving": "Saving...",
+  "@messagingWhatsappSaving": {
+      "description": "Label of the Finish button while the save request is out, next to a spinner."
+  },
+  "messagingWhatsappServerTextLabel": "Message from your server",
+  "@messagingWhatsappServerTextLabel": {
+      "description": "Accessibility label of the box that shows the server's own text."
+  },
+  "messagingWhatsappShowQr": "Show QR code",
+  "@messagingWhatsappShowQr": {
+      "description": "Filled button that reveals the QR code on a phone."
+  },
+  "messagingWhatsappStageInstalling": "Installing",
+  "@messagingWhatsappStageInstalling": {
+      "description": "Stage word under the preparing title: the server installs packages."
+  },
+  "messagingWhatsappStageStarting": "Starting",
+  "@messagingWhatsappStageStarting": {
+      "description": "Stage word under the preparing title: the server starts the WhatsApp bridge."
+  },
+  "messagingWhatsappStageWorking": "Working...",
+  "@messagingWhatsappStageWorking": {
+      "description": "Stage word under the preparing title for a status the app does not know."
+  },
+  "messagingWhatsappStart": "Start",
+  "@messagingWhatsappStart": {
+      "description": "Filled button that starts the WhatsApp setup on the server."
+  },
+  "messagingWhatsappStartAgain": "Start again",
+  "@messagingWhatsappStartAgain": {
+      "description": "Button that asks the server for a new WhatsApp setup after one ended, was lost or is gone."
+  },
+  "messagingWhatsappStartLostDetail": "It may have begun on your server. Starting again replaces it.",
+  "@messagingWhatsappStartLostDetail": {
+      "description": "Detail of the warning banner when the start request got no answer."
+  },
+  "messagingWhatsappStartLostTitle": "Couldn't confirm the setup started.",
+  "@messagingWhatsappStartLostTitle": {
+      "description": "Warning banner title when the start request got no answer."
+  },
+  "messagingWhatsappStartNote": "The server installs what it needs, then shows a code to scan.",
+  "@messagingWhatsappStartNote": {
+      "description": "Muted line under the Start button of the WhatsApp setup form."
+  },
+  "messagingWhatsappStartOfflineDetail": "Couldn't start the setup. Nothing was started.",
+  "@messagingWhatsappStartOfflineDetail": {
+      "description": "Detail of the offline banner when the start request never left the device."
+  },
+  "messagingWhatsappStartRefusedTitle": "Couldn't start the setup.",
+  "@messagingWhatsappStartRefusedTitle": {
+      "description": "Error banner title when the server refused to start the WhatsApp setup. The server's own text is the detail."
+  },
+  "messagingWhatsappStarting": "Starting...",
+  "@messagingWhatsappStarting": {
+      "description": "Label of the Start button while the start request is out, next to a spinner."
+  },
+  "messagingWhatsappStep1": "Open WhatsApp on the phone that has your account.",
+  "@messagingWhatsappStep1": {
+      "description": "Step 1 of 4 for scanning the code. The number is drawn by the app."
+  },
+  "messagingWhatsappStep2": "Tap Settings, then Linked devices.",
+  "@messagingWhatsappStep2": {
+      "description": "Step 2 of 4. Settings and Linked devices are WhatsApp's own labels; use WhatsApp's German wording."
+  },
+  "messagingWhatsappStep3": "Tap Link a device.",
+  "@messagingWhatsappStep3": {
+      "description": "Step 3 of 4. Link a device is WhatsApp's own button label."
+  },
+  "messagingWhatsappStep4": "Point the camera at this code.",
+  "@messagingWhatsappStep4": {
+      "description": "Step 4 of 4 for scanning the code."
+  },
+  "messagingWhatsappTitle": "Link WhatsApp",
+  "@messagingWhatsappTitle": {
+      "description": "Title of the screen that links a WhatsApp account by QR code. Product name WhatsApp stays."
+  },
+  "messagingWhatsappWaitingForScan": "Waiting for a scan",
+  "@messagingWhatsappWaitingForScan": {
+      "description": "Status line next to a spinner while the QR code waits to be scanned."
+  },
 
   "@@x-area-models": "",
 
