@@ -114,8 +114,17 @@ one use case per platform this way (`_onEach`).
 
 For PR screenshots without running the catalog, render use cases in a
 throwaway test with `ScreenshotRecorder` (`test/support/screenshot_recorder.dart`):
-pump `rec.frame(MaterialApp(theme: withScreenshotFont(theme), home:
-Scaffold(body: Builder(builder: useCase.builder))))` and `rec.capture`. It loads
+pump this and `rec.capture`:
+
+```dart
+rec.frame(MaterialApp(
+  theme: withScreenshotFont(theme),
+  builder: (c, child) => AppThemeScopes(child: child!),
+  home: Scaffold(body: Builder(builder: useCase.builder)),
+))
+```
+
+It loads
 real fonts, so the PNGs read like the app. Don't commit the test.
 
 ## Rules
@@ -129,6 +138,9 @@ real fonts, so the PNGs read like the app. Don't commit the test.
   screen calls (see `kanbanServer()` in `kanban_screen_use_cases.dart`), and
   let `Hosted` (`host.dart`) create and dispose the controller. Never mock the
   repository itself.
+- `widgetbook/main.dart` mounts the app's `AppThemeScopes` through a
+  `BuilderAddon` after the theme addon (`gpt_markdown` draws near-black
+  headings in dark without it). `test/widgetbook_test.dart` mounts it too.
 - `test/widgetbook_test.dart` sets in-memory shared preferences, so a use case
   may build an `AuthController`, and it unmounts each use case and lets timers
   run out, so a screen that polls must cancel its timer on dispose.

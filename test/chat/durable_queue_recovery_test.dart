@@ -14,6 +14,7 @@ import 'package:hermes_app/src/notifications/attention_notifier.dart';
 
 import '../support/fake_queue_transport.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/queue_store_dir.dart';
 
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 
@@ -71,7 +72,7 @@ void main() {
   });
   tearDown(() async {
     attention.dispose();
-    await directory.delete(recursive: true);
+    await deleteQueueStoreDir(directory);
   });
   Future<ChatController> controller(
     DurableQueueStore store, {

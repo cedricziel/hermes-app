@@ -35,6 +35,7 @@ import 'chat_checkpoint_restore_use_cases.dart';
 import 'chat_context_use_cases.dart';
 import 'chat_send_hold_use_cases.dart';
 import 'transcript_outcome_line_use_cases.dart';
+import 'reply_reconnecting_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
@@ -43,6 +44,7 @@ import 'session_export_use_cases.dart';
 
 import 'package:widgetbook/widgetbook.dart';
 
+import 'grouped_dialog_use_cases.dart';
 import 'grouped_form_use_cases.dart';
 import 'handoff_use_cases.dart';
 import 'adaptive_use_cases.dart';
@@ -141,6 +143,7 @@ final List<WidgetbookNode> directories = [
   adaptiveChromeNode(),
   settingsChromeNode(),
   groupedFormNode(),
+  groupedDialogNode(),
   macToolbarNode(),
   menuBarExtraNode(),
   spotlightNode(),
@@ -158,6 +161,7 @@ final List<WidgetbookNode> directories = [
   chatCheckpointsNode(),
   chatCheckpointRestoreNode(),
   transcriptOutcomeLineNode(),
+  replyReconnectingNode(),
   chatSendHoldNode(),
   connectorOperationNode(),
   sideResultNode(),

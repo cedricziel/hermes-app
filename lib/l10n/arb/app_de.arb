@@ -38,6 +38,8 @@
   "chatComposerHoldRestoring": "Dateien werden wiederhergestellt …",
   "chatNoticeStopCommand": "Hermes hat das als Stopp-Befehl verstanden. Es wurde nichts gesendet.",
   "chatNoticeStopCommandElsewhere": "Hermes hat eine Nachricht in einem anderen Chat als Stopp-Befehl verstanden. Es wurde nichts gesendet; der Text steht dort wieder im Nachrichtenfeld.",
+  "chatReplyReconnectIdle": "Verbindung konnte nicht wiederhergestellt werden. Hermes arbeitet möglicherweise noch daran. Ein neuer Versuch folgt, wenn du zurückkommst.",
+  "chatReplyReconnecting": "Verbindung unterbrochen. Verbindung wird wiederhergestellt …",
   "chatSessionExportConfirmButton": "Exportieren",
   "chatSessionExportConfirmMessage": "Die Datei enthält diese Sitzung so, wie Hermes sie gespeichert hat, auch den Systemprompt, Tool-Ausgaben und Dateipfade. Sie kann Geheimnisse wie Schlüssel enthalten. Speichere sie nur an einem Ort, dem du vertraust.",
   "chatSessionExportConfirmTitle": "Diesen Chat als JSON exportieren?",
@@ -422,6 +424,9 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsHistoryEarlierFailedTitle": "Frühere Nachrichten konnten nicht geladen werden",
+  "chatWidgetsHistoryEarlierRetryLabel": "Frühere Nachrichten erneut laden",
+  "chatWidgetsHistoryEarlierRetrying": "Wird erneut versucht …",
   "chatWidgetsHistoryFailedDetail": "Prüfe deine Verbindung und versuche es erneut.",
   "chatWidgetsHistoryFailedTitle": "Die Nachrichten konnten nicht geladen werden",
   "chatWidgetsHistoryLoading": "Chat wird geladen",
@@ -610,6 +615,15 @@
   "modelsPickerSearchHint": "Modelle suchen",
   "modelsPickerTitle": "Modell",
   "modelsPickerUseDefault": "Standard des Profils verwenden",
+  "modelsPillChoose": "Modell wählen",
+  "modelsPillDiscoveryUnavailable": "{label}. Die Modellerkennung ist nicht verfügbar.",
+  "modelsPillLoadFailed": "Modelle konnten nicht geladen werden",
+  "modelsPillLoading": "Modelle werden geladen",
+  "modelsPillProfileDefault": "Profilstandard",
+  "modelsPillRetry": "Erneut versuchen",
+  "modelsPillRetryModels": "Modelle erneut laden",
+  "modelsPillSelectedModel": "{label}, ausgewähltes Modell {model}",
+  "modelsPillSetUp": "Modell einrichten",
 
   "@@x-area-navigation": "",
 
@@ -1575,6 +1589,7 @@
 
   "@@x-area-widgets": "",
   "widgetsCancel": "Abbrechen",
+  "widgetsDone": "Fertig",
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} Zeichen eingegeben} other{{count} Zeichen eingegeben}}",
   "widgetsSecretHide": "Schlüssel ausblenden",
   "widgetsSecretHideShort": "Ausblenden",
