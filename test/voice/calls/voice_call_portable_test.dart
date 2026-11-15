@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/echo_guard.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
@@ -111,6 +112,19 @@ void main() {
       await h.activate();
       await h.say('First');
       expect(h.bridge.pauses, 0);
+    });
+  });
+
+  group('route', () {
+    test('only iOS starts with a named route', () async {
+      expect(h.call.route, 'iPhone');
+      await h.rebuild(platform: TargetPlatform.macOS);
+      expect(h.call.route, isEmpty);
+      await h.activate();
+      h.bridge.emit('route', {'name': 'Speaker', 'speaker': true});
+      await pumpEventQueue();
+      expect(h.call.route, 'Speaker');
+      expect(h.call.speaker, isTrue);
     });
   });
 }

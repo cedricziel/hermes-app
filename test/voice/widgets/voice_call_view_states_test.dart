@@ -149,6 +149,27 @@ void main() {
     }
   });
 
+  testWidgets('a route the platform does not name shows no route line', (
+    tester,
+  ) async {
+    Widget view(String route) => VoiceCallView(
+      phase: CallPhase.listening,
+      elapsed: Duration.zero,
+      muted: false,
+      speaker: false,
+      route: route,
+      onMute: () {},
+      onSpeaker: () {},
+      onEnd: () {},
+      onShowChat: () {},
+    );
+    await pumpVoice(tester, view('iPhone'));
+    expect(find.text('iPhone'), findsOneWidget);
+    await pumpVoice(tester, view(''));
+    expect(find.text('iPhone'), findsNothing);
+    expect(find.text('Mute'), findsOneWidget);
+  });
+
   testWidgets('the orb interrupts only while speaking', (tester) async {
     var taps = 0;
     await pumpVoice(

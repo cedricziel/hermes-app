@@ -1423,7 +1423,7 @@
   "voiceSetupNotReady": "Sprachanrufe einrichten",
   "voiceSetupNotReadyBody": "Ein paar Dinge brauchen Aufmerksamkeit, bevor du Hermes anrufen kannst.",
   "voiceSetupOpenDictation": "Diktiereinstellungen öffnen",
-  "voiceSetupOpenSystemSettings": "iOS-Einstellungen öffnen",
+  "voiceSetupOpenSystemSettings": "Einstellungen öffnen",
   "voiceSetupReady": "Bereit zum Anruf",
   "voiceSetupReadyBody": "Sprich mit Hermes, ohne die Hände zu benutzen. Dein Mikrofon bleibt geschlossen, bis du startest.",
   "voiceSetupStart": "Anruf starten",

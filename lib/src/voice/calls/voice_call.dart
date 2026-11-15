@@ -147,7 +147,10 @@ class VoiceCall extends ChangeNotifier {
   CallPhase _phase = CallPhase.connecting;
   bool muted = false;
   bool speaker = false;
-  String route = 'iPhone';
+
+  /// Where the call's audio goes, as the bridge names it; empty where it has
+  /// no say (desktop), and then the screen shows no route line.
+  late String route = _platform == TargetPlatform.iOS ? 'iPhone' : '';
   String caption = '';
   String? error;
 
@@ -358,7 +361,7 @@ class VoiceCall extends ChangeNotifier {
         if (_requestedMute && phase == CallPhase.sending) _dropTurn();
         _lastPCM = _now();
       case 'route':
-        route = event['name'] as String? ?? 'iPhone';
+        route = event['name'] as String? ?? route;
         speaker = event['speaker'] == true;
       case 'ended':
         unawaited(_end('hang_up'));

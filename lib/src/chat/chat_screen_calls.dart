@@ -2,7 +2,7 @@ part of 'chat_screen.dart';
 
 extension _ChatScreenCalls on _ChatScreenState {
   bool get _canCall {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return false;
+    if (kIsWeb) return false;
     if (_voiceCall case final call? when !call.ended) return true;
     final thread = _chat.selectedThread;
     return _chat.active &&
@@ -20,6 +20,18 @@ extension _ChatScreenCalls on _ChatScreenState {
   Widget? get _callButton => !_canCall
       ? null
       : NamedIconButton(
+          key: const Key('header-voice-call'),
+          label: _voiceCall?.ended == false
+              ? 'Return to call'
+              : 'Start voice call',
+          icon: AppIcons.call,
+          onPressed: _openVoiceCall,
+        );
+
+  /// The Mac toolbar's version of [_callButton].
+  Widget? get _macCallButton => !_canCall
+      ? null
+      : MacToolbarButton(
           key: const Key('header-voice-call'),
           label: _voiceCall?.ended == false
               ? 'Return to call'
@@ -102,98 +114,94 @@ extension _ChatScreenCalls on _ChatScreenState {
         gptLive: () => repository.voiceLiveIsGptLive(profile: profile),
         events: events,
       );
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (routeContext) => VoiceCallScreen(
-            checker: checker,
-            isCurrent: current,
-            ongoing: _voiceCall?.ended == false ? _voiceCall : null,
-            requestMicrophone: () => callMicrophonePermission(request: true),
-            openMicrophoneSettings: () async {
-              if (!await launchUrl(Uri.parse('app-settings:'))) {
-                throw StateError('Settings could not be opened');
-              }
-            },
-            openDictation: () => showDictationDialog(routeContext),
-            askHermes: (report) async {
-              if (!current() || !report.canAskHermes) return false;
-              // Normal chat submission preserves the composer's draft/files.
-              final accepted = await _chat.submit(report.setupPrompt, const []);
-              breadcrumbs('voice_call.setup_requested', {'accepted': accepted});
-              return accepted;
-            },
-            onConsentGiven: () => breadcrumbs('voice_call.consent'),
-            startCall: (readiness, {required consented}) {
-              if (!current() ||
-                  thread == null ||
-                  thread.isReplying ||
-                  _chat.queuedIn(thread).isNotEmpty) {
-                throw StateError('The chat changed before the call started');
-              }
-              final previous = _voiceCall;
-              previous?.removeListener(_callChanged);
-              previous?.dispose();
-              _sessionActivity?.removeListener(_callOwnerChanged);
-              late final VoiceCall created;
-              final agent = ChatCallAgent(
-                _chat,
-                onContextLost: () => unawaited(created.end()),
-              );
-              final bridge = AppleCallBridge();
-              created = VoiceCall(
-                bridge: bridge,
-                tones: BridgeCallTones(bridge),
-                haptics: SystemCallHaptics(),
-                agent: agent,
-                consented: consented,
-                loadConfig: () => repository.voiceCallConfig(profile: profile),
-                profile: profile,
-                connect: connect,
-                events: events,
-                deviceSpeech: readiness.useDeviceSpeech,
-                speechFallback: (text, speechProfile, cancellation) async {
-                  if (!ownerValid() || cancellation.isCancelled) {
-                    throw StateError('The call changed');
-                  }
-                  breadcrumbs('voice_call.speech_fallback');
-                  final audio = await repository.synthesize(
-                    text,
-                    profile: speechProfile,
-                    cancellation: cancellation,
+      final platform = Theme.of(context).platform;
+      await showVoiceCall(
+        context,
+        builder: (routeContext) => VoiceCallScreen(
+          checker: checker,
+          isCurrent: current,
+          ongoing: _voiceCall?.ended == false ? _voiceCall : null,
+          requestMicrophone: () => callMicrophonePermission(request: true),
+          canOpenMicrophoneSettings: canOpenMicrophoneSettings(platform),
+          openMicrophoneSettings: () => openMicrophoneSettings(platform),
+          openDictation: () => showDictationDialog(routeContext),
+          askHermes: (report) async {
+            if (!current() || !report.canAskHermes) return false;
+            // Normal chat submission preserves the composer's draft/files.
+            final accepted = await _chat.submit(report.setupPrompt, const []);
+            breadcrumbs('voice_call.setup_requested', {'accepted': accepted});
+            return accepted;
+          },
+          onConsentGiven: () => breadcrumbs('voice_call.consent'),
+          startCall: (readiness, {required consented}) {
+            if (!current() ||
+                thread == null ||
+                thread.isReplying ||
+                _chat.queuedIn(thread).isNotEmpty) {
+              throw StateError('The chat changed before the call started');
+            }
+            final previous = _voiceCall;
+            previous?.removeListener(_callChanged);
+            previous?.dispose();
+            _sessionActivity?.removeListener(_callOwnerChanged);
+            late final VoiceCall created;
+            final agent = ChatCallAgent(
+              _chat,
+              onContextLost: () => unawaited(created.end()),
+            );
+            final bridge = createCallBridge();
+            created = VoiceCall(
+              bridge: bridge,
+              tones: BridgeCallTones(bridge),
+              haptics: SystemCallHaptics(),
+              agent: agent,
+              consented: consented,
+              loadConfig: () => repository.voiceCallConfig(profile: profile),
+              profile: profile,
+              connect: connect,
+              events: events,
+              deviceSpeech: readiness.useDeviceSpeech,
+              speechFallback: (text, speechProfile, cancellation) async {
+                if (!ownerValid() || cancellation.isCancelled) {
+                  throw StateError('The call changed');
+                }
+                breadcrumbs('voice_call.speech_fallback');
+                final audio = await repository.synthesize(
+                  text,
+                  profile: speechProfile,
+                  cancellation: cancellation,
+                );
+                if (!ownerValid()) throw StateError('The call changed');
+                return decodeCallAudio(audio, cancellation);
+              },
+              prepare: () async {
+                if (!ownerValid() || !agent.valid) {
+                  throw const CallPreparationException(
+                    'This chat changed. Start the call again.',
                   );
-                  if (!ownerValid()) throw StateError('The call changed');
-                  return decodeCallAudio(audio, cancellation);
-                },
-                prepare: () async {
-                  if (!ownerValid() || !agent.valid) {
-                    throw const CallPreparationException(
-                      'This chat changed. Start the call again.',
-                    );
-                  }
-                },
-                transcribe: (wav) => readiness.useDeviceSpeech
-                    ? onDevice!.transcribeFile(wav, locale: locale)
-                    : repository.transcribe(
-                        wav,
-                        mimeType: 'audio/wav',
-                        profile: profile,
-                        timeout: const Duration(seconds: 60),
-                      ),
-              );
-              _voiceCall = created;
-              registry?.attach(created);
-              _callRegistry = registry;
-              breadcrumbs('voice_call.ready', {
-                'device_speech': readiness.useDeviceSpeech,
-              });
-              _callHasEnded = false;
-              created.addListener(_callChanged);
-              _sessionActivity?.addListener(_callOwnerChanged);
-              _rebuild(() {});
-              return created;
-            },
-          ),
+                }
+              },
+              transcribe: (wav) => readiness.useDeviceSpeech
+                  ? onDevice!.transcribeFile(wav, locale: locale)
+                  : repository.transcribe(
+                      wav,
+                      mimeType: 'audio/wav',
+                      profile: profile,
+                      timeout: const Duration(seconds: 60),
+                    ),
+            );
+            _voiceCall = created;
+            registry?.attach(created);
+            _callRegistry = registry;
+            breadcrumbs('voice_call.ready', {
+              'device_speech': readiness.useDeviceSpeech,
+            });
+            _callHasEnded = false;
+            created.addListener(_callChanged);
+            _sessionActivity?.addListener(_callOwnerChanged);
+            _rebuild(() {});
+            return created;
+          },
         ),
       );
     } finally {

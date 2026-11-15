@@ -204,6 +204,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                           ? null
                           : () => _copyTranscript(selected),
                       onShowFiles: showFiles,
+                      callButton: _macCallButton,
                       folderButton: workspacesOffered(chat)
                           ? BoundFolderToolbarButton(
                               chat: chat,

@@ -6944,7 +6944,7 @@
   "@voiceSetupOpenDictation": {
     "description": "Button that opens the system dictation settings."
   },
-  "voiceSetupOpenSystemSettings": "Open iOS Settings",
+  "voiceSetupOpenSystemSettings": "Open Settings",
   "@voiceSetupOpenSystemSettings": {
     "description": "Button that opens the system settings after microphone access was denied."
   },

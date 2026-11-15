@@ -15,6 +15,8 @@ import 'fakes.dart';
 class _Flow {
   bool microphone = true, installed = true, configured = true, current = true;
   bool gptLive = false;
+  TargetPlatform platform = TargetPlatform.iOS;
+  bool canOpenSettings = true;
   int requests = 0, settings = 0, starts = 0, asks = 0, probes = 0;
   int consentGiven = 0, dictations = 0;
   final consents = <bool>[];
@@ -44,6 +46,7 @@ class _Flow {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        theme: ThemeData(platform: platform),
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
@@ -52,6 +55,7 @@ class _Flow {
                   builder: (_) => VoiceCallScreen(
                     checker: checker,
                     isCurrent: () => current,
+                    canOpenMicrophoneSettings: canOpenSettings,
                     requestMicrophone: () async {
                       requests++;
                       return microphone = grant;
@@ -408,12 +412,30 @@ void main() {
       await flow.open(tester);
       await tester.tap(find.text('Allow microphone'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Open iOS Settings'));
+      await tester.tap(find.text('Open Settings'));
       await tester.pumpAndSettle();
       expect(flow.requests, 1);
       expect(flow.settings, 1);
       expect(flow.starts, 0);
       expect(flow.asks, 0);
+      await flow.dispose(tester);
+    },
+  );
+
+  testWidgets(
+    'a system with no settings link offers Allow again, never Open Settings',
+    (tester) async {
+      final flow = _Flow()
+        ..microphone = false
+        ..grant = false
+        ..canOpenSettings = false;
+      await flow.open(tester);
+      await tester.tap(find.text('Allow microphone'));
+      await tester.pumpAndSettle();
+      expect(find.text('Open Settings'), findsNothing);
+      expect(find.text('Allow microphone'), findsOneWidget);
+      expect(flow.requests, 1);
+      expect(flow.settings, 0);
       await flow.dispose(tester);
     },
   );
@@ -483,5 +505,80 @@ void main() {
     expect(flow.probes, 0);
     expect(find.textContaining('This chat changed.'), findsOneWidget);
     await flow.dispose(tester);
+  });
+
+  group('per platform', () {
+    for (final (platform, speaker, footer) in [
+      (TargetPlatform.iOS, true, null),
+      (TargetPlatform.android, true, 'The call ends if you leave Hermes.'),
+      (
+        TargetPlatform.macOS,
+        false,
+        'The call ends if you hide or minimise Hermes.',
+      ),
+      (
+        TargetPlatform.windows,
+        false,
+        'The call ends if you hide or minimise Hermes.',
+      ),
+      (
+        TargetPlatform.linux,
+        false,
+        'The call ends if you hide or minimise Hermes.',
+      ),
+    ]) {
+      testWidgets('$platform: Speaker $speaker, footer $footer', (
+        tester,
+      ) async {
+        final flow = _Flow()..platform = platform;
+        await flow.open(tester);
+        // The start screen carries the footer once every check passed.
+        expect(
+          footer == null
+              ? find.textContaining('The call ends if')
+              : find.text(footer),
+          footer == null ? findsNothing : findsOneWidget,
+        );
+        await flow.consentAndStart(tester);
+        flow.bridge.emit('activated');
+        await tester.pump();
+        await tester.pump();
+        expect(find.text('Speaker'), speaker ? findsOneWidget : findsNothing);
+        expect(
+          footer == null
+              ? find.textContaining('The call ends if')
+              : find.text(footer),
+          footer == null ? findsNothing : findsOneWidget,
+        );
+        await flow.dispose(tester);
+      });
+    }
+
+    for (final (platform, hint) in [
+      (TargetPlatform.iOS, 'Tap the orb, or just talk, to interrupt.'),
+      (TargetPlatform.android, 'Tap the orb to interrupt.'),
+      (
+        TargetPlatform.macOS,
+        'Microphone paused while Hermes speaks. Tap the orb to interrupt.',
+      ),
+    ]) {
+      testWidgets('$platform: the speaking hint says what interrupts', (
+        tester,
+      ) async {
+        final flow = _Flow()..platform = platform;
+        // Only Apple's bridge cancels echo.
+        flow.bridge.bargeIn = platform == TargetPlatform.iOS;
+        await flow.open(tester);
+        await flow.consentAndStart(tester);
+        flow.bridge.emit('activated');
+        await tester.pump();
+        flow.call!.phase = CallPhase.speaking;
+        flow.call!.tick();
+        await tester.pump();
+        await tester.pump();
+        expect(find.text(hint), findsOneWidget);
+        await flow.dispose(tester);
+      });
+    }
   });
 }

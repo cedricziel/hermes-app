@@ -6,6 +6,7 @@ import '../../l10n/l10n.dart';
 import 'calls/call_readiness.dart';
 import 'calls/call_readiness_checker.dart';
 import 'calls/voice_call.dart';
+import 'widgets/voice_call_footer.dart';
 import 'widgets/voice_call_notice.dart';
 import 'widgets/voice_call_setup_view.dart';
 import 'widgets/voice_call_view.dart';
@@ -24,6 +25,7 @@ class VoiceCallScreen extends StatefulWidget {
     required this.startCall,
     required this.requestMicrophone,
     required this.openMicrophoneSettings,
+    this.canOpenMicrophoneSettings = true,
     required this.openDictation,
     required this.askHermes,
     this.ongoing,
@@ -37,6 +39,10 @@ class VoiceCallScreen extends StatefulWidget {
   final VoidCallback? onConsentGiven;
   final Future<bool> Function() requestMicrophone;
   final Future<void> Function() openMicrophoneSettings, openDictation;
+
+  /// Whether this system has a page [openMicrophoneSettings] can open. Without
+  /// one a denied microphone keeps offering Allow instead of Open Settings.
+  final bool canOpenMicrophoneSettings;
   final Future<bool> Function(CallReadiness) askHermes;
   final VoiceCall? ongoing;
 
@@ -286,9 +292,32 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     }
   }
 
+  /// Speaker routing exists on iOS and Android only.
+  bool _speakerControl(TargetPlatform platform) =>
+      platform == TargetPlatform.iOS || platform == TargetPlatform.android;
+
+  /// iOS keeps a call running in the background; elsewhere it ends when the
+  /// app is left, and the screen says so.
+  VoiceCallFooter _footer(TargetPlatform platform) => switch (platform) {
+    TargetPlatform.iOS => VoiceCallFooter.none,
+    TargetPlatform.android => VoiceCallFooter.androidLeave,
+    _ => VoiceCallFooter.desktopHide,
+  };
+
+  /// What Speaking tells the user about interrupting: speaking over the reply
+  /// where the platform cancels its echo, otherwise the orb; on desktop the
+  /// microphone is also closed meanwhile.
+  VoiceSpeakingHint _speakingHint(VoiceCall call, TargetPlatform platform) {
+    if (call.bargeInActive) return VoiceSpeakingHint.tapOrTalk;
+    return _speakerControl(platform)
+        ? VoiceSpeakingHint.tapOnly
+        : VoiceSpeakingHint.micPaused;
+  }
+
   @override
   Widget build(BuildContext context) {
     final call = _call;
+    final platform = Theme.of(context).platform;
     return Scaffold(
       body: call != null
           ? ListenableBuilder(
@@ -325,9 +354,9 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                 ),
                 capturePaused:
                     call.phase == CallPhase.attention && call.capturePaused,
-                speakingHint: call.bargeInActive
-                    ? VoiceSpeakingHint.tapOrTalk
-                    : VoiceSpeakingHint.tapOnly,
+                showSpeaker: _speakerControl(platform),
+                footer: _footer(platform),
+                speakingHint: _speakingHint(call, platform),
                 onInterrupt: call.phase == CallPhase.speaking
                     ? () => unawaited(call.interruptReply())
                     : null,
@@ -340,6 +369,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
           : VoiceCallSetupView(
               readiness: _readiness,
               gptLiveNote: _readiness.gptLive,
+              footer: _footer(platform),
               busy: _busy,
               microphoneDenied: _denied,
               error: _error,
@@ -360,7 +390,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                   }
                   final granted = await widget.requestMicrophone();
                   if (!_current) return;
-                  setState(() => _denied = !granted);
+                  setState(
+                    () =>
+                        _denied = !granted && widget.canOpenMicrophoneSettings,
+                  );
                   await _check();
                 }),
               ),
