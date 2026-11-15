@@ -6,6 +6,7 @@
     <!-- Face / fingerprint unlock for the optional app lock. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <!-- usesCleartextTraffic stays on: Android's network security config
          cannot allow cleartext by private IP range, and a LAN or tailnet
          dashboard is usually plain http://. The app guards it instead
