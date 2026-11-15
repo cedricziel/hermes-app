@@ -421,6 +421,9 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatHistoryLoading": "Chat wird geladen",
+  "chatHistoryFailedTitle": "Die Nachrichten konnten nicht geladen werden",
+  "chatHistoryFailedDetail": "Prüfe deine Verbindung und versuche es erneut.",
   "chatWidgetsProgramConfirmCancel": "Abbrechen",
   "chatWidgetsProgramConfirmMessage": "Hermes beendet {command}\n\nDie bisherige Ausgabe bleibt hier erhalten, und der Agent erfährt nicht, dass es beendet wurde.",
   "chatWidgetsProgramConfirmThisProgram": "dieses Programm",

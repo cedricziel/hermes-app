@@ -828,6 +828,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   final _unloaded = <String>{};
 
+  /// Threads whose first page of messages could not be read, until it is read
+  /// again; the transcript shows the failure with a Retry instead of nothing.
+  final _historyFailed = <String>{};
+
   /// Threads with older rows on the server, by how many rows were read so far.
   final _olderRows = <String, int>{};
 
@@ -1562,6 +1566,28 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  /// What the transcript of [thread] stands in for while it has no messages:
+  /// its stored first page is being read ([ChatHistoryStatus.loading]) or
+  /// could not be read ([ChatHistoryStatus.failed]). Null for a new chat, a
+  /// chat that shows messages, and a stored chat whose page came back empty.
+  ChatHistoryStatus? historyStatusOf(ChatThread thread) {
+    if (!thread.remote || thread.messages.isNotEmpty) return null;
+    final id = thread.id;
+    if (_loadingMessages.containsKey(id)) return ChatHistoryStatus.loading;
+    if (_historyFailed.contains(id)) return ChatHistoryStatus.failed;
+    return _selectedId == id && _unloaded.contains(id)
+        ? ChatHistoryStatus.loading
+        : null;
+  }
+
+  /// Reads [thread]'s first page again after it failed.
+  void retryHistory(ChatThread thread) {
+    if (!active || _selectedId != thread.id) return;
+    if (!_historyFailed.contains(thread.id)) return;
+    breadcrumbs('chat.history.retry');
+    select(thread.id);
+  }
+
   void select(String id) {
     if (!active) return;
     final epoch = _activityEpoch;
@@ -1988,6 +2014,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final controller = _chatControllers.remove(previousId);
     if (_selectedId == previousId) _selectedId = id;
     _unloaded.remove(previousId);
+    _historyFailed.remove(previousId);
     _olderRows.remove(previousId);
     if (_followingIds.remove(previousId)) _followingIds.add(id);
     if (_active.remove(previousId)) _active.add(id);

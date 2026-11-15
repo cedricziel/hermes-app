@@ -11,6 +11,7 @@ class LoadingSkeleton extends StatefulWidget {
     required this.label,
     this.lines = 3,
     this.color,
+    this.liveRegion = false,
   });
 
   /// Read by screen readers, for example "Loading logs".
@@ -19,6 +20,9 @@ class LoadingSkeleton extends StatefulWidget {
 
   /// The bars' colour, for a surface that is the default's own colour.
   final Color? color;
+
+  /// Announces [label] politely once, when the skeleton appears.
+  final bool liveRegion;
 
   @override
   State<LoadingSkeleton> createState() => _LoadingSkeletonState();
@@ -54,6 +58,7 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
         widget.color ?? Theme.of(context).colorScheme.surfaceContainerHighest;
     return Semantics(
       container: true,
+      liveRegion: widget.liveRegion,
       label: widget.label,
       child: ExcludeSemantics(
         child: AnimatedBuilder(

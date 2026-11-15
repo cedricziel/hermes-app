@@ -57,3 +57,18 @@ iOS: detent sheet from the line. Android: Material modal sheet, 48 dp targets. i
 ## What was not checked
 
 The claude.ai viewer, real devices, VoiceOver and TalkBack output, reduced-motion animation, contrast beyond an eye check (warning text on the dark surface), live keyboard behaviour, the size transition (a static sketch), App Lock (not drawn). Not every board was re-rendered after the last small edits.
+
+## Transcript loading state (a stored chat's messages)
+
+No new canvas: this extends the chat transcript, which is already designed, with a state built from components the app already has. `ChatHistoryState` (`lib/src/chat/widgets/chat_history_state.dart`) fills the transcript area of a stored chat that has no messages on screen yet; it is a plain model (`ChatHistoryStatus` and a retry callback) with use cases under Chat thread in the catalog.
+
+- Today a stored chat that is picked shows the welcome view (greeting and starter prompts) until its messages arrive, which reads as "this chat is empty". It shows loading instead.
+- Loading: the shared `LoadingSkeleton` (the Logs and Providers placeholder, six lines, quiet pulse), top aligned in the transcript's column, clear of the composer. It appears only after 180 ms (`kChatHistoryLoadingDelay`) and fades in over 150 ms, so a read that finishes sooner shows an empty transcript for that moment, never the skeleton and never the welcome view. A chat that loads from the cache has its messages at once and shows nothing of this.
+- The header (title, profile, avatar) and the composer are there from the moment of selection. The transcript is that chat's own (each chat has its own message list), so the previous chat's messages are never under the new title.
+- Composer: unchanged. A send while the messages load stays allowed, as before: the controller merges the page into what was sent meanwhile (`_mergedWithPage`) and keeps a stored chat's name (`unread` in `_send`), and the message the user sends ends the loading state because the transcript then has a message. It is the safest existing rule; nothing new could reorder a chat.
+- Failed: the shared `StateMessage` (error icon, "Could not load the messages", "Check your connection, then try again.") with the filled "Retry" button (`commonRetry`), at once, without the delay. Retry reads the first page again and shows the skeleton. The existing "Could not load this chat" message stays as well.
+- Not shown for a new chat (its welcome view stays), for a chat whose messages are shown, or for a stored chat whose page came back empty.
+- Reduced motion: the skeleton does not pulse (`LoadingSkeleton` already stops) and the fade is skipped.
+- Screen reader: the skeleton is one node, "Loading chat", marked as a polite live region, so it is announced once when it appears. A fast load never reaches it, so nothing is announced; nothing is announced when the messages arrive either.
+- Light and dark follow the theme tokens (`surfaceContainerHighest` bars). Phone, and the desktop and Mac split layout: the column keeps the transcript's maximum width; the sidebar is untouched. At the largest text size the failed state scrolls inside the area (`StateMessage`); the skeleton bars do not scale.
+- Catalog: Chat thread / Messages: "Loading the chat", "Loading the chat, reduced motion", "Loading the chat failed", next to the existing "Empty, welcome" (new chat) and "Conversation" (loaded).
