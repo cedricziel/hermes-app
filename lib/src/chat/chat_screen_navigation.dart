@@ -164,7 +164,9 @@ extension _ChatScreenNavigation on _ChatScreenState {
         ),
       MacCommand.pinThread: MacCommandHandler(
         on(ThreadAction.pin, when: managed),
-        title: thread?.pinned ?? false ? 'Unpin' : 'Pin',
+        title: thread?.pinned ?? false
+            ? context.l10n.macosMenuUnpin
+            : context.l10n.macosMenuPin,
       ),
       MacCommand.renameThread: MacCommandHandler(
         on(ThreadAction.rename, when: managed && !thread.isCanonicalBotChat),
@@ -198,7 +200,9 @@ extension _ChatScreenNavigation on _ChatScreenState {
       if (!ios) MacCommand.compress: _ChatScreenCheckpoints(this)._compress(),
       MacCommand.toggleInspector: MacCommandHandler(
         thread == null ? null : () => _toggleActivity(source: 'menu'),
-        title: _activityOpen ? 'Hide Inspector' : 'Show Inspector',
+        title: _activityOpen
+            ? context.l10n.chatActivityInspectorHide
+            : context.l10n.chatActivityInspectorShow,
       ),
       MacCommand.deleteThread: MacCommandHandler(
         on(ThreadAction.delete, when: managed),

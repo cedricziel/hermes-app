@@ -110,38 +110,61 @@ extension _Turns on HermesGatewayTransport {
     }
   }
 
-  /// Whether the server still lists [storedId] as running. An answer that
-  /// cannot be read counts as running: a refused `session.active_list` says
-  /// nothing about the turn, and a dead socket ends its watch on its own, which
-  /// sends the reply down the reconnect path.
-  Future<bool> _stillRunning(GatewayRpcClient client, String storedId) async {
+  /// What the server says of [storedId]: still listed as running, not listed
+  /// (or listed idle), or nothing readable. A refused `session.active_list`
+  /// says nothing about the turn, so it is not taken for either answer. A probe
+  /// that found the socket closed or timed out is no answer from the server at
+  /// all: the connection is lost, which is the reconnect path's to handle.
+  Future<_Probe> _probeTurn(GatewayRpcClient client, String storedId) async {
     try {
       final statuses = _statusesOf(
         await _call(client, 'session.active_list', {}),
       );
       final status = statuses[storedId];
-      return status != null && _liveStatuses.contains(status);
+      return status != null && _liveStatuses.contains(status)
+          ? _Probe.running
+          : _Probe.over;
     } on GatewayRpcException {
-      return true;
+      return _Probe.refused;
     } on GatewayConnectionClosed {
-      return true;
+      return _Probe.closed;
     }
   }
 
   /// Waits for the next frame of [watch], and is false once the watch ended.
   ///
   /// A reply silent for [silenceProbe] is asked about: only the server can say
-  /// whether the turn still runs, so it is given up on (as broken) only when
-  /// the server no longer lists [storedId] as running.
+  /// whether the turn still runs. A turn the server lists as running is never
+  /// failed for being quiet, however long (a tool call may run for hours
+  /// without a frame): the reply stays open and Stop works. It is given up on
+  /// only when the server no longer lists [storedId] as running
+  /// ([GatewayTurnEnded]), or answers nothing usable: [_maxRefusedProbes] probes
+  /// in a row that were refused or unreadable end it as
+  /// [GatewayReplyUnconfirmed], once. A probe that found the socket closed is a
+  /// lost connection, left to the reconnect. Nothing is resent.
   Future<bool> _advance(_Watch watch, String storedId) async {
     final pending = watch.events.moveNext();
+    var refused = 0;
     while (true) {
       try {
         return await pending.timeout(silenceProbe);
       } on TimeoutException {
-        if (await _stillRunning(watch.client, storedId)) continue;
-        _record('gateway.turn_settled', {'via': 'silence_probe'});
-        throw const GatewayTurnEnded();
+        switch (await _probeTurn(watch.client, storedId)) {
+          case _Probe.over:
+            _record('gateway.turn_settled', {'via': 'silence_probe'});
+            throw const GatewayTurnEnded();
+          case _Probe.closed:
+            // The socket is gone (or never answered and was dropped): the
+            // watch ends and the reply reconnects, replays and picks up.
+            return false;
+          case _Probe.refused:
+            if (++refused >= _maxRefusedProbes) {
+              _record('gateway.turn_settled', {'via': 'probe_refused'});
+              throw const GatewayReplyUnconfirmed();
+            }
+          case _Probe.running:
+            refused = 0;
+        }
       }
     }
   }
