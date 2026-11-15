@@ -18,6 +18,7 @@ import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/macos/mac_toolbar.dart';
 import 'package:hermes_app/src/profiles/chat_profiles.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/windows/conversation_window_args.dart';
@@ -796,6 +797,42 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'the restore note lines up with the list cards at 320, text 1.0',
+    (tester) async {
+      final app = _Harness(
+        tester,
+        ScreenshotRecorder('checkpoints-note-align'),
+      );
+      await app.pump(
+        size: const Size(320, 568),
+        platform: TargetPlatform.iOS,
+        dark: false,
+      );
+      app.source.fake
+        ..list = _three()
+        ..changes = _changes;
+      await app.openLive();
+      await app.openActivity();
+      await app.tap(find.byType(FileCheckpointsRow));
+      await app.tap(find.text('Before editing a file').first);
+      await app.tap(find.text('Restore all files…'));
+      await app.tap(find.text('Restore all files'));
+      app.source.fake
+        ..restore = const Restored(historyRemoved: 1)
+        ..list = _withSafety(_newest, [_safetyAll, _safety]);
+      await app.settle();
+      final note = find.byKey(const Key('checkpoints-outcome'));
+      expect(note, findsOneWidget);
+      await app.capture('restored-all-list');
+      expect(
+        tester.getTopLeft(note).dx,
+        tester.getTopLeft(find.byType(GroupedSection).first).dx,
+      );
+      await app.finish();
+    },
+  );
 
   testWidgets('the checkpoint list does not overflow at 320 wide, text 2.0', (
     tester,

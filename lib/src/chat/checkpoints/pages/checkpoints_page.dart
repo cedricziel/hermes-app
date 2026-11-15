@@ -68,10 +68,35 @@ class _CheckpointsPageState extends State<CheckpointsPage>
   @override
   bool lockedOf(CheckpointsController controller) => controller.locked;
 
+  /// A file's outcome goes on its Changes page; this list shows the others.
+  bool _showsOutcome(CheckpointsController controller) =>
+      controller.outcome != null &&
+      !controller.locked &&
+      lastRestoreWasFile(controller) != true;
+
+  /// The notes sit at the top of the page that scrolls, so a restore started
+  /// from a scrolled list brings them back into view.
+  void _noteChanged() {
+    final controller = this.controller;
+    if (controller == null) return;
+    final shown = controller.restoring || _showsOutcome(controller);
+    if (shown && !_noteShown && _scroll.hasClients) {
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+    _noteShown = shown;
+  }
+
   @override
   void initState() {
     super.initState();
     bindController();
+    controller?.addListener(_noteChanged);
     // After the first frame: reading notifies, and this runs while the
     // navigator builds.
     WidgetsBinding.instance.addPostFrameCallback((_) => _read());
@@ -92,6 +117,7 @@ class _CheckpointsPageState extends State<CheckpointsPage>
 
   @override
   void dispose() {
+    controller?.removeListener(_noteChanged);
     unbindController();
     _scroll.dispose();
     final held = _held;
@@ -156,28 +182,7 @@ class _CheckpointsPageState extends State<CheckpointsPage>
     final controller = this.controller;
     if (controller == null) return const SizedBox.shrink();
     final outcome = controller.outcome;
-    // A file's outcome goes on its Changes page; this list shows the others.
-    final showOutcome =
-        outcome != null &&
-        !controller.locked &&
-        lastRestoreWasFile(controller) != true;
-    // The notes sit at the top of the page that scrolls, so a restore started
-    // from a scrolled list brings them back into view.
-    final noteShown = controller.restoring || showOutcome;
-    if (noteShown && !_noteShown) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scroll.hasClients) {
-          unawaited(
-            _scroll.animateTo(
-              0,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-            ),
-          );
-        }
-      });
-    }
-    _noteShown = noteShown;
+    final showOutcome = _showsOutcome(controller);
     return ActivityPageScaffold(
       title: l10n.chatCheckpointsPageTitle,
       onBack: () => Navigator.of(context).maybePop(),
@@ -200,13 +205,15 @@ class _CheckpointsPageState extends State<CheckpointsPage>
                   if (controller.restoring)
                     ActivityWorkingLine(
                       label: l10n.chatCheckpointsPageRestoring,
+                      horizontalPadding: 0,
                     ),
                   if (showOutcome)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                      // The list around it already insets its content.
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: RestoreOutcomeNote(
                         key: const Key('checkpoints-outcome'),
-                        outcome: outcome,
+                        outcome: outcome!,
                         filesWereFile: false,
                         onTryAgain: () => unawaited(
                           restoreAgainFlow(

@@ -107,7 +107,12 @@ class CheckpointListBody extends StatelessWidget {
         children: [
           ConstrainedBox(
             constraints: BoxConstraints(maxHeight: constraints.maxHeight / 2),
-            child: SingleChildScrollView(child: header),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: header,
+              ),
+            ),
           ),
           Expanded(child: _body(context)),
         ],

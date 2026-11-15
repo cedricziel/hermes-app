@@ -149,7 +149,7 @@ class _Meta extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Padding(
-        padding: const EdgeInsets.only(top: 1),
+        padding: const EdgeInsets.only(top: 2),
         child: AppIcon(icon, size: 13, color: style?.color),
       ),
       const SizedBox(width: 3),
