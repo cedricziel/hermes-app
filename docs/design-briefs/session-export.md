@@ -4,11 +4,9 @@ Change: `openspec/changes/session-export/`. Read its design.md for the server fa
 
 ## Design status
 
-Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC)
+Design (done): canvas reviewed
 
-No build starts before the canvas exists.
-
-No Claude Design canvas is published for this change yet. The pass was written from the Hermes App design system README and the repo's files (`lib/src/widgets/`, `thread_actions_menu.dart`, the briefs of Server care and Tools). There is no canvas link yet; the boards were rendered locally only (28, see "Local render review") and nothing was looked at in the claude.ai viewer. The canvas is the next step and the place to correct this brief; Widgetbook use cases follow it.
+Canvas: https://claude.ai/artifact/UzB5uc13PXDSM8JYUYTjcs (private; ask its owner for access). 28 boards on one canvas, one parametric page imported by short board files: the header menu (1); the alert's confirm, progress, received bytes, stalled and saved states (5); the nine failures (9); dark (2); largest text (2); German (2); App Lock (1); Android (3); Mac and iPad (3). The pass was written from the Hermes App design system README and the repo's files (`lib/src/widgets/`, `thread_actions_menu.dart`, the briefs of Server care and Tools). What was checked and what was not: see "Local render review". Widgetbook use cases follow the canvas.
 
 Screens and states decided: the menu row in the places listed under "Navigation" (enabled, hidden, disabled while busy), one alert in three phases (confirmation, progress, failure with nine messages), the saved snack bar, and the silent cancel.
 
@@ -26,13 +24,13 @@ Decisions, one line each:
 - Decided by the owner: the "Downloaded N MB" line stays (the `FileDownloadProgress` wording); there is no Export entry in the non-Mac sidebar row menu or the touch swipe sheet for now. The header menu is the entry off the Mac. It can be added later together with Copy transcript.
 - The settled 10-second rule does not fit a download of unknown size, so there is one exception: after 10 s without the first byte the progress alert adds the line "Still waiting for Hermes." The managed `Dio` allows 30 s of silence (`receiveTimeout`, which covers the headers and the gap between two chunks, `request_timeout.dart`); no byte at all for 30 s ends as `lost` ("Couldn't confirm the export"), a stall after bytes arrived is `incomplete`, and the total stays capped at five minutes by the `requestDeadlineExtra` of `_getBytes` (see "Lost answer"). Reason: the request only reads, the user holds Cancel, and the alert never says saved. Decided by the owner: 30 s of silence stays as the stall deadline (the spec's Timeout scenario says the same).
 
-Corrections: the local render review below changed the stalled-line copy, the failure button order, the menu orders and the large-text and German alert rules. No published canvas exists to correct against.
+Corrections: the local render review below changed the stalled-line copy, the failure button order, the menu orders and the large-text and German alert rules.
 
 ### Local render review
 
-The canvas is staged locally and is not published: 28 boards (the header menu; the alert confirm, progress, received bytes, stalled and saved states; nine failures; dark; large text; German; App Lock; Android; Mac and iPad), one parametric page imported by short board files. It publishes after the quota resets on 2026-11-15 00:00 UTC. Rendered with the design-system tokens in headless Chromium, light and dark, no hex colours.
+The canvas is published at https://claude.ai/artifact/UzB5uc13PXDSM8JYUYTjcs (private): 28 boards (the header menu; the alert confirm, progress, received bytes, stalled and saved states; nine failures; dark; large text; German; App Lock; Android; Mac and iPad), one parametric page imported by short board files. The boards were reviewed in a local render before publishing; every file of the canvas is published (checked by listing its files). Rendered with the design-system tokens in headless Chromium, light and dark, no hex colours.
 
-What could not be checked: the claude.ai viewer; contrast and target sizes beyond the eye and the design system's own sizes; largest text (simulated with CSS `zoom: 1.6`, not an OS text scale); disabled menu rows; the Mac toolbar "…" and sidebar row menus (the Chat menu row stands for them); the conversation window menu; Windows and Linux dialogs (same as Android); the iPad alert; the Mac progress and failure alerts (same component as iPhone); reduced motion; VoiceOver and TalkBack; focus order; tap outside, Escape and the back gesture (static render); the App Lock "nothing after unlock" behaviour (stated, not drawn as a sequence). The dimmed chat behind each alert is made from design-system parts with made-up copy, not the real chat. The chat header title truncating at 1.6x belongs to `ChatHeader`, not to this change.
+What could not be checked: the published canvas in the claude.ai viewer (not opened); contrast and target sizes beyond the eye and the design system's own sizes; largest text (simulated with CSS `zoom: 1.6`, not an OS text scale); disabled menu rows; the Mac toolbar "…" and sidebar row menus (the Chat menu row stands for them); the conversation window menu; Windows and Linux dialogs (same as Android); the iPad alert; the Mac progress and failure alerts (same component as iPhone); reduced motion; VoiceOver and TalkBack; focus order; tap outside, Escape and the back gesture (static render); the App Lock "nothing after unlock" behaviour (stated, not drawn as a sequence). The dimmed chat behind each alert is made from design-system parts with made-up copy, not the real chat. The chat header title truncating at 1.6x belongs to `ChatHeader`, not to this change.
 
 Copy added by the design (English; German in the table at the end):
 
@@ -233,4 +231,4 @@ Only the rows above are brief copy. The canvas drafted the rest (progress messag
 
 ## Not verified
 
-No published canvas; a local render exists (see "Local render review"). The wording of the system alerts at the largest text size, VoiceOver and TalkBack output, `saveFile` on a physical iPhone, Android and the macOS sandbox, and the real response were not checked.
+The canvas was reviewed in a local render and not opened in the claude.ai viewer (see "Local render review"). The wording of the system alerts at the largest text size, VoiceOver and TalkBack output, `saveFile` on a physical iPhone, Android and the macOS sandbox, and the real response were not checked.
