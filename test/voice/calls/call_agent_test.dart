@@ -303,7 +303,7 @@ void main() {
       expect(transport.sends, hasLength(1));
     });
 
-    test('refuses while the queue is not empty', () async {
+    test('refuses while a paused queue holds prompts', () async {
       await chat.submit('Unrelated work', const []);
       await chat.submit('Queued behind it', const []);
       transport.sends.single
@@ -320,9 +320,30 @@ void main() {
           wanted: () => true,
         ),
       );
-      expect(refused.reason, VoiceTurnRefusal.busy);
+      expect(refused.reason, VoiceTurnRefusal.queuePaused);
+      expect(refused.kind, 'queue_paused');
       expect(transport.sends, hasLength(1));
       expect(chat.queuedIn(thread), hasLength(1));
+    });
+
+    test('a queue about to send is busy, not paused', () async {
+      await chat.submit('Unrelated work', const []);
+      await chat.submit('Queued behind it', const []);
+      // The reply ends but the session is not reported idle yet: the queue
+      // waits for it and then sends.
+      transport.sends.single
+        ..emit(const ReplyCompleted('Done'))
+        ..finish();
+      await pumpEventQueue();
+      final refused = await refusal(
+        agent.reply(
+          'Voice',
+          onText: (_) {},
+          onAttention: (_) {},
+          wanted: () => true,
+        ),
+      );
+      expect(refused.reason, VoiceTurnRefusal.busy);
     });
 
     test('End before prompt.submit is written sends nothing', () async {
@@ -340,6 +361,28 @@ void main() {
       wanted = false;
       expect(transport.sends.single.submit(), isFalse);
       expect((await refused).reason, VoiceTurnRefusal.noLongerWanted);
+      expect(submitting, 0);
+      expect(chat.selectedThread!.messages, isEmpty);
+    });
+
+    test('interrupt before prompt.submit is written sends nothing', () async {
+      var submitting = 0;
+      final done = agent.reply(
+        'Hello',
+        onText: (_) {},
+        onAttention: (_) {},
+        // The call still wants the turn: only the interrupt says no.
+        wanted: () => true,
+        onSubmitted: () => submitting++,
+      );
+      final failed = expectLater(done, throwsA(isA<Object>()));
+      await pumpEventQueue();
+      // It waits for the withdrawn turn to end.
+      final interrupting = agent.interrupt();
+      await pumpEventQueue();
+      expect(transport.sends.single.submit(), isFalse);
+      await interrupting;
+      await failed;
       expect(submitting, 0);
       expect(chat.selectedThread!.messages, isEmpty);
     });

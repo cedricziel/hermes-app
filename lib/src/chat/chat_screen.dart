@@ -576,6 +576,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       onDraft: _draftFromLink,
       onHandBack: _handBackFromRestore,
+      onSendNotice: _showSendNotice,
     )..addListener(_changed);
     _repliesCount = _maybeRead<RepliesInProgress>()?..attach(_runningReplies);
     _needsYou = needsYouQueueFor(
@@ -914,6 +915,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Work a link asked for on the thread list. Loading replaces that list and
   /// would drop a new chat made meanwhile, so it waits for the load to end.
   Future<void> Function()? _whenLoaded;
+
+  void _showSendNotice(ChatSendNotice notice) {
+    if (!mounted) return;
+    _showMessage(switch (notice) {
+      ChatSendNotice.stopCommand => context.l10n.chatNoticeStopCommand,
+    });
+  }
 
   void _showMessage(String message) {
     if (!mounted) return;

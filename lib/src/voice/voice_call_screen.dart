@@ -231,6 +231,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
         tone: VoiceCallNoticeTone.warning,
         title: l10n.voiceNoticeBusyTitle,
       ),
+      (CallNotice.queuePaused, _, _) => VoiceCallNotice(
+        tone: VoiceCallNoticeTone.warning,
+        title: l10n.voiceNoticeQueuePausedTitle,
+      ),
       (CallNotice.notSent, _, _) => VoiceCallNotice(
         tone: VoiceCallNoticeTone.warning,
         title: l10n.voiceNoticeNotSentTitle,

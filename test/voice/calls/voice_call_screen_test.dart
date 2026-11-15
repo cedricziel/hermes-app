@@ -278,6 +278,10 @@ void main() {
   group('the notices of a turn that was not sent or was answered at once', () {
     for (final (notice, text) in [
       (CallNotice.busy, 'Hermes is still answering. Nothing was sent.'),
+      (
+        CallNotice.queuePaused,
+        'Your queued messages are paused. Nothing was sent.',
+      ),
       (CallNotice.notSent, "Couldn't send. Nothing was sent."),
       (
         CallNotice.hermesQueued,
