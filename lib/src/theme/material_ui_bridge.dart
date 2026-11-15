@@ -68,3 +68,22 @@ class MaterialUiThemeScope extends StatelessWidget {
     );
   }
 }
+
+/// The theme scopes the app puts above its home route. `HermesApp`, the
+/// workflow tests' `pumpScreen` and the Widgetbook catalog all mount this one
+/// widget, so a scope added here reaches all three. Third-party widgets that
+/// read their theme from a scope (`gpt_markdown` reads `material_ui`'s) fall
+/// back to the light default without it, which draws near-black headings on
+/// a dark surface.
+///
+/// Put it above the `Navigator` (a `MaterialApp.builder`) so routes see it.
+class AppThemeScopes extends StatelessWidget {
+  const AppThemeScopes({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialUiThemeScope(child: child);
+  }
+}

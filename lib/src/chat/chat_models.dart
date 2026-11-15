@@ -670,6 +670,23 @@ class ChatMessage {
   /// without a completion that would carry its own error.
   String? pendingError;
 
+  /// The connection to Hermes dropped while this reply ran and could not be
+  /// won back in time, but the server may well still be running the turn. The
+  /// reply stays pending with what it had (text and running tool calls
+  /// included, none of them marked failed) and says so, until the thread is
+  /// picked up again or the server says the turn is over. See
+  /// [markReconnecting].
+  bool reconnecting = false;
+
+  /// How many times this reply entered [reconnecting], so a screen reader is
+  /// told once per loss and not each time the row is built.
+  int reconnectEpisodes = 0;
+
+  /// With [reconnecting]: nothing is trying any more (the tries ran out), and
+  /// the reply is picked up again when the app comes to the front or the chat
+  /// is opened. The note says so instead of claiming to reconnect.
+  bool reconnectIdle = false;
+
   bool get isPending =>
       status == MessageStatus.thinking || status == MessageStatus.streaming;
 
