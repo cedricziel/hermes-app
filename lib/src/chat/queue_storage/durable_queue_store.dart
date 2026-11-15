@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_otel/flutter_otel.dart';
 
 import '../chat_transport.dart' show kMaxAttachmentBytes;
@@ -59,6 +60,36 @@ class DurableQueueStore implements PromptQueueStore {
   static final _locks = <String, Future<void>>{};
   static final _safeName = RegExp(r'^[a-f0-9]{32}$');
   static final _safeBlobName = RegExp(r'^[a-f0-9]{32}-[a-f0-9]{32}\.blob$');
+
+  /// Completes once no operation on [directory] is running or queued, also
+  /// following operations that a caller enqueues when an earlier one finishes.
+  /// Tests call it before deleting a temp directory, so a write the code under
+  /// test started without awaiting cannot land in a tree being removed. Fails
+  /// after [timeout] instead of hanging, e.g. when a test gate still holds an
+  /// operation.
+  @visibleForTesting
+  static Future<void> settle(
+    Directory directory, {
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final key = directory.absolute.path;
+    final deadline = DateTime.now().add(timeout);
+    Future<void>? seen;
+    while (true) {
+      final tail = _locks[key];
+      if (tail == null || identical(tail, seen)) return;
+      seen = tail;
+      await tail.timeout(
+        deadline.difference(DateTime.now()),
+        onTimeout: () => throw StateError(
+          'Queue store operations did not settle within $timeout',
+        ),
+      );
+      // Let the continuation that awaited the finished operation enqueue its
+      // next one before the tail is read again.
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
 
   static Future<DurableQueueStore> open({
     QueueKeys? keys,

@@ -20,6 +20,7 @@ import '../support/fake_queue_keys.dart';
 import '../support/fake_queue_transport.dart';
 import '../support/fake_share_inbox.dart';
 import '../support/pump_chat.dart';
+import '../support/queue_store_dir.dart';
 
 class _Queues extends QueuePersistence {
   _Queues(PromptQueueStore store)
@@ -145,7 +146,7 @@ void main() {
           await _waitForDiskWork(tester, store.settled ?? Future<void>.value());
           queues.dispose();
           share.dispose();
-          await tester.runAsync(() => directory.delete(recursive: true));
+          await tester.runAsync(() => deleteQueueStoreDir(directory));
         });
         await share.start();
         await pumpChatScreen(

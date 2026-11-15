@@ -11,6 +11,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_conversation_window_host.dart';
 import '../support/fake_queue_keys.dart';
+import '../support/queue_store_dir.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -48,7 +49,7 @@ void main() {
   tearDown(() async {
     windows.dispose();
     allowed.dispose();
-    await directory.delete(recursive: true);
+    await deleteQueueStoreDir(directory);
   });
   Future<Map> call(
     String operation,
