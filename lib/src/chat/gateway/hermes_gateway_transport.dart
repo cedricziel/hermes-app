@@ -126,6 +126,18 @@ const _liveStatuses = {
   'resuming',
 };
 
+/// The code a session-scoped call answers for a runtime session the server does
+/// not have (reaped after its grace, or lost to a restart).
+const _sessionNotFound = 4001;
+
+/// What `session.active_list` says of a reply's session when it is asked about.
+enum _Probe { running, over, refused, closed }
+
+/// How many probes in a row may be refused or unreadable before a silent reply
+/// is given up on as unconfirmed. At the default probe interval that is three
+/// minutes of a server that answers nothing useful.
+const _maxRefusedProbes = 4;
+
 /// A stored session ID qualified by its explicit owning profile.
 typedef _ThreadOwner = (String?, String);
 
