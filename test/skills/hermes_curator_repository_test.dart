@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/api/request_timeout.dart';
 import 'package:hermes_app/src/server_care/action_status.dart';
 import 'package:hermes_app/src/skills/curator/curator_result.dart';
 import 'package:hermes_app/src/skills/curator/curator_status.dart';
@@ -367,6 +368,82 @@ void main() {
     });
   });
 
+  group('requests and answers that settle a write', () {
+    test('a run and a pause carry the curator receive timeout', () async {
+      await repository.run(profile: 'demo-a');
+      await repository.setPaused(true, profile: 'demo-a');
+      await repository.status(profile: 'demo-a');
+
+      expect(server.requests, hasLength(3));
+      for (final request in server.requests) {
+        expect(
+          request.extra,
+          containsPair(
+            receiveTimeoutExtra(kCuratorTimeout).keys.single,
+            kCuratorTimeout,
+          ),
+          reason: request.path,
+        );
+      }
+    });
+
+    test(
+      'a pause answered 502, 503 or 504 is a lost answer, sent once',
+      () async {
+        for (final code in [502, 503, 504]) {
+          server.on(
+            'PUT',
+            '/api/curator/paused',
+            '<html>gateway</html>',
+            status: code,
+          );
+          expect(
+            failure(await repository.setPaused(true, profile: 'demo-a')),
+            CuratorFailure.lostAnswer,
+            reason: '$code',
+          );
+        }
+        expect(server.requestsTo('PUT', '/api/curator/paused'), hasLength(3));
+      },
+    );
+
+    test('a run answered 500 with some other detail is a lost answer, '
+        'not a failed spawn', () async {
+      server.on('POST', '/api/curator/run', {'detail': 'boom'}, status: 500);
+
+      expect(
+        failure(await repository.run(profile: 'demo-a')),
+        CuratorFailure.lostAnswer,
+      );
+    });
+
+    test('a read that is cancelled or fails unknown is offline', () async {
+      failWith(
+        'GET',
+        '/api/curator',
+        (r) => DioException.requestCancelled(requestOptions: r, reason: 'x'),
+      );
+      expect(
+        failure(await repository.status(profile: 'demo-a')),
+        CuratorFailure.offline,
+      );
+
+      failWith(
+        'GET',
+        '/api/curator',
+        (r) => DioException(
+          requestOptions: r,
+          type: DioExceptionType.unknown,
+          error: const HttpException('closed'),
+        ),
+      );
+      expect(
+        failure(await repository.status(profile: 'demo-a')),
+        CuratorFailure.offline,
+      );
+    });
+  });
+
   group('a lost answer is never resent', () {
     final lost = <String, DioException Function(RequestOptions)>{
       'a receive timeout': (r) => DioException.receiveTimeout(
@@ -501,6 +578,79 @@ void main() {
       answer('GET', '/api/actions/curator-run/status', recordedActionUnknown);
 
       expect(await repository.runStatus(), isA<CuratorUnsupported>());
+    });
+
+    test('a poll that gets no answer is a timeout, not offline', () async {
+      failWith(
+        'GET',
+        '/api/actions/curator-run/status',
+        (r) => DioException.receiveTimeout(
+          timeout: const Duration(seconds: 10),
+          requestOptions: r,
+        ),
+      );
+
+      expect(failure(await repository.runStatus()), CuratorFailure.timeout);
+    });
+
+    test('a poll that cannot connect is offline', () async {
+      failWith(
+        'GET',
+        '/api/actions/curator-run/status',
+        (r) => DioException.connectionError(
+          requestOptions: r,
+          reason: 'down',
+          error: const SocketException('down'),
+        ),
+      );
+
+      expect(failure(await repository.runStatus()), CuratorFailure.offline);
+    });
+
+    test('a poll answered 401 is unauthorized', () async {
+      server.on('GET', '/api/actions/curator-run/status', {
+        'detail': 'x',
+      }, status: 401);
+
+      expect(
+        failure(await repository.runStatus()),
+        CuratorFailure.unauthorized,
+      );
+    });
+
+    test('a cancelled or unknown poll failure is offline', () async {
+      failWith(
+        'GET',
+        '/api/actions/curator-run/status',
+        (r) => DioException.requestCancelled(requestOptions: r, reason: 'x'),
+      );
+      expect(failure(await repository.runStatus()), CuratorFailure.offline);
+
+      failWith(
+        'GET',
+        '/api/actions/curator-run/status',
+        (r) => DioException(
+          requestOptions: r,
+          type: DioExceptionType.unknown,
+          error: const HttpException('closed'),
+        ),
+      );
+      expect(failure(await repository.runStatus()), CuratorFailure.offline);
+    });
+
+    test('a poll waits the curator timeout, not the client default', () async {
+      await repository.runStatus();
+
+      final request = server
+          .requestsTo('GET', '/api/actions/curator-run/status')
+          .single;
+      expect(
+        request.extra,
+        containsPair(
+          receiveTimeoutExtra(kCuratorTimeout).keys.single,
+          kCuratorTimeout,
+        ),
+      );
     });
 
     test('a failure is a kind only', () async {

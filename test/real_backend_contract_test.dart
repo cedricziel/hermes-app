@@ -352,9 +352,16 @@ void main() {
 
     tearDownAll(() async {
       if (url == null) return;
-      await client.raw.deleteProfileEndpointApiProfilesNameDelete(
-        name: profile,
-      );
+      for (final name in [profile, gone]) {
+        try {
+          await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+            name: name,
+          );
+        } on DioException catch (error) {
+          // `gone` is already deleted when its test ran.
+          if (error.response?.statusCode != 404) rethrow;
+        }
+      }
     });
 
     T value<T>(CuratorResult<T> result) {
@@ -443,18 +450,10 @@ void main() {
           (await curator.run(profile: 'bad name') as CuratorFailed).kind,
           CuratorFailure.refused,
         );
-        // Hermes itself refuses an unnamed run while it serves several
-        // profiles (this group made one): the 400 the app never provokes.
-        await expectLater(
-          client.raw.runCuratorApiCuratorRunPost(),
-          throwsA(
-            isA<DioException>().having(
-              (e) => e.response?.statusCode,
-              'status',
-              400,
-            ),
-          ),
-        );
+        // The unnamed run Hermes refuses with a 400 is not provoked here: it
+        // does so only while several profiles are served, and alone it would
+        // start a pass on the backend's own profile (the recorded answer is
+        // covered by a fixture).
       },
     );
 

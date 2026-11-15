@@ -36,13 +36,56 @@ void main() {
       expect(off.isOn, isFalse);
     });
 
-    test('a time without an offset is UTC, as Hermes writes it', () {
+    test(
+      'a time without an offset is read as UTC, whatever the device zone',
+      () {
+        expect(
+          CuratorStatus.utcTimeText('2026-11-15T03:37:52'),
+          '2026-11-15T03:37:52Z',
+        );
+        expect(
+          CuratorStatus.utcTimeText('2026-11-15 03:37:52.5'),
+          '2026-11-15 03:37:52.5Z',
+        );
+        for (final text in [
+          '2026-11-15T03:37:52Z',
+          '2026-11-15T03:37:52+02:00',
+          '2026-11-15T03:37:52-0500',
+          '2026-11-15T03:37:52+01',
+        ]) {
+          expect(CuratorStatus.utcTimeText(text), text, reason: text);
+        }
+        final status = CuratorStatus.parse({
+          ...recordedCuratorNeverRun,
+          'last_run_at': '2026-11-15T03:37:52',
+        })!;
+        expect(status.lastRunAt, DateTime.utc(2026, 11, 15, 3, 37, 52));
+      },
+    );
+
+    test('a date without a time is unknown, not local midnight', () {
+      expect(CuratorStatus.utcTimeText('2026-11-15'), isNull);
+      expect(CuratorStatus.utcTimeText('2026-11-15T03'), isNull);
       final status = CuratorStatus.parse({
         ...recordedCuratorNeverRun,
-        'last_run_at': '2026-11-15T03:37:52',
+        'last_run_at': '2026-11-15',
       })!;
 
-      expect(status.lastRunAt, DateTime.utc(2026, 11, 15, 3, 37, 52));
+      expect(status.lastRun, CuratorLastRun.unknown);
+      expect(status.lastRunAt, isNull);
+    });
+
+    test('a count that is not a whole, sane number is unknown', () {
+      final status = CuratorStatus.parse({
+        ...recordedCuratorNeverRun,
+        'interval_hours': 2.9,
+        'stale_after_days': 1e300,
+        'archive_after_days': 9007199254740993,
+      })!;
+
+      expect(status.intervalHours, isNull);
+      expect(status.staleAfterDays, isNull);
+      expect(status.archiveAfterDays, isNull);
     });
 
     test('a missing field is unknown and the rest is used', () {

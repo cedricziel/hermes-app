@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../../server_care/json_read.dart';
 
 /// What `GET /api/curator` says about the last run.
@@ -39,12 +41,12 @@ class CuratorStatus {
     return CuratorStatus(
       enabled: readBool(root['enabled']),
       paused: readBool(root['paused']),
-      intervalHours: _positive(readInt(root['interval_hours'])),
+      intervalHours: _positive(_whole(root['interval_hours'])),
       lastRun: lastRun,
       lastRunAt: lastRunAt,
       minIdleHours: _nonNegative(readDouble(root['min_idle_hours'])),
-      staleAfterDays: _nonNegative(readInt(root['stale_after_days'])),
-      archiveAfterDays: _nonNegative(readInt(root['archive_after_days'])),
+      staleAfterDays: _nonNegative(_whole(root['stale_after_days'])),
+      archiveAfterDays: _nonNegative(_whole(root['archive_after_days'])),
     );
   }
 
@@ -69,20 +71,43 @@ class CuratorStatus {
     final raw = root['last_run_at'];
     if (raw == null) return (CuratorLastRun.never, null);
     final text = raw is String ? raw.trim() : '';
-    // Hermes writes an offset; a time without one is read as UTC, not as the
-    // device's local time.
-    final parsed = DateTime.tryParse(
-      _hasZone.hasMatch(text) ? text : '${text}Z',
-    );
+    final zoned = utcTimeText(text);
+    final parsed = zoned == null ? null : DateTime.tryParse(zoned);
     return parsed == null
         ? (CuratorLastRun.unknown, null)
         : (CuratorLastRun.at, parsed.toUtc());
   }
 
+  /// [text] ready to parse as an instant: Hermes writes an offset, and a
+  /// time without one is read as UTC, not as the device's local time. Null
+  /// when there is no time of day (a bare date would be local midnight).
+  @visibleForTesting
+  static String? utcTimeText(String text) {
+    if (!_hasTime.hasMatch(text)) return null;
+    return _hasZone.hasMatch(text) ? text : '${text}Z';
+  }
+
+  static final _hasTime = RegExp(r'^\d{4}-\d\d-\d\d[T ]\d\d:\d\d');
   static final _hasZone = RegExp(
     r'(Z|[+-]\d\d(:?\d\d)?)$',
     caseSensitive: false,
   );
+
+  /// The most a count of hours or days can sanely be (thousands of years).
+  static const _maxWhole = 1000000;
+
+  /// A whole number in range, as sent as an int or as a float without a
+  /// fraction. 2.9 and 1e300 are not read as 2 and a saturated int.
+  static int? _whole(Object? value) {
+    final number = value is int
+        ? value
+        : (value is double &&
+                  value.isFinite &&
+                  value == value.truncateToDouble()
+              ? value.toInt()
+              : null);
+    return number != null && number.abs() <= _maxWhole ? number : null;
+  }
 
   static int? _positive(int? value) =>
       value != null && value > 0 ? value : null;
