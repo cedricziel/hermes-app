@@ -164,7 +164,7 @@ jobs:
           if [ "$EVENT_NAME" = pull_request ]; then
             labels="$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/labels" --jq '.[].name')" || labels_error=true
           fi
-          decision="$(LABELS="$labels" LABELS_ERROR="$labels_error" python3 -I scripts/ci_gate.py)"
+          decision="$(LABELS="$labels" LABELS_ERROR="$labels_error" GH_TOKEN= python3 -I scripts/ci_gate.py)"
           echo "$decision" >> "$GITHUB_OUTPUT"
           echo "gate: $decision" | tr '\n' ' ' >> "$GITHUB_STEP_SUMMARY"
           echo >> "$GITHUB_STEP_SUMMARY"
@@ -377,7 +377,7 @@ jobs:
           if [ "$EVENT_NAME" = pull_request ]; then
             labels="$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/labels" --jq '.[].name')" || labels_error=true
           fi
-          LABELS="$labels" LABELS_ERROR="$labels_error" python3 -I scripts/ci_gate.py | tee -a "$GITHUB_OUTPUT"
+          LABELS="$labels" LABELS_ERROR="$labels_error" GH_TOKEN= python3 -I scripts/ci_gate.py | tee -a "$GITHUB_OUTPUT"
 
       - name: Check results
         env:

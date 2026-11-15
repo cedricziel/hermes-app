@@ -140,6 +140,9 @@ esac
             "STUB_PULL": pull if isinstance(pull, str) else json.dumps(pull),
             "STUB_LABELS": "\n".join(gh_labels),
             "STUB_LABELS_FAIL": "1" if gh_fails else "0",
+            # A regression in the superseded step fails fast; the YAML default
+            # (60) has its own test.
+            "SUPERSEDED_WAIT": "0",
             **(extra_env or {}),
         }
         output_file = work / "output"
@@ -669,19 +672,42 @@ class SupersededHead(unittest.TestCase):
         self.assertFalse(ok, out)
         self.assertIn("/actions/runs/42/cancel", out)
 
-    def test_push_skips_the_step_and_the_rest_is_unchanged(self):
-        ok, out, _ = aggregate(
-            event="push", base="", labels=(), pull=self.NEW_HEAD,
-            extra_env={"SUPERSEDED_WAIT": "0"},
-        )
-        self.assertTrue(ok, out)
-        self.assertNotIn("/pulls/", out)
-        ok, out, _ = aggregate(
-            event="push", base="", labels=(), pull=self.NEW_HEAD, test="cancelled",
-            extra_env={"SUPERSEDED_WAIT": "0"},
-        )
-        self.assertFalse(ok, out)
-        self.assertNotIn("/actions/runs/", out)
+    def test_push_and_dispatch_skip_the_step_and_the_rest_is_unchanged(self):
+        for event in ("push", "workflow_dispatch"):
+            with self.subTest(event=event):
+                ok, out, _ = aggregate(
+                    event=event, base="", labels=(), pull=self.NEW_HEAD
+                )
+                self.assertTrue(ok, out)
+                self.assertNotIn("/pulls/", out)
+                self.assertNotIn("/actions/runs/", out)
+                ok, out, _ = aggregate(
+                    event=event,
+                    base="",
+                    labels=(),
+                    pull=self.NEW_HEAD,
+                    test="cancelled",
+                )
+                self.assertFalse(ok, out)
+                self.assertNotIn("/pulls/", out)
+                self.assertNotIn("/actions/runs/", out)
+
+    def test_the_gate_script_runs_without_the_token(self):
+        # ci_gate.py needs no token, and this job can cancel runs. The label
+        # lookup by gh (before it) keeps GH_TOKEN.
+        for job_id in ("changes", "analyze-and-test"):
+            gate = [
+                step
+                for step in load_jobs()[job_id]["steps"]
+                if step.get("id") == "gate"
+            ][0]
+            self.assertEqual(gate["env"]["GH_TOKEN"], "${{ github.token }}")
+            script = gate["run"]
+            self.assertIn("GH_TOKEN= python3 -I scripts/ci_gate.py", script)
+            self.assertEqual(script.count("python3 -I scripts/ci_gate.py"), 1)
+            self.assertLess(
+                script.index("gh api"), script.index("python3 -I scripts/ci_gate.py")
+            )
 
     def test_empty_head_sha_is_not_superseded(self):
         ok, out, _ = self.run_case(pull=self.NEW_HEAD, head_sha="")

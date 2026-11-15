@@ -211,14 +211,16 @@ still running; it never passes after deciding "superseded", and no later step
 runs. So a cancelled aggregate on a superseded head is not a failure: look at
 the current head instead. A red or cancelled aggregate on the CURRENT head is
 real and stays red (a manual cancel, a timeout, a closed or merged pull
-request, a failed lookup and a refused cancel all fall through to the normal
-checks). Push and dispatch runs skip the step. The job needs `actions: write`
+request and a failed lookup all fall through to the normal checks; a refused
+cancel goes straight to `exit 1` and stays red). Push and dispatch runs skip
+the step. The job needs `actions: write`
 for the cancel, on top of `contents: read` and `pull-requests: read`: a
 permission increase, scoped to this one job.
 
 **Aggregate tests.** `scripts/test_ci_aggregates.py` (PyYAML is installed in
 the `Test scripts` step; a missing module fails the test) runs the real `run:`
-scripts of `Analyze & test` under `bash -e`, with the step conditions modelled
+scripts of `Analyze & test` in GitHub's default shell (`bash --noprofile --norc
+-eo pipefail`), with the step conditions modelled
 too: a step's `if:` with the implicit `success()`, later steps skipped after a
 failure unless `always()` or `failure()`, `continue-on-error`, and the job
 failing only when a step failed without it. It does so for every outcome of the
