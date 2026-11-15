@@ -3,6 +3,8 @@ import 'package:gpt_markdown/custom_widgets/code_field.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 
+import '../files/widgets/safe_path_text.dart';
+
 /// The longest line of a code block that still gets syntax colours.
 const kHighlightMaxLine = 500;
 
@@ -12,6 +14,10 @@ const kHighlightMaxBlock = 8000;
 /// The most characters that get syntax colours in one markdown document, summed
 /// over its code blocks (later blocks are plain).
 const kHighlightMaxDocument = 10000;
+
+/// The most code blocks of one markdown document that are built as a
+/// [CodeField]; every later one is a [PlainCodeBlock].
+const kCodeFieldMaxCount = 50;
 
 /// Decides which code blocks of one markdown document are coloured.
 ///
@@ -61,6 +67,10 @@ class CodeHighlightBudget {
   /// Starts a pass over the document, from its first block.
   void begin() => _next = 0;
 
+  /// Moves to the block at [index] of the document, which the next [admit]
+  /// judges.
+  void seek(int index) => _next = index;
+
   /// Forgets every decision, for a document that was replaced.
   void clear() {
     _granted.clear();
@@ -97,9 +107,120 @@ class CodeHighlightBudget {
   }
 }
 
+/// A code block past [kCodeFieldMaxCount]: the panel, language label, header
+/// height, padding and monospace text of a `CodeField`, without highlighting,
+/// the copy button (its state, tooltip and ink) or the horizontal scroll view:
+/// a long line wraps. The text goes through
+/// [safeContentText], so bidi and control characters show as `<U+XXXX>`.
+class PlainCodeBlock extends StatelessWidget {
+  const PlainCodeBlock({
+    super.key,
+    required this.name,
+    required this.codes,
+    required this.style,
+    required this.scalesItsOwnText,
+  });
+
+  final String name;
+  final String codes;
+  final CodeBlockStyle style;
+  final bool scalesItsOwnText;
+
+  /// The height of a `CodeField` header, set by its 32 point copy button.
+  static const _headerHeight = 32.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = mui.Theme.of(context);
+    final scheme = theme.colorScheme;
+    final family = style.fontFamily;
+    final radius = BorderRadius.all(
+      style.borderRadius ?? const Radius.circular(12),
+    );
+    final borderColor = style.borderColor;
+    final displayName = name.trim().isEmpty ? 'Code' : name;
+    const icon = mui.Icons.terminal_rounded;
+    final body = DecoratedBox(
+      decoration: BoxDecoration(
+        color: style.backgroundColor ?? scheme.surfaceContainer,
+        borderRadius: radius,
+        border: borderColor == null
+            ? null
+            : Border.all(color: borderColor, width: style.borderWidth ?? 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (style.showLanguageLabel ?? true)
+            Padding(
+              padding:
+                  style.headerPadding ?? const EdgeInsets.fromLTRB(10, 8, 8, 2),
+              child: SizedBox(
+                height: _headerHeight,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: String.fromCharCode(icon.codePoint),
+                              style: TextStyle(
+                                fontFamily: icon.fontFamily,
+                                package: icon.fontPackage,
+                                fontSize: 13,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            TextSpan(text: ' $displayName'),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: style.languageStyle,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Padding(
+              padding:
+                  style.padding ?? const EdgeInsets.fromLTRB(16, 10, 16, 16),
+              child: Text(
+                safeContentText(codes),
+                style: TextStyle(
+                  fontFamily: family ?? 'JetBrainsMono',
+                  package: family == null
+                      ? 'gpt_markdown'
+                      : style.fontFamilyPackage,
+                  fontSize: style.fontSize,
+                  color: style.textColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return MarkdownTextScaling.wrap(body, enabled: scalesItsOwnText);
+  }
+}
+
 /// `GptMarkdown` whose fenced code blocks stay within a render budget (see
-/// [CodeHighlightBudget]): a block over it is drawn as plain monospace text in
-/// the same block, with its language label.
+/// [CodeHighlightBudget] and [kCodeFieldMaxCount]): a block over it is drawn as
+/// plain monospace text in the same panel, with its language label.
 ///
 /// Use it for every markdown a server, a model or another person can write.
 /// Other parameters are those of [GptMarkdown] that the app uses.
@@ -125,10 +246,35 @@ class BoundedMarkdown extends StatefulWidget {
 class _BoundedMarkdownState extends State<BoundedMarkdown> {
   final _budget = CodeHighlightBudget();
 
+  /// The place in the document of the block asked about last, and whether that
+  /// block was closed. `GptMarkdown` keeps the blocks it already built and asks
+  /// only about the new ones (and the unclosed last one, again), so a place
+  /// cannot be counted from the start of each build: a block that follows a
+  /// closed one is the next place, an unclosed one asked again is the same.
+  int _place = -1;
+  bool _placeClosed = true;
+
+  void _restart() {
+    _place = -1;
+    _placeClosed = true;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The renderer builds every block again when its theme changes.
+    _restart();
+  }
+
   @override
   void didUpdateWidget(BoundedMarkdown old) {
     super.didUpdateWidget(old);
-    // A reply that streams only grows; anything else is another document.
+    // A reply that streams only grows, and only its new blocks are asked
+    // about; anything else is built from its first block.
+    final grew =
+        widget.data.length > old.data.length &&
+        widget.data.startsWith(old.data);
+    if (!grew) _restart();
     if (!widget.data.startsWith(old.data)) _budget.clear();
   }
 
@@ -138,11 +284,23 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
         (resolvedStyleSheet(context, config).codeBlock ??
                 const CodeBlockStyle())
             .resolve(mui.Theme.of(context).colorScheme);
+    // A block drawn inside a paragraph is scaled by it; one of its own
+    // scales itself, as in the renderer's default block.
+    final scalesItsOwnText =
+        context.findAncestorWidgetOfExactType<RichText>() == null;
+    if (_placeClosed) _place++;
+    _placeClosed = closed;
+    if (_place >= kCodeFieldMaxCount) {
+      return PlainCodeBlock(
+        name: name,
+        codes: code,
+        style: style,
+        scalesItsOwnText: scalesItsOwnText,
+      );
+    }
+    _budget.seek(_place);
     return CodeField(
-      // A block drawn inside a paragraph is scaled by it; one of its own
-      // scales itself, as in the renderer's default block.
-      scalesItsOwnText:
-          context.findAncestorWidgetOfExactType<RichText>() == null,
+      scalesItsOwnText: scalesItsOwnText,
       name: name,
       codes: code,
       highlightCode:
@@ -154,7 +312,9 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
 
   @override
   Widget build(BuildContext context) {
-    _budget.begin();
+    // Depend on what the renderer depends on, to learn of a rebuild of all.
+    mui.Theme.of(context);
+    MediaQuery.textScalerOf(context);
     return GptMarkdown(
       widget.data,
       style: widget.style,

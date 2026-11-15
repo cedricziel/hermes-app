@@ -346,4 +346,239 @@ void main() {
       expect(field.highlightCode, isTrue);
     });
   });
+
+  group('BoundedMarkdown caps the code fields of a document', () {
+    String fences(int n, {String lang = 'js', String body = 'a\nb\nc'}) =>
+        List.generate(n, (i) => '```$lang\n$body\n```').join('\n\n');
+
+    int fields(WidgetTester t) => t.widgetList(find.byType(CodeField)).length;
+    int plains(WidgetTester t) =>
+        t.widgetList(find.byType(PlainCodeBlock)).length;
+
+    testWidgets('a document at the cap keeps every block a code field', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        (t) => BoundedMarkdown(t),
+        fences(kCodeFieldMaxCount),
+      );
+      expect(fields(tester), kCodeFieldMaxCount);
+      expect(plains(tester), 0);
+      expect(
+        tester
+            .widgetList<CodeField>(find.byType(CodeField))
+            .every((f) => f.highlightCode),
+        isTrue,
+      );
+    });
+
+    testWidgets('the blocks at the cap render like GptMarkdown', (
+      tester,
+    ) async {
+      final text = fences(kCodeFieldMaxCount);
+      await _pump(tester, (t) => GptMarkdown(t), text);
+      final plain = _digest(tester);
+      await _pump(tester, (t) => BoundedMarkdown(t), text);
+      expect(_digest(tester), plain);
+    });
+
+    testWidgets('blocks past the cap are plain blocks, the rest are fields', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        (t) => BoundedMarkdown(t),
+        fences(kCodeFieldMaxCount + 7, body: 'const a = 1;'),
+      );
+      expect(fields(tester), kCodeFieldMaxCount);
+      expect(plains(tester), 7);
+      // Order: every field comes before every plain block.
+      final lastField = tester.getTopLeft(find.byType(CodeField).last).dy;
+      final firstPlain = tester
+          .getTopLeft(find.byType(PlainCodeBlock).first)
+          .dy;
+      expect(firstPlain, greaterThan(lastField));
+    });
+
+    testWidgets('a plain block has the size and look of a code field', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        (t) => BoundedMarkdown(t),
+        fences(kCodeFieldMaxCount + 1, lang: 'dart', body: 'a\nb\nc'),
+      );
+      final field = find.byType(CodeField).first;
+      final plain = find.byType(PlainCodeBlock);
+      expect(tester.getSize(plain), tester.getSize(field));
+      BoxDecoration panel(Finder f) =>
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .descendant(of: f, matching: find.byType(DecoratedBox))
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(panel(plain), panel(field));
+      expect(
+        find.descendant(
+          of: plain,
+          matching: find.textContaining('dart', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+      final code = tester.widget<Text>(
+        find.descendant(of: plain, matching: find.text('a\nb\nc')),
+      );
+      expect(code.style?.fontFamily, endsWith('JetBrainsMono'));
+    });
+
+    testWidgets('a block with no language is labelled Code, like a field', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        (t) => BoundedMarkdown(t),
+        fences(kCodeFieldMaxCount + 1, lang: ''),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(PlainCodeBlock),
+          matching: find.textContaining('Code', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.getSize(find.byType(PlainCodeBlock)),
+        tester.getSize(find.byType(CodeField).first),
+      );
+    });
+
+    testWidgets('a plain block is never coloured and has no copy button', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        (t) => BoundedMarkdown(t),
+        fences(kCodeFieldMaxCount + 3, body: 'const a = 1; // x'),
+      );
+      final plain = find.byType(PlainCodeBlock);
+      expect(plain, findsNWidgets(3));
+      expect(
+        find.descendant(
+          of: plain,
+          matching: find.byIcon(Icons.content_copy_rounded),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: plain, matching: find.byType(Tooltip)),
+        findsNothing,
+      );
+      for (final text in tester.widgetList<Text>(
+        find.descendant(of: plain, matching: find.text('const a = 1; // x')),
+      )) {
+        expect(text.textSpan, isNull, reason: 'one run, no colour spans');
+      }
+      expect(
+        find.byIcon(Icons.content_copy_rounded),
+        findsNWidgets(kCodeFieldMaxCount),
+      );
+    });
+
+    testWidgets('bidi and control characters in a plain block are shown', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        (t) => BoundedMarkdown(t),
+        fences(kCodeFieldMaxCount + 1, body: 'a\u202Eb\u001Bc'),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(PlainCodeBlock),
+          matching: find.text('a<U+202E>b<U+001B>c'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('empty fences past the cap are plain blocks too', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        (t) => BoundedMarkdown(t),
+        List.filled(kCodeFieldMaxCount + 5, '```\n```').join('\n\n'),
+      );
+      expect(fields(tester), kCodeFieldMaxCount);
+      expect(plains(tester), 5);
+    });
+
+    testWidgets('a reply streamed fence by fence keeps the cap', (
+      tester,
+    ) async {
+      late StateSetter set;
+      var text = '';
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  set = setState;
+                  return BoundedMarkdown(text);
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var i = 0; i < kCodeFieldMaxCount + 6; i++) {
+        // The fence is open for one frame, then closed.
+        set(() => text += '${i == 0 ? '' : '\n\n'}```js\nconst a = $i;');
+        await tester.pump();
+        set(() => text += '\n```');
+        await tester.pump();
+      }
+      expect(fields(tester), kCodeFieldMaxCount);
+      expect(plains(tester), 6);
+    });
+
+    testWidgets('a reply that grows past the cap, and back, is counted anew', (
+      tester,
+    ) async {
+      late StateSetter set;
+      var text = fences(kCodeFieldMaxCount - 1);
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  set = setState;
+                  return BoundedMarkdown(text);
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      expect((fields(tester), plains(tester)), (kCodeFieldMaxCount - 1, 0));
+      set(() => text = fences(kCodeFieldMaxCount + 2));
+      await tester.pump();
+      expect((fields(tester), plains(tester)), (kCodeFieldMaxCount, 2));
+      set(() => text = fences(3));
+      await tester.pump();
+      expect((fields(tester), plains(tester)), (3, 0));
+    });
+  });
 }
