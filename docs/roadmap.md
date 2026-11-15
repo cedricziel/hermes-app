@@ -19,6 +19,17 @@ Started 14 November 2026 from a full review of the app: structure, practice, bug
 
 `merged` (with PR), `open` (PR up, in review or CI), `building`, `queued`, `blocked` (with the reason), `dropped` (with the reason). In wave 4, `proposal building` means the OpenSpec proposal is being written and has no PR yet, and `proposal open #N` means the proposal PR is up and no implementation has started. `(with #N)` after a status means the work ships inside PR #N and takes that PR's state.
 
+## Hill-climb goals
+
+Each goal gets a baseline, a rerunnable measurement, and a report of the number after every merge. The owner chose these four on 2026-11-15.
+
+| Goal | Metric | How it is measured | Baseline | Target | Owner session | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| H.1 Reply failure rate | Share of prompt submits that end in a failed or never-settled reply | A SignalDB query (to be written into the `observability` skill), per app version | About 3.5 % over 7 days (0.1.78 and earlier) | Under 0.5 %, or only server-side causes left | reply-resilience session | Fixes in progress (#1116, #1120, #1123 open so far) |
+| H.2 Chat speed | Longest frame while a long reply streams, over fixed scenarios; secondary: p95 frame, chat open to content, cold start to list | A repeatable benchmark with the fake transport (to be built), later a CI budget | Not measured yet (history: a 6 to 17 s freeze, fixed in #1105) | Set after the baseline | chat-speed session | Started |
+| H.3 Style score | Count of theme bypasses (hard-coded colours, off-scale spacing and radii, raw font sizes), raw dialogs and sheets that bypass the shared helpers, non-adaptive controls, hard-coded English in widgets | A script over `lib/` with an allowlist (to be built), then a ratchet and a lint | Not measured yet (about 25 raw `showDialog` known) | Zero, or an allowlisted floor per category, held by a failing check | style session | Started |
+| H.4 Tap targets | Guideline violations per platform (48 dp Android, 44 pt iOS, 28 pt desktop) | A test over the catalog and the workflow screens | Not measured yet (Android: chat rows 32 dp, row menu 28, message actions 40; Mac: several 44 pt controls) | Zero | style session | Started |
+
 ## Wave 1: bugs in ordinary use
 
 | Item | What                                                                                                                                                               | Status      |
@@ -87,7 +98,7 @@ Each item is an OpenSpec change, a Claude Design pass and catalog use cases befo
 
 | Item | What                                                                                                                              | Status |
 | ---- | --------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 5.1  | Android home screen widgets reading the surface snapshot                                                                          | proposal and design record merged #974; Android plumbing fixes merged #993 (not verified on a device); the widgets need a device or emulator |
+| 5.1  | Android home screen widgets reading the surface snapshot                                                                          | proposal and design record merged #974; Android plumbing fixes merged #993 (data plumbing only; no widget provider exists, so no widget ships; not verified on a device); the widgets need a device or emulator |
 | 5.2  | Android request notifications with the command or question and answer buttons, as on iOS and macOS                                | merged #914 (not verified on a device) |
 | 5.3  | Windows and Linux: state in the README what is supported, and close the gaps that are cheap (notifications, App Lock explanation) | support table merged #962; notifications on Windows and Linux and App Lock wording merged #988 (never run on either platform) |
 | 5.4  | Remaining open changes that are partly done: `bot-mode-roster`, `bot-mode-chats`, `bot-mode-group-protocol`                       | assessed in #961; the three changes stay open; remaining tests need a Hermes-equipped session (after the verify skill, #928) |
@@ -318,10 +329,25 @@ Things the work itself turned up. Each is verified before it is built. A small o
 | F.200 | Platform gap: Linux has no App Lock | platform audit | proposal needed |
 | F.201 | Platform gap: the Linux .deb should recommend a keyring daemon | platform audit | proposal needed |
 | F.202 | Audits still running: macOS experience, iPhone, Android, Windows and Linux, and design-system consistency across widgets (tokens, duplicate components, the same concept looking different, catalog coverage) | the orchestrator | in progress |
+| F.203 | macOS audit, window size: the main window has no minimum size and an 800x600 default, below the 900 pt wide breakpoint, so a fresh window gets the narrow layout and overflows at 300x260 (`MainMenu.xib:335`) | macOS audit | fix in progress |
+| F.204 | macOS audit, phone patterns on Mac: the model picker is a bottom sheet on Mac under 900 pt (`model_picker.dart:42-53`); the attach "+" opens a one-row sheet; `RefreshIndicator` is not gated and the Kanban iOS sheet shows on Mac. The picker is queued with the chat line manager, the attach sheet is in the iPad sheet PR, the other two are queued | macOS audit | model picker queued; attach "+" in the iPad sheet PR; `RefreshIndicator` and Kanban sheet queued |
+| F.205 | macOS audit, menu bar: Edit menu items are always enabled (`mac_menu_bar.dart:198-241`); menu titles are hard-coded English; shortcuts that are in no menu (⌘R, ⌘↑, ⌥↑/⌥↓). Missing menu standards: a Find submenu, Delete and text size | macOS audit | queued |
+| F.206 | macOS audit, tap targets: several 44 pt controls on Mac | macOS audit | under H.4 |
+| F.207 | macOS audit, proposals: about 70 snackbars with no Mac style; Settings is an in-window dialog stack, not a Settings window; sub-pages hide the sidebar | macOS audit | snackbars: proposal; Settings window and sidebar: proposal with a design pass |
+| F.208 | macOS audit, native config (only a Mac or notarized build can confirm): no `CFBundleDocumentTypes`, no `ENABLE_HARDENED_RUNTIME` on Runner, no `keychain-access-groups` entitlement. The display name "Hermes Companion" differs from the product name "Hermes" (owner naming decision, see Blocked) | macOS audit | open; needs a Mac build |
+| F.209 | Android audit (code and rendered tests only, no emulator): home screen widgets do not exist (no provider or receiver; `kAndroidWidgetKinds` is empty). Row 5.1 and F.189 are worded to match | Android audit | proposal needed (F.189) |
+| F.210 | Android audit, layout: 600 to 899 dp gets a stretched phone layout with no rail; the chat header truncates at 2x font | Android audit | layout: proposal with a design pass; header: queued |
+| F.211 | Android audit, tap targets: touch targets under 48 dp and dense desktop rows without swipe | Android audit | under H.4 |
+| F.212 | Android audit, notifications: the small icon is the launcher icon (a white square); there is one channel for every kind with a hard-coded English name (channel ids are permanent, so this needs a proposal); no "Open settings" after the notification permission is denied; no Reply action on finished-reply notifications | Android audit | small icon: PR to be built without a device; channels: proposal; "Open settings": PR without a device; Reply action: proposal list (with F.190) |
+| F.213 | Android audit, system integration: predictive back is not opted in; there is no monochrome adaptive icon layer | Android audit | PRs without a device |
+| F.214 | Android audit: `launchMode` `singleTop` with an empty `taskAffinity` and a share target may start a second instance | Android audit | report only; needs a device (Blocked) |
+| F.215 | Android audit, missing surfaces: no static shortcuts and no Direct Share (with F.196) | Android audit | proposal list |
+| F.216 | Android audit: dynamic colour is not used | Android audit | owner decision (Blocked) |
 
 ## Decisions
 
 - The watch has its own lock. The phone's App Lock and the watch are never coupled (owner, 2026-11-15).
+- The watch complication keeps omitting the title while App Lock is on. This is the existing rule; the watch-lock decision above is about access to the watch app, not about what the complication shows.
 - Work is run through child line-manager sessions. The orchestrator keeps merging, the roadmap and the releases.
 - The next release, 0.1.79 (release-please PR #1083 is open), is cut when main is green on a full run and the owner-reported fixes (O.1 to O.9) are in.
 
@@ -355,6 +381,9 @@ Things the work itself turned up. Each is verified before it is built. A small o
 | Audio session fix on a device (#1125) | Needs an iPhone: the checklist is in #1125, compared against 0.1.77. A container cannot verify it |
 | CallKit call on 0.1.78 | Same as the row on #1061 above: one call on the TestFlight build confirms or refutes the fix |
 | "Share location" go or no-go | O.8: the owner decides between a client-only composer action, an MCP relay on the host and an upstream proposal |
+| Android: dynamic colour or fixed palette | F.216: the app does not use Android dynamic colour; the owner decides between it and the fixed palette |
+| macOS display name vs product name | F.208: "Hermes Companion" against "Hermes"; the owner decides the name |
+| Android launch mode with the share target | F.214: whether `singleTop` with an empty `taskAffinity` starts a second instance needs a device check |
 | Watch decisions | F.186 (d), the "Send after manual stop" toggle inside every chat, and (j), an option to hide titles on the watch face; also whether the watch gets German (F.186 b) |
 
 ## Upstream (needs a Hermes change; not built here)
