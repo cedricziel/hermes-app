@@ -22,6 +22,9 @@ const String kKindReviewSummary = 'review_summary';
 const String kKindReconnecting = 'reconnecting';
 const String kMetaReconnectEpisode = 'episode';
 
+/// With `episode`: whether nothing is trying any more (`reconnectIdle`).
+const String kMetaReconnectIdle = 'idle';
+
 /// A line between messages after a compress or a restore settled ("Conversation
 /// compressed · 42 → 9 messages"). It exists only in this app, beside the
 /// chat's messages and never among them, so it is no prompt, no reply and

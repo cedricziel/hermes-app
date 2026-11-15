@@ -1507,6 +1507,34 @@ void main() {
       });
     });
 
+    test(
+      'an answered pick-up forgets the reply, so the next open is plain',
+      () {
+        fake((async) {
+          lose(async);
+          gateway.silent.remove('session.resume');
+          gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+          final first = _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+          expect(first.error, isA<GatewayTurnEnded>());
+          int sinceCalls() =>
+              gateway.methods.where((m) => m == 'session.events.since').length;
+          final before = sinceCalls();
+
+          final again = _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+
+          // No replay from a lost runtime, no refetch, and the idle session is
+          // listened to (the follow-ups stay open).
+          expect(sinceCalls(), before);
+          expect(again.error, isNull);
+          expect(again.events.whereType<ThreadNeedsRefetch>(), isEmpty);
+          expect(again.done, isFalse);
+          unawaited(again.subscription.cancel());
+        });
+      },
+    );
+
     test('can be stopped on the server', () {
       fake((async) {
         lose(async);

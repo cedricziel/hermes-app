@@ -667,8 +667,10 @@ extension _Sending on HermesGatewayTransport {
             yield UnsolicitedEvent(withdrawn);
           }
           if (claimedShown) yield const ThreadNeedsRefetch();
-          // A turn handed over live is read again instead of picked up.
-          if (!claimedShown) _lostReplies[owner] = runtimeId;
+          // A turn handed over live is read again, not picked up: nothing
+          // is kept to wait on, so the reply fails (and the thread refetches).
+          if (claimedShown) throw const GatewayTurnEnded();
+          _lostReplies[owner] = runtimeId;
           throw const GatewayConnectionClosed();
         }
         drops.attempt();
@@ -769,7 +771,8 @@ extension _Sending on HermesGatewayTransport {
                 !yielded.any((event) => event is ThreadNeedsRefetch)) {
               yield const ThreadNeedsRefetch();
             }
-            if (resumed.gone == null && !resumed.turnEnded && !claimedShown) {
+            if (resumed.gone == null && !resumed.turnEnded) {
+              if (claimedShown) throw const GatewayTurnEnded();
               _lostReplies[owner] = runtimeId;
             }
             throw resumed.failure;

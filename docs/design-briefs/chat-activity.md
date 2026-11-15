@@ -68,6 +68,8 @@ This extends an existing designed surface (the reply in the transcript and its t
 
 **Catalog use cases** (`widgetbook/reply_reconnecting_use_cases.dart`): alone, under a reply with a running call, under a reply with finished and running calls, beside a failed reply for contrast, a long sentence at 320 pt, largest text. Light and dark, phone and desktop and English and German come from the catalog's addons.
 
+**When the tries run out.** The chat in front is tried again every 15 s, 40 times. After that the note says what is true: a wifi-off icon and "Couldn't reconnect. Hermes may still be working on this. Trying again when you come back." (German: "Verbindung konnte nicht wiederhergestellt werden. Hermes arbeitet möglicherweise noch daran. Ein neuer Versuch folgt, wenn du zurückkommst."). It is announced again. Nothing is tried by itself then; the app coming to the front or the chat being opened tries once more and the first note returns. The queue still holds and nothing is resent, since the turn may well be running; Stop still asks the server. Catalog use cases: "Not trying any more" alone and under a running call.
+
 **While it shows.** The composer keeps Stop (it asks the server and works when the server can be reached, and says "couldn't stop" otherwise). Messages typed meanwhile wait in the queue, nothing is sent. Retry, Edit and Branch are not offered, since the turn is still running.
 
 **Not checked.** VoiceOver and TalkBack output on a device, the real connection coming back while the app is in front, contrast of the warning token on the dark surface beyond an eye check.

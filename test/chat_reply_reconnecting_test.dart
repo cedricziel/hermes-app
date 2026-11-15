@@ -318,6 +318,169 @@ void main() {
     });
   });
 
+  group('Stop, queue, cap and timers', () {
+    test('Retry, Edit and Branch are all off while the turn may run', () async {
+      await startTurn();
+      await lose();
+
+      expect(chat.canEditLastPrompt(thread), isFalse);
+      expect(chat.canBranch(thread), isFalse);
+      expectOneSubmit();
+    });
+
+    test(
+      'another chat accepting its prompt does not make this loss one',
+      () async {
+        // The transport's acceptance flag belongs to its latest send.
+        transport.promptAccepted = true;
+        chat.newThread();
+        thread = chat.selectedThread!;
+        chat.submit('Hello', const []);
+        send = transport.sends.single;
+        send.emit(const ThreadBound('s1'));
+        await pumpEventQueue();
+        await lose();
+
+        expect(assistant().status, MessageStatus.error);
+        expect(assistant().reconnecting, isFalse);
+        expectOneSubmit();
+      },
+    );
+
+    test(
+      'a stop the server has nothing to stop for reads the reply back',
+      () async {
+        await startTurn();
+        await lose();
+        transport.stopsRunning = false;
+        final before = transport.followUpCalls;
+
+        await chat.stopReply(thread);
+        await pumpEventQueue();
+
+        expect(assistant().stopped, isFalse);
+        expect(assistant().reconnecting, isTrue);
+        expect(transport.followUpCalls, greaterThan(before));
+        transport.followUpStreams['s1']!
+          ..emit(const ThreadNeedsRefetch())
+          ..emit(const ReplyCompleted('Finished while away.'));
+        await pumpEventQueue();
+
+        expect(assistantCount(), 1);
+        expect(assistant().content, 'Finished while away.');
+        expect(assistant().stopped, isFalse);
+        expect(assistant().status, MessageStatus.sent);
+        expectOneSubmit();
+      },
+    );
+
+    test(
+      'a message queued meanwhile is sent exactly once after the turn',
+      () async {
+        await startTurn();
+        await lose();
+        chat.submit('And then deploy', const []);
+        await pumpEventQueue();
+        expectOneSubmit();
+
+        chat.checkConnection();
+        await pumpEventQueue();
+        transport.followUpStreams['s1']!
+          ..emit(const ReplyStarted())
+          ..emit(const ReplyCompleted('Built.'))
+          ..emit(const SessionInfo(running: false));
+        await pumpEventQueue();
+
+        expect(transport.sends, hasLength(2));
+        expect(transport.sends.last.text, 'And then deploy');
+      },
+    );
+
+    test('after the tries run out the note stops claiming to try', () async {
+      chat = build(retry: const Duration(milliseconds: 1));
+      await startTurn();
+      var calls = transport.followUpCalls;
+      await lose();
+
+      // Each try fails to reach the server, until the cap.
+      for (var i = 0; i < 200 && !assistant().reconnectIdle; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        final follow = transport.followUpStreams['s1'];
+        if (transport.followUpCalls > calls && follow != null) {
+          calls = transport.followUpCalls;
+          follow.fail(const GatewayConnectionClosed());
+        }
+        await pumpEventQueue();
+      }
+
+      expect(assistant().reconnectIdle, isTrue);
+      expect(assistant().reconnecting, isTrue);
+      expect(assistant().error, isNull);
+      final shown = chatMessageToFlyer(assistant()).whereType<CustomMessage>();
+      expect(shown.any((m) => m.metadata?[kMetaReconnectIdle] == true), isTrue);
+      // Nothing tries by itself any more.
+      final stopped = transport.followUpCalls;
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(transport.followUpCalls, stopped);
+
+      // The app coming back does, and the note says so again.
+      chat.checkConnection();
+      await pumpEventQueue();
+      expect(transport.followUpCalls, greaterThan(stopped));
+      expect(assistant().reconnectIdle, isFalse);
+      expectOneSubmit();
+    });
+
+    test('a disposed controller tries nothing more', () async {
+      final attention = AttentionNotifier(
+        service: null,
+        settings: null,
+        onOpen: (_) {},
+      );
+      addTearDown(attention.dispose);
+      final other = ChatController(
+        transport: transport,
+        attention: attention,
+        report: reports.add,
+        reconnectRetry: const Duration(milliseconds: 10),
+      );
+      other.newThread();
+      thread = other.selectedThread!;
+      other.submit('Run the build', const []);
+      send = transport.sends.single;
+      send
+        ..emit(const ThreadBound('s1'))
+        ..emit(const PromptAcknowledged(1))
+        ..emit(const ReplyDelta('x'));
+      await pumpEventQueue();
+      await lose();
+      other.dispose();
+      final calls = transport.followUpCalls;
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(transport.followUpCalls, calls);
+    });
+
+    test('only the chat in front is tried by the timer', () async {
+      chat = build(retry: const Duration(milliseconds: 10));
+      await startTurn();
+      chat.newThread();
+      await lose();
+      final calls = transport.followUpCalls;
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(transport.followUpCalls, calls);
+      expect(assistant().reconnecting, isTrue);
+
+      // Opening it tries at once.
+      chat.select('s1');
+      await pumpEventQueue();
+      expect(transport.followUpCalls, greaterThan(calls));
+    });
+  });
+
   group('a real failure still fails the reply', () {
     for (final (name, error) in <(String, Object)>[
       ('an unknown error', StateError('boom')),

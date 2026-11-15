@@ -296,6 +296,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _stopFollowing();
     _sending.clear();
     _cancelSettleWaits();
+    _ChatControllerStreaming(this)._cancelReconnects();
     _replayEnds?.cancel();
     _ChatControllerCheckpoints(this)._actionsSuspended();
     notifyListeners();
@@ -1445,6 +1446,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _finishQueueBinding(thread, false);
     _suspendedQueues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
+    _reconnectTimers.remove(thread)?.cancel();
+    _reconnectTries.remove(thread);
     _refetch.remove(thread);
     liveActivities?.endChat(thread.id, _profile);
     _watchSource?.drop(thread);
@@ -1504,10 +1507,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _subagentEnvironment?.dispose();
     housekeeping?.setActivity(false);
     _replayEnds?.cancel();
-    for (final timer in _reconnectTimers.values) {
-      timer.cancel();
-    }
-    _reconnectTimers.clear();
+    _ChatControllerStreaming(this)._cancelReconnects();
     for (final reply in _replies) {
       reply.cancel();
     }
@@ -1641,8 +1641,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// never streamed (started on the TUI or another device) streams into it
   /// and shows its replying indicator. An idle thread closes the stream
   /// without events.
-  void _pickUp(ChatThread thread) {
+  void _pickUp(ChatThread thread, {bool retry = false}) {
     if (queueStore != null) unawaited(_restoreQueue(thread));
+    if (!retry) _ChatControllerStreaming(this)._restartReconnect(thread);
     final transport = this.transport;
     if (!active || transport == null || !thread.remote) return;
     // A reply that lost its connection is the one to pick up: it counts as

@@ -252,10 +252,9 @@ extension _ChatControllerSending on ChatController {
         !folded &&
         reply.isPending &&
         isConnectionLost(error) &&
-        (begun ||
-            error is SendFailure ||
-            (transport is PromptAcknowledgement &&
-                (transport as PromptAcknowledgement).promptAccepted));
+        // Only what this send itself saw: the transport's acceptance flag
+        // belongs to its latest send, which may be another chat's.
+        (begun || error is SendFailure);
     String outcome(Object? error) {
       if (withdrawn != null) return withdrawn!;
       if (lost(error)) return 'reconnecting';
@@ -269,7 +268,10 @@ extension _ChatControllerSending on ChatController {
 
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
-      _finishMoaTurn(thread, reply);
+      // A turn that may still run keeps its mixture-of-agents card and its
+      // warnings: nothing of it ended.
+      final holding = lost(error);
+      if (!holding) _finishMoaTurn(thread, reply);
       if (!_bound.contains(thread)) _finishQueueBinding(thread, false);
       if (protectedSend != null && !protectedSend.accepted) {
         if (!protectedSend.restored && protectedSend.started) {
@@ -284,7 +286,7 @@ extension _ChatControllerSending on ChatController {
         }
       }
       _replies.remove(subscription);
-      if (error != null || (!folded && reply.isPending)) {
+      if (!holding && (error != null || (!folded && reply.isPending))) {
         _discardWarnings(thread);
       }
       _sending.update(thread, (n) => n - 1);

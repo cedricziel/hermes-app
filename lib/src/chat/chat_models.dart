@@ -673,6 +673,11 @@ class ChatMessage {
   /// told once per loss and not each time the row is built.
   int reconnectEpisodes = 0;
 
+  /// With [reconnecting]: nothing is trying any more (the tries ran out), and
+  /// the reply is picked up again when the app comes to the front or the chat
+  /// is opened. The note says so instead of claiming to reconnect.
+  bool reconnectIdle = false;
+
   bool get isPending =>
       status == MessageStatus.thinking || status == MessageStatus.streaming;
 

@@ -859,6 +859,8 @@ void main() {
       final sent = _listen(flaky.send(threadId: 'stored-2', text: 'hi'));
       await pumpEventQueue();
       expect(sent.error, isA<GatewayConnectionClosed>());
+      // Read again, not waited for: the reply fails instead of reconnecting.
+      expect(sent.error, isA<GatewayTurnEnded>());
       expect(sent.events.last, isA<ThreadNeedsRefetch>());
       // What the turn showed before the send gave up was handed over live.
       expect(sent.own.whereType<ReplyDelta>(), hasLength(1));

@@ -66,7 +66,11 @@ extension _FollowUps on HermesGatewayTransport {
       maxAttempts: 1,
       cancelled: () => canceled || out.isClosed,
     );
-    if (lost != null && !resumed.giveUp) _lostReplies.remove(owner);
+    // The server answered (reached, gone or over): nothing is waited for.
+    if (lost != null &&
+        (!resumed.giveUp || resumed.gone != null || resumed.turnEnded)) {
+      _lostReplies.remove(owner);
+    }
     final watch = resumed.watch;
     if (_reclaimOf(resumed.ended) case final reclaim?) {
       resumed.discard();

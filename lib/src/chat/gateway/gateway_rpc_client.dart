@@ -102,11 +102,12 @@ class GatewaySessionGone extends GatewayConnectionClosed {
   String toString() => 'The gateway no longer has the session ($code)';
 }
 
-/// The server answered, and the turn the reply followed is no longer running
-/// and left nothing to show (the silence probe no longer lists it, or a resume
-/// found it over with no stored reply). A [GatewayConnectionClosed] so older
-/// readers still end the reply, but unlike a lost connection nothing is left
-/// to wait for: the reply fails.
+/// The reply cannot be waited for: the server answered and the turn is no
+/// longer running with nothing to show (the silence probe no longer lists it,
+/// or a resume found it over with no stored reply), or a turn handed over live
+/// was lost and the thread is read again instead. A [GatewayConnectionClosed]
+/// so older readers still end the reply, but unlike a lost connection nothing
+/// is left to wait for: the reply fails.
 class GatewayTurnEnded extends GatewayConnectionClosed {
   const GatewayTurnEnded();
 

@@ -154,6 +154,26 @@ extension _ChatControllerRequests on ChatController {
         _setHold(thread, others ? hold : _Hold.none);
         return;
       }
+      final waiting = [
+        for (final reply in pending)
+          if (reply.reconnecting &&
+              reply.isPending &&
+              thread.messages.contains(reply))
+            reply,
+      ];
+      if (waiting.isNotEmpty) {
+        // The server has no turn to interrupt, but this reply never heard how
+        // its turn ended: it is read back into the same bubble, not closed as
+        // stopped with the text it had.
+        _setHold(
+          thread,
+          others || hold == _Hold.stopping || hold == _Hold.paused
+              ? _Hold.paused
+              : _Hold.none,
+        );
+        _pickUp(thread);
+        return;
+      }
       final stale = [
         for (final reply in pending)
           if (reply.isPending && thread.messages.contains(reply)) reply,

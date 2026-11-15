@@ -213,6 +213,7 @@ List<Message> chatMessageToFlyer(
         metadata: {
           kMetaKind: kKindReconnecting,
           kMetaReconnectEpisode: m.reconnectEpisodes,
+          kMetaReconnectIdle: m.reconnectIdle,
         },
       ),
     if (showThinking)

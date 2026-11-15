@@ -40,6 +40,18 @@ WidgetbookFolder replyReconnectingNode() => WidgetbookFolder(
       useCases: [
         _case('Alone', _note),
         _case(
+          'Not trying any more',
+          (context) =>
+              ReplyReconnectingNote(text: context.l10n.chatReplyReconnectIdle),
+        ),
+        _case(
+          'Not trying any more, under a running call',
+          (context) => _reply(
+            ReplyReconnectingNote(text: context.l10n.chatReplyReconnectIdle),
+            calls: const ToolCallGroup(calls: [runningToolCall]),
+          ),
+        ),
+        _case(
           'Under a reply with a running tool call',
           (context) => _reply(
             _note(context),

@@ -16,6 +16,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
   // An event that reaches the reply came over a connection that works: the
   // loss it was reconnecting from is over, whatever the event says.
   reply.reconnecting = false;
+  reply.reconnectIdle = false;
   switch (event) {
     case ReplyDelta(:final text):
       reply.reasoningActive = false;
@@ -351,6 +352,7 @@ bool isConnectionLost(Object? error) {
 void markReconnecting(ChatMessage reply) {
   if (reply.reconnecting || !reply.isPending) return;
   reply.reconnecting = true;
+  reply.reconnectIdle = false;
   reply.reconnectEpisodes++;
   reply.reasoningActive = false;
   reply.activity = null;
@@ -472,6 +474,7 @@ void _addInputRequest(ChatMessage reply, InputRequest request) {
 void _markFailed(ChatMessage reply, String error) {
   reply.reasoningActive = false;
   reply.reconnecting = false;
+  reply.reconnectIdle = false;
   reply.error = error;
   reply.status = MessageStatus.error;
   _settleRunningTools(reply, ToolCallStatus.error);

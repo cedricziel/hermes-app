@@ -234,10 +234,6 @@ extension _ChatControllerStreaming on ChatController {
       if (!_currentActivity(epoch)) return;
       _following.remove(subscription);
       _followingIds.remove(thread.id);
-      if (error != null || !_sending.containsKey(thread)) {
-        _discardWarnings(thread);
-      }
-      if (!disposed) notifyListeners();
       final pending = reply;
       if (pending != null && pending.isPending) {
         // Still not reached, or reached and lost again: the turn may run on.
@@ -248,6 +244,10 @@ extension _ChatControllerStreaming on ChatController {
           return;
         }
       }
+      if (error != null || !_sending.containsKey(thread)) {
+        _discardWarnings(thread);
+      }
+      if (!disposed) notifyListeners();
       if (pending != null) _finishMoaTurn(thread, pending);
       if (pending != null && pending.isPending) {
         _turnEnded(thread, halted: true);
@@ -274,7 +274,10 @@ extension _ChatControllerStreaming on ChatController {
             }
             if (current.reconnecting) {
               // Something came over the new connection: the loss is over.
-              _updateReply(thread, current, () => current.reconnecting = false);
+              _updateReply(thread, current, () {
+                current.reconnecting = false;
+                current.reconnectIdle = false;
+              });
               _reconnectTimers.remove(thread)?.cancel();
               _reconnectTries.remove(thread);
             }
@@ -405,10 +408,12 @@ extension _ChatControllerStreaming on ChatController {
 
   /// Keeps [reply], whose connection was lost, as it is and says so, instead of
   /// failing it: its text and running tool calls stay, no error is shown or
-  /// announced, the queue keeps waiting behind it, and Retry and Edit stay
-  /// off, since the turn is still running. It is picked up again when the app
-  /// comes to the front, the chat is opened, a stop reaches the server, or
-  /// [reconnectRetry] after the last try (up to [_maxReconnectTries] times).
+  /// announced, the queue keeps waiting behind it, and Retry, Edit and Branch
+  /// stay off, since the turn is still running. While the chat is open it is
+  /// picked up again every [reconnectRetry], up to [_maxReconnectTries] times;
+  /// then the note says nothing is being tried any more
+  /// ([ChatMessage.reconnectIdle]). The app coming to the front, the chat being
+  /// opened and a stop that reaches the server try again at once.
   void _holdForReconnect(ChatThread thread, ChatMessage reply) {
     if (!active) return;
     final first = !reply.reconnecting;
@@ -419,15 +424,43 @@ extension _ChatControllerStreaming on ChatController {
       breadcrumbs('chat.reply.reconnecting');
     }
     _reconnectTimers.remove(thread)?.cancel();
+    // Only the chat in front is tried by itself; opening another one tries it.
+    if (selectedThread != thread) return;
     final tries = _reconnectTries[thread] ?? 0;
-    if (tries >= _maxReconnectTries) return;
+    if (tries >= _maxReconnectTries) {
+      if (!reply.reconnectIdle) {
+        _updateReply(thread, reply, () => reply.reconnectIdle = true);
+      }
+      return;
+    }
     _reconnectTries[thread] = tries + 1;
     _reconnectTimers[thread] = Timer(reconnectRetry, () {
       _reconnectTimers.remove(thread);
       if (!active || !_threads.contains(thread)) return;
-      if (_reconnectingReply(thread) == null) return;
-      _pickUp(thread);
+      if (selectedThread != thread || _reconnectingReply(thread) == null) {
+        return;
+      }
+      _pickUp(thread, retry: true);
     });
+  }
+
+  /// Forgets what the timer tried, for a try the person or the app asked for:
+  /// the note says it is trying again.
+  void _restartReconnect(ChatThread thread) {
+    _reconnectTries.remove(thread);
+    final reply = _reconnectingReply(thread);
+    if (reply != null && reply.reconnectIdle) {
+      _updateReply(thread, reply, () => reply.reconnectIdle = false);
+    }
+  }
+
+  /// Ends the timers of every reply that lost its connection.
+  void _cancelReconnects() {
+    for (final timer in _reconnectTimers.values) {
+      timer.cancel();
+    }
+    _reconnectTimers.clear();
+    _reconnectTries.clear();
   }
 
   /// The reply a turn ended without its completion, which a completion

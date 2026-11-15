@@ -419,9 +419,13 @@ Widget _buildCustom(
         },
       );
     case kKindReconnecting:
+      final idle = metadata![kMetaReconnectIdle] == true;
       return ReplyReconnectingNote(
-        text: context.l10n.chatReplyReconnecting,
-        announceKey: '${message.id}#${metadata![kMetaReconnectEpisode]}',
+        text: idle
+            ? context.l10n.chatReplyReconnectIdle
+            : context.l10n.chatReplyReconnecting,
+        announceKey:
+            '${message.id}#${metadata[kMetaReconnectEpisode]}${idle ? 'i' : ''}',
       );
     case kKindInputRequest:
       return switch (metadata![kMetaInputRequest]) {
