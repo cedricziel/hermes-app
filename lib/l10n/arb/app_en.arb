@@ -589,6 +589,10 @@
   "@chatAttachmentsMenuTitle": {
     "description": "Title of the attach menu when it opens as a dialog on wide screens and macOS."
   },
+  "chatAttachmentsOriginCamera": "Take a photo",
+  "@chatAttachmentsOriginCamera": {
+    "description": "Attach menu row that opens the camera."
+  },
   "chatAttachmentsOriginFiles": "Choose files",
   "@chatAttachmentsOriginFiles": {
     "description": "Attach menu row that opens the file picker."
@@ -596,10 +600,6 @@
   "chatAttachmentsOriginPhotos": "Photo library",
   "@chatAttachmentsOriginPhotos": {
     "description": "Attach menu row that opens the photo library."
-  },
-  "chatAttachmentsOriginCamera": "Take a photo",
-  "@chatAttachmentsOriginCamera": {
-    "description": "Attach menu row that opens the camera."
   },
 
   "@@x-area-chat/checkpoints": "",
