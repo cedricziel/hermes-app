@@ -157,13 +157,13 @@ Sheet on a phone (bottom sheet, drag handle, 16 pt gutters); dialog on iPad, wid
 - Title: "Run the curator now?"
 - Lead: "A pass reviews the skills on the server. It may:"
 - Items (icon bullets, in this order):
-  - "Mark skills stale after 14 days without use and archive them after 30." (numbers from the status read; "after the set number of days" when unknown). Then "Only skills recorded as agent-made count." as part of the same item (the marker also sits on skills a person wrote and then adopted).
+  - "Mark skills stale after 14 days without use and archive them after 30 days." (numbers from the status read; "after the set number of days" when unknown). Then "Only skills recorded as agent-made count." as part of the same item (the marker also sits on skills a person wrote and then adopted).
   - Only if `curator.prune_builtins` is true or unreadable: "Include skills that came with Hermes." Unreadable reads "May include skills that came with Hermes."
   - Only if `curator.consolidate` is true or unreadable: "Merge and rewrite skills, and update scheduled tasks that use them." Unreadable reads "May also merge and rewrite skills, and update scheduled tasks that use them." Add "Merged or rewritten skills can only be rolled back on the server." to that item, because restore does not undo a merge or rewrite. If consolidate is false the item is replaced by the line "It archives unused skills only."
 - Then, as plain lines: "Pinned skills, skills a scheduled task uses and skills installed from the hub are skipped." and "Archived skills are moved aside on the server, not deleted. This app can't undo a pass." (hedged: per the Hermes source nothing is deleted, not verified on a live server)
 - "To bring an archived skill back, run this on the server:" then a `CommandRow` with `hermes curator restore <name> -p <profile>` and Copy, and under it the line "Replace <name> with the skill and add your profile in place of <profile>." Decided: the placeholders stay as typed; no profile name is put on the clipboard. Per the Hermes source `restore` only moves an archived folder back; merges and rewrites need `hermes curator rollback`.
 - Buttons, in this order: "Cancel" (default and focused, emphasised) then "Run now" (outlined, link colour, not red). On Apple phones they are stacked full width, Cancel on top; in a dialog and on Android they sit side by side, Cancel left, both text buttons on Android. The system back action, Escape and Return on the default all cancel and send nothing.
-- At the largest text size the buttons stack on every platform, Cancel on top.
+- At the largest text size the buttons stack on every platform, Cancel on top. Their labels keep scaling with Dynamic Type while the title stops at 2x: measured at German, 3.1x on a 320 x 568 phone, the body keeps at least 25 percent of the window without a label clamp (measured with the test font; about 48 percent with the real font), so the label clamp was dropped.
 
 States:
 

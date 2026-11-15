@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/mac_menu_bar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
@@ -437,6 +439,102 @@ void main() {
       await channel.select('Edit', 'Paste');
       await tester.pumpAndSettle();
       expect(text.text, 'first line second');
+    }, variant: mac);
+  });
+
+  group('in German', () {
+    late ValueNotifier<Locale> locale;
+    final navigatorKey = GlobalKey<NavigatorState>();
+
+    Future<FakeMenuChannel> pumpDe(
+      WidgetTester tester, {
+      Widget home = const SizedBox(),
+    }) async {
+      locale = ValueNotifier(const Locale('de'));
+      addTearDown(locale.dispose);
+      final channel = FakeMenuChannel(tester);
+      await tester.pumpWidget(
+        ValueListenableBuilder(
+          valueListenable: locale,
+          builder: (context, locale, _) => MaterialApp(
+            navigatorKey: navigatorKey,
+            locale: locale,
+            localizationsDelegates: const [
+              ...AppLocalizations.localizationsDelegates,
+              GlobalMaterialLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            builder: (context, child) =>
+                MacMenuBar(navigatorKey: navigatorKey, child: child!),
+            home: home,
+          ),
+        ),
+      );
+      await tester.pump();
+      return channel;
+    }
+
+    testWidgets('titles the menus and items with the system names', (
+      tester,
+    ) async {
+      final channel = await pumpDe(tester);
+      expect(channel.menus!.map((m) => m['label']), [
+        'Hermes',
+        'Ablage',
+        'Bearbeiten',
+        'Darstellung',
+        'Chat',
+        'Fenster',
+        'Hilfe',
+      ]);
+      expect(channel.labels('Hermes').take(6), [
+        'Über Hermes',
+        '-',
+        'Einstellungen …',
+        '-',
+        'Verbindungsdetails',
+        'Abmelden …',
+      ]);
+      expect(channel.labels('Ablage'), [
+        'Neuer Chat',
+        'In neuem Fenster öffnen',
+        '-',
+        'Fenster schließen',
+      ]);
+      expect(channel.labels('Bearbeiten'), [
+        'Widerrufen',
+        'Wiederholen',
+        '-',
+        'Ausschneiden',
+        'Kopieren',
+        'Einsetzen',
+        'Alles auswählen',
+      ]);
+      expect(channel.labels('Darstellung').take(3), [
+        'Neu laden',
+        '-',
+        'Zurück',
+      ]);
+      expect(channel.labels('Chat'), contains('Chat als JSON exportieren …'));
+      expect(channel.labels('Hilfe'), ['Hermes-Hilfe']);
+    }, variant: mac);
+
+    testWidgets('keeps a screen title and builds the menus again for a new '
+        'language', (tester) async {
+      final channel = await pumpDe(
+        tester,
+        home: MacCommandScope(
+          commands: {
+            MacCommand.newChat: MacCommandHandler(() {}, title: 'Neue Aufgabe'),
+          },
+          child: const SizedBox(),
+        ),
+      );
+      expect(channel.labels('Ablage').first, 'Neue Aufgabe');
+      locale.value = const Locale('en');
+      await tester.pump();
+      expect(channel.menus!.map((m) => m['label']), contains('File'));
+      expect(channel.labels('File').first, 'Neue Aufgabe');
     }, variant: mac);
   });
 }

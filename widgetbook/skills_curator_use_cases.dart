@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/skills_controller.dart';
+import 'package:hermes_app/src/skills/widgets/curator_run_confirmation.dart';
 import 'package:hermes_app/src/skills/widgets/curator_section.dart';
 import 'package:hermes_app/src/skills/widgets/installed_skills_list.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -324,6 +325,76 @@ class _ScreenState extends State<_Screen> with SingleTickerProviderStateMixin {
   );
 }
 
+const _knownDays = CuratorRunConfirmationModel(
+  staleAfterDays: 14,
+  archiveAfterDays: 30,
+  pruneBuiltins: false,
+  consolidate: false,
+);
+
+enum _Where { iPhone, iPad, mac, android }
+
+/// The confirmation the way `showAdaptiveSheet` presents it: a bottom sheet
+/// on a phone, a centred dialog on an iPad and a Mac.
+WidgetbookUseCase _confirm(
+  String name,
+  CuratorRunConfirmationModel model, {
+  _Where where = _Where.iPhone,
+  double scale = 1,
+  bool german = false,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (context) {
+    final dialog = where == _Where.iPad || where == _Where.mac;
+    final platform = switch (where) {
+      _Where.iPhone || _Where.iPad => TargetPlatform.iOS,
+      _Where.mac => TargetPlatform.macOS,
+      _Where.android => TargetPlatform.android,
+    };
+    Widget body = Theme(
+      data: Theme.of(context).copyWith(platform: platform),
+      child: Builder(
+        builder: (context) => Align(
+          alignment: dialog ? Alignment.center : Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: dialog ? 520 : 600),
+            child: Material(
+              color: Theme.of(context).colorScheme.surface,
+              elevation: 3,
+              clipBehavior: Clip.antiAlias,
+              borderRadius: BorderRadius.vertical(
+                top: const Radius.circular(16),
+                bottom: Radius.circular(dialog ? 16 : 0),
+              ),
+              child: CuratorRunConfirmation(
+                model: model,
+                dialog: dialog,
+                onCancel: () {},
+                onRun: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (german) {
+      body = Localizations.override(
+        context: context,
+        locale: const Locale('de'),
+        child: body,
+      );
+    }
+    if (scale != 1) {
+      body = MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(scale)),
+        child: body,
+      );
+    }
+    return body;
+  },
+);
+
 enum _Body { list, loading, empty, failed, unsupported }
 
 WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
@@ -530,6 +601,94 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
         ..._states(
           'Checked, nothing running',
           _model(run: CuratorRunView.checkedNothing),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'CuratorRunConfirmation',
+      useCases: [
+        _confirm('Archive only (iPhone)', _knownDays),
+        _confirm('Archive only (iPad dialog)', _knownDays, where: _Where.iPad),
+        _confirm('Archive only (Mac)', _knownDays, where: _Where.mac),
+        _confirm('Archive only (Android)', _knownDays, where: _Where.android),
+        _confirm(
+          'Built-ins included (iPhone)',
+          const CuratorRunConfirmationModel(
+            staleAfterDays: 14,
+            archiveAfterDays: 30,
+            pruneBuiltins: true,
+            consolidate: false,
+          ),
+        ),
+        _confirm(
+          'Consolidate on (iPhone)',
+          const CuratorRunConfirmationModel(
+            staleAfterDays: 14,
+            archiveAfterDays: 30,
+            pruneBuiltins: false,
+            consolidate: true,
+          ),
+        ),
+        _confirm(
+          'Config unknown (iPhone)',
+          const CuratorRunConfirmationModel(
+            staleAfterDays: 14,
+            archiveAfterDays: 30,
+          ),
+        ),
+        _confirm(
+          'Config unknown (Mac)',
+          const CuratorRunConfirmationModel(
+            staleAfterDays: 14,
+            archiveAfterDays: 30,
+          ),
+          where: _Where.mac,
+        ),
+        _confirm(
+          'Days unknown (iPhone)',
+          const CuratorRunConfirmationModel(
+            pruneBuiltins: false,
+            consolidate: false,
+          ),
+        ),
+        _confirm(
+          'All unknown (Android)',
+          const CuratorRunConfirmationModel(),
+          where: _Where.android,
+        ),
+        _confirm('Largest text (iPhone)', _knownDays, scale: 3.1),
+        _confirm(
+          'Largest text (Android)',
+          _knownDays,
+          where: _Where.android,
+          scale: 3.1,
+        ),
+        _confirm('Largest text (Mac)', _knownDays, where: _Where.mac, scale: 2),
+        _confirm(
+          'German, config unknown (iPhone)',
+          const CuratorRunConfirmationModel(
+            staleAfterDays: 14,
+            archiveAfterDays: 30,
+          ),
+          german: true,
+        ),
+        _confirm(
+          'German, config unknown, largest text (iPhone)',
+          const CuratorRunConfirmationModel(
+            staleAfterDays: 14,
+            archiveAfterDays: 30,
+          ),
+          german: true,
+          scale: 3.1,
+        ),
+        _confirm(
+          'German, config unknown (Android)',
+          const CuratorRunConfirmationModel(
+            staleAfterDays: 14,
+            archiveAfterDays: 30,
+          ),
+          where: _Where.android,
+          german: true,
         ),
       ],
     ),

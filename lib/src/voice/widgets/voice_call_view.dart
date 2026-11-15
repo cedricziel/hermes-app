@@ -295,19 +295,21 @@ class VoiceCallView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (!ended) ...[
-          MediaQuery.withClampedTextScaling(
-            maxScaleFactor: 1.15,
-            child: Text(
-              route,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
+          if (route.isNotEmpty) ...[
+            MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.15,
+              child: Text(
+                route,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
+          ],
           // Fixed-width cells: a longer label (Unmute) never moves End.
           Row(
             mainAxisAlignment: MainAxisAlignment.center,

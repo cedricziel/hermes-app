@@ -34,6 +34,7 @@ class MacChatToolbar extends StatelessWidget {
     this.exportJson,
     this.onShowFiles,
     this.folderButton,
+    this.callButton,
     this.activityOpen = false,
     this.activityWaiting = 0,
     this.onToggleActivity,
@@ -69,6 +70,9 @@ class MacChatToolbar extends StatelessWidget {
   /// The titled folder button before New Chat: opens the picker on a new chat
   /// and the details on an open one. Null shows none (an older server).
   final Widget? folderButton;
+
+  /// Starts or returns to the voice call, before New Chat; null shows none.
+  final Widget? callButton;
   final bool activityOpen;
 
   /// How many requests need the user; marks the Activity button.
@@ -96,6 +100,7 @@ class MacChatToolbar extends StatelessWidget {
       subtitleBuilder: subtitleBuilder,
       actions: [
         ?folderButton,
+        ?callButton,
         MacToolbarButton(
           key: const Key('toolbar-new-chat'),
           label: 'New Chat',
