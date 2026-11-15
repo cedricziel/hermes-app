@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'hermes_code_colors.dart';
 import 'macos_page_transitions.dart';
 import 'platform_chrome.dart';
 import 'type_scale.dart';
@@ -171,6 +172,9 @@ ThemeData _buildTheme({
         warning: warning,
         link: link,
       ),
+      scheme.brightness == Brightness.dark
+          ? HermesCodeColors.dark
+          : HermesCodeColors.light,
     ],
     appBarTheme: AppBarTheme(
       backgroundColor: scaffoldBackground,
