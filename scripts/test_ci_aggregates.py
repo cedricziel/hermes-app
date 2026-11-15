@@ -66,13 +66,24 @@ def resolve(expression, ctx):
         "github.token": "token",
         "github.repository": "o/r",
         "github.event.pull_request.number": "1",
+        "github.event.pull_request.head.sha": ctx.get("head_sha", "head-a"),
+        "github.run_id": "42",
     }
     if path in github:
         return github[path]
     raise AssertionError(f"test cannot resolve ${{{{ {path} }}}}; extend resolve()")
 
 
-def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
+def run_job(
+    job_id,
+    ctx,
+    gh_labels=("ci:full",),
+    gh_fails=False,
+    cache=None,
+    pull=None,
+    cancel="ok",
+    extra_env=None,
+):
     """Runs the steps of a job the way GitHub does. Returns (job_ok, stdout,
     summary). A step runs when its `if:` (with the implicit success()) is true,
     or, without an `if:`, while no earlier step failed. The job concludes
@@ -89,6 +100,7 @@ def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
             json.dumps(
                 [ctx["needs_results"], ctx["needs_outputs"]], sort_keys=True
             ),
+            json.dumps([ctx.get("head_sha"), pull, cancel, extra_env], sort_keys=True),
         )
         if signature in cache:
             return cache[signature]
@@ -96,13 +108,40 @@ def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
     try:
         stub = work / "bin"
         stub.mkdir()
-        body = (
-            "exit 1"
-            if gh_fails
-            else "".join(f"echo {json.dumps(name)}\n" for name in gh_labels)
+        # A gh stub: the labels lookup, the pull request lookup and the run
+        # cancel request. Every call is logged to $STUB_LOG.
+        (stub / "gh").write_text(
+            """#!/usr/bin/env bash
+echo "gh $*" >> "$STUB_LOG"
+case "$*" in
+  *"/actions/runs/"*"/cancel"*)
+    [ "$STUB_CANCEL" = ok ] || exit 1
+    ;;
+  *"/pulls/"*)
+    [ "$STUB_PULL" != FAIL ] || exit 1
+    printf '%s' "$STUB_PULL"
+    ;;
+  *"/labels"*)
+    [ "$STUB_LABELS_FAIL" != 1 ] || exit 1
+    printf '%s' "$STUB_LABELS"
+    ;;
+  *) exit 1 ;;
+esac
+"""
         )
-        (stub / "gh").write_text("#!/usr/bin/env bash\n" + body + "\n")
         (stub / "gh").chmod(0o755)
+        stub_log = work / "gh.log"
+        stub_log.touch()
+        if pull is None:
+            pull = {"head": {"sha": ctx.get("head_sha", "head-a")}, "state": "open"}
+        stub_env = {
+            "STUB_LOG": str(stub_log),
+            "STUB_CANCEL": cancel,
+            "STUB_PULL": pull if isinstance(pull, str) else json.dumps(pull),
+            "STUB_LABELS": "\n".join(gh_labels),
+            "STUB_LABELS_FAIL": "1" if gh_fails else "0",
+            **(extra_env or {}),
+        }
         output_file = work / "output"
         summary_file = work / "summary"
         output_file.touch()
@@ -139,6 +178,7 @@ def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
                     env = dict(
                         os.environ,
                         PATH=f"{stub}{os.pathsep}{os.environ['PATH']}",
+                        **stub_env,
                         GITHUB_OUTPUT=str(output_file),
                         GITHUB_STEP_SUMMARY=str(summary_file),
                     )
@@ -183,6 +223,8 @@ def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
             if step.get("id"):
                 ctx["step_outputs"][step["id"]] = outputs
                 step_state[step["id"]] = {"outcome": outcome, "conclusion": conclusion}
+        for line in stub_log.read_text().splitlines():
+            log.append(f"[{line}]\n")
         outcome = (not failed, "".join(log), summary_file.read_text())
         if cache is not None:
             cache[signature] = outcome
@@ -205,6 +247,10 @@ def aggregate(
     head="claude/feature",
     labels=("ci:full",),
     gh_fails=False,
+    head_sha="head-a",
+    pull=None,
+    cancel="ok",
+    extra_env=None,
 ):
     ctx = {
         "needs_results": {
@@ -220,7 +266,16 @@ def aggregate(
         "base_ref": base,
         "head_ref": head,
     }
-    return run_job("analyze-and-test", ctx, gh_labels=labels, gh_fails=gh_fails)
+    ctx["head_sha"] = head_sha
+    return run_job(
+        "analyze-and-test",
+        ctx,
+        gh_labels=labels,
+        gh_fails=gh_fails,
+        pull=pull,
+        cancel=cancel,
+        extra_env=extra_env,
+    )
 
 
 class AggregateStructure(unittest.TestCase):
@@ -520,6 +575,134 @@ class BuildsAggregate(unittest.TestCase):
                 with self.subTest(need=name, result=result):
                     ok, out, _ = run_job("builds", self.ctx(**{name: result}))
                     self.assertFalse(ok, out)
+
+
+def superseding_step():
+    return load_jobs()["analyze-and-test"]["steps"][0]
+
+
+class SupersededHead(unittest.TestCase):
+    """A run on a head a newer push replaced cancels itself instead of posting
+    a red check on the old head. Every other case keeps the aggregate red when
+    the needs were cancelled."""
+
+    ALL_CANCELLED = dict(
+        changes="cancelled", analyze="cancelled", test="cancelled", test_watch="cancelled"
+    )
+    NEW_HEAD = {"head": {"sha": "head-b"}, "state": "open"}
+
+    def run_case(self, **kwargs):
+        kwargs.setdefault("extra_env", {"SUPERSEDED_WAIT": "0"})
+        return aggregate(**self.ALL_CANCELLED, **kwargs)
+
+    def assert_red_as_today(self, ok, out):
+        self.assertFalse(ok, out)
+        self.assertNotIn("cancel", self.cancel_requests(out))
+        self.assertIn("(expected", out, "the existing steps must have run")
+
+    @staticmethod
+    def cancel_requests(out):
+        return "cancel" if "/actions/runs/42/cancel" in out else ""
+
+    def test_the_step_is_first_and_has_no_if_or_continue_on_error(self):
+        step = superseding_step()
+        self.assertIn("superseded", step["name"].lower())
+        self.assertNotIn("if", step)
+        self.assertNotIn("continue-on-error", step)
+
+    def test_the_job_may_cancel_its_own_run(self):
+        permissions = load_jobs()["analyze-and-test"]["permissions"]
+        self.assertEqual(permissions.get("actions"), "write")
+
+    def test_superseded_open_pull_request_cancels_and_does_not_succeed(self):
+        ok, out, _ = self.run_case(pull=self.NEW_HEAD)
+        self.assertFalse(ok, out)
+        self.assertIn("gh api -X POST repos/o/r/actions/runs/42/cancel", out)
+        self.assertNotIn("(expected", out, "later steps must not run")
+
+    def test_superseded_never_succeeds_even_when_every_need_passed(self):
+        ok, out, _ = aggregate(pull=self.NEW_HEAD, extra_env={"SUPERSEDED_WAIT": "0"})
+        self.assertFalse(ok, out)
+        self.assertIn("/actions/runs/42/cancel", out)
+
+    def test_current_head_with_cancelled_needs_stays_red(self):
+        ok, out, _ = self.run_case()
+        self.assert_red_as_today(ok, out)
+
+    def test_closed_pull_request_on_the_same_head_stays_red(self):
+        ok, out, _ = self.run_case(pull={"head": {"sha": "head-a"}, "state": "closed"})
+        self.assert_red_as_today(ok, out)
+
+    def test_merged_pull_request_on_the_same_head_stays_red(self):
+        ok, out, _ = self.run_case(
+            pull={"head": {"sha": "head-a"}, "state": "closed", "merged": True}
+        )
+        self.assert_red_as_today(ok, out)
+
+    def test_superseded_but_closed_stays_red_without_a_cancel(self):
+        for merged in (False, True):
+            with self.subTest(merged=merged):
+                ok, out, _ = self.run_case(
+                    pull={"head": {"sha": "head-b"}, "state": "closed", "merged": merged}
+                )
+                self.assert_red_as_today(ok, out)
+
+    def test_api_failure_or_odd_answers_stay_red_without_a_cancel(self):
+        for pull in (
+            "FAIL",
+            "not json",
+            "",
+            "{}",
+            '{"head": {}}',
+            '{"head": {"sha": "head-b"}}',
+            '{"state": "open"}',
+            '{"head": {"sha": ""}, "state": "open"}',
+            "[]",
+            "null",
+        ):
+            with self.subTest(pull=pull):
+                ok, out, _ = self.run_case(pull=pull)
+                self.assert_red_as_today(ok, out)
+
+    def test_denied_cancel_stays_red(self):
+        ok, out, _ = self.run_case(pull=self.NEW_HEAD, cancel="deny")
+        self.assertFalse(ok, out)
+        self.assertIn("/actions/runs/42/cancel", out)
+
+    def test_push_skips_the_step_and_the_rest_is_unchanged(self):
+        ok, out, _ = aggregate(
+            event="push", base="", labels=(), pull=self.NEW_HEAD,
+            extra_env={"SUPERSEDED_WAIT": "0"},
+        )
+        self.assertTrue(ok, out)
+        self.assertNotIn("/pulls/", out)
+        ok, out, _ = aggregate(
+            event="push", base="", labels=(), pull=self.NEW_HEAD, test="cancelled",
+            extra_env={"SUPERSEDED_WAIT": "0"},
+        )
+        self.assertFalse(ok, out)
+        self.assertNotIn("/actions/runs/", out)
+
+    def test_empty_head_sha_is_not_superseded(self):
+        ok, out, _ = self.run_case(pull=self.NEW_HEAD, head_sha="")
+        self.assert_red_as_today(ok, out)
+
+    def test_the_wait_defaults_to_sixty_seconds(self):
+        self.assertIn("${SUPERSEDED_WAIT:-60}", superseding_step()["run"])
+        for env in superseding_step().get("env", {}):
+            self.assertNotEqual(env, "SUPERSEDED_WAIT")
+
+    def test_no_path_through_the_superseded_block_exits_zero(self):
+        script = superseding_step()["run"]
+        match = re.search(
+            r'if \[ "\$superseded" = true \]; then\n(.*?)\nfi\n', script, re.S
+        )
+        self.assertIsNotNone(match, "the superseded block moved; update the test")
+        block = match.group(1)
+        self.assertNotIn("exit 0", block)
+        self.assertEqual(block.strip().splitlines()[-1].strip(), "exit 1")
+        # Nothing after the block runs on a superseded decision.
+        self.assertNotIn("superseded=true", script[match.end():])
 
 
 # Step conditions are modelled; these are the aggregate jobs' own steps. A

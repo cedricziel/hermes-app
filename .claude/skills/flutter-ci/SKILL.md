@@ -201,6 +201,21 @@ everything, and a failed gate step in `Changes` falls back to full. Push and
 dispatch never depend on that step. `merge_group`
 is classified as full but `ci.yml` does not trigger on it today.
 
+**A cancelled `Analyze & test` on an old head.** When a newer push replaces a
+run, the cancelled run still reaches `Analyze & test` (its `if:` is `always()`)
+and used to post a red check on the old head. Its first step now compares the
+run's head with the pull request's current head (`GET /pulls/{n}`). If the head
+moved on and the pull request is open, the run cancels itself
+(`POST /actions/runs/{id}/cancel`), waits about 60 seconds and fails if it is
+still running; it never passes after deciding "superseded", and no later step
+runs. So a cancelled aggregate on a superseded head is not a failure: look at
+the current head instead. A red or cancelled aggregate on the CURRENT head is
+real and stays red (a manual cancel, a timeout, a closed or merged pull
+request, a failed lookup and a refused cancel all fall through to the normal
+checks). Push and dispatch runs skip the step. The job needs `actions: write`
+for the cancel, on top of `contents: read` and `pull-requests: read`: a
+permission increase, scoped to this one job.
+
 **Aggregate tests.** `scripts/test_ci_aggregates.py` (PyYAML is installed in
 the `Test scripts` step; a missing module fails the test) runs the real `run:`
 scripts of `Analyze & test` under `bash -e`, with the step conditions modelled

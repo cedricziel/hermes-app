@@ -300,10 +300,56 @@ jobs:
     timeout-minutes: 5
     needs: [changes, analyze, test, test-watch]
     if: always()
+    # actions: write lets the first step cancel the run of a superseded head.
     permissions:
+      actions: write
       contents: read
       pull-requests: read
     steps:
+      # A run whose head a newer push replaced (the pull request is still open
+      # and its head moved on) cancels itself, so its cancelled needs do not
+      # post a red check on the old head. Everything else stays as it was: the
+      # same head (a manual cancel or a timeout), a closed or merged pull
+      # request, an API failure and an unreadable answer all fall through to
+      # the checks below, which fail on a cancelled need. This step never exits
+      # 0 once it decided "superseded": it waits for the cancel and fails if the
+      # run is still alive, and no step after it runs. It decides inside the
+      # script, with no step-level `if:`, so a skipped step cannot read as
+      # success. SUPERSEDED_WAIT (seconds, default 60) is for the tests only.
+      - name: Cancel when this head is superseded
+        id: superseded
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          if [ "$EVENT_NAME" != pull_request ]; then
+            exit 0
+          fi
+          current_head=""
+          state=""
+          if response="$(gh api "repos/$REPO/pulls/$PR_NUMBER")" \
+            && parsed="$(printf '%s' "$response" | python3 -I -c 'import json, sys; d = json.load(sys.stdin); print(d["head"]["sha"], d["state"])')"; then
+            read -r current_head state <<< "$parsed"
+          fi
+          superseded=false
+          if [ -n "$HEAD_SHA" ] && [ -n "$current_head" ] && [ "$state" = open ] && [ "$current_head" != "$HEAD_SHA" ]; then
+            superseded=true
+          fi
+          if [ "$superseded" = true ]; then
+            echo "::notice::A newer head replaced this one; cancelling this run."
+            if gh api -X POST "repos/$REPO/actions/runs/$RUN_ID/cancel" > /dev/null; then
+              sleep "${SUPERSEDED_WAIT:-60}"
+            else
+              echo "::warning::The cancel request was refused; this run stays red."
+            fi
+            exit 1
+          fi
+          exit 0
+
       # Only the gate script is needed. A failed checkout must not turn a
       # passing run red: the gate step then fails and the result falls back
       # to the Changes job's decision.
