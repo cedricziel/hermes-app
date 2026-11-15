@@ -10,6 +10,10 @@
   "@commonOn": {
     "description": "A setting that is switched on."
   },
+  "commonRefreshing": "Refreshing",
+  "@commonRefreshing": {
+    "description": "Spoken state of a Refresh button while its reload is running."
+  },
   "commonRetry": "Retry",
   "@commonRetry": {
     "description": "Button that tries a failed load again."
@@ -98,6 +102,14 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatReplyInterruptedGone": "This reply is no longer on the server.",
+  "@chatReplyInterruptedGone": {
+    "description": "Note under a reply that was settled because the server answered that it no longer has the turn or its session (and did not restart). Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyInterruptedRestarted": "Hermes restarted. This reply was interrupted.",
+  "@chatReplyInterruptedRestarted": {
+    "description": "Note under a reply that was settled because Hermes restarted while it was being written and did not bring the turn back. Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
   "chatReplyReconnectIdle": "Couldn't reconnect. Hermes may still be working on this. Trying again when you come back.",
   "@chatReplyReconnectIdle": {
     "description": "Note under a reply whose connection was lost and could not be won back after many tries. Nothing is being tried any more; the reply is picked up again when the app comes to the front or the chat is opened. Wraps at any text size."
@@ -105,6 +117,10 @@
   "chatReplyReconnecting": "Connection lost. Reconnecting…",
   "@chatReplyReconnecting": {
     "description": "Note under a reply whose connection to Hermes dropped while the answer may still be coming. Not an error: the reply keeps what it had and goes on when the connection is back. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyUnconfirmed": "Couldn't confirm how this reply ended. It may have finished; check the conversation first.",
+  "@chatReplyUnconfirmed": {
+    "description": "Note under a reply that was settled because the server could not be made to say whether its turn still runs or how it ended (its answers were refused, or it went silent for longer than any live turn). Nothing was resent. Announced once to screen readers. Wraps at any text size."
   },
   "chatScrollToLatest": "Scroll to latest message",
   "@chatScrollToLatest": {
@@ -1029,6 +1045,10 @@
   "chatCheckpointsPageRefresh": "Refresh",
   "@chatCheckpointsPageRefresh": {
     "description": "Bar button of the File checkpoints page that reads the list again."
+  },
+  "chatCheckpointsPageRefreshTooltip": "Refresh ⌘R",
+  "@chatCheckpointsPageRefreshTooltip": {
+    "description": "Hover text of the File checkpoints page Refresh button on a Mac; names the key."
   },
   "chatCheckpointsPageRestoring": "Restoring files…",
   "@chatCheckpointsPageRestoring": {
@@ -2172,6 +2192,101 @@
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
   },
+  "chatWidgetsToolValueCopied": "Copied",
+  "@chatWidgetsToolValueCopied": {
+    "description": "Shown for two seconds on the Copy button of a tool call's input or result after it was copied, and announced to screen readers."
+  },
+  "chatWidgetsToolValueCopyError": "Copy error",
+  "@chatWidgetsToolValueCopyError": {
+    "description": "Accessible name of the button that copies a tool call's error text exactly as it was sent."
+  },
+  "chatWidgetsToolValueCopyInput": "Copy input",
+  "@chatWidgetsToolValueCopyInput": {
+    "description": "Accessible name of the button that copies a tool call's input exactly as it was sent."
+  },
+  "chatWidgetsToolValueCopyResult": "Copy result",
+  "@chatWidgetsToolValueCopyResult": {
+    "description": "Accessible name of the button that copies a tool call's result exactly as it was sent."
+  },
+  "chatWidgetsToolValueHiddenChar": "hidden character {code}",
+  "@chatWidgetsToolValueHiddenChar": {
+    "description": "What a screen reader says for a boxed escape in a tool call's text, a character that hides or reorders text. {code} is its code point, such as U+202E.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsToolValueItems": "{count, plural, =1{1 item} other{{count} items}}",
+  "@chatWidgetsToolValueItems": {
+    "description": "Summary of a JSON array in the tree view of a tool call's input or result. {count} is how many entries it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsToolValueKeys": "{count, plural, =1{1 key} other{{count} keys}}",
+  "@chatWidgetsToolValueKeys": {
+    "description": "Summary of a JSON object in the tree view of a tool call's input or result. {count} is how many keys it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsToolValueLineBreak": "line break",
+  "@chatWidgetsToolValueLineBreak": {
+    "description": "What a screen reader says for the boxed line break inside a string of the tree view of a tool call's JSON."
+  },
+  "chatWidgetsToolValueNoticeTooDeepForTree": "Too deeply nested for the tree view.",
+  "@chatWidgetsToolValueNoticeTooDeepForTree": {
+    "description": "Muted line under a tool call's JSON that is nested too deep for the tree view; it is shown as coloured text only."
+  },
+  "chatWidgetsToolValueNoticeTooLongForTree": "Too long for the tree view.",
+  "@chatWidgetsToolValueNoticeTooLongForTree": {
+    "description": "Muted line under a tool call's JSON that is too long for the tree view; it is shown as coloured text only."
+  },
+  "chatWidgetsToolValueNoticeTooLongToColour": "Too long to colour. Shown as plain text.",
+  "@chatWidgetsToolValueNoticeTooLongToColour": {
+    "description": "Muted line under a tool call's text that is too long to be coloured; it is shown as plain text."
+  },
+  "chatWidgetsToolValueShowAsText": "Show as text",
+  "@chatWidgetsToolValueShowAsText": {
+    "description": "Accessible name of the view switch option that shows a tool call's JSON as the text it was sent as."
+  },
+  "chatWidgetsToolValueShowAsTree": "Show as tree",
+  "@chatWidgetsToolValueShowAsTree": {
+    "description": "Accessible name of the view switch option that shows a tool call's JSON as a collapsible tree."
+  },
+  "chatWidgetsToolValueShowErrorAs": "Show error as",
+  "@chatWidgetsToolValueShowErrorAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's error."
+  },
+  "chatWidgetsToolValueShowInputAs": "Show input as",
+  "@chatWidgetsToolValueShowInputAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's input."
+  },
+  "chatWidgetsToolValueShowResultAs": "Show result as",
+  "@chatWidgetsToolValueShowResultAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's result."
+  },
+  "chatWidgetsToolValueTagJson": "JSON",
+  "@chatWidgetsToolValueTagJson": {
+    "description": "Muted tag beside the label of a tool call's input or result that is JSON."
+  },
+  "chatWidgetsToolValueTagPython": "Python",
+  "@chatWidgetsToolValueTagPython": {
+    "description": "Muted tag beside the label of a tool call's input or result that is Python code."
+  },
+  "chatWidgetsToolValueViewText": "Text",
+  "@chatWidgetsToolValueViewText": {
+    "description": "Option of the view switch that shows a tool call's JSON as the text it was sent as."
+  },
+  "chatWidgetsToolValueViewTree": "Tree",
+  "@chatWidgetsToolValueViewTree": {
+    "description": "Option of the view switch that shows a tool call's JSON as a collapsible tree."
+  },
 
   "@@x-area-core": "",
 
@@ -2663,6 +2778,10 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanRefreshAction": "Refresh",
+  "@kanbanRefreshAction": {
+    "description": "Name of the Refresh button on the board and the workers page; reads the list again."
+  },
 
   "@@x-area-live_activities": "",
 
@@ -2891,12 +3010,39 @@
   "@modelsPillSetUp": {
     "description": "Label of the model pill when no provider offers a model yet; it opens model setup."
   },
+  "modelsSetupBody": "Configure a provider and model for the {profile} profile on your Hermes server. Run this command on that server, then check again:",
+  "@modelsSetupBody": {
+    "description": "Explains how to set up a model for a profile; the server command follows below it.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work",
+        "description": "The name of the profile to set up, or default."
+      }
+    }
+  },
+  "modelsSetupCheckAgain": "Check again",
+  "@modelsSetupCheckAgain": {
+    "description": "Button that closes the model setup dialog so the composer reads the model options again."
+  },
+  "modelsSetupTitle": "Set up a model",
+  "@modelsSetupTitle": {
+    "description": "Title of the dialog that tells how to configure a model on the server."
+  },
 
   "@@x-area-navigation": "",
 
   "@@x-area-network": "",
 
   "@@x-area-notifications": "",
+  "notificationsDeniedWarning": "Turn on notifications for Hermes in system settings.",
+  "@notificationsDeniedWarning": {
+    "description": "Warning under the Notify me switch after the system refused notifications; the Open settings button sits under it. Keep it to two lines."
+  },
+  "notificationsOpenSettings": "Open settings",
+  "@notificationsOpenSettings": {
+    "description": "Button under the Notify me switch's warning after the system refused notifications; opens the app's notification settings in the system."
+  },
   "notificationsReplyFootnote": "On iPhone, iPad and Mac you can reply to a finished reply from its notification. Not while App Lock is on.",
   "@notificationsReplyFootnote": {
     "description": "Last sentence of the footer under the Notify me switch, shown on iOS and macOS: a finished reply's notification has a Reply button, and it is not offered while App Lock is on."
@@ -2905,6 +3051,10 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsRefreshAction": "Refresh",
+  "@pluginsRefreshAction": {
+    "description": "Name of the Mac toolbar button that reads the open Plugins tab again."
+  },
 
   "@@x-area-profiles": "",
   "profilesSoulBannerCheck": "Check",
@@ -4457,8 +4607,16 @@
   "@@x-area-quick_panel": "",
 
   "@@x-area-schedules": "",
+  "schedulesRefreshAction": "Refresh",
+  "@schedulesRefreshAction": {
+    "description": "Name of the Refresh button of the Schedules bar; reads the jobs again."
+  },
 
   "@@x-area-screens": "",
+  "screensRefreshAction": "Refresh",
+  "@screensRefreshAction": {
+    "description": "Name of the Refresh button of the Connection page; reads the server status again."
+  },
 
   "@@x-area-server_care": "",
   "serverCareAccountButtonLabel": "Account",
@@ -6009,6 +6167,10 @@
   "@settingsAboutHermes": {
     "description": "Settings row that opens the About dialog."
   },
+  "settingsAboutLicenses": "Open source licenses",
+  "@settingsAboutLicenses": {
+    "description": "About dialog row that opens the list of open source licenses."
+  },
   "settingsAboutTitle": "About",
   "@settingsAboutTitle": {
     "description": "Title of the About dialog."
@@ -6183,6 +6345,10 @@
   "@settingsTitle": {
     "description": "Title of the settings dialog."
   },
+  "settingsVoiceCalls": "Voice calls",
+  "@settingsVoiceCalls": {
+    "description": "Settings row, and the title of its dialog, for turning voice calls on or off on this device. Not shown on iOS."
+  },
 
   "@@x-area-share": "",
 
@@ -6230,6 +6396,82 @@
   "skillsCuratorChecking": "Checking…",
   "@skillsCuratorChecking": {
     "description": "Status text of the Run now row while Check status is reading the server."
+  },
+  "skillsCuratorConfirmArchived": "Archived skills are moved aside on the server, not deleted. This app can't undo a pass.",
+  "@skillsCuratorConfirmArchived": {
+    "description": "Line under the items of the run confirmation: nothing is deleted, and the app cannot bring a skill back."
+  },
+  "skillsCuratorConfirmBuiltins": "Include skills that came with Hermes.",
+  "@skillsCuratorConfirmBuiltins": {
+    "description": "Item shown when the server's config says built-in skills are pruned too."
+  },
+  "skillsCuratorConfirmBuiltinsMaybe": "May include skills that came with Hermes.",
+  "@skillsCuratorConfirmBuiltinsMaybe": {
+    "description": "Same item when the config could not be read."
+  },
+  "skillsCuratorConfirmCancel": "Cancel",
+  "@skillsCuratorConfirmCancel": {
+    "description": "Default button of the run confirmation; sends nothing."
+  },
+  "skillsCuratorConfirmConsolidate": "Merge and rewrite skills, and update scheduled tasks that use them.",
+  "@skillsCuratorConfirmConsolidate": {
+    "description": "Item shown when the server's config says a pass consolidates skills."
+  },
+  "skillsCuratorConfirmConsolidateMaybe": "May also merge and rewrite skills, and update scheduled tasks that use them.",
+  "@skillsCuratorConfirmConsolidateMaybe": {
+    "description": "Same item when the config could not be read."
+  },
+  "skillsCuratorConfirmConsolidateOff": "It archives unused skills only.",
+  "@skillsCuratorConfirmConsolidateOff": {
+    "description": "Line shown in place of the merge item when the config says a pass does not consolidate."
+  },
+  "skillsCuratorConfirmLead": "A pass reviews the skills on the server. It may:",
+  "@skillsCuratorConfirmLead": {
+    "description": "Lead sentence above the list of what a pass may do."
+  },
+  "skillsCuratorConfirmPlaceholders": "Replace <name> with the skill and add your profile in place of <profile>.",
+  "@skillsCuratorConfirmPlaceholders": {
+    "description": "Line under the restore command; the angle-bracket words are placeholders that stay as typed in the command."
+  },
+  "skillsCuratorConfirmRestoreLead": "To bring an archived skill back, run this on the server:",
+  "@skillsCuratorConfirmRestoreLead": {
+    "description": "Lead above the copyable restore command."
+  },
+  "skillsCuratorConfirmRollbackNote": "Merged or rewritten skills can only be rolled back on the server.",
+  "@skillsCuratorConfirmRollbackNote": {
+    "description": "Added to the merge item, because restore does not undo a merge or rewrite."
+  },
+  "skillsCuratorConfirmRun": "Run now",
+  "@skillsCuratorConfirmRun": {
+    "description": "Button that starts a pass."
+  },
+  "skillsCuratorConfirmSkipped": "Pinned skills, skills a scheduled task uses and skills installed from the hub are skipped.",
+  "@skillsCuratorConfirmSkipped": {
+    "description": "Line saying what a pass leaves alone."
+  },
+  "skillsCuratorConfirmStale": "Mark skills stale after {stale, plural, =1{1 day} other{{stale} days}} without use and archive them after {archive, plural, =1{1 day} other{{archive} days}}.",
+  "@skillsCuratorConfirmStale": {
+    "description": "First item: the two thresholds, in days, from the server's status.",
+    "placeholders": {
+      "stale": {
+        "type": "int"
+      },
+      "archive": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorConfirmStaleAgentMade": "Only skills recorded as agent-made count.",
+  "@skillsCuratorConfirmStaleAgentMade": {
+    "description": "Second sentence of the first item."
+  },
+  "skillsCuratorConfirmStaleUnknown": "Mark skills stale and archive them after the set number of days.",
+  "@skillsCuratorConfirmStaleUnknown": {
+    "description": "First item when the server gave no thresholds."
+  },
+  "skillsCuratorConfirmTitle": "Run the curator now?",
+  "@skillsCuratorConfirmTitle": {
+    "description": "Title of the run confirmation."
   },
   "skillsCuratorCouldntConfirm": "Couldn't confirm.",
   "@skillsCuratorCouldntConfirm": {
@@ -7768,6 +8010,14 @@
   "@voiceCallUnmute": {
     "description": "Label of the round control that unmutes the microphone."
   },
+  "voiceCallsDeviceNote": "New on this platform: calls stay off until you turn them on.",
+  "@voiceCallsDeviceNote": {
+    "description": "One-line note under the voice calls switch: calls are new on this platform and off by default."
+  },
+  "voiceCallsDeviceTitle": "Voice calls on this device (beta)",
+  "@voiceCallsDeviceTitle": {
+    "description": "Title of the switch that turns voice calls on for this device (Android, macOS, Windows, Linux)."
+  },
   "voiceCheckModelFollowsMain": "Voice replies follow your main model.",
   "@voiceCheckModelFollowsMain": {
     "description": "Detail of the Voice model row when voice chat follows the main model."
@@ -7944,7 +8194,7 @@
   "@voiceSetupOpenDictation": {
     "description": "Button that opens the system dictation settings."
   },
-  "voiceSetupOpenSystemSettings": "Open iOS Settings",
+  "voiceSetupOpenSystemSettings": "Open Settings",
   "@voiceSetupOpenSystemSettings": {
     "description": "Button that opens the system settings after microphone access was denied."
   },

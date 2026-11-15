@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/call_config.dart';
 import 'package:hermes_app/src/voice/calls/call_speech_stream.dart';
+import 'package:hermes_app/src/voice/calls/echo_guard.dart';
 import 'package:hermes_app/src/voice/calls/call_tones.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -64,6 +65,7 @@ class CallHarness {
     Future<void> Function()? releaseLease,
     CallSpeechFallback? fallback,
     bool Function(String)? echoGuard,
+    EchoGuard? echo,
   }) => VoiceCall(
     bridge: bridge,
     agent: agent,
@@ -74,7 +76,8 @@ class CallHarness {
     haptics: withTones ? haptics : null,
     releaseLease: releaseLease,
     loadConfig: config == null ? null : () async => config,
-    echoGuard: echoGuard,
+    echoGuard: echo?.isEcho ?? echoGuard,
+    replySpoken: echo?.spoken,
     speechFallback: fallback,
     connect: ([_ = const {}]) {
       if (openSocket != null) return openSocket!();
@@ -104,6 +107,7 @@ class CallHarness {
     Future<void> Function()? releaseLease,
     CallSpeechFallback? fallback,
     bool Function(String)? echoGuard,
+    EchoGuard? echo,
   }) async {
     await call.end();
     call.dispose();
@@ -117,6 +121,7 @@ class CallHarness {
       releaseLease: releaseLease,
       fallback: fallback,
       echoGuard: echoGuard,
+      echo: echo,
     );
   }
 
