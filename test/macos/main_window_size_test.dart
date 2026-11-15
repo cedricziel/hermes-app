@@ -39,7 +39,19 @@ void main() {
       Size(double.parse(minimum![1]!), double.parse(minimum[2]!)),
       kMacMainWindowMinSize,
     );
-    expect(swift, contains('contentMinSize = Self.minimumContentSize'));
+    // The decisive places: the minimum is set once, in awakeFromNib, and
+    // nothing after it (macos_window_utils included) resets it; the xib window
+    // stays restorable, so the default is a first-launch size.
+    expect(
+      RegExp(r'contentMinSize = Self\.minimumContentSize').allMatches(swift),
+      hasLength(1),
+    );
+    final awake = swift.indexOf('override func awakeFromNib()');
+    expect(awake, isNonNegative);
+    expect(swift.indexOf('contentMinSize = '), greaterThan(awake));
+    expect(xib, isNot(contains('restorable="NO"')));
+    final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
+    expect(delegate, isNot(contains('contentMinSize')));
   });
 
   group('home shell', () {
