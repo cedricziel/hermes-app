@@ -140,15 +140,29 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    directory outlives a run, so a start reuses a profile that is there and
    removes `active_profile` unless `--sticky-profile` is given: a plain start
    after a launch-profile one launches the default profile again. Before any
-   `hermes` call it refuses a state directory at or under `$HOME/.hermes`, the
-   passwd entry's `.hermes` or an ambient `HERMES_HOME`, where Hermes would
-   write the real profiles, any `.` or `..` segment in the state directory or
-   `HERMES_HOME`, and a run whose home it cannot tell (HOME unset and no passwd
-   entry): exit 3. `verify.sh` applies the same rule to its temp root.
-   `scripts/test_dev_backend.py` (run by CI's `unittest discover`, no network or
-   `hermes`) checks all of it with a stand-in `hermes` and a fake HOME. Profile
-   commands and a launch-profile dashboard run with a throwaway `HOME`; a plain
-   start keeps the caller's `HOME`, as `dev-app.sh` has always used.
+   `hermes` call or write it takes an allowlist for the state directory and an ambient
+   `HERMES_HOME`, because Hermes expands `~` and `$VAR` in them and bash keeps a
+   leading `//`: only a canonical absolute path passes (one leading `/`, no
+   `//`, no `.` or `..` segment, no `~`, `$`, backtick, control character or
+   trailing `/`), and the resolved path, symlinks followed, must not be at or
+   under a real home's `.hermes` or `.hermes<anything>` (`$HOME` and the passwd
+   entry), nor under an ambient `HERMES_HOME`. It also refuses a caller's
+   `HERMES_DATA_DIR_SUFFIX` (it moves Hermes' default home to
+   `~/.hermes<suffix>`) and a run whose home it cannot tell (HOME unset and no
+   passwd entry). All of that is exit 3, before any write or `hermes` call, and
+   `verify.sh` applies it to its temp root. Every `hermes` call, a plain start
+   included, runs with `HOME=$STATE_DIR/userhome` and without
+   `HERMES_DATA_DIR_SUFFIX` and `SUDO_USER` (which would name another user's
+   home), so Hermes' default home is never the real one and profile aliases
+   land in the throwaway home too. The plain start used to keep the caller's
+   `HOME`: nothing needs it (no recipe, workflow or contract test reads
+   anything from it, `verify.sh` has always run every backend this way, and
+   credentials live in the throwaway `HERMES_HOME`); a `hermes` that is a
+   version-manager shim keyed on `HOME` is the one thing that could notice, so
+   put the real executable on `PATH`. `scripts/test_dev_backend.py` (run by CI's
+   `unittest discover`, no network or `hermes`) checks all of it with a
+   stand-in `hermes` and a fake HOME, one test per spelling that once got past,
+   and a property test over generated spellings.
 
 **Not proven here:** anything native outside Linux desktop: iOS, macOS,
 Android, Windows builds and behaviour; notifications, Home Screen widgets,

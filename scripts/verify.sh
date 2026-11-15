@@ -199,22 +199,17 @@ record_sid() {
 
 resolve_tmp_root() {
   [[ -d "$TMP_ROOT" ]] || die "HERMES_VERIFY_TMP=$TMP_ROOT does not exist"
-  TMP_ROOT="$(cd "$TMP_ROOT" && pwd -P)"
+  canonical_abs_path "$TMP_ROOT" || die "refusing: '$TMP_ROOT' is not a canonical absolute path (one leading /, no //, no . or .. segment, no ~, \$ or backtick, no control character)"
+  TMP_ROOT="$(resolve_path "$TMP_ROOT")"
   case "$TMP_ROOT/" in
     "$(cd "$ROOT_DIR" && pwd -P)"/*) die "refusing: $TMP_ROOT is inside the working tree" ;;
   esac
   # Where Hermes would take a run's home for the real one.
-  local real home passwd_home
-  home="$(real_user_home || true)"
-  [[ -n "$home" ]] || die "refusing: HOME is unset and the passwd entry names no home, so the real Hermes home cannot be told"
-  passwd_home="$(real_passwd_home || true)"
-  for real in "$home/.hermes" "${passwd_home:+$passwd_home/.hermes}" "${HERMES_HOME:-}"; do
-    [[ -n "$real" && -d "$real" ]] || continue
-    real="$(cd "$real" && pwd -P)"
-    case "$TMP_ROOT/" in
-      "$real"/*) die "refusing: $TMP_ROOT is inside the real Hermes home $real" ;;
-    esac
-  done
+  [[ -n "$(real_user_home || true)" ]] || die "refusing: HOME is unset and the passwd entry names no home, so the real Hermes home cannot be told"
+  local where
+  if where="$(inside_real_hermes_home "$TMP_ROOT")"; then
+    die "refusing: $TMP_ROOT is inside the real Hermes home $where"
+  fi
 }
 
 # Runs left behind by a verify.sh that was killed with SIGKILL (no trap ran).
