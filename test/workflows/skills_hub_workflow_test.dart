@@ -12,6 +12,7 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/skills_screen.dart';
 
 import '../support/fake_hermes_server.dart';
+import '../support/markdown_contrast.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 
@@ -669,7 +670,8 @@ void main() {
         find.byType(TextField).last,
         '---\nname: ship-a-release\ndescription: Cut and publish a release\n'
         '---\n\n# Ship a release\n\nWhen the user asks to cut a release.\n\n'
-        '- Bump the version\n- Tag it\n- Publish the notes\n',
+        '- Bump the version\n- Tag it\n- Publish the notes\n\n'
+        'See [the release notes](https://example.com/notes).\n',
       );
       await tester.pumpAndSettle();
       await shots.capture(tester, 'filled');
@@ -677,6 +679,7 @@ void main() {
       await tester.tap(find.text('Preview'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'preview');
+      expectReadableOnSurface(tester, ['the release notes']);
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
 

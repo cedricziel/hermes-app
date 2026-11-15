@@ -12,6 +12,7 @@ import '../chat/media/media_source.dart';
 import '../chat/media/media_store.dart';
 import '../settings/theme_controller.dart';
 import '../theme/hermes_theme.dart';
+import '../theme/material_ui_bridge.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
 import '../voice/voice_recorder.dart';
@@ -56,11 +57,15 @@ Future<void> runQuickPanel(String windowId, QuickPanelLaunch launch) async {
         builder: (context) => MaterialApp(
           title: 'Hermes',
           debugShowCheckedModeBanner: false,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: [
+            ...AppLocalizations.localizationsDelegates,
+            ...kMaterialUiLocalizationsDelegates,
+          ],
           supportedLocales: kReleasedLocales,
           theme: buildHermesLightTheme(),
           darkTheme: buildHermesDarkTheme(),
           themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
+          builder: (context, child) => AppThemeScopes(child: child!),
           home: QuickPanelScreen(
             link: link,
             queueServerKey: launch.baseUrl,

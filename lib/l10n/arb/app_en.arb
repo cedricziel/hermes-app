@@ -98,6 +98,14 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatReplyReconnectIdle": "Couldn't reconnect. Hermes may still be working on this. Trying again when you come back.",
+  "@chatReplyReconnectIdle": {
+    "description": "Note under a reply whose connection was lost and could not be won back after many tries. Nothing is being tried any more; the reply is picked up again when the app comes to the front or the chat is opened. Wraps at any text size."
+  },
+  "chatReplyReconnecting": "Connection lost. Reconnecting…",
+  "@chatReplyReconnecting": {
+    "description": "Note under a reply whose connection to Hermes dropped while the answer may still be coming. Not an error: the reply keeps what it had and goes on when the connection is back. Announced once to screen readers. Wraps at any text size."
+  },
   "chatSessionExportConfirmButton": "Export",
   "@chatSessionExportConfirmButton": {
     "description": "Button of the export confirmation that starts fetching the chat file."
@@ -585,6 +593,22 @@
     "description": "Note under the process output cards in the Activity panel when older cards were dropped."
   },
   "@@x-area-chat/attachments": "",
+  "chatAttachmentsMenuTitle": "Attach",
+  "@chatAttachmentsMenuTitle": {
+    "description": "Title of the attach menu when it opens as a dialog on wide screens and macOS."
+  },
+  "chatAttachmentsOriginCamera": "Take a photo",
+  "@chatAttachmentsOriginCamera": {
+    "description": "Attach menu row that opens the camera."
+  },
+  "chatAttachmentsOriginFiles": "Choose files",
+  "@chatAttachmentsOriginFiles": {
+    "description": "Attach menu row that opens the file picker."
+  },
+  "chatAttachmentsOriginPhotos": "Photo library",
+  "@chatAttachmentsOriginPhotos": {
+    "description": "Attach menu row that opens the photo library."
+  },
 
   "@@x-area-chat/checkpoints": "",
   "chatCheckpointsChangesBarCount": "{count, plural, =1{1 file differs} other{{count} files differ}}",
@@ -2022,6 +2046,18 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
+  "@chatWidgetsHistoryEarlierFailedTitle": {
+    "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
+  },
+  "chatWidgetsHistoryEarlierRetryLabel": "Retry loading earlier messages",
+  "@chatWidgetsHistoryEarlierRetryLabel": {
+    "description": "Screen reader label of the Retry button in the row shown when a chat's earlier messages could not be loaded."
+  },
+  "chatWidgetsHistoryEarlierRetrying": "Retrying…",
+  "@chatWidgetsHistoryEarlierRetrying": {
+    "description": "Shown beside a small spinner in place of the Retry button while a chat's earlier messages are read again."
+  },
   "chatWidgetsHistoryFailedDetail": "Check your connection, then try again.",
   "@chatWidgetsHistoryFailedDetail": {
     "description": "Detail under the title shown when a stored chat's messages could not be loaded; the Retry button sits below it."
@@ -2635,6 +2671,135 @@
   "@@x-area-mcp": "",
 
   "@@x-area-memory": "",
+  "memoryAllMemories": "All memories",
+  "@memoryAllMemories": {
+    "description": "Link on an open memory entry that goes back to the list of entries."
+  },
+  "memoryApproveAll": "Approve all",
+  "@memoryApproveAll": {
+    "description": "Action of the Waiting for you page: approves every listed change."
+  },
+  "memoryChangeTitle": "Change",
+  "@memoryChangeTitle": {
+    "description": "Title of the page of one waiting change whose kind is not known yet."
+  },
+  "memoryChooseProfile": "Choose memory profile",
+  "@memoryChooseProfile": {
+    "description": "Accessible name of the menu that switches the profile whose memory is shown."
+  },
+  "memoryDeleteConfirmAction": "Delete permanently",
+  "@memoryDeleteConfirmAction": {
+    "description": "Destructive button of the delete-memory confirmation. Keep it short."
+  },
+  "memoryDeleteConfirmMessage": "This removes the selected memory permanently. It cannot be restored from the app.",
+  "@memoryDeleteConfirmMessage": {
+    "description": "Body of the delete-memory confirmation."
+  },
+  "memoryDeleteConfirmTitle": "Permanently delete this memory?",
+  "@memoryDeleteConfirmTitle": {
+    "description": "Title of the confirmation before one memory entry is deleted."
+  },
+  "memoryEntryPlace": "Entry {index} of {count} in {tab} ({file})",
+  "@memoryEntryPlace": {
+    "description": "Position line of an open memory entry. {index} and {count} are numbers, {tab} the name of the memory file and {file} its file name.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      },
+      "tab": {
+        "type": "String"
+      },
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryLeaveDiscard": "Discard and leave",
+  "@memoryLeaveDiscard": {
+    "description": "Button of the leave confirmation: throws away the unsaved draft and goes on. Keep it short."
+  },
+  "memoryLeaveKeepDraft": "Keep draft",
+  "@memoryLeaveKeepDraft": {
+    "description": "Button of the leave confirmation: stays on the memory with the draft. Keep it short."
+  },
+  "memoryLeaveMessagePending": "The request may still complete in the original profile. Leaving discards this draft.",
+  "@memoryLeaveMessagePending": {
+    "description": "Body of the leave confirmation while a save or delete request has no answer yet."
+  },
+  "memoryLeaveMessageUnsaved": "Leaving discards your unsaved draft. Any unconfirmed change may still have completed.",
+  "@memoryLeaveMessageUnsaved": {
+    "description": "Body of the leave confirmation for an unsaved draft."
+  },
+  "memoryLeaveTitle": "Leave this memory?",
+  "@memoryLeaveTitle": {
+    "description": "Title of the confirmation shown when the user leaves a memory entry that has an unsaved draft."
+  },
+  "memoryRefresh": "Refresh",
+  "@memoryRefresh": {
+    "description": "Reads the memory entries or the waiting changes again."
+  },
+  "memoryRejectAllAction": "Reject all",
+  "@memoryRejectAllAction": {
+    "description": "Destructive button of the reject-all confirmation. Keep it short."
+  },
+  "memoryRejectAllMessage": "{count, plural, =1{Hermes drops the 1 change listed here. This cannot be undone.} other{Hermes drops the {count} changes listed here. This cannot be undone.}}",
+  "@memoryRejectAllMessage": {
+    "description": "Body of the confirmation before all waiting memory changes are rejected. {count} is how many are listed.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryRejectAllTitle": "Reject all changes?",
+  "@memoryRejectAllTitle": {
+    "description": "Title of the confirmation before all waiting memory changes are rejected."
+  },
+  "memoryResetAboutYou": "Reset about you",
+  "@memoryResetAboutYou": {
+    "description": "Button of the reset dialog: erases the file about the user. Keep it short."
+  },
+  "memoryResetAgentNotes": "Reset agent notes",
+  "@memoryResetAgentNotes": {
+    "description": "Button of the reset dialog: erases the agent's own notes file. Keep it short."
+  },
+  "memoryResetBoth": "Reset both",
+  "@memoryResetBoth": {
+    "description": "Button of the reset dialog: erases both memory files. Keep it short."
+  },
+  "memoryResetMessage": "Hermes forgets what you pick, on the server, for the {profile} profile. This can't be undone.",
+  "@memoryResetMessage": {
+    "description": "Body of the memory reset dialog. {profile} is the profile name.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "memoryResetTitle": "Reset memory?",
+  "@memoryResetTitle": {
+    "description": "Title of the dialog that asks which memory files to erase."
+  },
+  "memoryTabAboutYou": "About you",
+  "@memoryTabAboutYou": {
+    "description": "Name of the memory file about the user, used as a tab and in the position line."
+  },
+  "memoryTabAgentNotes": "Agent notes",
+  "@memoryTabAgentNotes": {
+    "description": "Name of the memory file with the agent's own notes, used as a tab and in the position line."
+  },
+  "memoryTitle": "Memory",
+  "@memoryTitle": {
+    "description": "Title of the Memory screen."
+  },
+  "memoryWaitingTitle": "Waiting for you",
+  "@memoryWaitingTitle": {
+    "description": "Title of the page that lists the memory and skill changes Hermes holds for approval."
+  },
 
   "@@x-area-messaging": "",
 
@@ -2672,6 +2837,55 @@
   "modelsPickerUseDefault": "Use the profile’s default",
   "@modelsPickerUseDefault": {
     "description": "Title of the first row of the model picker, which clears an explicit pick so the profile's default model is used."
+  },
+  "modelsPillChoose": "Choose a model",
+  "@modelsPillChoose": {
+    "description": "Label of the composer's model pill when no model is picked and the chat has no profile default to name."
+  },
+  "modelsPillDiscoveryUnavailable": "{label}. Model discovery is unavailable.",
+  "@modelsPillDiscoveryUnavailable": {
+    "description": "Screen reader name of the model pill when the server cannot list models. {label} is what the pill shows.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPillLoadFailed": "Could not load models",
+  "@modelsPillLoadFailed": {
+    "description": "Label of the model pill when loading the model list failed."
+  },
+  "modelsPillLoading": "Loading models",
+  "@modelsPillLoading": {
+    "description": "Label of the model pill while the model list loads."
+  },
+  "modelsPillProfileDefault": "Profile default",
+  "@modelsPillProfileDefault": {
+    "description": "Label of the model pill when the profile's default model is used."
+  },
+  "modelsPillRetry": "Retry",
+  "@modelsPillRetry": {
+    "description": "Visible label of the model pill's button that loads the model list again."
+  },
+  "modelsPillRetryModels": "Retry models",
+  "@modelsPillRetryModels": {
+    "description": "Screen reader name of the model pill's retry button."
+  },
+  "modelsPillSelectedModel": "{label}, selected model {model}",
+  "@modelsPillSelectedModel": {
+    "description": "Screen reader name of the model pill while loading or after a failure: what it shows and the model that stays selected. {model} is the server's model id.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPillSetUp": "Set up a model",
+  "@modelsPillSetUp": {
+    "description": "Label of the model pill when no provider offers a model yet; it opens model setup."
   },
 
   "@@x-area-navigation": "",
@@ -7389,6 +7603,10 @@
   "widgetsCancel": "Cancel",
   "@widgetsCancel": {
     "description": "Label of the button that closes a form or dialog in a settings page bar without saving."
+  },
+  "widgetsDone": "Done",
+  "@widgetsDone": {
+    "description": "Button in the header of a settings dialog that closes it."
   },
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} character entered} other{{count} characters entered}}",
   "@widgetsSecretCharactersEntered": {
