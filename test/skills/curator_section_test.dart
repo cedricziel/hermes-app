@@ -158,6 +158,13 @@ void main() {
     await pump(tester, _model());
     expect(find.text('Last pass or first check'), findsOneWidget);
     expect(find.text('3 days ago'), findsOneWidget);
+    for (final known in ['3 days ago', 'Every 7 days']) {
+      expect(
+        tester.widget<Text>(find.text(known)).style!.fontStyle,
+        isNot(FontStyle.italic),
+        reason: known,
+      );
+    }
     expect(find.textContaining('Hermes also sets this time'), findsOneWidget);
     expect(find.textContaining('12 Nov 2026'), findsNothing);
     await tester.tap(find.text('Last pass or first check'));
@@ -211,6 +218,7 @@ void main() {
         tester.element(find.byType(CuratorSection)).hermesColors.subtleText,
       );
     }
+    expect(find.textContaining('Hermes also sets this time'), findsNothing);
     expect(find.byType(Switch), findsNothing);
     expect(find.text("Couldn't read the pause setting."), findsOneWidget);
   });
