@@ -79,4 +79,31 @@ void main() {
     expect(stripTheme('chat-phone-dark/01-x'), 'chat-phone/01-x');
     expect(stripTheme('chat-phone/01-dark-mode'), 'chat-phone/01-dark-mode');
   });
+
+  test('a use case that pins another platform is not judged by this one', () {
+    expect(
+      pinnedPlatform([TargetPlatform.android], TargetPlatform.macOS),
+      'android',
+    );
+    expect(pinnedPlatform([TargetPlatform.iOS], TargetPlatform.android), 'ios');
+    expect(
+      pinnedPlatform([TargetPlatform.android], TargetPlatform.android),
+      isNull,
+    );
+    expect(
+      pinnedPlatform([TargetPlatform.linux], TargetPlatform.macOS),
+      isNull,
+    );
+    expect(pinnedPlatform(const [], TargetPlatform.iOS), isNull);
+  });
+
+  test('skipped passes are counted by reason, apart from skipped screens', () {
+    final report = TapReport([
+      const TapSample('u', 'skip', [], 'android', 'pins android'),
+      const TapSample('v', 'skip', [], 'android', 'pins android'),
+      const TapSample('w', 'skip', [], 'macos'),
+    ]);
+    expect(report.skippedPasses, {'pins android': 2});
+    expect(report.skippedByPlatform, {'macos': 1});
+  });
 }

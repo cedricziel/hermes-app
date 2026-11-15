@@ -72,7 +72,19 @@ void main() {
           );
           await tester.pump(const Duration(seconds: 1));
           await tester.pump(const Duration(seconds: 1));
-          if (tester.takeException() == null) {
+          final pinned = pinnedPlatform(themePlatformsOf(tester), platform);
+          final threw = tester.takeException() != null;
+          if (!threw && pinned != null) {
+            samples.add(
+              TapSample(
+                'usecase: $label',
+                'skip',
+                const [],
+                pinned,
+                'pins $pinned',
+              ),
+            );
+          } else if (!threw) {
             samples.add(
               await measureScreen(
                 tester,

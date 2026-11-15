@@ -89,7 +89,8 @@ it. Prefer fixing the code to adding an entry.
 
 ```bash
 scripts/tap-report.sh              # workflow screens, then the Widgetbook catalog
-WORKFLOWS=0 scripts/tap-report.sh  # catalog only
+WORKFLOWS=0 scripts/tap-report.sh  # catalog only (deletes build/tap_targets first)
+WORKFLOWS=0 KEEP_WORKFLOWS=1 scripts/tap-report.sh  # catalog only, reusing the last workflow data
 ```
 
 A failing workflow test does not abort the run: the script prints a warning that some
@@ -103,6 +104,11 @@ Every violation is listed as `platform  source  label  WxH`, collected by
 `test/support/tap_targets.dart`, which walks the semantics tree like flutter_test's tap
 guidelines but does not stop at the first failure.
 
+- A use case that wraps its content in a `Theme` with a fixed `platform` (names like
+  "/ Android", "(iPhone)", "(Mac)") is judged only by the pass whose platform matches; the
+  other passes are recorded as skipped with the reason `pins <platform>` and listed under
+  `passesSkipped`. Desktop platforms count as macOS. A phone-sized pass of a desktop layout
+  is not special-cased.
 - Every Widgetbook use case, light theme, three passes: Android (48 dp) and iOS (44 pt) on
   390x844, macOS (28 pt) on 1280x800. Use cases that throw are skipped (the catalog test
   owns them).
