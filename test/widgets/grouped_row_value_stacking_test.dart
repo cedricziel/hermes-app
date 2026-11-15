@@ -312,4 +312,47 @@ void main() {
   });
 }
 
-void _noop() {}
+void _noop() {
+  group('valueStyle', () {
+    Future<TextStyle> styleOf(
+      WidgetTester tester, {
+      TextStyle? valueStyle,
+      required double scale,
+    }) async {
+      await _pump(
+        tester,
+        GroupedRow(title: 'Last ran', value: 'Unknown', valueStyle: valueStyle),
+        scale: scale,
+        width: 200,
+      );
+      return tester.widget<Text>(find.text('Unknown')).style!;
+    }
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('muted and italic beside or stacked at ${scale}x', (
+        tester,
+      ) async {
+        final style = await styleOf(
+          tester,
+          valueStyle: const TextStyle(fontStyle: FontStyle.italic),
+          scale: scale,
+        );
+        final muted = tester
+            .element(find.text('Unknown'))
+            .hermesColors
+            .subtleText;
+        expect(style.color, muted);
+        expect(style.fontStyle, FontStyle.italic);
+        expect(style.fontWeight, isNot(FontWeight.w500));
+      });
+    }
+
+    testWidgets('without it the stacked value keeps its heavier look', (
+      tester,
+    ) async {
+      final style = await styleOf(tester, scale: 2);
+      expect(style.fontWeight, FontWeight.w500);
+      expect(style.fontStyle, isNull);
+    });
+  });
+}

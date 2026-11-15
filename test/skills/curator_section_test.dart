@@ -190,6 +190,13 @@ void main() {
       find.text('The first scheduled pass waits one interval (7 days).'),
       findsOneWidget,
     );
+    expect(
+      find.text(
+        'Hermes also sets this time the first time it sees a profile, '
+        'without a pass.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('unknown fields read Unknown and the pause switch is absent', (
@@ -197,6 +204,13 @@ void main() {
   ) async {
     await pump(tester, _model(status: const CuratorStatusView()));
     expect(find.text('Unknown'), findsNWidgets(4));
+    for (final unknown in tester.widgetList<Text>(find.text('Unknown'))) {
+      expect(unknown.style!.fontStyle, FontStyle.italic);
+      expect(
+        unknown.style!.color,
+        tester.element(find.byType(CuratorSection)).hermesColors.subtleText,
+      );
+    }
     expect(find.byType(Switch), findsNothing);
     expect(find.text("Couldn't read the pause setting."), findsOneWidget);
   });
@@ -259,7 +273,9 @@ void main() {
   });
 
   group('output', () {
-    testWidgets('is not selectable and names its line count', (tester) async {
+    testWidgets('is not selectable and shows its line count in the label', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
       await pump(
         tester,
@@ -268,10 +284,9 @@ void main() {
       );
       expect(find.byType(SelectableText), findsNothing);
       expect(find.text('a\nb\nc'), findsOneWidget);
-      expect(
-        find.bySemanticsLabel(RegExp('Show output, 3 lines')),
-        findsOneWidget,
-      );
+      expect(find.text('Show output · 3 lines'), findsOneWidget);
+      // Read once, from the visible label: no second, duplicated name.
+      expect(find.bySemanticsLabel(RegExp('Show output')), findsOneWidget);
       handle.dispose();
     });
 
@@ -294,6 +309,31 @@ void main() {
       await pump(tester, _model(run: CuratorRunView.finished));
       expect(find.text('Hermes printed no output.'), findsOneWidget);
       expect(find.text('Show output'), findsNothing);
+    });
+
+    testWidgets('a single line reads "1 line", and German has its own', (
+      tester,
+    ) async {
+      await pump(tester, _model(run: CuratorRunView.finished, lines: ['a']));
+      expect(find.text('Show output · 1 line'), findsOneWidget);
+      tester.view.physicalSize = const Size(390, 3000);
+      await tester.pumpWidget(
+        _host(
+          _model(run: CuratorRunView.finished, lines: ['a', 'b']),
+          calls,
+          locale: const Locale('de'),
+        ),
+      );
+      expect(find.text('Ausgabe anzeigen · 2 Zeilen'), findsOneWidget);
+    });
+
+    testWidgets('blanked output shows no count', (tester) async {
+      await pump(
+        tester,
+        _model(run: CuratorRunView.finished, lines: ['a', 'b'], blanked: true),
+      );
+      expect(find.text('Show output'), findsOneWidget);
+      expect(find.textContaining('2 lines'), findsNothing);
     });
 
     testWidgets('keeps the last 30 lines and counts the earlier ones', (
@@ -425,8 +465,24 @@ void main() {
         tester,
         _model(run: CuratorRunView.failed, failureLine: 'curator: disabled'),
       );
-      expect(find.text('Failed: curator: disabled'), findsOneWidget);
       expect(find.text('The pass finished'), findsNothing);
+      final error = Theme.of(tester.element(find.byType(CuratorSection)))
+          .colorScheme
+          .error;
+      final failed = tester.widget<Text>(find.text('Failed'));
+      expect(failed.style!.fontWeight, FontWeight.w700);
+      expect(failed.style!.color, error);
+      expect(
+        tester.widget<Text>(find.text('curator: disabled')).style!.color,
+        error,
+      );
+      // The icon stays beside the words, so colour is not the only cue.
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is AppIcon && w.icon == AppIcons.error && w.color == error,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('off in config says so in a line of its own', (tester) async {
@@ -610,7 +666,51 @@ void main() {
     });
   });
 
+  testWidgets('Active is a filled check in the success colour', (tester) async {
+    await pump(tester, _model());
+    final icon = tester.widget<AppIcon>(
+      find.byWidgetPredicate(
+        (w) => w is AppIcon && w.icon == AppIcons.checkCircleFilled,
+      ),
+    );
+    expect(
+      icon.color,
+      tester.element(find.byType(CuratorSection)).hermesColors.success,
+    );
+  });
+
+  testWidgets('the status buttons are outlined with a link-coloured label', (
+    tester,
+  ) async {
+    await pump(tester, _model(run: CuratorRunView.lostAnswer));
+    final link = tester.element(find.byType(CuratorSection)).hermesColors.link;
+    final check = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Check status'),
+    );
+    expect(check.style!.foregroundColor!.resolve({}), link);
+    await pump(tester, _model(run: CuratorRunView.notStarted));
+    final retry = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Try again'),
+    );
+    expect(retry.style!.foregroundColor!.resolve({}), link);
+  });
+
   group('at the largest text', () {
+    for (final scale in [2.0, 3.1]) {
+      testWidgets('every stacked value is muted at ${scale}x', (tester) async {
+        await pump(tester, _model(), scale: scale, size: const Size(480, 8000));
+        final muted = tester
+            .element(find.byType(CuratorSection))
+            .hermesColors
+            .subtleText;
+        for (final value in ['3 days ago', 'Every 7 days']) {
+          final style = tester.widget<Text>(find.text(value)).style!;
+          expect(style.color, muted, reason: value);
+          expect(style.fontWeight, isNot(FontWeight.w500), reason: value);
+        }
+      });
+    }
+
     testWidgets('the status row keeps its words whole at 3.1x', (tester) async {
       await pump(tester, _model(), scale: 3.1, size: const Size(700, 6000));
       for (final word in ['Status', 'Schedule']) {
@@ -647,7 +747,7 @@ void main() {
     testWidgets('the status icon grows with the text', (tester) async {
       Size icon() => tester.getSize(
         find.byWidgetPredicate(
-          (w) => w is AppIcon && w.icon == AppIcons.checkCircle,
+          (w) => w is AppIcon && w.icon == AppIcons.checkCircleFilled,
         ),
       );
       await pump(tester, _model());

@@ -170,6 +170,11 @@ class CuratorSectionCallbacks {
   final VoidCallback onCheckStatus;
 }
 
+/// Every value of the section is muted, stacked or beside its title; an
+/// unknown one is italic as well.
+TextStyle _curatorValueStyle(bool unknown) =>
+    TextStyle(fontStyle: unknown ? FontStyle.italic : FontStyle.normal);
+
 /// "Every hour", "Every day", "Every 2 days", "Every 12 hours".
 String curatorIntervalLabel(AppLocalizations l10n, int hours) {
   if (hours == 1) return l10n.skillsCuratorEveryHour;
@@ -367,9 +372,11 @@ class _CuratorBody extends StatelessWidget {
               ? AppIcons.info
               : paused
               ? AppIcons.pause
-              : AppIcons.checkCircle,
+              : AppIcons.checkCircleFilled,
+          color: !off && paused == false ? context.hermesColors.success : null,
         ),
         value: stackStatus ? null : statusValue,
+        valueStyle: _curatorValueStyle(!off && paused == null),
         subtitle: stackStatus
             ? [statusValue, ?statusNote].join('\n')
             : statusNote,
@@ -386,6 +393,7 @@ class _CuratorBody extends StatelessWidget {
           value: longEvery
               ? null
               : everyLabel ?? l10n.skillsCuratorStatusUnknown,
+          valueStyle: _curatorValueStyle(everyLabel == null),
           subtitle: longEvery ? everyLabel : null,
         ),
         GroupedRow(
@@ -396,6 +404,7 @@ class _CuratorBody extends StatelessWidget {
           value: stale == null || archive == null
               ? l10n.skillsCuratorStatusUnknown
               : null,
+          valueStyle: _curatorValueStyle(true),
           subtitle: stale == null || archive == null
               ? null
               : l10n.skillsCuratorUnusedNote(stale, archive),
@@ -606,9 +615,23 @@ class _CuratorBody extends StatelessWidget {
         GroupedRow(
           title: run == CuratorRunView.finished
               ? l10n.skillsCuratorFinished
-              : failure == null || failure.isEmpty
-              ? l10n.skillsCuratorFailed
-              : l10n.skillsCuratorFailedWith(failure),
+              : l10n.skillsCuratorFailed,
+          // "Failed" in the error colour and bold; the icon and the word
+          // stay, so the colour is not the only cue.
+          destructive: run == CuratorRunView.failed,
+          titleWeight: run == CuratorRunView.failed ? FontWeight.w700 : null,
+          details: [
+            if (run == CuratorRunView.failed &&
+                failure != null &&
+                failure.isNotEmpty)
+              Text(
+                failure,
+                style: TextStyle(
+                  fontSize: GroupedMetrics.of(context).subtitleSize,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+          ],
           titleMaxLines: null,
           subtitle: run == CuratorRunView.finished
               ? l10n.skillsCuratorFinishedNote
@@ -633,6 +656,7 @@ class _CuratorBody extends StatelessWidget {
         // A disabled row always says why: the subtitle or the status line.
         subtitle: ended && model.canRunNow ? null : subtitle,
         touchTargetButtons: true,
+        linkColoredButtons: true,
         onPressed: model.canRunNow ? callbacks.onRunNow : null,
         status: state,
         spinnerWhileWorking: true,
@@ -651,9 +675,13 @@ class _CuratorBody extends StatelessWidget {
     }
     final count = model.outputLines.length + model.earlierLines;
     return OutputLinesTile(
+      // The count is in the label, so it reads the same seen and heard. Not
+      // while blanked, nor for the earlier pass, whose lines are not these.
       label: earlier
           ? l10n.skillsCuratorShowOutputEarlier
-          : l10n.skillsCuratorShowOutput,
+          : model.outputBlanked
+          ? l10n.skillsCuratorShowOutput
+          : l10n.skillsCuratorShowOutputCount(count),
       lines: model.outputLines,
       initiallyOpen: outputInitiallyOpen,
       selectable: false,
@@ -664,9 +692,6 @@ class _CuratorBody extends StatelessWidget {
       footnote: l10n.skillsCuratorOutputFootnote,
       blank: model.outputBlanked,
       blankNote: l10n.skillsCuratorOutputHidden,
-      semanticsLabel: model.outputBlanked || earlier
-          ? null
-          : l10n.skillsCuratorOutputSemantics(count),
     );
   }
 }
@@ -727,6 +752,7 @@ class _LastRanRowState extends State<_LastRanRow> {
     final exact = known
         ? l10n.skillsCuratorLastRanExact(at.toLocal(), at.toLocal())
         : null;
+    final footnote = l10n.skillsCuratorLastRanFootnote;
     final row = GroupedRow(
       title: l10n.skillsCuratorLastRan,
       titleMaxLines: null,
@@ -735,6 +761,7 @@ class _LastRanRowState extends State<_LastRanRow> {
       value: never
           ? l10n.skillsCuratorLastRanNever
           : relative ?? l10n.skillsCuratorStatusUnknown,
+      valueStyle: _curatorValueStyle(!never && !known),
       subtitle: never
           ? (interval == null
                 ? l10n.skillsCuratorLastRanNeverNoteUnknown
@@ -745,7 +772,8 @@ class _LastRanRowState extends State<_LastRanRow> {
       onTap: known ? () => setState(() => _exact = !_exact) : null,
       chevron: false,
     );
-    if (!known) return row;
+    if (!known && !never) return row;
+    if (!known) return Column(children: [row, _NoteRow(footnote)]);
     return Column(
       children: [
         Semantics(
@@ -758,7 +786,7 @@ class _LastRanRowState extends State<_LastRanRow> {
           onTap: () => setState(() => _exact = !_exact),
           child: row,
         ),
-        _NoteRow(l10n.skillsCuratorLastRanFootnote),
+        _NoteRow(footnote),
       ],
     );
   }

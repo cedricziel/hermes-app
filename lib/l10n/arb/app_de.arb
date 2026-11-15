@@ -1248,7 +1248,6 @@
   "skillsCuratorEveryHour": "Jede Stunde",
   "skillsCuratorEveryHours": "Alle {count} Stunden",
   "skillsCuratorFailed": "Fehlgeschlagen",
-  "skillsCuratorFailedWith": "Fehlgeschlagen: {line}",
   "skillsCuratorFinished": "Der Durchlauf ist abgeschlossen",
   "skillsCuratorFinishedNote": "Was sich geändert hat, steht in der Ausgabe von Hermes.",
   "skillsCuratorFooter": "Hermes räumt Skills auf, die der Agent erstellt hat. Ungenutzte werden zuerst als veraltet markiert und dann archiviert, nie gelöscht. Durchläufe starten auch von selbst auf dem Server, ob diese App offen ist oder nicht.",
@@ -1276,7 +1275,6 @@
   "skillsCuratorOutputEarlier": "{count, plural, =1{1 frühere Zeile nicht angezeigt} other{{count} frühere Zeilen nicht angezeigt}}",
   "skillsCuratorOutputFootnote": "Hermes führt ein Protokoll für alle Profile auf diesem Server, daher können diese Zeilen den Durchlauf eines anderen Profils enthalten.",
   "skillsCuratorOutputHidden": "Ausgeblendet, solange die App gesperrt oder im Hintergrund ist",
-  "skillsCuratorOutputSemantics": "Ausgabe anzeigen, {count, plural, =1{1 Zeile} other{{count} Zeilen}}",
   "skillsCuratorPause": "Geplante Durchläufe pausieren",
   "skillsCuratorPauseFailed": "Das ließ sich nicht ändern",
   "skillsCuratorPauseFailedWith": "Das ließ sich nicht ändern: {detail}",
@@ -1294,6 +1292,7 @@
   "skillsCuratorRunning": "Läuft auf dem Server …",
   "skillsCuratorSchedule": "Zeitplan",
   "skillsCuratorShowOutput": "Ausgabe anzeigen",
+  "skillsCuratorShowOutputCount": "Ausgabe anzeigen · {count, plural, =1{1 Zeile} other{{count} Zeilen}}",
   "skillsCuratorShowOutputEarlier": "Ausgabe des früheren Durchlaufs anzeigen",
   "skillsCuratorStartedAt": "Ein Durchlauf begann am {date} um {time}",
   "skillsCuratorStatus": "Status",
@@ -1308,7 +1307,7 @@
   "skillsCuratorUnchecked": "Es ließ sich nicht bestätigen, ob ein Durchlauf läuft.",
   "skillsCuratorUnconfirmed": "Es ließ sich nicht bestätigen, dass der Durchlauf abgeschlossen ist.",
   "skillsCuratorUnused": "Ungenutzte Skills",
-  "skillsCuratorUnusedNote": "Als veraltet markiert nach {stale, plural, =1{1 Tag} other{{stale} Tagen}}, archiviert nach {archive}.",
+  "skillsCuratorUnusedNote": "Nach {stale, plural, =1{1 Tag} other{{stale} Tagen}} als veraltet markiert, nach {archive} archiviert.",
 
   "@@x-area-spotlight": "",
 

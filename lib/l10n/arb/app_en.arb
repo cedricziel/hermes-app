@@ -6241,16 +6241,6 @@
   "@skillsCuratorFailed": {
     "description": "Result headline when the pass ended with an error."
   },
-  "skillsCuratorFailedWith": "Failed: {line}",
-  "@skillsCuratorFailedWith": {
-    "description": "Error line when a pass failed. {line} is the last line Hermes printed, shown as it is.",
-    "placeholders": {
-      "line": {
-        "type": "String",
-        "example": "curator: disabled via config"
-      }
-    }
-  },
   "skillsCuratorFinished": "The pass finished",
   "@skillsCuratorFinished": {
     "description": "Result headline when the pass ended."
@@ -6401,15 +6391,6 @@
   "@skillsCuratorOutputHidden": {
     "description": "One muted line shown in place of the output while App Lock covers the app or it is inactive."
   },
-  "skillsCuratorOutputSemantics": "Show output, {count, plural, =1{1 line} other{{count} lines}}",
-  "@skillsCuratorOutputSemantics": {
-    "description": "Accessibility label of the output disclosure. The disclosure state is added by the system.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "skillsCuratorPause": "Pause scheduled passes",
   "@skillsCuratorPause": {
     "description": "Title of the switch that pauses scheduled curator passes."
@@ -6483,6 +6464,15 @@
   "skillsCuratorShowOutput": "Show output",
   "@skillsCuratorShowOutput": {
     "description": "Label of the closed disclosure that opens the lines Hermes printed."
+  },
+  "skillsCuratorShowOutputCount": "Show output · {count, plural, =1{1 line} other{{count} lines}}",
+  "@skillsCuratorShowOutputCount": {
+    "description": "Label of the closed disclosure that opens the lines Hermes printed, with how many there are. The disclosure state is added by the system.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "skillsCuratorShowOutputEarlier": "Show output of the earlier pass",
   "@skillsCuratorShowOutputEarlier": {
