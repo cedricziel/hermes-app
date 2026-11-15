@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
@@ -274,7 +275,8 @@ void main() {
     List<String> chat(MenuPlatform platform) => [
       for (final group
           in menuLayout.firstWhere((s) => s.id == 'chat').groupsOn(platform))
-        for (final entry in group) entry.label,
+        for (final entry in group)
+          entry.label(lookupAppLocalizations(const Locale('en'))),
     ];
 
     test('puts Export Chat as JSON… after Copy Transcript on both', () {
@@ -293,7 +295,10 @@ void main() {
           .expand((s) => s.groups)
           .expand((g) => g)
           .firstWhere((e) => e.command == MacCommand.exportThread);
-      expect(entry.label, _macLabel);
+      expect(
+        entry.label(lookupAppLocalizations(const Locale('en'))),
+        _macLabel,
+      );
       for (final platform in MenuPlatform.values) {
         expect(entry.shortcutOn(platform), isNull);
       }
