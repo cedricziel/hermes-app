@@ -60,7 +60,7 @@ class ToolBodyFrame extends StatelessWidget {
         children: [
           if (label != null) ...[
             Text(
-              label,
+              wellFormedText(label),
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
@@ -213,7 +213,7 @@ class WebSearchToolBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    hit.title,
+                    wellFormedText(hit.title),
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -221,13 +221,13 @@ class WebSearchToolBody extends StatelessWidget {
                     ),
                   ),
                   SelectableText(
-                    hit.url,
+                    wellFormedText(hit.url),
                     maxLines: 1,
                     style: TextStyle(fontSize: 11.5, color: scheme.primary),
                   ),
                   if (hit.description.isNotEmpty)
                     Text(
-                      hit.description,
+                      wellFormedText(hit.description),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: subtle),
@@ -311,7 +311,7 @@ class TodoToolBody extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      item.content,
+                      wellFormedText(item.content),
                       style: TextStyle(
                         fontSize: 12.5,
                         color: item.status == 'cancelled'

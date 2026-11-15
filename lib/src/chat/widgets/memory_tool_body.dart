@@ -1,3 +1,5 @@
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+
 import 'package:flutter/material.dart';
 
 import '../../memory/memory_decisions.dart';
@@ -88,7 +90,7 @@ class MemoryToolBody extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
-                  summary,
+                  wellFormedText(summary),
                   style: const TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
@@ -103,7 +105,9 @@ class MemoryToolBody extends StatelessWidget {
                   children: [
                     for (final line in block)
                       SelectableText(
-                        '${line.added ? '+' : '−'} ${line.text}',
+                        wellFormedText(
+                          '${line.added ? '+' : '−'} ${line.text}',
+                        ),
                         style: TextStyle(
                           fontSize: 12.5,
                           color: line.added ? colors.success : scheme.error,
@@ -122,7 +126,7 @@ class MemoryToolBody extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  decision.text,
+                  wellFormedText(decision.text),
                   style: TextStyle(color: scheme.error, fontSize: 12.5),
                 ),
               ),
@@ -169,7 +173,10 @@ class _Warning extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: TextStyle(fontSize: 12.5, color: color)),
+          child: Text(
+            wellFormedText(text),
+            style: TextStyle(fontSize: 12.5, color: color),
+          ),
         ),
       ],
     );
