@@ -69,8 +69,9 @@ after them:
   reviewed. `<base>` is the head of the last review you are continuing, when
   you review only the commits since it (claim nothing you did not review), or
   for a first review the fork point, `git merge-base <base branch tip> <head>`.
-  A Range may start at the head of an earlier review of this branch, clean or
-  not, if that review's own Range is valid. Never `<head>^`.
+  A Range may start at the head of an earlier plain review (not a
+  `Merge-review:` one) of this branch, clean or not, if that review's own
+  Range is valid. Never `<head>^`.
 - For a merge-only review (the head is a merge commit, or you were asked to
   review only a merge of the base branch), put one line before the
   `Reviewer:` line: `Merge-review: <file>, <file>`. It names every file whose
