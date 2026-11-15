@@ -14,6 +14,7 @@ import '../api/hermes_repositories.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
+import '../chat/widgets/new_chat_fab.dart';
 import '../macos/mac_commands.dart';
 import '../navigation/desktop_navigation_history.dart';
 import '../macos/mac_toolbar.dart';
@@ -147,6 +148,17 @@ class _KanbanScreenState extends State<KanbanScreen> {
   VoidCallback? get _newTask =>
       _controller.board == null || _controller.selecting ? null : _create;
 
+  /// Whether the New task button floats over the board (every platform but
+  /// the Mac, which has a toolbar button), so lists end clear of it.
+  bool get _fabShown => !_mac && _newTask != null;
+
+  /// The same room the chat list leaves under its button (the extended
+  /// button is the same 56 points tall), plus the bottom inset the button sits
+  /// above: an explicit list padding replaces the safe area a null one adds.
+  double get _fabInset => _fabShown
+      ? NewChatFab.listBottomPadding + MediaQuery.paddingOf(context).bottom
+      : 0;
+
   bool _reloading = false;
 
   /// A reload the user asked for, from the toolbar or View > Reload.
@@ -270,7 +282,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 )
               : _body(context),
         ),
-        floatingActionButton: _mac || _newTask == null
+        floatingActionButton: !_fabShown
             ? null
             : FloatingActionButton.extended(
                 onPressed: _newTask,
@@ -520,7 +532,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         ],
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.fromLTRB(
+                          12,
+                          12,
+                          12,
+                          12 + _fabInset,
+                        ),
                         itemCount: tasks.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (_, i) => _item(tasks[i], narrow: true),
@@ -576,6 +593,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   ),
                   Expanded(
                     child: ListView.separated(
+                      padding: _fabShown
+                          ? EdgeInsets.only(bottom: _fabInset)
+                          : null,
                       itemCount: column.tasks.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (_, j) =>
