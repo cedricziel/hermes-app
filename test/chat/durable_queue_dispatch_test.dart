@@ -24,6 +24,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_gateway.dart';
 import '../support/fake_queue_keys.dart';
 import '../support/fake_queue_transport.dart';
+import '../support/queue_store_dir.dart';
 
 QueueScope scope([String? profile = 'work']) => QueueScope(
   serverKey: 'server',
@@ -102,24 +103,7 @@ void main() {
     visible.dispose();
     activity.dispose();
     attention.dispose();
-    // Hermes accepting a queued prompt starts a detached `accepted` write and
-    // cleanup (chat_controller_queues.dart `_acceptedQueue`). The store runs
-    // its operations in order, so a load queued after them returns only once
-    // they are done; deleting the directory before that races them.
-    await pumpEventQueue();
-    try {
-      await store.load(
-        QueueScope(
-          serverKey: 'server',
-          accountKey: 'account',
-          profile: 'work',
-          conversationId: 'stored',
-        ),
-      );
-    } on Object {
-      // The load only has to wait for earlier operations.
-    }
-    await directory.delete(recursive: true);
+    await deleteQueueStoreDir(directory);
   });
 
   Future<ChatController> open({
