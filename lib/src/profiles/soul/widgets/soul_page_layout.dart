@@ -43,11 +43,15 @@ class SoulPageLayout extends StatelessWidget {
         );
         return CustomScrollView(
           slivers: [
-            if (banner case final banner?)
-              SliverPadding(
-                padding: EdgeInsets.symmetric(horizontal: side),
-                sliver: SliverToBoxAdapter(child: banner),
+            // Always one sliver, empty without a banner: the editor sliver
+            // after it keeps its place, so a banner coming or going does not
+            // rebuild the text field (focus, undo history).
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: side),
+              sliver: SliverToBoxAdapter(
+                child: banner ?? const SizedBox.shrink(),
               ),
+            ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(side, 8, side, 0),
               sliver: SliverFillRemaining(

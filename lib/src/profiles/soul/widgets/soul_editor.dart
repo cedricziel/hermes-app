@@ -372,6 +372,15 @@ class _SoulEditorState extends State<SoulEditor>
     );
   }
 
+  /// The hairline between the field and the footer: the text colour at 12 %
+  /// over the card's fill. A scheme token cannot do it: `outlineVariant` is
+  /// the fill itself in the light theme and `outline` is the fill in the dark
+  /// one, so either draws no line in one of them.
+  Color _dividerColor(ColorScheme scheme) => Color.alphaBlend(
+    scheme.onSurface.withValues(alpha: 0.12),
+    widget.readOnly ? scheme.surface : scheme.surfaceContainerHighest,
+  );
+
   /// The card's bottom row: Revert (when the page gives one) at the leading
   /// edge, the count at the trailing edge. They wrap at large text.
   Widget _footer(BuildContext context) {
@@ -390,11 +399,9 @@ class _SoulEditorState extends State<SoulEditor>
                 child: _countText(context),
               ),
             )
-          : Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              runAlignment: WrapAlignment.end,
-              spacing: 12,
+          : _FooterRow(
+              textDirection: Directionality.of(context),
+              gap: 12,
               children: [action, _countText(context)],
             ),
     );
@@ -512,7 +519,7 @@ class _SoulEditorState extends State<SoulEditor>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (expands) Expanded(child: fieldArea) else fieldArea,
-          Divider(height: 1, color: scheme.outlineVariant),
+          Divider(height: 1, color: _dividerColor(scheme)),
           _footer(context),
         ],
       ),
@@ -546,6 +553,122 @@ class _SoulEditorState extends State<SoulEditor>
     );
     return line * SoulEditor.fillMinLines + 24 + 1 + footer;
   }
+}
+
+/// The card's footer: the first child (Revert) at the leading edge and the
+/// second (the count) at the trailing edge on one line, or, when the two do
+/// not fit, the count on a line of its own, still at the trailing edge (a
+/// `Wrap` would put a lone child at the start).
+class _FooterRow extends MultiChildRenderObjectWidget {
+  const _FooterRow({
+    required this.textDirection,
+    required this.gap,
+    required super.children,
+  });
+
+  final TextDirection textDirection;
+  final double gap;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFooterRow(textDirection, gap);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderFooterRow renderObject) {
+    renderObject
+      ..textDirection = textDirection
+      ..gap = gap;
+  }
+}
+
+class _FooterParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderFooterRow extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _FooterParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _FooterParentData> {
+  _RenderFooterRow(this._textDirection, this._gap);
+
+  TextDirection _textDirection;
+  double _gap;
+
+  set textDirection(TextDirection value) {
+    if (_textDirection == value) return;
+    _textDirection = value;
+    markNeedsLayout();
+  }
+
+  set gap(double value) {
+    if (_gap == value) return;
+    _gap = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _FooterParentData) {
+      child.parentData = _FooterParentData();
+    }
+  }
+
+  RenderBox get _first => firstChild!;
+  RenderBox get _second => childAfter(firstChild!)!;
+
+  @override
+  void performLayout() {
+    final loose = BoxConstraints(maxWidth: constraints.maxWidth);
+    _first.layout(loose, parentUsesSize: true);
+    _second.layout(loose, parentUsesSize: true);
+    final a = _first.size;
+    final b = _second.size;
+    final oneLine = a.width + _gap + b.width <= constraints.maxWidth;
+    final width = constraints.maxWidth;
+    final height = oneLine ? math.max(a.height, b.height) : a.height + b.height;
+    final firstTop = oneLine ? (height - a.height) / 2 : 0.0;
+    final secondTop = oneLine ? (height - b.height) / 2 : a.height;
+    final rtl = _textDirection == TextDirection.rtl;
+    (_first.parentData! as _FooterParentData).offset = Offset(
+      rtl ? width - a.width : 0,
+      firstTop,
+    );
+    (_second.parentData! as _FooterParentData).offset = Offset(
+      rtl ? 0 : width - b.width,
+      secondTop,
+    );
+    size = constraints.constrain(Size(width, height));
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) => math.max(
+    _first.getMinIntrinsicHeight(width),
+    _second.getMinIntrinsicHeight(width),
+  );
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      computeMinIntrinsicHeight(width);
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final loose = BoxConstraints(maxWidth: constraints.maxWidth);
+    final a = _first.getDryLayout(loose);
+    final b = _second.getDryLayout(loose);
+    final oneLine = a.width + _gap + b.width <= constraints.maxWidth;
+    return constraints.constrain(
+      Size(
+        constraints.maxWidth,
+        oneLine ? math.max(a.height, b.height) : a.height + b.height,
+      ),
+    );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// Answers a parent's intrinsic-height question with [height] and lays its

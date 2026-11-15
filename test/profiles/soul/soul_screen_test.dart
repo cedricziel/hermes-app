@@ -725,15 +725,27 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    pageTest('with the keyboard up the card ends above it', (tester) async {
+    pageTest('with the keyboard up the card ends above it and keeps twelve '
+        'lines', (tester) async {
       await pump(tester, platform: TargetPlatform.iOS);
-      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      // A short viewport: what is left above the keyboard is less than the
+      // twelve lines, so only the minimum keeps the card tall.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 500);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       final rect = card(tester);
-      expect(rect.bottom, lessThanOrEqualTo(900 - 320));
-      // Twelve lines of 17 pt text at 1.35 stay.
-      expect(rect.height, greaterThanOrEqualTo(12 * 17 * 1.35));
+      // Twelve lines of 17 pt text at 1.35, the field's padding and the footer.
+      expect(rect.height, greaterThanOrEqualTo(12 * 17 * 1.35 + 24));
+      // The page scrolls: the card ends above the keyboard once scrolled.
+      final page = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(page.position.maxScrollExtent, greaterThan(0));
       expect(tester.takeException(), isNull);
     });
 
