@@ -561,6 +561,12 @@
   "@@x-area-messaging": "",
 
   "@@x-area-models": "",
+  "modelsPickerDefaultUses": "Verwendet {model}",
+  "modelsPickerEffortHeader": "Denkaufwand",
+  "modelsPickerNoMatch": "Keine Modelle passen zu „{query}“",
+  "modelsPickerSearchHint": "Modelle suchen",
+  "modelsPickerTitle": "Modell",
+  "modelsPickerUseDefault": "Standard des Profils verwenden",
 
   "@@x-area-navigation": "",
 

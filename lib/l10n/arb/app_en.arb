@@ -2651,6 +2651,40 @@
   "@@x-area-messaging": "",
 
   "@@x-area-models": "",
+  "modelsPickerDefaultUses": "Uses {model}",
+  "@modelsPickerDefaultUses": {
+    "description": "Subtitle of the model picker's default row: the model a chat without an explicit pick uses. {model} is the server's model id.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPickerEffortHeader": "Reasoning effort",
+  "@modelsPickerEffortHeader": {
+    "description": "Header over the reasoning effort pills of the model picker. Drawn in capitals on iOS and Mac."
+  },
+  "modelsPickerNoMatch": "No models match “{query}”",
+  "@modelsPickerNoMatch": {
+    "description": "Shown in the model picker when the search matches no model. {query} is what was typed.",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPickerSearchHint": "Search models",
+  "@modelsPickerSearchHint": {
+    "description": "Hint of the model picker's search field, which also names the field."
+  },
+  "modelsPickerTitle": "Model",
+  "@modelsPickerTitle": {
+    "description": "Title of the model picker, and its name for a screen reader, when the caller gives none."
+  },
+  "modelsPickerUseDefault": "Use the profile’s default",
+  "@modelsPickerUseDefault": {
+    "description": "Title of the first row of the model picker, which clears an explicit pick so the profile's default model is used."
+  },
 
   "@@x-area-navigation": "",
 
