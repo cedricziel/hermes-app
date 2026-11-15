@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -9,15 +11,19 @@ import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
+import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
+import 'package:hermes_app/src/telemetry/suspension_marking_tracer.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 import '../server_care/server_care_fixtures.dart';
 import '../support/fake_chat_transport.dart';
@@ -30,40 +36,95 @@ import '../support/pump_chat.dart';
 import '../support/recording_tracer.dart';
 
 /// The privacy guard for telemetry: breadcrumbs, app events, request logs,
-/// spans and `debugPrint` carry fixed names, counts, flags and outcomes, never
-/// what the user typed or named.
+/// spans, `debugPrint` and `print` carry fixed names, counts, flags and
+/// outcomes, never what the user typed or named.
 ///
-/// Every sink is captured while the widest flows the test support allows run
-/// on data made of sentinels. A sentinel in any captured record is a leak.
+/// The connection's telemetry is built by the production wiring
+/// (`buildConnectionTelemetry`) with every sink captured, then the widest
+/// flows the test support allows run on data made of sentinels. A sentinel in
+/// any captured record, in the raw, URL-encoded or base64 form, is a leak.
 /// When a feature adds telemetry, add its flow here.
 ///
-/// Exempt by design: the `hermes.*` server attributes (version, install id)
-/// and the crash reporter's error payload. Crash breadcrumbs are the trail
-/// captured here, so they are checked.
+/// Exempt by design: the exact `hermes.*` attribute pairs the server's status
+/// answer yields (`hermesServerAttributes`) and the crash reporter's error
+/// payload. Crash breadcrumbs are the trail captured here, so they are
+/// checked.
 
 const _msg = 'SENTINEL_MSG_7f3a';
-const _title = 'SENTINEL_TITLE_7f3a';
+// A space and an ampersand, so URL escaping is exercised.
+const _title = 'SENTINEL_TITLE_7f3a & more';
+const _titleMarker = 'SENTINEL_TITLE_7f3a';
 const _profile = 'SENTINEL_PROFILE_7f3a';
 const _host = 'sentinel-host-7f3a.example';
 const _token = 'SENTINEL_TOKEN_7f3a';
 const _password = 'SENTINEL_PW_7f3a';
 const _session = 'sess-sentinel-7f3a';
+const _runtimeSession = 'rt-sentinel-7f3a';
+const _storedSession = 'stored-sentinel-7f3a';
 const _user = 'SENTINEL_USER_7f3a';
 
 const _sentinels = [
   _msg,
   _title,
+  _titleMarker,
   _profile,
   _host,
   _token,
   _password,
   _session,
+  _runtimeSession,
+  _storedSession,
   _user,
 ];
 
 /// Known leaks of main, as `sink|sentinel`, each with a TODO to fix it. The
 /// list only shrinks.
 const _knownLeaks = <String>{};
+
+/// What the server's status answer describes it with: the only `hermes.*`
+/// pairs allowed in telemetry.
+final _serverAttributes = hermesServerAttributes({
+  'version': '0.22.2',
+  'install_id': 'inst_7f3a',
+  'auth_required': true,
+  'gateway_state': 'running',
+});
+
+/// The forms a sentinel can take in a record: as is (any case), URL-encoded,
+/// and base64 or base64url at any alignment.
+class _Needle {
+  _Needle(this.sentinel) {
+    final bytes = utf8.encode(sentinel);
+    caseless = {
+      sentinel,
+      Uri.encodeComponent(sentinel),
+      Uri.encodeQueryComponent(sentinel),
+    }.map((s) => s.toLowerCase()).toList();
+    for (var shift = 0; shift < 3; shift++) {
+      final encoded = base64
+          .encode([...List.filled(shift, 0), ...bytes])
+          .replaceAll('=', '');
+      // Only the characters made of the sentinel's bytes alone.
+      final from = (shift * 8 + 5) ~/ 6;
+      final to = ((shift + bytes.length) * 8) ~/ 6;
+      final stable = encoded.substring(from, to);
+      exact
+        ..add(stable)
+        ..add(stable.replaceAll('+', '-').replaceAll('/', '_'));
+    }
+  }
+
+  final String sentinel;
+  late final List<String> caseless;
+  final exact = <String>{};
+
+  bool inside(String text) {
+    final lower = text.toLowerCase();
+    return caseless.any(lower.contains) || exact.any(text.contains);
+  }
+}
+
+final _needles = [for (final s in _sentinels) _Needle(s)];
 
 typedef _Record = ({String sink, String text});
 
@@ -76,34 +137,35 @@ class _Sinks {
 
   void add(String sink, String text) => records.add((sink: sink, text: text));
 
-  /// A connection built like `Telemetry.forConnection` builds one, with every
-  /// sink captured.
+  /// The connection's telemetry as production wires it, with every sink
+  /// captured.
   ConnectionTelemetry connection(Map<String, Object> serverAttributes) =>
-      ConnectionTelemetry(
-        interceptor: httpInterceptor(
-          logger,
-          tracer,
-          serverAttributes: serverAttributes,
-        ),
+      buildConnectionTelemetry(
+        logger: logger,
         tracer: tracer,
+        suspensions: AppSuspensions.manual(),
+        breadcrumbs: trail,
         serverAttributes: serverAttributes,
-        events: trail.asAppEventLogger(
-          (name, [attributes = const {}]) =>
-              logger.emit(LogRecord(body: name, attributes: attributes)),
-        ),
       );
 
   Breadcrumbs get breadcrumbs => Breadcrumbs.of(trail);
+
+  /// Runs [body] with `print` captured, so a stray print is a record too.
+  Future<T> capturingPrint<T>(Future<T> Function() body) => runZoned(
+    body,
+    zoneSpecification: ZoneSpecification(
+      print: (self, parent, zone, line) => add('print', line),
+    ),
+  );
 
   /// Every record that carries a sentinel, one line each.
   List<String> leaks() {
     final found = <String>[];
     void check(String sink, String text) {
-      final haystack = text.toLowerCase();
-      for (final sentinel in _sentinels) {
-        if (!haystack.contains(sentinel.toLowerCase())) continue;
-        if (_knownLeaks.contains('$sink|$sentinel')) continue;
-        found.add('$sink | $sentinel | $text');
+      for (final needle in _needles) {
+        if (!needle.inside(text)) continue;
+        if (_knownLeaks.contains('$sink|${needle.sentinel}')) continue;
+        found.add('$sink | ${needle.sentinel} | $text');
       }
     }
 
@@ -119,8 +181,10 @@ class _Sinks {
 
 String _describe(Map<String, Object?> attributes) => [
   for (final e in attributes.entries)
-    // The server's own description, exempt by design.
-    if (!e.key.startsWith('hermes.')) '${e.key}=${e.value}',
+    // The server's own description, exempt by design: only the exact pair.
+    if (_serverAttributes[e.key] != e.value ||
+        !_serverAttributes.containsKey(e.key))
+      '${e.key}=${e.value}',
 ].join(', ');
 
 class _CapturingTrail extends BreadcrumbTrail {
@@ -177,11 +241,6 @@ class _CapturingTracer extends RecordingTracer {
     return span;
   }
 }
-
-const _serverAttributes = <String, Object>{
-  'hermes.version': '0.22.2',
-  'hermes.install_id': 'inst_7f3a',
-};
 
 /// A client on [server] whose base URL is the sentinel host, so a request log
 /// or span that names the server shows it.
@@ -265,15 +324,17 @@ void main() {
     );
     addTearDown(auth.dispose);
 
-    // The sentinel address resolves to the local dashboard.
-    await HttpOverrides.runWithHttpOverrides(() async {
-      await auth.connect('http://$_host:80', allowCleartext: true);
-      expect(auth.state, HermesConnectionState.needsLogin);
-      await auth.signInWithProvider(auth.providers.single);
-      expect(auth.state, HermesConnectionState.ready);
-      await auth.signOut();
-      await auth.changeServer();
-    }, _RedirectTo(dashboard));
+    await sinks.capturingPrint(
+      // The sentinel address resolves to the local dashboard.
+      () => HttpOverrides.runWithHttpOverrides(() async {
+        await auth.connect('http://$_host:80', allowCleartext: true);
+        expect(auth.state, HermesConnectionState.needsLogin);
+        await auth.signInWithProvider(auth.providers.single);
+        expect(auth.state, HermesConnectionState.ready);
+        await auth.signOut();
+        await auth.changeServer();
+      }, _RedirectTo(dashboard)),
+    );
 
     expect(sinks.records, isNotEmpty);
     expectClean();
@@ -310,46 +371,59 @@ void main() {
         );
     }
     final connection = sinks.connection(_serverAttributes);
+    final api = _client(server, connection);
     final transport = FakeChatTransport();
 
-    await pumpChatScreen(
-      tester,
-      server: server,
-      withProfiles: true,
-      transport: transport,
-      providers: [
-        Provider<Breadcrumbs>.value(value: sinks.breadcrumbs),
-        Provider<HermesRepositories>.value(
-          value: HermesRepositories(
-            _client(server, connection),
-            telemetry: connection,
+    await sinks.capturingPrint(() async {
+      await pumpChatScreen(
+        tester,
+        api: api,
+        withProfiles: true,
+        transport: transport,
+        providers: [
+          Provider<Breadcrumbs>.value(value: sinks.breadcrumbs),
+          Provider<HermesRepositories>.value(
+            value: HermesRepositories(api, telemetry: connection),
           ),
-        ),
-      ],
+        ],
+      );
+      await openThread(tester, _title);
+      await tester.enterText(composerField, _msg);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump(const Duration(seconds: 1));
+      transport.sends.single
+        ..emit(const ReplyStarted())
+        ..emit(ReplyDelta('reply with $_msg'))
+        ..emit(ReplyCompleted('final reply with $_msg'));
+      await tester.pumpAndSettle();
+
+      await openSidebarMore(tester);
+      await tester.tap(find.text('Profiles'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_profile));
+      await tester.pumpAndSettle();
+    });
+
+    // The chat's own requests reached the sinks.
+    expect(
+      sinks.tracer.all.map((s) => s.attributes.values.join(' ')).join('\n'),
+      contains('/api/sessions'),
     );
-    await openThread(tester, _title);
-    await tester.enterText(composerField, _msg);
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.arrow_upward));
-    await tester.pump(const Duration(seconds: 1));
-    transport.sends.single
-      ..emit(const ReplyStarted())
-      ..emit(ReplyDelta('reply with $_msg'))
-      ..emit(ReplyCompleted('final reply with $_msg'));
-    await tester.pumpAndSettle();
-
-    await openSidebarMore(tester);
-    await tester.tap(find.text('Profiles'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(_profile));
-    await tester.pumpAndSettle();
-
     expect(sinks.records, isNotEmpty);
     expectClean();
   });
 
   test('gateway: prompt with the message, reply that echoes it', () async {
     final gateway = FakeGateway()
+      ..createResult = {
+        'session_id': _runtimeSession,
+        'stored_session_id': _storedSession,
+      }
+      ..resumeResult = {
+        'session_id': _runtimeSession,
+        'session_key': _storedSession,
+      }
       ..turn = (g, sid) {
         g.event('message.start', sid);
         g.event('message.delta', sid, {'text': 'echo $_msg'});
@@ -366,10 +440,14 @@ void main() {
     );
     addTearDown(transport.close);
 
-    final events = await transport
-        .send(text: _msg, threadId: _session, profile: _profile)
-        .toList();
-    expect(events.whereType<ReplyCompleted>(), isNotEmpty);
+    await sinks.capturingPrint(() async {
+      // A new chat, then the sentinel chat resumed.
+      await transport.send(text: _msg, profile: _profile).toList();
+      final events = await transport
+          .send(text: _msg, threadId: _session, profile: _profile)
+          .toList();
+      expect(events.whereType<ReplyCompleted>(), isNotEmpty);
+    });
 
     expect(sinks.tracer.all, isNotEmpty);
     expectClean();
@@ -378,6 +456,13 @@ void main() {
   test('server care and kanban', () async {
     final server = FakeHermesServer()
       ..on('GET', '/api/status', statusHealthy())
+      ..on(
+        'GET',
+        '/api/plugins/kanban/boards',
+        kanbanBoardsBody([
+          (slug: 'default', name: _title, total: 1, current: true),
+        ]),
+      )
       ..on(
         'GET',
         '/api/plugins/kanban/board',
@@ -392,8 +477,46 @@ void main() {
       profile: _profile,
     );
     addTearDown(care.dispose);
-    await care.refresh();
-    await KanbanRepository(api).loadBoard();
+
+    final sockets = <StreamChannelController<String>>[];
+    var attempts = 0;
+    final kanbanTracer = connection.kanban()!;
+    final board = KanbanBoardController(
+      repository: KanbanRepository(api),
+      connect: ({required since, board}) async {
+        // The first attempt fails, so the reconnect is logged.
+        if (attempts++ == 0) throw const SocketException('refused');
+        final socket = StreamChannelController<String>();
+        sockets.add(socket);
+        return kanbanTracer.connecting(
+          () async => socket.foreign,
+          route: '/api/plugins/kanban/events',
+        );
+      },
+      debounce: Duration.zero,
+      reconnectDelay: (_) => Duration.zero,
+      log: connection.events,
+    );
+    addTearDown(board.dispose);
+
+    await sinks.capturingPrint(() async {
+      await care.refresh();
+      await board.start();
+      for (var i = 0; i < 50 && sockets.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(sockets, isNotEmpty);
+      kanbanTracer.event('status');
+      sockets.single.local.sink.add(
+        jsonEncode({
+          'cursor': 1,
+          'events': [
+            {'id': 1, 'task_id': 't1', 'kind': 'status'},
+          ],
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
 
     expect(sinks.tracer.all, isNotEmpty);
     expectClean();
