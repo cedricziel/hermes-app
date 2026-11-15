@@ -46,6 +46,7 @@ import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../platform_hint/platform_hint_offer.dart';
 import '../platform_hint/show_platform_hint_prompt.dart';
+import '../profiles/profile_resolver.dart';
 import '../profiles/chat_profiles.dart';
 import '../server_care/server_attention_mark.dart';
 import '../server_care/gateway_restart.dart';
@@ -143,7 +144,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   ToolsetInstalls? _toolInstalls;
 
   /// The profile [_tools] was last asked about.
-  String? _toolsProfile;
+  ResolvedProfile? _toolsProfile;
   BotModeRosterRepository? _botsRepository;
   BotModeChatRepository? _botChats;
   HermesGroupsRepository? _groups;
@@ -500,11 +501,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   Future<void> _resolveServerCareProfile() async {
     try {
-      final active = await _profiles?.loadActive();
-      if (active != null) {
-        final name = active.current.isNotEmpty ? active.current : active.active;
-        _defaultProfile = name.isEmpty ? null : name;
-      }
+      // The launch profile (`current`), which a chat with no profile of its
+      // own works in; the same read the chat and its features resolve by.
+      _defaultProfile = await _profiles?.resolver.load();
     } on Object {
       // The chat's own report is then what names the profile.
     }
@@ -525,7 +524,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// Reads the Tools list for the chat's profile, once per profile and again
   /// when [force]d.
   void _followToolsProfile({bool force = false}) {
-    final profile = _chatProfiles?.current ?? _defaultProfile;
+    final profile = _profiles?.resolver.resolve(_chatProfiles?.current);
     if (profile == null || !_authorizedOwner) return;
     if (profile == _toolsProfile && !force) return;
     _toolsProfile = profile;

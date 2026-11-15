@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
@@ -57,7 +59,7 @@ void main() {
           pinnedRpc: transport.requestOn,
         ),
         transport.connectionEvents,
-        profile: 'work',
+        profile: resolvedProfile('work'),
         viewerIds: ids,
         events: (name, [attributes = const {}]) =>
             logged.add('$name $attributes'),
@@ -108,7 +110,7 @@ void main() {
         final bare = BotScreenController(
           BotScreenRepository((method, params, {required timeout}) async => {}),
           const Stream.empty(),
-          profile: 'work',
+          profile: resolvedProfile('work'),
         );
 
         expect(bare.inControlHere, isFalse);
@@ -234,7 +236,7 @@ void main() {
         final bare = BotScreenController(
           BotScreenRepository((method, params, {required timeout}) async => {}),
           const Stream.empty(),
-          profile: 'work',
+          profile: resolvedProfile('work'),
         );
 
         bare.adoptLease(const BotScreenLease(holder: BotScreenHolder.human));

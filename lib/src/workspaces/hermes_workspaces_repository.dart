@@ -2,7 +2,7 @@ import 'package:dio/dio.dart' show DioException, Response;
 import 'package:hermes_api/hermes_api.dart';
 
 import '../chat/gateway/gateway_rpc_client.dart';
-import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
+import '../profiles/profile_resolver.dart';
 import 'workspace_models.dart';
 import 'workspace_paths.dart';
 import 'workspace_telemetry.dart';
@@ -34,7 +34,7 @@ const _completionCap = 30;
 /// Reads the server's projects and folders, and moves a chat to another
 /// folder.
 ///
-/// Every call names its profile (`default` for none), since Hermes answers
+/// Every call names a [ResolvedProfile], since Hermes answers
 /// for its launch home otherwise. Every call yields a [WorkspacesResult]
 /// instead of throwing, and a failure is only a kind: the request URL (which
 /// carries a path), a path and the server's own error text (a `4017` echoes
@@ -70,7 +70,7 @@ class HermesWorkspacesRepository {
   /// when none is picked. With [scan] the server also walks the profile's
   /// scan folders first.
   Future<WorkspacesResult<WorkspaceCatalog>> catalog({
-    String? profile,
+    required ResolvedProfile profile,
     bool scan = false,
   }) => _listed(
     WorkspaceListKind.catalog,
@@ -79,11 +79,11 @@ class HermesWorkspacesRepository {
   );
 
   Future<WorkspacesResult<WorkspaceCatalog>> _catalogRead({
-    String? profile,
+    required ResolvedProfile profile,
     bool scan = false,
   }) => _rest(
     () => _api.getChatWorkspacesApiChatWorkspacesGet(
-      profile: profile ?? kDefaultProfile,
+      profile: profile,
       scan: scan,
     ),
     (body) => body is Map ? _catalog(body) : null,
@@ -103,7 +103,7 @@ class HermesWorkspacesRepository {
   /// server without the route, which answers the same status.
   Future<WorkspacesResult<FolderListing>> listFolders(
     String path, {
-    String? profile,
+    required ResolvedProfile profile,
     bool routeKnown = false,
   }) => _listed(
     WorkspaceListKind.browse,
@@ -112,13 +112,10 @@ class HermesWorkspacesRepository {
 
   Future<WorkspacesResult<FolderListing>> _foldersRead(
     String path, {
-    String? profile,
+    required ResolvedProfile profile,
     bool routeKnown = false,
   }) => _rest(
-    () => _api.fsListApiFsListGet(
-      path: path,
-      profile: profile ?? kDefaultProfile,
-    ),
+    () => _api.fsListApiFsListGet(path: path, profile: profile),
     (body) {
       if (body is! Map) return null;
       final error = body['error'];
@@ -152,7 +149,7 @@ class HermesWorkspacesRepository {
   /// list without asking.
   Future<WorkspacesResult<PathSuggestions>> complete(
     String word, {
-    String? profile,
+    required ResolvedProfile profile,
   }) async {
     if (!isServerPath(word)) {
       return const WorkspacesOk(PathSuggestions(folders: [], capped: false));
@@ -161,7 +158,7 @@ class HermesWorkspacesRepository {
       WorkspaceListKind.suggest,
       _gateway('complete.path', {
         'word': word,
-        'profile': profile ?? kDefaultProfile,
+        'profile': profile,
       }, (result) => _suggestions(word, result)),
     );
   }
@@ -174,7 +171,7 @@ class HermesWorkspacesRepository {
   Future<WorkspacesResult<MovedWorkspace>> moveWorkspace(
     String storedId,
     String cwd, {
-    String? profile,
+    required ResolvedProfile profile,
   }) async {
     if (!isServerPath(cwd)) {
       return const WorkspacesFailed(WorkspacesFailure.notAServerPath);
@@ -182,11 +179,7 @@ class HermesWorkspacesRepository {
     final span = telemetry.startMove();
     final result = await _gateway(
       'session.workspace.move',
-      {
-        'session_key': storedId,
-        'cwd': cwd,
-        'profile': profile ?? kDefaultProfile,
-      },
+      {'session_key': storedId, 'cwd': cwd, 'profile': profile},
       _moved,
       codes: const {
         4007: WorkspacesFailure.sessionGone,
@@ -224,11 +217,11 @@ class HermesWorkspacesRepository {
   /// to a move came to.
   Future<WorkspacesResult<SessionFolder>> sessionFolder(
     String id, {
-    String? profile,
+    required ResolvedProfile profile,
   }) => _rest(
     () => _api.getSessionDetailApiSessionsSessionIdGet(
       sessionId: id,
-      profile: profile ?? kDefaultProfile,
+      profile: profile,
     ),
     (body) => body is Map
         ? SessionFolder(
@@ -248,8 +241,10 @@ class HermesWorkspacesRepository {
 
   /// The folders the profile scans for projects (`desktop.repo_scan_roots`),
   /// empty when none are set.
-  Future<WorkspacesResult<List<String>>> scanRoots({String? profile}) => _rest(
-    () => _api.getConfigApiConfigGet(profile: profile ?? kDefaultProfile),
+  Future<WorkspacesResult<List<String>>> scanRoots({
+    required ResolvedProfile profile,
+  }) => _rest(
+    () => _api.getConfigApiConfigGet(profile: profile),
     (body) {
       if (body is! Map) return null;
       final desktop = body['desktop'];

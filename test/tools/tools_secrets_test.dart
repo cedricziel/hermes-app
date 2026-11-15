@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,7 +38,7 @@ void main() {
     events = [];
     repository = HermesToolsRepository(
       api,
-      profile: 'work',
+      profile: resolvedProfile('work'),
       telemetry: ConnectionTelemetry(
         tracer: tracer,
         events: (name, [attributes = const {}]) =>

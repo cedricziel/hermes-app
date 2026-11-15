@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -224,6 +225,7 @@ void main() {
           'scan_enabled': false,
         });
       chat = ChatController(
+        profileResolver: ProfileResolver.known('default'),
         repository: HermesChatRepository(server.client().raw),
         transport: FakeChatTransport(),
         workspaces: HermesWorkspacesRepository(

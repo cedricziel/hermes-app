@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -63,7 +65,12 @@ void main() {
     () async {
       final c = _cases['catalog_with_project_and_scanned_repo']!;
       server.on('GET', '/api/chat/workspaces', c['body']);
-      final catalog = ok(await repository.catalog(scan: true));
+      final catalog = ok(
+        await repository.catalog(
+          profile: resolvedProfile('default'),
+          scan: true,
+        ),
+      );
       final project = catalog.projects.single;
       expect(project.name, 'Demo project');
       expect(project.slug, 'demo-project');
@@ -89,7 +96,7 @@ void main() {
       status: c['status']! as int,
     );
     failed(
-      await repository.catalog(profile: 'ghost-profile'),
+      await repository.catalog(profile: resolvedProfile('ghost-profile')),
       WorkspacesFailure.unknownProfile,
     );
   });
@@ -101,8 +108,12 @@ void main() {
       '/api/fs/list',
       _cases['fs_list_with_dot_entries']!['body'],
     );
-    final names = ok(await repository.listFolders('/srv/demo/proj')).folders
-        .map((f) => f.name);
+    final names = ok(
+      await repository.listFolders(
+        profile: resolvedProfile('default'),
+        '/srv/demo/proj',
+      ),
+    ).folders.map((f) => f.name);
     expect(names, ['.hiddendir', 'empty', 'real', 'src']);
     expect(names, isNot(contains('link')));
   });
@@ -110,17 +121,35 @@ void main() {
   test('complete.path builds the next text from the typed folder, never from '
       'the relative text', () async {
     rpcCase = 'complete_abs';
-    final got = ok(await repository.complete('/srv/demo/proj/s'));
+    final got = ok(
+      await repository.complete(
+        profile: resolvedProfile('default'),
+        '/srv/demo/proj/s',
+      ),
+    );
     expect(got.folders.map((s) => s.text), ['/srv/demo/proj/src/']);
     rpcCase = 'complete_abs_dir';
-    final all = ok(await repository.complete('/srv/demo/proj/'));
+    final all = ok(
+      await repository.complete(
+        profile: resolvedProfile('default'),
+        '/srv/demo/proj/',
+      ),
+    );
     expect(all.folders.map((s) => s.text), contains('/srv/demo/proj/src/'));
     expect(
       all.folders.map((s) => s.text),
       everyElement(startsWith('/srv/demo/proj/')),
     );
     rpcCase = 'complete_missing';
-    expect(ok(await repository.complete('/srv/demo/nope/x')).folders, isEmpty);
+    expect(
+      ok(
+        await repository.complete(
+          profile: resolvedProfile('default'),
+          '/srv/demo/nope/x',
+        ),
+      ).folders,
+      isEmpty,
+    );
   });
 
   test('a move answer with empty branch and repository root reads as none, '
@@ -128,6 +157,7 @@ void main() {
     rpcCase = 'move_ok';
     final moved = ok(
       await repository.moveWorkspace(
+        profile: resolvedProfile('default'),
         '20260101_090000_a1b2c3',
         '/srv/demo/plain',
       ),
@@ -143,7 +173,11 @@ void main() {
     ]) {
       rpcCase = name;
       failed(
-        await repository.moveWorkspace('20260101_090000_a1b2c3', '/srv/demo/x'),
+        await repository.moveWorkspace(
+          profile: resolvedProfile('default'),
+          '20260101_090000_a1b2c3',
+          '/srv/demo/x',
+        ),
         kind,
       );
     }
@@ -152,11 +186,18 @@ void main() {
   test('the rpc requests carry the word, the stored id, the path and the '
       'profile', () async {
     rpcCase = 'complete_abs';
-    await repository.complete('/srv/demo/proj/s');
+    await repository.complete(
+      profile: resolvedProfile('default'),
+      '/srv/demo/proj/s',
+    );
     expect(calls.last.$1, 'complete.path');
     expect(calls.last.$2, {'word': '/srv/demo/proj/s', 'profile': 'default'});
     rpcCase = 'move_ok';
-    await repository.moveWorkspace('20260101_090000_a1b2c3', '/srv/demo/plain');
+    await repository.moveWorkspace(
+      profile: resolvedProfile('default'),
+      '20260101_090000_a1b2c3',
+      '/srv/demo/plain',
+    );
     expect(calls.last.$1, 'session.workspace.move');
     expect(calls.last.$2, {
       'session_key': '20260101_090000_a1b2c3',
@@ -174,7 +215,10 @@ void main() {
       status: c['status']! as int,
     );
     failed(
-      await repository.sessionFolder('20260101_090000_a1b2c3'),
+      await repository.sessionFolder(
+        profile: resolvedProfile('default'),
+        '20260101_090000_a1b2c3',
+      ),
       WorkspacesFailure.sessionGone,
     );
   });
@@ -182,7 +226,9 @@ void main() {
   test('a named profile\'s catalog default folder is its own', () async {
     final c = _cases['catalog_named_profile']!;
     server.on('GET', '/api/chat/workspaces', c['body']);
-    final catalog = ok(await repository.catalog(profile: 'demo-profile'));
+    final catalog = ok(
+      await repository.catalog(profile: resolvedProfile('demo-profile')),
+    );
     expect(catalog.defaultCwd, '/srv/hermes-home/profiles/demo-profile');
   });
 

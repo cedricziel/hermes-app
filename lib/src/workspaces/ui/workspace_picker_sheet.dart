@@ -7,7 +7,6 @@ import '../../chat/chat_controller.dart';
 import '../../chat/chat_models.dart';
 import '../../files/server_path.dart';
 import '../../files/widgets/file_row.dart';
-import '../../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import '../../theme/breakpoints.dart';
 import '../../widgets/adaptive_sheet.dart';
 import '../widgets/folder_browser_view.dart';
@@ -34,8 +33,10 @@ Future<FolderPick?> showWorkspacePicker(
 }) {
   final repository = chat.workspaces;
   final loader = chat.workspaceCatalog();
-  if (repository == null || loader == null) return Future.value();
-  final profile = chat.profile ?? kDefaultProfile;
+  final profile = chat.profileResolver?.resolve(chat.profile);
+  if (repository == null || loader == null || profile == null) {
+    return Future.value();
+  }
   final current = moving?.workingDirectory ?? moving?.folderPath;
   final picked = moving == null ? chat.workspaceChoice?.path : null;
   return showAdaptiveSheet<FolderPick>(

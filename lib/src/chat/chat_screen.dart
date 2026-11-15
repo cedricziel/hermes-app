@@ -82,6 +82,7 @@ import '../notifications/notification_settings.dart';
 import '../notifications/request_notifications.dart' show accountHashFor;
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../plugins/plugins_screen.dart';
+import '../profiles/profile_resolver.dart';
 import '../profiles/chat_profiles.dart';
 import 'gateway_connection_transport.dart';
 import 'invalidation/change_invalidation_binding.dart';
@@ -106,7 +107,6 @@ import '../server_care/replies_in_progress.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
-import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import '../surfaces/surface_snapshot_store.dart';
 import '../surfaces/surface_snapshots.dart';
 import '../telemetry/breadcrumbs.dart';
@@ -194,6 +194,7 @@ class ChatScreen extends StatefulWidget {
     this.mcp,
     this.tools,
     this.toolsAvailability,
+    this.profileResolver,
     this.onShowChat,
     this.onExternalNavigation,
     this.onShareEntry,
@@ -237,6 +238,10 @@ class ChatScreen extends StatefulWidget {
   /// Whether the server offers Tools; the shell's when null. Without either
   /// there is no Tools entry.
   final ToolsAvailability? toolsAvailability;
+
+  /// Where a chat with no profile works; the profiles' own unless given
+  /// (tests do).
+  final ProfileResolver? profileResolver;
 
   /// Reads what the welcome view's starter prompts are built from; the
   /// connected dashboard's when null.
@@ -349,7 +354,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The Bot Screen of the chat's profile, and what it was made for.
   BotScreenController? _screen;
   BotScreenRepository? _screenRepository;
-  String? _screenProfile;
+  ResolvedProfile? _screenProfile;
 
   /// The viewer ids the server minted for this app in this run, which tell a
   /// lease that is this device's from someone else's.
@@ -552,6 +557,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       usageTelemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
       repository: widget.repository ?? repositories?.chat,
       profiles: _profiles,
+      profileResolver: widget.profileResolver,
       models: _models,
       transport: transport,
       appLock: appLock,

@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,7 +57,7 @@ void main() {
       final h = SetupHarness(tester, world)
         ..repositoryOverride = HermesToolsRepository(
           DefaultApi(dio),
-          profile: 'work',
+          profile: resolvedProfile('work'),
           telemetry: ConnectionTelemetry(
             tracer: tracer,
             events: (name, [attributes = const {}]) =>

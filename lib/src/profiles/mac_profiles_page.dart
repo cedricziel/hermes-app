@@ -121,7 +121,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     if (!_toolsReading.add(name)) return;
     final ToolsResult<ToolsetList> result;
     try {
-      result = await repositories.tools.forProfile(name).list();
+      result = await repositories.tools
+          .forProfile(repositories.profiles.resolver.named(name))
+          .list();
     } finally {
       _toolsReading.remove(name);
     }
@@ -270,7 +272,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         entry: ProvidersEntry.profiles,
       ),
       ProfileSection.tools => ToolsScreen(
-        repository: repositories.tools.forProfile(name),
+        repository: repositories.tools.forProfile(
+          repositories.profiles.resolver.named(name),
+        ),
         availability: _availability,
         onProfileGone: () => unawaited(_profiles.load()),
       ),

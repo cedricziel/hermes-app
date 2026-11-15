@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -32,7 +34,7 @@ void main() {
     controller = BotScreenController(
       BotScreenRepository(transport.requestKeepingConnection),
       transport.connectionEvents,
-      profile: 'work',
+      profile: resolvedProfile('work'),
     );
   });
 

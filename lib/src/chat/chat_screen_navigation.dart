@@ -360,12 +360,9 @@ extension _ChatScreenNavigation on _ChatScreenState {
   Future<void> _openTools() async {
     _closeDrawerIfNarrow();
     final availability = _toolsAvailability;
-    // A chat on the server's default profile names none: use the profile the
-    // list was last asked for.
-    final profile =
-        _chat.profile ??
-        availability?.requestedProfile ??
-        availability?.profile;
+    // The chat's profile, else the launch profile. Not the one the list was
+    // last asked for: that may be another chat's.
+    final profile = _chat.profileResolver?.resolve(_chat.profile);
     final tools = profile == null ? null : _tools?.forProfile(profile);
     if (tools == null) return;
     // The Computer use details link to the bot's screen. The status is read

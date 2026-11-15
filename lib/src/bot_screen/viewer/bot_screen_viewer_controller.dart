@@ -1,3 +1,5 @@
+import '../../profiles/profile_resolver.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -87,7 +89,7 @@ class BotScreenViewerController extends ChangeNotifier {
   final DisplaySocketOpener openSocket;
 
   /// The profile watched; null is the server's default.
-  final String profile;
+  final ResolvedProfile profile;
   final ConnectionTelemetry telemetry;
 
   /// How long a cover may last, while in control, before the stream closes.

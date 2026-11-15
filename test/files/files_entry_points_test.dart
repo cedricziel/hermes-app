@@ -148,7 +148,10 @@ void main() {
     testWidgets('a new chat opens at the catalog folder of its profile', (
       tester,
     ) async {
+      // A server without profiles: the chat names none and the folder
+      // comes from the catalog alone.
       server
+        ..on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404)
         ..on('GET', '/api/chat/workspaces', {
           'projects': [],
           'repos': [],

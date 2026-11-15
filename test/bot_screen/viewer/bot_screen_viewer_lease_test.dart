@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -104,7 +106,7 @@ void main() {
       screen = BotScreenController(
         repository,
         transport.connectionEvents,
-        profile: 'work',
+        profile: resolvedProfile('work'),
         viewerIds: ids,
         events: telemetry.events,
       );
@@ -116,7 +118,7 @@ void main() {
           channels.add(next);
           return next;
         },
-        profile: 'work',
+        profile: resolvedProfile('work'),
         random: _Fixed(),
         telemetry: telemetry,
         coverGrace: coverGrace,
@@ -1109,7 +1111,7 @@ void main() {
         final otherScreen = BotScreenController(
           repository,
           transport.connectionEvents,
-          profile: 'work',
+          profile: resolvedProfile('work'),
           viewerIds: ids,
           events: telemetry.events,
         );
@@ -1121,7 +1123,7 @@ void main() {
             channels.add(next);
             return next;
           },
-          profile: 'work',
+          profile: resolvedProfile('work'),
           random: _Fixed(),
           telemetry: telemetry,
           platform: TargetPlatform.macOS,
@@ -1173,7 +1175,7 @@ void main() {
           channels.add(next);
           return next;
         },
-        profile: 'work',
+        profile: resolvedProfile('work'),
         random: _Fixed(),
         telemetry: telemetry,
         platform: TargetPlatform.macOS,
@@ -1294,7 +1296,7 @@ void main() {
         final otherScreen = BotScreenController(
           repository,
           transport.connectionEvents,
-          profile: 'work',
+          profile: resolvedProfile('work'),
           viewerIds: ids,
           events: telemetry.events,
         );
@@ -1306,7 +1308,7 @@ void main() {
             channels.add(next);
             return next;
           },
-          profile: 'work',
+          profile: resolvedProfile('work'),
           random: _Fixed(),
           telemetry: telemetry,
           platform: TargetPlatform.macOS,

@@ -1,3 +1,5 @@
+import '../profiles/profile_resolver.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/safe_notifier.dart';
@@ -70,7 +72,7 @@ class ToolsAvailability extends ChangeNotifier with SafeNotifier {
   int? enabledCount(String profile) =>
       profile == _rowsProfile ? _rows.where((t) => t.enabled).length : null;
 
-  Future<ToolsAvailabilityRead> refresh(String profile) async {
+  Future<ToolsAvailabilityRead> refresh(ResolvedProfile profile) async {
     final epoch = ++_epoch;
     _requested = profile;
     final result = await _repository.forProfile(profile).list();

@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
@@ -135,7 +136,7 @@ void main() {
     final registry = ToolsSetupRegistry(
       repository: HermesToolsRepository(
         SetupWorld().server.client().raw,
-        profile: 'work',
+        profile: resolvedProfile('work'),
       ),
       confirmLocal: () async => true,
       confirmGrant: () async => true,

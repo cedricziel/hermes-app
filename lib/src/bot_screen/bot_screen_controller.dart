@@ -1,3 +1,5 @@
+import '../profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -69,7 +71,7 @@ class BotScreenController extends ChangeNotifier {
   final BotScreenRepository _repository;
 
   /// The profile the screen is read for; null is the server's default.
-  final String profile;
+  final ResolvedProfile profile;
   final Duration pollEvery;
 
   /// Where `bot_screen.start` is logged, with its outcome only.

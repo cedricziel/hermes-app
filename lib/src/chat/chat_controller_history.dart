@@ -366,17 +366,11 @@ extension _ChatControllerHistory on ChatController {
     }
   }
 
-  /// The sticky active profile, or null when the server has none to report:
-  /// no repository, or a server without the profiles route (404). Any other
-  /// failure throws, so the caller does not list or send unscoped.
-  Future<String?> _activeProfile() async {
-    try {
-      return (await profiles?.loadActive())?.active;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
-      rethrow;
-    }
-  }
+  /// The profile the dashboard was launched with, or null when the server has
+  /// none to report: no repository, or a server without the profiles route
+  /// (404). Any other failure throws, so the caller does not list or send
+  /// unscoped. It is `current`, not the sticky `active` one.
+  Future<String?> _activeProfile() async => await profiles?.resolver.load();
 
   Future<void> _loadModelOptions(
     String? profile,

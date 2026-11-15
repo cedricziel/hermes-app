@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -41,7 +43,7 @@ void main() {
     test('a frame records its outcome and a size bucket only', () async {
       answer = () async => {'data_url': jpegOf(40 * 1024)};
 
-      await repository.thumbnail('work');
+      await repository.thumbnail(resolvedProfile('work'));
 
       final span = tracer.spans.single;
       expect(span.name, 'bot_screen.thumbnail');
@@ -61,7 +63,7 @@ void main() {
         (300, '>=256'),
       ]) {
         answer = () async => {'data_url': jpegOf(kib * 1024)};
-        await repository.thumbnail('default');
+        await repository.thumbnail(resolvedProfile('default'));
         expect(tracer.spans.last.attributes['bytes_kib'], bucket);
       }
     });
@@ -75,7 +77,7 @@ void main() {
       ];
       for (final next in answers) {
         answer = next;
-        await repository.thumbnail('work');
+        await repository.thumbnail(resolvedProfile('work'));
       }
 
       expect(tracer.spans.map((s) => s.attributes['outcome']), [
@@ -93,8 +95,8 @@ void main() {
     test('the watchers the caller names are an attribute', () async {
       answer = () async => {'data_url': jpegOf(1024)};
 
-      await repository.thumbnail('work', watchers: 2);
-      await repository.thumbnail('work');
+      await repository.thumbnail(resolvedProfile('work'), watchers: 2);
+      await repository.thumbnail(resolvedProfile('work'));
 
       expect(tracer.spans.first.attributes['watchers'], 2);
       expect(tracer.spans.last.attributes.containsKey('watchers'), isFalse);
@@ -108,7 +110,7 @@ void main() {
       final controller = BotScreenController(
         repository,
         const Stream<GatewayConnectionEvent>.empty(),
-        profile: 'work',
+        profile: resolvedProfile('work'),
       );
       addTearDown(controller.dispose);
 
@@ -123,7 +125,7 @@ void main() {
     test('no attribute holds the picture, a path or the profile', () async {
       answer = () async => {'data_url': jpegOf(2048)};
 
-      await repository.thumbnail('secret-profile');
+      await repository.thumbnail(resolvedProfile('secret-profile'));
 
       final all = tracer.spans.single.attributes.values.join(' ');
       expect(all, isNot(contains('data:')));
@@ -136,8 +138,8 @@ void main() {
       answer = () async =>
           throw const GatewayRpcException(kGatewayMethodNotFound, 'unknown');
 
-      await repository.status('work');
-      await repository.status('work');
+      await repository.status(resolvedProfile('work'));
+      await repository.status(resolvedProfile('work'));
 
       expect(events, ['bot_screen.unsupported {}']);
     });
@@ -147,18 +149,18 @@ void main() {
       () async {
         Future<void> succeed() async {
           answer = () async => {'supported': true};
-          await repository.status('work');
+          await repository.status(resolvedProfile('work'));
         }
 
         answer = () async => throw const GatewayRequestTimeout();
-        await repository.thumbnail('work');
+        await repository.thumbnail(resolvedProfile('work'));
         await succeed();
         answer = () async =>
             throw const GatewayRpcException(5300, 'secret text');
-        await repository.start('work');
+        await repository.start(resolvedProfile('work'));
         await succeed();
         answer = () async => throw const GatewayConnectionClosed();
-        await repository.status('work');
+        await repository.status(resolvedProfile('work'));
 
         expect(events, [
           'bot_screen.read_failed {method: display.thumbnail, error_type: timeout}',
@@ -171,9 +173,9 @@ void main() {
     test('a streak of failures is logged once', () async {
       answer = () async => throw const GatewayRequestTimeout();
 
-      await repository.thumbnail('work');
-      await repository.thumbnail('work');
-      await repository.status('work');
+      await repository.thumbnail(resolvedProfile('work'));
+      await repository.thumbnail(resolvedProfile('work'));
+      await repository.status(resolvedProfile('work'));
 
       expect(events, hasLength(1));
     });
@@ -181,7 +183,10 @@ void main() {
     test('a call that is not a read failure leaves the logger alone', () async {
       answer = () async => throw StateError('programming error');
 
-      await expectLater(repository.status('work'), throwsStateError);
+      await expectLater(
+        repository.status(resolvedProfile('work')),
+        throwsStateError,
+      );
 
       expect(events, isEmpty);
     });
@@ -189,7 +194,7 @@ void main() {
     test('a status read logs nothing when it works', () async {
       answer = () async => {'supported': true, 'profile_key': '/home/u/work'};
 
-      await repository.status('work');
+      await repository.status(resolvedProfile('work'));
 
       expect(events, isEmpty);
     });
@@ -206,7 +211,7 @@ void main() {
     );
 
     expect(
-      await broken.thumbnail('work'),
+      await broken.thumbnail(resolvedProfile('work')),
       isA<BotScreenFailed<BotScreenFrame>>(),
     );
   });

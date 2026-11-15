@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
@@ -60,7 +62,7 @@ void main() {
   }
 
   InstallState? stateOf([String profile = 'work']) =>
-      installs.stateFor(profile);
+      installs.stateFor(resolvedProfile(profile));
 
   /// The JSON-RPC error code the app answered the request with.
   int? errorCode(String id) =>
@@ -134,7 +136,7 @@ void main() {
 
   /// Presses Install on Server for `work` and lets the answer arrive.
   void install() {
-    installs.start('work', profileKey: _key);
+    installs.start(resolvedProfile('work'), profileKey: _key);
     settle();
   }
 
@@ -260,7 +262,7 @@ void main() {
     test('before the answer to display.install still ends it', () {
       scenario(() {
         gateway.silent.add('display.install');
-        installs.start('work', profileKey: _key);
+        installs.start(resolvedProfile('work'), profileKey: _key);
         settle();
         log('early');
         done(0);
@@ -408,7 +410,7 @@ void main() {
         'for the connection to be known, then is answered', () {
       scenario(() {
         gateway.silent.add('display.install');
-        installs.start('work', profileKey: _key);
+        installs.start(resolvedProfile('work'), profileKey: _key);
         settle();
 
         sudo('srq-1');
@@ -430,7 +432,7 @@ void main() {
     test('a refused install does not leave a waiting request unanswered', () {
       scenario(() {
         gateway.silent.add('display.install');
-        installs.start('work', profileKey: _key);
+        installs.start(resolvedProfile('work'), profileKey: _key);
         settle();
         sudo('srq-1');
 
@@ -483,8 +485,8 @@ void main() {
           'command': _command,
           'profile_key': '/keys/${params['profile']}',
         };
-        installs.start('work', profileKey: '/keys/work');
-        installs.start('home', profileKey: '/keys/home');
+        installs.start(resolvedProfile('work'), profileKey: '/keys/work');
+        installs.start(resolvedProfile('home'), profileKey: '/keys/home');
         settle();
 
         sudo('srq-w', key: '/keys/work');
@@ -713,7 +715,7 @@ void main() {
       });
       scenario(() {
         gateway.silent.add('display.install');
-        installs.start('work', profileKey: _key);
+        installs.start(resolvedProfile('work'), profileKey: _key);
         async.elapse(const Duration(seconds: 11));
 
         expect(tracer.spans.single.attributes['outcome'], 'error');

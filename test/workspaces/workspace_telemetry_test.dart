@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show ValueNotifier;
@@ -135,14 +137,20 @@ void main() {
   group('spans', () {
     test('workspace.list carries the kind, the outcome and counts, not a '
         'folder', () async {
-      await repository.catalog(profile: _profile);
-      await repository.listFolders(_secretFolder, profile: _profile);
+      await repository.catalog(profile: resolvedProfile(_profile));
+      await repository.listFolders(
+        _secretFolder,
+        profile: resolvedProfile(_profile),
+      );
       rpc = (_, _) async => {
         'items': [
           {'text': 'x', 'display': '$_secretName/', 'meta': 'dir'},
         ],
       };
-      await repository.complete('/srv/secret', profile: _profile);
+      await repository.complete(
+        '/srv/secret',
+        profile: resolvedProfile(_profile),
+      );
 
       expect(tracer.spans.map((s) => s.name), [
         'workspace.list',
@@ -175,8 +183,11 @@ void main() {
           'detail': 'Path is outside the managed read boundary $_secretFolder',
         }, status: 403);
 
-      await repository.catalog(profile: _profile);
-      await repository.listFolders(_secretFolder, profile: _profile);
+      await repository.catalog(profile: resolvedProfile(_profile));
+      await repository.listFolders(
+        _secretFolder,
+        profile: resolvedProfile(_profile),
+      );
 
       expect(tracer.spans.map((s) => s.attributes['outcome']), [
         'failed',
@@ -188,14 +199,26 @@ void main() {
 
     test('workspace.move says how it ended, not where to', () async {
       rpc = (_, _) async => {'cwd': _secretFolder, 'branch': _secretBranch};
-      await repository.moveWorkspace('s1', _secretFolder, profile: _profile);
+      await repository.moveWorkspace(
+        's1',
+        _secretFolder,
+        profile: resolvedProfile(_profile),
+      );
       rpc = (_, _) async => throw GatewayRpcException(
         4017,
         'working directory does not exist: $_secretFolder',
       );
-      await repository.moveWorkspace('s1', _secretFolder, profile: _profile);
+      await repository.moveWorkspace(
+        's1',
+        _secretFolder,
+        profile: resolvedProfile(_profile),
+      );
       rpc = (_, _) async => throw GatewayRpcException(5007, 'move failed');
-      await repository.moveWorkspace('s1', _secretFolder, profile: _profile);
+      await repository.moveWorkspace(
+        's1',
+        _secretFolder,
+        profile: resolvedProfile(_profile),
+      );
 
       expect(tracer.spans.map((s) => s.name), List.filled(3, 'workspace.move'));
       expect(tracer.spans.map((s) => s.attributes['outcome']), [
@@ -207,7 +230,11 @@ void main() {
     });
 
     test('a path that is not a server path starts no span', () async {
-      await repository.moveWorkspace('s1', 'relative/path', profile: _profile);
+      await repository.moveWorkspace(
+        's1',
+        'relative/path',
+        profile: resolvedProfile(_profile),
+      );
 
       expect(tracer.spans, isEmpty);
     });
@@ -255,6 +282,7 @@ void main() {
       );
       await lock.load();
       chat = ChatController(
+        profileResolver: ProfileResolver.known('default'),
         repository: HermesChatRepository(server.client().raw),
         workspaces: repository,
         activity: activity,

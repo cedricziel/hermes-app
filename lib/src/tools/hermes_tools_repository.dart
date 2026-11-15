@@ -1,3 +1,5 @@
+import '../profiles/profile_resolver.dart';
+
 import 'dart:io' show SocketException;
 
 import 'package:dio/dio.dart';
@@ -85,7 +87,7 @@ class HermesToolsRoot {
   final ConnectionTelemetry telemetry;
 
   /// The tools of [profile].
-  HermesToolsRepository forProfile(String profile) =>
+  HermesToolsRepository forProfile(ResolvedProfile profile) =>
       HermesToolsRepository(_api, profile: profile, telemetry: telemetry);
 }
 
@@ -107,12 +109,12 @@ class HermesToolsRepository {
     this._api, {
     required this.profile,
     this.telemetry = const ConnectionTelemetry(),
-  }) : assert(profile.isNotEmpty, 'Tools calls always name a profile');
+  });
 
   final DefaultApi _api;
 
   /// The profile every call acts on.
-  final String profile;
+  final ResolvedProfile profile;
   final ConnectionTelemetry telemetry;
 
   Future<ToolsResult<ToolsetList>> list() async {

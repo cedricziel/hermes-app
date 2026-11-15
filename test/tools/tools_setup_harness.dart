@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -37,7 +39,10 @@ class SetupHarness {
 
   HermesToolsRepository repositoryFor(String profile) =>
       repositoryOverride ??
-      HermesToolsRepository(world.server.client().raw, profile: profile);
+      HermesToolsRepository(
+        world.server.client().raw,
+        profile: resolvedProfile(profile),
+      );
 
   Future<void> pump({
     Size size = phone,

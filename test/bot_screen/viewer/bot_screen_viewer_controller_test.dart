@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -172,7 +174,7 @@ void main() {
       screen = BotScreenController(
         repository,
         broadcasts.stream,
-        profile: 'work',
+        profile: resolvedProfile('work'),
       );
       viewer = BotScreenViewerController(
         repository: repository,
@@ -195,7 +197,7 @@ void main() {
               return next;
           }
         },
-        profile: 'work',
+        profile: resolvedProfile('work'),
         random: random ?? _Fixed(0.5),
         telemetry: ConnectionTelemetry(
           tracer: tracer,

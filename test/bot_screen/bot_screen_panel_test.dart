@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -140,7 +142,7 @@ void main() {
       screen ??= BotScreenController(
         BotScreenRepository(transport.requestKeepingConnection),
         transport.connectionEvents,
-        profile: 'work',
+        profile: resolvedProfile('work'),
       );
     }
     final composer = TextEditingController();

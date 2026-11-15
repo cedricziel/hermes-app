@@ -296,16 +296,27 @@ class OpenRequestsStep extends BackgroundStep {
         throw const _PartialRead();
       }
       final seenAt = _now();
+      // A session listed without a profile belongs to the one the dashboard
+      // was launched with; if that cannot be read it is left out.
+      String? launch;
+      if (waiting.any((w) => w.profile == null)) {
+        try {
+          launch = await context.hermes.repositories.profiles.resolver.load();
+        } on Object {
+          launch = null;
+        }
+      }
       _found.complete([
         for (final w in waiting)
-          PendingRequest(
-            profile: w.profile ?? kDefaultProfile,
-            threadId: w.key,
-            threadTitle: w.title,
-            kind: w.kind,
-            requestId: w.requestId,
-            createdAt: seenAt,
-          ),
+          if ((w.profile ?? launch) case final profile?)
+            PendingRequest(
+              profile: profile,
+              threadId: w.key,
+              threadTitle: w.title,
+              kind: w.kind,
+              requestId: w.requestId,
+              createdAt: seenAt,
+            ),
       ]);
       return StepCounts(newRequests: announced);
     } finally {
