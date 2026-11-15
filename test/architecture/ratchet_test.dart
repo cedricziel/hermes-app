@@ -158,6 +158,23 @@ void main() {
     });
   });
 
+  test('an update without prune keeps orphan ids, prune removes them', () {
+    final current = {
+      'arch.a': {'x.dart': 3},
+      'arch.gone': {'y.dart': 1},
+    };
+    final rewritten = {
+      'arch.a': {'x.dart': 1},
+    };
+    expect(updatedBaseline(current, rewritten, ['arch.gone'], prune: false), {
+      'arch.a': {'x.dart': 1},
+      'arch.gone': {'y.dart': 1},
+    });
+    expect(updatedBaseline(current, rewritten, ['arch.gone'], prune: true), {
+      'arch.a': {'x.dart': 1},
+    });
+  });
+
   test('orphanIds lists unclaimed ids of the namespace only', () {
     final baseline = {
       'arch.a': {'x': 1},
@@ -238,9 +255,64 @@ void main() {
       expect(found.byNamespace, isEmpty);
     });
 
+    test('a helper function inside a *_test.dart file fails', () {
+      write(
+        'a_test.dart',
+        "void reg() { ratchetTests(r, namespace: 'arch'); }\n"
+            'void main() { reg(); }\n',
+      );
+      expect(scan().problems.single, contains('not called directly'));
+    });
+
+    test('a call inside a closure in main fails', () {
+      write(
+        'a_test.dart',
+        "void main() { group('g', () { ratchetTests(r, namespace: 'arch'); }); }\n",
+      );
+      expect(scan().problems.single, contains('not called directly'));
+    });
+
+    test('a nested namespace is not the call\'s namespace', () {
+      write(
+        'a_test.dart',
+        "void main() { ratchetTests(r, extra: Foo(namespace: 'arch')); }\n",
+      );
+      expect(scan().problems.single, contains('not a string literal'));
+    });
+
+    test('a tear-off fails', () {
+      write(
+        'a_test.dart',
+        'void main() { final f = ratchetTests; f(r, namespace: ns); }\n',
+      );
+      expect(scan().problems.single, contains('used as a value'));
+    });
+
+    test('a declaration is not a call', () {
+      write(
+        'helper.dart',
+        'void ratchetTests(List r, {required String namespace}) {}\n'
+            'Future<void> ratchetTests(List r, {required String namespace}) async {}\n',
+      );
+      expect(scan().problems, isEmpty);
+    });
+
+    test('an arrow main and a block main both count', () {
+      write(
+        'a_test.dart',
+        "void main() => ratchetTests(r, namespace: 'arch');",
+      );
+      write(
+        'b_test.dart',
+        "Future<void> main() async {\n  ratchetTests(r, namespace: 'style');\n}\n",
+      );
+      expect(scan().problems, isEmpty);
+      expect(scan().byNamespace.keys, unorderedEquals(['arch', 'style']));
+    });
+
     test('a helper wrapper outside a *_test.dart file fails', () {
       write('helper.dart', "void reg() => ratchetTests(r, namespace: 'arch');");
-      expect(scan().problems.single, contains('outside a *_test.dart'));
+      expect(scan().problems.single, contains('not called directly'));
     });
 
     test('a namespace that is not a literal fails', () {
