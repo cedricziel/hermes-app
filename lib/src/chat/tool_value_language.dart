@@ -12,6 +12,48 @@ const int kToolJsonSniffMaxChars = 64 * 1024;
 /// above the bound is not asked.
 bool isJsonContainerText(String text) => tryDecodeJsonContainer(text) != null;
 
+/// The deepest nesting the Tree view is offered for. The tree's widgets nest
+/// one level per level of JSON and a few thousand levels overflow the stack,
+/// so deeper JSON shows as flat text only.
+const int kToolJsonTreeMaxDepth = 64;
+
+/// How deep [text] nests brackets outside string literals, counted without
+/// recursion and given up on once it passes [kToolJsonTreeMaxDepth]
+/// (the result is then [kToolJsonTreeMaxDepth] + 1).
+int jsonNestingDepth(String text) {
+  var depth = 0;
+  var deepest = 0;
+  var inString = false;
+  var escaped = false;
+  for (var i = 0; i < text.length; i++) {
+    final unit = text.codeUnitAt(i);
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (unit == 0x5C) {
+        escaped = true;
+      } else if (unit == 0x22) {
+        inString = false;
+      }
+    } else if (unit == 0x22) {
+      inString = true;
+    } else if (unit == 0x7B || unit == 0x5B) {
+      if (++depth > deepest) deepest = depth;
+      if (deepest > kToolJsonTreeMaxDepth) return deepest;
+    } else if (unit == 0x7D || unit == 0x5D) {
+      depth--;
+    }
+  }
+  return deepest;
+}
+
+/// [tryDecodeJsonContainer] for the Tree view: null as well when [text] nests
+/// deeper than [kToolJsonTreeMaxDepth], checked before anything is decoded.
+Object? tryDecodeJsonTree(String text) =>
+    jsonNestingDepth(text) > kToolJsonTreeMaxDepth
+    ? null
+    : tryDecodeJsonContainer(text);
+
 /// The decoded object or array of [text] under the rules of
 /// [isJsonContainerText]; null when it is not one.
 Object? tryDecodeJsonContainer(String text) {

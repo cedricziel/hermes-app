@@ -54,6 +54,19 @@ void main() {
       expect(toolValueLanguage('[1]', path: 'notes.xyz'), 'json');
     });
 
+    test(
+      'nesting depth ignores brackets in strings and gives up past the cap',
+      () {
+        expect(jsonNestingDepth('{"a": [[1], "[[[["]}'), 3);
+        expect(jsonNestingDepth(r'["\"[[[", 1]'), 1);
+        expect(jsonNestingDepth('[' * 32000), kToolJsonTreeMaxDepth + 1);
+        expect(tryDecodeJsonTree('[' * 70 + ']' * 70), isNull);
+        expect(tryDecodeJsonTree('[' * 64 + ']' * 64), isNotNull);
+        // Still JSON for the sniff, so it is coloured as flat text.
+        expect(toolValueLanguage('[' * 5000 + ']' * 5000), 'json');
+      },
+    );
+
     test('JSON above the size bound is not parsed and stays plain', () {
       final inside = '[${List.filled(1000, '1').join(',')}]';
       expect(inside.length, lessThan(kToolJsonSniffMaxChars));

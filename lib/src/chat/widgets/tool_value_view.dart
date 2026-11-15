@@ -213,11 +213,12 @@ class ToolJsonTree extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
-    final decoded = value ?? tryDecodeJsonContainer(text);
+    final decoded = value ?? tryDecodeJsonTree(text);
+    // Not JSON, or nested too deep for the tree's widgets: flat text, never
+    // a JsonView. A given [value] is trusted to come from tryDecodeJsonTree.
+    if (decoded == null) return ToolValueView(text: text, language: 'json');
     return JsonView.string(
-      decoded == null
-          ? toolDisplayText(text)
-          : jsonEncode(_displayValue(decoded)),
+      jsonEncode(_displayValue(decoded)),
       theme: JsonViewTheme(
         backgroundColor: Colors.transparent,
         defaultTextStyle: _mono.copyWith(color: scheme.onSurface),
@@ -291,7 +292,7 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
   late Object? _decoded = _sniff();
 
   Object? _sniff() => widget.settled && widget.language == 'json'
-      ? tryDecodeJsonContainer(widget.text)
+      ? tryDecodeJsonTree(widget.text)
       : null;
 
   @override

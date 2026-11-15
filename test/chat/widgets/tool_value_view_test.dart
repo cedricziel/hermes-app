@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_json_view/flutter_json_view.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/tool_value_language.dart';
 import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/src/files/code_highlight.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -336,6 +337,85 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a valid surrogate pair (an emoji) is shown unchanged', (
+      tester,
+    ) async {
+      const text = '{"k":"😀 ok"}';
+      await tester.pumpWidget(
+        _host(
+          const ToolValuePanel(label: 'Input', text: text, language: 'json'),
+        ),
+      );
+      expect(_shown(_spans(tester)), text);
+      await tester.pumpWidget(_host(const SizedBox()));
+      await tester.pumpWidget(
+        _host(
+          const ToolValuePanel(
+            label: 'Input',
+            text: text,
+            language: 'json',
+            initiallyTree: true,
+          ),
+        ),
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is SelectableText && (w.data ?? '').contains('😀 ok'),
+        ),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(
+        _host(const ToolValuePanel(label: 'Result', text: 'a 😀 b')),
+      );
+      expect(
+        tester
+            .widget<SelectableText>(find.byType(SelectableText))
+            .textSpan!
+            .toPlainText(),
+        'a 😀 b',
+      );
+    });
+
+    testWidgets('JSON nested too deep is flat text with no tree or switch', (
+      tester,
+    ) async {
+      for (final depth in [kToolJsonTreeMaxDepth + 1, 5000, 32000]) {
+        final text = '${'[' * depth}${']' * depth}';
+        for (final tree in [false, true]) {
+          await tester.pumpWidget(
+            _host(
+              ToolValuePanel(
+                label: 'Result',
+                text: text,
+                language: 'json',
+                initiallyTree: tree,
+              ),
+            ),
+          );
+          expect(tester.takeException(), isNull, reason: '$depth');
+          expect(find.byType(JsonView), findsNothing, reason: '$depth');
+          expect(find.byKey(_toggle), findsNothing, reason: '$depth');
+          expect(find.byType(SelectableText), findsOneWidget);
+        }
+        // A tree asked for directly falls back to flat text too.
+        await tester.pumpWidget(_host(ToolJsonTree(text: text)));
+        expect(find.byType(JsonView), findsNothing, reason: '$depth');
+      }
+      await tester.pumpWidget(_host(const SizedBox()));
+      await _workersGone(tester);
+    });
+
+    testWidgets('JSON at the depth limit still gets the tree switch', (
+      tester,
+    ) async {
+      final text =
+          '${'[' * kToolJsonTreeMaxDepth}${']' * kToolJsonTreeMaxDepth}';
+      await tester.pumpWidget(
+        _host(ToolValuePanel(label: 'Result', text: text, language: 'json')),
+      );
+      expect(find.byKey(_toggle), findsOneWidget);
     });
 
     testWidgets('the switch says which view is active', (tester) async {
