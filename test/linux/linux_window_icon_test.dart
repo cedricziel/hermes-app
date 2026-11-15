@@ -30,11 +30,26 @@ void main() {
     expect(calls, hasLength(1));
     expect(calls.single.start, greaterThan(closeAt));
     expect(runner, isNot(contains('    set_window_icon(window);')));
-    expect(
-      runner,
-      contains('gtk_window_set_icon_name(window, APPLICATION_ID)'),
-    );
-    expect(runner, contains('gdk_pixbuf_new_from_file_at_size(file, 256, 256'));
+    expect(runner, contains('gtk_icon_theme_load_icon'));
+    expect(runner, contains('gdk_pixbuf_new_from_file_at_size'));
+    expect(runner, contains('gtk_window_set_icon(window'));
+  });
+
+  test('every icon the runner loads is at most 256 px', () {
+    // GDK on X11 drops an icon over 262144 pixels (512 x 512 is 262146), so
+    // the window would get no icon at all.
+    final size = RegExp(r'kWindowIconSize = (\d+)').firstMatch(runner);
+    expect(size, isNotNull);
+    expect(int.parse(size!.group(1)!), lessThanOrEqualTo(256));
+    final loads = RegExp(
+      r'(gtk_icon_theme_load_icon|gdk_pixbuf_new_from_file_at_size)\(([^;]*?)\)\s*;',
+      dotAll: true,
+    ).allMatches(runner).toList();
+    expect(loads, hasLength(2));
+    for (final load in loads) {
+      expect(load.group(2), contains('kWindowIconSize'));
+      expect(load.group(2), isNot(contains('512')));
+    }
   });
 
   test('the .desktop file and the installed theme icon use the app id', () {
