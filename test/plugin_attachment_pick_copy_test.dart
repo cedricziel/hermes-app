@@ -137,6 +137,10 @@ void main() {
   });
 
   test('a later file that fails removes the copies already made', () async {
+    final keep = await store.stageCopy(
+      'keep.txt',
+      writeTemp(pluginDir, 'keep.txt', [5]),
+    );
     final first = writeTemp(pluginDir, 'one.pdf', [1]);
     final source = PluginAttachmentSource(
       platform: TargetPlatform.iOS,
@@ -152,13 +156,18 @@ void main() {
       throwsA(isA<MediaFetchException>()),
     );
 
-    expect(cache.listSync(recursive: true).whereType<File>(), isEmpty);
+    expect(keep.existsSync(), isTrue);
+    expect(
+      cache.listSync(recursive: true).whereType<File>().map((f) => f.path),
+      [keep.path],
+    );
     expect(
       cache
           .listSync(recursive: true)
           .whereType<Directory>()
-          .where((d) => d.path != '${cache.path}/hermes_media'),
-      isEmpty,
+          .where((d) => d.path != '${cache.path}/hermes_media')
+          .map((d) => d.path),
+      [keep.parent.path],
     );
   });
 

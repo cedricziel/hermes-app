@@ -615,20 +615,69 @@ void main() {
       }
     });
 
-    test('a failed fill removes its empty folder too', () async {
+    test('the sweep removes the empty folder a failed fill left', () async {
       final picked = writeTemp(tempDir('picked'), 'notes.txt', [1]);
       final store = MediaStore(
         source: HermesMediaSource(() => server.client()),
         cacheDirectory: () async => cache,
         copyFile: (source, to) async => throw const FileSystemException('x'),
       );
-
       await expectLater(
         store.stageCopy('notes.txt', picked),
         throwsA(isA<MediaFetchException>()),
       );
 
+      await store.sweep(mediaCacheMaxAge);
+
       expect(Directory('${cache.path}/hermes_media').listSync(), isEmpty);
+    });
+
+    test('discard of a trailing-slash folder path deletes nothing', () async {
+      final picked = writeTemp(tempDir('picked'), 'notes.txt', [1]);
+      final store = newStore();
+      final file = await store.stageCopy('notes.txt', picked);
+
+      await store.discard(File('${file.parent.path}/'));
+
+      expect(file.existsSync(), isTrue);
+    });
+
+    test('discard through a symlink and .. deletes nothing', () async {
+      final picked = writeTemp(tempDir('picked'), 'notes.txt', [1]);
+      final store = newStore();
+      final file = await store.stageCopy('notes.txt', picked);
+      final folder = file.parent.uri.pathSegments.lastWhere(
+        (s) => s.isNotEmpty,
+      );
+      // A decoy with the same folder name outside the cache.
+      final outside = tempDir('outside');
+      final decoy = File('${outside.path}/$folder/f')
+        ..createSync(recursive: true);
+      final root = '${cache.path}/hermes_media';
+      Directory('${outside.path}/inner').createSync();
+      Link('$root/sym').createSync('${outside.path}/inner');
+
+      await store.discard(File('$root/sym/../$folder/f'));
+
+      expect(decoy.existsSync(), isTrue);
+      expect(file.existsSync(), isTrue);
+    });
+
+    test('discard keeps other staged folders', () async {
+      final store = newStore();
+      final keep = await store.stageCopy(
+        'keep.txt',
+        writeTemp(tempDir('picked'), 'keep.txt', [7]),
+      );
+      final gone = await store.stageCopy(
+        'gone.txt',
+        writeTemp(tempDir('picked'), 'gone.txt', [8]),
+      );
+
+      await store.discard(gone);
+
+      expect(gone.existsSync(), isFalse);
+      expect(keep.existsSync(), isTrue);
     });
 
     test('stageCopy copies again when the file changed', () async {

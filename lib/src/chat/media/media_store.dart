@@ -227,19 +227,28 @@ class MediaStore {
   }
 
   /// Deletes a file [stageCopy] returned, with its folder; anything else,
-  /// such as a path outside the staging root or a Files-page folder, is left
-  /// alone. Best effort.
+  /// such as a path outside the staging root, a Files-page folder or a path
+  /// with a dot segment or a trailing slash, is left alone. The folder
+  /// deleted is built from this store's own root and the checked segment,
+  /// never from [staged]. Best effort.
   Future<void> discard(File staged) => _quietly(() async {
-    final root = Uri.directory((await _root()).absolute.path).normalizePath();
-    final path = Uri.file(staged.absolute.path).normalizePath();
-    final rootSegments = root.pathSegments.where((s) => s.isNotEmpty).toList();
-    final segments = path.pathSegments;
+    final root = await _root();
+    // Raw segments: Uri would fold a `..` away, but the OS follows a link.
+    final sep = Platform.pathSeparator;
+    final rootSegments = root.absolute.path.split(sep);
+    final segments = staged.absolute.path.split(sep);
     if (segments.length != rootSegments.length + 2) return;
     for (var i = 0; i < rootSegments.length; i++) {
       if (segments[i] != rootSegments[i]) return;
     }
-    if (!_stagedCopyFolder.hasMatch(segments[rootSegments.length])) return;
-    await staged.parent.delete(recursive: true);
+    if (segments
+        .skip(rootSegments.length)
+        .any((s) => s.isEmpty || s == '.' || s == '..')) {
+      return;
+    }
+    final folder = segments[rootSegments.length];
+    if (!_stagedCopyFolder.hasMatch(folder)) return;
+    await Directory('${root.path}/$folder').delete(recursive: true);
   });
 
   /// The file for [key], made by [fill] into the path it is given the first
@@ -294,10 +303,6 @@ class MediaStore {
       if (leftover != null) {
         await _quietly(() async {
           await leftover.delete();
-        });
-        // A fill that failed leaves its folder; delete only an empty one.
-        await _quietly(() async {
-          await leftover.parent.delete();
         });
       }
       if (e is MediaFetchException || identical(e, fillFailure)) rethrow;
