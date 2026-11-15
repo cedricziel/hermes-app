@@ -61,8 +61,8 @@ void main() {
           dark: dark,
         );
         for (final (text, color) in [
-          ('Official', scheme.primaryContainer),
-          ('Trusted', scheme.secondaryContainer),
+          ('Official', scheme.primary),
+          ('Trusted', dark ? HermesColors.zinc700 : HermesColors.zinc200),
           ('Community', scheme.surfaceContainerHighest),
         ]) {
           final d = _decoration(tester, text);
