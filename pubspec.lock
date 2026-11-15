@@ -1913,7 +1913,7 @@ packages:
     source: hosted
     version: "4.6.0"
   val_highlight:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: val_highlight
       sha256: dbb36108dfc96aa09f544dc25dc769be0a60fa1c420a53bf23fadfafd7707049

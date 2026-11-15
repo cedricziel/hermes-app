@@ -2639,6 +2639,234 @@
   "@@x-area-plugins": "",
 
   "@@x-area-profiles": "",
+  "profilesSoulBannerCheck": "Check",
+  "@profilesSoulBannerCheck": {
+    "description": "Banner action that reads the file to find out whether an unconfirmed save arrived."
+  },
+  "profilesSoulBannerCheckAgain": "Check again",
+  "@profilesSoulBannerCheckAgain": {
+    "description": "Banner action after a check could not be completed."
+  },
+  "profilesSoulBannerCheckFailedTitle": "Couldn't confirm",
+  "@profilesSoulBannerCheckFailedTitle": {
+    "description": "Title of the banner when the check read got no answer within 10 seconds."
+  },
+  "profilesSoulBannerChecking": "Checking…",
+  "@profilesSoulBannerChecking": {
+    "description": "Shown in the banner in place of its action while the file is read to check a save."
+  },
+  "profilesSoulBannerLostDetail": "It may have gone through. Your text is still here.",
+  "@profilesSoulBannerLostDetail": {
+    "description": "Detail of the warning banner when the save request got no answer."
+  },
+  "profilesSoulBannerLostTitle": "Couldn't confirm the save",
+  "@profilesSoulBannerLostTitle": {
+    "description": "Title of the warning banner when the save request got no answer."
+  },
+  "profilesSoulBannerNothingSent": "Couldn't check the server first, so nothing was sent.",
+  "@profilesSoulBannerNothingSent": {
+    "description": "Error banner when the read before a save failed. The text stays in the editor."
+  },
+  "profilesSoulBannerOfflineDetail": "Couldn't load the personality.",
+  "@profilesSoulBannerOfflineDetail": {
+    "description": "Detail of the offline banner on the personality page."
+  },
+  "profilesSoulBannerOfflineTitle": "You're offline.",
+  "@profilesSoulBannerOfflineTitle": {
+    "description": "Title of the warning banner when the personality could not be loaded because the device is offline."
+  },
+  "profilesSoulBannerReadFailed": "Couldn't read the personality file on the server.",
+  "@profilesSoulBannerReadFailed": {
+    "description": "Error banner when loading the personality failed. No editor is shown."
+  },
+  "profilesSoulBannerSaveFailedDetail": "Hermes reported a problem. Nothing was changed on the server.",
+  "@profilesSoulBannerSaveFailedDetail": {
+    "description": "Detail of the error banner when the server refused the personality text."
+  },
+  "profilesSoulBannerSaveFailedTitle": "Couldn't save",
+  "@profilesSoulBannerSaveFailedTitle": {
+    "description": "Title of the error banner when the server refused the personality text."
+  },
+  "profilesSoulBannerTryAgain": "Try again",
+  "@profilesSoulBannerTryAgain": {
+    "description": "Banner action that repeats the failed read or the save check."
+  },
+  "profilesSoulChangedBody": "This file changed since you opened it. Replacing it will lose those changes.",
+  "@profilesSoulChangedBody": {
+    "description": "Body of the changed-on-the-server sheet."
+  },
+  "profilesSoulChangedCopied": "Copied",
+  "@profilesSoulChangedCopied": {
+    "description": "Confirmation after the server text was copied; announced to screen readers."
+  },
+  "profilesSoulChangedCopy": "Copy",
+  "@profilesSoulChangedCopy": {
+    "description": "Button under the server's version that copies its text to the clipboard."
+  },
+  "profilesSoulChangedGone": "The file was removed on the server.",
+  "@profilesSoulChangedGone": {
+    "description": "Body of the changed-on-the-server sheet when the file no longer exists on the server."
+  },
+  "profilesSoulChangedReplaceAnyway": "Replace anyway",
+  "@profilesSoulChangedReplaceAnyway": {
+    "description": "Plain button of the changed-on-the-server sheet that replaces the server file with the user's text."
+  },
+  "profilesSoulChangedServerEmpty": "No personality set.",
+  "@profilesSoulChangedServerEmpty": {
+    "description": "What the server's version box says when the file is gone on the server."
+  },
+  "profilesSoulChangedServerVersionLabel": "Server's version of the personality text",
+  "@profilesSoulChangedServerVersionLabel": {
+    "description": "Accessibility label of the read-only box holding the server's text."
+  },
+  "profilesSoulChangedShowVersion": "Show server's version",
+  "@profilesSoulChangedShowVersion": {
+    "description": "Row that opens the server's current personality text inside the changed-on-the-server sheet."
+  },
+  "profilesSoulChangedTitle": "Changed on the server",
+  "@profilesSoulChangedTitle": {
+    "description": "Title of the sheet shown when the personality file changed on the server after the page loaded it."
+  },
+  "profilesSoulCount": "{count, plural, =1{1 character} other{{count} characters}}",
+  "@profilesSoulCount": {
+    "description": "Length of the personality text, shown under the editor. It counts code points, as the server does, not UTF-16 units. The number is shown with the locale's thousands separator.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "profilesSoulDiscard": "Discard",
+  "@profilesSoulDiscard": {
+    "description": "Button of the discard question that throws away the unsaved personality edits. Plain, never red or filled."
+  },
+  "profilesSoulDiscardBody": "Your edits to the personality of {profile} haven't been saved.",
+  "@profilesSoulDiscardBody": {
+    "description": "Body of the discard question. The placeholder is the profile name.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "profilesSoulDiscardTitle": "Discard changes?",
+  "@profilesSoulDiscardTitle": {
+    "description": "Title of the question asked when leaving the page, reverting or closing the window with unsaved personality edits."
+  },
+  "profilesSoulEditorLabel": "Personality text for {profile}",
+  "@profilesSoulEditorLabel": {
+    "description": "Accessibility label of the personality text field. The placeholder is the profile name.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "profilesSoulEmptyFile": "Hermes uses its default personality while this is empty.",
+  "@profilesSoulEmptyFile": {
+    "description": "Info line under the editor while its text is empty (an empty file, or the user cleared it). Saving empty text makes Hermes use its built-in default."
+  },
+  "profilesSoulFootnote": "This is the SOUL.md file Hermes reads for this profile. It tells Hermes who it is and how to talk.",
+  "@profilesSoulFootnote": {
+    "description": "Note under the personality editor. SOUL.md is a literal file name and stays as it is. It is the only place the file name appears."
+  },
+  "profilesSoulGoneDetail": "It may have been deleted on the server.",
+  "@profilesSoulGoneDetail": {
+    "description": "Detail of the profile-gone message."
+  },
+  "profilesSoulGoneTitle": "This profile no longer exists.",
+  "@profilesSoulGoneTitle": {
+    "description": "Message on the personality page when the profile was deleted on the server."
+  },
+  "profilesSoulHint": "Describe who Hermes is and how it should talk.",
+  "@profilesSoulHint": {
+    "description": "Hint shown inside the empty personality text field."
+  },
+  "profilesSoulKeepEditing": "Keep editing",
+  "@profilesSoulKeepEditing": {
+    "description": "Default button of the discard question and of the changed-on-the-server sheet: stay on the page and keep the text."
+  },
+  "profilesSoulLoading": "Loading personality…",
+  "@profilesSoulLoading": {
+    "description": "Text under the spinner while the personality file is read."
+  },
+  "profilesSoulLongNote": "Hermes may shorten text this long when it builds a chat. The limit depends on your server's settings.",
+  "@profilesSoulLongNote": {
+    "description": "Info line under the character count once the personality text reaches 20,000 characters. It never blocks editing or saving."
+  },
+  "profilesSoulNotSet": "No personality set yet.",
+  "@profilesSoulNotSet": {
+    "description": "Info line under the empty editor when the profile has no personality file yet."
+  },
+  "profilesSoulQuestionBody": "New chats use it. Chats already running usually keep the old one; Bot Chats may pick it up.",
+  "@profilesSoulQuestionBody": {
+    "description": "Body of the save question. A chat that is already running keeps the personality it started with; Bot Chats can rebuild it."
+  },
+  "profilesSoulQuestionBodyEmpty": "Hermes will use its default personality. Chats already running usually keep the old one; Bot Chats may pick it up.",
+  "@profilesSoulQuestionBodyEmpty": {
+    "description": "Body of the save question when the text to save is empty."
+  },
+  "profilesSoulQuestionPendingNote": "An earlier save may still be pending on the server.",
+  "@profilesSoulQuestionPendingNote": {
+    "description": "Sentence added to the save question after Check found the earlier text: the earlier request can still arrive."
+  },
+  "profilesSoulQuestionReplace": "Replace",
+  "@profilesSoulQuestionReplace": {
+    "description": "Confirm button of the question before the personality is replaced. A plain button, never red."
+  },
+  "profilesSoulQuestionTitle": "Replace the personality of {profile}?",
+  "@profilesSoulQuestionTitle": {
+    "description": "Title of the question asked on every save, because saving replaces the whole file. The placeholder is the profile name, up to 64 characters.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "profilesSoulRevert": "Revert",
+  "@profilesSoulRevert": {
+    "description": "Quiet button that throws away unsaved edits to the personality text after a confirmation. Not the same as Discard in the question."
+  },
+  "profilesSoulRowDetail": "Who Hermes is and how it talks",
+  "@profilesSoulRowDetail": {
+    "description": "Detail line under the Personality entry in the Mac Profiles page."
+  },
+  "profilesSoulSave": "Save",
+  "@profilesSoulSave": {
+    "description": "Button and bar action that saves the personality text."
+  },
+  "profilesSoulSaving": "Saving",
+  "@profilesSoulSaving": {
+    "description": "Accessibility label of the spinner that replaces the Save label while a save or a check runs, announced to screen readers."
+  },
+  "profilesSoulStatusEarlierText": "The server still has the earlier text. Your text is still here.",
+  "@profilesSoulStatusEarlierText": {
+    "description": "Status line after Check found that an earlier save did not reach the server."
+  },
+  "profilesSoulStatusSaved": "Saved. New chats use it.",
+  "@profilesSoulStatusSaved": {
+    "description": "Status line under the editor after the personality was saved. Chats that are already running keep the old one."
+  },
+  "profilesSoulTitle": "Personality",
+  "@profilesSoulTitle": {
+    "description": "Title of the page where the user edits how Hermes behaves in one profile (the profile's SOUL.md file), and the label of the sidebar and Profiles page entry. Keep it short; fits a 28 pt row."
+  },
+  "profilesSoulUnsupportedBack": "Back",
+  "@profilesSoulUnsupportedBack": {
+    "description": "Outlined button of the old-server message that leaves the page."
+  },
+  "profilesSoulUnsupportedDetail": "Updating Hermes on the server adds them.",
+  "@profilesSoulUnsupportedDetail": {
+    "description": "Detail of the old-server message."
+  },
+  "profilesSoulUnsupportedTitle": "This server doesn't offer personality settings.",
+  "@profilesSoulUnsupportedTitle": {
+    "description": "Message on the personality page when the server is too old to have the personality routes."
+  },
 
   "@@x-area-providers": "",
   "providersAccountsFailed": "Account sign-in isn't available right now.",
