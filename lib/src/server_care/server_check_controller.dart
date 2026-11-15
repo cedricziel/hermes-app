@@ -11,6 +11,7 @@ import '../telemetry/telemetry.dart';
 import 'action_status.dart';
 import 'care_result.dart';
 import 'doctor_report.dart';
+import 'resumable_sleep.dart';
 import 'server_care_repository.dart';
 
 enum CheckPhase {
@@ -118,7 +119,7 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
   int _progress = 0;
   int _runId = 0;
   Future<void>? _running;
-  Completer<void>? _wake;
+  late final _pause = ResumableSleep(_delay);
 
   // What tells this run's lines from an earlier run's, when the answer to the
   // request was lost.
@@ -225,8 +226,7 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
   /// The app came back to the front: the next read happens now instead of
   /// when a timer that the suspended app never ran would have fired.
   void resumed() {
-    final wake = _wake;
-    if (wake != null && !wake.isCompleted) wake.complete();
+    _pause.wake();
   }
 
   @override
@@ -493,14 +493,7 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
     return 'failed';
   }
 
-  Future<void> _wait() async {
-    final wake = _wake = Completer<void>();
-    try {
-      await Future.any([_delay(_interval), wake.future]);
-    } finally {
-      if (identical(_wake, wake)) _wake = null;
-    }
-  }
+  Future<void> _wait() => _pause.sleep(_interval);
 
   static String? _tail(List<String> lines) {
     if (lines.isEmpty) return null;
