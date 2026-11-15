@@ -20,6 +20,8 @@ class TouchRowMenu extends StatefulWidget {
     required this.pinned,
     required this.onAction,
     required this.child,
+    this.canonical = false,
+    this.initiallyOpen = false,
   });
 
   final String title;
@@ -27,12 +29,29 @@ class TouchRowMenu extends StatefulWidget {
   final ValueChanged<ThreadAction> onAction;
   final Widget child;
 
+  /// A canonical Bot Chat: no Rename, and Archive reads "Retire Bot Chat…",
+  /// as in `ThreadActionsButton`.
+  final bool canonical;
+
+  /// Opens the menu once the row is on screen, for the catalog.
+  final bool initiallyOpen;
+
   @override
   State<TouchRowMenu> createState() => _TouchRowMenuState();
 }
 
 class _TouchRowMenuState extends State<TouchRowMenu> {
   final _menu = MenuController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initiallyOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openAtRowEnd();
+      });
+    }
+  }
 
   void _openAt(Offset local) {
     if (_menu.isOpen) _menu.close();
@@ -56,14 +75,20 @@ class _TouchRowMenuState extends State<TouchRowMenu> {
     return CupertinoMenuAnchor(
       controller: _menu,
       menuChildren: [
-        item(ThreadAction.rename, l10n.chatWidgetsThreadMenuRename),
+        if (!widget.canonical)
+          item(ThreadAction.rename, l10n.chatWidgetsThreadMenuRename),
         item(
           ThreadAction.pin,
           widget.pinned
               ? l10n.chatWidgetsThreadMenuUnpin
               : l10n.chatWidgetsThreadMenuPin,
         ),
-        item(ThreadAction.archive, l10n.chatWidgetsThreadMenuArchive),
+        item(
+          ThreadAction.archive,
+          widget.canonical
+              ? l10n.chatWidgetsThreadMenuRetire
+              : l10n.chatWidgetsThreadMenuArchive,
+        ),
         const CupertinoMenuDivider(),
         CupertinoMenuItem(
           isDestructiveAction: true,

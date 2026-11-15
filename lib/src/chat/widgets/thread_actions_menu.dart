@@ -222,37 +222,43 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
               child: Text(context.l10n.filesEntryLabel),
             ),
           if (widget.includeCopyTranscript) ...[
-            const PopupMenuItem(
+            PopupMenuItem(
               value: ThreadAction.copyTranscript,
-              child: Text('Copy transcript'),
+              child: Text(context.l10n.chatWidgetsThreadMenuCopyTranscript),
             ),
             if (widget.exportJson case final offer?)
               PopupMenuItem(
                 value: ThreadAction.exportJson,
                 enabled: offer.enabled,
-                child: const Text('Export chat as JSON…'),
+                child: Text(context.l10n.chatWidgetsThreadMenuExportJson),
               ),
             if (housekeeping != null) const PopupMenuDivider(),
           ],
           if (housekeeping != null) ...[
             if (!_thread.isCanonicalBotChat)
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: ThreadAction.rename,
-                child: Text('Rename'),
+                child: Text(context.l10n.chatWidgetsThreadMenuRename),
               ),
             PopupMenuItem(
               value: ThreadAction.pin,
-              child: Text(_thread.pinned ? 'Unpin' : 'Pin'),
+              child: Text(
+                _thread.pinned
+                    ? context.l10n.chatWidgetsThreadMenuUnpin
+                    : context.l10n.chatWidgetsThreadMenuPin,
+              ),
             ),
             PopupMenuItem(
               value: ThreadAction.archive,
               child: Text(
-                _thread.isCanonicalBotChat ? 'Retire Bot Chat…' : 'Archive',
+                _thread.isCanonicalBotChat
+                    ? context.l10n.chatWidgetsThreadMenuRetire
+                    : context.l10n.chatWidgetsThreadMenuArchive,
               ),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: ThreadAction.delete,
-              child: Text('Delete'),
+              child: Text(context.l10n.chatWidgetsThreadMenuDelete),
             ),
           ],
         ],

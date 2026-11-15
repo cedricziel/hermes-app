@@ -2188,6 +2188,10 @@
   "@chatWidgetsThreadMenuCancel": {
     "description": "Cancel button of the alert that asks before deleting a chat from its row menu."
   },
+  "chatWidgetsThreadMenuCopyTranscript": "Copy transcript",
+  "@chatWidgetsThreadMenuCopyTranscript": {
+    "description": "Row of a chat's actions menu that copies the whole conversation as text."
+  },
   "chatWidgetsThreadMenuDelete": "Delete",
   "@chatWidgetsThreadMenuDelete": {
     "description": "Row of a chat's popover menu on an iPad that deletes the chat, and the red button of the alert that confirms it."
@@ -2206,6 +2210,10 @@
   "@chatWidgetsThreadMenuDeleteTitle": {
     "description": "Title of the alert that asks before deleting a chat from its row menu."
   },
+  "chatWidgetsThreadMenuExportJson": "Export chat as JSON…",
+  "@chatWidgetsThreadMenuExportJson": {
+    "description": "Row of a chat's actions menu that saves the conversation as a JSON file, after a confirmation."
+  },
   "chatWidgetsThreadMenuLabel": "Chat actions for {title}",
   "@chatWidgetsThreadMenuLabel": {
     "description": "Screen reader hint of a chat row on an iPad: a long press opens the chat's menu.",
@@ -2223,6 +2231,10 @@
   "chatWidgetsThreadMenuRename": "Rename",
   "@chatWidgetsThreadMenuRename": {
     "description": "Row of a chat's popover menu on an iPad that renames the chat."
+  },
+  "chatWidgetsThreadMenuRetire": "Retire Bot Chat…",
+  "@chatWidgetsThreadMenuRetire": {
+    "description": "Row of a Bot Chat's actions menu that archives the canonical conversation, after a confirmation."
   },
   "chatWidgetsThreadMenuUnpin": "Unpin",
   "@chatWidgetsThreadMenuUnpin": {

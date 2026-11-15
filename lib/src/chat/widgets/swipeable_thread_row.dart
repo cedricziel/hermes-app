@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/breakpoints.dart';
 import 'thread_actions_menu.dart';
@@ -18,6 +19,7 @@ class SwipeableThreadRow extends StatelessWidget {
     required this.pinned,
     required this.onAction,
     required this.child,
+    this.canonical = false,
   });
 
   final String title;
@@ -25,18 +27,25 @@ class SwipeableThreadRow extends StatelessWidget {
   final ValueChanged<ThreadAction> onAction;
   final Widget child;
 
-  String get _pinLabel => pinned ? 'Unpin' : 'Pin';
+  /// A canonical Bot Chat: the popover leaves out Rename and offers Retire.
+  final bool canonical;
+
+  String _pinLabel(BuildContext context) => pinned
+      ? context.l10n.chatWidgetsThreadMenuUnpin
+      : context.l10n.chatWidgetsThreadMenuPin;
 
   Future<void> _showSheet(BuildContext context) async {
+    final l10n = context.l10n;
+    final pinLabel = _pinLabel(context);
     final action = await showCupertinoModalPopup<ThreadAction>(
       context: context,
       builder: (sheet) => CupertinoActionSheet(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           for (final (action, label) in [
-            (ThreadAction.rename, 'Rename'),
-            (ThreadAction.pin, _pinLabel),
-            (ThreadAction.archive, 'Archive'),
+            (ThreadAction.rename, l10n.chatWidgetsThreadMenuRename),
+            (ThreadAction.pin, pinLabel),
+            (ThreadAction.archive, l10n.chatWidgetsThreadMenuArchive),
           ])
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(sheet).pop(action),
@@ -45,12 +54,12 @@ class SwipeableThreadRow extends StatelessWidget {
           CupertinoActionSheetAction(
             isDestructiveAction: true,
             onPressed: () => Navigator.of(sheet).pop(ThreadAction.delete),
-            child: const Text('Delete'),
+            child: Text(l10n.chatWidgetsThreadMenuDelete),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(sheet).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.chatWidgetsThreadMenuCancel),
         ),
       ),
     );
@@ -59,15 +68,17 @@ class SwipeableThreadRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final pinLabel = _pinLabel(context);
     return Semantics(
       customSemanticsActions: {
-        const CustomSemanticsAction(label: 'Rename'): () =>
+        CustomSemanticsAction(label: l10n.chatWidgetsThreadMenuRename): () =>
             onAction(ThreadAction.rename),
-        CustomSemanticsAction(label: _pinLabel): () =>
+        CustomSemanticsAction(label: pinLabel): () =>
             onAction(ThreadAction.pin),
-        const CustomSemanticsAction(label: 'Archive'): () =>
+        CustomSemanticsAction(label: l10n.chatWidgetsThreadMenuArchive): () =>
             onAction(ThreadAction.archive),
-        const CustomSemanticsAction(label: 'Delete'): () =>
+        CustomSemanticsAction(label: l10n.chatWidgetsThreadMenuDelete): () =>
             onAction(ThreadAction.delete),
       },
       child: Slidable(
@@ -80,7 +91,7 @@ class SwipeableThreadRow extends StatelessWidget {
               backgroundColor: CupertinoColors.systemOrange,
               foregroundColor: CupertinoColors.white,
               icon: (pinned ? AppIcons.unpin : AppIcons.pin).of(context),
-              label: _pinLabel,
+              label: pinLabel,
             ),
           ],
         ),
@@ -93,7 +104,7 @@ class SwipeableThreadRow extends StatelessWidget {
               backgroundColor: CupertinoColors.destructiveRed,
               foregroundColor: CupertinoColors.white,
               icon: AppIcons.delete.of(context),
-              label: 'Delete',
+              label: l10n.chatWidgetsThreadMenuDelete,
             ),
           ],
         ),
@@ -101,6 +112,7 @@ class SwipeableThreadRow extends StatelessWidget {
             ? TouchRowMenu(
                 title: title,
                 pinned: pinned,
+                canonical: canonical,
                 onAction: onAction,
                 child: child,
               )

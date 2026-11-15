@@ -445,22 +445,38 @@ WidgetbookNode chatNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'TouchRowMenu',
       useCases: [
-        for (final (name, pinned) in [('Unpinned', false), ('Pinned', true)])
+        for (final (name, pinned, canonical, open) in [
+          ('Unpinned', false, false, false),
+          ('Pinned', true, false, false),
+          ('Menu open, unpinned', false, false, true),
+          ('Menu open, pinned', true, false, true),
+          ('Menu open, Bot Chat', false, true, true),
+        ])
           WidgetbookUseCase(
             name: name,
             builder: (_) => frame(
-              TouchRowMenu(
-                title: 'Release notes',
-                pinned: pinned,
-                onAction: (_) {},
-                child: SidebarRow(
-                  selected: false,
-                  onTap: () {},
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 9,
+              SizedBox(
+                height: open ? 300 : null,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: TouchRowMenu(
+                    title: 'Release notes',
+                    pinned: pinned,
+                    canonical: canonical,
+                    initiallyOpen: open,
+                    onAction: (_) {},
+                    child: SidebarRow(
+                      selected: false,
+                      onTap: () {},
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
+                      child: const Text(
+                        'Release notes (long press for the menu)',
+                      ),
+                    ),
                   ),
-                  child: const Text('Release notes (long press for the menu)'),
                 ),
               ),
               maxWidth: 360,

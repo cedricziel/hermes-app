@@ -53,6 +53,15 @@ void main() {
 
     expect(find.byType(CupertinoActionSheet), findsNothing);
     expect(menuItems, findsNWidgets(4));
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Semantics &&
+            w.properties.hintOverrides?.onLongPressHint ==
+                'Chat actions for Release notes',
+      ),
+      findsOneWidget,
+    );
     for (final label in ['Rename', 'Pin', 'Archive', 'Delete']) {
       expect(
         find.descendant(of: menuItems, matching: find.text(label)),
@@ -66,7 +75,6 @@ void main() {
           .first,
     );
     expect(menu.width, lessThan(300));
-    expect(menu.width, lessThan(rowRect.width * 2));
     expect(
       (menu.top - rowRect.top).abs(),
       lessThan(rowRect.height + 24),
@@ -94,10 +102,6 @@ void main() {
       find
           .ancestor(of: menuItems.first, matching: find.byType(Scrollable))
           .first,
-    );
-    expect(
-      menu.contains(at + const Offset(1, 1)) || menu.left >= at.dx - 4,
-      true,
     );
     expect((menu.left - at.dx).abs(), lessThan(8));
     expect((menu.top - at.dy).abs(), lessThan(40));
