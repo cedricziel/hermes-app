@@ -13,7 +13,9 @@ Decisions taken in the design pass:
 - Community, Hub, Bundled, Agent: fill unchanged (`surfaceContainerHighest`), label named `onSurface` instead of left to the default. Light 16.1:1, dark 14.3:1.
 - Every label is at least 4.5:1 in both themes. The lowest is Trusted in dark at 10.0:1.
 - Shape and size are unchanged: `AppBadge` 6 px radius, 12 px text, the same padding.
-- The tiers differ by weight of fill (solid, mid, faint), and the word carries the meaning. The Trusted and Community fills are one step apart, so a screen must never show the fill alone.
+- The tiers differ by weight of fill (solid, mid, faint), and the word carries the meaning. The label text is never below 4.5:1 against its own fill; the fill is decoration only. The Trusted and Community fills are about 1.2:1 apart, so they are not a distinction on their own and a screen must never show the fill alone.
+
+Corrections after the pass: the canvas shows Trusted using a new `secondaryContainer` / `onSecondaryContainer` scheme pair; that is changed to a private pair (see the build notes). The colours, ratios and boards are unchanged.
 
 Corrections where this brief did not work: none.
 
@@ -41,7 +43,7 @@ Official is black on black in light and white on white in dark.
 
 ## Build notes
 
-- Give `AppBadge.filled` a required `labelColor` so a filled badge can never take a label colour it was not paired with. Update its other callers.
-- The Trusted fill has no colour scheme role today. Either add `secondaryContainer` and `onSecondaryContainer` to both schemes in `lib/src/theme/hermes_theme.dart` (zinc200 and zinc900 in light, zinc700 and zinc50 in dark), or keep a private pair in `skill_badges.dart`. Prefer the scheme: it makes the fallback to `secondary` go away for every future use.
+- Give `AppBadge.filled` a required `labelColor` so a filled badge can never take a label colour it was not paired with. The callers to update are `lib/src/skills/widgets/skill_badges.dart` (`TrustBadge`, line 27, and `SourceBadge`, line 44) and the "Filled, surface colours" use case in `widgetbook/app_badge_use_cases.dart` (lines 74-79, which still passes `primaryContainer` and `secondaryContainer`). `test/widgets/banner_badge_pins_test.dart` builds `TrustBadge` and `SourceBadge` rather than `AppBadge.filled`, so it needs no signature change, but its size pins must still pass.
+- The Trusted fill has no colour scheme role today. Keep a private pair in `skill_badges.dart` (zinc200 and zinc900 in light, zinc700 and zinc50 in dark), not new `secondaryContainer` / `onSecondaryContainer` roles in `lib/src/theme/hermes_theme.dart`. Adding those roles would recolour every Material widget that reads them app-wide (SegmentedButton, the NavigationBar indicator, tonal buttons, profile avatars), a visual change nobody reviewed. The private pair changes only the badge. (The first draft of this brief preferred the scheme.)
 - Widgetbook: one use case showing all six badges, both themes. A test that computes the contrast of each pair in both themes and fails under 4.5.
 - The ratios were computed with the WCAG relative luminance formula from the zinc values in `HermesColors`.
