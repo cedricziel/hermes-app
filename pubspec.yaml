@@ -136,6 +136,10 @@ dependencies:
   # gpt_markdown, so this adds no package; see the server-files change.
   val_highlight: ^0.1.1
 
+  # Open the system notification settings after a denial; Android needs an
+  # intent, which a plain launchUrl('app-settings:') does not send.
+  app_settings: ^9.0.1
+
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
 # upstream SPM implementation until those packages publish their next release.
 dependency_overrides:

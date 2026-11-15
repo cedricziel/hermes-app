@@ -102,6 +102,14 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatReplyInterruptedGone": "This reply is no longer on the server.",
+  "@chatReplyInterruptedGone": {
+    "description": "Note under a reply that was settled because the server answered that it no longer has the turn or its session (and did not restart). Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyInterruptedRestarted": "Hermes restarted. This reply was interrupted.",
+  "@chatReplyInterruptedRestarted": {
+    "description": "Note under a reply that was settled because Hermes restarted while it was being written and did not bring the turn back. Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
   "chatReplyReconnectIdle": "Couldn't reconnect. Hermes may still be working on this. Trying again when you come back.",
   "@chatReplyReconnectIdle": {
     "description": "Note under a reply whose connection was lost and could not be won back after many tries. Nothing is being tried any more; the reply is picked up again when the app comes to the front or the chat is opened. Wraps at any text size."
@@ -109,6 +117,10 @@
   "chatReplyReconnecting": "Connection lost. Reconnecting…",
   "@chatReplyReconnecting": {
     "description": "Note under a reply whose connection to Hermes dropped while the answer may still be coming. Not an error: the reply keeps what it had and goes on when the connection is back. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyUnconfirmed": "Couldn't confirm how this reply ended. It may have finished; check the conversation first.",
+  "@chatReplyUnconfirmed": {
+    "description": "Note under a reply that was settled because the server could not be made to say whether its turn still runs or how it ended (its answers were refused, or it went silent for longer than any live turn). Nothing was resent. Announced once to screen readers. Wraps at any text size."
   },
   "chatScrollToLatest": "Scroll to latest message",
   "@chatScrollToLatest": {
@@ -2778,6 +2790,166 @@
   "@macosCompressConversation": {
     "description": "Mac menu bar, Chat menu item: asks to summarize the open chat's earlier messages to free up context; opens a confirmation. Title case, keep it short."
   },
+  "macosMenuAbout": "About Hermes",
+  "@macosMenuAbout": {
+    "description": "Hermes menu: opens the About dialog."
+  },
+  "macosMenuArchive": "Archive",
+  "@macosMenuArchive": {
+    "description": "Chat menu: archives the open chat."
+  },
+  "macosMenuBack": "Back",
+  "@macosMenuBack": {
+    "description": "View menu: leaves the settings page in front."
+  },
+  "macosMenuChangeFolder": "Change Folder…",
+  "@macosMenuChangeFolder": {
+    "description": "Chat menu: moves the open chat to another working folder; opens a picker."
+  },
+  "macosMenuChat": "Chat",
+  "@macosMenuChat": {
+    "description": "Title of the Chat menu in the menu bar."
+  },
+  "macosMenuCloseWindow": "Close Window",
+  "@macosMenuCloseWindow": {
+    "description": "File menu: closes the window in front."
+  },
+  "macosMenuConnectionDetails": "Connection Details",
+  "@macosMenuConnectionDetails": {
+    "description": "Hermes menu: opens the connection page."
+  },
+  "macosMenuCopy": "Copy",
+  "@macosMenuCopy": {
+    "description": "Edit menu: copies the selection."
+  },
+  "macosMenuCopyTranscript": "Copy Transcript",
+  "@macosMenuCopyTranscript": {
+    "description": "Chat menu: copies the open chat as text."
+  },
+  "macosMenuCut": "Cut",
+  "@macosMenuCut": {
+    "description": "Edit menu: cuts the selection."
+  },
+  "macosMenuDelete": "Delete…",
+  "@macosMenuDelete": {
+    "description": "Chat menu: deletes the open chat after a confirmation."
+  },
+  "macosMenuEdit": "Edit",
+  "@macosMenuEdit": {
+    "description": "Title of the Edit menu in the menu bar."
+  },
+  "macosMenuEnclosingFolder": "Enclosing Folder",
+  "@macosMenuEnclosingFolder": {
+    "description": "View menu: goes up one folder on the Files page."
+  },
+  "macosMenuExportChat": "Export Chat as JSON…",
+  "@macosMenuExportChat": {
+    "description": "Chat menu: saves the open chat as a JSON file; a dialog follows."
+  },
+  "macosMenuFile": "File",
+  "@macosMenuFile": {
+    "description": "Title of the File menu in the menu bar; the system name."
+  },
+  "macosMenuFind": "Find…",
+  "@macosMenuFind": {
+    "description": "Chat menu: focuses the chat search field."
+  },
+  "macosMenuForward": "Forward",
+  "@macosMenuForward": {
+    "description": "View menu: goes forward in the navigation history."
+  },
+  "macosMenuHelp": "Help",
+  "@macosMenuHelp": {
+    "description": "Title of the Help menu in the menu bar; the system name."
+  },
+  "macosMenuHermesHelp": "Hermes Help",
+  "@macosMenuHermesHelp": {
+    "description": "Help menu: opens the help page in the browser."
+  },
+  "macosMenuHideSidebar": "Hide Sidebar",
+  "@macosMenuHideSidebar": {
+    "description": "View menu while the chat list is shown: hides it."
+  },
+  "macosMenuNewChat": "New Chat",
+  "@macosMenuNewChat": {
+    "description": "File menu: starts a new chat."
+  },
+  "macosMenuNewSchedule": "New Schedule",
+  "@macosMenuNewSchedule": {
+    "description": "File menu while the Schedules page is in front: starts a new scheduled task."
+  },
+  "macosMenuNewTask": "New Task",
+  "@macosMenuNewTask": {
+    "description": "File menu while the Kanban board is in front: starts a new task."
+  },
+  "macosMenuNextChange": "Next Change",
+  "@macosMenuNextChange": {
+    "description": "View menu: shows the next changed file."
+  },
+  "macosMenuOpenInNewWindow": "Open in New Window",
+  "@macosMenuOpenInNewWindow": {
+    "description": "File menu: opens the chat in a window of its own."
+  },
+  "macosMenuPaste": "Paste",
+  "@macosMenuPaste": {
+    "description": "Edit menu: pastes the clipboard."
+  },
+  "macosMenuPin": "Pin",
+  "@macosMenuPin": {
+    "description": "Chat menu: pins the open chat to the top of the list."
+  },
+  "macosMenuPreviousChange": "Previous Change",
+  "@macosMenuPreviousChange": {
+    "description": "View menu: shows the previous changed file."
+  },
+  "macosMenuRedo": "Redo",
+  "@macosMenuRedo": {
+    "description": "Edit menu: redoes the last undone edit."
+  },
+  "macosMenuReload": "Reload",
+  "@macosMenuReload": {
+    "description": "View menu: reads the page in front again."
+  },
+  "macosMenuRename": "Rename…",
+  "@macosMenuRename": {
+    "description": "Chat menu: renames the open chat."
+  },
+  "macosMenuSelectAll": "Select All",
+  "@macosMenuSelectAll": {
+    "description": "Edit menu: selects all text in the focused field."
+  },
+  "macosMenuSettings": "Settings…",
+  "@macosMenuSettings": {
+    "description": "Hermes menu: opens Settings."
+  },
+  "macosMenuShowFiles": "Show Files",
+  "@macosMenuShowFiles": {
+    "description": "View menu: opens the Files page of the chat."
+  },
+  "macosMenuShowSidebar": "Show Sidebar",
+  "@macosMenuShowSidebar": {
+    "description": "View menu while the chat list is hidden: shows it."
+  },
+  "macosMenuSignOut": "Sign Out…",
+  "@macosMenuSignOut": {
+    "description": "Hermes menu: signs out after a confirmation."
+  },
+  "macosMenuUndo": "Undo",
+  "@macosMenuUndo": {
+    "description": "Edit menu: undoes the last edit."
+  },
+  "macosMenuUnpin": "Unpin",
+  "@macosMenuUnpin": {
+    "description": "Chat menu while the chat is pinned: removes the pin."
+  },
+  "macosMenuView": "View",
+  "@macosMenuView": {
+    "description": "Title of the View menu in the menu bar; the system name."
+  },
+  "macosMenuWindow": "Window",
+  "@macosMenuWindow": {
+    "description": "Title of the Window menu in the menu bar; the system name."
+  },
 
   "@@x-area-mcp": "",
 
@@ -3023,6 +3195,14 @@
   "@@x-area-network": "",
 
   "@@x-area-notifications": "",
+  "notificationsDeniedWarning": "Turn on notifications for Hermes in system settings.",
+  "@notificationsDeniedWarning": {
+    "description": "Warning under the Notify me switch after the system refused notifications; the Open settings button sits under it. Keep it to two lines."
+  },
+  "notificationsOpenSettings": "Open settings",
+  "@notificationsOpenSettings": {
+    "description": "Button under the Notify me switch's warning after the system refused notifications; opens the app's notification settings in the system."
+  },
   "notificationsReplyFootnote": "On iPhone, iPad and Mac you can reply to a finished reply from its notification. Not while App Lock is on.",
   "@notificationsReplyFootnote": {
     "description": "Last sentence of the footer under the Notify me switch, shown on iOS and macOS: a finished reply's notification has a Reply button, and it is not offered while App Lock is on."

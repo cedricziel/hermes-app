@@ -115,6 +115,15 @@ void main() {
     expect(announced, ['Reconnecting', "Couldn't reconnect"]);
   });
 
+  testWidgets('the icon scales with the text', (tester) async {
+    await pumpNote(tester);
+    final normal = tester.getSize(find.byType(Icon)).width;
+
+    await pumpNote(tester, scale: 2);
+
+    expect(tester.getSize(find.byType(Icon)).width, normal * 2);
+  });
+
   testWidgets('without a key it never announces', (tester) async {
     await pumpNote(tester);
 
