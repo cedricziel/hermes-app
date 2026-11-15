@@ -119,6 +119,9 @@ const _runningStatuses = {
 };
 const _couldNotStop = 'Could not stop the reply. Try again.';
 
+/// The title of a chat that has no prompt yet.
+const _newChatTitle = 'New chat';
+
 /// An external open interrupted by suspension, for owner-controlled recovery.
 class InterruptedChatOpening {
   const InterruptedChatOpening({
@@ -1549,7 +1552,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _openGeneration++;
     final thread = ChatThread(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      title: 'New chat',
+      title: _newChatTitle,
       updatedAt: DateTime.now(),
       modelChoice: _newChatModel,
     );

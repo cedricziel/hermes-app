@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/queue_storage/durable_queue_store.dart';
 import 'package:hermes_app/src/chat/queue_storage/queue_record.dart';
+import 'package:hermes_app/src/chat/thread_sections.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -509,6 +510,100 @@ void main() {
       expect(transport.followUpCalls, greaterThan(before));
     });
   });
+
+  group(
+    'a turn withdrawn before it was written leaves the thread as it was',
+    () {
+      test('its last activity and its place in the sidebar', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        final updated = thread.updatedAt;
+        final now = DateTime.now();
+        List<ThreadSectionKind> sections() => [
+          for (final s in groupThreads(chat.threads, now: now)) s.kind,
+        ];
+        final before = sections();
+        var wanted = true;
+        await speak(chat, wanted: () => wanted);
+        wanted = false;
+        transport.sends.single.submit();
+        await pumpEventQueue();
+        expect(thread.messages, isEmpty);
+        expect(thread.updatedAt, updated);
+        expect(sections(), before);
+      });
+
+      test('the same when Hermes takes the words as a stop phrase', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        final updated = thread.updatedAt;
+        await speak(chat);
+        transport.sends.single
+          ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+          ..finish();
+        await pumpEventQueue();
+        expect(thread.updatedAt, updated);
+      });
+
+      test('a newer last activity set meanwhile is kept', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        var wanted = true;
+        await speak(chat, wanted: () => wanted);
+        final newer = DateTime.now().add(const Duration(days: 1));
+        thread.updatedAt = newer;
+        wanted = false;
+        transport.sends.single.submit();
+        await pumpEventQueue();
+        expect(thread.updatedAt, newer);
+      });
+
+      test('the earlier reply still settled without a completion', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        await chat.submit('earlier', const []);
+        transport.sends.single
+          ..emit(const SessionInfo(running: false))
+          ..finish();
+        await pumpEventQueue();
+        final earlier = thread.messages.last;
+        expect(earlier.settledWithoutCompletion, isTrue);
+        var wanted = true;
+        await speak(chat, wanted: () => wanted);
+        // The new turn took over the late completion.
+        expect(earlier.settledWithoutCompletion, isFalse);
+        wanted = false;
+        transport.sends.last.submit();
+        await pumpEventQueue();
+        expect(thread.messages.last, same(earlier));
+        expect(earlier.settledWithoutCompletion, isTrue);
+      });
+
+      test('an answer to an earlier stop is still current', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        final stop = Completer<bool>();
+        transport.onStop = (_) => stop.future;
+        await chat.submit('typed', const []);
+        final stopping = chat.stopReply(thread);
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const ReplyCompleted('', stopped: true))
+          ..finish();
+        await pumpEventQueue();
+        var wanted = true;
+        await speak(chat, wanted: () => wanted);
+        wanted = false;
+        transport.sends.last.submit();
+        await pumpEventQueue();
+        // The stop fails after the withdrawn turn: it is still about the reply
+        // before it, so the user is told.
+        stop.completeError(StateError('lost'));
+        await stopping;
+        expect(reports, contains('Could not stop the reply. Try again.'));
+      });
+    },
+  );
 
   test('a stop phrase is reported with the thread it was sent in', () async {
     final chat = await open();

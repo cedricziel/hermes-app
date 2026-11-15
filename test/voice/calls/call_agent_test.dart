@@ -345,6 +345,28 @@ void main() {
       expect(chat.selectedThread!.messages, isEmpty);
     });
 
+    test('interrupt before prompt.submit is written sends nothing', () async {
+      var submitting = 0;
+      final done = agent.reply(
+        'Hello',
+        onText: (_) {},
+        onAttention: (_) {},
+        // The call still wants the turn: only the interrupt says no.
+        wanted: () => true,
+        onSubmitted: () => submitting++,
+      );
+      final failed = expectLater(done, throwsA(isA<Object>()));
+      await pumpEventQueue();
+      // It waits for the withdrawn turn to end.
+      final interrupting = agent.interrupt();
+      await pumpEventQueue();
+      expect(transport.sends.single.submit(), isFalse);
+      await interrupting;
+      await failed;
+      expect(submitting, 0);
+      expect(chat.selectedThread!.messages, isEmpty);
+    });
+
     test('runs onSubmitted where the transport writes the prompt', () async {
       var submitting = 0;
       final done = agent.reply(

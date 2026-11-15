@@ -25,8 +25,11 @@ extension _ChatControllerSending on ChatController {
     }
     final epoch = _activityEpoch;
     final undo = _SendUndo(
-      title: selected?.title ?? 'New chat',
+      title: selected?.title ?? _newChatTitle,
       prior: selected == null ? null : _sentPrompts[selected],
+      updatedAt: selected?.updatedAt,
+      generation: selected == null ? null : _generations[selected],
+      settledReply: selected == null ? null : _settledReply(selected),
       settled: selected != null && _queueSettled.contains(selected),
       bound: selected != null && _bound.contains(selected),
     );
@@ -111,8 +114,9 @@ extension _ChatControllerSending on ChatController {
     _holds.remove(thread);
     _interrupts.remove(thread);
     _generations.update(thread, (n) => n + 1, ifAbsent: () => 1);
+    undo.bumped = _generations[thread];
     final placeholder = _addPlaceholder(thread);
-    thread.updatedAt = DateTime.now();
+    thread.updatedAt = undo.stamped = DateTime.now();
     notifyListeners();
     if (!_currentActivity(epoch)) return false;
     final transport = this.transport;

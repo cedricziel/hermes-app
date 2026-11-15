@@ -214,6 +214,20 @@ extension _ChatControllerVoice on ChatController {
       _sentPrompts[thread] = undo.prior;
     }
     if (undo.settled) _queueSettled.add(thread);
+    // Each only while nothing else changed it meanwhile.
+    if (undo.updatedAt != null && thread.updatedAt == undo.stamped) {
+      thread.updatedAt = undo.updatedAt!;
+    }
+    if (undo.bumped != null && _generations[thread] == undo.bumped) {
+      final before = undo.generation;
+      before == null
+          ? _generations.remove(thread)
+          : _generations[thread] = before;
+    }
+    final settledReply = undo.settledReply;
+    if (settledReply != null && thread.messages.contains(settledReply)) {
+      settledReply.settledWithoutCompletion = true;
+    }
     // Hermes stores a session with its first prompt: a chat bound by a create
     // whose prompt was never written is bound to an id Hermes does not know,
     // so the next send creates a session again.
@@ -244,6 +258,9 @@ final class _SendUndo {
     required this.prior,
     required this.settled,
     required this.bound,
+    required this.updatedAt,
+    required this.generation,
+    required this.settledReply,
   });
 
   /// The thread's title before, the one the prompt's words set (null when they
@@ -254,4 +271,20 @@ final class _SendUndo {
   final ChatMessage? prior;
   final bool settled;
   final bool bound;
+
+  /// The thread's last activity before and the one sending stamped (null for a
+  /// chat the send created), so a prompt that never went out leaves the chat
+  /// where it was in the list.
+  final DateTime? updatedAt;
+  DateTime? stamped;
+
+  /// The reply generation before and after the send. A request answered later
+  /// is current only while it matches, so a turn that never ran must not make
+  /// the answers about the turn before it stale.
+  final int? generation;
+  int? bumped;
+
+  /// The reply before the prompt that settled without its completion, which
+  /// the new turn was to take over.
+  final ChatMessage? settledReply;
 }
