@@ -62,7 +62,6 @@ class _ChatHistoryStateState extends State<ChatHistoryState> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final scheme = Theme.of(context).colorScheme;
     final Widget content = switch (widget.status) {
       // Read out once when it appears, so a screen reader hears that the
       // messages did not load without hunting for the text.
@@ -79,6 +78,14 @@ class _ChatHistoryStateState extends State<ChatHistoryState> {
                 ? null
                 : FilledButton(
                     onPressed: widget.onRetry,
+                    // 44 pt to hit on touch; the padded tap target makes it
+                    // 48 dp on Android. A pointer platform keeps its own size.
+                    style: _touch(context)
+                        ? FilledButton.styleFrom(
+                            minimumSize: const Size(0, 44),
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                          )
+                        : null,
                     child: Text(l10n.commonRetry),
                   ),
           ),
@@ -87,20 +94,24 @@ class _ChatHistoryStateState extends State<ChatHistoryState> {
       ChatHistoryStatus.loading =>
         !_due
             ? const SizedBox.expand()
-            // A box shorter than the skeleton (a phone on its side with the
-            // keyboard open) clips it from the bottom instead of overflowing.
+            // The skeleton draws the whole lines that fit the area, so a short
+            // one (a phone on its side with the keyboard open) never overflows.
             : _FadeIn(
                 key: const ValueKey('skeleton'),
-                child: SingleChildScrollView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-                  child: LoadingSkeleton(
-                    label: l10n.chatWidgetsHistoryLoading,
-                    lines: 6,
-                    liveRegion: true,
-                    // The default bar colour is the page's own on light
-                    // surfaces; this one reads on both themes.
-                    color: scheme.onSurface.withValues(alpha: 0.16),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      MediaQuery.sizeOf(context).height < 500 ? 16 : 24,
+                      16,
+                      0,
+                    ),
+                    child: LoadingSkeleton(
+                      label: l10n.chatWidgetsHistoryLoading,
+                      lines: 6,
+                      liveRegion: true,
+                    ),
                   ),
                 ),
               ),
@@ -128,5 +139,12 @@ class _FadeIn extends StatelessWidget {
     child: child,
   );
 }
+
+bool _touch(BuildContext context) => switch (Theme.of(context).platform) {
+  TargetPlatform.android ||
+  TargetPlatform.iOS ||
+  TargetPlatform.fuchsia => true,
+  _ => false,
+};
 
 const _fadeKey = ValueKey('chat-history-fade');

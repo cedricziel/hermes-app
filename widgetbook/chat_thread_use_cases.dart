@@ -162,10 +162,14 @@ WidgetbookUseCase _thread(
   List<QueuedPrompt> queued = const [],
   ChatHistoryStatus? history,
   bool reducedMotion = false,
+  double textScale = 1,
 }) => WidgetbookUseCase(
   name: name,
   builder: (context) => MediaQuery(
-    data: MediaQuery.of(context).copyWith(disableAnimations: reducedMotion),
+    data: MediaQuery.of(context).copyWith(
+      disableAnimations: reducedMotion,
+      textScaler: TextScaler.linear(textScale),
+    ),
     child: _ChatThreadView(
       history: history,
       messages: messages,
@@ -194,6 +198,12 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
           const [],
           history: ChatHistoryStatus.loading,
           reducedMotion: true,
+        ),
+        _thread(
+          'Loading the chat, largest text size',
+          const [],
+          history: ChatHistoryStatus.loading,
+          textScale: 3.1,
         ),
         _thread(
           'Loading the chat failed',
@@ -389,11 +399,15 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
       useCases: [
         _historyCase('Loading', ChatHistoryStatus.loading),
         _historyCase(
-          'Loading, short area (clipped)',
+          'Loading, short area (whole lines only)',
           ChatHistoryStatus.loading,
-          height: 150,
+          height: 70,
         ),
-        _historyCase('Loading, text 2x', ChatHistoryStatus.loading, scale: 2),
+        _historyCase(
+          'Loading, largest text size',
+          ChatHistoryStatus.loading,
+          scale: 2,
+        ),
         _historyCase(
           'Loading, reduced motion',
           ChatHistoryStatus.loading,
@@ -403,9 +417,13 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
         _historyCase(
           'Failed, short area',
           ChatHistoryStatus.failed,
-          height: 150,
+          height: 70,
         ),
-        _historyCase('Failed, text 2x', ChatHistoryStatus.failed, scale: 2),
+        _historyCase(
+          'Failed, largest text size',
+          ChatHistoryStatus.failed,
+          scale: 2,
+        ),
       ],
     ),
   ],

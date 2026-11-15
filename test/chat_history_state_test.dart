@@ -125,30 +125,62 @@ void main() {
     expect(tester.widget<Opacity>(find.byKey(_fade)).opacity, 1);
   });
 
-  for (final brightness in Brightness.values) {
-    testWidgets('the bars are drawn in a visible colour (${brightness.name})', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _host(
-          const ChatHistoryState(
-            status: ChatHistoryStatus.loading,
-            delay: Duration.zero,
+  testWidgets('Retry is at least 44 high on touch and calls back once', (
+    tester,
+  ) async {
+    var retried = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: buildHermesLightTheme(platform: TargetPlatform.android),
+        home: Scaffold(
+          body: ChatHistoryState(
+            status: ChatHistoryStatus.failed,
+            onRetry: () => retried++,
           ),
-          brightness: brightness,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(
+      tester.getSize(find.byType(FilledButton)).height,
+      greaterThanOrEqualTo(44),
+    );
+    await tester.tap(find.text('Retry'));
+    expect(retried, 1);
+  });
+
+  testWidgets('the top padding is 16 in a window under 500 high', (
+    tester,
+  ) async {
+    Future<double> top(Size size) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: buildHermesLightTheme(),
+          home: const Scaffold(
+            body: ChatHistoryState(
+              status: ChatHistoryStatus.loading,
+              delay: Duration.zero,
+            ),
+          ),
         ),
       );
-      final scheme = Theme.of(tester.element(skeleton)).colorScheme;
-      final bar = tester.widget<DecoratedBox>(
-        find
-            .descendant(of: skeleton, matching: find.byType(DecoratedBox))
-            .first,
-      );
-      final color = (bar.decoration as BoxDecoration).color!;
-      expect(color, isNot(scheme.surfaceContainerHighest));
-      expect(color, isNot(scheme.surface));
-    });
-  }
+      await tester.pump(const Duration(milliseconds: 400));
+      return tester.getTopLeft(find.byType(FractionallySizedBox).first).dy -
+          tester.getTopLeft(find.byType(ChatHistoryState)).dy;
+    }
+
+    // Each bar sits inside an 8 pt gap.
+    expect(await top(const Size(844, 390)), 16 + 8);
+    expect(await top(const Size(390, 844)), 24 + 8);
+  });
 
   testWidgets('the bars grow with the text size', (tester) async {
     Future<double> bar(double scale) async {

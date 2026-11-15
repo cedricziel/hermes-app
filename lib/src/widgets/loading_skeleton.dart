@@ -1,10 +1,16 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import '../theme/hermes_theme.dart';
 import 'busy_bar.dart';
 
 /// Line-shaped blocks standing in for rows that are loading. The whole thing
 /// is one node for screen readers, named [label]; the blocks are decorative.
-/// The blocks scale with the text size. Under reduced motion they do not
+/// The blocks scale with the text size, and in a box of finite height only the
+/// whole lines that fit are drawn (at least one; a box shorter than that clips
+/// it), never a cut bar and never a scroll view. The default colour is
+/// [skeletonBarColor]. Under reduced motion they do not
 /// pulse; otherwise they pulse for as long as the skeleton is on screen.
 class LoadingSkeleton extends StatefulWidget {
   const LoadingSkeleton({
@@ -56,7 +62,7 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
   @override
   Widget build(BuildContext context) {
     final color =
-        widget.color ?? Theme.of(context).colorScheme.surfaceContainerHighest;
+        widget.color ?? skeletonBarColor(Theme.of(context).brightness);
     // Bars and gaps grow with the text size, like the rows they stand in for.
     final scaler = MediaQuery.textScalerOf(context);
     final barHeight = scaler.scale(16);
@@ -66,30 +72,54 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
       liveRegion: widget.liveRegion,
       label: widget.label,
       child: ExcludeSemantics(
-        child: AnimatedBuilder(
-          animation: _pulse,
-          builder: (context, _) => Opacity(
-            opacity: 1 - 0.4 * _pulse.value,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < widget.lines; i++)
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: gap),
-                    child: FractionallySizedBox(
-                      widthFactor: i.isOdd ? 0.7 : 1,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(6),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Only whole lines that fit, at least one; never a cut bar.
+            var lines = widget.lines;
+            if (constraints.maxHeight.isFinite) {
+              final fit = (constraints.maxHeight / (barHeight + 2 * gap))
+                  .floor();
+              lines = math.min(lines, math.max(1, fit));
+            }
+            final bounded = constraints.maxHeight.isFinite;
+            final body = AnimatedBuilder(
+              animation: _pulse,
+              builder: (context, _) => Opacity(
+                opacity: 1 - 0.2 * _pulse.value,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = 0; i < lines; i++)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: gap),
+                        child: FractionallySizedBox(
+                          widthFactor: i.isOdd ? 0.7 : 1,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: SizedBox(height: barHeight),
+                          ),
                         ),
-                        child: SizedBox(height: barHeight),
                       ),
+                  ],
+                ),
+              ),
+            );
+            // A box shorter than one line clips that line instead of
+            // overflowing.
+            return bounded
+                ? ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.topCenter,
+                      maxHeight: double.infinity,
+                      child: body,
                     ),
-                  ),
-              ],
-            ),
-          ),
+                  )
+                : body;
+          },
         ),
       ),
     );

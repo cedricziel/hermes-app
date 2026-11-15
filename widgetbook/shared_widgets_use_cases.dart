@@ -13,7 +13,8 @@ import 'package:widgetbook/widgetbook.dart';
 import 'frame.dart';
 
 Widget _largest(BuildContext context, Widget child) => MediaQuery(
-  data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(2)),
+  data: MediaQuery.of(context)
+      .copyWith(textScaler: const TextScaler.linear(3.1)),
   child: child,
 );
 
@@ -173,10 +174,10 @@ WidgetbookNode sharedWidgetsNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
-          name: 'Large text (2x)',
+          name: 'Largest text size',
           builder: (context) => MediaQuery(
             data: MediaQuery.of(context)
-                .copyWith(textScaler: const TextScaler.linear(2)),
+                .copyWith(textScaler: const TextScaler.linear(3.1)),
             child: frame(const LoadingSkeleton(label: 'Loading logs')),
           ),
         ),
