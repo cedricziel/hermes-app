@@ -419,6 +419,8 @@ jobs:
               frame="${BASH_REMATCH[1]}x${BASH_REMATCH[2]}"
               content="${BASH_REMATCH[1]}x$(( BASH_REMATCH[2] - BASH_REMATCH[3] ))"
               min="${BASH_REMATCH[4]}"; full="${BASH_REMATCH[5]}"; screen="${BASH_REMATCH[6]}"
+              fw="${BASH_REMATCH[1]}"; fh="${BASH_REMATCH[2]}"; chrome="${BASH_REMATCH[3]}"
+              sw="${screen%x*}"; sh="${screen#*x}"
             else
               echo "::error::Unreadable HERMES_WINDOW line: $line"; forget; exit 1
             fi
@@ -434,8 +436,27 @@ jobs:
           forget   # nothing may depend on what the runner remembered
           # frame minus the title bar is the xib's content size
           launch 1 900x600
-          if [ "$content" != "1100x760" ]; then
-            echo "::error::Launch 1: default content size is $content, expected 1100x760 (screen $screen): $line"; forget; exit 1
+          # screen is the main screen's visibleFrame (menu bar and Dock excluded),
+          # which is what AppKit fits a window to. A runner screen smaller than the
+          # default frame constrains the window, so the default is then not measured.
+          if [ "$sw" -ge 1100 ] && [ "$sh" -ge $(( 760 + chrome )) ]; then
+            if [ "$content" != "1100x760" ]; then
+              echo "::error::Launch 1: default content size is $content, expected 1100x760 (screen $screen): $line"; forget; exit 1
+            fi
+          else
+            echo "::notice::The runner's screen ($screen) is smaller than the default window (1100x$(( 760 + chrome ))), so the default size was not measured: $line"
+            if [ "$fw" -gt "$sw" ] || [ "$fh" -gt "$sh" ]; then
+              echo "::error::Launch 1: the $frame frame does not fit the $screen screen: $line"; forget; exit 1
+            fi
+            if [ "$fw" -lt 640 ] || [ "$fh" -lt 480 ]; then
+              echo "::error::Launch 1: the $frame frame is below the 640x480 minimum: $line"; forget; exit 1
+            fi
+            if [ "$fw" -ne 1100 ] && [ "$fw" -gt "$sw" ]; then
+              echo "::error::Launch 1: width $fw is neither 1100 nor within the screen width $sw: $line"; forget; exit 1
+            fi
+            if [ "$fh" -ne $(( 760 + chrome )) ] && [ "$fh" -gt "$sh" ]; then
+              echo "::error::Launch 1: height $fh is neither $(( 760 + chrome )) nor within the screen height $sh: $line"; forget; exit 1
+            fi
           fi
           launch 2
           # AppKit must have written the frame to the sandbox container's defaults.
