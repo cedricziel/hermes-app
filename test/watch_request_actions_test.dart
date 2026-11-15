@@ -61,7 +61,8 @@ void main() {
     });
   }
 
-  test('details require exact identity and fail closed while requests are unavailable', () async {
+  test('details require exact identity and fail closed while requests are '
+      'unavailable', () async {
     expect(
       (await actions.handle({
         ...request('request_details'),

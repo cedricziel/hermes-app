@@ -1254,6 +1254,7 @@ void main() {
       Duration sendTimeout = const Duration(seconds: 60),
       Duration waitingTimeout = const Duration(minutes: 15),
       Duration hold = const Duration(seconds: 20),
+      bool inline = false,
     }) {
       handler = WatchRequestHandler(
         context: () => const WatchContext("test-context", 1),
@@ -1262,6 +1263,8 @@ void main() {
         activeProfile: () async => profile,
         announce: announce,
         appLock: () => appLocked,
+        requestsAllowed: () => inline,
+        requestEligible: inline ? (_, _, _, _, _) => true : null,
         sendTimeout: sendTimeout,
         waitingTimeout: waitingTimeout,
         waitingHold: hold,
@@ -1419,6 +1422,25 @@ void main() {
       expect(reply, {'ok': false, 'error': 'failed'});
       expect(transport.sends, isEmpty);
     });
+
+    for (final lockOn in [false, true]) {
+      for (final (kind, event) in [
+        ('approval', approval as ChatEvent),
+        ('question', question as ChatEvent),
+      ]) {
+        test('with inline handling, waits on $kind with App Lock '
+            '${lockOn ? 'on' : 'off'}', () async {
+          useHandler(inline: true);
+          appLocked = lockOn;
+
+          final reply = await waitOn(event);
+
+          expect(reply['waiting'], kind);
+          expect(reply['text'], isNull);
+          expect(transport.closed, isFalse);
+        });
+      }
+    }
 
     for (final (why, setUpCase) in [
       ('no notification could be posted', () => posted = false),

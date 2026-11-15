@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/verified_session_owner.dart';
 import 'package:hermes_app/src/watch/watch_bridge.dart';
@@ -11,35 +10,24 @@ import 'package:hermes_app/src/watch/watch_request_handler.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'support/fake_device_authenticator.dart';
-
-/// The watch has its own lock, so the phone's App Lock must not change what
-/// the bridge offers it: inline approvals and questions are wanted and
-/// answered the same with App Lock on and off.
+/// The bridge has no App Lock input: the watch has its own lock, so the
+/// phone's App Lock cannot gate inline approvals and questions. These tests
+/// check that a ready session alone makes requests wanted and answered.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const codec = StandardMethodCodec();
   const channel = MethodChannel(WatchBridge.channelName);
 
-  for (final lockOn in [false, true]) {
-    group('App Lock ${lockOn ? 'on' : 'off'}', () {
-      late AppLockController lock;
+  {
+    group('inline requests', () {
       late _ReadyAuth auth;
       late WatchBridge bridge;
       late List<Map<Object?, Object?>> sent;
       late List<bool> accessPublished;
 
-      setUp(() async {
+      setUp(() {
         SharedPreferencesAsyncPlatform.instance =
-            InMemorySharedPreferencesAsync.withData({
-              'hermes.app_lock_enabled': lockOn,
-            });
-        lock = AppLockController(
-          authenticator: FakeDeviceAuthenticator(),
-          coverWhenInactive: true,
-        );
-        await lock.load();
-        expect(lock.enabled, lockOn);
+            InMemorySharedPreferencesAsync.empty();
         auth = _ReadyAuth();
         sent = [];
         accessPublished = [];
@@ -79,7 +67,6 @@ void main() {
 
       tearDown(() {
         bridge.dispose();
-        lock.dispose();
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, null);
       });

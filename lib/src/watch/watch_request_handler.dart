@@ -106,7 +106,8 @@ class WatchRequestHandler {
   final Future<bool> Function(AttentionNotification notification) announce;
 
   /// Whether App Lock is on: a request is then announced without its text
-  /// or buttons, so a watch send cannot wait for an answer to it.
+  /// or buttons, so the notification cannot answer it. The send still waits
+  /// when inline handling on the watch can answer the request.
   final bool Function() appLock;
 
   /// What the phone's own recognizer heard in a voice message, or null when
