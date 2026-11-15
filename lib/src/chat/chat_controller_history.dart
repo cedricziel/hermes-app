@@ -378,11 +378,33 @@ extension _ChatControllerHistory on ChatController {
     String? profile,
     int generation, {
     bool notifyLoading = true,
+    bool quiet = false,
   }) async {
     if (!active) return;
     final models = this.models;
     if (models == null) return;
     final request = ++_modelOptionsGeneration;
+    if (quiet) {
+      ModelOptions? options;
+      try {
+        options = await models.load(profile: profile);
+      } on Object {
+        return;
+      }
+      if (!active ||
+          generation != _loadGeneration ||
+          request != _modelOptionsGeneration ||
+          profile != _profile) {
+        return;
+      }
+      _modelOptions = options;
+      if (!options.warming) _warmingUnchanged = false;
+      _modelOptionsState = options.providers.isEmpty
+          ? ModelOptionsState.incomplete
+          : ModelOptionsState.ready;
+      notifyListeners();
+      return;
+    }
     if (_modelOptionsState != ModelOptionsState.loading) {
       _settledModelOptionsState = _modelOptionsState;
     }

@@ -17,6 +17,9 @@ class ComposerModelPill extends StatelessWidget {
     this.onUseDefault,
     this.onRetry,
     this.onSetup,
+    this.onPickerOpened,
+    this.pickerUpdates,
+    this.pickerOptions,
   });
 
   final ModelOptions? options;
@@ -26,6 +29,15 @@ class ComposerModelPill extends StatelessWidget {
   final VoidCallback? onUseDefault;
   final VoidCallback? onRetry;
   final VoidCallback? onSetup;
+
+  /// Called as the picker opens, to read the options again.
+  final VoidCallback? onPickerOpened;
+
+  /// Tells an open picker that [pickerOptions] changed.
+  final Listenable? pickerUpdates;
+
+  /// The newest options, which an open picker redraws with.
+  final ModelOptions? Function()? pickerOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -70,13 +82,18 @@ class ComposerModelPill extends StatelessWidget {
       actionSemanticLabel: 'Retry models',
       onAction: state == ModelOptionsState.failed ? onRetry : null,
       onPressed: switch (state) {
-        ModelOptionsState.ready when options != null => () => showModelPicker(
-          context,
-          options: options,
-          selected: shown,
-          onChanged: onChanged,
-          onUseDefault: onUseDefault,
-        ),
+        ModelOptionsState.ready when options != null => () {
+          onPickerOpened?.call();
+          showModelPicker(
+            context,
+            options: options,
+            selected: shown,
+            onChanged: onChanged,
+            onUseDefault: onUseDefault,
+            updates: pickerUpdates,
+            latest: pickerOptions,
+          );
+        },
         ModelOptionsState.incomplete ||
         ModelOptionsState.unsupported => onSetup,
         _ => null,

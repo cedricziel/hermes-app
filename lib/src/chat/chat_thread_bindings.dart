@@ -39,6 +39,9 @@ Widget composerModelPill(ChatController chat, {VoidCallback? onSetupModel}) =>
             }
           },
           onRetry: chat.refreshModelOptions,
+          onPickerOpened: () => unawaited(chat.refreshModelOptionsQuietly()),
+          pickerUpdates: chat,
+          pickerOptions: () => chat.modelOptions,
           onSetup:
               onSetupModel ??
               () async {

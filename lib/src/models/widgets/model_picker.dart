@@ -20,9 +20,11 @@ Future<void> showModelPicker(
   String title = 'Model',
   String? note,
   VoidCallback? onUseDefault,
+  Listenable? updates,
+  ModelOptions? Function()? latest,
 }) {
   Widget picker(BuildContext sheet) => ModelPicker(
-    options: options,
+    options: latest?.call() ?? options,
     selected: selected,
     withEffort: withEffort,
     title: title,
@@ -38,6 +40,12 @@ Future<void> showModelPicker(
             Navigator.of(sheet).pop();
           },
   );
+  Widget live(BuildContext sheet) => updates == null
+      ? picker(sheet)
+      : ListenableBuilder(
+          listenable: updates,
+          builder: (_, _) => picker(sheet),
+        );
   final size = MediaQuery.sizeOf(context);
   if (isWideLayout(context)) {
     return showDialog<void>(
@@ -45,7 +53,7 @@ Future<void> showModelPicker(
       builder: (dialog) => Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440, maxHeight: 560),
-          child: picker(dialog),
+          child: live(dialog),
         ),
       ),
     );
@@ -57,7 +65,7 @@ Future<void> showModelPicker(
     builder: (sheet) => SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: size.height * 0.75),
-        child: picker(sheet),
+        child: live(sheet),
       ),
     ),
   );

@@ -786,6 +786,24 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> refreshModelOptions() =>
       _loadModelOptions(_profile, _loadGeneration);
 
+  Future<void>? _quietModelRefresh;
+
+  /// Reads the current profile's model options again without leaving the
+  /// ready state: the pill keeps showing what it has until the answer
+  /// arrives, and a failed read changes nothing. One read at a time. Used
+  /// when a new chat starts, the app comes back and the picker opens, so the
+  /// pill follows a default model changed on the server. A pick the user made
+  /// is untouched.
+  Future<void> refreshModelOptionsQuietly() {
+    if (!active || models == null) return Future.value();
+    if (_modelOptionsState == ModelOptionsState.loading) return Future.value();
+    return _quietModelRefresh ??= _loadModelOptions(
+      _profile,
+      _loadGeneration,
+      quiet: true,
+    ).whenComplete(() => _quietModelRefresh = null);
+  }
+
   bool _warmingUnchanged = false;
 
   /// A "Check again" on the loading card found the options still warming:
@@ -1541,6 +1559,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (!_currentActivity(epoch) || valid?.call() == false) return;
     final selected = selectedThread;
     if (selected != null && !selected.remote && selected.messages.isEmpty) {
+      unawaited(refreshModelOptionsQuietly());
       return;
     }
     newThread();
@@ -1560,6 +1579,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _ChatControllerWorkspace(this)._carryPendingChoice(thread);
     _selectedId = thread.id;
     notifyListeners();
+    unawaited(refreshModelOptionsQuietly());
   }
 
   void select(String id) {
