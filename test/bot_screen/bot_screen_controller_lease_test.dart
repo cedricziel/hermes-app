@@ -108,6 +108,7 @@ void main() {
         final bare = BotScreenController(
           BotScreenRepository((method, params, {required timeout}) async => {}),
           const Stream.empty(),
+          profile: 'work',
         );
 
         expect(bare.inControlHere, isFalse);
@@ -233,6 +234,7 @@ void main() {
         final bare = BotScreenController(
           BotScreenRepository((method, params, {required timeout}) async => {}),
           const Stream.empty(),
+          profile: 'work',
         );
 
         bare.adoptLease(const BotScreenLease(holder: BotScreenHolder.human));

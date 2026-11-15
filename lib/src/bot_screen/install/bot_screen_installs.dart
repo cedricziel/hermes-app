@@ -7,7 +7,6 @@ import '../../chat/gateway/gateway_rpc_client.dart';
 import '../../chat/gateway/hermes_gateway_transport.dart'
     show ServerRequestHandler;
 import '../../chat/gateway_connection_transport.dart';
-import '../../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import '../../telemetry/telemetry.dart';
 import '../bot_screen_models.dart';
 import '../bot_screen_repository.dart';
@@ -91,10 +90,10 @@ class BotScreenInstalls extends ChangeNotifier {
   void Function()? _unregister;
   var _disposed = false;
 
-  /// What the install of [profile] (null is the default profile) is doing or
+  /// What the install of [profile] is doing or
   /// ended with; null when none was started.
-  InstallState? stateFor(String? profile) {
-    final name = profile ?? kDefaultProfile;
+  InstallState? stateFor(String profile) {
+    final name = profile;
     for (final install in _running) {
       if (install.profile == name) {
         return InstallRunning(
@@ -110,8 +109,8 @@ class BotScreenInstalls extends ChangeNotifier {
   /// profile as `display.status` reported it, so the broadcasts that arrive
   /// before Hermes' answer are not lost. Does nothing while an install of
   /// that profile runs.
-  Future<void> start(String? profile, {String? profileKey}) async {
-    final name = profile ?? kDefaultProfile;
+  Future<void> start(String profile, {String? profileKey}) async {
+    final name = profile;
     if (_disposed || _running.any((install) => install.profile == name)) return;
     final install = _Install(name, profileKey);
     install.span = _startSpan();

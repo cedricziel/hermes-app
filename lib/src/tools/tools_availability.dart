@@ -34,11 +34,11 @@ enum ToolsAvailabilityRead {
 /// that was read only: a screen for another profile reads its own list.
 class ToolsAvailability extends ChangeNotifier with SafeNotifier {
   ToolsAvailability(
-    HermesToolsRepository repository, {
+    HermesToolsRoot repository, {
     this.telemetry = const ConnectionTelemetry(),
   }) : _repository = repository;
 
-  final HermesToolsRepository _repository;
+  final HermesToolsRoot _repository;
   final ConnectionTelemetry telemetry;
 
   var _epoch = 0;

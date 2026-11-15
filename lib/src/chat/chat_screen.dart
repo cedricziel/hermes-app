@@ -106,6 +106,7 @@ import '../server_care/replies_in_progress.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
+import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import '../surfaces/surface_snapshot_store.dart';
 import '../surfaces/surface_snapshots.dart';
 import '../telemetry/breadcrumbs.dart';
@@ -231,7 +232,7 @@ class ChatScreen extends StatefulWidget {
 
   /// The tools routes; the connected dashboard's when null. The Tools entry
   /// shows only while [toolsAvailability] says the server offers them.
-  final HermesToolsRepository? tools;
+  final HermesToolsRoot? tools;
 
   /// Whether the server offers Tools; the shell's when null. Without either
   /// there is no Tools entry.
@@ -339,7 +340,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesSkillsRepository? _skills;
   HermesPluginManagerRepository? _plugins;
   HermesMcpRepository? _mcp;
-  HermesToolsRepository? _tools;
+  HermesToolsRoot? _tools;
   ToolsAvailability? _toolsAvailability;
   HermesModelsRepository? _models;
   ProvidersRepository? _providers;

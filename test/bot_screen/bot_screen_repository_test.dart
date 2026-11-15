@@ -80,9 +80,9 @@ void main() {
       }
     });
 
-    test('the default profile is named default, never left out', () async {
-      await repository.status(null);
-      await repository.thumbnail(null);
+    test('the default profile is named explicitly', () async {
+      await repository.status('default');
+      await repository.thumbnail('default');
 
       expect(gateway.requestOf('display.status')['params'], {
         'profile': 'default',
@@ -374,7 +374,7 @@ void main() {
     });
 
     test('names the default profile and passes a viewer id along', () async {
-      await repository.observe(null, viewerId: 'viewer-1');
+      await repository.observe('default', viewerId: 'viewer-1');
 
       expect(gateway.requestOf('display.observe')['params'], {
         'profile': 'default',

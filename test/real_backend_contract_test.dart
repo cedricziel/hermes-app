@@ -3943,9 +3943,9 @@ void main() {
 
     test('a profile that does not exist is told apart from a missing '
         'route', () async {
-      final gone = tools.forProfile(
-        'contract-missing-${DateTime.now().millisecondsSinceEpoch}',
-      );
+      final gone = HermesToolsRoot(
+        client.raw,
+      ).forProfile('contract-missing-${DateTime.now().millisecondsSinceEpoch}');
 
       expect(await gone.list(), isA<ToolsProfileGone<ToolsetList>>());
     });

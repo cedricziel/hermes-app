@@ -207,7 +207,7 @@ void main() {
       tester,
     ) async {
       final availability = ToolsAvailability(
-        HermesToolsRepository(server.client().raw, profile: 'work'),
+        HermesToolsRoot(server.client().raw),
       );
       addTearDown(availability.dispose);
       await tester.runAsync(() => availability.refresh('work'));

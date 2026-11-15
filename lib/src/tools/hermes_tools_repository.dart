@@ -72,6 +72,23 @@ class ToolsFailed<T> extends ToolsResult<T> {
   final ToolsFailure kind;
 }
 
+/// The tools routes before a profile is named. It has no call of its own:
+/// [forProfile] is the only way to a [HermesToolsRepository], so no tools
+/// request can leave without a profile.
+class HermesToolsRoot {
+  const HermesToolsRoot(
+    this._api, {
+    this.telemetry = const ConnectionTelemetry(),
+  });
+
+  final DefaultApi _api;
+  final ConnectionTelemetry telemetry;
+
+  /// The tools of [profile].
+  HermesToolsRepository forProfile(String profile) =>
+      HermesToolsRepository(_api, profile: profile, telemetry: telemetry);
+}
+
 /// Reads and changes the toolsets of one profile through the generated
 /// [DefaultApi].
 ///
@@ -90,17 +107,13 @@ class HermesToolsRepository {
     this._api, {
     required this.profile,
     this.telemetry = const ConnectionTelemetry(),
-  });
+  }) : assert(profile.isNotEmpty, 'Tools calls always name a profile');
 
   final DefaultApi _api;
 
   /// The profile every call acts on.
   final String profile;
   final ConnectionTelemetry telemetry;
-
-  /// This repository for [profile].
-  HermesToolsRepository forProfile(String profile) =>
-      HermesToolsRepository(_api, profile: profile, telemetry: telemetry);
 
   Future<ToolsResult<ToolsetList>> list() async {
     Span? span;
