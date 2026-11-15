@@ -442,6 +442,9 @@
   "chatWidgetsProgramStateStopped": "Gestoppt",
   "chatWidgetsProgramStopBusy": "Wird gestoppt …",
   "chatWidgetsProgramStopButton": "Programm stoppen",
+  "chatWidgetsToolValueCopy": "{label} kopieren",
+  "chatWidgetsToolValueShowText": "Textansicht",
+  "chatWidgetsToolValueShowTree": "Baumansicht",
 
   "@@x-area-core": "",
 

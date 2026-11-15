@@ -267,10 +267,15 @@ class HighlightedCode extends StatefulWidget {
     this.language,
     this.selectable = false,
     this.budget,
+    this.style,
   });
 
   final String text;
   final String? language;
+
+  /// The text style in place of [filesCodeStyle], for a host with its own
+  /// size, such as a tool call card.
+  final TextStyle? style;
 
   /// The share of the colouring cost this text may take, for the fences of one
   /// Markdown document. With one, nothing goes to a worker: a text the budget
@@ -344,7 +349,7 @@ class _HighlightedCodeState extends State<HighlightedCode> {
 
   @override
   Widget build(BuildContext context) {
-    final base = filesCodeStyle(context);
+    final base = widget.style ?? filesCodeStyle(context);
     final palette = context.codeColors;
     TextStyle? styleOf(CodeToken? token) => switch (token) {
       null => null,

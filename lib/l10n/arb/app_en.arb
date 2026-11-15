@@ -2120,6 +2120,23 @@
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
   },
+  "chatWidgetsToolValueCopy": "Copy {label}",
+  "@chatWidgetsToolValueCopy": {
+    "description": "Accessible name of the button that copies a tool call's input or result exactly as it was sent. {label} is the section's name, such as Input or Result.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsToolValueShowText": "Text view",
+  "@chatWidgetsToolValueShowText": {
+    "description": "Button on a tool call's JSON that switches from the collapsible tree back to the text exactly as it was sent."
+  },
+  "chatWidgetsToolValueShowTree": "Tree view",
+  "@chatWidgetsToolValueShowTree": {
+    "description": "Button on a tool call's JSON that switches from the text exactly as it was sent to a collapsible tree."
+  },
 
   "@@x-area-core": "",
 

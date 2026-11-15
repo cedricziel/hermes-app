@@ -39,14 +39,14 @@ Someone chatting with their Hermes who looks away while it works. The line answe
 
 ## Widgets for the catalog (plain models, no controller)
 
-| Widget | Model | Use cases | Closest existing |
-| --- | --- | --- | --- |
-| `ActivityLine` | `ActivityLineModel` (sentence, counters up to two, busy) | every source sentence, with and without counters, truncating, two rows at the largest size, reduced motion, Apple, Material, desktop, dark | none (Tag, list row) |
-| `ActivityCounterChip` (private to the line) | icon, text, semantic label | in the line's use cases | Tag |
-| `MacToolbarSubtitle` | profile, model, status, busy | idle, working, long goal at narrow width, conversation window | `MacToolbar` subtitle |
-| `NeedsYouDock` | `NeedsYouDockModel` (items, shown index, callbacks) | billing (valid, invalid URL), connector 1 and 3 targets, reclaimed, restore failed, "1 of 3", "2 of 3", sending, unconfirmed, offline, keyboard open and collapsed, largest size, dark | `ApprovalCard` (transcript, not docked) |
-| `BillingNeedsYouBody`, `ConnectorNeedsYouBody`, `ReclaimNeedsYouBody` | per-kind body models; `CodeBox`, `TargetRow`, `NoticeLine` are private parts | with the dock | extracted card bodies |
-| `ActivityButton` marker | `waiting: int` | 0, 1, 3 on iOS, Material, Mac toolbar | `ActivityButton` |
+| Widget                                                                | Model                                                                        | Use cases                                                                                                                                                                              | Closest existing                        |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `ActivityLine`                                                        | `ActivityLineModel` (sentence, counters up to two, busy)                     | every source sentence, with and without counters, truncating, two rows at the largest size, reduced motion, Apple, Material, desktop, dark                                             | none (Tag, list row)                    |
+| `ActivityCounterChip` (private to the line)                           | icon, text, semantic label                                                   | in the line's use cases                                                                                                                                                                | Tag                                     |
+| `MacToolbarSubtitle`                                                  | profile, model, status, busy                                                 | idle, working, long goal at narrow width, conversation window                                                                                                                          | `MacToolbar` subtitle                   |
+| `NeedsYouDock`                                                        | `NeedsYouDockModel` (items, shown index, callbacks)                          | billing (valid, invalid URL), connector 1 and 3 targets, reclaimed, restore failed, "1 of 3", "2 of 3", sending, unconfirmed, offline, keyboard open and collapsed, largest size, dark | `ApprovalCard` (transcript, not docked) |
+| `BillingNeedsYouBody`, `ConnectorNeedsYouBody`, `ReclaimNeedsYouBody` | per-kind body models; `CodeBox`, `TargetRow`, `NoticeLine` are private parts | with the dock                                                                                                                                                                          | extracted card bodies                   |
+| `ActivityButton` marker                                               | `waiting: int`                                                               | 0, 1, 3 on iOS, Material, Mac toolbar                                                                                                                                                  | `ActivityButton`                        |
 
 New components needed (from the canvas, all token markup): ActivityLine, CounterChip, NeedsYouDock card, CodeBox, TargetRow, NoticeLine, the button marker. The canvas hand-composes the chat header because `ChatHeader` has no trailing slot in the design system; in the app `ActivityButton` is already in `ChatHeader`.
 
@@ -57,3 +57,72 @@ iOS: detent sheet from the line. Android: Material modal sheet, 48 dp targets. i
 ## What was not checked
 
 The claude.ai viewer, real devices, VoiceOver and TalkBack output, reduced-motion animation, contrast beyond an eye check (warning text on the dark surface), live keyboard behaviour, the size transition (a static sketch), App Lock (not drawn). Not every board was re-rendered after the last small edits.
+
+## Tool call inputs and outputs: JSON and code
+
+What a tool call card shows when opened: what the tool was given (Input, Arguments, Content) and what it returned (Result, Error, Output). Today that is flat monospace text plus a collapsible JSON tree (`flutter_json_view`) for a JSON object or array. This section is the design for colouring it. The catalog widgets are `ToolValueView`, `ToolJsonView` and `ToolValuePanel` (`lib/src/chat/widgets/tool_value_view.dart`, use cases under "ToolValuePanel"). Wiring them into `ToolCallCard`, `ToolArgumentsView` and the Terminal body is the next change; it does not touch card keys, ids or the open and closed state (lifted separately).
+
+Design status: the Claude Design canvas was not reachable from this work, so the pass was done with what the repo holds: the Files code palette (`--h-code-*` in `design/web/src/styles/tokens.css`, `HermesCodeColors`, 5.2:1 or better on both surfaces) and rendered catalog use cases on phone and desktop, light and dark, and at text scale 2. A canvas board for the two options below was not drawn.
+
+### Decisions fixed beforehand
+
+- Reuse the Files palette and its guards; no new canvas colours. Colour is the only difference to today's text: the characters are never changed.
+- Text is shown **as sent**: no reformatting, no re-indenting. What the server sent is what the person can read and copy.
+- Language is derived on the client from the call alone (`toolValueLanguage`): the `command` of a terminal call is shell, the extension of the `path` argument names the language of a file's content, a JSON object or array is JSON, anything else is plain. Never from the server, never guessed from content beyond the JSON parse.
+- Control and bidi characters are drawn as visible `<U+202E>` placeholders (`safeContentText`), as in Files.
+- The 220 px height cap stays; the body scrolls inside it and the header row does not scroll.
+
+### The two options for JSON
+
+|            | A: text as sent by default, Tree switch                                                                                                | B: tree by default, Text switch                                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| First view | Coloured flat text, exactly the bytes sent                                                                                             | Today's collapsible tree                                              |
+| Switch     | "Tree view" opens the collapsible tree                                                                                                 | "Text view" shows the coloured text                                   |
+| Good at    | Reading a short payload at a glance, comparing with the logs, copying what you see, a phone's narrow width (the tree indents by depth) | Exploring a deep result, hiding what you do not need                  |
+| Cost       | The tree costs one tap                                                                                                                 | The common case, a payload of a few keys, costs a tap to read as sent |
+
+**Recorded choice: A.** Most inputs are a handful of keys and most results are short; for those the flat text is shorter than the tree (no indent per level, no arrow column) and is the one that can be compared with a log or a command line. The tree stays one labelled tap away for the large, deep result where folding helps. The render check bore this out: at 390 pt the tree clips values at depth three while the text wraps in place. No problem found that would reverse it.
+
+### The switch
+
+A text button with an icon and a word: "Tree view" while the text shows, "Text view" while the tree shows (German: "Baumansicht", "Textansicht"). It names the view you will get, and the icon changes with it, so it is not colour or an icon alone. Target 44 pt on iOS, 48 dp on Android, 28 pt on a Mac (buttons keep `VisualDensity.standard`); the copy button beside it has the same size. The header is one row: the section label, the switch, copy; at large text sizes the buttons wrap under the label instead of squeezing it. Which view shows is state of `ToolJsonView`, so it survives a rebuild of the card; it ends with the widget (a card rebuilt in another place starts on the text).
+
+The switch is offered only for a **settled** call whose text parses as a JSON object or array within the size bound. It is absent for invalid JSON, plain text, a running call and a scalar.
+
+### States
+
+| State                                | What shows                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settled JSON                         | Coloured text as sent, "Tree view" switch, copy                                                                                                                                                                                                                                                                                                               |
+| Settled JSON, tree                   | The collapsible tree, "Text view" switch, copy                                                                                                                                                                                                                                                                                                                |
+| Running (streaming)                  | Plain text with the control placeholders, no switch, no colour: the text grows with each delta and colouring would start over each time. It is coloured when the call settles                                                                                                                                                                                 |
+| Failed                               | Same as settled: the section is labelled "Error", the card header carries the error icon, and the text is coloured only if it is JSON or has a known language. Status is never colour alone: icon, label and the error text itself                                                                                                                            |
+| Very long                            | The body scrolls inside the 220 px cap, there is no "show all". Text that is not small and plain shaped is coloured by the worker and shows plain meanwhile; text above 512 KB, a stretch of 10,000 characters without a break, or more than 1,000 spans stays plain (the Files guards). A JSON text above 64 KB is not parsed, so it is plain with no switch |
+| Invalid JSON                         | Plain text, no switch, never an error                                                                                                                                                                                                                                                                                                                         |
+| Plain text                           | Plain text, no switch                                                                                                                                                                                                                                                                                                                                         |
+| Terminal                             | The command is shell-coloured; the output is plain unless it parses as JSON                                                                                                                                                                                                                                                                                   |
+| Diff                                 | Untouched: the diff body keeps its own view                                                                                                                                                                                                                                                                                                                   |
+| Code argument (`write_file` content) | Coloured by the extension of its `path`; an unknown extension is plain                                                                                                                                                                                                                                                                                        |
+
+Phone and desktop differ only in width and in the target sizes above. Both themes use the Files palette, which was checked for contrast on surfaces of both themes. Largest text (scale 2): the header wraps, the body is still capped at 220 px and scrolls; the text wraps in place (no horizontal scroll).
+
+### Cost
+
+The colouring is the Files one and obeys its rules:
+
+- At most 2,000 characters of small, plainly shaped text are coloured while the frame builds; anything else is coloured in one killable isolate (at most one per text, timeout 2 s, ended with the widget) and shows plain until it answers; a failure or a timeout leaves it plain.
+- A section keeps one State, so a rebuild with the same text does not colour again. Colouring runs only when the call has settled, never per delta.
+- A chat-wide budget like the one the fences of a Markdown document share (`CodeHighlightBudget`) is for the wiring change to apply: with many cards open at once, those over the budget stay plain. `HighlightedCode` already takes one.
+- No highlighter code lives outside `lib/src/files/code_highlight.dart`.
+
+### Copy
+
+The copy button copies the **original** text, byte for byte, with no placeholder in it. Selecting text with the pointer copies what is shown, so a placeholder like `<U+202E>` can be in a selection; the button is the exact copy. Nothing is copied unless the person taps.
+
+### Privacy
+
+Tool inputs and outputs never reach logs, spans or breadcrumbs: not their text, not their language, not the choice of view. The switch and the copy button record nothing.
+
+### Not drawn
+
+The canvas board (see above); a "show all" for a body over the cap (not needed while the body scrolls); a chat-wide budget (wiring change); VoiceOver and TalkBack output for the switch (its name is its visible text).
