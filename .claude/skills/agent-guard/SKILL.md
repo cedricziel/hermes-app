@@ -35,13 +35,26 @@ add a test, do not work around it.
   that crashes with any code other than 2 does not block anyway.
 - `permissions.deny` in `.claude/settings.json` is only a backstop. Deny rules
   match command text, so they miss `git -C . push -f`, `sh -c` and flags after
-  the remote. `Edit(/packages/hermes_api/**)` keeps the generated client
-  read-only for the file tools; the regeneration script via Bash stays allowed.
+  the remote. The generated client has no deny rule on purpose: it could
+  block the scripted regeneration in sandboxed sessions, and
+  `verify-hermes-api-client.yml` already fails CI on a hand edit.
 - With `--post` the same script is a PostToolUse hook that runs
   `flutter gen-l10n` after a pull or merge that changed `lib/l10n/arb/*.arb`.
 
-Known gaps: aliases, variable program names, `find -exec`, scripts that run the
-banned command inside a file.
+- Beyond git it also blocks `gh pr merge --delete-branch`, `gh api -X DELETE`
+  on `git/refs`, `-c alias.*` and `GIT_CONFIG_KEY_*` for `core.hooksPath` or
+  aliases, removing or `chmod -x` of the pre-commit hook, `git pull --rebase`
+  on a pushed branch, and a bare `hermes` command that would use the real home
+  (set `HERMES_HOME=` or pass `--isolated`).
+- The pre-commit check asks `git rev-parse --git-path hooks/pre-commit`, so it
+  follows `core.hooksPath` like `tool/setup_git_hooks.dart` does, and wants the
+  file executable.
+
+Known gaps: a program named by substitution (`$(which git) stash`), a banned
+command inside a script file or a git alias defined in a config file, `find
+-exec` and similar runners, other ways to delete a remote branch through
+`gh`, and hosts without `python3` (the hook then cannot run and does not
+block).
 
 ## Add or change a rule
 

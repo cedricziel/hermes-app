@@ -20,8 +20,8 @@ import subprocess
 import sys
 
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
-KEYWORDS = {"if", "then", "else", "elif", "do", "while", "until", "{", "}", "!", "time"}
-REMOTE_WORK_FLAGS = (
+KEYWORDS = {"if", "then", "else", "elif", "do", "while", "until", "{", "}", "!"}
+REBASE_CONTINUE = (
     "--abort",
     "--continue",
     "--skip",
@@ -38,32 +38,44 @@ MSG_HOOKS_PATH = (
     "Blocked: changing core.hooksPath disables the shared git hooks. Fix what the hook "
     "reports; install the hook with `dart run tool/setup_git_hooks.dart`."
 )
+MSG_HOOK_FILE = (
+    "Blocked: removing, emptying or making the pre-commit hook non-executable. Fix what "
+    "the hook reports; reinstall it with `dart run tool/setup_git_hooks.dart`."
+)
+MSG_ALIAS = (
+    "Blocked: defining a git alias on the command line (-c alias.*) can hide a banned "
+    "command from this guard. Don't alias around the guard; run the git command itself."
+)
 MSG_STASH = (
     "Blocked: git stash. The stash stack is shared by every worktree and session. "
     "Commit work in progress on your own branch instead."
 )
 MSG_ADD_ALL = (
     "Blocked: staging everything (`git add -A/--all/./:/`, `git add -u` without paths, "
-    "`git commit -a`). Building the apps rewrites tracked ios/ and macos/ files. "
-    "Stage files by name: `git add path/a.dart path/b.dart`."
+    "`git commit -a`, `git commit .`). Building the apps rewrites tracked ios/ and "
+    "macos/ files. Stage files by name: `git add path/a.dart path/b.dart`."
 )
 MSG_FORCE = (
     "Blocked: force push. Never rewrite a pushed branch: merge main in "
     "(`git merge origin/main`) and push normally. If a merged branch must restart, "
     "push under a new branch name."
 )
-MSG_DELETE = "Blocked: deleting a remote branch (--delete, -d, :branch, --prune). Never delete remote branches."
+MSG_DELETE = (
+    "Blocked: deleting a remote branch (--delete, -d, :branch, --prune, --delete-branch, "
+    "DELETE on git/refs). Never delete remote branches."
+)
 MSG_REBASE = (
-    "Blocked: git rebase on a branch that exists on origin rewrites pushed history. "
-    "Merge main in instead: `git merge origin/main`."
+    "Blocked: rebasing (git rebase, git pull --rebase) a branch that exists on origin "
+    "rewrites pushed history. Merge main in instead: `git merge origin/main`."
 )
 MSG_NO_HOOK = (
-    "Blocked: git commit without the pre-commit hook installed in this clone. "
+    "Blocked: git commit without an executable pre-commit hook in this clone. "
     "Run `dart run tool/setup_git_hooks.dart` first, then commit."
 )
 MSG_HERMES_HOME = (
-    "Blocked: this touches the real Hermes home (~/.hermes) or stops the real dashboard. "
-    "Use scripts/dev-backend.sh, which runs a throwaway Hermes with its own HERMES_HOME."
+    "Blocked: this touches the real Hermes home (~/.hermes) or runs hermes against it, "
+    "or stops the real dashboard. Use scripts/dev-backend.sh, which runs a throwaway "
+    "Hermes with its own HERMES_HOME."
 )
 MSG_KILL = (
     "Blocked: pkill -f / killall can kill unrelated processes. Stop processes by their "
@@ -79,6 +91,8 @@ class Cmd:
         self.words = []
         self.redirs = []
         self.heredocs = []
+        self.herestrings = []
+        self.piped_from = None
 
 
 def _lex(s, i=0, nested=False):
@@ -91,7 +105,7 @@ def _lex(s, i=0, nested=False):
     cur = Cmd()
     buf = []
     has_word = False
-    skip_next = None  # None | "redir" | "heredoc:<strip>"
+    skip_next = None  # None | "redir" | "here" | "heredoc:" | "heredoc:-"
     pending_heredocs = []  # (delimiter, strip_tabs)
     n = len(s)
 
@@ -103,6 +117,8 @@ def _lex(s, i=0, nested=False):
         buf, has_word = [], False
         if skip_next == "redir":
             cur.redirs.append(w)
+        elif skip_next == "here":
+            cur.herestrings.append(w)
         elif skip_next and skip_next.startswith("heredoc:"):
             pending_heredocs.append((w, skip_next == "heredoc:-"))
         else:
@@ -112,12 +128,11 @@ def _lex(s, i=0, nested=False):
     def end_cmd():
         nonlocal cur
         end_word()
-        if cur.words or cur.redirs:
+        if cur.words or cur.redirs or cur.herestrings:
             cmds.append(cur)
         cur = Cmd()
 
-    def read_heredocs(j):
-        # j is just after a newline; consume bodies of pending heredocs.
+    def read_heredocs(j, target):
         nonlocal pending_heredocs
         for delim, strip in pending_heredocs:
             body = []
@@ -128,12 +143,11 @@ def _lex(s, i=0, nested=False):
                 if (line.lstrip("\t") if strip else line) == delim:
                     break
                 body.append(line)
-            cur.heredocs.append("\n".join(body))
+            target.heredocs.append("\n".join(body))
         pending_heredocs = []
         return j
 
     def dollar_paren(j):
-        # s[j] == '(' just after '$'; lex inner, return index after ')'.
         inner, k = _lex(s, j + 1, nested=True)
         cmds.extend(inner)
         return k
@@ -161,12 +175,7 @@ def _lex(s, i=0, nested=False):
             end_cmd()
             i += 1
             if pending_heredocs:
-                # attach bodies to the command just closed
-                last = cmds[-1] if cmds else cur
-                saved = cur
-                cur = last
-                i = read_heredocs(i)
-                cur = saved
+                i = read_heredocs(i, cmds[-1] if cmds else cur)
         elif c == "\\":
             if i + 1 < n and s[i + 1] == "\n":
                 i += 2
@@ -189,9 +198,7 @@ def _lex(s, i=0, nested=False):
                 if s[i] == "\\" and i + 1 < n:
                     if s[i + 1] in '"\\$`':
                         buf.append(s[i + 1])
-                    elif s[i + 1] == "\n":
-                        pass
-                    else:
+                    elif s[i + 1] != "\n":
                         buf.append(s[i : i + 2])
                     i += 2
                 elif s[i] == "$" and i + 1 < n and s[i + 1] == "(":
@@ -239,7 +246,9 @@ def _lex(s, i=0, nested=False):
                     break
                 j += 1
             op = s[i:j]
-            if op == "<<-" or (op.startswith("<<") and not op.startswith("<<<")):
+            if op == "<<<":
+                skip_next = "here"
+            elif op == "<<-" or op.startswith("<<"):
                 skip_next = "heredoc:-" if op == "<<-" else "heredoc:"
             else:
                 skip_next = "redir"
@@ -251,9 +260,15 @@ def _lex(s, i=0, nested=False):
                 skip_next = None
         elif c in ";&|":
             end_cmd()
+            single_pipe = c == "|" and not (i + 1 < n and s[i + 1] == "|")
             i += 1
-            while i < n and s[i] in ";&|":
+            if c == "|" and i < n and s[i] == "&":
                 i += 1
+            elif not single_pipe:
+                while i < n and s[i] in ";&|":
+                    i += 1
+            if single_pipe and cmds:
+                cur.piped_from = cmds[-1]
         elif c == "(":
             end_cmd()
             i += 1
@@ -272,19 +287,59 @@ def _lex(s, i=0, nested=False):
 
 # ---------------------------------------------------------------- helpers
 
+ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\+?=")
+
+
+def _short_flags_with_arg(w, flags):
+    """Pop leading options; options in `flags` (as a cluster's last letter) take the next word."""
+    while w and w[0].startswith("-") and w[0] != "--" and not w[0].startswith("--"):
+        opt = w.pop(0)
+        if opt[-1] in flags and w:
+            w.pop(0)
+    return w
+
 
 def _strip_prefix(words):
     """Drop assignments, keywords and wrappers; return remaining argv."""
     w = list(words)
     while w:
         t = w[0]
-        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*\+?=", t):
+        if ASSIGN.match(t) or t in KEYWORDS:
             w.pop(0)
-        elif t in KEYWORDS:
+        elif t in ("nohup", "builtin"):
             w.pop(0)
-        elif t in ("nohup", "builtin", "exec", "sudo"):
+        elif t == "exec":
             w.pop(0)
-            while t in ("exec", "sudo") and w and w[0].startswith("-"):
+            while w and w[0].startswith("-"):
+                if w.pop(0) == "-a" and w:
+                    w.pop(0)
+        elif t == "time":
+            w.pop(0)
+            if w and w[0] == "-p":
+                w.pop(0)
+        elif t == "sudo":
+            w.pop(0)
+            long_arg = {
+                "--user",
+                "--group",
+                "--chdir",
+                "--host",
+                "--prompt",
+                "--role",
+                "--type",
+                "--other-user",
+                "--chroot",
+                "--close-from",
+                "--command-timeout",
+            }
+            while w and w[0].startswith("-") and w[0] != "--":
+                opt = w.pop(0)
+                if opt in long_arg:
+                    if w:
+                        w.pop(0)
+                elif not opt.startswith("--") and opt[-1] in "ugCDhprtURT" and w:
+                    w.pop(0)
+            if w and w[0] == "--":
                 w.pop(0)
         elif t == "command":
             if len(w) > 1 and w[1] in ("-v", "-V"):
@@ -294,18 +349,24 @@ def _strip_prefix(words):
                 w.pop(0)
         elif t == "env":
             w.pop(0)
-            while w and (
-                w[0].startswith("-") or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", w[0])
-            ):
+            while w and (w[0].startswith("-") or ASSIGN.match(w[0])):
                 opt = w.pop(0)
                 if opt in ("-u", "-C", "-S", "--unset", "--chdir") and w:
                     w.pop(0)
         elif t == "nice":
             w.pop(0)
-            if w and w[0] == "-n" and len(w) > 1:
-                w = w[2:]
-            elif w and re.match(r"^-\d+$", w[0]):
-                w.pop(0)
+            while w and w[0].startswith("-"):
+                opt = w.pop(0)
+                if opt in ("-n", "--adjustment") and w:
+                    w.pop(0)
+        elif t == "watch":
+            w.pop(0)
+            while w and w[0].startswith("-"):
+                opt = w.pop(0)
+                if opt in ("-n", "--interval") and w:
+                    w.pop(0)
+            if len(w) == 1:
+                return ["eval", w[0]]  # watch 'cmd' runs it through sh -c
         elif t == "timeout":
             w.pop(0)
             while w and w[0].startswith("-"):
@@ -329,20 +390,6 @@ def _matches_long(tok, full, minlen):
     """git accepts unambiguous prefixes of long options."""
     name = tok.split("=", 1)[0]
     return len(name) >= minlen and full.startswith(name)
-
-
-def _short_cluster(tok, arg_flags):
-    """Letters of a short-option cluster up to (excluding) the first arg-taking one.
-
-    Returns (letters, takes_next_arg).
-    """
-    letters = []
-    body = tok[1:]
-    for idx, ch in enumerate(body):
-        if ch in arg_flags:
-            return letters, idx == len(body) - 1
-        letters.append(ch)
-    return letters, False
 
 
 def _git_effective(args, cwd):
@@ -388,19 +435,23 @@ def _git_effective(args, cwd):
 def _git(cwd, *args):
     try:
         r = subprocess.run(
-            ["git", "-C", cwd, *args],
-            capture_output=True,
-            text=True,
-            timeout=5,
+            ["git", "-C", cwd, *args], capture_output=True, text=True, timeout=5
         )
         return r.returncode, r.stdout.strip()
     except Exception:
         return 1, ""
 
 
-# ---------------------------------------------------------------- rules
+# ---------------------------------------------------------------- git rules
 
-COMMIT_ARG_FLAGS = set("mFCctSu")  # S and u take optional attached values
+# Per subcommand: short letters that take a REQUIRED value (the rest of the
+# cluster, else the next word), short letters whose value is OPTIONAL and only
+# ever attached (never the next word), long options with a required value that
+# may be given as the next word. Long options with an optional value
+# (--gpg-sign, --untracked-files, --signed, --force-with-lease) are absent on
+# purpose: they never take the next word.
+COMMIT_SHORT_ARG = set("mFCct")
+COMMIT_SHORT_OPT = set("Su")
 COMMIT_LONG_ARG = {
     "--message",
     "--file",
@@ -414,23 +465,32 @@ COMMIT_LONG_ARG = {
     "--squash",
     "--trailer",
     "--pathspec-from-file",
-    "--gpg-sign",
-    "--untracked-files",
 }
-PUSH_ARG_FLAGS = set("o")
+PUSH_SHORT_ARG = set("o")
 PUSH_LONG_ARG = {
     "--repo",
     "--receive-pack",
     "--exec",
     "--push-option",
     "--recurse-submodules",
-    "--signed",
 }
-PUSH_LONG_ARG = {"--repo", "--receive-pack", "--exec", "--push-option"}
 ADD_LONG_ARG = {"--pathspec-from-file", "--chmod"}
+PULL_SHORT_ARG = set("sXj")
+PULL_SHORT_OPT = set("S")
+PULL_LONG_ARG = {
+    "--strategy",
+    "--strategy-option",
+    "--jobs",
+    "--upload-pack",
+    "--depth",
+    "--shallow-since",
+    "--shallow-exclude",
+    "--deepen",
+    "--negotiation-tip",
+}
 
 
-def _walk(args, arg_flags, long_arg):
+def _walk(args, short_arg, short_opt, long_arg):
     """Yield ('long', tok) / ('short', letters) / ('pos', tok) for git options."""
     i = 0
     only_pos = False
@@ -445,18 +505,52 @@ def _walk(args, arg_flags, long_arg):
             if "=" not in a and a in long_arg:
                 i += 1
         else:
-            letters, takes = _short_cluster(a, arg_flags)
+            letters = []
+            takes_next = False
+            body = a[1:]
+            for idx, ch in enumerate(body):
+                if ch in short_arg:
+                    takes_next = idx == len(body) - 1
+                    break
+                if ch in short_opt:
+                    break
+                letters.append(ch)
             yield "short", letters
-            if takes:
+            if takes_next:
                 i += 1
         i += 1
+
+
+def _is_hookspath(key):
+    return key.lower() == "core.hookspath"
+
+
+def _on_pushed_branch(cwd):
+    rc, branch = _git(cwd, "symbolic-ref", "--short", "-q", "HEAD")
+    if rc == 0 and branch:
+        rc2, _ = _git(
+            cwd, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/" + branch
+        )
+        return rc2 == 0
+    return False
+
+
+def _hook_ok(cwd):
+    rc, path = _git(cwd, "rev-parse", "--git-path", "hooks/pre-commit")
+    if rc != 0 or not path:
+        return True  # not a repo or git failed: fail open
+    full = os.path.join(cwd, path)
+    return os.path.isfile(full) and os.access(full, os.X_OK)
 
 
 def _check_git(argv, cwd, installed_hook_in_same_command):
     configs, cwd, sub, rest = _git_effective(argv[1:], cwd)
     for c in configs:
-        if c.split("=", 1)[0].lower() == "core.hookspath":
+        key = c.split("=", 1)[0]
+        if _is_hookspath(key):
             return MSG_HOOKS_PATH
+        if key.lower().startswith("alias."):
+            return MSG_ALIAS
     if sub is None:
         return None
 
@@ -464,19 +558,24 @@ def _check_git(argv, cwd, installed_hook_in_same_command):
         return MSG_STASH
 
     if sub == "config":
-        if any(a.lower() == "core.hookspath" for a in rest):
-            pos = [a for a in rest if not a.startswith("-")]
-            mutating_flag = any(
+        pos = [a for a in rest if not a.startswith("-")]
+        if any(_is_hookspath(a) for a in pos):
+            read = any(
+                a.startswith("--get") or a in ("-l", "--list") for a in rest
+            ) or (bool(pos) and pos[0] in ("get", "list"))
+            write = any(
                 a in ("--unset", "--unset-all", "--add", "--replace-all") for a in rest
-            )
-            readonly = any(a.startswith("--get") or a in ("-l", "--list") for a in rest)
-            if (len(pos) >= 2 or mutating_flag) and not readonly:
+            ) or (bool(pos) and pos[0] in ("set", "unset", "add", "replace-all"))
+            if write or (not read and len(pos) >= 2):
                 return MSG_HOOKS_PATH
+        if any(a.lower().startswith("alias.") for a in pos):
+            if len(pos) >= 2 and pos[0] not in ("get", "list"):
+                return MSG_ALIAS
         return None
 
     if sub == "add":
         pos, flag_all, flag_u = [], False, False
-        for kind, v in _walk(rest, set(), ADD_LONG_ARG):
+        for kind, v in _walk(rest, set(), set(), ADD_LONG_ARG):
             if kind == "pos":
                 pos.append(v)
             elif kind == "long":
@@ -488,40 +587,45 @@ def _check_git(argv, cwd, installed_hook_in_same_command):
                 flag_all = True
             elif "u" in v:
                 flag_u = True
-        if flag_all or any(p in (".", "./", ":/", ":(top)") for p in pos):
+        if flag_all or any(p in (".", "./", ":/", ":(top)", "*") for p in pos):
             return MSG_ADD_ALL
         if flag_u and not pos:
             return MSG_ADD_ALL
         return None
 
     if sub == "commit":
-        for kind, v in _walk(rest, COMMIT_ARG_FLAGS, COMMIT_LONG_ARG):
+        pos = []
+        for kind, v in _walk(rest, COMMIT_SHORT_ARG, COMMIT_SHORT_OPT, COMMIT_LONG_ARG):
             if kind == "long":
                 if _matches_long(v, "--no-verify", 6):
                     return MSG_NO_VERIFY
-                if v == "--all":
+                if _matches_long(v, "--all", 4):
                     return MSG_ADD_ALL
             elif kind == "short":
                 if "n" in v:
                     return MSG_NO_VERIFY
                 if "a" in v:
                     return MSG_ADD_ALL
+            else:
+                pos.append(v)
+        if any(p in (".", "./", ":/", ":(top)", "*") for p in pos):
+            return MSG_ADD_ALL
         if not installed_hook_in_same_command and "--help" not in rest:
-            rc, common = _git(cwd, "rev-parse", "--git-common-dir")
-            if rc == 0 and common:
-                hook = os.path.join(cwd, common, "hooks", "pre-commit")
-                if not os.path.exists(hook):
-                    return MSG_NO_HOOK
+            if not _hook_ok(cwd):
+                return MSG_NO_HOOK
         return None
 
     if sub == "push":
-        for kind, v in _walk(rest, PUSH_ARG_FLAGS, PUSH_LONG_ARG):
+        for kind, v in _walk(rest, PUSH_SHORT_ARG, set(), PUSH_LONG_ARG):
             if kind == "long":
                 if _matches_long(v, "--no-verify", 6):
                     return MSG_NO_VERIFY
                 if _matches_long(v, "--force", 5) or v.startswith("--force-"):
                     return MSG_FORCE
-                if _matches_long(v, "--delete", 4) or v in ("--prune", "--mirror"):
+                if _matches_long(v, "--delete", 4) or v.split("=")[0] in (
+                    "--prune",
+                    "--mirror",
+                ):
                     return MSG_DELETE
             elif kind == "short":
                 if "f" in v:
@@ -535,53 +639,119 @@ def _check_git(argv, cwd, installed_hook_in_same_command):
                     return MSG_DELETE
         return None
 
+    if sub == "pull":
+        rebase = any(
+            c.lower().startswith("pull.rebase=")
+            and c.split("=", 1)[1].lower() not in ("false", "0", "no", "off")
+            for c in configs
+        )
+        for kind, v in _walk(rest, PULL_SHORT_ARG, PULL_SHORT_OPT, PULL_LONG_ARG):
+            if kind == "long":
+                name, _, val = v.partition("=")
+                if name == "--no-rebase":
+                    rebase = False
+                elif _matches_long(name, "--rebase", 5):
+                    rebase = val.lower() not in ("false", "0", "no")
+            elif kind == "short" and "r" in v:
+                rebase = True
+        if rebase and _on_pushed_branch(cwd):
+            return MSG_REBASE
+        return None
+
     if sub == "rebase":
-        if any(a in REMOTE_WORK_FLAGS for a in rest):
+        if any(a in REBASE_CONTINUE for a in rest):
             return None
-        rc, branch = _git(cwd, "symbolic-ref", "--short", "-q", "HEAD")
-        if rc == 0 and branch:
-            rc2, _ = _git(
-                cwd, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/" + branch
-            )
-            if rc2 == 0:
-                return MSG_REBASE
+        if _on_pushed_branch(cwd):
+            return MSG_REBASE
         return None
     return None
 
 
-def _home_pattern():
-    homes = {"~", "$HOME", "${HOME}"}
+# ---------------------------------------------------------------- hermes, kill, hooks
+
+
+def _real_home():
+    homes = set()
     for h in (os.environ.get("HOME"), os.path.expanduser("~")):
         if h and h != "/":
-            homes.add(h.rstrip("/"))
-    alt = "|".join(re.escape(h) for h in sorted(homes, key=len, reverse=True))
-    return re.compile(r"(?:^|[=:,])(?:" + alt + r")/\.hermes(?:/|$)")
+            homes.add(os.path.normpath(h))
+    return homes
+
+
+def _home_pattern():
+    alts = {"~", "$HOME", "${HOME}"} | _real_home()
+    alt = "|".join(re.escape(h) for h in sorted(alts, key=len, reverse=True))
+    return re.compile(r"(?:^|[=:,])(?:" + alt + r")/\.hermes(?:/|$|[*?\[{])")
 
 
 TEXT_ONLY = {"echo", "printf", "gh", "grep", "rg"}
+HERMES_SAFE_ARGS = {
+    "--help",
+    "-h",
+    "--version",
+    "-V",
+    "--print-runtime-command",
+    "--isolated",
+}
 
 
-def _check_hermes_home(argv, cmd):
+def _resolves_to_hermes_home(word, cwd):
+    if not word or word.startswith("-") or word.startswith("$") or "$(" in word:
+        return False
+    if word.startswith("/") or word.startswith("~"):
+        return False  # absolute forms are caught by the pattern
+    full = os.path.normpath(os.path.join(cwd, word))
+    for h in _real_home():
+        base = os.path.join(h, ".hermes")
+        if full == base or full.startswith(base + os.sep):
+            return True
+    return False
+
+
+def _hermes_home_set(words):
+    return any(w.startswith("HERMES_HOME=") for w in words)
+
+
+def _hook_env_is_isolated():
+    hh = os.environ.get("HERMES_HOME")
+    if not hh:
+        return False
+    hh = os.path.normpath(os.path.expanduser(hh))
+    return all(hh != os.path.join(h, ".hermes") for h in _real_home())
+
+
+def _check_hermes_home(argv, cmd, cwd, home_set):
     prog = os.path.basename(argv[0]) if argv else ""
     pat = _home_pattern()
+    for r in cmd.redirs:  # a redirection writes, whatever the program is
+        if pat.search(r) or _resolves_to_hermes_home(r, cwd):
+            return MSG_HERMES_HOME
+    if prog == "hermes":
+        args = argv[1:]
+        if not (
+            home_set
+            or _hermes_home_set(cmd.words)
+            or _hook_env_is_isolated()
+            or any(a in HERMES_SAFE_ARGS for a in args)
+        ):
+            return MSG_HERMES_HOME
     if prog in TEXT_ONLY:
         return None
-    words = list(cmd.words) + list(cmd.redirs)
     if prog == "git":
         sub = _git_effective(argv[1:], "/")[2]
-        if sub in ("commit", "tag", "notes", "log", "show", "diff", "grep"):
-            words = (
-                [w for w in words if w.startswith("-") or w == sub or w == "git"]
-                if False
-                else []
-            )
-    for w in words:
-        if pat.search(w):
+        if sub in ("commit", "tag", "notes", "log", "grep"):
+            return None  # message and pattern text, not paths
+    for w in list(cmd.words):
+        if pat.search(w) or _resolves_to_hermes_home(w, cwd):
             return MSG_HERMES_HOME
     return None
 
 
-def _check_program(argv):
+HOOK_PATH = re.compile(r"(?:^|/)hooks/pre-commit$")
+SAFE_CHMOD = re.compile(r"^(?:[ugoa]*\+[rwXst]*x[rwXst]*|0?[0-7][1357][0-7]{1,2})$")
+
+
+def _check_program(argv, cmd):
     prog = os.path.basename(argv[0])
     args = argv[1:]
     if prog == "hermes" and "dashboard" in args and "--stop" in args:
@@ -594,48 +764,143 @@ def _check_program(argv):
                 a.startswith("-") and not a.startswith("--") and "f" in a[1:]
             ):
                 return MSG_KILL
+    hook_args = [a for a in args if HOOK_PATH.search(a)]
+    if hook_args:
+        if prog in ("rm", "unlink", "mv", "truncate", "shred", "ln"):
+            return MSG_HOOK_FILE
+        if prog == "chmod":
+            modes = [a for a in args if not a.startswith("-") and a not in hook_args]
+            if not modes or not all(SAFE_CHMOD.match(m) for m in modes):
+                return MSG_HOOK_FILE
     return None
+
+
+GIT_ENV = re.compile(r"^GIT_CONFIG_KEY_\d+=(core\.hookspath|alias\.)", re.I)
+
+
+def _check_env_words(words):
+    for w in words:
+        m = GIT_ENV.match(w)
+        if m:
+            return (
+                MSG_HOOKS_PATH if m.group(1).lower().startswith("core") else MSG_ALIAS
+            )
+    return None
+
+
+def _gh_check(argv):
+    args = argv[1:]
+    if not args:
+        return None
+    if args[:2] == ["pr", "merge"]:
+        for a in args[2:]:
+            if a == "--delete-branch" or (
+                a.startswith("-") and not a.startswith("--") and "d" in a[1:]
+            ):
+                return MSG_DELETE
+    if args[0] == "api":
+        method = None
+        for i, a in enumerate(args):
+            if a in ("-X", "--method") and i + 1 < len(args):
+                method = args[i + 1]
+            elif a.startswith("--method="):
+                method = a.split("=", 1)[1]
+            elif a.startswith("-X") and len(a) > 2:
+                method = a[2:]
+        if method and method.upper() == "DELETE" and any("git/refs" in a for a in args):
+            return MSG_DELETE
+    return None
+
+
+# ---------------------------------------------------------------- driver
+
+
+def _shell_script(prog_args):
+    """For a shell invocation return (script_or_None, reads_stdin)."""
+    c_seen = False
+    i = 0
+    while i < len(prog_args):
+        a = prog_args[i]
+        if a == "--":
+            i += 1
+            break
+        if a.startswith("--"):
+            if a in ("--rcfile", "--init-file") and i + 1 < len(prog_args):
+                i += 1
+            i += 1
+            continue
+        if a[:1] in "-+" and len(a) > 1:
+            letters = a[1:]
+            if "c" in letters:
+                c_seen = True
+            if ("o" in letters or "O" in letters) and i + 1 < len(prog_args):
+                i += 1
+            i += 1
+            continue
+        break
+    operands = prog_args[i:]
+    if c_seen:
+        return (operands[0] if operands else None), False
+    return None, not operands
+
+
+def _stdin_texts(cmd):
+    texts = list(cmd.heredocs) + list(cmd.herestrings)
+    src = cmd.piped_from
+    if src is not None:
+        sargv = _strip_prefix(src.words)
+        if sargv:
+            p = os.path.basename(sargv[0])
+            if p in ("echo", "printf"):
+                texts.append(" ".join(a for a in sargv[1:] if not a.startswith("-")))
+            texts.extend(src.heredocs)
+            texts.extend(src.herestrings)
+    return texts
 
 
 def _check_cmds(cmds, cwd, depth):
     saw_setup = False
+    home_set = False
     for cmd in cmds:
         words = cmd.words
         if any("setup_git_hooks" in w for w in words):
             saw_setup = True
+        if _hermes_home_set(words):
+            home_set = True
+        m = _check_env_words(words)
+        if m:
+            return m
         argv = _strip_prefix(words)
         if not argv:
-            m = _check_hermes_home(words, cmd) if words else None
+            m = _check_hermes_home([], cmd, cwd, home_set)
             if m:
                 return m
             continue
         prog = os.path.basename(argv[0])
-        m = _check_hermes_home(argv, cmd)
+        m = _check_hermes_home(argv, cmd, cwd, home_set)
         if m:
             return m
-        if prog == "cd" and len(argv) > 1:
-            cwd = os.path.normpath(os.path.join(cwd, os.path.expanduser(argv[1])))
+        if prog == "cd":
+            if len(argv) > 1 and argv[1] != "-":
+                cwd = os.path.normpath(os.path.join(cwd, os.path.expanduser(argv[1])))
+            elif len(argv) == 1:
+                cwd = os.path.expanduser("~")
             continue
         if prog == "git":
             m = _check_git(argv, cwd, saw_setup)
+        elif prog == "gh":
+            m = _gh_check(argv)
         else:
-            m = _check_program(argv)
+            m = _check_program(argv, cmd)
         if m:
             return m
         if depth < 5:
             if prog in SHELLS:
-                script = None
-                rest = argv[1:]
-                for idx, a in enumerate(rest):
-                    if a.startswith("-") and not a.startswith("--") and "c" in a[1:]:
-                        script = rest[idx + 1] if idx + 1 < len(rest) else None
-                        break
-                    if not a.startswith("-"):
-                        break
+                script, reads_stdin = _shell_script(argv[1:])
                 if script is not None:
                     m = _check(script, cwd, depth + 1)
-                elif not any(not a.startswith("-") for a in rest):
-                    for body in cmd.heredocs:
+                elif reads_stdin:
+                    for body in _stdin_texts(cmd):
                         m = m or _check(body, cwd, depth + 1)
                 if m:
                     return m
@@ -656,43 +921,53 @@ def check(command, cwd):
     return _check(command, cwd or os.getcwd(), 0)
 
 
-# ---------------------------------------------------------------- entry
+# ---------------------------------------------------------------- post hook
+
+
+def runs_pull_or_merge(command):
+    """True when a simple command in `command` is `git pull` or `git merge`."""
+    cmds, _ = _lex(command)
+    for cmd in cmds:
+        argv = _strip_prefix(cmd.words)
+        if argv and os.path.basename(argv[0]) == "git":
+            if _git_effective(argv[1:], "/")[2] in ("pull", "merge"):
+                return True
+    return False
 
 
 def _post(data):
-    cmd = (data.get("tool_input") or {}).get("command", "")
-    if not re.search(r"\bgit\b.*\b(pull|merge)\b", cmd):
-        return
+    command = (data.get("tool_input") or {}).get("command", "")
+    if not runs_pull_or_merge(command):
+        return None
     cwd = data.get("cwd") or os.getcwd()
     rc, top = _git(cwd, "rev-parse", "--show-toplevel")
     if rc != 0 or not top:
-        return
+        return None
+    rc, subject = _git(top, "reflog", "-1", "--format=%gs")
+    if rc != 0 or not (subject.startswith("pull") or subject.startswith("merge")):
+        return None  # nothing was integrated by this command
     rc, names = _git(
-        top, "diff", "--name-only", "ORIG_HEAD", "HEAD", "--", "lib/l10n/arb"
+        top, "diff", "--name-only", "HEAD@{1}", "HEAD", "--", "lib/l10n/arb"
     )
     if rc != 0 or not names:
-        return
+        return None
     try:
-        subprocess.run(
-            ["flutter", "gen-l10n"], cwd=top, capture_output=True, timeout=90
+        r = subprocess.run(
+            ["flutter", "gen-l10n"], cwd=top, capture_output=True, text=True, timeout=90
         )
-        note = "ARB files changed; ran `flutter gen-l10n`."
     except FileNotFoundError:
-        note = (
+        return (
             "ARB files changed; run `flutter gen-l10n` (flutter is not on PATH here)."
         )
     except Exception:
-        note = "ARB files changed; run `flutter gen-l10n` (the automatic run failed)."
-    print(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PostToolUse",
-                    "additionalContext": note,
-                }
-            }
+        return "ARB files changed; run `flutter gen-l10n` (the automatic run failed)."
+    if r.returncode != 0:
+        tail = (r.stderr or r.stdout or "").strip().splitlines()[-3:]
+        return (
+            "ARB files changed but `flutter gen-l10n` failed; run it and fix: "
+            + " | ".join(tail)
         )
-    )
+    return "ARB files changed; ran `flutter gen-l10n`."
 
 
 def main():
@@ -701,7 +976,18 @@ def main():
         if data.get("tool_name") != "Bash":
             return 0
         if "--post" in sys.argv:
-            _post(data)
+            note = _post(data)
+            if note:
+                print(
+                    json.dumps(
+                        {
+                            "hookSpecificOutput": {
+                                "hookEventName": "PostToolUse",
+                                "additionalContext": note,
+                            }
+                        }
+                    )
+                )
             return 0
         command = (data.get("tool_input") or {}).get("command") or ""
         msg = check(command, data.get("cwd") or os.getcwd())

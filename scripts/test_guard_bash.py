@@ -14,6 +14,10 @@ spec = importlib.util.spec_from_file_location("guard_bash", HOOK)
 guard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(guard)
 
+REVIEW_BLOCK = ['git push origin HEAD --force', 'git push --force-with-lease=main origin x', 'git -c alias.p=push p -f', 'env -i git stash', 'sudo git stash', 'git commit --no-ver -m x', 'git commit -anm x', 'git config --global core.hooksPath /dev/null', 'rm -rf ~/.hermes', 'cd ~ && ls .hermes', 'git push origin :refs/heads/x', 'git push --mirror', 'git push origin +main', 'git -C . push -f', "bash -c 'git stash'", '/usr/bin/git stash pop', 'git stash list', 'git add -A', 'git add .', 'git add -- .', 'git commit -a -m x', 'git -c core.hooksPath=/dev/null commit -m x', 'git push -d origin x', 'git push origin --delete x', 'pkill -f dart', 'killall flutter', 'hermes dashboard --stop', 'HERMES_HOME=~/.hermes hermes dashboard', 'git rebase origin/main', 'x=1; git rebase -i HEAD~2', 'git commit -S -n -m x', 'git commit --gpg-sign --no-verify -m x', 'git commit -u -n -m x', 'git commit --untracked-files --no-verify -m x', "bash -o pipefail -c 'git stash'", "bash -euo pipefail -c 'git push -f'", "echo 'git stash' | bash", "bash <<< 'git stash'", 'sudo -u root git stash', 'nice -n5 git stash', 'watch -n1 git stash', 'echo x > ~/.hermes/config.yaml', "printf 'k: v' >> $HOME/.hermes/.env", 'rm -rf ~/.hermes*', 'git pull --rebase', 'git -c pull.rebase=true pull', 'git commit . -m x', 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x', 'rm .git/hooks/pre-commit', 'gh pr merge 1 --delete-branch', 'gh api -X DELETE repos/o/r/git/refs/heads/x', 'git push origin HEAD:refs/heads/x --force-if-includes --force-with-lease', 'git add *', 'git add -u', 'hermes dashboard', 'git commit --al -m x', "bash -c -- 'git stash'", 'git push --all --prune', 'command git stash', 'exec git stash', 'time git stash', '{ git stash; }', '(cd /tmp && git stash)', 'for f in a; do git stash; done', 'eval git stash', '\\git stash', "g'i't stash", 'git config --unset core.hooksPath', "git commit --no-verify -m 'x'", 'git commit -nm x']
+
+REVIEW_ALLOW = ['git add lib/a.dart test/b_test.dart', 'git commit -m "docs: never git stash or --force"', 'git push -u origin claude/x', 'git rebase --abort', 'HERMES_HOME=$PWD/.dart_tool/x hermes dashboard', 'scripts/dev-backend.sh stop', 'flutter test', "python3 - <<'EOF'\nimport subprocess\nsubprocess.run(['git','stash'])\nEOF", 'git merge origin/main', 'git fetch origin main && git merge origin/main', 'git push', 'git push origin HEAD', 'git push --set-upstream origin claude/y', 'git push origin claude/x:claude/x', 'git push --tags', 'git push -o ci.skip origin x', 'git push --dry-run origin x', 'git status && git diff --stat', 'git commit -m "$(cat <<\'EOF\'\nfix: don\'t --no-verify (or git stash) ~/.hermes; git push -f\n\nCo-Authored-By: x\nEOF\n)"', "git commit -F- <<'EOF'\nchore: git add -A is banned\nEOF", 'git log --oneline -5 | grep stash', "grep -rn 'git stash' docs/", "rg -- '--no-verify' .claude", "gh pr create --title x --body 'never git push --force; pkill -f'", 'git config core.hooksPath', 'git config --get core.hooksPath', 'pgrep -f flutter', 'kill 1234', 'pkill -x dart', 'ls ~/.hermes-app', 'cat .dart_tool/hermes-dev/pid', 'git add -u lib/', 'git commit --amend --no-edit', "git commit -m 'feat: x' -m 'body with -n and -a'", 'git restore ios/Runner.xcodeproj/project.pbxproj', 'git rebase --continue', 'git branch -D local-only', 'git fetch --prune', 'git worktree add ../wt -b claude/z', 'dart run tool/setup_git_hooks.dart && git commit -m x', "echo '~/.hermes is the real home'", 'cat > /tmp/x.sh <<EOF\ngit stash\nrm -rf ~/.hermes\nEOF', "git log -S'~/.hermes'", "git tag -a v1 -m 'force push note'", 'python3 -I scripts/hermes_contracts.py resolve', './scripts/generate_hermes_api_client.sh', 'scripts/verify.sh all', 'git push origin claude/x', 'git config get core.hooksPath', 'git show HEAD:CLAUDE.md | head', "bash -c 'flutter analyze && flutter test'", 'env FOO=1 flutter test', 'timeout 60 flutter test', 'git -C ../other status', 'git commit -v -m x', "git commit -q -m 'x'", "git commit --author='A <a@b>' -m x", 'git commit -m x --no-edit', 'git diff origin/main...HEAD -- .claude/', "sed -i 's/a/b/' lib/x.dart"]
+
 
 def git(cwd, *args):
     subprocess.run(["git", "-C", cwd, *args], check=True, capture_output=True)
@@ -41,6 +45,7 @@ class GuardTest(unittest.TestCase):
         hooks = Path(cls.repo, ".git", "hooks")
         hooks.mkdir(exist_ok=True)
         (hooks / "pre-commit").write_text("#!/bin/sh\n")
+        (hooks / "pre-commit").chmod(0o755)
         cls.nohook = tempfile.TemporaryDirectory()
         git(cls.nohook.name, "init", "-q", "-b", "local-only")
         # git ships sample hooks only; make sure no pre-commit exists here
@@ -190,7 +195,7 @@ class GuardTest(unittest.TestCase):
             "ls > ~/.hermes/x",
         ]:
             self.blocked(c, needle="dev-backend")
-        self.allowed("hermes dashboard --port 9000")
+        self.allowed("HERMES_HOME=/tmp/h hermes dashboard --port 9000")
         self.allowed("HERMES_HOME=/tmp/x/.hermes hermes dashboard")
         self.allowed("git commit -m 'never touch ~/.hermes'")
         self.allowed("echo ~/.hermes")
@@ -249,6 +254,133 @@ class GuardTest(unittest.TestCase):
         self.allowed("flutter test 2>&1 | tail -5 # git stash")
         self.allowed("ls")
         self.allowed("")
+
+    def test_review_battery(self):
+        """Adversarial battery from the isolated review of the first version."""
+        for c in REVIEW_BLOCK:
+            self.blocked(c)
+        for c in REVIEW_ALLOW:
+            self.allowed(c)
+
+    def test_hook_follows_hookspath_and_exec_bit(self):
+        with tempfile.TemporaryDirectory() as d:
+            git(d, "init", "-q", "-b", "local-only")
+            self.blocked("git commit -m x", cwd=d, needle="setup_git_hooks")
+            custom = Path(d, "myhooks")
+            custom.mkdir()
+            (custom / "pre-commit").write_text("#!/bin/sh\n")
+            git(d, "config", "core.hooksPath", "myhooks")
+            self.blocked("git commit -m x", cwd=d)  # present but not executable
+            (custom / "pre-commit").chmod(0o755)
+            self.allowed("git commit -m x", cwd=d)
+            (custom / "pre-commit").unlink()
+            self.blocked("git commit -m x", cwd=d)
+
+    def test_optional_value_flags_do_not_eat_next_word(self):
+        for c in ["git commit -S -n", "git commit -u -n", "git commit --gpg-sign --no-verify",
+                  "git commit --untracked-files --no-verify",
+                  "git push --signed -f", "git pull -S -r", "git push --force-with-lease -d origin x"]:
+            self.blocked(c)
+        self.allowed("git commit -S -m 'x'")
+        self.allowed("git commit -m -n")
+        self.allowed("git push -o -f origin x")
+
+    def test_shell_forms(self):
+        for c in ["bash -o pipefail -c 'git stash'", "bash -euo pipefail -c 'git stash'",
+                  "bash -c -- 'git stash'", "bash -O extglob -c 'git stash'",
+                  "bash <<< 'git stash'", "echo 'git stash' | bash", "printf 'git stash' | sh",
+                  "cat <<EOF | sh\ngit stash\nEOF", "sh -c 'sh -c \"git stash\"'",
+                  "watch -n1 'git stash'", "sudo -u root git stash", "sudo -E -g x git stash",
+                  "nice -n5 git stash", "nice -n 5 git stash", "nice -5 git stash",
+                  "watch -n1 git stash", "watch -n 1 git stash"]:
+            self.blocked(c)
+        self.allowed("bash script.sh")
+        self.allowed("bash -c 'echo hi'")
+        self.allowed("echo 'git stash' | grep stash")
+        self.allowed("bash -o pipefail script.sh")
+
+    def test_hermes_home_more(self):
+        home = os.path.expanduser("~")
+        for c in ["echo x > ~/.hermes/config.yaml", "printf k >> $HOME/.hermes/.env",
+                  "rm -rf ~/.hermes*", "cd ~ && ls .hermes", "cd && cat .hermes/x",
+                  "cd %s && rm -r .hermes" % home, "hermes dashboard", "hermes gateway run",
+                  "hermes doctor", "echo hi > %s/.hermes/x" % home]:
+            self.blocked(c, needle="dev-backend")
+        self.allowed("HERMES_HOME=/tmp/h hermes dashboard")
+        self.allowed("export HERMES_HOME=/tmp/h; hermes dashboard")
+        self.allowed("hermes dashboard --isolated --no-open --port 0")
+        self.allowed("hermes --version")
+        self.allowed("hermes --print-runtime-command")
+        self.allowed("docker exec c hermes computer-use screen start")
+        self.allowed("cd /tmp && ls .hermes")
+        old = os.environ.get("HERMES_HOME")
+        try:
+            os.environ["HERMES_HOME"] = "/tmp/isolated-home"
+            self.allowed("hermes dashboard --no-open")
+            os.environ["HERMES_HOME"] = os.path.join(home, ".hermes")
+            self.blocked("hermes dashboard --no-open")
+        finally:
+            if old is None:
+                os.environ.pop("HERMES_HOME", None)
+            else:
+                os.environ["HERMES_HOME"] = old
+
+    def test_pull_rebase(self):
+        for c in ["git pull --rebase", "git pull -r", "git pull --rebase=true", "git pull --rebase=interactive",
+                  "git -c pull.rebase=true pull", "git pull --rebase origin main"]:
+            self.blocked(c, needle="merge")
+        self.allowed("git pull")
+        self.allowed("git pull --no-rebase")
+        self.allowed("git pull --rebase=false")
+        self.allowed("git -c pull.rebase=false pull")
+        self.allowed("git pull --ff-only")
+        self.allowed("git pull --rebase", cwd=self.nohook.name)
+
+    def test_alias_and_env_config(self):
+        self.blocked("git -c alias.p=push p -f", needle="alias")
+        self.blocked("git config alias.st stash", needle="alias")
+        self.blocked("GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.x GIT_CONFIG_VALUE_0=stash git x", needle="alias")
+        self.blocked("env GIT_CONFIG_KEY_0=core.hooksPath git commit -m x")
+        self.allowed("git config alias.st")
+        self.allowed("git -c user.name=x log")
+
+    def test_hook_file_tampering(self):
+        for c in ["rm .git/hooks/pre-commit", "rm -f /x/.git/hooks/pre-commit", "chmod -x .git/hooks/pre-commit",
+                  "chmod 644 .git/hooks/pre-commit", "mv .git/hooks/pre-commit /tmp/x"]:
+            self.blocked(c, needle="pre-commit")
+        self.allowed("chmod +x .git/hooks/pre-commit")
+        self.allowed("chmod 755 .git/hooks/pre-commit")
+        self.allowed("cat .git/hooks/pre-commit")
+        self.allowed("printf '#!/bin/sh\\n' > .git/hooks/pre-commit")
+
+    def test_commit_pathspec_and_prefixes(self):
+        for c in ["git commit . -m x", "git commit --al -m x", "git add *", "git commit -m x :/"]:
+            self.blocked(c, needle="by name")
+        self.allowed("git commit lib/a.dart -m x")
+        self.allowed("git commit --allow-empty -m x")
+
+    def test_config_read_forms(self):
+        for c in ["git config get core.hooksPath", "git config --get core.hooksPath",
+                  "git config list", "git config --list", "git config --get-all core.hooksPath"]:
+            self.allowed(c)
+        for c in ["git config set core.hooksPath x", "git config unset core.hooksPath"]:
+            self.blocked(c)
+
+    def test_gh_deletes(self):
+        for c in ["gh pr merge 1 --delete-branch", "gh pr merge 1 -d --squash",
+                  "gh api -X DELETE repos/o/r/git/refs/heads/x", "gh api --method DELETE repos/o/r/git/refs/heads/x",
+                  "gh api -XDELETE repos/o/r/git/refs/heads/x"]:
+            self.blocked(c, needle="remote branches")
+        self.allowed("gh pr merge 1 --squash")
+        self.allowed("gh api repos/o/r/git/refs/heads/x")
+        self.allowed("gh api -X DELETE repos/o/r/issues/comments/1")
+
+    def test_post_hook_detection(self):
+        for c in ["git pull", "git merge origin/main", "git -C . pull --ff-only", "cd x && git pull"]:
+            self.assertTrue(guard.runs_pull_or_merge(c), c)
+        for c in ["git merge-base a b", "git commit -m 'git pull'", "echo git merge", "git log --grep merge",
+                  "grep -r 'git pull' ."]:
+            self.assertFalse(guard.runs_pull_or_merge(c), c)
 
     def test_main_exit_codes(self):
         def run(payload, raw=None):

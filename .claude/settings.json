@@ -60,8 +60,7 @@
       "Bash(git stash *)",
       "Bash(git push --force *)",
       "Bash(git push -f *)",
-      "Bash(git commit --no-verify *)",
-      "Edit(/packages/hermes_api/**)"
+      "Bash(git commit --no-verify *)"
     ]
   }
 }
