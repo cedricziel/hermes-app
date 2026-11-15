@@ -35,8 +35,12 @@ NOT_SUCCESS = ("failure", "cancelled", "skipped", "")
 
 
 @functools.lru_cache(maxsize=None)
+def load_workflow():
+    return yaml.safe_load(WORKFLOW.read_text())
+
+
 def load_jobs():
-    return yaml.safe_load(WORKFLOW.read_text())["jobs"]
+    return load_workflow()["jobs"]
 
 
 _EXPRESSION = re.compile(r"^\$\{\{\s*(.+?)\s*\}\}$")
@@ -117,7 +121,18 @@ def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
             if wanted and "run" in step:
                 # The simulation reuses a step's result when its inputs (event
                 # and label lookup) are the same; it ran once for real.
-                cache_key = (job_id, index, ctx["event_name"], gh_fails, tuple(gh_labels))
+                resolved_env = {
+                    key: resolve(value, ctx)
+                    for key, value in (step.get("env") or {}).items()
+                }
+                cache_key = (
+                    job_id,
+                    index,
+                    ctx["event_name"],
+                    gh_fails,
+                    tuple(gh_labels),
+                    tuple(sorted(resolved_env.items())),
+                )
                 if cache is not None and step.get("id") and cache_key in cache:
                     outputs, returncode = cache[cache_key]
                 else:
@@ -127,13 +142,21 @@ def run_job(job_id, ctx, gh_labels=("ci:full",), gh_fails=False, cache=None):
                         GITHUB_OUTPUT=str(output_file),
                         GITHUB_STEP_SUMMARY=str(summary_file),
                     )
-                    for key, value in (step.get("env") or {}).items():
-                        env[key] = resolve(value, ctx)
+                    env.update(resolved_env)
                     script = work / f"step{index}.sh"
                     script.write_text(step["run"])
                     output_file.write_text("")
                     result = subprocess.run(
-                        ["bash", "-e", str(script)],
+                        # GitHub's default shell: bash --noprofile --norc
+                        # -eo pipefail {0}
+                        [
+                            "bash",
+                            "--noprofile",
+                            "--norc",
+                            "-eo",
+                            "pipefail",
+                            str(script),
+                        ],
                         env=env,
                         cwd=ROOT,
                         capture_output=True,
@@ -360,29 +383,43 @@ class LabelGate(unittest.TestCase):
         self.assertFalse(ok, out)
 
 
-def logical_lines(script):
-    """Joins backslash continuations, so a comment may end a command."""
-    return re.sub(r"\\\n", " ", script).splitlines()
-
-
-def split_comment(line):
-    """Returns (code, comment): the comment is the trailing shell comment, a
-    `#` at a word start outside quotes. A `#` inside quotes is no comment."""
-    quote = None
-    escaped = False
-    for index, char in enumerate(line):
-        if escaped:
-            escaped = False
-        elif char == "\\" and quote != "'":
-            escaped = True
+def commands(script):
+    """Splits a script into logical commands as (code, comment) pairs. The
+    quote state runs across lines, so a newline inside quotes stays inside the
+    command and a `#` inside quotes is no comment. A backslash-newline joins
+    lines. A comment is a `#` at a word start outside quotes, up to the
+    newline."""
+    result = []
+    code, comment, quote = [], None, None
+    index = 0
+    while index < len(script):
+        char = script[index]
+        if comment is not None:
+            if char == "\n":
+                result.append(("".join(code), "".join(comment)))
+                code, comment = [], None
+            else:
+                comment.append(char)
+        elif char == "\\" and quote != "'" and index + 1 < len(script):
+            code.append(" " if script[index + 1] == "\n" else char + script[index + 1])
+            index += 1
         elif quote:
+            code.append(char)
             if char == quote:
                 quote = None
         elif char in ("'", '"'):
             quote = char
-        elif char == "#" and (index == 0 or line[index - 1].isspace()):
-            return line[:index], line[index:]
-    return line, ""
+            code.append(char)
+        elif char == "#" and (not code or code[-1].isspace()):
+            comment = ["#"]
+        elif char == "\n":
+            result.append(("".join(code), ""))
+            code = []
+        else:
+            code.append(char)
+        index += 1
+    result.append(("".join(code), "".join(comment or [])))
+    return result
 
 
 MARKER = re.compile(r"^#\s*process-substitution-ok:\s*\S")
@@ -390,10 +427,9 @@ MARKER = re.compile(r"^#\s*process-substitution-ok:\s*\S")
 
 def unmarked_substitutions(script):
     hits = []
-    for line in logical_lines(script):
-        code, comment = split_comment(line)
+    for code, comment in commands(script):
         if re.search(r"[<>]\(", code) and not MARKER.match(comment):
-            hits.append(line.strip()[:120])
+            hits.append(code.strip()[:120])
     return hits
 
 
@@ -423,6 +459,10 @@ class ProcessSubstitution(unittest.TestCase):
 
     def test_marker_inside_quotes_does_not_count(self):
         script = 'echo "# process-substitution-ok: x"; diff <(a) <(b)'
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_quote_state_runs_across_lines(self):
+        script = 'echo "open\n# process-substitution-ok: fake" <(x)'
         self.assertEqual(len(unmarked_substitutions(script)), 1)
 
     def test_marker_must_carry_a_reason(self):
@@ -488,7 +528,33 @@ class BuildsAggregate(unittest.TestCase):
 STEP_IF_ALLOWLIST = {}
 
 
+# `shell:` and `working-directory:` change how the scripts run (a `shell: bash
+# {0}` drops pipefail), and `defaults.run` does the same for every step. The
+# tests run GitHub's default shell, so none may apply to an aggregate job.
+# Allowlist: (job, step name, key) -> reason. Keep it empty if possible.
+STEP_SHELL_ALLOWLIST = {}
+
+
 class StepSemantics(unittest.TestCase):
+    def test_aggregate_steps_use_the_default_shell_and_directory(self):
+        for job_id in aggregate_jobs():
+            for step in load_jobs()[job_id]["steps"]:
+                for key in ("shell", "working-directory"):
+                    if key in step:
+                        entry = (job_id, step.get("name") or step.get("uses"), key)
+                        self.assertIn(
+                            entry,
+                            STEP_SHELL_ALLOWLIST,
+                            f"{entry} sets {key}: {step[key]!r}; the tests run "
+                            "the default shell in the repository root",
+                        )
+
+    def test_no_defaults_run_in_the_workflow_or_an_aggregate_job(self):
+        workflow = load_workflow()
+        self.assertNotIn("defaults", workflow)
+        for job_id in aggregate_jobs():
+            self.assertNotIn("defaults", workflow["jobs"][job_id], job_id)
+
     def test_no_aggregate_step_carries_an_if_unless_allowlisted(self):
         for job_id in aggregate_jobs():
             for step in load_jobs()[job_id]["steps"]:
@@ -514,6 +580,37 @@ class StepSemantics(unittest.TestCase):
         }
         with mock.patch(f"{__name__}.load_jobs", lambda: jobs):
             return run_job("synthetic", ctx)
+
+    def test_scripts_run_with_pipefail_like_the_default_shell(self):
+        ok, out, _ = self.run_with_steps([{"run": "false | cat\necho after"}])
+        self.assertFalse(ok)
+        self.assertNotIn("after", out)
+
+    def test_step_cache_is_keyed_on_the_step_inputs(self):
+        steps = [
+            {
+                "id": "a",
+                "env": {"V": "${{ needs.changes.outputs.v }}"},
+                "run": 'echo "x=$V" >> "$GITHUB_OUTPUT"',
+            },
+            {"env": {"W": "${{ steps.a.outputs.x }}"}, "run": 'echo "w=$W"'},
+        ]
+        jobs = dict(load_jobs())
+        jobs["synthetic"] = {"steps": steps}
+        cache = {}
+        logs = []
+        with mock.patch(f"{__name__}.load_jobs", lambda: jobs):
+            for value in ("1", "2"):
+                ctx = {
+                    "needs_results": {},
+                    "needs_outputs": {"changes": {"v": value}},
+                    "event_name": "push",
+                    "base_ref": "",
+                    "head_ref": "",
+                }
+                logs.append(run_job("synthetic", ctx, cache=cache)[1])
+        self.assertIn("w=1", logs[0])
+        self.assertIn("w=2", logs[1])
 
     def test_step_if_false_skips_the_step_and_the_job_succeeds(self):
         ok, _, _ = self.run_with_steps([{"if": "false", "run": "exit 1"}])

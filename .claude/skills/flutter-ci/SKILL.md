@@ -220,7 +220,10 @@ for the same reason no step of an aggregate job may carry an `if:` (an
 allowlist in the test, empty today). A process substitution (`<(...)`,
 `>(...)`) in a workflow `run:` script fails the test unless the command ends in
 a trailing shell comment `# process-substitution-ok: <reason>` outside quotes,
-because `pipefail` does not see a failure inside it. `scripts/*.sh` is out of
-that test's scope; the `scripts/test-shard.sh` one (a failed `find` gives a
-smaller shard) is tracked in the roadmap's "Found along the way" table. A
-`Builds` aggregate gets the same matrix when it exists.
+because `pipefail` does not see a failure inside it.
+`scripts/*.sh` is out of scope. One known case: `scripts/test-shard.sh` reads
+its file list via `< <(find ...)`, so a failing `find` gives a smaller shard
+instead of an error (an empty list still exits 1). The scripts run in GitHub's
+default shell (`bash --noprofile --norc -eo pipefail`), and no aggregate step
+may set `shell:` or `working-directory:` nor the workflow `defaults.run`.
+A `Builds` aggregate gets the same matrix when it exists.
