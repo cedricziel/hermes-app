@@ -14,6 +14,9 @@ extension _Sending on HermesGatewayTransport {
     Future<void> Function()? onNotSubmitted,
     bool Function()? queueDispatchAllowed,
     void Function()? onSubmitting,
+    bool voiceTurn = false,
+    bool interrupted = false,
+    bool Function()? authorize,
   }) {
     _promptAccepted = false;
     final stopped = CancelFlag();
@@ -33,6 +36,9 @@ extension _Sending on HermesGatewayTransport {
         onNotSubmitted: onNotSubmitted,
         queueDispatchAllowed: queueDispatchAllowed,
         onSubmitting: onSubmitting,
+        voiceTurn: voiceTurn,
+        interrupted: interrupted,
+        authorize: authorize,
       ).transform(
         StreamTransformer.fromHandlers(
           handleError: (error, stackTrace, sink) {
@@ -42,6 +48,7 @@ extension _Sending on HermesGatewayTransport {
             sink.addError(
               onSubmitting == null ||
                       error is ProfileUnavailableException ||
+                      error is PromptNotSent ||
                       error is QueueSubmissionNotStarted
                   ? error
                   : SendFailure(step.sendStep, error),
@@ -148,6 +155,9 @@ extension _Sending on HermesGatewayTransport {
     Future<void> Function()? onNotSubmitted,
     bool Function()? queueDispatchAllowed,
     void Function()? onSubmitting,
+    bool voiceTurn = false,
+    bool interrupted = false,
+    bool Function()? authorize,
   }) async* {
     final scope = <String, Object?>{
       'profile': ?profile,
@@ -412,18 +422,50 @@ extension _Sending on HermesGatewayTransport {
             throw await notSubmitted(error);
           }
         }
+        // A caller that withdrew the prompt (End, mute) while the session was
+        // opening gets nothing sent, and no callback either.
+        var withdrawn = false;
+        bool? voiceAuthorize() {
+          if (authorize == null) return null;
+          var wanted = false;
+          try {
+            wanted = authorize();
+          } on Object {
+            // A check that fails is a no.
+          }
+          if (!wanted) withdrawn = true;
+          return wanted;
+        }
+
+        if (voiceAuthorize() == false) throw const PromptNotSent();
         // Before the step changes: a callback that throws sent nothing.
         onSubmitting?.call();
         step.name = 'submit';
         submittedAt = clock.now();
         try {
-          submit = await _call(client, 'prompt.submit', {
-            'session_id': runtimeId,
-            'text': [text, ...references].where((s) => s.isNotEmpty).join('\n'),
-            if (queued) 'queued': true,
-          }, authorize: beforeSubmit == null ? null : authorizeSubmission);
+          submit = await _call(
+            client,
+            'prompt.submit',
+            {
+              'session_id': runtimeId,
+              'text': [
+                text,
+                ...references,
+              ].where((s) => s.isNotEmpty).join('\n'),
+              // A voice turn is never queued: Hermes answers it as it sees fit.
+              if (queued && !voiceTurn) 'queued': true,
+              if (voiceTurn) 'voice_turn': true,
+              if (voiceTurn && interrupted) 'interrupted': true,
+            },
+            authorize: beforeSubmit != null
+                ? authorizeSubmission
+                : authorize == null
+                ? null
+                : () => voiceAuthorize() ?? true,
+          );
         } on Object catch (error) {
           if (dispatchDenied) throw await notSubmitted(error);
+          if (withdrawn) throw const PromptNotSent();
           rethrow;
         }
       } on Object catch (error) {
@@ -447,7 +489,12 @@ extension _Sending on HermesGatewayTransport {
           connection: client,
         );
       }
-      if (beforeSubmit != null) {
+      if (submit['voice_stopped'] == true) {
+        // Hermes took the words as its voice mode's stop phrase: no turn runs.
+        yield const PromptAccepted(PromptAccepted.voiceStopped);
+        return;
+      }
+      if (beforeSubmit != null || voiceTurn) {
         final status = submit['status'];
         if (status is String &&
             PromptAccepted.allowedStatuses.contains(status)) {

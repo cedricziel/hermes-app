@@ -60,7 +60,72 @@ void _inView(WidgetTester tester, Finder f, Size size, String reason) {
   }
 }
 
+Widget _stopped({required bool words}) => VoiceCallView(
+  phase: CallPhase.failed,
+  elapsed: const Duration(seconds: 75),
+  muted: false,
+  speaker: false,
+  route: 'iPhone',
+  error: words ? _caption : 'The call was interrupted.',
+  notice: words
+      ? const VoiceCallNotice(
+          tone: VoiceCallNoticeTone.warning,
+          title: "Couldn't send. Nothing was sent.",
+          detail: 'Your words are not in the chat.',
+        )
+      : null,
+  onAskHermes: () {},
+  onStartNew: () {},
+  onEnd: () {},
+  onMute: () {},
+  onSpeaker: () {},
+  onShowChat: () {},
+);
+
 void main() {
+  // The controls are pinned: what is heard or noticed never moves them.
+  for (final size in const [Size(390, 844), Size(390, 667), Size(480, 800)]) {
+    testWidgets(
+      'End does not move with a caption or a notice, ${size.width.toInt()}x${size.height.toInt()}',
+      (tester) async {
+        final at = <Offset>[];
+        for (final (caption, notice) in [
+          (false, false),
+          (true, false),
+          (false, true),
+          (true, true),
+        ]) {
+          await pumpVoice(
+            tester,
+            _view(CallPhase.listening, caption: caption, notice: notice),
+            size: size,
+          );
+          at.add(tester.getTopLeft(find.text('End call')));
+        }
+        expect(at.toSet(), hasLength(1), reason: '$at');
+      },
+    );
+
+    testWidgets(
+      'the stopped buttons do not move with words, ${size.width.toInt()}x${size.height.toInt()}',
+      (tester) async {
+        final labels = [
+          'Back to chat',
+          'Ask Hermes for help',
+          'Start a new call',
+        ];
+        final positions = <List<Offset>>[];
+        for (final words in [false, true]) {
+          await pumpVoice(tester, _stopped(words: words), size: size);
+          positions.add([
+            for (final l in labels) tester.getTopLeft(find.text(l)),
+          ]);
+        }
+        expect(positions[0], positions[1]);
+      },
+    );
+  }
+
   const sizes = [
     Size(390, 667),
     Size(390, 844),
@@ -206,4 +271,34 @@ void main() {
       );
     }
   }
+
+  testWidgets('cut state content scrolls to its end behind the fade', (
+    tester,
+  ) async {
+    // Text at 3x on a short phone does not fit its area. The fade itself is
+    // looked at in the workflow screenshots; here the content must still
+    // scroll, also after the fade has come in.
+    await pumpVoice(
+      tester,
+      _view(CallPhase.listening),
+      size: const Size(390, 667),
+      scale: 3,
+    );
+    await tester.pump();
+    await tester.pump();
+    final area = find.ancestor(
+      of: find.text('Listening'),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(area.first).position;
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(
+      find.ancestor(of: area.first, matching: find.byType(ShaderMask)),
+      findsWidgets,
+    );
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pump();
+    await tester.pump();
+    expect(position.pixels, position.maxScrollExtent);
+  });
 }

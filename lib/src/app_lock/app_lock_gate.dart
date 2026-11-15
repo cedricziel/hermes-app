@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../theme/app_icons.dart';
+import '../voice/calls/active_call.dart';
+import '../voice/widgets/hands_free_strip.dart';
 import '../theme/hermes_theme.dart';
 import 'app_lock_controller.dart';
 
@@ -16,6 +20,14 @@ class AppLockGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final lock = context.watch<AppLockController>();
     final covered = lock.covered;
+    // A running call is never ended by the lock; the cover only keeps its
+    // mark in sight, with End.
+    ActiveCallRegistry? call;
+    try {
+      call = Provider.of<ActiveCallRegistry>(context);
+    } on ProviderNotFoundException {
+      call = null;
+    }
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -29,16 +41,23 @@ class AppLockGate extends StatelessWidget {
             child: TickerMode(enabled: !covered, child: child),
           ),
         ),
-        if (covered) _LockScreen(onUnlock: lock.locked ? lock.unlock : null),
+        if (covered)
+          _LockScreen(
+            onUnlock: lock.locked ? lock.unlock : null,
+            handsFree: call?.strip == null ? null : call,
+          ),
       ],
     );
   }
 }
 
 class _LockScreen extends StatelessWidget {
-  const _LockScreen({required this.onUnlock});
+  const _LockScreen({required this.onUnlock, this.handsFree});
 
   final VoidCallback? onUnlock;
+
+  /// The running call, if any: its mark shows over the lock.
+  final ActiveCallRegistry? handsFree;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +71,15 @@ class _LockScreen extends StatelessWidget {
               size: 48,
               color: context.hermesColors.subtleText,
             ),
+            if (handsFree case final call?) ...[
+              const SizedBox(height: 16),
+              HandsFreeStrip(
+                microphone: call.strip!,
+                // A call that ended has nothing to end, and the cover is no
+                // place to dismiss its warning.
+                onEnd: call.active ? () => unawaited(call.end()) : null,
+              ),
+            ],
             if (onUnlock != null) ...[
               const SizedBox(height: 16),
               const Text('Hermes is locked'),

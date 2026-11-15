@@ -62,8 +62,7 @@ class VoiceCallView extends StatelessWidget {
   final VoidCallback onEnd;
   final VoidCallback onShowChat;
 
-  /// The user's words are being prepared for Hermes. It is not a phase yet, so
-  /// the caller says so; until then [CallPhase.transcribing] reads as thinking.
+  /// Shows Sending whatever the phase says. [CallPhase.sending] does already.
   final bool sending;
 
   /// The input level while listening, the output level while speaking. Null
@@ -107,7 +106,8 @@ class VoiceCallView extends StatelessWidget {
       CallPhase.connecting => VoiceOrbState.connecting,
       CallPhase.listening =>
         muted ? VoiceOrbState.muted : VoiceOrbState.listening,
-      CallPhase.transcribing || CallPhase.thinking => VoiceOrbState.thinking,
+      CallPhase.sending => VoiceOrbState.sending,
+      CallPhase.thinking => VoiceOrbState.thinking,
       CallPhase.speaking => VoiceOrbState.speaking,
       CallPhase.attention => VoiceOrbState.waiting,
       CallPhase.ended || CallPhase.failed => VoiceOrbState.stopped,
@@ -260,10 +260,12 @@ class VoiceCallView extends StatelessWidget {
             if (notice != null)
               Flexible(
                 flex: 3,
-                child: ListView(
-                  shrinkWrap: true,
-                  padding: EdgeInsets.zero,
-                  children: [notice!],
+                child: _ScrollCue(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: [notice!],
+                  ),
                 ),
               ),
             if (notice != null && captionText != null)
@@ -271,11 +273,14 @@ class VoiceCallView extends StatelessWidget {
             if (captionText != null)
               Flexible(
                 flex: 2,
-                child: ListView(
-                  shrinkWrap: true,
+                child: _ScrollCue(
                   reverse: true,
-                  padding: EdgeInsets.zero,
-                  children: [captionText],
+                  child: ListView(
+                    shrinkWrap: true,
+                    reverse: true,
+                    padding: EdgeInsets.zero,
+                    children: [captionText],
+                  ),
                 ),
               ),
           ],
@@ -357,7 +362,7 @@ class VoiceCallView extends StatelessWidget {
     );
     Widget capped(Widget child, double maxHeight) => ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
-      child: SingleChildScrollView(child: child),
+      child: _ScrollCue(child: SingleChildScrollView(child: child)),
     );
     const sideGutter = EdgeInsets.symmetric(horizontal: 24);
     return SafeArea(
@@ -397,9 +402,11 @@ class VoiceCallView extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Center(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(24, 8, 12, 8),
-                          child: stateBlock(withOrb: true),
+                        child: _ScrollCue(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 12, 8),
+                            child: stateBlock(withOrb: true),
+                          ),
                         ),
                       ),
                     ),
@@ -411,12 +418,14 @@ class VoiceCallView extends StatelessWidget {
                             child: showChat,
                           ),
                           Expanded(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 8,
+                            child: _ScrollCue(
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 8,
+                                ),
+                                child: Center(child: words),
                               ),
-                              child: Center(child: words),
                             ),
                           ),
                           Padding(
@@ -439,14 +448,16 @@ class VoiceCallView extends StatelessWidget {
                     // The orb goes first when the room is short, so the state
                     // word is always the first thing in view.
                     child: LayoutBuilder(
-                      builder: (context, top) => SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                        child: stateBlock(
-                          withOrb:
-                              top.maxHeight >=
-                              VoiceOrb.diameter +
-                                  56 +
-                                  MediaQuery.textScalerOf(context).scale(150),
+                      builder: (context, top) => _ScrollCue(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                          child: stateBlock(
+                            withOrb:
+                                top.maxHeight >=
+                                VoiceOrb.diameter +
+                                    56 +
+                                    MediaQuery.textScalerOf(context).scale(150),
+                          ),
                         ),
                       ),
                     ),
@@ -530,6 +541,78 @@ class _Control extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Fades the edge of a vertical scroll view that has more content beyond it,
+/// so text cut at the edge reads as "there is more" and not as the end.
+class _ScrollCue extends StatefulWidget {
+  const _ScrollCue({required this.child, this.reverse = false});
+
+  final Widget child;
+
+  /// The scroll view is reversed: its content starts at the bottom.
+  final bool reverse;
+
+  @override
+  State<_ScrollCue> createState() => _ScrollCueState();
+}
+
+class _ScrollCueState extends State<_ScrollCue> {
+  static const _fade = 20.0;
+  bool _top = false, _bottom = false;
+
+  bool _update(ScrollMetrics m) {
+    if (m.axis != Axis.vertical) return false;
+    final before = m.extentBefore > 0.5, after = m.extentAfter > 0.5;
+    final top = widget.reverse ? after : before;
+    final bottom = widget.reverse ? before : after;
+    if (top != _top || bottom != _bottom) {
+      // Metrics arrive during layout; paint the cue on the next frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _top = top;
+            _bottom = bottom;
+          });
+        }
+      });
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (n) => _update(n.metrics),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (n) => _update(n.metrics),
+        child: LayoutBuilder(
+          builder: (context, box) {
+            // Always the same structure, so the scroll position survives the
+            // cue coming and going.
+            final f = box.maxHeight.isFinite && box.maxHeight > 0
+                ? math.min(0.5, _fade / box.maxHeight)
+                : 0.0;
+            return ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (rect) => LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _top ? Colors.transparent : Colors.black,
+                  Colors.black,
+                  Colors.black,
+                  _bottom ? Colors.transparent : Colors.black,
+                ],
+                stops: [0, f, 1 - f, 1],
+              ).createShader(rect),
+              child: widget.child,
+            );
+          },
+        ),
       ),
     );
   }

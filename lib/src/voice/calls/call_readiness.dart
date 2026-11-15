@@ -1,32 +1,57 @@
-enum CallCheckId { microphone, input, output, connection }
+enum CallCheckId { microphone, input, output, voiceModel, connection }
 
-enum CallCheckStatus { checking, ready, needsSetup, unavailable }
+/// What a row says, for the rows whose words the widget layer owns (and
+/// translates). [CallCheck.detail] keeps an English sentence for the setup
+/// request to the agent.
+enum CallDetail {
+  voiceModelNamed,
+  voiceModelFollowsMain,
+  voiceModelProviderOnly,
+  voiceModelUnresolved,
+  voiceModelUnknown,
+}
+
+enum CallCheckStatus {
+  checking,
+  ready,
+  needsSetup,
+  unavailable,
+
+  /// Worth saying, never a reason to stop: the call can still start.
+  warning,
+}
 
 enum CallSetupAction { microphone, dictation, hermes }
 
 class CallCheck {
-  const CallCheck(this.id, this.status, this.detail, {this.action, this.label});
+  const CallCheck(this.id, this.status, this.detail, {this.action, this.code});
   final CallCheckId id;
   final CallCheckStatus status;
   final String detail;
   final CallSetupAction? action;
 
-  /// A row name that replaces the id's own, for a check the catalog shows
-  /// before it has an id of its own (the voice model).
-  final String? label;
+  /// The words the screen shows instead of [detail], when it has them.
+  final CallDetail? code;
 
-  String get title =>
-      label ??
-      switch (id) {
-        CallCheckId.microphone => 'Microphone',
-        CallCheckId.input => 'Speech recognition',
-        CallCheckId.output => 'Spoken replies',
-        CallCheckId.connection => 'Voice connection',
-      };
+  /// Whether this row lets the call start.
+  bool get allowsCall =>
+      status == CallCheckStatus.ready || status == CallCheckStatus.warning;
+
+  String get title => switch (id) {
+    CallCheckId.microphone => 'Microphone',
+    CallCheckId.input => 'Speech recognition',
+    CallCheckId.output => 'Spoken replies',
+    CallCheckId.voiceModel => 'Voice model',
+    CallCheckId.connection => 'Voice connection',
+  };
 }
 
 class CallReadiness {
-  const CallReadiness(this.checks, {this.useDeviceSpeech = false});
+  const CallReadiness(
+    this.checks, {
+    this.useDeviceSpeech = false,
+    this.gptLive = false,
+  });
   static const checking = CallReadiness([
     CallCheck(
       CallCheckId.microphone,
@@ -44,6 +69,11 @@ class CallReadiness {
       'Checking Hermes speech settings…',
     ),
     CallCheck(
+      CallCheckId.voiceModel,
+      CallCheckStatus.checking,
+      'Checking the voice model…',
+    ),
+    CallCheck(
       CallCheckId.connection,
       CallCheckStatus.checking,
       'Checking the voice connection…',
@@ -52,11 +82,15 @@ class CallReadiness {
 
   final List<CallCheck> checks;
   final bool useDeviceSpeech;
+
+  /// The profile's voice chat mode is GPT-Live, which this app does not run:
+  /// the start screen says the call uses the standard voice chat.
+  final bool gptLive;
   bool get isChecking =>
       checks.any((c) => c.status == CallCheckStatus.checking);
   bool get ready =>
       checks.length == CallCheckId.values.length &&
-      checks.every((c) => c.status == CallCheckStatus.ready);
+      checks.every((c) => c.allowsCall);
   bool get canAskHermes =>
       checks.any((c) => c.action == CallSetupAction.hermes);
 

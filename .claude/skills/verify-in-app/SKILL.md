@@ -947,6 +947,20 @@ Bash call. Once `$DIR` exists, only the `DIR=` and `export` lines are needed.
   latest-upstream experiments separate from the pinned advisory result.
 - Its API contract is `openapi/hermes-agent.openapi.json`.
 
+## Voice calls
+
+The hands-free call (`docs/voice-calls.md`, `openspec/changes/voice-conversation`). Device-free first: `flutter test test/voice test/workflows/voice_call_phases_workflow_test.dart test/workflows/hands_free_strip_workflow_test.dart`, then read `build/workflow_screenshots/voice-call-*` and `hands-free-strip-*`. The Dart state machine, the readiness checks, the strip and the teardown order run against fakes and `FakeHermesServer`; no microphone is involved.
+
+Against the throwaway backend (`scripts/dev-backend.sh`, never `~/.hermes`):
+
+1. Contract: `HERMES_DEV_URL=$(scripts/dev-backend.sh url) flutter test test/real_backend_contract_test.dart --plain-name voice` reads `voice-config`, the `voice_chat` slot of `/api/model/auxiliary`, `voice-live/status` and `GET /api/config?include_defaults=false` (an unset `voice.stop_phrases` must be absent). The `speak-stream` check makes a real speech request, so it needs `HERMES_DEV_MODEL_CALLS=1`.
+2. A call needs the call button, which is iOS only until the portable bridge ships: use the iOS simulator. The simulator has no microphone worth trusting and CallKit audio is not exercised there; what it shows is the start screen (checks, the Voice model row, the GPT-Live note), the consent switch and Start, the strip and the notices.
+3. The dev backend has no speech provider. Edge TTS (the Hermes default) needs `ffmpeg` on the host that runs the dashboard (`which ffmpeg`), network access to Microsoft's service, and a `tts` provider set on the profile; local Whisper needs the `faster-whisper` extra installed and downloads its model on first use. Without them the start screen shows "Configure a speech provider on Hermes" (that is the check working) and the setup request goes to the agent in the chat. Set up a provider in the throwaway home through the agent or the dashboard, never by editing `~/.hermes`.
+4. Microphone permission: the simulator asks the first time; `xcrun simctl privacy booted reset microphone <the app's bundle ID>` asks again, and a denied permission shows the settings row on the start screen.
+5. Check by eye: consent off means no Start; Start opens the strip on every screen (open settings, switch chat) with End; End closes the microphone first (the strip goes before the notice); a chat opened over the call keeps the strip.
+
+**`voice-device-check`** (a note for whoever has a phone, nothing here replaces it): echo and barge-in. On an iPhone speaker, start a call and let Hermes speak a long reply without talking; the call must not hear itself (no new turn from the reply's own words, the reply must keep speaking). Then talk over it: playback must stop at once and your words go as the next turn only after you pause. Repeat on Bluetooth and a wired headset, and with a phone call coming in. Record each result in the PR, as the roadmap row lists them as not verified until done.
+
 ## Call speech fallback
 
 Hermes' speak-stream `fallback` frame is distinct from an `error`. Current

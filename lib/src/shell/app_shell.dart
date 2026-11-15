@@ -549,6 +549,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       return;
     }
     unawaited(_serverCare?.resumed());
+    _gatewayRun?.appUnlocked();
+    _updateRun?.appUnlocked();
   }
 
   T? _maybeRead<T>() {
@@ -614,6 +616,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         unawaited(_resolveServerCareProfile());
       }
       unawaited(_serverCare?.resumed());
+      _gatewayRun?.appResumed();
+      _updateRun?.appResumed();
       _serverCheck?.resumed();
       _installs?.resumed();
       _refreshTools();

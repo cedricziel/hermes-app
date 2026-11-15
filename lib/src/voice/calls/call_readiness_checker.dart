@@ -5,6 +5,7 @@ import 'package:flutter_otel/flutter_otel.dart'
 import '../voice_support.dart';
 import 'call_readiness.dart';
 import 'call_telemetry.dart';
+import 'voice_model_route.dart';
 
 class CallInput {
   const CallInput({required this.useDevice, this.installed = true});
@@ -19,6 +20,8 @@ class CallReadinessChecker {
     required this.input,
     required this.configuration,
     required this.connection,
+    required this.voiceModel,
+    required this.gptLive,
     required this.isCurrent,
     this.beforeCheck,
     this.timeout = const Duration(seconds: 8),
@@ -28,6 +31,14 @@ class CallReadinessChecker {
   final Future<CallInput> Function() input;
   final Future<VoiceSupport> Function() configuration;
   final Future<void> Function() connection;
+
+  /// What the profile's `voice_chat` slot resolves to. A read that fails is
+  /// a warning, never a block.
+  final Future<VoiceModelRoute> Function() voiceModel;
+
+  /// Whether the profile's voice chat mode is GPT-Live
+  /// (`voice-live/status`). A failed read says nothing.
+  final Future<bool> Function() gptLive;
   final Future<void> Function()? beforeCheck;
   final bool Function() isCurrent;
   final Duration timeout;
@@ -40,8 +51,12 @@ class CallReadinessChecker {
     final checks = List.of(CallReadiness.checking.checks);
     final errors = <CallCheckId, String>{};
     var device = false;
-    CallReadiness report() =>
-        CallReadiness(List.unmodifiable(checks), useDeviceSpeech: device);
+    var live = false;
+    CallReadiness report() => CallReadiness(
+      List.unmodifiable(checks),
+      useDeviceSpeech: device,
+      gptLive: live,
+    );
     void update(CallCheck check) {
       checks[check.id.index] = check;
       if (isCurrent()) onUpdate?.call(report());
@@ -98,6 +113,50 @@ class CallReadinessChecker {
           CallCheckStatus.unavailable,
           'Speech recognition could not be checked. Open Dictation settings.',
           action: CallSetupAction.dictation,
+        ),
+      );
+    }
+    if (!isCurrent()) return report();
+    try {
+      final route = await voiceModel().timeout(timeout);
+      final (code, detail) = switch (route) {
+        VoiceModelRoute.named => (
+          CallDetail.voiceModelNamed,
+          'Voice replies use a model chosen for voice.',
+        ),
+        VoiceModelRoute.followsMain => (
+          CallDetail.voiceModelFollowsMain,
+          'Voice replies follow your main model.',
+        ),
+        VoiceModelRoute.providerOnly => (
+          CallDetail.voiceModelProviderOnly,
+          'Voice replies use a fast model from the voice provider.',
+        ),
+        VoiceModelRoute.unresolved => (
+          CallDetail.voiceModelUnresolved,
+          'Hermes has no model set for voice replies. The call can still start.',
+        ),
+        VoiceModelRoute.unknown => (
+          CallDetail.voiceModelUnknown,
+          "Couldn't check the voice model. The call can still start.",
+        ),
+      };
+      update(
+        CallCheck(
+          CallCheckId.voiceModel,
+          route.resolved ? CallCheckStatus.ready : CallCheckStatus.warning,
+          detail,
+          code: code,
+        ),
+      );
+    } on Object catch (error) {
+      errors[CallCheckId.voiceModel] = callErrorKind(error);
+      update(
+        const CallCheck(
+          CallCheckId.voiceModel,
+          CallCheckStatus.warning,
+          "Couldn't check the voice model. The call can still start.",
+          code: CallDetail.voiceModelUnknown,
         ),
       );
     }
@@ -197,6 +256,13 @@ class CallReadinessChecker {
         );
       }
     }
+    if (!isCurrent()) return report();
+    try {
+      live = await gptLive().timeout(timeout);
+      if (isCurrent()) onUpdate?.call(report());
+    } on Object {
+      // The note is a courtesy: no answer, no note.
+    }
     final result = report();
     if (isCurrent()) _log(result, errors);
     return result;
@@ -213,6 +279,7 @@ class CallReadinessChecker {
             CallCheckStatus.ready => 'ready',
             CallCheckStatus.needsSetup => 'needs_setup',
             CallCheckStatus.unavailable => 'unavailable',
+            CallCheckStatus.warning => 'warning',
           },
         for (final MapEntry(:key, :value) in errors.entries)
           '${key.name}_error': value,

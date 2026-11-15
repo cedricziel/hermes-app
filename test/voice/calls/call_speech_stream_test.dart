@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:hermes_app/src/voice/calls/call_speech_stream.dart';
@@ -111,7 +114,7 @@ void main() {
             failed = true;
           }),
         );
-        clock.elapse(const Duration(seconds: 11));
+        clock.elapse(const Duration(seconds: 22));
         clock.flushMicrotasks();
         expect(failed, isTrue);
         opened.complete(socket.local);
@@ -120,4 +123,130 @@ void main() {
       });
     },
   );
+
+  group('a speech open that fails in passing', () {
+    DioException badGateway() {
+      final options = RequestOptions(path: '/api/audio/speak-stream');
+      return DioException(
+        requestOptions: options,
+        response: Response(requestOptions: options, statusCode: 502),
+      );
+    }
+
+    test('is retried once after the delay, with the queued text intact', () {
+      fakeAsync((async) {
+        final socket = StreamChannelController<Object?>();
+        final sent = <Object?>[];
+        socket.foreign.stream.listen(sent.add);
+        var attempts = 0;
+        final stream = CallSpeechStream(
+          connect: ([_ = const {}]) async {
+            if (attempts++ == 0) throw badGateway();
+            return socket.local;
+          },
+          output: FakeCallBridge(),
+        );
+        stream.append('Hello.');
+        var opened = false;
+        unawaited(stream.open(null).then((_) => opened = true));
+        async.elapse(const Duration(milliseconds: 499));
+        expect(attempts, 1);
+        expect(opened, isFalse);
+        async.elapse(const Duration(milliseconds: 2));
+        async.flushMicrotasks();
+        expect(attempts, 2);
+        expect(opened, isTrue);
+        expect(stream.openRetries, 1);
+        expect(sent.map((v) => jsonDecode(v as String)), [
+          {'text': 'Hello.'},
+        ]);
+      });
+    });
+
+    for (final error in [() => const SocketException('down')]) {
+      test('${error().runtimeType} is retried', () async {
+        final socket = StreamChannelController<Object?>();
+        socket.foreign.stream.listen((_) {});
+        var attempts = 0;
+        final stream = CallSpeechStream(
+          connect: ([_ = const {}]) async {
+            if (attempts++ == 0) throw error();
+            return socket.local;
+          },
+          output: FakeCallBridge(),
+          retryDelay: Duration.zero,
+        );
+        await stream.open(null);
+        expect(attempts, 2);
+        await stream.close();
+      });
+    }
+
+    test('is not retried when the server refuses it', () async {
+      final options = RequestOptions(path: '/api/audio/speak-stream');
+      var attempts = 0;
+      final stream = CallSpeechStream(
+        connect: ([_ = const {}]) async {
+          attempts++;
+          throw DioException(
+            requestOptions: options,
+            response: Response(requestOptions: options, statusCode: 403),
+          );
+        },
+        output: FakeCallBridge(),
+        retryDelay: Duration.zero,
+      );
+      await expectLater(stream.open(null), throwsA(isA<DioException>()));
+      expect(attempts, 1);
+      expect(stream.openRetries, 0);
+    });
+
+    test(
+      'falls back to the one-piece speech when the retry fails too',
+      () async {
+        var attempts = 0;
+        final spoken = <String>[];
+        final output = FakeCallBridge();
+        var failures = 0;
+        final stream = CallSpeechStream(
+          connect: ([_ = const {}]) async {
+            attempts++;
+            throw badGateway();
+          },
+          output: output,
+          retryDelay: Duration.zero,
+          onFailure: (_) => failures++,
+          fallback: (text, _, _) async {
+            spoken.add(text);
+            return Uint8List.fromList([1, 2]);
+          },
+        );
+        stream.append('Hi.');
+        await stream.open(null);
+        await stream.finish();
+        expect(attempts, 2);
+        expect(stream.openRetries, 1);
+        expect(spoken, ['Hi.']);
+        expect(failures, 0);
+      },
+    );
+
+    test('a stop during the delay opens nothing more', () {
+      fakeAsync((async) {
+        var attempts = 0;
+        final stream = CallSpeechStream(
+          connect: ([_ = const {}]) async {
+            attempts++;
+            throw badGateway();
+          },
+          output: FakeCallBridge(),
+        );
+        unawaited(stream.open(null));
+        async.flushMicrotasks();
+        unawaited(stream.close());
+        async.elapse(const Duration(seconds: 1));
+        expect(attempts, 1);
+      });
+    });
+  });
 }

@@ -132,6 +132,95 @@ void main() {
     isEmpty,
   );
 
+  final modelPill = find.byKey(const Key('composer-model-pill'));
+
+  void expectPillAlone(WidgetTester tester) {
+    expect(find.byType(ProfileRecipientChip), findsNothing);
+    expect(modelPill, findsOneWidget);
+    expect(
+      tester
+          .widget<InkWell>(
+            find
+                .descendant(of: modelPill, matching: find.byType(InkWell))
+                .first,
+          )
+          .onTap,
+      isNotNull,
+    );
+  }
+
+  testWidgets('a new empty chat shows a tappable chip beside the pill', (
+    tester,
+  ) async {
+    await pump(tester);
+    await newMessage(tester, 'Work assistant');
+
+    final chip = find.byType(ProfileRecipientChip);
+    expect(chip, findsOneWidget);
+    expect(tester.widget<ProfileRecipientChip>(chip).onTap, isNotNull);
+    expect(modelPill, findsOneWidget);
+  });
+
+  testWidgets('the chip goes once the first reply has completed', (
+    tester,
+  ) async {
+    await pump(tester);
+    await newMessage(tester, 'Work assistant');
+    await tester.enterText(composerField, 'Plan the sprint');
+    await tester.pump();
+    await send(tester);
+
+    expectPillAlone(tester);
+  });
+
+  testWidgets('a first send that fails keeps its prompt and the pill alone', (
+    tester,
+  ) async {
+    await pump(tester);
+    await newMessage(tester, 'Work assistant');
+    await tester.enterText(composerField, 'Plan the sprint');
+    await tester.pump();
+    await tester.tap(findAppIcon(AppIcons.sendArrow));
+    await tester.pump();
+    transport.sends.last
+      ..fail()
+      ..finish();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plan the sprint'), findsWidgets);
+    expectPillAlone(tester);
+  });
+
+  testWidgets('an existing chat with messages shows the pill alone', (
+    tester,
+  ) async {
+    server.on(
+      'GET',
+      '/api/sessions/personal/messages',
+      messageListBody('personal', [
+        messageRow(id: 1, role: 'user', content: 'Hello'),
+        messageRow(id: 2, role: 'assistant', content: 'Hi there'),
+      ]),
+      query: {'profile': 'default'},
+    );
+    await pump(tester);
+    await tester.tap(find.byKey(const ValueKey('thread-personal')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hi there'), findsOneWidget);
+    expectPillAlone(tester);
+  });
+
+  testWidgets('a server chat with no local messages shows the pill alone', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const ValueKey('thread-personal')));
+    await tester.pumpAndSettle();
+
+    expectPillAlone(tester);
+  });
+
   testWidgets(
     'New message chooses Work locally and sends only on explicit send',
     (tester) async {

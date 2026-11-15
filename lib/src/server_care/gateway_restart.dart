@@ -9,6 +9,7 @@ import '../core/safe_notifier.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../telemetry/telemetry.dart';
 import 'care_result.dart';
+import 'resumable_sleep.dart';
 import 'server_care_controller.dart';
 import 'server_care_repository.dart';
 import 'server_status.dart';
@@ -63,6 +64,19 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   /// Whether App Lock covers the app: Hermes' words about a failed run are
   /// not kept then.
   final bool Function()? _covered;
+
+  late final _pause = ResumableSleep(_delay, covered: _covered);
+
+  Future<void> _sleep(Duration duration) => _pause.sleep(duration);
+
+  /// The app came back to the front: a poll that waits for a timer the
+  /// suspended app never ran reads now instead. Nothing is sent; the run only
+  /// reads. While App Lock covers the app nothing is read, and the wake is
+  /// owed until [appUnlocked].
+  void appResumed() => _pause.resumed();
+
+  /// App Lock lifted: makes up for a resume it held back.
+  void appUnlocked() => _pause.unlocked();
 
   GatewayPhase _phase = GatewayPhase.idle;
   GatewayAction? _action;
@@ -150,6 +164,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   @override
   void dispose() {
     if (busy) _care?.gatewayBusy = false;
+    _pause.release();
     super.dispose();
   }
 
@@ -292,7 +307,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
         }
       }
       if (_now().difference(waitStart) >= waitWindow) break;
-      await _delay(_actionPoll);
+      await _sleep(_actionPoll);
       if (disposed) return null;
     }
     return _awaitReturn(
@@ -353,7 +368,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       if (_now().difference(started) >= returnWindow) {
         return _slow(gatewayRunning: !sawDown && lastBack);
       }
-      await _delay(_actionPoll);
+      await _sleep(_actionPoll);
       if (disposed) return null;
     }
   }
@@ -404,7 +419,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       if (_now().difference(from) >= window) {
         return _slow(gatewayRunning: !sawDown && lastBack);
       }
-      await _delay(_statusPoll);
+      await _sleep(_statusPoll);
       if (disposed) return null;
     }
   }

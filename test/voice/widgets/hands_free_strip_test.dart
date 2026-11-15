@@ -13,6 +13,7 @@ void main() {
     HandsFreeMicrophone.paused: 'Hands-free on · microphone paused',
     HandsFreeMicrophone.muted: 'Hands-free on · microphone muted',
     HandsFreeMicrophone.opening: 'Hands-free on · microphone opening',
+    HandsFreeMicrophone.mayBeOpen: 'Microphone may still be open',
   };
 
   for (final MapEntry(key: mic, value: text) in words.entries) {
@@ -172,9 +173,33 @@ void main() {
       );
       expect(render.didExceedMaxLines, isFalse);
       expect(
-        find.textContaining('Freihändig an', findRichText: true),
+        find.textContaining(
+          mic == HandsFreeMicrophone.mayBeOpen
+              ? 'Mikrofon ist vielleicht noch offen'
+              : 'Freihändig an',
+          findRichText: true,
+        ),
         findsOneWidget,
       );
     }
+  });
+
+  testWidgets('an unconfirmed microphone keeps its whole phrase at 2x text', (
+    tester,
+  ) async {
+    await pumpVoice(
+      tester,
+      const HandsFreeStrip(microphone: HandsFreeMicrophone.mayBeOpen),
+      scale: 2,
+    );
+    expect(
+      find.text('Microphone may still be open', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Hands-free on', findRichText: true),
+      findsNothing,
+    );
+    expect(find.byIcon(AppIcons.warning.material), findsOneWidget);
   });
 }

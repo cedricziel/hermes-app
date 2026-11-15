@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/call_readiness_checker.dart';
 import 'package:hermes_app/src/voice/calls/call_telemetry.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
+import 'package:hermes_app/src/voice/calls/voice_model_route.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -63,6 +64,66 @@ void main() {
       expect(callDurationBucket(const Duration(seconds: 30)), '10-60s');
       expect(callDurationBucket(const Duration(minutes: 9)), '>5m');
     });
+
+    test('buckets latencies at every edge', () {
+      const ms = Duration(milliseconds: 1);
+      expect(callLatencyBucket(null), 'none');
+      expect(callLatencyBucket(Duration.zero), '<0.5s');
+      expect(
+        callLatencyBucket(const Duration(milliseconds: 500) - ms),
+        '<0.5s',
+      );
+      expect(callLatencyBucket(const Duration(milliseconds: 500)), '0.5-1s');
+      expect(callLatencyBucket(const Duration(seconds: 1)), '1-2s');
+      expect(callLatencyBucket(const Duration(seconds: 2)), '2-5s');
+      expect(callLatencyBucket(const Duration(seconds: 5)), '5-10s');
+      expect(callLatencyBucket(const Duration(seconds: 10)), '10-30s');
+      expect(callLatencyBucket(const Duration(seconds: 30)), '>30s');
+      expect(callLatencyBucket(const Duration(minutes: 4)), '>30s');
+    });
+
+    test('only a passing failure of a speech open is retried', () {
+      final options = RequestOptions(path: '/api/audio/speak-stream');
+      DioException status(int code) => DioException(
+        requestOptions: options,
+        response: Response(requestOptions: options, statusCode: code),
+      );
+      for (final code in [500, 502, 503, 504]) {
+        expect(
+          isTransientSpeechOpenError(status(code)),
+          isTrue,
+          reason: '$code',
+        );
+      }
+      for (final code in [400, 401, 403, 404, 405]) {
+        expect(
+          isTransientSpeechOpenError(status(code)),
+          isFalse,
+          reason: '$code',
+        );
+      }
+      expect(
+        isTransientSpeechOpenError(
+          WebSocketChannelException.from(const WebSocketException('x', 502)),
+        ),
+        isTrue,
+      );
+      expect(
+        isTransientSpeechOpenError(
+          WebSocketChannelException.from(const WebSocketException('x', 403)),
+        ),
+        isFalse,
+      );
+      expect(isTransientSpeechOpenError(TimeoutException('slow')), isFalse);
+      expect(isTransientSpeechOpenError(const SocketException('down')), isTrue);
+      expect(
+        isTransientSpeechOpenError(
+          DioException(requestOptions: options, type: DioExceptionType.cancel),
+        ),
+        isFalse,
+      );
+      expect(isTransientSpeechOpenError(StateError('x')), isFalse);
+    });
   });
 
   test('readiness logs each check and the kind of a failure', () async {
@@ -77,6 +138,8 @@ void main() {
       connection: () async => throw WebSocketChannelException.from(
         const WebSocketException('wss://host/?ticket=secret', 403),
       ),
+      voiceModel: () async => VoiceModelRoute.named,
+      gptLive: () async => false,
       isCurrent: () => true,
       events: (name, [attributes = const {}]) => logged.add((name, attributes)),
     );
@@ -91,6 +154,7 @@ void main() {
       'microphone': 'ready',
       'input': 'ready',
       'output': 'ready',
+      'voiceModel': 'ready',
       'connection': 'unavailable',
       'connection_error': 'upgrade_403',
     });
@@ -108,6 +172,8 @@ void main() {
       input: () async => const CallInput(useDevice: true),
       configuration: () async => throw StateError('unused'),
       connection: () async {},
+      voiceModel: () async => VoiceModelRoute.named,
+      gptLive: () async => false,
       isCurrent: () => current,
       events: (name, [_ = const {}]) => logged.add(name),
     );
@@ -127,6 +193,7 @@ void main() {
       Future<void> Function()? prepare,
     }) => VoiceCall(
       bridge: bridge,
+      consented: true,
       agent: agent,
       connect: ([_ = const {}]) async => socket.local,
       prepare: prepare ?? () async {},
@@ -183,30 +250,39 @@ void main() {
         'connected': true,
         'turns': '1',
         'speech_fallbacks': '0',
+        'speech_retries': '0',
         'duration': '<10s',
       });
     });
 
-    test('a failed transcription names its step and error kind', () async {
-      call.dispose();
-      logged.clear();
-      call = build(transcribe: () async => throw TimeoutException('slow'));
-      await call.start();
-      bridge.emit('activated');
-      utterance();
-      await pumpEventQueue();
-      expect(call.phase, CallPhase.failed);
-      expect(ended(), containsPair('reason', 'turn'));
-      expect(ended(), containsPair('step', 'transcribe'));
-      expect(ended(), containsPair('error_type', 'timeout'));
-      expect(ended(), containsPair('outcome', 'failed'));
-    });
+    test(
+      'one failed transcription is no end; the second names its step and kind',
+      () async {
+        call.dispose();
+        logged.clear();
+        call = build(transcribe: () async => throw TimeoutException('slow'));
+        await call.start();
+        bridge.emit('activated');
+        utterance();
+        await pumpEventQueue();
+        expect(call.phase, CallPhase.listening);
+        expect(logged.where((e) => e.$1 == 'voice_call.ended'), isEmpty);
+        utterance();
+        await pumpEventQueue();
+        expect(call.phase, CallPhase.failed);
+        expect(ended(), containsPair('reason', 'transcription'));
+        expect(ended(), containsPair('step', 'transcribe'));
+        expect(ended(), containsPair('error_type', 'timeout'));
+        expect(ended(), containsPair('outcome', 'failed'));
+      },
+    );
 
     test('a refused speech socket is logged as the speech step', () async {
       call.dispose();
       logged.clear();
       call = VoiceCall(
         bridge: bridge,
+        consented: true,
         agent: agent,
         connect: ([_ = const {}]) async => throw WebSocketChannelException.from(
           const WebSocketException('not upgraded', 403),

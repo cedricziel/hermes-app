@@ -10,9 +10,9 @@ import 'process_models.dart';
 /// The `process.kill` error for a program that is not the session's.
 const _kNoSuchProcess = 4044;
 
-/// The `subagent.*` and `process.*` calls, parsed leniently. Never throws: every failure is a
-/// result. A read never resumes a session; an action attaches it first and is
-/// never sent twice.
+/// The `subagent.*` and `process.*` calls, parsed leniently. Never throws:
+/// every failure is a result. A read never resumes a session; an action
+/// attaches it first and is never sent twice.
 class SubagentRepository {
   SubagentRepository(
     this._transport, {

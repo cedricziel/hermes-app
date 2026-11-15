@@ -8,6 +8,10 @@ import 'fake_chat_transport.dart';
 class FakeQueueTransport extends FakeChatTransport
     implements QueueSubmissionTransport {
   bool loseAcceptance = false;
+
+  /// Rejects the send before the prompt is submitted, as a session that
+  /// cannot be resumed does: nothing is written and nothing is accepted.
+  Object? openError;
   String acceptanceStatus = 'streaming';
   Completer<void>? acceptanceGate;
   final _prepared = Completer<void>();
@@ -23,6 +27,19 @@ class FakeQueueTransport extends FakeChatTransport
     Future<void> Function()? onNotSubmitted,
     bool Function()? queueDispatchAllowed,
   }) async* {
+    if (openError case final error?) {
+      final rejected = send(
+        threadId: threadId,
+        profile: profile,
+        text: text,
+        attachments: attachments,
+        model: model,
+        queued: true,
+      );
+      sends.last.fail(error);
+      yield* rejected;
+      return;
+    }
     try {
       if (queueDispatchAllowed?.call() == false) {
         throw QueueSubmissionNotStarted(StateError('Queue unavailable'));

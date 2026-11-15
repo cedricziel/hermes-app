@@ -9,6 +9,7 @@ import '../core/safe_notifier.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../telemetry/telemetry.dart';
 import 'care_result.dart';
+import 'resumable_sleep.dart';
 import 'server_care_controller.dart';
 import 'server_care_repository.dart';
 import 'update_receipt.dart';
@@ -188,6 +189,19 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   /// check. The person dismisses and asks again; the request is never resent.
   bool get nothingStarted => _nothingStarted;
 
+  late final _pause = ResumableSleep(_delay, covered: _covered);
+
+  Future<void> _sleep(Duration duration) => _pause.sleep(duration);
+
+  /// The app came back to the front: a poll that waits for a timer the
+  /// suspended app never ran reads now instead. Nothing is sent; the run only
+  /// reads. While App Lock covers the app nothing is read, and the wake is
+  /// owed until [appUnlocked].
+  void appResumed() => _pause.resumed();
+
+  /// App Lock lifted: makes up for a resume it held back.
+  void appUnlocked() => _pause.unlocked();
+
   bool get _isCovered => _covered?.call() ?? false;
 
   /// When the run started; null when idle.
@@ -311,6 +325,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   void dispose() {
     _endOpenSpan();
     _generation++;
+    _pause.release();
     super.dispose();
   }
 
@@ -528,7 +543,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
         return null;
       }
       notifyListeners();
-      await _delay(_poll);
+      await _sleep(_poll);
       if (_stale(generation)) return null;
     }
   }
@@ -604,7 +619,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
           if (status case CareOk(:final value) when value.running) {
             _setLines(value.lines);
             // A flapping proxy must not spin the two steps.
-            await _delay(_poll);
+            await _sleep(_poll);
             if (_stale(generation)) return null;
             return _Step.update;
           }
@@ -615,7 +630,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
           _settle(UpdatePhase.notBack, 'not_back');
           return null;
         }
-        await _delay(backoff);
+        await _sleep(backoff);
         if (_stale(generation)) return null;
         backoff = backoff * 2 > _lastBackoff ? _lastBackoff : backoff * 2;
       }
@@ -663,7 +678,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
               _finish(UpdateResult.unknown);
               return null;
             }
-            await _delay(_poll);
+            await _sleep(_poll);
             if (_stale(generation)) return null;
             return _Step.restart;
           }
@@ -674,7 +689,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
         _finish(UpdateResult.unknown);
         return null;
       }
-      await _delay(_poll);
+      await _sleep(_poll);
       if (_stale(generation)) return null;
     }
   }

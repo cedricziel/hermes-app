@@ -9,6 +9,8 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart'
+    show GatewayRpcException;
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/queue_storage/durable_queue_store.dart';
 import 'package:hermes_app/src/chat/queue_storage/queue_record.dart';
@@ -56,6 +58,8 @@ void main() {
   late ValueNotifier<bool> visible;
   late ValueNotifier<bool> activity;
   late List<String> reports;
+  late List<ChatSendNotice> notices;
+  late List<String> drafts;
   late List<(String, Map<String, Object>)> outcomes;
   late BreadcrumbTrail trail;
   late AttentionNotifier attention;
@@ -70,6 +74,8 @@ void main() {
     visible = ValueNotifier(true);
     activity = ValueNotifier(true);
     reports = [];
+    notices = [];
+    drafts = [];
     outcomes = [];
     trail = BreadcrumbTrail();
     attention = AttentionNotifier(
@@ -114,6 +120,8 @@ void main() {
       transport: delegate ?? transport,
       attention: attention,
       report: reports.add,
+      onSendNotice: notices.add,
+      onDraft: drafts.add,
       breadcrumbs: Breadcrumbs.of(trail),
       events: (name, [attributes = const {}]) {
         if (loggerFails) throw StateError('logger unavailable');
@@ -173,6 +181,147 @@ void main() {
       expect((await store.load(scope())).records.single.text, 'second');
     },
   );
+
+  test('a queued prompt Hermes takes as its stop phrase is consumed', () async {
+    final chat = await open();
+    final thread = chat.selectedThread!;
+    transport.acceptanceStatus = PromptAccepted.voiceStopped;
+    expect(await chat.submit('first', const []), isTrue);
+    expect(await chat.submit('stop', const []), isTrue);
+    expect(chat.queuedIn(thread).single.text, 'stop');
+    transport.sends.single
+      ..emit(const ReplyCompleted('Done'))
+      ..emit(const SessionInfo(running: false))
+      ..finish();
+    await transport.prepared.timeout(const Duration(seconds: 5));
+    await pumpEventQueue();
+    expect(transport.sends, hasLength(2));
+    transport.sends.last.finish();
+    await pumpEventQueue();
+    expect(chat.queuedIn(thread), isEmpty);
+    expect(chat.queueNeedsReview(thread), isFalse);
+    expect(thread.isReplying, isFalse);
+    expect(reports, isEmpty);
+    expect((await store.load(scope())).records, isEmpty);
+    // Not silent: the user is told and gets the words back.
+    expect(notices, [ChatSendNotice.stopCommand]);
+    expect(drafts, ['stop']);
+  });
+
+  test('a queued stop phrase drained in a chat that is not open is handed '
+      'over when the chat is opened', () async {
+    final chat = await open();
+    final thread = chat.selectedThread!;
+    transport.acceptanceStatus = PromptAccepted.voiceStopped;
+    expect(await chat.submit('first', const []), isTrue);
+    expect(await chat.submit('stop', const []), isTrue);
+    chat.newThread();
+    transport.sends.single
+      ..emit(const ReplyCompleted('Done'))
+      ..emit(const SessionInfo(running: false))
+      ..finish();
+    await transport.prepared.timeout(const Duration(seconds: 5));
+    await pumpEventQueue();
+    transport.sends.last.finish();
+    await pumpEventQueue();
+    expect(notices, [ChatSendNotice.stopCommand]);
+    expect(drafts, isEmpty);
+    chat.select(thread.id);
+    await pumpEventQueue();
+    expect(drafts, ['stop']);
+    chat.select(thread.id);
+    await pumpEventQueue();
+    expect(drafts, ['stop']);
+  });
+
+  test(
+    'a prompt typed while a voice turn opens its session is not stranded',
+    () async {
+      final chat = await open();
+      chat.newThread();
+      final thread = chat.selectedThread!;
+      var wanted = true;
+      expect(
+        await chat.submitVoiceTurn('spoken', wanted: () => wanted),
+        isNull,
+      );
+      final voice = transport.sends.single;
+      voice.emit(const ThreadBound('fresh'));
+      await pumpEventQueue();
+      // The user types while the voice turn is still being opened.
+      expect(await chat.submit('typed meanwhile', const []), isTrue);
+      await queueIdle(chat);
+      expect(chat.queuedIn(thread).single.text, 'typed meanwhile');
+      wanted = false;
+      voice.submit();
+      await pumpEventQueue();
+      await transport.prepared.timeout(const Duration(seconds: 5));
+      await pumpEventQueue();
+      expect(transport.sends, hasLength(2));
+      expect(transport.sends.last.text, 'typed meanwhile');
+      expect(transport.sends.last.threadId, 'fresh');
+    },
+  );
+
+  group('a chat bound to a session whose first prompt was never written', () {
+    /// A new chat whose voice turn opened the session `fresh` and was
+    /// withdrawn while a prompt typed meanwhile waits in the queue.
+    Future<ChatThread> stranded(ChatController chat, {Object? lost}) async {
+      chat.newThread();
+      final thread = chat.selectedThread!;
+      var wanted = true;
+      expect(
+        await chat.submitVoiceTurn('spoken', wanted: () => wanted),
+        isNull,
+      );
+      final voice = transport.sends.single;
+      voice.emit(const ThreadBound('fresh'));
+      await pumpEventQueue();
+      expect(await chat.submit('typed meanwhile', const []), isTrue);
+      await queueIdle(chat);
+      // Hermes restarted meanwhile: session.resume of `fresh` is rejected.
+      transport.openError = lost;
+      wanted = false;
+      voice.submit();
+      await pumpEventQueue();
+      if (lost == null) {
+        await transport.prepared.timeout(const Duration(seconds: 5));
+      }
+      await pumpEventQueue();
+      expect(transport.sends.last.threadId, 'fresh');
+      return thread;
+    }
+
+    test(
+      'whose session Hermes lost fails the queued prompt, keeps it and never '
+      'leaves the chat replying',
+      () async {
+        final chat = await open();
+        final thread = await stranded(
+          chat,
+          lost: const GatewayRpcException(4007, 'session not found'),
+        );
+        expect(thread.isReplying, isFalse);
+        expect(chat.queuedIn(thread).map((p) => p.text), ['typed meanwhile']);
+        expect(chat.queuePaused(thread), isTrue);
+        // Known limit (docs/architecture/chat.md): the chat stays bound to the
+        // lost id, so a later send resumes it again. Hermes would have to
+        // restart between the create and this send.
+        expect(reports, isEmpty);
+      },
+    );
+
+    test('that Hermes still has is resumed by the queued prompt', () async {
+      final chat = await open();
+      final thread = await stranded(chat);
+      transport.sends.last
+        ..emit(const ReplyCompleted('Hi.'))
+        ..finish();
+      await pumpEventQueue();
+      expect(thread.messages.last.content, 'Hi.');
+      expect(transport.sends, hasLength(2));
+    });
+  });
 
   test('new input on restored queue stays paused', () async {
     await store.commit(scope(), 'restored');

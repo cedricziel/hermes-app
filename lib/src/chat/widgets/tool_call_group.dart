@@ -18,6 +18,12 @@ import 'tool_call_card.dart';
 /// starts folded and opens on tap, showing each call's own [ToolCallCard].
 /// While a call waits on the user's approval the group stays open, so the
 /// question is never folded away.
+///
+/// Which cards the reader opened is kept here, by call, so a card opened while
+/// it was the only call stays open when the next call turns the run into a
+/// group (which then opens, so the card does not fold away under the reader),
+/// and when the group is folded and opened again. A group the reader folded
+/// stays folded when more calls arrive.
 class ToolCallGroup extends StatefulWidget {
   const ToolCallGroup({
     super.key,
@@ -48,6 +54,33 @@ class ToolCallGroup extends StatefulWidget {
 class _ToolCallGroupState extends State<ToolCallGroup> {
   var _open = false;
 
+  /// The calls whose cards the reader has open: the call's id, or its place
+  /// in the run for a call the server sent no id for.
+  final _openCards = <String>{};
+
+  static String _key(List<ToolCall> calls, int i) =>
+      calls[i].id.isNotEmpty ? 'id:${calls[i].id}' : 'at:$i';
+
+  String _keyOf(int i) => _key(widget.calls, i);
+
+  @override
+  void didUpdateWidget(ToolCallGroup old) {
+    super.didUpdateWidget(old);
+    // A call that was still being written has no id until it starts.
+    for (var i = 0; i < old.calls.length && i < widget.calls.length; i++) {
+      if (old.calls[i].id.isEmpty &&
+          widget.calls[i].id.isNotEmpty &&
+          _openCards.remove(_key(old.calls, i))) {
+        _openCards.add(_keyOf(i));
+      }
+    }
+    if (old.calls.length == 1 &&
+        widget.calls.length > 1 &&
+        _openCards.contains(_keyOf(0))) {
+      _open = true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final calls = widget.calls;
@@ -56,6 +89,9 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
       final answer = widget.onAnswerApproval;
       return ToolCallCard(
         call: calls[i],
+        initiallyOpen: _openCards.contains(_keyOf(i)),
+        onOpenChanged: (open) =>
+            open ? _openCards.add(_keyOf(i)) : _openCards.remove(_keyOf(i)),
         approval: approval,
         onAnswerApproval: approval == null || answer == null
             ? null

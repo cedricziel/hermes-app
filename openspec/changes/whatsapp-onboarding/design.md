@@ -75,9 +75,9 @@ Spans: `whatsapp.pair.start`, `whatsapp.pair.apply` (they cross the network; att
 
 ## Design pass
 
-Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC).
+Design (done): canvas reviewed.
 
-No Claude Design canvas exists yet; the brief `docs/design-briefs/whatsapp-onboarding.md` was written from the design system README, the merged briefs and the shared widgets, and reviewed. No build starts before the canvas exists. Decisions that change behaviour:
+Canvas: https://claude.ai/artifact/PPwKxdh8zKokvagfxS3Gho (private; ask its owner for access). 26 boards, one parametric page, nine rows: entry and setup (A), handset notice and QR (B), linked and end states (C), Finish question and saved outcomes (D), dark (E), largest text (F), German (G), Android (H), Mac and iPad (I). Checked in a local headless Chrome render in both themes, at phone and desktop width and at text scale 1 and 2; not checked: the claude.ai viewer, real devices, a scannable QR, screen readers and focus order, Mac targets, the App Lock cover, the countdown announcements (details in the brief's "Local render review"). The brief `docs/design-briefs/whatsapp-onboarding.md` was written from the design system README, the merged briefs and the shared widgets, and reviewed. Decisions that change behaviour:
 
 - One pushed screen whose body follows the phase, like the Telegram screen; Finish closes both screens to the Messaging list, which shows a banner with the outcome (success when a restart was requested and `needs_restart` is false, warning otherwise; never "restarted").
 - Polling (decided by the owner) runs only while the app is in front and App Lock is unlocked. On return while locked nothing polls; once unlocked a line says polling was paused and is resuming, and it goes at the next answer. A countdown that ran out while paused ends locally on return. On unlock a handset needs the "Show QR code" tap again.
