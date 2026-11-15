@@ -354,7 +354,8 @@ ACCEPT_LEGACY_REVIEW_BLOCK = True
 # The walk down the first parents of merges decides each commit once and
 # depends on nothing but the commit. A head with more than this many merges in
 # a row behind it is refused before any is looked at (one rev-list), and no run
-# visits more distinct commits than that chain plus its bottom.
+# decides more distinct commits than that chain plus its bottom, nested range
+# bases included.
 MAX_CHAIN_COMMITS = 200
 
 _RANGE_LINE_RE = re.compile(r"^Range:[ \t]*(.*?)[ \t]*$")
@@ -516,6 +517,7 @@ class _Review:
         self.memo = {}
         self.visited = 0
         self._forks = {}
+        self._covered = {}
 
     def fork(self, commit):
         """The Range base to ask for: where `commit` left the base branch."""
@@ -574,27 +576,53 @@ class _Review:
                 f"is not an ancestor of {commit}: ask the isolated reviewer "
                 f"to review {want}. {paste}"
             ]
-        fork = self.fork(commit)
-        # A base on the base branch or at the fork point is a full review. An
-        # incremental review (the fleet's normal flow: each push is reviewed
-        # for its new commits) starts at a commit this checker already
-        # accepts, so A..B and B..C together cover C. `accepted` is exact and
-        # memoised; `base` is a strict ancestor of `commit`, so it cannot
-        # come back to the commit being decided.
-        if (
-            not self.git.is_ancestor(base, self.base_tip)
-            and base != fork
-            and self.accepted(base)
-        ):
+        # A base on the base branch (the fork point is one) is a full review.
+        # An incremental review (the fleet's normal flow: each push is
+        # reviewed for its new commits) starts at a covered commit, so A..B
+        # and B..C together cover C.
+        if not self.covered(base):
             return [
                 f"The Range of the review for {commit} starts at {base}, which "
                 f"covers only part of the branch: it is neither on the base "
-                f"branch, nor where {commit} left it ({fork}), nor a commit "
-                f"with an accepted review of its own, so the commits between "
-                f"them are unreviewed. Ask the isolated reviewer to review "
-                f"{want}, or record a review that ends at {base}. {paste}"
+                f"branch, nor where {commit} left it ({self.fork(commit)}), nor "
+                f"the end of an earlier review of this branch with a valid "
+                f"Range, so the commits between them are unreviewed. Ask the "
+                f"isolated reviewer to review {want}, or record a review that "
+                f"ends at {base}. {paste}"
             ]
         return []
+
+    def covered(self, commit):
+        """Whether every commit up to `commit` has been read by a reviewer.
+        True when it is on the base branch, when the checker accepts it (a
+        clean review, rule b1 or b2, the legacy block), or when a block for it
+        with ANY verdict has a valid Range whose base is itself covered. A
+        review that asked for changes still counts here: the clean reviewer of
+        the next range (B..D after a changes-requested B) has confirmed the
+        findings raised at B are fixed, and no commit has gone unread. The
+        head's own block must still be clean (see `_decide`). `commit` is a
+        strict ancestor of the commit being decided, so this terminates."""
+        if commit in self._covered:
+            return self._covered[commit]
+        self._covered[commit] = False
+        found = self.git.is_ancestor(commit, self.base_tip) or not self.accepted(commit)
+        for block in self.plain:
+            if found:
+                break
+            m = block.head == commit and block.range and _RANGE_RE.match(block.range)
+            if not m:
+                continue
+            base, tip = m.group(1).lower(), m.group(2).lower()
+            # An empty range (base == tip) asks about `commit` itself, which
+            # is still marked uncovered here, so it fails by itself.
+            found = (
+                tip == commit
+                and self.git.has_commit(base)
+                and self.git.is_ancestor(base, commit)
+                and self.covered(base)
+            )
+        self._covered[commit] = found
+        return found
 
     def requested_changes(self, commit, merge=False):
         what = "merge review" if merge else "review"
@@ -802,8 +830,8 @@ def review_recorded(body, head_sha, git=None, base_tip=None):
     except ValueError as e:
         return [f"The review could not be checked mechanically ({e}): re-run the job."]
     return [
-        f"The chain behind {head_sha} is longer than {MAX_CHAIN_COMMITS} "
-        f"commits; squash or rebase the branch onto the base branch (tip "
+        f"More than {MAX_CHAIN_COMMITS} commits need checking behind "
+        f"{head_sha}; squash or rebase the branch onto the base branch (tip "
         f"{base_tip}) and get a full review of the new head. This block is a "
         "template for that squashed or rebased head, not for the current one: "
         "replace <new head sha> with it and <merge-base> with `git merge-base "

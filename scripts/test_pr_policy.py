@@ -886,12 +886,69 @@ class MergeReviewTest(unittest.TestCase):
         out = self.review(s4, blk(self.rev, self.root) + blk(s4, s2))
         self.assertIn(f"starts at {s2}", out[0])
 
-    def test_incremental_base_that_asked_for_changes_is_not_accepted(self):
+    def test_review_that_asked_for_changes_then_a_clean_incremental_review(self):
+        # B reviewed with changes-requested, fixed in D, B..D reviewed clean.
         self.r.sync_origin()
         s2 = self.r.commit("pr2.txt")
         bad = blk(self.rev, self.root, verdict="changes-requested")
-        out = self.review(s2, bad + blk(s2, self.rev))
-        self.assertIn(f"starts at {self.rev}", out[0])
+        self.assertEqual(self.review(s2, bad + blk(s2, self.rev)), [])
+
+    def test_changes_requested_reviews_chain_into_a_clean_one(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        s3 = self.r.commit("pr3.txt")
+        bad1 = blk(self.rev, self.root, verdict="changes-requested")
+        bad2 = blk(s2, self.rev, verdict="changes-needed")
+        self.assertEqual(self.review(s3, bad1 + bad2 + blk(s3, s2)), [])
+
+    def test_changes_requested_base_with_a_gap_is_rejected(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        s3 = self.r.commit("pr3.txt")
+        bad = blk(self.rev, self.root, verdict="changes-requested")
+        out = self.review(s3, bad + blk(s3, s2))  # s2 has no review at all
+        self.assertIn(f"starts at {s2}", out[0])
+        s4 = self.r.commit("pr4.txt")
+        out = self.review(s4, bad + blk(s2, self.rev) + blk(s4, s3))
+        self.assertIn(f"starts at {s3}", out[0])
+
+    def test_changes_requested_block_whose_own_base_is_a_gap_is_rejected(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        s3 = self.r.commit("pr3.txt")
+        s4 = self.r.commit("pr4.txt")
+        # s3 was reviewed (changes-requested) from s2, but s2 was never read.
+        review = blk(s3, s2, verdict="changes-requested") + blk(s4, s3)
+        out = self.review(s4, review)
+        self.assertIn(f"starts at {s3}", out[0])
+        # With s2 read from the fork point the chain closes.
+        closed = blk(s2, self.root, verdict="changes-requested") + review
+        self.assertEqual(self.review(s4, closed), [])
+
+    def test_changes_requested_on_the_head_still_rejects(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        good = blk(self.rev, self.root)
+        out = self.review(s2, good + blk(s2, self.rev, verdict="changes-requested"))
+        self.assertIn("requested changes", out[0])
+        bad = blk(self.rev, self.root, verdict="changes-requested")
+        out = self.review(s2, bad + blk(s2, self.rev, verdict="changes-requested"))
+        self.assertIn("requested changes", out[0])
+
+    def test_changes_requested_base_with_an_invalid_range_is_rejected(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        for first in (
+            f"Reviewer: r Head: {self.rev} Verdict: changes-requested\n"
+            f"Range: {self.rev}..{self.rev}\n",  # empty: asks about itself
+            f"Reviewer: r Head: {self.rev} Verdict: changes-requested\n"
+            f"Range: {OLD}..{self.rev}\n",  # outside history
+            f"Reviewer: r Head: {self.rev} Verdict: changes-requested\n",  # none
+            f"Reviewer: r Head: {self.rev} Verdict: changes-requested\n"
+            f"Range: {self.root}..{s2}\n",  # ends elsewhere
+        ):
+            out = self.review(s2, first + blk(s2, self.rev))
+            self.assertIn(f"starts at {self.rev}", out[0], first)
 
     def test_incremental_base_accepted_by_a_legacy_block(self):
         self.r.sync_origin()
@@ -1189,7 +1246,7 @@ class MergeReviewTest(unittest.TestCase):
         out = self.review(head, blk(self.rev, self.root))
         self.assertLess(time.monotonic() - start, 2.0)
         self.assertEqual(len(out), 1)
-        self.assertIn(f"The chain behind {head} is longer than 200 commits", out[0])
+        self.assertIn(f"More than 200 commits need checking behind {head}", out[0])
         self.assertIn(
             f"squash or rebase the branch onto the base branch (tip {self.r.tip()}) "
             "and get a full review of the new head",
@@ -1207,7 +1264,7 @@ class MergeReviewTest(unittest.TestCase):
             self.assertEqual(self.review(head, blk(self.rev, self.root)), [])
         with mock.patch.object(pr_policy, "MAX_CHAIN_COMMITS", 4):
             out = self.review(head, blk(self.rev, self.root))
-        self.assertIn("longer than 4 commits", out[0])
+        self.assertIn("More than 4 commits need checking", out[0])
 
     def test_visited_commit_guard_fails_with_the_same_message(self):
         # The pre-scan counts merges; the guard inside the walk caps what a run
@@ -1216,13 +1273,13 @@ class MergeReviewTest(unittest.TestCase):
         with mock.patch.object(pr_policy.Git, "merge_run", return_value=0):
             with mock.patch.object(pr_policy, "MAX_CHAIN_COMMITS", 2):
                 out = self.review(head, blk(self.rev, self.root))
-        self.assertIn("longer than 2 commits", out[0])
+        self.assertIn("More than 2 commits need checking", out[0])
 
     def test_recursion_error_is_caught_with_the_same_message(self):
         head, _ = self.r.fast_chain(self.rev, 2)
         with mock.patch.object(pr_policy._Review, "accepted", side_effect=RecursionError):
             out = self.review(head, blk(self.rev, self.root))
-        self.assertIn(f"The chain behind {head} is longer than 200 commits", out[0])
+        self.assertIn(f"More than 200 commits need checking behind {head}", out[0])
         self.assertNotIn("Merge-review", out[0])
 
     def test_long_chain_does_not_recurse(self):
