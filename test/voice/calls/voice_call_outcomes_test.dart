@@ -83,6 +83,13 @@ void main() {
       expect(h.call.phase, CallPhase.listening);
     });
 
+    test('a paused queue says so, sends nothing and keeps listening', () async {
+      await refused(VoiceTurnRefusal.queuePaused);
+      expect(h.call.ended, isFalse);
+      expect(h.call.notice, CallNotice.queuePaused);
+      expect(h.call.phase, CallPhase.listening);
+    });
+
     for (final reason in [
       VoiceTurnRefusal.queueRestoreFailed,
       VoiceTurnRefusal.modelOrBranchNotAllowed,
