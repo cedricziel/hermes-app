@@ -25,6 +25,11 @@ enum MessageStatus { sent, thinking, streaming, error }
 /// being read, or reading them failed.
 enum ChatHistoryStatus { loading, failed }
 
+/// What the first item of a transcript says about the older messages of a
+/// chat that already shows its newest ones: their read failed
+/// ([ChatEarlierMessagesStatus.failed]) or Retry is reading them again.
+enum ChatEarlierMessagesStatus { failed, retrying }
+
 /// Where a tool call stands. [cancelled] is a call the reply stopped before
 /// it finished, or one the model began to write but never ran.
 enum ToolCallStatus { running, completed, warning, error, cancelled }
