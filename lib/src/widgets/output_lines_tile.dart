@@ -16,7 +16,8 @@ import 'grouped_list.dart';
 /// desktop; without it the box grows with its lines. With [maxLines] only the
 /// last lines show, and [earlierLabel] (required then, and for
 /// [earlierLines]) says how many came before them (plus [earlierLines], which
-/// the caller already left out) in a first line. A [footnote] sits under the
+/// the caller already left out) in a muted line of its own above the box's
+/// lines, outside their scroll area. A [footnote] sits under the
 /// box. With [blank] the box holds no lines, only the muted [blankNote]. The
 /// lines run left to right in any locale.
 class OutputLinesTile extends StatefulWidget {
@@ -83,10 +84,10 @@ class _OutputLinesTileState extends State<OutputLinesTile> {
     final shown = dropped == 0 ? widget.lines : widget.lines.sublist(dropped);
     final earlier = widget.earlierLines + dropped;
     final earlierLabel = widget.earlierLabel;
-    final text = [
-      if (earlier > 0 && earlierLabel != null) earlierLabel(earlier),
-      ...shown,
-    ].join('\n');
+    final earlierNote = earlier > 0 && earlierLabel != null
+        ? earlierLabel(earlier)
+        : null;
+    final text = shown.join('\n');
     final desktop = switch (Theme.of(context).platform) {
       TargetPlatform.macOS ||
       TargetPlatform.windows ||
@@ -146,19 +147,39 @@ class _OutputLinesTileState extends State<OutputLinesTile> {
                       color: muted,
                     ),
                   )
-                : widget.capHeight
-                ? ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: maxHeight),
-                    child: Scrollbar(
-                      controller: _scroll,
-                      thumbVisibility: desktop,
-                      child: SingleChildScrollView(
-                        controller: _scroll,
-                        child: body,
-                      ),
-                    ),
-                  )
-                : body,
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (earlierNote != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            earlierNote,
+                            style: TextStyle(
+                              fontSize: metrics.footerSize,
+                              color: muted,
+                            ),
+                          ),
+                        ),
+                      if (widget.capHeight)
+                        Flexible(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxHeight: maxHeight),
+                            child: Scrollbar(
+                              controller: _scroll,
+                              thumbVisibility: desktop,
+                              child: SingleChildScrollView(
+                                controller: _scroll,
+                                child: body,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        body,
+                    ],
+                  ),
           ),
         ),
         if (widget.footnote != null)
