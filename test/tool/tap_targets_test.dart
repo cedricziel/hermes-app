@@ -3,8 +3,21 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tap_targets.dart';
 
-TapTarget target(String label, double w, double h, {bool labeled = true}) =>
-    TapTarget(label: label, width: w, height: h, labeled: labeled);
+TapTarget target(
+  String label,
+  double w,
+  double h, {
+  bool labeled = true,
+  double x = 0,
+  double y = 0,
+}) => TapTarget(
+  label: label,
+  width: w,
+  height: h,
+  labeled: labeled,
+  left: x,
+  top: y,
+);
 
 void main() {
   test('a screen seen in both themes counts once', () {
@@ -14,6 +27,21 @@ void main() {
     ]);
     expect(report.violations('android'), hasLength(1));
     expect(report.rawViolations('android'), hasLength(2));
+  });
+
+  test('identical controls at different places count separately', () {
+    final report = TapReport([
+      for (var i = 0; i < 10; i++)
+        TapSample('f/a', 'android', [
+          target('(no label)', 40, 40, labeled: false, y: i * 50.0),
+        ]),
+      TapSample('f-dark/a', 'android', [
+        for (var i = 0; i < 10; i++)
+          target('(no label)', 40, 40, labeled: false, y: i * 50.0),
+      ]),
+    ]);
+    expect(report.violations('android'), hasLength(10));
+    expect(report.rawViolations('android'), hasLength(20));
   });
 
   test('each platform judges by its own minimum', () {

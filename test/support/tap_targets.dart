@@ -33,6 +33,8 @@ class TapTarget {
     required this.width,
     required this.height,
     required this.labeled,
+    this.left = 0,
+    this.top = 0,
   });
 
   factory TapTarget.fromJson(Map<String, Object?> json) => TapTarget(
@@ -40,6 +42,8 @@ class TapTarget {
     width: (json['w']! as num).toDouble(),
     height: (json['h']! as num).toDouble(),
     labeled: json['labeled']! as bool,
+    left: (json['x'] as num?)?.toDouble() ?? 0,
+    top: (json['y'] as num?)?.toDouble() ?? 0,
   );
 
   /// The node's label, else its tooltip or value, else `(no label)`.
@@ -51,6 +55,10 @@ class TapTarget {
   /// asks.
   final bool labeled;
 
+  /// Where the node's top left sits in the window, in logical pixels.
+  final double left;
+  final double top;
+
   String get size => '${_fmt(width)}x${_fmt(height)}';
 
   Map<String, Object?> toJson() => {
@@ -58,6 +66,8 @@ class TapTarget {
     'w': width,
     'h': height,
     'labeled': labeled,
+    'x': left,
+    'y': top,
   };
 }
 
@@ -127,6 +137,8 @@ void _walk(ui.FlutterView view, SemanticsNode node, List<TapTarget> out) {
       width: size.width,
       height: size.height,
       labeled: labeled,
+      left: bounds.left / view.devicePixelRatio,
+      top: bounds.top / view.devicePixelRatio,
     ),
   );
 }
@@ -268,10 +280,11 @@ class TapFinding {
   final TapTarget target;
 
   /// The identity of a finding for counting: the same control on the same
-  /// screen in both themes is one.
+  /// screen in both themes is one (same place, rounded to 1 px), two equal
+  /// controls at different places are two.
   String get key =>
       '$platform  ${stripTheme(source)}  ${target.label}  '
-      '${target.size}';
+      '${target.size}  @${target.left.round()},${target.top.round()}';
 
   Map<String, Object?> toJson() => {
     'platform': platform,
@@ -322,7 +335,8 @@ class TapReport {
   List<TapFinding> rawInflated() =>
       _findings((s, t) => s.platform == 'macos' && isInflated(t)).toList();
 
-  /// One finding per (platform, screen without its theme suffix, label, size),
+  /// One finding per (platform, screen without its theme suffix, label, size,
+  /// position),
   /// in a stable order.
   List<TapFinding> distinct(List<TapFinding> findings) {
     final byKey = <String, TapFinding>{};

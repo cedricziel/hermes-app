@@ -74,6 +74,44 @@ void main() {
       ]);
     });
 
+    test('counts separatorBuilder gaps and SizedBox.square in a list', () {
+      expect(
+        scan(
+          'final a = ListView.separated(separatorBuilder: (c, i) => const SizedBox(height: 10));',
+        ),
+        ['a.spacing'],
+      );
+      expect(
+        scan(
+          'final a = Foo(separatorBuilder: (c, i) { return SizedBox(width: 3); });',
+        ),
+        ['a.spacing'],
+      );
+      expect(
+        scan('final a = Foo(separatorBuilder: (c, i) => SizedBox(height: 8));'),
+        isEmpty,
+      );
+      expect(
+        scan(
+          'final a = Foo(separatorBuilder: (c, i) => SizedBox(height: 10, child: x));',
+        ),
+        isEmpty,
+      );
+      expect(
+        scan('final a = Foo(itemBuilder: (c, i) => SizedBox(height: 10));'),
+        isEmpty,
+      );
+      expect(scan('final a = [SizedBox.square(dimension: 10)];'), [
+        'a.spacing',
+      ]);
+      expect(scan('final a = [SizedBox.square(dimension: 8)];'), isEmpty);
+      expect(
+        scan('final a = [SizedBox.square(dimension: 10, child: x)];'),
+        isEmpty,
+      );
+      expect(scan('final a = SizedBox.square(dimension: 10);'), isEmpty);
+    });
+
     test('counts Gap and spacing arguments', () {
       expect(scan('final a = Gap(10);'), ['a.spacing']);
       expect(scan('final a = Gap(12);'), isEmpty);
@@ -92,6 +130,13 @@ void main() {
         scan('final a = BorderRadius.only(topLeft: Radius.circular(4));'),
         ['a.radius'],
       );
+    });
+
+    test('0 is on scale, a pill is 999 or more', () {
+      expect(scan('final a = BorderRadius.circular(0);'), isEmpty);
+      expect(scan('final a = BorderRadius.circular(9999);'), isEmpty);
+      expect(scan('final a = Radius.circular(1000);'), isEmpty);
+      expect(scan('final a = BorderRadius.circular(998);'), ['a.radius']);
     });
 
     test('ignores token radii and constants', () {
@@ -257,6 +302,29 @@ void main() {
     });
   });
 
+  group('b.dialog prefixes', () {
+    const prefixed = "import 'package:flutter/material.dart' as material;\n";
+    test('counts a call through an import prefix', () {
+      expect(
+        scan(
+          'void f() { material.showDialog(context: c, builder: b); }',
+          imports: prefixed,
+        ),
+        ['b.dialog'],
+      );
+      expect(scan('final a = material.AlertDialog();', imports: prefixed), [
+        'b.dialog',
+      ]);
+    });
+
+    test('ignores a method on an ordinary object', () {
+      expect(
+        scan('void f() { helper.showDialog(context: c); }', imports: prefixed),
+        isEmpty,
+      );
+    });
+  });
+
   group('d.string', () {
     test('counts literal text and labels', () {
       expect(scan("final a = Text('Retry');"), ['d.string']);
@@ -269,6 +337,8 @@ void main() {
       expect(scan("final a = Foo(helperText: 'Optional');"), ['d.string']);
       expect(scan("final a = Foo(semanticLabel: 'Close');"), ['d.string']);
       expect(scan("final a = Foo(title: 'Bots');"), ['d.string']);
+      expect(scan("final a = Foo(hint: 'Pick one');"), ['d.string']);
+      expect(scan("final a = Foo(semanticsLabel: 'Close');"), ['d.string']);
       expect(scan("final a = Tooltip(message: 'Copy');"), ['d.string']);
       expect(scan("final a = TextSpan(text: 'Live');"), ['d.string']);
       expect(scan("final a = Text(c ? 'Open' : 'Close');"), ['d.string']);

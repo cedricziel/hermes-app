@@ -27,8 +27,14 @@ const fontRoleSizes = <num>{34, 28, 22, 17, 15, 13, 12};
 const spacingScale = <num>{0, 2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48, 56, 64};
 
 /// `--h-radius*` in design/web/src/styles/tokens.css, `kHermesRadius` (14) and
-/// the overlay radius (28).
-const radiusScale = <num>{6, 10, 14, 20, 28, 999};
+/// the overlay radius (28). 0 is square. Any value from [pillRadius] up is the
+/// pill and on scale as well.
+const radiusScale = <num>{0, 6, 10, 14, 20, 28};
+
+/// The smallest radius that counts as a pill (999, 9999 and the like).
+const pillRadius = 999;
+
+bool _onRadiusScale(num v) => radiusScale.contains(v) || v >= pillRadius;
 
 /// The files that implement the shared dialog and sheet helpers.
 const dialogHelperFiles = {
@@ -70,6 +76,8 @@ const _stringArgs = {
   'labelText',
   'helperText',
   'semanticLabel',
+  'semanticsLabel',
+  'hint',
   'title',
 };
 
@@ -231,6 +239,10 @@ num? _numLiteral(Expression e) {
 class _Visitor extends RecursiveAstVisitor<void> {
   _Visitor(this.path, this.lineInfo, this.source, CompilationUnit unit)
     : isHelper = dialogHelperFiles.contains(path),
+      importPrefixes = {
+        for (final d in unit.directives.whereType<ImportDirective>())
+          if (d.prefix != null) d.prefix!.name,
+      },
       isWidgetFile = unit.directives.whereType<ImportDirective>().any(
         (d) => const [
           'package:flutter/material.dart',
@@ -243,6 +255,10 @@ class _Visitor extends RecursiveAstVisitor<void> {
   final LineInfo lineInfo;
   final String source;
   final bool isHelper;
+
+  /// `material` in `import '...' as material;`. A call such as
+  /// `material.showDialog(..)` is read as `showDialog(..)`.
+  final Set<String> importPrefixes;
 
   /// Strings count only in files that import the widget layer.
   final bool isWidgetFile;
@@ -308,7 +324,7 @@ class _Visitor extends RecursiveAstVisitor<void> {
         if (v != null && !spacingScale.contains(v)) _add('a.spacing', node);
       case 'borderRadius':
         final v = _numLiteral(value);
-        if (v != null && !radiusScale.contains(v)) _add('a.radius', node);
+        if (v != null && !_onRadiusScale(v)) _add('a.radius', node);
       case 'message' when parentCall?.className == 'Tooltip':
         _string(value, node);
       case _ when _stringArgs.contains(label):
@@ -318,8 +334,13 @@ class _Visitor extends RecursiveAstVisitor<void> {
   }
 
   void _call(_Call c) {
-    final type = c.type;
+    var type = c.type;
     final name = c.name;
+    // `prefix.func(..)` parses as a call on a target; a prefixed constructor
+    // `prefix.Class(..)` is `type: prefix`.
+    if (type != null && importPrefixes.contains(type)) {
+      type = null;
+    }
 
     if (type == null && name == 'Color' ||
         type == 'Color' &&
@@ -337,11 +358,16 @@ class _Visitor extends RecursiveAstVisitor<void> {
       final v = _numLiteral(c.positional.first);
       if (v != null && !spacingScale.contains(v)) _add('a.spacing', c.node);
     }
-    if (type == null &&
-        name == 'SizedBox' &&
+    final isSizedBox =
+        (type == null && name == 'SizedBox') ||
+        (type == 'SizedBox' && name == 'square');
+    if (isSizedBox &&
         c.named('child') == null &&
-        _isListElement(c.node)) {
-      for (final label in const ['width', 'height']) {
+        (_isListElement(c.node) || _isSeparator(c.node))) {
+      final labels = type == 'SizedBox'
+          ? const ['dimension']
+          : const ['width', 'height'];
+      for (final label in labels) {
         final e = c.named(label);
         final v = e == null ? null : _numLiteral(e);
         if (v != null && !spacingScale.contains(v)) {
@@ -354,7 +380,7 @@ class _Visitor extends RecursiveAstVisitor<void> {
         (type == 'Radius' && (name == 'circular' || name == 'elliptical'))) {
       for (final a in c.positional) {
         final v = _numLiteral(a);
-        if (v != null && !radiusScale.contains(v)) _add('a.radius', c.node);
+        if (v != null && !_onRadiusScale(v)) _add('a.radius', c.node);
       }
     }
 
@@ -408,6 +434,26 @@ class _Visitor extends RecursiveAstVisitor<void> {
       current = current.parent;
     }
     return false;
+  }
+
+  /// The widget a `separatorBuilder:` closure returns is a gap between rows.
+  bool _isSeparator(AstNode node) {
+    var current = node.parent;
+    while (current is ConditionalExpression ||
+        current is ParenthesizedExpression) {
+      current = current?.parent;
+    }
+    if (current is ReturnStatement) {
+      current = current.parent;
+      while (current != null && current is! FunctionBody) {
+        current = current.parent;
+      }
+    }
+    if (current is! FunctionBody) return false;
+    final fn = current.parent;
+    if (fn is! FunctionExpression) return false;
+    final arg = fn.parent;
+    return arg is NamedArgument && arg.name.lexeme == 'separatorBuilder';
   }
 
   bool _isAnimationDuration(AstNode node) {
