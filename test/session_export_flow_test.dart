@@ -443,6 +443,7 @@ void main() {
       await tester.tap(find.text('Close'));
       await frames(tester);
       expect(controller.phase, isNull);
+      expect(find.byType(SessionExportAlert), findsNothing);
       expect(controller.begin('s1', 'work'), isTrue);
     });
 
