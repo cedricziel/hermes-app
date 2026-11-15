@@ -135,6 +135,11 @@ The Claude Design canvas for this section is https://claude.ai/artifact/Y5SRsysG
 - **The JSON tag above 64 KB** is shown only when, after trimming blanks and line breaks, the text starts with `{` and ends with `}` or starts with `[` and ends with `]`. Otherwise it is plain with no tag. "JSON" is a content tag only; nothing on screen says a text is valid.
 - **Selecting a box.** A flat text is a `Text.rich` in a `SelectionArea` (the chat's, when there is one), so a selection that spans a box copies its escape text (`U+202E`); `SelectableText` would copy U+FFFC. The Copy button copies the original text. The tree is not selectable.
 
+- **Tree numbers and parsing (supersedes "Tree size" above where it differs).** The tree is built by its own iterative parser (`parseJsonTree`), not from `jsonDecode`, so a number is shown exactly as written (`12345678901234567890`, `1.50`, `1e3`, `-0`, `1E+2`), object keys keep their order and duplicates, and strings are decoded for display only. The 64-level and 2,000-node caps are enforced while parsing, with no recursion, and again inside the tree widget itself, so `ToolJsonView` used on its own shows flat text for a text over either cap or one that does not parse.
+- **Copy sits at the trailing edge** of the label row in both text directions; when the row wraps (large text) the switch and Copy go under the label.
+- **Tag characters.** U+E0020 to U+E007F are boxed as hidden text, except those that follow U+1F3F4 (the black flag), which is how the England, Scotland and Wales flags are written; a tag character anywhere else is boxed.
+- **The JSON tag above 64 KB** also needs the first non-blank character after the opening bracket to be able to start an entry (`"`, `{`, `[`, a digit, `-`, `t`, `f`, `n` or `]` after `[`; `"` or `}` after `{`), so a log line such as `[INFO] ... [done]` is plain with no tag.
+
 ### Cost
 
 The colouring is the Files one and obeys its rules:

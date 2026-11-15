@@ -22,7 +22,21 @@ class HiddenBoxBudget {
   HiddenBoxBudget([this.left = kToolHiddenBoxMax]);
 
   int left;
+
+  /// Whether the last character was U+1F3F4 or a tag character of the flag
+  /// sequence that follows it, so the tag characters after it are part of an
+  /// emoji (England, Scotland, Wales) and not hidden text.
+  bool inFlag = false;
 }
+
+bool _isTag(int rune) => rune >= 0xE0020 && rune <= 0xE007F;
+
+/// Whether [rune] is a tag character that belongs to a flag sequence, given
+/// whether the character before it ended in one ([inFlag]).
+bool _tagInFlag(int rune, bool inFlag) => inFlag && _isTag(rune);
+
+bool _flagAfter(int rune, bool inFlag) =>
+    rune == 0x1F3F4 || _tagInFlag(rune, inFlag);
 
 String _hex(int rune) =>
     'U+${rune.toRadixString(16).toUpperCase().padLeft(4, '0')}';
@@ -37,11 +51,18 @@ bool isHiddenToolRune(int rune) => rune != 0x0A && isUnsafeDisplayRune(rune);
 /// Whether [text] has a character [hiddenCharSpans] would box, so a text
 /// without one is drawn as plain runs.
 bool hasHiddenToolText(String text) {
+  var inFlag = false;
   for (var i = 0; i < text.length; i++) {
     final unit = text.codeUnitAt(i);
     // ASCII text and most of the rest have no hidden character.
-    if (unit >= 0x20 && unit < 0x7F) continue;
-    if (isHiddenToolRune(_runeAt(text, i))) return true;
+    if (unit >= 0x20 && unit < 0x7F) {
+      inFlag = false;
+      continue;
+    }
+    final rune = _runeAt(text, i);
+    if (isHiddenToolRune(rune) && !_tagInFlag(rune, inFlag)) return true;
+    inFlag = _flagAfter(rune, inFlag);
+    if (rune > 0xFFFF) i++;
   }
   return false;
 }
@@ -64,7 +85,8 @@ List<InlineSpan> hiddenCharSpans(
   bool boxLineBreaks = false,
 }) {
   bool hidden(int rune) =>
-      isHiddenToolRune(rune) || (boxLineBreaks && rune == 0x0A);
+      (isHiddenToolRune(rune) && !_tagInFlag(rune, budget.inFlag)) ||
+      (boxLineBreaks && rune == 0x0A);
   final spans = <InlineSpan>[];
   var plainStart = 0;
   void flush(int end) {
@@ -77,7 +99,10 @@ List<InlineSpan> hiddenCharSpans(
   while (i < text.length) {
     final rune = _runeAt(text, i);
     final width = rune > 0xFFFF ? 2 : 1;
-    if (hidden(rune)) {
+    final isHidden = hidden(rune);
+    final startedFlag = budget.inFlag;
+    budget.inFlag = _flagAfter(rune, budget.inFlag);
+    if (isHidden) {
       flush(i);
       if (budget.left > 0) {
         budget.left--;
@@ -99,7 +124,12 @@ List<InlineSpan> hiddenCharSpans(
         // hidden characters cost one span and not ten thousand.
         spans.add(
           TextSpan(
-            text: _escapedRest(text, i, boxLineBreaks: boxLineBreaks),
+            text: _escapedRest(
+              text,
+              i,
+              boxLineBreaks: boxLineBreaks,
+              inFlag: startedFlag,
+            ),
             style: style,
           ),
         );
@@ -113,18 +143,24 @@ List<InlineSpan> hiddenCharSpans(
   return spans;
 }
 
-String _escapedRest(String text, int from, {required bool boxLineBreaks}) {
+String _escapedRest(
+  String text,
+  int from, {
+  required bool boxLineBreaks,
+  required bool inFlag,
+}) {
   final out = StringBuffer();
   var i = from;
   while (i < text.length) {
     final rune = _runeAt(text, i);
     if (boxLineBreaks && rune == 0x0A) {
       out.write(r'\n');
-    } else if (isHiddenToolRune(rune)) {
+    } else if (isHiddenToolRune(rune) && !_tagInFlag(rune, inFlag)) {
       out.write('<${_hex(rune)}>');
     } else {
       out.writeCharCode(rune);
     }
+    inFlag = _flagAfter(rune, inFlag);
     i += rune > 0xFFFF ? 2 : 1;
   }
   return out.toString();

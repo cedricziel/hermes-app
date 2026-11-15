@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../files/code_highlight.dart'
     show hasCodeGrammar, kCodeHighlightMaxChars;
+import 'json_tree_parser.dart';
 
 /// The most characters of a tool input or output that are parsed to tell
 /// whether it is JSON, and so the most the Tree view is offered for ("64 KB",
@@ -33,23 +34,6 @@ const int kToolJsonTreeMaxDepth = 64;
 /// thousands of values; past this it is coloured flat and says "Too long for
 /// the tree view." Checked on the decoded value, before any widget exists.
 const int kToolJsonTreeMaxNodes = 2000;
-
-/// How many nodes [value] has, counted without recursion and given up on once
-/// it passes [max] (the result is then `max + 1`).
-int jsonNodeCount(Object? value, {int max = kToolJsonTreeMaxNodes}) {
-  var count = 0;
-  final stack = <Object?>[value];
-  while (stack.isNotEmpty) {
-    final node = stack.removeLast();
-    if (++count > max) return count;
-    if (node is Map) {
-      stack.addAll(node.values);
-    } else if (node is List) {
-      stack.addAll(node);
-    }
-  }
-  return count;
-}
 
 /// How deep [text] nests brackets outside string literals, counted without
 /// recursion and given up on once it passes [kToolJsonTreeMaxDepth]
@@ -195,7 +179,25 @@ bool looksLikeJsonContainer(String text) {
   if (start >= end) return false;
   final first = text.codeUnitAt(start);
   final last = text.codeUnitAt(end);
-  return (first == 0x7B && last == 0x7D) || (first == 0x5B && last == 0x5D);
+  final isObject = first == 0x7B && last == 0x7D;
+  if (!isObject && !(first == 0x5B && last == 0x5D)) return false;
+  // What follows the opener must be able to start a JSON entry, so a log
+  // such as `[INFO] ...` that ends in `]` is not taken for JSON.
+  var next = start + 1;
+  while (next < end && blank(text.codeUnitAt(next))) {
+    next++;
+  }
+  final c = text.codeUnitAt(next);
+  if (isObject) return c == 0x22 || c == 0x7D;
+  return c == 0x22 ||
+      c == 0x7B ||
+      c == 0x5B ||
+      c == 0x5D ||
+      c == 0x2D ||
+      (c >= 0x30 && c <= 0x39) ||
+      c == 0x74 ||
+      c == 0x66 ||
+      c == 0x6E;
 }
 
 const _fenceAliases = <String, String>{
@@ -254,8 +256,9 @@ class ToolValueShape {
   /// The grammar the text is coloured with; null for plain text.
   final String? language;
 
-  /// The decoded object or array, non-null only when the Tree is offered.
-  final Object? tree;
+  /// The nodes of the object or array, non-null only when the Tree is
+  /// offered. Numbers are kept as written.
+  final List<JsonTreeNode>? tree;
 
   final ToolValueNotice notice;
 
@@ -293,23 +296,24 @@ ToolValueShape toolValueShape(
       notice: ToolValueNotice.tooLongForTree,
     );
   }
-  final decoded = tryDecodeJsonContainer(text);
-  if (decoded == null) return plain;
-  if (jsonNestingDepth(text) > kToolJsonTreeMaxDepth) {
-    return const ToolValueShape(
+  if (tryDecodeJsonContainer(text) == null) return plain;
+  final parsed = parseJsonTree(
+    text,
+    maxDepth: kToolJsonTreeMaxDepth,
+    maxNodes: kToolJsonTreeMaxNodes,
+  );
+  final nodes = parsed.nodes;
+  if (nodes != null) {
+    return ToolValueShape(
       language: 'json',
-      notice: ToolValueNotice.tooDeepForTree,
-    );
-  }
-  if (jsonNodeCount(decoded) > kToolJsonTreeMaxNodes) {
-    return const ToolValueShape(
-      language: 'json',
-      notice: ToolValueNotice.tooLongForTree,
+      tree: nodes,
+      notice: ToolValueNotice.none,
     );
   }
   return ToolValueShape(
     language: 'json',
-    tree: decoded,
-    notice: ToolValueNotice.none,
+    notice: parsed.failure == JsonTreeFailure.tooDeep
+        ? ToolValueNotice.tooDeepForTree
+        : ToolValueNotice.tooLongForTree,
   );
 }

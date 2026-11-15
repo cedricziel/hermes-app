@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -946,6 +948,17 @@ void main() {
       );
       expect(tester.getSize(find.byKey(_treeKey)).height, 220);
       expect(_rich('1499'), findsNothing);
+      expect(
+        find
+            .descendant(
+              of: find.byKey(_treeKey),
+              matching: find.byType(Text),
+              skipOffstage: false,
+            )
+            .evaluate()
+            .length,
+        lessThan(60),
+      );
       expect(tester.takeException(), isNull);
     });
 
@@ -1336,55 +1349,77 @@ void main() {
         .evaluate()
         .length;
 
-    Map<String, Object?> wide(int keys) => {
-      for (var i = 0; i < keys; i++) 'key$i': i,
-    };
+    String wide(int keys) =>
+        jsonEncode({for (var i = 0; i < keys; i++) 'key$i': i});
 
-    testWidgets('a closed node with 10,000 children builds none', (
+    testWidgets('a closed node with 1,990 children builds none', (
       tester,
     ) async {
-      final value = {
-        'a': {'b': wide(10000)},
-      };
+      final text = '{"a": {"b": ${wide(1990)}}}';
       final watch = Stopwatch()..start();
-      await tester.pumpWidget(_host(ToolJsonTree(value: value)));
+      await tester.pumpWidget(_host(ToolJsonTree(text: text)));
       debugPrint(
-        'closed node with 10,000 keys: ${watch.elapsedMilliseconds} ms',
+        'closed node with 1,990 keys: ${watch.elapsedMilliseconds} ms',
       );
       // root, a and the closed b; none of its keys.
       expect(rows(tester), 3);
       expect(find.textContaining('key0', findRichText: true), findsNothing);
-      expect(tester.takeException(), isNull);
     });
 
-    testWidgets('an open object of 10,000 keys builds only what is in view', (
+    testWidgets('an open object of 1,990 keys builds only what is in view', (
       tester,
     ) async {
       final watch = Stopwatch()..start();
       await tester.pumpWidget(
-        _host(SizedBox(height: 220, child: ToolJsonTree(value: wide(10000)))),
+        _host(SizedBox(height: 220, child: ToolJsonTree(text: wide(1990)))),
       );
-      debugPrint('open object, 10,000 keys: ${watch.elapsedMilliseconds} ms');
+      debugPrint('open object, 1,990 keys: ${watch.elapsedMilliseconds} ms');
       expect(rows(tester), lessThan(60));
       expect(rows(tester), greaterThan(5));
     });
 
-    testWidgets(
-      'an open array of 10,000 elements builds only what is in view',
-      (tester) async {
-        final watch = Stopwatch()..start();
-        await tester.pumpWidget(
-          _host(
-            SizedBox(
-              height: 220,
-              child: ToolJsonTree(value: List.generate(10000, (i) => i)),
+    testWidgets('an open array of 1,990 items builds only what is in view', (
+      tester,
+    ) async {
+      final watch = Stopwatch()..start();
+      await tester.pumpWidget(
+        _host(
+          SizedBox(
+            height: 220,
+            child: ToolJsonTree(
+              text: jsonEncode(List.generate(1990, (i) => i)),
             ),
           ),
+        ),
+      );
+      debugPrint('open array, 1,990 items: ${watch.elapsedMilliseconds} ms');
+      expect(rows(tester), lessThan(60));
+    });
+
+    testWidgets('ToolJsonView on its own falls back past either cap', (
+      tester,
+    ) async {
+      final inputs = {
+        '1,000 levels deep': '[' * 1000 + ']' * 1000,
+        '5,000 levels deep': '[' * 5000 + ']' * 5000,
+        '20,000 nodes': jsonEncode(List.generate(20000, (i) => i)),
+        '10,000 keys': wide(10000),
+      };
+      for (final MapEntry(key: name, value: text) in inputs.entries) {
+        final watch = Stopwatch()..start();
+        await tester.pumpWidget(
+          _host(ToolJsonView(text: text, initiallyTree: true)),
         );
-        debugPrint('open array, 10,000 items: ${watch.elapsedMilliseconds} ms');
-        expect(rows(tester), lessThan(60));
-      },
-    );
+        debugPrint(
+          '$name through ToolJsonView: ${watch.elapsedMilliseconds} ms',
+        );
+        expect(tester.takeException(), isNull, reason: name);
+        expect(find.byKey(_treeKey), findsNothing, reason: name);
+        expect(_flat, findsOneWidget, reason: name);
+      }
+      await tester.pumpWidget(_host(const SizedBox()));
+      await _workersGone(tester);
+    });
 
     testWidgets('the panel falls back to flat text past the node cap', (
       tester,
@@ -1417,6 +1452,198 @@ void main() {
           );
           expect(find.byKey(_tagKey), findsOneWidget);
         }
+      }
+    });
+  });
+
+  group('Copy at the trailing edge', () {
+    Future<Rect> copyRect(
+      WidgetTester tester,
+      Widget panel, {
+      required double width,
+      required TextDirection direction,
+    }) async {
+      await tester.pumpWidget(
+        _host(
+          Directionality(textDirection: direction, child: panel),
+          width: width,
+        ),
+      );
+      return tester.getRect(find.byKey(_copyKey));
+    }
+
+    testWidgets('JSON and plain text, phone and desktop, both directions', (
+      tester,
+    ) async {
+      const panels = {
+        'json': ToolValuePanel(label: 'Result', text: _json, language: 'json'),
+        'plain': ToolValuePanel(label: 'Result', text: 'plain words'),
+        'code': ToolValuePanel(
+          label: 'Result',
+          text: _python,
+          language: 'python',
+        ),
+      };
+      for (final width in [390.0, 700.0]) {
+        for (final MapEntry(key: name, value: panel) in panels.entries) {
+          final ltr = await copyRect(
+            tester,
+            panel,
+            width: width,
+            direction: TextDirection.ltr,
+          );
+          // The section pads 10 on each side.
+          expect(ltr.right, width - 10, reason: '$name $width ltr');
+          final rtl = await copyRect(
+            tester,
+            panel,
+            width: width,
+            direction: TextDirection.rtl,
+          );
+          expect(rtl.left, 10, reason: '$name $width rtl');
+        }
+      }
+    });
+
+    testWidgets('the label is at the leading edge', (tester) async {
+      await tester.pumpWidget(
+        _host(const ToolValuePanel(label: 'Result', text: 'plain')),
+      );
+      expect(tester.getRect(find.text('Result')).left, 10);
+    });
+  });
+
+  group('tree row semantics', () {
+    testWidgets('one node per container row: label, expanded state, one tap', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _host(
+          const ToolValuePanel(
+            label: 'Result',
+            text: '{"a": {"b": 1}}',
+            language: 'json',
+            initiallyTree: true,
+          ),
+        ),
+      );
+      final row = _rich('a: { 1 key }');
+      final node = tester.getSemantics(row);
+      expect(
+        node,
+        isSemantics(
+          label: 'a: { 1 key }',
+          isButton: true,
+          hasExpandedState: true,
+          isExpanded: true,
+          hasTapAction: true,
+        ),
+      );
+      // The ink well's own node is the same one, not a second tap target.
+      expect(
+        tester
+            .getSemantics(
+              find.ancestor(of: row, matching: find.byType(InkWell)),
+            )
+            .id,
+        node.id,
+      );
+      await tester.tap(row);
+      await tester.pump();
+      expect(
+        tester.getSemantics(row),
+        isSemantics(
+          isButton: true,
+          hasExpandedState: true,
+          isExpanded: false,
+          hasTapAction: true,
+          label: 'a: { 1 key }',
+        ),
+      );
+      handle.dispose();
+    });
+  });
+
+  group('numbers in the tree are as written', () {
+    testWidgets('long ids, trailing zeros and exponents are not rewritten', (
+      tester,
+    ) async {
+      const text =
+          '{"a": 12345678901234567890, "b": 1.50, "c": 1e3, "d": -0, '
+          '"e": 0.10, "f": 1E+2}';
+      await tester.pumpWidget(
+        _host(
+          const ToolValuePanel(
+            label: 'Result',
+            text: text,
+            language: 'json',
+            initiallyTree: true,
+          ),
+        ),
+      );
+      for (final row in [
+        'a: 12345678901234567890',
+        'b: 1.50',
+        'c: 1e3',
+        'd: -0',
+        'e: 0.10',
+        'f: 1E+2',
+      ]) {
+        expect(_rich(row), findsOneWidget, reason: row);
+      }
+      expect(_rich('12345678901234567000'), findsNothing);
+      expect(_rich('1000.0'), findsNothing);
+    });
+  });
+
+  group('tag characters', () {
+    String flag(List<int> tags) => '🏴${String.fromCharCodes(tags)}';
+    final england = flag([
+      0xE0067,
+      0xE0062,
+      0xE0065,
+      0xE006E,
+      0xE0067,
+      0xE007F,
+    ]);
+    final scotland = flag([
+      0xE0067,
+      0xE0062,
+      0xE0073,
+      0xE0063,
+      0xE0074,
+      0xE007F,
+    ]);
+    final wales = flag([0xE0067, 0xE0062, 0xE0077, 0xE006C, 0xE0073, 0xE007F]);
+
+    testWidgets('England, Scotland and Wales flags are unboxed', (
+      tester,
+    ) async {
+      final channels = _listen(tester);
+      final text = '$england $scotland $wales';
+      for (final settled in [true, false]) {
+        await tester.pumpWidget(
+          _host(ToolValuePanel(label: 'Result', text: text, settled: settled)),
+        );
+        expect(find.byType(HiddenCharBox), findsNothing);
+        expect(_shown(_spans(tester)), text);
+      }
+      await tester.tap(find.byKey(_copyKey));
+      await tester.pump();
+      expect(channels.copied, text);
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('a stray tag character is boxed', (tester) async {
+      for (final text in [
+        'a${_char(0xE0067)}b',
+        '${_char(0xE0067)}$england',
+        '$england x${_char(0xE0062)}',
+        '${england.substring(0, 2)}x${_char(0xE0067)}',
+      ]) {
+        await tester.pumpWidget(_host(ToolValueView(text: text)));
+        expect(find.byType(HiddenCharBox), findsWidgets, reason: text);
       }
     });
   });

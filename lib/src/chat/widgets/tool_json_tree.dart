@@ -6,88 +6,18 @@ import '../../files/widgets/files_metrics.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+import '../json_tree_parser.dart';
+import '../tool_value_language.dart'
+    show kToolJsonTreeMaxDepth, kToolJsonTreeMaxNodes;
 import 'tool_hidden_chars.dart';
-
-/// [text] with each lone surrogate (JSON can carry one as `\ud800`, and it
-/// makes painting throw) replaced by U+FFFD. Display only.
-String wellFormedToolText(String text) {
-  StringBuffer? out;
-  for (var i = 0; i < text.length; i++) {
-    final unit = text.codeUnitAt(i);
-    final high = unit >= 0xD800 && unit <= 0xDBFF;
-    final low = unit >= 0xDC00 && unit <= 0xDFFF;
-    final paired =
-        high &&
-        i + 1 < text.length &&
-        (text.codeUnitAt(i + 1) & 0xFC00) == 0xDC00;
-    if (paired) {
-      out?.write(text.substring(i, i + 2));
-      i++;
-    } else if (high || low) {
-      out ??= StringBuffer(text.substring(0, i));
-      out.write('�');
-    } else {
-      out?.writeCharCode(unit);
-    }
-  }
-  return out?.toString() ?? text;
-}
+import 'tool_value_view.dart' show ToolValueView;
 
 const TextStyle _mono = TextStyle(
   fontFamily: 'monospace',
   fontSize: 12,
   height: 1.4,
 );
-
-/// One entry of the flattened tree, in document order.
-class _Node {
-  _Node({
-    required this.depth,
-    required this.key,
-    required this.value,
-    required this.count,
-  });
-
-  final int depth;
-  final String? key;
-  final Object? value;
-
-  /// The number of entries of an object or array, -1 for a scalar.
-  final int count;
-
-  /// The index after the last descendant: where a collapsed node's next
-  /// sibling (or the next entry of its parent) is.
-  int end = 0;
-
-  bool get isContainer => count >= 0;
-}
-
-List<_Node> _flatten(Object? root) {
-  final nodes = <_Node>[];
-  void walk(String? key, Object? value, int depth) {
-    final count = switch (value) {
-      Map() => value.length,
-      List() => value.length,
-      _ => -1,
-    };
-    final node = _Node(depth: depth, key: key, value: value, count: count);
-    nodes.add(node);
-    switch (value) {
-      case Map():
-        for (final entry in value.entries) {
-          walk('${entry.key}', entry.value, depth + 1);
-        }
-      case List():
-        for (final item in value) {
-          walk(null, item, depth + 1);
-        }
-    }
-    node.end = nodes.length;
-  }
-
-  walk(null, root, 0);
-  return nodes;
-}
 
 /// The collapsible JSON tree of a tool call: an object or array already
 /// decoded ([value], within the depth the tree is offered for). Rows are
@@ -99,9 +29,16 @@ List<_Node> _flatten(Object? root) {
 /// A hidden character in a key or a string is a boxed escape, and a line
 /// break inside a string a boxed `\n`, so a row stays one row.
 class ToolJsonTree extends StatefulWidget {
-  const ToolJsonTree({super.key, required this.value});
+  const ToolJsonTree({super.key, required this.text, this.nodes});
 
-  final Object? value;
+  /// The JSON text. The tree parses it itself within [kToolJsonTreeMaxDepth]
+  /// levels and [kToolJsonTreeMaxNodes] nodes, whoever asks for it, and shows
+  /// the text flat when it is invalid or over either cap.
+  final String text;
+
+  /// [text] already parsed by the caller (`toolValueShape`), so it is not
+  /// parsed twice.
+  final List<JsonTreeNode>? nodes;
 
   /// How deep the tree starts open: the root and its entries.
   static const int initiallyOpenDepth = 1;
@@ -111,21 +48,32 @@ class ToolJsonTree extends StatefulWidget {
 }
 
 class _ToolJsonTreeState extends State<ToolJsonTree> {
-  late List<_Node> _nodes;
+  List<JsonTreeNode>? _nodes;
   final Set<int> _closed = {};
   late List<int> _visible;
 
   @override
   void initState() {
     super.initState();
-    _nodes = _flatten(widget.value);
+    _load();
+  }
+
+  void _load() {
+    _nodes =
+        widget.nodes ??
+        parseJsonTree(
+          widget.text,
+          maxDepth: kToolJsonTreeMaxDepth,
+          maxNodes: kToolJsonTreeMaxNodes,
+        ).nodes;
     _closeDeep();
   }
 
   void _closeDeep() {
     _closed.clear();
-    for (var i = 0; i < _nodes.length; i++) {
-      final node = _nodes[i];
+    final nodes = _nodes ?? const <JsonTreeNode>[];
+    for (var i = 0; i < nodes.length; i++) {
+      final node = nodes[i];
       if (node.isContainer &&
           node.count > 0 &&
           node.depth > ToolJsonTree.initiallyOpenDepth) {
@@ -138,18 +86,19 @@ class _ToolJsonTreeState extends State<ToolJsonTree> {
   @override
   void didUpdateWidget(ToolJsonTree oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.value, widget.value)) {
-      _nodes = _flatten(widget.value);
-      _closeDeep();
+    if (oldWidget.text != widget.text ||
+        !identical(oldWidget.nodes, widget.nodes)) {
+      _load();
     }
   }
 
   List<int> _computeVisible() {
     final visible = <int>[];
+    final nodes = _nodes ?? const <JsonTreeNode>[];
     var i = 0;
-    while (i < _nodes.length) {
+    while (i < nodes.length) {
       visible.add(i);
-      i = _closed.contains(i) ? _nodes[i].end : i + 1;
+      i = _closed.contains(i) ? nodes[i].end : i + 1;
     }
     return visible;
   }
@@ -162,7 +111,15 @@ class _ToolJsonTreeState extends State<ToolJsonTree> {
   }
 
   @override
-  Widget build(BuildContext context) => SelectionContainer.disabled(
+  Widget build(BuildContext context) {
+    final nodes = _nodes;
+    if (nodes == null) {
+      return ToolValueView(text: widget.text, language: 'json');
+    }
+    return _list(nodes);
+  }
+
+  Widget _list(List<JsonTreeNode> nodes) => SelectionContainer.disabled(
     child: ListView.builder(
       key: const ValueKey('tool-json-tree'),
       shrinkWrap: true,
@@ -171,7 +128,7 @@ class _ToolJsonTreeState extends State<ToolJsonTree> {
       itemBuilder: (context, row) {
         final index = _visible[row];
         return _TreeRow(
-          node: _nodes[index],
+          node: nodes[index],
           open: !_closed.contains(index),
           onToggle: () => _toggle(index),
         );
@@ -187,7 +144,7 @@ class _TreeRow extends StatelessWidget {
     required this.onToggle,
   });
 
-  final _Node node;
+  final JsonTreeNode node;
   final bool open;
   final VoidCallback onToggle;
 
@@ -209,7 +166,7 @@ class _TreeRow extends StatelessWidget {
 
     List<InlineSpan> text(String s, TextStyle style) => hiddenCharSpans(
       context,
-      wellFormedToolText(s),
+      wellFormedText(s),
       style,
       budget,
       boxStyle: base,
@@ -223,42 +180,44 @@ class _TreeRow extends StatelessWidget {
         ..addAll(text(key, keyStyle))
         ..add(TextSpan(text: ': ', style: punctuation));
     }
-    final value = node.value;
-    if (node.isContainer) {
-      final summary = value is Map
-          ? l10n.chatWidgetsToolValueKeys(node.count)
-          : l10n.chatWidgetsToolValueItems(node.count);
-      spans.add(
-        TextSpan(
-          text: value is Map ? '{ $summary }' : '[ $summary ]',
-          style: base.copyWith(color: subtle),
-        ),
-      );
-    } else if (value is String) {
-      final style = base.merge(codeTokenStyle(CodeToken.string, palette));
-      spans
-        ..add(TextSpan(text: '"', style: style))
-        ..addAll(text(value, style))
-        ..add(TextSpan(text: '"', style: style));
-    } else if (value is num) {
-      spans.add(
-        TextSpan(
-          text: '$value',
-          style: base.merge(codeTokenStyle(CodeToken.number, palette)),
-        ),
-      );
-    } else {
-      spans.add(
-        TextSpan(
-          text: '$value',
-          style: base.merge(codeTokenStyle(CodeToken.literal, palette)),
-        ),
-      );
+    switch (node.kind) {
+      case JsonTreeKind.object || JsonTreeKind.array:
+        final isObject = node.kind == JsonTreeKind.object;
+        final summary = isObject
+            ? l10n.chatWidgetsToolValueKeys(node.count)
+            : l10n.chatWidgetsToolValueItems(node.count);
+        spans.add(
+          TextSpan(
+            text: isObject ? '{ $summary }' : '[ $summary ]',
+            style: base.copyWith(color: subtle),
+          ),
+        );
+      case JsonTreeKind.string:
+        final style = base.merge(codeTokenStyle(CodeToken.string, palette));
+        spans
+          ..add(TextSpan(text: '"', style: style))
+          ..addAll(text(node.text, style))
+          ..add(TextSpan(text: '"', style: style));
+      case JsonTreeKind.number:
+        // As written: 1.50, 1e3 and a 20-digit id stay exactly so.
+        spans.add(
+          TextSpan(
+            text: node.text,
+            style: base.merge(codeTokenStyle(CodeToken.number, palette)),
+          ),
+        );
+      case JsonTreeKind.literal:
+        spans.add(
+          TextSpan(
+            text: node.text,
+            style: base.merge(codeTokenStyle(CodeToken.literal, palette)),
+          ),
+        );
     }
 
     final indent = node.depth.clamp(0, _indentSteps) * _indent;
     final content = Padding(
-      padding: EdgeInsets.only(left: indent),
+      padding: EdgeInsetsDirectional.only(start: indent),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -284,15 +243,21 @@ class _TreeRow extends StatelessWidget {
     );
     if (!node.isContainer || node.count == 0) return content;
     final target = FilesMetrics.of(context).target;
+    // One node per row: its text is the label, and the only tap is the
+    // Semantics one (the InkWell adds none of its own).
     return Semantics(
       button: true,
       expanded: open,
       onTap: onToggle,
       child: InkWell(
+        excludeFromSemantics: true,
         onTap: onToggle,
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: target),
-          child: Align(alignment: Alignment.centerLeft, child: content),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: content,
+          ),
         ),
       ),
     );

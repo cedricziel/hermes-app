@@ -10,6 +10,8 @@ import '../../files/widgets/files_metrics.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+import '../json_tree_parser.dart';
 import '../tool_value_language.dart';
 import 'tool_hidden_chars.dart';
 import 'tool_json_tree.dart';
@@ -89,7 +91,7 @@ class _ToolValueViewState extends State<ToolValueView> {
     final generation = ++_generation;
     _worker?.kill();
     _worker = null;
-    final display = withoutCrlfReturns(wellFormedToolText(widget.text));
+    final display = withoutCrlfReturns(wellFormedText(widget.text));
     _hasHidden = hasHiddenToolText(display);
     _runs = [(display, null)];
     final language = widget.language;
@@ -152,17 +154,23 @@ class ToolValueHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final row = Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        ?label,
-        if (actions.isNotEmpty)
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: actions,
-          ),
-      ],
+    // Full width, so the controls are at the trailing edge (in both text
+    // directions) and, when they wrap at large text sizes, go under the
+    // label at the leading edge.
+    final row = SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ?label,
+          if (actions.isNotEmpty)
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: actions,
+            ),
+        ],
+      ),
     );
     // A label alone has no control to give the row its height.
     return actions.isEmpty
@@ -401,7 +409,7 @@ class ToolJsonView extends StatefulWidget {
   const ToolJsonView({
     super.key,
     required this.text,
-    required this.value,
+    this.nodes,
     this.header,
     this.actions = const [],
     this.initiallyTree = false,
@@ -413,7 +421,7 @@ class ToolJsonView extends StatefulWidget {
 
   /// [text] already decoded (an object or array within the depth the tree is
   /// offered for), so the tree does not parse it again.
-  final Object? value;
+  final List<JsonTreeNode>? nodes;
 
   /// The most height the body (text or tree) takes before it scrolls; the
   /// header row is outside it.
@@ -459,7 +467,7 @@ class _ToolJsonViewState extends State<ToolJsonView> {
           maxHeight: widget.bodyMaxHeight ?? double.infinity,
         ),
         child: _tree
-            ? ToolJsonTree(value: widget.value)
+            ? ToolJsonTree(text: widget.text, nodes: widget.nodes)
             : SingleChildScrollView(
                 child: ToolValueView(text: widget.text, language: 'json'),
               ),
@@ -601,7 +609,7 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
           if (_shape.offersTree)
             ToolJsonView(
               text: widget.text,
-              value: _shape.tree,
+              nodes: _shape.tree,
               header: label,
               actions: [?copy],
               initiallyTree: widget.initiallyTree,

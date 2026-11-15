@@ -199,18 +199,6 @@ void main() {
   group('node cap', () {
     test('the number', () => expect(kToolJsonTreeMaxNodes, 2000));
 
-    test('counts every node, the root included, without recursion', () {
-      expect(
-        jsonNodeCount({
-          'a': 1,
-          'b': [true, null],
-        }),
-        5,
-      );
-      expect(jsonNodeCount(1), 1);
-      expect(jsonNodeCount(List.filled(10000, 0), max: 50), 51);
-    });
-
     String array(int items) => '[${List.filled(items, '1').join(',')}]';
 
     test('2,000 nodes still get the tree, 2,001 do not', () {
@@ -227,6 +215,14 @@ void main() {
       expect(toolValueLanguage('[$body]'), 'json');
       expect(toolValueLanguage('\n {$body} \r\n\n'), 'json');
       expect(toolValueLanguage('[$body'), isNull);
+      // A log that happens to end in a bracket is not JSON.
+      final log =
+          '[INFO] ${List.filled(kToolJsonSniffMaxChars ~/ 8, 'line').join('\n')} [done]';
+      expect(toolValueLanguage(log), isNull);
+      expect(toolValueLanguage('{ x ${body.substring(3)}}'), isNull);
+      expect(toolValueLanguage('[ \n 1, $body]'), 'json');
+      expect(toolValueLanguage('{"a": $body}'), 'json');
+      expect(toolValueLanguage('{ }'), 'json');
       expect(toolValueLanguage('[$body}'), isNull);
       expect(toolValueLanguage('$body]'), isNull);
     });

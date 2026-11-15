@@ -451,7 +451,7 @@
   "chatWidgetsProgramStopBusy": "Wird gestoppt …",
   "chatWidgetsProgramStopButton": "Programm stoppen",
   "chatWidgetsToolValueCopied": "Kopiert",
-  "chatWidgetsToolValueCopyError": "Fehler kopieren",
+  "chatWidgetsToolValueCopyError": "Fehlermeldung kopieren",
   "chatWidgetsToolValueCopyInput": "Eingabe kopieren",
   "chatWidgetsToolValueCopyResult": "Ergebnis kopieren",
   "chatWidgetsToolValueHiddenChar": "Verstecktes Zeichen {code}",
