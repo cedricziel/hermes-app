@@ -921,6 +921,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     _showMessage(switch (notice) {
       ChatSendNotice.stopCommand => context.l10n.chatNoticeStopCommand,
+      ChatSendNotice.stopCommandElsewhere =>
+        context.l10n.chatNoticeStopCommandElsewhere,
     });
   }
 
@@ -945,6 +947,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     unawaited(_dictation?.refresh());
     _refreshReadAloud();
     _chat.checkConnection();
+    unawaited(_chat.refreshModelOptionsOnResume());
     unawaited(_memoryWaiting?.refreshIfStale(_chat.profile));
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
