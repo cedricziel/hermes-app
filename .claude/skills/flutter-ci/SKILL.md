@@ -86,8 +86,9 @@ superseded by the next one.
 
 `Analyze & test` runs before the builds and cannot wait for them, so the `Builds`
 job (`needs` all five, `if: always()`) aggregates them. It fails when `Analyze &
-test` did not succeed; otherwise it expects `success` from every build when
-`code` and `builds` are both true, and `skipped` from every build when not. A
+test` did not succeed. Only an explicit `false` in `code` or `builds` from
+`Changes` makes it expect every build `skipped`; any other value, empty
+included, expects `success` from every build, so it fails closed. A
 failed, cancelled or unexpectedly skipped build fails it, and the log names the
 job and what was expected. `Test native audio (Linux)` is left out on purpose
 (advisory). `Builds` is a required check only once the owner adds it to the
