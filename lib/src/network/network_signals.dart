@@ -52,13 +52,17 @@ Stream<T> debounced<T>(Stream<T> source, Duration quiet) {
 /// How long the first connectivity check may take on Linux.
 const kLinuxCheckTimeout = Duration(seconds: 5);
 
-/// Whether [error] comes from the D-Bus connection: a socket or OS error, a
-/// timeout, or an exception of the `dbus` package (matched by name, since it
-/// is not a direct dependency).
+/// Whether [error] comes from the D-Bus connection: a socket or OS error, an
+/// exception of the `dbus` package (matched by name, since it is not a direct
+/// dependency; this is what a bus without NetworkManager throws), or one of
+/// the plain strings it throws from opening a socket. An unrelated
+/// `TimeoutException` is not one; the bounded check handles its own.
 bool isLinuxBusError(Object error) =>
     error is SocketException ||
     error is OSError ||
-    error is TimeoutException ||
+    (error is String &&
+        (error.startsWith('D-Bus') ||
+            error.startsWith('Unable to determine D-Bus'))) ||
     error.runtimeType.toString().startsWith('DBus');
 
 /// Whether a D-Bus system bus can exist: `DBUS_SYSTEM_BUS_ADDRESS` is set, or
@@ -111,23 +115,16 @@ class ConnectivityNetworkSignals
     } else if ((hasSystemBus ?? linuxSystemBusAvailable)()) {
       // Only bus errors end here: the zone holds the plugin's stream for as
       // long as it lives, so any other error goes on to the parent zone.
-      try {
-        runZoned(
-          () => _listen(results, check, bounded: true),
-          zoneSpecification: ZoneSpecification(
-            handleUncaughtError: (self, parent, zone, error, stack) {
-              if (!isLinuxBusError(error)) {
-                parent.handleUncaughtError(zone, error, stack);
-              }
-            },
-          ),
-        );
-      } on Object catch (error, stack) {
-        // `listen` rethrows what the plugin's `onListen` throws.
-        if (!isLinuxBusError(error)) {
-          Zone.current.handleUncaughtError(error, stack);
-        }
-      }
+      runZoned(
+        () => _listen(results, check, bounded: true),
+        zoneSpecification: ZoneSpecification(
+          handleUncaughtError: (self, parent, zone, error, stack) {
+            if (!isLinuxBusError(error)) {
+              parent.handleUncaughtError(zone, error, stack);
+            }
+          },
+        ),
+      );
     }
     WidgetsBinding.instance.addObserver(this);
     changes = debounced(_raw.stream, debounce);

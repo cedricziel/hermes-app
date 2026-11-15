@@ -8,6 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/network/network_signals.dart';
 
+/// Named like the `dbus` package's exception, which is matched by name.
+class DBusServiceUnknownException implements Exception {}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -181,6 +184,58 @@ void main() {
       }, (error, _) => uncaught.add(error));
       expect(uncaught, isEmpty);
     });
+
+    test('on Linux a bus without NetworkManager is swallowed', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final broken = StreamController<List<ConnectivityResult>>(
+          onListen: () => throw DBusServiceUnknownException(),
+        );
+        addTearDown(() => unawaited(broken.close()));
+        final s = ConnectivityNetworkSignals(
+          results: broken.stream,
+          check: () {
+            Future<void>(() => throw DBusServiceUnknownException());
+            return Future.error(DBusServiceUnknownException());
+          },
+          onLinux: true,
+          hasSystemBus: () => true,
+        );
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught, isEmpty);
+    });
+
+    test('on Linux the dbus package\'s string errors are swallowed', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final s = linuxSignals(() {
+          Future<void>.error('D-Bus address transport not supported: x');
+          Future<void>.error('Unable to determine D-Bus unix address path');
+          return Future.value(current);
+        });
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught, isEmpty);
+    });
+
+    test(
+      'on Linux an unrelated TimeoutException reaches the parent zone',
+      () async {
+        final uncaught = <Object>[];
+        await runZonedGuarded(() async {
+          final s = linuxSignals(() {
+            Future<void>(() => throw TimeoutException('other'));
+            return Future.value(current);
+          });
+          addTearDown(s.dispose);
+          await pumpEventQueue();
+        }, (error, _) => uncaught.add(error));
+        expect(uncaught.single, isA<TimeoutException>());
+      },
+    );
 
     test('on Linux any other error reaches the parent zone', () async {
       final uncaught = <Object>[];
