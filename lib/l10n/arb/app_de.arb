@@ -554,6 +554,8 @@
   "@@x-area-messaging": "",
 
   "@@x-area-models": "",
+  "modelsPickerDefaultUses": "Verwendet {model}",
+  "modelsPickerUseDefault": "Standard des Profils verwenden",
 
   "@@x-area-navigation": "",
 

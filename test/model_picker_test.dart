@@ -181,4 +181,123 @@ void main() {
 
     expect(find.byKey(const Key('settings-search-field')), findsNothing);
   });
+
+  group('the default entry names the default model', () {
+    Widget picker(ModelOptions options, {ModelChoice? selected}) => MaterialApp(
+      theme: buildHermesLightTheme(),
+      home: Scaffold(
+        body: ModelPicker(
+          options: options,
+          selected: selected,
+          onChanged: (_) {},
+          onUseDefault: () {},
+        ),
+      ),
+    );
+
+    testWidgets('with its name in the row and its semantics label', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(picker(_options));
+
+      final entry = find.byKey(const Key('model-default'));
+      expect(
+        find.descendant(of: entry, matching: find.text('Uses claude-opus-4')),
+        findsOneWidget,
+      );
+      expect(
+        tester.getSemantics(entry).label,
+        allOf(contains('default'), contains('claude-opus-4')),
+      );
+      expect(tester.getSize(entry).height, greaterThanOrEqualTo(48));
+      handle.dispose();
+    });
+
+    testWidgets('and is plain when the options name no default', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        picker(ModelOptions(providers: _options.providers)),
+      );
+
+      final entry = find.byKey(const Key('model-default'));
+      expect(
+        find.descendant(
+          of: entry,
+          matching: find.text('Use the profile’s default'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: entry, matching: find.textContaining('Uses')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shows control characters of a server name visibly', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        picker(
+          ModelOptions(
+            current: const ModelChoice('p', 'evil\u202Emodel'),
+            providers: _options.providers,
+          ),
+        ),
+      );
+
+      expect(find.text('Uses evil<U+202E>model'), findsOneWidget);
+    });
+
+    testWidgets('and follows a quiet refresh while the picker is open', (
+      tester,
+    ) async {
+      ModelOptions optionsFor(String model) => ModelOptions(
+        current: ModelChoice('anthropic', model),
+        providers: _options.providers,
+      );
+      var current = optionsFor('claude-opus-4');
+      final updates = ValueNotifier<int>(0);
+      addTearDown(updates.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showModelPicker(
+                  context,
+                  options: current,
+                  selected: null,
+                  onChanged: (_) {},
+                  onUseDefault: () {},
+                  updates: updates,
+                  latest: () => current,
+                  latestSelected: () => null,
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Uses claude-opus-4'), findsOneWidget);
+
+      current = optionsFor('claude-sonnet-4-5');
+      updates.value++;
+      await tester.pumpAndSettle();
+
+      expect(find.text('Uses claude-sonnet-4-5'), findsOneWidget);
+      expect(find.text('Uses claude-opus-4'), findsNothing);
+
+      current = ModelOptions(providers: _options.providers);
+      updates.value++;
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Uses'), findsNothing);
+    });
+  });
 }

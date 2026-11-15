@@ -115,6 +115,45 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ),
         ),
         ...onEachPlatform(
+          'Default entry, long model name',
+          (_) => _picker(
+            ModelPicker(
+              options: ModelOptions(
+                current: _longModel,
+                providers: modelOptions.providers,
+              ),
+              selected: null,
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Default entry, default unknown',
+          (_) => _picker(
+            ModelPicker(
+              options: kanbanModelOptions,
+              selected: null,
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Explicit pick checked, default still named',
+          (_) => _picker(
+            ModelPicker(
+              options: modelOptions,
+              selected: const ModelChoice('anthropic', 'claude-haiku-4-5'),
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+          ),
+        ),
+        ...onEachPlatform(
           'Kanban task: default entry and effort',
           (_) => _picker(
             ModelPicker(

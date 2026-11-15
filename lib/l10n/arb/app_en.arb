@@ -2623,6 +2623,19 @@
   "@@x-area-messaging": "",
 
   "@@x-area-models": "",
+  "modelsPickerDefaultUses": "Uses {model}",
+  "@modelsPickerDefaultUses": {
+    "description": "Subtitle of the model picker's default row: the model a chat without an explicit pick uses. {model} is the server's model id.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPickerUseDefault": "Use the profile’s default",
+  "@modelsPickerUseDefault": {
+    "description": "Title of the first row of the model picker, which clears an explicit pick so the profile's default model is used."
+  },
 
   "@@x-area-navigation": "",
 

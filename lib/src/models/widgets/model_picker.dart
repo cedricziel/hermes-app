@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
+import '../../files/widgets/safe_path_text.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -164,7 +166,8 @@ class ModelPicker extends StatefulWidget {
   final String? note;
 
   /// When set, a "Use the profile's default" entry comes first, checked
-  /// while nothing is selected.
+  /// while nothing is selected. It names [ModelOptions.current] when the
+  /// server reported one.
   final VoidCallback? onUseDefault;
 
   /// More models than this get a search field.
@@ -317,12 +320,19 @@ class _ModelPickerState extends State<ModelPicker> {
               padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 16),
               children: [
                 if (widget.onUseDefault != null && query.isEmpty)
-                  const GroupedSection(
+                  GroupedSection(
                     children: [
                       GroupedChoiceRow<_Pick>(
-                        key: Key('model-default'),
+                        key: const Key('model-default'),
                         value: _defaultPick,
-                        title: 'Use the profile’s default',
+                        title: context.l10n.modelsPickerUseDefault,
+                        // The server's value, drawn with its control and
+                        // bidi characters visible.
+                        subtitle: widget.options.current == null
+                            ? null
+                            : context.l10n.modelsPickerDefaultUses(
+                                safePathText(widget.options.current!.modelId),
+                              ),
                       ),
                     ],
                   ),
