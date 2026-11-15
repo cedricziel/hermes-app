@@ -32,7 +32,8 @@
 # or control character), a state directory at or under the real Hermes home
 # (~/.hermes or ~/.hermes<anything>, any case) or an ambient HERMES_HOME, a
 # caller's HERMES_DATA_DIR_SUFFIX, and any symlink or hard-linked file anywhere
-# in the state directory. Every path is then used resolved. That, with the
+# in the state directory, any part of that tree it cannot read, and a failing
+# `find`. Every path is then used resolved. That, with the
 # removal of HERMES_DATA_DIR_SUFFIX and SUDO_USER from the environment, is what
 # keeps a plain start away from the real home; its dashboard keeps the caller's
 # HOME. The profile commands and a launch-profile dashboard run with a
@@ -134,28 +135,69 @@ bind_state_dir() {
 
 # Exits 3 when anything under the state directory is a symlink or a file with
 # more than one hard link (the directory outlives a run, and Hermes writes
-# through such a link into wherever it points, the real home included), or when
-# the resolved Hermes home is inside the real one. One rule for the whole tree,
-# run before and after the directories are made; it names the first offender.
+# through such a link into wherever it points, the real home included), when
+# any part of the tree cannot be read, when `find` fails for any reason, or
+# when the resolved Hermes home is inside the real one. One rule for the whole
+# tree, run before and after the directories are made; it names the first
+# offender. Only a `find` that succeeded is believed: an error (an unreadable
+# directory, a missing or broken `find`) is a refusal, never "nothing found".
 # `find -type l` and `-links +1` are in BSD find too, and `head` stands in for
 # GNU's `-quit`. A live process that plants a link between this check and the
 # start is outside the threat model.
 check_state_tree() {
-  local found where
+  local where
   if [[ -d "$STATE_DIR" ]]; then
-    found="$(find "$STATE_DIR" -type l -print 2>/dev/null | head -n 1 || true)"
-    if [[ -n "$found" ]]; then
-      echo "refusing: $found is a symlink; remove it or use another state directory" >&2
-      exit 3
-    fi
-    found="$(find "$STATE_DIR" -type f -links +1 -print 2>/dev/null | head -n 1 || true)"
-    if [[ -n "$found" ]]; then
-      echo "refusing: $found has more than one hard link; remove it or use another state directory" >&2
-      exit 3
-    fi
+    check_dirs_readable "$STATE_DIR"
+    find_none "a symlink" -type l
+    find_none "a file with more than one hard link" -type f -links +1
   fi
   if where="$(inside_real_hermes_home "$(resolve_path "$HOME_DIR")")"; then
     echo "refusing: the Hermes home $HOME_DIR is at or under $where, a real Hermes home" >&2
+    exit 3
+  fi
+}
+
+# Exits 3 unless every directory under $1 is readable and searchable by this
+# user: `find` could not look inside one, and a link in it would go unseen.
+check_dirs_readable() {
+  local dir="$1" entry
+  if [[ ! -r "$dir" || ! -x "$dir" ]]; then
+    echo "refusing: $(printf %q "$dir") is not readable and searchable by this user, so the state directory cannot be checked for links" >&2
+    exit 3
+  fi
+  for entry in "$dir"/* "$dir"/.[!.]* "$dir"/..?*; do
+    if [[ -d "$entry" && ! -L "$entry" ]]; then
+      check_dirs_readable "$entry"
+    fi
+  done
+  return 0
+}
+
+# find_none WHAT FIND-ARGS...: runs find over the state directory and exits 3
+# if it fails (its stderr is named in the message) or reports anything.
+find_none() {
+  local what="$1" out err rc=0 first
+  shift
+  out="$(mktemp "${TMPDIR:-/tmp}/dev-backend-find.XXXXXX")" || {
+    echo "refusing: cannot make a temporary file to check $STATE_DIR" >&2
+    exit 3
+  }
+  err="$out.err"
+  find "$STATE_DIR" "$@" -print >"$out" 2>"$err" || rc=$?
+  if ((rc != 0)); then
+    echo "refusing: find failed (exit $rc) while looking for $what in $STATE_DIR: $(head -n 3 "$err" | tr '\n' ' ')" >&2
+    rm -f "$out" "$err"
+    exit 3
+  fi
+  first="$(head -n 1 "$out")"
+  rm -f "$out" "$err"
+  if [[ -n "$first" ]]; then
+    if [[ -e "$first" || -L "$first" ]]; then
+      first="$(printf %q "$first")"
+    else
+      first="a path containing a newline, starting $(printf %q "$first")"
+    fi
+    echo "refusing: $first is $what; remove it or use another state directory" >&2
     exit 3
   fi
 }

@@ -154,7 +154,10 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    run, and Hermes writes through such a link into wherever it points: a linked
    `state.db` or `config.yaml` reaches the real home). That is one `find` over
    the whole tree, before and after the directories are made, and the message
-   names the first offender. All of that is exit 3, before any write or
+   names the first offender. It refuses when any directory in the tree is not
+   readable and searchable by the user, or when `find` fails for any reason (a
+   missing or broken `find`, a read error): only a `find` that succeeded is
+   believed, and its error is in the message. All of that is exit 3, before any write or
    `hermes` call; every later path is the resolved one, and `verify.sh` applies
    the canonical-path and real-home rules to its temp root. Limits: a bind mount
    of `~/.hermes` is not detected (nothing compares devices or inodes), so

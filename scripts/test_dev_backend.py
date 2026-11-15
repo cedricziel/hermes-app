@@ -23,6 +23,8 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEV_BACKEND = ROOT / "scripts" / "dev-backend.sh"
 VERIFY = ROOT / "scripts" / "verify.sh"
+BASH = shutil.which("bash")
+REAL_FIND = shutil.which("find")
 
 STUB = """#!/usr/bin/env bash
 echo "HOME=${HOME-<unset>} HERMES_HOME=${HERMES_HOME:-} SUDO_USER=${SUDO_USER-<unset>} SUFFIX=${HERMES_DATA_DIR_SUFFIX-<unset>} :: $*" >>"$HERMES_STUB_LOG"
@@ -101,11 +103,11 @@ class DevBackendTest(unittest.TestCase):
         env.update(extra)
         return env
 
-    def start(self, *args, state=None, home="set", cwd=None, **extra):
+    def start(self, *args, state=None, home="set", cwd=None, prefix=(), **extra):
         env = self.env(home=home, **extra)
         env["HERMES_DEV_STATE_DIR"] = str(state or self.tmp / "state")
         return subprocess.run(
-            ["bash", str(DEV_BACKEND), "start", *args],
+            [*prefix, BASH, str(DEV_BACKEND), "start", *args],
             env=env,
             cwd=cwd or self.cwd,
             capture_output=True,
@@ -636,6 +638,112 @@ class DevBackendTest(unittest.TestCase):
         result = self.start("--launch-profile", "lp")
         self.assertEqual(result.returncode, 1, result.stderr)  # the stand-in dashboard exits 1
         self.assertNotIn("refusing", result.stderr)
+
+    # -- a find that fails is not a find that found nothing ----------------------
+
+    def as_nobody(self):
+        """A command prefix that drops root, or skips the test with the reason."""
+        if os.geteuid() != 0:
+            return []
+        setpriv = shutil.which("setpriv")
+        if setpriv is None:
+            self.skipTest("running as root and setpriv is not available to drop privileges")
+        # The tree must be reachable by the unprivileged user.
+        os.chmod(self.tmp, 0o755)
+        return [setpriv, "--reuid=65534", "--regid=65534", "--clear-groups"]
+
+    def shim_dir(self, name, body):
+        shims = self.tmp / "shims"
+        shims.mkdir(exist_ok=True)
+        shim = shims / name
+        shim.write_text(body)
+        shim.chmod(0o755)
+        return shims
+
+    def test_refuses_an_unreadable_directory_even_with_a_link_behind_it(self):
+        prefix = self.as_nobody()
+        db = self.real_state_db()
+        db.chmod(0o666)
+        home = self.tmp / "state" / "home"
+        home.mkdir()
+        (home / "state.db").symlink_to(db)
+        for mode in (0o300, 0o100, 0o000):
+            with self.subTest(mode=oct(mode)):
+                home.chmod(mode)
+                self.addCleanup(home.chmod, 0o755)
+                self.mark()
+                result = self.start("--launch-profile", "lp", prefix=prefix)
+                self.assertRefused(result, message="not readable and searchable")
+                self.assertEqual(db.read_text(), "real database\n")
+
+    def test_refuses_an_unreadable_directory_two_levels_down(self):
+        prefix = self.as_nobody()
+        deep = self.tmp / "state" / "home" / "profiles" / "lp"
+        deep.mkdir(parents=True)
+        deep.chmod(0o300)
+        self.addCleanup(deep.chmod, 0o755)
+        self.mark()
+        self.assertRefused(self.start(prefix=prefix), message="profiles/lp")
+
+    def test_refuses_when_find_fails(self):
+        shims = self.shim_dir("find", '#!/bin/sh\necho "find: shim failure" >&2\nexit 2\n')
+        self.mark()
+        result = self.start(PATH=f"{shims}:{self.bin}:{os.environ['PATH']}")
+        self.assertRefused(result, message="find failed (exit 2)")
+        self.assertIn("shim failure", result.stderr)
+
+    def test_a_find_that_works_and_finds_nothing_is_accepted(self):
+        # A find that works and finds nothing is accepted: the failure above is
+        # the exit status, not the empty output.
+        shims = self.shim_dir("find", f'#!/bin/sh\nexec {REAL_FIND} "$@"\n')
+        result = self.start(PATH=f"{shims}:{self.bin}:{os.environ['PATH']}")
+        self.assertEqual(result.returncode, 1, result.stderr)
+
+    def test_refuses_when_there_is_no_find(self):
+        tools = self.tmp / "tools"
+        tools.mkdir()
+        for tool in (
+            "bash", "env", "dirname", "basename", "id", "cut", "tr", "mkdir", "rm",
+            "mktemp", "head", "cat", "sed", "grep", "tail", "sleep", "nohup", "kill",
+            "touch", "wc", "sort", "ls", "stat", "readlink", "date", "uname", "true",
+        ):
+            path = shutil.which(tool)
+            if path:
+                (tools / tool).symlink_to(path)
+        self.assertFalse((tools / "find").exists())
+        self.mark()
+        result = self.start(PATH=f"{tools}:{self.bin}")
+        self.assertRefused(result, message="find failed")
+
+    def test_the_second_check_after_the_directories_are_made_refuses_too(self):
+        # A find that sees nothing on the first pass (two finds) and a link on
+        # the next: only a second check_state_tree can refuse.
+        counter = self.tmp / "find-calls"
+        counter.write_text("")
+        shims = self.shim_dir(
+            "find",
+            f"""#!/bin/sh
+echo x >>{counter}
+if [ "$(wc -l <{counter})" -ge 3 ]; then
+  echo "$1/planted"
+  exit 0
+fi
+exec {REAL_FIND} "$@"
+""",
+        )
+        self.mark()
+        result = self.start(PATH=f"{shims}:{self.bin}:{os.environ['PATH']}")
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertIn("planted", result.stderr)
+        self.assertEqual(self.calls(), "", "hermes was called")
+
+    def test_a_name_with_a_newline_is_refused_and_said_so(self):
+        victim = self.tmp / "victim.txt"
+        victim.write_text("keep\n")
+        (self.tmp / "state" / "home").mkdir()
+        (self.tmp / "state" / "home" / "a\nb").symlink_to(victim)
+        self.mark()
+        self.assertRefused(self.start(), message="newline")
 
     def test_hermes_only_ever_sees_the_resolved_state_dir(self):
         real = self.tmp / "real"
