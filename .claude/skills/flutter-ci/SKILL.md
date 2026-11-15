@@ -100,3 +100,34 @@ any job upstream was skipped, and `Test watch core` is skipped on most pull
 requests. Their `if` therefore names `needs.analyze-and-test.result ==
 'success'` under `!cancelled()`. If builds show as skipped on a pull request that
 changes code, look there first.
+
+## PR policy and Review recorded
+
+`pr-policy.yml` runs `scripts/pr_policy.py` (`policy` and `review`) on every
+pull request. It triggers on `pull_request_target` and checks out the default
+branch only, so the gate is main's copy and a PR cannot edit its own checks (a
+PR that changes the workflow or the script is checked by main's version; the
+first live run of a change is the next PR after it merges). The script reads
+the event JSON and the changed files from the REST API and never touches the
+PR's code. Editing the PR body reruns it; a manual "Re-run jobs" reuses the old
+payload, so edit the body to re-check. Each failure names its fix:
+
+- Title: Conventional Commit, type from `release-please-config.json`.
+- Body sections: copy `.github/pull_request_template.md`; an HTML comment is not content, write "Nothing" where that is the answer.
+- `fix:` PRs: answer `What would have caught this earlier?` in `## Proof`, outside any comment.
+- Model names: drop them from title and body. Only `Co-Authored-By:` and `Claude-Session:` lines, the Claude Code footer and the session URL are skipped.
+- `pubspec.yaml` version: revert; release-please bumps it.
+- `docs/roadmap.md`: revert it and send the orchestrator the row. The check is by branch prefix (`claude/quirky-einstein-`), so it is loud, not tight.
+- "looks corrupted by a Markdown formatter": the hook turned `x86_64` into `x86*64` or unbalanced a backtick in CLAUDE.md or the roadmap. Restore the line from main and re-apply only your change, with a script instead of Edit/Write.
+- Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push.
+- "The PR head moved (<old> → <new>)": a push landed while the job ran, or the API lagged. The run on the newer head decides; re-run the job if that run is missing.
+- Known gap: model names inside inline code or fenced code are not checked.
+- TODO, TBD, n/a, `-` and `...` count as empty; "Nothing" is a valid answer for `## Not verified on a device`.
+
+Automation PRs from the same repository skip the title, body and review
+rules: the exact branches `chore/update-flutter`,
+`chore/update-hermes-contracts`, `chore/readme-screenshots-<run id>` and
+`release-please--branches--main--components--hermes-app`, and `dependabot/*`
+only with the author `dependabot[bot]`. A fork is never exempt.
+update-claude-plugins is not listed because its branch name lives in an
+external action; add it once a PR from it shows the name.

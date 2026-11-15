@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, User;
-import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
+import 'package:flutter_chat_ui/flutter_chat_ui.dart'
+    show Chat, ComposerHeightNotifier;
+import 'package:provider/provider.dart';
 
 import '../../bot_mode/bot_chat_context.dart';
 import '../../bot_mode/widgets/bot_chat_banner.dart';
@@ -26,6 +28,7 @@ import '../../voice/voice_message_recording.dart';
 import '../activity/widgets/needs_you_dock.dart'
     show NeedsYouDockBuilder, needsYouCompactFor;
 import 'chat_composer_builder.dart';
+import 'chat_history_state.dart';
 import 'message_actions.dart' show TurnActionStatus;
 import '../reactions/reaction_state.dart';
 
@@ -98,7 +101,17 @@ class ChatThreadView extends StatelessWidget {
     this.onShowAgentDetails,
     this.workingDirectoryRow,
     this.workspaceNotice,
+    this.historyStatus,
+    this.onRetryHistory,
   });
+
+  /// Set while a stored chat has no messages on screen because they are
+  /// loading or failed to load: the transcript then shows that instead of the
+  /// welcome view. Null for a chat that shows its messages or a new one.
+  final ChatHistoryStatus? historyStatus;
+
+  /// Reads the messages of a chat whose [historyStatus] is failed again.
+  final VoidCallback? onRetryHistory;
 
   final ChatThread? thread;
 
@@ -264,7 +277,19 @@ class ChatThreadView extends StatelessWidget {
         );
     // copyWith takes a null builder as "none", so only the panel's case
     // replaces the welcome view.
-    final shown = welcome
+    final history = historyStatus;
+    final shown = history != null
+        ? builders.copyWith(
+            emptyChatListBuilder: (context) => ChatHistoryState(
+              key: ValueKey(history),
+              status: history,
+              onRetry: onRetryHistory,
+              bottomPadding:
+                  context.watch<ComposerHeightNotifier>().height +
+                  MediaQuery.paddingOf(context).bottom,
+            ),
+          )
+        : welcome
         ? builders
         : builders.copyWith(
             emptyChatListBuilder: (_) => const SizedBox.shrink(),
