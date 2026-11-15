@@ -5,10 +5,16 @@ import UIKit
 
 /// Only user-started outgoing calls. No PushKit registration or artificial
 /// incoming call is needed to put an ongoing Hermes conversation in CallKit.
+///
+/// Nothing audio or CallKit is built before the user starts a call: creating
+/// an `AVAudioEngine` output node or a `CXProvider` at launch interrupts the
+/// music or video playing in another app. The provider, the controller and
+/// `CallAudio` are made by `start` and let go when the call is over.
 public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler, CXProviderDelegate {
-  private let provider: CXProvider
-  private let controller = CXCallController()
-  private let audio = CallAudio()
+  private var provider: CXProvider?
+  private var controller: CXCallController?
+  private var audio: CallAudio?
+  private var providerRelease: Timer?
   private var sink: FlutterEventSink?
   private var callID: UUID?
   private var startGeneration = 0
@@ -18,27 +24,19 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
   private var activationTimer: Timer?
 
   override init() {
-    let configuration = CXProviderConfiguration()
-    configuration.supportsVideo = false
-    configuration.supportedHandleTypes = [.generic]
-    configuration.maximumCallGroups = 1
-    configuration.maximumCallsPerCallGroup = 1
-    configuration.includesCallsInRecents = false
-    provider = CXProvider(configuration: configuration)
     super.init()
-    provider.setDelegate(self, queue: .main)
-    audio.emit = { [weak self] event in self?.emit(event) }
     routeObserver = NotificationCenter.default.addObserver(
       forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main
     ) { [weak self] _ in self?.reportRoute() }
     configurationObserver = NotificationCenter.default.addObserver(
       forName: .AVAudioEngineConfigurationChange, object: nil, queue: .main
     ) { [weak self] _ in
-      guard let self, self.callID != nil, self.audioActive, !self.audio.running else { return }
+      guard let self, self.callID != nil, self.audioActive, let audio = self.audio,
+            !audio.running else { return }
       // Notify Dart before cancelling a pending drain, so a route handoff
       // invalidates the old speech turn rather than failing the entire call.
       self.emit(["type": "audioReset"])
-      do { self.audio.stop(); try self.audio.start(); self.reportRoute() }
+      do { audio.stop(); try audio.start(); self.reportRoute() }
       catch {
         self.finish(reason: .failed, code: "audio_reset")
       }
@@ -61,9 +59,6 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
             let name = args["name"] as? String else {
         result(failure("unavailable", "Another call is already active.")); return
       }
-      // A new call begins with capture neither paused nor stopped, whatever the
-      // last one left behind.
-      audio.endCall()
       startGeneration += 1
       let requestedGeneration = startGeneration
       AVAudioApplication.requestRecordPermission { [weak self] granted in
@@ -75,8 +70,14 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
           guard granted else { result(self.failure("permission", "Microphone access is off.")); return }
           guard self.callID == nil else { result(self.failure("unavailable", "Another call is already active.")); return }
           self.callID = id
+          // A new call begins with fresh audio and CallKit objects, with capture
+          // neither paused nor stopped, whatever the last one left behind.
+          self.makeProvider()
+          let audio = CallAudio()
+          audio.emit = { [weak self] event in self?.emit(event) }
+          self.audio = audio
           let action = CXStartCallAction(call: id, handle: CXHandle(type: .generic, value: name))
-          self.controller.request(CXTransaction(action: action)) { error in
+          self.makeController().request(CXTransaction(action: action)) { error in
             DispatchQueue.main.async {
               if let error {
                 // The event goes first: it carries CallKit's error number, and
@@ -98,10 +99,10 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
       audioActive = false
       // Latches capture off, so a didActivate before CallKit performs the end
       // cannot install the tap again.
-      if callID != nil { audio.stopCapture() }
-      audio.stop()
+      if callID != nil { audio?.stopCapture() }
+      audio?.stop()
       guard let id = callID else { result(nil); return }
-      controller.request(CXTransaction(action: CXEndCallAction(call: id))) { [weak self] error in
+      makeController().request(CXTransaction(action: CXEndCallAction(call: id))) { [weak self] error in
         DispatchQueue.main.async {
           if error != nil, self?.callID == id { self?.finish(reason: .failed, code: "end_request") }
           result(nil)
@@ -109,7 +110,7 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
       }
     case "muted":
       guard let id = callID, let muted = args["muted"] as? Bool else { result(nil); return }
-      controller.request(CXTransaction(action: CXSetMutedCallAction(call: id, muted: muted))) { error in
+      makeController().request(CXTransaction(action: CXSetMutedCallAction(call: id, muted: muted))) { error in
         DispatchQueue.main.async { result(error.map { self.failure("mute", $0.localizedDescription) }) }
       }
     case "speaker":
@@ -119,17 +120,17 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
         result(nil)
       } catch { result(failure("route", "Could not change the audio route.")) }
     case "connected":
-      if let id = callID { provider.reportOutgoingCall(with: id, connectedAt: Date()) }
+      if let id = callID { provider?.reportOutgoingCall(with: id, connectedAt: Date()) }
       result(nil)
     case "play":
-      guard callID != nil, let bytes = args["pcm"] as? FlutterStandardTypedData,
+      guard callID != nil, let audio, let bytes = args["pcm"] as? FlutterStandardTypedData,
             let rate = args["sampleRate"] as? NSNumber else {
         result(failure("audio", "No active call audio.")); return
       }
       do { try audio.play(bytes.data, rate: rate.doubleValue); result(nil) }
       catch { result(failure("audio", "Could not play call audio.")) }
-    case "pauseCapture": audio.setCapturePaused(true); result(nil)
-    case "resumeCapture": audio.setCapturePaused(false); result(nil)
+    case "pauseCapture": audio?.setCapturePaused(true); result(nil)
+    case "resumeCapture": audio?.setCapturePaused(false); result(nil)
     // With no live call there is nothing to stop, and a flag set now would
     // outlive the call that Dart is still tearing down.
     // An id that names another call (a late stop of an earlier one) is ignored;
@@ -137,10 +138,10 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     case "stopCapture":
       guard let live = callID else { result(nil); return }
       if let raw = args["id"] as? String, UUID(uuidString: raw) != live { result(nil); return }
-      audio.stopCapture()
+      audio?.stopCapture()
       result(nil)
-    case "drain": audio.finish(result)
-    case "stopPlayback": audio.stopPlayback(); result(nil)
+    case "drain": if let audio { audio.finish(result) } else { result(nil) }
+    case "stopPlayback": audio?.stopPlayback(); result(nil)
     default: result(FlutterMethodNotImplemented)
     }
   }
@@ -170,7 +171,7 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
   }
 
   public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-    guard callID != nil else { return }
+    guard callID != nil, let audio else { return }
     activationTimer?.invalidate()
     activationTimer = nil
     do {
@@ -185,13 +186,13 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
 
   public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
     audioActive = false
-    audio.stop()
+    audio?.stop()
     emit(["type": "deactivated"])
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
     guard action.callUUID == callID else { action.fail(); return }
-    audio.muted = action.isMuted
+    audio?.muted = action.isMuted
     emit(["type": "muted", "muted": action.isMuted])
     action.fulfill()
   }
@@ -215,11 +216,13 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     guard let id = callID else { return }
     activationTimer?.invalidate()
     activationTimer = nil
-    audio.stop()
-    audio.endCall()
-    audio.muted = false
+    audio?.stop()
+    audio?.endCall()
+    audio?.muted = false
+    audio = nil
     callID = nil
-    if let reason { provider.reportCall(with: id, endedAt: Date(), reason: reason) }
+    if let reason { provider?.reportCall(with: id, endedAt: Date(), reason: reason) }
+    scheduleProviderRelease()
     if reason == .failed {
       var event: [String: Any] = ["type": "error", "code": code ?? "unknown"]
       for (key, value) in extra { event[key] = value }
@@ -227,6 +230,49 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     } else {
       emit(["type": "ended"])
     }
+  }
+
+  /// CallKit objects are made on the first `start` and kept only while a call
+  /// runs: a late `didDeactivate` after the end still has its provider, which
+  /// is let go a few seconds later unless a new call began.
+  @discardableResult
+  private func makeProvider() -> CXProvider {
+    providerRelease?.invalidate()
+    providerRelease = nil
+    if let provider { return provider }
+    let configuration = CXProviderConfiguration()
+    configuration.supportsVideo = false
+    configuration.supportedHandleTypes = [.generic]
+    configuration.maximumCallGroups = 1
+    configuration.maximumCallsPerCallGroup = 1
+    configuration.includesCallsInRecents = false
+    let made = CXProvider(configuration: configuration)
+    made.setDelegate(self, queue: .main)
+    provider = made
+    return made
+  }
+
+  private func makeController() -> CXCallController {
+    if let controller { return controller }
+    let made = CXCallController()
+    controller = made
+    return made
+  }
+
+  private func scheduleProviderRelease() {
+    providerRelease?.invalidate()
+    providerRelease = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
+      self?.releaseProvider()
+    }
+  }
+
+  private func releaseProvider() {
+    providerRelease?.invalidate()
+    providerRelease = nil
+    guard callID == nil else { return }
+    provider?.invalidate()
+    provider = nil
+    controller = nil
   }
 
   private func reportRoute() {
@@ -249,7 +295,7 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
   }
   public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
     finish(reason: .failed, code: "detached")
-    provider.invalidate()
+    releaseProvider()
     if let routeObserver { NotificationCenter.default.removeObserver(routeObserver) }
     if let configurationObserver { NotificationCenter.default.removeObserver(configurationObserver) }
   }

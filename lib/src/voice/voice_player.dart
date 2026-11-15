@@ -7,6 +7,20 @@ import 'package:flutter/foundation.dart';
 
 import 'voice_audio_focus.dart';
 
+/// The session a voice message or spoken reply plays in. `setActive(false)`
+/// takes its options from here, so every deactivation tells the apps this one
+/// interrupted (music, video) to resume, and on Android gives the focus back
+/// as a transient grant that may duck instead of taking it for good. Others
+/// are paused, not ducked: libmpv's own audio output, not this session, would
+/// decide whether a ducking category holds on iOS.
+final AudioSessionConfiguration voicePlaybackSession =
+    const AudioSessionConfiguration.speech().copyWith(
+      avAudioSessionSetActiveOptions:
+          AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
+      androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
+      androidWillPauseWhenDucked: true,
+    );
+
 /// A native player for one downloaded audio file; replaceable in tests.
 abstract class VoicePlayer extends ChangeNotifier {
   bool get playing;
@@ -138,7 +152,7 @@ class NativeVoicePlayer extends VoicePlayer {
     if (_disposed) return;
     if (VoiceAudioFocus.shared.inCall) throw StateError('Call audio is active');
     _session = session;
-    await session.configure(const AudioSessionConfiguration.speech());
+    await session.configure(voicePlaybackSession);
     if (_disposed) return;
     if (_observesSession) return;
     _observesSession = true;

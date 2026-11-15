@@ -25,13 +25,17 @@ final class CallAudio {
   private(set) var captureStopped = false
   var emit: (([String: Any]) -> Void)?
 
-  init() {
-    engine.attach(player)
-    engine.connect(player, to: engine.mainMixerNode, format: outputFormat)
-  }
+  /// Reading `mainMixerNode` makes the engine build its output node, so the
+  /// graph is wired when CallKit has activated the session, never at init.
+  private var graphBuilt = false
 
   func start() throws {
     guard !engine.isRunning else { return }
+    if !graphBuilt {
+      engine.attach(player)
+      engine.connect(player, to: engine.mainMixerNode, format: outputFormat)
+      graphBuilt = true
+    }
     let input = engine.inputNode
     try input.setVoiceProcessingEnabled(true)
     if !captureStopped { try installTap(on: input) }
@@ -150,7 +154,7 @@ final class CallAudio {
   func stopPlayback() {
     // Capture keeps the same generation; only playback completions are stale.
     playbackGeneration += 1
-    player.stop()
+    if graphBuilt { player.stop() }
     pendingFrames = 0
     drain?(FlutterError(code: "cancelled", message: "Playback stopped", details: nil))
     drain = nil
