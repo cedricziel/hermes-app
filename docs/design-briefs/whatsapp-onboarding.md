@@ -2,7 +2,7 @@
 
 Change: `openspec/changes/whatsapp-onboarding/`. Read its design.md for the server facts (statuses, the 600 s expiry, the 900 s drop, what apply does, what cancel does not do); this brief is the visual and copy pass.
 
-## Design (done): canvas reviewed
+## Design (done): canvas published, local render reviewed
 
 Canvas: https://claude.ai/artifact/PPwKxdh8zKokvagfxS3Gho (private; ask its owner for access). 26 boards and one parametric page, in nine rows: A entry, setup and start (3 boards); B handset notice and QR (3); C linked and end states (3); D Finish question and saved outcomes (4); E dark (3); F largest text (2); G German (2); H Android (2); I Mac and iPad (4). What was checked and what was not is under "Local render review" below. The brief was written from the Hermes App design system README, the merged briefs (`server-care.md`, `toolsets.md`), the shared widgets in `lib/src/widgets/` and the change's own files, then reviewed against the app-wide rules. The catalog PR (task 1 in tasks.md) is where the states below are first drawn, and it is the first place a human sees them; where a catalog use case shows that a decision here does not work, correct the brief in that PR, in a "Corrections" paragraph like the other briefs.
 

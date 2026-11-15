@@ -225,6 +225,13 @@ void main() {
       expect(server.requests, isEmpty);
     });
 
+    test('a second begin while a phase is open changes nothing', () {
+      final c = build(server.client());
+      expect(c.begin('abc', 'work', fileName: 'a.json'), isTrue);
+      expect(c.begin('other', 'work'), isFalse);
+      expect(c.phase, isA<SessionExportConfirm>());
+    });
+
     test('shows the confirmation and sends nothing', () {
       final c = build(server.client());
       expect(c.begin('abc', 'work'), isTrue);
@@ -944,6 +951,40 @@ void main() {
         ),
       )..begin('abc', 'work');
       expect(await c.confirm(), SessionExportSaveResult.saved);
+    });
+  });
+  group('the post-sheet clear', () {
+    test('the bytes are released while the clear is still running', () async {
+      server.on('GET', '/api/sessions/abc/export', _session());
+      clearGate = Completer<void>();
+      final c = build(server.client())..begin('abc', 'work');
+      final done = c.confirm();
+      await tick();
+      await tick();
+      expect(cleared, 1, reason: 'the clear is held open');
+      expect(c.busy, isTrue);
+      expect(c.holdsBytes, isFalse);
+      clearGate!.complete();
+      await done;
+    });
+
+    testWidgets('a clear that never returns frees the controller after 5 s', (
+      tester,
+    ) async {
+      server.on('GET', '/api/sessions/abc/export', _session());
+      clearGate = Completer<void>();
+      final c = build(server.client())..begin('abc', 'work');
+      SessionExportSaveResult? result;
+      unawaited(c.confirm().then((r) => result = r));
+      await tester.pump(const Duration(seconds: 1));
+      expect(cleared, 1);
+      expect(c.busy, isTrue);
+
+      await tester.pump(const Duration(seconds: 6));
+
+      expect(result, SessionExportSaveResult.saved);
+      expect(c.busy, isFalse);
+      expect(c.begin('abc', 'work'), isTrue);
     });
   });
 }

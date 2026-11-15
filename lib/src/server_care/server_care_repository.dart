@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import '../api/hermes_api_client.dart';
+import '../api/request_timeout.dart';
 import 'action_status.dart';
 import 'care_result.dart';
 import 'json_read.dart';
@@ -18,7 +19,8 @@ enum CareAction {
   hermesUpdate('hermes-update'),
   gatewayRestart('gateway-restart'),
   gatewayStart('gateway-start'),
-  doctor('doctor');
+  doctor('doctor'),
+  curatorRun('curator-run');
 
   const CareAction(this.routeName);
 
@@ -96,10 +98,12 @@ class ServerCareRepository {
   Future<CareResult<ActionStatus>> actionStatus(
     CareAction action, {
     int lines = 200,
+    Duration? timeout,
   }) => _run(
     () => _api.getActionStatusApiActionsNameStatusGet(
       name: action.routeName,
       lines: lines,
+      extra: timeout == null ? null : receiveTimeoutExtra(timeout),
     ),
     ActionStatus.parse,
   );
@@ -244,7 +248,14 @@ class ServerCareRepository {
     bool namedNotFoundIsRefusal = false,
   }) {
     final status = e.response?.statusCode;
-    if (status == null) return const CareFailed(CareFailureKind.offline);
+    if (status == null) {
+      return CareFailed(
+        CareFailureKind.offline,
+        timedOut:
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.sendTimeout,
+      );
+    }
     final detail = _detail(e.response?.data);
     if (status == 404 &&
         noReceipt &&

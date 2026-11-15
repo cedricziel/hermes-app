@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 
-/// The colours of syntax-highlighted code, one per token class. Each stands at
-/// least 5.2:1 off the page and the raised surface of its theme.
+/// The colours of syntax-highlighted code, one per token class, the canvas
+/// palette: keys and functions blue, strings teal, numbers (and `true`,
+/// `false`, `null`, semibold) purple, keywords pink; comments and punctuation
+/// take the muted text colour. Red and green are never syntax colours: they
+/// mean status and diff. Each stands at least 4.5:1 off the page, the card
+/// and the raised surface of its theme (`test/theme/code_palette_test.dart`).
 ///
 /// Mirrors `--h-code-*` in `design/web/src/styles/tokens.css`; change both
 /// together.
 @immutable
 class HermesCodeColors extends ThemeExtension<HermesCodeColors> {
   const HermesCodeColors({
+    required this.key,
     required this.keyword,
     required this.string,
     required this.comment,
@@ -17,23 +22,27 @@ class HermesCodeColors extends ThemeExtension<HermesCodeColors> {
   });
 
   static const light = HermesCodeColors(
-    keyword: Color(0xFFA626A4),
-    string: Color(0xFF0B6E2F),
-    comment: Color(0xFF5F6670),
-    number: Color(0xFFA3480B),
+    key: Color(0xFF1D4ED8),
+    keyword: Color(0xFFBE185D),
+    string: Color(0xFF0F766E),
+    comment: Color(0xFF6B6B74),
+    number: Color(0xFF7E22CE),
     function: Color(0xFF1D4ED8),
     typeName: Color(0xFF8A5A00),
   );
 
   static const dark = HermesCodeColors(
-    keyword: Color(0xFFE08EF0),
-    string: Color(0xFF7EE2A8),
+    key: Color(0xFF93C5FD),
+    keyword: Color(0xFFF9A8D4),
+    string: Color(0xFF5EEAD4),
     comment: Color(0xFFA1A1AA),
-    number: Color(0xFFFDBA74),
+    number: Color(0xFFD8B4FE),
     function: Color(0xFF93C5FD),
     typeName: Color(0xFFFCD34D),
   );
 
+  /// An object key (JSON, YAML).
+  final Color key;
   final Color keyword;
   final Color string;
   final Color comment;
@@ -43,6 +52,7 @@ class HermesCodeColors extends ThemeExtension<HermesCodeColors> {
 
   @override
   HermesCodeColors copyWith({
+    Color? key,
     Color? keyword,
     Color? string,
     Color? comment,
@@ -50,6 +60,7 @@ class HermesCodeColors extends ThemeExtension<HermesCodeColors> {
     Color? function,
     Color? typeName,
   }) => HermesCodeColors(
+    key: key ?? this.key,
     keyword: keyword ?? this.keyword,
     string: string ?? this.string,
     comment: comment ?? this.comment,
@@ -62,6 +73,7 @@ class HermesCodeColors extends ThemeExtension<HermesCodeColors> {
   HermesCodeColors lerp(ThemeExtension<HermesCodeColors>? other, double t) {
     if (other is! HermesCodeColors) return this;
     return HermesCodeColors(
+      key: Color.lerp(key, other.key, t)!,
       keyword: Color.lerp(keyword, other.keyword, t)!,
       string: Color.lerp(string, other.string, t)!,
       comment: Color.lerp(comment, other.comment, t)!,

@@ -25,6 +25,9 @@ import '../../voice/dictation_settings.dart';
 /// The composer's text field, for finding it among other fields.
 const chatComposerFieldKey = Key('chat-composer-field');
 
+/// The whole composer card, for what has to float above it (a snack bar).
+const chatComposerKey = Key('chat-composer');
+
 /// The chat composer: a card with the text field on top and, below it,
 /// attach, [modelPill], and send. Stop sits beside the field; the queue is
 /// collapsed inside the card. [attachments] are listed above it.
@@ -261,6 +264,7 @@ class _ChatComposerState extends State<ChatComposer> {
     );
     final paste = AttachmentPaste.maybeOf(context);
     return Column(
+      key: chatComposerKey,
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

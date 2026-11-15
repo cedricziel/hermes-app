@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../../widgets/app_markdown_theme.dart';
 import '../../../widgets/bounded_markdown.dart';
 
 import '../../../chat/chat_models.dart' show ApprovalRequest;
@@ -271,11 +272,13 @@ class GroupEventRow extends StatelessWidget {
             ),
             if (prose) ...[
               const SizedBox(height: 10),
-              BoundedMarkdown(
-                event.payload['text'] as String,
-                onLinkTap: markdownLinkHandler(),
-                checkboxBuilder: readOnlyTaskBox,
-                radioOptionBuilder: readOnlyRadioOption,
+              AppMarkdownTheme(
+                child: BoundedMarkdown(
+                  event.payload['text'] as String,
+                  onLinkTap: markdownLinkHandler(),
+                  checkboxBuilder: readOnlyTaskBox,
+                  radioOptionBuilder: readOnlyRadioOption,
+                ),
               ),
               if (onReply != null && thread is String)
                 TextButton.icon(
