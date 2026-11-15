@@ -6,6 +6,8 @@ import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../../theme/hermes_theme.dart';
 import 'tool_call_bodies.dart';
 import 'tool_value_view.dart';
+import '../../../l10n/l10n.dart';
+import '../tool_value_budget.dart';
 import '../tool_value_language.dart';
 
 /// Readable, selectable argument values without JSON quoting around commands.
@@ -89,10 +91,44 @@ class _StructuredValue extends StatefulWidget {
 }
 
 class _StructuredValueState extends State<_StructuredValue> {
-  late final String _text = wellFormedText(
-    const JsonEncoder.withIndent('  ').convert(widget.value),
-  );
-  late final ToolValueShape _shape = toolValueShape(_text, language: 'json');
+  late String _text;
+  late ToolValueShape _shape;
+  ToolValueBudget? _budget;
+  var _colour = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _make();
+  }
+
+  /// Re-reads the value, but parses again only when its text changed.
+  @override
+  void didUpdateWidget(_StructuredValue oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_encode() != _text) _make();
+  }
+
+  @override
+  void dispose() {
+    _budget?.release(this);
+    super.dispose();
+  }
+
+  String _encode() =>
+      wellFormedText(const JsonEncoder.withIndent('  ').convert(widget.value));
+
+  void _make() {
+    _text = _encode();
+    final judged = judgeToolValueColour(
+      toolValueShape(_text, language: 'json'),
+      budget: _budget ??= ToolValueBudgetScope.maybeOf(context),
+      owner: this,
+      chars: _text.length,
+    );
+    _shape = judged.shape;
+    _colour = judged.colour;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,18 +140,33 @@ class _StructuredValueState extends State<_StructuredValue> {
         fontWeight: FontWeight.w500,
       ),
     );
+    final notice = _shape.notice == ToolValueNotice.colourBudgetSpent
+        ? ToolValueNoticeLine(
+            text: context.l10n.chatWidgetsToolValueNoticeColourBudget,
+          )
+        : null;
     if (_shape.offersTree) {
-      return ToolJsonView(
-        text: _text,
-        nodes: _shape.tree,
-        header: label,
-        bodyMaxHeight: ToolValuePanel.maxHeight,
-        section: ToolValueSection.input,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ?notice,
+          ToolJsonView(
+            // The tree it shows is for this text: another value, another view.
+            key: ValueKey(_text),
+            text: _text,
+            nodes: _shape.tree,
+            header: label,
+            bodyMaxHeight: ToolValuePanel.maxHeight,
+            section: ToolValueSection.input,
+            colour: _colour,
+          ),
+        ],
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        ?notice,
         label,
         const SizedBox(height: 3),
         ConstrainedBox(
@@ -123,7 +174,10 @@ class _StructuredValueState extends State<_StructuredValue> {
             maxHeight: ToolValuePanel.maxHeight,
           ),
           child: SingleChildScrollView(
-            child: ToolValueView(text: _text, language: _shape.language),
+            child: ToolValueView(
+              text: _text,
+              language: _colour ? _shape.language : null,
+            ),
           ),
         ),
       ],

@@ -487,6 +487,32 @@ class ToolValuePanel extends StatefulWidget {
   State<ToolValuePanel> createState() => _ToolValuePanelState();
 }
 
+/// [shape] judged against the open cards' colouring [budget]: unchanged when
+/// the text takes its share (or there is no budget, or nothing would be
+/// coloured), otherwise plain with no tag, the tree kept, and the budget line.
+/// [owner] holds the share until it calls [ToolValueBudget.release].
+({ToolValueShape shape, bool colour}) judgeToolValueColour(
+  ToolValueShape shape, {
+  required ToolValueBudget? budget,
+  required Object owner,
+  required int chars,
+}) {
+  if (budget == null) return (shape: shape, colour: true);
+  if (shape.language == null ||
+      shape.notice == ToolValueNotice.tooLongToColour) {
+    budget.release(owner);
+    return (shape: shape, colour: true);
+  }
+  if (budget.admit(owner, chars)) return (shape: shape, colour: true);
+  return (
+    shape: ToolValueShape(
+      tree: shape.tree,
+      notice: ToolValueNotice.colourBudgetSpent,
+    ),
+    colour: false,
+  );
+}
+
 class _ToolValuePanelState extends State<ToolValuePanel> {
   late ToolValueShape _shape = _decide();
   Timer? _copiedTimer;
@@ -502,21 +528,14 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
       language: widget.language,
       settled: widget.settled,
     );
-    final budget = _budget ??= ToolValueBudgetScope.maybeOf(context);
-    _colour = true;
-    if (budget == null) return shape;
-    if (shape.language == null ||
-        shape.notice == ToolValueNotice.tooLongToColour) {
-      budget.release(this);
-      return shape;
-    }
-    if (budget.admit(this, widget.text.length)) return shape;
-    _colour = false;
-    return ToolValueShape(
-      language: shape.offersTree ? shape.language : null,
-      tree: shape.tree,
-      notice: ToolValueNotice.colourBudgetSpent,
+    final judged = judgeToolValueColour(
+      shape,
+      budget: _budget ??= ToolValueBudgetScope.maybeOf(context),
+      owner: this,
+      chars: widget.text.length,
     );
+    _colour = judged.colour;
+    return judged.shape;
   }
 
   @override
@@ -598,7 +617,7 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (notice != null) _ToolValueNotice(text: notice),
+          if (notice != null) ToolValueNoticeLine(text: notice),
           if (_shape.offersTree)
             ToolJsonView(
               text: widget.text,
@@ -634,8 +653,8 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
 /// A muted line above the body saying why the text is shown plainer than its
 /// content could be: an info mark and the words. The mark is decoration; the
 /// text is what a screen reader reads.
-class _ToolValueNotice extends StatelessWidget {
-  const _ToolValueNotice({required this.text});
+class ToolValueNoticeLine extends StatelessWidget {
+  const ToolValueNoticeLine({super.key, required this.text});
 
   final String text;
 
@@ -643,7 +662,7 @@ class _ToolValueNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final subtle = context.hermesColors.subtleText;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(top: 8, bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

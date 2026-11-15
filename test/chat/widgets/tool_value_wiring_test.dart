@@ -214,6 +214,9 @@ void main() {
         findsNWidgets(3),
       );
       expect(budget.holders, 1);
+      // Nothing coloured, nothing tagged: only the card that was coloured has
+      // the language tag.
+      expect(find.byKey(const ValueKey('tool-value-tag')), findsOneWidget);
       // Closing the card that holds a share gives it back.
       await tester.pumpWidget(_host(const SizedBox()));
       expect(budget.holders, 0);
@@ -227,6 +230,100 @@ void main() {
       );
       expect(find.byKey(const ValueKey('tool-value-notice')), findsNothing);
     });
+  });
+
+  group('structured arguments', () {
+    Widget host(ToolCall call, {ToolValueBudget? budget}) {
+      final card = ToolCallCard(call: call, initiallyOpen: true);
+      return _host(
+        budget == null
+            ? card
+            : ToolValueBudgetScope(budget: budget, child: card),
+      );
+    }
+
+    testWidgets('follow the call when its arguments change', (tester) async {
+      ToolCall call(String v) => ToolCall(
+        name: 'custom',
+        summary: '',
+        args: {
+          'payload': {'a': v},
+        },
+      );
+      await tester.pumpWidget(host(call('OLDVALUE')));
+      expect(
+        find.textContaining('OLDVALUE', findRichText: true),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(host(call('NEWVALUE')));
+      expect(
+        find.textContaining('NEWVALUE', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.textContaining('OLDVALUE', findRichText: true), findsNothing);
+    });
+
+    testWidgets('an unchanged value is not parsed again on a rebuild', (
+      tester,
+    ) async {
+      ToolCall call() => ToolCall(
+        name: 'custom',
+        summary: '',
+        args: {'payload': List.generate(20, (i) => 'item $i')},
+      );
+      await tester.pumpWidget(host(call()));
+      final parses = debugToolValueParses;
+      expect(parses, greaterThan(0));
+      await tester.pumpWidget(host(call()));
+      expect(debugToolValueParses, parses);
+    });
+
+    testWidgets('share the colouring budget and say so when it is spent', (
+      tester,
+    ) async {
+      final budget = ToolValueBudget(maxChars: 10);
+      await tester.pumpWidget(
+        host(
+          ToolCall(
+            name: 'custom',
+            summary: '',
+            args: {'payload': List.generate(50, (i) => 'item $i')},
+          ),
+          budget: budget,
+        ),
+      );
+      expect(budget.used, 0);
+      expect(find.byKey(const ValueKey('tool-value-notice')), findsOneWidget);
+
+      final roomy = ToolValueBudget();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        host(
+          ToolCall(
+            name: 'custom',
+            summary: '',
+            args: {'payload': List.generate(50, (i) => 'item $i')},
+          ),
+          budget: roomy,
+        ),
+      );
+      expect(roomy.holders, 1);
+      expect(find.byKey(const ValueKey('tool-value-notice')), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      expect(roomy.holders, 0);
+    });
+  });
+
+  testWidgets('a notice has 8 pt of room above it', (tester) async {
+    final text = '{"a": "${'x' * (kToolJsonSniffMaxChars + 10)}"}';
+    await tester.pumpWidget(
+      _host(ToolValuePanel(label: 'Result', text: text, language: 'json')),
+    );
+    final panel = tester.getRect(find.byType(ToolValuePanel));
+    final notice = tester.getRect(
+      find.byKey(const ValueKey('tool-value-notice')),
+    );
+    expect(notice.top - panel.top, greaterThanOrEqualTo(8));
   });
 
   group('the label row and notices (canvas fixes)', () {

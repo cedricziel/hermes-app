@@ -396,7 +396,7 @@ void main() {
       expect(find.text('Baum'), findsOneWidget);
     });
 
-    testWidgets('fits one row at 1.5x on a phone and wraps from 2x', (
+    testWidgets('fits one row up to 2.5x on a phone and wraps at 3x', (
       tester,
     ) async {
       // The test font is as wide as it is tall; the real one decides what
@@ -426,14 +426,21 @@ void main() {
       expect(copy15.top, lessThan(label15.bottom));
       expect(copy15.right, lessThanOrEqualTo(390));
 
-      final (label2, toggle2, copy2) = await rects(2.5);
+      // The control's labels stop growing at 1.3x (its height is fixed), so
+      // the row holds one line through 2.5x with the real font and the
+      // switch and Copy go under the label from 3x, about the largest size
+      // a phone offers. Nothing runs past the edge on the way.
+      final (label25, _, copy25) = await rects(2.5);
+      expect(copy25.top, lessThan(label25.bottom), reason: 'one row at 2.5x');
+      expect(copy25.right, lessThanOrEqualTo(390));
+      final (label3, toggle3, copy3) = await rects(3);
       expect(
-        toggle2.top,
-        greaterThanOrEqualTo(label2.bottom - 0.5),
-        reason: 'under the label',
+        toggle3.top,
+        greaterThanOrEqualTo(label3.bottom - 0.5),
+        reason: 'under the label at 3x',
       );
-      expect(copy2.right, lessThanOrEqualTo(390));
-      expect(toggle2.right, lessThanOrEqualTo(390));
+      expect(copy3.right, lessThanOrEqualTo(390));
+      expect(toggle3.right, lessThanOrEqualTo(390));
       expect(tester.takeException(), isNull);
     });
 

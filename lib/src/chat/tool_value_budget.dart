@@ -7,8 +7,9 @@ import 'package:flutter/widgets.dart';
 const int kToolValueColourBudgetChars = 100000;
 
 /// What the colouring of the open tool cards of one chat may cost, in
-/// characters. A text that does not fit is shown plain and says so; it is not
-/// coloured later when room frees up (it is judged when its card opens).
+/// characters. A text that does not fit is shown plain and says so. It is
+/// judged each time its section is built (the card opens, a row scrolls back
+/// in, the text changes) and keeps its answer while it stays on screen.
 ///
 /// Holds no text: owners are the sections' own state objects, and only the
 /// length each was granted is kept.

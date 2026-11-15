@@ -2235,21 +2235,13 @@
   "@chatWidgetsToolValueNoticeTooDeepForTree": {
     "description": "Muted line above a tool call's JSON that is nested too deep for the tree view; it is shown as coloured text only."
   },
-  "chatWidgetsToolValueNoticeTooLongForTree":"Too long for the tree view.",
+  "chatWidgetsToolValueNoticeTooLongForTree": "Too long for the tree view.",
   "@chatWidgetsToolValueNoticeTooLongForTree": {
     "description": "Muted line above a tool call's JSON that is too long for the tree view; it is shown as coloured text only."
   },
   "chatWidgetsToolValueNoticeTooLongToColour": "Too long to colour. Shown as plain text.",
   "@chatWidgetsToolValueNoticeTooLongToColour": {
     "description": "Muted line above a tool call's text that is too long to be coloured; it is shown as plain text."
-  },
-  "chatWidgetsToolValueShowAsText": "Show as text",
-  "@chatWidgetsToolValueShowAsText": {
-    "description": "Accessible name of the view switch option that shows a tool call's JSON as the text it was sent as."
-  },
-  "chatWidgetsToolValueShowAsTree": "Show as tree",
-  "@chatWidgetsToolValueShowAsTree": {
-    "description": "Accessible name of the view switch option that shows a tool call's JSON as a collapsible tree."
   },
   "chatWidgetsToolValueShowErrorAs": "Show error as",
   "@chatWidgetsToolValueShowErrorAs": {

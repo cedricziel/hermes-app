@@ -148,7 +148,7 @@ The colouring is the Files one and obeys its rules:
 
 - At most 2,000 characters of small, plainly shaped text are coloured while the frame builds; anything else is coloured in one killable isolate (at most one per text, timeout 2 s, ended with the widget) and shows plain until it answers; a failure or a timeout leaves it plain.
 - A section keeps one State, so a rebuild with the same text does not colour again. Colouring runs only when the call has settled, never per delta.
-- A chat-wide budget (`ToolValueBudget`, 100,000 coloured characters across the open cards of one chat, `kToolValueColourBudgetChars`): with many cards open at once, those over the budget stay plain and say so. A text is judged when its card opens and is not coloured later when room frees up.
+- A chat-wide budget (`ToolValueBudget`, 100,000 coloured characters across the open cards of one chat, `kToolValueColourBudgetChars`): with many cards open at once, those over the budget stay plain, untagged, and say so. A text is judged each time its section is built (the card opens, a row scrolls back in, the text changes) and keeps its answer while it stays on screen. The budget belongs to the screen and acts per chat because another chat disposes the old cards.
 - No highlighter code lives outside `lib/src/files/code_highlight.dart`.
 
 ### Copy
