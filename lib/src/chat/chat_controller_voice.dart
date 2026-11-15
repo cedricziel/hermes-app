@@ -3,8 +3,12 @@ part of 'chat_controller.dart';
 /// Why a spoken turn was not sent. Each is a fixed word: the call maps it to
 /// its own notice and nothing of the prompt travels with it.
 enum VoiceTurnRefusal {
-  /// A reply is running, a queue holds prompts or one is being changed.
+  /// A reply is running, a queue is about to send or one is being changed.
   busy,
+
+  /// A queue holds prompts that no reply will send: the last turn was stopped
+  /// or failed, or the queue was restored. No reply runs.
+  queuePaused,
 
   /// The call ended, was muted or began to wait for the user meanwhile.
   noLongerWanted,
@@ -21,6 +25,14 @@ enum VoiceTurnRefusal {
 
   /// The server took the session back, or the chat is gone.
   sessionReclaimed,
+}
+
+/// Why a prompt the user typed or queued left no trace in the chat. Fixed
+/// codes: the screen words them.
+enum ChatSendNotice {
+  /// The words were exactly a stop phrase of Hermes' voice mode, which Hermes
+  /// answers without running a turn, so nothing reached the agent.
+  stopCommand,
 }
 
 /// What Hermes (or the transport) did with a spoken turn that was handed over.
@@ -92,6 +104,7 @@ extension _ChatControllerVoice on ChatController {
         (selected.isReplying || _queues.containsKey(selected))) {
       return VoiceTurnRefusal.profileNotConfirmed;
     }
+    if (_voiceQueueParked(selected)) return VoiceTurnRefusal.queuePaused;
     if (selected.isReplying ||
         (_queues[selected]?.isNotEmpty ?? false) ||
         _settleTimers.containsKey(selected) ||
@@ -102,6 +115,16 @@ extension _ChatControllerVoice on ChatController {
     }
     return null;
   }
+
+  /// Whether [thread] holds queued prompts that wait for the user and nothing
+  /// is about to send them: no reply, no settle wait, no change in progress.
+  bool _voiceQueueParked(ChatThread thread) =>
+      queuePaused(thread) &&
+      !_settleTimers.containsKey(thread) &&
+      !_queueDispatching.contains(thread) &&
+      !_enqueueing.contains(thread) &&
+      !_queuePreparing.contains(thread) &&
+      !_queueRemoving.contains(thread);
 
   /// Whether the thread is certainly idle: no pending reply, no settle wait,
   /// and the session reported `running: false` after its last turn began.
@@ -167,6 +190,27 @@ extension _ChatControllerVoice on ChatController {
         : VoiceTurnRefusal.noLongerWanted;
   }
 
+  /// A typed or queued prompt was exactly a stop phrase: it went nowhere, so
+  /// the user is told and, while that chat is open, gets the words back in
+  /// the composer (under any new draft) rather than losing them.
+  void _stopCommandTyped(ChatThread thread, String text) {
+    onSendNotice?.call(ChatSendNotice.stopCommand);
+    if (text.isEmpty) return;
+    if (identical(selectedThread, thread)) {
+      onDraft?.call(text);
+    } else if (_threads.contains(thread)) {
+      // Another chat's composer is not its to fill: wait for the chat.
+      _stopHandBacks[thread] = text;
+    }
+  }
+
+  /// The selected chat has words waiting from a stop phrase: hand them over.
+  void _stopHandBackSelected() {
+    final thread = selectedThread;
+    final text = thread == null ? null : _stopHandBacks.remove(thread);
+    if (text != null) onDraft?.call(text);
+  }
+
   /// Takes a turn that was not sent, or that Hermes ended as a stop phrase,
   /// out of the thread: the prompt and its placeholder, and what sending them
   /// changed ([undo]), as if neither had been shown.
@@ -181,6 +225,20 @@ extension _ChatControllerVoice on ChatController {
       _sentPrompts[thread] = undo.prior;
     }
     if (undo.settled) _queueSettled.add(thread);
+    // Each only while nothing else changed it meanwhile.
+    if (undo.updatedAt != null && thread.updatedAt == undo.stamped) {
+      thread.updatedAt = undo.updatedAt!;
+    }
+    if (undo.bumped != null && _generations[thread] == undo.bumped) {
+      final before = undo.generation;
+      before == null
+          ? _generations.remove(thread)
+          : _generations[thread] = before;
+    }
+    final settledReply = undo.settledReply;
+    if (settledReply != null && thread.messages.contains(settledReply)) {
+      settledReply.settledWithoutCompletion = true;
+    }
     // Hermes stores a session with its first prompt: a chat bound by a create
     // whose prompt was never written is bound to an id Hermes does not know,
     // so the next send creates a session again.
@@ -211,6 +269,9 @@ final class _SendUndo {
     required this.prior,
     required this.settled,
     required this.bound,
+    required this.updatedAt,
+    required this.generation,
+    required this.settledReply,
   });
 
   /// The thread's title before, the one the prompt's words set (null when they
@@ -221,4 +282,20 @@ final class _SendUndo {
   final ChatMessage? prior;
   final bool settled;
   final bool bound;
+
+  /// The thread's last activity before and the one sending stamped (null for a
+  /// chat the send created), so a prompt that never went out leaves the chat
+  /// where it was in the list.
+  final DateTime? updatedAt;
+  DateTime? stamped;
+
+  /// The reply generation before and after the send. A request answered later
+  /// is current only while it matches, so a turn that never ran must not make
+  /// the answers about the turn before it stale.
+  final int? generation;
+  int? bumped;
+
+  /// The reply before the prompt that settled without its completion, which
+  /// the new turn was to take over.
+  final ChatMessage? settledReply;
 }

@@ -119,6 +119,9 @@ const _runningStatuses = {
 };
 const _couldNotStop = 'Could not stop the reply. Try again.';
 
+/// The title of a chat that has no prompt yet.
+const _newChatTitle = 'New chat';
+
 /// An external open interrupted by suspension, for owner-controlled recovery.
 class InterruptedChatOpening {
   const InterruptedChatOpening({
@@ -175,6 +178,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.readSnapshot,
     this.onDraft,
     this.onHandBack,
+    this.onSendNotice,
     this.breadcrumbs = Breadcrumbs.none,
     this.events = noopAppEventLogger,
     this.connectorBrowser,
@@ -268,7 +272,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _pendingTapPrompt = null;
     _opening = Future<void>.value();
     for (final thread in _generations.keys.toList()) {
-      _generations[thread] = _generations[thread]! + 1;
+      _generations[thread] = ++_generationSeq;
     }
     _queueEpoch++;
     _queueRestoring.clear();
@@ -564,6 +568,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Puts a prompt a full restore removed back into the composer, so the
   /// screen can say so; [onDraft] does it when this is not set.
   final ValueChanged<String>? onHandBack;
+
+  /// Told what became of a prompt the user sent when it left no trace in the
+  /// chat, so the screen says so in the user's language.
+  final ValueChanged<ChatSendNotice>? onSendNotice;
 
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.
@@ -1544,7 +1552,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _openGeneration++;
     final thread = ChatThread(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      title: 'New chat',
+      title: _newChatTitle,
       updatedAt: DateTime.now(),
       modelChoice: _newChatModel,
     );
@@ -1583,6 +1591,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
     }
     _ChatControllerCheckpoints(this)._actionsSelected(id);
+    _ChatControllerVoice(this)._stopHandBackSelected();
     unawaited(refreshActive());
   }
 
@@ -2017,6 +2026,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Bumped when the user sends in a thread. An interrupt's answer is about
   /// the generation it was sent in, and changes no hold of a later one.
   final _generations = <ChatThread, int>{};
+
+  /// The last reply generation handed out. A number is never handed out
+  /// twice, so an answer recorded under one cannot match a later turn's.
+  int _generationSeq = 0;
+
+  /// A prompt withdrawn from a chat that was not open: its words wait for the
+  /// chat to be selected, then go to the composer.
+  final _stopHandBacks = <ChatThread, String>{};
 
   Future<void> stopReply(ChatThread thread) =>
       _ChatControllerRequests(this)._stopReplyImpl(thread);
