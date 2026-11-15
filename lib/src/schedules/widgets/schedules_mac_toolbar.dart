@@ -47,6 +47,7 @@ class SchedulesMacToolbar extends StatelessWidget {
       filterMenu,
       MacToolbarButton(
         label: 'Refresh',
+        shortcut: '⌘R',
         icon: AppIcons.refresh,
         onPressed: onRefresh,
       ),

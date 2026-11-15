@@ -12,6 +12,7 @@ class ActivityPageAction {
     required this.label,
     required this.icon,
     required this.onPressed,
+    this.shortcut,
     this.key,
   });
 
@@ -21,6 +22,9 @@ class ActivityPageAction {
 
   /// Null disables the button.
   final VoidCallback? onPressed;
+
+  /// The key equivalent the tooltip shows, such as "⌘R".
+  final String? shortcut;
   final Key? key;
 }
 
@@ -115,6 +119,9 @@ class ActivityPageScaffold extends StatelessWidget {
             NamedIconButton(
               key: action.key,
               label: action.label,
+              tooltip: action.shortcut == null
+                  ? null
+                  : '${action.label} ${action.shortcut}',
               icon: action.icon,
               onPressed: action.onPressed,
             ),

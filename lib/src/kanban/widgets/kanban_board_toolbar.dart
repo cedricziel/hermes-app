@@ -22,6 +22,7 @@ class KanbanBoardToolbar extends StatelessWidget {
     this.assignee,
     this.tenant,
     this.onRefresh,
+    this.refreshShortcut,
   });
 
   /// The assignees and tenants the board knows; an empty list hides its menu.
@@ -41,6 +42,9 @@ class KanbanBoardToolbar extends StatelessWidget {
   final ValueChanged<String?> onTenantChanged;
   final ValueChanged<bool> onIncludeArchivedChanged;
   final VoidCallback? onRefresh;
+
+  /// The key equivalent the Refresh tooltip shows, such as "⌘R".
+  final String? refreshShortcut;
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +89,9 @@ class KanbanBoardToolbar extends StatelessWidget {
               if (wide)
                 NamedIconButton(
                   label: 'Refresh',
+                  tooltip: refreshShortcut == null
+                      ? null
+                      : 'Refresh $refreshShortcut',
                   icon: AppIcons.refresh,
                   onPressed: onRefresh,
                 ),

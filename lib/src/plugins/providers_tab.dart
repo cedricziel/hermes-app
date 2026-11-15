@@ -10,6 +10,7 @@ import '../widgets/disclosure_tile.dart';
 import '../widgets/grouped_choice_row.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/named_icon_button.dart';
+import '../widgets/platform_refresh.dart';
 
 /// Where the agent keeps its memory and how it compresses long chats. It
 /// loads when it is first shown, and keeps what the user picked but has not
@@ -101,7 +102,7 @@ class _ProvidersTabState extends State<ProvidersTab>
         return Column(
           children: [
             Expanded(
-              child: RefreshIndicator(
+              child: PlatformRefresh(
                 onRefresh: _refresh,
                 child: GroupedListView(
                   key: const Key('providers-list'),

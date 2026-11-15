@@ -5,10 +5,10 @@ import '../../../theme/app_icons.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../../widgets/grouped_list.dart';
 import '../../../widgets/loading_skeleton.dart';
+import '../../../widgets/platform_refresh.dart';
 import '../checkpoint_models.dart';
 import '../checkpoints_state.dart';
 import 'checkpoint_row.dart';
-import '../../../widgets/platform_refresh.dart';
 
 /// What the checkpoint page body shows.
 enum CheckpointListStatus {

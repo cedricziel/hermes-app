@@ -4,9 +4,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/checkpoint_list_body.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
+import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
+import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
@@ -14,6 +17,8 @@ import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/platform_refresh.dart';
 
+import 'hermes_plugin_manager_repository_test.dart'
+    show catalogBody, catalogRow, hubBody, hubRow;
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 
@@ -23,6 +28,12 @@ void main() {
   setUp(() {
     server = FakeHermesServer()
       ..on('GET', '/api/profiles/active', {'active': 'work', 'current': 'work'})
+      ..on('GET', '/api/dashboard/plugins/hub', hubBody([hubRow('netbox')]))
+      ..on(
+        'GET',
+        '/api/dashboard/plugins/catalog',
+        catalogBody([catalogRow('zeta')]),
+      )
       ..on('GET', '/api/cron/jobs', [cronJobRow()])
       ..on('GET', '/api/plugins/kanban/workers/active', {
         'workers': <Object?>[],
@@ -98,6 +109,27 @@ void main() {
       expect(find.byType(RefreshIndicator), matcher);
     });
 
+    for (final tab in PluginsTab.values) {
+      testWidgets('plugins $tab on $platform', (tester) async {
+        await pump(
+          tester,
+          app(
+            platform,
+            PluginsScreen(
+              repository: HermesPluginManagerRepository(server.client().raw),
+              initialTab: tab,
+            ),
+          ),
+        );
+        expect(find.byType(RefreshIndicator), matcher);
+        final refresh = find.byKey(const Key('plugins-refresh'));
+        expect(
+          refresh,
+          platform == TargetPlatform.macOS ? findsOneWidget : findsNothing,
+        );
+      });
+    }
+
     testWidgets('kanban workers on $platform', (tester) async {
       await pump(
         tester,
@@ -107,6 +139,30 @@ void main() {
             repository: KanbanRepository(server.client()),
             board: 'ops',
             onChanged: () {},
+          ),
+        ),
+      );
+      expect(find.byType(RefreshIndicator), matcher);
+    });
+
+    testWidgets('loaded checkpoint list on $platform', (tester) async {
+      await pump(
+        tester,
+        app(
+          platform,
+          Scaffold(
+            body: CheckpointListBody(
+              status: CheckpointListStatus.loaded,
+              items: const [
+                CheckpointListItem(
+                  checkpoint: Checkpoint(
+                    hash: 'aaa111bbb222',
+                    reason: CheckpointReason.beforeEdit,
+                  ),
+                ),
+              ],
+              onRefresh: () async {},
+            ),
           ),
         ),
       );
@@ -129,4 +185,29 @@ void main() {
       expect(find.byType(RefreshIndicator), matcher);
     });
   }
+
+  testWidgets('iOS: pulling a short checkpoint list calls refresh', (
+    tester,
+  ) async {
+    var refreshed = 0;
+    await pump(
+      tester,
+      app(
+        TargetPlatform.iOS,
+        Scaffold(
+          body: CheckpointListBody(
+            status: CheckpointListStatus.empty,
+            onRefresh: () async => refreshed++,
+          ),
+        ),
+      ),
+    );
+    await tester.fling(
+      find.byType(Scrollable).first,
+      const Offset(0, 400),
+      1000,
+    );
+    await tester.pumpAndSettle();
+    expect(refreshed, 1);
+  });
 }

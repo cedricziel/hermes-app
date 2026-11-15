@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../theme/app_icons.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'kanban_errors.dart';
@@ -10,7 +13,10 @@ import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'widgets/kanban_list_rows.dart';
 import 'widgets/kanban_task_panel.dart';
-import '../widgets/platform_refresh.dart';
+
+import 'package:flutter/services.dart';
+
+import '../theme/platform_chrome.dart';
 
 /// The workers the dispatcher has running tasks right now, with a look at
 /// each one's process and a way to stop it.
@@ -133,7 +139,8 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
   Widget build(BuildContext context) {
     final workers = _workers;
     final failure = _failure;
-    return SettingsScaffold(
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    final scaffold = SettingsScaffold(
       title: 'Active workers',
       subtitle: workers == null ? null : '${workers.length} running',
       previousTitle: 'Kanban',
@@ -141,6 +148,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
         SettingsBarAction(
           label: 'Refresh',
           icon: AppIcons.refresh,
+          shortcut: mac ? '⌘R' : null,
           onPressed: _load,
         ),
       ],
@@ -161,6 +169,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
               onRefresh: _load,
               child: workers.isEmpty
                   ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       children: const [
                         SizedBox(height: 120),
                         StateMessage(title: 'No workers are running'),
@@ -191,6 +200,14 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                       ],
                     ),
             ),
+    );
+    if (!mac) return scaffold;
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
+            unawaited(_load()),
+      },
+      child: scaffold,
     );
   }
 }

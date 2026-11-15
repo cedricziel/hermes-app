@@ -11,6 +11,7 @@ import '../theme/platform_chrome.dart';
 import '../tools/widgets/tools_difference_sheet.dart';
 import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import '../widgets/row_actions.dart';
 import '../widgets/whats_the_difference_link.dart';
 
@@ -124,7 +125,7 @@ class _InstalledTabState extends State<InstalledTab>
         break;
     }
     final plugins = _controller.plugins;
-    return RefreshIndicator(
+    return PlatformRefresh(
       onRefresh: _refresh,
       child: plugins.isEmpty
           ? ListView(

@@ -3,12 +3,12 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 
 import '../theme/app_icons.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import 'schedule_actions.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
 import 'widgets/job_group.dart';
-import '../widgets/platform_refresh.dart';
 
 /// The jobs of the server as one inset group; the bar holds the filter.
 class SchedulesList extends StatelessWidget {

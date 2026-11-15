@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_icons.dart';
 
@@ -209,14 +212,23 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     onOpenRun: widget.onOpenRun,
                   );
             if (mac && wide) {
-              return _MacLayout(
-                controller: _controller,
-                jobCount: visible.length,
-                listWidth: box.maxWidth >= _macWideListWidth ? 340 : 250,
-                list: list,
-                detail: detail,
-                filterMenu: _filterMenu(),
-                onNew: () => _new(wide: true),
+              return CallbackShortcuts(
+                bindings: {
+                  const SingleActivator(
+                    LogicalKeyboardKey.keyR,
+                    meta: true,
+                  ): () =>
+                      unawaited(_controller.refresh()),
+                },
+                child: _MacLayout(
+                  controller: _controller,
+                  jobCount: visible.length,
+                  listWidth: box.maxWidth >= _macWideListWidth ? 340 : 250,
+                  list: list,
+                  detail: detail,
+                  filterMenu: _filterMenu(),
+                  onNew: () => _new(wide: true),
+                ),
               );
             }
             final ios = platformChromeOf(context) == PlatformChrome.ios;

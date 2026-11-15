@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
@@ -101,6 +103,18 @@ class _PluginsScreenState extends State<PluginsScreen>
     await reportInstall(context, result);
   }
 
+  /// Reloads the tab in front, as pull to refresh does on a phone.
+  Future<void> _refreshCurrent() async {
+    switch (PluginsTab.values[_tabs.index]) {
+      case PluginsTab.installed:
+        await _installed.refresh();
+      case PluginsTab.catalog:
+        await _catalog.refresh();
+      case PluginsTab.providers:
+        await _providers.refresh();
+    }
+  }
+
   /// Filters the catalog from the Mac toolbar. The catalog's other changes
   /// (it loads when its tab first builds) must not rebuild the toolbar, so
   /// only the query does, through [_catalogQuery].
@@ -135,28 +149,46 @@ class _PluginsScreenState extends State<PluginsScreen>
           ProvidersTab(controller: _providers),
         ],
       ),
-      builder: (context, body) => SettingsScaffold(
-        title: 'Plugins',
-        subtitle: _subtitle(mac),
-        tabs: const ['Installed', 'Catalog', 'Providers'],
-        tabController: _tabs,
-        search: mac && _tabs.index == PluginsTab.catalog.index
-            ? SettingsSearch(
-                query: _catalog.query,
-                hint: 'Search catalog',
-                onChanged: _search,
-              )
-            : null,
-        actions: [
-          SettingsBarAction(
-            key: const Key('catalog-git-install'),
-            label: 'Install from Git',
-            icon: AppIcons.add,
-            onPressed: _installFromGit,
-          ),
-        ],
-        body: body!,
-      ),
+      builder: (context, body) {
+        final scaffold = SettingsScaffold(
+          title: 'Plugins',
+          subtitle: _subtitle(mac),
+          tabs: const ['Installed', 'Catalog', 'Providers'],
+          tabController: _tabs,
+          search: mac && _tabs.index == PluginsTab.catalog.index
+              ? SettingsSearch(
+                  query: _catalog.query,
+                  hint: 'Search catalog',
+                  onChanged: _search,
+                )
+              : null,
+          actions: [
+            if (mac)
+              SettingsBarAction(
+                key: const Key('plugins-refresh'),
+                label: 'Refresh',
+                icon: AppIcons.refresh,
+                shortcut: '⌘R',
+                onPressed: () => unawaited(_refreshCurrent()),
+              ),
+            SettingsBarAction(
+              key: const Key('catalog-git-install'),
+              label: 'Install from Git',
+              icon: AppIcons.add,
+              onPressed: _installFromGit,
+            ),
+          ],
+          body: body!,
+        );
+        if (!mac) return scaffold;
+        return CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
+                unawaited(_refreshCurrent()),
+          },
+          child: scaffold,
+        );
+      },
     );
   }
 }

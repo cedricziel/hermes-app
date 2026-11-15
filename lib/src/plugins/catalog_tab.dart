@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import '../widgets/settings_search_field.dart';
 
 import 'catalog_controller.dart';
@@ -169,7 +170,7 @@ class _CatalogTabState extends State<CatalogTab>
         break;
     }
     final entries = _controller.visible;
-    return RefreshIndicator(
+    return PlatformRefresh(
       onRefresh: _refresh,
       child: entries.isEmpty
           ? ListView(

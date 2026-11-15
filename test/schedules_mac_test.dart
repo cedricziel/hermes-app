@@ -115,14 +115,14 @@ void main() {
       expect(find.text('Schedules'), findsOneWidget);
       expect(find.text('2 jobs'), findsOneWidget);
       expect(find.byTooltip('New Schedule ⌘N'), findsOneWidget);
-      expect(find.byTooltip('Refresh'), findsOneWidget);
+      expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
     });
 
     testWidgets('Refresh lists the jobs again', (tester) async {
       await pumpScreen(tester);
       final before = server.requestsTo('GET', '/api/cron/jobs').length;
 
-      await tester.tap(find.byTooltip('Refresh'));
+      await tester.tap(find.byTooltip('Refresh ⌘R'));
       await tester.pumpAndSettle();
 
       expect(server.requestsTo('GET', '/api/cron/jobs').length, before + 1);

@@ -16,6 +16,10 @@ import '../widgets/restore_outcome_note.dart';
 import 'changes_page.dart';
 import 'restore_flow.dart';
 
+import 'package:flutter/services.dart';
+
+import '../../../theme/platform_chrome.dart';
+
 /// The "File checkpoints" page, pushed inside the Activity panel: the
 /// checkpoints of [thread]'s folder, newest first, with Refresh in the bar
 /// and pull to refresh. A tap opens a checkpoint's changes; its menu offers
@@ -157,6 +161,8 @@ class _CheckpointsPageState extends State<CheckpointsPage>
         outcome != null &&
         !controller.locked &&
         lastRestoreWasFile(controller) != true;
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    final canRefresh = !controller.loadingList && !controller.notUpToDate;
     return ActivityPageScaffold(
       title: l10n.chatCheckpointsPageTitle,
       onBack: () => Navigator.of(context).maybePop(),
@@ -165,11 +171,15 @@ class _CheckpointsPageState extends State<CheckpointsPage>
           key: const Key('checkpoints-refresh'),
           label: l10n.chatCheckpointsPageRefresh,
           icon: AppIcons.refresh,
-          onPressed: controller.loadingList || controller.notUpToDate
-              ? null
-              : _refresh,
+          shortcut: mac ? '⌘R' : null,
+          onPressed: canRefresh ? _refresh : null,
         ),
       ],
+      shortcuts: {
+        if (mac && canRefresh)
+          const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
+              unawaited(_refresh()),
+      },
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
