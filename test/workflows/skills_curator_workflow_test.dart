@@ -143,10 +143,32 @@ void main() {
     matching: find.text('Run now'),
   );
 
-  Future<void> scrollToSection(WidgetTester tester) async {
-    await tester.ensureVisible(find.text('Pause scheduled passes'));
-    await tester.ensureVisible(runNow.first);
+  /// The section's own header at the top of the window, so none of the row
+  /// above it is left in the picture; Run now is then brought into view only
+  /// when it is not already.
+  Future<void> scrollToSection(
+    WidgetTester tester, {
+    bool bringRunNow = true,
+  }) async {
+    await tester.ensureVisible(find.text('Skill curator'));
     await tester.pumpAndSettle();
+    final scrollable = Scrollable.of(
+      tester.element(find.text('Skill curator')),
+    );
+    scrollable.position.jumpTo(
+      (scrollable.position.pixels +
+              tester.getTopLeft(find.text('Skill curator')).dy -
+              tester.getTopLeft(find.byType(Scrollable).first).dy -
+              56)
+          .clamp(0, scrollable.position.maxScrollExtent),
+    );
+    await tester.pumpAndSettle();
+    if (bringRunNow &&
+        tester.getBottomLeft(runNow.first).dy >
+            tester.view.physicalSize.height / tester.view.devicePixelRatio) {
+      await tester.ensureVisible(runNow.first);
+      await tester.pumpAndSettle();
+    }
   }
 
   final variants = [
@@ -198,15 +220,26 @@ void main() {
     });
   }
 
-  testWidgets('phone at 2x text: the stacked row, the confirmation, the end', (
+  testWidgets('phone at 2x text: the section, the confirmation, the end', (
     tester,
   ) async {
     final shots = ScreenshotRecorder('skills-curator-phone-2x');
-    await pumpSkills(tester, shots, size: phoneSize, textScale: 2.0);
+    await pumpSkills(
+      tester,
+      shots,
+      size: const Size(390, 1500),
+      textScale: 2.0,
+    );
     await shots.capture(tester, 'installed-with-curator');
 
     await scrollToSection(tester);
-    await shots.capture(tester, 'run-row');
+    expect(find.text('Skill curator'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Skill curator')).dy,
+      lessThan(200),
+      reason: 'the section starts at its header',
+    );
+    await shots.capture(tester, 'section');
     await tester.tap(runNow.first);
     await tester.pumpAndSettle();
     await shots.capture(tester, 'confirmation');
@@ -217,5 +250,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('The pass finished'), findsOneWidget);
     await shots.capture(tester, 'finished');
+  });
+
+  testWidgets('phone at 3.1x text: Run now stacks, the confirmation', (
+    tester,
+  ) async {
+    final shots = ScreenshotRecorder('skills-curator-phone-3x');
+    await pumpSkills(tester, shots, size: phoneSize, textScale: 3.1);
+    await scrollToSection(tester, bringRunNow: false);
+    await shots.capture(tester, 'section');
+
+    // Centred, so the icon above the text is in the picture.
+    await Scrollable.ensureVisible(
+      tester.element(runNow.first),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
+    await shots.capture(tester, 'run-row');
+    await tester.tap(runNow.first);
+    await tester.pumpAndSettle();
+    expect(find.text('Run the curator now?'), findsOneWidget);
+    await shots.capture(tester, 'confirmation');
+    expect(server.requestsTo('POST', '/api/curator/run'), isEmpty);
   });
 }
