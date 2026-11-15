@@ -37,7 +37,7 @@ class AttachMenu extends StatelessWidget {
             for (final origin in origins)
               ListTile(
                 leading: AppIcon(_icon(origin)),
-                title: Text(_label(origin)),
+                title: Text(_label(context, origin)),
                 onTap: () => onPick(origin),
               ),
           ],
@@ -53,8 +53,11 @@ AppIconSet _icon(AttachOrigin origin) => switch (origin) {
   AttachOrigin.camera => AppIcons.camera,
 };
 
-String _label(AttachOrigin origin) => switch (origin) {
-  AttachOrigin.files => 'Choose files',
-  AttachOrigin.photos => 'Photo library',
-  AttachOrigin.camera => 'Take a photo',
-};
+String _label(BuildContext context, AttachOrigin origin) {
+  final l10n = context.l10n;
+  return switch (origin) {
+    AttachOrigin.files => l10n.chatAttachmentsOriginFiles,
+    AttachOrigin.photos => l10n.chatAttachmentsOriginPhotos,
+    AttachOrigin.camera => l10n.chatAttachmentsOriginCamera,
+  };
+}

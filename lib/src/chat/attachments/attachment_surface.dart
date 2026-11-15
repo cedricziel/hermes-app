@@ -35,7 +35,8 @@ class _AttachmentSurfaceState extends State<AttachmentSurface> {
   var _dragging = false;
 
   /// Set while the menu or a picker is open, so a second click cannot open
-  /// another one (the Linux picker does not block the window).
+  /// another one (the Linux picker does not block the window). A picker
+  /// future that never completes leaves this set until the surface is gone.
   var _picking = false;
 
   Future<void> _openMenu() async {

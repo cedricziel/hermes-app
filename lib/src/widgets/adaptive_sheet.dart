@@ -33,11 +33,22 @@ Future<T?> showAdaptiveSheet<T>(
           showDragHandle: showDragHandle,
           constraints: maxSheetHeightFraction == null
               ? null
-              : BoxConstraints(
-                  maxHeight:
-                      MediaQuery.sizeOf(context).height *
-                      maxSheetHeightFraction,
-                ),
+              : _sheetConstraints(context, maxSheetHeightFraction),
           builder: builder,
         );
+}
+
+/// Caps the sheet's height without dropping its width cap: passing
+/// `constraints` replaces the theme's, so the theme's (or Material 3's 640)
+/// maximum width is carried over.
+BoxConstraints _sheetConstraints(BuildContext context, double heightFraction) {
+  final base =
+      Theme.of(context).bottomSheetTheme.constraints ??
+      const BoxConstraints(maxWidth: 640);
+  final height = MediaQuery.sizeOf(context).height * heightFraction;
+  return base.copyWith(
+    maxHeight: base.maxHeight.isFinite && base.maxHeight < height
+        ? base.maxHeight
+        : height,
+  );
 }

@@ -128,6 +128,9 @@
   "chatActivityProcessesOmitted": "Frühere Prozesskarten ausgelassen.",
   "@@x-area-chat/attachments": "",
   "chatAttachmentsMenuTitle": "Anhängen",
+  "chatAttachmentsOriginFiles": "Dateien",
+  "chatAttachmentsOriginPhotos": "Fotomediathek",
+  "chatAttachmentsOriginCamera": "Foto aufnehmen",
 
   "@@x-area-chat/checkpoints": "",
   "chatCheckpointsChangesBarCount": "{count, plural, =1{1 Datei weicht ab} other{{count} Dateien weichen ab}}",
