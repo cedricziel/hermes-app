@@ -4,7 +4,7 @@ Change: `openspec/changes/session-export/`. Read its design.md for the server fa
 
 ## Design status
 
-Design (done): canvas reviewed
+Design (done): canvas published, local render reviewed
 
 Canvas: https://claude.ai/artifact/UzB5uc13PXDSM8JYUYTjcs (private; ask its owner for access). 28 boards on one canvas, one parametric page imported by short board files: the header menu (1); the alert's confirm, progress, received bytes, stalled and saved states (5); the nine failures (9); dark (2); largest text (2); German (2); App Lock (1); Android (3); Mac and iPad (3). The pass was written from the Hermes App design system README and the repo's files (`lib/src/widgets/`, `thread_actions_menu.dart`, the briefs of Server care and Tools). What was checked and what was not: see "Local render review". Widgetbook use cases follow the canvas.
 
