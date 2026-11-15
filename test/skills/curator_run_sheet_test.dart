@@ -17,7 +17,9 @@ import 'curator_fixtures.dart';
 
 /// `askToRunCurator` on its own, with a real controller against the fake
 /// dashboard: a question that the controller drops (a profile switch) closes
-/// the sheet and sends nothing.
+/// the sheet and sends nothing. The single-guard survivors (`_decided` in
+/// `_run`, `!controller.disposed`) stay accepted as defence in depth
+/// (Cancel's `pop(false)` is only caught together with its `cancelRun`).
 void main() {
   late FakeHermesServer server;
   late CuratorController controller;
@@ -106,5 +108,44 @@ void main() {
 
     expect(posts(), 0);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Cancel sends nothing and drops the question', (tester) async {
+    await pumpHarness(tester);
+    await tester.tap(find.text('ask'));
+    await tester.pumpAndSettle();
+    expect(controller.confirmation, isNotNull);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(CuratorRunConfirmation),
+        matching: find.text('Cancel'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CuratorRunConfirmation), findsNothing);
+    expect(controller.confirmation, isNull);
+    expect(posts(), 0);
+  });
+
+  testWidgets('Run now closes the sheet, then sends one POST', (tester) async {
+    await pumpHarness(tester);
+    await tester.tap(find.text('ask'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(CuratorRunConfirmation),
+        matching: find.text('Run now'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CuratorRunConfirmation), findsNothing);
+    expect(posts(), 1);
+    // Ends the status polling the run started.
+    controller.dispose();
+    await tester.pump(const Duration(seconds: 6));
   });
 }

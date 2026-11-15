@@ -395,6 +395,57 @@ void main() {
       expect(c.confirmation?.pruneBuiltins, isNull);
     });
 
+    Future<void> reopen(CuratorController c) async {
+      c.beginRun();
+      await pumpEventQueue();
+      c.cancelRun();
+    }
+
+    void configAnswers({required bool consolidate}) =>
+        server.on('GET', '/api/config', {
+          'curator': {'consolidate': consolidate, 'prune_builtins': false},
+        });
+
+    test(
+      'a failed read clears the cache: the next opening is hedged',
+      () async {
+        configAnswers(consolidate: false);
+        final c = await opened();
+        await reopen(c);
+        server.on('GET', '/api/config', 'oops', status: 500);
+        await reopen(c);
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      },
+    );
+
+    test('a newer successful read replaces the cache', () async {
+      configAnswers(consolidate: false);
+      final c = await opened();
+      await reopen(c);
+      configAnswers(consolidate: true);
+      await reopen(c);
+
+      c.beginRun();
+      expect(c.confirmation?.consolidate, isTrue);
+    });
+
+    test('a profile switch drops the cache', () async {
+      configAnswers(consolidate: false);
+      final c = await opened();
+      await reopen(c);
+      c.beginRun();
+      expect(c.confirmation?.consolidate, isFalse);
+      c.cancelRun();
+
+      c.switchProfile('demo-b');
+      await until(() => c.load != CuratorLoad.loading);
+      server.on('GET', '/api/config', 'oops', status: 500);
+      c.beginRun();
+      expect(c.confirmation?.consolidate, isNull);
+    });
+
     test('Cancel sends nothing and a late config does not reopen it', () async {
       final c = await opened();
       final gate = Completer<FakeResponse>();

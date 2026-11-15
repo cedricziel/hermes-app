@@ -420,8 +420,9 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     unawaited(() async {
       final config = await readConfig(_profile);
       if (_gone(epoch) || id != _confirmId || _confirmation == null) return;
-      if (config != null) _lastConfig = config;
-      _confirmation = config ?? _lastConfig ?? const CuratorConfig();
+      // A failed read forgets the earlier one: the next opening is hedged.
+      _lastConfig = config;
+      _confirmation = config ?? const CuratorConfig();
       notifyListeners();
     }());
   }

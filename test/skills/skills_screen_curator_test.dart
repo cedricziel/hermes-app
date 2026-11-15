@@ -103,6 +103,7 @@ void main() {
     bool withCurator = true,
     String? chatProfile = 'default',
     bool settle = true,
+    Widget Function(Widget screen)? wrap,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -115,19 +116,21 @@ void main() {
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(),
-      home: SkillsScreen(
-        repository: HermesSkillsRepository(server.client().raw),
-        profiles: HermesProfilesRepository(server.client().raw),
-        chatProfile: chatProfile,
-        curatorRepository: withCurator
-            ? HermesCuratorRepository(
-                server.client(),
-                timeout: const Duration(seconds: 5),
-              )
-            : null,
-        curatorConfig: withCurator
-            ? CuratorConfigReader(server.client())
-            : null,
+      home: (wrap ?? (w) => w)(
+        SkillsScreen(
+          repository: HermesSkillsRepository(server.client().raw),
+          profiles: HermesProfilesRepository(server.client().raw),
+          chatProfile: chatProfile,
+          curatorRepository: withCurator
+              ? HermesCuratorRepository(
+                  server.client(),
+                  timeout: const Duration(seconds: 5),
+                )
+              : null,
+          curatorConfig: withCurator
+              ? CuratorConfigReader(server.client())
+              : null,
+        ),
       ),
     );
     await tester.pumpWidget(
@@ -527,6 +530,30 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       await pumpPast(tester, const Duration(seconds: 3));
+
+      expect(confirmTitle(), findsNothing);
+      expect(posts(), 0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the screen rebuilt under a live navigator closes the sheet', (
+      tester,
+    ) async {
+      final show = ValueNotifier(true);
+      addTearDown(show.dispose);
+      await pumpSkills(
+        tester,
+        wrap: (screen) => ValueListenableBuilder<bool>(
+          valueListenable: show,
+          builder: (_, on, _) => on ? screen : const SizedBox(),
+        ),
+      );
+      await tester.tap(runNow());
+      await tester.pumpAndSettle();
+      expect(confirmTitle(), findsOneWidget);
+
+      show.value = false;
+      await tester.pumpAndSettle();
 
       expect(confirmTitle(), findsNothing);
       expect(posts(), 0);
