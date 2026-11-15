@@ -5,6 +5,7 @@ import '../widgets/settings_scaffold.dart';
 import '../widgets/grouped_list.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderProxyBox;
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../widgets/app_banner.dart';
@@ -231,7 +232,9 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
     final check = _check;
     // The editor fills the height the notes leave, but never less than
     // [_minEditorHeight]: at large text the page scrolls instead of the
-    // banner squeezing the editor out.
+    // banner squeezing the editor out. [SliverFillRemaining] sizes its child
+    // from its intrinsic height, so the editor reports [_minEditorHeight]
+    // there instead of the full height of its text.
     return CustomScrollView(
       slivers: [
         SliverFillRemaining(
@@ -253,10 +256,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
                 ),
                 const SizedBox(height: 12),
                 Expanded(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minHeight: _minEditorHeight,
-                    ),
+                  child: _FixedIntrinsicHeight(
+                    height: _minEditorHeight,
                     child: McpJsonField(controller: _text, readOnly: _busy),
                   ),
                 ),
@@ -296,4 +297,42 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       ],
     );
   }
+}
+
+/// Lays its child out like a plain box but reports [height] as its intrinsic
+/// height, so a scrollable that sizes from intrinsics does not grow with the
+/// child's content.
+class _FixedIntrinsicHeight extends SingleChildRenderObjectWidget {
+  const _FixedIntrinsicHeight({required this.height, super.child});
+
+  final double height;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFixedIntrinsicHeight(height);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderFixedIntrinsicHeight renderObject,
+  ) {
+    renderObject.height = height;
+  }
+}
+
+class _RenderFixedIntrinsicHeight extends RenderProxyBox {
+  _RenderFixedIntrinsicHeight(this._height);
+
+  double _height;
+  set height(double value) {
+    if (value == _height) return;
+    _height = value;
+    markNeedsLayout();
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _height;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _height;
 }

@@ -8,6 +8,7 @@ import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review.dart';
 import 'package:hermes_app/src/mcp/mcp_json_editor_screen.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_controller.dart';
+import 'package:hermes_app/src/mcp/widgets/mcp_json_field.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
 import 'support/fake_hermes_server.dart';
@@ -112,28 +113,99 @@ void main() {
   int puts() => server.requestsTo('PUT', serversPath).length;
 
   group('layout', () {
+    void longConfig() {
+      server.on('GET', configPath, {
+        'model': 'x',
+        'mcp_servers': {
+          for (var i = 0; i < 30; i++)
+            'server-$i': {
+              'url': 'https://mcp.example.com/$i/mcp',
+              'auth': 'oauth',
+              'timeout': 45,
+              'headers': {'X-Team': 'infra'},
+            },
+        },
+      });
+    }
+
+    final jsonError = find.byKey(const ValueKey('mcp-json-error'));
+
+    // Where the editor and the error text sit, in the page's own scroll.
+    Future<void> checkLongConfig(WidgetTester tester, Size size) async {
+      longConfig();
+      await open(tester, size: size);
+
+      final editorBox = tester.getRect(editor);
+      expect(
+        tester.getSize(editor).height,
+        lessThanOrEqualTo(size.height),
+        reason: 'the editor must not grow with its text',
+      );
+      // The text is far taller than the box, so the box scrolls inside.
+      final inner = tester.state<ScrollableState>(
+        find.descendant(of: editor, matching: find.byType(Scrollable)),
+      );
+      expect(
+        inner.position.maxScrollExtent,
+        greaterThan(0),
+        reason: 'the editor scrolls internally',
+      );
+
+      await edit(tester, '{ not json');
+      expect(jsonError, findsOneWidget);
+      final viewport = Offset.zero & size;
+      expect(
+        viewport.contains(tester.getRect(jsonError).center),
+        isTrue,
+        reason: 'the error stays on screen',
+      );
+      expect(tester.getRect(editor).top, editorBox.top);
+      expect(tester.takeException(), isNull);
+    }
+
     testWidgets('the editor fills a tall page at normal text', (tester) async {
       await open(tester, size: const Size(420, 900));
 
+      // The page scrolls only when it must: the editor fills what the
+      // banner leaves, so the page has nothing to scroll here.
       expect(tester.getSize(editor).height, greaterThan(400));
+      final scrollable = tester.state<ScrollableState>(
+        find.byType(Scrollable).first,
+      );
+      expect(scrollable.position.maxScrollExtent, 0);
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('a long config stays inside the editor on a phone', (
+      tester,
+    ) async {
+      await checkLongConfig(tester, const Size(390, 844));
+    });
+
+    testWidgets('a long config stays inside the editor on a desktop window', (
+      tester,
+    ) async {
+      await checkLongConfig(tester, const Size(1280, 800));
+    });
+
     testWidgets(
-      'the page scrolls at 320 wide, text 2.0, and keeps the editor',
+      'the page scrolls at 320 wide, text 2.0, and keeps a 240 editor',
       (tester) async {
         tester.platformDispatcher.textScaleFactorTestValue = 2.0;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await open(tester, size: const Size(320, 568));
 
         expect(tester.takeException(), isNull);
-        expect(find.byType(Scrollable), findsWidgets);
         await tester.scrollUntilVisible(
           editor,
           100,
           scrollable: find.byType(Scrollable).first,
         );
-        expect(tester.getSize(editor).height, greaterThanOrEqualTo(150));
+        // The card around the text field, not the text field itself.
+        expect(
+          tester.getSize(find.byType(McpJsonField)).height,
+          greaterThanOrEqualTo(240),
+        );
         expect(tester.takeException(), isNull);
       },
     );

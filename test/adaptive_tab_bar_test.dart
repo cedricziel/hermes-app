@@ -1,7 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
+
+import 'support/screenshot_recorder.dart';
 
 Widget _app(TargetPlatform platform) {
   return MaterialApp(
@@ -117,4 +120,51 @@ void main() {
       expect(tester.getSize(find.byWidget(ink)).height, track.height - 6);
     }
   });
+
+  // The test font draws every glyph a full em wide; the screenshot harness
+  // loads a real one, so a label is judged at its true width.
+  for (final (name, labels) in [
+    ('Plugins', ['Installed', 'Catalog', 'Providers']),
+    ('server logs in German', ['Fehler', 'Agent', 'Gateway']),
+    ('long German labels', ['Installiert', 'Verzeichnis', 'Anbieter']),
+  ]) {
+    testWidgets('iOS 320 pt, text 2.0, $name: every label is shown whole', (
+      tester,
+    ) async {
+      final shots = ScreenshotRecorder('adaptive_tab_bar');
+      await shots.start(tester, const Size(320, 200), textScale: 2.0);
+      await tester.pumpWidget(
+        shots.frame(
+          MaterialApp(
+            theme: withScreenshotFont(ThemeData(platform: TargetPlatform.iOS)),
+            home: DefaultTabController(
+              length: labels.length,
+              child: Scaffold(
+                appBar: AppBar(
+                  title: const Text('Plugins'),
+                  bottom: AdaptiveTabBar(labels: labels),
+                ),
+                body: const SizedBox(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await shots.capture(tester, name.replaceAll(' ', '-'));
+      expect(tester.takeException(), isNull);
+      final bar = tester.getRect(
+        find.byType(CupertinoSlidingSegmentedControl<int>),
+      );
+      expect(bar.right, lessThanOrEqualTo(320));
+      for (final label in labels) {
+        final text = find.text(label);
+        expect(text, findsOneWidget);
+        expect(
+          tester.renderObject<RenderParagraph>(text).didExceedMaxLines,
+          isFalse,
+          reason: '$label is cut',
+        );
+      }
+    });
+  }
 }

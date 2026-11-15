@@ -65,6 +65,8 @@ class CheckpointListBody extends StatelessWidget {
     this.onRetry,
     this.onRefresh,
     this.lockedCount,
+    this.header,
+    this.scrollController,
   });
 
   final CheckpointListStatus status;
@@ -82,11 +84,38 @@ class CheckpointListBody extends StatelessWidget {
   final int? lockedCount;
   final Future<void> Function()? onRefresh;
 
+  /// Notes above the list (a restore under way, its outcome). With a list on
+  /// screen they scroll with it as one page, so at large text the list is
+  /// never squeezed out; above a message they scroll within half the height.
+  final Widget? header;
+
+  /// Drives the list, so a caller can bring [header] into view.
+  final ScrollController? scrollController;
+
   /// The config key shown as a code span in the "off" message.
   static const configKey = 'checkpoints.enabled';
 
   @override
   Widget build(BuildContext context) {
+    final header = this.header;
+    if (header == null || status == CheckpointListStatus.loaded) {
+      return _body(context);
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: constraints.maxHeight / 2),
+            child: SingleChildScrollView(child: header),
+          ),
+          Expanded(child: _body(context)),
+        ],
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context) {
     final l10n = context.l10n;
     return switch (status) {
       CheckpointListStatus.loaded => _loaded(context),
@@ -164,8 +193,10 @@ class CheckpointListBody extends StatelessWidget {
     final colors = context.hermesColors;
     final refusal = disconnected ? RestoreRefusal.disconnected : restoreRefusal;
     final list = GroupedListView(
+      controller: scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
+        ?header,
         if (disconnected)
           Padding(
             padding: EdgeInsets.fromLTRB(metrics.rowPadding, 12, 0, 0),

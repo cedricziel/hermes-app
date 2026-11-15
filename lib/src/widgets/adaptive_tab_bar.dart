@@ -93,9 +93,8 @@ class _CupertinoTabs extends StatelessWidget {
         for (final (i, label) in labels.indexed)
           i: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
+            child: ShrinkToFitText(
               label,
-              maxLines: 1,
               style: TextStyle(
                 fontSize: compact ? 12 : null,
                 color: scheme.onSurface,

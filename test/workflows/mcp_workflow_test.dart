@@ -685,6 +685,34 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('$name: edit a long config as JSON', (tester) async {
+      final shots = ScreenshotRecorder('mcp-json-long-$name');
+      server.on('GET', '/api/config', {
+        'model': 'x',
+        'mcp_servers': {
+          for (var i = 0; i < 30; i++)
+            'server-$i': {
+              'url': 'https://mcp.example.com/$i/mcp',
+              'auth': 'oauth',
+              'timeout': 45,
+              'headers': {'X-Team': 'infra'},
+            },
+        },
+      });
+      await pumpMcp(tester, shots, size: size);
+      await openJsonEditor(tester);
+      await shots.capture(tester, 'loaded');
+
+      // The editor keeps to the page however long the text is, so the error
+      // under it stays on screen.
+      await tester.enterText(
+        find.byKey(const ValueKey('mcp-json-text')),
+        '{\n  "grafana": {\n    "url": ',
+      );
+      await animate(tester);
+      await shots.capture(tester, 'invalid-json');
+    });
+
     testWidgets('$name: JSON editor could not load', (tester) async {
       final shots = ScreenshotRecorder('mcp-json-error-$name');
       server.on('GET', '/api/config', {'detail': 'boom'}, status: 500);
