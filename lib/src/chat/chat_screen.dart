@@ -708,7 +708,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
       widget.chatProfiles?.attach(_chat.loadThreads);
     }
-    _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
+    _attachmentSource =
+        widget.attachmentSource ?? PluginAttachmentSource.of(context);
     _share = context.read<ShareController>()..addListener(_onShared);
     if (widget.onExternalNavigation == null) {
       _absorbShared(held: true);
@@ -920,6 +921,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     _showMessage(switch (notice) {
       ChatSendNotice.stopCommand => context.l10n.chatNoticeStopCommand,
+      ChatSendNotice.stopCommandElsewhere =>
+        context.l10n.chatNoticeStopCommandElsewhere,
     });
   }
 
