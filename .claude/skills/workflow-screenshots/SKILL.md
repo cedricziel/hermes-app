@@ -13,6 +13,12 @@ with plain `flutter test`, on phone (`phoneSize`) and desktop (`desktopSize`),
 light and dark. Read the PNGs to look for overflow, clipping, contrast and
 alignment problems; the tests themselves only assert that the flow still runs.
 
+`WORKFLOW_SIZE=320x568` and `WORKFLOW_TEXT_SCALE=2.0` (with `WORKFLOW_PLATFORM=iOS`)
+rerun any workflow at a small phone and large text. Run one test by
+`--plain-name`: flows that tap rows below the fold stop at the first tap that
+misses, which is the harness, not an overflow; overflow shows as a
+`RenderFlex overflowed` failure.
+
 To see one widget in every state without a flow around it, use the
 `component-catalog` skill (Widgetbook) instead.
 
