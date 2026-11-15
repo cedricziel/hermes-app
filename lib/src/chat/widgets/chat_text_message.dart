@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
-import 'package:provider/provider.dart';
 
+import '../../theme/hermes_theme.dart';
+import '../../widgets/app_markdown_theme.dart';
 import '../../widgets/bounded_markdown.dart';
 
 /// A text message as `FlyerChatTextMessage` draws it with no time, status or
@@ -10,8 +10,9 @@ import '../../widgets/bounded_markdown.dart';
 /// has no hook for the code blocks, and an unbounded block can freeze the app.
 ///
 /// [textStyle] is the paragraph style, [backgroundColor] fills the bubble and
-/// [linksDecoration] underlines links, in the colour the chat theme gives text
-/// on that surface.
+/// [linksDecoration] underlines links. Links, headings and rules take the app's
+/// markdown theme ([AppMarkdownTheme]), so a link is the app's link colour on
+/// the reply and on the user's bubble alike, and its underline matches it.
 class ChatTextMessage extends StatelessWidget {
   const ChatTextMessage({
     super.key,
@@ -36,11 +37,8 @@ class ChatTextMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final decorationColor = context.select(
-      (ChatTheme t) => isSentByMe ? t.colors.onPrimary : t.colors.onSurface,
-    );
-    final content = GptMarkdownTheme(
-      gptThemeData: GptMarkdownTheme.of(context),
+    final decorationColor = context.hermesColors.link;
+    final content = AppMarkdownTheme(
       child: BoundedMarkdown(
         message.text,
         style: textStyle,

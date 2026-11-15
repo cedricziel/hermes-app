@@ -11,8 +11,8 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/type_scale.dart';
 
 /// The look of a text message through the real chat path. Distinct colours for
-/// the chat theme's `onPrimary` (text on the user's bubble) and `onSurface`
-/// (text on the reply), so a link takes the right one.
+/// the chat theme's `onPrimary` and `onSurface`: links must ignore both and
+/// take the app's link colour (the pin changed with the link colour fix).
 const _onPrimary = Color(0xFFD50000);
 const _onSurface = Color(0xFF0000D5);
 
@@ -94,6 +94,7 @@ Future<void> _pump(
 
 void main() {
   final scheme = buildHermesLightTheme().colorScheme;
+  final link = buildHermesLightTheme().extension<HermesChatColors>()!.link;
 
   group('a text message in the chat', () {
     testWidgets('the user bubble draws its text in the surface text colour', (
@@ -111,7 +112,7 @@ void main() {
     });
 
     testWidgets(
-      'a link in a reply is underlined, in the chat colour of its surface',
+      'a link in a reply is underlined and drawn in the app link colour',
       (tester) async {
         await _pump(
           tester,
@@ -120,17 +121,19 @@ void main() {
         );
         final reply = _run(tester, 'the site').style;
         expect(reply.decoration, TextDecoration.underline);
-        expect(reply.decorationColor, _onSurface);
+        expect(reply.decorationColor, link);
+        expect(reply.color, link);
       },
     );
 
-    testWidgets('a link in the user bubble takes the colour of its text', (
+    testWidgets('a link in the user bubble is drawn in the app link colour', (
       tester,
     ) async {
       await _pump(tester, kUserAuthorId, 'see [the site](https://a.b/c)');
       final mine = _run(tester, 'the site').style;
       expect(mine.decoration, TextDecoration.underline);
-      expect(mine.decorationColor, _onPrimary);
+      expect(mine.decorationColor, link);
+      expect(mine.color, link);
     });
 
     testWidgets('the text follows the largest text scale', (tester) async {
