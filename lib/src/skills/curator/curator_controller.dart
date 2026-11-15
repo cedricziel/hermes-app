@@ -161,6 +161,10 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   /// answer and are dropped: they would undo the switch.
   int _statusFloor = 0;
 
+  /// The newest status read applied: an older one that lands later is
+  /// dropped.
+  int _appliedSeq = 0;
+
   CuratorLoad _load = CuratorLoad.loading;
   CuratorStatus? _status;
   bool _refreshing = false;
@@ -311,10 +315,11 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     final result = await repository.status(profile: _profile);
     if (_gone(epoch)) return;
     _refreshing = false;
-    if (seq < _statusFloor) {
+    if (seq < math.max(_statusFloor, _appliedSeq)) {
       notifyListeners();
       return;
     }
+    _appliedSeq = seq;
     switch (result) {
       case CuratorOk(:final value):
         _status = value;
@@ -425,7 +430,6 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     if (_confirmation == null || !_runnable) return;
     _confirmation = null;
     _confirmId++;
-    telemetry.confirmed();
     final epoch = _epoch;
     final id = ++_runId;
     _clearResult();
@@ -439,7 +443,6 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     if (_gone(epoch, id)) return;
     if (before case CuratorOk(:final value)) {
       if (value.running) {
-        _baselineHeader = value.startHeader;
         _phase = CuratorRunPhase.elsewhere;
         notifyListeners();
         return;
@@ -450,6 +453,14 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
       notifyListeners();
       return;
     }
+    // Run now may have turned off (a status read said the curator is off)
+    // while the read was on its way.
+    if (_load != CuratorLoad.loaded || !(_status?.isOn ?? false)) {
+      _phase = CuratorRunPhase.idle;
+      notifyListeners();
+      return;
+    }
+    telemetry.confirmed();
     _own = true;
     _lastRunBefore = _status?.lastRunAt;
     _span = telemetry.startRun();

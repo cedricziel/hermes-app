@@ -620,6 +620,7 @@ void main() {
 
       expect(c.phase, CuratorRunPhase.elsewhere);
       expect(count('POST', '/api/curator/run'), 0);
+      expect(crumbs.named('skills_curator.run.confirmed'), isEmpty);
       expect(c.canRunNow, isFalse);
       expect(tracer.spans, isEmpty);
     });
@@ -633,6 +634,107 @@ void main() {
 
       expect(c.phase, CuratorRunPhase.unchecked);
       expect(count('POST', '/api/curator/run'), 0);
+      expect(crumbs.named('skills_curator.run.confirmed'), isEmpty);
+    });
+
+    /// Holds the second action-status read (the one before the POST) until
+    /// the test releases it.
+    Completer<FakeResponse> gatePreRead() {
+      final gate = Completer<FakeResponse>();
+      var reads = 0;
+      server.onRequest(
+        'GET',
+        _statusPath,
+        (_) => reads++ == 1
+            ? gate.future
+            : (status: 200, body: recordedStatusFinished),
+      );
+      return gate;
+    }
+
+    test(
+      'a profile switch during the read before the POST sends none',
+      () async {
+        final gate = gatePreRead();
+        final c = await opened();
+        c.beginRun();
+        final run = c.confirmRun();
+        await until(() => count('GET', _statusPath) == 2);
+
+        c.switchProfile('demo-b');
+        gate.complete((status: 200, body: recordedStatusFinished));
+        await run;
+        await pumpEventQueue();
+
+        expect(count('POST', '/api/curator/run'), 0);
+        expect(tracer.spans, isEmpty);
+        expect(crumbs.named('skills_curator.run.confirmed'), isEmpty);
+      },
+    );
+
+    test('dispose during the read before the POST sends none', () async {
+      final gate = gatePreRead();
+      final c = await opened();
+      c.beginRun();
+      final run = c.confirmRun();
+      await until(() => count('GET', _statusPath) == 2);
+
+      c.dispose();
+      gate.complete((status: 200, body: recordedStatusFinished));
+      await run;
+
+      expect(count('POST', '/api/curator/run'), 0);
+      expect(tracer.spans, isEmpty);
+    });
+
+    test(
+      'Run now turning off during the read before the POST sends none',
+      () async {
+        final gate = gatePreRead();
+        final c = await opened();
+        c.beginRun();
+        final run = c.confirmRun();
+        await until(() => count('GET', _statusPath) == 2);
+
+        server.on('GET', '/api/curator', recordedCuratorDisabled);
+        await c.reload();
+        gate.complete((status: 200, body: recordedStatusFinished));
+        await run;
+
+        expect(count('POST', '/api/curator/run'), 0);
+        expect(c.phase, CuratorRunPhase.idle);
+        expect(c.canRunNow, isFalse);
+        expect(tracer.spans, isEmpty);
+      },
+    );
+
+    test('an older status read cannot overwrite a newer one', () async {
+      final c = await opened();
+      final slow = Completer<FakeResponse>();
+      var calls = 0;
+      server.onRequest(
+        'GET',
+        '/api/curator',
+        (_) => calls++ == 0
+            ? slow.future
+            : (status: 200, body: recordedCuratorPaused),
+      );
+      server.onRequest(
+        'PUT',
+        '/api/curator/paused',
+        (r) => throw DioException(
+          requestOptions: r,
+          type: DioExceptionType.receiveTimeout,
+        ),
+      );
+      final reload = c.reload();
+      await c.setPaused(true);
+      await until(() => c.paused == true);
+
+      slow.complete((status: 200, body: recordedCuratorNeverRun));
+      await reload;
+
+      expect(c.paused, isTrue);
     });
 
     test('an unsupported pause does not stay saving', () async {
