@@ -17,6 +17,7 @@ import 'package:hermes_app/src/files/files_screen.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/files/widgets/file_preview_cover.dart';
 import 'package:hermes_app/src/files/widgets/file_preview_header.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/files/widgets/files_spinner.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
@@ -78,25 +79,28 @@ void main() {
     bool Function()? shouldClose,
     AppLockController? lock,
     ShareFile? share,
+    MacCommandRegistry? commands,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          Provider<int>.value(value: 0),
-          if (lock != null)
-            ChangeNotifierProvider<AppLockController>.value(value: lock),
-        ],
-        child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: buildHermesLightTheme(platform: platform),
-          home: const Scaffold(body: Text('chat')),
-        ),
+    Widget app = MultiProvider(
+      providers: [
+        Provider<int>.value(value: 0),
+        if (lock != null)
+          ChangeNotifierProvider<AppLockController>.value(value: lock),
+      ],
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: buildHermesLightTheme(platform: platform),
+        home: const Scaffold(body: Text('chat')),
       ),
     );
+    if (commands != null) {
+      app = MacCommandScope.root(registry: commands, child: app);
+    }
+    await tester.pumpWidget(app);
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     unawaited(
       navigator.push(
@@ -506,12 +510,18 @@ void main() {
       expect(quickLook.shown, endsWith('notes.txt'));
     });
 
-    testWidgets('command-up goes to the parent folder', (tester) async {
+    testWidgets('View > Enclosing Folder goes to the parent folder', (
+      tester,
+    ) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
       await pump(
         tester,
         size: const Size(1200, 800),
         platform: TargetPlatform.macOS,
+        commands: commands,
       );
+      expect(commands.handlerFor(MacCommand.enclosingFolder)?.enabled, isFalse);
       source.texts['/srv/p/reports/summary.txt'] = () =>
           ok(const FsTextFile(text: 'summary', byteSize: 7));
       await tester.tap(find.text('reports'));
@@ -519,12 +529,44 @@ void main() {
       await tester.tap(find.text('summary.txt'));
       await settle(tester);
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      expect(commands.handlerFor(MacCommand.enclosingFolder)?.enabled, isTrue);
+      expect(commands.invoke(MacCommand.enclosingFolder), isTrue);
       await settle(tester);
 
       expect(find.text('export.zip'), findsOneWidget);
+      expect(commands.handlerFor(MacCommand.enclosingFolder)?.enabled, isFalse);
+    });
+
+    testWidgets('View > Reload lists the folder again', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pump(
+        tester,
+        size: const Size(1200, 800),
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      final before = source.count('list');
+
+      expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
+      expect(commands.invoke(MacCommand.reload), isTrue);
+      await settle(tester);
+
+      expect(source.count('list'), greaterThan(before));
+    });
+
+    testWidgets('the commands leave with the page', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      final navigator = await pump(
+        tester,
+        size: const Size(1200, 800),
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      navigator.pop();
+      await settle(tester);
+      expect(commands.handlerFor(MacCommand.reload), isNull);
     });
   });
 }
