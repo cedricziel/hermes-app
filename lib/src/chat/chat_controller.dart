@@ -297,6 +297,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       unawaited(subscription.cancel());
     }
     _replies.clear();
+    _sendEnds.clear();
     _stopFollowing();
     _sending.clear();
     _cancelSettleWaits();
@@ -848,6 +849,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _bound = <ChatThread>{};
   var _sentMessages = 0;
   final _replies = <StreamSubscription<ChatEvent>>{};
+
+  /// Ends each send of a thread that is still streaming, as if its stream had
+  /// failed with the error given: the send is cancelled and its own end runs.
+  /// A settle the controller decides on itself (a stop that found the turn gone)
+  /// uses it, so no send is left attached to a reply that is over.
+  final _sendEnds = <ChatThread, List<void Function(Object)>>{};
+
+  /// The follow-up stream of each thread by id, to cancel one at a settle.
+  final _followByThread = <String, StreamSubscription<ChatEvent>>{};
 
   /// The listeners for turns Hermes chains after a reply, which outlive it.
   final _following = <StreamSubscription<ChatEvent>>{};

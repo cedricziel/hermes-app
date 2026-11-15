@@ -400,4 +400,127 @@ void main() {
       expectOneSubmit();
     });
   });
+
+  group('a settled reply is over for its send, and is picked up again', () {
+    test('frames a still-open send sends after a stop settled the reply do not '
+        'un-settle it, and the queue is not sent by itself', () async {
+      await startTurn();
+      chat.submit('And then deploy', const []);
+      await pumpEventQueue();
+      transport.onStop = (_) async =>
+          throw const GatewaySessionGone(4001, restarted: true);
+
+      await chat.stopReply(thread);
+      await pumpEventQueue();
+      expect(assistant().loss, ReplyLoss.restarted);
+
+      // The send is still open on the transport side: it goes on talking.
+      send
+        ..emit(const ReplyRebuilt('', continued: true))
+        ..emit(const ReplyDelta('Again. '))
+        ..emit(const ReplyCompleted('Again. Done.'));
+      await pumpEventQueue();
+
+      expect(assistant().loss, ReplyLoss.restarted);
+      expect(assistant().status, MessageStatus.error);
+      expect(assistant().content, isNot(contains('Again.')));
+      expect(chat.queuePaused(thread), isTrue);
+      expectOneSubmit();
+    });
+
+    test('a settled reply is picked up again at once', () async {
+      await startTurn();
+      final before = transport.followUpCalls;
+
+      await lose(const GatewayReplyUnconfirmed());
+
+      expect(transport.followUpCalls, greaterThan(before));
+      expectOneSubmit();
+    });
+
+    test('a turn that goes on after "couldn\'t confirm" fills the same bubble, '
+        'and the queue stays paused', () async {
+      await startTurn();
+      chat.submit('And then deploy', const []);
+      await pumpEventQueue();
+      final reply = assistant();
+      await lose(const GatewayReplyUnconfirmed());
+      expect(reply.loss, ReplyLoss.unconfirmed);
+
+      transport.followUpStreams['s1']!
+        ..emit(const ReplyStarted())
+        ..emit(const ReplyDelta('More. '));
+      await pumpEventQueue();
+
+      expect(assistantCount(), 1);
+      expect(identical(assistant(), reply), isTrue);
+      expect(reply.loss, isNull);
+      expect(reply.isPending, isTrue);
+      expect(thread.isReplying, isTrue);
+
+      transport.followUpStreams['s1']!
+        ..emit(const ReplyCompleted('Starting the build. More. Done.'))
+        ..emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+
+      expect(assistantCount(), 1);
+      expect(reply.status, MessageStatus.sent);
+      expect(reply.content, contains('Done.'));
+      // Nothing was sent without the user: the queue was paused when the
+      // reply was settled and stays so.
+      expectOneSubmit();
+      expect(chat.queuedIn(thread), hasLength(1));
+      expect(chat.queuePaused(thread), isTrue);
+    });
+
+    test('a turn that finished meanwhile lands in the same bubble', () async {
+      await startTurn();
+      final reply = assistant();
+      await lose(const GatewayReplyUnconfirmed());
+
+      transport.followUpStreams['s1']!
+        ..emit(const ThreadNeedsRefetch())
+        ..emit(const ReplyCompleted('The build finished.'));
+      await pumpEventQueue();
+
+      expect(assistantCount(), 1);
+      expect(identical(assistant(), reply), isTrue);
+      expect(reply.status, MessageStatus.sent);
+      expect(reply.loss, isNull);
+      expect(reply.content, 'The build finished.');
+      expectOneSubmit();
+    });
+
+    test('a pick-up that finds nothing leaves the notice', () async {
+      await startTurn();
+      await lose(const GatewayReplyUnconfirmed());
+
+      transport.followUpStreams['s1']!.finish();
+      await pumpEventQueue();
+
+      expect(assistant().loss, ReplyLoss.unconfirmed);
+      expect(assistantCount(), 1);
+    });
+
+    test('the follow-up of a reply settled by a stop is cancelled: its late '
+        'frames do not reach the reply', () async {
+      await startTurn();
+      await lose(const GatewayReplyLost());
+      chat.checkConnection();
+      await pumpEventQueue();
+      final old = transport.followUpStreams['s1']!;
+      transport.onStop = (_) async => throw const GatewaySessionGone(4007);
+
+      await chat.stopReply(thread);
+      await pumpEventQueue();
+      expect(assistant().loss, ReplyLoss.notOnServer);
+
+      old.emit(const ReplyDelta('late '));
+      await pumpEventQueue();
+
+      expect(assistant().status, MessageStatus.error);
+      expect(assistant().content, isNot(contains('late')));
+      expectOneSubmit();
+    });
+  });
 }

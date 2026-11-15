@@ -205,6 +205,7 @@ extension _ChatControllerStreaming on ChatController {
     }
     _following.clear();
     _followingIds.clear();
+    _followByThread.clear();
   }
 
   /// A turn another client submitted carries no user message on the wire: the
@@ -229,11 +230,15 @@ extension _ChatControllerStreaming on ChatController {
     // A reply that lost its connection takes what the server still runs back
     // into itself: the turn has one bubble, never a second one beside it.
     ChatMessage? reply = _reconnectingReply(thread);
+    var heldByLoss = false;
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
       _following.remove(subscription);
       _followingIds.remove(thread.id);
+      if (_followByThread[threadId] == subscription) {
+        _followByThread.remove(threadId);
+      }
       final pending = reply;
       if (pending != null && pending.isPending) {
         // Still not reached, or reached and lost again: the turn may run on.
@@ -268,7 +273,7 @@ extension _ChatControllerStreaming on ChatController {
         _announce(thread, const ReplyCompleted('', failed: true), profile);
         // What the server did with the turn is in its history: read it again,
         // and the settled reply is kept only while the history has no answer.
-        if (loss != null) _refetchForeignTurn(thread);
+        if (loss != null) _afterLossSettle(thread, transport, profile);
       }
     }
 
@@ -280,7 +285,17 @@ extension _ChatControllerStreaming on ChatController {
             if (reply == null && opensTurn(event)) {
               // A stop in flight may be aimed at the turn this opens a reply
               // for (a folded prompt's), so the hold stays.
-              reply = _addPlaceholder(thread);
+              final lost = _lostReply(thread);
+              if (lost != null) {
+                // The turn the server was thought to have lost goes on: it
+                // fills the reply that was settled for it, and the queue stays
+                // paused behind it, as it was when that reply was settled.
+                _resumeLost(thread, lost);
+                reply = lost;
+                heldByLoss = true;
+              } else {
+                reply = _addPlaceholder(thread);
+              }
             }
             final current = reply;
             if (current == null) {
@@ -302,8 +317,9 @@ extension _ChatControllerStreaming on ChatController {
               reply = null;
               final drain = _turnEnded(
                 thread,
-                halted: event.failed || event.stopped,
+                halted: event.failed || event.stopped || heldByLoss,
               );
+              heldByLoss = false;
               if (drain) _awaitSettle(thread);
               _refetchForeignTurn(thread);
               unawaited(refreshActive());
@@ -314,9 +330,10 @@ extension _ChatControllerStreaming on ChatController {
               reply = null;
               final drain = _turnEnded(
                 thread,
-                halted: current.status == MessageStatus.error,
+                halted: current.status == MessageStatus.error || heldByLoss,
                 idleOnly: true,
               );
+              heldByLoss = false;
               if (drain) _drainQueue(thread);
               _refetchForeignTurn(thread);
               unawaited(refreshActive());
@@ -327,6 +344,7 @@ extension _ChatControllerStreaming on ChatController {
           cancelOnError: true,
         );
     _following.add(subscription);
+    _followByThread[threadId] = subscription;
   }
 
   /// An event on the follow-ups while no reply is open. It is about the
@@ -421,6 +439,49 @@ extension _ChatControllerStreaming on ChatController {
     return null;
   }
 
+  /// After a reply was settled because the server no longer has its turn (or
+  /// could not say): the thread is read again at once, and picked up again, so
+  /// a turn that goes on, or finished, fills the same bubble instead of a
+  /// second one on the next open. A pick-up that finds nothing running closes
+  /// without events and the notice stays.
+  void _afterLossSettle(
+    ChatThread thread,
+    ChatTransport? transport,
+    String? profile,
+  ) {
+    _refetch.add(thread);
+    _refetchIfIdle(thread);
+    if (transport != null) _followUps(transport, thread, profile);
+  }
+
+  /// The reply of [thread] that was settled as lost and is its last assistant
+  /// message, if there is one: what a pick-up feeds when the turn it settled
+  /// shows signs of life again.
+  ChatMessage? _lostReply(ChatThread thread) {
+    for (final message in thread.messages.reversed) {
+      if (message.role != ChatRole.assistant) continue;
+      return message.loss != null && message.status == MessageStatus.error
+          ? message
+          : null;
+    }
+    return null;
+  }
+
+  /// Takes the settled [reply] back as a turn that runs: the notice goes, and
+  /// the reply is pending again with what it had.
+  void _resumeLost(ChatThread thread, ChatMessage reply) {
+    _queueTurnReady.remove(thread);
+    _queueSettled.remove(thread);
+    _settleTimers.remove(thread)?.cancel();
+    _updateReply(thread, reply, () {
+      reply.loss = null;
+      reply.error = null;
+      reply.status = reply.content.isEmpty && reply.sealedProse.isEmpty
+          ? MessageStatus.thinking
+          : MessageStatus.streaming;
+    });
+  }
+
   /// Keeps [reply], whose connection was lost, as it is and says so, instead of
   /// failing it: its text and running tool calls stay, no error is shown or
   /// announced, the queue keeps waiting behind it, and Retry, Edit and Branch
@@ -494,7 +555,9 @@ extension _ChatControllerStreaming on ChatController {
   ChatMessage? _settledReply(ChatThread thread) {
     for (final message in thread.messages.reversed) {
       if (message.role != ChatRole.assistant) continue;
-      return message.settledWithoutCompletion ? message : null;
+      return message.settledWithoutCompletion || message.loss != null
+          ? message
+          : null;
     }
     return null;
   }

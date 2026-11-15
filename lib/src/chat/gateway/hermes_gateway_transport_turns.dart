@@ -112,9 +112,9 @@ extension _Turns on HermesGatewayTransport {
 
   /// What the server says of [storedId]: still listed as running, not listed
   /// (or listed idle), or nothing readable. A refused `session.active_list`
-  /// says nothing about the turn, so it is not taken for either answer; a dead
-  /// socket ends its watch on its own, which sends the reply down the reconnect
-  /// path.
+  /// says nothing about the turn, so it is not taken for either answer. A probe
+  /// that found the socket closed or timed out is no answer from the server at
+  /// all: the connection is lost, which is the reconnect path's to handle.
   Future<_Probe> _probeTurn(GatewayRpcClient client, String storedId) async {
     try {
       final statuses = _statusesOf(
@@ -127,7 +127,7 @@ extension _Turns on HermesGatewayTransport {
     } on GatewayRpcException {
       return _Probe.refused;
     } on GatewayConnectionClosed {
-      return _Probe.refused;
+      return _Probe.closed;
     }
   }
 
@@ -143,7 +143,9 @@ extension _Turns on HermesGatewayTransport {
   /// [GatewayReplyUnconfirmed]. Nothing is resent.
   Future<bool> _advance(_Watch watch, String storedId) async {
     final pending = watch.events.moveNext();
-    final quietSince = clock.now();
+    // Monotonic: a device that slept for an hour did not wait an hour for the
+    // server, and its silence says nothing of the turn.
+    final quiet = _stopwatch()..start();
     var refused = 0;
     while (true) {
       try {
@@ -153,6 +155,10 @@ extension _Turns on HermesGatewayTransport {
           case _Probe.over:
             _record('gateway.turn_settled', {'via': 'silence_probe'});
             throw const GatewayTurnEnded();
+          case _Probe.closed:
+            // The socket is gone (or never answered and was dropped): the
+            // watch ends and the reply reconnects, replays and picks up.
+            return false;
           case _Probe.refused:
             if (++refused >= _maxRefusedProbes) {
               _record('gateway.turn_settled', {'via': 'probe_refused'});
@@ -160,10 +166,12 @@ extension _Turns on HermesGatewayTransport {
             }
           case _Probe.running:
             refused = 0;
-        }
-        if (clock.now().difference(quietSince) >= quietBound) {
-          _record('gateway.turn_settled', {'via': 'quiet_bound'});
-          throw const GatewayReplyUnconfirmed();
+            // Only a server that answered and lists the turn has the say on
+            // how long that turn may stay silent.
+            if (quiet.elapsed >= quietBound) {
+              _record('gateway.turn_settled', {'via': 'quiet_bound'});
+              throw const GatewayReplyUnconfirmed();
+            }
         }
       }
     }

@@ -318,7 +318,10 @@ Widget _buildText(
             'unconfirmed' => context.l10n.chatReplyUnconfirmed,
             _ => context.l10n.chatReplyInterruptedGone,
           },
-          announceKey: message.id,
+          // The id repeats after a sign-out resets the counter; the creation
+          // time does not.
+          announceKey:
+              '${message.id}#${message.createdAt?.microsecondsSinceEpoch}#$loss',
         )
       else if (error != null)
         if (onCheckProviders != null && isProviderReplyError(error))

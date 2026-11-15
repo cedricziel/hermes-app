@@ -266,8 +266,13 @@ extension _ChatControllerSending on ChatController {
           : 'completed';
     }
 
+    // Ends this send from outside, with an error, once the controller decided
+    // the reply is over: no later frame of it may touch the reply again.
+    late final void Function(Object) finish;
+
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
+      _sendEnds[thread]?.remove(finish);
       // A turn that may still run keeps its mixture-of-agents card and its
       // warnings: nothing of it ended.
       final holding = lost(error);
@@ -357,6 +362,9 @@ extension _ChatControllerSending on ChatController {
         );
         if (!_currentActivity(epoch)) return;
         _announce(thread, const ReplyCompleted('', failed: true), profile);
+        // A reply the server lost may still be picked up and read again: what
+        // it did meanwhile goes into this same bubble.
+        if (loss != null) _afterLossSettle(thread, transport, profile);
         // A send that gave up asks for the thread to be read again: what
         // Hermes ran meanwhile is in its history. The read keeps this failed
         // turn after it (see [refreshThread]).
@@ -390,6 +398,11 @@ extension _ChatControllerSending on ChatController {
       }
     }
 
+    finish = (Object error) {
+      if (!_replies.contains(subscription)) return;
+      unawaited(subscription.cancel());
+      end(error);
+    };
     _sending.update(thread, (n) => n + 1, ifAbsent: () => 1);
     liveActivities?.begin(thread, profile: profile);
     _announcedTurns.add(thread);
@@ -593,5 +606,6 @@ extension _ChatControllerSending on ChatController {
       cancelOnError: true,
     );
     _replies.add(subscription);
+    (_sendEnds[thread] ??= []).add(finish);
   }
 }

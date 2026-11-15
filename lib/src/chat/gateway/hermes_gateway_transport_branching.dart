@@ -22,42 +22,86 @@ extension _Branching on HermesGatewayTransport {
     if (runtimeId == null) return false;
     final lostRuntime = runtimeId;
     var client = lost ? null : _connected();
+    var resolved = false;
     if (client == null) {
       // The listener may still be reconnecting after a dropped socket. Ask
       // the server which runtime session owns this stored thread before
       // concluding that the reply has already ended.
       client = await _client();
-      final Map<String, Object?> resumed;
-      try {
-        resumed = await _call(client, 'session.resume', {
-          'session_id': threadId,
-          'profile': ?owner.$1,
-          'source': gatewaySessionSource,
-        });
-      } on GatewayRpcException catch (error) {
-        // The server says the session is not there: the reply is not on it,
-        // which is an answer to the stop, not a failure to ask.
-        if (isFinalResumeRefusal(error)) {
-          throw GatewaySessionGone(
-            error.code,
-            restarted: _restartedSince(client, lostRuntime),
-          );
-        }
-        rethrow;
-      }
-      if (resumed['running'] != true) return false;
+      final resumed = await _resumeForStop(
+        client,
+        owner,
+        threadId,
+        lostRuntime,
+      );
+      if (resumed['running'] != true && !_continued(resumed)) return false;
       runtimeId = resumed['session_id'] as String? ?? threadId;
+      resolved = true;
     }
-    final Map<String, Object?> result;
+    final live = client;
+    Future<Map<String, Object?>> interrupt(String id) =>
+        _call(live, 'session.interrupt', {'session_id': id});
     try {
-      result = await _call(client, 'session.interrupt', {
-        'session_id': runtimeId,
+      final result = await interrupt(runtimeId);
+      return result['status'] == 'interrupted';
+    } on GatewayRpcException catch (error) {
+      if (error.code != _sessionNotFound) rethrow;
+      if (resolved) {
+        throw GatewaySessionGone(
+          error.code,
+          restarted: _restartedSince(live, lostRuntime),
+        );
+      }
+      // 4001: the runtime session this app held is gone (reaped, or the server
+      // restarted). Ask which runtime session the stored thread is on now: a
+      // turn that runs there, or that Hermes re-runs by itself after a restart
+      // (`auto_continue`), is the one to stop.
+      final resumed = await _resumeForStop(live, owner, threadId, lostRuntime);
+      if (resumed['running'] != true && !_continued(resumed)) {
+        // Nothing runs: a restart took the turn with it, or it finished and
+        // was reaped (then there is nothing to stop, and the reply is read).
+        if (_restartedSince(live, lostRuntime)) {
+          throw GatewaySessionGone(error.code, restarted: true);
+        }
+        return false;
+      }
+      try {
+        final result = await interrupt(
+          resumed['session_id'] as String? ?? threadId,
+        );
+        return result['status'] == 'interrupted';
+      } on GatewayRpcException catch (again) {
+        if (again.code != _sessionNotFound) rethrow;
+        throw GatewaySessionGone(
+          again.code,
+          restarted: _restartedSince(live, lostRuntime),
+        );
+      }
+    }
+  }
+
+  /// Whether a `session.resume` answer says Hermes re-runs the interrupted turn
+  /// by itself.
+  bool _continued(Map<String, Object?> resumed) =>
+      resumed['auto_continue'] != null && resumed['auto_continue'] != false;
+
+  /// The `session.resume` a stop makes to find the runtime session of the
+  /// thread. A final refusal is an answer to the stop: the reply is not on the
+  /// server.
+  Future<Map<String, Object?>> _resumeForStop(
+    GatewayRpcClient client,
+    _ThreadOwner owner,
+    String threadId,
+    String lostRuntime,
+  ) async {
+    try {
+      return await _call(client, 'session.resume', {
+        'session_id': threadId,
+        'profile': ?owner.$1,
+        'source': gatewaySessionSource,
       });
     } on GatewayRpcException catch (error) {
-      // 4001: the runtime session is gone (reaped, or the server restarted and
-      // took the turn with it). There is nothing to interrupt, and the reply
-      // must not wait for a stop that can never land.
-      if (error.code == _sessionNotFound) {
+      if (isFinalResumeRefusal(error)) {
         throw GatewaySessionGone(
           error.code,
           restarted: _restartedSince(client, lostRuntime),
@@ -65,7 +109,6 @@ extension _Branching on HermesGatewayTransport {
       }
       rethrow;
     }
-    return result['status'] == 'interrupted';
   }
 
   Future<int?> _undoLastTurn(

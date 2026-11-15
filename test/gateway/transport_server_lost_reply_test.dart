@@ -74,6 +74,7 @@ void main() {
       connect: gateway.connect,
       random: _FixedRandom(0.5),
       quietBound: quietBound,
+      stopwatch: () => async.getClock(DateTime(2026)).stopwatch(),
     );
     body(async);
   });
@@ -427,24 +428,29 @@ void main() {
       return result.future;
     }
 
-    test('an interrupt answered 4001 is a session gone, not a failed stop', () {
-      fake((async) {
-        gateway.turn = (g, sid) => g.event('message.start', sid);
-        gateway.handlers['session.interrupt'] = (_) =>
-            throw const FakeRpcError(4001, 'session not found');
-        final seen = _listen(transport.send(text: 'hi'));
-        async.flushMicrotasks();
+    test(
+      'an interrupt answered 4001, and a resume that refuses the thread, is a '
+      'session gone, not a failed stop',
+      () {
+        fake((async) {
+          gateway.turn = (g, sid) => g.event('message.start', sid);
+          gateway.resumeResult = null;
+          gateway.handlers['session.interrupt'] = (_) =>
+              throw const FakeRpcError(4001, 'session not found');
+          final seen = _listen(transport.send(text: 'hi'));
+          async.flushMicrotasks();
 
-        Object? error;
-        unawaited(stopError(async).then((e) => error = e));
-        async.flushMicrotasks();
+          Object? error;
+          unawaited(stopError(async).then((e) => error = e));
+          async.flushMicrotasks();
 
-        expect(error, isA<GatewaySessionGone>());
-        expect((error! as GatewaySessionGone).code, 4001);
-        expect((error! as GatewaySessionGone).restarted, isFalse);
-        unawaited(seen.subscription.cancel());
-      });
-    });
+          expect(error, isA<GatewaySessionGone>());
+          expect((error! as GatewaySessionGone).code, 4007);
+          expect((error! as GatewaySessionGone).restarted, isFalse);
+          unawaited(seen.subscription.cancel());
+        });
+      },
+    );
 
     test('another answer from the interrupt is still a failed stop', () {
       fake((async) {
@@ -741,5 +747,216 @@ void main() {
         });
       },
     );
+  });
+
+  group('the silence bound is only for a server that answered', () {
+    _Seen quiet(FakeAsync async) {
+      gateway.turn = (g, sid) {
+        g.event('message.start', sid);
+        g.event('tool.start', sid, {'tool_id': 't1', 'name': 'terminal'});
+      };
+      final seen = _listen(transport.send(text: 'hi'));
+      async.flushMicrotasks();
+      return seen;
+    }
+
+    test('refused probes never trip it, however long the silence', () {
+      fake((async) {
+        gateway.handlers['session.active_list'] = (_) =>
+            throw const FakeRpcError(5000, 'busy');
+        final seen = quiet(async);
+
+        // Two refused probes, past the one-minute bound: not unconfirmed yet.
+        async.elapse(const Duration(seconds: 90));
+
+        expect(seen.error, isNull);
+        expect(submits(), 1);
+      }, quietBound: const Duration(minutes: 1));
+    });
+
+    test('a probe that found the connection dead is a lost connection: the '
+        'reply reconnects instead of settling', () {
+      fake((async) {
+        gateway.silent.add('session.active_list');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        final seen = quiet(async);
+
+        async.elapse(const Duration(minutes: 3));
+
+        expect(seen.error, isNot(isA<GatewayReplyUnconfirmed>()));
+        expect(resumes(), greaterThan(0));
+        expect(submits(), 1);
+        unawaited(seen.subscription.cancel());
+      }, quietBound: const Duration(minutes: 1));
+    });
+
+    test('time the device slept is not silence: a monotonic stopwatch that did '
+        'not run does not trip it', () {
+      fakeAsync((async) {
+        gateway = FakeGateway()
+          ..stampSeq = true
+          ..sendReady = true
+          ..activeSessions = {'stored-1': 'working'};
+        // A stopwatch that stands still, as the monotonic clock does in sleep.
+        transport = HermesGatewayTransport(
+          connect: gateway.connect,
+          random: _FixedRandom(0.5),
+          quietBound: const Duration(minutes: 1),
+          stopwatch: Stopwatch.new,
+        );
+        final seen = quiet(async);
+
+        async.elapse(const Duration(minutes: 10));
+
+        expect(seen.error, isNull);
+      });
+    });
+  });
+
+  group('a resume that answers auto_continue on the same runtime session', () {
+    test('is not a re-run: the reply ends with what the session holds', () {
+      fake((async) {
+        gateway.turn = (g, sid) {
+          _dropDuringTool(g, sid);
+          g.resumeResult = {
+            'session_id': 'rt-1',
+            'running': false,
+            'auto_continue': {'attempt': 1},
+            'messages': [
+              {'role': 'user', 'text': 'hi'},
+              {'role': 'assistant', 'text': 'Finished.'},
+            ],
+          };
+        };
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 5));
+
+        expect(seen.events.whereType<ReplyRebuilt>(), isEmpty);
+        expect(
+          seen.events.whereType<ReplyCompleted>().single.text,
+          'Finished.',
+        );
+        expect(seen.done, isTrue);
+        expect(submits(), 1);
+      });
+    });
+  });
+
+  group('Stop re-resolves the runtime session after a 4001', () {
+    Future<Object?> stop(FakeAsync async) {
+      final result = Completer<Object?>();
+      transport
+          .stopReply('stored-1')
+          .then(
+            result.complete,
+            onError: (Object error) => result.complete(error),
+          );
+      async.flushMicrotasks();
+      return result.future;
+    }
+
+    List<String> interrupted() => [
+      for (final r in gateway.requests)
+        if (r['method'] == 'session.interrupt')
+          (r['params'] as Map)['session_id'] as String,
+    ];
+
+    void interruptAnswers(FakeGateway g) {
+      g.handlers['session.interrupt'] = (params) {
+        if (params['session_id'] == 'rt-1') {
+          throw const FakeRpcError(4001, 'session not found');
+        }
+        return {'status': 'interrupted'};
+      };
+    }
+
+    test('a turn that runs on the new runtime session is the one stopped', () {
+      fake((async) {
+        gateway.turn = (g, sid) => g.event('message.start', sid);
+        interruptAnswers(gateway);
+        gateway.resumeResult = {'session_id': 'rt-9', 'running': true};
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        Object? result;
+        unawaited(stop(async).then((r) => result = r));
+        async.flushMicrotasks();
+
+        expect(result, isTrue);
+        expect(interrupted(), ['rt-1', 'rt-9']);
+        unawaited(seen.subscription.cancel());
+      });
+    });
+
+    test(
+      'a re-run Hermes schedules after a restart is reached by the stop',
+      () {
+        fake((async) {
+          gateway.turn = (g, sid) => g.event('message.start', sid);
+          interruptAnswers(gateway);
+          gateway.resumeResult = {
+            'session_id': 'rt-9',
+            'running': false,
+            'auto_continue': {'attempt': 1},
+          };
+          final seen = _listen(transport.send(text: 'hi'));
+          async.flushMicrotasks();
+
+          Object? result;
+          unawaited(stop(async).then((r) => result = r));
+          async.flushMicrotasks();
+
+          expect(result, isTrue);
+          expect(interrupted(), ['rt-1', 'rt-9']);
+          unawaited(seen.subscription.cancel());
+        });
+      },
+    );
+
+    test('nothing running anywhere after a reap is nothing to stop', () {
+      fake((async) {
+        gateway.turn = (g, sid) => g.event('message.start', sid);
+        interruptAnswers(gateway);
+        gateway.resumeResult = {'session_id': 'rt-9', 'running': false};
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        Object? result;
+        unawaited(stop(async).then((r) => result = r));
+        async.flushMicrotasks();
+
+        expect(result, isFalse);
+        expect(interrupted(), ['rt-1']);
+        unawaited(seen.subscription.cancel());
+      });
+    });
+
+    test('a lost reply on a restarted server whose re-run is scheduled is '
+        'stopped on the new runtime session', () {
+      fake((async) {
+        gateway.silent.add('session.resume');
+        gateway.turn = (g, sid) => _dropDuringTool(g, sid);
+        final lost = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 61));
+        expect(lost.error, isA<GatewayReplyLost>());
+        gateway.silent.remove('session.resume');
+        gateway.epoch = 'epoch-2';
+        interruptAnswers(gateway);
+        gateway.resumeResult = {
+          'session_id': 'rt-9',
+          'running': false,
+          'auto_continue': {'attempt': 1},
+        };
+
+        Object? result;
+        unawaited(stop(async).then((r) => result = r));
+        async.flushMicrotasks();
+
+        expect(result, isTrue);
+        expect(interrupted(), ['rt-9']);
+        expect(submits(), 1);
+      });
+    });
   });
 }

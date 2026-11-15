@@ -45,6 +45,18 @@ class _ReplyInterruptedNoteState extends State<ReplyInterruptedNote> {
   @override
   void initState() {
     super.initState();
+    _announce();
+  }
+
+  /// The list keeps the row while the reply is settled as something else (the
+  /// note changed), so a new key announces here as well.
+  @override
+  void didUpdateWidget(ReplyInterruptedNote oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.announceKey != widget.announceKey) _announce();
+  }
+
+  void _announce() {
     final key = widget.announceKey;
     if (key == null || !ReplyInterruptedNote._announced.add(key)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -62,6 +74,9 @@ class _ReplyInterruptedNoteState extends State<ReplyInterruptedNote> {
   @override
   Widget build(BuildContext context) {
     final color = context.hermesColors.warning;
+    // The icon and its offset follow the text, so they stay beside the first
+    // line at any text size.
+    final scaler = MediaQuery.textScalerOf(context);
     return Semantics(
       container: true,
       label: widget.text,
@@ -72,10 +87,10 @@ class _ReplyInterruptedNoteState extends State<ReplyInterruptedNote> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: EdgeInsets.only(top: scaler.scale(2)),
                 child: AppIcon(
                   widget.unconfirmed ? AppIcons.info : AppIcons.stop,
-                  size: 16,
+                  size: scaler.scale(16),
                   color: color,
                 ),
               ),

@@ -106,7 +106,7 @@ WidgetbookFolder replyInterruptedNode() => WidgetbookFolder(
             unconfirmed: true,
             text:
                 "Couldn't confirm how this reply ended. It may have finished; "
-                'check the conversation before trying again.',
+                'check the conversation first.',
           ),
           width: 320,
         ),

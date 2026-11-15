@@ -131,7 +131,7 @@ const _liveStatuses = {
 const _sessionNotFound = 4001;
 
 /// What `session.active_list` says of a reply's session when it is asked about.
-enum _Probe { running, over, refused }
+enum _Probe { running, over, refused, closed }
 
 /// How many probes in a row may be refused or unreadable before a silent reply
 /// is given up on as unconfirmed. At the default probe interval that is three
@@ -170,6 +170,7 @@ class HermesGatewayTransport
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
     this.quietBound = const Duration(minutes: 20),
+    this._stopwatch = Stopwatch.new,
     this.readTimeout = const Duration(seconds: 10),
     this.longTimeout = const Duration(seconds: 90),
     Random? random,
@@ -223,9 +224,18 @@ class HermesGatewayTransport
   final Duration silenceProbe;
 
   /// How long a reply may get no frame of its session while the server keeps
-  /// listing its turn as running, before it is given up on as unconfirmed.
-  /// Longer than the server keeps a silent turn alive (600 s).
+  /// listing its turn as running, before it is settled as unconfirmed. This is
+  /// a bound on how long a reply is held open, not a claim that the turn is
+  /// over: the server's own 600 s staleness is measured on an activity clock
+  /// that includes API waits, stream tokens and tool heartbeats that never
+  /// reach the client, so it says nothing of the frames this app sees. The
+  /// settled reply is picked up and read again, so a late result lands in the
+  /// same bubble. Checked only after the server answered that it lists the turn.
   final Duration quietBound;
+
+  /// Measures how long a reply has been silent. Monotonic, so a sleeping
+  /// device does not count; tests inject one that follows their fake clock.
+  final Stopwatch Function() _stopwatch;
 
   final GatewayConnect _connect;
   final MessagingConnectionTracer? _telemetry;

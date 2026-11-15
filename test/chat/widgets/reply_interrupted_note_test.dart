@@ -99,6 +99,44 @@ void main() {
     expect(announced, hasLength(2));
   });
 
+  testWidgets('a new key on the same row is announced, as when the note '
+      'changes', (tester) async {
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
+      SystemChannels.accessibility,
+      (message) async {
+        if (message is Map && message['type'] == 'announce') {
+          announced.add((message['data'] as Map)['message'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(
+            SystemChannels.accessibility,
+            null,
+          ),
+    );
+    Future<void> pump(String text, String key) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: Scaffold(
+            body: ReplyInterruptedNote(text: text, announceKey: key),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    await pump('Restarted', 'm1#1#restarted');
+    await pump('Not confirmed', 'm1#1#unconfirmed');
+    // The same id after a sign-out reset the counter is another reply.
+    await pump('Restarted', 'm1#2#restarted');
+
+    expect(announced, ['Restarted', 'Not confirmed', 'Restarted']);
+  });
+
   testWidgets('without a key it never announces', (tester) async {
     await pumpNote(tester);
 
@@ -116,6 +154,16 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('the icon scales with the text', (tester) async {
+    await pumpNote(tester);
+    final normal = tester.getSize(find.byType(Icon)).width;
+
+    await pumpNote(tester, scale: 2);
+    final large = tester.getSize(find.byType(Icon)).width;
+
+    expect(large, normal * 2);
+  });
+
   for (final dark in [false, true]) {
     testWidgets('wraps at the largest text size without overflowing '
         '(${dark ? 'dark' : 'light'})', (tester) async {
@@ -124,7 +172,7 @@ void main() {
         scale: 3,
         text:
             "Couldn't confirm how this reply ended. It may have finished; "
-            'check the conversation before trying again.',
+            'check the conversation first.',
         unconfirmed: true,
         theme: dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
       );
