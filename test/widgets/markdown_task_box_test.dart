@@ -8,6 +8,7 @@ import 'package:hermes_app/src/skills/widgets/skill_markdown_panel.dart';
 import '../bot_mode/group_protocol/groups_repository_test.dart' as fixtures;
 
 const _tasks = '- [ ] item\n- [x] done\n';
+const _radios = '- ( ) option\n- (x) chosen\n';
 
 /// A task list read from Markdown is drawn without a Material `Checkbox`
 /// (which throws below a text span) and announces its state.
@@ -18,15 +19,59 @@ void _expectReadOnlyTasks(WidgetTester tester) {
   expect(find.byIcon(Icons.check_box_outline_blank), findsOneWidget);
   expect(
     tester.getSemantics(find.textContaining('item', findRichText: true)),
-    isSemantics(hasCheckedState: true, isChecked: false),
+    isSemantics(
+      hasCheckedState: true,
+      isChecked: false,
+      hasTapAction: false,
+      isFocusable: false,
+    ),
   );
   expect(
     tester.getSemantics(find.textContaining('done', findRichText: true)),
-    isSemantics(hasCheckedState: true, isChecked: true),
+    isSemantics(
+      hasCheckedState: true,
+      isChecked: true,
+      hasTapAction: false,
+      isFocusable: false,
+    ),
   );
 }
 
 void main() {
+  testWidgets('skill detail panel renders radio options read-only', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: SkillMarkdownPanel(text: _radios)),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.byType(Radio<bool>), findsNothing);
+    expect(find.byIcon(Icons.radio_button_unchecked), findsOneWidget);
+    expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+    expect(
+      tester.getSemantics(find.textContaining('option', findRichText: true)),
+      isSemantics(
+        hasCheckedState: true,
+        isChecked: false,
+        hasTapAction: false,
+        isFocusable: false,
+      ),
+    );
+    expect(
+      tester.getSemantics(find.textContaining('chosen', findRichText: true)),
+      isSemantics(
+        hasCheckedState: true,
+        isChecked: true,
+        hasTapAction: false,
+        isFocusable: false,
+      ),
+    );
+    handle.dispose();
+  });
+
   testWidgets('skill detail panel renders a task list', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(

@@ -49,12 +49,31 @@ void main() {
         expect(find.byType(Checkbox), findsNothing);
         expect(
           tester.getSemantics(find.textContaining('item', findRichText: true)),
-          isSemantics(isChecked: false, hasCheckedState: true),
+          isSemantics(
+            isChecked: false,
+            hasCheckedState: true,
+            hasTapAction: false,
+            isFocusable: false,
+          ),
         );
         expect(
           tester.getSemantics(find.textContaining('done', findRichText: true)),
-          isSemantics(isChecked: true, hasCheckedState: true),
+          isSemantics(
+            isChecked: true,
+            hasCheckedState: true,
+            hasTapAction: false,
+            isFocusable: false,
+          ),
         );
+
+        // The enclosing text span scales the box once, as it scales the
+        // text: drawn size is 20 x the text scale, not 20 x scale squared.
+        final icon = find.byIcon(Icons.check_box_outline_blank);
+        final drawn =
+            tester.getSize(icon).height *
+            tester.renderObject(icon).getTransformTo(null).getMaxScaleOnAxis();
+        expect(drawn, closeTo(20 * scale, 1));
+
         await tester.tap(find.textContaining('item', findRichText: true));
         await tester.pump();
         expect(_values(tester), [false, true]);

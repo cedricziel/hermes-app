@@ -455,6 +455,7 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               onLinkTap: (url, _) => unawaited(_tap(context, url)),
               checkboxBuilder: readOnlyTaskBox,
+              radioOptionBuilder: readOnlyRadioOption,
               imageBuilder: (context, url, width, height) => Text(
                 notLoaded,
                 style: const TextStyle(fontStyle: FontStyle.italic),

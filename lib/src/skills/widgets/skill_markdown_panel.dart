@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
 
+import '../../widgets/bounded_markdown.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/markdown_links.dart';
 import '../../widgets/markdown_task_box.dart';
@@ -13,10 +13,11 @@ class SkillMarkdownPanel extends StatelessWidget {
     children: [
       Padding(
         padding: EdgeInsets.all(GroupedMetrics.of(context).rowPadding),
-        child: GptMarkdown(
+        child: BoundedMarkdown(
           text,
           onLinkTap: markdownLinkHandler(),
           checkboxBuilder: readOnlyTaskBox,
+          radioOptionBuilder: readOnlyRadioOption,
         ),
       ),
     ],

@@ -4,22 +4,43 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 /// A `GptMarkdown.checkboxBuilder` that draws a task-list item (`- [x] done`)
 /// as a state, not a control.
 ///
-/// The package's own box is a Material `Checkbox`, which throws when no
-/// Material sits between it and the text (a Scaffold's is not enough: the
-/// lookup stops at the text's inline widget) and would stay focusable and
-/// hoverable in markdown that nobody can edit. This one needs no Material,
-/// cannot be tapped, and reads as checked or unchecked to a screen reader.
+/// gpt_markdown 1.4.1 builds its `Checkbox` and `Radio` from the separate
+/// `material_ui` package, whose `debugCheckHasMaterial` wants a `material_ui`
+/// Material, not Flutter's: a Scaffold above the text does not satisfy it.
+/// Chat works only because `FlyerMaterialScope` provides one. These builders
+/// need no Material, cannot be tapped or focused, and read as checked or
+/// unchecked (or selected) to a screen reader.
 Widget readOnlyTaskBox(
   BuildContext context,
   bool checked,
   Widget content,
   CheckboxStyle style,
-) {
+) => _stateBox(
+  context,
+  checked,
+  content,
+  checked ? Icons.check_box : Icons.check_box_outline_blank,
+);
+
+/// The `GptMarkdown.radioOptionBuilder` twin of [readOnlyTaskBox]
+/// (`- ( ) option`, `(x) chosen`).
+Widget readOnlyRadioOption(
+  BuildContext context,
+  bool selected,
+  Widget content,
+  CheckboxStyle style,
+) => _stateBox(
+  context,
+  selected,
+  content,
+  selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+);
+
+Widget _stateBox(BuildContext context, bool on, Widget content, IconData icon) {
   final scheme = Theme.of(context).colorScheme;
-  final size = MediaQuery.textScalerOf(context).scale(20);
   return MergeSemantics(
     child: Semantics(
-      checked: checked,
+      checked: on,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -27,10 +48,12 @@ Widget readOnlyTaskBox(
           Padding(
             padding: const EdgeInsetsDirectional.only(start: 5, end: 8),
             child: ExcludeSemantics(
+              // The enclosing text span already scales this; an Icon ignores
+              // the text scale by default.
               child: Icon(
-                checked ? Icons.check_box : Icons.check_box_outline_blank,
-                size: size,
-                color: checked ? scheme.primary : scheme.onSurfaceVariant,
+                icon,
+                size: 20,
+                color: on ? scheme.primary : scheme.onSurfaceVariant,
               ),
             ),
           ),
