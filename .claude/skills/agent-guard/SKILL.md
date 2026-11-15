@@ -46,6 +46,17 @@ add a test, do not work around it.
   aliases, removing or `chmod -x` of the pre-commit hook, `git pull --rebase`
   on a pushed branch, and a bare `hermes` command that would use the real home
   (set `HERMES_HOME=` or pass `--isolated`).
+- The hook-integrity rules (core.hooksPath, the pre-commit file, commit without
+  the hook) apply only to this project's own repo: the command's effective
+  directory (`cd`, `git -C`) must share a git common dir with
+  `$CLAUDE_PROJECT_DIR`; an unset variable means in-project. `--global` and
+  `--system` config changes are always blocked. History rules (stash, force,
+  delete, rebase, `add -A`, `--no-verify`) apply everywhere.
+- A bare `hermes` call is allowed only with `HERMES_HOME=` (non-empty) in front
+  of that command, an earlier `export` or bare assignment, or `--isolated`.
+- After a `git pull`/`merge` the PostToolUse hook runs only when the PreToolUse
+  pass saw that command (it records the reflog length in a temp file keyed by
+  `tool_use_id`) and the reflog grew.
 - The pre-commit check asks `git rev-parse --git-path hooks/pre-commit`, so it
   follows `core.hooksPath` like `tool/setup_git_hooks.dart` does, and wants the
   file executable.
@@ -53,8 +64,9 @@ add a test, do not work around it.
 Known gaps: a program named by substitution (`$(which git) stash`), a banned
 command inside a script file or a git alias defined in a config file, `find
 -exec` and similar runners, other ways to delete a remote branch through
-`gh`, and hosts without `python3` (the hook then cannot run and does not
-block).
+`gh`, a hook path built from a variable (`$HOOKS/pre-commit`) or written with
+`sed -i` or `python`, and hosts without `python3` (the hook then cannot run and
+does not block).
 
 ## Add or change a rule
 

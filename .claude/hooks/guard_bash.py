@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 KEYWORDS = {"if", "then", "else", "elif", "do", "while", "until", "{", "}", "!"}
@@ -290,15 +291,6 @@ def _lex(s, i=0, nested=False):
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\+?=")
 
 
-def _short_flags_with_arg(w, flags):
-    """Pop leading options; options in `flags` (as a cluster's last letter) take the next word."""
-    while w and w[0].startswith("-") and w[0] != "--" and not w[0].startswith("--"):
-        opt = w.pop(0)
-        if opt[-1] in flags and w:
-            w.pop(0)
-    return w
-
-
 def _strip_prefix(words):
     """Drop assignments, keywords and wrappers; return remaining argv."""
     w = list(words)
@@ -375,6 +367,12 @@ def _strip_prefix(words):
                     w.pop(0)
             if w:
                 w.pop(0)  # duration
+        elif t == "uv" and len(w) > 1 and w[1] == "run":
+            w = w[2:]
+            while w and w[0].startswith("-"):
+                opt = w.pop(0)
+                if opt in ("--with", "--python", "-p", "--project", "--directory", "--env-file", "--extra", "--group", "--package") and w:
+                    w.pop(0)
         elif t == "xargs":
             w.pop(0)
             while w and w[0].startswith("-"):
@@ -383,6 +381,17 @@ def _strip_prefix(words):
                     w.pop(0)
         else:
             break
+    return _python_module(w)
+
+
+def _python_module(w):
+    """`python3 -m hermes_cli ...` is the hermes command."""
+    if w and re.match(r"^python[0-9.]*$", os.path.basename(w[0])):
+        i = 1
+        while i < len(w) and w[i] in ("-I", "-u", "-B", "-E", "-s", "-S", "-O", "-q"):
+            i += 1
+        if i + 1 < len(w) and w[i] == "-m" and w[i + 1].split(".")[0] in ("hermes_cli", "hermes"):
+            return ["hermes"] + w[i + 2 :]
     return w
 
 
@@ -543,11 +552,51 @@ def _hook_ok(cwd):
     return os.path.isfile(full) and os.access(full, os.X_OK)
 
 
+def _common_dir(path):
+    rc, out = _git(path, "rev-parse", "--git-common-dir")
+    if rc != 0 or not out:
+        return None
+    return os.path.realpath(os.path.join(path, out))
+
+
+def _in_project(path):
+    """Is the repo at `path` this project's repo (same git common dir)?
+
+    The hook-integrity rules only protect the project's own hook. An unset
+    CLAUDE_PROJECT_DIR, or a git failure, counts as in-project.
+    """
+    proj = os.environ.get("CLAUDE_PROJECT_DIR")
+    if not proj:
+        return True
+    mine = _common_dir(proj)
+    if mine is None:
+        return True
+    theirs = _common_dir(path)
+    return theirs is None or theirs == mine
+
+
+def _path_in_project(word, cwd):
+    """Is a hook-file path inside the project's repo? Unresolvable means yes."""
+    if "$(" in word or word.startswith("$"):
+        return True
+    full = os.path.normpath(os.path.join(cwd, os.path.expanduser(word)))
+    d = os.path.dirname(full)
+    while d and not os.path.isdir(d) and d != os.path.dirname(d):
+        d = os.path.dirname(d)
+    return _in_project(d or cwd)
+
+
+def _config_truthy(entry):
+    key, eq, val = entry.partition("=")
+    return not eq or val.lower() not in ("false", "0", "no", "off")
+
+
 def _check_git(argv, cwd, installed_hook_in_same_command):
     configs, cwd, sub, rest = _git_effective(argv[1:], cwd)
+    local = _in_project(cwd)
     for c in configs:
         key = c.split("=", 1)[0]
-        if _is_hookspath(key):
+        if _is_hookspath(key) and local:
             return MSG_HOOKS_PATH
         if key.lower().startswith("alias."):
             return MSG_ALIAS
@@ -559,7 +608,10 @@ def _check_git(argv, cwd, installed_hook_in_same_command):
 
     if sub == "config":
         pos = [a for a in rest if not a.startswith("-")]
-        if any(_is_hookspath(a) for a in pos):
+        shared = any(
+            a in ("--global", "--system", "--file", "-f") or a.startswith("--file=") for a in rest
+        )
+        if any(_is_hookspath(a) for a in pos) and (shared or local):
             read = any(
                 a.startswith("--get") or a in ("-l", "--list") for a in rest
             ) or (bool(pos) and pos[0] in ("get", "list"))
@@ -610,7 +662,7 @@ def _check_git(argv, cwd, installed_hook_in_same_command):
                 pos.append(v)
         if any(p in (".", "./", ":/", ":(top)", "*") for p in pos):
             return MSG_ADD_ALL
-        if not installed_hook_in_same_command and "--help" not in rest:
+        if not installed_hook_in_same_command and "--help" not in rest and local:
             if not _hook_ok(cwd):
                 return MSG_NO_HOOK
         return None
@@ -641,9 +693,7 @@ def _check_git(argv, cwd, installed_hook_in_same_command):
 
     if sub == "pull":
         rebase = any(
-            c.lower().startswith("pull.rebase=")
-            and c.split("=", 1)[1].lower() not in ("false", "0", "no", "off")
-            for c in configs
+            c.split("=", 1)[0].lower() == "pull.rebase" and _config_truthy(c) for c in configs
         )
         for kind, v in _walk(rest, PULL_SHORT_ARG, PULL_SHORT_OPT, PULL_LONG_ARG):
             if kind == "long":
@@ -708,8 +758,18 @@ def _resolves_to_hermes_home(word, cwd):
     return False
 
 
+HOME_ASSIGN = re.compile(r"^HERMES_HOME=.+")
+
+
 def _hermes_home_set(words):
-    return any(w.startswith("HERMES_HOME=") for w in words)
+    return any(HOME_ASSIGN.match(w) for w in words)
+
+
+def _sets_home_for_later(words):
+    """A bare assignment or export statement that sets HERMES_HOME for what follows."""
+    if not words or not _hermes_home_set(words):
+        return False
+    return words[0] in ("export", "declare", "typeset") or all(ASSIGN.match(w) for w in words)
 
 
 def _hook_env_is_isolated():
@@ -721,6 +781,9 @@ def _hook_env_is_isolated():
 
 
 def _check_hermes_home(argv, cmd, cwd, home_set):
+    # only an assignment in front of this very command (or an earlier export or
+    # bare assignment) points hermes elsewhere; `HERMES_HOME=x true; hermes` does not
+    prefix = cmd.words[: max(0, len(cmd.words) - len(argv))] if argv else []
     prog = os.path.basename(argv[0]) if argv else ""
     pat = _home_pattern()
     for r in cmd.redirs:  # a redirection writes, whatever the program is
@@ -730,7 +793,7 @@ def _check_hermes_home(argv, cmd, cwd, home_set):
         args = argv[1:]
         if not (
             home_set
-            or _hermes_home_set(cmd.words)
+            or _hermes_home_set(prefix)
             or _hook_env_is_isolated()
             or any(a in HERMES_SAFE_ARGS for a in args)
         ):
@@ -747,11 +810,13 @@ def _check_hermes_home(argv, cmd, cwd, home_set):
     return None
 
 
-HOOK_PATH = re.compile(r"(?:^|/)hooks/pre-commit$")
+HOOK_PATH = re.compile(
+    r"(?:^|/)(?:hooks|\.?githooks)/pre-commit$|^\$\(\.\.\.\)(?:/hooks)?/pre-commit$"
+)
 SAFE_CHMOD = re.compile(r"^(?:[ugoa]*\+[rwXst]*x[rwXst]*|0?[0-7][1357][0-7]{1,2})$")
 
 
-def _check_program(argv, cmd):
+def _check_program(argv):
     prog = os.path.basename(argv[0])
     args = argv[1:]
     if prog == "hermes" and "dashboard" in args and "--stop" in args:
@@ -764,14 +829,26 @@ def _check_program(argv, cmd):
                 a.startswith("-") and not a.startswith("--") and "f" in a[1:]
             ):
                 return MSG_KILL
-    hook_args = [a for a in args if HOOK_PATH.search(a)]
-    if hook_args:
-        if prog in ("rm", "unlink", "mv", "truncate", "shred", "ln"):
-            return MSG_HOOK_FILE
-        if prog == "chmod":
-            modes = [a for a in args if not a.startswith("-") and a not in hook_args]
-            if not modes or not all(SAFE_CHMOD.match(m) for m in modes):
-                return MSG_HOOK_FILE
+    return None
+
+
+def _check_hook_file(argv, cmd, cwd):
+    """Removing, overwriting or de-executing the project's pre-commit hook."""
+    hit = [r for r in cmd.redirs if HOOK_PATH.search(r)]  # `: > hook`, `echo x > hook`
+    if argv:
+        prog = os.path.basename(argv[0])
+        args = [a for a in argv[1:] if not a.startswith("-") or a == "-"]
+        if prog in ("rm", "unlink", "mv", "truncate", "shred", "ln", "tee"):
+            hit += [a for a in args if HOOK_PATH.search(a)]
+        elif prog in ("cp", "install") and args and HOOK_PATH.search(args[-1]):
+            hit.append(args[-1])
+        elif prog == "chmod":
+            files = [a for a in argv[1:] if HOOK_PATH.search(a)]
+            rest = [a for a in argv[1:] if a not in files and a not in ("-R", "-v", "-f", "-c")]
+            if files and not (rest and SAFE_CHMOD.match(rest[0])):
+                hit += files
+    if any(_path_in_project(h, cwd) for h in hit):
+        return MSG_HOOK_FILE
     return None
 
 
@@ -794,7 +871,9 @@ def _gh_check(argv):
         return None
     if args[:2] == ["pr", "merge"]:
         for a in args[2:]:
-            if a == "--delete-branch" or (
+            if a.split("=", 1)[0] == "--delete-branch" and a.partition("=")[2].lower() != "false":
+                return MSG_DELETE
+            if (
                 a.startswith("-") and not a.startswith("--") and "d" in a[1:]
             ):
                 return MSG_DELETE
@@ -839,6 +918,8 @@ def _shell_script(prog_args):
             continue
         break
     operands = prog_args[i:]
+    if operands == ["-"]:
+        return None, True
     if c_seen:
         return (operands[0] if operands else None), False
     return None, not operands
@@ -847,39 +928,67 @@ def _shell_script(prog_args):
 def _stdin_texts(cmd):
     texts = list(cmd.heredocs) + list(cmd.herestrings)
     src = cmd.piped_from
-    if src is not None:
+    hops = 0
+    while src is not None and hops < 6:  # echo 'x' | tee f | bash
+        texts.extend(src.heredocs)
+        texts.extend(src.herestrings)
         sargv = _strip_prefix(src.words)
-        if sargv:
-            p = os.path.basename(sargv[0])
-            if p in ("echo", "printf"):
-                texts.append(" ".join(a for a in sargv[1:] if not a.startswith("-")))
-            texts.extend(src.heredocs)
-            texts.extend(src.herestrings)
+        p = os.path.basename(sargv[0]) if sargv else ""
+        if p in ("echo", "printf"):
+            texts.append(" ".join(a for a in sargv[1:] if not a.startswith("-")))
+            break
+        if p not in ("tee", "cat"):
+            break
+        src = src.piped_from
+        hops += 1
     return texts
+
+
+VAR_REF = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
+
+
+def _expand(word, env):
+    """Expand $NAME / ${NAME} for variables set earlier in the same command."""
+    if not env or "$" not in word:
+        return word
+    return VAR_REF.sub(lambda m: env.get(m.group(1) or m.group(2), m.group(0)), word)
 
 
 def _check_cmds(cmds, cwd, depth):
     saw_setup = False
     home_set = False
+    env = {}
     for cmd in cmds:
+        cmd.words = [_expand(w, env) for w in cmd.words]
+        cmd.redirs = [_expand(w, env) for w in cmd.redirs]
         words = cmd.words
+        if words and all(ASSIGN.match(w) for w in words):
+            for w in words:
+                k, _, v = w.partition("=")
+                if "$(" not in v and "`" not in v:
+                    env[k.rstrip("+")] = v
         if any("setup_git_hooks" in w for w in words):
             saw_setup = True
-        if _hermes_home_set(words):
-            home_set = True
         m = _check_env_words(words)
         if m:
             return m
         argv = _strip_prefix(words)
+        m = _check_hook_file(argv, cmd, cwd)
+        if m:
+            return m
         if not argv:
             m = _check_hermes_home([], cmd, cwd, home_set)
             if m:
                 return m
+            if _sets_home_for_later(words):
+                home_set = True
             continue
         prog = os.path.basename(argv[0])
         m = _check_hermes_home(argv, cmd, cwd, home_set)
         if m:
             return m
+        if _sets_home_for_later(words):
+            home_set = True
         if prog == "cd":
             if len(argv) > 1 and argv[1] != "-":
                 cwd = os.path.normpath(os.path.join(cwd, os.path.expanduser(argv[1])))
@@ -891,7 +1000,7 @@ def _check_cmds(cmds, cwd, depth):
         elif prog == "gh":
             m = _gh_check(argv)
         else:
-            m = _check_program(argv, cmd)
+            m = _check_program(argv)
         if m:
             return m
         if depth < 5:
@@ -935,14 +1044,42 @@ def runs_pull_or_merge(command):
     return False
 
 
+def _marker(data):
+    tid = re.sub(r"[^A-Za-z0-9_-]", "", str(data.get("tool_use_id") or ""))
+    return os.path.join(tempfile.gettempdir(), "hermes-guard-" + tid) if tid else None
+
+
+def _reflog_count(cwd):
+    rc, out = _git(cwd, "rev-list", "--walk-reflogs", "--count", "HEAD")
+    return int(out) if rc == 0 and out.isdigit() else 0
+
+
+def _record_pre(data, command):
+    """PreToolUse: remember how long HEAD's reflog is before a pull or merge runs."""
+    marker = _marker(data)
+    if marker and runs_pull_or_merge(command):
+        with open(marker, "w") as f:
+            f.write(str(_reflog_count(data.get("cwd") or os.getcwd())))
+
+
 def _post(data):
     command = (data.get("tool_input") or {}).get("command", "")
+    marker = _marker(data)
+    if not marker or not os.path.exists(marker):
+        return None  # no PreToolUse record: this was not a pull or merge we saw
+    try:
+        before = int(open(marker).read())
+        os.unlink(marker)
+    except Exception:
+        return None
     if not runs_pull_or_merge(command):
         return None
     cwd = data.get("cwd") or os.getcwd()
     rc, top = _git(cwd, "rev-parse", "--show-toplevel")
     if rc != 0 or not top:
         return None
+    if _reflog_count(top) <= before:
+        return None  # nothing new: "Already up to date", or the command failed
     rc, subject = _git(top, "reflog", "-1", "--format=%gs")
     if rc != 0 or not (subject.startswith("pull") or subject.startswith("merge")):
         return None  # nothing was integrated by this command
@@ -991,6 +1128,11 @@ def main():
             return 0
         command = (data.get("tool_input") or {}).get("command") or ""
         msg = check(command, data.get("cwd") or os.getcwd())
+        if not msg:
+            try:
+                _record_pre(data, command)
+            except Exception:
+                pass
     except Exception as e:  # fail open: an internal error must not block work
         print(
             "guard_bash: internal error, allowing the command: %r" % (e,),
