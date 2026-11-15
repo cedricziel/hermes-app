@@ -332,6 +332,14 @@ jobs:
       - name: Build simulator app with share extension and watch app
         run: flutter build ios --simulator --debug --no-codesign -d "${{ steps.simulator.outputs.udid }}"
 
+      # The Runner's unit tests (the watch relay). The build above generated
+      # the Flutter package the workspace needs.
+      - name: Runner unit tests
+        run: |
+          xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -only-testing:RunnerTests CODE_SIGNING_ALLOWED=NO
+
       # The project-level Release and Profile settings say iphoneos only, and a
       # watch target that inherits that is archived with the iOS SDK. No job
       # here archives for a device, so check the setting directly. It needs the
