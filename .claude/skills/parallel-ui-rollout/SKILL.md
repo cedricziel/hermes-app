@@ -108,7 +108,7 @@ levels and the orchestrator does the reviewing:
   lead had missed in most PRs of the run that added this section.
 - The orchestrator sends the findings back to the same lead, which keeps its
   context, and the lead writes the `## Review` section when it pushes the fixes.
-- Merge only after that follow-up push has been re-reviewed (a new isolated
+- The orchestrator arms auto-merge only after that follow-up push has been re-reviewed (a new isolated
   review of the new head SHA, in `## Review`), and only once `Analyze & test`
   has passed on the PR's current head (see "Child cloud sessions"). The
   re-review's block replaces the lead's `## Review`.
@@ -128,7 +128,7 @@ reports to the orchestrator, who merges.
 - **Stacked PRs.** Build them with plain merge commits of the lower branch into
   the upper one. Merge bottom-up: after the lower PR merges, retarget the next
   PR's base to main, then merge it. Retargeting does not rerun CI, so check the
-  required check on the current head before merging.
+  required check on the current head before arming.
 - **No rebases, no force-pushes** on a pushed branch.
 - **No `git stash`.** Agents sharing one clone share one stash list, so one
   worker's pop can take another's work. Workers use commits or patch files.
@@ -136,10 +136,11 @@ reports to the orchestrator, who merges.
   `gh api -X GET search/...`.
 - **Review.** CodeRabbit often skips stacked PRs and rate-limits. Then an
   isolated reviewer agent is the review of record.
-- **Merging is by hand.** Auto-merge armed through the API often does not fire.
-  The orchestrator merges once the required check `Analyze & test` has passed
-  on the PR's current head. A superseded commit's cancelled run shows as a
-  failure: compare the run's head sha with the PR's head before acting.
+- **Merging is by auto-merge.** The orchestrator arms squash auto-merge once
+  the PR is READY (`fleet-rules`), and GitHub merges when the required checks
+  are green on the head. Never push to an armed PR; ask the orchestrator to
+  disarm first. A superseded commit's cancelled run shows as a failure: compare
+  the run's head sha with the PR's head before acting.
 - **Release PR.** Each merge regenerates the release-please PR. Do not touch it
   until the rollout is done.
 

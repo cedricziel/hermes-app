@@ -37,8 +37,9 @@ production timeout or add retries to mask a test-only scheduling assumption.
 After a fix, run the affected tests and analysis, push to the existing PR and
 check that CI starts for the new commit. Preserve the user's preference about
 waiting; describe pending checks as pending, never as green. The orchestrator
-merges by hand once the required check is read as success on the current head
-(`fleet-rules`).
+arms auto-merge once the PR is READY, and GitHub merges when the required
+checks are green on the head (`fleet-rules`). Never push to a PR with
+auto-merge armed.
 
 VM catalog tests do not establish that the catalog compiles for the web. A
 native plugin may export a browser stub without its native-only methods (for
