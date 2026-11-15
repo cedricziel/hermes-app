@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/hermes_code_block.dart';
 import 'package:gpt_markdown/custom_widgets/code_field.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+import 'package:hermes_app/src/theme/hermes_code_colors.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/bounded_markdown.dart';
 
 const _mixed = '''
@@ -44,15 +47,25 @@ no language here
 Done.
 ''';
 
-/// What a document shows: every code block's name, code and the colour of
-/// every run in it, every other run's text and style, and the size of each
-/// block.
+/// What a document shows: every code block's name, code and size, every run's
+/// text, and the colour and weight of every run outside a code block. A code
+/// block is `CodeField` in a plain `GptMarkdown` and [HermesCodeBlock] in a
+/// `BoundedMarkdown`, which colours it by the app's code palette rather than
+/// the package's and merges runs of one colour, so only the joined text of a
+/// code block is kept.
 String _digest(WidgetTester tester) {
   final out = StringBuffer();
-  for (final field in tester.widgetList<CodeField>(find.byType(CodeField))) {
-    out.writeln('field ${field.name}|${field.codes}');
+  final blocks = find.byWidgetPredicate(
+    (w) => w is CodeField || w is HermesCodeBlock,
+  );
+  for (final block in tester.widgetList(blocks)) {
+    out.writeln(
+      block is CodeField
+          ? 'field ${block.name}|${block.codes}'
+          : 'field ${(block as HermesCodeBlock).name}|${block.codes}',
+    );
   }
-  for (final rect in tester.elementList(find.byType(CodeField))) {
+  for (final rect in tester.elementList(blocks)) {
     out.writeln('size ${(rect.renderObject! as RenderBox).size}');
   }
   void visit(InlineSpan span) {
@@ -66,8 +79,19 @@ String _digest(WidgetTester tester) {
     }
   }
 
+  final inside = tester
+      .widgetList<RichText>(
+        find.descendant(of: blocks, matching: find.byType(RichText)),
+      )
+      .toSet();
   for (final rich in tester.widgetList<RichText>(find.byType(RichText))) {
-    visit(rich.text);
+    if (inside.contains(rich)) {
+      out.writeln(
+        'code ${rich.text.toPlainText(includeSemanticsLabels: false)}',
+      );
+    } else {
+      visit(rich.text);
+    }
   }
   return out.toString();
 }
@@ -190,6 +214,41 @@ void main() {
     });
   });
 
+  group('BoundedMarkdown colours code by the shared palette', () {
+    for (final (name, theme, palette) in [
+      ('light', buildHermesLightTheme(), HermesCodeColors.light),
+      ('dark', buildHermesDarkTheme(), HermesCodeColors.dark),
+    ]) {
+      testWidgets(name, (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: const Scaffold(
+              body: BoundedMarkdown(
+                '```json\n{"a": [1, "s", true]}\n```\n\n```python\ndef f(): pass\n```',
+              ),
+            ),
+          ),
+        );
+        final styles = <String, TextStyle?>{};
+        for (final rich in tester.widgetList<RichText>(find.byType(RichText))) {
+          rich.text.visitChildren((span) {
+            if (span is TextSpan && span.text != null) {
+              styles[span.text!] = span.style;
+            }
+            return true;
+          });
+        }
+        expect(styles['"a"']?.color, palette.key);
+        expect(styles['"s"']?.color, palette.string);
+        expect(styles['1']?.color, palette.number);
+        expect(styles['true']?.color, palette.number);
+        expect(styles['true']?.fontWeight, FontWeight.w600);
+        expect(styles['def']?.color, palette.keyword);
+      });
+    }
+  });
+
   group('BoundedMarkdown renders like GptMarkdown', () {
     for (final scale in [1.0, 1.6]) {
       testWidgets('a mixed message at text scale $scale', (tester) async {
@@ -215,7 +274,7 @@ void main() {
 
   group('BoundedMarkdown keeps a block over its limits plain', () {
     bool highlighted(WidgetTester tester) => tester
-        .widgetList<CodeField>(find.byType(CodeField))
+        .widgetList<HermesCodeBlock>(find.byType(HermesCodeBlock))
         .any((f) => f.highlightCode);
 
     testWidgets('a block within its limits is coloured', (tester) async {
@@ -238,9 +297,15 @@ void main() {
     for (final form in forms.entries) {
       testWidgets(form.key, (tester) async {
         await _pump(tester, (t) => BoundedMarkdown(t), form.value);
-        expect(find.byType(CodeField), findsWidgets, reason: 'a code block');
+        expect(
+          find.byType(HermesCodeBlock),
+          findsWidgets,
+          reason: 'a code block',
+        );
         expect(highlighted(tester), isFalse);
-        for (final f in tester.widgetList<CodeField>(find.byType(CodeField))) {
+        for (final f in tester.widgetList<HermesCodeBlock>(
+          find.byType(HermesCodeBlock),
+        )) {
           debugPrint(
             '${form.key}: ${f.name} ${f.codes.length} ${f.highlightCode}',
           );
@@ -255,7 +320,7 @@ void main() {
       ).join('\n\n');
       await _pump(tester, (t) => BoundedMarkdown(t), text);
       final fields = tester
-          .widgetList<CodeField>(find.byType(CodeField))
+          .widgetList<HermesCodeBlock>(find.byType(HermesCodeBlock))
           .toList();
       expect(fields.length, 40);
       final on = fields.where((f) => f.highlightCode).length;
@@ -266,7 +331,7 @@ void main() {
     });
 
     int coloured(WidgetTester tester) => tester
-        .widgetList<CodeField>(find.byType(CodeField))
+        .widgetList<HermesCodeBlock>(find.byType(HermesCodeBlock))
         .where((f) => f.highlightCode)
         .length;
 
@@ -274,7 +339,7 @@ void main() {
       final body = List.filled(19, '1+' * 200).join('\n');
       final text = List.filled(50, '```js\n$body\n```').join('\n\n');
       await _pump(tester, (t) => BoundedMarkdown(t), text);
-      expect(tester.widgetList(find.byType(CodeField)), hasLength(50));
+      expect(tester.widgetList(find.byType(HermesCodeBlock)), hasLength(50));
       expect(coloured(tester), 1);
     });
 
@@ -289,7 +354,7 @@ void main() {
       ].join('\n\n');
       await _pump(tester, (t) => BoundedMarkdown(t), text);
       final fields = tester
-          .widgetList<CodeField>(find.byType(CodeField))
+          .widgetList<HermesCodeBlock>(find.byType(HermesCodeBlock))
           .toList();
       expect(fields.map((f) => f.codes.length).toSet().length, 2);
       final charged = fields
@@ -341,7 +406,9 @@ void main() {
         );
         await tester.pump();
       }
-      final field = tester.widget<CodeField>(find.byType(CodeField));
+      final field = tester.widget<HermesCodeBlock>(
+        find.byType(HermesCodeBlock),
+      );
       expect(field.codes.length, lessThan(kHighlightMaxBlock));
       expect(field.highlightCode, isTrue);
     });

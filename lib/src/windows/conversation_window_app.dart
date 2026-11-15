@@ -16,6 +16,7 @@ import '../macos/mac_window.dart';
 import '../quick_panel/quick_panel_app.dart';
 import '../settings/theme_controller.dart';
 import '../theme/hermes_theme.dart';
+import '../theme/material_ui_bridge.dart';
 import 'conversation_window_args.dart';
 import 'conversation_window_screen.dart';
 import 'desktop_conversation_windows.dart';
@@ -80,12 +81,16 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
         builder: (context) => MaterialApp(
           title: args.title,
           debugShowCheckedModeBanner: false,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: [
+            ...AppLocalizations.localizationsDelegates,
+            ...kMaterialUiLocalizationsDelegates,
+          ],
           supportedLocales: kReleasedLocales,
           theme: buildHermesLightTheme(),
           darkTheme: buildHermesDarkTheme(),
           themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-          builder: (context, child) => MacWindowChrome(child: child!),
+          builder: (context, child) =>
+              AppThemeScopes(child: MacWindowChrome(child: child!)),
           home: ConversationWindowScreen(
             args: args,
             draft: launch.draft,

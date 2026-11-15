@@ -1,3 +1,5 @@
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+
 import 'package:flutter/material.dart';
 
 import '../../widgets/disclosure_tile.dart';
@@ -37,7 +39,7 @@ class AgentNoticeCard extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              notice.text,
+              wellFormedText(notice.text),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -55,7 +57,7 @@ class AgentNoticeCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: SelectableText(notice.text),
+            child: SelectableText(wellFormedText(notice.text)),
           ),
         ),
       ],
