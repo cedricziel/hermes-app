@@ -22,7 +22,7 @@ jobs:
   # on a pull request run only when a path they read changed (native folders,
   # packages, dependencies, assets, the packaging script, fastlane or this
   # workflow): Dart under lib/ and test/ is analyzed and tested on every code
-  # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to `builds` below.
+  # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to the `builds` case in the filter below.
   changes:
     name: Changes
     runs-on: ubuntu-latest
@@ -455,10 +455,11 @@ jobs:
             [ "$2" = "$3" ] || fail=1
           }
           if [ "$ANALYZE_AND_TEST" != success ]; then
-            echo "analyze-and-test: $ANALYZE_AND_TEST (expected success); the builds could not run because Analyze & test failed"
+            echo "analyze-and-test: $ANALYZE_AND_TEST (expected success); the builds could not run because Analyze & test did not succeed"
             exit 1
           fi
-          if [ "$NEED_CODE" = true ] && [ "$NEED_BUILDS" = true ]; then want=success; else want=skipped; fi
+          # Fail closed: only an explicit "false" from Changes means no build was needed.
+          if [ "$NEED_CODE" = false ] || [ "$NEED_BUILDS" = false ]; then want=skipped; else want=success; fi
           expect build-android "$ANDROID" "$want"
           expect build-windows "$WINDOWS" "$want"
           expect build-ios "$IOS" "$want"
