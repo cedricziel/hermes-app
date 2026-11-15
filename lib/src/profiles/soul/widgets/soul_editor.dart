@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../../l10n/l10n.dart';
 import '../../../files/widgets/safe_path_text.dart';
@@ -225,8 +227,9 @@ class SoulCharacterCount {
   }
 }
 
-/// A profile's personality text: one multiline field with a hint, a count of
-/// characters under it, and the notes under that.
+/// A profile's personality text: one grouped card with a multiline field and
+/// a hint, a divider, and a footer row with [footerAction] and the count of
+/// characters; the notes sit under the card.
 ///
 /// It takes plain values: a [controller] that holds the text, [fileExists] for
 /// the line shown while the text is empty, and a callback. It owns no
@@ -251,6 +254,7 @@ class SoulEditor extends StatefulWidget {
     this.minLines = 10,
     this.maxLines,
     this.expands = false,
+    this.footerAction,
     this.focusNode,
     this.onChanged,
     this.announceDelay = const Duration(milliseconds: 800),
@@ -277,8 +281,17 @@ class SoulEditor extends StatefulWidget {
   final int? maxLines;
 
   /// Fills the height the parent gives it, ignoring [minLines] and
-  /// [maxLines]. The parent must bound the height.
+  /// [maxLines]. The parent must bound the height; its intrinsic height is
+  /// the card's minimum ([fillMinLines] lines), not the text's.
   final bool expands;
+
+  /// Lines of text the card keeps when it fills and the page is short: the
+  /// page scrolls beneath it instead of shrinking it further.
+  static const int fillMinLines = 12;
+
+  /// A button at the card's footer, before the count: Revert on a phone. The
+  /// card draws it with a divider above; the page owns what it does.
+  final Widget? footerAction;
   final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
 
@@ -336,6 +349,101 @@ class _SoulEditorState extends State<SoulEditor>
     });
   }
 
+  /// The count, announced politely once typing pauses.
+  Widget _countText(BuildContext context) {
+    final l10n = context.l10n;
+    final metrics = GroupedMetrics.of(context);
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) => Semantics(
+        liveRegion: true,
+        label: l10n.profilesSoulCount(_announced),
+        child: ExcludeSemantics(
+          child: Text(
+            l10n.profilesSoulCount(_counter.of(widget.controller.text)),
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: metrics.footerSize,
+              color: context.hermesColors.subtleText,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The hairline between the field and the footer: the text colour at 12 %
+  /// over the card's fill. A scheme token cannot do it: `outlineVariant` is
+  /// the fill itself in the light theme and `outline` is the fill in the dark
+  /// one, so either draws no line in one of them.
+  Color _dividerColor(ColorScheme scheme) => Color.alphaBlend(
+    scheme.onSurface.withValues(alpha: 0.12),
+    widget.readOnly ? scheme.surface : scheme.surfaceContainerHighest,
+  );
+
+  /// The card's bottom row: Revert (when the page gives one) at the leading
+  /// edge, the count at the trailing edge. They wrap at large text.
+  Widget _footer(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
+    final action = widget.footerAction;
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: metrics.rowPadding,
+        vertical: 4,
+      ),
+      child: action == null
+          ? Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: _countText(context),
+              ),
+            )
+          : _FooterRow(
+              textDirection: Directionality.of(context),
+              gap: 12,
+              children: [action, _countText(context)],
+            ),
+    );
+  }
+
+  /// The info lines under the card: an empty file, a long text.
+  Widget _notes(BuildContext context) {
+    final l10n = context.l10n;
+    final metrics = GroupedMetrics.of(context);
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final text = widget.controller.text;
+        final count = _counter.of(text);
+        if (text.isEmpty || count >= kSoulLongNoteLength) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              metrics.rowPadding,
+              0,
+              metrics.rowPadding,
+              0,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (text.isEmpty)
+                  SoulInfoLine(
+                    text: widget.fileExists
+                        ? l10n.profilesSoulEmptyFile
+                        : l10n.profilesSoulNotSet,
+                  ),
+                if (count >= kSoulLongNoteLength)
+                  SoulInfoLine(text: l10n.profilesSoulLongNote),
+              ],
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -369,81 +477,255 @@ class _SoulEditorState extends State<SoulEditor>
           height: 1.35,
           color: scheme.onSurface,
         ),
-        decoration: InputDecoration.collapsed(
-          hintText: l10n.profilesSoulHint,
-          hintStyle: TextStyle(
-            fontSize: metrics.titleSize,
-            height: 1.35,
-            color: colors.subtleText,
-          ),
-        ),
+        // The theme's focused border would otherwise draw a ring and pad the
+        // text by its width once the field has focus; the fill carries the
+        // field, so every border is off.
+        decoration:
+            InputDecoration.collapsed(
+              hintText: l10n.profilesSoulHint,
+              hintStyle: TextStyle(
+                fontSize: metrics.titleSize,
+                height: 1.35,
+                color: colors.subtleText,
+              ),
+            ).copyWith(
+              filled: false,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+            ),
         onChanged: widget.onChanged,
       ),
     );
-    final box = DecoratedBox(
+    final fieldArea = Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: metrics.rowPadding,
+        vertical: 12,
+      ),
+      child: field,
+    );
+    // One grouped card: the field, a divider, then Revert and the count.
+    final card = DecoratedBox(
       decoration: BoxDecoration(
         color: widget.readOnly
             ? Colors.transparent
             : scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(metrics.radius),
       ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: metrics.rowPadding,
-          vertical: 12,
-        ),
-        child: field,
+      child: Column(
+        mainAxisSize: expands ? MainAxisSize.max : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (expands)
+            Expanded(
+              child: _IntrinsicHeight(
+                height: _minFieldHeight(context),
+                child: fieldArea,
+              ),
+            )
+          else
+            fieldArea,
+          Divider(height: 1, color: _dividerColor(scheme)),
+          _footer(context),
+        ],
       ),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (expands) Expanded(child: box) else box,
-        ListenableBuilder(
-          listenable: widget.controller,
-          builder: (context, _) {
-            final text = widget.controller.text;
-            final count = _counter.of(text);
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                metrics.rowPadding,
-                8,
-                metrics.rowPadding,
-                0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Semantics(
-                    liveRegion: true,
-                    label: l10n.profilesSoulCount(_announced),
-                    child: ExcludeSemantics(
-                      child: Text(
-                        l10n.profilesSoulCount(count),
-                        textAlign: TextAlign.end,
-                        style: TextStyle(
-                          fontSize: metrics.footerSize,
-                          color: colors.subtleText,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (text.isEmpty)
-                    SoulInfoLine(
-                      text: widget.fileExists
-                          ? l10n.profilesSoulEmptyFile
-                          : l10n.profilesSoulNotSet,
-                    ),
-                  if (count >= kSoulLongNoteLength)
-                    SoulInfoLine(text: l10n.profilesSoulLongNote),
-                ],
-              ),
-            );
-          },
-        ),
+        if (expands) Expanded(child: card) else card,
+        _notes(context),
       ],
     );
   }
+
+  /// What the field needs when it fills: [SoulEditor.fillMinLines] lines of
+  /// text at the user's size and the field's padding. The divider and the
+  /// footer add their own intrinsic heights, so a footer that wraps at large
+  /// text takes its extra line from the page, never from these lines.
+  double _minFieldHeight(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
+    final line =
+        MediaQuery.textScalerOf(context).scale(metrics.titleSize) * 1.35;
+    return line * SoulEditor.fillMinLines + 24;
+  }
+}
+
+/// The card's footer: the first child (Revert) at the leading edge and the
+/// second (the count) at the trailing edge on one line, or, when the two do
+/// not fit, the count on a line of its own, still at the trailing edge (a
+/// `Wrap` would put a lone child at the start).
+class _FooterRow extends MultiChildRenderObjectWidget {
+  const _FooterRow({
+    required this.textDirection,
+    required this.gap,
+    required super.children,
+  });
+
+  final TextDirection textDirection;
+  final double gap;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFooterRow(textDirection, gap);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderFooterRow renderObject) {
+    renderObject
+      ..textDirection = textDirection
+      ..gap = gap;
+  }
+}
+
+class _FooterParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderFooterRow extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _FooterParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _FooterParentData> {
+  _RenderFooterRow(this._textDirection, this._gap);
+
+  TextDirection _textDirection;
+  double _gap;
+
+  set textDirection(TextDirection value) {
+    if (_textDirection == value) return;
+    _textDirection = value;
+    markNeedsLayout();
+  }
+
+  set gap(double value) {
+    if (_gap == value) return;
+    _gap = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _FooterParentData) {
+      child.parentData = _FooterParentData();
+    }
+  }
+
+  RenderBox get _first => firstChild!;
+  RenderBox get _second => childAfter(firstChild!)!;
+
+  @override
+  void performLayout() {
+    final loose = BoxConstraints(maxWidth: constraints.maxWidth);
+    _first.layout(loose, parentUsesSize: true);
+    _second.layout(loose, parentUsesSize: true);
+    final a = _first.size;
+    final b = _second.size;
+    final oneLine = a.width + _gap + b.width <= constraints.maxWidth;
+    final width = constraints.maxWidth;
+    final height = oneLine ? math.max(a.height, b.height) : a.height + b.height;
+    final firstTop = oneLine ? (height - a.height) / 2 : 0.0;
+    final secondTop = oneLine ? (height - b.height) / 2 : a.height;
+    final rtl = _textDirection == TextDirection.rtl;
+    (_first.parentData! as _FooterParentData).offset = Offset(
+      rtl ? width - a.width : 0,
+      firstTop,
+    );
+    (_second.parentData! as _FooterParentData).offset = Offset(
+      rtl ? 0 : width - b.width,
+      secondTop,
+    );
+    size = constraints.constrain(Size(width, height));
+  }
+
+  /// The row's height at [width], laid out like [performLayout]: the larger
+  /// child when both fit with the gap, else the two stacked.
+  double _heightAt(double width) {
+    final aw = math.min(_first.getMaxIntrinsicWidth(double.infinity), width);
+    final bw = math.min(_second.getMaxIntrinsicWidth(double.infinity), width);
+    final ah = _first.getMaxIntrinsicHeight(aw);
+    final bh = _second.getMaxIntrinsicHeight(bw);
+    return aw + _gap + bw <= width ? math.max(ah, bh) : ah + bh;
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _heightAt(width);
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _heightAt(width);
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      _first.getMaxIntrinsicWidth(double.infinity) +
+      _gap +
+      _second.getMaxIntrinsicWidth(double.infinity);
+
+  @override
+  double computeMinIntrinsicWidth(double height) => math.max(
+    _first.getMinIntrinsicWidth(double.infinity),
+    _second.getMinIntrinsicWidth(double.infinity),
+  );
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final loose = BoxConstraints(maxWidth: constraints.maxWidth);
+    final a = _first.getDryLayout(loose);
+    final b = _second.getDryLayout(loose);
+    final oneLine = a.width + _gap + b.width <= constraints.maxWidth;
+    return constraints.constrain(
+      Size(
+        constraints.maxWidth,
+        oneLine ? math.max(a.height, b.height) : a.height + b.height,
+      ),
+    );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
+/// Answers a parent's intrinsic-height question with [height] and lays its
+/// child out as usual. A field that fills has no height of its own (its text
+/// can be hundreds of thousands of characters long), but a page that scrolls
+/// when the space is short must know how much the field needs.
+class _IntrinsicHeight extends SingleChildRenderObjectWidget {
+  const _IntrinsicHeight({required this.height, required Widget child})
+    : super(child: child);
+
+  final double height;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderIntrinsicHeight(height);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderIntrinsicHeight renderObject,
+  ) {
+    renderObject.height = height;
+  }
+}
+
+class _RenderIntrinsicHeight extends RenderProxyBox {
+  _RenderIntrinsicHeight(this._height);
+
+  double _height;
+
+  set height(double value) {
+    if (_height == value) return;
+    _height = value;
+    markNeedsLayout();
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _height;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _height;
 }
 
 /// A muted sentence with an info icon, under the count: the icon and the

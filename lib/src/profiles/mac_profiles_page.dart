@@ -27,6 +27,8 @@ import '../tools/tools_models.dart';
 import '../tools/tools_screen.dart';
 import '../widgets/state_message.dart';
 import 'chat_profiles.dart';
+import 'soul/open_soul.dart';
+import 'soul/soul_telemetry.dart';
 import 'widgets/mac_profiles_view.dart';
 import 'widgets/new_profile_dialog.dart';
 
@@ -69,6 +71,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   /// selected and only while the server offers Tools.
   final _tools = <String, ({int on, int total})>{};
   ToolsAvailability? _availability;
+
   final _toolsReading = <String>{};
   int _generation = 0;
 
@@ -247,7 +250,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     final repositories = HermesRepositories.maybeOf(context);
     if (name == null || repositories == null) return;
     final page = switch (section) {
-      ProfileSection.memory => null,
+      ProfileSection.memory || ProfileSection.personality => null,
       ProfileSection.skills => SkillsScreen(
         repository: repositories.skills,
         chatProfile: name,
@@ -279,6 +282,11 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         profile: name,
       ),
     };
+    if (section == ProfileSection.personality) {
+      // Bound to the selected profile; its text is never read for the list.
+      await openSoul(context, profile: name, from: SoulOpenedFrom.profilesPage);
+      return;
+    }
     if (page == null) {
       await openMemory(
         context,
@@ -345,6 +353,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                     onOpen: _open,
                     hiddenSections: {
                       if (!_providersOffered) ProfileSection.providers,
+                      if (!soulShown(context)) ProfileSection.personality,
                       if (!(_availability?.offered ?? false))
                         ProfileSection.tools,
                     },

@@ -75,6 +75,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenSkills,
     this.onOpenMemory,
     this.memoryWaiting,
+    this.onOpenSoul,
     this.onOpenPlugins,
     this.onOpenMcp,
     this.onOpenProviders,
@@ -111,6 +112,10 @@ class ThreadSidebar extends StatelessWidget {
 
   /// How many staged memory changes wait, for the Memory entry.
   final int? memoryWaiting;
+
+  /// Opens Personality of the chat's profile; the entry shows only while the
+  /// server offers it.
+  final VoidCallback? onOpenSoul;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
   final VoidCallback? onOpenProviders;
@@ -243,6 +248,12 @@ class ThreadSidebar extends StatelessWidget {
                       AppIcons.memory,
                       memoryEntryLabel(memoryWaiting),
                       onOpenMemory!,
+                    ),
+                  if (onOpenSoul != null)
+                    (
+                      AppIcons.personality,
+                      context.l10n.profilesSoulTitle,
+                      onOpenSoul!,
                     ),
                   if (onOpenMessaging != null)
                     (AppIcons.bot, 'Messaging', onOpenMessaging!),

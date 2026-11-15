@@ -20,14 +20,13 @@ enum SoulStatusKind {
 }
 
 /// One line under the count: a check icon and "Saved. New chats use it.", a
-/// warning icon and "The server still has the earlier text. Your text is
-/// still here.", or a spinner and "Saving". The icon and the words carry the
+/// info icon in the normal text colour and "The server still has the earlier
+/// text. Your text is still here." (not a failure), or a spinner and "Saving". The icon and the words carry the
 /// status, never the colour alone. It is a polite live region, so a screen
 /// reader announces a change without taking focus.
 ///
 /// It takes plain values only. The icon (or spinner) scales with the text and
-/// the line is laid out like [SoulInfoLine], so the text starts at
-/// [SoulLineMetrics.textInset] and a Revert button below lines up with it.
+/// the line is laid out like [SoulInfoLine].
 class SoulStatusLine extends StatelessWidget {
   const SoulStatusLine({super.key, required this.kind});
 
@@ -42,7 +41,7 @@ class SoulStatusLine extends StatelessWidget {
       SoulStatusKind.saved => (l10n.profilesSoulStatusSaved, colors.success),
       SoulStatusKind.earlierText => (
         l10n.profilesSoulStatusEarlierText,
-        colors.warning,
+        Theme.of(context).colorScheme.onSurface,
       ),
       SoulStatusKind.saving => (l10n.profilesSoulSaving, colors.subtleText),
     };
@@ -69,7 +68,7 @@ class SoulStatusLine extends StatelessWidget {
                     : AppIcon(
                         switch (kind) {
                           SoulStatusKind.saved => AppIcons.checkCircle,
-                          _ => AppIcons.warning,
+                          _ => AppIcons.info,
                         },
                         size: size,
                         color: color,
@@ -112,12 +111,18 @@ enum SoulBannerKind {
 
   /// Loading got no answer because the device is offline. Offers Try again.
   offline,
+
+  /// Protected requests are closed for a moment: the page is read-only and
+  /// sends nothing until the connection is back. No action. It is the only
+  /// banner shown while it lasts (the page shows one banner at a time).
+  paused,
 }
 
 /// An [AppBanner] for one of the [SoulBannerKind] states, worded from the
 /// ARB files. [onAction] is Check, Check again or Try again, whichever the
-/// state offers; it is ignored for [SoulBannerKind.saveFailed] and
-/// [SoulBannerKind.checking], which have none to press.
+/// state offers; it is ignored for [SoulBannerKind.saveFailed],
+/// [SoulBannerKind.checking] and [SoulBannerKind.paused], which have none to
+/// press. A null [onAction] shows the button disabled.
 ///
 /// The action stacks under the text at large text sizes and in German, and
 /// has the platform's minimum target, both by [AppBanner].
@@ -184,6 +189,11 @@ class SoulStatusBanner extends StatelessWidget {
         title: l10n.profilesSoulBannerOfflineTitle,
         detail: l10n.profilesSoulBannerOfflineDetail,
         action: button(l10n.profilesSoulBannerTryAgain),
+      ),
+      SoulBannerKind.paused => AppBanner(
+        tone: AppBannerTone.neutral,
+        title: l10n.profilesSoulBannerPausedTitle,
+        detail: l10n.profilesSoulBannerPausedDetail,
       ),
     };
   }

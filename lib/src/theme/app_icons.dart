@@ -304,6 +304,10 @@ abstract final class AppIcons {
     Icons.person_add_alt,
     CupertinoIcons.person_badge_plus,
   );
+  static const personOff = AppIconSet(
+    Icons.person_off_outlined,
+    CupertinoIcons.person_crop_circle_badge_xmark,
+  );
   static const password = AppIconSet(Icons.password, CupertinoIcons.lock);
   static const openExternal = AppIconSet(
     Icons.open_in_new,
@@ -553,6 +557,7 @@ abstract final class AppIcons {
     'photoLibrary': photoLibrary,
     'camera': camera,
     'personAdd': personAdd,
+    'personOff': personOff,
     'password': password,
     'openExternal': openExternal,
     'openBrowser': openBrowser,

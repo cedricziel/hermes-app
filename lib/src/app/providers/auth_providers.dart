@@ -11,6 +11,7 @@ import '../../files/files_availability.dart';
 import '../../handoff/handoff_bridge.dart';
 import '../../handoff/handoff_controller.dart';
 import '../../network/network_signals.dart';
+import '../../profiles/soul/soul_availability.dart';
 import '../../telemetry/telemetry.dart';
 
 /// Handoff, the auth controller, the repositories over it and the media store.
@@ -31,6 +32,9 @@ List<SingleChildWidget> authProviders(Telemetry telemetry) => [
   // Whether the server has the Files routes: asked once per connection, so
   // the entry points of Files stay hidden on an older Hermes.
   filesAvailabilityProvider(),
+  // Whether the server has the Personality routes: learned from the first
+  // answer that says it has not, and kept for the connection.
+  soulAvailabilityProvider(),
   // Downloaded files are deleted when the session ends, so this must be
   // listening from the start, not from the first file opened.
   Provider<MediaStore?>(
@@ -70,5 +74,25 @@ SingleChildWidget filesAvailabilityProvider() =>
         // A probe of the old connection must not answer for the new one.
         previous?.dispose();
         return FilesAvailability.forRepositories(repositories);
+      },
+    );
+
+/// Whether the server has the Personality routes, per connection: a new API
+/// client starts shown again. Entry points watch it and go away on the first
+/// route-missing answer.
+SingleChildWidget soulAvailabilityProvider() =>
+    ChangeNotifierProxyProvider<HermesRepositories?, SoulAvailability?>(
+      create: (_) => null,
+      update: (_, repositories, previous) {
+        if (repositories == null) {
+          previous?.dispose();
+          return null;
+        }
+        if (previous != null &&
+            identical(previous.connection, repositories.api)) {
+          return previous;
+        }
+        previous?.dispose();
+        return SoulAvailability(connection: repositories.api);
       },
     );

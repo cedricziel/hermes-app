@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_changed_sheet.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_editor.dart';
+import 'package:hermes_app/src/profiles/soul/widgets/soul_page_layout.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_questions.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_save_actions.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_status_line.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -78,12 +80,18 @@ class _Editor extends StatefulWidget {
     this.fileExists = true,
     this.readOnly = false,
     this.maxLines,
+    this.expands = false,
+    this.revert,
   });
 
   final String text;
   final bool fileExists;
   final bool readOnly;
   final int? maxLines;
+  final bool expands;
+
+  /// Shows Revert in the card's footer, as a phone page does.
+  final SoulSaveActions? revert;
 
   @override
   State<_Editor> createState() => _EditorState();
@@ -105,6 +113,8 @@ class _EditorState extends State<_Editor> {
     fileExists: widget.fileExists,
     readOnly: widget.readOnly,
     maxLines: widget.maxLines,
+    expands: widget.expands,
+    footerAction: widget.revert,
   );
 }
 
@@ -162,58 +172,69 @@ class _Page extends StatelessWidget {
           ? null
           : SoulSaveActions.barAction(
               context,
-              dirty: dirty,
+              dirty: dirty && banner != SoulBannerKind.paused,
               busy: busy,
               onSave: _noop,
             ),
-      body: GroupedListView(
-        children: [
-          if (banner != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: SoulStatusBanner(kind: banner!, onAction: _noop),
-            ),
-          if (!hideEditor) ...[
-            const SizedBox(height: 8),
-            _Editor(
-              key: ValueKey(text),
-              text: text,
-              fileExists: fileExists,
-              readOnly: busy,
-            ),
-            if (status != null) SoulStatusLine(kind: status!),
-            const SizedBox(height: 8),
-            if (wide)
-              SoulSaveActions(
-                dirty: dirty,
-                busy: busy,
-                onSave: _noop,
-                onRevert: _noop,
-              )
-            else
-              SoulSaveActions.revertRow(
-                dirty: dirty,
-                busy: busy,
-                onRevert: _noop,
+      body: hideEditor
+          ? GroupedListView(
+              children: [
+                if (banner != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SoulStatusBanner(kind: banner!, onAction: _noop),
+                  ),
+              ],
+            )
+          : SoulPageLayout(
+              banner: banner == null
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: SoulStatusBanner(kind: banner!, onAction: _noop),
+                    ),
+              editor: _Editor(
+                key: ValueKey(text),
+                text: text,
+                fileExists: fileExists,
+                readOnly: busy || banner == SoulBannerKind.paused,
+                expands: true,
+                revert: wide
+                    ? null
+                    : SoulSaveActions.revertButton(
+                        dirty: dirty && banner != SoulBannerKind.paused,
+                        busy: busy,
+                        onRevert: _noop,
+                      ),
               ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                metrics.rowPadding,
-                16,
-                metrics.rowPadding,
-                0,
-              ),
-              child: Text(
-                l10n.profilesSoulFootnote,
-                style: TextStyle(
-                  fontSize: metrics.footerSize,
-                  color: context.hermesColors.subtleText,
+              below: [
+                if (status != null) SoulStatusLine(kind: status!),
+                if (wide) ...[
+                  const SizedBox(height: 8),
+                  SoulSaveActions(
+                    dirty: dirty,
+                    busy: busy,
+                    onSave: _noop,
+                    onRevert: _noop,
+                  ),
+                ],
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    metrics.rowPadding,
+                    16,
+                    metrics.rowPadding,
+                    0,
+                  ),
+                  child: Text(
+                    l10n.profilesSoulFootnote,
+                    style: TextStyle(
+                      fontSize: metrics.footerSize,
+                      color: context.hermesColors.subtleText,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -392,6 +413,29 @@ WidgetbookNode soulNode() => WidgetbookFolder(
           ('Offline', SoulBannerKind.offline),
         ])
           _framed(name, () => SoulStatusBanner(kind: kind, onAction: _noop)),
+        _framed(
+          'Connection paused',
+          () => const SoulStatusBanner(kind: SoulBannerKind.paused),
+        ),
+        WidgetbookUseCase(
+          name: 'Connection paused, largest text',
+          builder: (_) => _at(
+            3,
+            frame(
+              const SoulStatusBanner(kind: SoulBannerKind.paused),
+              maxWidth: 360,
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Connection paused, German',
+          builder: (_) => _german(
+            frame(
+              const SoulStatusBanner(kind: SoulBannerKind.paused),
+              maxWidth: 360,
+            ),
+          ),
+        ),
         WidgetbookUseCase(
           name: 'Lost answer, largest text',
           builder: (_) => _at(
@@ -479,7 +523,7 @@ WidgetbookNode soulNode() => WidgetbookFolder(
         ...onEachPlatform(
           'Revert row, unsaved changes',
           (_) => frame(
-            const SoulSaveActions.revertRow(
+            const SoulSaveActions.revertButton(
               dirty: true,
               busy: false,
               onRevert: _noop,
@@ -488,7 +532,7 @@ WidgetbookNode soulNode() => WidgetbookFolder(
         ),
         _framed(
           'Revert row, nothing to save',
-          () => const SoulSaveActions.revertRow(
+          () => const SoulSaveActions.revertButton(
             dirty: false,
             busy: false,
             onRevert: _noop,
@@ -609,6 +653,19 @@ WidgetbookNode soulNode() => WidgetbookFolder(
               builder: (context) => SettingsScaffold(
                 title: context.l10n.profilesSoulTitle,
                 subtitle: _profile,
+                // Save is in the bar, disabled, so it does not shift when the
+                // text arrives (a phone; wide layouts keep it under the
+                // editor).
+                formAction:
+                    MediaQuery.sizeOf(context).width >= 900 ||
+                        platformChromeOf(context) == PlatformChrome.macos
+                    ? null
+                    : SoulSaveActions.barAction(
+                        context,
+                        dirty: false,
+                        busy: false,
+                        onSave: _noop,
+                      ),
                 body: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -710,6 +767,7 @@ WidgetbookNode soulNode() => WidgetbookFolder(
                 title: context.l10n.profilesSoulTitle,
                 subtitle: _profile,
                 body: StateMessage(
+                  icon: AppIcons.personOff,
                   title: context.l10n.profilesSoulGoneTitle,
                   detail: context.l10n.profilesSoulGoneDetail,
                 ),
@@ -725,6 +783,7 @@ WidgetbookNode soulNode() => WidgetbookFolder(
                 title: context.l10n.profilesSoulTitle,
                 subtitle: _profile,
                 body: StateMessage(
+                  icon: AppIcons.extensionOff,
                   title: context.l10n.profilesSoulUnsupportedTitle,
                   detail: context.l10n.profilesSoulUnsupportedDetail,
                   action: OutlinedButton(
@@ -733,6 +792,46 @@ WidgetbookNode soulNode() => WidgetbookFolder(
                   ),
                 ),
               ),
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Keyboard open',
+          builder: (_) => Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(viewInsets: const EdgeInsets.only(bottom: 300)),
+              child: _page(text: '$_loaded\n- Never be rude.'),
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Largest text, loaded',
+          builder: (_) => _at(3, _page()),
+        ),
+        ...onEachPlatform(
+          'Connection paused (editor read-only, text kept)',
+          (_) => _page(
+            text: '$_loaded\n- Never be rude.',
+            banner: SoulBannerKind.paused,
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Connection paused, largest text',
+          builder: (_) => _at(
+            3,
+            _page(
+              text: '$_loaded\n- Never be rude.',
+              banner: SoulBannerKind.paused,
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Connection paused, German',
+          builder: (_) => _german(
+            _page(
+              text: '$_loaded\n- Never be rude.',
+              banner: SoulBannerKind.paused,
             ),
           ),
         ),

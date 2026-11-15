@@ -104,6 +104,13 @@ final menuLayout = <MenuSection>[
         shortcut: metaActivator(LogicalKeyboardKey.keyW),
         platforms: _macOnly,
       ),
+      // Offered by the Personality page while it has text to save.
+      MenuEntry(
+        MacCommand.save,
+        'Save',
+        shortcut: metaActivator(LogicalKeyboardKey.keyS),
+        platforms: _macOnly,
+      ),
     ],
   ]),
   MenuSection('view', 'View', [
