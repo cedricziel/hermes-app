@@ -9,12 +9,13 @@ extension _Connection on HermesGatewayTransport {
     String method,
     Map<String, Object?> params, {
     bool Function()? authorize,
+    Duration? timeout,
   }) async {
     try {
       final request = authorize == null
           ? client.request(method, params)
           : client.requestGuarded(method, params, authorize: authorize);
-      return await request.timeout(requestTimeout);
+      return await request.timeout(timeout ?? requestTimeout);
     } on TimeoutException {
       _drop(client);
       throw const GatewayConnectionClosed();

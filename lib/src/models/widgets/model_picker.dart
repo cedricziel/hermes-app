@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
+import '../../files/widgets/safe_path_text.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -17,7 +19,7 @@ Future<void> showModelPicker(
   required ModelChoice? selected,
   required ValueChanged<ModelChoice> onChanged,
   bool withEffort = true,
-  String title = 'Model',
+  String? title,
   String? note,
   VoidCallback? onUseDefault,
   Listenable? updates,
@@ -151,7 +153,7 @@ class ModelPicker extends StatefulWidget {
     required this.selected,
     required this.onChanged,
     this.withEffort = true,
-    this.title = 'Model',
+    this.title,
     this.note,
     this.onUseDefault,
   });
@@ -160,15 +162,23 @@ class ModelPicker extends StatefulWidget {
   final ModelChoice? selected;
   final ValueChanged<ModelChoice> onChanged;
   final bool withEffort;
-  final String title;
+
+  /// Null names the picker "Model".
+  final String? title;
   final String? note;
 
   /// When set, a "Use the profile's default" entry comes first, checked
-  /// while nothing is selected.
+  /// while nothing is selected. It names [ModelOptions.current] when the
+  /// server reported one.
   final VoidCallback? onUseDefault;
 
   /// More models than this get a search field.
   static const searchAbove = 8;
+
+  /// From this text scale on, the effort pills scroll at the end of the list
+  /// instead of staying pinned under it, so they cannot take the room the
+  /// rows need.
+  static const unpinEffortAtScale = 1.3;
 
   @override
   State<ModelPicker> createState() => _ModelPickerState();
@@ -256,15 +266,23 @@ class _ModelPickerState extends State<ModelPicker> {
         ? SettingsSearchField(
             search: SettingsSearch(
               query: _query,
-              hint: 'Search models',
+              hint: context.l10n.modelsPickerSearchHint,
               onChanged: (query) => setState(() => _query = query),
             ),
           )
         : null;
     final providers = _matching(query);
     final dividerIndent = GroupedChoiceRow.dividerIndent(context);
+    final large =
+        MediaQuery.textScalerOf(context).scale(14) / 14 >=
+        ModelPicker.unpinEffortAtScale;
+    final desktop = const {
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+    }.contains(Theme.of(context).platform);
     final title = Text(
-      widget.title,
+      widget.title ?? context.l10n.modelsPickerTitle,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
@@ -277,6 +295,54 @@ class _ModelPickerState extends State<ModelPicker> {
         color: scheme.onSurface,
       ),
     );
+    // Pinned under the list, or at its end from a large text scale on.
+    final effortBlock = efforts.isEmpty
+        ? null
+        : DecoratedBox(
+            decoration: BoxDecoration(
+              // `outline`, not `outlineVariant`: that is the dark overlay surface.
+              border: Border(top: BorderSide(color: scheme.outline)),
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(large ? 0 : gutter, 12, gutter, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 8,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: metrics.rowPadding,
+                    ),
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        metrics.headerUppercase
+                            ? context.l10n.modelsPickerEffortHeader
+                                  .toUpperCase()
+                            : context.l10n.modelsPickerEffortHeader,
+                        style: TextStyle(
+                          fontSize: metrics.headerSize,
+                          fontWeight: metrics.headerWeight,
+                          color: muted,
+                        ),
+                      ),
+                    ),
+                  ),
+                  _EffortControl(
+                    efforts: efforts,
+                    selected: selected!.effort,
+                    onChanged: (effort) => _pick(
+                      ModelChoice(
+                        selected.providerId,
+                        selected.modelId,
+                        effort: effort,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -317,12 +383,22 @@ class _ModelPickerState extends State<ModelPicker> {
               padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 16),
               children: [
                 if (widget.onUseDefault != null && query.isEmpty)
-                  const GroupedSection(
+                  GroupedSection(
                     children: [
                       GroupedChoiceRow<_Pick>(
-                        key: Key('model-default'),
+                        key: const Key('model-default'),
                         value: _defaultPick,
-                        title: 'Use the profile’s default',
+                        title: context.l10n.modelsPickerUseDefault,
+                        titleMaxLines: large ? 2 : 1,
+                        subtitleMaxLines: large ? 2 : 1,
+                        subtitleMiddleEllipsis: true,
+                        // The server's value, drawn with its control and
+                        // bidi characters visible.
+                        subtitle: widget.options.current == null
+                            ? null
+                            : context.l10n.modelsPickerDefaultUses(
+                                safePathText(widget.options.current!.modelId),
+                              ),
                       ),
                     ],
                   ),
@@ -332,10 +408,18 @@ class _ModelPickerState extends State<ModelPicker> {
                     dividerIndent: dividerIndent,
                     children: [
                       for (final model in provider.models)
-                        GroupedChoiceRow<_Pick>(
-                          key: Key('model-${provider.id}-${model.id}'),
-                          value: (provider.id, model.id),
-                          title: model.id,
+                        _hoverName(
+                          desktop,
+                          safePathText(model.id),
+                          GroupedChoiceRow<_Pick>(
+                            key: Key('model-${provider.id}-${model.id}'),
+                            value: (provider.id, model.id),
+                            // The server's value, drawn with its control and
+                            // bidi characters visible.
+                            title: safePathText(model.id),
+                            titleMaxLines: large ? 2 : 1,
+                            titleMiddleEllipsis: true,
+                          ),
                         ),
                     ],
                   ),
@@ -343,7 +427,7 @@ class _ModelPickerState extends State<ModelPicker> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Text(
-                      'No models match “$query”',
+                      context.l10n.modelsPickerNoMatch(query),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: metrics.subtitleSize,
@@ -351,59 +435,21 @@ class _ModelPickerState extends State<ModelPicker> {
                       ),
                     ),
                   ),
+                if (effortBlock != null && large) effortBlock,
               ],
             ),
           ),
         ),
-        if (efforts.isNotEmpty)
-          DecoratedBox(
-            decoration: BoxDecoration(
-              // `outline`, not `outlineVariant`: that is the dark overlay surface.
-              border: Border(top: BorderSide(color: scheme.outline)),
-            ),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(gutter, 12, gutter, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 8,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: metrics.rowPadding,
-                    ),
-                    child: Semantics(
-                      header: true,
-                      child: Text(
-                        metrics.headerUppercase
-                            ? 'REASONING EFFORT'
-                            : 'Reasoning effort',
-                        style: TextStyle(
-                          fontSize: metrics.headerSize,
-                          fontWeight: metrics.headerWeight,
-                          color: muted,
-                        ),
-                      ),
-                    ),
-                  ),
-                  _EffortControl(
-                    efforts: efforts,
-                    selected: selected!.effort,
-                    onChanged: (effort) => _pick(
-                      ModelChoice(
-                        selected.providerId,
-                        selected.modelId,
-                        effort: effort,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        if (effortBlock != null && !large) effortBlock,
       ],
     );
   }
 }
+
+/// [row] with [name] as its hover text on a pointer platform, which a touch
+/// screen never shows.
+Widget _hoverName(bool desktop, String name, Widget row) =>
+    desktop ? Tooltip(message: name, child: row) : row;
 
 /// The effort levels as pills that wrap onto a second line when they don't
 /// fit, the picked one raised like the thumb of a segmented control.
@@ -450,10 +496,11 @@ class _EffortSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     final chrome = platformChromeOf(context);
     final scheme = Theme.of(context).colorScheme;
-    final (height, fontSize) = switch (chrome) {
-      PlatformChrome.ios => (32.0, 15.0),
-      PlatformChrome.macos => (24.0, 12.0),
-      PlatformChrome.material => (32.0, 14.0),
+    // The pill as drawn, the area that takes a tap, and the text size.
+    final (height, hit, fontSize) = switch (chrome) {
+      PlatformChrome.ios => (36.0, 44.0, 15.0),
+      PlatformChrome.macos => (28.0, 28.0, 12.0),
+      PlatformChrome.material => (40.0, 48.0, 14.0),
     };
     final side = selected ? BorderSide(color: scheme.outline) : BorderSide.none;
     final shape = chrome.isApple
@@ -462,35 +509,47 @@ class _EffortSegment extends StatelessWidget {
             side: side,
           )
         : StadiumBorder(side: side);
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: Material(
-        color: selected ? scheme.surface : scheme.surfaceContainerHighest,
-        clipBehavior: Clip.antiAlias,
-        shape: shape,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            height: height,
-            padding: EdgeInsets.symmetric(horizontal: height / 2.5),
-            child: Align(
-              widthFactor: 1,
-              child: Text(
-                label,
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected
-                      ? scheme.onSurface
-                      : scheme.onSurface.withValues(alpha: 0.7),
-                ),
+    final pill = Material(
+      color: selected ? scheme.surface : scheme.surfaceContainerHighest,
+      clipBehavior: Clip.antiAlias,
+      shape: shape,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          // A minimum: the pill grows with the text size.
+          constraints: BoxConstraints(minHeight: height),
+          padding: EdgeInsets.symmetric(horizontal: height / 2.5, vertical: 4),
+          child: Align(
+            widthFactor: 1,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected
+                    ? scheme.onSurface
+                    : scheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
           ),
         ),
       ),
+    );
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: hit <= height
+          ? pill
+          : GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTap: onTap,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: hit),
+                child: Center(widthFactor: 1, child: pill),
+              ),
+            ),
     );
   }
 }

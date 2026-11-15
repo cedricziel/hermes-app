@@ -918,6 +918,14 @@ void main() {
   });
 
   test('the socket dropping mid-reply fails the stream', () async {
+    // A server that never answers again: the reconnect waits out its window.
+    transport = HermesGatewayTransport(
+      connect: () async {
+        connects++;
+        return gateway.channel;
+      },
+      reconnectWindow: const Duration(milliseconds: 200),
+    );
     gateway.turn = (g, sid) {
       g.event('message.start', sid);
       g.event('message.delta', sid, {'text': 'Hel'});
@@ -2759,6 +2767,14 @@ void main() {
     });
 
     test('a connection lost mid-turn is an error', () async {
+      // A server that never answers again: the reconnect waits out its window.
+      transport = HermesGatewayTransport(
+        connect: () async {
+          connects++;
+          return gateway.channel;
+        },
+        reconnectWindow: const Duration(milliseconds: 200),
+      );
       gateway.turn = plainReply;
       await reply();
 
