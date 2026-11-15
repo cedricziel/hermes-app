@@ -9,28 +9,48 @@ only Python 3 and `flutter` and `git` on PATH.
     scripts/mutation_sample.py token_store --quick      the quick_tests subset
     scripts/mutation_sample.py --summary                print the saved results
 
+Other flags: `--fresh` ignores saved results, `--baseline-only` runs only the
+unmutated tests, `--concurrency N` is passed to `flutter test` (default 2),
+`--out DIR` puts the results elsewhere, `--repo DIR` names another checkout.
+
 A list is `tool/mutants/<subject>.json`:
 
     {"subject": str, "tests": [files], "quick_tests": [files] (optional),
      "mutants": [{"id", "file", "old", "new", "note"}]}
 
-`old` must occur exactly once in `file`; `new` replaces it. A list that breaks
-that is refused before any file is touched.
+`old` must occur exactly once in `file`, and `file` must stay inside the repo;
+`new` replaces it. A list that breaks that is refused before any file is
+touched.
 
-Per mutant the result is KILLED, SURVIVED, TIMEOUT or INVALID (the mutant did
-not compile; it counts for nothing). A killed mutant carries the failing
-tests, the first failure's kind (expect_mismatch, unexpected_request, timeout,
-uncaught_exception, other), the files that killed it and, when one file did it
-alone, `sole_killer`. A TIMEOUT counts as a kill, as a hang is a failure a
-user sees. Results go to `.dart_tool/mutation-sample/<subject>.json` and are
-resumed on a rerun at the same commit and mode.
+Per mutant the result is one of:
 
-The mutated files must be clean in git, and are restored after every run,
-on an error and on Ctrl-C or SIGTERM.
+- KILLED: a test failed. It carries the failing tests, the first failure's
+  kind (expect_mismatch, unexpected_request, timeout, uncaught_exception,
+  other), the files that killed it and, when one file did it alone,
+  `sole_killer`. A test file that threw while loading, without a compile
+  error, is a kill too.
+- SURVIVED: `flutter test` exited 0, ran at least 90% as many tests as the
+  baseline, and nothing failed.
+- TIMEOUT: the run hung past the limit. It counts as a kill.
+- INVALID: the mutant does not compile. It counts for nothing.
+- INCONCLUSIVE: no verdict can be drawn (a non-zero exit with no failing
+  test, no test ran, or far fewer ran than in the baseline). It counts as
+  neither killed nor survived; look at `reason` and run it again.
+
+The baseline must exit 0 with at least one test passing. Results go to
+`.dart_tool/mutation-sample/<subject>.json`. They are reused on a rerun at
+the same commit, mode and test contents; `--only` always reruns the ids it
+names and merges them into the saved results. A mutant whose list entry
+changed is rerun.
+
+The mutated files must be clean in git. Each one is copied to
+`.dart_tool/mutation-sample/backup/<path>` before it is mutated, and restored
+after every run, on an error, on Ctrl-C and on SIGTERM or SIGHUP.
 """
 
 import argparse
 import atexit
+import hashlib
 import json
 import os
 import re
@@ -44,23 +64,36 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_REPO = os.path.dirname(HERE)
 LISTS = "tool/mutants"
 RESULTS = ".dart_tool/mutation-sample"
-KILLED, SURVIVED, TIMEOUT, INVALID = "KILLED", "SURVIVED", "TIMEOUT", "INVALID"
+BACKUPS = RESULTS + "/backup"
+KILLED, SURVIVED, TIMEOUT, INVALID, INCONCLUSIVE = (
+    "KILLED",
+    "SURVIVED",
+    "TIMEOUT",
+    "INVALID",
+    "INCONCLUSIVE",
+)
+# A run that ran fewer tests than this share of the baseline proves nothing.
+MIN_RAN_SHARE = 0.9
 
 
 class MutationError(Exception):
     """A list or the tree is not fit to run."""
 
 
-# Files currently holding a mutant: path -> original text. Whatever happens,
-# the atexit hook and the `finally` blocks put them back.
+# Files currently holding a mutant: path -> (original text, backup path).
+# Whatever happens, the atexit hook and the `finally` blocks put them back.
 _mutated = {}
 
 
 def restore_all():
-    for path, text in list(_mutated.items()):
+    for path, (text, backup) in list(_mutated.items()):
         with open(path, "w", encoding="utf-8", newline="") as fh:
             fh.write(text)
         del _mutated[path]
+        try:
+            os.unlink(backup)
+        except OSError:
+            pass
 
 
 atexit.register(restore_all)
@@ -83,11 +116,19 @@ def classify_error(text):
     if re.search(r"Expected:|Actual:|Which:", t):
         return "expect_mismatch"
     if re.search(
-        r"Null check|NoSuchMethod|is not a subtype|StateError|Bad state|RangeError|Unhandled|Exception|Error",
+        r"Null check operator|NoSuchMethodError|is not a subtype of type|"
+        r"Bad state:|RangeError|StateError|LateInitializationError|"
+        r"Unhandled exception|\b\w*Exception:",
         t,
     ):
         return "uncaught_exception"
     return "other"
+
+
+def is_compile_error(text):
+    return "Compilation failed" in text or bool(
+        re.search(r"\b(?:lib|test|packages)/\S+:\d+:\d+: Error:", text)
+    )
 
 
 def read_text(path):
@@ -110,6 +151,13 @@ def load_spec(path):
     return spec
 
 
+def inside(repo, rel_path):
+    """Whether [rel_path] stays inside [repo] once symlinks are resolved."""
+    root = os.path.realpath(repo)
+    full = os.path.realpath(os.path.join(root, rel_path))
+    return full == root or full.startswith(root + os.sep)
+
+
 def validate(repo, spec):
     """Problems of a list against the tree, as strings; empty when it is fit."""
     problems, ids, cache = [], set(), {}
@@ -118,10 +166,15 @@ def validate(repo, spec):
         if mid in ids:
             problems.append(f"{mid}: duplicate id")
         ids.add(mid)
+        bad = False
         for key in ("id", "file", "old", "new"):
             if not isinstance(m.get(key), str) or (key != "new" and not m[key]):
                 problems.append(f"{mid}: bad or missing '{key}'")
-        if problems and problems[-1].startswith(f"{mid}: bad"):
+                bad = True
+        if bad:
+            continue
+        if os.path.isabs(m["file"]) or not inside(repo, m["file"]):
+            problems.append(f"{mid}: file {m['file']} is outside the repo")
             continue
         path = os.path.join(repo, m["file"])
         if m["file"] not in cache:
@@ -141,7 +194,9 @@ def validate(repo, spec):
     if quick is not None and not set(quick) <= set(spec["tests"]):
         problems.append("quick_tests is not a subset of tests")
     for t in spec["tests"]:
-        if not os.path.isfile(os.path.join(repo, t)):
+        if os.path.isabs(t) or not inside(repo, t):
+            problems.append(f"test file {t} is outside the repo")
+        elif not os.path.isfile(os.path.join(repo, t)):
             problems.append(f"test file {t} does not exist")
     return problems
 
@@ -151,9 +206,14 @@ def require_clean(repo, files):
     if r.returncode != 0:
         raise MutationError("git status failed: " + r.stderr.strip())
     if r.stdout.strip():
+        dirty = [line[3:] for line in r.stdout.splitlines() if line[3:]]
         raise MutationError(
             "refusing to run: files to mutate have uncommitted changes:\n"
             + r.stdout.rstrip()
+            + "\nIf an earlier run was killed and left a mutant behind, restore it with\n"
+            + "  git restore "
+            + " ".join(dirty)
+            + f"\n(a copy of each original is under {BACKUPS}/ when one was taken)"
         )
 
 
@@ -161,41 +221,34 @@ def run_tests(repo, tests, timeout, concurrency=2):
     """Runs `flutter test` on [tests]; returns what the JSON report says."""
     fd, report = tempfile.mkstemp(suffix=".json")
     os.close(fd)
-    cmd = [
-        "flutter",
-        "test",
-        f"--concurrency={concurrency}",
-        "--file-reporter",
-        f"json:{report}",
-        *tests,
-    ]
-    t0 = time.time()
-    proc = subprocess.Popen(
-        cmd,
-        cwd=repo,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        start_new_session=True,
-    )
-    timed_out = False
+    proc = None
     try:
+        cmd = [
+            "flutter",
+            "test",
+            f"--concurrency={concurrency}",
+            "--file-reporter",
+            f"json:{report}",
+            *tests,
+        ]
+        t0 = time.time()
+        proc = subprocess.Popen(
+            cmd,
+            cwd=repo,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            start_new_session=True,
+        )
+        timed_out = False
         try:
             out, _ = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
             timed_out = True
             os.killpg(proc.pid, signal.SIGKILL)  # only this run's group
             out, _ = proc.communicate()
-    finally:
-        if proc.poll() is None:  # Ctrl-C or a crash: do not leave it running
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except OSError:
-                pass
-            proc.wait()
-    secs = time.time() - t0
-    suites, names, failures, load_fail, passed = {}, {}, [], False, 0
-    try:
+        secs = time.time() - t0
+        suites, names, failures, passed = {}, {}, [], 0
         with open(report, encoding="utf-8") as fh:
             for line in fh:
                 try:
@@ -219,39 +272,61 @@ def run_tests(repo, tests, timeout, concurrency=2):
                             "error": (ev.get("error") or "")[:300],
                         }
                     )
-                    if n.startswith("loading "):
-                        load_fail = True
                 elif (
                     ev.get("type") == "testDone"
                     and ev.get("result") == "success"
                     and not ev.get("hidden")
                 ):
                     passed += 1
+        # A suite that failed to load is a compile error only when the output
+        # (or the failure's own text) says so; a throw while loading is a kill.
+        evidence = out + "\n".join(f["error"] for f in failures)
+        return {
+            "secs": round(secs, 1),
+            "timed_out": timed_out,
+            "exit_code": proc.returncode,
+            "failures": failures,
+            "passed": passed,
+            "compile_error": is_compile_error(evidence),
+            "exit_tail": out[-400:],
+        }
     finally:
-        os.unlink(report)
-    compile_err = (
-        load_fail
-        or "Compilation failed" in out
-        or bool(re.search(r"lib/\S+:\d+:\d+: Error:", out))
-    )
-    return {
-        "secs": round(secs, 1),
-        "timed_out": timed_out,
-        "failures": failures,
-        "passed": passed,
-        "compile_error": compile_err,
-        "exit_tail": out[-400:],
-    }
+        if proc is not None and proc.poll() is None:  # Ctrl-C or a crash
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            proc.wait()
+        try:
+            os.unlink(report)
+        except OSError:
+            pass
 
 
 def rel(path, repo):
     return os.path.relpath(path, repo) if os.path.isabs(path) else path
 
 
-def classify_run(m, r, repo):
+def baseline_problem(b):
+    """Why [b], the unmutated run, cannot serve as a baseline; None when it can."""
+    if b["timed_out"]:
+        return "timed out"
+    if b["compile_error"]:
+        return "does not compile"
+    if b["failures"]:
+        return f"{len(b['failures'])} test(s) fail"
+    if b.get("exit_code") != 0:
+        return f"flutter test exited {b.get('exit_code')} without a failing test"
+    if b["passed"] <= 0:
+        return "no test ran"
+    return None
+
+
+def classify_run(m, r, repo, baseline_passed=None):
     """The result record of mutant [m] from a test run [r]."""
     rec = {"id": m["id"], "file": m["file"], "note": m.get("note", "")}
     rec["secs"] = r["secs"]
+    ran = r["passed"] + len(r["failures"])
     if r["compile_error"]:
         rec.update(status=INVALID, reason="compile error")
     elif r["timed_out"] and not r["failures"]:
@@ -268,6 +343,18 @@ def classify_run(m, r, repo):
                 f"{rel(f['file'], repo)} :: {f['test']}" for f in r["failures"][:8]
             ],
         )
+    elif r.get("exit_code") != 0:
+        rec.update(
+            status=INCONCLUSIVE,
+            reason=f"flutter test exited {r.get('exit_code')} without a failing test",
+        )
+    elif r["passed"] <= 0:
+        rec.update(status=INCONCLUSIVE, reason="no test ran")
+    elif baseline_passed and ran < MIN_RAN_SHARE * baseline_passed:
+        rec.update(
+            status=INCONCLUSIVE,
+            reason=f"{ran} tests ran, the baseline had {baseline_passed}",
+        )
     else:
         rec.update(status=SURVIVED)
     return rec
@@ -283,6 +370,22 @@ def save(result, path):
 
 def head_sha(repo):
     return git(repo, "rev-parse", "HEAD").stdout.strip()
+
+
+def digest(*parts):
+    h = hashlib.sha256()
+    for p in parts:
+        h.update(p.encode("utf-8"))
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def tests_hash(repo, tests):
+    return digest(*[t + "\n" + read_text(os.path.join(repo, t)) for t in tests])
+
+
+def entry_hash(m):
+    return digest(m["id"], m["file"], m["old"], m["new"])
 
 
 def run_subject(
@@ -306,35 +409,40 @@ def run_subject(
         spec.get("quick_tests") if quick and spec.get("quick_tests") else spec["tests"]
     )
     mode = "quick" if tests is not spec["tests"] else "full"
-    mutants = [m for m in spec["mutants"] if not only or m["id"] in only]
     if only:
         unknown = only - {m["id"] for m in spec["mutants"]}
         if unknown:
             raise MutationError(f"unknown mutant ids: {', '.join(sorted(unknown))}")
+    mutants = [m for m in spec["mutants"] if not only or m["id"] in only]
     require_clean(repo, {m["file"] for m in mutants})
-    sha = head_sha(repo)
-    result = {
-        "subject": spec["subject"],
-        "commit": sha,
+    key = {
+        "commit": head_sha(repo),
         "mode": mode,
         "tests": tests,
-        "mutants": [],
+        "tests_hash": tests_hash(repo, tests),
     }
+    result = {"subject": spec["subject"], **key, "mutants": []}
     if not fresh and os.path.exists(out_path):
-        with open(out_path, encoding="utf-8") as fh:
-            old = json.load(fh)
-        if (
-            old.get("subject"),
-            old.get("commit"),
-            old.get("mode"),
-            old.get("tests"),
-        ) == (result["subject"], sha, mode, tests):
-            result = old
+        old = json.loads(read_text(out_path))
+        if old.get("subject") == spec["subject"]:
+            if all(old.get(k) == v for k, v in key.items()):
+                result = old
+            elif only:
+                # Another commit, mode or test content: the saved verdicts of
+                # the other ids are kept for reference, marked stale, and the
+                # baseline is measured again.
+                result["mutants"] = [
+                    {**m, "stale": True}
+                    for m in old.get("mutants", [])
+                    if m["id"] not in only
+                ]
     if "baseline" not in result:
         b = runner(repo, tests, 3600, concurrency)
-        if b["failures"] or b["timed_out"] or b["compile_error"]:
+        why = baseline_problem(b)
+        if why:
             raise MutationError(
-                "baseline is not green, nothing mutated: " + json.dumps(b)[:800]
+                f"baseline is not green ({why}), nothing mutated: "
+                + json.dumps(b)[:800]
             )
         result["baseline"] = {"secs": b["secs"], "passed": b["passed"]}
         save(result, out_path)
@@ -344,21 +452,33 @@ def run_subject(
     if baseline_only:
         return result
     limit = max(120, 3 * result["baseline"]["secs"])
-    done = {m["id"] for m in result["mutants"]}
     for m in mutants:
-        if m["id"] in done:
+        digest_of = entry_hash(m)
+        have = next((x for x in result["mutants"] if x["id"] == m["id"]), None)
+        if (
+            have
+            and not only
+            and not have.get("stale")
+            and have.get("entry") == digest_of
+        ):
             continue
         path = os.path.join(repo, m["file"])
         src = read_text(path)
-        _mutated[path] = src
+        backup = os.path.join(repo, BACKUPS, m["file"])
+        os.makedirs(os.path.dirname(backup), exist_ok=True)
+        with open(backup, "w", encoding="utf-8", newline="") as fh:
+            fh.write(src)
+        _mutated[path] = (src, backup)
         try:
             with open(path, "w", encoding="utf-8", newline="") as fh:
                 fh.write(src.replace(m["old"], m["new"], 1))
             r = runner(repo, tests, limit, concurrency)
         finally:
             restore_all()
-        rec = classify_run(m, r, repo)
+        rec = classify_run(m, r, repo, result["baseline"]["passed"])
+        rec["entry"] = digest_of
         rec["line"] = src[: src.index(m["old"])].count("\n") + 1
+        result["mutants"] = [x for x in result["mutants"] if x["id"] != m["id"]]
         result["mutants"].append(rec)
         save(result, out_path)
         log(f"{m['id']} {rec['status']} {rec.get('killer_files', '')}")
@@ -367,17 +487,19 @@ def run_subject(
 
 def summarize(result):
     """Lines describing one subject's results: kill rate, survivors, killers."""
-    ms = result["mutants"]
+    ms = [m for m in result["mutants"] if not m.get("stale")]
+    stale = len(result["mutants"]) - len(ms)
     counts = {}
     for m in ms:
         counts[m["status"]] = counts.get(m["status"], 0) + 1
-    valid = len(ms) - counts.get(INVALID, 0)
     killed = counts.get(KILLED, 0) + counts.get(TIMEOUT, 0)
+    valid = killed + counts.get(SURVIVED, 0)
     rate = round(100 * killed / valid) if valid else 0
     lines = [
-        f"== {result['subject']}: kill rate {rate}% ({killed}/{valid} valid), "
+        f"== {result['subject']}: kill rate {rate}% ({killed}/{valid} decided), "
         + ", ".join(f"{k} {v}" for k, v in sorted(counts.items()))
         + f" [{result.get('mode', '?')}]"
+        + (f", {stale} stale (rerun)" if stale else "")
     ]
     kinds, sole = {}, {}
     for m in ms:
@@ -396,7 +518,7 @@ def summarize(result):
             "   sole killer: " + ", ".join(f"{k} {v}" for k, v in sorted(sole.items()))
         )
     for m in ms:
-        if m["status"] in (SURVIVED, INVALID):
+        if m["status"] in (SURVIVED, INVALID, INCONCLUSIVE):
             extra = f" ({m['reason']})" if m.get("reason") else ""
             lines.append(
                 f"   {m['status']} {m['id']} line {m.get('line', '?')}: {m['note']}{extra}"
@@ -431,7 +553,9 @@ def main(argv=None):
     names = args.subjects or subject_names(repo)
     only = set(args.only.split(",")) if args.only else None
 
-    signal.signal(signal.SIGTERM, _raise_interrupt)
+    for name in ("SIGTERM", "SIGHUP"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), _raise_interrupt)
     try:
         specs = [load_spec(os.path.join(repo, LISTS, n + ".json")) for n in names]
         if args.summary:

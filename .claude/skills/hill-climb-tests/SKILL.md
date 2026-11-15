@@ -33,9 +33,24 @@ python3 -I scripts/mutation_sample.py auth_controller --only au03,au17   # singl
 python3 -I scripts/mutation_sample.py --summary               # kill rate per subject from saved results
 ```
 
-It refuses to start when a file it mutates has uncommitted changes, needs a
-green baseline first, restores the file after every mutant and on an error,
-Ctrl-C or SIGTERM, and resumes a rerun at the same commit and mode. Run one
+Other flags:
+
+- `--only id,id`: always reruns those ids, even when saved, and merges them
+  into the saved results (the other ids are kept).
+- `--fresh`: ignores saved results and starts over.
+- `--baseline-only`: runs only the unmutated tests, to see whether they are green.
+- `--concurrency N`: passed to `flutter test` (default 2); keep it low on a shared machine.
+- `--out DIR`: writes results there instead of `.dart_tool/mutation-sample/`.
+
+It refuses to start when a file it mutates has uncommitted changes (and
+prints the `git restore` command; a copy of each original is taken under
+`.dart_tool/mutation-sample/backup/` before it is mutated), needs a green
+baseline first (exit 0 and at least one test passing), and restores the file
+after every mutant and on an error, Ctrl-C, SIGTERM or SIGHUP. Saved results
+are reused at the same commit, mode and test file contents, and a mutant whose
+list entry changed is rerun. So the loop "add a test, rerun the mutant with
+`--only`" always measures the new test: a changed test file makes the baseline
+run again, and the other ids' older results are shown as stale. Run one
 subject at a time; the full lists are large (the baseline alone is minutes),
 and a machine shared with other agents should not run two at once. Use
 `--quick` while iterating and the full list to certify a result: a quick
@@ -43,8 +58,12 @@ survivor may still be killed by a test outside the subset.
 
 ## Read the results
 
-Per mutant: `KILLED`, `SURVIVED`, `TIMEOUT` (counts as a kill) or `INVALID`
-(did not compile; counts for nothing, fix the mutant).
+Per mutant: `KILLED`, `SURVIVED` (exit 0, nothing failed, and at least 90% of
+the baseline's tests ran), `TIMEOUT` (counts as a kill), `INVALID` (did not
+compile; counts for nothing, fix the mutant) or `INCONCLUSIVE` (a non-zero
+exit with no failing test, no test ran, or far fewer ran than in the baseline;
+neither killed nor survived, see `reason` and rerun). The kill rate is
+killed / (killed + survived).
 
 - `first_failure.kind`: `expect_mismatch` (a matcher said no, the best sign),
   `unexpected_request` (a fake server saw a call nobody stubbed),
