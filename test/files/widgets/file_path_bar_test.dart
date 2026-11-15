@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/files/widgets/file_path_bar.dart';
-import 'package:hermes_app/src/files/widgets/middle_ellipsis.dart';
+import 'package:hermes_app/src/widgets/middle_ellipsis.dart';
 
 import 'files_widget_harness.dart';
 

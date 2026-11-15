@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../files/widgets/files_metrics.dart';
-import '../../files/widgets/middle_ellipsis.dart';
+import '../../widgets/middle_ellipsis.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
