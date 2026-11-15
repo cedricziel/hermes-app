@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/plugin_attachment_source.dart';
@@ -9,6 +9,8 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+
+import 'package:provider/provider.dart';
 
 import 'support/attachment_fixtures.dart';
 import 'support/fake_chat_transport.dart';
@@ -60,16 +62,37 @@ void main() {
       .where((f) => f.path.endsWith('.part'))
       .toList();
 
-  test('a picked file is copied out of the plugin directory', () async {
-    final file = writeTemp(pluginDir, 'report.pdf', [1, 2, 3, 4]);
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    test(
+      'a file picked on $platform is copied out of the plugin directory',
+      () async {
+        final file = writeTemp(pluginDir, 'report.pdf', [1, 2, 3, 4]);
 
-    final picked = await sourceFor([file]).pick(AttachOrigin.files);
+        final picked = await sourceFor([
+          file,
+        ], platform: platform).pick(AttachOrigin.files);
 
-    expect(picked.single.name, 'report.pdf');
-    expect(picked.single.path, isNot(startsWith(pluginDir.path)));
-    expect(picked.single.path, startsWith(cache.path));
-    expect(File(picked.single.path).readAsBytesSync(), [1, 2, 3, 4]);
-    expect(partsIn(cache), isEmpty);
+        expect(picked.single.name, 'report.pdf');
+        expect(picked.single.path, isNot(startsWith(pluginDir.path)));
+        expect(picked.single.path, startsWith(cache.path));
+        expect(File(picked.single.path).readAsBytesSync(), [1, 2, 3, 4]);
+        expect(partsIn(cache), isEmpty);
+      },
+    );
+  }
+
+  test('the display name is kept while the staged file name is safe', () async {
+    final file = writeTemp(pluginDir, 'plain.pdf', [1]);
+    final source = PluginAttachmentSource(
+      platform: TargetPlatform.iOS,
+      staging: store,
+      pickFiles: () async => [_Picked(file.path, 'a:b.pdf')],
+    );
+
+    final picked = await source.pick(AttachOrigin.files);
+
+    expect(picked.single.name, 'a:b.pdf');
+    expect(picked.single.path.split('/').last, isNot(contains(':')));
   });
 
   test('clearing the plugin directory leaves the draft sendable', () async {
@@ -113,24 +136,60 @@ void main() {
     expect(partsIn(cache), isEmpty);
   });
 
-  test('a copy that fails midway leaves no .part file', () async {
-    final file = writeTemp(pluginDir, 'report.pdf', [1]);
-    final failing = MediaStore(
-      source: _NoSource(),
-      cacheDirectory: () async => cache,
-    );
+  test('a later file that fails removes the copies already made', () async {
+    final first = writeTemp(pluginDir, 'one.pdf', [1]);
     final source = PluginAttachmentSource(
       platform: TargetPlatform.iOS,
-      staging: failing,
+      staging: store,
       pickFiles: () async => [
-        _Picked(file.path, 'report.pdf'),
-        _Picked('${pluginDir.path}/nope.pdf', 'n'),
+        _Picked(first.path, 'one.pdf'),
+        _Picked('${pluginDir.path}/nope.pdf', 'two.pdf'),
       ],
     );
 
     await expectLater(source.pick(AttachOrigin.files), throwsException);
 
-    expect(partsIn(cache), isEmpty);
+    expect(cache.listSync(recursive: true).whereType<File>(), isEmpty);
+    expect(
+      cache
+          .listSync(recursive: true)
+          .whereType<Directory>()
+          .where((d) => d.path != '${cache.path}/hermes_media'),
+      isEmpty,
+    );
+  });
+
+  testWidgets('.of hands the provided MediaStore to the source', (
+    tester,
+  ) async {
+    late PluginAttachmentSource source;
+    await tester.pumpWidget(
+      Provider<MediaStore?>.value(
+        value: store,
+        child: Builder(
+          builder: (context) {
+            source = PluginAttachmentSource.of(context);
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+
+    expect(source.staging, same(store));
+  });
+
+  testWidgets('.of without a provider has no store', (tester) async {
+    late PluginAttachmentSource source;
+    await tester.pumpWidget(
+      Builder(
+        builder: (context) {
+          source = PluginAttachmentSource.of(context);
+          return const SizedBox();
+        },
+      ),
+    );
+
+    expect(source.staging, isNull);
   });
 
   test('a desktop pick is not copied', () async {
@@ -160,5 +219,21 @@ void main() {
     await store.clearFileDownloads();
 
     expect(File(picked.single.path).existsSync(), isTrue);
+  });
+
+  test('every screen that builds the default source gives it the store', () {
+    for (final path in [
+      'lib/src/chat/chat_screen.dart',
+      'lib/src/windows/conversation_window_screen.dart',
+      'lib/src/quick_panel/quick_panel_screen.dart',
+    ]) {
+      final text = File(path).readAsStringSync();
+      expect(
+        text,
+        contains('PluginAttachmentSource.of(context)'),
+        reason: path,
+      );
+      expect(text, isNot(contains('PluginAttachmentSource()')), reason: path);
+    }
   });
 }

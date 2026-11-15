@@ -527,6 +527,65 @@ void main() {
       expect(file.path, isNot(picked.path));
     });
 
+    test('a copy that fails midway leaves no .part file', () async {
+      final picked = writeTemp(tempDir('picked'), 'notes.txt', [1, 2, 3]);
+      final store = MediaStore(
+        source: HermesMediaSource(() => server.client()),
+        cacheDirectory: () async => cache,
+        copyFile: (source, to) async {
+          File(to).writeAsBytesSync([1]);
+          expect(File(to).existsSync(), isTrue);
+          throw const FileSystemException('disk full');
+        },
+      );
+
+      await expectLater(
+        store.stageCopy('notes.txt', picked),
+        throwsA(isA<MediaFetchException>()),
+      );
+
+      expect(filesUnder(cache), isEmpty);
+    });
+
+    test('stageCopy dates the copy now, so the sweep keeps it', () async {
+      final picked = writeTemp(tempDir('picked'), 'old.txt', [1]);
+      final store = MediaStore(
+        source: HermesMediaSource(() => server.client()),
+        cacheDirectory: () async => cache,
+        // As File.copy does where it keeps the source's date.
+        copyFile: (source, to) async {
+          final copy = await source.copy(to);
+          copy.setLastModifiedSync(
+            DateTime.now().subtract(const Duration(days: 30)),
+          );
+        },
+      );
+
+      final file = await store.stageCopy('old.txt', picked);
+      await store.sweep(mediaCacheMaxAge);
+
+      expect(file.existsSync(), isTrue);
+    });
+
+    test('discard removes a staged copy and its folder', () async {
+      final picked = writeTemp(tempDir('picked'), 'notes.txt', [1]);
+      final store = newStore();
+      final file = await store.stageCopy('notes.txt', picked);
+
+      await store.discard(file);
+
+      expect(file.parent.existsSync(), isFalse);
+      expect(picked.existsSync(), isTrue);
+    });
+
+    test('discard leaves a file outside the staging folder', () async {
+      final picked = writeTemp(tempDir('picked'), 'notes.txt', [1]);
+
+      await newStore().discard(picked);
+
+      expect(picked.existsSync(), isTrue);
+    });
+
     test('stageCopy copies again when the file changed', () async {
       final picked = writeTemp(tempDir('picked'), 'notes.txt', [1]);
       final store = newStore();

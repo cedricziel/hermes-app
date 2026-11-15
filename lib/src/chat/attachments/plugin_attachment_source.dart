@@ -126,16 +126,28 @@ class PluginAttachmentSource implements AttachmentSource {
       case AttachOrigin.files:
         final files = await _pickFiles();
         final store = _isPhone ? staging : null;
-        return [
-          for (final file in files)
-            if (file.path case final path?)
-              sharedFileFromPath(
-                store == null
-                    ? path
-                    : (await store.stageCopy(file.name, File(path))).path,
-                name: file.name,
-              ),
-        ];
+        final copies = <File>[];
+        try {
+          final picked = <SharedFile>[];
+          for (final file in files) {
+            final path = file.path;
+            if (path == null) continue;
+            var staged = path;
+            if (store != null) {
+              final copy = await store.stageCopy(file.name, File(path));
+              copies.add(copy);
+              staged = copy.path;
+            }
+            picked.add(sharedFileFromPath(staged, name: file.name));
+          }
+          return picked;
+        } on Object {
+          // All or nothing: a failed pick leaves no copy behind.
+          for (final copy in copies) {
+            await store?.discard(copy);
+          }
+          rethrow;
+        }
       case AttachOrigin.photos:
         final photos = await _images.pickMultiImage();
         return photos.map(_fromPicked).toList();

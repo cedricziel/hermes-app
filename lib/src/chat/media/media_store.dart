@@ -49,13 +49,18 @@ class MediaStore {
     this._quickLook = const NoQuickLook(),
     this._imageBudget = 32 * 1024 * 1024,
     Future<void> Function(Directory folder)? deleteFolder,
+    Future<void> Function(File source, String to)? copyFile,
   }) : _actions = actions ?? PlatformMediaActions(),
-       _deleteFolder = deleteFolder ?? _deleteRecursively;
+       _deleteFolder = deleteFolder ?? _deleteRecursively,
+       _copyFile = copyFile ?? ((source, to) => source.copy(to));
 
   final MediaSource _source;
 
   /// Removes a cache folder; replaceable so a test can make it fail.
   final Future<void> Function(Directory folder) _deleteFolder;
+
+  /// Copies a file for [stageCopy]; replaceable so a test can make it fail.
+  final Future<void> Function(File source, String to) _copyFile;
 
   /// Folders a lock cleanup could not delete (a file another app holds open
   /// on Windows), tried again at the next sweep.
@@ -198,12 +203,21 @@ class MediaStore {
       part,
     ) async {
       try {
-        await source.copy(part.path);
+        await _copyFile(source, part.path);
       } on FileSystemException {
         throw const MediaFetchException(MediaFailure.failed);
       }
+      // A copy can keep the source's date, and the sweep goes by that date.
+      await _quietly(() => part.setLastModified(DateTime.now()));
     });
   }
+
+  /// Deletes a file [stageCopy] returned, with its folder. Best effort.
+  Future<void> discard(File staged) => _quietly(() async {
+    final root = await _root();
+    if (staged.parent.parent.path != root.path) return;
+    await staged.parent.delete(recursive: true);
+  });
 
   /// The file for [key], made by [fill] into the path it is given the first
   /// time, and shared by every request for [key] after that, also while
