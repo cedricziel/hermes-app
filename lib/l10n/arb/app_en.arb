@@ -2628,7 +2628,9 @@
     "description": "Explains how to set up a model for a profile; the server command follows below it.",
     "placeholders": {
       "profile": {
-        "type": "String"
+        "type": "String",
+        "example": "work",
+        "description": "The name of the profile to set up, or default."
       }
     }
   },
