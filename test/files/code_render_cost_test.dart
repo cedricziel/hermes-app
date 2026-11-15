@@ -118,4 +118,32 @@ void main() {
       expect(_keywordFences(tester), first, reason: 'toggle ${i + 1}');
     }
   });
+
+  group('an unbreakable stretch', () {
+    test('is coloured up to the limit and plain past it', () {
+      expect(isColourable('a' * kCodeHighlightMaxUnbreakable), isTrue);
+      expect(isColourable('a' * (kCodeHighlightMaxUnbreakable + 1)), isFalse);
+    });
+
+    test('a break resets the count', () {
+      final line = 'a' * kCodeHighlightMaxUnbreakable;
+      expect(isColourable('$line $line\n$line\t$line'), isTrue);
+    });
+
+    test('a long line with breaks in it still colours', () {
+      expect(isColourable('x = 1 ' * 20000), isTrue);
+    });
+
+    test('highlightCode leaves it plain', () {
+      final uri = 'var u = "data:image/png;base64,${'QUJD' * 25000}";';
+      expect(highlightCode(uri, 'javascript'), [(uri, null)]);
+    });
+
+    testWidgets('starts no worker and stays one span', (tester) async {
+      final uri = 'var u = "data:image/png;base64,${'QUJD' * 25000}";';
+      await pumpFiles(tester, CodePreview(text: uri, language: 'javascript'));
+      expect(CodeHighlightWorker.alive, 0);
+      expect(_leafSpans(tester), 1);
+    });
+  });
 }

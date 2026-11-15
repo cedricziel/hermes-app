@@ -255,7 +255,9 @@ class CodePreview extends StatelessWidget {
 /// builds; a larger one shows plain at once and takes its colours from a
 /// killable isolate ([CodeHighlightWorker], at most one, ended with this
 /// widget and after [kCodeHighlightTimeout]) when they are ready. A text with
-/// no grammar, `text` included, and one above [kCodeHighlightMaxChars] stay
+/// no grammar, `text` included, and one that [isColourable] refuses (above
+/// [kCodeHighlightMaxChars], or with a stretch of [kCodeHighlightMaxUnbreakable]
+/// characters that cannot wrap) stay
 /// plain. The characters never change, only their colour.
 class HighlightedCode extends StatefulWidget {
   const HighlightedCode({
@@ -318,7 +320,7 @@ class _HighlightedCodeState extends State<HighlightedCode> {
     _safe = safeContentText(widget.text);
     _runs = [(_safe, null)];
     final language = widget.language;
-    if (!hasCodeGrammar(language) || _safe.length > kCodeHighlightMaxChars) {
+    if (!hasCodeGrammar(language) || !isColourable(_safe)) {
       return;
     }
     final budget = widget.budget;

@@ -106,6 +106,30 @@ List<CodeRun> capRuns(List<CodeRun> runs, {int max = kCodeHighlightMaxRuns}) {
   return out;
 }
 
+/// The longest stretch of text without a space, tab or line break that is
+/// still coloured. Such a stretch cannot wrap, so its paragraph is laid out
+/// in one piece, and colouring makes the layout run a second time when the
+/// colours arrive: a base64 data URI of 100,000 characters took 1.4 s plain
+/// and 0.8 s more coloured. Past this the text stays plain, with no
+/// highlighter and no worker.
+const int kCodeHighlightMaxUnbreakable = 10000;
+
+/// Whether [text] is worth colouring at all: not empty, at most
+/// [kCodeHighlightMaxChars] and with no stretch without a break over
+/// [kCodeHighlightMaxUnbreakable].
+bool isColourable(String text) {
+  if (text.isEmpty || text.length > kCodeHighlightMaxChars) return false;
+  var run = 0;
+  for (var i = 0; i < text.length; i++) {
+    final unit = text.codeUnitAt(i);
+    run = unit == 0x20 || unit == 0x09 || unit == 0x0A || unit == 0x0D
+        ? 0
+        : run + 1;
+    if (run > kCodeHighlightMaxUnbreakable) return false;
+  }
+  return true;
+}
+
 /// Every grammar `val_highlight` ships, by name and alias (`python`, `py`,
 /// `shell`, `sh`, `yml` ...). The server's `language` is a name from its own
 /// fixed map; a name not here is shown plain. There is no fallback grammar.
@@ -128,7 +152,7 @@ Grammar? _grammarOf(String? language) {
 List<CodeRun> highlightCode(String text, String? language) {
   final plain = <CodeRun>[(text, null)];
   final grammar = _grammarOf(language);
-  if (grammar == null || text.isEmpty || text.length > kCodeHighlightMaxChars) {
+  if (grammar == null || !isColourable(text)) {
     return plain;
   }
   try {
