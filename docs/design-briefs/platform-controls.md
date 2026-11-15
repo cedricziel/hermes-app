@@ -4,7 +4,7 @@ Small decisions about how a shared control is sized on each platform. There is n
 
 ## Mac button height
 
-Decision: Mac push buttons are 28 pt tall (the AppKit regular control height and our macOS minimum target). Compact density no longer shrinks them.
+Decision: Mac push buttons are 28 pt tall (the AppKit regular control height and our macOS minimum target). The theme minimum allows for the compact density, so they render 28.
 
 Why: the Mac theme already asked for 28 (`_kMacButtonHeight`, set as `minimumSize`), but ThemeData's desktop default density is compact (-2, -2), which takes 8 off a button's minimum size. A plain FilledButton, FilledButton.tonal, OutlinedButton or TextButton therefore measured 20 pt. A 20 pt button is under the Mac minimum target of 28 and looked small beside 28 pt toolbar buttons and the 48 pt text fields of forms. Buttons that carry their own style were already larger: `toolsButtonStyle` (standard density, so `SoulSaveActions` was 28), `AppBanner` actions (constrained to 28) and buttons with their own `minimumSize` kept their size, so only the plain ones were off.
 

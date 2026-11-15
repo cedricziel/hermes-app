@@ -138,7 +138,7 @@ void main() {
           );
         });
 
-        testWidgets('a minimumSize-only style keeps its main height', (
+        testWidgets('a minimumSize-only style keeps its height', (
           tester,
         ) async {
           final button = FilledButton(
@@ -150,7 +150,7 @@ void main() {
           expect(tester.getSize(find.byWidget(button)).height, 36);
         });
 
-        testWidgets('toolsButtonStyle keeps its main height', (tester) async {
+        testWidgets('toolsButtonStyle keeps its height', (tester) async {
           late TextButton button;
           await pumpMac(
             tester,
@@ -165,7 +165,7 @@ void main() {
           expect(tester.getSize(find.byWidget(button)).height, 36);
         });
 
-        testWidgets('TextButton.icon keeps its main width', (tester) async {
+        testWidgets('TextButton.icon keeps its width', (tester) async {
           final button = TextButton.icon(
             onPressed: () {},
             icon: const Icon(Icons.add, size: 18),
