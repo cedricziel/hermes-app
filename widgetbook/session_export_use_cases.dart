@@ -66,7 +66,7 @@ WidgetbookNode sessionExportAlertNode() => WidgetbookComponent(
     ..._each('Confirm, largest text', const SessionExportConfirm(), scale: 3),
     ..._each(
       'Progress, largest text',
-      const SessionExportProgress(stalled: true, receivedBytes: 12 * _mb),
+      const SessionExportProgress(receivedBytes: 12 * _mb),
       scale: 3,
     ),
     ..._each(
@@ -74,10 +74,15 @@ WidgetbookNode sessionExportAlertNode() => WidgetbookComponent(
       const SessionExportFailed(SessionExportFailure.incomplete),
       scale: 3,
     ),
+    ..._each(
+      'Progress, stalled, largest text',
+      const SessionExportProgress(stalled: true),
+      scale: 3,
+    ),
     ..._each('Confirm, German', const SessionExportConfirm(), german: true),
     ..._each(
       'Progress, German',
-      const SessionExportProgress(stalled: true, receivedBytes: 12 * _mb),
+      const SessionExportProgress(receivedBytes: 12 * _mb),
       german: true,
     ),
     ..._each(

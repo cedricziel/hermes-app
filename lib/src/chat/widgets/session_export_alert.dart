@@ -21,7 +21,11 @@ final class SessionExportConfirm extends SessionExportPhase {
 /// The file is being fetched. [stalled] adds the "Still waiting" line;
 /// [receivedBytes] adds the "Downloaded" line once it is above zero.
 final class SessionExportProgress extends SessionExportPhase {
-  const SessionExportProgress({this.stalled = false, this.receivedBytes = 0});
+  const SessionExportProgress({this.stalled = false, this.receivedBytes = 0})
+    : assert(
+        !stalled || receivedBytes == 0,
+        'stalled means no first byte has arrived',
+      );
 
   final bool stalled;
   final int receivedBytes;

@@ -5,6 +5,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/session_export_alert.dart';
 import 'package:hermes_app/src/chat/widgets/session_export_failure.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/busy_bar.dart';
 
 Widget _host(
   SessionExportPhase phase, {
@@ -79,18 +80,17 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      _host(
-        const SessionExportProgress(
-          stalled: true,
-          receivedBytes: 12 * 1024 * 1024,
-        ),
-      ),
+      _host(const SessionExportProgress(receivedBytes: 12 * 1024 * 1024)),
     );
     expect(find.text('Preparing the export…'), findsOneWidget);
     expect(find.byType(AppDialogAction), findsOneWidget);
     expect(tester.widget<AppDialogAction>(_action('Cancel')).isDefault, isTrue);
     expect(find.text('Downloaded 12 MB'), findsOneWidget);
+    expect(find.text('Still waiting for Hermes.'), findsNothing);
+
+    await tester.pumpWidget(_host(const SessionExportProgress(stalled: true)));
     expect(find.text('Still waiting for Hermes.'), findsOneWidget);
+    expect(find.textContaining('Downloaded'), findsNothing);
 
     await tester.pumpWidget(_host(const SessionExportProgress()));
     expect(find.textContaining('Downloaded'), findsNothing);
@@ -178,5 +178,121 @@ void main() {
       texts,
       containsAll(<String?>['Export this chat as JSON?', 'Cancel', 'Export']),
     );
+  });
+
+  const english = <SessionExportFailure, (String, String)>{
+    SessionExportFailure.gone: (
+      'Chat not on the server',
+      'This chat is no longer on the server. Nothing was saved.',
+    ),
+    SessionExportFailure.unsupported: (
+      "This server can't export chats",
+      'It may be running an older version of Hermes. Nothing was saved.',
+    ),
+    SessionExportFailure.profileMissing: (
+      'Profile not found',
+      "The profile this chat belongs to doesn't exist on the server any more. Nothing was saved.",
+    ),
+    SessionExportFailure.profileInvalid: (
+      'Profile name not valid',
+      "Hermes didn't accept this chat's profile name, so it couldn't read the chat. Nothing was saved.",
+    ),
+    SessionExportFailure.unreadable: (
+      "Hermes can't read its chats",
+      "The server's chat store couldn't be read. Check the server, then try again. Nothing was saved.",
+    ),
+    SessionExportFailure.lost: (
+      "Couldn't confirm the export",
+      "Hermes didn't answer in time. Nothing was saved.",
+    ),
+    SessionExportFailure.incomplete: (
+      'The export was incomplete',
+      'The file stopped before the end, so nothing was saved.',
+    ),
+    SessionExportFailure.offline: (
+      "You're offline",
+      'Connect to the internet or your server, then try again. Nothing was saved.',
+    ),
+    SessionExportFailure.failed: (
+      "Couldn't export this chat",
+      'Hermes answered with an error. Nothing was saved.',
+    ),
+  };
+
+  testWidgets('English title and message of every failure kind', (
+    tester,
+  ) async {
+    expect(english.keys.toSet(), failures.toSet());
+    for (final MapEntry(key: kind, value: (title, message))
+        in english.entries) {
+      await tester.pumpWidget(_host(SessionExportFailed(kind)));
+      final dialog = tester.widget<AlertDialog>(find.byType(AlertDialog));
+      expect((dialog.title! as Text).data, title, reason: kind.name);
+      expect(find.text(message), findsOneWidget, reason: kind.name);
+    }
+  });
+
+  testWidgets('every button calls only its own callback', (tester) async {
+    for (final kind in failures) {
+      for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+        final log = <String>[];
+        await tester.pumpWidget(
+          _host(SessionExportFailed(kind), log: log, platform: platform),
+        );
+        await tester.tap(find.text('Close'));
+        expect(log, ['close'], reason: '${kind.name} $platform');
+        if (kind.canRetry) {
+          await tester.tap(find.text('Try again'));
+          expect(log, ['close', 'retry'], reason: '${kind.name} $platform');
+        }
+      }
+    }
+    final log = <String>[];
+    await tester.pumpWidget(_host(const SessionExportProgress(), log: log));
+    await tester.tap(find.text('Cancel'));
+    expect(log, ['cancel']);
+  });
+
+  testWidgets('progress says what is happening and shows one bar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(const SessionExportProgress()));
+    expect(
+      find.text('Hermes is sending the file. A long chat can take a while.'),
+      findsOneWidget,
+    );
+    expect(find.byType(BusyBar), findsOneWidget);
+  });
+
+  testWidgets('the bytes and stalled lines are live regions', (tester) async {
+    final live = find.descendant(
+      of: find.byType(SessionExportAlert),
+      matching: find.byWidgetPredicate(
+        (w) => w is Semantics && w.properties.liveRegion == true,
+      ),
+    );
+    final handle = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      _host(
+        const SessionExportProgress(
+          receivedBytes: 12 * 1024 * 1024 + 300 * 1024,
+        ),
+      ),
+    );
+    expect(live, findsOneWidget);
+    final bytes = tester.getSemantics(live);
+    expect(bytes.flagsCollection.isLiveRegion, isTrue);
+    // Coarse on purpose (announcedReceivedBytes: steps of 10 MB above 10 MB):
+    // the screen shows 12 MB, the announcement says 10 MB.
+    expect(find.text('Downloaded 12 MB'), findsOneWidget);
+    expect(bytes.label, 'Downloaded 10 MB');
+
+    await tester.pumpWidget(_host(const SessionExportProgress(stalled: true)));
+    expect(live, findsOneWidget);
+    final stalled = tester.getSemantics(live);
+    expect(stalled.flagsCollection.isLiveRegion, isTrue);
+    expect(stalled.label, 'Still waiting for Hermes.');
+    handle.dispose();
   });
 }

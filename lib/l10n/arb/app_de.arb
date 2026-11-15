@@ -53,7 +53,7 @@
   "chatSessionExportFailureProfileInvalidTitle": "Profilname ungültig",
   "chatSessionExportFailureProfileMissingMessage": "Das Profil dieses Chats gibt es auf dem Server nicht mehr. Es wurde nichts gespeichert.",
   "chatSessionExportFailureProfileMissingTitle": "Profil nicht gefunden",
-  "chatSessionExportFailureUnreadableMessage": "Der Chatspeicher des Servers konnte nicht gelesen werden. Prüfe den Server und versuche es dann erneut. Es wurde nichts gespeichert.",
+  "chatSessionExportFailureUnreadableMessage": "Der Sitzungsspeicher des Servers konnte nicht gelesen werden. Prüfe den Server und versuche es dann erneut. Es wurde nichts gespeichert.",
   "chatSessionExportFailureUnreadableTitle": "Hermes kann seine Chats nicht lesen",
   "chatSessionExportFailureUnsupportedMessage": "Möglicherweise läuft eine ältere Version von Hermes. Es wurde nichts gespeichert.",
   "chatSessionExportFailureUnsupportedTitle": "Dieser Server kann keine Chats exportieren",
