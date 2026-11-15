@@ -1,6 +1,7 @@
-# Native iOS voice conversations
+# Voice conversations
 
-Open a chat and tap **Start voice call**. A readiness screen checks microphone
+Open a chat and tap **Start voice call** (on iOS, Android, macOS, Windows and
+Linux; see **Other platforms** below for what differs from iOS). A readiness screen checks microphone
 access, the selected speech-recognition engine, Hermes speech configuration,
 the profile's voice model and the authenticated voice connection before
 starting CallKit. It does not
@@ -154,7 +155,7 @@ the call.
 
 **Idle.** Five minutes with no speech and no running reply end the call with
 "No one spoke for 5 minutes." Off iOS, hiding or backgrounding Hermes ends the
-call (the platform bridges for those come later).
+call (see **Other platforms**).
 
 **Sounds.** A rising tone when listening starts, a soft tick when the words are
 sent and a falling tone at stop, with a light haptic at the send and a medium
@@ -170,6 +171,52 @@ but the microphone may still be open." and so does the strip. A chat that
 closes while a call runs (sign-out, account change) ends the call first.
 "Hang up" and "End the call" are stop phrases. Approvals and clarification
 cards remain in the chat and require the existing user interaction.
+
+## Other platforms
+
+Android, macOS, Windows and Linux run the same loop through `PortableCallBridge`
+(`lib/src/voice/calls/portable_call_bridge.dart`) instead of CallKit.
+
+- **Audio.** The microphone is the `record` plugin (16 kHz mono PCM, the
+  platform's echo canceller and noise suppressor asked for, the
+  voice-communication input on Android). The voice plays through `flutter_soloud`
+  (a buffer stream of s16le mono at the rate the server sends). Android takes
+  audio focus and the in-communication audio mode through `audio_session` and
+  asks SoLoud for a voice-communication output stream. Neither library starts
+  before the user pressed Start, and on iOS neither is used.
+- **No barge-in.** None of these platforms cancels the echo of what the call
+  plays (Android's is to be proven on a device first), so the microphone is
+  closed while Hermes sends, thinks, speaks and plays a tone, and reopens 400 ms
+  after the audio ends. Closed means the recorder is stopped, not that samples
+  are dropped. Tapping the orb interrupts the reply. Speaking shows "Tap the
+  orb to interrupt." (Android) or "Microphone paused while Hermes speaks. Tap
+  the orb to interrupt." (desktop), and the strip says "paused".
+- **Echo guard (every platform, iOS included).** The first transcript after a
+  reply is compared with that reply and dropped when it is at least 60% alike,
+  or, for a transcript of ten characters or more that is shorter than the
+  reply, when it matches a stretch of the reply. So the reply's own "Goodbye."
+  heard back does not end the call. It runs before the invented-transcript and
+  stop-phrase checks and drops silently.
+- **Leaving the app ends the call.** The screen says so ("The call ends if you
+  leave Hermes." on Android, "...hide or minimise Hermes." on desktop). Android
+  ends it when the app is paused, which includes the screen locking; desktop
+  ends it when the window is hidden. A desktop screen lock is not observed: the
+  five-minute idle limit and the OS microphone indicator bound it. Android audio
+  focus loss (another app, a phone call), permanent or transient, ends the call;
+  ducking does not. A changed audio device is a route change.
+- **Where it opens.** A full-screen page on a phone; a 480 pt dialog over the
+  chat from 760 pt wide and on every Mac width (never a sheet on the Mac). Escape
+  and "Show chat" close the dialog and the call keeps running; the strip has End.
+  The Speaker control exists on iOS and Android only. A macOS conversation window
+  and the quick panel offer no call.
+- **Permissions.** The microphone is asked for with the same call as dictation
+  (`record`). When it is denied iOS, macOS and Windows offer "Open Settings";
+  Android and Linux have no link the app can open, so they offer Allow again.
+  Android declares `MODIFY_AUDIO_SETTINGS`.
+- **Recognition.** Apple platforms use the device recognizer the Dictation
+  setting chooses; everywhere else the call transcribes through Hermes.
+- **Linux without audio.** SoLoud cannot start without an output device, and
+  the call then fails to start with "Could not start the call".
 
 ## Implementation
 
@@ -255,8 +302,7 @@ The call shipped first without these rules. This version changes it:
   on; a lost session or profile ends it. A stop phrase Hermes catches ends the
   call (`voice_stopped`).
 
-Still to come with later changes: calls on Android and desktop, and the turn
-list and "Speak replies" switch.
+Still to come with later changes: the turn list and "Speak replies" switch.
 
 ## Telemetry
 
@@ -304,7 +350,7 @@ References: [CallKit](https://developer.apple.com/documentation/callkit),
 [CarPlay](https://developer.apple.com/carplay/),
 [requesting entitlements](https://developer.apple.com/documentation/carplay/requesting-carplay-entitlements).
 
-## Physical iPhone validation
+## Physical iPhone validation (iOS)
 
 Dart tests cover segmentation, chat ownership, protocol framing, native speaker
 drain, mute, end, route reset and late results. CI builds the native iOS plugin.
@@ -330,3 +376,32 @@ Real device validation is still required for:
    heard back as speech) and the haptics.
 10. End during every phase and confirm the microphone indicator clears at
     once; the strip over the system's lock and App Lock cover.
+
+## Device checks for Android and desktop: all UNVERIFIED
+
+Nothing below has been run on a device. CI proves that it compiles (Linux was
+built here; Android, macOS, Windows and iOS are built by CI) and the Dart tests
+prove the state machine against fake recorder, player and audio-session seams.
+
+1. UNVERIFIED, Android: echo on the phone's loudspeaker with echo cancellation
+   on and the voice-communication output; whether SoLoud's output really is the
+   voice-communication stream. This decides whether barge-in is turned on.
+2. UNVERIFIED, Android: playback volume and routing in the in-communication
+   mode, the speaker switch, a Bluetooth headset, and unplugging a headset
+   during speech (route reset).
+3. UNVERIFIED, Android: focus loss from a phone call and from another media app
+   (permanent and transient end the call, ducking does not), and the call ending
+   when the app goes to the background or the screen locks.
+4. UNVERIFIED, Windows and Linux: whether the Flutter embedders report `hidden`
+   and `paused` when the window is minimised, so the call ends. If they do not,
+   the call goes on until the idle limit.
+5. UNVERIFIED, macOS: a call with the built-in microphone and speakers and with
+   headphones, and the microphone indicator clearing on End.
+6. UNVERIFIED, Windows and Linux: microphone capture and sound output (Linux
+   needs PulseAudio or ALSA), a missing device failing the start cleanly.
+7. UNVERIFIED, every portable platform: no self-hearing through the 400 ms tail
+   after the reply and the tones (the echo guard is the second line).
+8. UNVERIFIED: VoiceOver (iOS, macOS) and TalkBack (Android) announcing each
+   state and operating the orb, Mute and End.
+9. UNVERIFIED, iOS (unchanged from before): speaker barge-in and an incoming
+   call.
