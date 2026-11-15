@@ -1,6 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show File, FileSystemEntity, FileSystemEntityType, Platform;
+import 'dart:io'
+    show
+        File,
+        FileSystemEntity,
+        FileSystemEntityType,
+        OSError,
+        Platform,
+        SocketException;
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart'
@@ -58,6 +65,20 @@ int _currentUid() {
   }
   return -1;
 }
+
+/// Whether [error] comes from the D-Bus connection: a socket or OS error, or
+/// an exception of the `dbus` package (named `DBus...`; it is not a direct
+/// dependency, so matched by name).
+bool isLinuxBusError(Object error) =>
+    error is SocketException ||
+    error is OSError ||
+    error is TimeoutException ||
+    error.runtimeType.toString().startsWith('DBus');
+
+/// How long a Linux plugin call may take. The D-Bus client of the plugin never
+/// completes a call when its connection failed, so without a bound a post
+/// would wait forever.
+const kLinuxCallTimeout = Duration(seconds: 5);
 
 /// Identifies the app to Windows for its toasts, in the form
 /// `CompanyName.ProductName`. Unpackaged, Windows files the toasts under it.
@@ -287,6 +308,42 @@ class LocalNotificationService
   /// Set when the Linux plugin's D-Bus setup failed, even after `initialize`
   /// returned; the service is unsupported from then on.
   var _linuxBusFailed = false;
+  final _busFailure = Completer<void>();
+
+  void _markBusFailed() {
+    _linuxBusFailed = true;
+    if (!_busFailure.isCompleted) _busFailure.complete();
+  }
+
+  /// Runs a plugin call. On Linux it also ends, as an error, when the bus
+  /// has failed or [kLinuxCallTimeout] passes, which also marks the bus
+  /// failed: the plugin's D-Bus client leaves a call pending forever once
+  /// its connection failed.
+  Future<T> _guard<T>(Future<T> Function() call) {
+    if (defaultTargetPlatform != TargetPlatform.linux) return call();
+    if (_linuxBusFailed) return Future.error(StateError('D-Bus unavailable'));
+    final out = Completer<T>();
+    final timer = Timer(kLinuxCallTimeout, () {
+      _markBusFailed();
+      if (!out.isCompleted) {
+        out.completeError(TimeoutException('D-Bus call', kLinuxCallTimeout));
+      }
+    });
+    unawaited(
+      _busFailure.future.then((_) {
+        if (!out.isCompleted) out.completeError(StateError('D-Bus failed'));
+      }),
+    );
+    Future.sync(call).then(
+      (value) {
+        if (!out.isCompleted) out.complete(value);
+      },
+      onError: (Object error, StackTrace stack) {
+        if (!out.isCompleted) out.completeError(error, stack);
+      },
+    );
+    return out.future.whenComplete(timer.cancel);
+  }
 
   /// Linux without a session bus counts as unsupported, so the plugin is
   /// never initialized there.
@@ -321,18 +378,28 @@ class LocalNotificationService
   Future<void> _startGuarded() {
     if (defaultTargetPlatform != TargetPlatform.linux) return _start();
     final done = Completer<void>();
-    runZonedGuarded(
-      () => _start().then<void>(
+    void fail(Object error, StackTrace stack) {
+      if (isLinuxBusError(error)) _markBusFailed();
+      if (!done.isCompleted) done.completeError(error, stack);
+    }
+
+    // The zone outlives this call: the plugin's signal listeners and
+    // `_onResponse` run in it. Only bus errors end here; anything else goes
+    // to the parent zone, so the crash reporter still sees it.
+    runZoned(
+      () => _guard(_start).then<void>(
         (_) => done.isCompleted ? null : done.complete(),
-        onError: (Object error, StackTrace stack) {
-          _linuxBusFailed = true;
-          if (!done.isCompleted) done.completeError(error, stack);
+        onError: fail,
+      ),
+      zoneSpecification: ZoneSpecification(
+        handleUncaughtError: (self, parent, zone, error, stack) {
+          if (isLinuxBusError(error)) {
+            fail(error, stack);
+          } else {
+            parent.handleUncaughtError(zone, error, stack);
+          }
         },
       ),
-      (error, stack) {
-        _linuxBusFailed = true;
-        if (!done.isCompleted) done.completeError(error, stack);
-      },
     );
     return done.future;
   }
@@ -534,36 +601,44 @@ class LocalNotificationService
       if (defaultTargetPlatform == TargetPlatform.android) {
         // Android keys a notification by tag and id; keep one per chat.
         try {
-          await _plugin.cancel(id: id, tag: answerable ? null : kAnswerableTag);
+          await _guard(
+            () =>
+                _plugin.cancel(id: id, tag: answerable ? null : kAnswerableTag),
+          );
         } on Object {
           // Posting still replaces what it can.
         }
       }
-      await _plugin.show(
-        id: id,
-        title: notification.title,
-        body: notification.bodyIsPlainText ? body : notificationPreview(body),
-        notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            _channelId,
-            _channelName,
-            channelDescription: 'Replies and requests from Hermes',
-            importance: Importance.high,
-            priority: Priority.high,
-            // The plugin cannot set a public version or require
-            // authentication, so a private notification would show the
-            // command and working buttons on a lock screen that shows all
-            // content. Secret keeps both off it.
-            actions: answerable ? androidCategory.toAndroid() : null,
-            visibility: answerable ? NotificationVisibility.secret : null,
-            tag: answerable ? kAnswerableTag : null,
+      if (!_supported) {
+        return const NotificationPostResult(NotificationPostStatus.unsupported);
+      }
+      await _guard(
+        () => _plugin.show(
+          id: id,
+          title: notification.title,
+          body: notification.bodyIsPlainText ? body : notificationPreview(body),
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              _channelId,
+              _channelName,
+              channelDescription: 'Replies and requests from Hermes',
+              importance: Importance.high,
+              priority: Priority.high,
+              // The plugin cannot set a public version or require
+              // authentication, so a private notification would show the
+              // command and working buttons on a lock screen that shows all
+              // content. Secret keeps both off it.
+              actions: answerable ? androidCategory.toAndroid() : null,
+              visibility: answerable ? NotificationVisibility.secret : null,
+              tag: answerable ? kAnswerableTag : null,
+            ),
+            iOS: darwin,
+            macOS: darwin,
+            linux: const LinuxNotificationDetails(),
+            windows: const WindowsNotificationDetails(),
           ),
-          iOS: darwin,
-          macOS: darwin,
-          linux: const LinuxNotificationDetails(),
-          windows: const WindowsNotificationDetails(),
+          payload: notificationPayload(notification),
         ),
-        payload: notificationPayload(notification),
       );
       return const NotificationPostResult(NotificationPostStatus.accepted);
     } on Object catch (error) {
@@ -583,15 +658,15 @@ class LocalNotificationService
     if (!_supported) return;
     try {
       await _initialize();
-      for (final active in await _plugin.getActiveNotifications()) {
+      for (final active in await _guard(_plugin.getActiveNotifications)) {
         final id = active.id;
         if (id == null) continue;
         if (defaultTargetPlatform == TargetPlatform.android) {
           if (active.tag == kAnswerableTag) {
-            await _plugin.cancel(id: id, tag: kAnswerableTag);
+            await _guard(() => _plugin.cancel(id: id, tag: kAnswerableTag));
           }
         } else if (isWithdrawnPayload(active.payload)) {
-          await _plugin.cancel(id: id);
+          await _guard(() => _plugin.cancel(id: id));
         }
       }
     } on Object {
@@ -629,7 +704,7 @@ class LocalNotificationService
     if (!_supported) return null;
     try {
       await _initialize();
-      final details = await _plugin.getNotificationAppLaunchDetails();
+      final details = await _guard(_plugin.getNotificationAppLaunchDetails);
       if (details == null || !details.didNotificationLaunchApp) return null;
       final response = details.notificationResponse;
       if (response == null) return null;

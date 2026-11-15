@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show SocketException;
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MethodChannel, PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -37,6 +39,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   DidReceiveBackgroundNotificationResponseCallback? onBackgroundResponse;
   InitializationSettings? settings;
   void Function()? duringInitialize;
+  Completer<void>? showGate;
 
   @override
   Future<bool?> initialize({
@@ -64,6 +67,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     String? payload,
   }) async {
     if (showError case final error?) throw error;
+    await showGate?.future;
     posted.add(_Posted(id, title, body, payload, notificationDetails));
   }
 
@@ -1354,7 +1358,7 @@ void main() {
           // What the Linux plugin does: a subscription nobody handles errors on.
           final controller = StreamController<int>();
           controller.stream.listen((_) {});
-          controller.addError(StateError('no bus'));
+          controller.addError(const SocketException('no bus'));
           unawaited(controller.close());
         };
       final service = serviceWith(plugin, bus: true);
@@ -1373,6 +1377,109 @@ void main() {
 
       expect(result.status, NotificationPostStatus.unsupported);
       expect(plugin.initializeCalls, 1);
+    });
+
+    const note = AttentionNotification(
+      threadId: 's1',
+      profile: 'work',
+      title: 'Cleanup',
+      body: 'Done.',
+    );
+
+    test(
+      'an error that is not about the bus reaches the parent zone',
+      () async {
+        final uncaught = <Object>[];
+        late StreamController<int> controller;
+        final plugin = _FakePlugin()
+          ..duringInitialize = () {
+            controller = StreamController<int>();
+            controller.stream.listen((_) {});
+          };
+        final service = serviceWith(plugin, bus: true);
+        addTearDown(service.dispose);
+
+        await runZonedGuarded(() async {
+          await service.post(note);
+          controller.addError(StateError('unknown action'));
+          await pumpEventQueue();
+        }, (error, _) => uncaught.add(error));
+
+        expect(uncaught.single, isA<StateError>());
+        expect(
+          (await service.post(note)).status,
+          NotificationPostStatus.accepted,
+        );
+        unawaited(controller.close());
+      },
+    );
+
+    test(
+      'an initialize failure that is not about the bus is retried',
+      () async {
+        final plugin = _FakePlugin()..initializeError = Exception('other');
+        final service = serviceWith(plugin, bus: true);
+        addTearDown(service.dispose);
+
+        expect(
+          (await service.post(note)).status,
+          NotificationPostStatus.failed,
+        );
+        plugin.initializeError = null;
+
+        expect(
+          (await service.post(note)).status,
+          NotificationPostStatus.accepted,
+        );
+      },
+    );
+
+    test(
+      'a connection that fails while show is pending ends the post',
+      () async {
+        late StreamController<int> controller;
+        final plugin = _FakePlugin()
+          ..showGate = Completer<void>()
+          ..duringInitialize = () {
+            controller = StreamController<int>();
+            controller.stream.listen((_) {});
+          };
+        final service = serviceWith(plugin, bus: true);
+        addTearDown(service.dispose);
+
+        final pending = service.post(note);
+        await pumpEventQueue();
+        controller.addError(const SocketException('dead bus'));
+
+        final result = await pending.timeout(const Duration(seconds: 2));
+        expect(result.status, NotificationPostStatus.failed);
+        expect(
+          (await service.post(note)).status,
+          NotificationPostStatus.unsupported,
+        );
+        unawaited(controller.close());
+      },
+    );
+
+    test('a show that never answers ends by the timeout', () {
+      fakeAsync((async) {
+        final plugin = _FakePlugin()..showGate = Completer<void>();
+        final service = serviceWith(plugin, bus: true);
+        NotificationPostResult? result;
+        service.post(note).then((r) => result = r);
+        async.flushMicrotasks();
+        expect(result, isNull);
+
+        async.elapse(kLinuxCallTimeout);
+        async.flushMicrotasks();
+
+        expect(result?.status, NotificationPostStatus.failed);
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+        expect(next?.status, NotificationPostStatus.unsupported);
+        debugDefaultTargetPlatformOverride = null;
+      });
     });
   });
 
