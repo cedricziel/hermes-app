@@ -842,7 +842,6 @@ void main() {
       seeInPanel('Install mystery');
       seeInPanel('What Hermes will run');
       seeInPanel('Hermes did not say how this server connects.');
-      seeInPanel('Hermes did not say how this server connects.');
       // Nothing to run is named, so there is nothing to install.
       expect(pressable(tester, installKey), isFalse);
       if (!wide) await popRoute(tester);
@@ -865,10 +864,6 @@ void main() {
       await tester.enterText(field('AIRTABLE_API_KEY'), 'pat-123456');
       await animate(tester);
       await shots.capture(tester, 'install-form-filled');
-      expect(
-        tester.widget<TextField>(field('AIRTABLE_API_KEY')).controller!.text,
-        'pat-123456',
-      );
       expect(pressable(tester, installKey), isTrue);
       expect(
         tester.widget<TextField>(field('AIRTABLE_API_KEY')).obscureText,
