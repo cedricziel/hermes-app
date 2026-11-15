@@ -170,6 +170,23 @@ void main() {
       },
     );
 
+    test('a settled held reply ends exactly once', () async {
+      await startTurn();
+      await lose();
+      chat.checkConnection();
+      await pumpEventQueue();
+      transport.followUpStreams['s1']!
+        ..emit(const ReplyStarted())
+        ..emit(const ReplyCompleted('Done.'))
+        ..emit(const SessionInfo(running: false))
+        ..emit(const ReplyDelta('A chained turn.'))
+        ..emit(const ReplyCompleted('A chained turn.'));
+      await pumpEventQueue();
+
+      expect(ended().where((e) => e['outcome'] == 'completed'), hasLength(1));
+      expect(ended(), hasLength(2));
+    });
+
     test('a pick-up that finds the session gone is a failed reply', () async {
       await startTurn();
       await lose();
