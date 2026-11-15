@@ -85,8 +85,10 @@ void main() {
 
   test('a dropped connection is replaced on the next refresh', () async {
     await refresh();
+    await refresh();
     gateway.drop();
     await pumpEventQueue();
+    await refresh();
     await refresh();
     expect(connections, 2);
   });
