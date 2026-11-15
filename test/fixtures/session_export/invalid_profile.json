@@ -1,0 +1,12 @@
+{
+  "revision": "d923a5eb487a17c0a68801bba9ef0f56c81040a8",
+  "request": "GET /api/sessions/no-such-chat/export?profile=<a name with a space>",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json",
+    "content-length": "219"
+  },
+  "body": {
+    "detail": "'bad name!' is not a valid profile name. Use lowercase letters, numbers, '-' or '_', starting with a letter or number, up to 64 characters (for example: bad-name). Then run `hermes profile create bad-name`."
+  }
+}

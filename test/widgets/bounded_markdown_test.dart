@@ -129,14 +129,36 @@ void main() {
       expect(budget.used, lessThanOrEqualTo(kHighlightMaxDocument));
     });
 
-    test('answers the same for a block asked about again', () {
+    test('charges every copy of an identical block', () {
+      final budget = CodeHighlightBudget();
+      final same = _block(7600);
+      var granted = 0;
+      for (var i = 0; i < 50; i++) {
+        if (budget.admit(same)) granted++;
+      }
+      expect(granted, 1);
+      expect(budget.used, same.length);
+    });
+
+    test('charges blocks whose bodies are prefixes of each other', () {
+      final budget = CodeHighlightBudget();
+      final long = _block(6000);
+      final short = long.substring(0, 3000);
+      expect(budget.admit(long), isTrue);
+      expect(budget.admit(short), isTrue);
+      expect(budget.admit(long), isFalse);
+      expect(budget.used, long.length + short.length);
+    });
+
+    test('the same pass again gives the same answers', () {
       final budget = CodeHighlightBudget();
       final first = _block(6000);
       final second = _block(6000, 'b');
-      expect(budget.admit(first), isTrue);
-      expect(budget.admit(second), isFalse);
-      expect(budget.admit(first), isTrue);
-      expect(budget.admit(second), isFalse);
+      for (var pass = 0; pass < 3; pass++) {
+        budget.begin();
+        expect(budget.admit(first), isTrue);
+        expect(budget.admit(second), isFalse);
+      }
       expect(budget.used, first.length);
     });
 
@@ -145,6 +167,7 @@ void main() {
       var code = '';
       for (var i = 0; i < 300; i++) {
         code += 'line $i\n';
+        budget.begin();
         budget.admit(code);
       }
       expect(budget.used, code.length);
@@ -154,6 +177,7 @@ void main() {
     test('a streamed block that outgrows a limit stays plain', () {
       final budget = CodeHighlightBudget();
       expect(budget.admit('a' * 400), isTrue);
+      budget.begin();
       expect(budget.admit('a' * 600), isFalse);
       expect(budget.used, 0);
     });
@@ -239,6 +263,53 @@ void main() {
       expect(on, lessThan(40));
       expect(fields.first.highlightCode, isTrue);
       expect(fields.last.highlightCode, isFalse);
+    });
+
+    int coloured(WidgetTester tester) => tester
+        .widgetList<CodeField>(find.byType(CodeField))
+        .where((f) => f.highlightCode)
+        .length;
+
+    testWidgets('50 identical blocks are charged one by one', (tester) async {
+      final body = List.filled(19, '1+' * 200).join('\n');
+      final text = List.filled(50, '```js\n$body\n```').join('\n\n');
+      await _pump(tester, (t) => BoundedMarkdown(t), text);
+      expect(tester.widgetList(find.byType(CodeField)), hasLength(50));
+      expect(coloured(tester), 1);
+    });
+
+    testWidgets('blocks with prefix-related bodies are charged each', (
+      tester,
+    ) async {
+      final long = List.generate(60, (i) => 'x$i = $i;' * 12).join('\n');
+      final short = long.split('\n').take(30).join('\n');
+      final text = [
+        for (final body in [long, short, long, short, long])
+          '```js\n$body\n```',
+      ].join('\n\n');
+      await _pump(tester, (t) => BoundedMarkdown(t), text);
+      final fields = tester
+          .widgetList<CodeField>(find.byType(CodeField))
+          .toList();
+      expect(fields.map((f) => f.codes.length).toSet().length, 2);
+      final charged = fields
+          .where((f) => f.highlightCode)
+          .fold<int>(0, (sum, f) => sum + f.codes.length);
+      expect(charged, lessThanOrEqualTo(kHighlightMaxDocument));
+      expect(fields.where((f) => !f.highlightCode), isNotEmpty);
+    });
+
+    testWidgets('a relayout keeps the decisions', (tester) async {
+      final text = List.generate(
+        30,
+        (i) => '```js\nconst v$i = ${'1 + ' * 80}1;\n```',
+      ).join('\n\n');
+      await _pump(tester, (t) => BoundedMarkdown(t), text);
+      final before = coloured(tester);
+      expect(before, inInclusiveRange(1, 29));
+      tester.view.physicalSize = const Size(700, 1400);
+      await tester.pump();
+      expect(coloured(tester), before);
     });
 
     testWidgets('a reply that streams in does not use the budget up', (

@@ -20,16 +20,18 @@ const kHighlightMaxDocument = 10000;
 /// paint: one block of 20 000 spaces took ~6 s, 100 000 characters of `1+` ~16 s
 /// and 50 blocks of a few thousand runs each ~17 s, all on the UI isolate. So a
 /// block is coloured only when no line is over [maxLine], the block is at most
-/// [maxBlock] characters, and the blocks coloured so far in the document stay
+/// [maxBlock] characters, and the coloured blocks before it plus this one stay
 /// within [maxDocument]. The decision is made on the parsed code string, so it
-/// holds for every fence form the renderer accepts (quotes, lists, indentation,
-/// `<pre><code>`, CRLF).
+/// holds for every fence form the renderer accepts (quotes, lists,
+/// indentation, `<pre><code>`, CRLF).
 ///
-/// A block is asked about again whenever it is rebuilt or, while a reply
-/// streams, once per delta with the code grown by a few characters; the answer
-/// is kept per block and a grown block replaces its shorter self, so a stream
-/// never uses up the budget by itself. Only lengths and the decision are kept
-/// beside the code string, which the widget already holds.
+/// Blocks are told apart by their place in the document, not by their text: a
+/// document that repeats one block is charged for every copy. A render pass
+/// starts with [begin] and asks about its blocks in document order. A block
+/// asked about again at the same place (a rebuild, or a reply that streams and
+/// grows by a few characters) is judged again in place of its old self, since
+/// a block's decision only reads the blocks before it. Only the length granted
+/// to each block is kept.
 class CodeHighlightBudget {
   CodeHighlightBudget({
     this.maxLine = kHighlightMaxLine,
@@ -41,40 +43,45 @@ class CodeHighlightBudget {
   final int maxBlock;
   final int maxDocument;
 
-  final List<({String code, bool granted})> _blocks = [];
-  int _used = 0;
+  /// The characters each block was granted (0 when it is plain).
+  final List<int> _granted = [];
+  int _next = 0;
 
-  /// Characters granted so far.
-  int get used => _used;
+  /// Characters granted to the blocks asked about so far in this pass.
+  int get used => _usedBefore(_next);
+
+  int _usedBefore(int index) {
+    var sum = 0;
+    for (var i = 0; i < index && i < _granted.length; i++) {
+      sum += _granted[i];
+    }
+    return sum;
+  }
+
+  /// Starts a pass over the document, from its first block.
+  void begin() => _next = 0;
 
   /// Forgets every decision, for a document that was replaced.
   void clear() {
-    _blocks.clear();
-    _used = 0;
+    _granted.clear();
+    _next = 0;
   }
 
-  /// Whether [code] may be coloured.
+  /// Whether the next block of the document, with body [code], may be coloured.
   bool admit(String code) {
-    for (var i = 0; i < _blocks.length; i++) {
-      final seen = _blocks[i];
-      if (seen.code.startsWith(code)) return seen.granted;
-      if (code.startsWith(seen.code)) {
-        // The same block, grown: judge it again in place of its old self.
-        if (seen.granted) _used -= seen.code.length;
-        final granted = _fits(code);
-        if (granted) _used += code.length;
-        _blocks[i] = (code: code, granted: granted);
-        return granted;
-      }
+    final index = _next++;
+    final ok = _fits(code, _usedBefore(index));
+    final length = ok ? code.length : 0;
+    if (index < _granted.length) {
+      _granted[index] = length;
+    } else {
+      _granted.add(length);
     }
-    final granted = _fits(code);
-    if (granted) _used += code.length;
-    _blocks.add((code: code, granted: granted));
-    return granted;
+    return ok;
   }
 
-  bool _fits(String code) {
-    if (code.length > maxBlock || _used + code.length > maxDocument) {
+  bool _fits(String code, int usedBefore) {
+    if (code.length > maxBlock || usedBefore + code.length > maxDocument) {
       return false;
     }
     var line = 0;
@@ -146,12 +153,15 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
   }
 
   @override
-  Widget build(BuildContext context) => GptMarkdown(
-    widget.data,
-    style: widget.style,
-    onLinkTap: widget.onLinkTap,
-    // ignore: deprecated_member_use
-    linkBuilder: widget.linkBuilder,
-    codeBuilder: _code,
-  );
+  Widget build(BuildContext context) {
+    _budget.begin();
+    return GptMarkdown(
+      widget.data,
+      style: widget.style,
+      onLinkTap: widget.onLinkTap,
+      // ignore: deprecated_member_use
+      linkBuilder: widget.linkBuilder,
+      codeBuilder: _code,
+    );
+  }
 }

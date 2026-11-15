@@ -61,7 +61,7 @@ String _fence(String lang, String body) =>
 String _base64Like(int n) =>
     List.generate(n, (i) => 'ABCDEFGHabcdefgh01234567+/'[i % 26]).join();
 
-String _lines(String unit, {int lines = 20, int width = 400}) => List.filled(
+String _lines(String unit, {int lines = 20, int width = 399}) => List.filled(
   lines,
   List.filled(width ~/ unit.length + 1, unit).join().substring(0, width),
 ).join('\n');
@@ -112,7 +112,12 @@ void main() {
     ).join('\n\n'),
     'js a+spaces 50 fences': List.generate(
       50,
-      (i) => _fence('javascript', '// $i\n${_lines('a${' ' * 399}')}'),
+      (i) =>
+          _fence('javascript', '// $i\n${_lines('a${' ' * 399}', lines: 19)}'),
+    ).join('\n\n'),
+    'js a+spaces x19, 50 identical fences': List.filled(
+      50,
+      _fence('javascript', _lines('a${' ' * 399}', lines: 19)),
     ).join('\n\n'),
     'python 100 fences, 20 lines': List.generate(
       100,
@@ -129,6 +134,8 @@ void main() {
     for (final form in forms.entries) 'form: ${form.key}': form.value,
   };
 
+  final inLimits = {'normal js 40 lines', ...worst.keys};
+
   for (final e in cases.entries) {
     testWidgets(e.key, (tester) async {
       // The first block ever built pays for the grammar tables.
@@ -138,7 +145,19 @@ void main() {
       _measured.add(
         '${e.key} | chars=${e.value.length} | first=${r.first}ms | pumps=${r.rest}ms',
       );
-      expect(find.byType(CodeField), findsWidgets, reason: e.key);
+      final fields = tester
+          .widgetList<CodeField>(find.byType(CodeField))
+          .toList();
+      expect(fields, isNotEmpty, reason: e.key);
+      // A fast plain fallback must not pass as a benchmark of colouring.
+      final coloured = fields.where((f) => f.highlightCode).length;
+      if (e.key.contains('fences')) {
+        expect(coloured, inInclusiveRange(1, fields.length - 1), reason: e.key);
+      } else if (inLimits.contains(e.key)) {
+        expect(coloured, fields.length, reason: e.key);
+      } else {
+        expect(coloured, 0, reason: e.key);
+      }
       // Unbounded these take from 0.3 s to 17 s; bounded 40-200 ms.
       // 50 to 100 fences in one reply are mostly plain, and a plain block still
       // costs a widget (about 8 ms) and its layout.
