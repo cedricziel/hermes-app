@@ -101,21 +101,6 @@ class GroupedChoiceRow<T> extends StatelessWidget {
       enabled: enabled,
       onTap: group == null ? null : () => group.onChanged(value),
     );
-    // With the radio as the row's only focus stop, the focus is drawn across
-    // the whole row, not only on the radio circle.
-    final node = focusNode;
-    if (rowFocusable || node == null) return row;
-    final tint = Theme.of(context).colorScheme.primary.withValues(alpha: .14);
-    return ListenableBuilder(
-      listenable: node,
-      child: row,
-      builder: (context, child) => DecoratedBox(
-        key: const Key('row-focus-highlight'),
-        decoration: BoxDecoration(
-          color: node.hasFocus ? tint : Colors.transparent,
-        ),
-        child: child,
-      ),
-    );
+    return row;
   }
 }

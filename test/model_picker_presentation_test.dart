@@ -113,6 +113,16 @@ ModelOptions _many(int count) => ModelOptions(
 Rect _focusRect() => FocusManager.instance.primaryFocus!.rect;
 
 void main() {
+  setUp(() {
+    // Desktop keyboard users get the traditional focus highlight.
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+  });
+  tearDown(
+    () => FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.automatic,
+  );
+
   group('popover details', () {
     testWidgets('arrows scroll the focused row into view above the effort '
         'block', (tester) async {
@@ -134,11 +144,13 @@ void main() {
       }
       await tester.pumpAndSettle();
 
-      final focus = _focusRect();
-      expect(focus.top, greaterThanOrEqualTo(list.top - 0.5));
-      expect(focus.bottom, lessThanOrEqualTo(list.bottom + 0.5));
+      // The whole 40 pt row, not only its radio, is inside the viewport and
+      // above the pinned effort block.
+      final row = tester.getRect(find.byKey(const Key('model-acme-model-60')));
+      expect(row.top, greaterThanOrEqualTo(list.top - 0.5));
+      expect(row.bottom, lessThanOrEqualTo(list.bottom + 0.5));
       expect(
-        focus.bottom,
+        row.bottom,
         lessThanOrEqualTo(
           tester.getRect(find.byKey(const Key('effort-low'))).top,
         ),
@@ -163,45 +175,6 @@ void main() {
         find.ancestor(of: _popover, matching: find.byType(Material)).first,
       );
       expect(search.width, greaterThan(surface.width - 24 - 40));
-    });
-
-    testWidgets('the focused row is highlighted across its whole width', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        platform: TargetPlatform.macOS,
-        width: 900,
-        selected: const ModelChoice('acme', 'atlas-mini'),
-      );
-      await _open(tester);
-
-      final row = tester.getRect(
-        find.byKey(const Key('model-acme-atlas-mini')),
-      );
-      final highlight = tester.getRect(
-        find.descendant(
-          of: find.byKey(const Key('model-acme-atlas-mini')),
-          matching: find.byKey(const Key('row-focus-highlight')),
-        ),
-      );
-      expect(highlight.width, closeTo(row.width, 0.5));
-      double alphaOf(String key) {
-        final box =
-            find
-                    .descendant(
-                      of: find.byKey(Key(key)),
-                      matching: find.byKey(const Key('row-focus-highlight')),
-                    )
-                    .evaluate()
-                    .single
-                    .widget
-                as DecoratedBox;
-        return (box.decoration as BoxDecoration).color?.a ?? 0;
-      }
-
-      expect(alphaOf('model-acme-atlas-mini'), greaterThan(0));
-      expect(alphaOf('model-acme-atlas-1'), 0, reason: 'not focused');
     });
 
     testWidgets('in a right-to-left window the popover ends on the pill', (
@@ -257,6 +230,57 @@ void main() {
         isNot('model row'),
       );
       expect(opened.picked, isEmpty);
+    });
+
+    testWidgets('with the effort block in the list, Up on an effort pill goes '
+        'on to the default handler and reaches a model row', (tester) async {
+      await _pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 900,
+        height: 1200,
+        withEffort: true,
+        selected: const ModelChoice('acme', 'atlas-1'),
+        textScale: 2,
+      );
+      await _open(tester);
+      final label = find.descendant(
+        of: find.byKey(const Key('effort-low')),
+        matching: find.byType(Text),
+      );
+      Focus.of(tester.element(label)).requestFocus();
+      await tester.pump();
+      final pill = FocusManager.instance.primaryFocus;
+      expect(pill!.debugLabel, isNot('model row'));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+
+      expect(FocusManager.instance.primaryFocus, isNot(same(pill)));
+      expect(FocusManager.instance.primaryFocus!.debugLabel, 'model row');
+    });
+
+    testWidgets('a stale selection that is not in the options still leaves a '
+        'row focused', (tester) async {
+      await _pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 900,
+        selected: const ModelChoice('acme', 'gone'),
+      );
+      await _open(tester);
+
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'model row',
+        reason: 'the first row takes the focus',
+      );
+      expect(
+        tester
+            .getRect(find.byKey(const Key('model-acme-atlas-1')))
+            .contains(_focusRect().center),
+        isTrue,
+      );
     });
 
     testWidgets('with nothing checked the first row takes the focus', (

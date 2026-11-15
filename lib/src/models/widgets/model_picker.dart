@@ -312,7 +312,16 @@ class _ModelPickerState extends State<ModelPicker> {
     if (at < 0) return;
     final next = (at + step) % order.length;
     final node = _nodeFor(order[next])..requestFocus();
-    final context = node.context;
+    // The whole row, not the radio inside it, is what must be visible.
+    BuildContext? row;
+    node.context?.visitAncestorElements((element) {
+      if (element.widget is GroupedChoiceRow<_Pick>) {
+        row = element;
+        return false;
+      }
+      return true;
+    });
+    final context = row ?? node.context;
     if (context != null) {
       Scrollable.ensureVisible(
         context,
@@ -414,9 +423,12 @@ class _ModelPickerState extends State<ModelPicker> {
     ];
     // The row that takes the focus when a popover opens: the checked one, or
     // the first when nothing is checked.
-    final autoPick = selected != null
-        ? (selected.providerId, selected.modelId)
-        : (widget.onUseDefault != null && query.isEmpty
+    final selectedPick = selected == null
+        ? null
+        : (selected.providerId, selected.modelId);
+    final autoPick = selectedPick != null && order.contains(selectedPick)
+        ? selectedPick
+        : (order.contains(_defaultPick)
               ? _defaultPick
               : (order.isEmpty ? null : order.first));
     final dividerIndent = GroupedChoiceRow.dividerIndent(context);

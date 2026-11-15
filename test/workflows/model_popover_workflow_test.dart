@@ -72,6 +72,12 @@ void main() {
     ('flipped', Brightness.light, true),
   ]) {
     testWidgets('the Mac model popover, $name', (tester) async {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(
+        () => FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.automatic,
+      );
       final shots = ScreenshotRecorder('model-popover-$name');
       await pumpScreen(
         tester,
