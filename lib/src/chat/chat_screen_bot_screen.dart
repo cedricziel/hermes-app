@@ -34,15 +34,17 @@ extension _ChatScreenBotScreen on _ChatScreenState {
   /// Makes sure the controller belongs to the chat's profile.
   void _syncBotScreen() {
     final gateway = _screenGateway;
-    if (gateway == null ||
-        (_screen != null && _screenProfile == _chat.profile)) {
+    // A chat on the server's default profile names none; display calls
+    // always name one.
+    final profile = _chat.profile ?? kDefaultProfile;
+    if (gateway == null || (_screen != null && _screenProfile == profile)) {
       return;
     }
     final telemetry = _screenTelemetry();
     final previous = _screen;
     // The viewer watches the screen that is being replaced.
     _closeViewer('profile');
-    _screenProfile = _chat.profile;
+    _screenProfile = profile;
     final repository = _screenRepository = BotScreenRepository(
       gateway.requests.requestKeepingConnection,
       connectionRpc: gateway.requests.requestKeepingConnectionOnClient,
@@ -52,7 +54,7 @@ extension _ChatScreenBotScreen on _ChatScreenState {
     _screen = BotScreenController(
       repository,
       gateway.events.connectionEvents,
-      profile: _screenProfile,
+      profile: profile,
       events: telemetry.events,
       installs: _maybeRead<BotScreenInstalls>(),
       viewerIds: _viewerIds,
@@ -122,6 +124,7 @@ extension _ChatScreenBotScreen on _ChatScreenState {
     if (screen == null || repository == null || _viewer != null) return;
     final baseUrl = _maybeRead<AuthController>()?.baseUrl;
     final profile = _screenProfile;
+    if (profile == null) return;
     final controller = _viewer = BotScreenViewerController(
       repository: repository,
       screen: screen,
@@ -140,7 +143,7 @@ extension _ChatScreenBotScreen on _ChatScreenState {
     _viewerHandle = showBotScreenViewer(
       context,
       controller: controller,
-      profile: profile ?? 'default',
+      profile: profile,
       source: source,
       takeover:
           widget.takeoverSetting ??
