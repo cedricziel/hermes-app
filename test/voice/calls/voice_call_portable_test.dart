@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/echo_guard.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
@@ -25,6 +26,14 @@ void main() {
   }
 
   group('echo guard', () {
+    test('every call has one, without being given any', () async {
+      await h.activate();
+      await speaks('Say goodbye', 'Goodbye.');
+      await h.say('goodbye');
+      expect(h.call.ended, isFalse);
+      expect(h.agent.prompts, ['Say goodbye']);
+    });
+
     test('an echoed "Goodbye." does not end the call', () async {
       await h.rebuild(echo: EchoGuard());
       await h.activate();
@@ -125,6 +134,33 @@ void main() {
       await pumpEventQueue();
       expect(h.call.route, 'Speaker');
       expect(h.call.speaker, isTrue);
+    });
+  });
+
+  group('connecting', () {
+    test('a bridge that never activates ends the call with an error', () {
+      fakeAsync((async) {
+        final h = CallHarness();
+        h.call.start();
+        async.flushMicrotasks();
+        async.elapse(callConnectTimeout - const Duration(seconds: 1));
+        expect(h.call.ended, isFalse);
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
+        expect(h.call.phase, CallPhase.failed);
+        expect(h.ended()['step'], 'activation_timeout');
+      });
+    });
+
+    test('an activated call is not ended by it', () {
+      fakeAsync((async) {
+        final h = CallHarness();
+        h.call.start();
+        async.flushMicrotasks();
+        h.bridge.emit('activated');
+        async.elapse(const Duration(seconds: 30));
+        expect(h.call.ended, isFalse);
+      });
     });
   });
 }

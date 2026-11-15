@@ -177,6 +177,9 @@ hooks:
   user_defines:
     flutter_soloud:
       no_xiph_libs: true
+      # The environment variable SOLOUD_ENABLE_VST3 would otherwise turn on an
+      # unchecksummed prebuilt download; nothing here wants VST3.
+      enable_vst3: false
 
 dart_pre_commit:
   outdated:

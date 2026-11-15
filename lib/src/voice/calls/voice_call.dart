@@ -17,6 +17,7 @@ import 'call_bridge.dart';
 import 'call_config.dart';
 import 'call_speech_stream.dart';
 import 'call_tones.dart';
+import 'echo_guard.dart';
 import 'call_telemetry.dart';
 import 'voice_activity.dart';
 import 'whisper_hallucination.dart';
@@ -77,6 +78,14 @@ class VoiceCall extends ChangeNotifier {
   /// before the hallucination and stop-phrase checks; null drops nothing.
   final bool Function(String text)? echoGuard;
 
+  /// The call's own guard, used unless [echoGuard] replaces it (tests).
+  final _echo = EchoGuard();
+
+  void _replySpoken(String reply) {
+    _echo.spoken(reply);
+    replySpoken?.call(reply);
+  }
+
   /// Told the reply as it is handed to the speech, so [echoGuard] has the
   /// words to compare a transcript with.
   final void Function(String reply)? replySpoken;
@@ -103,6 +112,7 @@ class VoiceCall extends ChangeNotifier {
   VoiceCallConfig _config = const VoiceCallConfig();
   StreamSubscription<Map<String, Object?>>? _events;
   Timer? _clock;
+  Timer? _connectTimer;
   CallSpeechStream? _speech;
   Future<void> _interruption = Future.value();
   DateTime? _started;
@@ -246,6 +256,18 @@ class VoiceCall extends ChangeNotifier {
       step = 'native_start';
       await bridge.start(callId, 'Hermes');
       opened = true;
+      // A bridge that never says `activated` must not leave Connecting forever.
+      _connectTimer = Timer(callConnectTimeout, () {
+        if (_active || _ending || ended || _disposed) return;
+        unawaited(
+          _end(
+            'native_error',
+            _nativeErrorText('activation_timeout'),
+            null,
+            'activation_timeout',
+          ),
+        );
+      });
     } on CallPreparationException catch (failure) {
       if (_current(epoch)) await _end('prepare', failure.message);
     } on PlatformException catch (error) {
@@ -707,7 +729,7 @@ class VoiceCall extends ChangeNotifier {
       // phrase, else sent. A dropped transcript says nothing, and the reply
       // that may still be running is left alone.
       if (text.isEmpty ||
-          (echoGuard?.call(text) ?? false) ||
+          (echoGuard?.call(text) ?? _echo.isEcho(text)) ||
           isWhisperHallucination(text)) {
         phase = _idlePhase;
         _notify();
@@ -796,7 +818,7 @@ class VoiceCall extends ChangeNotifier {
             firstText ??= _now();
             if (_current(epoch)) {
               spokenReply.write(part);
-              replySpoken?.call(spokenReply.toString());
+              _replySpoken(spokenReply.toString());
               speech!.append(part);
             }
           },
@@ -824,7 +846,7 @@ class VoiceCall extends ChangeNotifier {
         const finished =
             'I have finished. You can see the details in the chat.';
         spokenReply.write(finished);
-        replySpoken?.call(spokenReply.toString());
+        _replySpoken(spokenReply.toString());
         speech.append(finished);
       }
       step = 'speech';
@@ -954,6 +976,7 @@ class VoiceCall extends ChangeNotifier {
     _epoch++;
     _vad.reset();
     _clock?.cancel();
+    _connectTimer?.cancel();
     final speech = _speech;
     _speech = null;
     final connected = _connectedOnce;
@@ -1013,6 +1036,9 @@ class VoiceCall extends ChangeNotifier {
     super.dispose();
   }
 }
+
+/// How long the bridge has to report `activated` after `start` returns.
+const callConnectTimeout = Duration(seconds: 15);
 
 /// How long a call may go without speech and without a reply.
 const callIdleLimit = Duration(minutes: 5);

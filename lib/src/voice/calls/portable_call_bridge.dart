@@ -117,13 +117,25 @@ class PortableCallBridge implements CallBridge {
     _id = id;
     try {
       await session?.activate();
-      if (_captureStopped) return;
+      if (_captureStopped || _ended) {
+        // End came while the focus was being taken: give it back.
+        await _guard(() async => await session?.deactivate());
+        return;
+      }
       _watchSession();
       await player.init();
-      if (_captureStopped) return;
+      if (_captureStopped || _ended) {
+        // End came while the engine started; its release ran before that.
+        await _guard(player.dispose);
+        await _guard(() async => await session?.deactivate());
+        return;
+      }
       if (!await _openCapture()) return;
       _started = true;
       _emit('activated');
+      // A pause, mute or tone that came while the recorder was starting.
+      await _apply();
+      _pausedChanged();
     } on Object {
       // An End that arrived meanwhile has already closed everything.
       if (_captureStopped || _ended) return;
@@ -200,7 +212,8 @@ class PortableCallBridge implements CallBridge {
   Future<void> _apply() {
     _dirty = true;
     // A start that is still pending is cancelled at once, not after it hangs.
-    if (!_want && _opening) _generation++;
+    // The start's own open belongs to start; only stopCapture and end cancel it.
+    if (!_want && _opening && _started) _generation++;
     return _applying ??= _converge();
   }
 
@@ -210,6 +223,8 @@ class PortableCallBridge implements CallBridge {
     try {
       while (_dirty) {
         _dirty = false;
+        // Until start has opened the first capture there is nothing to tune.
+        if (!_started) continue;
         try {
           if (_want && !_open && !_opening) {
             await _openCapture();
@@ -394,7 +409,8 @@ class PortableCallBridge implements CallBridge {
     _tail?.cancel();
     // Capture first, then what plays, then the audio session.
     try {
-      await _closeCapture();
+      // A recorder that hangs must not keep the rest from being released.
+      await _closeCapture().timeout(const Duration(seconds: 2));
     } on Object {
       // stopCapture reports whether the microphone closed; this is the backup.
     }

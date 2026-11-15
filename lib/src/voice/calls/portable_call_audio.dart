@@ -76,11 +76,11 @@ class SoLoudCallPlayer implements CallPlayer {
   final _engine = soloud.SoLoud.instance;
   final _voices = <_Voice>[];
   _Voice? _current;
-  bool _owned = false;
+  bool _owned = false, _disposed = false;
 
   @override
   Future<void> init() async {
-    if (_engine.isInitialized) return;
+    if (_disposed || _engine.isInitialized) return;
     await _engine.init(
       lowLatency: false,
       androidAAudioAttributes: voiceCommunication
@@ -88,6 +88,8 @@ class SoLoudCallPlayer implements CallPlayer {
           : soloud.AndroidAAudioAttributes.mediaMusic,
     );
     _owned = true;
+    // Disposed while the engine was starting: the dispose could not stop it.
+    if (_disposed) await dispose();
   }
 
   @override
@@ -169,6 +171,7 @@ class SoLoudCallPlayer implements CallPlayer {
 
   @override
   Future<void> dispose() async {
+    _disposed = true;
     await stop();
     if (_owned && _engine.isInitialized) {
       _owned = false;
@@ -204,6 +207,7 @@ class AndroidCallAudioSession implements CallAudioSession {
   final _watches = <StreamSubscription<Object?>>[];
   final _manager = AndroidAudioManager();
   AudioSession? _session;
+  bool _closed = false;
 
   @override
   Stream<AudioInterruptionEvent> get interruptions => _interruptions.stream;
@@ -212,6 +216,7 @@ class AndroidCallAudioSession implements CallAudioSession {
 
   @override
   Future<void> activate() async {
+    if (_closed) return;
     final session = _session = await AudioSession.instance;
     await session.configure(
       const AudioSessionConfiguration(
@@ -223,6 +228,9 @@ class AndroidCallAudioSession implements CallAudioSession {
         androidWillPauseWhenDucked: false,
       ),
     );
+    // Single use: a deactivate that came while this ran has nothing left to
+    // undo, so give back whatever is taken from here on.
+    if (_closed) return;
     _watches
       ..add(session.interruptionEventStream.listen(_interruptions.add))
       ..add(session.becomingNoisyEventStream.listen(_routes.add))
@@ -231,11 +239,17 @@ class AndroidCallAudioSession implements CallAudioSession {
       await deactivate();
       throw StateError('Android did not give the call audio focus');
     }
+    if (_closed) {
+      await session.setActive(false);
+      return;
+    }
     await _manager.setMode(AndroidAudioHardwareMode.inCommunication);
+    if (_closed) await _undo(session);
   }
 
   @override
   Future<void> deactivate() async {
+    _closed = true;
     for (final watch in _watches) {
       await watch.cancel();
     }
@@ -244,7 +258,10 @@ class AndroidCallAudioSession implements CallAudioSession {
     unawaited(_routes.close());
     final session = _session;
     _session = null;
-    if (session == null) return;
+    if (session != null) await _undo(session);
+  }
+
+  Future<void> _undo(AudioSession session) async {
     try {
       await _manager.setSpeakerphoneOn(false);
       await _manager.setMode(AndroidAudioHardwareMode.normal);

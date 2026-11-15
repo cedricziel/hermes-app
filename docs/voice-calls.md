@@ -197,6 +197,11 @@ Android, macOS, Windows and Linux run the same loop through `PortableCallBridge`
   reply, when it matches a stretch of the reply. So the reply's own "Goodbye."
   heard back does not end the call. It runs before the invented-transcript and
   stop-phrase checks and drops silently.
+- **Echo guard trade-off.** It can drop a real answer: "Yes, send the email to
+  Anna" right after Hermes asked "Shall I send the email to Anna?" matches a
+  six-word stretch of the question (about 0.88) and is dropped silently. It
+  only checks the first transcript after a reply, so saying it again works.
+  There is deliberately no notice for a dropped echo.
 - **Leaving the app ends the call.** The screen says so ("The call ends if you
   leave Hermes." on Android, "...hide or minimise Hermes." on desktop). Android
   ends it when the app is paused, which includes the screen locking; desktop
@@ -403,5 +408,8 @@ prove the state machine against fake recorder, player and audio-session seams.
    after the reply and the tones (the echo guard is the second line).
 8. UNVERIFIED: VoiceOver (iOS, macOS) and TalkBack (Android) announcing each
    state and operating the orb, Mute and End.
-9. UNVERIFIED, iOS (unchanged from before): speaker barge-in and an incoming
+9. UNVERIFIED, macOS: Flutter derives `hidden` from window occlusion, so moving
+   to another Space or covering the windows fully may report `hidden` and end
+   the call more often than the footer ("hide or minimise") promises.
+10. UNVERIFIED, iOS (unchanged from before): speaker barge-in and an incoming
    call.

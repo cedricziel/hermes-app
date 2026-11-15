@@ -12,7 +12,7 @@ class FakeRecorder implements CallRecorder {
   FakeRecorder(this.log);
   final List<String> log;
   int starts = 0, stops = 0, disposes = 0;
-  Completer<void>? startGate;
+  Completer<void>? startGate, stopGate;
   Object? startError;
   StreamController<Uint8List>? _stream;
 
@@ -40,6 +40,7 @@ class FakeRecorder implements CallRecorder {
   Future<void> stop() async {
     stops++;
     log.add('recorder.stop');
+    await stopGate?.future;
     final stream = _stream;
     _stream = null;
     if (stream != null) unawaited(stream.close());
@@ -57,11 +58,12 @@ class FakePlayer implements CallPlayer {
   final List<String> log;
   final played = <List<Object>>[];
   int inits = 0, stops = 0, drains = 0, disposes = 0;
-  Completer<void>? drainGate;
+  Completer<void>? drainGate, initGate;
 
   @override
   Future<void> init() async {
     inits++;
+    await initGate?.future;
     log.add('player.init');
   }
 
@@ -99,6 +101,7 @@ class FakeSession implements CallAudioSession {
   final speakerCalls = <bool>[];
   int activations = 0, deactivations = 0;
   Object? activateError;
+  Completer<void>? activateGate;
 
   @override
   Stream<AudioInterruptionEvent> get interruptions =>
@@ -108,6 +111,7 @@ class FakeSession implements CallAudioSession {
   @override
   Future<void> activate() async {
     activations++;
+    await activateGate?.future;
     log.add('session.activate');
     if (activateError != null) await Future<void>.error(activateError!);
   }
@@ -482,7 +486,96 @@ void main() {
     expect(rig.recorder.open, isFalse);
   });
 
+  group('End during the start releases what it acquired', () {
+    test(
+      'a player whose init finishes after End is disposed after it',
+      () async {
+        final rig = Rig();
+        final gate = rig.player.initGate = Completer<void>();
+        final start = rig.bridge.start('call-1', 'Hermes');
+        await rig.pump();
+        await rig.bridge.end();
+        gate.complete();
+        await start;
+        await rig.pump();
+        expect(rig.log.last, 'player.dispose');
+        expect(
+          rig.log.lastIndexOf('player.dispose'),
+          greaterThan(rig.log.indexOf('player.init')),
+        );
+        expect(rig.recorder.starts, 0);
+      },
+    );
+
+    test('audio focus taken after End is given back', () async {
+      final rig = Rig(session: true);
+      final gate = rig.audioSession!.activateGate = Completer<void>();
+      final start = rig.bridge.start('call-1', 'Hermes');
+      await rig.pump();
+      await rig.bridge.end();
+      gate.complete();
+      await start;
+      await rig.pump();
+      expect(rig.log.last, 'session.deactivate');
+      expect(
+        rig.log.lastIndexOf('session.deactivate'),
+        greaterThan(rig.log.indexOf('session.activate')),
+      );
+      expect(rig.player.inits, 0);
+    });
+  });
+
+  test('End does not wait for a recorder that hangs on stop', () {
+    fakeAsync((async) {
+      final rig = Rig();
+      rig.bridge.start('call-1', 'Hermes');
+      async.flushMicrotasks();
+      rig.recorder.stopGate = Completer<void>();
+      var done = false;
+      rig.bridge.end().then((_) => done = true);
+      async.flushMicrotasks();
+      expect(done, isFalse);
+      async.elapse(const Duration(seconds: 3));
+      async.flushMicrotasks();
+      expect(done, isTrue);
+      expect(rig.log, containsAll(['player.dispose', 'recorder.dispose']));
+    });
+  });
+
   group('cancellable start', () {
+    test('a pause and resume during the start do not cancel it', () async {
+      final rig = Rig();
+      final gate = rig.recorder.startGate = Completer<void>();
+      final start = rig.bridge.start('call-1', 'Hermes');
+      await rig.pump();
+      await rig.bridge.pauseCapture();
+      await rig.bridge.resumeCapture();
+      gate.complete();
+      await start;
+      await rig.pump();
+      expect(rig.types, contains('activated'));
+      expect(rig.log, ['player.init', 'recorder.start']);
+    });
+
+    test(
+      'a pause during the start leaves the microphone closed after it',
+      () async {
+        final rig = Rig();
+        final gate = rig.recorder.startGate = Completer<void>();
+        final start = rig.bridge.start('call-1', 'Hermes');
+        await rig.pump();
+        await rig.bridge.pauseCapture();
+        gate.complete();
+        await start;
+        await rig.pump();
+        expect(rig.types, contains('activated'));
+        expect(rig.recorder.open, isFalse);
+        await rig.bridge.resumeCapture();
+        await rig.pump();
+        expect(rig.recorder.open, isTrue);
+      },
+    );
+
     test(
       'End during the pending recorder start closes it when it resolves',
       () async {
