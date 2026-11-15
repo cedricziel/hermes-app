@@ -144,6 +144,27 @@ void main() {
     expect(host.commands, isEmpty);
   });
 
+  testWidgets('Reload, Enclosing Folder and the change steps are disabled '
+      'while a conversation window is key', (tester) async {
+    await pump(tester);
+    await windows.open('s1', profile: null, title: 'A');
+    await focus(tester, 'w0');
+
+    for (final command in [
+      MacCommand.reload,
+      MacCommand.enclosingFolder,
+      MacCommand.previousChange,
+      MacCommand.nextChange,
+    ]) {
+      expect(
+        registry.handlerFor(command)?.enabled,
+        isFalse,
+        reason: '$command',
+      );
+      expect(registry.invoke(command), isFalse);
+    }
+  });
+
   testWidgets('Pin reads Unpin for a pinned chat in the key window', (
     tester,
   ) async {

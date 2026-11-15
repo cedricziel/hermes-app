@@ -119,6 +119,20 @@ final menuLayout = <MenuSection>[
         shortcut: metaActivator(LogicalKeyboardKey.bracketRight),
         platforms: _macOnly,
       ),
+      // ⌘↑ moves a text field's caret on iPad, so there the key stays with it.
+      MenuEntry(
+        MacCommand.enclosingFolder,
+        'Enclosing Folder',
+        shortcut: metaActivator(LogicalKeyboardKey.arrowUp),
+        ipadShortcut: false,
+      ),
+    ],
+    [
+      MenuEntry(
+        MacCommand.reload,
+        'Reload',
+        shortcut: metaActivator(LogicalKeyboardKey.keyR),
+      ),
     ],
     [
       MenuEntry(
@@ -137,6 +151,25 @@ final menuLayout = <MenuSection>[
         MacCommand.showFiles,
         'Show Files',
         shortcut: metaActivator(LogicalKeyboardKey.keyF, shift: true),
+        platforms: _macOnly,
+      ),
+    ],
+    // Stepping through the files of a change; ⌥↑ and ⌥↓ move by paragraph in
+    // an iPad text field, so these stay Mac only.
+    [
+      MenuEntry(
+        MacCommand.previousChange,
+        'Previous Change',
+        shortcut: const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true),
+        platforms: _macOnly,
+      ),
+      MenuEntry(
+        MacCommand.nextChange,
+        'Next Change',
+        shortcut: const SingleActivator(
+          LogicalKeyboardKey.arrowDown,
+          alt: true,
+        ),
         platforms: _macOnly,
       ),
     ],

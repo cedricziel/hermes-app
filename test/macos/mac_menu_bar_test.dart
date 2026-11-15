@@ -180,6 +180,54 @@ void main() {
     expect(created, 1);
   }, variant: mac);
 
+  testWidgets('View lists Reload, Enclosing Folder and the change steps, off '
+      'until a page offers them', (tester) async {
+    var reloads = 0, steps = 0;
+    final channel = await pump(tester, const SizedBox());
+    expect(
+      channel.labels('View'),
+      containsAll([
+        'Enclosing Folder',
+        'Reload',
+        'Previous Change',
+        'Next Change',
+      ]),
+    );
+    for (final label in [
+      'Enclosing Folder',
+      'Reload',
+      'Previous Change',
+      'Next Change',
+    ]) {
+      expect(channel.enabled('View', label), isFalse, reason: label);
+    }
+    expect(
+      channel.item('View', 'Reload')['shortcutTrigger'],
+      LogicalKeyboardKey.keyR.keyId,
+    );
+    expect(
+      channel.item('View', 'Previous Change')['shortcutTrigger'],
+      LogicalKeyboardKey.arrowUp.keyId,
+    );
+
+    final withPage = await pump(
+      tester,
+      MacCommandScope(
+        commands: {
+          MacCommand.reload: MacCommandHandler(() => reloads++),
+          MacCommand.nextChange: MacCommandHandler(() => steps++),
+        },
+        child: const Scaffold(),
+      ),
+    );
+    expect(withPage.enabled('View', 'Reload'), isTrue);
+    expect(withPage.enabled('View', 'Next Change'), isTrue);
+    expect(withPage.enabled('View', 'Enclosing Folder'), isFalse);
+    await withPage.select('View', 'Reload');
+    await withPage.select('View', 'Next Change');
+    expect([reloads, steps], [1, 1]);
+  }, variant: mac);
+
   testWidgets('View offers Forward with Command-right-bracket', (tester) async {
     var forwards = 0;
     final channel = await pump(
