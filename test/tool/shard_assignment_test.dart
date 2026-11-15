@@ -133,23 +133,39 @@ void main() {
     ]);
   });
 
-  test('the real weights balance the predicted wall time', () {
-    // Weights are per-file wall seconds; a shard's files overlap about 1.6x,
-    // so their wall is `scale` x the summed weights (CI measured 0.59-0.66).
-    // The catalog runs alone: its wall is 400 s, its weight 400 / scale.
-    const scale = 0.62;
-    const catalogWall = 400.0;
-    expect(real[catalog], closeTo(catalogWall / scale, 5));
+  test('LPT balances synthetic loads, the catalog counted in its weight', () {
+    final rnd = Random(3);
+    final list = [
+      catalog,
+      for (var i = 0; i < 300; i++) 'test/s/f${i}_test.dart',
+    ];
+    final weights = {
+      for (final f in list) f: f == catalog ? 650.0 : 1 + rnd.nextDouble() * 40,
+    };
+    final loads = shardLoads(
+      assignShards(files: list, weights: weights, catalog: catalog, total: 4),
+      weights,
+    );
+    expect(
+      loads.reduce(max) - loads.reduce(min),
+      lessThan(41),
+      reason: '$loads',
+    );
+  });
+
+  test('the real weights keep the shards roughly even', () {
+    // Loose on purpose: the weights drift as tests change, and an unrelated
+    // change must not turn this red. The catalog is in the same unit
+    // (wall / scale), see tool/shard_weights.dart.
     final loads = shardLoads(
       assignShards(files: files, weights: real, catalog: catalog, total: 4),
       real,
     );
-    final walls = [
-      catalogWall + (loads[0] - real[catalog]!) * scale,
-      for (final l in loads.skip(1)) l * scale,
-    ];
-    final spread = walls.reduce(max) - walls.reduce(min);
-    expect(spread / walls.reduce(max), lessThan(0.05), reason: '$walls');
+    expect(
+      (loads.reduce(max) - loads.reduce(min)) / loads.reduce(max),
+      lessThan(0.15),
+      reason: '$loads',
+    );
   });
 
   test('the weights file is sorted', () {

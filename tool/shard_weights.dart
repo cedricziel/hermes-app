@@ -68,7 +68,9 @@ int _usage() {
 /// Same files as `find test -name '*_test.dart' | sort`.
 List<String> listTestFiles() {
   final files = [
-    for (final e in Directory('test').listSync(recursive: true))
+    for (final e in Directory(
+      'test',
+    ).listSync(recursive: true, followLinks: false))
       if (e is File && e.path.endsWith('_test.dart'))
         e.path.replaceAll('\\', '/'),
   ]..sort();
@@ -104,7 +106,7 @@ class Report {
 }
 
 /// Parses one report. Lines that are not JSON, or have odd shapes, are skipped.
-Report parseReport(String content, String root) {
+Report parseReport(String content, String root, {Set<String>? known}) {
   final suitePath = <int, String>{};
   final suiteStart = <int, int>{};
   final suiteEnd = <int, int>{};
@@ -145,7 +147,7 @@ Report parseReport(String content, String root) {
   }
   final result = <String, double>{};
   suitePath.forEach((id, path) {
-    final name = _relative(path, root);
+    final name = relativeTestPath(path, root, known: known);
     if (name == null) return;
     final seconds = (suiteEnd[id]! - suiteStart[id]!) / 1000;
     result[name] = (seconds * 10).round() / 10;
@@ -154,13 +156,28 @@ Report parseReport(String content, String root) {
   return Report(result, wall);
 }
 
-String? _relative(String path, String root) {
+/// The repo-relative path of a suite, or null for anything outside `test/`.
+/// Reports from CI carry the runner's absolute paths, so after the local
+/// [root] fails to match, the path is cut at a `/test/` segment: the first one
+/// that leaves a file in [known], else the last.
+String? relativeTestPath(String path, String root, {Set<String>? known}) {
   var p = path.startsWith('file://') ? Uri.parse(path).toFilePath() : path;
   p = p.replaceAll('\\', '/');
   final r = root.replaceAll('\\', '/');
   if (p.startsWith('$r/')) p = p.substring(r.length + 1);
-  if (!p.startsWith('test/') || !p.endsWith('_test.dart')) return null;
-  return p;
+  if (!p.endsWith('_test.dart')) return null;
+  if (p.startsWith('test/')) return p;
+  final cuts = <int>[];
+  for (var i = p.indexOf('/test/'); i >= 0; i = p.indexOf('/test/', i + 1)) {
+    cuts.add(i + 1);
+  }
+  if (cuts.isEmpty) return null;
+  for (final cut in cuts) {
+    if (known != null && known.contains(p.substring(cut))) {
+      return p.substring(cut);
+    }
+  }
+  return p.substring(cuts.last);
 }
 
 int update(List<String> reports) {
@@ -169,13 +186,14 @@ int update(List<String> reports) {
   var otherWall = 0.0; // wall of every other invocation
   var otherWeights = 0.0; // weights of the files those ran
   final root = Directory.current.path;
+  final existing = listTestFiles().toSet();
   for (final path in reports) {
     final file = File(path);
     if (!file.existsSync()) {
       stderr.writeln('missing report: $path');
       return 1;
     }
-    final report = parseReport(file.readAsStringSync(), root);
+    final report = parseReport(file.readAsStringSync(), root, known: existing);
     measured.addAll(report.weights);
     if (report.weights.containsKey(catalog)) {
       catalogSeconds += report.wall;

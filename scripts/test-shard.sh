@@ -24,10 +24,14 @@ shift 2
 cd "$(dirname "$0")/.."
 catalog=test/widgetbook_test.dart
 
+# Captured first so that `set -e` sees a failing dart (a process substitution
+# would hide its status and run a truncated list). Plain `dart <file>`: no build
+# hooks, no network.
+list=$(dart tool/shard_weights.dart assign "$index" "$total")
 files=()
-while IFS= read -r file; do
-  files+=("$file")
-done < <(dart run tool/shard_weights.dart assign "$index" "$total")
+if [ -n "$list" ]; then
+  mapfile -t files <<<"$list"
+fi
 
 if [ "${TEST_SHARD_LIST:-}" = 1 ]; then
   if [ "$index" -eq 0 ]; then echo "$catalog"; fi
@@ -43,6 +47,16 @@ if [ "$index" -ne 0 ]; then
   exec flutter test "$@" "${files[@]}"
 fi
 
+for arg in "$@"; do
+  case "$arg" in
+    --coverage-path | --coverage-path=*)
+      echo "$0: --coverage-path is set by this script on shard 0" >&2
+      exit 64
+      ;;
+  esac
+done
+case " $* " in *" --coverage "*) rm -f coverage/lcov.info ;; esac
+
 status=0
 flutter test "$@" "$catalog" || status=$?
 
@@ -53,6 +67,7 @@ if [ ${#files[@]} -gt 0 ]; then
     case "$arg" in
       --coverage) coverage=1; extra+=("$arg") ;;
       json:*.json) extra+=("${arg%.json}-extra.json") ;;
+      --file-reporter=json:*.json) extra+=("${arg%.json}-extra.json") ;;
       *) extra+=("$arg") ;;
     esac
   done
