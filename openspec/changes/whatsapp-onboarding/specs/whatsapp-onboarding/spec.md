@@ -155,7 +155,7 @@ A start or apply whose answer is lost SHALL NOT read as done, and neither SHALL 
 
 ### Requirement: Leaving cancels
 
-Leaving the screen before Finish SHALL send `DELETE` for a live pairing, best effort, once, and SHALL ignore its failure. A cancel does not unlink an account that already connected, and the screen SHALL NOT claim it does.
+Leaving the screen before Finish SHALL send `DELETE` for a live pairing, best effort, once, and SHALL ignore its failure. Start again over a live record that is still held (a connected one whose read failed) SHALL send the same single `DELETE` for it before starting fresh, never one for a record whose apply was sent. A cancel does not unlink an account that already connected, and the screen SHALL NOT claim it does.
 
 #### Scenario: Back while waiting
 

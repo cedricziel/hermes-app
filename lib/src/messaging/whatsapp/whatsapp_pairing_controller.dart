@@ -601,12 +601,17 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     _changed();
   }
 
-  /// Back to the form with the earlier mode and numbers. Sends nothing; the
+  /// Back to the form with the earlier mode and numbers. A record that is
+  /// still live on the server (a connected one whose read keeps failing) is
+  /// asked to go once, best effort, as [leave] would, since the id is dropped
+  /// here and nothing could cancel it later. Otherwise nothing is sent; the
   /// next Start supersedes whatever the server still holds.
   void startAgain() {
     if (!canStartAgain) return;
+    final old = _cleared ? null : _liveIdToCancel();
     _epoch++;
     _dropPairing();
+    if (old != null) unawaited(_cancel(old));
     _revealed = !handset;
     _phase = WhatsAppPairingPhase.setup;
     _applyStatus = WhatsAppApplyStatus.idle;
@@ -1027,6 +1032,19 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
 
   bool get _gateOpen => _foreground && !_covered && !_closed;
 
+  /// The read that restores what App Lock dropped failed the cap in a row, so
+  /// the slower rhythm applies to every timer made until a read answers.
+  bool get _refreshGaveUp =>
+      _needsRefresh && _refreshFailures >= kWhatsAppRefreshFailureCap;
+
+  void _startTimer({required bool slow}) {
+    _timer = Timer.periodic(
+      slow ? pollInterval * kWhatsAppRefreshBackoffFactor : pollInterval,
+      (_) => unawaited(_tick()),
+    );
+    _slowTimer = slow;
+  }
+
   /// Starts or stops the poll timer to match the state: polling runs only
   /// while a pairing is live, the app is in front and App Lock is unlocked.
   void _syncPolling() {
@@ -1036,10 +1054,9 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
       if (_timer != null) {
         // A read that answered since the slow rhythm began goes back to the
         // normal one.
-        if (_slowTimer && _refreshFailures < kWhatsAppRefreshFailureCap) {
+        if (_slowTimer && !_refreshGaveUp) {
           _timer!.cancel();
-          _timer = Timer.periodic(pollInterval, (_) => unawaited(_tick()));
-          _slowTimer = false;
+          _startTimer(slow: false);
         }
         return;
       }
@@ -1056,8 +1073,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
           return;
         }
       }
-      _timer = Timer.periodic(pollInterval, (_) => unawaited(_tick()));
-      _slowTimer = false;
+      _startTimer(slow: _refreshGaveUp);
       if (resuming) unawaited(_tick());
       return;
     }
@@ -1144,11 +1160,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
           if (_refreshFailures == kWhatsAppRefreshFailureCap &&
               _timer != null) {
             _timer!.cancel();
-            _timer = Timer.periodic(
-              pollInterval * kWhatsAppRefreshBackoffFactor,
-              (_) => unawaited(_tick()),
-            );
-            _slowTimer = true;
+            _startTimer(slow: true);
           }
         }
     }

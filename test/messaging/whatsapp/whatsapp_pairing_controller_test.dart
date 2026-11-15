@@ -1298,6 +1298,86 @@ void main() {
       });
     });
 
+    test('Start again after a failed refresh cancels the old record once, '
+        'and leaving then cancels the new one, not the old one again', () {
+      fakeAsync((async) {
+        const newId = 'Zk3-demoPairingId_0002';
+        const newPath = '$waBase/$newId';
+        server.onRequest('DELETE', newPath, (_) => _ok(waCancelOk));
+        server.onRequest(
+          'GET',
+          newPath,
+          (_) => _ok({...waStatusWaiting, 'pairing_id': newId}),
+        );
+        linked(async);
+        statusReply = down;
+        controller.cover();
+        controller.uncover();
+        settle(async, const Duration(seconds: 30));
+        expect(controller.refreshFailed, isTrue);
+        expect(cancels(), 0);
+        startReply = (_) => _ok({...waStartFresh, 'pairing_id': newId});
+        controller.startAgain();
+        settle(async);
+        expect(cancels(), 1);
+        begin(async);
+        settle(async, const Duration(seconds: 5));
+        expect(controller.phase, WhatsAppPairingPhase.waiting);
+        unawaited(controller.leave());
+        settle(async);
+        expect(cancels(), 1, reason: 'the old id is never DELETEd twice');
+        expect(count('DELETE', newPath), 1);
+        controller.dispose();
+        settle(async);
+        expect(cancels(), 1);
+        expect(count('DELETE', newPath), 1);
+      });
+    });
+
+    test('Start again after an apply was sent cancels nothing', () {
+      fakeAsync((async) {
+        applyReply = down;
+        platformsReply = (_) => _ok(_platforms(enabled: false));
+        linked(async);
+        finish(async);
+        unawaited(controller.check());
+        settle(async);
+        expect(controller.canStartAgain, isTrue);
+        controller.startAgain();
+        settle(async);
+        expect(cancels(), 0);
+      });
+    });
+
+    test('a failed refresh keeps the slow rhythm across background and '
+        'foreground', () {
+      fakeAsync((async) {
+        linked(async);
+        statusReply = down;
+        controller.cover();
+        controller.uncover();
+        settle(async, const Duration(seconds: 30));
+        expect(controller.refreshFailed, isTrue);
+        int perMinute() {
+          final before = polls();
+          settle(async, const Duration(minutes: 1));
+          return polls() - before;
+        }
+
+        expect(perMinute(), lessThanOrEqualTo(8));
+        controller.setInForeground(false);
+        controller.setInForeground(true);
+        settle(async);
+        expect(perMinute(), lessThanOrEqualTo(8));
+        controller.setInForeground(false);
+        settle(async, const Duration(seconds: 30));
+        controller.setInForeground(true);
+        settle(async);
+        expect(perMinute(), lessThanOrEqualTo(8));
+        expect(perMinute(), greaterThan(3));
+      });
+    });
+
     test('a connected record never expires locally on failed polls', () {
       fakeAsync((async) {
         linked(async);
