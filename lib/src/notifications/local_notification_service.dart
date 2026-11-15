@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show FileSystemEntity, FileSystemEntityType, Platform;
+import 'dart:io' show File, FileSystemEntity, FileSystemEntityType, Platform;
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart'
@@ -18,21 +18,45 @@ import 'request_notifications.dart';
 const _channelId = 'agent_activity';
 const _channelName = 'Agent activity';
 
-/// Whether a D-Bus session bus can be reached: `DBUS_SESSION_BUS_ADDRESS` is
-/// set, or the systemd socket `$XDG_RUNTIME_DIR/bus` exists. The Linux plugin
-/// subscribes to bus signals when it starts, and without a bus that throws an
-/// error nothing can catch.
-bool linuxSessionBusAvailable() {
-  final env = Platform.environment;
-  if ((env['DBUS_SESSION_BUS_ADDRESS'] ?? '').isNotEmpty) return true;
-  final runtime = env['XDG_RUNTIME_DIR'];
-  if (runtime == null || runtime.isEmpty) return false;
+/// Whether the session bus the Linux plugin will connect to can exist. It
+/// mirrors `DBusClient.session()` of the `dbus` package, which the plugin
+/// uses: `DBUS_SESSION_BUS_ADDRESS` if set, else `$XDG_USER_DIR/bus`, else
+/// `/run/user/<uid>/bus`. Only a precheck: a stale address passes it, which
+/// the guarded initialize catches.
+bool linuxSessionBusAvailable({
+  Map<String, String>? environment,
+  bool Function(String path)? exists,
+  int Function()? uid,
+}) {
+  final env = environment ?? Platform.environment;
+  final address = env['DBUS_SESSION_BUS_ADDRESS'];
+  if (address != null) return address.isNotEmpty;
+  final userDir = env['XDG_USER_DIR'];
+  final dir = userDir ?? '/run/user/${(uid ?? _currentUid)()}';
+  if (dir.isEmpty) return false;
+  final path = '$dir/bus';
+  return (exists ?? _socketExists)(path);
+}
+
+bool _socketExists(String path) {
   try {
-    return FileSystemEntity.typeSync('$runtime/bus') !=
-        FileSystemEntityType.notFound;
+    return FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound;
   } on Object {
     return false;
   }
+}
+
+int _currentUid() {
+  try {
+    for (final line in File('/proc/self/status').readAsLinesSync()) {
+      if (line.startsWith('Uid:')) {
+        return int.parse(line.split(RegExp(r'\s+'))[1]);
+      }
+    }
+  } on Object {
+    // Falls through to the unknown uid.
+  }
+  return -1;
 }
 
 /// Identifies the app to Windows for its toasts, in the form
@@ -260,6 +284,10 @@ class LocalNotificationService
   Future<void>? _initialized;
   var _launchAnswered = false;
 
+  /// Set when the Linux plugin's D-Bus setup failed, even after `initialize`
+  /// returned; the service is unsupported from then on.
+  var _linuxBusFailed = false;
+
   /// Linux without a session bus counts as unsupported, so the plugin is
   /// never initialized there.
   bool get _supported =>
@@ -269,7 +297,7 @@ class LocalNotificationService
         TargetPlatform.iOS ||
         TargetPlatform.macOS ||
         TargetPlatform.windows => true,
-        TargetPlatform.linux => _hasLinuxSessionBus(),
+        TargetPlatform.linux => !_linuxBusFailed && _hasLinuxSessionBus(),
         _ => false,
       };
 
@@ -278,13 +306,36 @@ class LocalNotificationService
     _ => false,
   };
 
-  Future<void> _initialize() => _initialized ??= _start().then<void>(
+  Future<void> _initialize() => _initialized ??= _startGuarded().then<void>(
     (_) {},
     onError: (Object error, StackTrace stack) {
       _initialized = null;
       Error.throwWithStackTrace(error, stack);
     },
   );
+
+  /// On Linux the plugin subscribes to D-Bus signals without an error
+  /// handler, so a bus that cannot be reached throws from futures nobody
+  /// holds. Run in an error zone, those errors end here, mark the service
+  /// unsupported and fail the initialize.
+  Future<void> _startGuarded() {
+    if (defaultTargetPlatform != TargetPlatform.linux) return _start();
+    final done = Completer<void>();
+    runZonedGuarded(
+      () => _start().then<void>(
+        (_) => done.isCompleted ? null : done.complete(),
+        onError: (Object error, StackTrace stack) {
+          _linuxBusFailed = true;
+          if (!done.isCompleted) done.completeError(error, stack);
+        },
+      ),
+      (error, stack) {
+        _linuxBusFailed = true;
+        if (!done.isCompleted) done.completeError(error, stack);
+      },
+    );
+    return done.future;
+  }
 
   Future<void> _start() async {
     final categories = _background

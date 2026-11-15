@@ -36,6 +36,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   DidReceiveNotificationResponseCallback? onResponse;
   DidReceiveBackgroundNotificationResponseCallback? onBackgroundResponse;
   InitializationSettings? settings;
+  void Function()? duringInitialize;
 
   @override
   Future<bool?> initialize({
@@ -50,6 +51,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     onResponse = onDidReceiveNotificationResponse;
     onBackgroundResponse = onDidReceiveBackgroundNotificationResponse;
     this.settings = settings;
+    duringInitialize?.call();
     return true;
   }
 
@@ -1346,22 +1348,66 @@ void main() {
       );
     });
 
-    test('posts normally once a session bus exists', () async {
-      final plugin = _FakePlugin();
+    test('a D-Bus error raised after initialize ends in unsupported', () async {
+      final plugin = _FakePlugin()
+        ..duringInitialize = () {
+          // What the Linux plugin does: a subscription nobody handles errors on.
+          final controller = StreamController<int>();
+          controller.stream.listen((_) {});
+          controller.addError(StateError('no bus'));
+          unawaited(controller.close());
+        };
       final service = serviceWith(plugin, bus: true);
       addTearDown(service.dispose);
-
-      await service.post(
-        const AttentionNotification(
-          threadId: 's1',
-          profile: 'work',
-          title: 'Cleanup',
-          body: 'Done.',
-        ),
+      const reply = AttentionNotification(
+        threadId: 's1',
+        profile: 'work',
+        title: 'Cleanup',
+        body: 'Done.',
       );
 
+      // The test zone fails the test on an uncaught error.
+      await service.post(reply);
+      await pumpEventQueue();
+      final result = await service.post(reply);
+
+      expect(result.status, NotificationPostStatus.unsupported);
       expect(plugin.initializeCalls, 1);
-      expect(plugin.posted, hasLength(1));
+    });
+  });
+
+  group('linuxSessionBusAvailable', () {
+    bool check(Map<String, String> env, Set<String> files, {int uid = 1000}) =>
+        linuxSessionBusAvailable(
+          environment: env,
+          exists: files.contains,
+          uid: () => uid,
+        );
+
+    test('is false with nothing set and no socket', () {
+      expect(check({}, {}), isFalse);
+    });
+
+    test('is true when the address is set, even with no socket', () {
+      expect(check({'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/x'}, {}), isTrue);
+    });
+
+    test('an empty address is no bus', () {
+      expect(
+        check({'DBUS_SESSION_BUS_ADDRESS': ''}, {'/run/user/1000/bus'}),
+        isFalse,
+      );
+    });
+
+    test('falls back to XDG_USER_DIR/bus', () {
+      expect(check({'XDG_USER_DIR': '/u'}, {'/u/bus'}), isTrue);
+      expect(check({'XDG_USER_DIR': '/u'}, {'/run/user/1000/bus'}), isFalse);
+    });
+
+    test('falls back to /run/user/<uid>/bus, ignoring XDG_RUNTIME_DIR', () {
+      expect(check({}, {'/run/user/42/bus'}, uid: 42), isTrue);
+      expect(check({}, {'/run/user/1000/bus'}, uid: 42), isFalse);
+      expect(check({'XDG_RUNTIME_DIR': '/r'}, {'/r/bus'}), isFalse);
     });
   });
 
