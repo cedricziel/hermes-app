@@ -274,7 +274,7 @@ class ToolValueCopyButton extends StatelessWidget {
               height: height,
               // A circle for the icon alone, a pill once it says "Copied".
               width: copied ? null : height,
-              alignment: Alignment.center,
+              alignment: copied ? null : Alignment.center,
               padding: copied
                   ? const EdgeInsets.symmetric(horizontal: 8)
                   : EdgeInsets.zero,

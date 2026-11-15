@@ -639,6 +639,7 @@ void main() {
       final area = tester.getSize(find.byKey(_copyKey));
       expect(area.height, 44);
       expect(area.width, greaterThan(44));
+      expect(area.width, lessThan(160), reason: 'a pill, not the row');
       await tester.pump(const Duration(seconds: 3));
     });
   });
