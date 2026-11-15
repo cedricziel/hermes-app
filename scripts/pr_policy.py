@@ -335,7 +335,8 @@ def check(
 #        the files cover every file whose content differs from merge-tree.
 # A plain block never accepts a merge commit by itself. Any block, plain or
 # Merge-review, naming a commit with a verdict other than clean keeps it from
-# being accepted; otherwise any clean block with a valid Range accepts it. The Range base to ask for is merge-base(base tip, commit).
+# being accepted; otherwise any clean block with a valid Range accepts it.
+# The Range base to ask for is merge-base(base tip, commit).
 # A Merge-review whose second parent is not on the base branch must list
 # everything the merge brings into its first parent, since merge-tree proves
 # nothing about that parent's content.
