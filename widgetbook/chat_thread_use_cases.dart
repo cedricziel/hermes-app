@@ -254,6 +254,17 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
           _user('u1', 'Why did the run fail around 02:14?'),
           _reply('a1', _markdown, tools: const [finishedToolCall]),
         ]),
+        _thread('Links and headings', [
+          _user(
+            'u1',
+            'Where is the retry policy documented? [Runbook](https://example.com/runbook)',
+          ),
+          _reply(
+            'a1',
+            '## Retry policy\n\nSee the [runbook](https://example.com/runbook) '
+                'and the [backoff notes](https://example.com/backoff) for the cap.',
+          ),
+        ]),
         _thread('Thinking', [
           _user('u1', 'Why did the run fail around 02:14?'),
           _reply('a1', '', status: MessageStatus.thinking),
