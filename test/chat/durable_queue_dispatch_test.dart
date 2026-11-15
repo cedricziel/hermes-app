@@ -102,6 +102,23 @@ void main() {
     visible.dispose();
     activity.dispose();
     attention.dispose();
+    // Hermes accepting a queued prompt starts a detached `accepted` write and
+    // cleanup (chat_controller_queues.dart `_acceptedQueue`). The store runs
+    // its operations in order, so a load queued after them returns only once
+    // they are done; deleting the directory before that races them.
+    await pumpEventQueue();
+    try {
+      await store.load(
+        QueueScope(
+          serverKey: 'server',
+          accountKey: 'account',
+          profile: 'work',
+          conversationId: 'stored',
+        ),
+      );
+    } on Object {
+      // The load only has to wait for earlier operations.
+    }
     await directory.delete(recursive: true);
   });
 
