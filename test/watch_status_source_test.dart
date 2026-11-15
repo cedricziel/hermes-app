@@ -83,6 +83,69 @@ void main() {
       transports[1].reads.single.complete({'c': 'running'});
       async.flushMicrotasks();
       expect(got, {'c': 'running'});
+      // One more read reuses the newer transport.
+      unawaited(source.activeStatuses(budget: budget).then((_) {}));
+      expect(transports, hasLength(2));
+      expect(transports[1].reads, hasLength(2));
+      transports[1].reads.last.complete({});
+      async.elapse(const Duration(minutes: 5, milliseconds: 1));
+      expect(transports[1].closed, isTrue);
+      // After that, a new read opens a third transport and close() ends it.
+      unawaited(source.activeStatuses(budget: budget).then((_) {}));
+      expect(transports, hasLength(3));
+      unawaited(source.close());
+      async.flushMicrotasks();
+      expect(transports[2].closed, isTrue);
+    });
+  });
+
+  test('a read finishing on a released transport does not arm the idle '
+      'close under a newer one', () {
+    fakeAsync((async) {
+      final transports = <_Transport>[];
+      final source = WatchStatusSource(() {
+        final t = _Transport();
+        transports.add(t);
+        return t;
+      }, idleTimeout: idle);
+      const long = Duration(milliseconds: 500);
+      unawaited(
+        source.activeStatuses(budget: budget).then((_) {}, onError: (_) {}),
+      ); // A: times out at 50 ms and releases the first transport.
+      async.elapse(const Duration(milliseconds: 30));
+      unawaited(
+        source.activeStatuses(budget: long).then((_) {}, onError: (_) {}),
+      ); // B: on the first transport, still pending after A released it.
+      async.elapse(const Duration(milliseconds: 30));
+      expect(transports[0].closed, isTrue);
+      unawaited(
+        source.activeStatuses(budget: long).then((_) {}, onError: (_) {}),
+      ); // C: on the second transport, in flight.
+      expect(transports, hasLength(2));
+      transports[0].reads.last.complete({}); // B ends on the released one.
+      async.elapse(idle * 2);
+      expect(transports[1].closed, isFalse);
+    });
+  });
+
+  test('a read after dispose connects nothing', () {
+    fakeAsync((async) {
+      final transports = <_Transport>[];
+      final source = WatchStatusSource(() {
+        final t = _Transport();
+        transports.add(t);
+        return t;
+      });
+      unawaited(source.activeStatuses().then((_) {}));
+      expect(transports, hasLength(1));
+      unawaited(source.dispose());
+      async.flushMicrotasks();
+      expect(transports.single.closed, isTrue);
+      Map<String, String>? got = {'x': 'y'};
+      unawaited(source.activeStatuses().then((v) => got = v));
+      async.flushMicrotasks();
+      expect(got, isNull);
+      expect(transports, hasLength(1));
     });
   });
 }

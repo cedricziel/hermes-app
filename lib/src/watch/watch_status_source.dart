@@ -22,6 +22,7 @@ class WatchStatusSource {
   final Duration idleTimeout;
   _Held? _held;
   Timer? _idle;
+  bool _disposed = false;
 
   /// The statuses by chat id, or null when nobody is signed in. A failed read
   /// is an empty answer, as [ChatTransport.activeStatuses] gives it. Past
@@ -30,6 +31,7 @@ class WatchStatusSource {
     String? profile,
     Duration? budget,
   }) async {
+    if (_disposed) return null;
     _idle?.cancel();
     var held = _held;
     if (held == null) {
@@ -61,6 +63,14 @@ class WatchStatusSource {
     _idle = null;
     final held = _held;
     if (held != null) await _release(held);
+  }
+
+  /// Closes the connection for good: later reads answer null and never
+  /// connect, so a request still in flight when the bridge goes away cannot
+  /// open a socket nobody closes.
+  Future<void> dispose() {
+    _disposed = true;
+    return close();
   }
 
   Future<void> _release(_Held held) async {
