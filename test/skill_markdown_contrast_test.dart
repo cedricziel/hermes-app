@@ -4,6 +4,7 @@ import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.
 import 'package:hermes_app/src/bot_mode/groups/widgets/group_widgets.dart';
 import 'package:hermes_app/src/skills/widgets/skill_markdown_panel.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'bot_mode/group_protocol/groups_repository_test.dart' as fixtures;
 import 'support/markdown_contrast.dart';
@@ -26,6 +27,7 @@ Future<void> _pump(
     shots.frame(
       MaterialApp(
         theme: dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
+        builder: (context, child) => MaterialUiThemeScope(child: child!),
         home: Scaffold(body: SingleChildScrollView(child: body)),
       ),
     ),

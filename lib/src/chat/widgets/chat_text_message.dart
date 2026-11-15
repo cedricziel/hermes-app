@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:provider/provider.dart';
 
-import '../../widgets/app_markdown_theme.dart';
 import '../../widgets/bounded_markdown.dart';
 
 /// A text message as `FlyerChatTextMessage` draws it with no time, status or
@@ -39,7 +39,8 @@ class ChatTextMessage extends StatelessWidget {
     final decorationColor = context.select(
       (ChatTheme t) => isSentByMe ? t.colors.onPrimary : t.colors.onSurface,
     );
-    final content = AppMarkdownTheme(
+    final content = GptMarkdownTheme(
+      gptThemeData: GptMarkdownTheme.of(context),
       child: BoundedMarkdown(
         message.text,
         style: textStyle,

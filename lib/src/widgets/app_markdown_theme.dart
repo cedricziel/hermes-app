@@ -4,9 +4,8 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import '../theme/hermes_theme.dart';
 
 /// [child] (a markdown view) under a markdown theme from the app's: headings in
-/// the on-surface colour (the package takes them from its own light or dark
-/// text theme, which is near-invisible on a dark page) and links in the app's
-/// link colour.
+/// the on-surface colour, the rule in the outline colour and links in the app's
+/// link colour (the package's own link colour is `Colors.blue`, 3.1:1 on white).
 class AppMarkdownTheme extends StatelessWidget {
   const AppMarkdownTheme({super.key, required this.child});
 
