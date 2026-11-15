@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.1.79](https://github.com/cedricziel/hermes-app/compare/v0.1.78...v0.1.79) (2026-11-15)
+
+
+### Features
+
+* **chat:** fetch a session export ([#1106](https://github.com/cedricziel/hermes-app/issues/1106)) ([d597bed](https://github.com/cedricziel/hermes-app/commit/d597bed80ab9b6239bdb2aa1e902d8c1532fbe02))
+* **chat:** session export controller ([#1109](https://github.com/cedricziel/hermes-app/issues/1109)) ([70797c4](https://github.com/cedricziel/hermes-app/commit/70797c477794a9a5807cb4ebd7335e82af1fc3b6))
+* **chat:** session export dialog in the catalog ([#1104](https://github.com/cedricziel/hermes-app/issues/1104)) ([28f7c3e](https://github.com/cedricziel/hermes-app/commit/28f7c3e9f06fbf2a35f3af5be6b9cd0cfcf1c411))
+* **chat:** voice turn flags and outcomes ([#1101](https://github.com/cedricziel/hermes-app/issues/1101)) ([af9cb18](https://github.com/cedricziel/hermes-app/commit/af9cb184bdea8c78137dafc836d1894b00ef5efd))
+* **files:** code colours and Markdown polish ([#1089](https://github.com/cedricziel/hermes-app/issues/1089)) ([de7ac3b](https://github.com/cedricziel/hermes-app/commit/de7ac3b35b9f3be9eea074af53cbb2778acf530c))
+* **notifications:** reply to a finished reply from the notification ([#1079](https://github.com/cedricziel/hermes-app/issues/1079)) ([97bce9a](https://github.com/cedricziel/hermes-app/commit/97bce9a273859bbdb7a5eab59e63c5ad3d48a861))
+* **profile-soul:** a controller for editing a profile's personality ([#1103](https://github.com/cedricziel/hermes-app/issues/1103)) ([8c86616](https://github.com/cedricziel/hermes-app/commit/8c866164981f47c86c5f4c827f8435aff73e7e78))
+* **profile-soul:** Personality widgets in the catalog ([#1110](https://github.com/cedricziel/hermes-app/issues/1110)) ([6c05887](https://github.com/cedricziel/hermes-app/commit/6c05887f5def82ddccf3deec8c1aa667a357bb46))
+* **profile-soul:** read and write a profile's SOUL.md through a repository ([#1102](https://github.com/cedricziel/hermes-app/issues/1102)) ([55a6074](https://github.com/cedricziel/hermes-app/commit/55a60742da98a0554e105c3c5b2293243cfecb50))
+* **profile-soul:** stack the banner action at large text ([#1107](https://github.com/cedricziel/hermes-app/issues/1107)) ([9067faf](https://github.com/cedricziel/hermes-app/commit/9067faf39a839e28f41b161f7876526c3a8176c9))
+* **server-care:** attention on the status span, polls wake on resume ([#1086](https://github.com/cedricziel/hermes-app/issues/1086)) ([5396b0e](https://github.com/cedricziel/hermes-app/commit/5396b0ea4033281518ea625f90488621bb35c80c))
+* **voice:** call widgets in the catalog ([#1078](https://github.com/cedricziel/hermes-app/issues/1078)) ([eb028c6](https://github.com/cedricziel/hermes-app/commit/eb028c6f0386e093efb11fee83f194afef8dd390))
+* **voice:** consent, safe stopping and teardown for the iOS call ([#1087](https://github.com/cedricziel/hermes-app/issues/1087)) ([0c88c52](https://github.com/cedricziel/hermes-app/commit/0c88c52004cae28f633574d953ae7dfba4a4fd8c))
+
+
+### Bug Fixes
+
+* **chat:** bound the render cost of code blocks ([#1105](https://github.com/cedricziel/hermes-app/issues/1105)) ([d04c5a9](https://github.com/cedricziel/hermes-app/commit/d04c5a9f6ef436115703ed424c8d281f192d64d0))
+* **chat:** copy picked files out of the plugin directory ([#1113](https://github.com/cedricziel/hermes-app/issues/1113)) ([a41f3a2](https://github.com/cedricziel/hermes-app/commit/a41f3a21755bd90543244f21242b637691913cf8))
+* **chat:** drop a chat's agent roster when its session is retired ([#1085](https://github.com/cedricziel/hermes-app/issues/1085)) ([ad538e9](https://github.com/cedricziel/hermes-app/commit/ad538e94c6b1a0e84a7263658b9cecf8c72b3ee0))
+* **chat:** hide the recipient chip once a chat has messages ([#1114](https://github.com/cedricziel/hermes-app/issues/1114)) ([3e0348f](https://github.com/cedricziel/hermes-app/commit/3e0348ff892f52e5d9006d4b5db9c173893f1b2c))
+* **chat:** keep an opened tool call open when the next tool starts ([#1117](https://github.com/cedricziel/hermes-app/issues/1117)) ([a0c63ee](https://github.com/cedricziel/hermes-app/commit/a0c63ee1ea83277942c45f610d5555fa0f6087ca))
+* **chat:** say so when Hermes takes a typed message as a stop command, and tidy a withdrawn voice turn ([#1108](https://github.com/cedricziel/hermes-app/issues/1108)) ([2fc5d8c](https://github.com/cedricziel/hermes-app/commit/2fc5d8c5aa9c44031419bfe96fb1b8fcbef75046))
+* **files:** start a new chat's Files at the profile's folder; a refusal inside a listed folder is "not allowed" ([#1080](https://github.com/cedricziel/hermes-app/issues/1080)) ([92c5a78](https://github.com/cedricziel/hermes-app/commit/92c5a78d51bcabf421910978bd7f4c9b4e71ad03))
+* **voice:** retry a failed speech connection once and log per-turn timings ([#1095](https://github.com/cedricziel/hermes-app/issues/1095)) ([114558e](https://github.com/cedricziel/hermes-app/commit/114558e6d7e8a1f8e567b17d19e1762ebaafd7a1)), closes [#882](https://github.com/cedricziel/hermes-app/issues/882)
+
+
+### Documentation
+
+* **design:** record the personality canvas ([#1097](https://github.com/cedricziel/hermes-app/issues/1097)) ([33aad36](https://github.com/cedricziel/hermes-app/commit/33aad366373c6e73c99c6f424cc48ad9ab2eb28f))
+* **design:** record the session export canvas ([#1099](https://github.com/cedricziel/hermes-app/issues/1099)) ([2449b30](https://github.com/cedricziel/hermes-app/commit/2449b30121af556a77c255197006bd495d8ca1fb))
+* **design:** record the skills curator canvas ([#1098](https://github.com/cedricziel/hermes-app/issues/1098)) ([9831ccd](https://github.com/cedricziel/hermes-app/commit/9831ccd2c2c57d08a87976ef2b53eb82d57a3cd1))
+* **design:** record the WhatsApp onboarding canvas ([#1100](https://github.com/cedricziel/hermes-app/issues/1100)) ([703f19d](https://github.com/cedricziel/hermes-app/commit/703f19da2271399e0a5a29d8c9fb2d67a780c134))
+* **providers:** catalog screenshots of the provider screens (task 4.4) ([#1090](https://github.com/cedricziel/hermes-app/issues/1090)) ([f0cfc1e](https://github.com/cedricziel/hermes-app/commit/f0cfc1e55b9ef9040d3d63fe4ed5845566bf2863))
+* **roadmap:** record merges since [#1084](https://github.com/cedricziel/hermes-app/issues/1084), owner-reported bugs and the platform audits ([#1126](https://github.com/cedricziel/hermes-app/issues/1126)) ([7ce045a](https://github.com/cedricziel/hermes-app/commit/7ce045a6c99e22f3158f81428a5c332e7fa8cd4f))
+* **roadmap:** record merges through [#1081](https://github.com/cedricziel/hermes-app/issues/1081), the 0.1.78 cut and the real-backend findings ([#1084](https://github.com/cedricziel/hermes-app/issues/1084)) ([401d215](https://github.com/cedricziel/hermes-app/commit/401d215dc0abb92395368cfefdb520a55cbcba44))
+* **toolsets:** close 4.0a, BotChatBanner stays separate from AppBanner ([#1091](https://github.com/cedricziel/hermes-app/issues/1091)) ([47d9f09](https://github.com/cedricziel/hermes-app/commit/47d9f095ba8b99931943df59962b5db7e1c8cefd))
+* **watch:** match the spec and change records to what ships ([#1127](https://github.com/cedricziel/hermes-app/issues/1127)) ([1a4b330](https://github.com/cedricziel/hermes-app/commit/1a4b33026a5a3aaaa5166860ff019a54a6f15c57))
+
 ## [0.1.78](https://github.com/cedricziel/hermes-app/compare/v0.1.77...v0.1.78) (2026-11-14)
 
 

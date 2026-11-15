@@ -35,6 +35,7 @@ import 'package:hermes_app/src/providers/widgets/provider_form_models.dart'
     show ConnectCardData, ConnectCardKind;
 import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_expansion.dart';
 import 'package:hermes_app/src/chat/widgets/review_summary_note.dart';
 import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
@@ -153,6 +154,52 @@ class _GrowingToolRunState extends State<_GrowingToolRun> {
   );
 }
 
+/// A group and a lone card whose open state is held in a store above them: open
+/// either, press Remount (the list mounting anew, or a row scrolled away and
+/// back), and both stay as they were.
+class _RemountedToolRuns extends StatefulWidget {
+  const _RemountedToolRuns();
+
+  @override
+  State<_RemountedToolRuns> createState() => _RemountedToolRunsState();
+}
+
+class _RemountedToolRunsState extends State<_RemountedToolRuns> {
+  final _store = ToolCallExpansionStore();
+  var _mounts = 0;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      KeyedSubtree(
+        key: ValueKey(_mounts),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ToolCallGroup(
+              calls: finishedToolRun,
+              expansion: _store,
+              expansionScope: 'run-1',
+            ),
+            const SizedBox(height: 12),
+            ToolCallGroup(
+              calls: const [terminalToolCall],
+              expansion: _store,
+              expansionScope: 'run-2',
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 12),
+      OutlinedButton(
+        onPressed: () => setState(() => _mounts++),
+        child: Text('Remount (${_mounts}x)'),
+      ),
+    ],
+  );
+}
+
 WidgetbookNode chatNode() => WidgetbookFolder(
   name: 'Chat',
   children: [
@@ -253,6 +300,7 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool('Failed', const ToolCallGroup(calls: failedToolRun)),
         _tool('Cancelled', const ToolCallGroup(calls: cancelledToolRun)),
         _tool('Opened card, next call starts', const _GrowingToolRun()),
+        _tool('Opened, then remounted', const _RemountedToolRuns()),
         _tool(
           'Waiting on approval',
           ToolCallGroup(

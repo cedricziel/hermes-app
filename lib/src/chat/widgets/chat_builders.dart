@@ -4,7 +4,6 @@ import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ChatMessage, ComposerHeightNotifier;
 import 'package:provider/provider.dart';
-import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 
 import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/hermes_theme.dart';
@@ -28,6 +27,7 @@ import '../chat_models.dart'
         VaultRequest;
 import '../attachments/draggable_attachment.dart';
 import 'approval_card.dart';
+import 'chat_text_message.dart';
 import 'attachment_views.dart';
 import 'clarify_card.dart';
 import 'following_chat_list.dart';
@@ -44,6 +44,7 @@ import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
 import 'reply_reconnecting_note.dart';
 import 'subagent_card.dart';
+import 'tool_call_expansion.dart';
 import 'tool_call_group.dart';
 import 'transcript_outcome_line.dart';
 import 'unsupported_request_card.dart';
@@ -69,7 +70,7 @@ typedef ScreenPreviewBuilder = Widget Function(ScreenPreviewRun run);
 /// The `flutter_chat_ui` builders that give Hermes' message kinds and empty
 /// state their assistant-ui look inside a `Chat`.
 ///
-/// Text goes through [FlyerChatTextMessage] for both roles: it renders
+/// Text goes through [ChatTextMessage] for both roles: it renders
 /// markdown (headings, lists, tables, links, inline code, and fenced code
 /// blocks with a language label and copy button) via `gpt_markdown`. Only the
 /// surface differs — the user's turn is a rounded chip, the assistant's is
@@ -119,6 +120,7 @@ Builders buildChatBuilders({
   LinkOpener? openLink,
   ScreenPreviewBuilder? screenPreview,
   ValueChanged<String>? onShowAgentDetails,
+  ToolCallExpansionStore? toolCallExpansion,
 }) {
   final onLinkTap = markdownLinkHandler(open: openLink);
   return Builders(
@@ -168,6 +170,7 @@ Builders buildChatBuilders({
               onAnswerVault: onAnswerVault,
               screenPreview: screenPreview,
               onShowAgentDetails: onShowAgentDetails,
+              toolCallExpansion: toolCallExpansion,
             ),
     chatMessageBuilder:
         (
@@ -253,19 +256,15 @@ Widget _buildText(
     height: 1.5,
   );
   final bubble = SelectionArea(
-    child: FlyerChatTextMessage(
+    child: ChatTextMessage(
       message: message,
-      index: index,
-      showTime: false,
-      showStatus: false,
+      isSentByMe: isSentByMe,
       linksDecoration: TextDecoration.underline,
       onLinkTap: onLinkTap,
-      sentTextStyle: style,
-      receivedTextStyle: style,
-      sentBackgroundColor: scheme.surfaceContainerHighest.withValues(
-        alpha: 0.6,
-      ),
-      receivedBackgroundColor: Colors.transparent,
+      textStyle: style,
+      backgroundColor: isSentByMe
+          ? scheme.surfaceContainerHighest.withValues(alpha: 0.6)
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(isSentByMe ? kHermesRadius : 0),
       padding: isSentByMe
           ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
@@ -371,6 +370,7 @@ Widget _buildCustom(
   onAnswerVault,
   ScreenPreviewBuilder? screenPreview,
   ValueChanged<String>? onShowAgentDetails,
+  ToolCallExpansionStore? toolCallExpansion,
 }) {
   final metadata = message.metadata;
   switch (metadata?[kMetaKind]) {
@@ -381,6 +381,8 @@ Widget _buildCustom(
             metadata[kMetaToolApprovals] as Map<int, ApprovalRequest>? ??
             const {},
         onAnswerApproval: onAnswerApproval,
+        expansion: toolCallExpansion,
+        expansionScope: message.id,
         preview: switch (metadata[kMetaScreenPreview]) {
           final ScreenPreviewRun run => screenPreview?.call(run),
           _ => null,

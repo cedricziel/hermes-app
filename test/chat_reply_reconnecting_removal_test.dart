@@ -10,11 +10,13 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 
-/// A deleted chat is not picked up again by the timer of its lost reply.
+/// A deleted chat is not picked up again by the timer of its lost reply. The
+/// timer's own guard (`_threads.contains`) makes this hold; the test pins the
+/// behaviour, not the removal's cleanup line.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('deleting the chat ends the timer of its lost reply', () async {
+  test('a deleted chat whose reply was lost is not picked up again', () async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     final transport = FakeChatTransport();

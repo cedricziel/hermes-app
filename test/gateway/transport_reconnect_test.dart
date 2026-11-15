@@ -1393,6 +1393,23 @@ void main() {
       });
     });
 
+    test('a drop while prompt.submit is unanswered is not a lost reply', () {
+      fake((async) {
+        gateway.silent.add('prompt.submit');
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.drop();
+        async.elapse(const Duration(seconds: 5));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(seen.error, isNot(isA<GatewayReplyLost>()));
+        expect(
+          gateway.methods.where((m) => m == 'prompt.submit'),
+          hasLength(1),
+        );
+      });
+    });
+
     test('says the prompt was accepted even with no row id and no frame', () {
       fake((async) {
         gateway.silent.add('session.resume');

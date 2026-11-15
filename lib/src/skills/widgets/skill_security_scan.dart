@@ -118,7 +118,7 @@ class SkillScanFinding extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('${finding.severity.toUpperCase()}  ${finding.description}'),
           if (where.isNotEmpty)
