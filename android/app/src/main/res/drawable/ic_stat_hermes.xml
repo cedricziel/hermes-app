@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar icon: Android uses only the alpha channel. The launcher
+     foreground's chat bubble (design/icon-foreground.svg) with the wing cut
+     out, scaled from its 1024 canvas into 24dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:translateX="-5.2"
+        android:translateY="-5.34"
+        android:scaleX="0.0336"
+        android:scaleY="0.0336">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M512,232 C690,232 810,336 810,494 C810,652 690,756 512,756 C470,756 432,750 398,738 L286,800 C270,809 252,795 258,777 L292,690 C236,645 214,574 214,494 C214,336 334,232 512,232 Z M338,578 C372,470 470,392 610,368 C592,396 566,420 536,436 C590,430 636,414 676,388 C646,452 578,502 500,522 C552,526 596,520 636,502 C596,552 522,588 338,578 Z" />
+    </group>
+</vector>
