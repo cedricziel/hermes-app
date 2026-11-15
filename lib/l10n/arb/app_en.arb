@@ -94,6 +94,10 @@
   "@chatNoticeStopCommand": {
     "description": "Notice in the chat when a typed or queued message was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The text goes back into the message box."
   },
+  "chatScrollToLatest": "Scroll to latest message",
+  "@chatScrollToLatest": {
+    "description": "Accessibility label of the round button in the chat list that jumps to the newest message."
+  },
   "chatSessionExportConfirmButton": "Export",
   "@chatSessionExportConfirmButton": {
     "description": "Button of the export confirmation that starts fetching the chat file."

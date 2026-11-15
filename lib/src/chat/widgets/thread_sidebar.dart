@@ -518,9 +518,10 @@ class _ThreadRowState extends State<_ThreadRow> {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final housekeeping = widget.housekeeping;
-    final touch = platformChromeOf(context) == PlatformChrome.ios;
-    final swipeable = touch && housekeeping != null;
-    final inlineButton = housekeeping != null && !touch;
+    final ios = platformChromeOf(context) == PlatformChrome.ios;
+    final touch = isTouchPlatform(context);
+    final swipeable = ios && housekeeping != null;
+    final inlineButton = housekeeping != null && !ios;
     final row = Semantics(
       hint: relativeTime(_thread.updatedAt),
       child: SidebarRow(
@@ -528,8 +529,10 @@ class _ThreadRowState extends State<_ThreadRow> {
         onTap: widget.onTap,
         onLongPress: inlineButton ? _openMenu : null,
         onSecondaryTap: inlineButton ? _openMenu : null,
-        padding: touch
+        padding: ios
             ? const EdgeInsets.symmetric(horizontal: 10)
+            : touch
+            ? EdgeInsets.fromLTRB(10, 0, inlineButton ? 2 : 10, 0)
             : EdgeInsets.fromLTRB(
                 10,
                 inlineButton ? 2 : 9,
@@ -538,7 +541,7 @@ class _ThreadRowState extends State<_ThreadRow> {
               ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            minHeight: touch ? kAppleMinTapTarget : 0,
+            minHeight: touch ? minTapTargetOf(context) : 0,
           ),
           child: Row(
             children: [

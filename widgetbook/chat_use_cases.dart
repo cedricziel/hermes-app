@@ -687,6 +687,20 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       name: 'MessageActions',
       useCases: [
         _tool('Copy', const MessageActions(text: 'The build finished.')),
+        WidgetbookUseCase(
+          name: 'Android touch targets',
+          builder: (context) => Theme(
+            data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+            child: frame(
+              MessageActions(
+                text: 'The build finished.',
+                onRetry: () {},
+                onEdit: () {},
+                onBranch: () {},
+              ),
+            ),
+          ),
+        ),
         _tool(
           'Copy and retry',
           MessageActions(text: 'The build finished.', onRetry: () {}),

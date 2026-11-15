@@ -131,7 +131,7 @@ class ThreadActionsButton extends StatefulWidget {
   final ValueChanged<ChatThread>? onOpenInNewWindow;
 
   /// A 28px icon-only button for a tight row, instead of a normal-sized
-  /// [IconButton].
+  /// [IconButton]. On Android it grows to the 48dp touch target.
   final bool dense;
 
   @override
@@ -175,7 +175,9 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
       style: widget.dense
           ? IconButton.styleFrom(
               minimumSize: const Size.square(28),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              tapTargetSize: isAndroid(context)
+                  ? MaterialTapTargetSize.padded
+                  : MaterialTapTargetSize.shrinkWrap,
             )
           : null,
       itemBuilder: (context) => [

@@ -441,6 +441,35 @@ WidgetbookNode appNode() => WidgetbookFolder(
             ),
           ),
         ),
+        WidgetbookUseCase(
+          name: 'Searching on Android',
+          builder: (context) => Theme(
+            data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+            child: Hosted<CatalogAuth>(
+              create: () => CatalogAuth(gated: true),
+              dispose: (auth) => auth.dispose(),
+              builder: (_, auth) => withAppProviders(
+                auth,
+                Hosted<ThreadSearch>(
+                  create: () =>
+                      ThreadSearch((_) async => searchHits)..update('backup'),
+                  dispose: (search) => search.dispose(),
+                  builder: (_, search) => fill(
+                    ThreadSidebar(
+                      threads: threads,
+                      selectedId: 'thread-2',
+                      onSelect: (_) {},
+                      onNewThread: () {},
+                      search: search,
+                      onOpenHit: (_) {},
+                    ),
+                    width: 411,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         _screen(
           'No threads',
           () => CatalogAuth(),
