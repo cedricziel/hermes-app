@@ -175,6 +175,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.readSnapshot,
     this.onDraft,
     this.onHandBack,
+    this.onSendNotice,
     this.breadcrumbs = Breadcrumbs.none,
     this.events = noopAppEventLogger,
     this.connectorBrowser,
@@ -564,6 +565,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Puts a prompt a full restore removed back into the composer, so the
   /// screen can say so; [onDraft] does it when this is not set.
   final ValueChanged<String>? onHandBack;
+
+  /// Told what became of a prompt the user sent when it left no trace in the
+  /// chat, so the screen says so in the user's language.
+  final ValueChanged<ChatSendNotice>? onSendNotice;
 
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.

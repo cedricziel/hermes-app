@@ -473,6 +473,7 @@ extension _ChatControllerSending on ChatController {
             for (final listener in [..._voiceStoppedListeners]) {
               listener(thread);
             }
+            _stopCommandTyped(thread, text);
           }
           return;
         }

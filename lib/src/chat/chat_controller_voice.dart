@@ -3,8 +3,12 @@ part of 'chat_controller.dart';
 /// Why a spoken turn was not sent. Each is a fixed word: the call maps it to
 /// its own notice and nothing of the prompt travels with it.
 enum VoiceTurnRefusal {
-  /// A reply is running, a queue holds prompts or one is being changed.
+  /// A reply is running, a queue is about to send or one is being changed.
   busy,
+
+  /// A queue holds prompts that no reply will send: the last turn was stopped
+  /// or failed, or the queue was restored. No reply runs.
+  queuePaused,
 
   /// The call ended, was muted or began to wait for the user meanwhile.
   noLongerWanted,
@@ -21,6 +25,14 @@ enum VoiceTurnRefusal {
 
   /// The server took the session back, or the chat is gone.
   sessionReclaimed,
+}
+
+/// Why a prompt the user typed or queued left no trace in the chat. Fixed
+/// codes: the screen words them.
+enum ChatSendNotice {
+  /// The words were exactly a stop phrase of Hermes' voice mode, which Hermes
+  /// answers without running a turn, so nothing reached the agent.
+  stopCommand,
 }
 
 /// What Hermes (or the transport) did with a spoken turn that was handed over.
@@ -92,6 +104,7 @@ extension _ChatControllerVoice on ChatController {
         (selected.isReplying || _queues.containsKey(selected))) {
       return VoiceTurnRefusal.profileNotConfirmed;
     }
+    if (_voiceQueueParked(selected)) return VoiceTurnRefusal.queuePaused;
     if (selected.isReplying ||
         (_queues[selected]?.isNotEmpty ?? false) ||
         _settleTimers.containsKey(selected) ||
@@ -102,6 +115,16 @@ extension _ChatControllerVoice on ChatController {
     }
     return null;
   }
+
+  /// Whether [thread] holds queued prompts that wait for the user and nothing
+  /// is about to send them: no reply, no settle wait, no change in progress.
+  bool _voiceQueueParked(ChatThread thread) =>
+      queuePaused(thread) &&
+      !_settleTimers.containsKey(thread) &&
+      !_queueDispatching.contains(thread) &&
+      !_enqueueing.contains(thread) &&
+      !_queuePreparing.contains(thread) &&
+      !_queueRemoving.contains(thread);
 
   /// Whether the thread is certainly idle: no pending reply, no settle wait,
   /// and the session reported `running: false` after its last turn began.
@@ -165,6 +188,16 @@ extension _ChatControllerVoice on ChatController {
     return _send(selected, text, const [], voice: voice)
         ? null
         : VoiceTurnRefusal.noLongerWanted;
+  }
+
+  /// A typed or queued prompt was exactly a stop phrase: it went nowhere, so
+  /// the user is told and, while that chat is open, gets the words back in
+  /// the composer (under any new draft) rather than losing them.
+  void _stopCommandTyped(ChatThread thread, String text) {
+    onSendNotice?.call(ChatSendNotice.stopCommand);
+    if (text.isNotEmpty && identical(selectedThread, thread)) {
+      onDraft?.call(text);
+    }
   }
 
   /// Takes a turn that was not sent, or that Hermes ended as a stop phrase,

@@ -90,6 +90,10 @@
   "@chatComposerHoldRestoring": {
     "description": "Line above the message box while files are restored from a checkpoint; Send is off until it finishes, typing is not."
   },
+  "chatNoticeStopCommand": "Hermes took that as a stop command. Nothing was sent.",
+  "@chatNoticeStopCommand": {
+    "description": "Notice in the chat when a typed or queued message was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The text goes back into the message box."
+  },
   "chatStatusCompacting": "Compacting the conversation…",
   "@chatStatusCompacting": {
     "description": "Status line under the agent’s thinking row while Hermes compacts the conversation on its own."
@@ -6863,6 +6867,10 @@
   "voiceNoticeNotSentTitle": "Couldn't send. Nothing was sent.",
   "@voiceNoticeNotSentTitle": {
     "description": "Notice in a call when the chat refused a spoken turn for a reason the call survives."
+  },
+  "voiceNoticeQueuePausedTitle": "Your queued messages are paused. Nothing was sent.",
+  "@voiceNoticeQueuePausedTitle": {
+    "description": "Notice in a call when a spoken turn was not sent because queued messages wait for the user and no reply is running."
   },
   "voiceNoticeRouteNeutralTitle": "Audio route changed. Please repeat if needed.",
   "@voiceNoticeRouteNeutralTitle": {

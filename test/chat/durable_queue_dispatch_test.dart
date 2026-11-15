@@ -56,6 +56,8 @@ void main() {
   late ValueNotifier<bool> visible;
   late ValueNotifier<bool> activity;
   late List<String> reports;
+  late List<ChatSendNotice> notices;
+  late List<String> drafts;
   late List<(String, Map<String, Object>)> outcomes;
   late BreadcrumbTrail trail;
   late AttentionNotifier attention;
@@ -70,6 +72,8 @@ void main() {
     visible = ValueNotifier(true);
     activity = ValueNotifier(true);
     reports = [];
+    notices = [];
+    drafts = [];
     outcomes = [];
     trail = BreadcrumbTrail();
     attention = AttentionNotifier(
@@ -114,6 +118,8 @@ void main() {
       transport: delegate ?? transport,
       attention: attention,
       report: reports.add,
+      onSendNotice: notices.add,
+      onDraft: drafts.add,
       breadcrumbs: Breadcrumbs.of(trail),
       events: (name, [attributes = const {}]) {
         if (loggerFails) throw StateError('logger unavailable');
@@ -195,6 +201,9 @@ void main() {
     expect(thread.isReplying, isFalse);
     expect(reports, isEmpty);
     expect((await store.load(scope())).records, isEmpty);
+    // Not silent: the user is told and gets the words back.
+    expect(notices, [ChatSendNotice.stopCommand]);
+    expect(drafts, ['stop']);
   });
 
   test(

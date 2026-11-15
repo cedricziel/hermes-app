@@ -34,6 +34,8 @@ void main() {
   late FakeHermesServer server;
   late AttentionNotifier attention;
   late List<String> reports;
+  late List<ChatSendNotice> notices;
+  late List<String> drafts;
   Completer<DurableQueueStore>? storeGate;
 
   setUp(() async {
@@ -44,6 +46,8 @@ void main() {
     store = DurableQueueStore(directory: directory, keys: keys);
     transport = FakeChatTransport();
     reports = [];
+    notices = [];
+    drafts = [];
     storeGate = null;
     attention = AttentionNotifier(
       service: null,
@@ -80,6 +84,8 @@ void main() {
       transport: transport,
       attention: attention,
       report: reports.add,
+      onSendNotice: notices.add,
+      onDraft: drafts.add,
       queueStore: () => gated ? storeGate!.future : Future.value(store),
       queueChanges: ValueNotifier(true),
       canShowQueues: () => true,
@@ -139,15 +145,26 @@ void main() {
     );
 
     test(
-      'a restored queue with prompts refuses as busy and sends none',
+      'a restored queue with prompts refuses as paused and sends none',
       () async {
         await store.commit(_scope(), 'restored prompt');
         final chat = await open();
-        expect(await speak(chat), VoiceTurnRefusal.busy);
+        expect(await speak(chat), VoiceTurnRefusal.queuePaused);
         expect(transport.sends, isEmpty);
         expect(chat.queuedIn(chat.selectedThread!).map((p) => p.text), [
           'restored prompt',
         ]);
+      },
+    );
+
+    test(
+      'a queue behind a running reply refuses as busy, not paused',
+      () async {
+        final chat = await open();
+        await chat.submit('typed', const []);
+        await chat.submit('queued behind it', const []);
+        expect(chat.queuePaused(chat.selectedThread!), isFalse);
+        expect(await speak(chat), VoiceTurnRefusal.busy);
       },
     );
 
@@ -161,7 +178,7 @@ void main() {
         ..finish();
       await pumpEventQueue();
       expect(chat.queuePaused(thread), isTrue);
-      expect(await speak(chat), VoiceTurnRefusal.busy);
+      expect(await speak(chat), VoiceTurnRefusal.queuePaused);
       expect(transport.sends, hasLength(1));
       expect(chat.queuedIn(thread).map((p) => p.text), ['queued behind it']);
     });
@@ -256,7 +273,7 @@ void main() {
         final answer = speak(chat);
         await pumpEventQueue();
         storeGate!.complete(store);
-        expect(await answer, VoiceTurnRefusal.busy);
+        expect(await answer, VoiceTurnRefusal.queuePaused);
         expect(transport.sends, isEmpty);
         expect(chat.queuedIn(chat.selectedThread!), hasLength(1));
       },
@@ -370,6 +387,41 @@ void main() {
       expect(thread.messages, isEmpty);
       expect(thread.isReplying, isFalse);
       expect(reports, isEmpty);
+    });
+
+    test('a typed stop phrase says so and hands the words back', () async {
+      final chat = await open();
+      await chat.submit('stop', const []);
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(notices, [ChatSendNotice.stopCommand]);
+      expect(drafts, ['stop']);
+      expect(chat.selectedThread!.messages, isEmpty);
+    });
+
+    test('a typed stop phrase of another chat is not handed back', () async {
+      final chat = await open();
+      await chat.submit('stop', const []);
+      chat.newThread();
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(notices, [ChatSendNotice.stopCommand]);
+      expect(drafts, isEmpty);
+    });
+
+    test('a spoken stop phrase tells the call, not the chat', () async {
+      final chat = await open();
+      await speak(chat);
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(notices, isEmpty);
+      expect(drafts, isEmpty);
     });
 
     test('voice_stopped for a typed prompt leaves no placeholder', () async {

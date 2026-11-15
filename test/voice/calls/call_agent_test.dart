@@ -303,7 +303,7 @@ void main() {
       expect(transport.sends, hasLength(1));
     });
 
-    test('refuses while the queue is not empty', () async {
+    test('refuses while a paused queue holds prompts', () async {
       await chat.submit('Unrelated work', const []);
       await chat.submit('Queued behind it', const []);
       transport.sends.single
@@ -320,7 +320,8 @@ void main() {
           wanted: () => true,
         ),
       );
-      expect(refused.reason, VoiceTurnRefusal.busy);
+      expect(refused.reason, VoiceTurnRefusal.queuePaused);
+      expect(refused.kind, 'queue_paused');
       expect(transport.sends, hasLength(1));
       expect(chat.queuedIn(thread), hasLength(1));
     });
