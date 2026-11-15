@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_json_view/flutter_json_view.dart';
@@ -10,6 +12,44 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_icon_button.dart';
 import '../tool_value_language.dart';
+
+/// [text] as it is drawn: a lone surrogate (JSON can carry one as `\ud800`,
+/// and it makes painting throw) becomes U+FFFD, and the characters that
+/// reorder or hide text become `<U+XXXX>` placeholders. Display only.
+String toolDisplayText(String text) => safeContentText(_wellFormed(text));
+
+String _wellFormed(String text) {
+  StringBuffer? out;
+  for (var i = 0; i < text.length; i++) {
+    final unit = text.codeUnitAt(i);
+    final high = unit >= 0xD800 && unit <= 0xDBFF;
+    final low = unit >= 0xDC00 && unit <= 0xDFFF;
+    final paired =
+        high &&
+        i + 1 < text.length &&
+        (text.codeUnitAt(i + 1) & 0xFC00) == 0xDC00;
+    if (paired) {
+      out?.write(text.substring(i, i + 2));
+      i++;
+    } else if (high || low) {
+      out ??= StringBuffer(text.substring(0, i));
+      out.write('\uFFFD');
+    } else {
+      out?.writeCharCode(unit);
+    }
+  }
+  return out?.toString() ?? text;
+}
+
+Object? _displayValue(Object? value) => switch (value) {
+  String() => toolDisplayText(value),
+  List() => [for (final item in value) _displayValue(item)],
+  Map() => {
+    for (final entry in value.entries)
+      toolDisplayText('${entry.key}'): _displayValue(entry.value),
+  },
+  _ => value,
+};
 
 const TextStyle _mono = TextStyle(
   fontFamily: 'monospace',
@@ -49,13 +89,13 @@ class ToolValueView extends StatelessWidget {
       color: Theme.of(context).colorScheme.onSurface,
     );
     if (!settled) {
-      final shown = safeContentText(text);
+      final shown = toolDisplayText(text);
       return selectable
           ? SelectableText(shown, style: style)
           : Text(shown, style: style);
     }
     return HighlightedCode(
-      text: text,
+      text: _wellFormed(text),
       language: language,
       selectable: selectable,
       style: style,
@@ -77,9 +117,13 @@ class ToolJsonView extends StatefulWidget {
     this.actions = const [],
     this.initiallyTree = false,
     this.bodyMaxHeight,
+    this.value,
   });
 
   final String text;
+
+  /// [text] already decoded, so the tree does not parse it again.
+  final Object? value;
 
   /// The most height the body (text or tree) takes before it scrolls; the
   /// header row is outside it.
@@ -115,21 +159,28 @@ class _ToolJsonViewState extends State<ToolJsonView> {
         ToolValueHeader(
           label: widget.header,
           actions: [
-            TextButton.icon(
-              key: const ValueKey('tool-json-toggle'),
-              style: metrics.buttonStyle().merge(
-                TextButton.styleFrom(
-                  foregroundColor: subtle,
-                  textStyle: Theme.of(context).textTheme.labelLarge
-                      ?.copyWith(fontSize: 12),
+            Semantics(
+              button: true,
+              toggled: _tree,
+              label: label,
+              excludeSemantics: true,
+              onTap: () => setState(() => _tree = !_tree),
+              child: TextButton.icon(
+                key: const ValueKey('tool-json-toggle'),
+                style: metrics.buttonStyle().merge(
+                  TextButton.styleFrom(
+                    foregroundColor: subtle,
+                    textStyle: Theme.of(context).textTheme.labelLarge
+                        ?.copyWith(fontSize: 12),
+                  ),
                 ),
+                onPressed: () => setState(() => _tree = !_tree),
+                icon: AppIcon(
+                  _tree ? AppIcons.transcript : AppIcons.tree,
+                  size: 16,
+                ),
+                label: Text(label),
               ),
-              onPressed: () => setState(() => _tree = !_tree),
-              icon: AppIcon(
-                _tree ? AppIcons.transcript : AppIcons.tree,
-                size: 16,
-              ),
-              label: Text(label),
             ),
             ...widget.actions,
           ],
@@ -139,7 +190,7 @@ class _ToolJsonViewState extends State<ToolJsonView> {
             maxHeight: widget.bodyMaxHeight ?? double.infinity,
           ),
           child: _tree
-              ? ToolJsonTree(text: widget.text)
+              ? ToolJsonTree(text: widget.text, value: widget.value)
               : SingleChildScrollView(
                   child: ToolValueView(text: widget.text, language: 'json'),
                 ),
@@ -151,16 +202,22 @@ class _ToolJsonViewState extends State<ToolJsonView> {
 
 /// Today's collapsible JSON tree, in the card's colours.
 class ToolJsonTree extends StatelessWidget {
-  const ToolJsonTree({super.key, required this.text});
+  const ToolJsonTree({super.key, required this.text, this.value});
 
   final String text;
+
+  /// [text] decoded, when the caller has it.
+  final Object? value;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
+    final decoded = value ?? tryDecodeJsonContainer(text);
     return JsonView.string(
-      text,
+      decoded == null
+          ? toolDisplayText(text)
+          : jsonEncode(_displayValue(decoded)),
       theme: JsonViewTheme(
         backgroundColor: Colors.transparent,
         defaultTextStyle: _mono.copyWith(color: scheme.onSurface),
@@ -231,12 +288,11 @@ class ToolValuePanel extends StatefulWidget {
 }
 
 class _ToolValuePanelState extends State<ToolValuePanel> {
-  late bool _json = _sniff();
+  late Object? _decoded = _sniff();
 
-  bool _sniff() =>
-      widget.settled &&
-      widget.language == 'json' &&
-      isJsonContainerText(widget.text);
+  Object? _sniff() => widget.settled && widget.language == 'json'
+      ? tryDecodeJsonContainer(widget.text)
+      : null;
 
   @override
   void didUpdateWidget(ToolValuePanel oldWidget) {
@@ -244,7 +300,7 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
     if (oldWidget.text != widget.text ||
         oldWidget.language != widget.language ||
         oldWidget.settled != widget.settled) {
-      _json = _sniff();
+      _decoded = _sniff();
     }
   }
 
@@ -271,9 +327,10 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
         border: Border(top: BorderSide(color: scheme.outline)),
       ),
       padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
-      child: _json
+      child: _decoded != null
           ? ToolJsonView(
               text: widget.text,
+              value: _decoded,
               header: label,
               actions: [copy],
               initiallyTree: widget.initiallyTree,

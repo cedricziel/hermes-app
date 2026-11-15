@@ -1,23 +1,28 @@
 import 'dart:convert';
 
 /// The most characters of a tool input or output that are parsed to tell
-/// whether it is JSON. A parse of this size is a millisecond on the UI
-/// isolate; a larger text stays plain.
+/// whether it is JSON. A parse of this size took about 10 ms on the UI
+/// isolate in a debug test run (less in a release build); a larger text stays
+/// plain.
 const int kToolJsonSniffMaxChars = 64 * 1024;
 
 /// Whether [text] is a JSON object or array, by a parse of at most
 /// [kToolJsonSniffMaxChars] characters. A bare string, number or `null` is not
 /// worth colouring as JSON, a text that fails to parse is not JSON, and a text
 /// above the bound is not asked.
-bool isJsonContainerText(String text) {
-  if (text.length > kToolJsonSniffMaxChars) return false;
+bool isJsonContainerText(String text) => tryDecodeJsonContainer(text) != null;
+
+/// The decoded object or array of [text] under the rules of
+/// [isJsonContainerText]; null when it is not one.
+Object? tryDecodeJsonContainer(String text) {
+  if (text.length > kToolJsonSniffMaxChars) return null;
   final trimmed = text.trimLeft();
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return false;
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
   try {
     final decoded = jsonDecode(text);
-    return decoded is Map || decoded is List;
+    return decoded is Map || decoded is List ? decoded : null;
   } on FormatException {
-    return false;
+    return null;
   }
 }
 

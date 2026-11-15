@@ -276,6 +276,93 @@ void main() {
       );
     });
 
+    testWidgets('the tree draws bidi and control characters as placeholders', (
+      tester,
+    ) async {
+      final bidi = String.fromCharCode(0x202E);
+      final esc = String.fromCharCode(0x1B);
+      const text = r'{"name":"a\u202eb","k\u001bey":{"x":1}}';
+      await tester.pumpWidget(
+        _host(
+          ToolValuePanel(
+            label: 'Input',
+            text: text,
+            language: 'json',
+            initiallyTree: true,
+          ),
+        ),
+      );
+      expect(find.byType(JsonView), findsOneWidget);
+      bool has(String needle) => find
+          .byWidgetPredicate(
+            (w) =>
+                (w is Text &&
+                    (w.data ?? w.textSpan?.toPlainText() ?? '').contains(
+                      needle,
+                    )) ||
+                (w is SelectableText && (w.data ?? '').contains(needle)),
+          )
+          .evaluate()
+          .isNotEmpty;
+      expect(has(bidi), isFalse);
+      expect(has(esc), isFalse);
+      expect(has('a<U+202E>b'), isTrue);
+      expect(has('k<U+001B>ey'), isTrue);
+    });
+
+    testWidgets('a lone surrogate does not crash the text or the tree', (
+      tester,
+    ) async {
+      const text = r'{"a":"x\ud800","b\udc00":"y"}';
+      for (final tree in [false, true]) {
+        await tester.pumpWidget(
+          _host(
+            ToolValuePanel(
+              label: 'Input',
+              text: text,
+              language: 'json',
+              initiallyTree: tree,
+            ),
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(
+        _host(
+          ToolValuePanel(
+            label: 'Result',
+            text: 'x${String.fromCharCode(0xD800)}',
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the switch says which view is active', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const ToolValuePanel(label: 'Input', text: _json, language: 'json'),
+        ),
+      );
+      final handle = tester.ensureSemantics();
+      expect(
+        tester.getSemantics(find.byKey(_toggle)),
+        isSemantics(
+          label: 'Tree view',
+          isButton: true,
+          hasToggledState: true,
+          isToggled: false,
+        ),
+      );
+      await tester.tap(find.byKey(_toggle));
+      await tester.pump();
+      expect(
+        tester.getSemantics(find.byKey(_toggle)),
+        isSemantics(label: 'Text view', hasToggledState: true, isToggled: true),
+      );
+      handle.dispose();
+    });
+
     testWidgets('caps the body at 220 and scrolls inside it', (tester) async {
       final tall = List.generate(200, (i) => 'line $i').join('\n');
       await tester.pumpWidget(
