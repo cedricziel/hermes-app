@@ -398,6 +398,13 @@ Ordinary voice-message playback pauses before CallKit starts and cannot change
 the audio session while a call owns it, including background pause and disposal.
 It can be resumed explicitly after the call ends.
 
+On Android with the portable bridge there is no CallKit: `AndroidCallAudioSession`
+owns the session for the call. A player that was paused for the call still holds
+its own focus request, and `audio_session` returns early from a new request while
+one is held, so the call first gives back any request of this process
+(`setActive(false)`, best effort, 2 s) and then makes its own voice-communication
+request.
+
 ## Other apps' audio
 
 Nothing builds audio or CallKit objects before the user starts dictation,
@@ -579,3 +586,6 @@ prove the state machine against fake recorder, player and audio-session seams.
    the call more often than the footer ("hide or minimise") promises.
 10. UNVERIFIED, iOS (unchanged from before): speaker barge-in and an incoming
    call.
+11. UNVERIFIED, Android: start a call while a voice message or read-aloud plays.
+   Other apps' audio must PAUSE for the whole call, not duck (the call's own
+   focus request, not the player's, must be the one in force).
