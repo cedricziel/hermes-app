@@ -8,6 +8,8 @@ import '../../../l10n/l10n.dart';
 import '../../api/hermes_repositories.dart';
 import '../../app_lock/app_lock_controller.dart';
 import '../../auth/auth_controller.dart';
+import '../../macos/mac_commands.dart';
+import '../../macos/mac_window.dart';
 import '../../server_care/connection_guard.dart';
 import '../../server_care/widgets/private_surface.dart';
 import '../../telemetry/breadcrumbs.dart';
@@ -41,7 +43,7 @@ import 'widgets/soul_status_line.dart';
 ///
 /// - Save asks "Replace the personality of NAME?" and nothing is sent before
 ///   Replace; Cancel sends nothing.
-/// - Revert, the bar's back and View > Back ask
+/// - Revert, the bar's back, the Mac's View > Back and File > Close Window ask
 ///   "Discard changes?" while the text differs from the server's, with Keep
 ///   editing as the default.
 /// - The editor is read-only while a read, the save or a Check runs.
@@ -52,6 +54,8 @@ import 'widgets/soul_status_line.dart';
 ///   `navigation/connection_pages.dart`); [ConnectionGuard] only makes the
 ///   page drop its text a frame earlier.
 ///
+/// On the Mac the page offers File > Save through its `MacCommandScope`,
+/// enabled only while there is something to save and nothing runs.
 class SoulScreen extends StatefulWidget {
   const SoulScreen({
     super.key,
@@ -227,6 +231,14 @@ class _SoulScreenState extends State<SoulScreen> {
     if (await _discard() && mounted) dismissRoute(context);
   }
 
+  /// File > Close Window while the text is unsaved: the window is hidden, not
+  /// released, so a discarded text must really go.
+  Future<void> _closeWindow() async {
+    if (_controller.dirty && !await _discard()) return;
+    _controller.revert();
+    await MacWindow.close();
+  }
+
   // -- Building ---------------------------------------------------------------
 
   @override
@@ -240,7 +252,13 @@ class _SoulScreenState extends State<SoulScreen> {
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) unawaited(_leave());
         },
-        child: PrivateSurface(child: _scaffold(context)),
+        child: MacCommandScope(
+          commands: {
+            MacCommand.save: MacCommandHandler(c.canSave ? _save : null),
+            if (dirty) MacCommand.closeWindow: MacCommandHandler(_closeWindow),
+          },
+          child: PrivateSurface(child: _scaffold(context)),
+        ),
       );
     },
   );

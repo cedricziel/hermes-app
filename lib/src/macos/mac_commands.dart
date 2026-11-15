@@ -15,6 +15,7 @@ enum MacCommand {
   newChat,
   openInNewWindow,
   closeWindow,
+  save,
   back,
   forward,
   toggleSidebar,

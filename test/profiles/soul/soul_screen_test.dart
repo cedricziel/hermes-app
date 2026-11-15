@@ -9,6 +9,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/navigation/connection_pages.dart';
 import 'package:hermes_app/src/profiles/chat_profiles.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -24,6 +25,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../../support/fake_device_authenticator.dart';
 import '../../support/fake_hermes_server.dart';
+import '../../support/mac_commands_builder.dart';
 import '../../support/recorded_events.dart';
 import '../../support/recording_tracer.dart';
 import 'soul_fixtures.dart';
@@ -134,6 +136,7 @@ void main() {
     _Auth? auth,
     SoulOpenedFrom from = SoulOpenedFrom.sidebar,
     bool settle = true,
+    MacCommandRegistry? commands,
   }) async {
     debugDefaultTargetPlatformOverride = platform;
     tester.view.physicalSize = Size(width, 900);
@@ -167,6 +170,7 @@ void main() {
         ],
         child: MaterialApp(
           navigatorObservers: [pushed],
+          builder: macCommandsBuilder(commands),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: platform),
@@ -749,6 +753,126 @@ void main() {
       await tester.pump();
       expect(find.text('You are Quill.').hitTestable(), findsOneWidget);
       semantics.dispose();
+    });
+  });
+
+  group('on a Mac', () {
+    late MacCommandRegistry commands;
+
+    setUp(() => commands = MacCommandRegistry());
+    tearDown(() => commands.dispose());
+
+    bool saveEnabled() =>
+        commands.handlerFor(MacCommand.save)?.enabled ?? false;
+
+    pageTest('File > Save is offered, enabled only while dirty and idle', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 1100,
+        commands: commands,
+      );
+      expect(commands.handlerFor(MacCommand.save), isNotNull);
+      expect(saveEnabled(), isFalse);
+
+      await type(tester, 'You are Mara.');
+      await tester.pump();
+      expect(saveEnabled(), isTrue);
+
+      // Back to the loaded text: clean again.
+      await type(tester, 'You are Quill.');
+      await tester.pump();
+      expect(saveEnabled(), isFalse);
+
+      await type(tester, 'You are Mara.');
+      final put = Completer<FakeResponse>();
+      server.onRequest('PUT', soulPath, (_) => put.future);
+      commands.invoke(MacCommand.save);
+      await tester.pumpAndSettle();
+      // The command opens the question and sends nothing.
+      expect(
+        find.text('Replace the personality of $soulProfile?'),
+        findsOneWidget,
+      );
+      expect(puts, isEmpty);
+      expect(saveEnabled(), isFalse);
+      await tester.tap(find.text('Replace'));
+      await tester.pump();
+      await tester.pump();
+      // Running: not offered.
+      expect(saveEnabled(), isFalse);
+      put.complete((status: 200, body: soulSaved));
+      await tester.pumpAndSettle();
+      expect(find.text('Saved. New chats use it.'), findsOneWidget);
+      expect(saveEnabled(), isFalse);
+    });
+
+    pageTest('leaving the page takes File > Save away', (tester) async {
+      await pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 1100,
+        commands: commands,
+      );
+      expect(commands.handlerFor(MacCommand.save), isNotNull);
+      await tester.tap(find.byKey(const Key('settings-back')));
+      await tester.pumpAndSettle();
+      expect(commands.handlerFor(MacCommand.save), isNull);
+    });
+
+    pageTest('Back from the toolbar asks while dirty, as on a phone', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 1100,
+        commands: commands,
+      );
+      await type(tester, 'You are Mara.');
+      await tester.tap(find.byKey(const Key('settings-back')));
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('You are Mara.'), findsOneWidget);
+    });
+
+    pageTest('File > Close Window asks while dirty and not otherwise', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 1100,
+        commands: commands,
+      );
+      // Clean: the page offers nothing, the window closes as it always does.
+      expect(commands.handlerFor(MacCommand.closeWindow), isNull);
+      await type(tester, 'You are Mara.');
+      await tester.pump();
+      expect(commands.handlerFor(MacCommand.closeWindow), isNotNull);
+      commands.invoke(MacCommand.closeWindow);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('You are Mara.'), findsOneWidget);
+    });
+
+    pageTest('the toolbar has no Save: Save and Revert sit under the editor', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        platform: TargetPlatform.macOS,
+        width: 1100,
+        commands: commands,
+      );
+      expect(wideSave(), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Revert'), findsOneWidget);
     });
   });
 

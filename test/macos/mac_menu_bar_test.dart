@@ -126,6 +126,7 @@ void main() {
       'Open in New Window',
       '-',
       'Close Window',
+      'Save',
     ]);
     expect(channel.labels('Edit'), [
       'Undo',
@@ -178,6 +179,57 @@ void main() {
     expect(channel.labels('Chat'), contains('Unpin'));
     await channel.select('File', 'New Chat');
     expect(created, 1);
+  }, variant: mac);
+
+  testWidgets('File > Save follows the page that offers it', (tester) async {
+    var saves = 0;
+    var canSave = false;
+    late StateSetter set;
+    final channel = await pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          set = setState;
+          return MacCommandScope(
+            commands: {
+              MacCommand.save: MacCommandHandler(
+                canSave ? () => saves++ : null,
+              ),
+            },
+            child: const SizedBox(),
+          );
+        },
+      ),
+    );
+    expect(channel.labels('File'), contains('Save'));
+    expect(
+      channel.item('File', 'Save')['shortcutTrigger'],
+      LogicalKeyboardKey.keyS.keyId,
+    );
+    expect(channel.item('File', 'Save')['shortcutModifiers'], isNotNull);
+    // Offered but nothing to save: disabled.
+    expect(channel.enabled('File', 'Save'), isFalse);
+
+    // The registry tells the menu at the end of the frame, which builds it
+    // once more.
+    set(() => canSave = true);
+    await tester.pump();
+    await tester.pump();
+    expect(channel.enabled('File', 'Save'), isTrue);
+    await channel.select('File', 'Save');
+    expect(saves, 1);
+
+    set(() => canSave = false);
+    await tester.pump();
+    await tester.pump();
+    expect(channel.enabled('File', 'Save'), isFalse);
+  }, variant: mac);
+
+  testWidgets('File > Save is disabled while no page offers it', (
+    tester,
+  ) async {
+    final channel = await pump(tester, const SizedBox());
+    expect(channel.enabled('File', 'Save'), isFalse);
   }, variant: mac);
 
   testWidgets('View offers Forward with Command-right-bracket', (tester) async {
