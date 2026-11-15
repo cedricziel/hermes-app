@@ -308,6 +308,7 @@ class GroupedRow extends StatelessWidget {
     this.checked,
     this.inMutuallyExclusiveGroup = false,
     this.focusable = true,
+    this.focusFill = true,
     this.chevron,
     this.selected = false,
     this.destructive = false,
@@ -393,6 +394,10 @@ class GroupedRow extends StatelessWidget {
   /// Whether the row's own tap target takes keyboard focus. Off for a row
   /// that holds a focusable control already, so one stop per row.
   final bool focusable;
+
+  /// Whether a keyboard-focused row is filled, as Settings rows are. Off for
+  /// a row that draws its own focus mark, such as the model popover's outline.
+  final bool focusFill;
 
   /// Whether to draw the disclosure chevron; by default when the row opens
   /// something ([onTap]) and has no [trailing].
@@ -654,6 +659,7 @@ class GroupedRow extends StatelessWidget {
     );
     final ink = InkWell(
       canRequestFocus: focusable,
+      focusColor: focusFill ? null : Colors.transparent,
       onTap: enabled ? onTap : null,
       child: content,
     );
