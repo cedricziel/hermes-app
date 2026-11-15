@@ -46,6 +46,75 @@ ToolCall _call(String result, {Map<String, Object?>? args}) =>
 void main() {
   setUp(() => debugToolValueParses = 0);
 
+  // Heights measured on origin/main with the same fixtures: the collapsed
+  // card is exactly as it was, on every platform.
+  const mainCollapsed = {
+    TargetPlatform.iOS: 46.0,
+    TargetPlatform.android: 38.0,
+    TargetPlatform.macOS: 38.0,
+    TargetPlatform.windows: 38.0,
+  };
+  for (final MapEntry(key: platform, value: collapsed)
+      in mainCollapsed.entries) {
+    testWidgets('the collapsed card is as high as on main ($platform)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme().copyWith(platform: platform),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 600,
+                  child: ToolCallCard(call: _call(_object(5))),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.getSize(find.byType(ToolCallCard)).height, collapsed);
+    });
+  }
+
+  // The label row is as high as the tap area and no higher.
+  const rowHeights = {
+    TargetPlatform.iOS: 44.0,
+    TargetPlatform.android: 48.0,
+    TargetPlatform.macOS: 28.0,
+    TargetPlatform.windows: 48.0,
+    TargetPlatform.linux: 48.0,
+  };
+  for (final MapEntry(key: platform, value: row) in rowHeights.entries) {
+    testWidgets('the label row is $row high on $platform', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme().copyWith(platform: platform),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 600,
+                child: ToolValuePanel(
+                  label: 'Result',
+                  text: '{"a": 1}',
+                  language: 'json',
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.getSize(find.byType(ToolValueHeader)).height, row);
+    });
+  }
+
   testWidgets('a collapsed card builds and parses no value view', (
     tester,
   ) async {

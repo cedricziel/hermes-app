@@ -164,7 +164,9 @@ class AdaptiveSegmentedControl<T extends Object> extends StatelessWidget {
       maximumSize: const Size(double.infinity, kCompactSegmentedHeight),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       iconSize: 14,
-      textStyle: const TextStyle(fontSize: 12),
+      textStyle:
+          Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 12) ??
+          const TextStyle(fontSize: 12),
     ),
     segments: [
       for (final MapEntry(key: segment, value: label) in segments.entries)
