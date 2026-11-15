@@ -270,7 +270,11 @@ class _ScrollingTitleState extends State<_ScrollingTitle> {
       // full. Otherwise it wraps and, past the header's cap, scrolls.
       if (constraints.hasTightHeight) {
         return ClipRect(
+          // widthFactor: 1 shrinks the box to the text, so the header can
+          // centre it in the bar like the grown form, not in the room
+          // beside Done.
           child: Center(
+            widthFactor: 1,
             child: Tooltip(
               message: widget.title,
               excludeFromSemantics: true,

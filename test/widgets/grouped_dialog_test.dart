@@ -72,12 +72,21 @@ const _wraps = 'Notifications, sounds and everything else you can change';
 Rect _doneRect(WidgetTester tester) =>
     tester.getRect(find.byKey(const Key('grouped-dialog-done')));
 
-/// The part of the title that is on screen: the text clipped to its scroll
-/// view, which caps the header's height.
+/// The title's own box in either form. Grown, it is the text clipped to the
+/// title's scroll view (the header's, which comes before the rows'); one-line,
+/// it is the ellipsized text, which has no scroll view of its own.
 Rect _titleRect(WidgetTester tester, String title) {
   final text = tester.getRect(
     find.descendant(of: find.byType(GroupedDialog), matching: find.text(title)),
   );
+  final cut = find
+      .descendant(
+        of: find.byType(GroupedDialog),
+        matching: find.byType(Tooltip),
+      )
+      .evaluate()
+      .isNotEmpty;
+  if (cut) return text;
   final viewport = tester.getRect(
     find
         .descendant(
@@ -535,9 +544,7 @@ void main() {
           scale: scale,
           platform: platform,
           title: title,
-          size: name == 'grown form'
-              ? const Size(320, 568)
-              : const Size(320, 568),
+          size: const Size(320, 568),
           keyboard: name == 'grown form' ? 0 : 260,
           actions: actions,
           children: [for (var i = 0; i < 3; i++) const Text('Row')],
@@ -630,6 +637,45 @@ void main() {
             greaterThanOrEqualTo(main - 0.5),
             reason: '$size kb$keyboard x$scale: rows $ours vs main $main',
           );
+        }
+      });
+    }
+  }
+
+  // The one-line form (the rows overflow, so the header stays at its resting
+  // height) centres a short title in the dialog like main does, and a long
+  // one is cut before Done.
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    for (final (name, title) in [('short', _short), ('long', _bot)]) {
+      testWidgets('the one-line title at the default size: $name '
+          '${platform.name}', (tester) async {
+        await _open(
+          tester,
+          scale: 1,
+          platform: platform,
+          title: title,
+          size: const Size(390, 844),
+          children: [
+            for (var i = 0; i < 30; i++)
+              SizedBox(height: 44, child: Text('Row $i')),
+          ],
+        );
+        expect(
+          find
+              .descendant(
+                of: find.byType(GroupedDialog),
+                matching: find.byType(Tooltip),
+              )
+              .evaluate(),
+          isNotEmpty,
+          reason: 'overflowing rows keep the one-line form',
+        );
+        final dialog = _dialogRect(tester);
+        final titleRect = _titleRect(tester, title);
+        final done = _doneRect(tester);
+        expect(titleRect.overlaps(done), isFalse);
+        if (name == 'short') {
+          expect(titleRect.center.dx, closeTo(dialog.center.dx, 0.5));
         }
       });
     }
