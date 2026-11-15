@@ -1,0 +1,176 @@
+import 'package:flutter/material.dart';
+
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/platform_chrome.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
+
+/// Main's `GroupedDialog` as it was before the large-text header change
+/// (`lib/src/widgets/grouped_dialog.dart` at the parent of that change), kept
+/// verbatim, apart from the names, as the reference the new dialog's rows are
+/// measured against. Test-only: do not use it and do not change it.
+class LegacyGroupedDialog extends StatelessWidget {
+  const LegacyGroupedDialog({
+    super.key,
+    required this.title,
+    required this.children,
+    this.actions,
+  });
+
+  final String title;
+
+  /// The [GroupedSection]s, and any [GroupedDialogNote] between them.
+  final List<Widget> children;
+
+  /// Null keeps Done in the header; custom actions appear in the footer.
+  final List<Widget>? actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final chrome = platformChromeOf(context);
+    final metrics = GroupedMetrics.of(context);
+    final theme = Theme.of(context);
+    final (maxWidth, radius) = switch (chrome) {
+      PlatformChrome.ios => (400.0, 14.0),
+      PlatformChrome.macos => (460.0, 10.0),
+      PlatformChrome.material => (560.0, 28.0),
+    };
+    return Dialog(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      surfaceTintColor: Colors.transparent,
+      // A phone gives the rows, and a warning beside a switch, the width.
+      insetPadding: chrome == PlatformChrome.macos
+          ? null
+          : const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radius),
+        side: hermesOverlayEdge(theme.colorScheme),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Semantics(
+        scopesRoute: true,
+        namesRoute: true,
+        explicitChildNodes: true,
+        label: title,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _LegacyTitle(
+                title: title,
+                chrome: chrome,
+                showDone: actions == null,
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    metrics.gutter,
+                    0,
+                    metrics.gutter,
+                    metrics.gutter,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: children,
+                  ),
+                ),
+              ),
+              if (actions != null) ...[
+                const Divider(height: 1),
+                Padding(
+                  padding: EdgeInsets.all(metrics.gutter),
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: actions!,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LegacyTitle extends StatelessWidget {
+  const _LegacyTitle({
+    required this.title,
+    required this.chrome,
+    required this.showDone,
+  });
+
+  final String title;
+  final PlatformChrome chrome;
+  final bool showDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    if (chrome == PlatformChrome.material) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 4),
+        child: Semantics(
+          header: true,
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: onSurface,
+            ),
+          ),
+        ),
+      );
+    }
+    final ios = chrome == PlatformChrome.ios;
+    final fontSize = ios ? 17.0 : 13.0;
+    return SizedBox(
+      height: ios ? kAppleNavBarHeight + 8 : 44,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 72),
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
+                  color: onSurface,
+                ),
+              ),
+            ),
+          ),
+          if (showDone)
+            PositionedDirectional(
+              end: ios ? 4 : 8,
+              child: TextButton(
+                key: const Key('grouped-dialog-done'),
+                style: TextButton.styleFrom(
+                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  minimumSize: Size(
+                    ios ? kAppleMinTapTarget : 0,
+                    ios ? 44 : 28,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Done'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

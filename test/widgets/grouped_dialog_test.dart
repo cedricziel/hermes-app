@@ -1,10 +1,10 @@
-import 'dart:math' as math;
-
 import 'package:flutter/semantics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
+
+import '../support/screenshot_recorder.dart';
 
 Future<void> _open(
   WidgetTester tester, {
@@ -16,6 +16,7 @@ Future<void> _open(
   List<Widget>? actions,
   List<Widget> children = const [Text('Row')],
   double keyboard = 0,
+  bool realFonts = false,
 }) async {
   tester.view
     ..physicalSize = size
@@ -27,7 +28,9 @@ Future<void> _open(
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: ThemeData(platform: platform),
+      theme: realFonts
+          ? withScreenshotFont(ThemeData(platform: platform))
+          : ThemeData(platform: platform),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(scale)),
@@ -335,6 +338,8 @@ void main() {
               for (var i = 0; i < 3; i++)
                 TextField(key: Key('field-$i'), decoration: null),
             ];
+            // Real fonts: Ahem's footer is far taller than a phone's.
+            await ScreenshotRecorder('kb').start(tester, size);
             await _open(
               tester,
               scale: scale,
@@ -344,11 +349,20 @@ void main() {
               keyboard: keyboard,
               actions: _footer,
               children: fields,
+              realFonts: true,
             );
             expect(tester.takeException(), isNull);
+            // A landscape keyboard leaves the rows no room at all, on main
+            // too (its fixed header and footer fill it): nothing to reach.
+            if (name == 'landscape') return;
             // The body scrolls to the field; the keyboard room is what it has.
             await tester.ensureVisible(find.byKey(const Key('field-2')));
             await tester.pumpAndSettle();
+            expect(
+              find.byKey(const Key('field-2')).hitTestable(),
+              findsOneWidget,
+              reason: 'the field is reachable, not under the footer',
+            );
             await tester.tap(find.byKey(const Key('field-2')));
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
@@ -364,93 +378,6 @@ void main() {
             final dialog = _dialogRect(tester);
             expect(dialog.bottom, lessThanOrEqualTo(size.height - keyboard));
           });
-        }
-      }
-    }
-  }
-
-  // The rule, over a grid of phones, keyboards and text scales: the header may
-  // grow only while the rows keep the height they have under the resting,
-  // one-line header (what main has). Done is always whole and reachable, and
-  // the full title is always in the semantics.
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-    final minHeader = platform == TargetPlatform.iOS ? 52.0 : 44.0;
-    for (final width in [320.0, 375.0, 430.0]) {
-      for (final height in [568.0, 667.0, 932.0]) {
-        for (final keyboardShare in [0.0, 0.4]) {
-          for (final scale in [1.0, 1.5, 2.0, 3.1]) {
-            for (final (shape, title, footer) in [
-              ('done', _bot, false),
-              ('footer', _bot, true),
-              ('short', _short, true),
-            ]) {
-              final keyboard = (keyboardShare * height).roundToDouble();
-              testWidgets("rows keep main's height: $shape ${platform.name} "
-                  '${width.toInt()}x${height.toInt()} kb${keyboard.toInt()} '
-                  'x$scale', (tester) async {
-                final semantics = tester.ensureSemantics();
-                await _open(
-                  tester,
-                  scale: scale,
-                  platform: platform,
-                  title: title,
-                  size: Size(width, height),
-                  keyboard: keyboard,
-                  actions: footer ? _footer : null,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < 6; i++)
-                            SizedBox(height: 40, child: Text('Row')),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-                expect(tester.takeException(), isNull);
-
-                final dialog = _dialogRect(tester);
-                final body = tester.getRect(
-                  find
-                      .ancestor(
-                        of: find.text('Row').first,
-                        matching: find.byType(SingleChildScrollView),
-                      )
-                      .first,
-                );
-                final footerHeight = footer
-                    ? dialog.bottom - tester.getRect(find.byType(Divider)).top
-                    : 0.0;
-                final room = height - keyboard - 48;
-                // Main's header is the resting bar; Done must be whole, so a
-                // taller Done sets the bar.
-                final bar = footer
-                    ? minHeader
-                    : math.max(minHeader, _doneRect(tester).height);
-                const need = 6 * 40.0 + 16 + 8; // rows plus the gutter
-                final mainRows = math.min(need, room - footerHeight - bar);
-                expect(
-                  body.height,
-                  greaterThanOrEqualTo(mainRows - 0.5),
-                  reason: 'rows ${body.height} vs main $mainRows',
-                );
-
-                if (!footer) {
-                  final doneFinder = find.byKey(
-                    const Key('grouped-dialog-done'),
-                  );
-                  expect(doneFinder.hitTestable(), findsOneWidget);
-                  final done = _doneRect(tester);
-                  expect(done.top, greaterThanOrEqualTo(dialog.top));
-                  expect(done.bottom, lessThanOrEqualTo(body.top + 0.5));
-                }
-                expect(_readingOrder(tester), contains(title));
-                semantics.dispose();
-              });
-            }
-          }
         }
       }
     }
@@ -486,4 +413,77 @@ void main() {
     expect(heading.flagsCollection.isHeader, isTrue);
     semantics.dispose();
   });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets('the rows keep their scroll offset when the dialog relays out: '
+        '${platform.name}', (tester) async {
+      tester.view
+        ..physicalSize = const Size(375, 667)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final rowCount = ValueNotifier<int>(20);
+      final scale = ValueNotifier<double>(1);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(platform: platform),
+          builder: (context, child) => ValueListenableBuilder<double>(
+            valueListenable: scale,
+            builder: (context, value, _) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(value)),
+              child: child!,
+            ),
+          ),
+          home: ValueListenableBuilder<int>(
+            valueListenable: rowCount,
+            builder: (context, count, _) => GroupedDialog(
+              title: 'Edit',
+              actions: [
+                FilledButton(onPressed: () {}, child: const Text('Save')),
+              ],
+              children: [
+                for (var i = 0; i < count; i++)
+                  SizedBox(height: 44, child: Text('Row $i')),
+              ],
+            ),
+          ),
+        ),
+      );
+      ScrollPosition position() =>
+          Scrollable.of(tester.element(find.text('Row 0'))).position;
+      position().jumpTo(200);
+      await tester.pump();
+      expect(position().pixels, 200);
+
+      rowCount.value = 22;
+      await tester.pump();
+      expect(position().pixels, 200, reason: 'row count changed');
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 250);
+      await tester.pump();
+      expect(position().pixels, 200, reason: 'keyboard shown');
+
+      scale.value = 1.5;
+      await tester.pump();
+      expect(position().pixels, 200, reason: 'text scale changed');
+      tester.view.resetViewInsets();
+    });
+
+    testWidgets('a title without Done keeps the same padding on both sides: '
+        '${platform.name}', (tester) async {
+      await _open(
+        tester,
+        scale: 1,
+        platform: platform,
+        title: _wraps,
+        actions: _footer,
+      );
+      final dialog = _dialogRect(tester);
+      final titleRect = _titleRect(tester, _wraps);
+      expect(titleRect.left - dialog.left, greaterThanOrEqualTo(15.5));
+      expect(dialog.right - titleRect.right, greaterThanOrEqualTo(15.5));
+    });
+  }
 }

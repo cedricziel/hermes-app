@@ -164,16 +164,29 @@ class _Title extends StatelessWidget {
       fontWeight: ios ? FontWeight.w600 : FontWeight.w700,
       color: onSurface,
     );
-    final lineHeight = (TextPainter(
-      text: TextSpan(text: 'Ag', style: style),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout()).height;
-    final titleWidth = (TextPainter(
-      text: TextSpan(text: title, style: style),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout()).width;
+    // Measured with the style the Text will really have (the dialog's
+    // DefaultTextStyle supplies the theme's line height, family and spacing),
+    // the text scale and the locale, so the header reserves what is drawn.
+    final measured = DefaultTextStyle.of(context).style.merge(style);
+    final heightBehavior = DefaultTextStyle.of(context).textHeightBehavior;
+    final locale = Localizations.maybeLocaleOf(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    double measure(String text, {required bool width}) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: measured),
+        textDirection: direction,
+        textScaler: scaler,
+        locale: locale,
+        textHeightBehavior: heightBehavior,
+      )..layout();
+      final size = width ? painter.width : painter.height;
+      painter.dispose();
+      return size;
+    }
+
+    final lineHeight = measure('Ag', width: false);
+    final titleWidth = measure(title, width: true);
     return _TitleBar(
       minHeight: minHeight,
       lineHeight: lineHeight,
@@ -464,6 +477,21 @@ class _RenderTitleBar extends RenderBox
     );
   }
 
+  /// The least height the grown form needs to hold one whole line of the
+  /// title (and Done's row above it when the title is stacked). Below it the
+  /// parent asks for the one-line form instead.
+  double minGrownHeight(double width) {
+    final done = _done;
+    final oneLine = math.max(_minHeight, _lineHeight + 2 * _verticalPadding);
+    if (done == null) return oneLine;
+    final doneSize = done.getDryLayout(BoxConstraints(maxWidth: width));
+    final beside = width - (doneSize.width + _doneInset + _gap) - _sidePadding;
+    if (_titleWidth <= beside) return oneLine;
+    return math.max(doneSize.height, kAppleMinTapTarget) +
+        _lineHeight +
+        _verticalPadding;
+  }
+
   Size _layout(
     BoxConstraints constraints,
     Size Function(RenderBox child, BoxConstraints constraints) layoutChild,
@@ -475,20 +503,23 @@ class _RenderTitleBar extends RenderBox
         ? Size.zero
         : layoutChild(done, BoxConstraints(maxWidth: width));
     final doneSpan = done == null ? 0.0 : doneSize.width + _doneInset + _gap;
-    final beside = width - doneSpan - _sidePadding;
+    // Without Done the title keeps the same padding on both sides.
+    final reserve = done == null ? _sidePadding : doneSpan;
+    final beside = width - reserve - _sidePadding;
     final oneLine =
         constraints.hasBoundedHeight &&
         constraints.maxHeight <= math.max(_minHeight, doneSize.height) + 0.01;
     final stacked = !oneLine && done != null && _titleWidth > beside;
 
     final titleMax = stacked ? width - 2 * _sidePadding : beside;
-    // The parent caps the header; the title scrolls once it would pass the
-    // cap, but always keeps one whole line.
+    // The parent caps the header (and gives it at least minGrownHeight, or
+    // asks for the one-line form); the title scrolls once it would pass it.
     final cap = constraints.maxHeight;
     final doneRow = math.max(doneSize.height, kAppleMinTapTarget);
-    final titleRoom = stacked
-        ? math.max(cap - doneRow - _verticalPadding, _lineHeight)
-        : math.max(cap - 2 * _verticalPadding, _lineHeight);
+    final titleRoom = math.max(
+      0.0,
+      stacked ? cap - doneRow - _verticalPadding : cap - 2 * _verticalPadding,
+    );
     final bar = math.max(_minHeight, doneSize.height);
     final titleSize = layoutChild(
       _title,
@@ -508,7 +539,7 @@ class _RenderTitleBar extends RenderBox
     if (oneLine) {
       height = bar;
       if (place != null) {
-        final limit = width - doneSpan;
+        final limit = width - reserve;
         final x = math.max(
           _sidePadding,
           math.min((width - titleSize.width) / 2, limit - titleSize.width),
@@ -556,7 +587,7 @@ class _RenderTitleBar extends RenderBox
         ),
       );
       if (place != null) {
-        final limit = width - doneSpan;
+        final limit = width - reserve;
         final x = math.max(
           _sidePadding,
           math.min((width - titleSize.width) / 2, limit - titleSize.width),
@@ -583,8 +614,12 @@ class _RenderTitleBar extends RenderBox
   }
 
   @override
-  void paint(PaintingContext context, Offset offset) =>
-      defaultPaint(context, offset);
+  void paint(PaintingContext context, Offset offset) => context.pushClipRect(
+    needsCompositing,
+    offset,
+    Offset.zero & size,
+    defaultPaint,
+  );
 
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
@@ -656,13 +691,20 @@ class _RenderDialogColumn extends RenderBox
     if (header is _RenderTitleBar && room.isFinite) {
       final oneLine = header.oneLineHeight(width);
       final available = math.max(0.0, room - footerHeight);
-      final natural = layoutChild(
-        body,
-        tight.copyWith(maxHeight: double.infinity),
-      ).height;
+      // The rows' natural height from intrinsics, not from a layout of the
+      // scroll view, which would reset its scroll position. A body that
+      // cannot answer is taken to need all the room.
+      double natural;
+      try {
+        natural = body.getMaxIntrinsicHeight(width);
+      } on Object {
+        natural = double.infinity;
+      }
       final mostForHeader = math.max(oneLine, available - natural);
       final cap = math.min(0.4 * room, mostForHeader);
-      headerLimit = cap < 1.5 * oneLine ? oneLine : cap;
+      headerLimit = cap < math.max(1.5 * oneLine, header.minGrownHeight(width))
+          ? oneLine
+          : cap;
     }
     final headerHeight = layoutChild(
       header,
