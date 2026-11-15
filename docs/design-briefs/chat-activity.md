@@ -126,3 +126,57 @@ Tool inputs and outputs never reach logs, spans or breadcrumbs: not their text, 
 ### Not drawn
 
 The canvas board (see above); a "show all" for a body over the cap (not needed while the body scrolls); a chat-wide budget (wiring change); VoiceOver and TalkBack output for the switch (its name is its visible text).
+
+## Transcript loading state (a stored chat's messages)
+
+## Design (done)
+
+Canvas: https://claude.ai/artifact/AKhFiQwGF7xKcES14JQe9Y ("Hermes: Chat loading state", private; ask the repo owner for access). 17 artboards on the Hermes App design system, built from the real `ChatHeader`, `ChatComposer`, `StateMessage`, `Banner` (the app's `AppBanner`), `UserMessage`, `AssistantMessage`, `Button` and `Spinner`. The skeleton bars are plain markup on tokens (the design system has no `LoadingSkeleton`).
+
+Artboards:
+
+1. Loading skeleton inside the chat screen (5): phone light with bars A and bars B, phone dark, Mac light, Mac dark.
+2. Failed state with Retry (5): phone light and dark, Mac light and dark, Android light (material).
+3. "Couldn't load earlier messages" row (5): phone light, dark and retrying, Mac light and dark.
+4. Skeleton at the extremes (2): phone at the largest text size (3.1x), phone landscape with the keyboard open.
+
+Decisions:
+
+- **Bar colour.** The bars are `HermesColors.zinc300` in light and `HermesColors.zinc700` in dark, replacing `surfaceContainerHighest` (zinc100 light, zinc800 dark). Light contrast on the white transcript: today 1.10:1, A (zinc200) 1.27:1, B (zinc300) 1.48:1; B is chosen: it reads as grey text lines and is quieter than a divider with a border. Dark on zinc950: today 1.34:1 (the same fault), zinc700 1.91:1. The change is in `LoadingSkeleton` itself, so Logs, Providers, Usage and the other skeletons gain it too.
+- **Pulse.** The opacity floor rises from 0.6 to 0.8, so the trough stays at 1.38:1 light and about 1.65:1 dark (it was 1.06:1 light). Reduced motion is unchanged: no pulse, no fade.
+- **Text size.** Bar height (16) and the gap above and below each bar (8) scale with the text scaler, so a line of the skeleton is as tall as a line of text. Corner radius stays 6.
+- **Short areas.** The skeleton draws only whole lines that fit its area (at least one) and clips what is left (`ClipRect`); it never scrolls and never shows a cut bar. At 3.1x on a 760 pt tall phone five of the six lines fit; in phone landscape with the keyboard open one line fits. The top padding is 24 pt, 16 pt when the window is under 500 pt tall. The header and the composer are never pushed.
+- **Failed state.** `StateMessage` (error icon, "Could not load the messages", the detail) with the filled Retry, shown at once. No snackbar over the composer (decided). The Retry hit area is 44 pt on touch and 48 dp on Android; on a Mac the 40 pt button is above the 28 pt floor.
+- **Earlier-messages row (new, "L5").** When the first page failed and the user sent a message anyway, the transcript has messages, so the full-screen failed state goes. A single `AppBanner` row, tone warning, sits first in the transcript list, in the 680 column, scrolls with the messages and is not pinned. It carries the status three ways: the warning icon, the words "Couldn't load earlier messages" and a Retry button with a refresh icon. Targets: Retry 44 pt on touch, the compact 32 pt button on a Mac (floor 28). `AppBanner` already stacks the button under the title at large text sizes and is a polite live region, so a screen reader hears the title once when the row appears; the Retry button has its own node and the label "Retry loading earlier messages".
+- **Retrying.** The row keeps its height: a spinner and "Retrying…" replace the button. A new failure puts Retry back with no new announcement. Nothing is resent automatically.
+- **Success.** The earlier page is merged above the user's messages (as `_mergedWithPage` already does), the row goes and the scroll position stays on what the reader is looking at.
+- **Why a banner, not a button in the header or a snackbar.** The failure belongs to the top of this transcript, a snackbar would cover the composer, and the shared `AppBanner` already has the status, announce and large-text behaviour.
+
+Corrections to the brief above: "the skeleton bars do not scale" is wrong (they now scale); "`surfaceContainerHighest` bars" is replaced by the zinc300 and zinc700 tokens; the section said nothing about a failed first page that the user then sent past, which is the L5 row.
+
+Copy added (`lib/l10n/arb/app_en.arb` and `app_de.arb`, `@@x-area-chat/widgets`):
+
+| Key                             | en                             | de                                               |
+| ------------------------------- | ------------------------------ | ------------------------------------------------ |
+| `chatHistoryEarlierFailedTitle` | Couldn't load earlier messages | Frühere Nachrichten konnten nicht geladen werden |
+| `chatHistoryEarlierRetrying`    | Retrying…                      | Wird erneut versucht …                           |
+| `chatHistoryEarlierRetryLabel`  | Retry loading earlier messages | Frühere Nachrichten erneut laden                 |
+
+The Retry button text reuses `commonRetry` ("Retry" / "Erneut versuchen"). The existing `chatHistoryLoading`, `chatHistoryFailedTitle` and `chatHistoryFailedDetail` are unchanged.
+
+Not checked: the claude.ai viewer, real devices, VoiceOver and TalkBack output, the pulse and fade (the boards are static), the real text scaler (the largest-size board scales the bars only; the header and the composer are drawn at 100%), the keyboard (a placeholder block). Rendered locally in headless Chromium on the design system's bundle; all 17 boards were rendered and the phone, Mac and extreme boards were looked at. Not drawn: a loaded chat whose Retry succeeds, App Lock.
+
+In this PR: the skeleton colour, pulse floor, text scaling, whole-line clip and Retry target above are built. The earlier-messages row (L5) is a separate, stacked PR and is not part of this one.
+
+`ChatHistoryState` (`lib/src/chat/widgets/chat_history_state.dart`) fills the transcript area of a stored chat that has no messages on screen yet; it is a plain model (`ChatHistoryStatus` and a retry callback) with use cases under Chat thread in the catalog. It is built from components the app already has.
+
+- Today a stored chat that is picked shows the welcome view (greeting and starter prompts) until its messages arrive, which reads as "this chat is empty". It shows loading instead.
+- Loading: the shared `LoadingSkeleton` (the Logs and Providers placeholder, six lines, quiet pulse), top aligned in the transcript's column, clear of the composer. It appears only after 180 ms (`kChatHistoryLoadingDelay`) and fades in over 150 ms (the fade runs when the skeleton appears, not when the transcript is built), so a read that finishes sooner shows an empty transcript for that moment, never the skeleton and never the welcome view. A chat that loads from the cache has its messages at once and shows nothing of this.
+- The header (title, profile, avatar) and the composer are there from the moment of selection. The transcript is that chat's own (each chat has its own message list), so the previous chat's messages are never under the new title.
+- Composer: unchanged. A send while the messages load stays allowed, as before: the controller merges the page into what was sent meanwhile (`_mergedWithPage`) and keeps a stored chat's name (`unread` in `_send`), and the message the user sends ends the loading state because the transcript then has a message. It is the safest existing rule; nothing new could reorder a chat.
+- Failed: the shared `StateMessage` (error icon, "Could not load the messages", "Check your connection, then try again.") with the filled "Retry" button (`commonRetry`), at once, without the delay. Retry reads the first page again and shows the skeleton. It is a polite live region, so a screen reader hears it once. There is no "Could not load this chat" snackbar for this failure (the state says it, and reselecting the chat retries); the snackbar stays for other failures.
+- Not shown for a new chat (its welcome view stays), for a chat whose messages are shown, or for a stored chat whose page came back empty.
+- Reduced motion: the skeleton does not pulse (`LoadingSkeleton` already stops) and the fade is skipped. The pulse only runs while the skeleton is on screen.
+- Screen reader: the skeleton is one node, "Loading chat", marked as a polite live region, so it is announced once when it appears. A fast load never reaches it, so nothing is announced; nothing is announced when the messages arrive either.
+- Light and dark: the bars are `skeletonBarColor` (zinc300 light, zinc700 dark), the default of `LoadingSkeleton`, so Logs, Providers and Usage gain it too (the working-directory row keeps its own on-surface override). Phone, and the desktop and Mac split layout: the column keeps the transcript's maximum width; the sidebar is untouched. At the largest text size the failed state scrolls inside the area (`StateMessage`); the skeleton bars and their gaps scale with the text size, and a short area (phone on its side with the keyboard open) draws only the whole lines that fit, never a scroll view or a cut bar. Top padding 24, 16 under 500 pt of window height; Retry is 44 pt on touch (48 dp on Android).
+- Catalog: Chat thread / Messages: "Loading the chat", "Loading the chat, reduced motion", "Loading the chat failed", "Loading the chat, largest text size", and Chat thread / ChatHistoryState (loading, short 70 pt area, largest text size, reduced motion, failed), next to the existing "Empty, welcome" (new chat) and "Conversation" (loaded).
