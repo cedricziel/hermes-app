@@ -55,14 +55,16 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
 
 ## Output
 
-End with exactly this block, nothing after it:
+End with exactly these four lines, nothing after them:
 
-```
-Reviewer: isolated-reviewer  Head: <full sha>  Verdict: clean | changes-requested
-Findings: <n> (each: severity, file:line, issue, fix expected)
-Revert-the-fix: <test> failed when <fix> reverted | not applicable
-Proof reproduced: yes | no (what)
-```
+- `Reviewer: isolated-reviewer  Head: <full sha>  Verdict: clean | changes-requested`
+- `Findings: <n> (each: severity, file:line, issue, fix expected)`
+- `Revert-the-fix: <test> failed when <fix> reverted | not applicable`
+- `Proof reproduced: yes | no (what)`
+
+Emit them as plain lines, without a code fence, without the leading dash and
+without backticks: `pr-policy` ignores review lines inside a code fence, so a
+fenced block is not recorded.
 
 List each finding on its own line under `Findings:`. Verdict is clean only with
 zero findings of any severity left open. Put reasoning before the block, not in

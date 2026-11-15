@@ -46,7 +46,7 @@ is in `CLAUDE.md` under "Fleet rules".
 - The right thing is the shortest path. Prefer a shared building block over a
   raw API; a guard that bans a raw API names its replacement.
 - Fast local feedback. Prefer checks that run in the pre-commit hook or in
-  `flutter test test/architecture` (added in #1144; under a second) over
+  `flutter test test/architecture` (the ratchet from #1144; see the `architecture-guards` skill; under a second) over
   CI-only checks.
 
 ## What a useful test is
@@ -109,10 +109,11 @@ A review reported only in a session message does not count. It must be in the
 PR, where a check can read it. A push after the review needs a new review of
 the new commits, with the new head SHA.
 
-Authors never edit the `## Review` section except to paste the isolated
-reviewer's block verbatim. Record the review line for the new head SHA before
-pushing it (the SHA is known locally), so `Review recorded` never sees a stale
-line.
+Authors may add fix notes to `## Review`, but never write or change a
+`Reviewer: ... Head: ... Verdict:` line or its `Range:` line: those are pasted
+from the isolated reviewer's output, unchanged. Paste the block as plain lines,
+not inside a code fence (`pr-policy` ignores review lines inside fences). Order:
+push, review the pushed head, paste.
 
 ## READY and merging
 
@@ -123,24 +124,28 @@ A session reports READY to the orchestrator when all of these hold:
   head. The reviewer gets the diff (or PR number) and the rules, never the
   author's conclusions (`isolated-reviewer` agent).
 - For a UI PR, the design canvas is linked.
-- Main is merged in wherever main changed the PR's files.
-
-After one merge of main with a clean merge-only review, a PR is READY even if
-main moves again in a shared file, provided (1) `git merge-tree` against
-current origin/main is clean, (2) the later main commits do not change the same
-functions, classes or doc section the PR changes (name the commits you
-checked), and (3) `Analyze & test` is green on the reviewed head. If (2) fails,
-re-merge and get a scoped merge-only review.
+- Main is merged in wherever main changed the PR's files. Exception: after one
+  merge of main with a clean merge-only review, a PR is READY even if main moves
+  again in a shared file, provided (1) `git merge-tree` against current
+  origin/main is clean, (2) the later main commits do not change the same
+  functions, classes or doc section the PR changes, (3) `Analyze & test` is
+  green on the reviewed head, and (4) for any PR that touches Dart, a trial
+  merge with current origin/main has `flutter analyze` clean (once
+  `scripts/premerge_check.sh` is on main, it does this). The READY report names
+  the later main commits checked for (2). If (2) fails, re-merge and get a
+  scoped merge-only review.
 
 A READY report names the `lib/` directories the PR touches (or "none").
-
-The orchestrator arms at most one PR touching `lib/` at a time, and before
-every hand merge it trial-merges the PR with current main and runs
-`flutter analyze` in a scratch worktree.
 
 The orchestrator then arms squash auto-merge when READY, and GitHub waits for
 the required checks on the head. Read check state with `status-reader`
 or `pull_request_read`; pending, queued and in-progress are not green.
+
+The orchestrator arms or hand-merges at most one PR touching Dart code (`lib/`,
+`test/`, `widgetbook/` or `packages/`) at a time, until it has merged. The
+overlap unit is the `lib/src/<area>/` or test directory. Before every hand
+merge it trial-merges the PR with current main and runs `flutter analyze` in a
+scratch worktree.
 
 - HARD RULE: never push to a PR with auto-merge armed. The push would merge
   without a review of that commit. Ask the orchestrator to disarm first, then
@@ -155,9 +160,12 @@ or `pull_request_read`; pending, queued and in-progress are not green.
   It is armed only when the owner asks, after its five builds are green, with
   the asked-for version in its title, and last (see the `release` skill).
 - Docs-only PRs cannot auto-merge while the ruleset requires the individual
-  test shards (they never report on a docs-only PR). Until the owner changes the
-  ruleset, the orchestrator merges them by hand after reading `Analyze & test`
-  success on the exact head.
+  test shards (they never report on a docs-only PR). Docs-only means the
+  `Changes` job output `code=false` on the exact head, so the shards show
+  skipped. Such a PR is merged by hand (a squash) by the orchestrator only when
+  it is READY, with a clean recorded review for the head, and `PR policy`,
+  `Review recorded` and `Analyze & test` are green on that exact head. The
+  exception ends when the owner drops the per-shard required checks.
 
 Stacked PRs: merge bottom-up. After the lower PR merges, retarget the next one
 to main and read the checks again on its new head: a retarget does not rerun CI
