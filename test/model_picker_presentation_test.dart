@@ -174,7 +174,8 @@ void main() {
       final surface = tester.getRect(
         find.ancestor(of: _popover, matching: find.byType(Material)).first,
       );
-      expect(search.width, greaterThan(surface.width - 24 - 40));
+      // The 20 pt gutters either side, and the field's own icon and padding.
+      expect(search.width, greaterThan(surface.width - 40 - 40));
     });
 
     testWidgets('in a right-to-left window the popover ends on the pill', (

@@ -7,13 +7,14 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_choice_row.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 
-Future<Color> _fillAt(WidgetTester tester, Finder boundary) async {
+/// The colour at [x] in the middle of [boundary]: 4 is the row's left padding,
+/// clear of text and the radio; 1 is on the row's own left edge, where an
+/// outline is drawn.
+Future<Color> _fillAt(WidgetTester tester, Finder boundary, {int x = 4}) async {
   final render = tester.renderObject<RenderRepaintBoundary>(boundary);
   final color = await tester.runAsync(() async {
     final image = await render.toImage();
     final data = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
-    // A point in the row's left padding, clear of text and the radio.
-    final x = 4;
     final y = image.height ~/ 2;
     final i = (y * image.width + x) * 4;
     return Color.fromARGB(
@@ -27,8 +28,10 @@ Future<Color> _fillAt(WidgetTester tester, Finder boundary) async {
 }
 
 void main() {
-  testWidgets('a focused popover choice row has the fill a focused Settings '
-      'row has, not a second tint', (tester) async {
+  testWidgets('a focused popover choice row draws a 2 px outline in the link '
+      'colour and no grey fill; a focused Settings row keeps its fill', (
+    tester,
+  ) async {
     FocusManager.instance.highlightStrategy =
         FocusHighlightStrategy.alwaysTraditional;
     addTearDown(
@@ -43,9 +46,12 @@ void main() {
       ..physicalSize = const Size(400, 400)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final theme = buildHermesLightTheme().copyWith(
+      platform: TargetPlatform.macOS,
+    );
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.macOS),
+        theme: theme,
         home: Scaffold(
           body: Column(
             children: [
@@ -74,20 +80,42 @@ void main() {
         ),
       ),
     );
+    final link = theme.extension<HermesChatColors>()!.link;
+    Finder choice() => find.byKey(const Key('choice'));
+    Finder settings() => find.byKey(const Key('settings'));
+
+    final choiceResting = await _fillAt(tester, choice());
+    final settingsResting = await _fillAt(tester, settings());
 
     radioNode.requestFocus();
     await tester.pumpAndSettle();
-    final choice = await _fillAt(tester, find.byKey(const Key('choice')));
+    expect(
+      await _fillAt(tester, choice(), x: 1),
+      link,
+      reason: 'the outline is drawn on the focused popover row',
+    );
+    expect(
+      await _fillAt(tester, choice()),
+      choiceResting,
+      reason: 'no grey fill inside the outline',
+    );
+
     radioNode.unfocus();
     await tester.pumpAndSettle();
-    final resting = await _fillAt(tester, find.byKey(const Key('choice')));
+    expect(await _fillAt(tester, choice(), x: 1), choiceResting);
 
     // The Settings row, focused through its own tap target.
     Focus.of(tester.element(find.text('setting'))).requestFocus();
     await tester.pumpAndSettle();
-    final settings = await _fillAt(tester, find.byKey(const Key('settings')));
-
-    expect(choice, isNot(resting), reason: 'the focused row is highlighted');
-    expect(choice, settings);
+    expect(
+      await _fillAt(tester, settings()),
+      isNot(settingsResting),
+      reason: 'a Settings row keeps its focus fill',
+    );
+    expect(
+      await _fillAt(tester, settings(), x: 1),
+      isNot(link),
+      reason: 'and gets no outline',
+    );
   });
 }
