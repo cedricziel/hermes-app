@@ -7,6 +7,7 @@ import 'package:gpt_markdown/custom_widgets/code_field.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/bounded_markdown.dart';
 
 /// Wall-clock cost of laying out and painting a reply that holds fenced code
 /// blocks. `flutter_test` pumps are synchronous on the test isolate, so a
@@ -158,11 +159,20 @@ void main() {
       } else {
         expect(coloured, 0, reason: e.key);
       }
-      // Unbounded these take from 0.3 s to 17 s; bounded 40-200 ms.
-      // 50 to 100 fences in one reply are mostly plain, and a plain block still
-      // costs a widget (about 8 ms) and its layout.
-      final bound = e.key.contains('fences') ? 1500 : 500;
-      expect(r.first + r.rest, lessThan(bound), reason: e.key);
+      // What the limits guarantee, counted rather than timed (unbounded these
+      // take from 0.3 s to 17 s; the times are only printed above).
+      final granted = fields.where((f) => f.highlightCode);
+      expect(
+        granted.fold<int>(0, (sum, f) => sum + f.codes.length),
+        lessThanOrEqualTo(kHighlightMaxDocument),
+        reason: e.key,
+      );
+      for (final f in granted) {
+        expect(f.codes.length, lessThanOrEqualTo(kHighlightMaxBlock));
+        for (final line in f.codes.split(RegExp(r'\r\n|\n|\r'))) {
+          expect(line.length, lessThanOrEqualTo(kHighlightMaxLine));
+        }
+      }
     }, timeout: const Timeout(Duration(minutes: 4)));
   }
 }
