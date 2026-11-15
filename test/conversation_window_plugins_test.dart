@@ -25,6 +25,8 @@ const _inConversationWindows = {
 /// panel adds them, see below), and the rest is unused in a conversation
 /// window.
 const _mainEngineOnly = {
+  // "Open settings" sits in the notification settings, main window UI.
+  'AppSettingsPlugin',
   // The Dock badge follows the main engine's snapshot.
   'AppBadgePlusPlugin',
   // Only the main engine opens hermes:// links; a window has no stream of them.
@@ -42,6 +44,9 @@ const _mainEngineOnly = {
   'FPPPackageInfoPlusPlugin',
   'FlutterMultiWindowPlugin',
   'RecordDarwinPlugin',
+  // Call audio (flutter_soloud) starts only in the main window's voice call;
+  // a conversation window offers no call.
+  'FlutterSoloudPlugin',
   // Background tasks belong to the main engine; a window schedules none.
   'WorkmanagerPlugin',
 };

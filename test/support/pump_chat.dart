@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/bot_screen/takeover_setting.dart';
 import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.dart'
@@ -24,6 +25,7 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/voice/calls/call_bridge.dart';
 import 'package:hermes_app/src/voice/voice_recorder.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
@@ -47,6 +49,7 @@ final composerField = find.descendant(
 Future<void> pumpChatScreen(
   WidgetTester tester, {
   FakeHermesServer? server,
+  HermesApiClient? api,
   bool withProfiles = false,
   bool withSkills = false,
   HermesModelsRepository? models,
@@ -61,6 +64,7 @@ Future<void> pumpChatScreen(
   TargetPlatform? platform,
   MacCommandRegistry? commands,
   VoiceRecorder? voiceRecorder,
+  CallBridge Function()? callBridge,
   VoiceRecorder? voiceMessageRecorder,
   DisplaySocketOpener? displaySocketOpener,
   TakeoverSetting? takeoverSetting,
@@ -78,6 +82,8 @@ Future<void> pumpChatScreen(
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
+  // The chat's requests go through [api] when a test instruments its own.
+  final client = api ?? server?.client();
   final app = MultiProvider(
     providers: [
       ChangeNotifierProvider<AuthController>(create: (_) => AuthController()),
@@ -96,15 +102,9 @@ Future<void> pumpChatScreen(
         visible: visible,
         builder: (shown) => ChatScreen(
           visible: shown,
-          repository: server == null
-              ? null
-              : HermesChatRepository(server.client().raw),
-          profiles: withProfiles
-              ? HermesProfilesRepository(server!.client().raw)
-              : null,
-          skills: withSkills
-              ? HermesSkillsRepository(server!.client().raw)
-              : null,
+          repository: client == null ? null : HermesChatRepository(client.raw),
+          profiles: withProfiles ? HermesProfilesRepository(client!.raw) : null,
+          skills: withSkills ? HermesSkillsRepository(client!.raw) : null,
           models: models,
           providers: providersRepository,
           transport: transport,
@@ -113,6 +113,7 @@ Future<void> pumpChatScreen(
           attachmentSource: attachmentSource,
           starterContext: starterContext,
           voiceRecorder: voiceRecorder,
+          callBridge: callBridge,
           voiceMessageRecorder: voiceMessageRecorder,
           displaySocketOpener: displaySocketOpener,
           takeoverSetting: takeoverSetting,

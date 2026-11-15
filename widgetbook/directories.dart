@@ -11,6 +11,7 @@ import 'memory_proposal_use_cases.dart';
 import 'memory_tool_use_cases.dart';
 import 'memory_use_cases.dart';
 import 'session_usage_use_cases.dart';
+import 'tool_value_use_cases.dart';
 import 'connector_operation_use_cases.dart';
 import 'side_result_use_cases.dart';
 import 'process_output_use_cases.dart';
@@ -28,12 +29,14 @@ import 'needs_you_dock_use_cases.dart';
 import 'activity_line_use_cases.dart';
 import 'moa_progress_use_cases.dart';
 import 'background_check_status_use_cases.dart';
+import 'open_settings_button_use_cases.dart';
 import 'queue_recovery_use_cases.dart';
 import 'chat_checkpoints_use_cases.dart';
 import 'chat_checkpoint_restore_use_cases.dart';
 import 'chat_context_use_cases.dart';
 import 'chat_send_hold_use_cases.dart';
 import 'transcript_outcome_line_use_cases.dart';
+import 'reply_reconnecting_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
@@ -42,6 +45,7 @@ import 'session_export_use_cases.dart';
 
 import 'package:widgetbook/widgetbook.dart';
 
+import 'grouped_dialog_use_cases.dart';
 import 'grouped_form_use_cases.dart';
 import 'handoff_use_cases.dart';
 import 'adaptive_use_cases.dart';
@@ -76,6 +80,7 @@ import 'settings_chrome_use_cases.dart';
 import 'settings_screen_use_cases.dart';
 import 'messaging_use_cases.dart';
 import 'skills_messaging_use_cases.dart';
+import 'skills_curator_use_cases.dart';
 import 'skills_use_cases.dart';
 import 'state_message_use_cases.dart';
 import 'bot_screen_use_cases.dart';
@@ -121,6 +126,7 @@ final List<WidgetbookNode> directories = [
   activityWaitingMarkerNode(),
   moaProgressNode(),
   backgroundCheckStatusNode(),
+  openSettingsButtonNode(),
   queueRecoveryNode(),
   connectionNode(),
   handoffNode(),
@@ -140,6 +146,7 @@ final List<WidgetbookNode> directories = [
   adaptiveChromeNode(),
   settingsChromeNode(),
   groupedFormNode(),
+  groupedDialogNode(),
   macToolbarNode(),
   menuBarExtraNode(),
   spotlightNode(),
@@ -152,10 +159,12 @@ final List<WidgetbookNode> directories = [
   memoryProposalsNode(),
   memoryToolNode(),
   sessionUsageNode(),
+  toolValueNode(),
   chatContextNode(),
   chatCheckpointsNode(),
   chatCheckpointRestoreNode(),
   transcriptOutcomeLineNode(),
+  replyReconnectingNode(),
   chatSendHoldNode(),
   connectorOperationNode(),
   sideResultNode(),
@@ -185,6 +194,7 @@ final List<WidgetbookNode> directories = [
   schedulesMacNode(),
   skillsMessagingNode(),
   skillsNode(),
+  skillsCuratorNode(),
   messagingNode(),
   botModeRosterNode(),
   botChatNode(),

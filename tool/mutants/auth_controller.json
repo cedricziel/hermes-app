@@ -1,0 +1,408 @@
+{
+  "subject": "auth_controller",
+  "tests": [
+    "test/about_setting_test.dart",
+    "test/accessibility_chat_test.dart",
+    "test/accessibility_semantics_test.dart",
+    "test/app_shell_owner_test.dart",
+    "test/app_shell_test.dart",
+    "test/app_without_conversation_windows_test.dart",
+    "test/appearance_setting_test.dart",
+    "test/auth_controller_bootstrap_test.dart",
+    "test/auth_controller_dev_server_test.dart",
+    "test/auth_controller_network_test.dart",
+    "test/auth_controller_refresh_test.dart",
+    "test/auth_controller_server_attributes_test.dart",
+    "test/auth_controller_session_recovery_test.dart",
+    "test/auth_controller_session_token_test.dart",
+    "test/auth_controller_sign_in_test.dart",
+    "test/background/background_alerts_test.dart",
+    "test/background/background_refresh_test.dart",
+    "test/background/background_scheduler_test.dart",
+    "test/background/headless_hermes_test.dart",
+    "test/bot_chat_handoff_test.dart",
+    "test/bot_screen/bot_screen_install_shell_test.dart",
+    "test/change_invalidation_messaging_test.dart",
+    "test/change_invalidation_pairing_test.dart",
+    "test/change_invalidation_sessions_test.dart",
+    "test/chat/durable_queue_composer_test.dart",
+    "test/chat_branch_test.dart",
+    "test/chat_header_mac_test.dart",
+    "test/chat_header_platform_test.dart",
+    "test/chat_job_tap_test.dart",
+    "test/chat_message_actions_test.dart",
+    "test/chat_model_choice_test.dart",
+    "test/chat_open_request_test.dart",
+    "test/chat_screen_hermes_test.dart",
+    "test/chat_screen_profile_test.dart",
+    "test/chat_screen_quote_test.dart",
+    "test/chat_screen_review_regressions_test.dart",
+    "test/chat_screen_session_activity_test.dart",
+    "test/chat_screen_shell_menu_test.dart",
+    "test/chat_screen_test.dart",
+    "test/chat_streaming_test.dart",
+    "test/connection_page_closer_test.dart",
+    "test/connection_pages_test.dart",
+    "test/connection_socket_telemetry_test.dart",
+    "test/deep_links/app_shell_deep_link_test.dart",
+    "test/deep_links/chat_deep_link_test.dart",
+    "test/desktop_history_peer_test.dart",
+    "test/desktop_history_window_focus_test.dart",
+    "test/dictation_setting_test.dart",
+    "test/handoff_gate_test.dart",
+    "test/hermes_repositories_test.dart",
+    "test/intents/ask_hermes_test.dart",
+    "test/intents/request_intents_test.dart",
+    "test/kanban_board_filters_test.dart",
+    "test/kanban_mac_inspector_test.dart",
+    "test/kanban_screen_test.dart",
+    "test/login_screen_test.dart",
+    "test/mac_chat_search_test.dart",
+    "test/mac_shell_sidebar_short_test.dart",
+    "test/mac_thread_drag_test.dart",
+    "test/mac_thread_sidebar_short_test.dart",
+    "test/mac_thread_sidebar_test.dart",
+    "test/macos/dock_menu_gate_test.dart",
+    "test/memory/memory_entry_points_test.dart",
+    "test/memory/memory_scope_regressions_test.dart",
+    "test/memory/memory_waiting_entries_test.dart",
+    "test/memory/memory_waiting_profiles_page_test.dart",
+    "test/notifications/inline_reply_test.dart",
+    "test/notifications/reply_handoff_test.dart",
+    "test/notifications/signed_in_account_key_test.dart",
+    "test/notifications_setting_test.dart",
+    "test/providers/providers_lifecycle_test.dart",
+    "test/readme_screenshots_test.dart",
+    "test/request_answers_test.dart",
+    "test/server_address_test.dart",
+    "test/server_care/connection_guard_test.dart",
+    "test/server_care/server_logs_page_test.dart",
+    "test/server_care/server_screen_test.dart",
+    "test/server_care/server_screen_wide_test.dart",
+    "test/server_care/update_page_test.dart",
+    "test/server_setup_screen_test.dart",
+    "test/server_setup_vpn_test.dart",
+    "test/session_activity_test.dart",
+    "test/share_provider_test.dart",
+    "test/spotlight/spotlight_dialog_test.dart",
+    "test/theme_controller_test.dart",
+    "test/thread_grouping_ui_test.dart",
+    "test/tools/tools_entries_test.dart",
+    "test/tools/tools_setup_fixes_test.dart",
+    "test/watch_auth_gate_test.dart",
+    "test/watch_session_publication_test.dart",
+    "test/widget_test.dart",
+    "test/window_session_ownership_test.dart",
+    "test/workflows/connection_screens_workflow_test.dart",
+    "test/workflows/onboarding_workflow_test.dart",
+    "test/workflows/schedules_workflow_test.dart",
+    "test/workflows/voice_call_setup_workflow_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
+    "test/workflows/bot_screen_lease_workflow_test.dart",
+    "test/workflows/bot_screen_preview_workflow_test.dart",
+    "test/workflows/bot_screen_viewer_workflow_test.dart",
+    "test/workflows/bot_screen_workflow_test.dart",
+    "test/workflows/chat_autocomplete_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/chat_workflow_test.dart",
+    "test/workflows/chat_working_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/compact_chat_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/group_creation_workflow_test.dart",
+    "test/workflows/handoff_workflow_test.dart",
+    "test/workflows/hands_free_strip_workflow_test.dart",
+    "test/workflows/kanban_extras_workflow_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart",
+    "test/workflows/kanban_task_activity_workflow_test.dart",
+    "test/workflows/kanban_task_metadata_workflow_test.dart",
+    "test/workflows/kanban_worker_log_workflow_test.dart",
+    "test/workflows/kanban_workflow_test.dart",
+    "test/workflows/mac_profiles_workflow_test.dart",
+    "test/workflows/management_workflow_test.dart",
+    "test/workflows/mcp_workflow_test.dart",
+    "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workflows/plugins_workflow_test.dart",
+    "test/workflows/process_control_workflow_test.dart",
+    "test/workflows/profile_creation_workflow_test.dart",
+    "test/workflows/provider_first_run_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workflows/skills_hub_workflow_test.dart",
+    "test/workflows/subagent_control_workflow_test.dart",
+    "test/workflows/tools_setup_workflow_test.dart",
+    "test/workflows/tools_workflow_test.dart",
+    "test/workflows/voice_call_phases_workflow_test.dart",
+    "test/workflows/working_directory_workflow_test.dart"
+  ],
+  "quick_tests": [
+    "test/auth_controller_bootstrap_test.dart",
+    "test/auth_controller_dev_server_test.dart",
+    "test/auth_controller_network_test.dart",
+    "test/auth_controller_refresh_test.dart",
+    "test/auth_controller_server_attributes_test.dart",
+    "test/auth_controller_session_recovery_test.dart",
+    "test/auth_controller_session_token_test.dart",
+    "test/auth_controller_sign_in_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "au01",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "if (!saved && !allowCleartext && isCleartextToPublicHost(typed)) {",
+      "new": "if (!saved && isCleartextToPublicHost(typed)) {",
+      "note": "allowCleartext ignored: public http always refused"
+    },
+    {
+      "id": "au02",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "if (!saved && !allowCleartext && isCleartextToPublicHost(typed)) {",
+      "new": "if (!allowCleartext && isCleartextToPublicHost(typed)) {",
+      "note": "saved/restoring address re-asked about cleartext"
+    },
+    {
+      "id": "au03",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "final saved = restoring || automatic || typed == _savedServerUrl;",
+      "new": "final saved = restoring || automatic || typed != _savedServerUrl;",
+      "note": "any new address counts as saved: cleartext check skipped"
+    },
+    {
+      "id": "au04",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "          redirectsToUnacceptedCleartext(normalized, redirected)) {",
+      "new": "          !redirectsToUnacceptedCleartext(normalized, redirected)) {",
+      "note": "cleartext redirect guard inverted"
+    },
+    {
+      "id": "au05",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "    if (typed != _baseUrl) _protectedRequestsAllowed = false;\n",
+      "new": "",
+      "note": "protected requests stay allowed after switching address"
+    },
+    {
+      "id": "au06",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "      normalized = redirected ?? normalized;",
+      "new": "      normalized = normalized;",
+      "note": "redirect target ignored"
+    },
+    {
+      "id": "au07",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "if (_baseUrl != null && _baseUrl != normalized) {",
+      "new": "if (_baseUrl != null && _baseUrl == normalized) {",
+      "note": "clients not retired on server change"
+    },
+    {
+      "id": "au08",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "error.response?.statusCode != 401 || session == null",
+      "new": "error.response?.statusCode != 403 || session == null",
+      "note": "401 handling keyed on wrong status"
+    },
+    {
+      "id": "au09",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "            ..extra['hermes_retried'] = true;",
+      "new": "            ..extra['hermes_retried'] = false;",
+      "note": "retried request not marked: endless 401 retry"
+    },
+    {
+      "id": "au10",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "              await _handleSessionExpired('unauthorized_after_retry');",
+      "new": "",
+      "note": "401 after retry does not end the session"
+    },
+    {
+      "id": "au11",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "            if (options.headers['Authorization'] ==\n                'Bearer ${session.accessToken}') {",
+      "new": "            if (options.headers['Authorization'] !=\n                'Bearer ${session.accessToken}') {",
+      "note": "stale-token 401 after retry signs user out (concurrent 401)"
+    },
+    {
+      "id": "au12",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "            await _handleSessionExpired('no_refresh_token');\n            return handler.next(error);",
+      "new": "            return handler.next(error);",
+      "note": "401 without refresh token keeps dead session"
+    },
+    {
+      "id": "au13",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "          final sentStaleToken =\n              options.headers['Authorization'] !=",
+      "new": "          final sentStaleToken =\n              options.headers['Authorization'] ==",
+      "note": "stale-token detection inverted (re-refresh spends used token)"
+    },
+    {
+      "id": "au14",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "              current = e.rejected\n",
+      "new": "              current = !e.rejected\n",
+      "note": "rejected vs transient refresh failure swapped"
+    },
+    {
+      "id": "au15",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "            } on Object {\n              current = null;\n            }",
+      "new": "            } on Object {\n              current = session;\n            }",
+      "note": "failed refresh retries the request with the old token"
+    },
+    {
+      "id": "au16",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "          if (identical(_refreshInFlight, future)) _refreshInFlight = null;",
+      "new": "",
+      "note": "finished refresh stays in flight forever"
+    },
+    {
+      "id": "au17",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "    if (inFlight != null) return inFlight;\n",
+      "new": "",
+      "note": "concurrent callers each refresh (spend refresh token twice)"
+    },
+    {
+      "id": "au18",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "    if (!session.needsRefresh()) return session.accessToken;",
+      "new": "",
+      "note": "always refresh proactively"
+    },
+    {
+      "id": "au19",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "      if (!e.rejected) return session.accessToken;",
+      "new": "      if (e.rejected) return session.accessToken;",
+      "note": "rejected refresh sends the spent token again"
+    },
+    {
+      "id": "au20",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "if (_session?.refreshToken != current.refreshToken) {\n            throw StateError('The session changed during the refresh');",
+      "new": "if (_session?.refreshToken == current.refreshToken) {\n            throw StateError('The session changed during the refresh');",
+      "note": "rotated tokens dropped / old session revived"
+    },
+    {
+      "id": "au21",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "          await _persistPendingSession();\n          if (_pendingSessionWrite != null) {\n            _events('auth.session.store_failed'",
+      "new": "          if (_pendingSessionWrite != null) {\n            _events('auth.session.store_failed'",
+      "note": "refreshed pair never persisted"
+    },
+    {
+      "id": "au22",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "      if (current == null || !current.sameOwner(sent)) return null;\n      // A caller rejected",
+      "new": "      if (current == null) return null;\n      // A caller rejected",
+      "note": "someone else's session ended by this refresh"
+    },
+    {
+      "id": "au23",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "      if (current.refreshToken != sent.refreshToken) return current;\n      // A rejected token may",
+      "new": "      if (current.refreshToken == sent.refreshToken) return current;\n      // A rejected token may",
+      "note": "takeover of already-rotated pair inverted"
+    },
+    {
+      "id": "au24",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "      if (stored is SessionUnreadable) return null;\n",
+      "new": "",
+      "note": "unreadable keychain => rejected session ends (sign-out)"
+    },
+    {
+      "id": "au25",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "for (final wait in [Duration.zero, _rejectionRecheck]) {",
+      "new": "for (final wait in [Duration.zero]) {",
+      "note": "no second look at the store before signing out"
+    },
+    {
+      "id": "au26",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "    await _handleSessionExpired('refresh_rejected');\n    return valid() ? _session : null;",
+      "new": "    return valid() ? _session : null;",
+      "note": "rejected refresh never ends the session"
+    },
+    {
+      "id": "au27",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "        !stored.isNewerThan(sent) ||\n",
+      "new": "",
+      "note": "older stored pair adopted as replacement"
+    },
+    {
+      "id": "au28",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "        !stored.sameOwner(sent) ||\n        stored.serverUrl",
+      "new": "        stored.serverUrl",
+      "note": "another user's stored pair adopted"
+    },
+    {
+      "id": "au29",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "        stored.serverUrl != _baseUrl ||\n",
+      "new": "",
+      "note": "pair for another server adopted"
+    },
+    {
+      "id": "au30",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "    _expiredOwner = _verifiedOwner;\n    _protectedRequestsAllowed = false;",
+      "new": "    _expiredOwner = _verifiedOwner;",
+      "note": "expired session keeps protected requests allowed"
+    },
+    {
+      "id": "au31",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "    cancelSignIn();\n    _session = null;",
+      "new": "    cancelSignIn();",
+      "note": "sign-out keeps the in-memory session"
+    },
+    {
+      "id": "au32",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "    final deletionFailed = !await _clearTokens();",
+      "new": "    final deletionFailed = false;",
+      "note": "failed token deletion not surfaced"
+    },
+    {
+      "id": "au33",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "    _retireClients(removeServer ? 'server_change' : 'sign_out');",
+      "new": "",
+      "note": "sign-out leaves old clients alive"
+    },
+    {
+      "id": "au34",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "    _requestEpoch++;\n    _refreshInFlight = null;",
+      "new": "    _refreshInFlight = null;",
+      "note": "in-flight requests not invalidated on retire"
+    },
+    {
+      "id": "au35",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "rejected?['Authorization'] == 'Bearer ${session.accessToken}';",
+      "new": "rejected?['Authorization'] != 'Bearer ${session.accessToken}';",
+      "note": "window 401: refresh decision inverted"
+    },
+    {
+      "id": "au36",
+      "file": "lib/src/auth/auth_controller.dart",
+      "old": "if (_identitySeen && (owner == null || owner != _verifiedOwner)) {",
+      "new": "if (_identitySeen && (owner == null || owner == _verifiedOwner)) {",
+      "note": "owner change not detected"
+    }
+  ]
+}

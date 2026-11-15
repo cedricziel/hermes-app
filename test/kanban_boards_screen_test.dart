@@ -15,8 +15,10 @@ import 'support/kanban_fixtures.dart';
 void main() {
   late FakeHermesServer server;
   late KanbanBoardController controller;
+  var platform = TargetPlatform.android;
 
   setUp(() async {
+    platform = TargetPlatform.android;
     server = FakeHermesServer()
       ..on(
         'GET',
@@ -42,7 +44,7 @@ void main() {
   Future<void> pump(WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme(),
+        theme: buildHermesLightTheme(platform: platform),
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
@@ -178,6 +180,31 @@ void main() {
       ),
       {'output': '', 'attachments': true, 'logs': true},
     );
+  });
+
+  testWidgets('the export alert keeps the path start-aligned on iOS', (
+    tester,
+  ) async {
+    platform = TargetPlatform.iOS;
+    server.on('POST', '/api/plugins/kanban/boards/ops/export', {
+      'board': 'ops',
+      'archive': '/srv/hermes/exports/ops.tar.gz',
+      'size': 3072,
+    });
+    await pump(tester);
+
+    await tester.longPress(find.text('Ops'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Export…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Export'));
+    await tester.pumpAndSettle();
+
+    for (final text in ['/srv/hermes/exports/ops.tar.gz', '3.0 KB']) {
+      final align = DefaultTextStyle.of(tester.element(find.text(text)))
+          .textAlign;
+      expect(align, TextAlign.start, reason: text);
+    }
   });
 
   testWidgets('imports an archive and opens the new board', (tester) async {

@@ -8,7 +8,7 @@ Lets a person see Hermes' skill curator from the Skills screen, pause and resume
 
 ### Requirement: Backend contract
 
-The feature SHALL use only `GET /api/curator?profile=`, `PUT /api/curator/paused?profile=` (body `{"paused": bool}`), `POST /api/curator/run?profile=` and `GET /api/actions/curator-run/status?lines=`, verified at Hermes `d923a5eb`, through the generated client, and parse responses leniently. It SHALL hide the section only when a 404 or 405 says the route is missing (detail `No such API endpoint` or an `error` body), never for a 404 whose detail starts `Profile '`.
+The feature SHALL use only `GET /api/curator?profile=`, `PUT /api/curator/paused?profile=` (body `{"paused": bool}`), `POST /api/curator/run?profile=` and `GET /api/actions/curator-run/status?lines=`, verified at Hermes `d923a5eb`, through the generated client, and parse responses leniently. It SHALL hide the section on any 404 or 405 (a missing route, a headless `error` body or a proxy's page), never for a 404 whose detail starts `Profile '`.
 
 #### Scenario: Old server
 
@@ -118,7 +118,7 @@ After the user confirms, the app SHALL send `POST /api/curator/run?profile=`, th
 #### Scenario: Spawn failure
 
 - **WHEN** the POST answers 500 "Failed to run curator: …"
-- **THEN** the app shows that nothing started, with Hermes' text, and a Try again that needs a new confirmation
+- **THEN** the app shows that nothing started, with no server text, and a Try again that needs a new confirmation
 
 ### Requirement: One run at a time, no resend
 

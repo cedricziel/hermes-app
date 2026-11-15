@@ -5,6 +5,7 @@ import '../widgets/settings_scaffold.dart';
 import '../widgets/grouped_list.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderProxyBox;
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../widgets/app_banner.dart';
@@ -207,6 +208,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
     );
   }
 
+  static const _minEditorHeight = 240.0;
+
   Widget _body(ThemeData theme) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator.adaptive());
@@ -227,53 +230,109 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       );
     }
     final check = _check;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const AppBanner(
-            tone: AppBannerTone.warning,
-            icon: AppIcons.warning,
-            title: 'Replaces all servers of this profile.',
-            detail:
-                'Anything you remove here is deleted, not just switched off. '
-                "This is the profile's real configuration, including secrets "
-                'such as environment values and bearer tokens. It is not saved on '
-                'this device.',
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: McpJsonField(controller: _text, readOnly: _busy),
-          ),
-          if (check is McpJsonInvalid) ...[
-            const SizedBox(height: 8),
-            Text(
-              check.message,
-              key: const ValueKey('mcp-json-error'),
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-          ],
-          if (_problems.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Column(
-              key: const ValueKey('mcp-json-problems'),
-              crossAxisAlignment: CrossAxisAlignment.start,
+    // The editor fills the height the notes leave, but never less than
+    // [_minEditorHeight]: at large text the page scrolls instead of the
+    // banner squeezing the editor out. [SliverFillRemaining] sizes its child
+    // from its intrinsic height, so the editor reports [_minEditorHeight]
+    // there instead of the full height of its text.
+    return CustomScrollView(
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final problem in _problems)
+                const AppBanner(
+                  tone: AppBannerTone.warning,
+                  icon: AppIcons.warning,
+                  title: 'Replaces all servers of this profile.',
+                  detail:
+                      'Anything you remove here is deleted, not just switched off. '
+                      "This is the profile's real configuration, including secrets "
+                      'such as environment values and bearer tokens. It is not saved on '
+                      'this device.',
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _FixedIntrinsicHeight(
+                    height: _minEditorHeight,
+                    child: McpJsonField(controller: _text, readOnly: _busy),
+                  ),
+                ),
+                if (check is McpJsonInvalid) ...[
+                  const SizedBox(height: 8),
                   Text(
-                    problem,
+                    check.message,
+                    key: const ValueKey('mcp-json-error'),
                     style: TextStyle(color: theme.colorScheme.error),
                   ),
+                ],
+                if (_problems.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Column(
+                    key: const ValueKey('mcp-json-problems'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final problem in _problems)
+                        Text(
+                          problem,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                    ],
+                  ),
+                ],
+                if (_failure case final failure?) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    failure,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ],
               ],
             ),
-          ],
-          if (_failure case final failure?) ...[
-            const SizedBox(height: 8),
-            Text(failure, style: TextStyle(color: theme.colorScheme.error)),
-          ],
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
+}
+
+/// Lays its child out like a plain box but reports [height] as its intrinsic
+/// height, so a scrollable that sizes from intrinsics does not grow with the
+/// child's content.
+class _FixedIntrinsicHeight extends SingleChildRenderObjectWidget {
+  const _FixedIntrinsicHeight({required this.height, super.child});
+
+  final double height;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFixedIntrinsicHeight(height);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderFixedIntrinsicHeight renderObject,
+  ) {
+    renderObject.height = height;
+  }
+}
+
+class _RenderFixedIntrinsicHeight extends RenderProxyBox {
+  _RenderFixedIntrinsicHeight(this._height);
+
+  double _height;
+  set height(double value) {
+    if (value == _height) return;
+    _height = value;
+    markNeedsLayout();
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _height;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _height;
 }

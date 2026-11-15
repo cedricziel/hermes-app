@@ -244,6 +244,8 @@ extension _Sending on HermesGatewayTransport {
       owner = (profile, storedId);
       _establishOwned(owner, client, runtimeId);
       _settledEarly.remove(owner);
+      // This send takes the thread over: a reply lost earlier is not waited for.
+      _lostReplies.remove(owner);
       await _idle.remove(owner)?.close();
       // A relay may have re-keyed its watch after compression before the
       // caller knew the new id: the runtime session is the same all the same.
@@ -665,7 +667,11 @@ extension _Sending on HermesGatewayTransport {
             yield UnsolicitedEvent(withdrawn);
           }
           if (claimedShown) yield const ThreadNeedsRefetch();
-          throw const GatewayConnectionClosed();
+          // A turn handed over live is read again, not picked up: nothing
+          // is kept to wait on, so the reply fails (and the thread refetches).
+          if (claimedShown) throw const GatewayTurnEnded();
+          _lostReplies[owner] = runtimeId;
+          throw const GatewayReplyLost();
         }
         drops.attempt();
         final resumed = await _reattach(
@@ -765,7 +771,11 @@ extension _Sending on HermesGatewayTransport {
                 !yielded.any((event) => event is ThreadNeedsRefetch)) {
               yield const ThreadNeedsRefetch();
             }
-            throw const GatewayConnectionClosed();
+            if (resumed.gone == null && !resumed.turnEnded) {
+              if (claimedShown) throw const GatewayTurnEnded();
+              _lostReplies[owner] = runtimeId;
+            }
+            throw resumed.failure;
           }
           _reportSettled(yielded, errored: errored);
           return;

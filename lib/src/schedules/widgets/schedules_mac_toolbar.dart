@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../theme/app_icons.dart';
 import 'schedule_filter_menu.dart';
@@ -15,6 +16,7 @@ class SchedulesMacToolbar extends StatelessWidget {
     required this.onScopeChanged,
     required this.filterMenu,
     required this.onRefresh,
+    this.refreshing = false,
     required this.onNew,
   });
 
@@ -25,6 +27,9 @@ class SchedulesMacToolbar extends StatelessWidget {
   /// The [ScheduleFilterMenu] for the failing and paused jobs.
   final Widget filterMenu;
   final VoidCallback onRefresh;
+
+  /// Shows a spinner on Refresh while the jobs load.
+  final bool refreshing;
   final VoidCallback onNew;
 
   @override
@@ -46,7 +51,9 @@ class SchedulesMacToolbar extends StatelessWidget {
       const MacToolbarSeparator(),
       filterMenu,
       MacToolbarButton(
-        label: 'Refresh',
+        label: context.l10n.schedulesRefreshAction,
+        shortcut: '⌘R',
+        busy: refreshing,
         icon: AppIcons.refresh,
         onPressed: onRefresh,
       ),
