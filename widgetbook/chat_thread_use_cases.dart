@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
-    show InMemoryChatController, User;
+    show Builders, InMemoryChatController, User;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_message_mapper.dart';
@@ -9,6 +9,8 @@ import 'package:hermes_app/src/chat/chat_theme.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
+import 'package:hermes_app/src/chat/widgets/chat_earlier_messages_failed_row.dart';
+import 'package:hermes_app/src/chat/widgets/chat_history_state.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:provider/provider.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
@@ -65,8 +67,15 @@ class _ChatThreadView extends StatefulWidget {
     this.replying = false,
     this.canRetry = true,
     this.queued = const [],
+    this.history,
+    this.earlier,
   });
 
+  /// Set for a stored chat whose messages are loading or failed to load.
+  final ChatHistoryStatus? history;
+
+  /// Set for a chat whose older messages failed to load.
+  final ChatEarlierMessagesStatus? earlier;
   final List<ChatMessage> messages;
   final List<SharedFile> attachments;
   final bool replying;
@@ -78,6 +87,16 @@ class _ChatThreadView extends StatefulWidget {
 }
 
 class _ChatThreadViewState extends State<_ChatThreadView> {
+  Builders _withHistory(Builders builders) => widget.history == null
+      ? builders
+      : builders.copyWith(
+          emptyChatListBuilder: (_) => ChatHistoryState(
+            status: widget.history!,
+            onRetry: () {},
+            delay: Duration.zero,
+          ),
+        );
+
   late final InMemoryChatController _controller = InMemoryChatController(
     messages: [for (final m in widget.messages) ...chatMessageToFlyer(m)],
   );
@@ -109,15 +128,33 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
             onMessageSend: (_) {},
             theme: buildChatTheme(Theme.of(context)),
             builders:
-                buildChatBuilders(
-                  greetingName: 'Ada',
-                  onPickPrompt: (_) {},
-                  latestReplyId: _latest,
-                  onRetry: widget.canRetry ? () {} : null,
-                  onEdit: widget.canRetry ? () {} : null,
-                  onAnswerApproval: _answered,
-                  onAnswerClarify: _answered,
-                  onSkipUnsupported: _answered,
+                _withHistory(
+                  buildChatBuilders(
+                    greetingName: 'Ada',
+                    onPickPrompt: (_) {},
+                    latestReplyId: _latest,
+                    onRetry: widget.canRetry ? () {} : null,
+                    onEdit: widget.canRetry ? () {} : null,
+                    onAnswerApproval: _answered,
+                    onAnswerClarify: _answered,
+                    onSkipUnsupported: _answered,
+                    topSliver: widget.earlier == null
+                        ? null
+                        : SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                kChatGutter,
+                                0,
+                                kChatGutter,
+                                kChatTurnGap,
+                              ),
+                              child: ChatEarlierMessagesFailedRow(
+                                status: widget.earlier!,
+                                onRetry: () {},
+                              ),
+                            ),
+                          ),
+                  ),
                 ).copyWith(
                   composerBuilder: buildChatComposer(
                     controller: _text,
@@ -144,14 +181,26 @@ WidgetbookUseCase _thread(
   bool replying = false,
   bool canRetry = true,
   List<QueuedPrompt> queued = const [],
+  ChatHistoryStatus? history,
+  ChatEarlierMessagesStatus? earlier,
+  bool reducedMotion = false,
+  double textScale = 1,
 }) => WidgetbookUseCase(
   name: name,
-  builder: (_) => _ChatThreadView(
-    messages: messages,
-    attachments: attachments,
-    replying: replying,
-    canRetry: canRetry,
-    queued: queued,
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(
+      disableAnimations: reducedMotion,
+      textScaler: TextScaler.linear(textScale),
+    ),
+    child: _ChatThreadView(
+      history: history,
+      earlier: earlier,
+      messages: messages,
+      attachments: attachments,
+      replying: replying,
+      canRetry: canRetry,
+      queued: queued,
+    ),
   ),
 );
 
@@ -162,6 +211,45 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
       name: 'Messages',
       useCases: [
         _thread('Empty, welcome', const []),
+        _thread(
+          'Loading the chat',
+          const [],
+          history: ChatHistoryStatus.loading,
+        ),
+        _thread(
+          'Loading the chat, reduced motion',
+          const [],
+          history: ChatHistoryStatus.loading,
+          reducedMotion: true,
+        ),
+        _thread(
+          'Loading the chat, largest text size',
+          const [],
+          history: ChatHistoryStatus.loading,
+          textScale: 3.1,
+        ),
+        _thread(
+          'Loading the chat failed',
+          const [],
+          history: ChatHistoryStatus.failed,
+        ),
+        _thread('Earlier messages failed', [
+          _user('u1', 'Why did the run fail around 02:14?'),
+          _reply('a1', _markdown, tools: const [finishedToolCall]),
+        ], earlier: ChatEarlierMessagesStatus.failed),
+        _thread('Earlier messages retrying', [
+          _user('u1', 'Why did the run fail around 02:14?'),
+          _reply('a1', _markdown, tools: const [finishedToolCall]),
+        ], earlier: ChatEarlierMessagesStatus.retrying),
+        _thread(
+          'Earlier messages failed, largest text size',
+          [
+            _user('u1', 'Why did the run fail around 02:14?'),
+            _reply('a1', _markdown, tools: const [finishedToolCall]),
+          ],
+          earlier: ChatEarlierMessagesStatus.failed,
+          textScale: 3.1,
+        ),
         _thread('Conversation', [
           _user('u1', 'Why did the run fail around 02:14?'),
           _reply('a1', _markdown, tools: const [finishedToolCall]),
@@ -346,5 +434,64 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
         ], replying: true),
       ],
     ),
+    WidgetbookComponent(
+      name: 'ChatHistoryState',
+      useCases: [
+        _historyCase('Loading', ChatHistoryStatus.loading),
+        _historyCase(
+          'Loading, short area (whole lines only)',
+          ChatHistoryStatus.loading,
+          height: 70,
+        ),
+        _historyCase(
+          'Loading, largest text size',
+          ChatHistoryStatus.loading,
+          scale: 2,
+        ),
+        _historyCase(
+          'Loading, reduced motion',
+          ChatHistoryStatus.loading,
+          reducedMotion: true,
+        ),
+        _historyCase('Failed', ChatHistoryStatus.failed),
+        _historyCase(
+          'Failed, short area',
+          ChatHistoryStatus.failed,
+          height: 70,
+        ),
+        _historyCase(
+          'Failed, largest text size',
+          ChatHistoryStatus.failed,
+          scale: 2,
+        ),
+      ],
+    ),
   ],
+);
+
+WidgetbookUseCase _historyCase(
+  String name,
+  ChatHistoryStatus status, {
+  double? height,
+  double scale = 1,
+  bool reducedMotion = false,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(
+      textScaler: TextScaler.linear(scale),
+      disableAnimations: reducedMotion,
+    ),
+    child: Align(
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        height: height,
+        child: ChatHistoryState(
+          status: status,
+          onRetry: () {},
+          delay: Duration.zero,
+        ),
+      ),
+    ),
+  ),
 );

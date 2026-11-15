@@ -1,7 +1,8 @@
 import 'package:flutter/widgets.dart';
-import 'package:gpt_markdown/custom_widgets/code_field.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:material_ui/material_ui.dart' as mui;
+
+import 'hermes_code_block.dart';
 
 /// The longest line of a code block that still gets syntax colours.
 const kHighlightMaxLine = 500;
@@ -110,6 +111,8 @@ class BoundedMarkdown extends StatefulWidget {
     this.style,
     this.onLinkTap,
     this.linkBuilder,
+    this.checkboxBuilder,
+    this.radioOptionBuilder,
   });
 
   final String data;
@@ -117,6 +120,8 @@ class BoundedMarkdown extends StatefulWidget {
   final void Function(String url, String title)? onLinkTap;
   // ignore: deprecated_member_use
   final LinkBuilder? linkBuilder;
+  final CheckboxBuilder? checkboxBuilder;
+  final RadioOptionBuilder? radioOptionBuilder;
 
   @override
   State<BoundedMarkdown> createState() => _BoundedMarkdownState();
@@ -138,7 +143,7 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
         (resolvedStyleSheet(context, config).codeBlock ??
                 const CodeBlockStyle())
             .resolve(mui.Theme.of(context).colorScheme);
-    return CodeField(
+    return HermesCodeBlock(
       // A block drawn inside a paragraph is scaled by it; one of its own
       // scales itself, as in the renderer's default block.
       scalesItsOwnText:
@@ -161,6 +166,8 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
       onLinkTap: widget.onLinkTap,
       // ignore: deprecated_member_use
       linkBuilder: widget.linkBuilder,
+      checkboxBuilder: widget.checkboxBuilder,
+      radioOptionBuilder: widget.radioOptionBuilder,
       codeBuilder: _code,
     );
   }

@@ -116,11 +116,16 @@ void main() {
         expect(find.text('Running tool2…'), findsOneWidget);
         expect(find.byType(ToolCallCard), findsNWidgets(2));
         expect(result(1), findsOneWidget);
-        // The card the reader was reading is still on screen.
+        // The card the reader was reading is still on screen, and so is what
+        // it shows: reachable by a tap and inside the viewport.
         final card = find.byType(ToolCallCard).first;
         final rect = tester.getRect(card);
         expect(rect.top, greaterThanOrEqualTo(0));
         expect(rect.bottom, lessThanOrEqualTo(size.height));
+        expect(result(1).hitTestable(), findsOneWidget);
+        final shown = tester.getRect(result(1));
+        expect(shown.top, greaterThanOrEqualTo(0));
+        expect(shown.bottom, lessThanOrEqualTo(size.height));
         expect(tester.takeException(), isNull);
       });
 
