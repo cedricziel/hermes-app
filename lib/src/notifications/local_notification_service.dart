@@ -11,7 +11,7 @@ import 'dart:io'
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb, visibleForTesting;
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -37,12 +37,31 @@ bool linuxSessionBusAvailable({
 }) {
   final env = environment ?? Platform.environment;
   final address = env['DBUS_SESSION_BUS_ADDRESS'];
-  if (address != null) return address.isNotEmpty;
+  if (address != null) return address.split(';').any(_usableBusAddress);
   final userDir = env['XDG_USER_DIR'];
   final dir = userDir ?? '/run/user/${(uid ?? _currentUid)()}';
   if (dir.isEmpty) return false;
   final path = '$dir/bus';
   return (exists ?? _socketExists)(path);
+}
+
+/// A D-Bus address entry the `dbus` package can open: `unix:` with `path=`,
+/// `abstract=`, `dir=` or `tmpdir=`, or `tcp:`. Anything else (such as the
+/// `disabled:` that switches D-Bus off) makes it throw plain strings.
+bool _usableBusAddress(String entry) {
+  final e = entry.trim();
+  if (e.startsWith('tcp:')) return true;
+  if (!e.startsWith('unix:')) return false;
+  return e
+      .substring(5)
+      .split(',')
+      .any(
+        (p) =>
+            p.startsWith('path=') && p.length > 5 ||
+            p.startsWith('abstract=') && p.length > 9 ||
+            p.startsWith('dir=') && p.length > 4 ||
+            p.startsWith('tmpdir=') && p.length > 7,
+      );
 }
 
 bool _socketExists(String path) {
@@ -66,13 +85,17 @@ int _currentUid() {
   return -1;
 }
 
-/// Whether [error] comes from the D-Bus connection: a socket or OS error, or
-/// an exception of the `dbus` package (named `DBus...`; it is not a direct
-/// dependency, so matched by name).
+/// Whether [error] comes from the D-Bus connection: a socket or OS error, an
+/// exception of the `dbus` package (named `DBus...`; it is not a direct
+/// dependency, so matched by name), or one of the plain strings it throws
+/// from opening a socket. An unrelated `TimeoutException` is not one:
+/// `_guard`'s own timeout marks the bus failed itself.
 bool isLinuxBusError(Object error) =>
     error is SocketException ||
     error is OSError ||
-    error is TimeoutException ||
+    (error is String &&
+        (error.startsWith('D-Bus') ||
+            error.startsWith('Unable to determine D-Bus'))) ||
     error.runtimeType.toString().startsWith('DBus');
 
 /// How long a Linux plugin call may take. The D-Bus client of the plugin never
@@ -308,11 +331,16 @@ class LocalNotificationService
   /// Set when the Linux plugin's D-Bus setup failed, even after `initialize`
   /// returned; the service is unsupported from then on.
   var _linuxBusFailed = false;
-  final _busFailure = Completer<void>();
+  final _pendingCalls = <void Function()>{};
+
+  @visibleForTesting
+  int get pendingGuardedCalls => _pendingCalls.length;
 
   void _markBusFailed() {
     _linuxBusFailed = true;
-    if (!_busFailure.isCompleted) _busFailure.complete();
+    for (final fail in _pendingCalls.toList()) {
+      fail();
+    }
   }
 
   /// Runs a plugin call. On Linux it also ends, as an error, when the bus
@@ -329,11 +357,11 @@ class LocalNotificationService
         out.completeError(TimeoutException('D-Bus call', kLinuxCallTimeout));
       }
     });
-    unawaited(
-      _busFailure.future.then((_) {
-        if (!out.isCompleted) out.completeError(StateError('D-Bus failed'));
-      }),
-    );
+    void fail() {
+      if (!out.isCompleted) out.completeError(StateError('D-Bus failed'));
+    }
+
+    _pendingCalls.add(fail);
     Future.sync(call).then(
       (value) {
         if (!out.isCompleted) out.complete(value);
@@ -342,7 +370,10 @@ class LocalNotificationService
         if (!out.isCompleted) out.completeError(error, stack);
       },
     );
-    return out.future.whenComplete(timer.cancel);
+    return out.future.whenComplete(() {
+      timer.cancel();
+      _pendingCalls.remove(fail);
+    });
   }
 
   /// Linux without a session bus counts as unsupported, so the plugin is

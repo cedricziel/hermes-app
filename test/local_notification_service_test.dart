@@ -26,6 +26,9 @@ class _Posted {
   final NotificationDetails? details;
 }
 
+/// Named like the `dbus` package's exception, which is matched by name.
+class DBusServiceUnknownException implements Exception {}
+
 class _FakePlugin implements FlutterLocalNotificationsPlugin {
   final posted = <_Posted>[];
   var initializeCalls = 0;
@@ -40,6 +43,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   InitializationSettings? settings;
   void Function()? duringInitialize;
   Completer<void>? showGate;
+  void Function()? onResolve;
 
   @override
   Future<bool?> initialize({
@@ -107,6 +111,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     T extends FlutterLocalNotificationsPlatform
   >() {
     if (T == AndroidFlutterLocalNotificationsPlugin) {
+      onResolve?.call();
       return _AndroidPermission(notificationsEnabled) as T;
     }
     return null;
@@ -1317,6 +1322,13 @@ void main() {
   group('Linux without a session bus', () {
     tearDown(() => debugDefaultTargetPlatformOverride = null);
 
+    const note = AttentionNotification(
+      threadId: 's1',
+      profile: 'work',
+      title: 'Cleanup',
+      body: 'Done.',
+    );
+
     LocalNotificationService serviceWith(
       _FakePlugin plugin, {
       required bool bus,
@@ -1352,6 +1364,107 @@ void main() {
       );
     });
 
+    test(
+      'a bus that fails between initialize and show posts nothing',
+      () async {
+        late Zone pluginZone;
+        final plugin = _FakePlugin()
+          ..duringInitialize = () {
+            pluginZone = Zone.current;
+          }
+          // Runs once initialize is done and before show: the bus dies then.
+          ..onResolve = () => pluginZone.handleUncaughtError(
+            const SocketException('dead bus'),
+            StackTrace.current,
+          );
+        final service = serviceWith(plugin, bus: true);
+        addTearDown(service.dispose);
+
+        final result = await service.post(note);
+
+        expect(result.status, NotificationPostStatus.unsupported);
+        expect(plugin.posted, isEmpty);
+      },
+    );
+
+    test('a DBus-named exception ends the bus', () async {
+      late Zone pluginZone;
+      final plugin = _FakePlugin()
+        ..duringInitialize = () {
+          pluginZone = Zone.current;
+        }
+        ..onResolve = () => pluginZone.handleUncaughtError(
+          DBusServiceUnknownException(),
+          StackTrace.current,
+        );
+      final service = serviceWith(plugin, bus: true);
+      addTearDown(service.dispose);
+
+      expect(
+        (await service.post(note)).status,
+        NotificationPostStatus.unsupported,
+      );
+    });
+
+    test('plain string errors of the dbus package end the bus too', () async {
+      final plugin = _FakePlugin()
+        ..duringInitialize = () {
+          final controller = StreamController<int>();
+          controller.stream.listen((_) {});
+          controller.addError('D-Bus address transport not supported: x');
+          unawaited(controller.close());
+        };
+      final service = serviceWith(plugin, bus: true);
+      addTearDown(service.dispose);
+
+      await service.post(note);
+      await pumpEventQueue();
+
+      expect(
+        (await service.post(note)).status,
+        NotificationPostStatus.unsupported,
+      );
+    });
+
+    test('an unrelated TimeoutException reaches the parent zone', () async {
+      final uncaught = <Object>[];
+      late StreamController<int> controller;
+      final plugin = _FakePlugin()
+        ..duringInitialize = () {
+          controller = StreamController<int>();
+          controller.stream.listen((_) {});
+        };
+      final service = serviceWith(plugin, bus: true);
+      addTearDown(service.dispose);
+
+      await runZonedGuarded(() async {
+        await service.post(note);
+        controller.addError(TimeoutException('something else'));
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+
+      expect(uncaught.single, isA<TimeoutException>());
+      expect(
+        (await service.post(note)).status,
+        NotificationPostStatus.accepted,
+      );
+      unawaited(controller.close());
+    });
+
+    test('no guarded call is retained once it finished', () async {
+      final plugin = _FakePlugin();
+      final service = serviceWith(plugin, bus: true);
+      addTearDown(service.dispose);
+
+      for (var i = 0; i < 20; i++) {
+        await service.post(note);
+      }
+      await service.withdrawAnswerable();
+
+      expect(plugin.posted, hasLength(20));
+      expect(service.pendingGuardedCalls, 0);
+    });
+
     test('a D-Bus error raised after initialize ends in unsupported', () async {
       final plugin = _FakePlugin()
         ..duringInitialize = () {
@@ -1378,13 +1491,6 @@ void main() {
       expect(result.status, NotificationPostStatus.unsupported);
       expect(plugin.initializeCalls, 1);
     });
-
-    const note = AttentionNotification(
-      threadId: 's1',
-      profile: 'work',
-      title: 'Cleanup',
-      body: 'Done.',
-    );
 
     test(
       'an error that is not about the bus reaches the parent zone',
@@ -1490,6 +1596,39 @@ void main() {
           exists: files.contains,
           uid: () => uid,
         );
+
+    test('an address with no usable transport is no bus', () {
+      for (final address in [
+        'disabled:',
+        'unix:guid=1',
+        'unix:path=',
+        '',
+        'x',
+      ]) {
+        expect(
+          check({'DBUS_SESSION_BUS_ADDRESS': address}, {'/run/user/1000/bus'}),
+          isFalse,
+          reason: address,
+        );
+      }
+    });
+
+    test('an address with a usable entry is a bus', () {
+      for (final address in [
+        'unix:path=/x',
+        'unix:abstract=/tmp/dbus-x',
+        'unix:dir=/tmp',
+        'unix:tmpdir=/tmp',
+        'tcp:host=localhost,port=1',
+        'disabled:;unix:path=/x',
+      ]) {
+        expect(
+          check({'DBUS_SESSION_BUS_ADDRESS': address}, {}),
+          isTrue,
+          reason: address,
+        );
+      }
+    });
 
     test('is false with nothing set and no socket', () {
       expect(check({}, {}), isFalse);
