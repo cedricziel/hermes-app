@@ -6,9 +6,19 @@ import 'package:stream_channel/stream_channel.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart' show VoiceTurnRefusal;
 import 'package:hermes_app/src/voice/calls/call_agent.dart';
 import 'package:hermes_app/src/voice/calls/call_tones.dart';
+import 'package:hermes_app/src/voice/calls/echo_guard.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
 
 import 'call_harness.dart';
+
+class _RecordingEcho extends EchoGuard {
+  final replies = <String>[];
+  @override
+  void spoken(String reply) {
+    replies.add(reply);
+    super.spoken(reply);
+  }
+}
 
 void main() {
   late CallHarness h;
@@ -175,6 +185,79 @@ void main() {
       expect(h.sockets, 1, reason: 'no new socket');
     });
 
+    test(
+      'turned off mid-reply, later words reach neither line nor echo guard',
+      () async {
+        final echo = _RecordingEcho();
+        await h.rebuild(echo: echo);
+        await h.activate();
+        await h.say('First');
+        h.agent.text!('A long answer, ');
+        h.socket.foreign.sink
+          ..add(
+            jsonEncode({'type': 'start', 'sample_rate': 24000, 'channels': 1}),
+          )
+          ..add([0, 1, 2, 3]);
+        await pumpEventQueue();
+        h.call.setSpeakReplies(false);
+        await pumpEventQueue();
+        h.agent.text!('and more.');
+        expect(h.call.lastHermes, 'A long answer, ');
+        expect(echo.replies.last, 'A long answer, ');
+        h.agent.pending!.complete();
+        await pumpEventQueue();
+        expect(h.call.lastHermes, 'A long answer, ');
+        expect(echo.replies.last, 'A long answer, ');
+        expect(h.call.replyInChat, isTrue);
+      },
+    );
+
+    test(
+      'turned off before any words, a tool-only turn says nothing',
+      () async {
+        final echo = _RecordingEcho();
+        await h.rebuild(echo: echo);
+        await h.activate();
+        await h.say('Run it');
+        h.call.setSpeakReplies(false);
+        await pumpEventQueue();
+        h.agent.pending!.complete();
+        await pumpEventQueue();
+        expect(h.call.lastHermes, isEmpty);
+        expect(echo.replies, isEmpty);
+        expect(h.call.replyInChat, isTrue);
+      },
+    );
+
+    test('a new prompt clears "in the chat" from the earlier reply', () async {
+      await h.activate();
+      h.call.setSpeakReplies(false);
+      await h.say('One');
+      h.agent.pending!.complete();
+      await pumpEventQueue();
+      expect(h.call.replyInChat, isTrue);
+      h.call.setSpeakReplies(true);
+      await h.say('Two');
+      expect(h.call.replyInChat, isFalse, reason: 'cleared at submit');
+      h.agent.text!('Long answer ');
+      h.utterance();
+      await pumpEventQueue();
+      expect(h.call.replyInChat, isFalse, reason: 'and after the barge-in');
+    });
+
+    test(
+      'a tool-only turn keeps the finishing sentence as the last reply',
+      () async {
+        await h.activate();
+        await h.say('Run it');
+        await spoken('');
+        expect(
+          h.call.lastHermes,
+          'I have finished. You can see the details in the chat.',
+        );
+      },
+    );
+
     test('turned off while the socket opens, the call goes on', () async {
       final gate = Completer<StreamChannel<Object?>>();
       h.openSocket = () => gate.future;
@@ -282,6 +365,28 @@ void main() {
       expect(held, 2);
       await h.call.end();
       expect(released, 2);
+    });
+
+    test('turned on while the call ends, no hold is sent', () async {
+      await withLease();
+      await h.activate();
+      h.call.setSpeakReplies(false);
+      await pumpEventQueue();
+      final ending = h.call.end();
+      h.call.setSpeakReplies(true);
+      await ending;
+      expect(held, 1);
+    });
+
+    test('turned on after the call ended, no hold is sent', () async {
+      await withLease();
+      await h.activate();
+      h.call.setSpeakReplies(false);
+      await pumpEventQueue();
+      await h.call.end();
+      h.call.setSpeakReplies(true);
+      await pumpEventQueue();
+      expect(held, 1);
     });
 
     test('a failed hold is ignored and the call goes on', () async {
