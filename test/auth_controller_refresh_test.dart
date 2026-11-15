@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/native_login_flow.dart';
 import 'package:hermes_app/src/auth/session_activity.dart';
+import 'package:hermes_app/src/auth/token_store.dart' show SessionRead;
 import 'package:hermes_app/src/notifications/attention_notifier.dart'
     show signedInAccountKey;
 import 'package:hermes_app/src/models/auth_provider_info.dart';
@@ -61,6 +62,9 @@ class _GatedDashboard {
 
   /// Whether the refresh route leaves `user_id` and `provider` out.
   bool omitIdentity = false;
+
+  /// The `user_id` the refresh route answers with.
+  String refreshUserId = 'u1';
 
   /// The `expires_at` the refresh route answers with, when not an hour ahead.
   int? refreshExpiresAt;
@@ -142,7 +146,7 @@ class _GatedDashboard {
           'refresh_token': validRefresh,
           if (!omitExpiresAt) 'expires_at': refreshExpiresAt ?? _farFuture,
           if (!omitIdentity) 'provider': 'oidc',
-          if (!omitIdentity) 'user_id': 'u1',
+          if (!omitIdentity) 'user_id': refreshUserId,
         });
       default:
         return _authed(request);
@@ -194,6 +198,33 @@ class _SlowWriteTokenStore extends MemoryTokenStore {
   Future<void> write(HermesSession next) async {
     await Future<void>.delayed(delay);
     session = next;
+  }
+}
+
+/// A store whose [nth] [readState] call after [holdRead] waits for [release],
+/// like a keychain that is slow to answer one read.
+class _GatedReadTokenStore extends MemoryTokenStore {
+  _GatedReadTokenStore(super.session);
+
+  int _holdAt = 0;
+  int _reads = 0;
+  final held = Completer<void>();
+  final _released = Completer<void>();
+
+  void holdRead(int nth) {
+    _holdAt = nth;
+    _reads = 0;
+  }
+
+  void release() => _released.complete();
+
+  @override
+  Future<SessionRead> readState({bool repair = true}) async {
+    if (_holdAt > 0 && ++_reads == _holdAt) {
+      held.complete();
+      await _released.future;
+    }
+    return super.readState(repair: repair);
   }
 }
 
@@ -464,6 +495,46 @@ void main() {
     expect(events.named('auth.session.refreshed'), [
       {'trigger': 'after_401'},
     ]);
+  });
+
+  test('a rejected refresh neither serves nor ends a session that now '
+      'belongs to another user', () async {
+    final gated = _GatedReadTokenStore(_session());
+    store = gated;
+    controller = AuthController(
+      tokenStore: gated,
+      devServerUrl: dashboard.url,
+      telemetry: events.connection,
+      rejectionRecheck: const Duration(milliseconds: 20),
+    );
+    await controller.bootstrap();
+    dashboard
+      ..validAccess = 'revoked'
+      ..refreshFailure = 401
+      ..refreshFailureBody = _sessionExpired
+      ..refreshUserId = 'u2';
+    // Reads after this point: 1 is the refresh looking for a newer pair, 2 is
+    // the recheck after the rejection, which waits here.
+    gated.holdRead(2);
+    final rejected = expectLater(
+      controller.api!.fetchMe(),
+      throwsA(isA<DioException>()),
+    );
+    await gated.held.future;
+    // Meanwhile a second request refreshes, and the server answers it with
+    // another user's pair.
+    dashboard.refreshFailure = null;
+    await controller.api!.fetchMe();
+    expect(store.session?.userId, 'u2');
+    final requestsBefore = dashboard.authRequests;
+
+    gated.release();
+    await rejected;
+
+    expect(dashboard.authRequests, requestsBefore);
+    expect(store.session?.userId, 'u2');
+    expect(controller.state, HermesConnectionState.ready);
+    expect(events.named('auth.session.expired'), isEmpty);
   });
 
   test('a rejected refresh adopts the pair another isolate stored', () async {
@@ -1529,6 +1600,41 @@ void main() {
       expect(expired, [true]);
     });
 
+    test('signing out while an expiry is cleaning up announces one sign-out, '
+        'not an expiry', () async {
+      final slow = _SlowClearTokenStore(_session());
+      controller = AuthController(
+        tokenStore: slow,
+        devServerUrl: dashboard.url,
+        rejectionRecheck: const Duration(milliseconds: 20),
+      );
+      await controller.bootstrap();
+      signedOut = 0;
+      controller.signedOut.listen((_) {
+        signedOut++;
+        expired.add(controller.sessionExpired);
+      });
+      dashboard
+        ..validAccess = 'revoked'
+        ..refreshFailure = 401
+        ..refreshFailureBody = _sessionExpired;
+      final failed = expectLater(
+        controller.api!.fetchMe(),
+        throwsA(isA<DioException>()),
+      );
+      await slow.clearStarted.future;
+
+      final departure = controller.signOut();
+      slow.releaseClear();
+      await failed;
+      await departure;
+
+      expect(signedOut, 1);
+      expect(expired, [false]);
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(controller.errorMessage, isNull);
+    });
+
     test('stays quiet while requests race to refresh the session', () async {
       await listen(_session());
       dashboard
@@ -1585,6 +1691,25 @@ void main() {
         expect(store.session?.refreshToken, 'refresh-2');
       },
     );
+
+    test('windows reporting the same rejected token share one refresh '
+        'request', () async {
+      await bootstrapWith(_session());
+      final started = dashboard.refreshStarted = Completer<void>();
+      final release = dashboard.refreshGate = Completer<void>();
+      const rejected = {'Authorization': 'Bearer access-1'};
+
+      final answers = Future.wait([
+        controller.windowAuthHeaders(rejected: rejected),
+        controller.windowAuthHeaders(rejected: rejected),
+      ]);
+      await started.future;
+      release.complete();
+
+      expect(await answers, everyElement({'Authorization': 'Bearer access-2'}));
+      expect(dashboard.refreshCalls, 1);
+      expect(store.session?.refreshToken, 'refresh-2');
+    });
 
     test('a rejected token that was already rotated away is not refreshed '
         'again', () async {
