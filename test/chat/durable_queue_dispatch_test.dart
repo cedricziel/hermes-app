@@ -9,6 +9,8 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart'
+    show GatewayRpcException;
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/queue_storage/durable_queue_store.dart';
 import 'package:hermes_app/src/chat/queue_storage/queue_record.dart';
@@ -234,6 +236,66 @@ void main() {
       expect(transport.sends.last.threadId, 'fresh');
     },
   );
+
+  group('a chat bound to a session whose first prompt was never written', () {
+    /// A new chat whose voice turn opened the session `fresh` and was
+    /// withdrawn while a prompt typed meanwhile waits in the queue.
+    Future<ChatThread> stranded(ChatController chat, {Object? lost}) async {
+      chat.newThread();
+      final thread = chat.selectedThread!;
+      var wanted = true;
+      expect(
+        await chat.submitVoiceTurn('spoken', wanted: () => wanted),
+        isNull,
+      );
+      final voice = transport.sends.single;
+      voice.emit(const ThreadBound('fresh'));
+      await pumpEventQueue();
+      expect(await chat.submit('typed meanwhile', const []), isTrue);
+      await queueIdle(chat);
+      // Hermes restarted meanwhile: session.resume of `fresh` is rejected.
+      transport.openError = lost;
+      wanted = false;
+      voice.submit();
+      await pumpEventQueue();
+      if (lost == null) {
+        await transport.prepared.timeout(const Duration(seconds: 5));
+      }
+      await pumpEventQueue();
+      expect(transport.sends.last.threadId, 'fresh');
+      return thread;
+    }
+
+    test(
+      'whose session Hermes lost fails the queued prompt, keeps it and never '
+      'leaves the chat replying',
+      () async {
+        final chat = await open();
+        final thread = await stranded(
+          chat,
+          lost: const GatewayRpcException(4007, 'session not found'),
+        );
+        expect(thread.isReplying, isFalse);
+        expect(chat.queuedIn(thread).map((p) => p.text), ['typed meanwhile']);
+        expect(chat.queuePaused(thread), isTrue);
+        // Known limit (docs/architecture/chat.md): the chat stays bound to the
+        // lost id, so a later send resumes it again. Hermes would have to
+        // restart between the create and this send.
+        expect(reports, isEmpty);
+      },
+    );
+
+    test('that Hermes still has is resumed by the queued prompt', () async {
+      final chat = await open();
+      final thread = await stranded(chat);
+      transport.sends.last
+        ..emit(const ReplyCompleted('Hi.'))
+        ..finish();
+      await pumpEventQueue();
+      expect(thread.messages.last.content, 'Hi.');
+      expect(transport.sends, hasLength(2));
+    });
+  });
 
   test('new input on restored queue stays paused', () async {
     await store.commit(scope(), 'restored');

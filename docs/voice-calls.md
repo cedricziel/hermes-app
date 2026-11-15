@@ -102,7 +102,11 @@ phrase, else it is sent. A dropped transcript says nothing.
   and listens. The reply, if any, is in the chat and is not spoken.
 - Hermes takes the words as the stop phrase of its own voice mode (`voice_stopped`,
   for a typed prompt too): no turn runs, no message is left in the chat, and a
-  running call ends (telemetry reason `voice_stopped`).
+  running call ends (telemetry reason `voice_stopped`). A prompt typed, queued
+  or answered from a notification that Hermes takes this way is not lost
+  silently: the chat says "Hermes took that as a stop command. Nothing was
+  sent." and puts the words back in the message box (a notification reply ends
+  in "Reply not sent" with the text kept).
 
 **Voice model and the interrupted note.** A spoken turn is sent with
 `voice_turn: true`, so Hermes runs it on the profile's `voice_chat` model route
@@ -251,7 +255,8 @@ The call shipped first without these rules. This version changes it:
 - **Sending** now lasts until `prompt.submit` is written, and End during the
   session resume sends nothing (before, a prompt could still go out after End).
 - **Refusals** say "Hermes is still answering. Nothing was sent." (only when
-  that is the reason) or "Couldn't send. Nothing was sent." and the call goes
+  that is the reason), "Your queued messages are paused. Nothing was sent."
+  (queued messages wait for you and no reply runs) or "Couldn't send. Nothing was sent." and the call goes
   on; a lost session or profile ends it. A stop phrase Hermes catches ends the
   call (`voice_stopped`).
 
