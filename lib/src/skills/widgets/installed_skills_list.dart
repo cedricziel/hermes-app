@@ -22,6 +22,7 @@ class InstalledSkillsList extends StatelessWidget {
     this.onCheckForUpdates,
     this.updating = false,
     this.onWhatsTheDifference,
+    this.header,
   });
 
   final List<SkillGroup> groups;
@@ -39,6 +40,10 @@ class InstalledSkillsList extends StatelessWidget {
   /// that ends the list. Null leaves it out.
   final VoidCallback? onWhatsTheDifference;
 
+  /// A group above the first category, such as the skill curator. The screen
+  /// leaves it out while a search or filter is active.
+  final Widget? header;
+
   @override
   Widget build(BuildContext context) {
     if (groups.isEmpty) {
@@ -50,10 +55,12 @@ class InstalledSkillsList extends StatelessWidget {
         ),
       );
     }
+    final header = this.header;
     final onCheckForUpdates = this.onCheckForUpdates;
     final onWhatsTheDifference = this.onWhatsTheDifference;
     return GroupedListView(
       children: [
+        ?header,
         for (final group in groups)
           GroupedSection(
             header: categoryLabel(group.category),

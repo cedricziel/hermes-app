@@ -79,6 +79,7 @@ import 'settings_chrome_use_cases.dart';
 import 'settings_screen_use_cases.dart';
 import 'messaging_use_cases.dart';
 import 'skills_messaging_use_cases.dart';
+import 'skills_curator_use_cases.dart';
 import 'skills_use_cases.dart';
 import 'state_message_use_cases.dart';
 import 'bot_screen_use_cases.dart';
@@ -191,6 +192,7 @@ final List<WidgetbookNode> directories = [
   schedulesMacNode(),
   skillsMessagingNode(),
   skillsNode(),
+  skillsCuratorNode(),
   messagingNode(),
   botModeRosterNode(),
   botChatNode(),
