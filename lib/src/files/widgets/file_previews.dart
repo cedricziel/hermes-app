@@ -7,14 +7,18 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import '../../../l10n/l10n.dart';
 import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/app_icons.dart';
+import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_tab_bar.dart';
 import '../../widgets/markdown_links.dart';
+import '../../widgets/markdown_task_box.dart';
 import '../../theme/platform_chrome.dart';
+import '../code_highlight.dart';
 import 'files_metrics.dart';
 import 'files_notes.dart';
 import 'files_questions.dart';
 import 'markdown_inert.dart';
+import 'safe_path_text.dart';
 
 /// A text file the server cut short: how much came and how much there is.
 class FileTruncation {
@@ -37,11 +41,13 @@ class TextContent extends FilePreviewContent {
   final FileTruncation? truncation;
 }
 
-/// A code file. Plain monospace until the code colours arrive.
+/// A code file, coloured by the server's `language` name when the app has a
+/// grammar for it.
 class CodeContent extends FilePreviewContent {
-  const CodeContent(this.text, {this.truncation});
+  const CodeContent(this.text, {this.language, this.truncation});
 
   final String text;
+  final String? language;
   final FileTruncation? truncation;
 }
 
@@ -94,8 +100,9 @@ class FilePreviewView extends StatelessWidget {
       truncation: truncation,
       onDownloadFull: onDownloadFull,
     ),
-    CodeContent(:final text, :final truncation) => CodePreview(
+    CodeContent(:final text, :final language, :final truncation) => CodePreview(
       text: text,
+      language: language,
       truncation: truncation,
       onDownloadFull: onDownloadFull,
     ),
@@ -184,7 +191,10 @@ class _TextBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _Scrolling(
     note: note,
-    child: SelectableText(text, style: filesCodeStyle(context)),
+    child: SelectableText(
+      safeContentText(text),
+      style: filesCodeStyle(context),
+    ),
   );
 }
 
@@ -210,17 +220,21 @@ class TextPreview extends StatelessWidget {
   );
 }
 
-/// A code file. It is plain monospace for now; the colours of the code
-/// palette come with the highlighter.
+/// A code file: [TextPreview] with the colours of the code palette, by the
+/// server's [language] name. A name the app has no grammar for (`text` and
+/// `plaintext` included) and a file above [kCodeHighlightMaxChars] stay plain
+/// monospace, with no highlighter run at all.
 class CodePreview extends StatelessWidget {
   const CodePreview({
     super.key,
     required this.text,
+    this.language,
     this.truncation,
     this.onDownloadFull,
   });
 
   final String text;
+  final String? language;
   final FileTruncation? truncation;
   final VoidCallback? onDownloadFull;
 
@@ -229,15 +243,137 @@ class CodePreview extends StatelessWidget {
     context,
     truncation: truncation,
     onDownloadFull: onDownloadFull,
-    body: (note) => _TextBody(text: text, note: note),
+    body: (note) => _Scrolling(
+      note: note,
+      child: HighlightedCode(text: text, language: language, selectable: true),
+    ),
   );
+}
+
+/// [text] as monospace, coloured by the grammar of [language]. The
+/// highlighter is not linear on every input and a file is untrusted, so a
+/// small, plainly shaped text ([isInlineSafe]) is coloured while the frame
+/// builds; a larger one shows plain at once and takes its colours from a
+/// killable isolate ([CodeHighlightWorker], at most one, ended with this
+/// widget and after [kCodeHighlightTimeout]) when they are ready. A text with
+/// no grammar, `text` included, and one that [isColourable] refuses (above
+/// [kCodeHighlightMaxChars], or with a stretch of [kCodeHighlightMaxUnbreakable]
+/// characters that cannot wrap) stay
+/// plain. The characters never change, only their colour.
+class HighlightedCode extends StatefulWidget {
+  const HighlightedCode({
+    super.key,
+    required this.text,
+    this.language,
+    this.selectable = false,
+    this.budget,
+  });
+
+  final String text;
+  final String? language;
+
+  /// The share of the colouring cost this text may take, for the fences of one
+  /// Markdown document. With one, nothing goes to a worker: a text the budget
+  /// does not cover stays plain.
+  final CodeHighlightBudget? budget;
+
+  /// Whether the text can be selected on its own; a text inside a
+  /// `SelectionArea` leaves this off.
+  final bool selectable;
+
+  @override
+  State<HighlightedCode> createState() => _HighlightedCodeState();
+}
+
+class _HighlightedCodeState extends State<HighlightedCode> {
+  late String _safe;
+  late List<CodeRun> _runs;
+  CodeHighlightWorker? _worker;
+  var _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _colour();
+  }
+
+  @override
+  void didUpdateWidget(HighlightedCode oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new budget (the document changed) is charged again by every fence,
+    // those this State kept included, so the document never exceeds it.
+    if (oldWidget.text != widget.text ||
+        oldWidget.language != widget.language ||
+        oldWidget.budget != widget.budget) {
+      _colour();
+    }
+  }
+
+  @override
+  void dispose() {
+    _generation++;
+    _worker?.kill();
+    _worker = null;
+    super.dispose();
+  }
+
+  void _colour() {
+    final generation = ++_generation;
+    _worker?.kill();
+    _worker = null;
+    _safe = safeContentText(widget.text);
+    _runs = [(_safe, null)];
+    final language = widget.language;
+    if (!hasCodeGrammar(language) || !isColourable(_safe)) {
+      return;
+    }
+    final budget = widget.budget;
+    if (budget != null ? budget.take(_safe) : isInlineSafe(_safe)) {
+      _runs = highlightCode(_safe, language);
+    } else if (budget == null) {
+      final worker = _worker = CodeHighlightWorker();
+      unawaited(
+        worker.highlight(_safe, language).then((runs) {
+          if (mounted && generation == _generation && runs != null) {
+            setState(() => _runs = runs);
+          }
+        }),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = filesCodeStyle(context);
+    final palette = context.codeColors;
+    TextStyle? styleOf(CodeToken? token) => switch (token) {
+      null => null,
+      CodeToken.keyword => TextStyle(color: palette.keyword),
+      CodeToken.string => TextStyle(color: palette.string),
+      CodeToken.comment => TextStyle(
+        color: palette.comment,
+        fontStyle: FontStyle.italic,
+      ),
+      CodeToken.number => TextStyle(color: palette.number),
+      CodeToken.function => TextStyle(color: palette.function),
+      CodeToken.type => TextStyle(color: palette.typeName),
+    };
+    final span = TextSpan(
+      style: base,
+      children: [
+        for (final (text, token) in _runs)
+          TextSpan(text: text, style: styleOf(token)),
+      ],
+    );
+    return widget.selectable ? SelectableText.rich(span) : Text.rich(span);
+  }
 }
 
 /// A Markdown file, rendered or as source. Rendering is inert: an image shows
 /// its alt text or "Image not loaded" and nothing is requested, a link asks
 /// "Open example.com?" first, and a relative link or image does nothing. HTML
 /// is text.
-class MarkdownPreview extends StatelessWidget {
+class MarkdownPreview extends StatefulWidget {
   const MarkdownPreview({
     super.key,
     required this.text,
@@ -255,16 +391,39 @@ class MarkdownPreview extends StatelessWidget {
   final LinkOpener? openLink;
   final Future<bool> Function(BuildContext context, String host)? confirmLink;
 
+  @override
+  State<MarkdownPreview> createState() => _MarkdownPreviewState();
+}
+
+class _MarkdownPreviewState extends State<MarkdownPreview> {
+  /// What the colouring of this document's fences may cost, all together.
+  var _budget = CodeHighlightBudget();
+
+  @override
+  void didUpdateWidget(MarkdownPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new text, or the same one shown again after the Source view: every
+    // fence is built anew and takes its share again.
+    if (oldWidget.text != widget.text ||
+        oldWidget.showSource != widget.showSource) {
+      _budget = CodeHighlightBudget();
+    }
+  }
+
   Future<void> _tap(BuildContext context, String url) async {
     final host = markdownLinkHost(url);
     if (host == null) return;
-    final ask = confirmLink ?? confirmOpenLink;
+    final ask = widget.confirmLink ?? confirmOpenLink;
     if (!await ask(context, host) || !context.mounted) return;
-    markdownLinkHandler(open: openLink)(url, '');
+    markdownLinkHandler(open: widget.openLink)(url, '');
   }
 
   @override
   Widget build(BuildContext context) {
+    final text = widget.text;
+    final showSource = widget.showSource;
+    final truncation = widget.truncation;
+    final onDownloadFull = widget.onDownloadFull;
     if (showSource) {
       return _withNote(
         context,
@@ -284,18 +443,28 @@ class MarkdownPreview extends StatelessWidget {
           child: _themed(
             context,
             GptMarkdown(
-              inertMarkdown(text, notLoaded: notLoaded),
+              // The reference pass runs last: inertMarkdown collapses links and
+              // images to their text and can join an unfinished reference to a
+              // semicolon.
+              safeMarkdownText(
+                inertMarkdown(safeContentText(text), notLoaded: notLoaded),
+              ),
               // Markdown here comes from the agent: HTML in it is text, never
               // a tag that renders (an <img> would be a request).
               html: false,
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               onLinkTap: (url, _) => unawaited(_tap(context, url)),
+              checkboxBuilder: readOnlyTaskBox,
+              radioOptionBuilder: readOnlyRadioOption,
               imageBuilder: (context, url, width, height) => Text(
                 notLoaded,
                 style: const TextStyle(fontStyle: FontStyle.italic),
               ),
-              codeBuilder: (context, name, code, closed) =>
-                  _MarkdownCodeBlock(code: code),
+              codeBuilder: (context, name, code, closed) => _MarkdownCodeBlock(
+                code: code,
+                language: name,
+                budget: _budget,
+              ),
             ),
           ),
         ),
@@ -331,12 +500,18 @@ Widget _themed(BuildContext context, Widget markdown) {
   );
 }
 
-/// A fenced code block: monospace on the highest surface of the theme, in the
-/// text colour, so it reads in both themes.
+/// A fenced code block: monospace on the highest surface of the theme,
+/// coloured by the language named after the fence, so it reads in both themes.
 class _MarkdownCodeBlock extends StatelessWidget {
-  const _MarkdownCodeBlock({required this.code});
+  const _MarkdownCodeBlock({
+    required this.code,
+    required this.language,
+    required this.budget,
+  });
 
   final String code;
+  final String language;
+  final CodeHighlightBudget budget;
 
   @override
   Widget build(BuildContext context) {
@@ -349,7 +524,11 @@ class _MarkdownCodeBlock extends StatelessWidget {
         color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(code.trimRight(), style: filesCodeStyle(context)),
+      child: HighlightedCode(
+        text: code.trimRight(),
+        language: language,
+        budget: budget,
+      ),
     );
   }
 }

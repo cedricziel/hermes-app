@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.1.78 # x-release-please-version
+version: 0.1.79 # x-release-please-version
 
 environment:
   sdk: ^3.13.4
@@ -128,6 +128,10 @@ dependencies:
   # The system share sheet for a staged file (iOS and Android; desktop shows
   # Save and Open with only), by path so the file is never read into memory.
   share_plus: ^13.3.1
+
+  # Syntax colours for the Files code preview. Already in the tree through
+  # gpt_markdown, so this adds no package; see the server-files change.
+  val_highlight: ^0.1.1
 
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
 # upstream SPM implementation until those packages publish their next release.
