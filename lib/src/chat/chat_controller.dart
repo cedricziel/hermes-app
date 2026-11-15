@@ -840,6 +840,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// the newest ones are on screen.
   final _historyRetrying = <String>{};
 
+  /// How many first-page reads of a chat were started: a read that finds a
+  /// newer one has been replaced.
+  final _pageReadToken = <String, int>{};
+
   /// Threads with older rows on the server, by how many rows were read so far.
   final _olderRows = <String, int>{};
 
@@ -1614,7 +1618,6 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final epoch = _activityEpoch;
     final profile = _profile;
     final id = thread.id;
-    if (thread.messages.isNotEmpty) _historyRetrying.add(id);
     final load = _loadMessages(id);
     notifyListeners();
     unawaited(

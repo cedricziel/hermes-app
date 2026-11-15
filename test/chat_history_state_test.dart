@@ -237,7 +237,7 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('on a Mac Retry meets the 28 pt floor', (tester) async {
+  testWidgets('on a Mac Retry is 32 pt', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -254,7 +254,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(
       tester.getSize(find.widgetWithText(FilledButton, 'Retry')).height,
-      greaterThanOrEqualTo(28),
+      32,
     );
   });
 }

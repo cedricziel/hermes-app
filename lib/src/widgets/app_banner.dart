@@ -83,17 +83,23 @@ class AppBanner extends StatelessWidget {
         .clamp(0.0, _iconSize + _iconGap);
   }
 
+  /// The smallest height a button action is given on this platform: 48 on
+  /// Material, 44 on iOS, 28 on a Mac. A caller that swaps the button for
+  /// something else keeps the banner's height by using at least this.
+  static double minActionTarget(BuildContext context) =>
+      switch (platformChromeOf(context)) {
+        PlatformChrome.material => 48.0,
+        PlatformChrome.ios => kAppleMinTapTarget,
+        PlatformChrome.macos => 28.0,
+      };
+
   static Widget _target(
     BuildContext context,
     Widget action,
     bool flush,
     bool isButton,
   ) {
-    final minimum = switch (platformChromeOf(context)) {
-      PlatformChrome.material => 48.0,
-      PlatformChrome.ios => kAppleMinTapTarget,
-      PlatformChrome.macos => 28.0,
-    };
+    final minimum = minActionTarget(context);
     final base = Theme.of(context).textButtonTheme.style;
     final style = ButtonStyle(
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,

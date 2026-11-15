@@ -219,8 +219,10 @@ extension _ChatControllerHistory on ChatController {
       unawaited(_loadModelOptions(profile, generation, notifyLoading: false));
       _threads = [...local, ...threads];
       _ChatControllerCheckpoints(this)._actionsAfterLoad();
-      _historyFailed.clear();
-      _historyRetrying.clear();
+      // A chat kept for its send keeps its failed first page: its row stays
+      // and Retry still reads. The others are read again when selected.
+      _historyFailed.retainWhere(liveIds.contains);
+      _historyRetrying.retainWhere(liveIds.contains);
       _unloaded
         ..clear()
         ..addAll(
@@ -229,7 +231,8 @@ extension _ChatControllerHistory on ChatController {
               .map((t) => t.id),
         )
         // A first page cut off by this read is read again.
-        ..addAll(live.map((t) => t.id).where(_loadingMessages.containsKey));
+        ..addAll(live.map((t) => t.id).where(_loadingMessages.containsKey))
+        ..addAll(_historyFailed);
       final keptOlder = {for (final t in kept) t.id: ?_olderRows[t.id]};
       _olderRows
         ..clear()
@@ -427,20 +430,44 @@ extension _ChatControllerHistory on ChatController {
     // Already read, or being read: a caller waits for that read, so a
     // reselect during Retry does not act on a chat still without its page.
     if (!_unloaded.remove(id)) return _loadingMessages[id] ?? Future.value();
-    _historyFailed.remove(id);
-    final load = _readFirstPage(id);
+    // A read that starts while the failure shows is a retry of it.
+    if (_historyFailed.remove(id)) _historyRetrying.add(id);
+    final token = _pageReadToken[id] = (_pageReadToken[id] ?? 0) + 1;
+    final load = _readFirstPage(id, token);
     _loadingMessages[id] = load;
     return load.whenComplete(() {
-      if (identical(_loadingMessages[id], load)) _loadingMessages.remove(id);
+      if (identical(_loadingMessages[id], load)) {
+        _loadingMessages.remove(id);
+        _historyRetrying.remove(id);
+      }
     });
   }
 
-  Future<void> _readFirstPage(String id) async {
+  /// A read of [id]'s first page that the list reloading made stale is not
+  /// lost: unless a newer read started, the chat is unread again, and one
+  /// that was a Retry shows its failure again, so the row keeps its Retry.
+  void _restoreStaleRead(String id, int token, {required bool retried}) {
+    if (!active ||
+        _pageReadToken[id] != token ||
+        !_threads.any((t) => t.id == id)) {
+      return;
+    }
+    _unloaded.add(id);
+    if (retried) _historyFailed.add(id);
+    _historyRetrying.remove(id);
+    notifyListeners();
+  }
+
+  Future<void> _readFirstPage(String id, int token) async {
     final generation = _loadGeneration;
+    final retried = _historyRetrying.contains(id);
     final reading = _threads.where((t) => t.id == id).firstOrNull;
     try {
       final page = await repository!.loadMessagePage(id, profile: _profile);
-      if (!active || generation != _loadGeneration) return;
+      if (!active) return;
+      if (generation != _loadGeneration) {
+        return _restoreStaleRead(id, token, retried: retried);
+      }
       _historyRetrying.remove(id);
       final thread = _threads.where((t) => t.id == id).firstOrNull;
       if (thread == null) return _readAgainUnderNewId(reading, id);
@@ -455,7 +482,9 @@ extension _ChatControllerHistory on ChatController {
       await controllerFor(thread)
           .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
     } on Object {
-      if (generation != _loadGeneration) return;
+      if (generation != _loadGeneration) {
+        return _restoreStaleRead(id, token, retried: retried);
+      }
       _historyRetrying.remove(id);
       _unloaded.add(id);
       if (!active) return;

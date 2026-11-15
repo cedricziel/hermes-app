@@ -85,9 +85,9 @@ class _ChatHistoryStateState extends State<ChatHistoryState> {
                         )
                       : Theme.of(context).platform == TargetPlatform.macOS
                       // The Mac theme's compact density shrinks the button to
-                      // 20 pt; the floor is 28.
+                      // 20 pt; the design is 32.
                       ? FilledButton.styleFrom(
-                          minimumSize: const Size(0, 28),
+                          minimumSize: const Size(0, 32),
                           visualDensity: VisualDensity.standard,
                         )
                       : null,

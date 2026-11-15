@@ -1,9 +1,12 @@
+import 'dart:ui' show SemanticsAction;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/chat_earlier_messages_failed_row.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/app_banner.dart';
 
 Widget _host(
   Widget child, {
@@ -60,7 +63,7 @@ void main() {
         width: 680,
       ),
     );
-    expect(tester.getSize(retry).height, inInclusiveRange(28, 36));
+    expect(tester.getSize(retry).height, 32);
   });
 
   testWidgets('retrying shows a spinner and no button, at the height of '
@@ -120,7 +123,34 @@ void main() {
     expect(tester.getSize(retry).height, greaterThanOrEqualTo(44));
   });
 
-  testWidgets('the Retry button has the screen reader label', (tester) async {
+  testWidgets('a screen reader gets a title-only live region and a pressable '
+      'Retry', (tester) async {
+    final handle = tester.ensureSemantics();
+    var taps = 0;
+    await tester.pumpWidget(
+      _host(
+        ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.failed,
+          onRetry: () => taps++,
+        ),
+      ),
+    );
+    final banner = tester.getSemantics(find.byType(AppBanner));
+    expect(banner.flagsCollection.isLiveRegion, isTrue);
+    expect(banner.label, "Couldn't load earlier messages");
+    final button = tester.getSemantics(find.byType(TextButton));
+    expect(button.label, 'Retry loading earlier messages');
+    expect(button.flagsCollection.isButton, isTrue);
+    expect(button.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    expect(button.getSemanticsData().hasAction(SemanticsAction.focus), isTrue);
+    tester.semantics.tap(
+      find.semantics.byLabel('Retry loading earlier messages'),
+    );
+    expect(taps, 1);
+    handle.dispose();
+  });
+
+  testWidgets('the banner label is the same while retrying', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(
       _host(
@@ -130,8 +160,54 @@ void main() {
         ),
       ),
     );
-    final node = tester.getSemantics(retry);
-    expect(node.label, contains('Retry loading earlier messages'));
+    final failed = tester.getSemantics(find.byType(AppBanner)).label;
+    await tester.pumpWidget(
+      _host(
+        const ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.retrying,
+        ),
+      ),
+    );
+    final retrying = tester.getSemantics(find.byType(AppBanner)).label;
+    expect(retrying, failed);
+    expect(failed, "Couldn't load earlier messages");
     handle.dispose();
   });
+
+  for (final platform in [
+    TargetPlatform.android,
+    TargetPlatform.iOS,
+    TargetPlatform.macOS,
+    TargetPlatform.linux,
+  ]) {
+    testWidgets('the banner keeps its height from failed to retrying on '
+        '${platform.name}', (tester) async {
+      Future<double> height(ChatEarlierMessagesStatus status) async {
+        await tester.pumpWidget(
+          _host(
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ChatEarlierMessagesFailedRow(
+                  status: status,
+                  onRetry: status == ChatEarlierMessagesStatus.failed
+                      ? () {}
+                      : null,
+                ),
+              ],
+            ),
+            platform: platform,
+            // Wide enough that the test font's wide glyphs do not wrap the
+            // title in one state and not the other.
+            width: 680,
+          ),
+        );
+        return tester.getSize(find.byType(AppBanner)).height;
+      }
+
+      final failed = await height(ChatEarlierMessagesStatus.failed);
+      final retrying = await height(ChatEarlierMessagesStatus.retrying);
+      expect(retrying, failed);
+    });
+  }
 }

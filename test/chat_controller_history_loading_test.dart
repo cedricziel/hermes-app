@@ -311,6 +311,66 @@ void main() {
       },
     );
 
+    test('Retry resends nothing: the transport sees no new send', () async {
+      await failThenSend();
+      final sends = transport.sends.length;
+      final messages = thread('s2').messages.length;
+
+      chat.retryHistory(thread('s2'));
+      await flush();
+      expect(transport.sends, hasLength(sends));
+      s2Reads.last.complete(page());
+      await flush();
+      expect(transport.sends, hasLength(sends));
+      final queued = thread('s2').messages
+          .where(
+            (m) => m.role == ChatRole.user && m.content == 'a new question',
+          )
+          .length;
+      expect(queued, 1);
+      expect(chat.queuedIn(thread('s2')), isEmpty);
+      // Only the two older messages came in, nothing was added by Retry.
+      expect(thread('s2').messages, hasLength(messages + 2));
+    });
+
+    test('a list reload while a message is sending keeps the row, and Retry '
+        'still reads', () async {
+      await failThenSend();
+      expect(earlier(), ChatEarlierMessagesStatus.failed);
+
+      await chat.loadThreads();
+      await flush();
+      // The reload reads the open chat's page again, and the row says so.
+      expect(earlier(), ChatEarlierMessagesStatus.retrying);
+      expect(s2Reads, hasLength(2));
+      s2Reads.last.complete(failure());
+      await flush();
+
+      expect(earlier(), ChatEarlierMessagesStatus.failed);
+      chat.retryHistory(thread('s2'));
+      await flush();
+      expect(s2Reads, hasLength(3));
+      expect(earlier(), ChatEarlierMessagesStatus.retrying);
+    });
+
+    test('a list reload that fails while Retry reads does not lose the '
+        'row', () async {
+      await failThenSend();
+      chat.retryHistory(thread('s2'));
+      await flush();
+      server.on('GET', '/api/sessions', {'detail': 'boom'}, status: 500);
+
+      await chat.loadThreads();
+      await flush();
+      s2Reads.last.complete(failure());
+      await flush();
+
+      expect(earlier(), ChatEarlierMessagesStatus.failed);
+      chat.retryHistory(thread('s2'));
+      await flush();
+      expect(s2Reads, hasLength(3));
+    });
+
     test('a chat that never failed has no row', () async {
       expect(chat.earlierMessagesStatusOf(thread('s1')), isNull);
     });

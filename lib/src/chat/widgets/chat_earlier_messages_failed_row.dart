@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -34,38 +36,48 @@ class ChatEarlierMessagesFailedRow extends StatelessWidget {
       _ => false,
     };
     // One height for both states, so Retry turning into the spinner and back
-    // never moves the messages below the row.
-    final height = touch ? 44.0 : 32.0;
+    // never moves the messages below the row. The banner gives a button
+    // action its platform target, so the retrying content takes the same.
+    final height = math.max(
+      AppBanner.minActionTarget(context),
+      touch ? 44.0 : 32.0,
+    );
     final Widget? action = switch (status) {
       ChatEarlierMessagesStatus.failed =>
         onRetry == null
             ? null
-            : Semantics(
-                label: l10n.chatWidgetsHistoryEarlierRetryLabel,
-                button: true,
-                excludeSemantics: true,
-                child: TextButton.icon(
-                  onPressed: onRetry,
-                  icon: const AppIcon(AppIcons.refresh, size: 16),
-                  label: Text(l10n.commonRetry),
-                  style: TextButton.styleFrom(
-                    minimumSize: Size(0, height),
-                    visualDensity: touch ? null : VisualDensity.compact,
+            : TextButton.icon(
+                onPressed: onRetry,
+                icon: const AppIcon(AppIcons.refresh, size: 16),
+                label: Text(
+                  l10n.commonRetry,
+                  semanticsLabel: l10n.chatWidgetsHistoryEarlierRetryLabel,
+                ),
+                style: TextButton.styleFrom(
+                  minimumSize: Size(0, height),
+                  visualDensity: VisualDensity.standard,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
                   ),
                 ),
               ),
-      ChatEarlierMessagesStatus.retrying => ConstrainedBox(
-        constraints: BoxConstraints(minHeight: height),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const MotionSpinner(),
-            const SizedBox(width: 8),
-            Text(
-              l10n.chatWidgetsHistoryEarlierRetrying,
-              style: TextStyle(color: context.hermesColors.subtleText),
-            ),
-          ],
+      // Its own node, so the banner's live label stays the title.
+      ChatEarlierMessagesStatus.retrying => Semantics(
+        container: true,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: height),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const MotionSpinner(),
+              const SizedBox(width: 8),
+              Text(
+                l10n.chatWidgetsHistoryEarlierRetrying,
+                style: TextStyle(color: context.hermesColors.subtleText),
+              ),
+            ],
+          ),
         ),
       ),
     };
