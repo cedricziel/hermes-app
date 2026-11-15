@@ -6,8 +6,8 @@ import '../theme/app_icons.dart';
 /// state it is in.
 ///
 /// [AppBadge.tinted] tells a state in its own colour, with an optional icon so
-/// the colour never carries the meaning alone. [AppBadge.filled] is a neutral
-/// tag on a surface colour. The badge reads as its label and is not a button.
+/// the colour never carries the meaning alone. [AppBadge.filled] is a solid tag on
+/// a scheme colour, with the `on*` label colour that matches it. The badge reads as its label and is not a button.
 /// It takes plain values only: no controller and no lookups beyond the theme.
 class AppBadge extends StatelessWidget {
   /// A label and optional icon in [color], on a faint tint of it. Long labels

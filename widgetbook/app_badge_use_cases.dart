@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
-import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/app_badge.dart';
@@ -67,21 +65,25 @@ WidgetbookFolder appBadgeNode() => WidgetbookFolder(
             ),
           ),
         ),
-        _case(
-          'Filled, trust levels and sources',
-          (context) => const Wrap(
+        _case('Filled, scheme role pairs', (context) {
+          final scheme = Theme.of(context).colorScheme;
+          return Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              TrustBadge('builtin'),
-              TrustBadge('trusted'),
-              TrustBadge('community'),
-              SourceBadge(SkillSource.hub),
-              SourceBadge(SkillSource.bundled),
-              SourceBadge(SkillSource.agent),
+              AppBadge.filled(
+                label: 'Primary',
+                fill: scheme.primary,
+                labelColor: scheme.onPrimary,
+              ),
+              AppBadge.filled(
+                label: 'Surface',
+                fill: scheme.surfaceContainerHighest,
+                labelColor: scheme.onSurface,
+              ),
             ],
-          ),
-        ),
+          );
+        }),
         WidgetbookUseCase(
           name: 'Largest text, long label wraps',
           builder: (context) => MediaQuery(

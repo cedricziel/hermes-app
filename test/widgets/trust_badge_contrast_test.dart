@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
@@ -32,7 +33,11 @@ void _expectReadable(WidgetTester tester, String label) {
         .first,
   );
   final fill = (box.decoration as BoxDecoration).color!;
-  final ink = tester.widget<Text>(find.text(label)).style!.color!;
+  final ink = tester
+      .renderObject<RenderParagraph>(find.text(label))
+      .text
+      .style!
+      .color!;
   expect(
     _contrast(ink, fill),
     greaterThanOrEqualTo(4.5),

@@ -28,7 +28,8 @@ class TrustBadge extends StatelessWidget {
     final scheme = theme.colorScheme;
     final dark = theme.brightness == Brightness.dark;
     // Official stays the strongest fill, Trusted one step above Community.
-    // The theme has no container roles, so Trusted's pair lives here.
+    // Trusted's pair lives here: adding secondaryContainer to the schemes
+    // would recolour the profile avatars, which use it.
     final (fill, labelColor) = switch (level) {
       'builtin' => (scheme.primary, scheme.onPrimary),
       'trusted' => (

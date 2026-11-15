@@ -461,6 +461,21 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
             ),
           ),
         ),
+        WidgetbookUseCase(
+          name: 'All six',
+          builder: (_) => frame(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                const TrustBadge('builtin'),
+                const TrustBadge('trusted'),
+                const TrustBadge('community'),
+                for (final s in SkillSource.values) SourceBadge(s),
+              ],
+            ),
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(
