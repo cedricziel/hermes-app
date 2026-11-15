@@ -7,9 +7,10 @@ name: PR policy
 # the event JSON ($GITHUB_EVENT_PATH, never interpolated into a `run:` line)
 # and the changed files and patches from the REST API as data. The review job
 # also FETCHES the PR head's commit objects (never its working tree) so the
-# script can run read-only plumbing on them (rev-parse, rev-list, cat-file,
-# merge-base, merge-tree, diff-tree); fetched objects are data, run no hooks
-# and bring no config. The token is read-only, there are no secrets or caches.
+# script can run plumbing that only reads on them (rev-parse, rev-list,
+# cat-file, merge-base, diff-tree; merge-tree also writes its result tree into
+# the runner's ephemeral object store); fetched objects are data, run no hooks
+# and bring no config. The token is contents: read, with no secrets or caches.
 # Consequence: a PR that changes this file is checked by main's version.
 on:
   pull_request_target:

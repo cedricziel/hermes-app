@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from contextlib import redirect_stdout
 from unittest import mock
 
@@ -573,9 +574,6 @@ class MergeReviewTest(unittest.TestCase):
     def advance_main(self, name=None, text=None):
         self.r.git("checkout", "-q", "main")
         sha = self.r.commit(name, text, msg="main moves")
-        self.r.branch(
-            "pr", self.r.git("rev-parse", "pr").stdout.strip()
-        ) if False else None
         self.r.git("checkout", "-q", "pr")
         self.r.sync_origin()
         return sha
@@ -614,7 +612,8 @@ class MergeReviewTest(unittest.TestCase):
         out = self.review(
             self.rev, blk(self.rev, self.root, verdict="changes-requested")
         )
-        self.assertIn("says changes-requested", out[0])
+        self.assertIn("latest review of", out[0])
+        self.assertIn("requested changes", out[0])
 
     def test_old_one_line_format_passes_for_non_merge_head(self):
         self.r.sync_origin()
@@ -679,10 +678,84 @@ class MergeReviewTest(unittest.TestCase):
         out = self.review(self.rev, blk(OLD, self.root) + blk("d" * 40, self.root))
         self.assertIn(f"The review is for {OLD}, {'d' * 40}", out[0])
 
-    def test_clean_block_wins_over_changes_requested_for_same_head(self):
+    def test_changes_requested_outweighs_clean_in_either_order(self):
         self.r.sync_origin()
-        both = blk(self.rev, self.root, verdict="changes-requested") + blk(self.rev, self.root)
-        self.assertEqual(self.review(self.rev, both), [])
+        bad = blk(self.rev, self.root, verdict="changes-requested")
+        good = blk(self.rev, self.root)
+        for review in (bad + good, good + bad):
+            out = self.review(self.rev, review)
+            self.assertIn("The latest review of", out[0])
+            self.assertIn("requested changes", out[0])
+
+    def test_changes_needed_is_a_non_clean_verdict(self):
+        self.r.sync_origin()
+        out = self.review(self.rev, blk(self.rev, self.root, verdict="changes-needed"))
+        self.assertIn("requested changes", out[0])
+        out = review_recorded(body(review=blk(self.rev, self.root, verdict="changes-needed")), self.rev)
+        self.assertIn("says changes-needed", out[0])
+
+    def test_indented_lines_are_not_a_block(self):
+        self.r.sync_origin()
+        text = blk(self.rev, self.root)
+        for pad in ("    ", "\t", "        "):
+            indented = "".join(pad + line + "\n" for line in text.splitlines())
+            out = self.review(self.rev, indented)
+            self.assertIn("No isolated review recorded", out[0], repr(pad))
+        shallow = "".join("   " + line + "\n" for line in text.splitlines())
+        self.assertEqual(self.review(self.rev, shallow), [])
+
+    def test_paste_hint_has_real_newlines(self):
+        self.r.sync_origin()
+        out = self.review(self.rev, "")
+        self.assertIn(
+            f"in this format:\nReviewer: isolated-reviewer  Head: {self.rev}  "
+            f"Verdict: clean\nRange: {self.r.tip()}..{self.rev}",
+            out[0],
+        )
+
+    def test_empty_range_fails(self):
+        self.r.sync_origin()
+        out = self.review(
+            self.rev,
+            f"Reviewer: r Head: {self.rev} Verdict: clean\nRange: {self.rev}..{self.rev}\n",
+        )
+        self.assertIn("is empty", out[0])
+
+    def test_range_covering_one_commit_of_two_fails(self):
+        self.r.sync_origin()
+        second = self.r.commit("pr2.txt")
+        out = self.review(
+            second,
+            f"Reviewer: r Head: {second} Verdict: clean\nRange: {self.rev}..{second}\n",
+        )
+        self.assertIn("covers only part of the branch", out[0])
+        # The fork point, or any base-branch commit, is a full range.
+        self.assertEqual(self.review(second, blk(second, self.root)), [])
+        self.assertEqual(self.review(second, blk(second, self.r.tip())), [])
+
+    def test_diff_tree_failure_raises(self):
+        with self.assertRaises(ValueError):
+            self.r.pr_git().changed_files("0" * 40, "1" * 40)
+
+    def test_conflicted_merge_tree_committed_as_is_fails(self):
+        r = self.r
+        r.git("checkout", "-q", "main")
+        r.commit("a.txt", "one\nMAIN\nthree\n")
+        r.sync_origin()
+        r.git("checkout", "-q", "pr")
+        reviewed = r.commit("a.txt", "one\nPR\nthree\n")
+        res = r.git("merge", "--no-ff", "-m", "Merge main", "main", check=False)
+        self.assertNotEqual(res.returncode, 0)
+        # Commit exactly what merge-tree wrote, conflict markers and all.
+        _, tree, _ = r.pr_git().merge_tree(reviewed, r.tip())
+        r.write("a.txt", r.git("show", f"{tree}:a.txt").stdout)
+        r.git("add", "a.txt")
+        r.git("commit", "-q", "--no-edit")
+        h = r.head()
+        self.assertEqual(tree, r.pr_git().tree(h))  # the tree is merge-tree's
+        out = self.review(h, blk(reviewed, self.root))
+        self.assertIn(f"Merge {h} is not a clean automatic merge", out[0])
+        self.assertIn("a.txt", out[0])
 
     def test_chain_through_later_reviewed_head(self):
         r = self.r
@@ -747,6 +820,16 @@ class MergeReviewTest(unittest.TestCase):
         h = r.merge("other")
         out = self.review(h, blk(h, self.root, rng=False))
         self.assertIn("is not on the base branch", out[0])
+
+    def test_legacy_clean_and_changes_requested_for_a_merge_head_in_either_order(self):
+        self.advance_main("m1.txt")
+        self.r.commit("late.txt")  # first parent unreviewed
+        h = self.r.merge("main")
+        good = blk(h, self.root, rng=False)
+        bad = blk(h, self.root, rng=False, verdict="changes-requested")
+        self.assertEqual(self.review(h, good), [])
+        for review in (good + bad, bad + good):
+            self.assertTrue(self.review(h, review))
 
     def test_legacy_changes_requested_does_not_accept_a_merge(self):
         h = self.clean_merge_of_main()
@@ -874,8 +957,16 @@ class MergeReviewTest(unittest.TestCase):
             h = self.r.merge("main")
         with mock.patch.object(pr_policy, "MAX_MERGE_DEPTH", 2):
             out = self.review(h, blk(self.rev, self.root))
-        self.assertIn("More than 2 merges lie between", out[0])
-        self.assertIn(f"full review of {h}", out[0])
+        p2 = self.r.git("rev-parse", f"{h}^1^1").stdout.strip()
+        self.assertIn(f"2 clean merges in a row lie between head {h} and {p2}", out[0])
+        self.assertIn(f"merge review of {p2}", out[0])
+        self.assertIn(f"Merge-review: <files>\nReviewer: isolated-reviewer  Head: {p2}", out[0])
+        with mock.patch.object(pr_policy, "MAX_MERGE_DEPTH", 2):
+            anchored = (
+                blk(self.rev, self.root)
+                + f"Merge-review: x.txt\nReviewer: r Head: {p2} Verdict: clean\nRange: {self.root}..{p2}\n"
+            )
+            self.assertEqual(self.review(h, anchored), [])
         with mock.patch.object(pr_policy, "MAX_MERGE_DEPTH", 3):
             self.assertEqual(self.review(h, blk(self.rev, self.root)), [])
 
@@ -907,6 +998,7 @@ class MergeReviewTest(unittest.TestCase):
             r.git("rev-parse", "x").stdout.strip(),
         )
         self.assertIn("octopus merge (3 parents)", out[0])
+        self.assertNotIn("Merge-review", out[0])
 
     # --- rule (b2) --------------------------------------------------------
 
@@ -995,8 +1087,8 @@ class MergeReviewTest(unittest.TestCase):
     def test_merge_review_changes_requested_fails(self):
         h = self.dirty_merge()
         out = self.review(h, self.merge_review(h, verdict="changes-requested"))
-        self.assertIn("merge review of", out[0])
-        self.assertIn("changes-requested", out[0])
+        self.assertIn("latest merge review of", out[0])
+        self.assertIn("requested changes", out[0])
 
     def test_merge_review_naming_no_files_fails(self):
         h = self.dirty_merge()
@@ -1007,6 +1099,49 @@ class MergeReviewTest(unittest.TestCase):
         h = self.dirty_merge()
         review = self.merge_review(h) + self.p_block(h)
         self.assertEqual(self.review(h, review), [])
+
+    def test_foreign_second_parent_merge_review_must_list_everything_brought_in(self):
+        r = self.r
+        r.git("checkout", "-q", "-B", "other", self.root)
+        r.commit("other.txt")
+        r.commit("evil.txt")
+        r.git("checkout", "-q", "pr")
+        r.sync_origin()
+        h = r.merge("other")
+        out = self.review(h, blk(self.rev, self.root) + self.merge_review(h, files="other.txt"))
+        self.assertIn("does not list evil.txt", out[0])
+        both = self.merge_review(h, files="other.txt, evil.txt")
+        self.assertEqual(self.review(h, blk(self.rev, self.root) + both), [])
+        out = self.review(h, blk(self.rev, self.root))
+        self.assertIn("lists every file the merge brings into", out[0])
+        self.assertIn("evil.txt", out[0])
+
+    def test_fifteen_merge_review_chain_over_unreviewed_bottom_is_fast(self):
+        r = self.r
+        blocks = ""
+        for i in range(15):
+            self.advance_main(f"m{i}.txt")
+            h = r.merge("main")
+            blocks += (
+                f"Merge-review: x.txt\nReviewer: isolated-reviewer Head: {h} Verdict: clean\n"
+                f"Range: {self.root}..{h}\n"
+            )
+        calls = []
+        git = r.pr_git()
+        real = git.run
+
+        def counting(*args):
+            calls.append(args)
+            if len(calls) > 3000:
+                raise AssertionError("the chain walk is not linear")
+            return real(*args)
+
+        git.run = counting
+        start = time.monotonic()
+        out = review_recorded(body(review=blocks), h, git, r.tip())
+        self.assertLess(time.monotonic() - start, 2.0)
+        self.assertEqual(len(out), 1)
+        self.assertIn(f"No isolated review recorded for commit {self.rev}", out[0])
 
     def test_merge_review_also_rescues_a_foreign_second_parent(self):
         r = self.r
