@@ -221,6 +221,7 @@ extension _ChatControllerHistory on ChatController {
       unawaited(_loadModelOptions(profile, generation, notifyLoading: false));
       _threads = [...local, ...threads];
       _ChatControllerCheckpoints(this)._actionsAfterLoad();
+      _historyFailed.clear();
       _unloaded
         ..clear()
         ..addAll(
@@ -449,6 +450,7 @@ extension _ChatControllerHistory on ChatController {
 
   Future<void> _loadMessages(String id) {
     if (!active || !_unloaded.remove(id)) return Future.value();
+    _historyFailed.remove(id);
     final load = _readFirstPage(id);
     _loadingMessages[id] = load;
     return load.whenComplete(() {
@@ -478,8 +480,12 @@ extension _ChatControllerHistory on ChatController {
       if (generation != _loadGeneration) return;
       _unloaded.add(id);
       if (!active) return;
+      _historyFailed.add(id);
+      // The failed state is read from the notification, so the read is no
+      // longer in flight by then. Reselecting the chat or Retry reads again.
+      _loadingMessages.removeWhere((key, _) => key == id);
       _readAgainUnderNewId(reading, id);
-      report('Could not load this chat');
+      notifyListeners();
     }
   }
 
