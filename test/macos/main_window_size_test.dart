@@ -112,15 +112,24 @@ void main() {
   test('the CI window report exists only in debug builds and then quits', () {
     final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
     const flag = 'HERMES_REPORT_WINDOW';
-    final starts = RegExp(r'^\s*#if DEBUG\s*$', multiLine: true);
-    final ends = RegExp(r'^\s*#endif\s*$', multiLine: true);
+    // The conditionals open at a position: an unrelated `#if os(...)` elsewhere
+    // in the file must not matter, only that `#if DEBUG` encloses the flag.
+    List<String> openAt(int offset) {
+      final open = <String>[];
+      for (final line in delegate.substring(0, offset).split('\n')) {
+        final t = line.trim();
+        if (t.startsWith('#if ')) open.add(t);
+        if (t == '#endif' && open.isNotEmpty) open.removeLast();
+      }
+      return open;
+    }
+
     final hits = flag.allMatches(delegate).toList();
     expect(hits, hasLength(greaterThanOrEqualTo(1)));
     for (final hit in hits) {
-      final before = delegate.substring(0, hit.start);
       expect(
-        ends.allMatches(before).length,
-        lessThan(starts.allMatches(before).length),
+        openAt(hit.start),
+        contains('#if DEBUG'),
         reason: '$flag is not inside an #if DEBUG ... #endif',
       );
     }
@@ -130,11 +139,6 @@ void main() {
     );
     expect(block, contains('NSApp.terminate(nil)'));
     expect(block, contains('HERMES_WINDOW frame='));
-    // No conditional other than the DEBUG one wraps it.
-    expect(
-      RegExp(r'^\s*#if (?!DEBUG\s*$)', multiLine: true).hasMatch(delegate),
-      isFalse,
-    );
   });
 
   group('home shell', () {
