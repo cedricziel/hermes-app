@@ -10,6 +10,7 @@ import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/hermes_theme.dart';
 import '../../widgets/markdown_links.dart';
 import '../chat_message_kinds.dart';
+import '../markdown_entities.dart' show boundCodeFences;
 import '../chat_transport.dart' show ReplyStatusKind;
 import '../../../l10n/l10n.dart';
 import '../checkpoints/transcript_outcome.dart';
@@ -253,7 +254,7 @@ Widget _buildText(
   );
   final bubble = SelectionArea(
     child: FlyerChatTextMessage(
-      message: message,
+      message: message.copyWith(text: boundCodeFences(message.text)),
       index: index,
       showTime: false,
       showStatus: false,
