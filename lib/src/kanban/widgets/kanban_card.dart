@@ -145,8 +145,13 @@ class _Meta extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
+    // A label that wraps keeps the icon beside its first line.
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      AppIcon(icon, size: 13, color: style?.color),
+      Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: AppIcon(icon, size: 13, color: style?.color),
+      ),
       const SizedBox(width: 3),
       Flexible(child: Text(label, style: style)),
     ],

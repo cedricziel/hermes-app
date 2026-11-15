@@ -136,9 +136,17 @@ class ScreenshotRecorder {
     // A tap that misses would otherwise leave the same screen in every image.
     WidgetController.hitTestWarningShouldBeFatal = true;
     await tester.runAsync(() => _fontsLoaded ??= _loadFonts());
-    final override = Platform.environment['WORKFLOW_SIZE']?.split('x');
-    if (override != null && override.length == 2) {
-      size = Size(double.parse(override[0]), double.parse(override[1]));
+    final raw = Platform.environment['WORKFLOW_SIZE'];
+    if (raw != null) {
+      final parts = raw.split('x');
+      final width = parts.length == 2 ? double.tryParse(parts[0]) : null;
+      final height = parts.length == 2 ? double.tryParse(parts[1]) : null;
+      if (width != null && height != null) {
+        size = Size(width, height);
+      } else {
+        // ignore: avoid_print
+        print('Ignoring WORKFLOW_SIZE="$raw": expected <width>x<height>.');
+      }
     }
     tester.view.physicalSize = size * pixelRatio;
     tester.view.devicePixelRatio = pixelRatio;

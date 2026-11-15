@@ -50,6 +50,9 @@ class _CheckpointsPageState extends State<CheckpointsPage>
   /// Whether this page opened the list itself, outside a panel.
   CheckpointsController? _held;
 
+  final _scroll = ScrollController();
+  bool _noteShown = false;
+
   @override
   ChatController get chat => widget.chat;
 
@@ -65,10 +68,35 @@ class _CheckpointsPageState extends State<CheckpointsPage>
   @override
   bool lockedOf(CheckpointsController controller) => controller.locked;
 
+  /// A file's outcome goes on its Changes page; this list shows the others.
+  bool _showsOutcome(CheckpointsController controller) =>
+      controller.outcome != null &&
+      !controller.locked &&
+      lastRestoreWasFile(controller) != true;
+
+  /// The notes sit at the top of the page that scrolls, so a restore started
+  /// from a scrolled list brings them back into view.
+  void _noteChanged() {
+    final controller = this.controller;
+    if (controller == null) return;
+    final shown = controller.restoring || _showsOutcome(controller);
+    if (shown && !_noteShown && _scroll.hasClients) {
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+    _noteShown = shown;
+  }
+
   @override
   void initState() {
     super.initState();
     bindController();
+    controller?.addListener(_noteChanged);
     // After the first frame: reading notifies, and this runs while the
     // navigator builds.
     WidgetsBinding.instance.addPostFrameCallback((_) => _read());
@@ -89,7 +117,9 @@ class _CheckpointsPageState extends State<CheckpointsPage>
 
   @override
   void dispose() {
+    controller?.removeListener(_noteChanged);
     unbindController();
+    _scroll.dispose();
     final held = _held;
     if (held != null) scheduleMicrotask(held.releasePanel);
     super.dispose();
@@ -152,11 +182,7 @@ class _CheckpointsPageState extends State<CheckpointsPage>
     final controller = this.controller;
     if (controller == null) return const SizedBox.shrink();
     final outcome = controller.outcome;
-    // A file's outcome goes on its Changes page; this list shows the others.
-    final showOutcome =
-        outcome != null &&
-        !controller.locked &&
-        lastRestoreWasFile(controller) != true;
+    final showOutcome = _showsOutcome(controller);
     return ActivityPageScaffold(
       title: l10n.chatCheckpointsPageTitle,
       onBack: () => Navigator.of(context).maybePop(),
@@ -170,69 +196,53 @@ class _CheckpointsPageState extends State<CheckpointsPage>
               : _refresh,
         ),
       ],
-      body: LayoutBuilder(
-        builder: (context, constraints) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // The notes above the list scroll within half the page, so at
-            // large text they never push the list out of a small screen.
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: constraints.maxHeight / 2),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (controller.restoring)
-                      ActivityWorkingLine(
-                        label: l10n.chatCheckpointsPageRestoring,
-                      ),
-                    if (showOutcome)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                        child: RestoreOutcomeNote(
-                          key: const Key('checkpoints-outcome'),
-                          outcome: outcome,
-                          filesWereFile: false,
-                          onTryAgain: () => unawaited(
-                            restoreAgainFlow(
-                              context,
-                              controller: controller,
-                              changes: widget.chat,
-                            ),
+      body: CheckpointListBody(
+        scrollController: _scroll,
+        header: controller.restoring || showOutcome
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (controller.restoring)
+                    ActivityWorkingLine(
+                      label: l10n.chatCheckpointsPageRestoring,
+                      horizontalPadding: 0,
+                    ),
+                  if (showOutcome)
+                    Padding(
+                      // The list around it already insets its content.
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: RestoreOutcomeNote(
+                        key: const Key('checkpoints-outcome'),
+                        outcome: outcome!,
+                        filesWereFile: false,
+                        onTryAgain: () => unawaited(
+                          restoreAgainFlow(
+                            context,
+                            controller: controller,
+                            changes: widget.chat,
                           ),
                         ),
                       ),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: CheckpointListBody(
-                status: _status(controller),
-                items: [
-                  for (final checkpoint in controller.checkpoints)
-                    CheckpointListItem(
-                      checkpoint: checkpoint,
-                      timeLabel: _startOfLine(
-                        checkpointTimeLabel(l10n, checkpoint),
-                      ),
-                      timeSemanticsLabel: checkpointTimeSemantics(
-                        l10n,
-                        checkpoint,
-                      ),
                     ),
                 ],
-                disconnected: controller.notUpToDate,
-                restoreRefusal: controller.restoreRefusal(),
-                lockedCount: controller.count,
-                onSeeChanges: _seeChanges,
-                onRestoreAll: _restoreAll,
-                onRetry: () => unawaited(_refresh()),
-                onRefresh: controller.notUpToDate ? null : _refresh,
-              ),
+              )
+            : null,
+        status: _status(controller),
+        items: [
+          for (final checkpoint in controller.checkpoints)
+            CheckpointListItem(
+              checkpoint: checkpoint,
+              timeLabel: _startOfLine(checkpointTimeLabel(l10n, checkpoint)),
+              timeSemanticsLabel: checkpointTimeSemantics(l10n, checkpoint),
             ),
-          ],
-        ),
+        ],
+        disconnected: controller.notUpToDate,
+        restoreRefusal: controller.restoreRefusal(),
+        lockedCount: controller.count,
+        onSeeChanges: _seeChanges,
+        onRestoreAll: _restoreAll,
+        onRetry: () => unawaited(_refresh()),
+        onRefresh: controller.notUpToDate ? null : _refresh,
       ),
     );
   }
