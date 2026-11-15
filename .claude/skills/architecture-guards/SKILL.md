@@ -28,3 +28,11 @@ description: Use when a test under test/architecture/ fails (a guard or the base
 3. Run the scan on main and read every hit. Allowlist the legitimate paths in code, with a reason. Baseline only real violations you will not fix in this change: `UPDATE_BASELINE=1` never adds, so write those entries by hand with the counts the failure reports.
 4. Prove the rule can fail: add one violating line to a `lib/` file, run `flutter test test/architecture`, see the failure with the right message, revert it. Do not commit the line. A rule over `test/` (`arch.tests-read-docs`) needs a temporary file under `test/` instead, deleted afterwards.
 5. Keep the whole directory fast (it may run in a pre-commit hook): read files once, no process spawns.
+
+## Known gaps
+
+The scans read text, not types, so some slips get through. They are known, and a review is still the backstop:
+
+- `arch.error-interpolation-in-telemetry`: an error handler held in a variable (`final handler = (e, st) {...}; fut.catchError(handler)`), a helper that takes the error as a parameter with another name and logs it, and an error built into a string before the call (`final msg = '$e'; debugPrint(msg)`).
+- `arch.doctor-fix`: a route held in a `const` and passed by name, and a string split across two literals (`'--fi' 'x'`, `'/api/ops/' 'doctor'`).
+- A bare `e`, `ex` or `st` is only an error name where a catch, a `catchError`/`handleError`/`onError`/`runZonedGuarded` handler or a `StackTrace`/`FlutterErrorDetails` parameter binds it.

@@ -78,36 +78,6 @@ final _telemetryCall = RegExp(
 
 final _catchClause = RegExp(r'\bcatch\s*\(([^)]*)\)\s*\{');
 
-/// Matches the end of the brace block that opens at [open] in [code].
-int _blockEnd(String code, int open) {
-  var depth = 0;
-  for (var i = open; i < code.length; i++) {
-    if (code[i] == '{') depth++;
-    if (code[i] == '}' && --depth == 0) return i;
-  }
-  return code.length;
-}
-
-/// The end offset of the call whose `(` just before [from] opened.
-int _callEnd(String code, int from) {
-  var depth = 1;
-  var end = from;
-  while (end < code.length && depth > 0) {
-    final c = code[end];
-    if (c == '(') depth++;
-    if (c == ')') depth--;
-    end++;
-  }
-  return end;
-}
-
-/// Arguments (from the `text` view) of every call in [file] whose callee
-/// matches [callee], as (callee offset, argument text).
-List<(int, String)> callArguments(SourceFile file, RegExp callee) => [
-  for (final call in callee.allMatches(file.code))
-    (call.start, file.text.substring(call.end, _callEnd(file.code, call.end))),
-];
-
 /// The names a parameter list binds: `(e, st)`, `(Object e, StackTrace st)`.
 Set<String> _paramNames(String params) => {
   for (final part in params.split(','))
@@ -126,7 +96,7 @@ int _bodyEnd(String code, int from) {
   while (i < code.length && ' \n\t'.contains(code[i])) {
     i++;
   }
-  if (i < code.length && code[i] == '{') return _blockEnd(code, i);
+  if (i < code.length && code[i] == '{') return blockEnd(code, i);
   if (!code.startsWith('=>', i)) return from;
   var depth = 0;
   for (i += 2; i < code.length; i++) {
@@ -147,19 +117,34 @@ List<(int, int, Set<String>)> _errorBindings(String code) {
   final out = <(int, int, Set<String>)>[];
   // catch (e, st) { ... }
   for (final m in _catchClause.allMatches(code)) {
-    out.add((m.end - 1, _blockEnd(code, m.end - 1), _paramNames(m.group(1)!)));
+    out.add((m.end - 1, blockEnd(code, m.end - 1), _paramNames(m.group(1)!)));
   }
   // fut.catchError((e) => ...), stream.handleError((e, st) {...}),
-  // listen(.., onError: (e, st) {...})
+  // listen(.., onError: (e, st) {...}), X.onError = (e, st) {...}
   final handler = RegExp(
-    r'\b(?:catchError|handleError)\s*\(\s*\(([^)]*)\)|\bonError\s*:\s*\(([^)]*)\)',
+    r'\b(?:catchError|handleError)\s*\(\s*\(([^)]*)\)'
+    r'|\bonError\s*:\s*\(([^)]*)\)'
+    r'|\.onError\s*=\s*\(([^)]*)\)',
   );
   for (final m in handler.allMatches(code)) {
-    final params = m.group(1) ?? m.group(2)!;
+    final params = m.group(1) ?? m.group(2) ?? m.group(3)!;
     out.add((m.end, _bodyEnd(code, m.end), _paramNames(params)));
   }
-  // Any parameter typed StackTrace, in its function or closure.
-  for (final m in RegExp(r'\bStackTrace\??\s+(\w+)').allMatches(code)) {
+  // runZonedGuarded(body, (e, st) {...}): every closure with parameters in
+  // the call is the error handler (the body takes none).
+  final closure = RegExp(r'\(([^()]+)\)\s*(?:async\s*)?(?:\{|=>)');
+  for (final z in RegExp(r'\brunZonedGuarded\s*\(').allMatches(code)) {
+    final end = callEnd(code, z.end);
+    for (final m in closure.allMatches(code.substring(z.end, end))) {
+      final from = z.end + m.end - (m.group(0)!.endsWith('{') ? 1 : 2);
+      final bodyFrom = z.end + m.start + m.group(1)!.length + 2;
+      out.add((from, _bodyEnd(code, bodyFrom), _paramNames(m.group(1)!)));
+    }
+  }
+  // Any parameter typed StackTrace or FlutterErrorDetails, in its function.
+  for (final m in RegExp(
+    r'\b(?:StackTrace|FlutterErrorDetails)\??\s+(\w+)',
+  ).allMatches(code)) {
     var depth = 0;
     var i = m.end;
     for (; i < code.length; i++) {
@@ -176,10 +161,22 @@ List<(int, int, Set<String>)> _errorBindings(String code) {
 /// `cause`, `failure` and `stackTrace` count anywhere. Any other name counts
 /// only where it is bound as an error: by `catch (e, st)`, by the closure
 /// given to `catchError(`, `handleError(` or `onError:`, or as a parameter
-/// typed `StackTrace`. So a loop variable `e`, or `${stack.length}` on an
+/// typed `StackTrace` or `FlutterErrorDetails`, or the handler of
+/// `runZonedGuarded(` or an `X.onError = (e, st)` assignment. `details.exception`
+/// and `details.stack` count too. So a loop variable `e`, or `${stack.length}` on an
 /// unrelated `stack`, is not a hit.
 List<Hit> errorInterpolationHits(SourceFile file) {
   final bindings = _errorBindings(file.code);
+  // `details.exception` / `details.stack` of a FlutterErrorDetails.
+  final detailNames = {
+    'details',
+    for (final m in RegExp(
+      r'\bFlutterErrorDetails\??\s+(\w+)',
+    ).allMatches(file.code))
+      m.group(1)!,
+  };
+  final details =
+      '\\b(?:${detailNames.join('|')})\\.(?:exception|stack|exceptionAsString\\(\\))';
   final hits = <Hit>[];
   for (final (offset, args) in callArguments(file, _telemetryCall)) {
     final names = {
@@ -196,7 +193,8 @@ List<Hit> errorInterpolationHits(SourceFile file) {
       // `error.toString()`, `error.message` passed as an argument
       '|\\b$n\\.(?:toString\\(\\)|message\\b)'
       // `'text' + error`, `error + 'text'`
-      '|\\+\\s*$n\\b(?!\\.runtimeType)|\\b$n\\s*\\+\\s*[\'"]',
+      '|\\+\\s*$n\\b(?!\\.runtimeType)|\\b$n\\s*\\+\\s*[\'"]'
+      '|$details',
     );
     if (bad.hasMatch(args)) {
       final line = file.lineOf(offset);
@@ -216,7 +214,7 @@ List<Hit> _doctorFix() {
   const allow = ['lib/src/server_care/widgets/server_check_body.dart'];
   final hits = <Hit>[];
   final flag = RegExp(r'--fix');
-  final fixArg = RegExp(r"""\bfix\s*:\s*true\b|['"]fix['"]""");
+  final fixArg = RegExp(r"""\bfix\s*:\s*true\b|['"]fix['"]|[?&]fix=""");
   final doctorCall = RegExp(r'\b\w*[Dd]octor\w*\s*\(');
   final anyCall = RegExp(r'\b[\w.]+\s*\(');
   for (final file in dartFiles('lib')) {
@@ -444,6 +442,43 @@ void main() {
       expect(
         count(r"f(Object o, StackTrace trace) { debugPrint('$trace'); }"),
         1,
+      );
+    });
+
+    test('binds runZonedGuarded handlers and onError assignments', () {
+      expect(
+        count(
+          r"f() { runZonedGuarded(() { run(); }, (e, st) { debugPrint('$e'); }); }",
+        ),
+        1,
+      );
+      expect(
+        count(
+          r"f() { PlatformDispatcher.instance.onError = (e, st) { debugPrint('$st'); return true; }; }",
+        ),
+        1,
+      );
+      expect(
+        count(
+          r"f() { runZonedGuarded(() { var e = 1; debugPrint('$e'); }, (x, y) {}); }",
+        ),
+        0,
+      );
+    });
+
+    test('flags details.exception and details.stack', () {
+      expect(
+        count(r"f(Object details) { debugPrint('${details.exception}'); }"),
+        1,
+      );
+      expect(
+        count(r"f(FlutterErrorDetails d) { events('x', {'s': d.stack}); }"),
+        1,
+      );
+      expect(count(r"f(FlutterErrorDetails d) { debugPrint('$d'); }"), 1);
+      expect(
+        count(r"f(Object details) { debugPrint('${details.runtimeType}'); }"),
+        0,
       );
     });
 
