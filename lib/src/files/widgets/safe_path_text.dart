@@ -1,4 +1,5 @@
 import 'package:characters/characters.dart';
+import 'package:gpt_markdown/plusparse/entities.dart' show entityAt;
 
 /// [text] made safe to show: a character that changes how text reads or that
 /// the terminal and the screen treat as a command is drawn as a visible
@@ -13,11 +14,60 @@ import 'package:characters/characters.dart';
 ///
 /// Only the display changes. A path that is sent, stored or compared is the
 /// original string.
-String safePathText(String text) {
+String safePathText(String text) => _escaped(text, keepLineBreaks: false);
+
+/// [text], the content of a file, made safe to show the same way as
+/// [safePathText], except that line breaks stay: a line feed (and a carriage
+/// return before it) ends a line, and a tab stays a tab. A lone carriage
+/// return, the other controls and the bidi controls are drawn as `<U+XXXX>`,
+/// so a file cannot reorder what a person reads (a Trojan Source line) or
+/// hide text behind an escape sequence.
+String safeContentText(String text) => _escaped(text, keepLineBreaks: true);
+
+/// [text], Markdown from a file, made safe to render: [safeContentText], and
+/// a character reference that decodes to an unsafe character (`&#x202E;`,
+/// `&#8238;`, `&lrm;`, `&ZeroWidthSpace;`) is replaced by its `<U+XXXX>`
+/// placeholder, because the Markdown renderer decodes references after the
+/// escaping of the raw text and would otherwise draw the character itself.
+/// Ordinary references (`&amp;`, `&lt;`, `&copy;`) are left for the renderer.
+String safeMarkdownText(String text) {
+  final raw = safeContentText(text);
+  StringBuffer? out;
+  var copied = 0;
+  var i = raw.indexOf('&');
+  while (i >= 0) {
+    final entity = entityAt(raw, i);
+    if (entity == null) {
+      i = raw.indexOf('&', i + 1);
+      continue;
+    }
+    final safe = safeContentText(entity.value);
+    if (safe != entity.value) {
+      (out ??= StringBuffer()).write(raw.substring(copied, i));
+      out.write(safe);
+      copied = entity.next;
+    }
+    i = raw.indexOf('&', entity.next);
+  }
+  if (out == null) return raw;
+  return (out..write(raw.substring(copied))).toString();
+}
+
+String _escaped(String text, {required bool keepLineBreaks}) {
   var changed = false;
   final out = StringBuffer();
-  for (final rune in text.runes) {
-    if (_unsafe(rune)) {
+  final runes = text.runes.toList();
+  for (var i = 0; i < runes.length; i++) {
+    final rune = runes[i];
+    if (keepLineBreaks && rune == 0x0A) {
+      out.writeCharCode(rune);
+    } else if (keepLineBreaks &&
+        rune == 0x0D &&
+        i + 1 < runes.length &&
+        runes[i + 1] == 0x0A) {
+      // CRLF: the carriage return is part of the line break.
+      changed = true;
+    } else if (_unsafe(rune)) {
       changed = true;
       final hex = rune.toRadixString(16).toUpperCase().padLeft(4, '0');
       out.write('<U+$hex>');
