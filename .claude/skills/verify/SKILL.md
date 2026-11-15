@@ -153,7 +153,7 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    ambient `HERMES_HOME`, because Hermes expands `~` and `$VAR` in them and bash
    keeps a leading `//`: only a canonical absolute path passes (one leading `/`,
    no `//`, no `.` or `..` segment, no `~`, `$`, backtick, control character or
-   trailing `/`), and the resolved path, symlinks followed, must not be at or
+   trailing `/`), and the resolved path, symlinks followed, must pass the same rule (a symlink to a directory literally named `$X` is refused, since Hermes would expand it) and must not be at or
    under a real home's `.hermes` or `.hermes<anything>` (`$HOME` and the passwd
    entry; compared ignoring case, for case-insensitive volumes), nor under an
    ambient `HERMES_HOME`. It also refuses a caller's `HERMES_DATA_DIR_SUFFIX`

@@ -201,6 +201,7 @@ resolve_tmp_root() {
   [[ -d "$TMP_ROOT" ]] || die "HERMES_VERIFY_TMP=$TMP_ROOT does not exist"
   canonical_abs_path "$TMP_ROOT" || die "refusing: '$TMP_ROOT' is not a canonical absolute path (one leading /, no //, no . or .. segment, no ~, \$ or backtick, no control character)"
   TMP_ROOT="$(resolve_path "$TMP_ROOT")"
+  canonical_abs_path "$TMP_ROOT" || die "refusing: HERMES_VERIFY_TMP resolves to '$TMP_ROOT', which is not a canonical absolute path (one leading /, no //, no . or .. segment, no ~, \$ or backtick, no control character)"
   case "$TMP_ROOT/" in
     "$(cd "$ROOT_DIR" && pwd -P)"/*) die "refusing: $TMP_ROOT is inside the working tree" ;;
   esac

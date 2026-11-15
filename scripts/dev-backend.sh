@@ -116,6 +116,13 @@ refuse_real_hermes_home() {
     exit 3
   fi
   state="$(resolve_path "$STATE_DIR")"
+  # The raw path was checked above, but a symlink can resolve to a name Hermes
+  # would expand (a directory literally called `$X` or `~`): the resolved path
+  # is what every later call passes as HERMES_HOME, so it must be canonical too.
+  if ! canonical_abs_path "$state"; then
+    echo "refusing: $STATE_DIR resolves to '$state', which is not a canonical absolute path (one leading /, no //, no . or .. segment, no ~, \$ or backtick, no control character)" >&2
+    exit 3
+  fi
   if where="$(inside_real_hermes_home "$state")"; then
     echo "refusing: the state directory $state is at or under $where, a real Hermes home" >&2
     echo "set HERMES_DEV_STATE_DIR to a directory elsewhere" >&2
