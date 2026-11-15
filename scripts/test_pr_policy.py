@@ -855,6 +855,73 @@ class MergeReviewTest(unittest.TestCase):
         out = self.review(h, blk(h, self.root, rng=False))
         self.assertIn("is not on the base branch", out[0])
 
+    # --- incremental re-reviews: a Range may start at an accepted commit ---
+
+    def test_incremental_ranges_chain_up_to_the_head(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        s3 = self.r.commit("pr3.txt")
+        chain = blk(self.rev, self.root) + blk(s2, self.rev) + blk(s3, s2)
+        self.assertEqual(self.review(s3, chain), [])
+        self.assertEqual(self.review(s2, chain), [])
+
+    def test_incremental_range_needs_its_base_accepted(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        out = self.review(s2, blk(s2, self.rev))  # the first review is missing
+        self.assertIn(f"starts at {self.rev}", out[0])
+        self.assertIn("covers only part of the branch", out[0])
+
+    def test_incremental_chain_with_a_gap_is_rejected(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        s3 = self.r.commit("pr3.txt")
+        s4 = self.r.commit("pr4.txt")
+        # s3 was never reviewed, so s3..s4 builds on nothing.
+        gap = blk(self.rev, self.root) + blk(s2, self.rev) + blk(s4, s3)
+        out = self.review(s4, gap)
+        self.assertIn(f"starts at {s3}", out[0])
+        # A review of s3..s4 whose own base s3 is not reviewed, but s2..s3 is
+        # missing: the chain is still broken even with s4's range ending right.
+        out = self.review(s4, blk(self.rev, self.root) + blk(s4, s2))
+        self.assertIn(f"starts at {s2}", out[0])
+
+    def test_incremental_base_that_asked_for_changes_is_not_accepted(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        bad = blk(self.rev, self.root, verdict="changes-requested")
+        out = self.review(s2, bad + blk(s2, self.rev))
+        self.assertIn(f"starts at {self.rev}", out[0])
+
+    def test_incremental_base_accepted_by_a_legacy_block(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        out = self.review(s2, blk(self.rev, self.root, rng=False) + blk(s2, self.rev))
+        self.assertEqual(out, [])
+        with mock.patch.object(pr_policy, "ACCEPT_LEGACY_REVIEW_BLOCK", False):
+            out = self.review(s2, blk(self.rev, self.root, rng=False) + blk(s2, self.rev))
+        self.assertTrue(out)
+
+    def test_incremental_base_accepted_by_a_clean_merge(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        merged = r.merge("main")  # accepted by rule (b1) over the reviewed commit
+        s2 = r.commit("pr2.txt")
+        review = blk(self.rev, self.root) + blk(s2, merged)
+        self.assertEqual(self.review(s2, review), [])
+        self.assertIn("starts at", self.review(s2, blk(s2, merged))[0])
+
+    def test_incremental_base_off_the_branch_is_rejected(self):
+        r = self.r
+        r.git("checkout", "-q", "-B", "side", self.root)
+        side = r.commit("side.txt")
+        r.git("checkout", "-q", "pr")
+        s2 = r.commit("pr2.txt")
+        r.sync_origin()
+        for base in (side, OLD):
+            out = self.review(s2, blk(self.rev, self.root) + blk(s2, base))
+            self.assertIn("is not an ancestor", out[0])
+
     def test_corrected_block_below_a_bad_range_block_is_accepted(self):
         self.r.sync_origin()
         bad = f"Reviewer: r Head: {self.rev} Verdict: clean\nRange: {self.rev}..{self.rev}\n"

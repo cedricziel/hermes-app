@@ -575,12 +575,24 @@ class _Review:
                 f"to review {want}. {paste}"
             ]
         fork = self.fork(commit)
-        if not self.git.is_ancestor(base, self.base_tip) and base != fork:
+        # A base on the base branch or at the fork point is a full review. An
+        # incremental review (the fleet's normal flow: each push is reviewed
+        # for its new commits) starts at a commit this checker already
+        # accepts, so A..B and B..C together cover C. `accepted` is exact and
+        # memoised; `base` is a strict ancestor of `commit`, so it cannot
+        # come back to the commit being decided.
+        if (
+            not self.git.is_ancestor(base, self.base_tip)
+            and base != fork
+            and self.accepted(base)
+        ):
             return [
                 f"The Range of the review for {commit} starts at {base}, which "
-                f"covers only part of the branch (it is neither on the base "
-                f"branch nor where {commit} left it, {fork}): ask the "
-                f"isolated reviewer to review {want}. {paste}"
+                f"covers only part of the branch: it is neither on the base "
+                f"branch, nor where {commit} left it ({fork}), nor a commit "
+                f"with an accepted review of its own, so the commits between "
+                f"them are unreviewed. Ask the isolated reviewer to review "
+                f"{want}, or record a review that ends at {base}. {paste}"
             ]
         return []
 
