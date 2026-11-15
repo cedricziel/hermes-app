@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
+import '../widgets/adaptive_dialog.dart';
 import '../widgets/content_column.dart';
+import '../widgets/dialog_presentation.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'memory_controller.dart';
@@ -92,23 +95,29 @@ class _MemoryScreenState extends State<MemoryScreen>
   Future<bool> _leave() async {
     if (!controller.needsLeaveConfirmation) return true;
     FocusManager.instance.primaryFocus?.unfocus();
-    final discard = await showDialog<bool>(
+    final l10n = context.l10n;
+    final pending = controller.mutation == MemoryMutation.pending;
+    final discard = await showAppDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Leave this memory?'),
+      builder: (dialog) => AppAlertDialog(
+        scrollable: true,
+        title: Text(l10n.memoryLeaveTitle),
         content: Text(
-          controller.mutation == MemoryMutation.pending
-              ? 'The request may still complete in the original profile. Leaving discards this draft.'
-              : 'Leaving discards your unsaved draft. Any unconfirmed change may still have completed.',
+          pending
+              ? l10n.memoryLeaveMessagePending
+              : l10n.memoryLeaveMessageUnsaved,
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep draft'),
+          AppDialogAction(
+            isDefault: true,
+            filledOnMaterial: false,
+            onPressed: () => Navigator.pop(dialog, false),
+            child: Text(l10n.memoryLeaveKeepDraft),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Discard and leave'),
+          AppDialogAction(
+            isDestructive: true,
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(l10n.memoryLeaveDiscard),
           ),
         ],
       ),
@@ -119,26 +128,15 @@ class _MemoryScreenState extends State<MemoryScreen>
   Future<void> _delete() async {
     final original = controller.detail;
     final profile = controller.profile;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Permanently delete this memory?'),
-        content: const Text(
-          'This removes the selected memory permanently. It cannot be restored from the app.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete permanently'),
-          ),
-        ],
-      ),
+    final l10n = context.l10n;
+    final confirmed = await showDestructiveConfirm(
+      context,
+      title: l10n.memoryDeleteConfirmTitle,
+      message: l10n.memoryDeleteConfirmMessage,
+      confirmLabel: l10n.memoryDeleteConfirmAction,
+      cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,
     );
-    if (confirmed == true &&
+    if (confirmed &&
         mounted &&
         identical(original, controller.detail) &&
         profile == controller.profile) {

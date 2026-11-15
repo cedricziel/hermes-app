@@ -550,6 +550,22 @@
   "@@x-area-mcp": "",
 
   "@@x-area-memory": "",
+  "memoryDeleteConfirmAction": "Endgültig löschen",
+  "memoryDeleteConfirmMessage": "Die ausgewählte Erinnerung wird endgültig entfernt. Sie lässt sich in der App nicht wiederherstellen.",
+  "memoryDeleteConfirmTitle": "Diese Erinnerung endgültig löschen?",
+  "memoryLeaveDiscard": "Verwerfen und verlassen",
+  "memoryLeaveKeepDraft": "Entwurf behalten",
+  "memoryLeaveMessagePending": "Die Anfrage kann im ursprünglichen Profil noch abgeschlossen werden. Wenn du gehst, wird dieser Entwurf verworfen.",
+  "memoryLeaveMessageUnsaved": "Wenn du gehst, wird dein ungespeicherter Entwurf verworfen. Eine unbestätigte Änderung kann trotzdem durchgegangen sein.",
+  "memoryLeaveTitle": "Diese Erinnerung verlassen?",
+  "memoryRejectAllAction": "Alle ablehnen",
+  "memoryRejectAllMessage": "{count, plural, =1{Hermes verwirft die 1 Änderung, die hier aufgelistet ist. Das lässt sich nicht rückgängig machen.} other{Hermes verwirft die {count} Änderungen, die hier aufgelistet sind. Das lässt sich nicht rückgängig machen.}}",
+  "memoryRejectAllTitle": "Alle Änderungen ablehnen?",
+  "memoryResetAboutYou": "„Über dich“ zurücksetzen",
+  "memoryResetAgentNotes": "Agent-Notizen zurücksetzen",
+  "memoryResetBoth": "Beides zurücksetzen",
+  "memoryResetMessage": "Hermes vergisst auf dem Server, was du auswählst, für das Profil {profile}. Das lässt sich nicht rückgängig machen.",
+  "memoryResetTitle": "Gedächtnis zurücksetzen?",
 
   "@@x-area-messaging": "",
 

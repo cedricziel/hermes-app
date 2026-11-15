@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../theme/app_icons.dart';
 import '../theme/breakpoints.dart';
 import '../telemetry/breadcrumbs.dart';
@@ -66,13 +67,13 @@ class _MemoryProposalsScreenState extends State<MemoryProposalsScreen> {
 
   Future<void> _rejectAll() async {
     final count = _controller.waiting ?? 0;
+    final l10n = context.l10n;
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Reject all changes?',
-      message:
-          'Hermes drops the $count change${count == 1 ? '' : 's'} listed here. '
-          'This cannot be undone.',
-      confirmLabel: 'Reject all',
+      title: l10n.memoryRejectAllTitle,
+      message: l10n.memoryRejectAllMessage(count),
+      confirmLabel: l10n.memoryRejectAllAction,
+      cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,
       destructive: true,
     );
     if (confirmed && mounted) await _controller.decideAll(approve: false);

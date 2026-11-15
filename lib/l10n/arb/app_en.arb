@@ -2619,6 +2619,81 @@
   "@@x-area-mcp": "",
 
   "@@x-area-memory": "",
+  "memoryDeleteConfirmAction": "Delete permanently",
+  "@memoryDeleteConfirmAction": {
+    "description": "Destructive button of the delete-memory confirmation. Keep it short."
+  },
+  "memoryDeleteConfirmMessage": "This removes the selected memory permanently. It cannot be restored from the app.",
+  "@memoryDeleteConfirmMessage": {
+    "description": "Body of the delete-memory confirmation."
+  },
+  "memoryDeleteConfirmTitle": "Permanently delete this memory?",
+  "@memoryDeleteConfirmTitle": {
+    "description": "Title of the confirmation before one memory entry is deleted."
+  },
+  "memoryLeaveDiscard": "Discard and leave",
+  "@memoryLeaveDiscard": {
+    "description": "Button of the leave confirmation: throws away the unsaved draft and goes on. Keep it short."
+  },
+  "memoryLeaveKeepDraft": "Keep draft",
+  "@memoryLeaveKeepDraft": {
+    "description": "Button of the leave confirmation: stays on the memory with the draft. Keep it short."
+  },
+  "memoryLeaveMessagePending": "The request may still complete in the original profile. Leaving discards this draft.",
+  "@memoryLeaveMessagePending": {
+    "description": "Body of the leave confirmation while a save or delete request has no answer yet."
+  },
+  "memoryLeaveMessageUnsaved": "Leaving discards your unsaved draft. Any unconfirmed change may still have completed.",
+  "@memoryLeaveMessageUnsaved": {
+    "description": "Body of the leave confirmation for an unsaved draft."
+  },
+  "memoryLeaveTitle": "Leave this memory?",
+  "@memoryLeaveTitle": {
+    "description": "Title of the confirmation shown when the user leaves a memory entry that has an unsaved draft."
+  },
+  "memoryRejectAllAction": "Reject all",
+  "@memoryRejectAllAction": {
+    "description": "Destructive button of the reject-all confirmation. Keep it short."
+  },
+  "memoryRejectAllMessage": "{count, plural, =1{Hermes drops the 1 change listed here. This cannot be undone.} other{Hermes drops the {count} changes listed here. This cannot be undone.}}",
+  "@memoryRejectAllMessage": {
+    "description": "Body of the confirmation before all waiting memory changes are rejected. {count} is how many are listed.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryRejectAllTitle": "Reject all changes?",
+  "@memoryRejectAllTitle": {
+    "description": "Title of the confirmation before all waiting memory changes are rejected."
+  },
+  "memoryResetAboutYou": "Reset about you",
+  "@memoryResetAboutYou": {
+    "description": "Button of the reset dialog: erases the file about the user. Keep it short."
+  },
+  "memoryResetAgentNotes": "Reset agent notes",
+  "@memoryResetAgentNotes": {
+    "description": "Button of the reset dialog: erases the agent's own notes file. Keep it short."
+  },
+  "memoryResetBoth": "Reset both",
+  "@memoryResetBoth": {
+    "description": "Button of the reset dialog: erases both memory files. Keep it short."
+  },
+  "memoryResetMessage": "Hermes forgets what you pick, on the server, for the {profile} profile. This can't be undone.",
+  "@memoryResetMessage": {
+    "description": "Body of the memory reset dialog. {profile} is the profile name.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "memoryResetTitle": "Reset memory?",
+  "@memoryResetTitle": {
+    "description": "Title of the dialog that asks which memory files to erase."
+  },
 
   "@@x-area-messaging": "",
 
