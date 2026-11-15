@@ -75,7 +75,7 @@ import '../app_lock/app_lock_controller.dart';
 import 'process_output_state.dart';
 import 'reactions/reaction_state.dart';
 import 'gateway/gateway_rpc_client.dart'
-    show GatewayRpcException, GatewayConnectionClosed;
+    show GatewayRpcException, GatewayConnectionClosed, GatewayReplyLost;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'queued_prompt.dart';
@@ -184,6 +184,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.connectorBrowser,
     this.usageTelemetry = const ConnectionTelemetry(),
     this.replayGrace = const Duration(seconds: 20),
+    this.reconnectRetry = const Duration(seconds: 15),
     DateTime Function()? now,
   }) : _clock = now ?? DateTime.now,
        _watchSource = watchStatus?.source() {
@@ -301,6 +302,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _stopFollowing();
     _sending.clear();
     _cancelSettleWaits();
+    _ChatControllerStreaming(this)._cancelReconnects();
     _replayEnds?.cancel();
     _ChatControllerCheckpoints(this)._actionsSuspended();
     notifyListeners();
@@ -518,6 +520,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// announced may still arrive as a replay. Later than that, an ending is a
   /// new one.
   final Duration replayGrace;
+
+  /// How long a reply that lost its connection waits before the next try at
+  /// picking its turn up again, for as long as the chat stays in front. The
+  /// app coming to the front, the chat being opened and a stop that reached the
+  /// server try at once.
+  final Duration reconnectRetry;
   final DateTime Function() _clock;
   Timer? _replayEnds;
 
@@ -925,6 +933,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// The threads whose queue waits for the session to settle, each with the
   /// fallback timer that sends it when no settle report comes.
   final _settleTimers = <ChatThread, Timer>{};
+
+  /// The next try at picking up a reply that lost its connection, by thread.
+  final _reconnectTimers = <ChatThread, Timer>{};
+  final _reconnectTries = <ChatThread, int>{};
 
   /// The threads that changed on the server in a way the stream cannot carry,
   /// to read again once their reply is over.
@@ -1513,6 +1525,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _finishQueueBinding(thread, false);
     _suspendedQueues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
+    _reconnectTimers.remove(thread)?.cancel();
+    _reconnectTries.remove(thread);
     _refetch.remove(thread);
     liveActivities?.endChat(thread.id, _profile);
     _watchSource?.drop(thread);
@@ -1534,7 +1548,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (!active) return;
     final epoch = _activityEpoch;
     transport?.checkConnection().then((_) {
-      if (_currentActivity(epoch)) unawaited(refreshActive());
+      if (!_currentActivity(epoch)) return;
+      // The app is back: a reply that lost its connection tries again now.
+      for (final thread in [..._threads]) {
+        if (_reconnectingReply(thread) != null) _pickUp(thread);
+      }
+      unawaited(refreshActive());
     }, onError: (Object _) {});
   }
 
@@ -1569,6 +1588,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _subagentEnvironment?.dispose();
     housekeeping?.setActivity(false);
     _replayEnds?.cancel();
+    _ChatControllerStreaming(this)._cancelReconnects();
     for (final reply in _replies) {
       reply.cancel();
     }
@@ -1758,11 +1778,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// never streamed (started on the TUI or another device) streams into it
   /// and shows its replying indicator. An idle thread closes the stream
   /// without events.
-  void _pickUp(ChatThread thread) {
+  void _pickUp(ChatThread thread, {bool retry = false}) {
     if (queueStore != null) unawaited(_restoreQueue(thread));
+    if (!retry) _ChatControllerStreaming(this)._restartReconnect(thread);
     final transport = this.transport;
     if (!active || transport == null || !thread.remote) return;
-    if (thread.isReplying) return;
+    // A reply that lost its connection is the one to pick up: it counts as
+    // replying, and what the server still runs goes into it.
+    if (thread.isReplying && _reconnectingReply(thread) == null) return;
     _followUps(transport, thread, _profile);
   }
 
