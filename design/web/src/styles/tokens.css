@@ -34,6 +34,12 @@
   --h-success: #166534;
   --h-warning: #92400e;
   --h-link: #1565c0;
+  --h-code-keyword: #a626a4;
+  --h-code-string: #0b6e2f;
+  --h-code-comment: #5f6670;
+  --h-code-number: #a3480b;
+  --h-code-function: #1d4ed8;
+  --h-code-type: #8a5a00;
   --h-hover: rgba(24, 24, 27, 0.06);
   --h-pressed: rgba(24, 24, 27, 0.1);
   --h-scrim: rgba(0, 0, 0, 0.32);
@@ -89,6 +95,12 @@
   --h-success: #4ade80;
   --h-warning: #fbbf24;
   --h-link: #90caf9;
+  --h-code-keyword: #e08ef0;
+  --h-code-string: #7ee2a8;
+  --h-code-comment: #a1a1aa;
+  --h-code-number: #fdba74;
+  --h-code-function: #93c5fd;
+  --h-code-type: #fcd34d;
   --h-hover: rgba(250, 250, 250, 0.08);
   --h-pressed: rgba(250, 250, 250, 0.12);
   --h-scrim: rgba(0, 0, 0, 0.6);

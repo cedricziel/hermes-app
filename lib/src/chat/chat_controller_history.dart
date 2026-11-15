@@ -204,6 +204,7 @@ extension _ChatControllerHistory on ChatController {
         _newChatModel = null;
         _ChatControllerWorkspace(this)._workspaceProfileSwitched();
         search?.clear();
+        _stopHandBacks.clear();
       }
       _carryReplies();
       for (final entry in interruptedLocalReplies.entries) {
@@ -313,6 +314,9 @@ extension _ChatControllerHistory on ChatController {
         );
       }
       notifyListeners();
+      if (launchedThread != null) {
+        _ChatControllerVoice(this)._stopHandBackSelected();
+      }
       if (!active || generation != _loadGeneration) return;
       _reportSurface(SurfaceTrigger.threads);
       if (!active || generation != _loadGeneration) return;
