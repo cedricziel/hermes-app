@@ -2623,6 +2623,23 @@
   "@@x-area-messaging": "",
 
   "@@x-area-models": "",
+  "modelsSetupBody": "Configure a provider and model for the {profile} profile on your Hermes server. Run this command on that server, then check again:",
+  "@modelsSetupBody": {
+    "description": "Explains how to set up a model for a profile; the server command follows below it.",
+    "placeholders": {
+      "profile": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsSetupCheckAgain": "Check again",
+  "@modelsSetupCheckAgain": {
+    "description": "Button that closes the model setup dialog so the composer reads the model options again."
+  },
+  "modelsSetupTitle": "Set up a model",
+  "@modelsSetupTitle": {
+    "description": "Title of the dialog that tells how to configure a model on the server."
+  },
 
   "@@x-area-navigation": "",
 

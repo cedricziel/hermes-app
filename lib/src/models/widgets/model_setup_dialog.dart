@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 
 /// Explains how to configure the selected profile on the connected server.
 Future<void> showModelSetup(BuildContext context, String? profile) {
@@ -9,26 +12,25 @@ Future<void> showModelSetup(BuildContext context, String? profile) {
   final command = name == 'default'
       ? 'hermes model'
       : 'hermes -p $argument model';
-  return showDialog<void>(
+  return showAppDialog<void>(
     context: context,
-    builder: (dialog) => AlertDialog(
-      title: const Text('Set up a model'),
+    builder: (dialog) => AppAlertDialog(
+      title: Text(dialog.l10n.modelsSetupTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Configure a provider and model for the $name profile on your '
-            'Hermes server. Run this command on that server, then check again:',
-          ),
+          Text(dialog.l10n.modelsSetupBody(name)),
           const SizedBox(height: 12),
           SelectableText(command),
         ],
       ),
       actions: [
-        TextButton(
+        AppDialogAction(
+          isDefault: true,
+          filledOnMaterial: false,
           onPressed: () => Navigator.of(dialog).pop(),
-          child: const Text('Check again'),
+          child: Text(dialog.l10n.modelsSetupCheckAgain),
         ),
       ],
     ),

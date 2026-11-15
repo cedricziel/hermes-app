@@ -554,6 +554,9 @@
   "@@x-area-messaging": "",
 
   "@@x-area-models": "",
+  "modelsSetupBody": "Richte einen Anbieter und ein Modell für das Profil {profile} auf deinem Hermes-Server ein. Führe diesen Befehl auf dem Server aus und prüfe dann erneut:",
+  "modelsSetupCheckAgain": "Erneut prüfen",
+  "modelsSetupTitle": "Modell einrichten",
 
   "@@x-area-navigation": "",
 
