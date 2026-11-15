@@ -37,6 +37,18 @@ void main() {
       expect(_inheritedAlign(tester), TextAlign.center);
       expect(_paragraphAlign(tester), TextAlign.center);
     });
+
+    testWidgets('alert message uses the Cupertino 13 pt size on $platform', (
+      tester,
+    ) async {
+      await _pump(tester, platform);
+      final style = DefaultTextStyle.of(tester.element(find.byKey(_message)));
+      expect(style.style.fontSize, 13);
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.byKey(_message),
+      );
+      expect(paragraph.text.style?.fontSize ?? style.style.fontSize, 13);
+    });
   }
 
   testWidgets('alert message is start-aligned on Material', (tester) async {

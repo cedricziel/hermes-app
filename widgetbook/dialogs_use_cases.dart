@@ -159,25 +159,69 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
     // on Material.
     WidgetbookComponent(
       name: 'AppAlertDialog',
-      useCases: onEachPlatform(
-        'Message',
-        (_) => frame(
-          AppAlertDialog(
-            title: const Text('Restart the gateway?'),
-            content: const Text(
-              'Running chats stop and reconnect. This can take a moment.',
-            ),
-            actions: [
-              AppDialogAction(onPressed: () {}, child: const Text('Cancel')),
-              AppDialogAction(
-                isDefault: true,
-                onPressed: () {},
-                child: const Text('Restart'),
+      useCases: [
+        ...onEachPlatform(
+          'Message',
+          (_) => frame(
+            AppAlertDialog(
+              title: const Text('Restart the gateway?'),
+              content: const Text(
+                'Running chats stop and reconnect. This can take a moment.',
               ),
-            ],
+              actions: [
+                AppDialogAction(onPressed: () {}, child: const Text('Cancel')),
+                AppDialogAction(
+                  isDefault: true,
+                  onPressed: () {},
+                  child: const Text('Restart'),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
+        ...onEachPlatform(
+          'Message and data block',
+          (_) => frame(
+            AppAlertDialog(
+              title: const Text('Install web-scraper?'),
+              // The message follows the alert (centred on Apple platforms);
+              // the data block opts into start alignment, as the Kanban
+              // export alert and the skill install confirmation do.
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('The security scan asks for your confirmation.'),
+                  const SizedBox(height: 12),
+                  DefaultTextStyle.merge(
+                    textAlign: TextAlign.start,
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('HIGH  Downloads and runs a remote script'),
+                        Text(
+                          'scripts/fetch.sh:12',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                AppDialogAction(onPressed: () {}, child: const Text('Cancel')),
+                AppDialogAction(
+                  isDefault: true,
+                  onPressed: () {},
+                  child: const Text('Install anyway'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     ),
     WidgetbookComponent(
       name: 'New profile',
