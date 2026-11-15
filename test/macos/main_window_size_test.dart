@@ -103,7 +103,10 @@ void main() {
       );
     }
     final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
-    expect(delegate, isNot(contains('contentMinSize =')));
+    expect(
+      RegExp(r'contentMinSize[\w.]*\s*=[^=]').allMatches(delegate),
+      isEmpty,
+    );
   });
 
   test('the CI window report exists only in debug builds and then quits', () {
