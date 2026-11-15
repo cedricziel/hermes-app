@@ -96,14 +96,17 @@ jobs:
                   esac
                 done < "$list"
                 if [ "$release" = true ]; then
-                  # pubspec.yaml may change on its version line only: exactly
-                  # one removed and one added line, both `version: `.
-                  pubspec_diff="$(git diff -U0 HEAD^1 HEAD -- pubspec.yaml | grep -E '^[-+]' | grep -vE '^(---|\+\+\+) ' || true)"
-                  removed="$(printf '%s\n' "$pubspec_diff" | grep -c '^-' || true)"
-                  added="$(printf '%s\n' "$pubspec_diff" | grep -c '^+' || true)"
-                  if [ "$removed" -eq 1 ] && [ "$added" -eq 1 ] \
-                    && printf '%s\n' "$pubspec_diff" | grep -q '^-version: ' \
-                    && printf '%s\n' "$pubspec_diff" | grep -q '^+version: '; then
+                  # pubspec.yaml may change on its version line only: each
+                  # side has exactly one `version: ` line and the files are
+                  # equal without it. Compared as files, not as a diff, so no
+                  # content line can hide behind diff markers. Any failed
+                  # command makes the condition false (fail closed).
+                  base_versions="$(git show HEAD^1:pubspec.yaml 2>/dev/null | grep -c '^version: ' || true)"
+                  head_versions="$(git show HEAD:pubspec.yaml 2>/dev/null | grep -c '^version: ' || true)"
+                  if [ "$base_versions" = 1 ] && [ "$head_versions" = 1 ] \
+                    && diff -q \
+                      <(git show HEAD^1:pubspec.yaml | sed '/^version: /d') \
+                      <(git show HEAD:pubspec.yaml | sed '/^version: /d') > /dev/null 2>&1; then
                     echo "release-please pull request: treated as docs-only"
                     code=false
                     watch=false
