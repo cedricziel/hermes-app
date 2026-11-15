@@ -32,6 +32,10 @@ void main() {
       );
     });
 
+    test('tag characters and other invisible ones are drawn visibly', () {
+      expect(soulSafeText('a\u{E0041}\u00ADb'), 'a<U+E0041><U+00AD>b');
+    });
+
     test('line breaks stay, CRLF is one break, plain text is unchanged', () {
       expect(soulSafeText('a\r\nb\nc'), 'a\nb\nc');
       expect(soulSafeText('plain text'), 'plain text');
@@ -130,6 +134,8 @@ void main() {
       expect(find.text('The file was removed on the server.'), findsOneWidget);
       expect(find.text('No personality set.'), findsOneWidget);
       expect(find.text('ignored'), findsNothing);
+      // Nothing to copy: no Copy, so no "Copied" for an empty clipboard.
+      expect(find.text('Copy'), findsNothing);
       expect(
         find.textContaining('Replacing it will lose those changes'),
         findsNothing,
@@ -141,9 +147,23 @@ void main() {
           '$minimum on $platform', (tester) async {
         await pumpSoul(tester, _sheet(open: true), platform: platform);
         await tester.pumpAndSettle();
+        // The header row itself, not the tile with its opened content.
+        expect(
+          tester
+              .getSize(
+                find
+                    .ancestor(
+                      of: find.text("Show server's version"),
+                      matching: find.byType(InkWell),
+                    )
+                    .first,
+              )
+              .height,
+          greaterThanOrEqualTo(minimum),
+        );
         expect(
           tester.getSize(find.byType(DisclosureTile)).height,
-          greaterThanOrEqualTo(minimum),
+          greaterThan(minimum * 2),
         );
         for (final finder in [
           find.widgetWithText(TextButton, 'Copy'),

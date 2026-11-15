@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../l10n/l10n.dart';
 import '../../../tools/widgets/tools_target.dart';
-import '../../../widgets/grouped_list.dart';
 import '../../../widgets/motion_spinner.dart';
 import '../../../widgets/settings_scaffold.dart';
+import 'soul_line_metrics.dart';
 
 /// Whether Save (and Revert) can be pressed: only while the text differs from
 /// what the server holds and nothing is running. Both are always drawn and
@@ -21,8 +21,9 @@ enum _Part { buttons, revertRow }
 /// - A phone: Save is the bar's text action ([SoulSaveActions.barAction],
 ///   which the page hands to `SettingsScaffold.formAction`), and Revert is a
 ///   quiet text button on its own row under the editor
-///   ([SoulSaveActions.revertRow]), its label lined up with the note and
-///   status lines above it.
+///   ([SoulSaveActions.revertRow]), its label lined up with the text of the
+///   note and status lines above it (after their icon, see
+///   [SoulLineMetrics.textInset]).
 ///
 /// Both are enabled by [soulCanSave]. While [busy] (the check read, the PUT
 /// or a check runs) Save shows a spinner in place of its label. Every button
@@ -70,15 +71,17 @@ class SoulSaveActions extends StatelessWidget {
     final l10n = context.l10n;
     final enabled = soulCanSave(dirty: dirty, busy: busy);
     if (_part == _Part.revertRow) {
-      final metrics = GroupedMetrics.of(context);
       return Align(
         alignment: AlignmentDirectional.centerStart,
         child: Padding(
-          padding: EdgeInsetsDirectional.only(start: metrics.rowPadding),
+          padding: EdgeInsetsDirectional.only(
+            start: SoulLineMetrics.textInset(context),
+          ),
           child: TextButton(
             onPressed: enabled ? onRevert : null,
             // No inner side padding, so the label starts where the note and
-            // status text above it start; the target still extends past it.
+            // status text above it start (the row's inset is the icon, the gap
+            // and the lines' own padding); the target still extends past it.
             style: toolsButtonStyle(context).merge(
               const ButtonStyle(
                 padding: WidgetStatePropertyAll(

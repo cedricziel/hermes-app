@@ -15,9 +15,11 @@ enum AppBannerTone { success, warning, error, neutral }
 ///
 /// The action sits beside the text, and below it, at the text's leading edge,
 /// when the text size is above 150% or the language is German (long words
-/// would squeeze the text into a narrow column). Its target is at least 44 pt
-/// on iOS, 48 dp on Material and 28 pt on a Mac, whatever button the caller
-/// passes.
+/// would squeeze the text into a narrow column). A button action's target is
+/// at least 44 pt on iOS, 48 dp on Material and 28 pt on a Mac, whatever
+/// style the caller gives it, also when the button sits in a wrapper widget.
+/// An action that is no button, such as a small progress indicator, is passed
+/// with `actionIsButton: false` and keeps its own size.
 class AppBanner extends StatelessWidget {
   const AppBanner({
     super.key,
@@ -26,6 +28,7 @@ class AppBanner extends StatelessWidget {
     required this.title,
     this.detail = '',
     this.action,
+    this.actionIsButton = true,
   });
 
   final AppBannerTone tone;
@@ -35,6 +38,11 @@ class AppBanner extends StatelessWidget {
   final String title;
   final String detail;
   final Widget? action;
+
+  /// Whether [action] is a button (or wraps one): it then gets the platform's
+  /// minimum target. Pass false for anything else, such as a small progress
+  /// indicator, which keeps its own size.
+  final bool actionIsButton;
 
   static AppIconSet defaultIcon(AppBannerTone tone) => switch (tone) {
     AppBannerTone.success => AppIcons.checkCircle,
@@ -46,11 +54,41 @@ class AppBanner extends StatelessWidget {
   static const double _iconSize = 18;
   static const double _iconGap = 10;
 
-  /// Gives [action] the platform's minimum target. A text button also gets
-  /// the standard density (a Mac theme's compact one would cut the minimum)
-  /// and, when [flush], no inner side padding, so its label lines up with the
-  /// text above it while the target still extends past the label.
-  static Widget _target(BuildContext context, Widget action, bool flush) {
+  /// Whether [action] stacks under the text in this context: above 150% text
+  /// size, or in German. A caller that caps its button's width while the
+  /// action sits beside the text lifts the cap when this is true.
+  static bool stacksAction(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(14) > 21 ||
+      Localizations.maybeLocaleOf(context)?.languageCode == 'de';
+
+  /// Gives a button [action] the platform's minimum target (a constraint
+  /// around it, so a theme's compact density or the caller's own minimum
+  /// cannot cut it) and, when [flush], no inner side padding, so its label
+  /// lines up with the text above it while the target still extends past the
+  /// label vertically. A button that sets its own side padding through
+  /// `style:` is moved toward the leading edge by that padding instead (the
+  /// theme cannot beat a button's own style; a button inside a wrapper widget
+  /// is not seen and is not moved). The move is done in layout, by the
+  /// caller, through [_stackedShift], so the whole button stays tappable.
+  /// With [isButton] false the widget is
+  /// placed as it is.
+  static double _stackedShift(BuildContext context, Widget action) {
+    final own = action is ButtonStyleButton
+        ? action.style?.padding?.resolve(const <WidgetState>{})
+        : null;
+    if (own == null) return 0;
+    final direction = Directionality.of(context);
+    final resolved = own.resolve(direction);
+    return (direction == TextDirection.ltr ? resolved.left : resolved.right)
+        .clamp(0.0, _iconSize + _iconGap);
+  }
+
+  static Widget _target(
+    BuildContext context,
+    Widget action,
+    bool flush,
+    bool isButton,
+  ) {
     final minimum = switch (platformChromeOf(context)) {
       PlatformChrome.material => 48.0,
       PlatformChrome.ios => kAppleMinTapTarget,
@@ -58,20 +96,22 @@ class AppBanner extends StatelessWidget {
     };
     final base = Theme.of(context).textButtonTheme.style;
     final style = ButtonStyle(
-      minimumSize: WidgetStatePropertyAll(Size(minimum, minimum)),
-      visualDensity: VisualDensity.standard,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       padding: flush
           ? const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8))
           : null,
       alignment: flush ? AlignmentDirectional.centerStart : null,
     );
-    return TextButtonTheme(
-      data: TextButtonThemeData(style: base?.merge(style) ?? style),
-      child: ConstrainedBox(
+    Widget child = action;
+    if (isButton) {
+      child = ConstrainedBox(
         constraints: BoxConstraints(minWidth: minimum, minHeight: minimum),
         child: action,
-      ),
+      );
+    }
+    return TextButtonTheme(
+      data: TextButtonThemeData(style: base?.merge(style) ?? style),
+      child: child,
     );
   }
 
@@ -84,10 +124,10 @@ class AppBanner extends StatelessWidget {
       AppBannerTone.error => scheme.error,
       AppBannerTone.neutral => context.hermesColors.subtleText,
     };
-    final stacked =
-        action != null &&
-        (MediaQuery.textScalerOf(context).scale(14) > 21 ||
-            Localizations.maybeLocaleOf(context)?.languageCode == 'de');
+    final stacked = action != null && stacksAction(context);
+    final shift = stacked && actionIsButton
+        ? _stackedShift(context, action!)
+        : 0.0;
     final text = ExcludeSemantics(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,7 +149,8 @@ class AppBanner extends StatelessWidget {
         ),
         const SizedBox(width: _iconGap),
         Expanded(child: text),
-        if (!stacked && action != null) _target(context, action!, false),
+        if (!stacked && action != null)
+          _target(context, action!, false, actionIsButton),
       ],
     );
     // The container's own label is what a screen reader announces when the
@@ -131,12 +172,12 @@ class AppBanner extends StatelessWidget {
                 children: [
                   head,
                   Padding(
-                    padding: const EdgeInsetsDirectional.only(
-                      start: _iconSize + _iconGap,
+                    padding: EdgeInsetsDirectional.only(
+                      start: _iconSize + _iconGap - shift,
                     ),
                     child: Align(
                       alignment: AlignmentDirectional.centerStart,
-                      child: _target(context, action!, true),
+                      child: _target(context, action!, true, actionIsButton),
                     ),
                   ),
                 ],

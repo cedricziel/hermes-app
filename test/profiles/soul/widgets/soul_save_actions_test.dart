@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/soul/widgets/soul_editor.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_save_actions.dart';
+import 'package:hermes_app/src/profiles/soul/widgets/soul_status_line.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 
 import 'soul_widget_host.dart';
@@ -158,5 +160,49 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+  });
+
+  group('Revert lines up with the text of the lines above it', () {
+    for (final scale in [1.0, 3.0]) {
+      for (final locale in [const Locale('en'), const Locale('de')]) {
+        testWidgets('at text scale $scale ($locale)', (tester) async {
+          final controller = SoulTextController();
+          addTearDown(controller.dispose);
+          await pumpSoul(
+            tester,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SoulEditor(controller: controller, profile: 'work'),
+                const SoulStatusLine(kind: SoulStatusKind.saved),
+                SoulSaveActions.revertRow(
+                  dirty: true,
+                  busy: false,
+                  onRevert: () {},
+                ),
+              ],
+            ),
+            locale: locale,
+            textScaler: TextScaler.linear(scale),
+          );
+          double left(Finder f) => tester.getTopLeft(f).dx;
+          final revert = find.text(
+            locale.languageCode == 'de' ? 'Zurücksetzen' : 'Revert',
+          );
+          final status = find.text(
+            locale.languageCode == 'de'
+                ? 'Gespeichert. Neue Chats verwenden sie.'
+                : 'Saved. New chats use it.',
+          );
+          final note = find.text(
+            locale.languageCode == 'de'
+                ? 'Hermes verwendet seine Standardpersönlichkeit, solange das hier leer ist.'
+                : 'Hermes uses its default personality while this is empty.',
+          );
+          expect(left(status), closeTo(left(note), 0.5));
+          expect(left(revert), closeTo(left(status), 0.5));
+        });
+      }
+    }
   });
 }

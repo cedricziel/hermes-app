@@ -571,7 +571,7 @@
   "profilesSoulBannerCheckAgain": "Erneut prüfen",
   "profilesSoulBannerCheckFailedTitle": "Konnte nicht bestätigt werden",
   "profilesSoulBannerChecking": "Wird geprüft …",
-  "profilesSoulBannerLostDetail": "Sie ist möglicherweise angekommen. Dein Text steht noch hier.",
+  "profilesSoulBannerLostDetail": "Möglicherweise wurde trotzdem gespeichert. Dein Text steht noch hier.",
   "profilesSoulBannerLostTitle": "Die Speicherung konnte nicht bestätigt werden",
   "profilesSoulBannerNothingSent": "Der Server konnte vorher nicht geprüft werden, deshalb wurde nichts gesendet.",
   "profilesSoulBannerOfflineDetail": "Die Persönlichkeit konnte nicht geladen werden.",
