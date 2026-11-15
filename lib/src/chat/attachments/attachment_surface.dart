@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../share/shared_item.dart';
 import '../../theme/app_icons.dart';
+import '../../widgets/adaptive_sheet.dart';
 import 'attachment_paste.dart';
 import 'attachment_source.dart';
 
@@ -34,9 +35,10 @@ class _AttachmentSurfaceState extends State<AttachmentSurface> {
   var _dragging = false;
 
   Future<void> _openMenu() async {
-    final origin = await showModalBottomSheet<AttachOrigin>(
-      context: context,
-      showDragHandle: true,
+    final origins = widget.source.origins;
+    if (origins.length == 1) return _pick(origins.single);
+    final origin = await showAdaptiveSheet<AttachOrigin>(
+      context,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,

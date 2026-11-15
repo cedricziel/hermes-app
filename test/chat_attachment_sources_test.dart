@@ -95,16 +95,17 @@ void main() {
       expect(find.text('Take a photo'), findsOneWidget);
     });
 
-    testWidgets('offers files but not the camera on a desktop', (tester) async {
-      await pumpChatScreen(
-        tester,
-        attachmentSource: FakeAttachmentSource(origins: [AttachOrigin.files]),
-      );
+    testWidgets('a desktop with only files opens the picker directly', (
+      tester,
+    ) async {
+      final source = FakeAttachmentSource(origins: [AttachOrigin.files]);
+      await pumpChatScreen(tester, attachmentSource: source);
 
       await tester.tap(_attachButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('Choose files'), findsOneWidget);
+      expect(source.requested, [AttachOrigin.files]);
+      expect(find.text('Choose files'), findsNothing);
       expect(find.text('Take a photo'), findsNothing);
       expect(find.text('Photo library'), findsNothing);
     });

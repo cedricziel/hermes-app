@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/busy_bar.dart';
-import '../widgets/dialog_presentation.dart';
+import '../widgets/adaptive_sheet.dart';
 import 'skill_job.dart';
 import 'skills_hub_controller.dart';
 
@@ -20,20 +20,8 @@ Future<void> showSkillJobSheet(BuildContext context, SkillsHubController hub) {
 
 /// Presents [job] without changing its execution or owning its lifetime.
 Future<void> showSkillJobStatus(BuildContext context, SkillJob job) {
-  if (Theme.of(context).platform == TargetPlatform.macOS) {
-    return showAppDialog<void>(
-      context: context,
-      builder: (_) => Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 560),
-          child: SkillJobSheet(job: job),
-        ),
-      ),
-    );
-  }
-  return showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
+  return showAdaptiveSheet<void>(
+    context,
     builder: (_) => SkillJobSheet(job: job),
   );
 }

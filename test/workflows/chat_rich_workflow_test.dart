@@ -605,10 +605,12 @@ void main() {
 
       await tester.tap(find.byTooltip('Add attachment'));
       await tester.pumpAndSettle();
-      await shots.capture(tester, 'attach-menu');
-
-      await tester.tap(find.text('Choose files'));
-      await tester.pumpAndSettle();
+      // A single origin (desktop) picks without a menu.
+      if (!desktop) {
+        await shots.capture(tester, 'attach-menu');
+        await tester.tap(find.text('Choose files'));
+        await tester.pumpAndSettle();
+      }
       await shots.capture(tester, 'files-attached');
 
       if (desktop) {
