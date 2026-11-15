@@ -224,6 +224,18 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ('Long ids', TargetPlatform.macOS, 800.0, _State.longIds),
           ('Default unknown', TargetPlatform.macOS, 800.0, _State.unknown),
           ('Search, scrolls', TargetPlatform.macOS, 800.0, _State.many),
+          (
+            'Keyboard focus on a row, 800',
+            TargetPlatform.macOS,
+            800.0,
+            _State.focused,
+          ),
+          (
+            'Keyboard focus on a row, wide',
+            TargetPlatform.macOS,
+            1200.0,
+            _State.focused,
+          ),
           ('Windows', TargetPlatform.windows, 800.0, _State.effort),
           ('Linux', TargetPlatform.linux, 800.0, _State.effort),
           (
@@ -414,7 +426,7 @@ class _PillState extends State<_Pill> {
   );
 }
 
-enum _State { defaultRow, effort, longIds, unknown, many, noAnchor }
+enum _State { defaultRow, effort, longIds, unknown, many, noAnchor, focused }
 
 /// A fake composer pill at the bottom left that opens the picker on itself,
 /// as the real pill does.
@@ -433,9 +445,23 @@ class _PopoverHostState extends State<_PopoverHost> {
   @override
   void initState() {
     super.initState();
+    // The outline on the focused row is the keyboard's mark: show it.
+    if (widget.state == _State.focused) {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _open();
     });
+  }
+
+  @override
+  void dispose() {
+    if (widget.state == _State.focused) {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.automatic;
+    }
+    super.dispose();
   }
 
   void _open() {
@@ -450,7 +476,7 @@ class _PopoverHostState extends State<_PopoverHost> {
         _longModel,
       ),
       _State.unknown => (kanbanModelOptions, null),
-      _State.many => (
+      _State.many || _State.focused => (
         _manyModels,
         const ModelChoice('openrouter', 'openai/gpt-5.1'),
       ),

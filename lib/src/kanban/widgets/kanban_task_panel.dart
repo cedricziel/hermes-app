@@ -31,7 +31,7 @@ import '../../widgets/route_dismissal.dart';
 
 /// Opens a task as a bottom sheet on a phone and a dialog on a wide screen.
 /// On Apple platforms the sheet has medium and large detents and the dialog is
-/// a form sheet.
+/// a form sheet; the Mac always gets the form sheet, never the phone sheet.
 Future<void> showKanbanTask(
   BuildContext context, {
   required KanbanRepository repository,
@@ -53,7 +53,8 @@ Future<void> showKanbanTask(
   final apple = platformChromeOf(context).isApple;
   final wide = MediaQuery.sizeOf(context).width >= kKanbanColumnsBreakpoint;
   if (apple) {
-    return wide
+    // The Mac has no phone detent sheet at any window width.
+    return wide || platformChromeOf(context) == PlatformChrome.macos
         ? showKanbanFormSheet(context, panel())
         : showKanbanDetentSheet(
             context,
