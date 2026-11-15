@@ -22,6 +22,19 @@ final class RunnerTests: XCTestCase {
     XCTAssertNotNil(merged["watchRequests"])
   }
 
+  func testComplicationContextTakesContextIdAndRevisionFromTheNewPayload() {
+    let old: [String: Any] = ["contextId": "old", "revision": 2, "state": "working", "watchSession": ["usable": true]]
+    let renewed = WatchRelay.complicationContext(
+      merging: ["v": 1, "state": "ready", "contextId": "new", "revision": 3], into: old)
+    XCTAssertEqual(renewed["contextId"] as? String, "new")
+    XCTAssertEqual(renewed["revision"] as? Int, 3)
+    // A sign-out clear carries no context: nothing is inherited.
+    let cleared = WatchRelay.complicationContext(merging: ["v": 1, "state": "none", "seq": 9], into: old)
+    XCTAssertNil(cleared["contextId"])
+    XCTAssertNil(cleared["revision"])
+    XCTAssertNotNil(cleared["watchSession"])
+  }
+
   private func exercise(expiryFirst: Bool, result: Any?, expectedError: String?) async {
     let completed = expectation(description: "Dart invocation installed")
     var dartReply: ((Any?) -> Void)?

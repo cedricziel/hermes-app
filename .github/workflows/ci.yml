@@ -338,7 +338,7 @@ jobs:
         run: |
           xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
-            -only-testing:RunnerTests CODE_SIGNING_ALLOWED=NO
+            -only-testing:RunnerTests -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
 
       # The project-level Release and Profile settings say iphoneos only, and a
       # watch target that inherits that is archived with the iOS SDK. No job
