@@ -27,6 +27,7 @@ Future<void> _pump(
 );
 
 void main() {
+  _groupGrowthTests();
   testWidgets('collapsed groups expose tool-output warnings', (tester) async {
     await _pump(tester, const [
       ToolCall(
@@ -174,5 +175,193 @@ void main() {
     ]);
 
     expect(find.byIcon(Icons.block), findsOneWidget);
+  });
+}
+
+/// Rebuilds the group in place, as the chat does when a call arrives.
+class _Host extends StatefulWidget {
+  const _Host({super.key});
+  @override
+  State<_Host> createState() => _HostState();
+}
+
+class _HostState extends State<_Host> {
+  List<ToolCall> calls = const [];
+  Map<int, ApprovalRequest> approvals = const {};
+  void set(List<ToolCall> next, {Map<int, ApprovalRequest>? held}) =>
+      setState(() {
+        calls = next;
+        approvals = held ?? approvals;
+      });
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    theme: buildHermesLightTheme(),
+    home: Scaffold(
+      body: SingleChildScrollView(
+        child: ToolCallGroup(calls: calls, approvals: approvals),
+      ),
+    ),
+  );
+}
+
+ToolCall _call(String id, {ToolCallStatus? status}) => ToolCall(
+  id: id,
+  name: 'tool_$id',
+  summary: '',
+  args: const {'q': 'INPUT-MARK'},
+  status: status ?? ToolCallStatus.completed,
+);
+
+void _groupGrowthTests() {
+  final host = GlobalKey<_HostState>();
+  Future<void> setup(WidgetTester tester, List<ToolCall> calls) async {
+    await tester.pumpWidget(_Host(key: host));
+    host.currentState!.set(calls);
+    await tester.pump();
+  }
+
+  Future<void> grow(WidgetTester tester, List<ToolCall> calls) async {
+    host.currentState!.set(calls);
+    await tester.pump();
+  }
+
+  Future<void> tapIt(WidgetTester tester, Finder f) async {
+    await tester.tap(f);
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
+  final input = find.textContaining('INPUT-MARK');
+
+  testWidgets('1 to 2: the opened card stays open inside an opened group', (
+    tester,
+  ) async {
+    await setup(tester, [_call('a')]);
+    await tapIt(tester, find.byType(ToolCallCard));
+    expect(input, findsOneWidget);
+
+    await grow(tester, [
+      _call('a'),
+      _call('b', status: ToolCallStatus.running),
+    ]);
+
+    expect(find.text('Running tool_b…'), findsOneWidget);
+    expect(find.byType(ToolCallCard), findsNWidgets(2));
+    expect(input, findsOneWidget);
+  });
+
+  testWidgets('1 to 2 with nothing opened leaves the group folded', (
+    tester,
+  ) async {
+    await setup(tester, [_call('a')]);
+
+    await grow(tester, [_call('a'), _call('b')]);
+
+    expect(find.byType(ToolCallCard), findsNothing);
+    expect(find.text('Used 2 tools'), findsOneWidget);
+  });
+
+  testWidgets('2 to 3 keeps only the cards the reader opened open', (
+    tester,
+  ) async {
+    await setup(tester, [_call('a'), _call('b')]);
+    await tapIt(tester, find.text('Used 2 tools'));
+    await tapIt(tester, find.byType(ToolCallCard).last);
+    expect(input, findsOneWidget);
+
+    await grow(tester, [_call('a'), _call('b'), _call('c')]);
+
+    expect(find.byType(ToolCallCard), findsNWidgets(3));
+    expect(input, findsOneWidget);
+    final cards = tester
+        .widgetList<ToolCallCard>(find.byType(ToolCallCard))
+        .toList();
+    expect(cards.map((c) => c.initiallyOpen), [false, true, false]);
+  });
+
+  testWidgets('a closed card is forgotten: the group opens without it', (
+    tester,
+  ) async {
+    await setup(tester, [_call('a'), _call('b')]);
+    await tapIt(tester, find.text('Used 2 tools'));
+    await tapIt(tester, find.byType(ToolCallCard).first);
+    await tapIt(tester, find.byType(ToolCallCard).first);
+    await tapIt(tester, find.text('Used 2 tools'));
+    await tapIt(tester, find.text('Used 2 tools'));
+
+    expect(find.byType(ToolCallCard), findsNWidgets(2));
+    expect(input, findsNothing);
+  });
+
+  testWidgets('a call that gets its id after it was opened stays open', (
+    tester,
+  ) async {
+    await setup(tester, [_call('')]);
+    await tapIt(tester, find.byType(ToolCallCard));
+    expect(input, findsOneWidget);
+
+    await grow(tester, [_call('a'), _call('b')]);
+
+    expect(input, findsOneWidget);
+  });
+
+  testWidgets('open state follows the call, not its place in the run', (
+    tester,
+  ) async {
+    await setup(tester, [_call('a'), _call('b')]);
+    await tapIt(tester, find.text('Used 2 tools'));
+    await tapIt(tester, find.byType(ToolCallCard).last);
+
+    // The run is re-split: the first call leaves it.
+    await grow(tester, [_call('b'), _call('c')]);
+    await tapIt(tester, find.text('Used 2 tools'));
+    await tapIt(tester, find.text('Used 2 tools'));
+
+    final cards = tester
+        .widgetList<ToolCallCard>(find.byType(ToolCallCard))
+        .toList();
+    expect(cards.map((c) => c.initiallyOpen), [true, false]);
+  });
+
+  testWidgets('an approval that arrives keeps the group open after an open '
+      'card regrouped it', (tester) async {
+    await setup(tester, [_call('a')]);
+    await tapIt(tester, find.byType(ToolCallCard));
+    await grow(tester, [
+      _call('a'),
+      _call('b', status: ToolCallStatus.running),
+    ]);
+    await tapIt(tester, find.text('Running tool_b…'));
+    expect(find.byType(ToolCallCard), findsNothing);
+
+    host.currentState!.set(
+      [_call('a'), _call('b', status: ToolCallStatus.running)],
+      held: const {
+        1: ApprovalRequest(
+          requestId: 'r1',
+          command: 'rm',
+          description: '',
+          choices: ['once', 'deny'],
+        ),
+      },
+    );
+    await tester.pump();
+
+    expect(find.text('Waiting on tool_b'), findsOneWidget);
+    expect(find.byType(ApprovalCard), findsOneWidget);
+  });
+
+  testWidgets('the header still names the running call after a regroup', (
+    tester,
+  ) async {
+    await setup(tester, [_call('a')]);
+    await tapIt(tester, find.byType(ToolCallCard));
+    await grow(tester, [
+      _call('a'),
+      _call('b', status: ToolCallStatus.running),
+    ]);
+
+    final handle = tester.ensureSemantics();
+    expect(find.bySemanticsLabel(RegExp('Running tool_b')), findsWidgets);
+    handle.dispose();
   });
 }

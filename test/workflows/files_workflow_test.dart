@@ -9,6 +9,8 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/files/widgets/file_previews.dart';
+import 'package:hermes_app/src/theme/hermes_code_colors.dart';
 import 'package:hermes_app/src/app/providers/auth_providers.dart';
 import 'package:provider/provider.dart';
 
@@ -263,6 +265,24 @@ void main() {
           find.textContaining('mean_moisture', findRichText: true),
           findsOneWidget,
         );
+        // The server's `language` reaches the preview: `import` is coloured
+        // as a keyword in this theme.
+        final palette =
+            Theme.of(tester.element(find.byType(CodePreview))).brightness ==
+                Brightness.dark
+            ? HermesCodeColors.dark
+            : HermesCodeColors.light;
+        final colours = <Color?>[];
+        tester
+            .widget<SelectableText>(find.byType(SelectableText))
+            .textSpan!
+            .visitChildren((span) {
+              if (span is TextSpan && span.text == 'import') {
+                colours.add(span.style?.color);
+              }
+              return true;
+            });
+        expect(colours, [palette.keyword]);
         await shots.capture(tester, 'code');
         if (name == 'phone') await popRoute(tester);
         await idle(tester);

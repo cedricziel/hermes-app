@@ -87,7 +87,7 @@ const _maxReconnectAttempts = 5;
 /// do not use up [_maxReconnectAttempts] or [_reconnectBudget]; those count from
 /// the first answer. The window starts over each time the app asks the
 /// connection again (`checkConnection`, on coming to the front).
-const _reconnectWindow = Duration(seconds: 60);
+const _defaultReconnectWindow = Duration(seconds: 60);
 
 /// The longest wait between two attempts that the server never answered.
 const _unansweredBackoffCap = Duration(seconds: 5);
@@ -154,6 +154,7 @@ class HermesGatewayTransport
     this.requestTimeout = const Duration(seconds: 30),
     this.probeTimeout = const Duration(seconds: 10),
     this.reattachTimeout = const Duration(seconds: 20),
+    this.reconnectWindow = _defaultReconnectWindow,
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
     this.readTimeout = const Duration(seconds: 10),
@@ -183,6 +184,10 @@ class HermesGatewayTransport
   /// How long a call of a reconnect (`session.resume`, `session.events.since`)
   /// may go unanswered before its socket is dropped and a new one is tried.
   final Duration reattachTimeout;
+
+  /// How long a reconnect keeps trying while the server has not answered (see
+  /// [_defaultReconnectWindow]). Tests shorten it.
+  final Duration reconnectWindow;
 
   /// How long a checkpoint or context read may go unanswered; the connection
   /// stays open.
