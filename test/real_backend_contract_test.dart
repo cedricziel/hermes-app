@@ -5505,6 +5505,45 @@ model:
         tap.types(sid).where((t) => t == 'message.complete').length;
 
     test(
+      'session.resume of a session that was created and never given a prompt '
+      'answers the same way on every connection',
+      () async {
+        // A voice turn withdrawn before prompt.submit leaves a chat bound to
+        // the id session.create returned: what does Hermes say to a resume?
+        final owner = await openTap();
+        final created = await owner.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final stored = created['stored_session_id'] as String;
+        Future<String> resume(_GatewayTap tap, [String? id]) async {
+          try {
+            final resumed = await tap.rpc.request('session.resume', {
+              'session_id': id ?? stored,
+              'profile': profile,
+              'source': 'hermes_app',
+            });
+            return 'ok live=${resumed['session_id'] == created['session_id']}';
+          } on GatewayRpcException catch (error) {
+            return 'error ${error.code}';
+          }
+        }
+
+        final same = await resume(owner);
+        final other = await resume(await openTap());
+        await owner.close();
+        final after = await resume(await openTap());
+        // Hermes keeps the session live in its process, so the id works from
+        // any connection, even after the one that created it closed. An id it
+        // never had (or lost in a restart) is refused with 4007.
+        expect(same, 'ok live=true');
+        expect(other, 'ok live=true');
+        expect(after, 'ok live=true');
+        expect(await resume(await openTap(), 'never-created-id'), 'error 4007');
+      },
+    );
+
+    test(
       'session.resume then prompt.submit with queued true: on an idle chat it '
       'runs, on a running chat it waits for its turn and is never steered or '
       'redirected',

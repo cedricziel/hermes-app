@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/queue_storage/durable_queue_store.dart';
 import 'package:hermes_app/src/chat/queue_storage/queue_record.dart';
+import 'package:hermes_app/src/chat/thread_sections.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -34,6 +35,8 @@ void main() {
   late FakeHermesServer server;
   late AttentionNotifier attention;
   late List<String> reports;
+  late List<ChatSendNotice> notices;
+  late List<String> drafts;
   Completer<DurableQueueStore>? storeGate;
 
   setUp(() async {
@@ -44,6 +47,8 @@ void main() {
     store = DurableQueueStore(directory: directory, keys: keys);
     transport = FakeChatTransport();
     reports = [];
+    notices = [];
+    drafts = [];
     storeGate = null;
     attention = AttentionNotifier(
       service: null,
@@ -80,6 +85,8 @@ void main() {
       transport: transport,
       attention: attention,
       report: reports.add,
+      onSendNotice: notices.add,
+      onDraft: drafts.add,
       queueStore: () => gated ? storeGate!.future : Future.value(store),
       queueChanges: ValueNotifier(true),
       canShowQueues: () => true,
@@ -139,15 +146,26 @@ void main() {
     );
 
     test(
-      'a restored queue with prompts refuses as busy and sends none',
+      'a restored queue with prompts refuses as paused and sends none',
       () async {
         await store.commit(_scope(), 'restored prompt');
         final chat = await open();
-        expect(await speak(chat), VoiceTurnRefusal.busy);
+        expect(await speak(chat), VoiceTurnRefusal.queuePaused);
         expect(transport.sends, isEmpty);
         expect(chat.queuedIn(chat.selectedThread!).map((p) => p.text), [
           'restored prompt',
         ]);
+      },
+    );
+
+    test(
+      'a queue behind a running reply refuses as busy, not paused',
+      () async {
+        final chat = await open();
+        await chat.submit('typed', const []);
+        await chat.submit('queued behind it', const []);
+        expect(chat.queuePaused(chat.selectedThread!), isFalse);
+        expect(await speak(chat), VoiceTurnRefusal.busy);
       },
     );
 
@@ -161,7 +179,7 @@ void main() {
         ..finish();
       await pumpEventQueue();
       expect(chat.queuePaused(thread), isTrue);
-      expect(await speak(chat), VoiceTurnRefusal.busy);
+      expect(await speak(chat), VoiceTurnRefusal.queuePaused);
       expect(transport.sends, hasLength(1));
       expect(chat.queuedIn(thread).map((p) => p.text), ['queued behind it']);
     });
@@ -256,7 +274,7 @@ void main() {
         final answer = speak(chat);
         await pumpEventQueue();
         storeGate!.complete(store);
-        expect(await answer, VoiceTurnRefusal.busy);
+        expect(await answer, VoiceTurnRefusal.queuePaused);
         expect(transport.sends, isEmpty);
         expect(chat.queuedIn(chat.selectedThread!), hasLength(1));
       },
@@ -372,6 +390,41 @@ void main() {
       expect(reports, isEmpty);
     });
 
+    test('a typed stop phrase says so and hands the words back', () async {
+      final chat = await open();
+      await chat.submit('stop', const []);
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(notices, [ChatSendNotice.stopCommand]);
+      expect(drafts, ['stop']);
+      expect(chat.selectedThread!.messages, isEmpty);
+    });
+
+    test('a typed stop phrase of another chat is not handed back', () async {
+      final chat = await open();
+      await chat.submit('stop', const []);
+      chat.newThread();
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(notices, [ChatSendNotice.stopCommand]);
+      expect(drafts, isEmpty);
+    });
+
+    test('a spoken stop phrase tells the call, not the chat', () async {
+      final chat = await open();
+      await speak(chat);
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(notices, isEmpty);
+      expect(drafts, isEmpty);
+    });
+
     test('voice_stopped for a typed prompt leaves no placeholder', () async {
       final chat = await open();
       await chat.submit('stop', const []);
@@ -457,6 +510,120 @@ void main() {
       expect(transport.followUpCalls, greaterThan(before));
     });
   });
+
+  group(
+    'a turn withdrawn before it was written leaves the thread as it was',
+    () {
+      test('its last activity and its place in the sidebar', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        final updated = thread.updatedAt;
+        final now = DateTime.now();
+        List<ThreadSectionKind> sections() => [
+          for (final s in groupThreads(chat.threads, now: now)) s.kind,
+        ];
+        final before = sections();
+        var wanted = true;
+        await speak(chat, wanted: () => wanted);
+        wanted = false;
+        transport.sends.single.submit();
+        await pumpEventQueue();
+        expect(thread.messages, isEmpty);
+        expect(thread.updatedAt, updated);
+        expect(sections(), before);
+      });
+
+      test('the same when Hermes takes the words as a stop phrase', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        final updated = thread.updatedAt;
+        await speak(chat);
+        transport.sends.single
+          ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+          ..finish();
+        await pumpEventQueue();
+        expect(thread.updatedAt, updated);
+      });
+
+      test('a newer last activity set meanwhile is kept', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        var wanted = true;
+        await speak(chat, wanted: () => wanted);
+        final newer = DateTime.now().add(const Duration(days: 1));
+        thread.updatedAt = newer;
+        wanted = false;
+        transport.sends.single.submit();
+        await pumpEventQueue();
+        expect(thread.updatedAt, newer);
+      });
+
+      test('the earlier reply still settled without a completion', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        await chat.submit('earlier', const []);
+        transport.sends.single
+          ..emit(const SessionInfo(running: false))
+          ..finish();
+        await pumpEventQueue();
+        final earlier = thread.messages.last;
+        expect(earlier.settledWithoutCompletion, isTrue);
+        var wanted = true;
+        await speak(chat, wanted: () => wanted);
+        // The new turn took over the late completion.
+        expect(earlier.settledWithoutCompletion, isFalse);
+        wanted = false;
+        transport.sends.last.submit();
+        await pumpEventQueue();
+        expect(thread.messages.last, same(earlier));
+        expect(earlier.settledWithoutCompletion, isTrue);
+      });
+
+      test('a stop asked during a withdrawn turn is not current for the next '
+          'turn', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        final stop = Completer<bool>();
+        transport.onStop = (_) => stop.future;
+        await chat.submit('stop', const []);
+        final stopping = chat.stopReply(thread);
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+          ..finish();
+        await pumpEventQueue();
+        await chat.submit('next', const []);
+        await pumpEventQueue();
+        stop.completeError(StateError('lost'));
+        await stopping;
+        expect(reports, isEmpty);
+      });
+
+      test('an answer to an earlier stop is still current', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        final stop = Completer<bool>();
+        transport.onStop = (_) => stop.future;
+        await chat.submit('typed', const []);
+        final stopping = chat.stopReply(thread);
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const ReplyCompleted('', stopped: true))
+          ..finish();
+        await pumpEventQueue();
+        var wanted = true;
+        await speak(chat, wanted: () => wanted);
+        wanted = false;
+        transport.sends.last.submit();
+        await pumpEventQueue();
+        // The stop fails after the withdrawn turn: it is still about the reply
+        // before it, so the user is told.
+        stop.completeError(StateError('lost'));
+        await stopping;
+        expect(reports, contains('Could not stop the reply. Try again.'));
+      });
+    },
+  );
 
   test('a stop phrase is reported with the thread it was sent in', () async {
     final chat = await open();

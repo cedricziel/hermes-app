@@ -11,8 +11,11 @@ final class CallTurnRefused implements Exception {
   const CallTurnRefused(this.reason);
   final VoiceTurnRefusal reason;
 
-  /// Hermes is still answering, or a queue holds prompts.
+  /// Hermes is still answering, or a queue is about to send.
   bool get busy => reason == VoiceTurnRefusal.busy;
+
+  /// A queue holds prompts that wait for the user while no reply runs.
+  bool get queuePaused => reason == VoiceTurnRefusal.queuePaused;
 
   /// The call moved on (End, mute, an approval waiting): nothing to say.
   bool get noLongerWanted => reason == VoiceTurnRefusal.noLongerWanted;
@@ -25,6 +28,7 @@ final class CallTurnRefused implements Exception {
   /// The reason in fixed words, for telemetry.
   String get kind => switch (reason) {
     VoiceTurnRefusal.busy => 'busy',
+    VoiceTurnRefusal.queuePaused => 'queue_paused',
     VoiceTurnRefusal.noLongerWanted => 'no_longer_wanted',
     VoiceTurnRefusal.queueRestoreFailed => 'queue_restore_failed',
     VoiceTurnRefusal.modelOrBranchNotAllowed => 'not_allowed',
@@ -166,9 +170,9 @@ class ChatCallAgent implements CallAgent {
         thread.isCanonicalBotChat) {
       throw StateError('This chat is not ready for another voice turn.');
     }
-    if (thread.isReplying || chat.queuedIn(thread).isNotEmpty) {
-      throw const CallTurnRefused(VoiceTurnRefusal.busy);
-    }
+    // A running reply is busy; what a queue means (about to send, or paused
+    // for the user) is for the chat to say once it has read the queue.
+    if (thread.isReplying) throw const CallTurnRefused(VoiceTurnRefusal.busy);
     final done = _reply = Completer<void>();
     // Observe errors before submit's asynchronous admission checks complete.
     unawaited(

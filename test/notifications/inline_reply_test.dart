@@ -508,6 +508,28 @@ void main() {
     });
   });
 
+  group('a reply Hermes takes as its stop phrase', () {
+    test('is not sent: the notification says so and keeps the text', () async {
+      final run = reply('stop');
+      final send = await sent();
+      send.onSubmitting!();
+      transport.promptAccepted = true;
+      send
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+
+      final result = await run;
+
+      expect(result.outcome, InlineReplyOutcome.failed);
+      expect(result.ending, ReplyEnding.notSent);
+      expect(result.endingPosted, isTrue);
+      expect(only().body, kReplyNotSentKeptBody);
+      expect(payloadOf(only())['u'], 'stop');
+      // No turn runs: nothing is waited for or remembered.
+      expect(await running.read(), isEmpty);
+    });
+  });
+
   group('the cutoff', () {
     test(
       'app route: the run ends at due - 6 s, and the cutoff decides once',

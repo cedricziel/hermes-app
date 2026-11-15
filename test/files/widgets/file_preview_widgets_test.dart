@@ -228,7 +228,8 @@ void main() {
       expect(
         tester
             .widget<SelectableText>(find.byType(SelectableText))
-            .style
+            .textSpan
+            ?.style
             ?.fontSize,
         12,
       );
