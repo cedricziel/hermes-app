@@ -1,6 +1,9 @@
+import contextlib
+import io
 import pathlib
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
@@ -180,6 +183,27 @@ class FromEnvironment(unittest.TestCase):
             "LABELS": "",
         }
         self.assertEqual(ci_gate.from_env(env), ("full", ci_gate.REASON_RELEASE))
+
+    def test_label_with_trailing_space_is_not_stripped(self):
+        env = {
+            "EVENT_NAME": "pull_request",
+            "BASE_REF": "main",
+            "LABELS": "ci:full \n",
+        }
+        self.assertEqual(ci_gate.from_env(env), ("deferred", ci_gate.REASON_DEFERRED))
+
+    def test_main_prints_full_when_from_env_raises(self):
+        def boom(env):
+            raise RuntimeError("boom")
+
+        out = io.StringIO()
+        with mock.patch.object(ci_gate, "from_env", boom):
+            with contextlib.redirect_stdout(out):
+                ci_gate.main()
+        self.assertEqual(
+            out.getvalue().splitlines(),
+            ["full=true", f"gate_reason={ci_gate.REASON_ERROR}"],
+        )
 
     def test_output_lines(self):
         self.assertEqual(

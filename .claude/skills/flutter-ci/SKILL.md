@@ -148,8 +148,11 @@ needs a full run to debug. The label must exist in the repo: the owner creates
 it once (`gh label create ci:full --description "Run the full CI test suite"`);
 until then the first session to label a PR creates it, since adding a label
 through the API creates it when missing. Do not use "Re-run jobs" to get a full
-run after labelling: the label event starts a new run by itself, and the gate
-reads the current labels either way.
+run after labelling: the label event starts a new run by itself. "Re-run all
+jobs" re-reads the labels in `Changes`; "Re-run failed jobs" keeps the
+successful `Changes` job's old `full` output, so `Analyze & test` reads the
+current labels again itself (a failed lookup there counts as full, so a full
+run that passed is not turned red by a flaky API call).
 
 | Event | Labels after it | Run | `Analyze & test` |
 | --- | --- | --- | --- |
@@ -176,7 +179,10 @@ failed one. The workflow is triggered by every label event, so an unrelated
 label could otherwise cancel a full run: only `ci:full` events cancel a run in
 progress. Any other label event queues behind it (a queued run is replaced by a
 newer one), recomputes the same decision from the label set, and so gives the
-same result. The cost is one repeated full run per unrelated label added to a
+same result. After `ci:full` is removed there is a short window: until the
+new run's `Analyze & test` appears (after Analyze finishes), the previous green
+check is still the latest, so the PR stays mergeable. The tests did run on that
+head. The cost is one repeated full run per unrelated label added to a
 PR that has `ci:full` and has finished or is running; the workflow cannot
 filter by label name, and a skipped aggregate would count as passing. Labels
 other than `ci:full` that a bot adds belong on the PR before `ci:full` is
@@ -190,5 +196,7 @@ any PR: deferred until someone adds `ci:full`.
 
 **Costs.** A PR needs one label action before it can merge. A deferred head has
 a red required check. Reading the label through the API needs
-`pull-requests: read` on `Changes`; a failed lookup runs everything. `merge_group`
+`pull-requests: read` on `Changes` and `Analyze & test`; a failed lookup runs
+everything, and a failed gate step in `Changes` falls back to full. Push and
+dispatch never depend on that step. `merge_group`
 is classified as full but `ci.yml` does not trigger on it today.

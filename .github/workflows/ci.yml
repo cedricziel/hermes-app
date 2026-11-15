@@ -53,8 +53,8 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
       watch: ${{ steps.filter.outputs.watch }}
       builds: ${{ steps.filter.outputs.builds }}
-      full: ${{ steps.gate.outputs.full }}
-      gate_reason: ${{ steps.gate.outputs.gate_reason }}
+      full: ${{ github.event_name != 'pull_request' && 'true' || steps.gate.outputs.full || 'true' }}
+      gate_reason: ${{ github.event_name != 'pull_request' && 'push, manual or merge-group run' || steps.gate.outputs.gate_reason || 'gate step failed; failing closed' }}
     steps:
       # On a pull request HEAD is the merge commit and HEAD^1 the base branch.
       - uses: actions/checkout@v7
@@ -142,11 +142,14 @@ jobs:
           echo "builds=$builds" >> "$GITHUB_OUTPUT"
           echo "code=$code watch=$watch builds=$builds" >> "$GITHUB_STEP_SUMMARY"
 
-      # The labels are read from the API, not from the event payload, so a
-      # re-run of this workflow sees the labels as they are now. A failed
-      # lookup makes the run FULL (fail closed).
+      # The labels are read from the API, not from the event payload, so
+      # "Re-run all jobs" sees the labels as they are now. "Re-run failed
+      # jobs" reuses this job's outputs, so `Analyze & test` reads the labels
+      # again. A failed lookup makes the run FULL (fail closed), and a failed
+      # step falls back to full below (continue-on-error).
       - name: Decide full or deferred
         id: gate
+        continue-on-error: true
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
@@ -287,14 +290,43 @@ jobs:
   # A deferred run (no `ci:full` label, see Changes) fails it when tests are
   # needed: nothing merges before the tests ran on this head. It must not skip,
   # because a skipped required check counts as passing. A docs-only pull request
-  # needs no tests and passes deferred too.
+  # needs no tests and passes deferred too. It reads the labels again, because
+  # "Re-run failed jobs" keeps Changes' old `full`: a partial re-run follows
+  # today's labels. A failed lookup counts as FULL here too, so a full run that
+  # passed is not turned red by a flaky API call.
   analyze-and-test:
     name: Analyze & test
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [changes, analyze, test, test-watch]
     if: always()
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Read the current labels
+        id: gate
+        continue-on-error: true
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          labels=""
+          labels_error=false
+          if [ "$EVENT_NAME" = pull_request ]; then
+            labels="$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/labels" --jq '.[].name')" || labels_error=true
+          fi
+          LABELS="$labels" LABELS_ERROR="$labels_error" python3 -I scripts/ci_gate.py | tee -a "$GITHUB_OUTPUT"
+
       - name: Check results
         env:
           CHANGES: ${{ needs.changes.result }}
@@ -303,10 +335,17 @@ jobs:
           TEST_WATCH: ${{ needs.test-watch.result }}
           NEED_TEST: ${{ needs.changes.outputs.code }}
           NEED_WATCH: ${{ needs.changes.outputs.watch }}
-          FULL: ${{ needs.changes.outputs.full }}
-          GATE_REASON: ${{ needs.changes.outputs.gate_reason }}
+          FULL_AT_CHANGES: ${{ needs.changes.outputs.full }}
+          FULL_NOW: ${{ steps.gate.outputs.full }}
+          GATE_REASON: ${{ steps.gate.outputs.gate_reason }}
         run: |
           fail=0
+          # Deferred when Changes said so or the fresh lookup does (a failed
+          # step has no output and counts as full): a partial re-run can turn a
+          # stale full into deferred, and a deferred run stays deferred because
+          # its tests were skipped. Only a new run after labelling runs them.
+          FULL=true
+          if [ "$FULL_NOW" = false ] || [ "$FULL_AT_CHANGES" = false ]; then FULL=false; fi
           expect() {
             echo "$1: $2 (expected $3)"
             [ "$2" = "$3" ] || fail=1
