@@ -38,9 +38,13 @@ final class CareUnsupported<T> extends CareResult<T> {
 }
 
 final class CareFailed<T> extends CareResult<T> {
-  const CareFailed(this.kind, {this.message});
+  const CareFailed(this.kind, {this.message, this.timedOut = false});
 
   final CareFailureKind kind;
+
+  /// An [CareFailureKind.offline] that is a request which left and got no
+  /// answer in time, not one that never connected.
+  final bool timedOut;
 
   /// Hermes' own text when it sent a string `detail`. Shown to the person,
   /// never logged.

@@ -232,7 +232,7 @@ extension _FollowUps on HermesGatewayTransport {
             out.add(event);
           }
           if (resumed.giveUp && !out.isClosed) {
-            out.addError(const GatewayConnectionClosed());
+            out.addError(resumed.failure);
           }
           if (idle == null || out.isClosed || follow.cancelled) return;
           // The turn is over, but the session goes on: the idle watch carries

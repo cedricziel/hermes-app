@@ -278,7 +278,19 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
     ),
     WidgetbookComponent(
       name: 'KanbanDropStrip',
-      useCases: [_use('Dragging', KanbanDropStrip(onDrop: (_, _) {}))],
+      useCases: [
+        _use('Dragging', KanbanDropStrip(onDrop: (_, _) {})),
+        _use(
+          'Card over a status',
+          const Wrap(
+            spacing: 8,
+            children: [
+              KanbanDropStripChip(label: 'Todo', active: false),
+              KanbanDropStripChip(label: 'Blocked', active: true),
+            ],
+          ),
+        ),
+      ],
     ),
     WidgetbookComponent(
       name: 'KanbanBulkBar',
