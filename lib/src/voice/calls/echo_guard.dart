@@ -5,20 +5,33 @@ import 'dart:typed_data';
 /// microphone. No platform cancels all of it, so the first transcript after a
 /// reply is compared with that reply; later ones never are.
 ///
-/// A transcript matches when its similarity to the reply is at least
-/// [threshold] (one minus the edit distance over the longer length, on the
-/// words only, lowercased). A transcript of ten characters or more that is
-/// shorter than the reply also matches when it resembles any stretch of the
-/// reply of the same number of words, because the microphone often hears only
-/// part of it. A shorter one is compared with the whole reply only, so a
-/// spoken "Goodbye." is never taken for part of a long sentence that happens
-/// to contain it.
+/// A transcript is an echo when both hold for the same stretch of the reply
+/// (all of it, or, for a transcript of ten characters or more that is shorter
+/// than the reply, any run of the same number of words, because the
+/// microphone often hears only part of it):
+///
+/// 1. It is at least [threshold] alike: one minus the edit distance over the
+///    longer length, on the words only, lowercased.
+/// 2. It brings nothing new: at most one word in [wordsPerNewWord] is missing
+///    from that stretch. A word is in it when it is the same word, or, from
+///    four letters, at least [threshold] alike (a transposed letter, "Hannah"
+///    for "Anna"); a shorter word has to be the same. The reply read back has
+///    no new words, so "yes, goodbye" after a reply ending "Goodbye." is an
+///    answer however alike the two are, and so is "Yes, send the email to
+///    Anna" after "Shall I send the email to Anna?". A recognizer's filler
+///    word in a long echo is within the allowance.
 class EchoGuard {
   /// How alike a transcript and the reply must be.
   static const threshold = 0.6;
 
   /// The shortest transcript compared with a stretch of the reply.
   static const minWindowLength = 10;
+
+  /// One word of a transcript may be new for each this many words in it.
+  static const wordsPerNewWord = 8;
+
+  /// The shortest word that matches another by likeness rather than exactly.
+  static const _minFuzzyWord = 4;
 
   // A window compare is quadratic in the transcript, so a long one is compared
   // whole, and a long reply only by its end.
@@ -39,7 +52,7 @@ class EchoGuard {
     if (reply == null || reply.isEmpty) return false;
     final heard = _words(transcript);
     if (heard.isEmpty) return false;
-    if (_similarity(heard, reply) >= threshold) return true;
+    if (_matches(heard, reply)) return true;
     if (transcript.trim().length < minWindowLength ||
         heard.length >= reply.length ||
         heard.length > _maxWindowTranscript) {
@@ -54,10 +67,30 @@ class EchoGuard {
     if (count >= words.length) return false;
     for (var start = 0; start + count <= words.length; start++) {
       final window = words.sublist(start, start + count).join(' ');
-      if (_similarity(heard, window) >= threshold) return true;
+      if (_matches(heard, window)) return true;
     }
     return false;
   }
+
+  static bool _matches(String heard, String stretch) =>
+      _similarity(heard, stretch) >= threshold && _addsNothing(heard, stretch);
+
+  static bool _addsNothing(String heard, String stretch) {
+    final known = stretch.split(' ');
+    final words = heard.split(' ');
+    var allowed = words.length ~/ wordsPerNewWord;
+    for (final word in words) {
+      if (known.any((other) => _sameWord(word, other))) continue;
+      if (allowed-- == 0) return false;
+    }
+    return true;
+  }
+
+  static bool _sameWord(String a, String b) =>
+      a == b ||
+      (a.length >= _minFuzzyWord &&
+          b.length >= _minFuzzyWord &&
+          _similarity(a, b) >= threshold);
 
   static final _notWord = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
 

@@ -94,4 +94,90 @@ void main() {
       ..spoken('Das Wetter in Berlin ist heute wolkig, später regnet es.');
     expect(guard.isEcho('das wetter in berlin ist heute wolkig'), isTrue);
   });
+
+  group('the boundary between an echo and an answer', () {
+    // (name, reply, transcript, swallowed)
+    const table = <(String, String, String, bool)>[
+      // Heard back: dropped.
+      (
+        'the whole reply',
+        'The weather in Berlin is cloudy today with a chance of rain.',
+        'the weather in berlin is cloudy today with a chance of rain',
+        true,
+      ),
+      (
+        'the last sentence',
+        'It is cloudy. I will remind you at five. Talk to you later.',
+        'I will remind you at five. Talk to you later',
+        true,
+      ),
+      (
+        'a tail fragment with a transposed letter',
+        'The weather in Berlin is cloudy today.',
+        'weather in Berlin is cloudy toady',
+        true,
+      ),
+      (
+        'a name the recognizer heard differently',
+        'Shall I send the email to Anna?',
+        'shall I send the email to Hannah',
+        true,
+      ),
+      ('a reply of one word, heard alone', 'Goodbye.', 'Goodbye.', true),
+      (
+        'nine words with one filler word in them',
+        'I have turned the living room lights off now.',
+        'I have turned the uh living room lights off',
+        true,
+      ),
+      // An answer that shares the reply's last words: kept.
+      (
+        'yes, goodbye after a reply that ends in Goodbye.',
+        'The reminder is set for five. Goodbye.',
+        'Yes, goodbye.',
+        false,
+      ),
+      (
+        'yes, goodbye after a reply of just Goodbye.',
+        'Goodbye.',
+        'Yes, goodbye.',
+        false,
+      ),
+      (
+        'a yes that repeats the question',
+        'Shall I send the email to Anna?',
+        'Yes, send the email to Anna',
+        false,
+      ),
+      (
+        'the question repeated with a word added',
+        'Shall I send the email to Anna?',
+        'send the email to Anna please',
+        false,
+      ),
+      (
+        'a correction that keeps most of the wording',
+        'Shall I send the email to Anna?',
+        'No, send the email to Anna',
+        false,
+      ),
+      (
+        'ten words with two new ones',
+        'I have turned the living room lights off now.',
+        'I have turned the uh um living room lights off',
+        false,
+      ),
+      (
+        'unrelated words',
+        'The weather in Berlin is cloudy today.',
+        'please turn on the kitchen lights now',
+        false,
+      ),
+    ];
+    for (final (name, reply, transcript, swallowed) in table) {
+      test('$name: ${swallowed ? 'dropped' : 'kept'}', () {
+        expect((EchoGuard()..spoken(reply)).isEcho(transcript), swallowed);
+      });
+    }
+  });
 }

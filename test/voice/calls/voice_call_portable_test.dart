@@ -66,6 +66,22 @@ void main() {
       expect(h.agent.prompts, ['Weather', 'Remind me at five']);
     });
 
+    test('an answer that repeats the question is sent, not dropped', () async {
+      await h.rebuild(echo: EchoGuard());
+      await h.activate();
+      await speaks('Mail Anna', 'Shall I send the email to Anna?');
+      await h.say('Yes, send the email to Anna');
+      expect(h.agent.prompts, ['Mail Anna', 'Yes, send the email to Anna']);
+    });
+
+    test('"yes, goodbye" after a reply ending in Goodbye. is sent', () async {
+      await h.rebuild(echo: EchoGuard());
+      await h.activate();
+      await speaks('Say bye', 'The reminder is set. Goodbye.');
+      await h.say('Yes, goodbye');
+      expect(h.agent.prompts, ['Say bye', 'Yes, goodbye']);
+    });
+
     test('the guard is spent by the first transcript', () async {
       await h.rebuild(echo: EchoGuard());
       await h.activate();
