@@ -582,6 +582,7 @@ void main() {
       await listen(tester);
       await pump(tester, _model());
       expect(said, isEmpty);
+      await pump(tester, _model(run: CuratorRunView.starting));
       await pump(tester, _model(run: CuratorRunView.following));
       await pump(tester, _model(run: CuratorRunView.following));
       await pump(tester, _model(run: CuratorRunView.finished));
@@ -592,6 +593,7 @@ void main() {
     testWidgets('a failed pass says Failed', (tester) async {
       await listen(tester);
       await pump(tester, _model());
+      await pump(tester, _model(run: CuratorRunView.starting));
       await pump(tester, _model(run: CuratorRunView.following));
       await pump(tester, _model(run: CuratorRunView.failed));
       expect(said, ['Curator pass started', 'Failed']);
@@ -624,6 +626,23 @@ void main() {
       expect(tester.getTopLeft(find.text('Active')).dy, greaterThan(title));
       expect(tester.takeException(), isNull);
     });
+
+    for (final scale in [2.0, 3.1]) {
+      testWidgets('the paused status keeps its note under the value at '
+          '${scale}x', (tester) async {
+        await pump(
+          tester,
+          _model(status: _status(paused: true)),
+          scale: scale,
+          size: const Size(320, 6000),
+        );
+        expect(
+          find.text('Paused\nScheduled passes are paused.'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('the status icon grows with the text', (tester) async {
       Size icon() => tester.getSize(
@@ -732,6 +751,16 @@ void main() {
       );
     });
 
+    testWidgets('an empty pause detail falls back to the plain text', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        _model(pause: CuratorPauseView.failed, pauseDetail: ''),
+      );
+      expect(find.text("Couldn't change it"), findsOneWidget);
+    });
+
     testWidgets('dropped output says it was cleared', (tester) async {
       await pump(tester, _model(run: CuratorRunView.finished, dropped: true));
       expect(find.text('Output cleared when the app locked.'), findsOne);
@@ -774,6 +803,32 @@ void main() {
       await pump(tester, _model(run: CuratorRunView.starting));
       await pump(tester, _model(run: CuratorRunView.following));
       expect(said, ['Curator pass started']);
+    });
+
+    testWidgets('a pass picked up again after a lost run is not a start', (
+      tester,
+    ) async {
+      final said = <String>[];
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+            message,
+          ) async {
+            final data = (message as Map)['data'];
+            if (data is Map) said.add(data['message'] as String);
+            return null;
+          });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger
+            .setMockDecodedMessageHandler<dynamic>(
+              SystemChannels.accessibility,
+              null,
+            ),
+      );
+      await pump(tester, _model(run: CuratorRunView.progressLost));
+      await pump(tester, _model(run: CuratorRunView.following));
+      await pump(tester, _model(run: CuratorRunView.stillRunning));
+      await pump(tester, _model(run: CuratorRunView.following));
+      expect(said, isEmpty);
     });
   });
 }

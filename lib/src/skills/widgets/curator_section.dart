@@ -218,7 +218,8 @@ class _CuratorSectionState extends State<CuratorSection> {
     // answer or a refusal.
     final text =
         now.run == CuratorRunView.following &&
-            was.run != CuratorRunView.following
+            (was.run == CuratorRunView.starting ||
+                was.run == CuratorRunView.lostAnswer)
         ? l10n.skillsCuratorAnnounceStarted
         : now.run == CuratorRunView.finished && !ended(was.run)
         ? l10n.skillsCuratorAnnounceFinished
@@ -351,7 +352,7 @@ class _CuratorBody extends StatelessWidget {
     // Beyond twice the text size the row puts the value under the title
     // itself: the grouped row's own stacking does not know this icon grows
     // with the text, and would leave "Status" too little room.
-    final stackStatus = MediaQuery.textScalerOf(context).scale(17) > 2 * 17;
+    final stackStatus = MediaQuery.textScalerOf(context).scale(17) >= 2 * 17;
     return [
       GroupedRow(
         title: l10n.skillsCuratorStatus,
