@@ -18,7 +18,7 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
+import time
 
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 KEYWORDS = {"if", "then", "else", "elif", "do", "while", "until", "{", "}", "!"}
@@ -402,16 +402,25 @@ def _matches_long(tok, full, minlen):
 
 
 def _git_effective(args, cwd):
-    """Skip git global options. Returns (config_overrides, cwd, sub, rest)."""
+    """Skip git global options.
+
+    Returns (config_overrides, cwd, sub, rest, opts) where opts holds the
+    `git_dir` and `work_tree` given on the command line (absolute), if any.
+    """
     configs = []
+    opts = {}
     i = 0
+
+    def abspath(p):
+        return os.path.normpath(os.path.join(cwd, os.path.expanduser(p)))
+
     while i < len(args):
         a = args[i]
         if a == "-C" and i + 1 < len(args):
-            cwd = os.path.normpath(os.path.join(cwd, os.path.expanduser(args[i + 1])))
+            cwd = abspath(args[i + 1])
             i += 2
         elif a.startswith("-C") and len(a) > 2:
-            cwd = os.path.normpath(os.path.join(cwd, os.path.expanduser(a[2:])))
+            cwd = abspath(a[2:])
             i += 1
         elif a == "-c" and i + 1 < len(args):
             configs.append(args[i + 1])
@@ -425,9 +434,14 @@ def _git_effective(args, cwd):
         elif a.startswith("--config-env="):
             configs.append(a.split("=", 1)[1])
             i += 1
+        elif a in ("--git-dir", "--work-tree") and i + 1 < len(args):
+            opts[a[2:].replace("-", "_")] = abspath(args[i + 1])
+            i += 2
+        elif a.startswith("--git-dir=") or a.startswith("--work-tree="):
+            k, _, v = a.partition("=")
+            opts[k[2:].replace("-", "_")] = abspath(v)
+            i += 1
         elif a in (
-            "--git-dir",
-            "--work-tree",
             "--namespace",
             "--exec-path",
             "--super-prefix",
@@ -437,8 +451,8 @@ def _git_effective(args, cwd):
         elif a.startswith("-"):
             i += 1
         else:
-            return configs, cwd, a, args[i + 1 :]
-    return configs, cwd, None, []
+            return configs, cwd, a, args[i + 1 :], opts
+    return configs, cwd, None, [], opts
 
 
 def _git(cwd, *args):
@@ -552,27 +566,63 @@ def _hook_ok(cwd):
     return os.path.isfile(full) and os.access(full, os.X_OK)
 
 
-def _common_dir(path):
-    rc, out = _git(path, "rev-parse", "--git-common-dir")
+def _common_dir(path, git_dir=None):
+    args = ["rev-parse", "--git-common-dir"]
+    if git_dir:
+        args = ["--git-dir", git_dir] + args
+    rc, out = _git(path, *args)
     if rc != 0 or not out:
         return None
     return os.path.realpath(os.path.join(path, out))
 
 
-def _in_project(path):
-    """Is the repo at `path` this project's repo (same git common dir)?
-
-    The hook-integrity rules only protect the project's own hook. An unset
-    CLAUDE_PROJECT_DIR, or a git failure, counts as in-project.
-    """
+def _project_common():
+    """None: no project known (rules apply everywhere); else its git common dir."""
     proj = os.environ.get("CLAUDE_PROJECT_DIR")
     if not proj:
+        return None
+    return _common_dir(proj)
+
+
+def _in_project(path, git_dir=None):
+    """Is the repo at `path` (or at `git_dir`) this project's repo?
+
+    The hook-integrity rules only protect the project's own hook. An unset
+    CLAUDE_PROJECT_DIR counts as in-project. With it set, a path that is not
+    (yet) a repo is out of the project.
+    """
+    if not os.environ.get("CLAUDE_PROJECT_DIR"):
         return True
-    mine = _common_dir(proj)
+    mine = _project_common()
     if mine is None:
-        return True
-    theirs = _common_dir(path)
-    return theirs is None or theirs == mine
+        return True  # cannot tell what the project is: keep the rules on
+    return _common_dir(path, git_dir) == mine
+
+
+def _scope_is_project(cwd, opts, env_words):
+    """Scope a git command by --git-dir/--work-tree, GIT_DIR, GIT_COMMON_DIR, else cwd."""
+    git_dir = opts.get("git_dir")
+    work_tree = opts.get("work_tree")
+    for w in env_words:
+        k, _, v = w.partition("=")
+        if k == "GIT_DIR" and not git_dir:
+            git_dir = os.path.normpath(os.path.join(cwd, os.path.expanduser(v)))
+        elif k == "GIT_WORK_TREE" and not work_tree:
+            work_tree = os.path.normpath(os.path.join(cwd, os.path.expanduser(v)))
+        elif k == "GIT_COMMON_DIR":
+            mine = _project_common()
+            if not os.environ.get("CLAUDE_PROJECT_DIR") or mine is None:
+                return True
+            if os.path.realpath(os.path.join(cwd, os.path.expanduser(v))) == mine:
+                return True
+    if git_dir or work_tree:
+        hits = []
+        if git_dir:
+            hits.append(_in_project(cwd, git_dir))
+        if work_tree:
+            hits.append(_in_project(work_tree))
+        return any(hits)
+    return _in_project(cwd)
 
 
 def _path_in_project(word, cwd):
@@ -586,14 +636,27 @@ def _path_in_project(word, cwd):
     return _in_project(d or cwd)
 
 
+def _file_scope(path, cwd):
+    """True when a `git config --file` target counts as shared or project config."""
+    if "$(" in path or path.startswith("$"):
+        return True  # unresolvable: assume the worst
+    full = os.path.normpath(os.path.join(cwd, os.path.expanduser(path)))
+    d = os.path.dirname(full)
+    while d and not os.path.isdir(d) and d != os.path.dirname(d):
+        d = os.path.dirname(d)
+    if _common_dir(d) is None:
+        return True  # not in any repo, e.g. ~/.gitconfig: shared by every repo
+    return _in_project(d)
+
+
 def _config_truthy(entry):
     key, eq, val = entry.partition("=")
     return not eq or val.lower() not in ("false", "0", "no", "off")
 
 
-def _check_git(argv, cwd, installed_hook_in_same_command):
-    configs, cwd, sub, rest = _git_effective(argv[1:], cwd)
-    local = _in_project(cwd)
+def _check_git(argv, cwd, installed_hook_in_same_command, env_words=()):
+    configs, cwd, sub, rest, opts = _git_effective(argv[1:], cwd)
+    local = _scope_is_project(cwd, opts, env_words)
     for c in configs:
         key = c.split("=", 1)[0]
         if _is_hookspath(key) and local:
@@ -608,10 +671,22 @@ def _check_git(argv, cwd, installed_hook_in_same_command):
 
     if sub == "config":
         pos = [a for a in rest if not a.startswith("-")]
-        shared = any(
-            a in ("--global", "--system", "--file", "-f") or a.startswith("--file=") for a in rest
-        )
-        if any(_is_hookspath(a) for a in pos) and (shared or local):
+        shared = any(a in ("--global", "--system") for a in rest)
+        by_file = None
+        for i, a in enumerate(rest):
+            # --file names the config file: a file in a repo is scoped by that
+            # repo; one outside any repo (~/.gitconfig, /tmp/x) is shared config
+            f = None
+            if a in ("--file", "-f") and i + 1 < len(rest):
+                f = rest[i + 1]
+            elif a.startswith("--file="):
+                f = a.split("=", 1)[1]
+            if f is not None:
+                by_file = _file_scope(f, cwd)
+                shared = shared or by_file
+        # an explicit --file replaces the current repo as the scope
+        scoped = local if by_file is None else False
+        if any(_is_hookspath(a) for a in pos) and (shared or scoped):
             read = any(
                 a.startswith("--get") or a in ("-l", "--list") for a in rest
             ) or (bool(pos) and pos[0] in ("get", "list"))
@@ -947,11 +1022,20 @@ def _stdin_texts(cmd):
 VAR_REF = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 
 
+VAR_DEFAULT = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*):-([^}]*)\}")
+
+
 def _expand(word, env):
-    """Expand $NAME / ${NAME} for variables set earlier in the same command."""
-    if not env or "$" not in word:
+    """Expand $NAME / ${NAME} / ${NAME:-default} from variables set earlier in
+    the same command, plus CLAUDE_PROJECT_DIR."""
+    if "$" not in word:
         return word
-    return VAR_REF.sub(lambda m: env.get(m.group(1) or m.group(2), m.group(0)), word)
+    word = VAR_DEFAULT.sub(lambda m: env.get(m.group(1)) or m.group(2), word)
+    known = dict(env)
+    proj = os.environ.get("CLAUDE_PROJECT_DIR")
+    if proj:
+        known.setdefault("CLAUDE_PROJECT_DIR", proj)
+    return VAR_REF.sub(lambda m: known.get(m.group(1) or m.group(2), m.group(0)), word)
 
 
 def _check_cmds(cmds, cwd, depth):
@@ -962,8 +1046,9 @@ def _check_cmds(cmds, cwd, depth):
         cmd.words = [_expand(w, env) for w in cmd.words]
         cmd.redirs = [_expand(w, env) for w in cmd.redirs]
         words = cmd.words
-        if words and all(ASSIGN.match(w) for w in words):
-            for w in words:
+        decl = words[1:] if words and words[0] in ("export", "declare", "typeset") else words
+        if decl and all(ASSIGN.match(w) for w in decl):
+            for w in decl:
                 k, _, v = w.partition("=")
                 if "$(" not in v and "`" not in v:
                     env[k.rstrip("+")] = v
@@ -996,7 +1081,8 @@ def _check_cmds(cmds, cwd, depth):
                 cwd = os.path.expanduser("~")
             continue
         if prog == "git":
-            m = _check_git(argv, cwd, saw_setup)
+            prefix = words[: max(0, len(words) - len(argv))]
+            m = _check_git(argv, cwd, saw_setup, prefix)
         elif prog == "gh":
             m = _gh_check(argv)
         else:
@@ -1044,9 +1130,34 @@ def runs_pull_or_merge(command):
     return False
 
 
+MARKER_MAX_AGE = 3600
+
+
+def _marker_dir(cwd):
+    """Per repo and per user: <git-common-dir>/hermes-guard (mode 0700)."""
+    common = _common_dir(cwd)
+    if not common:
+        return None
+    d = os.path.join(common, "hermes-guard")
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    return d
+
+
 def _marker(data):
     tid = re.sub(r"[^A-Za-z0-9_-]", "", str(data.get("tool_use_id") or ""))
-    return os.path.join(tempfile.gettempdir(), "hermes-guard-" + tid) if tid else None
+    if not tid:
+        return None
+    d = _marker_dir(data.get("cwd") or os.getcwd())
+    if not d:
+        return None
+    try:  # a run an hour old never finished: forget it
+        for name in os.listdir(d):
+            path = os.path.join(d, name)
+            if time.time() - os.lstat(path).st_mtime > MARKER_MAX_AGE:
+                os.unlink(path)
+    except OSError:
+        pass
+    return os.path.join(d, tid)
 
 
 def _reflog_count(cwd):
@@ -1056,24 +1167,42 @@ def _reflog_count(cwd):
 
 def _record_pre(data, command):
     """PreToolUse: remember how long HEAD's reflog is before a pull or merge runs."""
+    if not runs_pull_or_merge(command):
+        return
     marker = _marker(data)
-    if marker and runs_pull_or_merge(command):
-        with open(marker, "w") as f:
-            f.write(str(_reflog_count(data.get("cwd") or os.getcwd())))
+    if not marker:
+        return
+    try:
+        os.unlink(marker)
+    except OSError:
+        pass
+    fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(str(_reflog_count(data.get("cwd") or os.getcwd())))
+
+
+def _read_marker(marker):
+    fd = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd) as f:
+        value = int(f.read())
+    os.unlink(marker)
+    return value
 
 
 def _post(data):
     command = (data.get("tool_input") or {}).get("command", "")
-    marker = _marker(data)
-    if not marker or not os.path.exists(marker):
+    failed = data.get("hook_event_name") == "PostToolUseFailure"
+    if not failed and not runs_pull_or_merge(command):
+        return None  # cheap exit for every other command
+    marker = _marker(data)  # also forgets records older than an hour
+    if not marker or not os.path.lexists(marker):
         return None  # no PreToolUse record: this was not a pull or merge we saw
     try:
-        before = int(open(marker).read())
-        os.unlink(marker)
+        before = _read_marker(marker)  # consumes the record
     except Exception:
         return None
-    if not runs_pull_or_merge(command):
-        return None
+    if failed or not runs_pull_or_merge(command):
+        return None  # a failed command integrated nothing
     cwd = data.get("cwd") or os.getcwd()
     rc, top = _git(cwd, "rev-parse", "--show-toplevel")
     if rc != 0 or not top:

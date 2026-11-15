@@ -51,12 +51,21 @@ add a test, do not work around it.
   directory (`cd`, `git -C`) must share a git common dir with
   `$CLAUDE_PROJECT_DIR`; an unset variable means in-project. `--global` and
   `--system` config changes are always blocked. History rules (stash, force,
-  delete, rebase, `add -A`, `--no-verify`) apply everywhere.
+  delete, rebase, `add -A`, `--no-verify`) apply everywhere. The scope follows
+  `--git-dir`, `--work-tree`, `GIT_DIR`, `GIT_WORK_TREE` and `GIT_COMMON_DIR`
+  when given. With the variable set, a path that is not (yet) a repo is outside
+  the project, so `git init X && git -C X config core.hooksPath h` is fine.
+  `git config --file F` is scoped by the repo that holds F; a file outside any
+  repo (`~/.gitconfig`) counts as shared config, and a path the hook cannot
+  resolve (`$VAR`) is assumed to be shared and blocked.
 - A bare `hermes` call is allowed only with `HERMES_HOME=` (non-empty) in front
   of that command, an earlier `export` or bare assignment, or `--isolated`.
 - After a `git pull`/`merge` the PostToolUse hook runs only when the PreToolUse
-  pass saw that command (it records the reflog length in a temp file keyed by
-  `tool_use_id`) and the reflog grew.
+  pass saw that command and the reflog grew. The pass records the reflog length
+  in `<git-common-dir>/hermes-guard/<tool_use_id>` (per repo, mode 0600 in a
+  0700 directory, created with `O_EXCL|O_NOFOLLOW`). Records older than an hour
+  are deleted on the next run, and the `PostToolUseFailure` hook (same
+  `--post` command) drops the record of a command that failed.
 - The pre-commit check asks `git rev-parse --git-path hooks/pre-commit`, so it
   follows `core.hooksPath` like `tool/setup_git_hooks.dart` does, and wants the
   file executable.

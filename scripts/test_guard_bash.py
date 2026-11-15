@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -737,6 +738,125 @@ class GuardTest(unittest.TestCase):
             subprocess.run(["git", "-C", cl, "pull", "-q"], check=True, env=env)
             r = self._hook("post", "git pull", cl, env)
             self.assertIn("failed", r.stdout)
+
+    def _with_project(self, project):
+        class Ctx:
+            def __enter__(ctx):
+                ctx.old = os.environ.get("CLAUDE_PROJECT_DIR")
+                if project is None:
+                    os.environ.pop("CLAUDE_PROJECT_DIR", None)
+                else:
+                    os.environ["CLAUDE_PROJECT_DIR"] = project
+
+            def __exit__(ctx, *a):
+                if ctx.old is None:
+                    os.environ.pop("CLAUDE_PROJECT_DIR", None)
+                else:
+                    os.environ["CLAUDE_PROJECT_DIR"] = ctx.old
+
+        return Ctx()
+
+    def test_scope_follows_git_dir_work_tree_and_env(self):
+        other = self.nohook.name
+        gd = os.path.join(self.repo, ".git")
+        with self._with_project(self.repo):
+            self.blocked("git --git-dir=%s config core.hooksPath x" % gd, cwd=other)
+            self.blocked("git --git-dir %s -c core.hooksPath=x log" % gd, cwd=other)
+            self.blocked("GIT_DIR=%s git config core.hooksPath x" % gd, cwd=other)
+            self.blocked("GIT_COMMON_DIR=%s git -c core.hooksPath=x log" % gd, cwd=other)
+            self.blocked("git --work-tree=%s -c core.hooksPath=x status" % self.repo, cwd=other)
+            self.blocked("GIT_WORK_TREE=%s git -c core.hooksPath=x status" % self.repo, cwd=other)
+            # pointing at the other repo from inside the project stays out of scope
+            ogd = os.path.join(other, ".git")
+            self.allowed("git --git-dir=%s config core.hooksPath x" % ogd, cwd=self.repo)
+            self.allowed("GIT_DIR=%s git config core.hooksPath x" % ogd, cwd=self.repo)
+        with self._with_project(other):
+            self.allowed("git --git-dir=%s config core.hooksPath x" % gd, cwd=other)
+
+    def test_path_that_is_not_yet_a_repo_is_outside_the_project(self):
+        with tempfile.TemporaryDirectory() as d:
+            fresh = os.path.join(d, "fresh")
+            with self._with_project(self.repo):
+                self.allowed("git -C %s config core.hooksPath h" % fresh)
+                self.allowed("git init -q %s && git -C %s config core.hooksPath h" % (fresh, fresh))
+                self.allowed("mkdir %s && cd %s && git init -q && git config core.hooksPath h" % (fresh, fresh))
+                self.allowed("git -C %s -c core.hooksPath=h commit -m x" % fresh)
+            with self._with_project(None):
+                self.blocked("git -C %s config core.hooksPath h" % fresh)
+
+    def test_config_file_scope(self):
+        other = self.nohook.name
+        with tempfile.TemporaryDirectory() as d:
+            with self._with_project(self.repo):
+                self.blocked("git config --file %s/.git/config core.hooksPath x" % self.repo, cwd=other)
+                self.blocked("git config -f %s/.git/config core.hooksPath x" % self.repo, cwd=other)
+                self.blocked("git config --file=%s/.git/config core.hooksPath x" % self.repo, cwd=other)
+                # a file outside any repo (~/.gitconfig, /tmp/x) is shared config
+                self.blocked("git config --file %s/gitconfig core.hooksPath x" % d, cwd=other)
+                self.blocked("git config --file ~/.gitconfig core.hooksPath x", cwd=other)
+                # unresolvable path: assume the worst
+                self.blocked("git config --file $SOMEWHERE core.hooksPath x", cwd=other)
+                # another repo's own config file
+                self.allowed("git config --file %s/.git/config core.hooksPath x" % other)
+                self.allowed("git config --file %s/.git/config user.name x" % self.repo)
+
+    def test_marker_files_are_private_and_per_repo(self):
+        with tempfile.TemporaryDirectory() as d:
+            env = self._post_env(d, 0)
+            cl = self._upstream_and_clone(d, env)
+            mdir = Path(cl, ".git", "hermes-guard")
+            self.assertEqual(self._hook("pre", "git pull", cl, env, "toolu_a").returncode, 0)
+            marker = mdir / "toolu_a"
+            self.assertTrue(marker.exists())
+            self.assertEqual(marker.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(mdir.stat().st_mode & 0o777, 0o700)
+            self.assertFalse(Path(tempfile.gettempdir(), "hermes-guard-toolu_a").exists())
+
+            # a planted symlink is replaced, never followed
+            target = Path(d, "victim")
+            target.write_text("keep")
+            marker.unlink()
+            marker.symlink_to(target)
+            self._hook("pre", "git pull", cl, env, "toolu_a")
+            self.assertEqual(target.read_text(), "keep")
+            self.assertFalse(marker.is_symlink())
+
+    def test_stale_markers_are_removed_and_failures_clean_up(self):
+        with tempfile.TemporaryDirectory() as d:
+            env = self._post_env(d, 0)
+            cl = self._upstream_and_clone(d, env)
+            mdir = Path(cl, ".git", "hermes-guard")
+            mdir.mkdir(mode=0o700)
+            old = mdir / "toolu_old"
+            old.write_text("0")
+            two_hours_ago = time.time() - 7200
+            os.utime(old, (two_hours_ago, two_hours_ago))
+            fresh = mdir / "toolu_fresh"
+            fresh.write_text("0")
+            self._hook("pre", "git pull", cl, env, "toolu_new")
+            self.assertFalse(old.exists())
+            self.assertTrue(fresh.exists())
+            self.assertTrue((mdir / "toolu_new").exists())
+
+            # PostToolUseFailure drops the record and prints nothing
+            args = [sys.executable, "-I", str(HOOK), "--post"]
+            payload = {
+                "hook_event_name": "PostToolUseFailure",
+                "tool_name": "Bash",
+                "tool_input": {"command": "git pull"},
+                "cwd": cl,
+                "tool_use_id": "toolu_new",
+                "error": "Exit code 1",
+            }
+            r = subprocess.run(args, input=json.dumps(payload), capture_output=True, text=True, env=env)
+            self.assertEqual((r.returncode, r.stdout), (0, ""))
+            self.assertFalse((mdir / "toolu_new").exists())
+
+    def test_settings_wire_the_failure_event(self):
+        settings = json.loads((Path(__file__).resolve().parent.parent / ".claude" / "settings.json").read_text())
+        for event in ("PreToolUse", "PostToolUse", "PostToolUseFailure"):
+            commands = [h["command"] for g in settings["hooks"][event] for h in g["hooks"]]
+            self.assertTrue(any("guard_bash.py" in c for c in commands), event)
 
     def test_main_exit_codes(self):
         def run(payload, raw=None):
