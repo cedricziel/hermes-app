@@ -310,6 +310,73 @@ void main() {
       greaterThan(tester.getTopLeft(find.textContaining('a catalog entry')).dy),
     );
   });
+
+  group('valueStyle', () {
+    Future<TextStyle> styleOf(
+      WidgetTester tester, {
+      TextStyle? valueStyle,
+      required double scale,
+    }) async {
+      await _pump(
+        tester,
+        GroupedRow(title: 'Last ran', value: 'Unknown', valueStyle: valueStyle),
+        scale: scale,
+        width: 200,
+      );
+      return tester.widget<Text>(find.text('Unknown')).style!;
+    }
+
+    Color muted(WidgetTester tester) =>
+        tester.element(find.text('Unknown')).hermesColors.subtleText;
+
+    testWidgets('beside the title it stays muted, with the style merged in', (
+      tester,
+    ) async {
+      final plain = await styleOf(tester, scale: 1);
+      expect(plain.color, muted(tester));
+      expect(plain.fontWeight, isNull);
+      expect(plain.fontStyle, isNull);
+
+      final styled = await styleOf(
+        tester,
+        valueStyle: const TextStyle(fontStyle: FontStyle.italic),
+        scale: 1,
+      );
+      expect(styled.color, muted(tester));
+      expect(styled.fontSize, plain.fontSize);
+      expect(styled.fontStyle, FontStyle.italic);
+      expect(styled.fontWeight, isNull);
+    });
+
+    testWidgets('without it the stacked value keeps its heavier look', (
+      tester,
+    ) async {
+      final beside = await styleOf(tester, scale: 1);
+      final style = await styleOf(tester, scale: 2);
+      final onSurface = Theme.of(tester.element(find.text('Unknown')))
+          .colorScheme
+          .onSurface;
+      expect(style.fontWeight, FontWeight.w500);
+      expect(style.color, onSurface);
+      expect(style.fontSize, beside.fontSize! + 1);
+      expect(style.fontStyle, isNull);
+    });
+
+    testWidgets('with it the stacked value is muted at subtitle size', (
+      tester,
+    ) async {
+      final beside = await styleOf(tester, scale: 1);
+      final style = await styleOf(
+        tester,
+        valueStyle: const TextStyle(fontStyle: FontStyle.italic),
+        scale: 2,
+      );
+      expect(style.color, muted(tester));
+      expect(style.fontSize, beside.fontSize);
+      expect(style.fontStyle, FontStyle.italic);
+      expect(style.fontWeight, isNull);
+    });
+  });
 }
 
 void _noop() {}
