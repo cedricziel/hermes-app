@@ -93,6 +93,7 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
             chat: repositories.chat,
             models: repositories.models,
             transport: transport,
+            api: api,
           ),
         ),
       ),
