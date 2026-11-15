@@ -136,7 +136,7 @@ This extends an existing designed surface (the tail of a reply in the transcript
 
 - Hermes restarted: a stop-circle icon and "Hermes restarted. This reply was interrupted." (German: "Hermes wurde neu gestartet. Diese Antwort wurde unterbrochen.").
 - Not on the server (no restart seen): the same icon and "This reply is no longer on the server." (German: "Diese Antwort ist nicht mehr auf dem Server.").
-- Could not confirm (the server's answers were refused for minutes, or it went silent for 20 minutes): an info-circle icon and "Couldn't confirm how this reply ended. It may have finished; check the conversation first." (German: "Das Ende dieser Antwort ließ sich nicht bestätigen. Sie ist möglicherweise fertig; sieh zuerst im Chat nach.").
+- Could not confirm (the server's answers were refused for minutes): an info-circle icon and "Couldn't confirm how this reply ended. It may have finished; check the conversation first." (German: "Das Ende dieser Antwort ließ sich nicht bestätigen. Sie ist möglicherweise fertig; sieh zuerst im Chat nach.").
 
 **Widget (plain model).** `ReplyInterruptedNote(text, unconfirmed, announceKey)`: 16 pt icon, 13.5 pt text in the `warning` token, same 8 pt top gap as `ReplyErrorNote`, wraps at any text size. Icon plus sentence, never colour alone. A screen reader hears the sentence once per reply (`announceKey` is the reply id; the catalog passes none), not each time the row is built.
 

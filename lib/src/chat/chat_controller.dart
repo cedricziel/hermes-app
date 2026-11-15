@@ -189,6 +189,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.usageTelemetry = const ConnectionTelemetry(),
     this.replayGrace = const Duration(seconds: 20),
     this.reconnectRetry = const Duration(seconds: 15),
+    this.lostAdoptWindow = const Duration(seconds: 45),
     DateTime Function()? now,
   }) : _clock = now ?? DateTime.now,
        _watchSource = watchStatus?.source() {
@@ -531,6 +532,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// app coming to the front, the chat being opened and a stop that reached the
   /// server try at once.
   final Duration reconnectRetry;
+
+  /// How long after a reply was settled as lost the pick-up that follows may
+  /// still hand it the turn it stood for (a reconnect answers within the
+  /// transport's 20 s). A turn that starts later is another one and gets its
+  /// own bubble.
+  final Duration lostAdoptWindow;
   final DateTime Function() _clock;
   Timer? _replayEnds;
 

@@ -169,8 +169,6 @@ class HermesGatewayTransport
     this.reconnectWindow = _defaultReconnectWindow,
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
-    this.quietBound = const Duration(minutes: 20),
-    this._stopwatch = Stopwatch.new,
     this.readTimeout = const Duration(seconds: 10),
     this.longTimeout = const Duration(seconds: 90),
     Random? random,
@@ -222,20 +220,6 @@ class HermesGatewayTransport
   /// How long a reply in flight may go without a frame of its session before
   /// `session.active_list` is asked whether the turn still runs.
   final Duration silenceProbe;
-
-  /// How long a reply may get no frame of its session while the server keeps
-  /// listing its turn as running, before it is settled as unconfirmed. This is
-  /// a bound on how long a reply is held open, not a claim that the turn is
-  /// over: the server's own 600 s staleness is measured on an activity clock
-  /// that includes API waits, stream tokens and tool heartbeats that never
-  /// reach the client, so it says nothing of the frames this app sees. The
-  /// settled reply is picked up and read again, so a late result lands in the
-  /// same bubble. Checked only after the server answered that it lists the turn.
-  final Duration quietBound;
-
-  /// Measures how long a reply has been silent. Monotonic, so a sleeping
-  /// device does not count; tests inject one that follows their fake clock.
-  final Stopwatch Function() _stopwatch;
 
   final GatewayConnect _connect;
   final MessagingConnectionTracer? _telemetry;

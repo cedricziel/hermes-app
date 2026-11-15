@@ -62,10 +62,7 @@ void main() {
   late FakeGateway gateway;
   late HermesGatewayTransport transport;
 
-  void fake(
-    void Function(FakeAsync async) body, {
-    Duration quietBound = const Duration(minutes: 20),
-  }) => fakeAsync((async) {
+  void fake(void Function(FakeAsync async) body) => fakeAsync((async) {
     gateway = FakeGateway()
       ..stampSeq = true
       ..sendReady = true
@@ -73,8 +70,6 @@ void main() {
     transport = HermesGatewayTransport(
       connect: gateway.connect,
       random: _FixedRandom(0.5),
-      quietBound: quietBound,
-      stopwatch: () => async.getClock(DateTime(2026)).stopwatch(),
     );
     body(async);
   });
@@ -341,36 +336,6 @@ void main() {
         expect(asked, 8);
         expect(seen.error, isA<GatewayReplyUnconfirmed>());
       });
-    });
-
-    test('a turn the server lists as running that sends no frame for the '
-        'bound is unconfirmed', () {
-      fake((async) {
-        gateway.activeSessions = {'stored-1': 'working'};
-        final seen = quietTurn(async);
-
-        // Probes at 45 s steps; the bound is 3 minutes of silence.
-        async.elapse(const Duration(seconds: 45 * 3));
-        expect(seen.error, isNull);
-
-        async.elapse(const Duration(seconds: 45));
-        expect(seen.error, isA<GatewayReplyUnconfirmed>());
-        expect(submits(), 1);
-      }, quietBound: const Duration(minutes: 3));
-    });
-
-    test('a frame starts the silence over', () {
-      fake((async) {
-        gateway.activeSessions = {'stored-1': 'working'};
-        final seen = quietTurn(async);
-
-        async.elapse(const Duration(seconds: 45 * 3));
-        gateway.event('message.delta', 'rt-1', {'text': 'x'});
-        async.flushMicrotasks();
-        async.elapse(const Duration(seconds: 45 * 3));
-
-        expect(seen.error, isNull);
-      }, quietBound: const Duration(minutes: 3));
     });
 
     test('a turn no longer listed still ends as a turn that ended', () {
@@ -749,69 +714,76 @@ void main() {
     );
   });
 
-  group('the silence bound is only for a server that answered', () {
-    _Seen quiet(FakeAsync async) {
-      gateway.turn = (g, sid) {
-        g.event('message.start', sid);
-        g.event('tool.start', sid, {'tool_id': 't1', 'name': 'terminal'});
-      };
-      final seen = _listen(transport.send(text: 'hi'));
-      async.flushMicrotasks();
-      return seen;
-    }
+  group(
+    'a silent turn is failed only on the server\'s say, never on its own',
+    () {
+      int probes() =>
+          gateway.methods.where((m) => m == 'session.active_list').length;
 
-    test('refused probes never trip it, however long the silence', () {
-      fake((async) {
-        gateway.handlers['session.active_list'] = (_) =>
-            throw const FakeRpcError(5000, 'busy');
-        final seen = quiet(async);
+      _Seen quiet(FakeAsync async) {
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('tool.start', sid, {'tool_id': 't1', 'name': 'terminal'});
+        };
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        return seen;
+      }
 
-        // Two refused probes, past the one-minute bound: not unconfirmed yet.
-        async.elapse(const Duration(seconds: 90));
+      test('a turn the server keeps listing as running is never failed for '
+          'being quiet, however long', () {
+        fake((async) {
+          gateway.activeSessions = {'stored-1': 'working'};
+          final seen = quiet(async);
 
-        expect(seen.error, isNull);
-        expect(submits(), 1);
-      }, quietBound: const Duration(minutes: 1));
-    });
+          async.elapse(const Duration(hours: 3));
 
-    test('a probe that found the connection dead is a lost connection: the '
-        'reply reconnects instead of settling', () {
-      fake((async) {
-        gateway.silent.add('session.active_list');
-        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
-        final seen = quiet(async);
-
-        async.elapse(const Duration(minutes: 3));
-
-        expect(seen.error, isNot(isA<GatewayReplyUnconfirmed>()));
-        expect(resumes(), greaterThan(0));
-        expect(submits(), 1);
-        unawaited(seen.subscription.cancel());
-      }, quietBound: const Duration(minutes: 1));
-    });
-
-    test('time the device slept is not silence: a monotonic stopwatch that did '
-        'not run does not trip it', () {
-      fakeAsync((async) {
-        gateway = FakeGateway()
-          ..stampSeq = true
-          ..sendReady = true
-          ..activeSessions = {'stored-1': 'working'};
-        // A stopwatch that stands still, as the monotonic clock does in sleep.
-        transport = HermesGatewayTransport(
-          connect: gateway.connect,
-          random: _FixedRandom(0.5),
-          quietBound: const Duration(minutes: 1),
-          stopwatch: Stopwatch.new,
-        );
-        final seen = quiet(async);
-
-        async.elapse(const Duration(minutes: 10));
-
-        expect(seen.error, isNull);
+          expect(seen.error, isNull);
+          expect(seen.done, isFalse);
+          expect(probes(), greaterThan(100));
+          expect(resumes(), 0);
+          // It ends the moment the turn does.
+          gateway.event('message.complete', 'rt-1', {
+            'text': 'Done.',
+            'status': 'complete',
+          });
+          async.flushMicrotasks();
+          expect(seen.events.last, isA<ReplyCompleted>());
+          expect(submits(), 1);
+        });
       });
-    });
-  });
+
+      test('refused probes never trip it, however long the silence', () {
+        fake((async) {
+          gateway.handlers['session.active_list'] = (_) =>
+              throw const FakeRpcError(5000, 'busy');
+          final seen = quiet(async);
+
+          // Two refused probes, past the one-minute bound: not unconfirmed yet.
+          async.elapse(const Duration(seconds: 90));
+
+          expect(seen.error, isNull);
+          expect(submits(), 1);
+        });
+      });
+
+      test('a probe that found the connection dead is a lost connection: the '
+          'reply reconnects instead of settling', () {
+        fake((async) {
+          gateway.silent.add('session.active_list');
+          gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+          final seen = quiet(async);
+
+          async.elapse(const Duration(minutes: 3));
+
+          expect(seen.error, isNot(isA<GatewayReplyUnconfirmed>()));
+          expect(resumes(), greaterThan(0));
+          expect(submits(), 1);
+          unawaited(seen.subscription.cancel());
+        });
+      });
+    },
+  );
 
   group('a resume that answers auto_continue on the same runtime session', () {
     test('is not a re-run: the reply ends with what the session holds', () {

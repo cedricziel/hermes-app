@@ -220,7 +220,18 @@ extension _ChatControllerStreaming on ChatController {
 
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
-  void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
+  ///
+  /// [adoptLost]: this follow-up is the pick-up that follows a reply settled as
+  /// lost ([_afterLossSettle]). Its first turn, or its first completion, is the
+  /// settled reply's own (the turn went on, or finished) and fills that bubble;
+  /// anything later, such as another client's prompt on the same session, gets a
+  /// bubble of its own.
+  void _followUps(
+    ChatTransport transport,
+    ChatThread thread,
+    String? profile, {
+    bool adoptLost = false,
+  }) {
     _listenOwnedSessions();
     if (_sessionStates[thread]?.reclaimedReason != null) return;
     if (!active || _profile != profile || !_threads.contains(thread)) return;
@@ -231,9 +242,15 @@ extension _ChatControllerStreaming on ChatController {
     // into itself: the turn has one bubble, never a second one beside it.
     ChatMessage? reply = _reconnectingReply(thread);
     var heldByLoss = false;
+    var mayAdopt = adoptLost;
+    // The pick-up is only the settled reply's own for a short while.
+    final adoptTimer = adoptLost
+        ? Timer(lostAdoptWindow, () => mayAdopt = false)
+        : null;
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
+      adoptTimer?.cancel();
       _following.remove(subscription);
       _followingIds.remove(thread.id);
       if (_followByThread[threadId] == subscription) {
@@ -285,7 +302,8 @@ extension _ChatControllerStreaming on ChatController {
             if (reply == null && opensTurn(event)) {
               // A stop in flight may be aimed at the turn this opens a reply
               // for (a folded prompt's), so the hold stays.
-              final lost = _lostReply(thread);
+              final lost = mayAdopt ? _lostReply(thread) : null;
+              mayAdopt = false;
               if (lost != null) {
                 // The turn the server was thought to have lost goes on: it
                 // fills the reply that was settled for it, and the queue stays
@@ -295,6 +313,15 @@ extension _ChatControllerStreaming on ChatController {
                 heldByLoss = true;
               } else {
                 reply = _addPlaceholder(thread);
+              }
+            }
+            if (reply == null && mayAdopt && event is ReplyCompleted) {
+              // The turn the settled reply stood for finished meanwhile: its
+              // result belongs in that bubble. The queue stays paused.
+              mayAdopt = false;
+              if (_lostReply(thread) case final lost?) {
+                _onReplyEvent(thread, lost, event, profile);
+                return;
               }
             }
             final current = reply;
@@ -451,7 +478,9 @@ extension _ChatControllerStreaming on ChatController {
   ) {
     _refetch.add(thread);
     _refetchIfIdle(thread);
-    if (transport != null) _followUps(transport, thread, profile);
+    if (transport != null) {
+      _followUps(transport, thread, profile, adoptLost: true);
+    }
   }
 
   /// The reply of [thread] that was settled as lost and is its last assistant
@@ -555,9 +584,7 @@ extension _ChatControllerStreaming on ChatController {
   ChatMessage? _settledReply(ChatThread thread) {
     for (final message in thread.messages.reversed) {
       if (message.role != ChatRole.assistant) continue;
-      return message.settledWithoutCompletion || message.loss != null
-          ? message
-          : null;
+      return message.settledWithoutCompletion ? message : null;
     }
     return null;
   }

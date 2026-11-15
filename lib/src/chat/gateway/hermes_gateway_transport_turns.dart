@@ -134,18 +134,16 @@ extension _Turns on HermesGatewayTransport {
   /// Waits for the next frame of [watch], and is false once the watch ended.
   ///
   /// A reply silent for [silenceProbe] is asked about: only the server can say
-  /// whether the turn still runs, so it is given up on (as broken) only when
-  /// the server no longer lists [storedId] as running. The wait is bounded all
-  /// the same, so a reply is never held open by an answer that never comes:
-  /// [_maxRefusedProbes] probes in a row that were refused or unreadable, or a
-  /// silence of [quietBound] (a listed turn that sends no frame for longer than
-  /// the server keeps one alive) end it as
-  /// [GatewayReplyUnconfirmed]. Nothing is resent.
+  /// whether the turn still runs. A turn the server lists as running is never
+  /// failed for being quiet, however long (a tool call may run for hours
+  /// without a frame): the reply stays open and Stop works. It is given up on
+  /// only when the server no longer lists [storedId] as running
+  /// ([GatewayTurnEnded]), or answers nothing usable: [_maxRefusedProbes] probes
+  /// in a row that were refused or unreadable end it as
+  /// [GatewayReplyUnconfirmed], once. A probe that found the socket closed is a
+  /// lost connection, left to the reconnect. Nothing is resent.
   Future<bool> _advance(_Watch watch, String storedId) async {
     final pending = watch.events.moveNext();
-    // Monotonic: a device that slept for an hour did not wait an hour for the
-    // server, and its silence says nothing of the turn.
-    final quiet = _stopwatch()..start();
     var refused = 0;
     while (true) {
       try {
@@ -166,12 +164,6 @@ extension _Turns on HermesGatewayTransport {
             }
           case _Probe.running:
             refused = 0;
-            // Only a server that answered and lists the turn has the say on
-            // how long that turn may stay silent.
-            if (quiet.elapsed >= quietBound) {
-              _record('gateway.turn_settled', {'via': 'quiet_bound'});
-              throw const GatewayReplyUnconfirmed();
-            }
         }
       }
     }

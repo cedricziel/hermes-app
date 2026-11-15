@@ -272,7 +272,10 @@ extension _ChatControllerSending on ChatController {
 
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
-      _sendEnds[thread]?.remove(finish);
+      if (_sendEnds[thread] case final ends?) {
+        ends.remove(finish);
+        if (ends.isEmpty) _sendEnds.remove(thread);
+      }
       // A turn that may still run keeps its mixture-of-agents card and its
       // warnings: nothing of it ended.
       final holding = lost(error);
