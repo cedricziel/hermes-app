@@ -5,6 +5,9 @@ description: Use when one hermes-app change (a restyle, a shared widget migratio
 
 # Rolling out a UI change with parallel agents
 
+Process rules for every session (git, PR body, review, ready to merge) are in
+the `fleet-rules` skill; this skill covers the fan-out itself.
+
 Learned from the clean settings restyle and its design port: about two dozen
 PRs in #511–#542, over one night. These are the rules that would have saved
 the rework.

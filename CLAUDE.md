@@ -75,6 +75,8 @@ Before changing an area, read its file under `docs/architecture/` ([index](docs/
 - **Native pieces** (`ios/`, `macos/` Runners, extensions, `ios/HermesSurfaceKit`): bundle IDs, BGTask registration and extension wiring. Traps: every macOS extension's Debug bundle ID must be prefixed with `com.cedricziel.hermesApp.dev`; `ios/ShareExtension` links `receive_sharing_intent` by a version-pinned path, so a plugin upgrade must be mirrored in `project.pbxproj`; renaming the `HermesLiveActivity` target would orphan its provisioning profile. [native.md](docs/architecture/native.md)
 - **Localization** (`lib/l10n/`, `l10n.yaml`): user-visible text goes in `lib/l10n/arb/app_en.arb` and `app_de.arb` under its area's `@@x-area-<dir>` anchor, read with `context.l10n`; never strings below the widget layer, never telemetry names, ids or server values; only `kReleasedLocales` is offered. [localization.md](docs/architecture/localization.md)
 
+Index of needs and their building blocks (use the block, not a raw API): [docs/building-blocks.md](docs/building-blocks.md).
+
 **Privacy rules for every change.** Breadcrumbs, app event logs and feature spans carry fixed names, counts, flags and outcomes only: never message text, titles, profile names, server addresses, ids, tokens or passwords. Two deliberate exceptions, both bound for the operator's own SignalDB: the crash reporter logs uncaught errors with full message, stack trace and breadcrumbs, and spans and request logs describe their server with `hermes.*` attributes (version, install ID and the like). The surface snapshot, notifications, the Lock Screen and Siri never get content beyond what a notification body already allows, and App Lock blanks titles and text. Secrets (tokens, passwords, credentials typed into a screen) stay in secure storage or screen state and are never written to preferences or logs.
 
 **Two API layers.**
@@ -105,6 +107,18 @@ Project skills live in `.claude/skills/<name>/SKILL.md` (frontmatter `name` and 
 - Create a new skill when the knowledge is a distinct, repeatable task no current skill covers. Keep the description specific enough that it triggers at the right time.
 - Use memory only for things that are personal to the user or don't belong in the repo.
 - Commit skill changes with the work that prompted them, or on their own as `docs:`.
+
+## Fleet rules
+
+Every session that commits, opens a PR, reviews or merges follows these; full form: `.claude/skills/fleet-rules/SKILL.md`.
+
+- Roles: line managers delegate to cheaper subagents; the orchestrator merges, owns `docs/roadmap.md` and cuts releases; promoting to App Review is the owner's step alone. Others report roadmap rows to the orchestrator.
+- The watch has its own lock, never coupled to App Lock. UI starts in the catalog; a change of look or placement needs a recorded design pass. A new rule comes with a mechanical check, or a roadmap row saying why not.
+- A useful test fails when the behaviour breaks (revert the fix and watch it fail), asserts an outcome, has no fixed delays, duplicates nothing.
+- One PR per item, Conventional Commits titles; never rebase or force-push; no `git stash`; stage by name; never delete remote branches; hook installed, never bypassed; no model names (trailers excepted); `gh` for search only; never the real `~/.hermes`.
+- Build quality in: acceptance checks (failing test, catalog states, spec scenario) are written before the code and carried by the brief; a fix for an escaped defect ships the guard for its class (or a roadmap row why not); prefer shared building blocks, a ban names its replacement; prefer pre-commit or `test/architecture` checks over CI-only ones.
+- PR body: `## Behaviour changes`, `## Proof` (mutation killed, screenshots, verify run; `fix:` also "What would have caught this earlier?"), `## Not verified on a device`, `## Review` (reviewer, full head SHA, findings, revert-the-fix), in the PR itself; a later push needs a new review.
+- Ready to merge: isolated review (`isolated-reviewer`) clean and `Analyze & test` read as success on the exact head SHA (`status-reader`); platform builds too for native, asset or pubspec changes; stacks merge bottom-up with checks re-read after a retarget.
 
 ## Dependencies
 
