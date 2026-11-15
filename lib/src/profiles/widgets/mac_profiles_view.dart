@@ -16,6 +16,14 @@ enum ProfileSection {
     'What Hermes remembers about you and your setup',
     AppIcons.memory,
   ),
+
+  /// Hidden through `hiddenSections` while the server lacks the route; worded
+  /// through l10n where it is drawn, the English here is a fallback.
+  personality(
+    'Personality',
+    'Who Hermes is and how it talks',
+    AppIcons.personality,
+  ),
   messaging('Messaging', 'Chat platforms the agent answers on', AppIcons.bot),
   plugins('Plugins', 'Agent plugins and providers', AppIcons.extension),
   mcp('MCP servers', 'Tools from MCP servers', AppIcons.power),
@@ -251,12 +259,14 @@ class MacProfileDetail extends StatelessWidget {
                   title: switch (section) {
                     ProfileSection.providers => l10n.providersListTitle,
                     ProfileSection.tools => l10n.toolsTitle,
+                    ProfileSection.personality => l10n.profilesSoulTitle,
                     _ => section.label,
                   },
                   subtitle: switch (section) {
                     ProfileSection.providers =>
                       l10n.providersProfileSectionDetail,
                     ProfileSection.tools => l10n.toolsProfileDetail,
+                    ProfileSection.personality => l10n.profilesSoulRowDetail,
                     _ => section.detail,
                   },
                   leading: GroupedTile(child: AppIcon(section.icon)),

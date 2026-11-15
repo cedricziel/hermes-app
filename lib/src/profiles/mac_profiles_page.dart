@@ -27,6 +27,9 @@ import '../tools/tools_models.dart';
 import '../tools/tools_screen.dart';
 import '../widgets/state_message.dart';
 import 'chat_profiles.dart';
+import 'soul/open_soul.dart';
+import 'soul/soul_availability.dart';
+import 'soul/soul_telemetry.dart';
 import 'widgets/mac_profiles_view.dart';
 import 'widgets/new_profile_dialog.dart';
 
@@ -69,6 +72,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   /// selected and only while the server offers Tools.
   final _tools = <String, ({int on, int total})>{};
   ToolsAvailability? _availability;
+
+  /// False once the server answered that it has no Personality route.
+  SoulAvailability? _soul;
   final _toolsReading = <String>{};
   int _generation = 0;
 
@@ -83,6 +89,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     _profiles.addListener(_changed);
     _availability = _maybeRead<ToolsAvailability>()
       ?..addListener(_toolsOfferChanged);
+    _soul = _maybeRead<SoulAvailability?>()?..addListener(_soulChanged);
     _changed();
   }
 
@@ -98,7 +105,13 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   void dispose() {
     _profiles.removeListener(_changed);
     _availability?.removeListener(_toolsOfferChanged);
+    _soul?.removeListener(_soulChanged);
     super.dispose();
+  }
+
+  /// A read found the Personality routes missing: the row goes.
+  void _soulChanged() {
+    if (mounted) setState(() {});
   }
 
   /// The server's answer about Tools came or changed: show or hide the row,
@@ -247,7 +260,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     final repositories = HermesRepositories.maybeOf(context);
     if (name == null || repositories == null) return;
     final page = switch (section) {
-      ProfileSection.memory => null,
+      ProfileSection.memory || ProfileSection.personality => null,
       ProfileSection.skills => SkillsScreen(
         repository: repositories.skills,
         chatProfile: name,
@@ -279,6 +292,11 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         profile: name,
       ),
     };
+    if (section == ProfileSection.personality) {
+      // Bound to the selected profile; its text is never read for the list.
+      await openSoul(context, profile: name, from: SoulOpenedFrom.profilesPage);
+      return;
+    }
     if (page == null) {
       await openMemory(
         context,
@@ -345,6 +363,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                     onOpen: _open,
                     hiddenSections: {
                       if (!_providersOffered) ProfileSection.providers,
+                      if (!(_soul?.shown ?? false)) ProfileSection.personality,
                       if (!(_availability?.offered ?? false))
                         ProfileSection.tools,
                     },

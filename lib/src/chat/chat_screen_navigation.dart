@@ -333,6 +333,18 @@ extension _ChatScreenNavigation on _ChatScreenState {
     if (mounted) unawaited(_memoryWaiting?.refresh(_chat.profile));
   }
 
+  /// Personality (SOUL.md) of the chat's profile. The page is bound to that
+  /// name; a chat on the server's default profile names none, so it is
+  /// `default`, the home the server falls back to.
+  Future<void> _openSoul() async {
+    _closeDrawerIfNarrow();
+    await openSoul(
+      context,
+      profile: _chat.profile ?? kDefaultProfile,
+      from: SoulOpenedFrom.sidebar,
+    );
+  }
+
   void _openPlugins() {
     _closeDrawerIfNarrow();
     Navigator.of(context).push(
