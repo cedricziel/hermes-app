@@ -20,6 +20,7 @@ class ChatHeader extends StatelessWidget {
     this.avatar,
     this.callButton,
     this.onShowFiles,
+    this.exportJson,
     required this.thread,
     this.housekeeping,
     this.displayTitle,
@@ -42,6 +43,9 @@ class ChatHeader extends StatelessWidget {
 
   /// Opens the chat's Files page; null while the server has none.
   final VoidCallback? onShowFiles;
+
+  /// "Export chat as JSON…" in the … menu; null leaves it out.
+  final ExportJsonOffer? exportJson;
   final ChatThread? thread;
   final ThreadHousekeeping? housekeeping;
   final String? displayTitle;
@@ -84,6 +88,7 @@ class ChatHeader extends StatelessWidget {
           housekeeping: housekeeping,
           includeCopyTranscript: true,
           onShowFiles: onShowFiles,
+          exportJson: exportJson,
         ),
       if (onToggleActivity case final toggle?)
         ActivityButton(

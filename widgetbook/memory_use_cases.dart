@@ -5,6 +5,7 @@ import 'package:hermes_app/src/memory/memory_screen.dart';
 import 'package:hermes_app/src/memory/memory_provider.dart';
 import 'package:hermes_app/src/memory/memory_settings.dart';
 import 'package:hermes_app/src/memory/memory_usage.dart';
+import 'package:hermes_app/src/memory/widgets/memory_confirm_dialogs.dart';
 import 'package:hermes_app/src/memory/widgets/memory_entry_editor.dart';
 import 'package:hermes_app/src/memory/widgets/memory_entry_list.dart';
 import 'package:hermes_app/src/memory/widgets/memory_fill_bar.dart';
@@ -26,9 +27,36 @@ WidgetbookNode memoryNode() => WidgetbookComponent(
       'Server rejection',
       'Pending save',
       'Uncertain save',
-      'Permanent deletion',
     ])
       ...onEachPlatform(state, (_) => _editor(state)),
+    ...onEachPlatform(
+      'Delete confirmation',
+      (_) => _behindDialog(MemoryDeleteAlert(onCancel: () {}, onDelete: () {})),
+    ),
+    ...onEachPlatform(
+      'Leave confirmation',
+      (_) => _behindDialog(
+        MemoryLeaveAlert(pending: false, onKeep: () {}, onDiscard: () {}),
+      ),
+    ),
+    ...onEachPlatform(
+      'Leave confirmation, save pending',
+      (_) => _behindDialog(
+        MemoryLeaveAlert(pending: true, onKeep: () {}, onDiscard: () {}),
+      ),
+    ),
+    ...onEachPlatform(
+      'Reject all confirmation',
+      (_) => _behindDialog(
+        MemoryRejectAllAlert(count: 3, onCancel: () {}, onReject: () {}),
+      ),
+    ),
+    ...onEachPlatform(
+      'Reject all confirmation, one change',
+      (_) => _behindDialog(
+        MemoryRejectAllAlert(count: 1, onCancel: () {}, onReject: () {}),
+      ),
+    ),
     for (final (state, settings, unreadable, message) in [
       ('Learning, defaults', MemorySettings.defaults, false, null),
       ('Learning, all off', _allOff, false, null),
@@ -251,6 +279,15 @@ Widget _view({
   ),
 );
 
+/// The alert as the app shows it: centred over a dimmed page.
+Widget _behindDialog(Widget alert) => Stack(
+  children: [
+    const Scaffold(body: Center(child: Text('Memory'))),
+    const ModalBarrier(dismissible: false, color: Colors.black54),
+    Center(child: alert),
+  ],
+);
+
 Widget _editor(String state) {
   final controller = MemoryController()
     ..detail = const MemoryDetail(
@@ -274,16 +311,6 @@ Widget _editor(String state) {
         'The change may have completed. Check current memories.',
       _ => null,
     };
-  if (state == 'Permanent deletion') {
-    return const Scaffold(
-      body: AlertDialog(
-        title: Text('Permanently delete this memory?'),
-        content: Text(
-          'This removes the selected memory permanently. It cannot be restored from the app.',
-        ),
-      ),
-    );
-  }
   return Scaffold(
     body: Padding(
       padding: const EdgeInsets.all(20),

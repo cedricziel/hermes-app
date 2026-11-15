@@ -1,0 +1,240 @@
+{
+  "subject": "server_address",
+  "tests": [
+    "test/server_address_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
+    "test/workflows/bot_screen_lease_workflow_test.dart",
+    "test/workflows/bot_screen_preview_workflow_test.dart",
+    "test/workflows/bot_screen_viewer_workflow_test.dart",
+    "test/workflows/bot_screen_workflow_test.dart",
+    "test/workflows/chat_autocomplete_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/chat_workflow_test.dart",
+    "test/workflows/chat_working_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/compact_chat_workflow_test.dart",
+    "test/workflows/connection_screens_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/group_creation_workflow_test.dart",
+    "test/workflows/handoff_workflow_test.dart",
+    "test/workflows/hands_free_strip_workflow_test.dart",
+    "test/workflows/kanban_extras_workflow_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart",
+    "test/workflows/kanban_task_activity_workflow_test.dart",
+    "test/workflows/kanban_task_metadata_workflow_test.dart",
+    "test/workflows/kanban_worker_log_workflow_test.dart",
+    "test/workflows/kanban_workflow_test.dart",
+    "test/workflows/mac_profiles_workflow_test.dart",
+    "test/workflows/management_workflow_test.dart",
+    "test/workflows/mcp_workflow_test.dart",
+    "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workflows/onboarding_workflow_test.dart",
+    "test/workflows/plugins_workflow_test.dart",
+    "test/workflows/process_control_workflow_test.dart",
+    "test/workflows/profile_creation_workflow_test.dart",
+    "test/workflows/provider_first_run_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/schedules_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workflows/skills_hub_workflow_test.dart",
+    "test/workflows/subagent_control_workflow_test.dart",
+    "test/workflows/tools_setup_workflow_test.dart",
+    "test/workflows/tools_workflow_test.dart",
+    "test/workflows/voice_call_phases_workflow_test.dart",
+    "test/workflows/voice_call_setup_workflow_test.dart",
+    "test/workflows/working_directory_workflow_test.dart"
+  ],
+  "quick_tests": [
+    "test/server_address_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "sa01",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "name.startsWith('[') && name.endsWith(']')",
+      "new": "name.startsWith('[') || name.endsWith(']')",
+      "note": "bracket strip && -> ||"
+    },
+    {
+      "id": "sa02",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "  if (name.endsWith('.')) name = name.substring(0, name.length - 1);\n",
+      "new": "",
+      "note": "drop trailing-dot strip"
+    },
+    {
+      "id": "sa03",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "if (name.isEmpty) return false;",
+      "new": "if (name.isEmpty) return true;",
+      "note": "empty host is local"
+    },
+    {
+      "id": "sa04",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "InternetAddress.tryParse(name.split('%').first)",
+      "new": "InternetAddress.tryParse(name)",
+      "note": "zone id not stripped"
+    },
+    {
+      "id": "sa05",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "hasMatch(name)) return false;",
+      "new": "hasMatch(name)) return true;",
+      "note": "bare-number host (8.8.8.8 alias) treated local"
+    },
+    {
+      "id": "sa06",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "name == 'localhost' || name.endsWith('.localhost')",
+      "new": "name == 'localhost'",
+      "note": "drop .localhost suffix"
+    },
+    {
+      "id": "sa07",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "['.local', '.lan', '.home.arpa', '.internal', '.ts.net']",
+      "new": "['.local', '.lan', '.home.arpa', '.ts.net']",
+      "note": "drop .internal"
+    },
+    {
+      "id": "sa08",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "return !name.contains('.');",
+      "new": "return name.contains('.');",
+      "note": "single-label rule inverted (public names local)"
+    },
+    {
+      "id": "sa09",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "if (b.every((x) => x == 0)) return true;",
+      "new": "if (b.any((x) => x == 0)) return true;",
+      "note": "any zero byte counts as unspecified address"
+    },
+    {
+      "id": "sa10",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "return b[0] == 127 ||",
+      "new": "return b[0] == 128 ||",
+      "note": "loopback prefix off by one"
+    },
+    {
+      "id": "sa11",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "b[1] >= 16 && b[1] <= 31",
+      "new": "b[1] >= 16 && b[1] <= 32",
+      "note": "172.32 treated private"
+    },
+    {
+      "id": "sa12",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "b[1] >= 16 && b[1] <= 31",
+      "new": "b[1] > 16 && b[1] <= 31",
+      "note": "172.16 excluded"
+    },
+    {
+      "id": "sa13",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "(b[0] == 192 && b[1] == 168)",
+      "new": "(b[0] == 192)",
+      "note": "all of 192/8 local"
+    },
+    {
+      "id": "sa14",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "(b[0] == 169 && b[1] == 254)",
+      "new": "(b[0] == 169)",
+      "note": "all of 169/8 local"
+    },
+    {
+      "id": "sa15",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "b[1] >= 64 && b[1] <= 127",
+      "new": "b[1] >= 64 && b[1] <= 128",
+      "note": "CGNAT upper bound +1"
+    },
+    {
+      "id": "sa16",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "b[1] >= 64 && b[1] <= 127",
+      "new": "b[1] >= 63 && b[1] <= 127",
+      "note": "CGNAT lower bound -1"
+    },
+    {
+      "id": "sa17",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "if (address.isLoopback) return true;",
+      "new": "if (!address.isLoopback) return true;",
+      "note": "IPv6 loopback negated"
+    },
+    {
+      "id": "sa18",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "(b[1] & 0xc0) == 0x80",
+      "new": "(b[1] & 0x80) == 0x80",
+      "note": "fe80::/10 mask widened"
+    },
+    {
+      "id": "sa19",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "(b[0] & 0xfe) == 0xfc",
+      "new": "(b[0] & 0xfc) == 0xfc",
+      "note": "fc00::/7 mask widened to fc00::/6"
+    },
+    {
+      "id": "sa20",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "b.sublist(0, 10).every((x) => x == 0) && b[10] == 0xff && b[11] == 0xff",
+      "new": "b.sublist(0, 10).every((x) => x == 0)",
+      "note": "mapped check drops ff ff marker"
+    },
+    {
+      "id": "sa21",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "if (uri == null || uri.scheme != 'http' || uri.host.isEmpty) return false;",
+      "new": "if (uri == null || uri.scheme != 'http') return false;",
+      "note": "empty host no longer ignored"
+    },
+    {
+      "id": "sa22",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "return !isLocalHost(uri.host);",
+      "new": "return isLocalHost(uri.host);",
+      "note": "cleartext warning inverted"
+    },
+    {
+      "id": "sa23",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "if (!isCleartextToPublicHost(to)) return false;",
+      "new": "if (!isCleartextToPublicHost(to)) return true;",
+      "note": "any redirect flagged"
+    },
+    {
+      "id": "sa24",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "if (!isCleartextToPublicHost(from)) return true;",
+      "new": "if (!isCleartextToPublicHost(from)) return false;",
+      "note": "https->http public redirect allowed"
+    },
+    {
+      "id": "sa25",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "a.host.toLowerCase() != b.host.toLowerCase() || a.port != b.port",
+      "new": "a.host.toLowerCase() != b.host.toLowerCase() && a.port != b.port",
+      "note": "|| -> &&: port-only / host-only change accepted"
+    },
+    {
+      "id": "sa26",
+      "file": "lib/src/auth/server_address.dart",
+      "old": "a.host.toLowerCase() != b.host.toLowerCase()",
+      "new": "a.host != b.host",
+      "note": "host compare case-sensitive"
+    }
+  ]
+}

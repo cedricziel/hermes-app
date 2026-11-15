@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../files/widgets/safe_path_text.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/composer_selector_chip.dart';
 import '../model_options_state.dart';
@@ -66,14 +67,16 @@ class ComposerModelPill extends StatelessWidget {
     final candidate = choice ?? options?.current;
     final shown = _shown(choice, options);
     final model =
-        shown?.modelId ??
+        (shown == null ? null : safePathText(shown.modelId)) ??
         (onUseDefault == null ? 'Choose a model' : 'Profile default');
     final effort = shown?.effort;
     final label = switch (state) {
       ModelOptionsState.loading => 'Loading models',
       ModelOptionsState.incomplete => 'Set up a model',
       ModelOptionsState.failed => 'Could not load models',
-      ModelOptionsState.unsupported => choice?.modelId ?? 'Profile default',
+      ModelOptionsState.unsupported =>
+        (choice == null ? null : safePathText(choice!.modelId)) ??
+            'Profile default',
       ModelOptionsState.ready =>
         '$model${effort == null ? '' : ' · ${effortLabel(effort)}'}',
     };
@@ -85,7 +88,7 @@ class ComposerModelPill extends StatelessWidget {
           : (state == ModelOptionsState.loading ||
                     state == ModelOptionsState.failed) &&
                 candidate != null
-          ? '$label, selected model ${candidate.modelId}'
+          ? '$label, selected model ${safePathText(candidate.modelId)}'
           : label,
       trailing: state == ModelOptionsState.ready
           ? const AppIcon(AppIcons.expandMore, size: 16)
