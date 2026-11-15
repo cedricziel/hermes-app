@@ -231,4 +231,88 @@ void main() {
       expect(s2Reads, hasLength(2));
     },
   );
+
+  group('earlier messages after a send', () {
+    ChatEarlierMessagesStatus? earlier() =>
+        chat.earlierMessagesStatusOf(thread('s2'));
+
+    FakeResponse page() => (
+      status: 200,
+      body: messageListBody('s2', [
+        messageRow(id: 1, role: 'user', content: 'older question'),
+        messageRow(id: 2, role: 'assistant', content: 'older answer'),
+      ]),
+    );
+
+    Future<void> failThenSend() async {
+      chat.select('s2');
+      await flush();
+      s2Reads.first.complete(failure());
+      await flush();
+      chat.submit('a new question', const []);
+      await flush();
+    }
+
+    test('the row shows once a message was sent after the failure, and not '
+        'before', () async {
+      chat.select('s2');
+      await flush();
+      s2Reads.first.complete(failure());
+      await flush();
+      expect(status('s2'), ChatHistoryStatus.failed);
+      expect(earlier(), isNull);
+
+      chat.submit('a new question', const []);
+      await flush();
+
+      expect(thread('s2').messages, isNotEmpty);
+      expect(status('s2'), isNull);
+      expect(earlier(), ChatEarlierMessagesStatus.failed);
+      expect(s2Reads, hasLength(1), reason: 'nothing reads again on its own');
+    });
+
+    test('Retry shows retrying, merges the page above and removes the '
+        'row', () async {
+      await failThenSend();
+
+      chat.retryHistory(thread('s2'));
+      await flush();
+      expect(earlier(), ChatEarlierMessagesStatus.retrying);
+      expect(s2Reads, hasLength(2));
+
+      s2Reads.last.complete(page());
+      await flush();
+
+      expect(earlier(), isNull);
+      final texts = thread('s2').messages.map((m) => m.content).toList();
+      expect(texts.take(2), ['older question', 'older answer']);
+      expect(texts, contains('a new question'));
+    });
+
+    test(
+      'a second failure brings Retry back, and reads once per tap',
+      () async {
+        await failThenSend();
+
+        chat.retryHistory(thread('s2'));
+        await flush();
+        s2Reads.last.complete(failure());
+        await flush();
+        expect(earlier(), ChatEarlierMessagesStatus.failed);
+        expect(s2Reads, hasLength(2));
+
+        chat.retryHistory(thread('s2'));
+        await flush();
+        expect(earlier(), ChatEarlierMessagesStatus.retrying);
+        expect(s2Reads, hasLength(3));
+        s2Reads.last.complete(page());
+        await flush();
+        expect(earlier(), isNull);
+      },
+    );
+
+    test('a chat that never failed has no row', () async {
+      expect(chat.earlierMessagesStatusOf(thread('s1')), isNull);
+    });
+  });
 }

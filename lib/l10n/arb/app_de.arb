@@ -421,6 +421,9 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsHistoryEarlierFailedTitle": "Frühere Nachrichten konnten nicht geladen werden",
+  "chatWidgetsHistoryEarlierRetryLabel": "Frühere Nachrichten erneut laden",
+  "chatWidgetsHistoryEarlierRetrying": "Wird erneut versucht …",
   "chatWidgetsHistoryFailedDetail": "Prüfe deine Verbindung und versuche es erneut.",
   "chatWidgetsHistoryFailedTitle": "Die Nachrichten konnten nicht geladen werden",
   "chatWidgetsHistoryLoading": "Chat wird geladen",

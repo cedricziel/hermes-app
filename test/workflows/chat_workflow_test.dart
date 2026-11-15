@@ -548,6 +548,7 @@ void main() {
           'chat-$name-loading-${brightness.name}',
         );
         Completer<void>? gate;
+        Completer<void>? s3Gate;
         server
           ..onRequest('GET', '/api/sessions/s2/messages', (_) async {
             await (gate ??= Completer<void>()).future;
@@ -567,9 +568,26 @@ void main() {
               ]),
             );
           })
-          ..on('GET', '/api/sessions/s3/messages', {
-            'detail': 'boom',
-          }, status: 500);
+          ..onRequest('GET', '/api/sessions/s3/messages', (_) async {
+            final read = s3Gate;
+            if (read == null) return (status: 500, body: {'detail': 'boom'});
+            await read.future;
+            return (
+              status: 200,
+              body: messageListBody('s3', [
+                messageRow(
+                  id: 5,
+                  role: 'user',
+                  content: 'Start the schema migration.',
+                ),
+                messageRow(
+                  id: 6,
+                  role: 'assistant',
+                  content: 'Done. The schema change is merged.',
+                ),
+              ]),
+            );
+          });
         await pumpChat(tester, shots, size: size, brightness: brightness);
         await openSidebar(tester);
         await tester.tap(find.byKey(const ValueKey('thread-s2')));
@@ -589,6 +607,21 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('thread-s3')));
         await runFrames(tester);
         await shots.capture(tester, 'failed');
+
+        // A message sent anyway: the full-screen failure gives way to the
+        // transcript, and a row at its top keeps Retry in reach.
+        await send(tester, 'Where did we leave the migration?');
+        await shots.capture(tester, 'earlier-failed');
+        expect(find.text("Couldn't load earlier messages"), findsOneWidget);
+        s3Gate = Completer<void>();
+        await tester.tap(find.text('Retry'));
+        await tester.pump(const Duration(milliseconds: 100));
+        await shots.capture(tester, 'earlier-retrying');
+        expect(find.text('Retrying…'), findsOneWidget);
+        s3Gate.complete();
+        await runFrames(tester);
+        await shots.capture(tester, 'earlier-recovered');
+        expect(find.text("Couldn't load earlier messages"), findsNothing);
       });
     }
 

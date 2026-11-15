@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/chat_theme.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
+import 'package:hermes_app/src/chat/widgets/chat_earlier_messages_failed_row.dart';
 import 'package:hermes_app/src/chat/widgets/chat_history_state.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:provider/provider.dart';
@@ -67,10 +68,14 @@ class _ChatThreadView extends StatefulWidget {
     this.canRetry = true,
     this.queued = const [],
     this.history,
+    this.earlier,
   });
 
   /// Set for a stored chat whose messages are loading or failed to load.
   final ChatHistoryStatus? history;
+
+  /// Set for a chat whose older messages failed to load.
+  final ChatEarlierMessagesStatus? earlier;
   final List<ChatMessage> messages;
   final List<SharedFile> attachments;
   final bool replying;
@@ -133,6 +138,22 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
                     onAnswerApproval: _answered,
                     onAnswerClarify: _answered,
                     onSkipUnsupported: _answered,
+                    topSliver: widget.earlier == null
+                        ? null
+                        : SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                kChatGutter,
+                                0,
+                                kChatGutter,
+                                kChatTurnGap,
+                              ),
+                              child: ChatEarlierMessagesFailedRow(
+                                status: widget.earlier!,
+                                onRetry: () {},
+                              ),
+                            ),
+                          ),
                   ),
                 ).copyWith(
                   composerBuilder: buildChatComposer(
@@ -161,6 +182,7 @@ WidgetbookUseCase _thread(
   bool canRetry = true,
   List<QueuedPrompt> queued = const [],
   ChatHistoryStatus? history,
+  ChatEarlierMessagesStatus? earlier,
   bool reducedMotion = false,
   double textScale = 1,
 }) => WidgetbookUseCase(
@@ -172,6 +194,7 @@ WidgetbookUseCase _thread(
     ),
     child: _ChatThreadView(
       history: history,
+      earlier: earlier,
       messages: messages,
       attachments: attachments,
       replying: replying,
@@ -209,6 +232,23 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
           'Loading the chat failed',
           const [],
           history: ChatHistoryStatus.failed,
+        ),
+        _thread('Earlier messages failed', [
+          _user('u1', 'Why did the run fail around 02:14?'),
+          _reply('a1', _markdown, tools: const [finishedToolCall]),
+        ], earlier: ChatEarlierMessagesStatus.failed),
+        _thread('Earlier messages retrying', [
+          _user('u1', 'Why did the run fail around 02:14?'),
+          _reply('a1', _markdown, tools: const [finishedToolCall]),
+        ], earlier: ChatEarlierMessagesStatus.retrying),
+        _thread(
+          'Earlier messages failed, largest text size',
+          [
+            _user('u1', 'Why did the run fail around 02:14?'),
+            _reply('a1', _markdown, tools: const [finishedToolCall]),
+          ],
+          earlier: ChatEarlierMessagesStatus.failed,
+          textScale: 3.1,
         ),
         _thread('Conversation', [
           _user('u1', 'Why did the run fail around 02:14?'),

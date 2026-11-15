@@ -220,6 +220,7 @@ extension _ChatControllerHistory on ChatController {
       _threads = [...local, ...threads];
       _ChatControllerCheckpoints(this)._actionsAfterLoad();
       _historyFailed.clear();
+      _historyRetrying.clear();
       _unloaded
         ..clear()
         ..addAll(
@@ -437,6 +438,7 @@ extension _ChatControllerHistory on ChatController {
     try {
       final page = await repository!.loadMessagePage(id, profile: _profile);
       if (!active || generation != _loadGeneration) return;
+      _historyRetrying.remove(id);
       final thread = _threads.where((t) => t.id == id).firstOrNull;
       if (thread == null) return _readAgainUnderNewId(reading, id);
       final merged = _mergedWithPage(thread.messages, id, page.messages);
@@ -451,6 +453,7 @@ extension _ChatControllerHistory on ChatController {
           .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
     } on Object {
       if (generation != _loadGeneration) return;
+      _historyRetrying.remove(id);
       _unloaded.add(id);
       if (!active) return;
       _historyFailed.add(id);

@@ -263,6 +263,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _openGeneration++;
     _activeRefresh++;
     _pauses++;
+    _historyRetrying.clear();
     _loadingThreads = false;
     // A read that is cut short leaves its chat unloaded, so the transcript
     // keeps showing it as loading rather than as a new chat.
@@ -834,6 +835,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Threads whose first page of messages could not be read, until it is read
   /// again; the transcript shows the failure with a Retry instead of nothing.
   final _historyFailed = <String>{};
+
+  /// Chats whose Retry for the earlier messages is reading right now, while
+  /// the newest ones are on screen.
+  final _historyRetrying = <String>{};
 
   /// Threads with older rows on the server, by how many rows were read so far.
   final _olderRows = <String, int>{};
@@ -1583,14 +1588,33 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         : null;
   }
 
-  /// Reads [thread]'s first page again after it failed.
+  /// What the first item of [thread]'s transcript says when its newest
+  /// messages are on screen but its first stored page could not be read (a
+  /// message was sent after the failure): [ChatEarlierMessagesStatus.failed],
+  /// or [ChatEarlierMessagesStatus.retrying] while Retry reads again. Null
+  /// otherwise; a chat with no messages shows [historyStatusOf] instead.
+  ChatEarlierMessagesStatus? earlierMessagesStatusOf(ChatThread thread) {
+    if (!thread.remote || thread.messages.isEmpty) return null;
+    final id = thread.id;
+    if (_historyFailed.contains(id)) return ChatEarlierMessagesStatus.failed;
+    if (_historyRetrying.contains(id) && _loadingMessages.containsKey(id)) {
+      return ChatEarlierMessagesStatus.retrying;
+    }
+    return null;
+  }
+
+  /// Reads [thread]'s first page again after it failed. Only a call to this
+  /// reads again; nothing retries on its own.
   void retryHistory(ChatThread thread) {
     if (!active || _selectedId != thread.id) return;
     if (!_historyFailed.contains(thread.id)) return;
-    breadcrumbs('chat.history.retry');
+    breadcrumbs('chat.history.retry', {
+      'withMessages': thread.messages.isNotEmpty,
+    });
     final epoch = _activityEpoch;
     final profile = _profile;
     final id = thread.id;
+    if (thread.messages.isNotEmpty) _historyRetrying.add(id);
     final load = _loadMessages(id);
     notifyListeners();
     unawaited(
@@ -2032,6 +2056,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_selectedId == previousId) _selectedId = id;
     _unloaded.remove(previousId);
     _historyFailed.remove(previousId);
+    _historyRetrying.remove(previousId);
     _olderRows.remove(previousId);
     if (_followingIds.remove(previousId)) _followingIds.add(id);
     if (_active.remove(previousId)) _active.add(id);

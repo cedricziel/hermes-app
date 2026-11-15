@@ -173,6 +173,7 @@ ChatThreadView boundChatThreadView({
     thread: t,
     historyStatus: t == null ? null : chat.historyStatusOf(t),
     onRetryHistory: t == null ? null : () => chat.retryHistory(t),
+    earlierMessages: t == null ? null : chat.earlierMessagesStatusOf(t),
     sendHeld: t != null && chat.sendHeldIn(t),
     draftHandedBack: draftHandedBack,
     activityLine: t == null || onOpenActivity == null

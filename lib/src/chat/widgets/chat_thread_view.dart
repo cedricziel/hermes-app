@@ -28,6 +28,7 @@ import '../../voice/voice_message_recording.dart';
 import '../activity/widgets/needs_you_dock.dart'
     show NeedsYouDockBuilder, needsYouCompactFor;
 import 'chat_composer_builder.dart';
+import 'chat_earlier_messages_failed_row.dart';
 import 'chat_history_state.dart';
 import 'message_actions.dart' show TurnActionStatus;
 import '../reactions/reaction_state.dart';
@@ -103,6 +104,7 @@ class ChatThreadView extends StatelessWidget {
     this.workspaceNotice,
     this.historyStatus,
     this.onRetryHistory,
+    this.earlierMessages,
   });
 
   /// Set while a stored chat has no messages on screen because they are
@@ -112,6 +114,10 @@ class ChatThreadView extends StatelessWidget {
 
   /// Reads the messages of a chat whose [historyStatus] is failed again.
   final VoidCallback? onRetryHistory;
+
+  /// Set when the chat shows messages but its older ones failed to load: a
+  /// row with Retry then leads the transcript ([onRetryHistory] reads again).
+  final ChatEarlierMessagesStatus? earlierMessages;
 
   final ChatThread? thread;
 
@@ -248,6 +254,25 @@ class ChatThreadView extends StatelessWidget {
           onReactionDetails: onReactionDetails,
           screenPreview: screenPreview,
           onShowAgentDetails: onShowAgentDetails,
+          topSliver: earlierMessages == null
+              ? null
+              : SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kChatGutter,
+                      0,
+                      kChatGutter,
+                      kChatTurnGap,
+                    ),
+                    child: ChatEarlierMessagesFailedRow(
+                      status: earlierMessages!,
+                      onRetry:
+                          earlierMessages == ChatEarlierMessagesStatus.failed
+                          ? onRetryHistory
+                          : null,
+                    ),
+                  ),
+                ),
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,

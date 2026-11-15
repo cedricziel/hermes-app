@@ -89,15 +89,15 @@ Copy added (`lib/l10n/arb/app_en.arb` and `app_de.arb`, `@@x-area-chat/widgets`)
 
 | Key                             | en                             | de                                               |
 | ------------------------------- | ------------------------------ | ------------------------------------------------ |
-| `chatHistoryEarlierFailedTitle` | Couldn't load earlier messages | Frühere Nachrichten konnten nicht geladen werden |
-| `chatHistoryEarlierRetrying`    | Retrying…                      | Wird erneut versucht …                           |
-| `chatHistoryEarlierRetryLabel`  | Retry loading earlier messages | Frühere Nachrichten erneut laden                 |
+| `chatWidgetsHistoryEarlierFailedTitle` | Couldn't load earlier messages | Frühere Nachrichten konnten nicht geladen werden |
+| `chatWidgetsHistoryEarlierRetrying`    | Retrying…                      | Wird erneut versucht …                           |
+| `chatWidgetsHistoryEarlierRetryLabel`  | Retry loading earlier messages | Frühere Nachrichten erneut laden                 |
 
-The Retry button text reuses `commonRetry` ("Retry" / "Erneut versuchen"). The existing `chatHistoryLoading`, `chatHistoryFailedTitle` and `chatHistoryFailedDetail` are unchanged.
+The Retry button text reuses `commonRetry` ("Retry" / "Erneut versuchen"). The existing `chatWidgetsHistoryLoading`, `chatWidgetsHistoryFailedTitle` and `chatWidgetsHistoryFailedDetail` are unchanged.
 
 Not checked: the claude.ai viewer, real devices, VoiceOver and TalkBack output, the pulse and fade (the boards are static), the real text scaler (the largest-size board scales the bars only; the header and the composer are drawn at 100%), the keyboard (a placeholder block). Rendered locally in headless Chromium on the design system's bundle; all 17 boards were rendered and the phone, Mac and extreme boards were looked at. Not drawn: a loaded chat whose Retry succeeds, App Lock.
 
-In this PR: the skeleton colour, pulse floor, text scaling, whole-line clip and Retry target above are built. The earlier-messages row (L5) is a separate, stacked PR and is not part of this one.
+In this PR: the skeleton colour, pulse floor, text scaling, whole-line clip and Retry target above are built. The earlier-messages row (L5) is built in a stacked PR on this one: `ChatEarlierMessagesFailedRow` (`lib/src/chat/widgets/chat_earlier_messages_failed_row.dart`), shown through the transcript's `topSliver` when `ChatController.earlierMessagesStatusOf` is not null, with use cases under Chat thread / Messages ("Earlier messages failed", "Earlier messages retrying", "Earlier messages failed, largest text size").
 
 `ChatHistoryState` (`lib/src/chat/widgets/chat_history_state.dart`) fills the transcript area of a stored chat that has no messages on screen yet; it is a plain model (`ChatHistoryStatus` and a retry callback) with use cases under Chat thread in the catalog. It is built from components the app already has.
 

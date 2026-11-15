@@ -45,8 +45,11 @@ class FollowingChatList extends StatefulWidget {
     super.key,
     required this.itemBuilder,
     this.onEndReached,
+    this.topSliver,
   });
 
+  /// A sliver above the first message, scrolling with the list.
+  final Widget? topSliver;
   final ChatItem itemBuilder;
   final Future<void> Function()? onEndReached;
 
@@ -198,6 +201,7 @@ class _FollowingChatListState extends State<FollowingChatList> {
             // Short threads still need to accept a drag to dismiss the keyboard.
             physics: const AlwaysScrollableScrollPhysics(),
             onEndReached: widget.onEndReached,
+            topSliver: widget.topSliver,
             initialScrollToEndMode: InitialScrollToEndMode.none,
             shouldScrollToEndWhenAtBottom: false,
             insertAnimationDuration: Duration.zero,

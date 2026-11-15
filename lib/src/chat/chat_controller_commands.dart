@@ -160,6 +160,7 @@ extension _ChatControllerCommands on ChatController {
         ..addAll(_mergedWithPage(kept, thread.id, page.messages));
       _reactionHistory(thread);
       _unloaded.remove(thread.id);
+      _historyFailed.remove(thread.id);
       if (page.hasMore) {
         _olderRows[thread.id] = page.rows;
       } else {

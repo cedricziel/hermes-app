@@ -2018,6 +2018,18 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
+  "@chatWidgetsHistoryEarlierFailedTitle": {
+    "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
+  },
+  "chatWidgetsHistoryEarlierRetryLabel": "Retry loading earlier messages",
+  "@chatWidgetsHistoryEarlierRetryLabel": {
+    "description": "Screen reader label of the Retry button in the row shown when a chat's earlier messages could not be loaded."
+  },
+  "chatWidgetsHistoryEarlierRetrying": "Retrying…",
+  "@chatWidgetsHistoryEarlierRetrying": {
+    "description": "Shown beside a small spinner in place of the Retry button while a chat's earlier messages are read again."
+  },
   "chatWidgetsHistoryFailedDetail": "Check your connection, then try again.",
   "@chatWidgetsHistoryFailedDetail": {
     "description": "Detail under the title shown when a stored chat's messages could not be loaded; the Retry button sits below it."

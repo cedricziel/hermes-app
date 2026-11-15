@@ -86,7 +86,8 @@ typedef ScreenPreviewBuilder = Widget Function(ScreenPreviewRun run);
 /// tapped one to [onPickPrompt]; a [welcomeCard] takes their place. A reply
 /// that failed with the model provider's error offers [onCheckProviders].
 /// While [onLoadOlder] is set, scrolling to the top of the thread calls it.
-/// A tapped link goes to [openLink], the system browser when null.
+/// A tapped link goes to [openLink], the system browser when null. A
+/// [topSliver] sits above the first message and scrolls with the thread.
 Builders buildChatBuilders({
   required ValueChanged<StarterPrompt> onPickPrompt,
   List<StarterPrompt>? starterPrompts,
@@ -118,11 +119,15 @@ Builders buildChatBuilders({
   LinkOpener? openLink,
   ScreenPreviewBuilder? screenPreview,
   ValueChanged<String>? onShowAgentDetails,
+  Widget? topSliver,
 }) {
   final onLinkTap = markdownLinkHandler(open: openLink);
   return Builders(
-    chatAnimatedListBuilder: (context, itemBuilder) =>
-        FollowingChatList(itemBuilder: itemBuilder, onEndReached: onLoadOlder),
+    chatAnimatedListBuilder: (context, itemBuilder) => FollowingChatList(
+      itemBuilder: itemBuilder,
+      onEndReached: onLoadOlder,
+      topSliver: topSliver,
+    ),
     textMessageBuilder:
         (context, message, index, {required isSentByMe, groupStatus}) =>
             _buildText(
