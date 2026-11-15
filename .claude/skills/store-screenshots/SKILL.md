@@ -79,8 +79,8 @@ version>`. Check the editable version on App Store Connect first and pass
   last frame (frame autosave `HermesMainWindow`, PR #1132 and its follow-up);
   the `build-macos` CI job measures both (see docs/architecture/macos.md). The
   screenshot test resizes it through the `setContentSize` call (followed by
-  `center()`) on the `hermes_app/window` channel (`SHOT_WINDOW`) every run, so a
-  remembered frame never reaches a screenshot; `scripts/store-screenshots.sh`
+  `center()`) on the `hermes_app/window` channel (`SHOT_WINDOW`) every run (`SHOT_MAC_COMPACT_WINDOW`, 800x600, for
+  `mac compact`), so a remembered frame never reaches a screenshot; `scripts/store-screenshots.sh`
   deletes the frame the run leaves in the dev app's defaults afterwards (the
   sandbox container's plist under ~/Library/Containers/com.cedricziel.hermesApp.dev).
 - Don't add erase boxes for the dev address by hand. The test finds the

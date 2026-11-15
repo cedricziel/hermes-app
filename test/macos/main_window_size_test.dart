@@ -21,6 +21,9 @@ void main() {
     final window = RegExp(
       r'<window [^>]*customClass="MainFlutterWindow".*?'
       r'<rect key="contentRect" x="[\d.]+" y="[\d.]+" '
+      r'width="(\d+)" height="(\d+)"/>.*?'
+      r'<view key="contentView"[^>]*>\s*'
+      r'<rect key="frame" x="[\d.]+" y="[\d.]+" '
       r'width="(\d+)" height="(\d+)"/>',
       dotAll: true,
     ).firstMatch(xib);
@@ -28,6 +31,11 @@ void main() {
     expect(
       Size(double.parse(window![1]!), double.parse(window[2]!)),
       kMacMainWindowDefaultSize,
+    );
+    expect(
+      Size(double.parse(window[3]!), double.parse(window[4]!)),
+      kMacMainWindowDefaultSize,
+      reason: 'the content view frame matches the content rect',
     );
 
     final swift = File('macos/Runner/MainFlutterWindow.swift')
@@ -49,12 +57,22 @@ void main() {
     expect(end, greaterThan(start));
     final awake = swift
         .substring(start, end)
+        .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), '')
         .split('\n')
         .where((line) => !line.trimLeft().startsWith('//'))
         .join('\n');
     expect(awake, contains('self.contentMinSize = Self.minimumContentSize'));
+    final setFrame = awake.indexOf('self.setFrame(windowFrame');
+    final center = awake.indexOf('center()');
+    expect(setFrame, isNonNegative);
+    expect(center, isNonNegative);
     expect(
-      RegExp(r'contentMinSize\s*=').allMatches(swift),
+      center,
+      greaterThan(setFrame),
+      reason: 'setFrame restores the xib origin, so center() must follow it',
+    );
+    expect(
+      RegExp(r'contentMinSize[\w.]*\s*=[^=]').allMatches(swift),
       hasLength(1),
       reason: 'contentMinSize is set only in awakeFromNib',
     );

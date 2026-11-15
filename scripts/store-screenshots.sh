@@ -3,7 +3,7 @@
 # throwaway Hermes backend seeded with invented demo chats.
 #
 #   scripts/store-screenshots.sh ios [iphone|ipad]   # simulators, light and dark
-#   scripts/store-screenshots.sh mac [compact]  # the Mac window, wide (or at its default size)
+#   scripts/store-screenshots.sh mac [compact]  # the Mac window, wide (compact: an explicit 800x600 window)
 #   scripts/store-screenshots.sh watch     # the watch app, through its paired phone (~3 min)
 #   scripts/store-screenshots.sh finish    # flatten, tidy and size what was taken
 #
