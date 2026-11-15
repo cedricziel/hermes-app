@@ -217,14 +217,25 @@ class _SoulEditorState extends State<SoulEditor> {
           height: 1.35,
           color: scheme.onSurface,
         ),
-        decoration: InputDecoration.collapsed(
-          hintText: l10n.profilesSoulHint,
-          hintStyle: TextStyle(
-            fontSize: metrics.titleSize,
-            height: 1.35,
-            color: colors.subtleText,
-          ),
-        ),
+        // The theme's focused border would otherwise draw a ring and pad the
+        // text by its width once the field has focus; the fill carries the
+        // field, so every border is off.
+        decoration:
+            InputDecoration.collapsed(
+              hintText: l10n.profilesSoulHint,
+              hintStyle: TextStyle(
+                fontSize: metrics.titleSize,
+                height: 1.35,
+                color: colors.subtleText,
+              ),
+            ).copyWith(
+              filled: false,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+            ),
         onChanged: widget.onChanged,
       ),
     );

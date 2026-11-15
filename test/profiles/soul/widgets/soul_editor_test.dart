@@ -50,6 +50,49 @@ void main() {
     });
   });
 
+  group('focus', () {
+    for (final platform in [
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.macOS,
+    ]) {
+      testWidgets('focusing draws no border and moves no text ($platform)', (
+        tester,
+      ) async {
+        final controller = SoulTextController(text: 'You are Mara.');
+        addTearDown(controller.dispose);
+        final node = FocusNode();
+        addTearDown(node.dispose);
+        await pumpSoul(
+          tester,
+          SoulEditor(controller: controller, profile: 'work', focusNode: node),
+          platform: platform,
+        );
+        Offset textAt() => tester.getTopLeft(find.byType(EditableText));
+        final before = textAt();
+        final size = tester.getSize(find.byType(TextField));
+
+        node.requestFocus();
+        await tester.pump();
+        expect(node.hasFocus, isTrue);
+        // The theme's focused border would draw a ring and pad the text.
+        expect(textAt(), before);
+        expect(tester.getSize(find.byType(TextField)), size);
+        final decorator = tester.widget<InputDecorator>(
+          find.descendant(
+            of: find.byType(TextField),
+            matching: find.byType(InputDecorator),
+          ),
+        );
+        final border = decorator.decoration.border;
+        expect(border, InputBorder.none);
+        expect(decorator.decoration.focusedBorder, InputBorder.none);
+        expect(decorator.decoration.enabledBorder, InputBorder.none);
+        expect(decorator.decoration.filled, isFalse);
+      });
+    }
+  });
+
   group('read-only', () {
     testWidgets('the field is read-only and transparent; editable is filled', (
       tester,
