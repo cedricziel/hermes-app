@@ -84,25 +84,34 @@ resolve_path() {
   echo "$physical$rest"
 }
 
+# $1 in lower case, for the comparisons below: macOS volumes are usually case
+# insensitive, so `.HERMES` is the real home there.
+lower() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 # Returns 0, printing the real Hermes home it is at or under, when the resolved
 # path $1 is at or under a real home's `.hermes` or `.hermes<anything>` (the
 # data-dir suffix moves the default there) or an ambient HERMES_HOME. Checks
-# $HOME's and the passwd entry's home.
+# $HOME's and the passwd entry's home, ignoring case. A bind mount of a real
+# home is not detected: nothing here compares devices or inodes.
 inside_real_hermes_home() {
-  local resolved="$1" home dir candidate
+  local resolved home dir candidate
+  resolved="$(lower "$1")"
   for home in "$(real_user_home || true)" "$(real_passwd_home || true)"; do
     [[ -n "$home" ]] || continue
     dir="$(resolve_path "$home")"
     [[ "$dir" == / ]] && dir=""
+    dir="$(lower "$dir")"
     case "$resolved" in
-      "$dir"/.hermes | "$dir"/.hermes/* | "$dir"/.hermes[!/]* )
+      "$dir"/.hermes | "$dir"/.hermes/* | "$dir"/.hermes[!/]*)
         echo "$dir/.hermes*"
         return 0
         ;;
     esac
   done
   if [[ -n "${HERMES_HOME:-}" ]]; then
-    candidate="$(resolve_path "$HERMES_HOME")"
+    candidate="$(lower "$(resolve_path "$HERMES_HOME")")"
     if [[ "$resolved" == "$candidate" || "$resolved" == "$candidate"/* ]]; then
       echo "$candidate"
       return 0

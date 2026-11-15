@@ -306,54 +306,43 @@ class DevBackendTest(unittest.TestCase):
         return spelling, result, log.read_text() if log.exists() else ""
 
     def spellings(self, count, seed):
+        """Mostly canonical paths, so most get past the first check."""
         rng = random.Random(seed)
         (self.tmp / "lnkh").symlink_to(self.home / ".hermes")
         (self.tmp / "lnkhome").symlink_to(self.home)
         (self.tmp / "lnkpw").symlink_to(self.pw_home)
-        prefixes = [
+        bases = [
             f"{self.tmp}/state-x",
-            f"{self.tmp}/lnkh",
+            f"{self.tmp}/state",
             f"{self.tmp}/lnkhome",
             f"{self.tmp}/lnkpw",
+            f"{self.tmp}/lnkh",
+            str(self.tmp),
             str(self.home),
             str(self.pw_home),
-            "~",
-            "$HOME",
-            "$X",
-            "//",
-            ".",
-            "..",
-            "`echo`",
-            f"/{self.home}",
-            f"//{self.tmp}",
-            f"{self.tmp}/state",
         ]
-        pieces = [
-            "",
-            "/",
-            "//",
-            ".",
-            "..",
-            "~",
-            "$HOME",
-            "$X",
-            ".hermes",
-            ".hermes-x",
-            "dev",
-            "nope",
-            "lnkh",
-            "lnkhome",
-            "lnkpw",
-            "`echo`",
+        # Spellings Hermes would expand into the real home.
+        expanding = ["/$X", "/${X}", "/$HOME/.hermes", "/$HOME/.HERMES"]
+        plain = ["dev", "nope", "state", "sub", "a", "b"]
+        tricky = [
+            "$X", "~", ".hermes-x", ".HERMES", ".hermes", "lnkh", "lnkhome", "lnkpw",
+            "`echo`", "$HOME", "..", ".", "",
         ]
         out = []
         for _ in range(count):
-            text = rng.choice(prefixes)
-            for _ in range(rng.randint(0, 5)):
-                text += rng.choice(["/", "/", "//"]) + rng.choice(pieces)
+            roll = rng.random()
+            text = rng.choice(expanding) if roll < 0.1 else rng.choice(bases)
+            for _ in range(rng.randint(0, 3)):
+                piece = rng.choice(plain if rng.random() < 0.75 else tricky)
+                text += ("//" if rng.random() < 0.05 else "/") + piece
             out.append(text)
-        # The dangerous ones, so a seed can never leave them out.
+        # Forms that need a `$X` in the middle or at the front, and the
+        # dangerous ones, so a seed can never leave them out.
         out += [
+            f"{self.tmp}/state/$X/dev",
+            f"{self.tmp}/state/~/dev",
+            "/$X/dev",
+            "/${X}/dev",
             f"{self.home}/.hermes/dev",
             f"/{self.home}/.hermes/dev",
             "~/.hermes/dev",
@@ -362,6 +351,7 @@ class DevBackendTest(unittest.TestCase):
             f"{self.tmp}/lnkh/dev",
             f"{self.tmp}/lnkhome/.hermes/dev",
             f"{self.home}/.hermes-x/dev",
+            f"{self.home}/.HERMES/dev",
         ]
         return out
 
@@ -373,13 +363,13 @@ class DevBackendTest(unittest.TestCase):
                 str(home): {
                     child: snapshot(home / child)
                     for child in sorted(os.listdir(home))
-                    if child.startswith(".hermes")
+                    if child.lower().startswith(".hermes")
                 }
                 for home in (self.home, self.pw_home)
             }
 
         before = hermes_trees()
-        spellings = self.spellings(120, seed=20261115)
+        spellings = self.spellings(90, seed=20261115)
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             results = list(pool.map(self.run_spelling, spellings))
         accepted = 0
@@ -388,7 +378,7 @@ class DevBackendTest(unittest.TestCase):
         try:
             for spelling, result, calls in results:
                 if result.returncode == 3:
-                    self.assertNotIn("lp", calls, spelling)
+                    self.assertEqual(calls, "", spelling)
                     continue
                 accepted += 1
                 self.assertEqual(result.returncode, 1, (spelling, result.stderr))
@@ -410,7 +400,7 @@ class DevBackendTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
         self.assertGreater(
-            accepted, 3, "no spelling was accepted: the test proves nothing"
+            accepted, 30, "too few spellings was accepted: the test proves nothing"
         )
         self.assertLess(accepted, len(spellings) - 20, "almost nothing was refused")
         self.assertEqual(hermes_trees(), before, "the real home changed")
@@ -514,18 +504,107 @@ class DevBackendTest(unittest.TestCase):
         self.assertIn(":: dashboard ", last)
         self.assertNotIn(" -p ", last)
 
-    def test_every_hermes_call_runs_with_a_throwaway_home_and_a_clean_environment(self):
+    def test_a_launch_profile_start_runs_every_hermes_call_on_a_throwaway_home(self):
         state = self.tmp / "state"
-        for args in (("--launch-profile", "lp", "--sticky-profile", "sp"), ()):
+        self.start(
+            "--launch-profile", "lp", "--sticky-profile", "sp", SUDO_USER="someone"
+        )
+        lines = self.calls().strip().splitlines()
+        self.assertEqual(len(lines), 4, lines)  # create lp, create sp, use sp, dashboard
+        for line in lines:
+            self.assertIn(f"HOME={state}/userhome ", line, line)
+            self.assertIn("SUDO_USER=<unset> ", line, line)
+            self.assertIn("SUFFIX=<unset> ", line, line)
+            self.assertIn(f"HERMES_HOME={state}/home ", line, line)
+
+    def test_a_plain_start_keeps_the_callers_home(self):
+        # Hermes borrows file-based logins (~/.claude, gh, ~/.codex) through the
+        # caller's HOME, as it always did on a plain start.
+        state = self.tmp / "state"
+        self.start(SUDO_USER="someone")
+        lines = self.calls().strip().splitlines()
+        self.assertEqual(len(lines), 1, lines)
+        self.assertIn(f"HOME={self.home} ", lines[0])
+        self.assertIn("SUDO_USER=<unset> ", lines[0])
+        self.assertIn("SUFFIX=<unset> ", lines[0])
+        self.assertIn(f"HERMES_HOME={state}/home ", lines[0])
+        self.assertFalse((state / "userhome").exists())
+
+    # -- symlinks in the state directory, and the resolved path ----------------
+
+    def test_refuses_a_symlinked_home_dir_before_touching_it(self):
+        (self.tmp / "state" / "home").symlink_to(self.home / ".hermes")
+        (self.home / ".hermes" / "active_profile").write_text("real\n")
+        self.mark()
+        self.assertRefused(self.start(), message="symlink")
+        self.assertRefused(self.start("--launch-profile", "lp"), message="symlink")
+        self.assertEqual((self.home / ".hermes" / "active_profile").read_text(), "real\n")
+
+    def test_refuses_a_symlinked_userhome(self):
+        victim = self.tmp / "victim"
+        victim.mkdir()
+        (self.tmp / "state" / "userhome").symlink_to(victim)
+        self.mark()
+        self.assertRefused(self.start("--launch-profile", "lp"), message="symlink")
+
+    def test_refuses_a_symlink_inside_the_profiles_dir(self):
+        profiles = self.tmp / "state" / "home" / "profiles"
+        profiles.mkdir(parents=True)
+        (profiles / "lp").symlink_to(self.home / ".hermes")
+        self.mark()
+        self.assertRefused(self.start("--launch-profile", "lp"), message="symlink")
+
+    def test_refuses_a_symlinked_profiles_dir(self):
+        (self.tmp / "state" / "home").mkdir()
+        (self.tmp / "state" / "home" / "profiles").symlink_to(self.home / ".hermes")
+        self.mark()
+        self.assertRefused(self.start("--launch-profile", "lp"), message="symlink")
+
+    def test_refuses_a_symlinked_state_file(self):
+        victim = self.tmp / "victim.txt"
+        victim.write_text("keep\n")
+        (self.tmp / "state" / "dashboard.log").symlink_to(victim)
+        self.mark()
+        self.assertRefused(self.start(), message="symlink")
+        self.assertEqual(victim.read_text(), "keep\n")
+
+    def test_refuses_a_symlinked_active_profile_file(self):
+        victim = self.tmp / "victim.txt"
+        victim.write_text("keep\n")
+        (self.tmp / "state" / "home").mkdir()
+        (self.tmp / "state" / "home" / "active_profile").symlink_to(victim)
+        self.mark()
+        self.assertRefused(self.start(), message="symlink")
+        self.assertEqual(victim.read_text(), "keep\n")
+
+    def test_hermes_only_ever_sees_the_resolved_state_dir(self):
+        real = self.tmp / "real"
+        real.mkdir()
+        (self.tmp / "linkdir").symlink_to(real)
+        for args in ((), ("--launch-profile", "lp", "--sticky-profile", "sp")):
             self.log.unlink(missing_ok=True)
-            self.start(*args, SUDO_USER="someone")
+            self.start(*args, state=f"{self.tmp}/linkdir/st")
             lines = self.calls().strip().splitlines()
             self.assertTrue(lines)
             for line in lines:
-                self.assertIn(f"HOME={state}/userhome ", line, line)
-                self.assertIn("SUDO_USER=<unset> ", line, line)
-                self.assertIn("SUFFIX=<unset> ", line, line)
-                self.assertIn(f"HERMES_HOME={state}/home ", line, line)
+                self.assertNotIn("linkdir", line, line)
+                self.assertIn(f"HERMES_HOME={real}/st/home ", line, line)
+        self.assertTrue((real / "st" / "home" / "profiles" / "lp").is_dir())
+
+    # -- case-insensitive volumes -------------------------------------------------
+
+    def test_refuses_a_dot_hermes_in_another_case(self):
+        for name in (".HERMES", ".Hermes-x"):
+            with self.subTest(name=name):
+                self.mark()
+                self.assertRefused(self.start(state=self.home / name / "state"))
+
+    def test_verify_refuses_a_temp_root_named_dot_hermes_in_another_case(self):
+        root = self.home / ".HERMES" / "tmp"
+        root.mkdir(parents=True)
+        result = self.verify_clean(tmp_root=root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("real Hermes home", result.stderr)
 
 
 if __name__ == "__main__":
