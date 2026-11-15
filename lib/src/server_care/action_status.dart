@@ -5,6 +5,7 @@ import 'json_read.dart';
 class ActionStatus {
   const ActionStatus({
     required this.running,
+    this.runningKnown = true,
     this.exitCode,
     this.actionId,
     this.startHeader,
@@ -18,6 +19,7 @@ class ActionStatus {
     final raw = readStrings(root['lines']);
     return ActionStatus(
       running: readBool(root['running']) ?? false,
+      runningKnown: readBool(root['running']) != null,
       exitCode: readInt(root['exit_code']),
       actionId: readString(root['action_id']),
       startHeader: _latestHeader(raw),
@@ -27,6 +29,10 @@ class ActionStatus {
   }
 
   final bool running;
+
+  /// False when the answer carried no usable `running`: it then reads as
+  /// not running, which a caller that needs proof must not rely on.
+  final bool runningKnown;
 
   /// Null while running, or when the dashboard restarted and nothing durable
   /// says how it ended.
