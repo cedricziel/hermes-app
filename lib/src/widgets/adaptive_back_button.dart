@@ -22,8 +22,9 @@ class AdaptiveBackButton extends StatelessWidget {
   final String? previousTitle;
 
   /// On iOS, draws the chevron alone, in a 44 point target, and keeps the
-  /// label as the button's accessible name; for the largest text sizes, where
-  /// the label would crowd out the bar's title and trailing action.
+  /// label as the button's accessible name. It does so by itself from
+  /// [kLargeBarTextScale], matching [adaptiveBackLeadingWidth]; pass true to
+  /// collapse at smaller text too.
   final bool collapseLabel;
 
   @override
@@ -44,9 +45,12 @@ class AdaptiveBackButton extends StatelessWidget {
             : () => history.back(),
       );
     }
-    if (collapseLabel) {
+    if (collapseLabel || largeBarText(context)) {
+      final title = previousTitle;
       return _ChevronOnlyBackButton(
-        label: previousTitle ?? 'Back',
+        label: title == null || title.isEmpty
+            ? MaterialLocalizations.of(context).backButtonTooltip
+            : title,
         color: Theme.of(context).colorScheme.primary,
       );
     }
@@ -85,29 +89,33 @@ class _ChevronOnlyBackButton extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: label,
-    excludeSemantics: true,
-    child: Align(
+  Widget build(BuildContext context) {
+    void back() => Navigator.of(context).maybePop();
+    return Align(
       alignment: AlignmentDirectional.centerStart,
-      child: InkResponse(
-        onTap: () => Navigator.of(context).maybePop(),
-        radius: 22,
-        child: SizedBox.square(
-          dimension: 44,
-          child: Icon(
-            CupertinoIcons.back,
-            size: 30,
-            color: color,
-            // Mirrors the chevron in a right-to-left layout.
-            textDirection: Directionality.of(context),
-            applyTextScaling: false,
+      child: Semantics(
+        button: true,
+        label: label,
+        onTap: back,
+        excludeSemantics: true,
+        child: InkResponse(
+          onTap: back,
+          radius: 22,
+          child: SizedBox.square(
+            dimension: 44,
+            child: Icon(
+              CupertinoIcons.back,
+              size: 30,
+              color: color,
+              // Mirrors the chevron in a right-to-left layout.
+              textDirection: Directionality.of(context),
+              applyTextScaling: false,
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// [base] widened with the text size, so a bar label such as "Cancel" or the

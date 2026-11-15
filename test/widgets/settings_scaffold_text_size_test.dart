@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/adaptive_back_button.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 
 const _title = 'Persönlichkeit und Charakter des Agenten';
@@ -115,15 +117,89 @@ void main() {
       expect(find.bySemanticsLabel('Chat'), findsOneWidget);
       expect(find.text('Chat'), findsNothing);
       final back = find.bySemanticsLabel('Chat');
-      final size = tester.getSize(back);
+      final target = find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byType(InkResponse),
+      );
+      expect(target, findsOneWidget);
+      final size = tester.getSize(target);
       expect(size.width, greaterThanOrEqualTo(44));
       expect(size.height, greaterThanOrEqualTo(44));
-      await tester.tap(back);
+      final node = tester.getSemantics(back);
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      expect(node.rect.size, const Size(44, 44));
+      tester.semantics.tap(find.semantics.byLabel('Chat'));
       await tester.pumpAndSettle();
       expect(find.text('Open'), findsOneWidget);
       semantics.dispose();
     });
   }
+
+  testWidgets('the collapsed Cancel icon has a tap action that closes', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _app(
+        platform: TargetPlatform.iOS,
+        direction: TextDirection.ltr,
+        scale: 3,
+        label: 'Save',
+        onSave: () {},
+        cancel: true,
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final cancel = find.bySemanticsLabel('Cancel');
+    expect(cancel, findsOneWidget);
+    final node = tester.getSemantics(cancel);
+    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    expect(node.rect.size, const Size(44, 44));
+    tester.semantics.tap(find.semantics.byLabel('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  testWidgets('an empty previous title still names the collapsed back button', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(
+                    leading: const AdaptiveBackButton(previousTitle: ''),
+                    leadingWidth: 52,
+                  ),
+                ),
+              ),
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Back'), findsOneWidget);
+    semantics.dispose();
+  });
 
   testWidgets('at normal text the iOS back button still shows its label', (
     tester,

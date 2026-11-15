@@ -442,14 +442,16 @@ class SettingsScaffold extends StatelessWidget {
   Widget _cancelButton(BuildContext context, bool ios) {
     if (!ios) return const CloseButton();
     if (largeBarText(context)) {
-      return Semantics(
-        button: true,
-        label: context.l10n.widgetsCancel,
-        excludeSemantics: true,
-        child: Align(
-          alignment: AlignmentDirectional.centerStart,
+      void cancel() => Navigator.maybePop(context);
+      return Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Semantics(
+          button: true,
+          label: context.l10n.widgetsCancel,
+          onTap: cancel,
+          excludeSemantics: true,
           child: InkResponse(
-            onTap: () => Navigator.maybePop(context),
+            onTap: cancel,
             radius: 22,
             child: SizedBox.square(
               dimension: kAppleMinTapTarget,
