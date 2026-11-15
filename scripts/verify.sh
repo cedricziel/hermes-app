@@ -5,6 +5,8 @@
 # synthetic account and getting a scripted model's reply.
 #
 #   scripts/verify.sh [all|contract|app]   # default: all
+#   scripts/verify.sh launch-profile       # which profile the app names for a chat with none
+#   scripts/verify.sh [all|contract] --launch-profile NAME   # that step too, after the contract tier
 #   scripts/verify.sh clean                # sweep runs whose owner died (SIGKILL)
 #
 # Everything a run starts lives in one temporary directory outside the working
@@ -59,6 +61,27 @@ while IFS= read -r -d '' entry; do
 done </proc/self/environ
 
 MODE="${1:-all}"
+shift || true
+# --launch-profile NAME adds the launch-profile step (test/launch_profile_contract_test.dart)
+# on a backend of its own, started as `hermes -p NAME dashboard` while another
+# profile is the sticky active one. Without it nothing else changes.
+LAUNCH_PROFILE=""
+while (($#)); do
+  case "$1" in
+    --launch-profile)
+      LAUNCH_PROFILE="${2:-}"
+      [[ -n "$LAUNCH_PROFILE" ]] || {
+        echo "--launch-profile needs a name" >&2
+        exit 2
+      }
+      shift 2
+      ;;
+    *)
+      echo "unknown option: $1" >&2
+      exit 2
+      ;;
+  esac
+done
 TMP_ROOT="${HERMES_VERIFY_TMP:-/tmp}"
 APP_TIMEOUT="${HERMES_VERIFY_APP_TIMEOUT:-1200}"
 
@@ -209,11 +232,18 @@ need() {
 
 # --- backend ---------------------------------------------------------------
 
-# start_backend <name> <gated: 0|1>: a dashboard with HERMES_HOME and HOME under
-# $RUN_DIR/<name>, started by scripts/dev-backend.sh, which records its PID.
+# start_backend <name> <gated: 0|1> [launch profile [sticky profile]]: a
+# dashboard with HERMES_HOME and HOME under $RUN_DIR/<name>, started by
+# scripts/dev-backend.sh, which records its PID. With a launch profile it is
+# `hermes -p <launch> dashboard`, the profile created in that home first.
 # Sets BACKEND_URL.
 start_backend() {
   local name="$1" gated="$2" state="$RUN_DIR/$1"
+  local profile_args=()
+  if [[ -n "${3:-}" ]]; then
+    profile_args=(--launch-profile "$3")
+    [[ -n "${4:-}" ]] && profile_args+=(--sticky-profile "$4")
+  fi
   mkdir -p "$state/home" "$state/userhome"
   {
     if [[ -n "${MODEL_PORT:-}" ]]; then
@@ -247,7 +277,7 @@ EOF
       export HERMES_DASHBOARD_BASIC_AUTH_PASSWORD="$VERIFY_PASSWORD"
       export HERMES_DASHBOARD_BASIC_AUTH_SECRET="$VERIFY_SECRET"
     fi
-    exec setsid "$ROOT_DIR/scripts/dev-backend.sh" start
+    exec setsid "$ROOT_DIR/scripts/dev-backend.sh" start ${profile_args[@]+"${profile_args[@]}"}
   ) >&2 || {
     tail -n 40 "$state/dashboard.log" >&2 2>/dev/null || true
     die "backend $name did not start"
@@ -269,7 +299,7 @@ EOF
     [[ "$var" == HERMES_DASHBOARD_BASIC_AUTH_* ]] && continue
     secret_name "$var" && die "backend $name has $var in its environment"
   done < <(tr '\0' '\n' <"/proc/$pid/environ" | cut -d= -f1)
-  log "backend $name: $url (pid $pid, home $state/home, password gate: $gated)"
+  log "backend $name: $url (pid $pid, home $state/home, password gate: $gated${3:+, launch profile $3})"
   BACKEND_URL="$url"
 }
 
@@ -362,6 +392,29 @@ EOF
   tail -n 40 "$RUN_DIR/reconnect-test.log" >&2
   HERMES_DEV_STATE_DIR="$state" "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
   ((status == 0)) || die "gateway reconnect contract failed (log: $OUT_DIR/reconnect-test.log)"
+}
+
+# A backend started with a launch profile other than `default` while another
+# profile is the sticky active one, and test/launch_profile_contract_test.dart
+# against it: every surface must name the launch profile for a chat that has
+# none. Read only.
+run_launch_profile() {
+  local name="$LAUNCH_PROFILE" sticky="other-launch-profile"
+  [[ "$name" != "$sticky" ]] || sticky="other-launch-profile-2"
+  log "launch-profile step: backend launched as profile $name, sticky profile $sticky"
+  start_backend launch 0 "$name" "$sticky"
+  local url="$BACKEND_URL"
+  mkdir -p "$RUN_DIR/tmp"
+  local status=0
+  (cd "$ROOT_DIR" && TMPDIR="$RUN_DIR/tmp" HERMES_DEV_URL="$url" HERMES_DEV_LAUNCH_PROFILE="$name" \
+    exec setsid flutter test --no-pub --suppress-analytics --concurrency=1 \
+    test/launch_profile_contract_test.dart) >"$RUN_DIR/launch-test.log" 2>&1 &
+  echo "$!" >>"$RUN_DIR/sids"
+  wait "$!" || status=$?
+  tail -n 40 "$RUN_DIR/launch-test.log" >&2
+  HERMES_DEV_STATE_DIR="$RUN_DIR/launch" "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
+  ((status == 0)) || die "launch-profile step failed (log: $OUT_DIR/launch-test.log)"
+  log "launch-profile step passed"
 }
 
 # mimalloc's GitHub archive URL (media_kit_libs_linux) is refused by some
@@ -494,7 +547,7 @@ cleanup() {
   done
   kill_run "$RUN_DIR"
   mkdir -p "$OUT_DIR"
-  for state in contract-test.log reconnect-test.log app-test.log browser.log model.log contract/dashboard.log reconnect/dashboard.log app/dashboard.log; do
+  for state in contract-test.log reconnect-test.log launch-test.log app-test.log browser.log model.log contract/dashboard.log reconnect/dashboard.log launch/dashboard.log app/dashboard.log; do
     [[ -f "$RUN_DIR/$state" ]] && cp "$RUN_DIR/$state" "$OUT_DIR/${state//\//-}"
   done
   # Builtins only: an external command here would carry the marker itself.
@@ -519,16 +572,22 @@ cleanup() {
 
 case "$MODE" in
   all | contract | app) ;;
+  launch-profile) LAUNCH_PROFILE="${LAUNCH_PROFILE:-launchprof}" ;;
   clean)
     resolve_tmp_root
     cmd_clean
     exit 0
     ;;
   *)
-    echo "usage: $0 [all|contract|app|clean]" >&2
+    echo "usage: $0 [all|contract|app|launch-profile|clean] [--launch-profile NAME]" >&2
     exit 2
     ;;
 esac
+if [[ -n "$LAUNCH_PROFILE" ]]; then
+  [[ "$LAUNCH_PROFILE" =~ ^[a-z0-9][a-z0-9_-]{0,63}$ && "$LAUNCH_PROFILE" != default ]] ||
+    die "invalid launch profile '$LAUNCH_PROFILE' (lowercase letters, digits, - and _; not 'default')"
+  [[ "$MODE" != app ]] || die "--launch-profile applies to all, contract and launch-profile, not app"
+fi
 
 [[ "$(uname -s)" == Linux ]] || die "this runs on Linux; on a Mac use the verify-in-app skill"
 need git curl python3 uv npm flutter setsid lsof timeout md5sum flock find
@@ -537,7 +596,8 @@ need git curl python3 uv npm flutter setsid lsof timeout md5sum flock find
 # inherited may point a tool at another Hermes. (The allowlist above drops
 # these already; this keeps it true if the allowlist grows.)
 unset HERMES_DEV_MODEL_CALLS HERMES_DEV_TELEGRAM_PAIRING HERMES_DEV_BOT_SCREEN \
-  HERMES_DEV_URL HERMES_DEV_HOME HERMES_DEV_STATE_DIR HERMES_DEV_PORT HERMES_HOME
+  HERMES_DEV_URL HERMES_DEV_HOME HERMES_DEV_STATE_DIR HERMES_DEV_PORT HERMES_HOME \
+  HERMES_DEV_LAUNCH_PROFILE HERMES_DEV_STICKY_PROFILE
 ORIG_HOME="$HOME"
 
 resolve_tmp_root
@@ -576,10 +636,15 @@ VERIFY_KEYRING="$(python3 -I -c 'import secrets; print(secrets.token_urlsafe(18)
 
 log "run $RUN_DIR (hermes $(basename "$HERMES_DIR"))"
 case "$MODE" in
-  contract) run_contract ;;
+  contract)
+    run_contract
+    [[ -z "$LAUNCH_PROFILE" ]] || run_launch_profile
+    ;;
   app) run_app ;;
+  launch-profile) run_launch_profile ;;
   all)
     run_contract
+    [[ -z "$LAUNCH_PROFILE" ]] || run_launch_profile
     run_app
     ;;
 esac

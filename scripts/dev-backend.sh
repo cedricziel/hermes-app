@@ -3,6 +3,8 @@
 # backend, without touching the real ~/.hermes.
 #
 #   scripts/dev-backend.sh start   # start on a free port, wait until ready
+#   scripts/dev-backend.sh start --launch-profile NAME [--sticky-profile NAME]
+#                                  # start the dashboard as `hermes -p NAME dashboard`
 #   scripts/dev-backend.sh url     # print the base URL of the running backend
 #   scripts/dev-backend.sh status  # running? which URL? which home?
 #   scripts/dev-backend.sh stop    # stop only the process this script started
@@ -13,6 +15,14 @@
 # delete the directory to start clean. Set HERMES_DEV_PORT to force a port,
 # and HERMES_DEV_STATE_DIR to keep the state somewhere else (scripts/verify.sh
 # puts it in a temporary directory outside the working tree).
+#
+# --launch-profile NAME (or HERMES_DEV_LAUNCH_PROFILE) makes NAME the profile
+# the dashboard was launched with, which GET /api/profiles/active reports as
+# `current`. NAME is created in the throwaway home first (no wrapper alias, so
+# nothing lands in ~/.local/bin). --sticky-profile NAME (or
+# HERMES_DEV_STICKY_PROFILE) creates another profile and makes it the sticky
+# `active` one, which `hermes profile use` writes and the launch profile does
+# not follow. Both are read at start only; without them nothing changes.
 #
 # Never use `hermes dashboard --stop` here: it kills every Hermes web server
 # on the machine, including ones other sessions or the developer started.
@@ -25,6 +35,7 @@ PID_FILE="$STATE_DIR/pid"
 PORT_FILE="$STATE_DIR/port"
 LOG_FILE="$STATE_DIR/dashboard.log"
 READY_TIMEOUT="${HERMES_DEV_READY_TIMEOUT:-120}"
+LAUNCH_FILE="$STATE_DIR/launch-profile"
 
 listening_pid() { lsof -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null | head -n1 || true; }
 
@@ -55,7 +66,52 @@ process_home() {
   tr '\0' '\n' <"$environ" | sed -n 's/^HERMES_HOME=//p' | head -n1
 }
 
+valid_profile_name() { [[ "$1" =~ ^[a-z0-9][a-z0-9_-]{0,63}$ && "$1" != default ]]; }
+
+# Creates profile $1 in the throwaway home. Never writes a wrapper alias.
+create_profile() {
+  HERMES_HOME="$HOME_DIR" hermes profile create "$1" --no-alias --no-skills >>"$LOG_FILE" 2>&1 || {
+    echo "could not create profile $1; last log lines:" >&2
+    tail -n 20 "$LOG_FILE" >&2
+    exit 1
+  }
+}
+
 cmd_start() {
+  local launch="${HERMES_DEV_LAUNCH_PROFILE:-}" sticky="${HERMES_DEV_STICKY_PROFILE:-}"
+  shift || true
+  while (($#)); do
+    case "$1" in
+      --launch-profile)
+        launch="${2:?--launch-profile needs a name}"
+        shift 2
+        ;;
+      --sticky-profile)
+        sticky="${2:?--sticky-profile needs a name}"
+        shift 2
+        ;;
+      *)
+        echo "unknown option: $1" >&2
+        exit 2
+        ;;
+    esac
+  done
+  if [[ -n "$launch" ]] && ! valid_profile_name "$launch"; then
+    echo "invalid launch profile '$launch' (lowercase letters, digits, - and _; not 'default')" >&2
+    exit 2
+  fi
+  if [[ -n "$sticky" ]] && ! valid_profile_name "$sticky"; then
+    echo "invalid sticky profile '$sticky' (lowercase letters, digits, - and _; not 'default')" >&2
+    exit 2
+  fi
+  if [[ -n "$sticky" && -z "$launch" ]]; then
+    echo "--sticky-profile only makes sense with --launch-profile" >&2
+    exit 2
+  fi
+  if [[ -n "$launch" && "$launch" == "$sticky" ]]; then
+    echo "the sticky profile must differ from the launch profile" >&2
+    exit 2
+  fi
   if ! command -v hermes >/dev/null; then
     echo "hermes not found on PATH. Install Hermes Agent:" >&2
     echo "  https://github.com/NousResearch/hermes-agent (see its README)" >&2
@@ -72,9 +128,22 @@ cmd_start() {
   fi
 
   mkdir -p "$HOME_DIR"
-  rm -f "$PID_FILE" "$PORT_FILE"
+  rm -f "$PID_FILE" "$PORT_FILE" "$LAUNCH_FILE"
   : >"$LOG_FILE"
-  HERMES_HOME="$HOME_DIR" nohup hermes dashboard --isolated --no-open \
+  local launch_args=()
+  if [[ -n "$launch" ]]; then
+    create_profile "$launch"
+    if [[ -n "$sticky" ]]; then
+      create_profile "$sticky"
+      HERMES_HOME="$HOME_DIR" hermes profile use "$sticky" >>"$LOG_FILE" 2>&1 || {
+        echo "could not make $sticky the sticky profile" >&2
+        exit 1
+      }
+    fi
+    echo "$launch" >"$LAUNCH_FILE"
+    launch_args=(-p "$launch")
+  fi
+  HERMES_HOME="$HOME_DIR" nohup hermes ${launch_args[@]+"${launch_args[@]}"} dashboard --isolated --no-open \
     --port "${HERMES_DEV_PORT:-0}" >>"$LOG_FILE" 2>&1 &
   local launcher=$!
 
@@ -100,15 +169,26 @@ cmd_start() {
   listening_pid "$port" >"$PID_FILE"
 
   # Confirm the backend is using the throwaway home, not the real one.
-  local actual_home
+  # With a launch profile the server reports that profile's own folder
+  # (<home>/profiles/<name>); the listener's environment (the fallback behind
+  # a password gate) still names the home itself.
+  local actual_home want_home="$HOME_DIR"
   actual_home="$(reported_home)"
-  [[ -n "$actual_home" ]] || actual_home="$(process_home)"
-  if [[ "$actual_home" != "$HOME_DIR" && "$actual_home" != "$(cd "$HOME_DIR" && pwd -P)" ]]; then
-    echo "refusing: backend is using $actual_home, not $HOME_DIR" >&2
+  if [[ -n "$actual_home" ]]; then
+    [[ -n "$launch" ]] && want_home="$HOME_DIR/profiles/$launch"
+  else
+    actual_home="$(process_home)"
+  fi
+  if [[ "$actual_home" != "$want_home" && "$actual_home" != "$(cd "$want_home" && pwd -P)" ]]; then
+    echo "refusing: backend is using $actual_home, not $want_home" >&2
     cmd_stop
     exit 1
   fi
-  echo "ready: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR)"
+  if [[ -n "$launch" ]]; then
+    echo "ready: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR, launch profile $launch${sticky:+, sticky $sticky})"
+  else
+    echo "ready: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR)"
+  fi
 }
 
 cmd_stop() {
@@ -131,7 +211,9 @@ cmd_url() {
 
 cmd_status() {
   if ours; then
-    echo "running: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR)"
+    local launch=""
+    [[ -f "$LAUNCH_FILE" ]] && launch=", launch profile $(cat "$LAUNCH_FILE")"
+    echo "running: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR$launch)"
   else
     echo "not running"
     exit 1
@@ -139,12 +221,12 @@ cmd_status() {
 }
 
 case "${1:-}" in
-  start) cmd_start ;;
+  start) cmd_start "$@" ;;
   stop) cmd_stop ;;
   url) cmd_url ;;
   status) cmd_status ;;
   *)
-    echo "usage: $0 start|stop|url|status" >&2
+    echo "usage: $0 start [--launch-profile NAME [--sticky-profile NAME]]|stop|url|status" >&2
     exit 2
     ;;
 esac

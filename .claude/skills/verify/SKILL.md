@@ -33,7 +33,14 @@ scripts/verify.sh            # both tiers (about 5 min warm, 10 cold)
 scripts/verify.sh contract   # backend + contract tests only
 scripts/verify.sh app        # backend + app only
 scripts/verify.sh clean      # sweep runs left by a verify.sh killed with SIGKILL
+
+scripts/verify.sh launch-profile                    # only the launch-profile step (profile `launchprof`)
+scripts/verify.sh contract --launch-profile NAME    # contract tier, then the launch-profile step
+scripts/verify.sh all --launch-profile NAME         # contract, launch-profile, app
 ```
+
+`--launch-profile NAME` is off by default; without it the steps are exactly
+those above. NAME is lowercase letters, digits, `-` and `_`, and not `default`.
 
 Exit 0 and `[verify] verify all passed` (printed last, after cleanup) mean
 every tier passed and nothing of the run survived. Screenshots
@@ -75,6 +82,47 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
      plays the browser. Then it sends a prompt and waits for the reply, and
      opens the Server screen from the account menu. Screenshots: `01-sign-in`,
      `02-signed-in`, `03-reply`, `04-server`.
+
+4. **Launch profile** (`launch-profile`, or `--launch-profile NAME` on `all`
+   and `contract`): `test/launch_profile_contract_test.dart` against a
+   backend of its own, started as `hermes -p NAME dashboard`
+   (`scripts/dev-backend.sh start --launch-profile NAME --sticky-profile
+   other-launch-profile`), so `GET /api/profiles/active` answers
+   `current: NAME` while a third profile is the sticky `active` one. Proves
+   that a chat with no profile of its own is read, written and shown for the
+   server's launch profile (`current`) on every surface, never `default` and
+   never the sticky one. Each surface is driven through the app's own
+   repository or controller code on the real generated client and Dio (the
+   gateway ones through the real socket), with a recorder of the `profile`
+   each request names; a failing run prints a table of surface to profile
+   sent. The surfaces and the code each drives: Chat (`ChatController.loadThreads`
+   with no profile: the session list and the profile it settles on), Bot
+   Screen (`BotScreenController(profile: chat.profile)`, `display.status`),
+   Files (`HermesFilesRepository(profile: chat.profile ?? kDefaultProfile)`,
+   the expression `openFiles` uses), Workspaces
+   (`ChatController.workspaceCatalog()`), background refresh
+   (`withHeadlessHermes` + `HeadlessHermes.refreshSnapshot`: the profile the
+   snapshot names), Memory (`MemoryDestination(profile: chat.profile)` in a
+   widget test) and Tools (`ToolsAvailability` seeded the way `AppShell` does,
+   then the profile `ChatScreen._openTools` picks). Files, Tools and the
+   Bot Screen's caller are reproduced from the screen's expression, because
+   the screens need a whole app around them: when one of those expressions
+   changes in `lib/`, change the test with it. Without `HERMES_DEV_URL` and
+   `HERMES_DEV_LAUNCH_PROFILE` the test skips (CI sets neither), and by hand:
+
+   ```bash
+   scripts/dev-backend.sh start --launch-profile launchprof --sticky-profile stickyprof
+   HERMES_DEV_URL=$(scripts/dev-backend.sh url) HERMES_DEV_LAUNCH_PROFILE=launchprof \
+     flutter test test/launch_profile_contract_test.dart
+   scripts/dev-backend.sh stop
+   ```
+
+   `hermes -p NAME dashboard` (the flag goes before the subcommand) is what
+   sets the launch profile: it points the dashboard's `HERMES_HOME` at
+   `<home>/profiles/NAME`, so `/api/status` reports that folder as
+   `hermes_home`, while the process environment still names `<home>`.
+   `hermes profile use` writes the sticky `active_profile` file in `<home>`
+   and does not move a running dashboard, which is what keeps the two apart.
 
 **Not proven here:** anything native outside Linux desktop: iOS, macOS,
 Android, Windows builds and behaviour; notifications, Home Screen widgets,
@@ -160,3 +208,4 @@ Then add a row to "Covered behaviour" below and run `scripts/verify.sh` twice.
 | Password sign-in via loopback + PKCE, session stored in secure storage (keyring)                                                                                                                              | app      | step 2                                                                                                                                               |
 | Send a prompt, receive the streamed reply in the chat                                                                                                                                                         | app      | step 3                                                                                                                                               |
 | Server screen: account menu, Server, status read from the dashboard (headline card and gateway state row render, no read-failed or loading state)                                                             | app      | step 4 (`04-server`)                                                                                                                                 |
+| A chat with no profile names the server's launch profile (not `default`, not the sticky one) on the chat list, Bot Screen, Files, Workspaces, background refresh, Memory and Tools                              | launch-profile | `test/launch_profile_contract_test.dart` (opt in: `launch-profile` or `--launch-profile NAME`)                                                 |
