@@ -270,6 +270,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _openGeneration++;
     _activeRefresh++;
     _pauses++;
+    _historyRetrying.clear();
     _loadingThreads = false;
     // A read that is cut short leaves its chat unloaded, so the transcript
     // keeps showing it as loading rather than as a new chat.
@@ -896,6 +897,26 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// again; the transcript shows the failure with a Retry instead of nothing.
   final _historyFailed = <String>{};
 
+  /// Chats whose Retry for the earlier messages is reading right now, while
+  /// the newest ones are on screen.
+  final _historyRetrying = <String>{};
+
+  /// How many first-page reads of a chat were started: a read that finds a
+  /// newer one has been replaced.
+  final _pageReadToken = <String, int>{};
+
+  /// Never reused, so a token that was pruned cannot match a later read.
+  var _pageReadSeq = 0;
+
+  /// [id]'s first page was put on screen (by a read, a refresh or a handoff):
+  /// no failure or retry stands for it any more, and a read that was still
+  /// out for it is replaced, so its late end changes nothing.
+  void _firstPageLanded(String id) {
+    _historyFailed.remove(id);
+    _historyRetrying.remove(id);
+    _pageReadToken[id] = ++_pageReadSeq;
+  }
+
   /// Threads with older rows on the server, by how many rows were read so far.
   final _olderRows = <String, int>{};
 
@@ -1397,6 +1418,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..clear()
         ..addAll(page.messages);
       _unloaded.remove(selected.id);
+      _firstPageLanded(selected.id);
       if (page.hasMore) _olderRows[selected.id] = page.rows;
       if (thread.unread) selected.unread = true;
       _selectedId = selected.id;
@@ -1671,11 +1693,29 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         : null;
   }
 
-  /// Reads [thread]'s first page again after it failed.
+  /// What the first item of [thread]'s transcript says when its newest
+  /// messages are on screen but its first stored page could not be read (a
+  /// message was sent after the failure): [ChatEarlierMessagesStatus.failed],
+  /// or [ChatEarlierMessagesStatus.retrying] while Retry reads again. Null
+  /// otherwise; a chat with no messages shows [historyStatusOf] instead.
+  ChatEarlierMessagesStatus? earlierMessagesStatusOf(ChatThread thread) {
+    if (!thread.remote || thread.messages.isEmpty) return null;
+    final id = thread.id;
+    if (_historyFailed.contains(id)) return ChatEarlierMessagesStatus.failed;
+    if (_historyRetrying.contains(id) && _loadingMessages.containsKey(id)) {
+      return ChatEarlierMessagesStatus.retrying;
+    }
+    return null;
+  }
+
+  /// Reads [thread]'s first page again after it failed. Only a call to this
+  /// reads again; nothing retries on its own.
   void retryHistory(ChatThread thread) {
     if (!active || _selectedId != thread.id) return;
     if (!_historyFailed.contains(thread.id)) return;
-    breadcrumbs('chat.history.retry');
+    breadcrumbs('chat.history.retry', {
+      'withMessages': thread.messages.isNotEmpty,
+    });
     final epoch = _activityEpoch;
     final profile = _profile;
     final id = thread.id;
@@ -2125,6 +2165,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_selectedId == previousId) _selectedId = id;
     _unloaded.remove(previousId);
     _historyFailed.remove(previousId);
+    _historyRetrying.remove(previousId);
+    _pageReadToken.remove(previousId);
     _olderRows.remove(previousId);
     if (_followingIds.remove(previousId)) _followingIds.add(id);
     if (_active.remove(previousId)) _active.add(id);

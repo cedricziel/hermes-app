@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/adaptive_dialog.dart';
 import '../../widgets/dialog_presentation.dart';
 import '../memory_provider.dart';
@@ -31,28 +32,28 @@ class MemoryResetAlert extends StatelessWidget {
   final VoidCallback onCancel;
 
   @override
-  Widget build(BuildContext context) => AppAlertDialog(
-    title: const Text('Reset memory?'),
-    content: Text(
-      'Hermes forgets what you pick, on the server, for the $profile '
-      "profile. This can't be undone.",
-    ),
-    actions: [
-      for (final (label, target) in [
-        ('Reset agent notes', MemoryResetTarget.agentNotes),
-        ('Reset about you', MemoryResetTarget.aboutYou),
-        ('Reset both', MemoryResetTarget.both),
-      ])
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AppAlertDialog(
+      title: Text(l10n.memoryResetTitle),
+      content: Text(l10n.memoryResetMessage(profile)),
+      actions: [
+        for (final (label, target) in [
+          (l10n.memoryResetAgentNotes, MemoryResetTarget.agentNotes),
+          (l10n.memoryResetAboutYou, MemoryResetTarget.aboutYou),
+          (l10n.memoryResetBoth, MemoryResetTarget.both),
+        ])
+          AppDialogAction(
+            isDestructive: true,
+            onPressed: () => onPick(target),
+            child: Text(label),
+          ),
         AppDialogAction(
-          isDestructive: true,
-          onPressed: () => onPick(target),
-          child: Text(label),
+          isDefault: true,
+          onPressed: onCancel,
+          child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
         ),
-      AppDialogAction(
-        isDefault: true,
-        onPressed: onCancel,
-        child: const Text('Cancel'),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }

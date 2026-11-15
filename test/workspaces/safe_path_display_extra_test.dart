@@ -8,7 +8,7 @@ import 'package:hermes_app/src/files/widgets/file_path_bar.dart';
 import 'package:hermes_app/src/files/widgets/files_activity_row.dart';
 import 'package:hermes_app/src/files/widgets/file_row.dart';
 import 'package:hermes_app/src/files/widgets/files_questions.dart';
-import 'package:hermes_app/src/files/widgets/middle_ellipsis.dart';
+import 'package:hermes_app/src/widgets/middle_ellipsis.dart';
 import 'package:hermes_app/src/files/widgets/safe_path_text.dart';
 import 'package:hermes_app/src/files/widgets/server_path_text.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
