@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -39,16 +40,34 @@ void main() {
       Size(double.parse(minimum![1]!), double.parse(minimum[2]!)),
       kMacMainWindowMinSize,
     );
-    // The decisive places: the minimum is set once, in awakeFromNib, and
-    // nothing after it (macos_window_utils included) resets it; the xib window
-    // stays restorable, so the default is a first-launch size.
+    // The decisive places: the minimum and the centring are set in
+    // awakeFromNib and nothing after it (macos_window_utils included) resets
+    // the minimum; no Dart code resizes the window at startup; the xib window
+    // stays restorable.
+    final start = swift.indexOf('override func awakeFromNib()');
+    final end = swift.indexOf('super.awakeFromNib()');
+    expect(start, isNonNegative);
+    expect(end, greaterThan(start));
+    final awake = swift
+        .substring(start, end)
+        .split('\n')
+        .where((line) => !line.trimLeft().startsWith('//'))
+        .join('\n');
+    expect(awake, contains('self.contentMinSize = Self.minimumContentSize'));
+    expect(awake, contains('self.center()'));
     expect(
-      RegExp(r'contentMinSize = Self\.minimumContentSize').allMatches(swift),
+      RegExp(r'contentMinSize\s*=').allMatches(swift),
       hasLength(1),
+      reason: 'contentMinSize is set only in awakeFromNib',
     );
-    final awake = swift.indexOf('override func awakeFromNib()');
-    expect(awake, isNonNegative);
-    expect(swift.indexOf('contentMinSize = '), greaterThan(awake));
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      expect(
+        file.readAsStringSync(),
+        isNot(contains(RegExp(r'setWindowMinSize|setWindowFrame'))),
+        reason: file.path,
+      );
+    }
     expect(xib, isNot(contains('restorable="NO"')));
     final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
     expect(delegate, isNot(contains('contentMinSize')));
@@ -105,6 +124,13 @@ void main() {
 
     for (final (name, size) in [
       ('minimum', kMacMainWindowMinSize),
+      (
+        'minimum below the toolbar',
+        Size(
+          kMacMainWindowMinSize.width,
+          kMacMainWindowMinSize.height - kMacToolbarHeight,
+        ),
+      ),
       ('default', kMacMainWindowDefaultSize),
     ]) {
       testWidgets('at the $name window size has no overflow', (tester) async {

@@ -75,14 +75,18 @@ version>`. Check the editable version on App Store Connect first and pass
   only the light Kanban board and task details, preserving other raw captures.
 - The seed script uses `DEMO_SERVER_URL` to create Kanban tasks through the
   backend API after checking that `/api/status` reports the throwaway home.
-- The main window now has a 1100 x 760 xib default and a 640 x 480 content
-  minimum set in `awakeFromNib` (PR #1132). An earlier observation was that a
-  size in the xib or in `MainFlutterWindow.swift` never reached the built app;
-  a probable reason is AppKit state restoration, which brings back the last saved frame over the xib default (the 640 x 480 minimum is not affected). Whether that is the whole story is unverified. Check on a Mac with
-  `scripts/dev-app.sh start` and `screenshot`: a fresh launch should be
-  1100 x 760 and centred, and not shrink below 640 x 480. Keep resizing for
-  screenshots through the `setContentSize` call on the `hermes_app/window`
-  channel (`SHOT_WINDOW`), whatever the default is.
+- The main window has a 1100 x 760 xib default and a 640 x 480 content
+  minimum set in `awakeFromNib`. An earlier note said a size in the xib or in
+  `MainFlutterWindow.swift` never reached the built app. The likely reason:
+  the xib window is restorable, and AppKit's saved state brings the last
+  frame back after a kill (`dev-app.sh stop`, `flutter run`) or when "Close
+  windows when quitting an application" is off; with the default setting a
+  Cmd-Q throws the state away, so a normal relaunch starts at 1100 x 760.
+  This is unverified on a Mac (`scripts/dev-app.sh start` and `screenshot`
+  show it). Keep resizing for screenshots through the `setContentSize` call
+  on the `hermes_app/window` channel (`SHOT_WINDOW`, and
+  `SHOT_MAC_COMPACT_WINDOW` for `mac compact`, 800x600), whatever the default
+  is.
 - Don't add erase boxes for the dev address by hand. The test finds the
   address text and writes its pixel box to `<screen>.erase`; `finish` erases
   that. A fixed box goes stale with the next layout change.
