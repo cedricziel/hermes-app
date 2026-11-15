@@ -77,7 +77,7 @@ if [ ${#files[@]} -gt 0 ]; then
     fi
     extra+=(--coverage-path coverage/lcov-extra.info)
   fi
-  flutter test "${extra[@]}" "${files[@]}" || status=$?
+  flutter test ${extra[@]+"${extra[@]}"} "${files[@]}" || status=$?
   if [ "$coverage" -eq 1 ]; then
     cat coverage/lcov-catalog.info coverage/lcov-extra.info \
       >coverage/lcov.info 2>/dev/null || true
