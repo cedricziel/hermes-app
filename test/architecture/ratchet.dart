@@ -1,20 +1,25 @@
 /// A shrink-only baseline for source-scan guards.
 ///
-/// A [Rule] is an id, a scan that returns violations per repo-relative path,
-/// and a message that names the building block to use instead. [ratchetTests]
-/// registers one test per rule, comparing the scan with
-/// `test/architecture/baseline.yaml`:
+/// A [Rule] is an id (`arch.<name>`, `style.<name>` or `test.<name>`), a scan
+/// that returns violations per repo-relative path, and a message that names
+/// the building block to use instead.
+///
+/// Each namespace has one baseline file, `test/architecture/baseline/<ns>.yaml`
+/// (rule id -> path -> allowed count), and exactly one test file that calls
+/// `ratchetTests(rules, namespace: '<ns>')`, so a baseline file has one writer.
+/// [ratchetTests] registers one test per rule, comparing the scan with the
+/// file:
 ///
 /// - more violations in a file than its entry (or a file with no entry) fails
 ///   with the offending lines and the message;
 /// - fewer violations than the entry fails with the exact edit to make, so the
 ///   baseline only shrinks;
-/// - a baseline id in the registered namespace that no rule claims fails too.
+/// - a baseline id that none of the namespace's rules claims fails too.
 ///
 /// With `UPDATE_BASELINE=1` the file is rewritten instead, lowering counts and
-/// removing entries and orphan ids; it never raises a count or adds an entry.
-/// The rewrite is locked and atomic, so test files may run in parallel; running
-/// with `--concurrency=1` is still the tidier way.
+/// removing entries, empty rule ids and orphan ids; it never raises a count or
+/// adds an entry. The rewrite goes through a temp file in the same directory
+/// and a rename.
 library;
 
 import 'dart:io';
@@ -23,8 +28,13 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaml/yaml.dart';
 
-/// Where the baseline lives, relative to the repository root.
-const baselinePath = 'test/architecture/baseline.yaml';
+/// The directory of the baseline files, relative to the repository root.
+const baselineDir = 'test/architecture/baseline';
+
+/// The baseline file of [namespace].
+String baselinePathFor(String namespace) => '$baselineDir/$namespace.yaml';
+
+const namespaces = ['arch', 'style', 'test'];
 
 final _idPattern = RegExp(r'^(arch|style|test)\.[A-Za-z0-9_.-]+$');
 
@@ -64,6 +74,7 @@ List<String> checkRule(
   Map<String, int> actual,
   Map<String, int> allowed,
 ) {
+  final baselinePath = baselinePathFor(rule.id.split('.').first);
   final failures = <String>[];
   for (final path in (actual.keys.toList()..sort())) {
     final found = actual[path]!;
@@ -199,60 +210,38 @@ List<String> orphanIds(
     if (id.startsWith('$namespace.') && !registered.contains(id)) id,
 ]..sort();
 
-/// FNV-1a, the same in every process (`String.hashCode` is not).
-String _stableHash(String s) {
-  var h = 0x811c9dc5;
-  for (final unit in s.codeUnits) {
-    h = ((h ^ unit) * 0x01000193) & 0xffffffff;
-  }
-  return h.toRadixString(16);
-}
-
-/// Applies [change] to the baseline file under an exclusive lock and writes
-/// the result through a temp file and a rename, so concurrent writers neither
-/// interleave nor lose each other's edits.
-void updateBaselineFile(
-  File file,
-  void Function(Map<String, Map<String, int>> current) change,
-) {
-  // A lock file, created exclusively: `RandomAccessFile.lock` does not
-  // keep two isolates of one process apart. It lives in the system temp
-  // directory, not in the repository, and is stolen when older than 30 s.
-  final lock = File(
-    '${Directory.systemTemp.path}/hermes_baseline_'
-    '${_stableHash(file.absolute.path)}.lock',
-  );
-  final started = DateTime.now();
-  while (true) {
-    try {
-      lock.createSync(exclusive: true);
-      break;
-    } on FileSystemException {
-      if (DateTime.now().difference(started) > const Duration(seconds: 30)) {
-        if (lock.existsSync()) lock.deleteSync();
-        continue;
-      }
-      sleep(const Duration(milliseconds: 5));
-    }
-  }
+/// Writes [text] to [file] through a temp file in the same directory and a
+/// rename, so a reader never sees half a file.
+void writeFileAtomically(File file, String text) {
+  final temp = File('${file.path}.tmp$pid');
   try {
-    final text = file.readAsStringSync();
-    final current = parseBaseline(text);
-    change(current);
-    final temp = File('${file.path}.tmp$pid');
-    temp.writeAsStringSync(serializeBaseline(baselineHeader(text), current));
+    temp.writeAsStringSync(text);
     temp.renameSync(file.path);
   } finally {
-    if (lock.existsSync()) lock.deleteSync();
+    if (temp.existsSync()) temp.deleteSync();
   }
 }
 
-/// Rule ids registered in this process, to reject a duplicate.
+/// Namespaces and rule ids registered in this process, to reject a repeat.
 final _registered = <String>{};
+final _claimedNamespaces = <String>{};
 
-/// Forgets the registered ids. Only for this library's own test.
+/// Forgets what was registered. Only for this library's own test.
 @visibleForTesting
-void resetRegisteredRules() => _registered.clear();
+void resetRegisteredRules() {
+  _registered.clear();
+  _claimedNamespaces.clear();
+}
+
+/// Throws on an unknown namespace, or one already registered in this process.
+void claimNamespace(String namespace) {
+  if (!namespaces.contains(namespace)) {
+    throw ArgumentError('unknown namespace $namespace');
+  }
+  if (!_claimedNamespaces.add(namespace)) {
+    throw ArgumentError('ratchetTests($namespace) was called twice');
+  }
+}
 
 /// Checks [rules] are in [namespace] and that no id is repeated, here or in an
 /// earlier registration in this process. Returns the ids.
@@ -271,14 +260,17 @@ Set<String> claimRuleIds(String namespace, List<Rule> rules) {
 }
 
 /// Registers one test per rule of [namespace] (`arch`, `style` or `test`),
-/// and one test that no baseline entry in that namespace names a rule nobody
-/// registered. In update mode (`UPDATE_BASELINE=1`) the baseline is lowered
-/// instead of failing on a fall, and orphan ids are removed; a rise still
-/// fails. A rule id registered twice throws.
+/// and one test that no baseline entry names a rule nobody registered. Call
+/// it once per namespace, from one test file. In update mode
+/// (`UPDATE_BASELINE=1`) the baseline is lowered instead of failing on a
+/// fall, and orphan ids are removed; a rise still fails.
 void ratchetTests(List<Rule> rules, {required String namespace}) {
+  claimNamespace(namespace);
   final update = Platform.environment['UPDATE_BASELINE'] == '1';
-  final file = File(baselinePath);
-  final baseline = parseBaseline(file.readAsStringSync());
+  final file = File(baselinePathFor(namespace));
+  final baseline = file.existsSync()
+      ? parseBaseline(file.readAsStringSync())
+      : <String, Map<String, int>>{};
   final rewritten = <String, Map<String, int>>{};
   final ids = claimRuleIds(namespace, rules);
 
@@ -307,19 +299,59 @@ void ratchetTests(List<Rule> rules, {required String namespace}) {
       orphans,
       isEmpty,
       reason:
-          'remove ${orphans.join(', ')} from $baselinePath: no $namespace '
+          'remove ${orphans.join(', ')} from ${file.path}: no $namespace '
           'rule has that id',
     );
   });
 
-  if (update) {
+  if (update && file.existsSync()) {
     tearDownAll(() {
-      updateBaselineFile(file, (current) {
-        current.addAll(rewritten);
-        for (final id in orphans) {
-          current.remove(id);
-        }
-      });
+      final text = file.readAsStringSync();
+      final current = parseBaseline(text)..addAll(rewritten);
+      for (final id in orphans) {
+        current.remove(id);
+      }
+      writeFileAtomically(
+        file,
+        serializeBaseline(baselineHeader(text), current),
+      );
     });
   }
 }
+
+/// Test files that call `ratchetTests(..., namespace: 'x')`, by namespace.
+/// Comment lines are skipped; [skip] is a path that is not scanned.
+Map<String, List<String>> findRegistrations(Directory root, {String? skip}) {
+  final call = RegExp(r'ratchetTests\([^;]*namespace:\s*.(\w+).');
+  final found = <String, List<String>>{};
+  for (final entity in root.listSync(recursive: true, followLinks: false)) {
+    if (entity is! File || !entity.path.endsWith('.dart')) continue;
+    final path = entity.path.replaceAll(r'\', '/');
+    if (path == skip) continue;
+    final text = entity
+        .readAsStringSync()
+        .split('\n')
+        .where((l) => !l.trimLeft().startsWith('//'))
+        .join('\n');
+    for (final m in call.allMatches(text)) {
+      found.putIfAbsent(m.group(1)!, () => []).add(path);
+    }
+  }
+  return found;
+}
+
+/// Problems between registrations and baseline files: a namespace registered
+/// from two places, or a baseline file nobody registers.
+List<String> checkRegistrations(
+  Map<String, List<String>> registrations,
+  Iterable<String> baselineFileNamespaces,
+) => [
+  for (final entry in registrations.entries)
+    if (entry.value.length > 1)
+      'namespace ${entry.key} is registered by ${entry.value.length} files '
+          '(${entry.value.join(', ')}): call ratchetTests once per namespace',
+  for (final ns in baselineFileNamespaces)
+    if (!registrations.containsKey(ns))
+      '${baselinePathFor(ns)} has no test file calling '
+          "ratchetTests(..., namespace: '$ns')",
+];

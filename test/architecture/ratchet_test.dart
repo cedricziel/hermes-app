@@ -1,9 +1,19 @@
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'ratchet.dart';
+
+/// Namespaces that have a baseline file checked in.
+List<String> checkedInNamespaces() {
+  final dir = Directory(baselineDir);
+  if (!dir.existsSync()) return const [];
+  return [
+    for (final f in dir.listSync())
+      if (f is File && f.path.endsWith('.yaml'))
+        f.path.split('/').last.replaceAll('.yaml', ''),
+  ]..sort();
+}
 
 void main() {
   final rule = Rule(
@@ -71,11 +81,20 @@ void main() {
       expect(() => parseBaseline('arch.x:\n  a: 0\n'), throwsFormatException);
     });
 
-    test('the checked-in baseline parses and lists existing files', () {
-      final data = parseBaseline(File(baselinePath).readAsStringSync());
-      for (final files in data.values) {
-        for (final path in files.keys) {
-          expect(File(path).existsSync(), isTrue, reason: '$path is gone');
+    test('the checked-in baseline files parse and list existing files', () {
+      for (final ns in checkedInNamespaces()) {
+        final data = parseBaseline(
+          File(baselinePathFor(ns)).readAsStringSync(),
+        );
+        for (final entry in data.entries) {
+          expect(
+            entry.key,
+            startsWith('$ns.'),
+            reason: '$ns.yaml: ${entry.key}',
+          );
+          for (final path in entry.value.keys) {
+            expect(File(path).existsSync(), isTrue, reason: '$path is gone');
+          }
         }
       }
     });
@@ -151,43 +170,78 @@ void main() {
   test('the update drops empty rule ids and orphans, never adds', () {
     final dir = Directory.systemTemp.createTempSync('ratchet_update');
     addTearDown(() => dir.deleteSync(recursive: true));
-    final file = File('${dir.path}/baseline.yaml')
+    final file = File('${dir.path}/arch.yaml')
       ..writeAsStringSync(
         '# h\n\narch.a:\n  x.dart: 3\n\narch.gone:\n  y.dart: 1\n\n'
         'arch.empty:\n',
       );
-    updateBaselineFile(file, (current) {
-      current['arch.a'] = lowered({
-        'x.dart': 1,
-        'new.dart': 9,
-      }, current['arch.a']!);
-      for (final id in orphanIds(current, 'arch', {'arch.a'})) {
-        current.remove(id);
-      }
-    });
+    final text = file.readAsStringSync();
+    final current = parseBaseline(text);
+    current['arch.a'] = lowered({
+      'x.dart': 1,
+      'new.dart': 9,
+    }, current['arch.a']!);
+    for (final id in orphanIds(current, 'arch', {'arch.a'})) {
+      current.remove(id);
+    }
+    writeFileAtomically(file, serializeBaseline(baselineHeader(text), current));
     expect(file.readAsStringSync(), '# h\n\narch.a:\n  x.dart: 1\n');
+    expect(dir.listSync().map((e) => e.path.split('/').last), ['arch.yaml']);
   });
 
-  test('concurrent writers lose no update', () async {
-    final dir = Directory.systemTemp.createTempSync('ratchet_writers');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    final file = File('${dir.path}/baseline.yaml')
-      ..writeAsStringSync('# header\n');
-    await Future.wait([
-      for (var w = 0; w < 6; w++)
-        Isolate.run(() => _writer(file.path, 'arch.w$w', 8)),
-    ]);
-    final data = parseBaseline(file.readAsStringSync());
-    expect(
-      data.keys,
-      unorderedEquals([for (var w = 0; w < 6; w++) 'arch.w$w']),
+  group('one registration per namespace', () {
+    late Directory root;
+    setUp(() => root = Directory.systemTemp.createTempSync('ratchet_reg'));
+    tearDown(() => root.deleteSync(recursive: true));
+
+    void write(String name, String body) =>
+        File('${root.path}/$name').writeAsStringSync(body);
+
+    test('finds the namespace literal and skips comments', () {
+      write(
+        'a_test.dart',
+        "void main() => ratchetTests(r, namespace: 'arch');",
+      );
+      write('b_test.dart', "// ratchetTests(r, namespace: 'style');\n");
+      final found = findRegistrations(root);
+      expect(found.keys, ['arch']);
+    });
+
+    test('a namespace in two files fails', () {
+      write(
+        'a_test.dart',
+        "void main() => ratchetTests(r, namespace: 'arch');",
+      );
+      write(
+        'b_test.dart',
+        'void main() {\n  ratchetTests(\n    r,\n    namespace: "arch",\n  );\n}',
+      );
+      final problems = checkRegistrations(findRegistrations(root), ['arch']);
+      expect(problems.single, contains('registered by 2 files'));
+    });
+
+    test('a baseline file with no registering file fails', () {
+      final problems = checkRegistrations({}, ['style']);
+      expect(problems.single, contains('baseline/style.yaml has no test file'));
+    });
+
+    test('a second call per namespace is refused', () {
+      resetRegisteredRules();
+      claimNamespace('arch');
+      expect(() => claimNamespace('arch'), throwsArgumentError);
+      expect(() => claimNamespace('nope'), throwsArgumentError);
+    });
+  });
+
+  test('every checked-in baseline file is registered once, and only once', () {
+    final problems = checkRegistrations(
+      findRegistrations(
+        Directory('test'),
+        skip: 'test/architecture/ratchet_test.dart',
+      ),
+      checkedInNamespaces(),
     );
-    for (final files in data.values) {
-      expect(files, {'p.dart': 8});
-    }
-    expect(dir.listSync().map((e) => e.path.split('/').last), [
-      'baseline.yaml',
-    ]);
+    expect(problems, isEmpty, reason: problems.join('\n'));
   });
 
   test('rule ids are namespaced', () {
@@ -196,14 +250,4 @@ void main() {
       throwsArgumentError,
     );
   });
-}
-
-/// One writer: raises its own rule's count one at a time, each a locked
-/// read-modify-write of the shared file.
-void _writer(String path, String id, int times) {
-  for (var i = 1; i <= times; i++) {
-    updateBaselineFile(File(path), (current) {
-      current[id] = {'p.dart': i};
-    });
-  }
 }
