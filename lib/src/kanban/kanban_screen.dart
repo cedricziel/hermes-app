@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -173,7 +174,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   /// What File > New and View > Inspector do while the board is in front.
   Map<MacCommand, MacCommandHandler> _menuCommands() => {
-    MacCommand.newChat: MacCommandHandler(_newTask, title: 'New Task'),
+    MacCommand.newChat: MacCommandHandler(
+      _newTask,
+      title: context.l10n.macosMenuNewTask,
+    ),
     if (_mac)
       MacCommand.reload: MacCommandHandler(
         _reloading ? null : () => unawaited(_reload()),
@@ -181,7 +185,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
     if (_mac)
       MacCommand.toggleInspector: MacCommandHandler(
         _inspector.toggle,
-        title: _inspector.shown ? 'Hide Inspector' : 'Show Inspector',
+        title: _inspector.shown
+            ? context.l10n.chatActivityInspectorHide
+            : context.l10n.chatActivityInspectorShow,
       ),
   };
 

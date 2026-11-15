@@ -192,7 +192,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     commands: {
       MacCommand.newChat: MacCommandHandler(
         () => _new(wide: _split),
-        title: 'New Schedule',
+        title: context.l10n.macosMenuNewSchedule,
       ),
       if (platformChromeOf(context) == PlatformChrome.macos)
         MacCommand.reload: MacCommandHandler(
