@@ -53,6 +53,37 @@ class SourceFile {
   }
 }
 
+/// The end of the call whose `(` just before [from] opened, in [code].
+int callEnd(String code, int from) {
+  var depth = 1;
+  var end = from;
+  while (end < code.length && depth > 0) {
+    final c = code[end];
+    if (c == '(') depth++;
+    if (c == ')') depth--;
+    end++;
+  }
+  return end;
+}
+
+/// The offset of the `}` that closes the block opened at [open] in [code].
+int blockEnd(String code, int open) {
+  var depth = 0;
+  for (var i = open; i < code.length; i++) {
+    if (code[i] == '{') depth++;
+    if (code[i] == '}' && --depth == 0) return i;
+  }
+  return code.length;
+}
+
+/// Arguments (from the `text` view, balanced by parenthesis depth in the
+/// `code` view) of every call in [file] whose callee matches [callee], as
+/// (callee offset, argument text).
+List<(int, String)> callArguments(SourceFile file, RegExp callee) => [
+  for (final call in callee.allMatches(file.code))
+    (call.start, file.text.substring(call.end, callEnd(file.code, call.end))),
+];
+
 /// One match of a rule.
 class Hit {
   const Hit(this.path, this.line, this.snippet);

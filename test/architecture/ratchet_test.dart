@@ -197,14 +197,71 @@ void main() {
     void write(String name, String body) =>
         File('${root.path}/$name').writeAsStringSync(body);
 
-    test('finds the namespace literal and skips comments', () {
+    Registrations scan() => findRegistrations([root]);
+
+    test('finds the namespace literal, in either quote style', () {
       write(
         'a_test.dart',
         "void main() => ratchetTests(r, namespace: 'arch');",
       );
-      write('b_test.dart', "// ratchetTests(r, namespace: 'style');\n");
-      final found = findRegistrations(root);
-      expect(found.keys, ['arch']);
+      write(
+        'b_test.dart',
+        'void main() => ratchetTests(r, namespace: "style");',
+      );
+      final found = scan();
+      expect(found.problems, isEmpty);
+      expect(found.byNamespace.keys, unorderedEquals(['arch', 'style']));
+    });
+
+    test('a semicolon inside the rule list does not cut the arguments', () {
+      write(
+        'a_test.dart',
+        'void main() {\n'
+            '  ratchetTests([\n'
+            "    Rule(id: 'arch.a', message: 'm', scan: () { var x = 1; return {}; }),\n"
+            "  ], namespace: 'arch');\n"
+            '}\n',
+      );
+      final found = scan();
+      expect(found.problems, isEmpty);
+      expect(found.byNamespace.keys, ['arch']);
+    });
+
+    test('comments never count', () {
+      write(
+        'a_test.dart',
+        "// ratchetTests(r, namespace: 'arch');\n"
+            "/* ratchetTests(r, namespace: 'arch');\n */\n",
+      );
+      final found = scan();
+      expect(found.problems, isEmpty);
+      expect(found.byNamespace, isEmpty);
+    });
+
+    test('a helper wrapper outside a *_test.dart file fails', () {
+      write('helper.dart', "void reg() => ratchetTests(r, namespace: 'arch');");
+      expect(scan().problems.single, contains('outside a *_test.dart'));
+    });
+
+    test('a namespace that is not a literal fails', () {
+      write(
+        'a_test.dart',
+        "const ns = 'arch';\nvoid main() => ratchetTests(r, namespace: ns);",
+      );
+      final problems = scan().problems;
+      expect(problems.single, contains('not a string literal'));
+      expect(
+        problems.single,
+        contains('exactly one *_test.dart per namespace'),
+      );
+    });
+
+    test('an unknown namespace fails', () {
+      write(
+        'a_test.dart',
+        "void main() => ratchetTests(r, namespace: 'nope');",
+      );
+      expect(scan().problems.single, contains('unknown namespace'));
     });
 
     test('a namespace in two files fails', () {
@@ -216,12 +273,12 @@ void main() {
         'b_test.dart',
         'void main() {\n  ratchetTests(\n    r,\n    namespace: "arch",\n  );\n}',
       );
-      final problems = checkRegistrations(findRegistrations(root), ['arch']);
-      expect(problems.single, contains('registered by 2 files'));
+      final problems = checkRegistrations(scan(), ['arch']);
+      expect(problems.single, contains('registered 2 times'));
     });
 
     test('a baseline file with no registering file fails', () {
-      final problems = checkRegistrations({}, ['style']);
+      final problems = checkRegistrations(Registrations(), ['style']);
       expect(problems.single, contains('baseline/style.yaml has no test file'));
     });
 
@@ -233,12 +290,9 @@ void main() {
     });
   });
 
-  test('every checked-in baseline file is registered once, and only once', () {
+  test('every ratchetTests call is exact and every baseline file is used', () {
     final problems = checkRegistrations(
-      findRegistrations(
-        Directory('test'),
-        skip: 'test/architecture/ratchet_test.dart',
-      ),
+      findRegistrations([Directory('test'), Directory('lib')]),
       checkedInNamespaces(),
     );
     expect(problems, isEmpty, reason: problems.join('\n'));
