@@ -824,7 +824,7 @@ void main() {
     await shots.capture(tester, 'not-available');
   });
 
-  for (final v in _light) {
+  for (final v in _withDark) {
     for (final (label, thread, suffix) in [
       ('', 's4', ''),
       (' in a long thread', 's3', '-long'),

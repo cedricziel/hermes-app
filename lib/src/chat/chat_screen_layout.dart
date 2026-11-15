@@ -59,10 +59,11 @@ extension _ChatScreenLayout on _ChatScreenState {
             macSidebar || isWideLayout(context, width: constraints.maxWidth);
         _wide = isWide;
         final selected = chat.selectedThread;
-        if (!identical(selected, _expansionThread)) {
-          _expansionThread = selected;
-          _toolCallExpansion.clear();
-        }
+        _toolCallExpansion.follow(
+          profile: chat.profile,
+          chat: selected,
+          chatId: selected?.id,
+        );
         final bot = selected?.botContext;
         final showFiles = selected != null && filesShown(context)
             ? () => _showFiles(FilesOpenedFrom.header)

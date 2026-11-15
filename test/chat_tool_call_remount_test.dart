@@ -267,14 +267,18 @@ void main() {
               .first;
           for (
             var i = 0;
-            i < 80 && find.byType(ToolCallCard).evaluate().isNotEmpty;
+            i < 80 &&
+                find
+                    .byType(ToolCallCard, skipOffstage: false)
+                    .evaluate()
+                    .isNotEmpty;
             i++
           ) {
             await tester.drag(list, const Offset(0, 700));
             await tester.pump(const Duration(milliseconds: 50));
           }
           expect(
-            find.byType(ToolCallCard),
+            find.byType(ToolCallCard, skipOffstage: false),
             findsNothing,
             reason: 'row left the list',
           );
@@ -289,6 +293,60 @@ void main() {
           expect(result('t1'), findsOneWidget);
         },
       );
+
+      streamTest('what was opened stays open when the chat list is read again '
+          'for the same profile', (tester) async {
+        server.on(
+          'GET',
+          '/api/sessions/stored/messages',
+          messageListBody('stored', [
+            messageRow(id: 1, role: 'user', content: 'List the files'),
+            messageRow(
+              id: 2,
+              role: 'assistant',
+              toolCalls: [functionCall('terminal', '{"command":"ls"}')],
+            ),
+            messageRow(
+              id: 3,
+              role: 'tool',
+              toolName: 'terminal',
+              toolCallId: 'call_terminal',
+              content: 'RESULT-h body',
+            ),
+            messageRow(id: 4, role: 'assistant', content: 'Here they are.'),
+          ]),
+        );
+        await pumpChatScreen(
+          tester,
+          server: server,
+          withProfiles: true,
+          transport: transport,
+          size: size,
+        );
+        await openThread(tester, 'Synthetic');
+        await tapCard(tester, find.byType(ToolCallCard));
+        expect(result('h'), findsOneWidget);
+
+        for (final state in [
+          AppLifecycleState.inactive,
+          AppLifecycleState.hidden,
+          AppLifecycleState.paused,
+          AppLifecycleState.hidden,
+          AppLifecycleState.inactive,
+          AppLifecycleState.resumed,
+        ]) {
+          tester.binding.handleAppLifecycleStateChanged(state);
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        for (var i = 0; i < 10; i++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+          await tester.pump(const Duration(milliseconds: 200));
+        }
+
+        await expectVisible(tester, result('h'));
+      });
 
       if (label == 'desktop') {
         streamTest('what was opened is dropped when another chat opens', (

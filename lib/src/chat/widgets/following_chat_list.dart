@@ -111,9 +111,6 @@ class _FollowingChatListState extends State<FollowingChatList> {
   bool _onNotification(Notification notification) {
     if (notification is DisclosureToggledNotification) {
       _toggled = notification.context;
-      // The animation resizes the list for a while without any item build,
-      // which is not the blank-list state.
-      _watchdog.disarm();
       _toggledTimer?.cancel();
       _toggledTimer = Timer(_toggleWindow, () => _toggled = null);
       return false;

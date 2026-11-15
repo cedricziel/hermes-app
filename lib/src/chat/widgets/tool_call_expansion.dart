@@ -14,6 +14,7 @@
 class ToolCallExpansionStore {
   final _cards = <String>{};
   final _groups = <String>{};
+  final _lone = <String>{};
 
   static String _card(String scope, String key) => '$scope\u0000$key';
 
@@ -35,15 +36,31 @@ class ToolCallExpansionStore {
     return true;
   }
 
-  /// Forgets the cards of [scope] whose key is not in [keys]: a run that was
-  /// split or rewritten no longer holds those calls, and a positional key
-  /// must not open whichever call comes to stand at its place.
+  /// Forgets the positional (`at:`) cards of [scope] whose key is not in
+  /// [keys]: a run that was split or rewritten no longer holds those calls,
+  /// and a positional key must not open whichever call comes to stand at its
+  /// place. A card keyed by id stays: a run can shrink for a moment and the
+  /// call come back.
   void retainCards(String scope, Set<String> keys) {
-    final prefix = '$scope\u0000';
+    final prefix = '$scope\u0000at:';
     _cards.removeWhere(
-      (c) => c.startsWith(prefix) && !keys.contains(c.substring(prefix.length)),
+      (c) =>
+          c.startsWith(prefix) && !keys.contains(c.substring(scope.length + 1)),
     );
   }
+
+  /// Whether the reader opened the card of a run that had one call, and no
+  /// group has formed around it yet. Taken once ([takeLoneOpened]) by the
+  /// group that forms, so a group the reader folds stays folded.
+  void setLoneOpened(String scope, bool opened) {
+    if (opened) {
+      _lone.add(scope);
+    } else {
+      _lone.remove(scope);
+    }
+  }
+
+  bool takeLoneOpened(String scope) => _lone.remove(scope);
 
   bool groupOpen(String scope) => _groups.contains(scope);
 
@@ -55,11 +72,37 @@ class ToolCallExpansionStore {
     }
   }
 
+  Object? _chat;
+  String? _chatId;
+  String? _profile;
+  var _following = false;
+
+  /// Says which chat the screen shows now, and forgets everything when it is
+  /// another one: another profile, or another chat object with another id. The
+  /// same chat read again (the thread list rebuilds idle threads on a resume)
+  /// comes as a new [chat] object with the same [chatId] and keeps what was
+  /// opened, and a new chat given its stored id keeps its object.
+  void follow({
+    required String? profile,
+    required Object? chat,
+    required String? chatId,
+  }) {
+    if (_following &&
+        (profile != _profile || !identical(chat, _chat) && chatId != _chatId)) {
+      clear();
+    }
+    _following = true;
+    _profile = profile;
+    _chat = chat;
+    _chatId = chatId;
+  }
+
   /// Forgets everything: the chat changed, or the session ended.
   void clear() {
     _cards.clear();
     _groups.clear();
+    _lone.clear();
   }
 
-  bool get isEmpty => _cards.isEmpty && _groups.isEmpty;
+  bool get isEmpty => _cards.isEmpty && _groups.isEmpty && _lone.isEmpty;
 }

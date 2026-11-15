@@ -306,13 +306,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// The tool calls the reader opened in the open chat. Held here, above the
   /// list, so a row scrolled away and back or a list mounted anew keeps them;
-  /// dropped when another chat opens (see [_expansionThread]) and with this
-  /// screen, so on sign-out and when the profile changes.
+  /// dropped when another chat or profile opens (`follow`) and with this
+  /// screen, so on sign-out.
   final _toolCallExpansion = ToolCallExpansionStore();
-
-  /// The chat [_toolCallExpansion] belongs to, by identity: a new chat keeps
-  /// its object when the dashboard gives it an id.
-  ChatThread? _expansionThread;
 
   /// Tells the update question how many replies this chat has running.
   RepliesInProgress? _repliesCount;

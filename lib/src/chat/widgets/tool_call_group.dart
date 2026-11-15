@@ -83,21 +83,34 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
   String _keyOf(int i) => _key(widget.calls, i);
 
   @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
   void didUpdateWidget(ToolCallGroup old) {
     super.didUpdateWidget(old);
-    // A call that was still being written has no id until it starts.
-    for (var i = 0; i < old.calls.length && i < widget.calls.length; i++) {
-      if (old.calls[i].id.isEmpty && widget.calls[i].id.isNotEmpty) {
-        _store.moveCard(_scope, _key(old.calls, i), _keyOf(i));
+    _sync();
+  }
+
+  /// Brings the store in line with the calls, whether they just arrived or
+  /// this widget was built anew with them: a call that was still being written
+  /// has no id until it starts, so its card keeps its state under the new key;
+  /// and the card of a lone call the reader opened opens the group that forms
+  /// around it. Calls only ever append.
+  void _sync() {
+    final calls = widget.calls;
+    for (var i = 0; i < calls.length; i++) {
+      if (calls[i].id.isNotEmpty) {
+        _store.moveCard(_scope, 'at:$i', _keyOf(i));
       }
     }
-    if (old.calls.length == 1 &&
-        widget.calls.length > 1 &&
-        _store.cardOpen(_scope, _keyOf(0))) {
+    if (calls.length > 1 && _store.takeLoneOpened(_scope)) {
       _store.setGroupOpen(_scope, true);
     }
     _store.retainCards(_scope, {
-      for (var i = 0; i < widget.calls.length; i++) _keyOf(i),
+      for (var i = 0; i < calls.length; i++) _keyOf(i),
     });
   }
 
@@ -110,7 +123,10 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
       return ToolCallCard(
         call: calls[i],
         initiallyOpen: _store.cardOpen(_scope, _keyOf(i)),
-        onOpenChanged: (open) => _store.setCardOpen(_scope, _keyOf(i), open),
+        onOpenChanged: (open) {
+          _store.setCardOpen(_scope, _keyOf(i), open);
+          if (widget.calls.length == 1) _store.setLoneOpened(_scope, open);
+        },
         approval: approval,
         onAnswerApproval: approval == null || answer == null
             ? null

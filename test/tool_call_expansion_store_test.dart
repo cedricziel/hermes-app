@@ -22,7 +22,9 @@ class _Host extends StatefulWidget {
     required this.calls,
     required this.store,
     this.scope = 'm1',
+    this.mountKey = 0,
   });
+  final int mountKey;
   final List<ToolCall> calls;
   final ToolCallExpansionStore? store;
   final String scope;
@@ -41,7 +43,7 @@ class _HostState extends State<_Host> {
     home: Scaffold(
       body: SingleChildScrollView(
         child: KeyedSubtree(
-          key: ValueKey(_mounts),
+          key: ValueKey((_mounts, widget.mountKey)),
           child: ToolCallGroup(
             calls: widget.calls,
             expansion: widget.store,
@@ -62,8 +64,15 @@ void main() {
     List<ToolCall> calls,
     ToolCallExpansionStore? store, {
     String scope = 'm1',
+    int mountKey = 0,
   }) => tester.pumpWidget(
-    _Host(key: host, calls: calls, store: store, scope: scope),
+    _Host(
+      key: host,
+      calls: calls,
+      store: store,
+      scope: scope,
+      mountKey: mountKey,
+    ),
   );
 
   Future<void> tapIt(WidgetTester tester, Finder f) async {
@@ -189,5 +198,120 @@ void main() {
     await tester.pump();
 
     expect(store.cardOpen('m1', 'at:1'), isFalse);
+  });
+
+  testWidgets('a group mounted anew as its call gets an id keeps the card '
+      'open', (tester) async {
+    final store = ToolCallExpansionStore();
+    await pumpHost(tester, [_call('')], store);
+    await tapIt(tester, find.byType(ToolCallCard));
+
+    await pumpHost(tester, [_call('a')], store, mountKey: 1);
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(input, findsOneWidget);
+    expect(store.cardOpen('m1', 'id:a'), isTrue);
+    expect(store.cardOpen('m1', 'at:0'), isFalse);
+  });
+
+  testWidgets('a group mounted anew as a second call starts opens around the '
+      'opened card', (tester) async {
+    final store = ToolCallExpansionStore();
+    await pumpHost(tester, [_call('a')], store);
+    await tapIt(tester, find.byType(ToolCallCard));
+
+    await pumpHost(tester, [_call('a'), _call('b')], store, mountKey: 1);
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(ToolCallCard), findsNWidgets(2));
+    expect(input, findsOneWidget);
+  });
+
+  testWidgets('a group folded after that stays folded when mounted anew', (
+    tester,
+  ) async {
+    final store = ToolCallExpansionStore();
+    await pumpHost(tester, [_call('a')], store);
+    await tapIt(tester, find.byType(ToolCallCard));
+    await pumpHost(tester, [_call('a'), _call('b')], store);
+    await tapIt(tester, find.text('Used 2 tools'));
+    expect(find.byType(ToolCallCard), findsNothing);
+
+    await pumpHost(tester, [_call('a'), _call('b')], store, mountKey: 1);
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(ToolCallCard), findsNothing);
+  });
+
+  testWidgets('a card keyed by id survives a transient shrink of the run', (
+    tester,
+  ) async {
+    final store = ToolCallExpansionStore();
+    await pumpHost(tester, [_call('a'), _call('b')], store);
+    await tapIt(tester, find.text('Used 2 tools'));
+    await tapIt(tester, find.byType(ToolCallCard).last);
+    expect(store.cardOpen('m1', 'id:b'), isTrue);
+
+    await pumpHost(tester, [_call('a')], store);
+    await tester.pump();
+    expect(store.cardOpen('m1', 'id:b'), isTrue);
+  });
+
+  group('follow', () {
+    ToolCallExpansionStore opened() => ToolCallExpansionStore()
+      ..setCardOpen('m1', 'id:a', true)
+      ..setGroupOpen('m1', true);
+
+    test('keeps what was opened when the same chat comes as a new object', () {
+      final store = opened();
+      store.follow(profile: 'work', chat: Object(), chatId: 's1');
+      store.setCardOpen('m1', 'id:a', true);
+
+      store.follow(profile: 'work', chat: Object(), chatId: 's1');
+
+      expect(store.cardOpen('m1', 'id:a'), isTrue);
+    });
+
+    test('keeps it when a new chat is given its stored id', () {
+      final chat = Object();
+      final store = ToolCallExpansionStore()
+        ..follow(profile: 'work', chat: chat, chatId: 'local')
+        ..setCardOpen('m1', 'id:a', true);
+
+      store.follow(profile: 'work', chat: chat, chatId: 'stored');
+
+      expect(store.cardOpen('m1', 'id:a'), isTrue);
+    });
+
+    test('clears for another chat', () {
+      final store = ToolCallExpansionStore()
+        ..follow(profile: 'work', chat: Object(), chatId: 's1')
+        ..setCardOpen('m1', 'id:a', true)
+        ..setGroupOpen('m1', true);
+
+      store.follow(profile: 'work', chat: Object(), chatId: 's2');
+
+      expect(store.isEmpty, isTrue);
+    });
+
+    test('clears for another profile, even with the same chat id', () {
+      final store = ToolCallExpansionStore()
+        ..follow(profile: 'work', chat: Object(), chatId: 's1')
+        ..setCardOpen('m1', 'id:a', true);
+
+      store.follow(profile: 'home', chat: Object(), chatId: 's1');
+
+      expect(store.isEmpty, isTrue);
+    });
+
+    test('clears when the chat closes', () {
+      final store = ToolCallExpansionStore()
+        ..follow(profile: 'work', chat: Object(), chatId: 's1')
+        ..setCardOpen('m1', 'id:a', true);
+
+      store.follow(profile: 'work', chat: null, chatId: null);
+
+      expect(store.isEmpty, isTrue);
+    });
   });
 }
