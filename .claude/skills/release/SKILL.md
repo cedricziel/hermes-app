@@ -42,8 +42,12 @@ Store "What's New" are both read from that body (`scripts/plain_release_notes.py
 removes the Markdown, leaves out lines about Android, Windows or Linux, which
 App Review rejects under guideline 2.3.10, and cuts the text to 4000 characters).
 
-When asked, the orchestrator arms auto-merge on the PR; GitHub merges once the
-required checks are green. The PR is opened with
+The release-please PR is the one explicit exception to READY: it is generated
+and has no isolated review. The orchestrator arms auto-merge on it only when
+the owner asks, after its five builds are green, and when its title shows the
+version asked for. Arm it last: release-please pushes to it on every merge to
+main, so do not arm it while other armed PRs are about to merge. The PR is
+opened with
 `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
 missing or expired.
 

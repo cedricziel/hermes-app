@@ -116,16 +116,19 @@ A session reports READY to the orchestrator when all of these hold:
 - For a UI PR, the design canvas is linked.
 - Main is merged in wherever main changed the PR's files.
 
-The orchestrator then arms squash auto-merge, and GitHub merges once the
-required checks are green on the head. Read check state with `status-reader`
+The orchestrator then arms squash auto-merge when READY, and GitHub waits for
+the required checks on the head. Read check state with `status-reader`
 or `pull_request_read`; pending, queued and in-progress are not green.
 
 - HARD RULE: never push to a PR with auto-merge armed. The push would merge
   without a review of that commit. Ask the orchestrator to disarm first, then
   push, get a new review, and report READY again.
-- Native, asset and `pubspec.yaml` PRs are armed only after the five platform
-  builds are green, until `Builds` is a required check (path list in the
-  `flutter-ci` skill).
+- PRs that trigger the platform builds (path list in the `flutter-ci` skill)
+  are armed only after the five builds are green, until `Builds` is a required
+  check.
+- An armed PR that never merges: the orchestrator reads its checks; if all are
+  green and it still has not merged after about 15 minutes, disarm, then
+  re-arm.
 
 Stacked PRs: merge bottom-up. After the lower PR merges, retarget the next one
 to main and read the checks again on its new head: a retarget does not rerun CI

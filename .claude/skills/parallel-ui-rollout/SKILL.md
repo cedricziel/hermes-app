@@ -78,7 +78,8 @@ the rework.
   accessibility and unintended behaviour or API changes, and its findings go
   in as `## Review`. Fix what it confirms. Never merge unreviewed.
 - **Never rebase or force-push a pushed branch.** To pick up main or a lower
-  branch, merge it in with a plain merge commit and push normally.
+  branch, merge it in with a plain merge commit and push normally, never while
+  auto-merge is armed (ask the orchestrator to disarm).
 
 ## While they run
 
@@ -108,10 +109,9 @@ levels and the orchestrator does the reviewing:
   lead had missed in most PRs of the run that added this section.
 - The orchestrator sends the findings back to the same lead, which keeps its
   context, and the lead writes the `## Review` section when it pushes the fixes.
-- The orchestrator arms auto-merge only after that follow-up push has been re-reviewed (a new isolated
-  review of the new head SHA, in `## Review`), and only once `Analyze & test`
-  has passed on the PR's current head (see "Child cloud sessions"). The
-  re-review's block replaces the lead's `## Review`.
+- The orchestrator arms auto-merge only after that follow-up push has been
+  re-reviewed (a new isolated review of the new head SHA, in `## Review`; its
+  block replaces the lead's). GitHub waits for the required checks.
 - A follow-up push cancels the previous commit's CI run, and `Analyze & test`
   then reports failure for the old commit. Compare a failure event's `head_sha`
   with the PR's current head before acting on it.
@@ -123,12 +123,12 @@ levels and the orchestrator does the reviewing:
 ## Child cloud sessions
 
 Work is fanned out to child cloud sessions. Each child owns one feature and
-reports to the orchestrator, who merges.
+reports to the orchestrator, who arms auto-merge.
 
 - **Stacked PRs.** Build them with plain merge commits of the lower branch into
   the upper one. Merge bottom-up: after the lower PR merges, retarget the next
-  PR's base to main, then merge it. Retargeting does not rerun CI, so check the
-  required check on the current head before arming.
+  PR's base to main, then arm it. Retargeting does not rerun CI, so read the
+  checks on the new head.
 - **No rebases, no force-pushes** on a pushed branch.
 - **No `git stash`.** Agents sharing one clone share one stash list, so one
   worker's pop can take another's work. Workers use commits or patch files.
