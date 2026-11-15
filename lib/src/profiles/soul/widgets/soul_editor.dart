@@ -518,7 +518,15 @@ class _SoulEditorState extends State<SoulEditor>
         mainAxisSize: expands ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (expands) Expanded(child: fieldArea) else fieldArea,
+          if (expands)
+            Expanded(
+              child: _IntrinsicHeight(
+                height: _minFieldHeight(context),
+                child: fieldArea,
+              ),
+            )
+          else
+            fieldArea,
           Divider(height: 1, color: _dividerColor(scheme)),
           _footer(context),
         ],
@@ -527,31 +535,21 @@ class _SoulEditorState extends State<SoulEditor>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (expands)
-          Expanded(
-            child: _IntrinsicHeight(
-              height: _minCardHeight(context),
-              child: card,
-            ),
-          )
-        else
-          card,
+        if (expands) Expanded(child: card) else card,
         _notes(context),
       ],
     );
   }
 
-  /// What the card needs when it fills: [SoulEditor.fillMinLines] lines of
-  /// text at the user's size, the field's padding and the footer row.
-  double _minCardHeight(BuildContext context) {
+  /// What the field needs when it fills: [SoulEditor.fillMinLines] lines of
+  /// text at the user's size and the field's padding. The divider and the
+  /// footer add their own intrinsic heights, so a footer that wraps at large
+  /// text takes its extra line from the page, never from these lines.
+  double _minFieldHeight(BuildContext context) {
     final metrics = GroupedMetrics.of(context);
     final line =
         MediaQuery.textScalerOf(context).scale(metrics.titleSize) * 1.35;
-    final footer = math.max(
-      MediaQuery.textScalerOf(context).scale(metrics.footerSize) * 1.4 + 20,
-      widget.footerAction == null ? 0 : 52,
-    );
-    return line * SoulEditor.fillMinLines + 24 + 1 + footer;
+    return line * SoulEditor.fillMinLines + 24;
   }
 }
 
@@ -638,15 +636,33 @@ class _RenderFooterRow extends RenderBox
     size = constraints.constrain(Size(width, height));
   }
 
-  @override
-  double computeMinIntrinsicHeight(double width) => math.max(
-    _first.getMinIntrinsicHeight(width),
-    _second.getMinIntrinsicHeight(width),
-  );
+  /// The row's height at [width], laid out like [performLayout]: the larger
+  /// child when both fit with the gap, else the two stacked.
+  double _heightAt(double width) {
+    final aw = math.min(_first.getMaxIntrinsicWidth(double.infinity), width);
+    final bw = math.min(_second.getMaxIntrinsicWidth(double.infinity), width);
+    final ah = _first.getMaxIntrinsicHeight(aw);
+    final bh = _second.getMaxIntrinsicHeight(bw);
+    return aw + _gap + bw <= width ? math.max(ah, bh) : ah + bh;
+  }
 
   @override
-  double computeMaxIntrinsicHeight(double width) =>
-      computeMinIntrinsicHeight(width);
+  double computeMinIntrinsicHeight(double width) => _heightAt(width);
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _heightAt(width);
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      _first.getMaxIntrinsicWidth(double.infinity) +
+      _gap +
+      _second.getMaxIntrinsicWidth(double.infinity);
+
+  @override
+  double computeMinIntrinsicWidth(double height) => math.max(
+    _first.getMinIntrinsicWidth(double.infinity),
+    _second.getMinIntrinsicWidth(double.infinity),
+  );
 
   @override
   Size computeDryLayout(BoxConstraints constraints) {

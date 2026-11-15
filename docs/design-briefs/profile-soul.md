@@ -150,7 +150,7 @@ States:
 - App Lock: see "Privacy".
 - Wide layout: editor at the grouped list's width (about 600 pt on a Mac, 640 pt on an iPad), centred; the footnote under it; Save and Revert under the editor on the right, not in the bar on Mac.
 
-Hierarchy at the largest text: the bar title truncates ("Personal…" beside the "Chat" back label) and the profile subtitle stays, wrapping to two lines if needed; the editor keeps at least 12 lines of height, with or without a banner (the banner scrolls with the page rather than taking lines from the editor; the canvas drew about 10 to 11 with one, the shipped page keeps 12), and the page scrolls beneath it; the editor itself scrolls, so no text is cut off, only out of view; count, note, status and Revert stack and wrap. Nothing is capped.
+Hierarchy at the largest text: the bar title truncates ("Personal…" beside the "Chat" back label) and the profile subtitle stays, wrapping to two lines if needed; the editor keeps at least 12 lines of height at every text size, also when the footer wraps (the wrapped footer's extra line is added to the page, not taken from the lines), with or without a banner (the banner scrolls with the page rather than taking lines from the editor; the canvas drew about 10 to 11 with one, the shipped page keeps 12), and the page scrolls beneath it; the editor itself scrolls, so no text is cut off, only out of view; count, note, status and Revert stack and wrap. Nothing is capped.
 
 ## Confirmations and the changed sheet
 
