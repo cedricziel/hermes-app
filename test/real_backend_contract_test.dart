@@ -5157,6 +5157,62 @@ model:
       skip: skip,
       timeout: const Timeout(Duration(minutes: 3)),
     );
+
+    test(
+      'prompt.submit with voice_turn and interrupted starts a turn on an idle '
+      'chat and is answered by the busy mode, never as queued input of its '
+      'own, on a running one',
+      () async {
+        final tap = await openTap();
+        final created = await tap.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final sid = created['session_id'] as String;
+        final idle = await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Say hello.',
+          'voice_turn': true,
+          'interrupted': true,
+        });
+        // ignore: avoid_print
+        print('VOICE-CHECK idle chat: status=${idle['status']}');
+        expect(idle['status'], 'streaming');
+        expect(idle, isNot(contains('voice_stopped')));
+        await tap.until(
+          () => tap.idleAfterComplete(sid),
+          'the voice turn to settle',
+        );
+
+        // A turn held in a tool call, then a second voice turn on the same
+        // chat: Hermes answers with its busy-input mode.
+        final held = await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Hold this turn.',
+        });
+        expect(held['status'], 'streaming');
+        await tap.until(
+          () => tap.types(sid).contains('tool.start'),
+          'the held turn to reach its tool',
+        );
+        final running = await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Say hello once more.',
+          'voice_turn': true,
+        });
+        // ignore: avoid_print
+        print('VOICE-CHECK running chat: status=${running['status']}');
+        expect(
+          running['status'],
+          anyOf('queued', 'steered', 'redirected'),
+          reason: 'the app reports each of these and never sends queued itself',
+        );
+        expect(running, isNot(contains('voice_stopped')));
+        await tap.rpc.request('session.interrupt', {'session_id': sid});
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
   }, skip: skip);
 
   group('a throwaway profile on a scripted model (no paid model call)', () {

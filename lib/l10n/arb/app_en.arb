@@ -6804,6 +6804,10 @@
   "@voiceConsentSwitchSubtitle": {
     "description": "Subtitle of the consent switch: the choice is not remembered."
   },
+  "voiceNoticeBusyTitle": "Hermes is still answering. Nothing was sent.",
+  "@voiceNoticeBusyTitle": {
+    "description": "Notice in a call when a spoken turn was not sent because a reply is still running or prompts are queued."
+  },
   "voiceNoticeEndedDetail": "Every turn of this call is in the chat.",
   "@voiceNoticeEndedDetail": {
     "description": "Detail of the notice after the user ended the call."
@@ -6811,6 +6815,18 @@
   "voiceNoticeEndedTitle": "The microphone is closed.",
   "@voiceNoticeEndedTitle": {
     "description": "Title of the notice after the user ended the call."
+  },
+  "voiceNoticeHermesQueuedTitle": "Hermes will answer your words after its current reply.",
+  "@voiceNoticeHermesQueuedTitle": {
+    "description": "Notice in a call when Hermes queued the spoken words behind the reply it is running."
+  },
+  "voiceNoticeHermesRedirectedTitle": "Hermes is adjusting its current reply to your words.",
+  "@voiceNoticeHermesRedirectedTitle": {
+    "description": "Notice in a call when Hermes is adjusting the reply it is running to the spoken words."
+  },
+  "voiceNoticeHermesSteeredTitle": "Hermes took your words into its current reply.",
+  "@voiceNoticeHermesSteeredTitle": {
+    "description": "Notice in a call when Hermes took the spoken words into the reply it is running."
   },
   "voiceNoticeIdleDetail": "The microphone is closed.",
   "@voiceNoticeIdleDetail": {
@@ -6843,6 +6859,10 @@
   "voiceNoticeMicMayBeOpenTitle": "The call ended, but the microphone may still be open.",
   "@voiceNoticeMicMayBeOpenTitle": {
     "description": "Title of the notice when the call ended but the app could not confirm the microphone closed."
+  },
+  "voiceNoticeNotSentTitle": "Couldn't send. Nothing was sent.",
+  "@voiceNoticeNotSentTitle": {
+    "description": "Notice in a call when the chat refused a spoken turn for a reason the call survives."
   },
   "voiceNoticeRouteNeutralTitle": "Audio route changed. Please repeat if needed.",
   "@voiceNoticeRouteNeutralTitle": {

@@ -401,6 +401,9 @@ class HermesGatewayTransport
     bool queued = false,
     WorkspaceChoice? workspace,
     void Function()? onSubmitting,
+    bool voiceTurn = false,
+    bool interrupted = false,
+    bool Function()? authorize,
   }) => _send(
     threadId: threadId,
     profile: profile,
@@ -410,6 +413,9 @@ class HermesGatewayTransport
     queued: queued,
     workspace: workspace,
     onSubmitting: onSubmitting,
+    voiceTurn: voiceTurn,
+    interrupted: interrupted && voiceTurn,
+    authorize: authorize,
   );
 
   @override

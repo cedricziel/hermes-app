@@ -221,6 +221,23 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
         tone: VoiceCallNoticeTone.warning,
         title: l10n.voiceNoticeTranscriptionTitle,
       ),
+      (CallNotice.busy, _, _) => VoiceCallNotice(
+        tone: VoiceCallNoticeTone.warning,
+        title: l10n.voiceNoticeBusyTitle,
+      ),
+      (CallNotice.notSent, _, _) => VoiceCallNotice(
+        tone: VoiceCallNoticeTone.warning,
+        title: l10n.voiceNoticeNotSentTitle,
+      ),
+      (CallNotice.hermesQueued, _, _) => VoiceCallNotice(
+        title: l10n.voiceNoticeHermesQueuedTitle,
+      ),
+      (CallNotice.hermesSteered, _, _) => VoiceCallNotice(
+        title: l10n.voiceNoticeHermesSteeredTitle,
+      ),
+      (CallNotice.hermesRedirected, _, _) => VoiceCallNotice(
+        title: l10n.voiceNoticeHermesRedirectedTitle,
+      ),
       (_, 'interrupted' || 'focus_lost', true) => VoiceCallNotice(
         tone: VoiceCallNoticeTone.warning,
         title: l10n.voiceNoticeInterruptedTitle,
@@ -236,7 +253,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
   /// End, a stop phrase or the platform's hang-up, with no failure.
   bool _endedByUser(String? reason) =>
-      reason == 'app' || reason == 'stop_phrase' || reason == 'hang_up';
+      reason == 'app' ||
+      reason == 'stop_phrase' ||
+      reason == 'voice_stopped' ||
+      reason == 'hang_up';
 
   Future<void> _ask(CallReadiness report) async {
     if (!_current || _busy || !report.canAskHermes) return;

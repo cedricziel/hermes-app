@@ -101,7 +101,7 @@ void main() {
 
   group('sending', () {
     test(
-      'lasts from the end of speech until the words are handed to the agent',
+      'lasts from the end of speech until the prompt is about to be written',
       () async {
         final gate = Completer<StreamChannel<Object?>>();
         openSocket = () => gate.future;
@@ -115,14 +115,29 @@ void main() {
         expect(agent.prompts, ['What is next?']);
         expect(
           call.phase,
-          CallPhase.thinking,
-          reason: 'a cancel can no longer withdraw them, so no Sending',
+          CallPhase.sending,
+          reason: 'a cancel can still withdraw them',
         );
+        agent.submitted();
+        await pumpEventQueue();
+        expect(call.phase, CallPhase.thinking);
       },
     );
 
-    test('a mute after the hand-off does not pretend to cancel', () async {
+    test('a mute before the write still cancels, and sends nothing', () async {
       agent.holdSubmit = true;
+      await activate();
+      await say('Not yet on its way');
+      expect(call.phase, CallPhase.sending);
+      unawaited(call.setMuted(true));
+      await pumpEventQueue();
+      expect(call.phase, CallPhase.listening);
+      agent.submitted();
+      await pumpEventQueue();
+      expect(agent.written, isEmpty);
+    });
+
+    test('a mute after the write does not pretend to cancel', () async {
       await activate();
       await say('Already on its way');
       expect(call.phase, CallPhase.thinking);

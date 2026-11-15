@@ -103,6 +103,9 @@ class FakeChatTransport
     bool queued = false,
     WorkspaceChoice? workspace,
     void Function()? onSubmitting,
+    bool voiceTurn = false,
+    bool interrupted = false,
+    bool Function()? authorize,
   }) {
     final send = FakeSend(
       threadId: threadId,
@@ -113,6 +116,9 @@ class FakeChatTransport
       queued: queued,
       workspace: workspace,
       onSubmitting: onSubmitting,
+      voiceTurn: voiceTurn,
+      interrupted: interrupted && voiceTurn,
+      authorize: authorize,
     );
     sends.add(send);
     return send._events.stream;
@@ -385,6 +391,9 @@ class FakeSend {
     this.queued = false,
     this.workspace,
     this.onSubmitting,
+    this.voiceTurn = false,
+    this.interrupted = false,
+    this.authorize,
   });
 
   final String? threadId;
@@ -403,6 +412,27 @@ class FakeSend {
   /// The callback the send was given, for a test to run where the real
   /// transport would, just before `prompt.submit`.
   final void Function()? onSubmitting;
+
+  /// Whether the send is a spoken turn of a call, and whether it says the user
+  /// cut off the reply before it.
+  final bool voiceTurn;
+  final bool interrupted;
+
+  /// The send's own still-wanted check, which a test reads like the real
+  /// transport does right before `prompt.submit`.
+  final bool Function()? authorize;
+
+  /// Plays what the real transport does when the session is open: asks
+  /// [authorize] (a no ends the stream with [PromptNotSent], nothing written)
+  /// and then runs [onSubmitting], and returns whether the prompt was written.
+  bool submit() {
+    if (authorize != null && !authorize!()) {
+      _events.addError(const PromptNotSent());
+      return false;
+    }
+    onSubmitting?.call();
+    return true;
+  }
 
   void emit(ChatEvent event) => _events.add(event);
 

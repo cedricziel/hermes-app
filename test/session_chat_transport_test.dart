@@ -326,6 +326,9 @@ class _Delegate
     bool queued = false,
     WorkspaceChoice? workspace,
     void Function()? onSubmitting,
+    bool voiceTurn = false,
+    bool interrupted = false,
+    bool Function()? authorize,
   }) => sendStream ?? sendController.stream;
 
   @override
