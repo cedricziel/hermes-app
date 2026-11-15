@@ -6792,6 +6792,10 @@
   "@voiceCallHintSending": {
     "description": "Hint under the state word while the words are being prepared; End or Mute still cancels the send."
   },
+  "voiceCallHintSpeakOff": "Replies are not spoken. The answer will be in the chat.",
+  "@voiceCallHintSpeakOff": {
+    "description": "Hint under the state word while listening, when Speak replies is off for this call."
+  },
   "voiceCallHintSpeakingPaused": "Microphone paused while Hermes speaks. Tap the orb to interrupt.",
   "@voiceCallHintSpeakingPaused": {
     "description": "Hint while Hermes speaks on desktop, where the microphone is paused. The orb is the round button in the middle of the screen."
@@ -6824,9 +6828,17 @@
   "@voiceCallMute": {
     "description": "Label of the round control that mutes the microphone."
   },
+  "voiceCallReplyInChat": "Reply is in the chat",
+  "@voiceCallReplyInChat": {
+    "description": "Hermes line of the last turn when Speak replies is off: the reply finished and is in the chat."
+  },
   "voiceCallShowChat": "Show chat",
   "@voiceCallShowChat": {
     "description": "Button on the call screen that leaves the call screen without ending the call."
+  },
+  "voiceCallSpeakReplies": "Speak replies",
+  "@voiceCallSpeakReplies": {
+    "description": "Label of the switch under the call controls: whether Hermes reads its replies aloud during this call. Off again for the next call."
   },
   "voiceCallSpeaker": "Speaker",
   "@voiceCallSpeaker": {
@@ -6875,6 +6887,14 @@
   "voiceCallStateWaiting": "Waiting for you",
   "@voiceCallStateWaiting": {
     "description": "State word under the orb while Hermes needs an answer in the chat."
+  },
+  "voiceCallTurnHermes": "Hermes",
+  "@voiceCallTurnHermes": {
+    "description": "Name before Hermes's words in the last-turns list of the call screen."
+  },
+  "voiceCallTurnYou": "You",
+  "@voiceCallTurnYou": {
+    "description": "Name before the user's words in the last-turns list of the call screen."
   },
   "voiceCallUnmute": "Unmute",
   "@voiceCallUnmute": {

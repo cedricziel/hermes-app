@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../widgets/grouped_list.dart';
 import '../../widgets/named_icon_button.dart';
 import '../calls/call_phase.dart';
 import 'voice_call_footer.dart';
 import 'voice_orb.dart';
+import 'voice_turn_list.dart';
 
 /// Which hint Speaking shows: where speaking over the reply interrupts it, the
 /// tap alone does, or (desktop) the microphone is paused meanwhile.
@@ -47,6 +49,11 @@ class VoiceCallView extends StatelessWidget {
     this.footer = VoiceCallFooter.none,
     this.capturePaused = false,
     this.stoppedWord = false,
+    this.turnYou = '',
+    this.turnHermes = '',
+    this.replyInChat = false,
+    this.speakReplies = true,
+    this.onSpeakRepliesChanged,
   });
   final CallPhase phase;
   final Duration elapsed;
@@ -99,6 +106,20 @@ class VoiceCallView extends StatelessWidget {
   /// design does for the new stop reasons.
   final bool stoppedWord;
 
+  /// The last turn, shown as two plain lines under the hint while no caption
+  /// replaces them. Empty for no line.
+  final String turnYou, turnHermes;
+
+  /// Speak replies is off and the last reply is done: the Hermes line says it
+  /// is in the chat.
+  final bool replyInChat;
+
+  /// Whether Hermes reads its replies aloud. Off changes the listening hint.
+  final bool speakReplies;
+
+  /// Changes [speakReplies]; null leaves the switch out.
+  final ValueChanged<bool>? onSpeakRepliesChanged;
+
   VoiceOrbState _orb(bool ended) {
     if (ended) return VoiceOrbState.stopped;
     if (sending) return VoiceOrbState.sending;
@@ -138,7 +159,8 @@ class VoiceCallView extends StatelessWidget {
     };
     final hint = switch (orb) {
       VoiceOrbState.connecting || VoiceOrbState.stopped => null,
-      VoiceOrbState.listening => l10n.voiceCallHintListening,
+      VoiceOrbState.listening =>
+        speakReplies ? l10n.voiceCallHintListening : l10n.voiceCallHintSpeakOff,
       VoiceOrbState.muted => l10n.voiceCallHintMuted,
       VoiceOrbState.sending => l10n.voiceCallHintSending,
       VoiceOrbState.thinking => l10n.voiceCallHintThinking,
@@ -209,6 +231,14 @@ class VoiceCallView extends StatelessWidget {
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colors.onSurfaceVariant,
             ),
+          ),
+        ],
+        if (!ended && shown.isEmpty) ...[
+          const SizedBox(height: 12),
+          VoiceTurnList(
+            you: turnYou,
+            hermes: turnHermes,
+            replyInChat: replyInChat,
           ),
         ],
         const SizedBox(height: 8),
@@ -336,6 +366,22 @@ class VoiceCallView extends StatelessWidget {
               ),
             ],
           ),
+          if (onSpeakRepliesChanged != null) ...[
+            const SizedBox(height: 16),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              child: GroupedSwitchRow(
+                title: l10n.voiceCallSpeakReplies,
+                titleMaxLines: null,
+                value: speakReplies,
+                onChanged: onSpeakRepliesChanged,
+              ),
+            ),
+          ],
           if (footer != VoiceCallFooter.none) ...[
             const SizedBox(height: 24),
             VoiceCallFooterText(footer),

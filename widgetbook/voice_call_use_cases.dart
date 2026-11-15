@@ -9,6 +9,7 @@ import 'package:hermes_app/src/voice/widgets/voice_call_setup_view.dart';
 import 'package:hermes_app/src/voice/widgets/voice_call_view.dart';
 import 'package:hermes_app/src/voice/widgets/voice_consent_row.dart';
 import 'package:hermes_app/src/voice/widgets/voice_orb.dart';
+import 'package:hermes_app/src/voice/widgets/voice_turn_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
@@ -18,6 +19,7 @@ WidgetbookNode voiceCallNode() => WidgetbookFolder(
   children: [
     _setupNode(),
     _viewNode(),
+    _turnListNode(),
     _orbNode(),
     _stripNode(),
     _noticeNode(),
@@ -318,36 +320,51 @@ Widget _call(
   VoiceCallFooter footer = VoiceCallFooter.none,
   String route = 'iPhone',
   double maxWidth = 480,
-}) => frame(
-  VoiceCallView(
-    phase: phase,
-    elapsed: const Duration(minutes: 2, seconds: 14),
-    muted: muted,
-    speaker: false,
-    route: route,
-    sending: sending,
-    amplitude: amplitude,
-    showSpeaker: showSpeaker,
-    speakingHint: hint,
-    caption: caption,
-    error: error,
-    notice: notice,
-    endedByUser: endedByUser,
-    stoppedWord: stoppedWord,
-    capturePaused: capturePaused,
-    footer: footer,
-    onStartNew: startNew ? () {} : null,
-    onInterrupt: () {},
-    onMute: () {},
-    onSpeaker: () {},
-    onEnd: () {},
-    onShowChat: () {},
-    onAskHermes: error != null ? () {} : null,
+  String turnYou = '',
+  String turnHermes = '',
+  bool replyInChat = false,
+  bool speakReplies = true,
+}) => StatefulBuilder(
+  builder: (context, setState) => frame(
+    VoiceCallView(
+      phase: phase,
+      elapsed: const Duration(minutes: 2, seconds: 14),
+      muted: muted,
+      speaker: false,
+      route: route,
+      sending: sending,
+      amplitude: amplitude,
+      showSpeaker: showSpeaker,
+      speakingHint: hint,
+      caption: caption,
+      error: error,
+      notice: notice,
+      endedByUser: endedByUser,
+      stoppedWord: stoppedWord,
+      capturePaused: capturePaused,
+      footer: footer,
+      onStartNew: startNew ? () {} : null,
+      onInterrupt: () {},
+      onMute: () {},
+      onSpeaker: () {},
+      onEnd: () {},
+      onShowChat: () {},
+      onAskHermes: error != null ? () {} : null,
+      turnYou: turnYou,
+      turnHermes: turnHermes,
+      replyInChat: replyInChat,
+      speakReplies: speakReplies,
+      onSpeakRepliesChanged: (value) => setState(() => speakReplies = value),
+    ),
+    maxWidth: maxWidth,
   ),
-  maxWidth: maxWidth,
 );
 
 const _question = 'What does my afternoon look like?';
+const _answer =
+    'You have two meetings: the design review at 14:00 and a call with Sam at 16:30. The hour between them is free.';
+const _longAnswer =
+    'You have two meetings. The design review runs from 14:00 to 15:00 in the large room, and the call with Sam at 16:30 is moved to video. Between them you have an hour, which is enough for the report you wanted to finish. After 17:00 nothing is planned, so the evening is free for the trip you mentioned last week.';
 
 WidgetbookComponent _viewNode() => WidgetbookComponent(
   name: 'VoiceCallView',
@@ -369,6 +386,57 @@ WidgetbookComponent _viewNode() => WidgetbookComponent(
       builder: (c) => _call(c, phase: CallPhase.speaking),
     ),
     WidgetbookUseCase(name: 'Muted', builder: (c) => _call(c, muted: true)),
+    WidgetbookUseCase(
+      name: 'Listening, last turn',
+      builder: (c) =>
+          _call(c, turnYou: _question, turnHermes: _answer, amplitude: 0.4),
+    ),
+    WidgetbookUseCase(
+      name: 'Listening, last turn, long words',
+      builder: (c) => _call(
+        c,
+        turnYou: '$_question $_question $_question',
+        turnHermes: _longAnswer,
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Speaking, reply on its way (last turn)',
+      builder: (c) => _call(
+        c,
+        phase: CallPhase.speaking,
+        amplitude: 0.6,
+        turnYou: _question,
+        turnHermes: 'You have two meetings: the design review at',
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Sending: the caption replaces the last turn',
+      builder: (c) => _call(
+        c,
+        phase: CallPhase.sending,
+        caption: 'And what about tomorrow?',
+        turnYou: _question,
+        turnHermes: _answer,
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Speak replies off',
+      builder: (c) => _call(c, speakReplies: false),
+    ),
+    WidgetbookUseCase(
+      name: 'Speak replies off, reply is in the chat',
+      builder: (c) =>
+          _call(c, speakReplies: false, turnYou: _question, replyInChat: true),
+    ),
+    WidgetbookUseCase(
+      name: 'Speak replies off, thinking',
+      builder: (c) => _call(
+        c,
+        phase: CallPhase.thinking,
+        speakReplies: false,
+        caption: _question,
+      ),
+    ),
     WidgetbookUseCase(
       name: 'Sending',
       builder: (c) => _call(c, phase: CallPhase.sending, caption: _question),
@@ -516,6 +584,46 @@ WidgetbookComponent _viewNode() => WidgetbookComponent(
     WidgetbookUseCase(
       name: 'Muted on car audio',
       builder: (c) => _call(c, muted: true, route: 'Car audio'),
+    ),
+  ],
+);
+
+WidgetbookComponent _turnListNode() => WidgetbookComponent(
+  name: 'VoiceTurnList',
+  useCases: [
+    WidgetbookUseCase(
+      name: 'Empty (draws nothing)',
+      builder: (_) => frame(const VoiceTurnList()),
+    ),
+    WidgetbookUseCase(
+      name: 'You only (reply not started)',
+      builder: (_) => frame(const VoiceTurnList(you: _question)),
+    ),
+    WidgetbookUseCase(
+      name: 'Both lines',
+      builder: (_) =>
+          frame(const VoiceTurnList(you: _question, hermes: _answer)),
+    ),
+    WidgetbookUseCase(
+      name: 'Long words (ellipsis)',
+      builder: (_) => frame(
+        const VoiceTurnList(
+          you: '$_question $_question $_question',
+          hermes: _longAnswer,
+        ),
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Reply is in the chat',
+      builder: (_) =>
+          frame(const VoiceTurnList(you: _question, replyInChat: true)),
+    ),
+    WidgetbookUseCase(
+      name: 'Phone width (320 pt)',
+      builder: (_) => frame(
+        const VoiceTurnList(you: _question, hermes: _answer),
+        maxWidth: 320,
+      ),
     ),
   ],
 );

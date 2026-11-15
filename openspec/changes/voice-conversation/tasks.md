@@ -83,9 +83,9 @@ A late stopCapture from an old call that arrives after a new call is live would 
 
 ## 9. Extras (PR 5)
 
-- [ ] 9.1 `VoiceTurnList` (last two turns) in the call view; use cases.
-- [ ] 9.2 "Speak replies" switch: logic (skips the socket and the `tts-lease`, says "Reply is in the chat"), tests, use cases.
-- [ ] 9.3 The `tts-lease` warm-up (`app:conversation:<id>`, failure ignored) with its test.
+- [x] 9.1 `VoiceTurnList` (last two turns) in the call view; use cases.
+- [x] 9.2 "Speak replies" switch: logic (skips the socket and the `tts-lease`, says "Reply is in the chat"), tests, use cases.
+- [x] 9.3 The `tts-lease` warm-up (`app:conversation:<id>`, failure ignored) with its test.
 - [ ] 9.4 Roadmap: each implementing PR updates the 4.11 row's status in the same PR (CLAUDE.md). This design PR leaves it to the orchestrator.
 - [ ] 9.5 If this PR is cut, amend the spec in the same PR: remove the "Speak replies" sentences from "Speaking the reply" and the turn list from the call view. The tones are core and stay (task 2.11).
 

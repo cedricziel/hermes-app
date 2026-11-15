@@ -316,7 +316,26 @@ The call shipped first without these rules. This version changes it:
   on; a lost session or profile ends it. A stop phrase Hermes catches ends the
   call (`voice_stopped`).
 
-Still to come with later changes: the turn list and "Speak replies" switch.
+- **Last turn and Speak replies:** under the hint the call screen shows the
+  last turn as two plain lines, You (what was sent) and Hermes (the reply as it
+  streams, as far as it is spoken). The caption of a turn being sent replaces
+  them, and a stopped call shows none. The words live only in the open call:
+  the call drops them when it ends, App Lock covers them like the rest of the
+  screen, and they never reach a log, breadcrumb or span. A "Speak replies"
+  switch under the controls is on at the start of every call and never stored.
+  Off, the call opens no speech socket and holds no `tts-lease`, the listening
+  hint reads "Replies are not spoken. The answer will be in the chat.", the soft
+  tick at submit is the confirmation, and the Hermes line says "Reply is in the
+  chat" when the reply is done. Turning it off during a reply stops the voice
+  at once and the rest of that reply stays in the chat; turning it on speaks
+  from the next reply. The `voice_call.turn` outcome for an unspoken reply is
+  `in_chat`.
+- **`tts-lease`:** while the call is open and Speak replies is on, the app
+  holds `POST /api/audio/tts-lease` under a random `app:conversation:<uuid>`
+  name (it holds no server, profile or chat name) so the profile's speech
+  provider is warm for the first reply. A failure is ignored. It is released
+  once on the teardown step after the audio session and focus, or when Speak
+  replies is switched off, and never taken while it is off.
 
 ## Telemetry
 
@@ -342,7 +361,7 @@ time of each stage (`<0.5s`, `0.5-1s`, `1-2s`, `2-5s`, `5-10s`, `10-30s`,
 `>30s`, or `none` for a stage that never ran): `transcription`, `speech_open`
 and, counted from the moment `prompt.submit` is written, `first_text`,
 `first_audio` and `reply_complete`, plus `device_speech` and `fallback`
-(flags) and `outcome` (`spoken`, `interrupted`, `failed`). Raw durations,
+(flags) and `outcome` (`spoken`, `in_chat`, `interrupted`, `failed`). Raw durations,
 text and ids are never recorded. A turn the chat refused or withdrew before the write, or that Hermes answered at once (`queued`, `steered`, `redirected`, `voice_stopped`), logs no `voice_call.turn`.
 A native failure's `voice_call.ended` carries `step` set to the native code
 (`start_request`, `start_action`, `activation_timeout`, `audio_start`,

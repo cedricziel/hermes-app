@@ -294,6 +294,17 @@ class HermesChatRepository {
     profile: profile,
   );
 
+  /// Asks the dashboard to warm (or let go of) the profile's text-to-speech
+  /// provider for a call, under the name [lease].
+  Future<void> holdTextToSpeech(
+    String lease, {
+    required bool active,
+    String? profile,
+  }) => _api.ttsLeaseApiAudioTtsLeasePost(
+    tTSLeaseRequest: TTSLeaseRequest(lease: lease, active: active),
+    profile: profile,
+  );
+
   static String? _stored(Object? value) {
     if (value is! String || value.trim().isEmpty) return null;
     return value;

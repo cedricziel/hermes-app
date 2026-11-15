@@ -333,6 +333,11 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                 speaker: call.speaker,
                 route: call.route,
                 caption: call.caption,
+                turnYou: call.lastYou,
+                turnHermes: call.lastHermes,
+                replyInChat: call.replyInChat,
+                speakReplies: call.speakReplies,
+                onSpeakRepliesChanged: call.setSpeakReplies,
                 error: call.notice != null || call.interruptedEnd
                     ? _error
                     : _error ?? call.error,
