@@ -143,6 +143,7 @@ void main() {
       'Rename…',
       'Change Folder…',
       'Copy Transcript',
+      'Export Chat as JSON…',
       'Compress Conversation…',
       '-',
       'Archive',

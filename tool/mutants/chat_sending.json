@@ -1,0 +1,414 @@
+{
+  "subject": "chat_sending",
+  "tests": [
+    "test/bot_chat_open_test.dart",
+    "test/bot_screen/bot_screen_install_panel_test.dart",
+    "test/bot_screen/bot_screen_panel_test.dart",
+    "test/change_invalidation_queue_test.dart",
+    "test/change_invalidation_sessions_test.dart",
+    "test/chat/activity/activity_line_placement_test.dart",
+    "test/chat/activity/bound_activity_panel_programs_test.dart",
+    "test/chat/activity/bound_activity_panel_test.dart",
+    "test/chat/activity/bound_process_card_test.dart",
+    "test/chat/activity/checkpoints_context_panel_test.dart",
+    "test/chat/activity/working_summary_controller_test.dart",
+    "test/chat/billing_verification_integration_test.dart",
+    "test/chat/checkpoints/chat_controller_checkpoints_test.dart",
+    "test/chat/checkpoints/checkpoints_chrome_test.dart",
+    "test/chat/connector_operation_integration_test.dart",
+    "test/chat/durable_queue_dispatch_test.dart",
+    "test/chat/durable_queue_recovery_test.dart",
+    "test/chat/memory_tool_card_test.dart",
+    "test/chat/process_list_integration_test.dart",
+    "test/chat/process_output_integration_test.dart",
+    "test/chat/queue_storage/queue_persistence_test.dart",
+    "test/chat/subagents/bound_activity_panel_agents_test.dart",
+    "test/chat/subagents/chat_controller_clearing_test.dart",
+    "test/chat/subagents/chat_controller_subagents_test.dart",
+    "test/chat/voice_turn_controller_test.dart",
+    "test/chat_agent_message_finds_test.dart",
+    "test/chat_auto_continue_test.dart",
+    "test/chat_background_subagent_test.dart",
+    "test/chat_breadcrumbs_test.dart",
+    "test/chat_controller_activity_test.dart",
+    "test/chat_controller_test.dart",
+    "test/chat_follow_up_profile_test.dart",
+    "test/chat_foreign_turn_refetch_test.dart",
+    "test/chat_handoff_test.dart",
+    "test/chat_history_races_test.dart",
+    "test/chat_live_activities_test.dart",
+    "test/chat_live_activity_turn_ends_test.dart",
+    "test/chat_mark_read_test.dart",
+    "test/chat_model_refresh_test.dart",
+    "test/chat_queue_test.dart",
+    "test/chat_refresh_thread_test.dart",
+    "test/chat_running_replies_test.dart",
+    "test/chat_search_scope_test.dart",
+    "test/chat_session_state_test.dart",
+    "test/chat_threads_reload_running_turn_test.dart",
+    "test/chat_warnings_test.dart",
+    "test/chat_watch_complication_test.dart",
+    "test/gateway/controller_settle_test.dart",
+    "test/gateway/review_fixes_test.dart",
+    "test/macos/menu_bar_extra_host_test.dart",
+    "test/macos/menu_bar_extra_test.dart",
+    "test/moa_progress_integration_test.dart",
+    "test/moa_progress_ownership_test.dart",
+    "test/model_selector_state_test.dart",
+    "test/plugin_attachment_pick_copy_test.dart",
+    "test/reaction_integration_test.dart",
+    "test/reaction_queue_test.dart",
+    "test/session_usage_integration_test.dart",
+    "test/side_result_integration_test.dart",
+    "test/surfaces/chat_surface_hints_test.dart",
+    "test/todo_plan_integration_test.dart",
+    "test/todo_plan_ownership_test.dart",
+    "test/voice/calls/call_agent_test.dart",
+    "test/voice/calls/voice_call_interrupted_test.dart",
+    "test/voice/calls/voice_call_outcomes_test.dart",
+    "test/voice/calls/voice_call_real_agent_test.dart",
+    "test/voice/calls/voice_call_turn_telemetry_test.dart",
+    "test/workspaces/chat_controller_workspace_test.dart",
+    "test/workspaces/details_follow_actions_test.dart",
+    "test/workspaces/safe_path_display_extra_test.dart",
+    "test/workspaces/workspace_bound_consumers_test.dart",
+    "test/workspaces/workspace_review_fixes_test.dart",
+    "test/workspaces/workspace_telemetry_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
+    "test/workflows/bot_screen_lease_workflow_test.dart",
+    "test/workflows/bot_screen_preview_workflow_test.dart",
+    "test/workflows/bot_screen_viewer_workflow_test.dart",
+    "test/workflows/bot_screen_workflow_test.dart",
+    "test/workflows/chat_autocomplete_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/chat_workflow_test.dart",
+    "test/workflows/chat_working_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/compact_chat_workflow_test.dart",
+    "test/workflows/connection_screens_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/group_creation_workflow_test.dart",
+    "test/workflows/handoff_workflow_test.dart",
+    "test/workflows/hands_free_strip_workflow_test.dart",
+    "test/workflows/kanban_extras_workflow_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart",
+    "test/workflows/kanban_task_activity_workflow_test.dart",
+    "test/workflows/kanban_task_metadata_workflow_test.dart",
+    "test/workflows/kanban_worker_log_workflow_test.dart",
+    "test/workflows/kanban_workflow_test.dart",
+    "test/workflows/mac_profiles_workflow_test.dart",
+    "test/workflows/management_workflow_test.dart",
+    "test/workflows/mcp_workflow_test.dart",
+    "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workflows/onboarding_workflow_test.dart",
+    "test/workflows/plugins_workflow_test.dart",
+    "test/workflows/process_control_workflow_test.dart",
+    "test/workflows/profile_creation_workflow_test.dart",
+    "test/workflows/provider_first_run_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/schedules_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workflows/skills_hub_workflow_test.dart",
+    "test/workflows/subagent_control_workflow_test.dart",
+    "test/workflows/tools_setup_workflow_test.dart",
+    "test/workflows/tools_workflow_test.dart",
+    "test/workflows/voice_call_phases_workflow_test.dart",
+    "test/workflows/voice_call_setup_workflow_test.dart",
+    "test/workflows/working_directory_workflow_test.dart"
+  ],
+  "quick_tests": [
+    "test/chat_controller_test.dart",
+    "test/chat_queue_test.dart",
+    "test/chat_controller_activity_test.dart",
+    "test/chat/durable_queue_dispatch_test.dart",
+    "test/chat/durable_queue_recovery_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "cs01",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "(selected == null || !_bound.contains(selected))) {",
+      "new": "(selected == null && !_bound.contains(selected))) {",
+      "note": "protected send for an unbound thread proceeds"
+    },
+    {
+      "id": "cs02",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    if (_sessionStates[selected]?.reclaimedReason != null) return false;\n",
+      "new": "",
+      "note": "send into a reclaimed session"
+    },
+    {
+      "id": "cs03",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    if (!active ||\n        _moveHolds(selected) ||",
+      "new": "    if (_moveHolds(selected) ||",
+      "note": "send while controller inactive"
+    },
+    {
+      "id": "cs04",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "if (size > kMaxAttachmentBytes) {",
+      "new": "if (size < 0) {",
+      "note": "attachment size limit gone"
+    },
+    {
+      "id": "cs05",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    final label = typed.isEmpty\n",
+      "new": "    final label = typed.isNotEmpty\n",
+      "note": "label source inverted"
+    },
+    {
+      "id": "cs06",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "label.length > 48 ? '${label.substring(0, 48)}…' : label",
+      "new": "label.length > 49 ? '${label.substring(0, 48)}…' : label",
+      "note": "title truncation boundary"
+    },
+    {
+      "id": "cs07",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "thread.messages.isEmpty &&\n        !thread.named &&\n        !unread",
+      "new": "thread.messages.isEmpty &&\n        !unread",
+      "note": "named chat retitled from prompt"
+    },
+    {
+      "id": "cs08",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    if (protectedSend == null) {\n      thread.messages.add(userMessage);",
+      "new": "    if (protectedSend != null) {\n      thread.messages.add(userMessage);",
+      "note": "user message added for protected (deferred) sends, not for plain"
+    },
+    {
+      "id": "cs09",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    _holds.remove(thread);\n    _interrupts.remove(thread);",
+      "new": "    _interrupts.remove(thread);",
+      "note": "old stop hold survives into the new reply"
+    },
+    {
+      "id": "cs10",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    _holds.remove(thread);\n    _interrupts.remove(thread);",
+      "new": "    _holds.remove(thread);",
+      "note": "old interrupt survives into the new reply"
+    },
+    {
+      "id": "cs11",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "_generations[thread] = ++_generationSeq;",
+      "new": "_generations[thread] = _generationSeq;",
+      "note": "reply generation not bumped"
+    },
+    {
+      "id": "cs12",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    thread.updatedAt = undo.stamped = DateTime.now();\n    notifyListeners();",
+      "new": "    thread.updatedAt = undo.stamped = DateTime.now();",
+      "note": "no notify after adding user message and placeholder"
+    },
+    {
+      "id": "cs13",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    notifyListeners();\n    if (!_currentActivity(epoch)) return false;\n    final transport",
+      "new": "    notifyListeners();\n    final transport",
+      "note": "no activity-epoch check after notify"
+    },
+    {
+      "id": "cs14",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "        queued: queued,\n        submittedUser: userMessage,",
+      "new": "        queued: false,\n        submittedUser: userMessage,",
+      "note": "queued flag not passed to the transport"
+    },
+    {
+      "id": "cs15",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "      unawaited(_attention.askForPermission());",
+      "new": "",
+      "note": "no notification permission request"
+    },
+    {
+      "id": "cs16",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    return true;\n  }\n\n  /// Appends",
+      "new": "    return false;\n  }\n\n  /// Appends",
+      "note": "send reports failure"
+    },
+    {
+      "id": "cs17",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    _sending.update(thread, (n) => n + 1, ifAbsent: () => 1);",
+      "new": "    _sending.update(thread, (n) => n, ifAbsent: () => 1);",
+      "note": "concurrent send count not incremented"
+    },
+    {
+      "id": "cs18",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "      _sending.update(thread, (n) => n - 1);",
+      "new": "      _sending.update(thread, (n) => n);",
+      "note": "sending count never decremented (stuck busy)"
+    },
+    {
+      "id": "cs19",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "      if (_sending[thread] == 0) _sending.remove(thread);\n",
+      "new": "",
+      "note": "zero count left in map"
+    },
+    {
+      "id": "cs20",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "      _replies.remove(subscription);\n",
+      "new": "",
+      "note": "finished reply subscription leaks"
+    },
+    {
+      "id": "cs21",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    _replies.add(subscription);\n",
+      "new": "",
+      "note": "reply subscription not tracked (cannot be cancelled)"
+    },
+    {
+      "id": "cs22",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    void end([Object? error]) {\n      if (!_currentActivity(epoch)) return;",
+      "new": "    void end([Object? error]) {",
+      "note": "stale reply end mutates a new activity epoch"
+    },
+    {
+      "id": "cs23",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "if (protectedSend != null && !protectedSend.accepted) {",
+      "new": "if (protectedSend != null && protectedSend.accepted) {",
+      "note": "queue record state rewritten for accepted, not for unaccepted sends"
+    },
+    {
+      "id": "cs24",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "if (!protectedSend.restored && protectedSend.started) {",
+      "new": "if (!protectedSend.restored && !protectedSend.started) {",
+      "note": "started submission treated as not started (could be resent)"
+    },
+    {
+      "id": "cs25",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "} else if (!protectedSend.provenNotSubmitted) {",
+      "new": "} else if (protectedSend.provenNotSubmitted) {",
+      "note": "unproven submission returned to queued (resend risk)"
+    },
+    {
+      "id": "cs26",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "final halted = failed || stopped || reply.status == MessageStatus.error;",
+      "new": "final halted = failed || stopped;",
+      "note": "errored reply does not halt the queue"
+    },
+    {
+      "id": "cs27",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "          if (settled) {\n            _drainQueue(thread);",
+      "new": "          if (!settled) {\n            _drainQueue(thread);",
+      "note": "queue drains before the session settled"
+    },
+    {
+      "id": "cs28",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "event is SessionInfo && event.running == false) settled = true;",
+      "new": "event is SessionInfo && event.running == true) settled = true;",
+      "note": "settled flag inverted"
+    },
+    {
+      "id": "cs29",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "        if (event is PromptFolded) folded = true;\n",
+      "new": "",
+      "note": "folded prompt not recognized"
+    },
+    {
+      "id": "cs30",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "          failed = event.failed;\n          stopped = event.stopped;",
+      "new": "          failed = event.stopped;\n          stopped = event.failed;",
+      "note": "failed/stopped swapped"
+    },
+    {
+      "id": "cs31",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "_entryFor(thread, protectedSend) == null) {\n            throw QueueSubmissionNotStarted(",
+      "new": "_entryFor(thread, protectedSend) == null && false) {\n            throw QueueSubmissionNotStarted(",
+      "note": "submission goes out although the queue entry is gone"
+    },
+    {
+      "id": "cs32",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "          protectedSend.started = true;\n",
+      "new": "",
+      "note": "submission start never recorded (prompt could be resent)"
+    },
+    {
+      "id": "cs33",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "          await protectedSend.store.beginSubmission(",
+      "new": "          protectedSend.store.beginSubmission(",
+      "note": "beginSubmission not awaited before prompt.submit"
+    },
+    {
+      "id": "cs34",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "          if (protectedSend == null ||\n              _queueContextCurrent(",
+      "new": "          if (protectedSend != null ||\n              _queueContextCurrent(",
+      "note": "receipt assigned for stale queue context"
+    },
+    {
+      "id": "cs35",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "PromptAccepted.allowedStatuses.contains(event.status)",
+      "new": "!PromptAccepted.allowedStatuses.contains(event.status)",
+      "note": "disallowed accepted statuses mark the queue accepted"
+    },
+    {
+      "id": "cs36",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "        end(error);\n      },\n      onDone: end,",
+      "new": "        end();\n      },\n      onDone: end,",
+      "note": "stream error ends the reply as success"
+    },
+    {
+      "id": "cs37",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "      cancelOnError: true,",
+      "new": "      cancelOnError: false,",
+      "note": "events keep flowing after an error"
+    },
+    {
+      "id": "cs38",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "    _announcedTurns.add(thread);\n",
+      "new": "",
+      "note": "turn not marked announced"
+    },
+    {
+      "id": "cs39",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "if (error != null || (!folded && reply.isPending)) {\n        _discardWarnings(thread);",
+      "new": "if (error != null && (!folded && reply.isPending)) {\n        _discardWarnings(thread);",
+      "note": "warnings kept after a failed reply"
+    },
+    {
+      "id": "cs40",
+      "file": "lib/src/chat/chat_controller_sending.dart",
+      "old": "if (_holdOf(thread) == _Hold.none) _awaitSettle(thread);",
+      "new": "if (_holdOf(thread) != _Hold.none) _awaitSettle(thread);",
+      "note": "queue resumes while a stop is in flight"
+    }
+  ]
+}

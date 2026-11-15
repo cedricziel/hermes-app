@@ -163,6 +163,8 @@ final menuLayout = <MenuSection>[
         platforms: _macOnly,
       ),
       const MenuEntry(MacCommand.copyTranscript, 'Copy Transcript'),
+      // No chord: a dialog follows, and the file can hold secrets.
+      const MenuEntry(MacCommand.exportThread, 'Export Chat as JSON…'),
       // The screen titles it from the localizations; this is the fallback.
       const MenuEntry(
         MacCommand.compress,

@@ -30,6 +30,7 @@ import '../activity/widgets/needs_you_dock.dart'
 import 'chat_composer_builder.dart';
 import 'chat_history_state.dart';
 import 'message_actions.dart' show TurnActionStatus;
+import 'tool_call_expansion.dart';
 import '../reactions/reaction_state.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
@@ -99,6 +100,7 @@ class ChatThreadView extends StatelessWidget {
     this.sendHeld = false,
     this.draftHandedBack = false,
     this.onShowAgentDetails,
+    this.toolCallExpansion,
     this.workingDirectoryRow,
     this.workspaceNotice,
     this.historyStatus,
@@ -223,6 +225,10 @@ class ChatThreadView extends StatelessWidget {
   /// card; none where the chat has no panel (the quick panel).
   final ValueChanged<String>? onShowAgentDetails;
 
+  /// Keeps the tool calls the reader opened beyond the rows that show them;
+  /// each row keeps its own when null.
+  final ToolCallExpansionStore? toolCallExpansion;
+
   @override
   Widget build(BuildContext context) {
     final openThread = thread;
@@ -248,6 +254,7 @@ class ChatThreadView extends StatelessWidget {
           onReactionDetails: onReactionDetails,
           screenPreview: screenPreview,
           onShowAgentDetails: onShowAgentDetails,
+          toolCallExpansion: toolCallExpansion,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,

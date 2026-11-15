@@ -824,59 +824,65 @@ void main() {
     await shots.capture(tester, 'not-available');
   });
 
-  for (final v in _light) {
-    richTest('${v.name}: an opened tool call stays open as the next starts', (
-      tester,
-    ) async {
-      final shots = ScreenshotRecorder('chat-rich-${v.name}-tool-regroup');
-      await pumpChat(tester, shots, v);
-      await openThread(tester, 's4');
-      await runFrames(tester);
+  for (final v in _withDark) {
+    for (final (label, thread, suffix) in [
+      ('', 's4', ''),
+      (' in a long thread', 's3', '-long'),
+    ]) {
+      richTest('${v.name}: an opened tool call stays open as the next '
+          'starts$label', (tester) async {
+        final shots = ScreenshotRecorder(
+          'chat-rich-${v.name}-tool-regroup$suffix',
+        );
+        await pumpChat(tester, shots, v);
+        await openThread(tester, thread);
+        await runFrames(tester);
 
-      await send(tester, 'Check the logs');
-      final reply = transport.sends.single;
-      await emit(tester, reply, const ReplyStarted(), settle: false);
-      await emit(
-        tester,
-        reply,
-        const ToolStarted(
-          id: 'call-1',
-          name: 'list_logs',
-          summary: 'ls -la /var/log',
-          args: {'command': 'ls -la /var/log'},
-        ),
-      );
-      await emit(
-        tester,
-        reply,
-        const ToolFinished(
-          id: 'call-1',
-          name: 'list_logs',
-          result: 'syslog\nauth.log\nkern.log',
-        ),
-      );
-      await runFrames(tester);
-      await tester.tap(find.byType(ToolCallCard));
-      await runFrames(tester);
-      await shots.capture(tester, 'one-call-open');
+        await send(tester, 'Check the logs');
+        final reply = transport.sends.single;
+        await emit(tester, reply, const ReplyStarted(), settle: false);
+        await emit(
+          tester,
+          reply,
+          const ToolStarted(
+            id: 'call-1',
+            name: 'list_logs',
+            summary: 'ls -la /var/log',
+            args: {'command': 'ls -la /var/log'},
+          ),
+        );
+        await emit(
+          tester,
+          reply,
+          const ToolFinished(
+            id: 'call-1',
+            name: 'list_logs',
+            result: 'syslog\nauth.log\nkern.log',
+          ),
+        );
+        await runFrames(tester);
+        await tester.tap(find.byType(ToolCallCard));
+        await runFrames(tester);
+        await shots.capture(tester, 'one-call-open');
 
-      await emit(
-        tester,
-        reply,
-        const ToolStarted(
-          id: 'call-2',
-          name: 'read_file',
-          summary: '/var/log/syslog',
-          args: {'path': '/var/log/syslog'},
-        ),
-      );
-      await runFrames(tester);
-      expect(find.textContaining('auth.log'), findsOneWidget);
-      await shots.capture(tester, 'second-call-running-card-still-open');
+        await emit(
+          tester,
+          reply,
+          const ToolStarted(
+            id: 'call-2',
+            name: 'read_file',
+            summary: '/var/log/syslog',
+            args: {'path': '/var/log/syslog'},
+          ),
+        );
+        await runFrames(tester);
+        expect(find.textContaining('auth.log'), findsOneWidget);
+        await shots.capture(tester, 'second-call-running-card-still-open');
 
-      await emit(tester, reply, const ReplyCompleted('Done.'));
-      await tester.pumpAndSettle();
-    });
+        await emit(tester, reply, const ReplyCompleted('Done.'));
+        await tester.pumpAndSettle();
+      });
+    }
   }
 
   // ---------------------------------------------------------------------

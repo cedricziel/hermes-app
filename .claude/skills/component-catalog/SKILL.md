@@ -70,6 +70,20 @@ lower-cased names with `-` for spaces.
    exception or an overflow. The test font is wider than the real one, so
    check text scale in the catalog (Addons panel), not in the test.
 
+## State that must outlive a remount
+
+A widget whose open or selected state must survive its row being rebuilt (a
+chat list remounting, a row scrolled away and back) takes a plain store or
+initial values plus callbacks, not a controller, and falls back to its own
+state when none is given. Show it in the catalog with a host that holds the
+store above a `KeyedSubtree` and a "Remount" button that changes the key
+(`ToolCallGroup` / "Opened, then remounted"). In a real-`ChatScreen` test,
+`tester.drag` the list's own `Scrollable` (find it under `ChatAnimatedList`; on
+desktop the first `Scrollable` is the sidebar), pump a tap's animation in
+16 ms frames (one long `pump` makes the toggle window of `FollowingChatList`
+look shorter than it is), and use a test hook rather than viewport changes to
+remount: a resize rebuilds the items and so never trips the watchdog.
+
 ## Platforms and screenshots
 
 Inside `testWidgets`, use `tester.runAsync` for controller HTTP loads that must
