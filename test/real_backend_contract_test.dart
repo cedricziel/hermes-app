@@ -72,6 +72,8 @@ import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/tools_models.dart';
 import 'package:hermes_app/src/tools/toolset_risk.dart';
+import 'package:hermes_app/src/voice/calls/call_config.dart';
+import 'package:hermes_app/src/voice/calls/voice_model_route.dart';
 import 'package:hermes_app/src/voice/synthesized_speech.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:hermes_app/src/voice/wav.dart';
@@ -361,6 +363,107 @@ void main() {
         }
       },
       skip: skip,
+    );
+
+    test('the voice_chat slot carries what the call checks read', () async {
+      final profile = (await HermesProfilesRepository(
+        client.raw,
+      ).loadActive()).active;
+      final raw =
+          (await client.raw.getAuxiliaryModelsApiModelAuxiliaryGet(
+                profile: profile,
+              )).data!
+              as Map;
+      final row = (raw['tasks'] as List)
+          .cast<Map>()
+          .where((r) => r['task'] == 'voice_chat')
+          .toList();
+      expect(row, hasLength(1), reason: 'the pinned Hermes has the slot');
+      expect(row.single['provider'], isA<String>());
+      expect(row.single['model'], isA<String>());
+      expect(row.single['base_url'], anyOf(isNull, isA<String>()));
+      if (row.single['effective'] != null) {
+        expect(row.single['effective'], isA<Map>());
+      }
+      expect(raw['main'], containsPair('model', isA<String>()));
+      // The app reads it into one of the four answers, never "unknown".
+      expect(
+        await HermesModelsRepository(client.raw)
+            .loadVoiceRoute(profile: profile),
+        isNot(VoiceModelRoute.unknown),
+      );
+    }, skip: skip);
+
+    test('voice-live/status names the mode', () async {
+      final response = await client.raw
+          .getVoiceLiveStatusApiAudioVoiceLiveStatusGet();
+      final body = response.data! as Map;
+      expect(body['mode'], anyOf('chained', 'gpt-live'));
+      expect(
+        await HermesChatRepository(client.raw).voiceLiveIsGptLive(),
+        body['mode'] == 'gpt-live',
+      );
+    }, skip: skip);
+
+    test('a config read without defaults leaves an unset voice.stop_phrases '
+        'out, so the app uses its own list', () async {
+      final profile = (await HermesProfilesRepository(
+        client.raw,
+      ).loadActive()).active;
+      final body =
+          (await client.raw.getConfigApiConfigGet(
+                profile: profile,
+                includeDefaults: false,
+              )).data!
+              as Map;
+      final voice = body['voice'];
+      if (voice is Map) {
+        expect(voice.containsKey('stop_phrases'), isFalse);
+      }
+      final config = VoiceCallConfig.fromJson(body);
+      expect(config.stopPhrases, VoiceCallConfig.defaultStopPhrases);
+      expect(config.silence, VoiceCallConfig.defaultSilence);
+    }, skip: skip);
+
+    test(
+      'speak-stream starts with a rate and PCM, or says fallback, or errors',
+      () async {
+        final connect = hermesMixedSocketConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+          path: '/api/audio/speak-stream',
+        );
+        final channel = await connect();
+        channel.sink
+          ..add(jsonEncode({'text': 'Hello.'}))
+          ..add(jsonEncode({'done': true}));
+        final text = <Map>[];
+        var pcm = 0;
+        await channel.stream
+            .map((frame) {
+              if (frame is String) text.add(jsonDecode(frame) as Map);
+              if (frame is List<int>) pcm += frame.length;
+              return text.isEmpty ? null : text.last['type'];
+            })
+            .firstWhere(
+              (type) => const {'end', 'fallback', 'error'}.contains(type),
+            )
+            .timeout(const Duration(seconds: 60));
+        await channel.sink.close();
+        final types = text.map((f) => f['type']).toList();
+        if (types.contains('start')) {
+          final start = text.firstWhere((f) => f['type'] == 'start');
+          expect(start['sample_rate'], isA<int>());
+          expect(start['channels'], 1);
+          expect(types.last, 'end');
+          expect(pcm, greaterThan(0));
+          expect(pcm.isEven, isTrue, reason: 's16le samples');
+        } else {
+          expect(types.single, anyOf('fallback', 'error'));
+        }
+      },
+      skip: modelSkip,
     );
 
     test('a speech-to-text lease is taken and released', () async {

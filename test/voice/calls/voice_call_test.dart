@@ -25,6 +25,7 @@ void main() {
     uploads = 0;
     call = VoiceCall(
       bridge: bridge,
+      consented: true,
       agent: agent,
       connect: ([_ = const {}]) async => socket.local,
       prepare: () async {},
@@ -115,20 +116,17 @@ void main() {
       expect(call.phase, CallPhase.listening);
     },
   );
-  test(
-    'barge-in stops speech and the owned turn before accepting a new utterance',
-    () async {
-      await activate();
-      utterance();
-      transcript.complete('First');
-      await pumpEventQueue();
-      bridge.emit('pcm', {'data': pcm()});
-      await pumpEventQueue();
-      expect(agent.interrupts, 1);
-      expect(bridge.stops, 1);
-      expect(call.phase, CallPhase.listening);
-    },
-  );
+  test('barge-in stops the speech and leaves the reply running until a turn is sent', () async {
+    await activate();
+    utterance();
+    transcript.complete('First');
+    await pumpEventQueue();
+    bridge.emit('pcm', {'data': pcm()});
+    await pumpEventQueue();
+    expect(agent.interrupts, 0);
+    expect(bridge.stops, 1);
+    expect(call.phase, CallPhase.listening);
+  });
   test(
     'barge-in cancels POST/decoding fallback and discards late PCM',
     () async {
@@ -137,6 +135,7 @@ void main() {
       CancelToken? cancellation;
       call = VoiceCall(
         bridge: bridge,
+        consented: true,
         agent: agent,
         connect: ([_ = const {}]) async => socket.local,
         prepare: () async {},
@@ -176,7 +175,7 @@ void main() {
       await pumpEventQueue();
       expect(agent.prompts, isEmpty);
       expect(call.phase, CallPhase.listening);
-      expect(call.caption, contains('Audio route changed'));
+      expect(call.notice, CallNotice.routeChanged);
       expect(bridge.ends, 0);
     },
   );
@@ -192,6 +191,7 @@ void main() {
     final ready = Completer<void>();
     call = VoiceCall(
       bridge: bridge,
+      consented: true,
       agent: agent,
       connect: ([_ = const {}]) async => socket.local,
       transcribe: (_) async => '',
@@ -208,6 +208,7 @@ void main() {
     final otherBridge = FakeCallBridge();
     final other = VoiceCall(
       bridge: otherBridge,
+      consented: true,
       agent: FakeCallAgent(),
       connect: ([_ = const {}]) async => socket.local,
       transcribe: (_) async => '',

@@ -61,6 +61,9 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
             let name = args["name"] as? String else {
         result(failure("unavailable", "Another call is already active.")); return
       }
+      // A new call begins with capture neither paused nor stopped, whatever the
+      // last one left behind.
+      audio.endCall()
       startGeneration += 1
       let requestedGeneration = startGeneration
       AVAudioApplication.requestRecordPermission { [weak self] granted in
@@ -93,6 +96,9 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     case "end":
       startGeneration += 1
       audioActive = false
+      // Latches capture off, so a didActivate before CallKit performs the end
+      // cannot install the tap again.
+      if callID != nil { audio.stopCapture() }
       audio.stop()
       guard let id = callID else { result(nil); return }
       controller.request(CXTransaction(action: CXEndCallAction(call: id))) { [weak self] error in
@@ -122,6 +128,17 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
       }
       do { try audio.play(bytes.data, rate: rate.doubleValue); result(nil) }
       catch { result(failure("audio", "Could not play call audio.")) }
+    case "pauseCapture": audio.setCapturePaused(true); result(nil)
+    case "resumeCapture": audio.setCapturePaused(false); result(nil)
+    // With no live call there is nothing to stop, and a flag set now would
+    // outlive the call that Dart is still tearing down.
+    // An id that names another call (a late stop of an earlier one) is ignored;
+    // a caller that sends none acts on the live call.
+    case "stopCapture":
+      guard let live = callID else { result(nil); return }
+      if let raw = args["id"] as? String, UUID(uuidString: raw) != live { result(nil); return }
+      audio.stopCapture()
+      result(nil)
     case "drain": audio.finish(result)
     case "stopPlayback": audio.stopPlayback(); result(nil)
     default: result(FlutterMethodNotImplemented)
@@ -199,6 +216,7 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
     activationTimer?.invalidate()
     activationTimer = nil
     audio.stop()
+    audio.endCall()
     audio.muted = false
     callID = nil
     if let reason { provider.reportCall(with: id, endedAt: Date(), reason: reason) }

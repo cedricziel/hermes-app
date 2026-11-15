@@ -10,6 +10,7 @@ const _ready = CallReadiness([
   CallCheck(CallCheckId.microphone, CallCheckStatus.ready, 'Allowed.'),
   CallCheck(CallCheckId.input, CallCheckStatus.ready, 'Ready.'),
   CallCheck(CallCheckId.output, CallCheckStatus.ready, 'Configured.'),
+  CallCheck(CallCheckId.voiceModel, CallCheckStatus.ready, 'Follows main.'),
   CallCheck(CallCheckId.connection, CallCheckStatus.ready, 'Reachable.'),
 ]);
 
@@ -89,14 +90,13 @@ void main() {
             CallCheckStatus.needsSetup,
             'No provider.',
             action: CallSetupAction.hermes,
-            label: 'Hermes speech',
           ),
         ]),
       ),
     );
     expect(find.byType(Switch), findsNothing);
     expect(find.text('Start call'), findsNothing);
-    expect(find.text('Hermes speech'), findsOneWidget);
+    expect(find.text('Spoken replies'), findsOneWidget);
     expect(find.text('Check again'), findsOneWidget);
   });
 
@@ -212,4 +212,38 @@ void main() {
       );
     }
   }
+
+  testWidgets('a voice model row says its own words, not the English detail', (
+    tester,
+  ) async {
+    await pumpVoice(
+      tester,
+      _view(
+        readiness: const CallReadiness([
+          CallCheck(CallCheckId.microphone, CallCheckStatus.ready, 'Allowed.'),
+          CallCheck(CallCheckId.input, CallCheckStatus.ready, 'Ready.'),
+          CallCheck(CallCheckId.output, CallCheckStatus.ready, 'Configured.'),
+          CallCheck(
+            CallCheckId.voiceModel,
+            CallCheckStatus.warning,
+            'English detail for the agent.',
+            code: CallDetail.voiceModelUnresolved,
+          ),
+          CallCheck(
+            CallCheckId.connection,
+            CallCheckStatus.ready,
+            'Reachable.',
+          ),
+        ]),
+      ),
+    );
+    expect(find.text('English detail for the agent.'), findsNothing);
+    expect(
+      find.text(
+        'Hermes has no model set for voice replies. The call can still start.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Start call'), findsOneWidget, reason: 'a warning allows');
+  });
 }

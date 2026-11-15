@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 
 import '../../chat/gateway/gateway_connection.dart';
 import 'call_bridge.dart';
+import 'call_telemetry.dart';
 
 typedef CallSpeechFallback = Future<Uint8List> Function(
   String text,
@@ -23,6 +24,7 @@ class CallSpeechStream {
     this.onAudio,
     this.onFailure,
     this.fallback,
+    this.retryDelay = const Duration(milliseconds: 500),
   }) {
     unawaited(
       _done.future.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
@@ -34,6 +36,13 @@ class CallSpeechStream {
   /// Whether the server asked for the `POST /api/audio/speak` fallback.
   bool get usedFallback => _fallback;
   final CallSpeechFallback? fallback;
+
+  /// The wait before the one retry of an open that failed in passing.
+  final Duration retryDelay;
+
+  /// How often the open was retried (0 or 1), for telemetry.
+  int get openRetries => _retries;
+  int _retries = 0;
   bool hasText = false;
   final MixedSocketConnect connect;
   final CallBridge output;
@@ -56,15 +65,18 @@ class CallSpeechStream {
   Future<void> open(String? profile) async {
     _profile = profile;
     try {
-      final opening = connect({'profile': ?profile});
-      unawaited(
-        opening.then<void>((socket) {
-          if (_stopped) {
-            unawaited(socket.sink.close().catchError((Object _) {}));
-          }
-        }, onError: (Object _, StackTrace _) {}),
-      );
-      final socket = await opening.timeout(const Duration(seconds: 10));
+      StreamChannel<Object?> socket;
+      try {
+        socket = await _connect(profile);
+      } on Object catch (error) {
+        // A blip on the ticket or the upgrade: one more try, nothing else is
+        // redone (only the socket opens, so no prompt is resent).
+        if (_stopped || !isTransientSpeechOpenError(error)) rethrow;
+        _retries++;
+        await Future<void>.delayed(retryDelay);
+        if (_stopped) return;
+        socket = await _connect(profile);
+      }
       if (_stopped) {
         await socket.sink.close();
         return;
@@ -86,8 +98,21 @@ class CallSpeechStream {
       if (_finishRequested) socket.sink.add(jsonEncode({'done': true}));
     } on Object catch (error, stack) {
       _fail(error, stack);
-      rethrow;
+      // A failed open before any audio falls back instead of failing.
+      if (!_fallback) rethrow;
     }
+  }
+
+  Future<StreamChannel<Object?>> _connect(String? profile) async {
+    final opening = connect({'profile': ?profile});
+    unawaited(
+      opening.then<void>((socket) {
+        if (_stopped) {
+          unawaited(socket.sink.close().catchError((Object _) {}));
+        }
+      }, onError: (Object _, StackTrace _) {}),
+    );
+    return opening.timeout(const Duration(seconds: 10));
   }
 
   void append(String text) {
@@ -145,16 +170,7 @@ class CallSpeechStream {
         case {'type': 'end'}:
           _ended = true;
           unawaited(_drain());
-        case {'type': 'fallback'}:
-          if (_produced || fallback == null) {
-            _fail(StateError('The server could not produce call audio'));
-            return;
-          }
-          _fallback = true;
-          _pending.clear();
-          unawaited(_close().catchError((Object _) {}));
-          _startFallback();
-        case {'type': 'error'}:
+        case {'type': 'fallback'} || {'type': 'error'}:
           _fail(StateError('The server could not produce call audio'));
         default:
           _fail(StateError('Unsupported speech frame'));
@@ -210,14 +226,46 @@ class CallSpeechStream {
     }
   }
 
+  /// A failure before any audio falls back once to the whole reply as one
+  /// piece; after audio began the reply counts as spoken, because repeating
+  /// it would say it twice. Only a failed fallback, or a failure with none to
+  /// try, reaches [onFailure].
   void _fail(Object error, [StackTrace? stack]) {
     if (_stopped) return;
+    if (_produced) {
+      _finishAfterAudio();
+      return;
+    }
+    if (fallback != null && !_fallback && !_fallbackStarted) {
+      _fallback = true;
+      _pending.clear();
+      unawaited(_close().catchError((Object _) {}));
+      _startFallback();
+      return;
+    }
     _stopped = true;
     _cancellation.cancel();
     _text.clear();
     if (!_done.isCompleted) _done.completeError(error, stack);
     unawaited(_close().catchError((Object _) {}));
     onFailure?.call(error);
+  }
+
+  void _finishAfterAudio() {
+    _stopped = true;
+    _cancellation.cancel();
+    _text.clear();
+    unawaited(_close().catchError((Object _) {}));
+    unawaited(
+      _writes
+          .catchError((Object _) {})
+          .then<void>((_) => output.drain())
+          .timeout(const Duration(minutes: 3))
+          .catchError((Object _) {})
+          .whenComplete(() {
+            if (!_done.isCompleted) _done.complete();
+          }),
+    );
   }
 
   Future<void> close() async {

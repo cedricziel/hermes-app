@@ -51,7 +51,7 @@ final _steps = <_Step>[
   _step('muted', CallPhase.listening, muted: true),
   _step(
     'sending',
-    CallPhase.transcribing,
+    CallPhase.sending,
     sending: true,
     caption: 'Could you check the third paragraph of the report for me?',
   ),

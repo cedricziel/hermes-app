@@ -107,32 +107,128 @@ void main() {
     );
   }
 
-  test(
-    'fallback after PCM is an error and never repeats already spoken text',
-    () async {
+  test('a fallback frame after PCM counts as finished and never repeats spoken text', () async {
+    final socket = StreamChannelController<Object?>();
+    socket.foreign.stream.listen((_) {});
+    var requested = false, failures = 0;
+    final output = FakeCallBridge();
+    final stream = CallSpeechStream(
+      connect: ([_ = const {}]) async => socket.local,
+      output: output,
+      onFailure: (_) => failures++,
+      fallback: (_, _, _) async {
+        requested = true;
+        return Uint8List(2);
+      },
+    );
+    await stream.open(null);
+    socket.foreign.sink
+      ..add(jsonEncode({'type': 'start', 'sample_rate': 24000, 'channels': 1}))
+      ..add([1, 2])
+      ..add(jsonEncode({'type': 'fallback'}));
+    await pumpEventQueue();
+    await stream.finish();
+    expect(requested, isFalse);
+    expect(failures, 0);
+  });
+
+  test('a socket that drops after audio counts as finished', () async {
+    final socket = StreamChannelController<Object?>();
+    socket.foreign.stream.listen((_) {});
+    var requested = false, failures = 0;
+    final stream = CallSpeechStream(
+      connect: ([_ = const {}]) async => socket.local,
+      output: FakeCallBridge(),
+      onFailure: (_) => failures++,
+      fallback: (_, _, _) async {
+        requested = true;
+        return Uint8List(2);
+      },
+    );
+    await stream.open(null);
+    stream.append('Hello. ');
+    socket.foreign.sink
+      ..add(jsonEncode({'type': 'start', 'sample_rate': 24000, 'channels': 1}))
+      ..add([1, 2, 3, 4]);
+    await pumpEventQueue();
+    await socket.foreign.sink.close();
+    await pumpEventQueue();
+    await stream.finish();
+    expect(requested, isFalse);
+    expect(failures, 0);
+  });
+
+  for (final cause in ['dropped socket', 'error frame', 'failed open']) {
+    test('a $cause before any audio falls back once', () async {
       final socket = StreamChannelController<Object?>();
       socket.foreign.stream.listen((_) {});
-      var requested = false;
+      final requests = <String>[];
+      var failures = 0;
+      final output = FakeCallBridge();
       final stream = CallSpeechStream(
-        connect: ([_ = const {}]) async => socket.local,
-        output: FakeCallBridge(),
-        fallback: (_, _, _) async {
-          requested = true;
-          return Uint8List(2);
+        connect: ([_ = const {}]) async => cause == 'failed open'
+            ? throw StateError('no socket')
+            : socket.local,
+        output: output,
+        onFailure: (_) => failures++,
+        fallback: (text, _, _) async {
+          requests.add(text);
+          return Uint8List.fromList([1, 2, 3, 4]);
         },
       );
+      stream.append('Hello ');
       await stream.open(null);
-      socket.foreign.sink
-        ..add(
-          jsonEncode({'type': 'start', 'sample_rate': 24000, 'channels': 1}),
-        )
-        ..add([1, 2])
-        ..add(jsonEncode({'type': 'fallback'}));
+      if (cause == 'dropped socket') {
+        await socket.foreign.sink.close();
+      } else if (cause == 'error frame') {
+        socket.foreign.sink.add(jsonEncode({'type': 'error'}));
+      }
       await pumpEventQueue();
-      await expectLater(stream.finish(), throwsStateError);
-      expect(requested, isFalse);
-    },
-  );
+      stream.append('there.');
+      await stream.finish();
+      expect(requests, ['Hello there.']);
+      expect(output.played.single.$1, [1, 2, 3, 4]);
+      expect(failures, 0);
+    });
+  }
+
+  test('a failed fallback fails once, without a second fallback', () async {
+    final socket = StreamChannelController<Object?>();
+    socket.foreign.stream.listen((_) {});
+    var requests = 0, failures = 0;
+    final stream = CallSpeechStream(
+      connect: ([_ = const {}]) async => socket.local,
+      output: FakeCallBridge(),
+      onFailure: (_) => failures++,
+      fallback: (_, _, _) async {
+        requests++;
+        throw StateError('provider down');
+      },
+    );
+    await stream.open(null);
+    stream.append('Hello');
+    final done = stream.finish();
+    final failed = expectLater(done, throwsStateError);
+    socket.foreign.sink.add(jsonEncode({'type': 'error'}));
+    await failed;
+    expect(requests, 1);
+    expect(failures, 1);
+  });
+
+  test('without a fallback a failure before audio fails the stream', () async {
+    final socket = StreamChannelController<Object?>();
+    socket.foreign.stream.listen((_) {});
+    var failures = 0;
+    final stream = CallSpeechStream(
+      connect: ([_ = const {}]) async => socket.local,
+      output: FakeCallBridge(),
+      onFailure: (_) => failures++,
+    );
+    await stream.open(null);
+    socket.foreign.sink.add(jsonEncode({'type': 'error'}));
+    await pumpEventQueue();
+    expect(failures, 1);
+  });
 
   test(
     'fallback failures reach the existing recoverable call failure',

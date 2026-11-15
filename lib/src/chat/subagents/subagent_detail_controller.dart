@@ -76,9 +76,9 @@ const kTailEvery = Duration(seconds: 2);
 /// detail says it never will.
 const kOutputNeverAfter = Duration(seconds: 30);
 
-/// The state of one open agent detail: its output, the stop and the notes. It holds typed text, notes and output in memory only,
-/// and never lets any of them reach a log, span or breadcrumb: those carry
-/// fixed words.
+/// The state of one open agent detail: its output, the stop and the notes. It
+/// holds typed text, notes and output in memory only, and never lets any of
+/// them reach a log, span or breadcrumb: those carry fixed words.
 ///
 /// One controller serves one agent, named by its [key], fixed when the
 /// detail opens; a list that refreshes or reorders cannot move a stop or a
@@ -167,11 +167,11 @@ class SubagentDetailController extends ChangeNotifier {
         : TailPhase.noOutput;
   }
 
-  /// The agent ended, so the output is the last that was read.
   bool get _notControllable =>
       _stop == StopPhase.notControllable ||
       _notePhase == NotePhase.notControllable;
 
+  /// The agent ended, so the output is the last that was read.
   bool get lastOutput => !_agentActive && tail.isNotEmpty;
 
   bool get _agentActive => _host.view?.active ?? false;
@@ -437,9 +437,7 @@ class SubagentDetailController extends ChangeNotifier {
   }
 
   void _abortCheck(Completer<_Reread>? pending) {
-    if (pending != null && !pending.isCompleted) {
-      pending.complete(_Reread.failed);
-    }
+    if (pending != null) _finishCheck(pending, _Reread.failed);
   }
 
   // ---- notes ----------------------------------------------------------

@@ -6772,6 +6772,26 @@
   "@voiceCallUnmute": {
     "description": "Label of the round control that unmutes the microphone."
   },
+  "voiceCheckModelFollowsMain": "Voice replies follow your main model.",
+  "@voiceCheckModelFollowsMain": {
+    "description": "Detail of the Voice model row when voice chat follows the main model."
+  },
+  "voiceCheckModelNamed": "Voice replies use a model chosen for voice.",
+  "@voiceCheckModelNamed": {
+    "description": "Detail of the Voice model row when the profile names a model for voice chat."
+  },
+  "voiceCheckModelProviderOnly": "Voice replies use a fast model from the voice provider.",
+  "@voiceCheckModelProviderOnly": {
+    "description": "Detail of the Voice model row when only a provider is pinned for voice chat."
+  },
+  "voiceCheckModelUnknown": "Couldn't check the voice model. The call can still start.",
+  "@voiceCheckModelUnknown": {
+    "description": "Warning of the Voice model row when the read failed or the server has no such setting."
+  },
+  "voiceCheckModelUnresolved": "Hermes has no model set for voice replies. The call can still start.",
+  "@voiceCheckModelUnresolved": {
+    "description": "Warning of the Voice model row when voice chat has no model to run on."
+  },
   "voiceConsentSentence": "Hermes sends each thing you say after a pause, without you pressing send. It can use its tools to act on it.",
   "@voiceConsentSentence": {
     "description": "Sentence in the consent card on the call start screen explaining that speech is sent automatically."
@@ -6815,6 +6835,18 @@
   "voiceNoticeLeftTitle": "The call ended.",
   "@voiceNoticeLeftTitle": {
     "description": "Title of the notice after the user left the app during a call."
+  },
+  "voiceNoticeMicMayBeOpenDetail": "Check your device's microphone indicator. Your turns are in the chat.",
+  "@voiceNoticeMicMayBeOpenDetail": {
+    "description": "Detail of the notice when the call ended but the app could not confirm the microphone closed."
+  },
+  "voiceNoticeMicMayBeOpenTitle": "The call ended, but the microphone may still be open.",
+  "@voiceNoticeMicMayBeOpenTitle": {
+    "description": "Title of the notice when the call ended but the app could not confirm the microphone closed."
+  },
+  "voiceNoticeRouteNeutralTitle": "Audio route changed. Please repeat if needed.",
+  "@voiceNoticeRouteNeutralTitle": {
+    "description": "Notice after the audio route changed while an earlier turn was already sent and answering, so it does not say that nothing was sent."
   },
   "voiceNoticeRouteTitle": "Audio route changed. Please repeat if needed. Nothing was sent.",
   "@voiceNoticeRouteTitle": {
@@ -6908,9 +6940,17 @@
   "@voiceSetupStart": {
     "description": "Filled button that starts the call."
   },
+  "voiceStripDismiss": "Dismiss",
+  "@voiceStripDismiss": {
+    "description": "Short label of the action that closes the Hands-free strip's warning that the microphone may still be open."
+  },
   "voiceStripEnd": "End",
   "@voiceStripEnd": {
     "description": "Short label of the End action in the Hands-free strip."
+  },
+  "voiceStripMicMayBeOpen": "Microphone may still be open",
+  "@voiceStripMicMayBeOpen": {
+    "description": "The whole Hands-free strip after a call ended without confirming that the microphone closed. It replaces 'Hands-free on', so it stays whole at large text."
   },
   "voiceStripMicMuted": "microphone muted",
   "@voiceStripMicMuted": {
