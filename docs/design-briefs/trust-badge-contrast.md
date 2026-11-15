@@ -17,7 +17,7 @@ Decisions taken in the design pass:
 
 Corrections after the pass: the canvas shows Trusted using a new `secondaryContainer` / `onSecondaryContainer` scheme pair; that is changed to a private pair (see the build notes). The colours, ratios and boards are unchanged.
 
-Corrections where this brief did not work: none.
+Corrections where this brief did not work: none beyond the corrections above.
 
 Copy added: none.
 
