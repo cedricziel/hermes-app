@@ -1,0 +1,39 @@
+name: PR policy
+
+# Both jobs read the pull_request event JSON from $GITHUB_EVENT_PATH; the title
+# and body never go through a shell line. No path filter: every PR is checked.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-policy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: PR policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - run: python3 -I scripts/pr_policy.py policy
+
+  review:
+    name: Review recorded
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Only the script and the event file are needed.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - run: python3 -I scripts/pr_policy.py review

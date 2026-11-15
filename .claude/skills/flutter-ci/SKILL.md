@@ -89,3 +89,22 @@ any job upstream was skipped, and `Test watch core` is skipped on most pull
 requests. Their `if` therefore names `needs.analyze-and-test.result ==
 'success'` under `!cancelled()`. If builds show as skipped on a pull request that
 changes code, look there first.
+
+## PR policy and Review recorded
+
+`pr-policy.yml` runs `scripts/pr_policy.py` (`policy` and `review`) on every
+pull request, reading the event JSON; edit the PR body and it reruns. Each
+failure names its fix:
+
+- Title: Conventional Commit, type from `release-please-config.json`.
+- Body sections: copy `.github/pull_request_template.md`; an HTML comment is not content, write "Nothing" where that is the answer.
+- `fix:` PRs: answer `What would have caught this earlier?` in `## Proof`, outside any comment.
+- Model names: drop them from title and body. Only `Co-Authored-By:` and `Claude-Session:` lines, the Claude Code footer and the session URL are skipped.
+- `pubspec.yaml` version: revert; release-please bumps it.
+- `docs/roadmap.md`: revert it and send the orchestrator the row. The check is by branch prefix (`claude/quirky-einstein-`), so it is loud, not tight.
+- "looks corrupted by a Markdown formatter": the hook turned `x86_64` into `x86*64` or unbalanced a backtick in CLAUDE.md or the roadmap. Restore the line from main and re-apply only your change, with a script instead of Edit/Write.
+- Review recorded: run the isolated-reviewer on the current head and paste its block (`Head: <full sha>`, `Verdict: clean`) into `## Review`. Any push makes it stale, so paste the new block after the last push.
+
+Bot PRs (a `[bot]` author, or the branches of release-please, dependabot,
+update-flutter, update-hermes-contracts, update-claude-plugins and
+readme-screenshots) skip the title, body and review rules.
