@@ -53,6 +53,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/profiles/soul/soul_repository.dart';
 import 'package:hermes_app/src/providers/provider_models.dart';
 import 'package:hermes_app/src/providers/provider_results.dart';
 import 'package:hermes_app/src/providers/providers_repository.dart';
@@ -3764,6 +3765,51 @@ void main() {
       expect(after, before);
     }, skip: skip);
   });
+
+  group(
+    'profile SOUL.md (read only: never a PUT against a shared profile)',
+    () {
+      late SoulRepository soul;
+      setUp(() => soul = SoulRepository(client.raw));
+
+      Future<SoulFailureKind> failureOf(Future<Object?> call) async {
+        try {
+          await call;
+        } on SoulFailure catch (failure) {
+          return failure.kind;
+        }
+        fail('expected a SoulFailure');
+      }
+
+      test(
+        'reads the default profile with the content and exists fields',
+        () async {
+          final read = await soul.read('default');
+          expect(read.content, isA<String>());
+          if (!read.exists) expect(read.content, isEmpty);
+        },
+        skip: skip,
+      );
+
+      test(
+        'a profile that does not exist is profileGone, not unsupported',
+        () async {
+          expect(
+            await failureOf(soul.read('no-such-profile-zz')),
+            SoulFailureKind.profileGone,
+          );
+        },
+        skip: skip,
+      );
+
+      test('an invalid profile name is a 400', () async {
+        expect(
+          await failureOf(soul.read('Bad_Name')),
+          SoulFailureKind.badRequest,
+        );
+      }, skip: skip);
+    },
+  );
 
   group('tools (read only: nothing is switched, saved or installed)', () {
     late HermesToolsRepository tools;

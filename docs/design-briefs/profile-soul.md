@@ -2,11 +2,11 @@
 
 Change: `openspec/changes/profile-soul/`. Read its design.md for the server facts and the save and conflict rules; this brief is the visual and copy pass.
 
-Status: Design (done): canvas reviewed
+Status: Design (done): canvas published, local render reviewed
 
 ## Design
 
-The pass was written from the Hermes App design system README, the shared widgets under `lib/src/widgets/`, the Tools and Server care briefs and the change's own design.md. The Claude Design canvas is published (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, private: ask its owner for access) and holds 60 boards. This brief stays the record; local canvas renders settled the findings folded in below.
+The pass was written from the Hermes App design system README, the shared widgets under `lib/src/widgets/`, the Tools and Server care briefs and the change's own design.md. The Claude Design canvas is published (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, private: ask its owner for access) and holds 60 files (59 screen boards plus the shared SoulPage). This brief stays the record; local canvas renders settled the findings folded in below.
 
 Screens and states decided (all in light and dark, phone and desktop width, largest text, German):
 
@@ -87,7 +87,7 @@ Corrections where the earlier documents did not work:
 
 ## Local render review
 
-The canvas (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, private: ask its owner for access) holds 60 boards by row: Entry 2 (Main, E02), iPhone light P01-P18 and Q01-Q09, dark D01-D03, largest text X01-X03, German G01-G04, Android A01-A07, iPad W01-W04, Mac M01-M09, and the shared SoulPage. The boards were rendered in a local headless Chrome and the findings above came from those renders.
+The canvas (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, private: ask its owner for access) holds 60 files by row (59 screen boards plus the shared SoulPage): Entry 2 (Main, E02), iPhone light P01-P18 and Q01-Q09, dark D01-D03, largest text X01-X03, German G01-G04, Android A01-A07, iPad W01-W04, Mac M01-M09, and the shared SoulPage. The boards were rendered in a local headless Chrome and the findings above came from those renders.
 
 Not checked: nothing was looked at in the claude.ai viewer; control sizes and contrast were judged by eye (no DOM measurement, no ratios); the editor is static text, so real keyboard and text-input behaviour, the sheet's slide, spinner animation, reduced motion, VoiceOver and TalkBack are untested; the largest text was rendered on iPhone only (X01-X03), German on iPhone, Mac and the Android save question only, with no largest-text board on Android or wide layouts; the published canvas was read back by file list only (all 60 board files present), not rendered in the viewer. X01 clips a line at the bottom edge because it mocks a scrolling field, not a defect.
 
