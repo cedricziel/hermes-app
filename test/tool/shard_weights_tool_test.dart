@@ -62,6 +62,47 @@ void main() {
     });
   });
 
+  group('the model', () {
+    test('fitModel recovers the overhead and the slope', () {
+      final points = [
+        for (final w in [300.0, 588.0, 900.0, 1100.0]) (w, 167 + 0.5 * w),
+      ];
+      final model = fitModel(points)!;
+      expect(model.overheadSeconds, closeTo(167, 1e-6));
+      expect(model.secondsPerWeight, closeTo(0.5, 1e-9));
+    });
+
+    test('fitModel gives up on too few points or an odd fit', () {
+      expect(fitModel([(1, 2), (2, 3)]), isNull);
+      expect(fitModel([(1, 5), (2, 4), (3, 3)]), isNull); // falling
+      expect(fitModel([(1, 1), (2, 3), (3, 5)]), isNull); // negative intercept
+      expect(fitModel([(2, 1), (2, 2), (2, 3)]), isNull); // no spread
+    });
+
+    test('reserved keys are never test files', () {
+      final decoded = {
+        '_model': {'invocationOverheadSeconds': 1, 'secondsPerWeight': 2},
+        '_other': 5,
+        'test/a_test.dart': 3,
+      };
+      expect(parseWeights(decoded), {'test/a_test.dart': 3.0});
+      expect(parseModel(decoded).overheadSeconds, 1);
+      expect(parseModel(decoded).secondsPerWeight, 2);
+      expect(parseModel({'test/a_test.dart': 3}).overheadSeconds, 0);
+      expect(
+        parseModel({
+          '_model': {'secondsPerWeight': 0},
+        }).secondsPerWeight,
+        1,
+      );
+    });
+
+    test('the weights file has no reserved key among its files', () {
+      expect(readWeights().keys.where((k) => k.startsWith('_')), isEmpty);
+      expect(readWeights().keys, everyElement(endsWith('_test.dart')));
+    });
+  });
+
   group('parseReport', () {
     test('reads weights and wall from a runner-style report', () {
       const base = '/home/runner/work/hermes-app/hermes-app';

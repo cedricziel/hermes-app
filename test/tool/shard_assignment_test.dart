@@ -19,20 +19,34 @@ Map<String, double> realWeights() {
       jsonDecode(File('test/shard_weights.json').readAsStringSync()) as Map;
   return {
     for (final e in decoded.entries)
-      e.key as String: (e.value as num).toDouble(),
+      if (!(e.key as String).startsWith('_'))
+        e.key as String: (e.value as num).toDouble(),
   };
+}
+
+ShardModel realModel() {
+  final decoded =
+      jsonDecode(File('test/shard_weights.json').readAsStringSync()) as Map;
+  final m = decoded['_model'];
+  if (m is! Map) return const ShardModel();
+  return ShardModel(
+    overheadSeconds: (m['invocationOverheadSeconds'] as num).toDouble(),
+    secondsPerWeight: (m['secondsPerWeight'] as num).toDouble(),
+  );
 }
 
 void checkPartition(
   List<String> files,
   Map<String, double> weights, {
   int total = 4,
+  ShardModel model = const ShardModel(),
 }) {
   final shards = assignShards(
     files: files,
     weights: weights,
     catalog: catalog,
     total: total,
+    model: model,
   );
   expect(shards, hasLength(total));
   final flat = [for (final s in shards) ...s];
@@ -47,6 +61,7 @@ void checkPartition(
     weights: weights,
     catalog: catalog,
     total: total,
+    model: model,
   );
   expect(again, shards, reason: 'not deterministic');
   if (files.length >= total) {
@@ -85,6 +100,17 @@ void main() {
     });
     test('partitions a synthetic list with ${c.key}', () {
       checkPartition(synthetic, c.value);
+    });
+  }
+
+  for (final model in const [
+    ShardModel(overheadSeconds: 167, secondsPerWeight: 0.5),
+    ShardModel(overheadSeconds: 1e6, secondsPerWeight: 0.1),
+  ]) {
+    test('partitions with an overhead of ${model.overheadSeconds} s', () {
+      checkPartition(files, real, model: model);
+      checkPartition(files, {}, model: model);
+      checkPartition(synthetic, stale, model: model);
     });
   }
 
@@ -183,6 +209,49 @@ void main() {
       ['b'],
     ]);
     expect(shardLoads(shards, weights, catalog: catalog), [20, 10]);
+  });
+
+  test('a nonzero overhead gives shard 0 fewer extra files', () {
+    final none = assignShards(
+      files: files,
+      weights: real,
+      catalog: catalog,
+      total: 4,
+    );
+    final withOverhead = assignShards(
+      files: files,
+      weights: real,
+      catalog: catalog,
+      total: 4,
+      model: const ShardModel(overheadSeconds: 167, secondsPerWeight: 0.5),
+    );
+    expect(withOverhead[0].length, lessThan(none[0].length));
+    // With no other work to take, the overhead is never charged.
+    final alone = assignShards(
+      files: [catalog],
+      weights: real,
+      catalog: catalog,
+      total: 4,
+      model: const ShardModel(overheadSeconds: 167, secondsPerWeight: 0.5),
+    );
+    expect(alone[0], [catalog]);
+  });
+
+  test('the real weights and model keep the predicted walls even', () {
+    final model = realModel();
+    final shards = assignShards(
+      files: files,
+      weights: real,
+      catalog: catalog,
+      total: 4,
+      model: model,
+    );
+    final walls = predictedWalls(shards, real, catalog: catalog, model: model);
+    expect(
+      (walls.reduce(max) - walls.reduce(min)) / walls.reduce(max),
+      lessThan(0.15),
+      reason: '$walls',
+    );
   });
 
   test('the weights file is sorted', () {

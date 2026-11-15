@@ -34,12 +34,15 @@ To refresh the weights when shards drift apart: download the `test-report-<shard
 artifacts of a recent main run, then
 `dart tool/shard_weights.dart update <reports...>` and commit
 `test/shard_weights.json`.
-Weights are per-file wall seconds, and a shard's files overlap about 1.6x, so a
-shard's Test step is about 0.62 x its weight sum. The catalog runs alone, so its
-weight is its wall time divided by that scale (400 s / 0.62 = 645). `update`
-derives the scale as the wall of the non-catalog invocations (first to last
-report event) over their summed weights, and the catalog weight from its own
-report the same way; give it the catalog report too.
+Weights are per-file wall seconds. An invocation's wall time is
+`c + b x (sum of its weights)`: its files overlap (b about 0.5) and every
+`flutter test` run pays a fixed `c` (about 160 s: compile, startup). `_model` in
+the weights file holds both. `update` fits them by least squares over the
+non-catalog invocations (first to last event of each report; with fewer than 3
+it falls back to c = 0 and one scale and warns), and sets the catalog weight to
+(its wall - c) / b; give it the catalog report too. Shard 0 pays `c` again for
+its second invocation, so assignment charges it `c / b` once it gets any file
+besides the catalog. Keys starting with `_` are never test files.
 
 For timeout tests, use the existing `fake_async` dependency and advance the
 simulated clock. Keep normal success tests on the production timeout. A global

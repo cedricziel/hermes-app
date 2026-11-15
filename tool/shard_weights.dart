@@ -16,16 +16,16 @@ import 'shard_assignment.dart';
 const catalog = 'test/widgetbook_test.dart';
 const weightsPath = 'test/shard_weights.json';
 
-// Weights are per-file wall seconds (first suite event to last testDone). Files
-// of one invocation run about 1.6x in parallel, so an invocation's wall time is
-// about `weightScale` x the sum of its files' weights (CI: shards 1-3 Test
-// steps came to 0.59-0.66 x their weight sums). The catalog runs alone, so its
-// measured wall time (about 400 s) is real wall seconds; its weight is
-// catalogWall / weightScale (400 / 0.62 = 645.2) to share the others' unit.
-// `update` re-derives both from the reports.
-const catalogWall = 400.0;
-const weightScale = 0.62;
+// Weights are per-file wall seconds (first suite event to last testDone). An
+// invocation's wall time is `c + b * (sum of its files' weights)`: files overlap
+// (b about 0.5-0.7) and every `flutter test` run pays a fixed `c` (compile,
+// startup). `_model` in the weights file holds c and b; `update` fits them by
+// least squares over the non-catalog invocations of the reports. The catalog
+// runs alone, so its weight is (its wall - c) / b, in the same unit as the
+// rest. Shard 0 pays `c` again for its second invocation (see assignShards).
+// Keys starting with `_` in the weights file are never test files.
 const catalogWeight = 645.2;
+const modelKey = '_model';
 
 Future<void> main(List<String> args) async {
   exitCode = run(args);
@@ -45,6 +45,7 @@ int run(List<String> args) {
         weights: readWeights(),
         catalog: catalog,
         total: total,
+        model: readModel(),
       );
       for (final f in shards[index]) {
         if (args.first == 'list' || f != catalog) stdout.writeln(f);
@@ -79,20 +80,60 @@ List<String> listTestFiles([String dir = 'test']) {
   return files;
 }
 
-Map<String, double> readWeights() {
+Object? _readWeightsJson() {
   final file = File(weightsPath);
-  if (!file.existsSync()) return {};
+  if (!file.existsSync()) return null;
   try {
-    final decoded = jsonDecode(file.readAsStringSync());
-    if (decoded is! Map) return {};
-    return {
-      for (final e in decoded.entries)
-        if (e.key is String && e.value is num)
-          e.key as String: (e.value as num).toDouble(),
-    };
+    return jsonDecode(file.readAsStringSync());
   } on FormatException {
-    return {};
+    return null;
   }
+}
+
+/// File weights only: reserved `_` keys and non-numbers are skipped.
+Map<String, double> readWeights() => parseWeights(_readWeightsJson());
+
+Map<String, double> parseWeights(Object? decoded) {
+  if (decoded is! Map) return {};
+  return {
+    for (final e in decoded.entries)
+      if (e.key is String &&
+          !(e.key as String).startsWith('_') &&
+          e.value is num)
+        e.key as String: (e.value as num).toDouble(),
+  };
+}
+
+/// The overhead model from the weights file; zero overhead when absent or odd.
+ShardModel readModel() => parseModel(_readWeightsJson());
+
+ShardModel parseModel(Object? decoded) {
+  final model = decoded is Map ? decoded[modelKey] : null;
+  if (model is! Map) return const ShardModel();
+  final c = model['invocationOverheadSeconds'];
+  final b = model['secondsPerWeight'];
+  if (c is! num || b is! num || c < 0 || b <= 0) return const ShardModel();
+  return ShardModel(
+    overheadSeconds: c.toDouble(),
+    secondsPerWeight: b.toDouble(),
+  );
+}
+
+/// Least squares for `wall = c + b * weight` over (weight, wall) points.
+/// Null when there are fewer than 3 points, no spread, a non-positive slope or
+/// a negative intercept (the caller then falls back to a single scale).
+ShardModel? fitModel(List<(double, double)> points) {
+  if (points.length < 3) return null;
+  final n = points.length;
+  final mx = points.fold(0.0, (s, p) => s + p.$1) / n;
+  final my = points.fold(0.0, (s, p) => s + p.$2) / n;
+  final sxx = points.fold(0.0, (s, p) => s + (p.$1 - mx) * (p.$1 - mx));
+  if (sxx <= 0) return null;
+  final sxy = points.fold(0.0, (s, p) => s + (p.$1 - mx) * (p.$2 - my));
+  final b = sxy / sxx;
+  final c = my - b * mx;
+  if (b <= 0 || c < 0) return null;
+  return ShardModel(overheadSeconds: c, secondsPerWeight: b);
 }
 
 /// What one `--file-reporter json` report says.
@@ -187,6 +228,7 @@ int update(List<String> reports) {
   var catalogSeconds = 0.0; // wall of the invocation that ran the catalog
   var otherWall = 0.0; // wall of every other invocation
   var otherWeights = 0.0; // weights of the files those ran
+  final points = <(double, double)>[]; // (weights, wall) per other invocation
   final root = Directory.current.path;
   final existing = listTestFiles().toSet();
   for (final path in reports) {
@@ -201,7 +243,9 @@ int update(List<String> reports) {
       catalogSeconds += report.wall;
     } else {
       otherWall += report.wall;
-      otherWeights += report.weights.values.fold(0.0, (a, b) => a + b);
+      final sum = report.weights.values.fold(0.0, (a, b) => a + b);
+      otherWeights += sum;
+      points.add((sum, report.wall));
     }
   }
   if (measured.isEmpty) {
@@ -215,20 +259,42 @@ int update(List<String> reports) {
     final w = measured[f] ?? old[f];
     if (w != null) next[f] = w;
   }
-  // The catalog's weight is its invocation's wall time divided by the scale
-  // (other invocations' wall / their summed weights). Without a catalog report,
-  // or without other reports to get the scale from, the old weight stays.
-  if (catalogSeconds > 0 && otherWall > 0 && otherWeights > 0) {
-    final scale = otherWall / otherWeights;
-    next[catalog] = (catalogSeconds / scale * 10).round() / 10;
+  // wall = c + b * weight over the non-catalog invocations. Too few points or
+  // an implausible fit: c = 0 and one scale (their wall over their weights).
+  ShardModel? model;
+  if (otherWall > 0 && otherWeights > 0) {
+    model = fitModel(points);
+    if (model == null) {
+      stderr.writeln(
+        'warning: could not fit an overhead from ${points.length} '
+        'invocation(s); using no overhead and one scale',
+      );
+      model = ShardModel(secondsPerWeight: otherWall / otherWeights);
+    }
+  }
+  if (model != null && catalogSeconds > 0) {
+    next[catalog] =
+        (((catalogSeconds - model.overheadSeconds) / model.secondsPerWeight) *
+                10)
+            .round() /
+        10;
     stdout.writeln(
-      'scale ${scale.toStringAsFixed(2)}, catalog ${next[catalog]}',
+      'overhead ${model.overheadSeconds.toStringAsFixed(1)} s, '
+      '${model.secondsPerWeight.toStringAsFixed(3)} s per weight, '
+      'catalog ${next[catalog]}',
     );
   } else {
+    model = readModel();
     next[catalog] = old[catalog] ?? catalogWeight;
   }
   final keys = next.keys.toList()..sort();
-  final out = {for (final k in keys) k: next[k]};
+  final out = <String, Object?>{
+    modelKey: {
+      'invocationOverheadSeconds': (model.overheadSeconds * 10).round() / 10,
+      'secondsPerWeight': (model.secondsPerWeight * 1000).round() / 1000,
+    },
+    for (final k in keys) k: next[k],
+  };
   File(
     weightsPath,
   ).writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(out)}\n');
