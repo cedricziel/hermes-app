@@ -27,6 +27,7 @@ import 'package:hermes_app/src/memory/memory_proposals.dart';
 import 'package:hermes_app/src/memory/memory_proposals_repository.dart';
 import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/messaging/whatsapp/whatsapp_pairing.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
@@ -67,6 +68,9 @@ import 'package:hermes_app/src/server_care/doctor_report.dart';
 import 'package:hermes_app/src/server_care/log_line.dart';
 import 'package:hermes_app/src/server_care/server_status.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
+import 'package:hermes_app/src/skills/curator/curator_result.dart';
+import 'package:hermes_app/src/skills/curator/curator_status.dart';
+import 'package:hermes_app/src/skills/curator/hermes_curator_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
@@ -156,6 +160,9 @@ import 'support/attachment_fixtures.dart';
 /// first-checkpoint checks. `HERMES_DEV_RECORD=<dir>` writes their raw answers
 /// to `recorded-on.json` or `recorded-off.json` there, for refreshing
 /// `test/fixtures/gateway/` after scrubbing.
+/// The skill curator tests pause and run it on a throwaway profile named
+/// `contract-check-curator-…` (one pass without a model, deleted after; a
+/// second run needs a fresh backend).
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -322,6 +329,167 @@ void main() {
         expect(report.fixes, isNotEmpty, reason: 'problems list what to fix');
       }
     });
+  }, skip: skip);
+
+  group('skill curator (throwaway profiles)', () {
+    // Pauses and runs the curator on profiles this group creates and deletes.
+    // A pass has no flags here: consolidation is off, so no model is called,
+    // and a profile with no skills has nothing to archive. Like the other
+    // throwaway-profile groups it needs a fresh backend for a second run.
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final profile = 'contract-check-curator-$stamp';
+    final gone = 'contract-check-curator-gone-$stamp';
+    late HermesCuratorRepository curator;
+
+    setUpAll(() async {
+      if (url == null) return;
+      for (final name in [profile, gone]) {
+        await client.raw.createProfileEndpointApiProfilesPost(
+          profileCreate: ProfileCreate(name: name, noSkills: true),
+        );
+      }
+      curator = HermesCuratorRepository(client);
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      DioException? firstError;
+      for (final name in [profile, gone]) {
+        try {
+          await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+            name: name,
+          );
+        } on DioException catch (error) {
+          // `gone` is already deleted when its test ran.
+          if (error.response?.statusCode != 404) firstError ??= error;
+        }
+      }
+      if (firstError != null) throw firstError;
+    });
+
+    T value<T>(CuratorResult<T> result) {
+      expect(result, isA<CuratorOk<T>>(), reason: '$result');
+      return (result as CuratorOk<T>).value;
+    }
+
+    test(
+      'the status has the seven fields and reads without an unknown',
+      () async {
+        final raw =
+            (await client.raw.getCuratorStatusApiCuratorGet(profile: profile))
+                    .data!
+                as Map;
+        expect(
+          raw.keys,
+          containsAll([
+            'enabled',
+            'paused',
+            'interval_hours',
+            'last_run_at',
+            'min_idle_hours',
+            'stale_after_days',
+            'archive_after_days',
+          ]),
+        );
+
+        final status = value(await curator.status(profile: profile));
+
+        expect(status.enabled, isTrue);
+        expect(status.paused, isFalse);
+        expect(status.intervalHours, greaterThan(0));
+        expect(status.lastRun, CuratorLastRun.never);
+        expect(status.minIdleHours, isNotNull);
+        expect(status.staleAfterDays, isNotNull);
+        expect(status.archiveAfterDays, isNotNull);
+      },
+    );
+
+    test('the config has the two switches the confirmation reads', () async {
+      final config =
+          (await client.raw.getConfigApiConfigGet(profile: profile)).data!
+              as Map;
+      final section = config['curator'] as Map;
+
+      expect(section['consolidate'], isA<bool>());
+      expect(section['prune_builtins'], isA<bool>());
+    });
+
+    test('pause and resume round trip, per profile', () async {
+      expect(value(await curator.setPaused(true, profile: profile)), isTrue);
+      expect(value(await curator.status(profile: profile)).paused, isTrue);
+      expect(
+        value(await curator.status(profile: 'default')).paused,
+        isFalse,
+        reason: 'another profile is untouched',
+      );
+
+      expect(value(await curator.setPaused(false, profile: profile)), isFalse);
+      expect(value(await curator.status(profile: profile)).paused, isFalse);
+    });
+
+    test('a profile that is gone is told from a missing route', () async {
+      // Deleted here, not in the tear-down: it is the profile Hermes no
+      // longer knows.
+      await client.raw.deleteProfileEndpointApiProfilesNameDelete(name: gone);
+
+      expect(await curator.status(profile: gone), isA<CuratorProfileGone>());
+      expect(
+        await curator.setPaused(true, profile: gone),
+        isA<CuratorProfileGone>(),
+      );
+      expect(await curator.run(profile: gone), isA<CuratorProfileGone>());
+      // Nothing was started by the last call.
+      expect(value(await curator.runStatus()).running, isFalse);
+    });
+
+    test(
+      'an invalid name is refused, and an unnamed run is not sent',
+      () async {
+        expect(
+          (await curator.status(profile: 'bad name') as CuratorFailed).kind,
+          CuratorFailure.refused,
+        );
+        expect(
+          (await curator.run(profile: 'bad name') as CuratorFailed).kind,
+          CuratorFailure.refused,
+        );
+        expect(
+          (await curator.run(profile: '') as CuratorFailed).kind,
+          CuratorFailure.refused,
+        );
+        // The unnamed run Hermes refuses with a 400 is not provoked here: it
+        // does so only while several profiles are served, and alone it would
+        // start a pass on the backend's own profile (the recorded answer is
+        // covered by a fixture).
+      },
+    );
+
+    test('a pass runs on the profile, paused or not, and is followed to its '
+        'end by the header and the exit code', () async {
+      value(await curator.setPaused(true, profile: profile));
+      value(await curator.run(profile: profile));
+
+      ActionStatus? done;
+      final deadline = DateTime.now().add(const Duration(minutes: 2));
+      while (DateTime.now().isBefore(deadline)) {
+        final status = value(await curator.runStatus());
+        if (!status.running && status.exitCode != null) {
+          done = status;
+          break;
+        }
+        await Future<void>.delayed(const Duration(seconds: 1));
+      }
+      value(await curator.setPaused(false, profile: profile));
+
+      expect(done, isNotNull, reason: 'the pass finished');
+      expect(done!.exitCode, 0, reason: done.lines.join('\n'));
+      expect(done.startHeader, startsWith('=== curator-run started '));
+      expect(done.lines, isNotEmpty);
+      expect(
+        value(await curator.status(profile: profile)).lastRun,
+        CuratorLastRun.at,
+      );
+    }, timeout: const Timeout(Duration(minutes: 3)));
   }, skip: skip);
 
   group('voice', () {
@@ -2324,6 +2492,54 @@ void main() {
     await expectLater(
       repository.telegramPairingStatus('no-such-pairing'),
       throwsA(isA<MessagingSetupRejected>()),
+    );
+  }, skip: skip);
+
+  // Start would spawn the Baileys bridge on the backend (it reaches
+  // WhatsApp's servers) and apply would save settings and restart the
+  // messaging gateway, so neither is called against a shared backend. Both
+  // probes below spawn nothing.
+  test('an unknown WhatsApp pairing is reported as gone, not as an old '
+      'server', () async {
+    final repository = HermesMessagingRepository(client.raw);
+
+    // A route-missing 404 also reads recordGone, so the detail tells the two
+    // apart: only this server answers "setup session was not found".
+    await expectLater(
+      repository.whatsAppPairingStatus(
+        const WhatsAppPairingId('no-such-pairing'),
+      ),
+      throwsA(
+        isA<WhatsAppPairingFailure>().having(
+          (e) => e.kind,
+          'kind',
+          WhatsAppPairingFailureKind.recordGone,
+        ),
+      ),
+    );
+    await expectLater(
+      client.raw
+          .getWhatsappOnboardingStatusApiMessagingWhatsappOnboardingPairingIdGet(
+            pairingId: 'no-such-pairing',
+          ),
+      throwsA(
+        isA<DioException>()
+            .having((e) => e.response?.statusCode, 'status', 404)
+            .having(
+              (e) => (e.response?.data as Map?)?['detail'],
+              'detail',
+              startsWith('WhatsApp setup session was not found'),
+            ),
+      ),
+    );
+  }, skip: skip);
+
+  test('cancelling an unknown WhatsApp pairing is accepted, and spawns '
+      'nothing', () async {
+    final repository = HermesMessagingRepository(client.raw);
+
+    await repository.cancelWhatsAppPairing(
+      const WhatsAppPairingId('no-such-pairing'),
     );
   }, skip: skip);
 
