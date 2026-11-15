@@ -45,6 +45,9 @@ abstract final class AppIcons {
     Icons.error_outline,
     CupertinoIcons.exclamationmark_circle,
   );
+
+  /// The connection to the server is lost.
+  static const wifiOff = AppIconSet(Icons.wifi_off, CupertinoIcons.wifi_slash);
   static const errorFilled = AppIconSet(
     Icons.error,
     CupertinoIcons.exclamationmark_circle_fill,
@@ -457,6 +460,12 @@ abstract final class AppIcons {
   static const key = AppIconSet(Icons.key_outlined, CupertinoIcons.lock);
   static const cloud = AppIconSet(Icons.cloud_outlined, CupertinoIcons.cloud);
 
+  /// No connection; [cloud] reads as online.
+  static const wifiOff = AppIconSet(
+    Icons.wifi_off_outlined,
+    CupertinoIcons.wifi_slash,
+  );
+
   /// A cross in a filled circle: a check that failed.
   static const crossCircleFilled = AppIconSet(
     Icons.cancel,
@@ -599,6 +608,7 @@ abstract final class AppIcons {
     'warningFilled': warningFilled,
     'key': key,
     'cloud': cloud,
+    'wifiOff': wifiOff,
     'crossCircleFilled': crossCircleFilled,
     'questionCircleFilled': questionCircleFilled,
     'lockOpen': lockOpen,
