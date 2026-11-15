@@ -49,13 +49,39 @@ Stream<T> debounced<T>(Stream<T> source, Duration quiet) {
   return out.stream;
 }
 
+/// Whether a D-Bus system bus can exist: `DBUS_SYSTEM_BUS_ADDRESS` is set, or
+/// one of the usual sockets is there.
+bool linuxSystemBusAvailable({
+  Map<String, String>? environment,
+  bool Function(String path)? exists,
+}) {
+  if ((environment ?? Platform.environment)['DBUS_SYSTEM_BUS_ADDRESS']
+      case final address? when address.isNotEmpty) {
+    return true;
+  }
+  final present = exists ?? _socketExists;
+  return present('/var/run/dbus/system_bus_socket') ||
+      present('/run/dbus/system_bus_socket');
+}
+
+bool _socketExists(String path) {
+  try {
+    return FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound;
+  } on Object {
+    return false;
+  }
+}
+
 /// [NetworkSignals] from `connectivity_plus` and the app lifecycle. Only
 /// Android and Windows report a VPN; iOS and macOS report `other` for it.
 ///
-/// On Linux the plugin is never created: it talks to NetworkManager over the
-/// system D-Bus, and without one its errors escape every handler as uncaught
-/// async errors. Linux has no VPN signal to give anyway, so only the
-/// lifecycle nudge remains there. [results] and [check] are ignored then.
+/// On Linux the plugin talks to NetworkManager over the system D-Bus. It is
+/// not created at all when there is no system bus ([hasSystemBus]; containers,
+/// headless setups), and with one it is started inside an error zone, because
+/// the plugin rethrows from inside its stream's `onListen`, where no `onError`
+/// reaches. A bus without NetworkManager then degrades to the lifecycle nudge.
+/// The app reads a VPN only on Android and Windows, though the plugin reports
+/// one on Linux too. [results] and [check] are ignored when there is no bus.
 class ConnectivityNetworkSignals
     with WidgetsBindingObserver
     implements NetworkSignals {
@@ -64,25 +90,33 @@ class ConnectivityNetworkSignals
     Future<List<ConnectivityResult>> Function()? check,
     bool? reportsVpn,
     bool? onLinux,
+    bool Function()? hasSystemBus,
     Duration debounce = const Duration(seconds: 1),
   }) : _reportsVpn = reportsVpn ?? (Platform.isAndroid || Platform.isWindows) {
-    if (!(onLinux ?? Platform.isLinux)) {
-      final connectivity = results == null || check == null
-          ? Connectivity()
-          : null;
-      _subscription = (results ?? connectivity!.onConnectivityChanged).listen((
-        current,
-      ) {
-        _update(current);
-        _raw.add(null);
-      }, onError: (Object _) {});
-      (check ?? connectivity!.checkConnectivity)().then(
-        _update,
-        onError: (_) {},
-      );
+    final linux = onLinux ?? Platform.isLinux;
+    if (!linux) {
+      _listen(results, check);
+    } else if ((hasSystemBus ?? linuxSystemBusAvailable)()) {
+      runZonedGuarded(() => _listen(results, check), (_, _) {});
     }
     WidgetsBinding.instance.addObserver(this);
     changes = debounced(_raw.stream, debounce);
+  }
+
+  void _listen(
+    Stream<List<ConnectivityResult>>? results,
+    Future<List<ConnectivityResult>> Function()? check,
+  ) {
+    final connectivity = results == null || check == null
+        ? Connectivity()
+        : null;
+    _subscription = (results ?? connectivity!.onConnectivityChanged).listen((
+      current,
+    ) {
+      _update(current);
+      _raw.add(null);
+    }, onError: (Object _) {});
+    (check ?? connectivity!.checkConnectivity)().then(_update, onError: (_) {});
   }
 
   final bool _reportsVpn;

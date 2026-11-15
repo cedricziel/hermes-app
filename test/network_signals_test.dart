@@ -91,31 +91,88 @@ void main() {
       },
     );
 
-    test(
-      'on Linux it never touches connectivity but still nudges on resume',
-      () async {
-        var checks = 0;
-        final s = ConnectivityNetworkSignals(
-          results: results.stream,
-          check: () async {
-            checks++;
-            return current;
-          },
-          onLinux: true,
-          debounce: const Duration(milliseconds: 10),
-        );
-        addTearDown(s.dispose);
-        final changes = s.changes.first;
+    test('on Linux without a system bus it never touches connectivity but still nudges on resume', () async {
+      var checks = 0;
+      final s = ConnectivityNetworkSignals(
+        results: results.stream,
+        check: () async {
+          checks++;
+          return current;
+        },
+        onLinux: true,
+        hasSystemBus: () => false,
+        debounce: const Duration(milliseconds: 10),
+      );
+      addTearDown(s.dispose);
+      final changes = s.changes.first;
 
-        expect(results.hasListener, isFalse);
-        results.add([ConnectivityResult.mobile]);
-        s.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      expect(results.hasListener, isFalse);
+      results.add([ConnectivityResult.mobile]);
+      s.didChangeAppLifecycleState(AppLifecycleState.resumed);
 
-        await changes.timeout(const Duration(seconds: 2));
-        expect(checks, 0);
-        expect(s.vpnActive, isNull);
-      },
-    );
+      await changes.timeout(const Duration(seconds: 2));
+      expect(checks, 0);
+      expect(s.vpnActive, isNull);
+    });
+
+    test('on Linux with a system bus it subscribes and checks', () async {
+      var checks = 0;
+      final s = ConnectivityNetworkSignals(
+        results: results.stream,
+        check: () async {
+          checks++;
+          return current;
+        },
+        onLinux: true,
+        hasSystemBus: () => true,
+        debounce: const Duration(milliseconds: 10),
+      );
+      addTearDown(s.dispose);
+      final changes = s.changes.first;
+
+      expect(results.hasListener, isTrue);
+      results.add([ConnectivityResult.mobile]);
+
+      await changes.timeout(const Duration(seconds: 2));
+      expect(checks, 1);
+    });
+
+    test('on Linux a plugin that throws on listen leaves no uncaught error and resume still nudges', () async {
+      final broken = StreamController<List<ConnectivityResult>>(
+        onListen: () => throw StateError('no NetworkManager'),
+      );
+      final s = ConnectivityNetworkSignals(
+        results: broken.stream,
+        check: () async => throw StateError('no NetworkManager'),
+        onLinux: true,
+        hasSystemBus: () => true,
+        debounce: const Duration(milliseconds: 10),
+      );
+      addTearDown(s.dispose);
+      addTearDown(() => unawaited(broken.close()));
+      final changes = s.changes.first;
+      await pumpEventQueue();
+
+      s.didChangeAppLifecycleState(AppLifecycleState.resumed);
+
+      await changes.timeout(const Duration(seconds: 2));
+    });
+
+    group('linuxSystemBusAvailable', () {
+      bool check(Map<String, String> env, Set<String> files) =>
+          linuxSystemBusAvailable(environment: env, exists: files.contains);
+
+      test('is false with no address and no socket', () {
+        expect(check({}, {}), isFalse);
+        expect(check({'DBUS_SYSTEM_BUS_ADDRESS': ''}, {}), isFalse);
+      });
+
+      test('is true with an address or either socket', () {
+        expect(check({'DBUS_SYSTEM_BUS_ADDRESS': 'unix:path=/x'}, {}), isTrue);
+        expect(check({}, {'/var/run/dbus/system_bus_socket'}), isTrue);
+        expect(check({}, {'/run/dbus/system_bus_socket'}), isTrue);
+      });
+    });
 
     test('does not know about a VPN where the platform cannot tell', () async {
       current = [ConnectivityResult.vpn];
