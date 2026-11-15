@@ -79,13 +79,36 @@ void main() {
     });
   });
 
+  test('listTestFiles lists symlinked files, not symlinked directories', () {
+    if (Platform.isWindows) return;
+    final dir = Directory.systemTemp.createTempSync('list_tests');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    File('${dir.path}/a_test.dart').writeAsStringSync('');
+    Directory('${dir.path}/sub').createSync();
+    File('${dir.path}/sub/b_test.dart').writeAsStringSync('');
+    Link('${dir.path}/link_test.dart').createSync('${dir.path}/a_test.dart');
+    Link('${dir.path}/linkdir').createSync('${dir.path}/sub');
+    expect(listTestFiles(dir.path), [
+      '${dir.path}/a_test.dart',
+      '${dir.path}/link_test.dart',
+      '${dir.path}/sub/b_test.dart',
+    ]);
+  });
+
   test('scripts/test-shard.sh fails when assign fails, for every shard', () {
     if (Platform.isWindows) return;
     final dir = Directory.systemTemp.createTempSync('fake_dart');
     addTearDown(() => dir.deleteSync(recursive: true));
-    final fake = File('${dir.path}/dart')
-      ..writeAsStringSync('#!/bin/sh\nexit 255\n');
-    Process.runSync('chmod', ['+x', fake.path]);
+    final marker = File('${dir.path}/flutter_ran');
+    // A fake flutter, so that a regression cannot start the real suite.
+    for (final entry in {
+      'dart': '#!/bin/sh\nexit 255\n',
+      'flutter': '#!/bin/sh\ntouch "${marker.path}"\nexit 0\n',
+    }.entries) {
+      final fake = File('${dir.path}/${entry.key}')
+        ..writeAsStringSync(entry.value);
+      Process.runSync('chmod', ['+x', fake.path]);
+    }
     final env = {'PATH': '${dir.path}:${Platform.environment['PATH']}'};
     for (var shard = 0; shard < 4; shard++) {
       for (final list in ['', '1']) {
@@ -97,5 +120,6 @@ void main() {
         expect(result.exitCode, isNot(0), reason: 'shard $shard list=$list');
       }
     }
+    expect(marker.existsSync(), isFalse, reason: 'flutter test was started');
   });
 }

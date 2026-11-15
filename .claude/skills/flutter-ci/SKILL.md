@@ -32,7 +32,7 @@ others); shard 0's other files run in a second `flutter test`, which writes
 
 To refresh the weights when shards drift apart: download the `test-report-<shard>`
 artifacts of a recent main run, then
-`dart run tool/shard_weights.dart update <reports...>` and commit
+`dart tool/shard_weights.dart update <reports...>` and commit
 `test/shard_weights.json`.
 Weights are per-file wall seconds, and a shard's files overlap about 1.6x, so a
 shard's Test step is about 0.62 x its weight sum. The catalog runs alone, so its

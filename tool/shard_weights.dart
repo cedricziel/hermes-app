@@ -5,12 +5,12 @@ import 'shard_assignment.dart';
 
 // Test sharding by measured duration.
 //
-//   dart run tool/shard_weights.dart assign <index> <total>
+//   dart tool/shard_weights.dart assign <index> <total>
 //       Prints the shard's test files, one per line. The catalog is not
 //       listed: scripts/test-shard.sh runs it first on shard 0.
-//   dart run tool/shard_weights.dart list <index> <total>
+//   dart tool/shard_weights.dart list <index> <total>
 //       Same, with the catalog included.
-//   dart run tool/shard_weights.dart update <report.json>...
+//   dart tool/shard_weights.dart update <report.json>...
 //       Rebuilds test/shard_weights.json from `flutter test --file-reporter
 //       json:<path>` reports (CI uploads them as `test-report-<shard>`).
 const catalog = 'test/widgetbook_test.dart';
@@ -59,19 +59,21 @@ int run(List<String> args) {
 
 int _usage() {
   stderr.writeln(
-    'usage: dart run tool/shard_weights.dart '
+    'usage: dart tool/shard_weights.dart '
     '(assign|list <index> <total> | update <report.json>...)',
   );
   return 64;
 }
 
-/// Same files as `find test -name '*_test.dart' | sort`.
-List<String> listTestFiles() {
+/// Same files as `find test -name '*_test.dart' | sort`: symlinked files
+/// count, symlinked directories are not entered.
+List<String> listTestFiles([String dir = 'test']) {
   final files = [
     for (final e in Directory(
-      'test',
+      dir,
     ).listSync(recursive: true, followLinks: false))
-      if (e is File && e.path.endsWith('_test.dart'))
+      if (e.path.endsWith('_test.dart') &&
+          (e is File || (e is Link && FileSystemEntity.isFileSync(e.path))))
         e.path.replaceAll('\\', '/'),
   ]..sort();
   return files;
