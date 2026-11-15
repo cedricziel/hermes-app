@@ -7,6 +7,8 @@ extension _ChatControllerHistory on ChatController {
     if (!active || repository == null || profile == null) {
       return ThreadListRefreshResult.skipped;
     }
+    var cancelled = false;
+    void Function()? waiter;
     Future<ThreadListRefreshResult> attempt() async {
       while (true) {
         if (threadListInvalidationBlocked) {
@@ -17,18 +19,21 @@ extension _ChatControllerHistory on ChatController {
             }
           }
 
+          waiter = check;
           addListener(check);
           try {
             await settled.future;
           } finally {
             removeListener(check);
+            waiter = null;
           }
         }
-        if (!active || _profile != profile) {
+        if (cancelled || !active || _profile != profile) {
           return ThreadListRefreshResult.skipped;
         }
         final generation = _loadGeneration;
         final page = await readThreadListPage(profile);
+        if (cancelled) return ThreadListRefreshResult.skipped;
         if (applyInvalidatedThreads(
           page,
           profile: profile,
@@ -47,6 +52,9 @@ extension _ChatControllerHistory on ChatController {
     try {
       result = await attempt().timeout(threadListRefreshTimeout);
     } on Object catch (e, stack) {
+      cancelled = true;
+      final stale = waiter;
+      if (stale != null) removeListener(stale);
       if (e is! DioException && e is! TimeoutException) {
         reportBug(e, stack, 'the chat list pull to refresh');
       }

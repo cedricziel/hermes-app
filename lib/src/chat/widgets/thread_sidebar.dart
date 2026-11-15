@@ -357,7 +357,11 @@ class ThreadSidebar extends StatelessWidget {
   Widget _threadList(BuildContext context, ThreadListPreferences preferences) {
     final onRefresh = this.onRefresh;
     final list = _threadListBody(context, preferences);
-    if (onRefresh == null) return list;
+    // Pull to refresh is for iOS chrome only (iPhone, iPad); the Mac has
+    // View > Reload and the Material platforms keep the list as it is.
+    if (onRefresh == null || platformChromeOf(context) != PlatformChrome.ios) {
+      return list;
+    }
     final l10n = context.l10n;
     return Column(
       children: [
@@ -386,7 +390,21 @@ class ThreadSidebar extends StatelessWidget {
     ThreadListPreferences preferences,
   ) {
     if (fullPage && threads.isEmpty) {
-      return const Center(child: Text('No chats yet. Start a new message.'));
+      return LayoutBuilder(
+        builder: (context, constraints) => ListView(
+          physics: platformChromeOf(context) == PlatformChrome.ios
+              ? const AlwaysScrollableScrollPhysics()
+              : null,
+          children: [
+            SizedBox(
+              height: constraints.maxHeight,
+              child: const Center(
+                child: Text('No chats yet. Start a new message.'),
+              ),
+            ),
+          ],
+        ),
+      );
     }
     if (platformChromeOf(context).isApple ||
         preferences.grouping == ThreadGrouping.folder) {
@@ -411,7 +429,9 @@ class ThreadSidebar extends StatelessWidget {
         _ThreadListHeading(preferences: preferences),
         Expanded(
           child: ListView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
+            physics: platformChromeOf(context) == PlatformChrome.ios
+                ? const AlwaysScrollableScrollPhysics()
+                : null,
             padding: EdgeInsets.fromLTRB(8, 0, 8, contentBottomPadding),
             itemCount: threads.length + (showMore ? 1 : 0),
             itemBuilder: (context, index) {
@@ -726,9 +746,9 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       if (housekeeping != null && housekeeping.hasMore) housekeeping,
     ];
     return ListView.builder(
-      physics: platformChromeOf(context) == PlatformChrome.macos
-          ? null
-          : const AlwaysScrollableScrollPhysics(),
+      physics: platformChromeOf(context) == PlatformChrome.ios
+          ? const AlwaysScrollableScrollPhysics()
+          : null,
       padding: EdgeInsets.fromLTRB(8, 0, 8, widget.bottomPadding),
       itemCount: items.length,
       itemBuilder: (context, index) => switch (items[index]) {

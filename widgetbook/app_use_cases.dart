@@ -315,15 +315,17 @@ WidgetbookNode appNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ThreadSidebar',
       useCases: [
-        for (final state in ['Idle', 'Refreshing', 'Refresh failed'])
-          _screen(
-            'Pull to refresh $state (iPhone)',
-            () => CatalogAuth(gated: true),
-            () => _PullToRefreshList(
-              refreshing: state == 'Refreshing',
-              failed: state == 'Refresh failed',
+        for (final (device, width) in [('iPhone', 390.0), ('iPad', 320.0)])
+          for (final state in ['Idle', 'Refreshing', 'Refresh failed'])
+            _screen(
+              'Pull to refresh $state ($device)',
+              () => CatalogAuth(gated: true),
+              () => _PullToRefreshList(
+                refreshing: state == 'Refreshing',
+                failed: state == 'Refresh failed',
+                width: width,
+              ),
             ),
-          ),
         for (final state in [
           'Empty',
           'Populated',
@@ -939,13 +941,20 @@ Widget _shortShellSidebar() => Builder(
 
 void _ignoreOrigin(AttachOrigin _) {}
 
-/// The chat list on an iPhone: at rest, with the pull spinner showing (a
+/// The chat list on an iPhone or in an iPad sidebar: at rest, with the pull spinner showing (a
 /// refresh that never ends), or with the notice a failed pull leaves.
 class _PullToRefreshList extends StatefulWidget {
-  const _PullToRefreshList({required this.refreshing, required this.failed});
+  const _PullToRefreshList({
+    required this.refreshing,
+    required this.failed,
+    required this.width,
+  });
 
   final bool refreshing;
   final bool failed;
+
+  /// 390 pt for the iPhone chats page, 320 pt for the iPad sidebar.
+  final double width;
 
   @override
   State<_PullToRefreshList> createState() => _PullToRefreshListState();
@@ -989,7 +998,7 @@ class _PullToRefreshListState extends State<_PullToRefreshList> {
           refreshFailed: widget.failed,
         ),
       ),
-      width: 390,
+      width: widget.width,
     ),
   );
 }

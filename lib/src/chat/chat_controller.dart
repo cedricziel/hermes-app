@@ -126,7 +126,6 @@ const _couldNotStop = 'Could not stop the reply. Try again.';
 /// The title of a chat that has no prompt yet.
 const _newChatTitle = 'New chat';
 
-/// An external open interrupted by suspension, for owner-controlled recovery.
 /// How a pull to refresh of the chat list ended.
 enum ThreadListRefreshResult {
   /// The first page was read and merged in.
@@ -139,6 +138,7 @@ enum ThreadListRefreshResult {
   skipped,
 }
 
+/// An external open interrupted by suspension, for owner-controlled recovery.
 class InterruptedChatOpening {
   const InterruptedChatOpening({
     required this.target,
@@ -1080,6 +1080,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         profile: profile,
         generation: generation,
       );
+      if (applied && _listRefreshFailed) {
+        _listRefreshFailed = false;
+        notifyListeners();
+      }
       // A change that started during the read: wait for it and read again.
       if (!applied &&
           active &&
