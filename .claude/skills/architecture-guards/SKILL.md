@@ -1,26 +1,25 @@
 ---
 name: architecture-guards
-description: Use when a test under test/architecture/ fails (a guard or the baseline ratchet), when adding a source-scan guard rule, or when lowering or reading test/architecture/baseline.yaml.
+description: Use when a test under test/architecture/ fails (a guard or the baseline ratchet), when adding a source-scan guard rule, or when lowering or reading test/architecture/baseline/<ns>.yaml.
 ---
 
 # Architecture guards and the baseline ratchet
 
-`test/architecture/` scans source files and fails CI when a new call site breaks a repo rule. Known old violations are listed in `test/architecture/baseline.yaml`; the list can only shrink.
+`test/architecture/` scans source files and fails CI when a new call site breaks a repo rule. Known old violations are listed in `test/architecture/baseline/<ns>.yaml`; the list can only shrink.
 
 ## The ratchet
 
-- `baseline.yaml` maps rule id to (repo-relative path to allowed count). Ids are namespaced: `arch.*`, `style.*`, `test.*`. A rule with no violations has no entry.
+- One baseline file per namespace: `test/architecture/baseline/<ns>.yaml` (`arch`, `style`, `test`), mapping rule id (`<ns>.<name>`) to (repo-relative path to allowed count). A rule with no violations has no entry. Each namespace has exactly one test file that calls `ratchetTests(rules, namespace: '<ns>')`; `ratchet_test.dart` fails when a namespace is registered from two files or a baseline file has none.
 - A count above its entry, or a file not listed, fails with the offending lines and the building block to use instead.
-- A count below its entry fails too, with the edit to make: `lower <rule> <path> to N`, or remove the entry. That is how the debt only goes down.
-- `UPDATE_BASELINE=1 flutter test --concurrency=1 test/architecture` makes those edits for you. It never raises a count or adds an entry, and it removes rule ids left with no entries and ids no rule claims. The rewrite is locked and atomic, so test files may run in parallel; `--concurrency=1` is only tidier.
-- Removing the last entry of a rule: remove the rule id line too (an empty `arch.x:` also parses, and the update drops it).
-- Each `ratchetTests(rules, namespace: 'arch')` call also fails on a baseline id in its namespace that none of its rules claims, and throws on a rule id registered twice.
+- A count below its entry fails too, with the edit to make: `lower <rule> <path> to N`, or remove the entry (and the rule id line if it was the last; an empty `arch.x:` still parses). That is how the debt only goes down.
+- A baseline id that none of the namespace's rules claims fails, and a rule id registered twice throws.
+- `UPDATE_BASELINE=1 flutter test test/architecture` makes the edits for you. It never raises a count or adds an entry, and it removes rule ids left with no entries and ids no rule claims. Each file has one writer, so no lock is needed; the write goes through a temp file and a rename.
 
 ## When a guard fails
 
 1. Read the message: it names the building block to use. Use it.
 2. If the new site is legitimate (the block itself, a platform boundary), add its path to the rule's allowlist in code with a reason, and say why in the PR. Never raise or add a baseline entry.
-3. If the count fell, run the update command above (or make the edit the message gives) and commit `baseline.yaml`.
+3. If the count fell, run the update command above (or make the edit the message gives) and commit the baseline file.
 
 ## Adding a rule
 
