@@ -746,14 +746,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flyer_chat_text_message:
-    dependency: "direct main"
-    description:
-      name: flyer_chat_text_message
-      sha256: "4bc77431304d39bd2953d766d506576d063fbbac0fd70c7c3c42a096e8ec2f04"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.6.1"
   freezed_annotation:
     dependency: transitive
     description:
@@ -2137,7 +2129,7 @@ packages:
     source: hosted
     version: "7.0.1"
   yaml:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: yaml
       sha256: f67cdd8e07d3c6329146aaef1ba043542b3134c12489f553ca9a7435d1068aea

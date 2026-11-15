@@ -398,6 +398,36 @@ Ordinary voice-message playback pauses before CallKit starts and cannot change
 the audio session while a call owns it, including background pause and disposal.
 It can be resumed explicitly after the call ends.
 
+## Other apps' audio
+
+Nothing builds audio or CallKit objects before the user starts dictation,
+playback or a call: opening, resuming or unlocking the app never touches the
+audio session, so music or video playing in another app carries on. The
+`hermes_calls` plugin creates its CallKit provider, controller and audio engine
+on the first `start` of a call and lets them go after it ends, and the engine
+graph is wired only when CallKit activates the session.
+
+Recording a voice message or dictating pauses other audio, and it resumes when
+the recording ends (stop, cancel, send, a failed start, the composer closing,
+App Lock, sign-out, a profile switch). The `record` plugin activates the session
+but never deactivates it, so `VoiceAudioSession`
+(`lib/src/voice/voice_audio_session.dart`) configures it before a recording and
+deactivates it with `notifyOthersOnDeactivation` afterwards (Android: audio
+focus is given back); voice-message playback and read-aloud use the same owner,
+each starting from its own category, so a spoken reply after a recording plays
+as playback again. On iOS playback pauses other audio instead of ducking it, because
+libmpv's own output, not the app's session, would decide whether ducking holds;
+on Android playback asks for transient focus that may duck, so other apps may
+lower their volume instead of pausing. A recording asks for plain transient
+focus, but one that starts while a voice message still holds the session keeps
+the playback's focus request (the plugin does not replace an existing one), so
+other apps may duck rather than pause then. A call that fails before CallKit
+activates, after a voice message was playing, gives the session back with
+notify-others when the call's audio focus is released.
+Manual iPhone check: play music, record, stop: the music resumes within about
+two seconds; the same on cancel, after a failed recording (microphone denied)
+and with Bluetooth headphones connected.
+
 ## What changed for the iOS call
 
 The call shipped first without these rules. This version changes it:

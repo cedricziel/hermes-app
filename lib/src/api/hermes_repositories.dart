@@ -32,7 +32,7 @@ class HermesRepositories {
       pluginManager = HermesPluginManagerRepository(api.raw),
       plugins = HermesPluginsRepository(api.raw),
       mcp = HermesMcpRepository(api.raw),
-      tools = HermesToolsRepository(api.raw, profile: '', telemetry: telemetry),
+      tools = HermesToolsRoot(api.raw, telemetry: telemetry),
       models = HermesModelsRepository(api.raw),
       providers = ProvidersRepository(api.raw, telemetry: telemetry),
       cron = HermesCronRepository(api.raw),
@@ -56,7 +56,7 @@ class HermesRepositories {
 
   /// The tools routes. It names no profile: reach a profile's toolsets
   /// through `tools.forProfile(name)`.
-  final HermesToolsRepository tools;
+  final HermesToolsRoot tools;
   final HermesModelsRepository models;
 
   /// The model providers of a profile: what is connected, and connecting,

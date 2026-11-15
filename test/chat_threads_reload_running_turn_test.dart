@@ -15,6 +15,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_hermes_server.dart';
 import 'support/fake_queue_keys.dart';
 import 'support/fake_queue_transport.dart';
+import 'support/queue_store_dir.dart';
 
 const _scope = QueueScope(
   serverKey: 'server',
@@ -87,24 +88,7 @@ void main() {
     await pumpEventQueue();
     chat.dispose();
     attention.dispose();
-    // The store serializes its operations per directory, so a read queued now
-    // answers only after every write the controller already started.
-    try {
-      await store.load(_scope);
-    } on Object {
-      // The directory is deleted next either way.
-    }
-    // A write that still lands while the tree is removed fails the delete
-    // with "Directory not empty": try again until the tree is quiet.
-    final deadline = DateTime.now().add(const Duration(seconds: 5));
-    while (directory.existsSync()) {
-      try {
-        await directory.delete(recursive: true);
-      } on FileSystemException {
-        if (!DateTime.now().isBefore(deadline)) rethrow;
-        await Future<void>.delayed(const Duration(milliseconds: 25));
-      }
-    }
+    await deleteQueueStoreDir(directory);
   });
 
   ChatThread thread() => chat.threads.singleWhere((t) => t.id == 'stored');
