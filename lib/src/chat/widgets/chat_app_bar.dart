@@ -47,11 +47,23 @@ PreferredSizeWidget chatTitleBelowBarRow(
         children: [
           if (avatar != null) ...[avatar, const SizedBox(width: 8)],
           Expanded(
-            child: Text(
-              text,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: style,
+            // AppBar wraps only its `title` this way; `bottom` gets nothing,
+            // so the moved title keeps the header node and the route name.
+            child: Semantics(
+              header: true,
+              namesRoute: switch (theme.platform) {
+                TargetPlatform.android ||
+                TargetPlatform.fuchsia ||
+                TargetPlatform.linux ||
+                TargetPlatform.windows => true,
+                TargetPlatform.iOS || TargetPlatform.macOS => null,
+              },
+              child: Text(
+                text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
             ),
           ),
         ],

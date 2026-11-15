@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 
 import '../support/fake_chat_transport.dart';
@@ -30,7 +31,7 @@ void main() {
       server: server,
       transport: FakeChatTransport(),
       platform: platform,
-      size: phone,
+      size: platform == TargetPlatform.macOS ? const Size(1280, 800) : phone,
       wrap: (app) => Builder(
         builder: (context) => MediaQuery(
           data: MediaQuery.of(context)
@@ -56,6 +57,20 @@ void main() {
       await open(tester, platform: TargetPlatform.android, scale: scale);
       expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow');
       expect(barTitle, findsOneWidget);
+      // The title is the bar's header and names the route wherever it sits.
+      expect(
+        find.ancestor(
+          of: barTitle,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Semantics &&
+                w.properties.header == true &&
+                w.properties.namesRoute == true,
+          ),
+        ),
+        findsWidgets,
+        reason: 'header and namesRoute on the title',
+      );
       // Up to 1.3 the bar is unchanged and a short title may be cut by
       // the three actions; from there it moves under the bar and is whole.
       if (scale > 1.3) {
@@ -89,6 +104,15 @@ void main() {
     testWidgets('${platform.name} at 2.0 chrome is unchanged', (tester) async {
       await open(tester, platform: platform, scale: 2.0);
       expect(tester.takeException(), isNull);
+      expect(
+        tester.widgetList<AppBar>(bar).where((b) => b.bottom != null),
+        isEmpty,
+        reason: 'no title row under the bar',
+      );
+      if (platform == TargetPlatform.macOS) {
+        expect(find.byType(MacChatToolbar), findsOneWidget);
+        expect(bar, findsNothing, reason: 'the title stays in the toolbar');
+      }
       if (platform == TargetPlatform.iOS) {
         expect(tester.getSize(bar).height, 44);
         expect(find.descendant(of: bar, matching: find.text(title)), findsOne);

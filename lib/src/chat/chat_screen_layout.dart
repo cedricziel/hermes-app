@@ -75,6 +75,8 @@ extension _ChatScreenLayout on _ChatScreenState {
             : null;
         _latestReply.follow(chat, selected);
         final titleBelow = !isWide && chatTitleBelowBar(context);
+        final barTitle =
+            bot?.title ?? selected?.title ?? context.l10n.chatNewMessageTitle;
         final showNewChatFab =
             !isWide && platformChromeOf(context) == PlatformChrome.ios;
         ThreadSidebar buildSidebar({
@@ -295,12 +297,10 @@ extension _ChatScreenLayout on _ChatScreenState {
                                   ? folderLine(
                                       context,
                                       belowBar: false,
-                                      title: selected?.title ?? 'New message',
+                                      title: barTitle,
                                     )
                                   : Text(
-                                      bot?.title ??
-                                          selected?.title ??
-                                          'New message',
+                                      barTitle,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -310,7 +310,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                   bottom: titleBelow
                       ? chatTitleBelowBarRow(
                           context,
-                          text: bot?.title ?? selected?.title ?? 'New message',
+                          text: barTitle,
                           avatar: _avatar(),
                         )
                       : null,
