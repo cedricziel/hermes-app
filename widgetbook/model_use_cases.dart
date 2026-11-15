@@ -3,6 +3,7 @@ import 'package:hermes_app/src/models/auxiliary_models.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
+import 'package:hermes_app/src/models/widgets/model_setup_dialog.dart';
 import 'package:hermes_app/src/settings/widgets/helper_model_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -142,6 +143,31 @@ WidgetbookNode modelNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
+      name: 'ModelSetupAlert',
+      useCases: [
+        ...onEachPlatform(
+          'Default profile',
+          (_) =>
+              _behindAlert(ModelSetupAlert(profile: null, onCheckAgain: () {})),
+        ),
+        ...onEachPlatform(
+          'Named profile',
+          (_) => _behindAlert(
+            ModelSetupAlert(profile: 'work-assistant', onCheckAgain: () {}),
+          ),
+        ),
+        ...onEachPlatform(
+          'Profile name that needs quoting',
+          (_) => _behindAlert(
+            ModelSetupAlert(
+              profile: "it's a long profile",
+              onCheckAgain: () {},
+            ),
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
       name: 'HelperModelList',
       useCases: [
         ...onEachPlatform(
@@ -275,3 +301,12 @@ class _PillState extends State<_Pill> {
     ),
   );
 }
+
+/// The alert as the app shows it: centred over a dimmed page.
+Widget _behindAlert(Widget alert) => Stack(
+  children: [
+    const Scaffold(body: Center(child: Text('Chat'))),
+    const ModalBarrier(dismissible: false, color: Colors.black54),
+    Center(child: alert),
+  ],
+);
