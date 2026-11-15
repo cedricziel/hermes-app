@@ -593,6 +593,32 @@ void main() {
       expect(failure(await repository.runStatus()), CuratorFailure.timeout);
     });
 
+    test('a poll whose send times out is a timeout', () async {
+      failWith(
+        'GET',
+        '/api/actions/curator-run/status',
+        (r) => DioException.sendTimeout(
+          timeout: const Duration(seconds: 10),
+          requestOptions: r,
+        ),
+      );
+
+      expect(failure(await repository.runStatus()), CuratorFailure.timeout);
+    });
+
+    test('a poll whose connect times out is offline', () async {
+      failWith(
+        'GET',
+        '/api/actions/curator-run/status',
+        (r) => DioException.connectionTimeout(
+          timeout: const Duration(seconds: 5),
+          requestOptions: r,
+        ),
+      );
+
+      expect(failure(await repository.runStatus()), CuratorFailure.offline);
+    });
+
     test('a poll that cannot connect is offline', () async {
       failWith(
         'GET',

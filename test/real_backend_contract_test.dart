@@ -352,6 +352,7 @@ void main() {
 
     tearDownAll(() async {
       if (url == null) return;
+      DioException? firstError;
       for (final name in [profile, gone]) {
         try {
           await client.raw.deleteProfileEndpointApiProfilesNameDelete(
@@ -359,9 +360,10 @@ void main() {
           );
         } on DioException catch (error) {
           // `gone` is already deleted when its test ran.
-          if (error.response?.statusCode != 404) rethrow;
+          if (error.response?.statusCode != 404) firstError ??= error;
         }
       }
+      if (firstError != null) throw firstError;
     });
 
     T value<T>(CuratorResult<T> result) {
@@ -448,6 +450,10 @@ void main() {
         );
         expect(
           (await curator.run(profile: 'bad name') as CuratorFailed).kind,
+          CuratorFailure.refused,
+        );
+        expect(
+          (await curator.run(profile: '') as CuratorFailed).kind,
           CuratorFailure.refused,
         );
         // The unnamed run Hermes refuses with a 400 is not provoked here: it
