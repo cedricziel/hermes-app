@@ -133,6 +133,52 @@ void main() {
       expect(find.textContaining('line 6\n'), findsOneWidget);
     });
 
+    testWidgets('the earlier-lines note is its own muted, non-code line', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          OutputLinesTile(
+            label: 'Show output',
+            lines: [for (var i = 1; i <= 35; i++) 'line $i'],
+            initiallyOpen: true,
+            selectable: false,
+            maxLines: 30,
+            earlierLines: 2,
+            earlierLabel: (n) => '$n earlier lines not shown',
+          ),
+        ),
+      );
+      final note = tester.widget<Text>(find.text('7 earlier lines not shown'));
+      final lines = tester.widget<Text>(find.textContaining('line 6\n'));
+      expect(note.style!.fontFamily, isNot('monospace'));
+      expect(lines.style!.fontFamily, 'monospace');
+      expect(note.style!.color, isNot(lines.style!.color));
+      expect(lines.data, isNot(contains('earlier')));
+      expect(
+        tester.getTopLeft(find.text('7 earlier lines not shown')).dy,
+        lessThan(tester.getTopLeft(find.textContaining('line 6\n')).dy),
+      );
+    });
+
+    testWidgets('blank mode leaves no note and no line text', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          OutputLinesTile(
+            label: 'Show output',
+            lines: [for (var i = 1; i <= 35; i++) 'line $i'],
+            initiallyOpen: true,
+            blank: true,
+            blankNote: 'Hidden',
+            maxLines: 30,
+            earlierLabel: (n) => '$n earlier lines not shown',
+          ),
+        ),
+      );
+      expect(find.textContaining('earlier'), findsNothing);
+      expect(find.textContaining('line 6'), findsNothing);
+    });
+
     testWidgets('a footnote sits under the box', (tester) async {
       await tester.pumpWidget(
         _host(
