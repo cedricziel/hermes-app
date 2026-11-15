@@ -174,6 +174,7 @@ class PlainCodeBlock extends StatelessWidget {
                           children: [
                             TextSpan(
                               text: String.fromCharCode(icon.codePoint),
+                              semanticsLabel: '',
                               style: TextStyle(
                                 fontFamily: icon.fontFamily,
                                 package: icon.fontPackage,
@@ -193,21 +194,18 @@ class PlainCodeBlock extends StatelessWidget {
                 ),
               ),
             ),
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Padding(
-              padding:
-                  style.padding ?? const EdgeInsets.fromLTRB(16, 10, 16, 16),
-              child: Text(
-                safeContentText(codes),
-                style: TextStyle(
-                  fontFamily: family ?? 'JetBrainsMono',
-                  package: family == null
-                      ? 'gpt_markdown'
-                      : style.fontFamilyPackage,
-                  fontSize: style.fontSize,
-                  color: style.textColor,
-                ),
+          Padding(
+            padding: style.padding ?? const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: Text(
+              safeContentText(codes),
+              textDirection: TextDirection.ltr,
+              style: TextStyle(
+                fontFamily: family ?? 'JetBrainsMono',
+                package: family == null
+                    ? 'gpt_markdown'
+                    : style.fontFamilyPackage,
+                fontSize: style.fontSize,
+                color: style.textColor,
               ),
             ),
           ),
@@ -243,38 +241,46 @@ class BoundedMarkdown extends StatefulWidget {
   State<BoundedMarkdown> createState() => _BoundedMarkdownState();
 }
 
+/// An upper bound of the code blocks in [markdown], from one scan of the text:
+/// a closed fence has two markers (` ``` ` or `~~~`), an open one has one, and
+/// a `<pre` block counts as two. A marker inside a code block or a sentence
+/// only raises it.
+int codeFenceBound(String markdown) {
+  var markers = 0;
+  for (final marker in const ['```', '~~~', '<pre']) {
+    final weight = marker == '<pre' ? 2 : 1;
+    var at = markdown.indexOf(marker);
+    while (at >= 0) {
+      markers += weight;
+      at = markdown.indexOf(marker, at + marker.length);
+    }
+  }
+  return (markers + 1) ~/ 2;
+}
+
 class _BoundedMarkdownState extends State<BoundedMarkdown> {
   final _budget = CodeHighlightBudget();
 
-  /// The place in the document of the block asked about last, and whether that
-  /// block was closed. `GptMarkdown` keeps the blocks it already built and asks
-  /// only about the new ones (and the unclosed last one, again), so a place
-  /// cannot be counted from the start of each build: a block that follows a
-  /// closed one is the next place, an unclosed one asked again is the same.
-  int _place = -1;
-  bool _placeClosed = true;
+  /// [codeFenceBound] of the current data.
+  int _bound = 0;
 
-  void _restart() {
-    _place = -1;
-    _placeClosed = true;
-  }
+  /// Blocks asked about since this widget last built. In a document over the
+  /// cap every render is a whole one (see [build]), so the place of a block is
+  /// this count modulo [_bound]: a whole render that the renderer starts on its
+  /// own, without a build here, comes out the same.
+  int _asked = 0;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // The renderer builds every block again when its theme changes.
-    _restart();
+  void initState() {
+    super.initState();
+    _bound = codeFenceBound(widget.data);
   }
 
   @override
   void didUpdateWidget(BoundedMarkdown old) {
     super.didUpdateWidget(old);
-    // A reply that streams only grows, and only its new blocks are asked
-    // about; anything else is built from its first block.
-    final grew =
-        widget.data.length > old.data.length &&
-        widget.data.startsWith(old.data);
-    if (!grew) _restart();
+    if (widget.data != old.data) _bound = codeFenceBound(widget.data);
+    // A reply that streams only grows; anything else is another document.
     if (!widget.data.startsWith(old.data)) _budget.clear();
   }
 
@@ -288,17 +294,18 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
     // scales itself, as in the renderer's default block.
     final scalesItsOwnText =
         context.findAncestorWidgetOfExactType<RichText>() == null;
-    if (_placeClosed) _place++;
-    _placeClosed = closed;
-    if (_place >= kCodeFieldMaxCount) {
-      return PlainCodeBlock(
-        name: name,
-        codes: code,
-        style: style,
-        scalesItsOwnText: scalesItsOwnText,
-      );
+    if (_bound > kCodeFieldMaxCount) {
+      final place = _asked++ % _bound;
+      if (place >= kCodeFieldMaxCount) {
+        return PlainCodeBlock(
+          name: name,
+          codes: code,
+          style: style,
+          scalesItsOwnText: scalesItsOwnText,
+        );
+      }
+      _budget.seek(place);
     }
-    _budget.seek(_place);
     return CodeField(
       scalesItsOwnText: scalesItsOwnText,
       name: name,
@@ -312,10 +319,16 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
 
   @override
   Widget build(BuildContext context) {
-    // Depend on what the renderer depends on, to learn of a rebuild of all.
-    mui.Theme.of(context);
-    MediaQuery.textScalerOf(context);
+    _budget.begin();
+    _asked = 0;
     return GptMarkdown(
+      // `GptMarkdown` keeps the blocks it built and asks only about the new or
+      // changed ones, from which a block's place in the document cannot be
+      // known. A document that may hold more fences than the cap is therefore
+      // built whole each time its text changes (a new state, no kept blocks),
+      // so that the places are counted from its first block; one within the cap
+      // never needs a place and keeps the incremental render.
+      key: _bound > kCodeFieldMaxCount ? ValueKey(widget.data) : null,
       widget.data,
       style: widget.style,
       onLinkTap: widget.onLinkTap,

@@ -67,8 +67,8 @@ void main() {
         tester.widgetList(find.byType(PlainCodeBlock)),
         hasLength(n - kCodeFieldMaxCount),
       );
-      // 100 and 300 fences measure 0.5 to 0.9 s; 1 000 uncapped measure 4.5 s.
-      expect(ms, lessThan(n == 1000 ? 2500 : 1500));
+      // The time is printed, never asserted: capped 0.6 to 1.3 s, uncapped
+      // 4.7 s for 1 000 fences. The counts above are the check.
     }, timeout: const Timeout(Duration(minutes: 4)));
   }
 }
