@@ -221,6 +221,21 @@ void main() {
       expect(uncaught, isEmpty);
     });
 
+    test('on Linux a FormatException and any String are swallowed', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final s = linuxSignals(() {
+          Future<void>.error(const FormatException('bogus transport'));
+          Future<void>.error('Failed to resolve host');
+          Future<void>.error('Invalid port number');
+          return Future.value(current);
+        });
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught, isEmpty);
+    });
+
     test(
       'on Linux an unrelated TimeoutException reaches the parent zone',
       () async {
@@ -271,6 +286,43 @@ void main() {
       test('is false with no address and no socket', () {
         expect(check({}, {}), isFalse);
         expect(check({'DBUS_SYSTEM_BUS_ADDRESS': ''}, {}), isFalse);
+      });
+
+      test('an address that does not parse into a transport is no bus', () {
+        for (final address in [
+          'bogus',
+          'unix:guid=1',
+          'unix:path=',
+          'tcp:host=x,port=y',
+          'tcp:host=x',
+          'tcp:port=1',
+          'tcp:host=x,port=1,family=ipv5',
+          'unix:path=/x,bad',
+          'unix:dir=/tmp',
+          'disabled:;unix:path=/x',
+        ]) {
+          expect(
+            check(
+              {'DBUS_SYSTEM_BUS_ADDRESS': address},
+              {'/run/dbus/system_bus_socket'},
+            ),
+            isFalse,
+            reason: address,
+          );
+        }
+      });
+
+      test('a well-formed tcp address is a bus', () {
+        expect(
+          check({'DBUS_SYSTEM_BUS_ADDRESS': 'tcp:host=x,port=1'}, {}),
+          isTrue,
+        );
+        expect(
+          check({
+            'DBUS_SYSTEM_BUS_ADDRESS': 'tcp:host=x,port=1,family=ipv6',
+          }, {}),
+          isTrue,
+        );
       });
 
       test('is true with an address or either socket', () {

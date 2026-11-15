@@ -55,15 +55,51 @@ const kLinuxCheckTimeout = Duration(seconds: 5);
 /// Whether [error] comes from the D-Bus connection: a socket or OS error, an
 /// exception of the `dbus` package (matched by name, since it is not a direct
 /// dependency; this is what a bus without NetworkManager throws), or one of
-/// the plain strings it throws from opening a socket. An unrelated
+/// the plain strings and `FormatException`s it throws for a malformed
+/// address. An unrelated
 /// `TimeoutException` is not one; the bounded check handles its own.
 bool isLinuxBusError(Object error) =>
     error is SocketException ||
     error is OSError ||
-    (error is String &&
-        (error.startsWith('D-Bus') ||
-            error.startsWith('Unable to determine D-Bus'))) ||
+    // The dbus package is the only thing in these zones that throws raw
+    // Strings (and FormatExceptions) for a malformed address.
+    error is String ||
+    error is FormatException ||
     error.runtimeType.toString().startsWith('DBus');
+
+/// An address the `dbus` package can open. It reads the whole value as one
+/// address (no `;` list) and opens only `unix:` with a `path=` or `abstract=`
+/// and `tcp:` with a `host=`, a numeric `port=` and, if given, `family=` ipv4
+/// or ipv6; every property must be `key=value`. Anything else (such as the
+/// `disabled:` that switches D-Bus off) makes the package throw, so the plugin
+/// is not started for it.
+bool usableBusAddress(String address) {
+  Map<String, String>? props(String rest) {
+    final out = <String, String>{};
+    for (final p in rest.split(',')) {
+      final eq = p.indexOf('=');
+      if (eq <= 0) return null;
+      out[p.substring(0, eq)] = p.substring(eq + 1);
+    }
+    return out;
+  }
+
+  if (address.startsWith('unix:')) {
+    final p = props(address.substring(5));
+    return p != null &&
+        ((p['path']?.isNotEmpty ?? false) ||
+            (p['abstract']?.isNotEmpty ?? false));
+  }
+  if (address.startsWith('tcp:')) {
+    final p = props(address.substring(4));
+    final family = p?['family'];
+    return p != null &&
+        (p['host']?.isNotEmpty ?? false) &&
+        int.tryParse(p['port'] ?? '') != null &&
+        (family == null || family == 'ipv4' || family == 'ipv6');
+  }
+  return false;
+}
 
 /// Whether a D-Bus system bus can exist: `DBUS_SYSTEM_BUS_ADDRESS` is set, or
 /// one of the usual sockets is there.
@@ -72,8 +108,8 @@ bool linuxSystemBusAvailable({
   bool Function(String path)? exists,
 }) {
   if ((environment ?? Platform.environment)['DBUS_SYSTEM_BUS_ADDRESS']
-      case final address? when address.isNotEmpty) {
-    return true;
+      case final address?) {
+    return usableBusAddress(address);
   }
   final present = exists ?? _socketExists;
   return present('/var/run/dbus/system_bus_socket') ||
