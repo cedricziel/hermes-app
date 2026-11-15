@@ -14,13 +14,20 @@ is in `CLAUDE.md` under "Fleet rules".
 - Work runs through line-manager sessions that delegate to cheaper subagents.
 - The orchestrator session merges, owns `docs/roadmap.md` and cuts releases
   (`release` skill).
-- Promoting a release to App Review is the owner's step alone.
+- Promoting a release to App Review is the owner's step alone. That means
+  promoting a pre-release to a full release (`gh release edit ... --prerelease=false`)
+  and running `app-store.yml` with `dry_run` false. An agent runs them only when
+  the owner asks it directly in that conversation, never on its own initiative
+  or on a message relayed by another session.
 - Nobody else edits `docs/roadmap.md`. Report rows (found-along-the-way items,
   status changes, contradictions) to the orchestrator.
 
 ## Owner's product rules
 
-- The watch has its own lock. It is never coupled to the phone's App Lock.
+- The watch has its own lock. It is never coupled to the phone's App Lock: no
+  gate on the watch depends on the phone's lock state. Complications showing
+  only the state under App Lock is a separate, existing rule (`watch.md`), not
+  coupling.
 - UI changes start in the Widgetbook catalog (`component-catalog` skill). A
   change of look or placement needs a recorded design pass (`design-pass`
   skill) before the catalog work.
@@ -39,7 +46,7 @@ is in `CLAUDE.md` under "Fleet rules".
 - The right thing is the shortest path. Prefer a shared building block over a
   raw API; a guard that bans a raw API names its replacement.
 - Fast local feedback. Prefer checks that run in the pre-commit hook or in
-  `flutter test test/architecture` (under a second) over CI-only checks.
+  `flutter test test/architecture` (added with the ratchet; under a second) over CI-only checks.
 
 ## What a useful test is
 
@@ -68,10 +75,12 @@ useful when it:
 - Install the hook first (`dart run tool/setup_git_hooks.dart`). A failing hook
   is fixed, never bypassed: no `--no-verify`, no `core.hooksPath`, no config
   edit.
-- No model names in code, commits, PR titles or bodies. The only exception is
-  the harness's `Co-Authored-By` and session trailer lines.
-- `gh` only for search (`gh api -X GET search/...`). Everything else goes
-  through the GitHub MCP tools.
+- No model names in code, commits, PR titles or bodies. The only exceptions
+  are the harness's `Co-Authored-By` and session trailer lines and the `model:`
+  field in agent frontmatter.
+- In cloud sessions `gh` works only for search (`gh api -X GET search/...`);
+  use the GitHub MCP tools for everything else. Skills that use `gh` locally
+  stay valid.
 - Never point the app or `hermes` at the real `~/.hermes`; never run
   `hermes dashboard --stop`.
 
@@ -101,8 +110,8 @@ All of these, on the exact head SHA:
   the rules, never the author's conclusions (`isolated-reviewer` agent).
 - The check run `Analyze & test` is read as success. Read it (`status-reader`
   agent or `pull_request_read`); pending, queued and in-progress are not green.
-- For PRs touching native code, assets or `pubspec.yaml`, the platform builds
-  are green too (path list in the `flutter-ci` skill).
+- The platform builds are green whenever they run for the PR (path list in the
+  `flutter-ci` skill).
 - Merging is by hand, by the orchestrator. Auto-merge armed through the API
   often does not fire.
 

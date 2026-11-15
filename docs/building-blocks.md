@@ -14,7 +14,7 @@ Rules are stated in full in the area's file under `docs/architecture/`.
 | REST routes the spec cannot type | Hand-written exceptions: `/api/status`, `/api/auth/providers`, `/api/auth/me`, `fetchKanbanAttachment`, `fetchManagedFile`, `downloadFsFile`, `fetchSessionExport` | `lib/src/api/hermes_api_client.dart` | Add here only when the generated method decodes JSON and cannot return the bytes. |
 | A path on the server | `ServerPath` | `lib/src/files/server_path.dart` | Every path is one the server returned; no join, never outside the git root. |
 | List or read server files | `/api/fs` repository (`list`, `git-root`, `default-cwd`, `read-text`, `download`) | `lib/src/files/hermes_files_repository.dart` | `/api/fs` only, with `profile`; `/api/files` is left to `MEDIA:` attachments. |
-| Download a file | `MediaStore.stageDownload`, `FileExport` (Save) | `lib/src/chat/media/media_store.dart` | Streams to a `.part` file, never in memory; nothing downloads without a tap. |
+| Download a file | `MediaStore.stageDownload`, `FileExport` (Save) | `lib/src/chat/media/media_store.dart`, `lib/src/chat/media/file_export.dart` | Streams to a `.part` file, never in memory; nothing downloads without a tap. |
 | Clear downloads on sign-out or lock | `MediaStore.clearFileDownloads`, `FilesLockCleanup` | `lib/src/chat/media/media_store.dart`, `files_lock_cleanup.dart` | Every Files download goes on sign-out and App Lock. |
 | Secret-looking file names | `SecretNames` | `lib/src/files/secret_names.dart` | Ask first; cache under `fs-secret:`; delete when the preview closes. |
 | Platform limits on files | `FilesPlatformPolicy` | `lib/src/files/files_platform_policy.dart` | No Open with... for runnable types on Windows; Mark of the Web on staged files. |
@@ -23,8 +23,8 @@ Rules are stated in full in the area's file under `docs/architecture/`.
 | Breadcrumbs, spans, app events | `Breadcrumbs`, `Telemetry` | `lib/src/telemetry/breadcrumbs.dart`, `telemetry.dart` | Fixed names, counts, flags and outcomes only; never content, titles, profile names, addresses, ids or secrets. Must never break the app. |
 | Server details on spans | `hermes.*` attributes | `lib/src/telemetry/hermes_server_attributes.dart` | Span attributes, never resource attributes. |
 | A new system widget | `kSurfaceWidgetKinds` | `lib/src/surfaces/widget_kinds.dart` | Add the kind so snapshot writes reload it; extensions read only the snapshot. |
-| A menu bar chord | `MacCommandScope`, `menuLayout` | `lib/src/macos/mac_commands.dart` | The menu owns the chord; add no key handler for it. |
-| Cleartext `http://` | `isLocalHost`, `allowCleartext` | `lib/src/auth/auth_controller.dart` | Only local hosts unless the user confirmed it. |
+| A menu bar chord | `MacCommandScope`, `menuLayout` | `lib/src/macos/mac_commands.dart`, `lib/src/macos/menu_layout.dart` | The menu owns the chord; add no key handler for it. |
+| Cleartext `http://` | `isLocalHost`, `allowCleartext` | `lib/src/auth/server_address.dart` (`isLocalHost`), `lib/src/auth/auth_controller.dart` | Only local hosts unless the user confirmed it. |
 | Platform hint text changed | `earlierAppPlatformHints` | `lib/src/platform_hint/platform_hint_repository.dart` | Add the old text when `appPlatformHint` changes. |
 
 ## UI

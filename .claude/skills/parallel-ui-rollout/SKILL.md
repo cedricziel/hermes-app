@@ -108,8 +108,9 @@ levels and the orchestrator does the reviewing:
   lead had missed in most PRs of the run that added this section.
 - The orchestrator sends the findings back to the same lead, which keeps its
   context, and the lead writes the `## Review` section when it pushes the fixes.
-- Merge only after that follow-up push, and only once `Analyze & test` has
-  passed on the PR's current head (see "Child cloud sessions").
+- Merge only after that follow-up push has been re-reviewed (a new isolated
+  review of the new head SHA, in `## Review`), and only once `Analyze & test`
+  has passed on the PR's current head (see "Child cloud sessions").
 - A follow-up push cancels the previous commit's CI run, and `Analyze & test`
   then reports failure for the old commit. Compare a failure event's `head_sha`
   with the PR's current head before acting on it.
