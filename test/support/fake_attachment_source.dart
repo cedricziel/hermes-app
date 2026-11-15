@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
@@ -23,6 +25,9 @@ class FakeAttachmentSource implements AttachmentSource {
   /// What [pick] returns per origin; a missing entry means the user cancelled.
   final picks = <AttachOrigin, List<SharedFile>>{};
 
+  /// When set, [pick] waits for it, like a picker window that stays open.
+  Completer<void>? gate;
+
   /// Thrown by [pick] when set.
   Object? pickFailure;
 
@@ -39,6 +44,7 @@ class FakeAttachmentSource implements AttachmentSource {
   @override
   Future<List<SharedFile>> pick(AttachOrigin origin) async {
     requested.add(origin);
+    await gate?.future;
     final failure = pickFailure;
     if (failure != null) throw failure; // ignore: only_throw_errors
     return picks[origin] ?? const [];

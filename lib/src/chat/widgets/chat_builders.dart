@@ -40,8 +40,10 @@ import '../../providers/widgets/connect_model_card.dart'
     show ProviderReplyFailure;
 import 'reasoning_block.dart';
 import 'review_summary_note.dart';
+import 'scroll_to_latest_button.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
+import 'reply_reconnecting_note.dart';
 import 'subagent_card.dart';
 import 'tool_call_expansion.dart';
 import 'tool_call_group.dart';
@@ -87,7 +89,8 @@ typedef ScreenPreviewBuilder = Widget Function(ScreenPreviewRun run);
 /// tapped one to [onPickPrompt]; a [welcomeCard] takes their place. A reply
 /// that failed with the model provider's error offers [onCheckProviders].
 /// While [onLoadOlder] is set, scrolling to the top of the thread calls it.
-/// A tapped link goes to [openLink], the system browser when null.
+/// A tapped link goes to [openLink], the system browser when null. A
+/// [topSliver] sits above the first message and scrolls with the thread.
 Builders buildChatBuilders({
   required ValueChanged<StarterPrompt> onPickPrompt,
   List<StarterPrompt>? starterPrompts,
@@ -119,12 +122,18 @@ Builders buildChatBuilders({
   LinkOpener? openLink,
   ScreenPreviewBuilder? screenPreview,
   ValueChanged<String>? onShowAgentDetails,
+  Widget? topSliver,
   ToolCallExpansionStore? toolCallExpansion,
 }) {
   final onLinkTap = markdownLinkHandler(open: openLink);
   return Builders(
-    chatAnimatedListBuilder: (context, itemBuilder) =>
-        FollowingChatList(itemBuilder: itemBuilder, onEndReached: onLoadOlder),
+    chatAnimatedListBuilder: (context, itemBuilder) => FollowingChatList(
+      itemBuilder: itemBuilder,
+      onEndReached: onLoadOlder,
+      topSliver: topSliver,
+    ),
+    scrollToBottomBuilder: (context, animation, onPressed) =>
+        ScrollToLatestButton(animation: animation, onPressed: onPressed),
     textMessageBuilder:
         (context, message, index, {required isSentByMe, groupStatus}) =>
             _buildText(
@@ -257,7 +266,6 @@ Widget _buildText(
   final bubble = SelectionArea(
     child: ChatTextMessage(
       message: message,
-      isSentByMe: isSentByMe,
       linksDecoration: TextDecoration.underline,
       onLinkTap: onLinkTap,
       textStyle: style,
@@ -418,6 +426,15 @@ Widget _buildCustom(
           ReplyStatusKind.compressing => context.l10n.chatStatusCompressing,
           _ => metadata[kMetaThinkingActivity] as String,
         },
+      );
+    case kKindReconnecting:
+      final idle = metadata![kMetaReconnectIdle] == true;
+      return ReplyReconnectingNote(
+        text: idle
+            ? context.l10n.chatReplyReconnectIdle
+            : context.l10n.chatReplyReconnecting,
+        announceKey:
+            '${message.id}#${metadata[kMetaReconnectEpisode]}${idle ? 'i' : ''}',
       );
     case kKindInputRequest:
       return switch (metadata![kMetaInputRequest]) {

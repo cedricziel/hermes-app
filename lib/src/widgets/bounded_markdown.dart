@@ -1,7 +1,8 @@
 import 'package:flutter/widgets.dart';
-import 'package:gpt_markdown/custom_widgets/code_field.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:material_ui/material_ui.dart' as mui;
+
+import 'hermes_code_block.dart';
 
 /// The longest line of a code block that still gets syntax colours.
 const kHighlightMaxLine = 500;
@@ -142,7 +143,7 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
         (resolvedStyleSheet(context, config).codeBlock ??
                 const CodeBlockStyle())
             .resolve(mui.Theme.of(context).colorScheme);
-    return CodeField(
+    return HermesCodeBlock(
       // A block drawn inside a paragraph is scaled by it; one of its own
       // scales itself, as in the renderer's default block.
       scalesItsOwnText:
