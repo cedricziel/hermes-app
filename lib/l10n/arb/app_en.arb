@@ -5937,6 +5937,18 @@
   "@@x-area-shell": "",
 
   "@@x-area-skills": "",
+  "skillsCuratorAnnounceFinished": "Curator pass finished",
+  "@skillsCuratorAnnounceFinished": {
+    "description": "Announced by a screen reader once when a pass ends well."
+  },
+  "skillsCuratorAnnounceResumed": "Resumed",
+  "@skillsCuratorAnnounceResumed": {
+    "description": "Announced by a screen reader once after scheduled passes were switched back on."
+  },
+  "skillsCuratorAnnounceStarted": "Curator pass started",
+  "@skillsCuratorAnnounceStarted": {
+    "description": "Announced by a screen reader once when a pass starts."
+  },
   "skillsCuratorCantReach": "Can't reach Hermes",
   "@skillsCuratorCantReach": {
     "description": "Title of the banner and of error lines when the request never left the device."
@@ -5952,6 +5964,20 @@
   "skillsCuratorCheckedNothing": "No pass is running now.",
   "@skillsCuratorCheckedNothing": {
     "description": "Line after Check status found nothing running."
+  },
+  "skillsCuratorCheckedNothingSince": "No pass is running now. Last pass or first check {when}.",
+  "@skillsCuratorCheckedNothingSince": {
+    "description": "Line after Check status found nothing running. {when} is a relative time such as \"3 days ago\".",
+    "placeholders": {
+      "when": {
+        "type": "String",
+        "example": "3 days ago"
+      }
+    }
+  },
+  "skillsCuratorChecking": "Checking…",
+  "@skillsCuratorChecking": {
+    "description": "Status text of the Run now row while Check status is reading the server."
   },
   "skillsCuratorCouldntConfirm": "Couldn't confirm.",
   "@skillsCuratorCouldntConfirm": {
@@ -6023,7 +6049,8 @@
     "placeholders": {
       "date": {
         "type": "DateTime",
-        "format": "yMMMd"
+        "format": "d MMM y",
+        "isCustomDateFormat": "true"
       },
       "time": {
         "type": "DateTime",
@@ -6100,6 +6127,10 @@
   "skillsCuratorLostStart": "We couldn't tell if it started. Nothing was sent again. It may be running on the server.",
   "@skillsCuratorLostStart": {
     "description": "Warning line when no answer came to the request that starts a pass."
+  },
+  "skillsCuratorLostState": "Couldn't confirm the curator's state",
+  "@skillsCuratorLostState": {
+    "description": "Title of the banner when the status read got no answer in time."
   },
   "skillsCuratorNoOutput": "Hermes printed no output.",
   "@skillsCuratorNoOutput": {
@@ -6215,10 +6246,19 @@
   "@skillsCuratorShowOutput": {
     "description": "Label of the closed disclosure that opens the lines Hermes printed."
   },
-  "skillsCuratorStartedAt": "A pass started at {time}",
+  "skillsCuratorShowOutputEarlier": "Show output of the earlier pass",
+  "@skillsCuratorShowOutputEarlier": {
+    "description": "Label of the closed disclosure that opens the lines of a pass that is no longer shown as running."
+  },
+  "skillsCuratorStartedAt": "A pass started on {date} at {time}",
   "@skillsCuratorStartedAt": {
-    "description": "Subtitle when a newer last pass time was seen. {time} is a time of day.",
+    "description": "Subtitle when a newer last pass time was seen. {date} is a date such as 12 Nov 2026, {time} a time of day.",
     "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "d MMM y",
+        "isCustomDateFormat": "true"
+      },
       "time": {
         "type": "DateTime",
         "format": "Hm"

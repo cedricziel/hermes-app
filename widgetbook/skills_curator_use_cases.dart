@@ -34,6 +34,24 @@ CuratorStatusView _status({
   archiveAfterDays: archive,
 );
 
+// The controller's rules for when Run now and Check status are offered.
+const _canRun = {
+  CuratorRunView.idle,
+  CuratorRunView.finished,
+  CuratorRunView.failed,
+  CuratorRunView.notStarted,
+  CuratorRunView.checkedNothing,
+};
+const _canCheck = {
+  CuratorRunView.lostAnswer,
+  CuratorRunView.progressLost,
+  CuratorRunView.stillRunning,
+  CuratorRunView.stopped,
+  CuratorRunView.unconfirmed,
+  CuratorRunView.elsewhere,
+  CuratorRunView.unchecked,
+};
+
 CuratorSectionModel _model({
   CuratorLoadView load = CuratorLoadView.loaded,
   CuratorStatusView? status,
@@ -50,6 +68,7 @@ CuratorSectionModel _model({
   int earlier = 0,
   bool? hasOutput,
   bool blanked = false,
+  bool dropped = false,
 }) {
   final shown = status ?? _status();
   return CuratorSectionModel(
@@ -69,6 +88,9 @@ CuratorSectionModel _model({
     earlierLines: earlier,
     hasOutput: hasOutput ?? lines.isNotEmpty,
     outputBlanked: blanked,
+    outputDropped: dropped,
+    canRunNow: !checking && _canRun.contains(run),
+    canCheck: !checking && _canCheck.contains(run),
     now: _now,
   );
 }
@@ -338,6 +360,7 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
           ('Curator could not load', CuratorLoadView.unavailable),
           ('Other failure', CuratorLoadView.failed),
           ('Profile gone', CuratorLoadView.profileGone),
+          ('Status read lost', CuratorLoadView.lost),
         ])
           ..._states(name, _model(load: load), largest: name == 'Offline'),
       ],
@@ -411,6 +434,21 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
         ..._states(
           'Stopped, no exit code',
           _model(run: CuratorRunView.stopped),
+        ),
+        ..._states(
+          'Stopped, earlier lines',
+          _model(run: CuratorRunView.stopped, lines: _output),
+          open: true,
+          largest: true,
+        ),
+        ..._states(
+          'Checked, earlier lines',
+          _model(run: CuratorRunView.checkedNothing, lines: _output),
+          open: true,
+        ),
+        ..._states(
+          'Output dropped by App Lock',
+          _model(run: CuratorRunView.finished, dropped: true),
         ),
         ..._states('Unconfirmed', _model(run: CuratorRunView.unconfirmed)),
         ..._states(

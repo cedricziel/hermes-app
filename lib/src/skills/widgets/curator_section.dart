@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../chat/widgets/relative_time.dart';
@@ -26,6 +29,9 @@ enum CuratorLoadView {
   unavailable,
   failed,
   profileGone,
+
+  /// The read got no answer in time; reads are safe to repeat.
+  lost,
 }
 
 enum CuratorLastRunView { never, at, unknown }
@@ -96,6 +102,9 @@ class CuratorSectionModel {
     this.earlierLines = 0,
     this.hasOutput = false,
     this.outputBlanked = false,
+    this.outputDropped = false,
+    this.canRunNow = false,
+    this.canCheck = false,
     this.now,
   });
 
@@ -109,10 +118,13 @@ class CuratorSectionModel {
   final CuratorRunView run;
   final CuratorNotStartedView? notStarted;
 
-  /// Hermes' own text of a spawn failure.
+  /// Hermes' own text of a spawn failure. Server text: it must arrive already
+  /// cleaned for display (control and bidi characters made visible), like the
+  /// output lines. The widget shows it in a title and never makes it
+  /// selectable.
   final String? notStartedDetail;
 
-  /// Hermes' last line of a failed pass.
+  /// Hermes' last line of a failed pass. Same rules as [notStartedDetail].
   final String? failureLine;
   final bool checking;
   final bool checkFailed;
@@ -123,6 +135,15 @@ class CuratorSectionModel {
   /// The pass printed lines, even when they are blanked now.
   final bool hasOutput;
   final bool outputBlanked;
+
+  /// The lines were dropped (App Lock) and are gone, not just hidden.
+  final bool outputDropped;
+
+  /// The controller's answers: the widget obeys them and keeps no rule of
+  /// its own. Run now is enabled with [canRunNow]; Check status with
+  /// [canCheck].
+  final bool canRunNow;
+  final bool canCheck;
 
   /// The clock for "3 days ago"; the device's when null.
   final DateTime? now;
@@ -158,7 +179,11 @@ String _length(AppLocalizations l10n, int hours) => hours % 24 == 0
 /// The skill curator of one profile as a settings group: its status, the
 /// pause switch and the Run now row with its result. A plain-model widget:
 /// the controller's state in, callbacks out.
-class CuratorSection extends StatelessWidget {
+///
+/// It announces to a screen reader, once each and only when the state
+/// changes (never when it first builds and never while polling): a pass
+/// starting, ending, and the switch turning on or off.
+class CuratorSection extends StatefulWidget {
   const CuratorSection({
     super.key,
     required this.model,
@@ -167,6 +192,63 @@ class CuratorSection extends StatelessWidget {
   });
 
   /// Opens the "Show output" tile at first, for the catalog and tests.
+  final bool outputInitiallyOpen;
+  final CuratorSectionModel model;
+  final CuratorSectionCallbacks callbacks;
+
+  @override
+  State<CuratorSection> createState() => _CuratorSectionState();
+}
+
+class _CuratorSectionState extends State<CuratorSection> {
+  @override
+  void didUpdateWidget(CuratorSection old) {
+    super.didUpdateWidget(old);
+    final was = old.model;
+    final now = widget.model;
+    final l10n = context.l10n;
+    bool going(CuratorRunView r) =>
+        r == CuratorRunView.starting || r == CuratorRunView.following;
+    bool ended(CuratorRunView r) =>
+        r == CuratorRunView.finished || r == CuratorRunView.failed;
+    final text = going(now.run) && !going(was.run)
+        ? l10n.skillsCuratorAnnounceStarted
+        : now.run == CuratorRunView.finished && !ended(was.run)
+        ? l10n.skillsCuratorAnnounceFinished
+        : now.run == CuratorRunView.failed && !ended(was.run)
+        ? l10n.skillsCuratorFailed
+        : was.pause == CuratorPauseView.saving &&
+              now.pause == CuratorPauseView.idle
+        ? (now.paused == true
+              ? l10n.skillsCuratorStatusPaused
+              : l10n.skillsCuratorAnnounceResumed)
+        : null;
+    if (text != null) {
+      unawaited(
+        SemanticsService.sendAnnouncement(
+          View.of(context),
+          text,
+          Directionality.of(context),
+        ).catchError((Object _) {}),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _CuratorBody(
+    model: widget.model,
+    callbacks: widget.callbacks,
+    outputInitiallyOpen: widget.outputInitiallyOpen,
+  );
+}
+
+class _CuratorBody extends StatelessWidget {
+  const _CuratorBody({
+    required this.model,
+    required this.callbacks,
+    required this.outputInitiallyOpen,
+  });
+
   final bool outputInitiallyOpen;
   final CuratorSectionModel model;
   final CuratorSectionCallbacks callbacks;
@@ -216,6 +298,11 @@ class CuratorSection extends StatelessWidget {
         tone: AppBannerTone.warning,
         title: l10n.skillsCuratorProfileGone,
       ),
+      CuratorLoadView.lost => AppBanner(
+        tone: AppBannerTone.warning,
+        title: l10n.skillsCuratorLostState,
+        action: retry,
+      ),
       CuratorLoadView.loading => null,
       _ => AppBanner(
         tone: AppBannerTone.error,
@@ -251,6 +338,7 @@ class CuratorSection extends StatelessWidget {
         subtitleMaxLines: null,
         wrapWhenStacked: true,
         leading: AppIcon(
+          size: _scaled(context, GroupedMetrics.of(context).leadingSize),
           off
               ? AppIcons.radioOff
               : paused == null
@@ -266,12 +354,10 @@ class CuratorSection extends StatelessWidget {
             : paused
             ? l10n.skillsCuratorStatusPaused
             : l10n.skillsCuratorStatusActive,
-        subtitle: off
-            ? l10n.skillsCuratorOffNote
-            : paused == true
-            ? l10n.skillsCuratorPausedNote
-            : null,
+        subtitle: !off && paused == true ? l10n.skillsCuratorPausedNote : null,
       ),
+      // A line of its own, so the value does not sit beside wrapped text.
+      if (off) _NoteRow(l10n.skillsCuratorOffNote),
       if (!off) ...[
         _LastRanRow(status: status, now: model.now),
         GroupedRow(
@@ -302,6 +388,10 @@ class CuratorSection extends StatelessWidget {
     ];
   }
 
+  /// [size] at least, and as large as the text size asks.
+  static double _scaled(BuildContext context, double size) =>
+      math.max(size, MediaQuery.textScalerOf(context).scale(size));
+
   Widget _pauseRow(BuildContext context, AppLocalizations l10n, bool? known) {
     if (known == null) {
       return _NoteRow(l10n.skillsCuratorPauseUnreadable);
@@ -318,12 +408,22 @@ class CuratorSection extends StatelessWidget {
           ? '${l10n.skillsCuratorPause}, ${l10n.skillsCuratorPauseSaving}'
           : l10n.skillsCuratorPause,
     );
-    // The switch follows the text size, since the design system's does not.
+    // The switch follows the text size, since the design system's does not:
+    // its own size, scaled, at the start of the line, and never under the
+    // platform's target.
     if (scale > 1) {
+      final target = switch (platformChromeOf(context)) {
+        PlatformChrome.material => 48.0,
+        PlatformChrome.ios => kAppleMinTapTarget,
+        PlatformChrome.macos => 28.0,
+      };
       control = SizedBox(
         width: 52 * scale,
-        height: 48 * scale,
-        child: FittedBox(child: control),
+        height: math.max(target, 32 * scale),
+        child: FittedBox(
+          alignment: AlignmentDirectional.centerStart,
+          child: control,
+        ),
       );
     }
     final row = GroupedRow(
@@ -360,91 +460,85 @@ class CuratorSection extends StatelessWidget {
     child: const BusyBar(minHeight: 3),
   );
 
-  /// Run now is enabled only when nothing is known or possibly running.
-  static bool canRunNow(CuratorSectionModel model) =>
-      !model.checking &&
-      const {
-        CuratorRunView.idle,
-        CuratorRunView.finished,
-        CuratorRunView.failed,
-        CuratorRunView.notStarted,
-        CuratorRunView.checkedNothing,
-      }.contains(model.run);
-
   List<Widget> _runRows(
     BuildContext context,
     AppLocalizations l10n,
     CuratorStatusView status,
   ) {
     final run = model.run;
+    final when = model.now;
+    final lastAt = status.lastRunAt;
     GroupedActionButton check() => GroupedActionButton(
       label: l10n.skillsCuratorCheckStatus,
-      onPressed: model.checking ? null : callbacks.onCheckStatus,
+      onPressed: model.canCheck ? callbacks.onCheckStatus : null,
     );
     GroupedActionStatus line(GroupedActionPhase phase, String text) =>
         GroupedActionStatus(phase: phase, text: text, buttons: [check()]);
-    final unsure = switch (run) {
-      CuratorRunView.stopped ||
-      CuratorRunView.unconfirmed ||
-      CuratorRunView.lostAnswer ||
-      CuratorRunView.progressLost ||
-      CuratorRunView.stillRunning ||
-      CuratorRunView.elsewhere ||
-      CuratorRunView.unchecked => true,
-      _ => false,
-    };
+    // A Check status that got no answer adds its own line to the state's.
+    GroupedActionStatus unsure(GroupedActionPhase phase, String text) => line(
+      phase,
+      model.checkFailed ? '$text\n${l10n.skillsCuratorCouldntConfirm}' : text,
+    );
     final working =
         run == CuratorRunView.starting || run == CuratorRunView.following;
     String? subtitle = l10n.skillsCuratorRunNowNote;
     GroupedActionStatus? state;
-    if (working) {
+    if (model.checking) {
+      state = GroupedActionStatus(
+        phase: GroupedActionPhase.working,
+        text: l10n.skillsCuratorChecking,
+      );
+    } else if (working) {
       subtitle = l10n.skillsCuratorLeaveNote;
       state = GroupedActionStatus(
         phase: GroupedActionPhase.working,
         text: l10n.skillsCuratorRunning,
       );
-    } else if (unsure && model.checkFailed) {
-      state = line(
-        GroupedActionPhase.warning,
-        l10n.skillsCuratorCouldntConfirm,
-      );
     } else {
       switch (run) {
         case CuratorRunView.stopped:
-          state = line(GroupedActionPhase.neutral, l10n.skillsCuratorStopped);
+          state = unsure(GroupedActionPhase.neutral, l10n.skillsCuratorStopped);
         case CuratorRunView.unconfirmed:
-          final at = model.startedAt;
-          if (at != null) {
-            subtitle = l10n.skillsCuratorStartedAt(at.toLocal());
-          }
-          state = line(
+          final at = model.startedAt?.toLocal();
+          if (at != null) subtitle = l10n.skillsCuratorStartedAt(at, at);
+          state = unsure(
             GroupedActionPhase.warning,
             l10n.skillsCuratorUnconfirmed,
           );
         case CuratorRunView.lostAnswer:
-          state = line(GroupedActionPhase.warning, l10n.skillsCuratorLostStart);
+          state = unsure(
+            GroupedActionPhase.warning,
+            l10n.skillsCuratorLostStart,
+          );
         case CuratorRunView.progressLost:
-          state = line(
+          state = unsure(
             GroupedActionPhase.warning,
             l10n.skillsCuratorProgressLost,
           );
         case CuratorRunView.stillRunning:
-          state = line(
+          state = unsure(
             GroupedActionPhase.neutral,
             l10n.skillsCuratorStillRunning,
           );
         case CuratorRunView.elsewhere:
           subtitle = l10n.skillsCuratorElsewhere;
-          state = line(
+          state = unsure(
             GroupedActionPhase.neutral,
             l10n.skillsCuratorElsewhereNote,
           );
         case CuratorRunView.unchecked:
-          state = line(GroupedActionPhase.warning, l10n.skillsCuratorUnchecked);
+          state = unsure(
+            GroupedActionPhase.warning,
+            l10n.skillsCuratorUnchecked,
+          );
         case CuratorRunView.checkedNothing:
           state = GroupedActionStatus(
             phase: GroupedActionPhase.neutral,
-            text: l10n.skillsCuratorCheckedNothing,
+            text: lastAt == null
+                ? l10n.skillsCuratorCheckedNothing
+                : l10n.skillsCuratorCheckedNothingSince(
+                    relativeTimeLabel(l10n, lastAt, now: when, bareDate: true),
+                  ),
           );
         case CuratorRunView.notStarted:
           final form = model.notStarted;
@@ -468,7 +562,7 @@ class CuratorSection extends StatelessWidget {
                 : [
                     GroupedActionButton(
                       label: l10n.skillsCuratorTryAgain,
-                      onPressed: callbacks.onRunNow,
+                      onPressed: model.canRunNow ? callbacks.onRunNow : null,
                     ),
                   ],
           );
@@ -477,6 +571,12 @@ class CuratorSection extends StatelessWidget {
     }
     final ended =
         run == CuratorRunView.finished || run == CuratorRunView.failed;
+    // A stopped pass, and a check that found nothing after one, keep the
+    // lines of the pass this app started: shown as the earlier pass's.
+    final earlier =
+        (run == CuratorRunView.stopped ||
+            run == CuratorRunView.checkedNothing) &&
+        (model.hasOutput || model.outputDropped);
     final failure = model.failureLine;
     return [
       if (ended) ...[
@@ -492,11 +592,7 @@ class CuratorSection extends StatelessWidget {
               : null,
           subtitleMaxLines: null,
           leading: AppIcon(
-            size: math.max(
-              GroupedMetrics.of(context).leadingSize,
-              MediaQuery.textScalerOf(context)
-                  .scale(GroupedMetrics.of(context).leadingSize),
-            ),
+            size: _scaled(context, GroupedMetrics.of(context).leadingSize),
             run == CuratorRunView.finished
                 ? AppIcons.checkCircle
                 : AppIcons.error,
@@ -507,11 +603,12 @@ class CuratorSection extends StatelessWidget {
         ),
         _output(l10n),
       ],
+      if (earlier) _output(l10n, earlier: true),
       GroupedActionRow(
         title: ended ? l10n.skillsCuratorRunAgain : l10n.skillsCuratorRunNow,
         icon: AppIcons.play,
         subtitle: ended ? null : subtitle,
-        onPressed: canRunNow(model) ? callbacks.onRunNow : null,
+        onPressed: model.canRunNow ? callbacks.onRunNow : null,
         status: state,
         spinnerWhileWorking: true,
         semanticLabel: working ? l10n.skillsCuratorRunNowRunning : null,
@@ -519,11 +616,19 @@ class CuratorSection extends StatelessWidget {
     ];
   }
 
-  Widget _output(AppLocalizations l10n) {
-    if (!model.hasOutput) return _NoteRow(l10n.skillsCuratorNoOutput);
+  Widget _output(AppLocalizations l10n, {bool earlier = false}) {
+    if (!model.hasOutput) {
+      return _NoteRow(
+        model.outputDropped
+            ? l10n.skillsCuratorOutputHidden
+            : l10n.skillsCuratorNoOutput,
+      );
+    }
     final count = model.outputLines.length + model.earlierLines;
     return OutputLinesTile(
-      label: l10n.skillsCuratorShowOutput,
+      label: earlier
+          ? l10n.skillsCuratorShowOutputEarlier
+          : l10n.skillsCuratorShowOutput,
       lines: model.outputLines,
       initiallyOpen: outputInitiallyOpen,
       selectable: false,
@@ -533,7 +638,7 @@ class CuratorSection extends StatelessWidget {
       footnote: l10n.skillsCuratorOutputFootnote,
       blank: model.outputBlanked,
       blankNote: l10n.skillsCuratorOutputHidden,
-      semanticsLabel: model.outputBlanked
+      semanticsLabel: model.outputBlanked || earlier
           ? null
           : l10n.skillsCuratorOutputSemantics(count),
     );
