@@ -254,6 +254,39 @@ List<Hit> _doctorFix() {
   return hits;
 }
 
+/// A string literal as the `title:` of a `MacCommandHandler(`, or as the label
+/// of a `MenuEntry(` or `MenuSection(`. The brand label `'Hermes'` is the one
+/// literal that is the same in every language.
+List<Hit> _menuLiteralLabels() {
+  final handlerTitle = RegExp(r"""\btitle\s*:[^,()]*?['"]""");
+  final entryLabel = RegExp(
+    r"""\bMenuEntry\(\s*MacCommand\.\w+\s*,\s*(?:\(\w*\)\s*=>\s*)?['"]""",
+  );
+  final sectionLabel = RegExp(
+    r"""\bMenuSection\(\s*['"]\w+['"]\s*,\s*(?:\(\w*\)\s*=>\s*)?['"](?!Hermes['"])""",
+  );
+  final hits = <Hit>[];
+  for (final file in dartFiles('lib')) {
+    final lines = <int>{};
+    for (final (offset, args) in callArguments(
+      file,
+      RegExp(r'\bMacCommandHandler\('),
+    )) {
+      if (handlerTitle.hasMatch(args)) lines.add(file.lineOf(offset));
+    }
+    for (final m in [
+      ...entryLabel.allMatches(file.text),
+      ...sectionLabel.allMatches(file.text),
+    ]) {
+      lines.add(file.lineOf(m.start));
+    }
+    for (final line in lines.toList()..sort()) {
+      hits.add(Hit(file.path, line, file.lineText(line)));
+    }
+  }
+  return hits;
+}
+
 final _fileRead = RegExp(
   r'\b(?:File|Directory)\(|\.readAs(?:String|Lines|Bytes)(?:Sync)?\(|rootBundle',
 );
@@ -339,6 +372,18 @@ final guardRules = <Rule>[
         'ServerCareRepository.startDoctor (profile only) and show the footer '
         'tip; strip --fix from copied commands as server_check_body.dart does.',
     hits: _doctorFix,
+  ),
+
+  // docs/architecture/macos.md "macOS menu bar": menu labels and the titles
+  // screens give a command are localized.
+  _custom(
+    name: 'menu-literal-label',
+    message:
+        'menu labels are localized: add an ARB key under @@x-area-macos in '
+        'app_en.arb and app_de.arb and read it, as (l10n) => l10n.macosMenuX '
+        'in menuLayout or context.l10n.macosMenuX in a MacCommandHandler '
+        'title, not a string literal.',
+    hits: _menuLiteralLabels,
   ),
 
   // CLAUDE.md "Two API layers": reach the client through

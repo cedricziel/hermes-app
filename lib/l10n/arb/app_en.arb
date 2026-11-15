@@ -2821,7 +2821,7 @@
   },
   "macosMenuShowSidebar": "Show Sidebar",
   "@macosMenuShowSidebar": {
-    "description": "View menu: shows or hides the chat list."
+    "description": "View menu while the chat list is hidden: shows it."
   },
   "macosMenuSignOut": "Sign Out…",
   "@macosMenuSignOut": {

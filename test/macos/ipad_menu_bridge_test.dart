@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -168,6 +169,45 @@ void main() {
       expect(runner.calls, isEmpty);
       b.dispose();
     });
+  });
+
+  testWidgets('MacMenuBar sends the layout and state again when the language '
+      'changes', (tester) async {
+    final runner = FakeRunnerMenu(tester);
+    final locale = ValueNotifier(const Locale('en'));
+    addTearDown(locale.dispose);
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
+          Provider<HermesRepositories?>.value(value: repositories),
+        ],
+        child: ValueListenableBuilder(
+          valueListenable: locale,
+          builder: (context, locale, _) => MaterialApp(
+            navigatorKey: navigatorKey,
+            locale: locale,
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            localizationsDelegates: const [
+              ...AppLocalizations.localizationsDelegates,
+              GlobalMaterialLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            builder: (context, child) =>
+                MacMenuBar(navigatorKey: navigatorKey, child: child!),
+            home: const SizedBox(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(runner.title('newChat'), 'New Chat');
+    runner.calls.clear();
+    locale.value = const Locale('de');
+    await tester.pump();
+    expect(runner.calls.map((c) => c.method), ['setLayout', 'setState']);
+    expect(runner.title('newChat'), 'Neuer Chat');
   });
 
   testWidgets('sends the iPad layout once', (tester) async {
