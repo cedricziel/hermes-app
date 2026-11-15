@@ -142,6 +142,13 @@ ThemeData _buildTheme({
   final appleButtonSize = apple
       ? Size(0, isIos ? kAppleMinTapTarget : _kMacButtonHeight)
       : null;
+  // ThemeData's desktop default is a compact density, which takes 8 off the
+  // minimum size above and left a Mac push button 20 pt tall. Buttons on a Mac
+  // use standard density so they are the `_kMacButtonHeight` the minimum says;
+  // every other widget, and Windows and Linux buttons, keep the platform one.
+  // A text button's own padding is 8 pt above and below, which at standard
+  // density would make it 36 pt tall, so a Mac text button asks for 4.
+  final VisualDensity? buttonDensity = isMac ? VisualDensity.standard : null;
   final macMenuText = isMac
       ? base.textTheme.bodyMedium?.copyWith(
           color: scheme.onSurface,
@@ -235,6 +242,10 @@ ThemeData _buildTheme({
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         minimumSize: appleButtonSize,
+        visualDensity: buttonDensity,
+        padding: isMac
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4)
+            : null,
         foregroundColor: scheme.onSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -242,6 +253,7 @@ ThemeData _buildTheme({
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: appleButtonSize,
+        visualDensity: buttonDensity,
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -250,6 +262,7 @@ ThemeData _buildTheme({
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: appleButtonSize,
+        visualDensity: buttonDensity,
         foregroundColor: scheme.onSurface,
         side: BorderSide(color: scheme.outline),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
