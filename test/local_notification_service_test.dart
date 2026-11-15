@@ -1428,7 +1428,9 @@ void main() {
 
     test('a FormatException and any String end the bus', () async {
       for (final error in [
-        const FormatException('bogus transport'),
+        const FormatException(
+          'Unable to determine transport of D-Bus address: x',
+        ),
         'Invalid D-Bus address family',
         'Failed to resolve host',
       ]) {
@@ -1448,6 +1450,32 @@ void main() {
           reason: '$error',
         );
       }
+    });
+
+    test('an unrelated FormatException reaches the parent zone', () async {
+      final uncaught = <Object>[];
+      late Zone pluginZone;
+      final plugin = _FakePlugin()
+        ..duringInitialize = () {
+          pluginZone = Zone.current;
+        };
+      final service = serviceWith(plugin, bus: true);
+      addTearDown(service.dispose);
+
+      await runZonedGuarded(() async {
+        await service.post(note);
+        // What the plugin's storage read does on a corrupt file.
+        unawaited(
+          pluginZone.run(() => Future<void>(() => jsonDecode('{not json'))),
+        );
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+
+      expect(uncaught.single, isA<FormatException>());
+      expect(
+        (await service.post(note)).status,
+        NotificationPostStatus.accepted,
+      );
     });
 
     test('an unrelated TimeoutException reaches the parent zone', () async {
@@ -1651,14 +1679,7 @@ void main() {
       }
     });
 
-    test('a well-formed tcp address is a bus', () {
-      expect(
-        check({'DBUS_SESSION_BUS_ADDRESS': 'tcp:host=x,port=1'}, {}),
-        isTrue,
-      );
-    });
-
-    test('an address with a usable entry is a bus', () {
+    test('an address the dbus package can open is a bus', () {
       for (final address in [
         'unix:path=/x',
         'unix:abstract=/tmp/dbus-x',

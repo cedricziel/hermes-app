@@ -5,7 +5,6 @@ import 'dart:io'
         File,
         FileSystemEntity,
         FileSystemEntityType,
-        OSError,
         Platform,
         SocketException;
 
@@ -100,18 +99,19 @@ int _currentUid() {
   return -1;
 }
 
-/// Whether [error] comes from the D-Bus connection: a socket or OS error, an
+/// Whether [error] comes from the D-Bus connection: a socket error, an
 /// exception of the `dbus` package (named `DBus...`; it is not a direct
-/// dependency, so matched by name), or one of the plain strings it throws
-/// from opening a socket. An unrelated `TimeoutException` is not one:
+/// dependency, so matched by name), or one of the plain strings and address `FormatException`s it
+/// throws for a malformed address. An unrelated `TimeoutException` is not one:
 /// `_guard`'s own timeout marks the bus failed itself.
 bool isLinuxBusError(Object error) =>
     error is SocketException ||
-    error is OSError ||
     // The dbus package is the only thing in these zones that throws raw
-    // Strings (and FormatExceptions) for a malformed address.
+    // Strings. Its address parser throws FormatExceptions naming the "D-Bus
+    // address"; any other FormatException (a corrupt JSON file read by the
+    // notification plugin, say) is not a bus error.
     error is String ||
-    error is FormatException ||
+    (error is FormatException && error.message.contains('D-Bus address')) ||
     error.runtimeType.toString().startsWith('DBus');
 
 /// How long a Linux plugin call may take. The D-Bus client of the plugin never
