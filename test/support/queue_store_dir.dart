@@ -5,9 +5,14 @@ import 'package:hermes_app/src/chat/queue_storage/durable_queue_store.dart';
 
 bool _isNotEmpty(FileSystemException error) {
   final code = error.osError?.errorCode;
-  return code == 39 || // ENOTEMPTY on Linux
-      code == 66 || // ENOTEMPTY on macOS
-      code == 145 || // ERROR_DIR_NOT_EMPTY on Windows
+  final byCode = Platform.isLinux
+      ? code ==
+            39 // ENOTEMPTY
+      : Platform.isMacOS
+      ? code ==
+            66 // ENOTEMPTY
+      : Platform.isWindows && code == 145; // ERROR_DIR_NOT_EMPTY
+  return byCode ||
       error.message.contains('not empty') ||
       (error.osError?.message.contains('not empty') ?? false);
 }
@@ -42,17 +47,26 @@ Future<int> deleteQueueStoreDir(
   while (true) {
     rounds++;
     await pumpEventQueue();
-    await DurableQueueStore.settle(directory);
+    final remaining = deadline.difference(DateTime.now());
+    await DurableQueueStore.settle(
+      directory,
+      timeout: remaining.isNegative ? Duration.zero : remaining,
+    );
     try {
       await directory.delete(recursive: true);
       return rounds;
     } on FileSystemException catch (error) {
       if (!_isNotEmpty(error)) rethrow;
       if (!DateTime.now().isBefore(deadline)) {
-        final left = directory
-            .listSync(recursive: true, followLinks: false)
-            .map((entry) => entry.path.substring(directory.path.length))
-            .join(', ');
+        var left = 'unknown';
+        try {
+          left = directory
+              .listSync(recursive: true, followLinks: false)
+              .map((entry) => entry.path.substring(directory.path.length))
+              .join(', ');
+        } on FileSystemException {
+          // The tree vanished meanwhile; the original error still says why.
+        }
         throw FileSystemException(
           'Queue store directory still not empty after $timeout and $rounds '
           'rounds; left: $left (${error.message})',

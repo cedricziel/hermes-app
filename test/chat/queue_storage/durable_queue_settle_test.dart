@@ -84,12 +84,22 @@ void main() {
     // moment, so settle alone can return before the second write is enqueued.
     // Whether that write then lands before, during or after the delete
     // depends on the machine's load, so the test pins only that the helper
-    // never fails on it; a write that lands after the delete recreates the
-    // directory, which the tearDown removes.
-    final writer = queue.commit(_scope, 'first').then((_) async {
-      await File('${directory.path}/gap').exists();
-      await queue.commit(_scope, 'second');
-    });
+    // never fails on it. The second write may fail itself when it runs during
+    // the delete (a FileSystemException); that is not what is tested. A write
+    // that lands after the delete recreates the directory, which the tearDown
+    // removes.
+    // The handler is attached at once: the write can fail before the helper
+    // returns, and an unhandled failure would be reported as the test's.
+    final writer = queue
+        .commit(_scope, 'first')
+        .then((_) async {
+          await File('${directory.path}/gap').exists();
+          await queue.commit(_scope, 'second');
+        })
+        .catchError(
+          (Object _) {},
+          test: (error) => error is FileSystemException,
+        );
     await deleteQueueStoreDir(directory);
     await writer;
   });
