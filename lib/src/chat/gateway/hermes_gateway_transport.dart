@@ -153,7 +153,7 @@ class HermesGatewayTransport
     this._events = noopAppEventLogger,
     this.requestTimeout = const Duration(seconds: 30),
     this.probeTimeout = const Duration(seconds: 10),
-    this.reattachTimeout = const Duration(seconds: 10),
+    this.reattachTimeout = const Duration(seconds: 20),
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
     this.readTimeout = const Duration(seconds: 10),
