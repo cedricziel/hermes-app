@@ -443,13 +443,15 @@ void main() {
   });
 
   group('in German', () {
-    final locale = ValueNotifier(const Locale('de'));
+    late ValueNotifier<Locale> locale;
     final navigatorKey = GlobalKey<NavigatorState>();
 
     Future<FakeMenuChannel> pumpDe(
       WidgetTester tester, {
       Widget home = const SizedBox(),
     }) async {
+      locale = ValueNotifier(const Locale('de'));
+      addTearDown(locale.dispose);
       final channel = FakeMenuChannel(tester);
       await tester.pumpWidget(
         ValueListenableBuilder(

@@ -2759,6 +2759,10 @@
   "@macosMenuHermesHelp": {
     "description": "Help menu: opens the help page in the browser."
   },
+  "macosMenuHideSidebar": "Hide Sidebar",
+  "@macosMenuHideSidebar": {
+    "description": "View menu while the chat list is shown: hides it."
+  },
   "macosMenuNewChat": "New Chat",
   "@macosMenuNewChat": {
     "description": "File menu: starts a new chat."

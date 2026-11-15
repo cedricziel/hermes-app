@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
+import 'package:hermes_app/src/macos/ipad_menu_bridge.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/mac_menu_bar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
@@ -116,6 +118,57 @@ void main() {
     await pumpApp(tester, home, platform: platform);
     return runner;
   }
+
+  group('the l10n setter', () {
+    final en = lookupAppLocalizations(const Locale('en'));
+    final de = lookupAppLocalizations(const Locale('de'));
+
+    IpadMenuBridge bridge(AppLocalizations l10n) => IpadMenuBridge(
+      registry: MacCommandRegistry(),
+      localizations: l10n,
+      events: () => events.connection({}).events,
+    );
+
+    String? fileLabel(MethodCall layout) =>
+        (((layout.arguments as Map)['sections'] as List).cast<Map>().firstWhere(
+              (s) => s['id'] == 'file',
+            ))['label']
+            as String?;
+
+    testWidgets('sends the layout, then the state, in the new language', (
+      tester,
+    ) async {
+      final runner = FakeRunnerMenu(tester);
+      final b = bridge(en)..start();
+      await tester.pump();
+      runner.calls.clear();
+      b.l10n = de;
+      await tester.pump();
+      expect(runner.calls.map((c) => c.method), ['setLayout', 'setState']);
+      expect(fileLabel(runner.calls.first), 'Ablage');
+      expect(runner.title('newChat'), 'Neuer Chat');
+      b.dispose();
+    });
+
+    testWidgets('sends nothing before start', (tester) async {
+      final runner = FakeRunnerMenu(tester);
+      final b = bridge(en);
+      b.l10n = de;
+      await tester.pump();
+      expect(runner.calls, isEmpty);
+    });
+
+    testWidgets('sends nothing for the same instance', (tester) async {
+      final runner = FakeRunnerMenu(tester);
+      final b = bridge(en)..start();
+      await tester.pump();
+      runner.calls.clear();
+      b.l10n = en;
+      await tester.pump();
+      expect(runner.calls, isEmpty);
+      b.dispose();
+    });
+  });
 
   testWidgets('sends the iPad layout once', (tester) async {
     final runner = await pump(tester, const SizedBox());
