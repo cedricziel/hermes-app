@@ -15,6 +15,7 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -822,6 +823,61 @@ void main() {
     );
     await shots.capture(tester, 'not-available');
   });
+
+  for (final v in _light) {
+    richTest('${v.name}: an opened tool call stays open as the next starts', (
+      tester,
+    ) async {
+      final shots = ScreenshotRecorder('chat-rich-${v.name}-tool-regroup');
+      await pumpChat(tester, shots, v);
+      await openThread(tester, 's4');
+      await runFrames(tester);
+
+      await send(tester, 'Check the logs');
+      final reply = transport.sends.single;
+      await emit(tester, reply, const ReplyStarted(), settle: false);
+      await emit(
+        tester,
+        reply,
+        const ToolStarted(
+          id: 'call-1',
+          name: 'list_logs',
+          summary: 'ls -la /var/log',
+          args: {'command': 'ls -la /var/log'},
+        ),
+      );
+      await emit(
+        tester,
+        reply,
+        const ToolFinished(
+          id: 'call-1',
+          name: 'list_logs',
+          result: 'syslog\nauth.log\nkern.log',
+        ),
+      );
+      await runFrames(tester);
+      await tester.tap(find.byType(ToolCallCard));
+      await runFrames(tester);
+      await shots.capture(tester, 'one-call-open');
+
+      await emit(
+        tester,
+        reply,
+        const ToolStarted(
+          id: 'call-2',
+          name: 'read_file',
+          summary: '/var/log/syslog',
+          args: {'path': '/var/log/syslog'},
+        ),
+      );
+      await runFrames(tester);
+      expect(find.textContaining('auth.log'), findsOneWidget);
+      await shots.capture(tester, 'second-call-running-card-still-open');
+
+      await emit(tester, reply, const ReplyCompleted('Done.'));
+      await tester.pumpAndSettle();
+    });
+  }
 
   // ---------------------------------------------------------------------
   // Content that does not fit
