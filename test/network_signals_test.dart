@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show jsonDecode;
 import 'dart:io' show SocketException;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -221,11 +222,31 @@ void main() {
       expect(uncaught, isEmpty);
     });
 
+    test(
+      'on Linux an unrelated FormatException reaches the parent zone',
+      () async {
+        final uncaught = <Object>[];
+        await runZonedGuarded(() async {
+          final s = linuxSignals(() {
+            Future<void>(() => jsonDecode('{not json'));
+            return Future.value(current);
+          });
+          addTearDown(s.dispose);
+          await pumpEventQueue();
+        }, (error, _) => uncaught.add(error));
+        expect(uncaught.single, isA<FormatException>());
+      },
+    );
+
     test('on Linux a FormatException and any String are swallowed', () async {
       final uncaught = <Object>[];
       await runZonedGuarded(() async {
         final s = linuxSignals(() {
-          Future<void>.error(const FormatException('bogus transport'));
+          Future<void>.error(
+            const FormatException(
+              'Unable to determine transport of D-Bus address: x',
+            ),
+          );
           Future<void>.error('Failed to resolve host');
           Future<void>.error('Invalid port number');
           return Future.value(current);
@@ -263,20 +284,6 @@ void main() {
         await pumpEventQueue();
       }, (error, _) => uncaught.add(error));
       expect(uncaught.single, isA<StateError>());
-    });
-
-    test('on Linux a check that never answers is given up on', () {
-      fakeAsync((async) {
-        final s = linuxSignals(
-          () => Completer<List<ConnectivityResult>>().future,
-        );
-        expect(async.pendingTimers, isNotEmpty);
-
-        async.elapse(kLinuxCheckTimeout);
-
-        expect(async.pendingTimers, isEmpty);
-        s.dispose();
-      });
     });
 
     group('linuxSystemBusAvailable', () {

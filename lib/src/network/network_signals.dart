@@ -49,22 +49,20 @@ Stream<T> debounced<T>(Stream<T> source, Duration quiet) {
   return out.stream;
 }
 
-/// How long the first connectivity check may take on Linux.
-const kLinuxCheckTimeout = Duration(seconds: 5);
-
-/// Whether [error] comes from the D-Bus connection: a socket or OS error, an
+/// Whether [error] comes from the D-Bus connection: a socket error, an
 /// exception of the `dbus` package (matched by name, since it is not a direct
 /// dependency; this is what a bus without NetworkManager throws), or one of
-/// the plain strings and `FormatException`s it throws for a malformed
-/// address. An unrelated
-/// `TimeoutException` is not one; the bounded check handles its own.
+/// the plain strings and address `FormatException`s it throws for a
+/// malformed address. An unrelated
+/// `TimeoutException` is not one.
 bool isLinuxBusError(Object error) =>
     error is SocketException ||
-    error is OSError ||
     // The dbus package is the only thing in these zones that throws raw
-    // Strings (and FormatExceptions) for a malformed address.
+    // Strings. Its address parser throws FormatExceptions naming the "D-Bus
+    // address"; any other FormatException (a corrupt JSON file read by the
+    // notification plugin, say) is not a bus error.
     error is String ||
-    error is FormatException ||
+    (error is FormatException && error.message.contains('D-Bus address')) ||
     error.runtimeType.toString().startsWith('DBus');
 
 /// An address the `dbus` package can open. It reads the whole value as one
@@ -152,7 +150,7 @@ class ConnectivityNetworkSignals
       // Only bus errors end here: the zone holds the plugin's stream for as
       // long as it lives, so any other error goes on to the parent zone.
       runZoned(
-        () => _listen(results, check, bounded: true),
+        () => _listen(results, check),
         zoneSpecification: ZoneSpecification(
           handleUncaughtError: (self, parent, zone, error, stack) {
             if (!isLinuxBusError(error)) {
@@ -168,9 +166,8 @@ class ConnectivityNetworkSignals
 
   void _listen(
     Stream<List<ConnectivityResult>>? results,
-    Future<List<ConnectivityResult>> Function()? check, {
-    bool bounded = false,
-  }) {
+    Future<List<ConnectivityResult>> Function()? check,
+  ) {
     final connectivity = results == null || check == null
         ? Connectivity()
         : null;
@@ -180,10 +177,7 @@ class ConnectivityNetworkSignals
       _update(current);
       _raw.add(null);
     }, onError: (Object _) {});
-    // The plugin's D-Bus client never answers once its connection failed.
-    var pending = (check ?? connectivity!.checkConnectivity)();
-    if (bounded) pending = pending.timeout(kLinuxCheckTimeout);
-    pending.then(_update, onError: (_) {});
+    (check ?? connectivity!.checkConnectivity)().then(_update, onError: (_) {});
   }
 
   final bool _reportsVpn;
