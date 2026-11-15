@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/chat/chat_controller.dart' show VoiceTurnRefusal;
+import 'package:hermes_app/src/voice/calls/call_agent.dart';
+
 import 'call_harness.dart';
 
 void main() {
@@ -99,5 +102,31 @@ void main() {
     await h.call.end();
     expect(h.ended(), containsPair('speech_retries', '1'));
     expect(h.ended(), containsPair('outcome', 'ended'));
+  });
+
+  group('a turn that was never written logs no voice_call.turn', () {
+    int turns() => h.logged.where((e) => e.$1 == 'voice_call.turn').length;
+
+    test('a refused turn', () async {
+      h.agent.replyError = const CallTurnRefused(VoiceTurnRefusal.busy);
+      await h.say('Hello');
+      expect(turns(), 0);
+    });
+
+    test('a turn withdrawn before the write', () async {
+      h.agent.holdSubmit = true;
+      await h.say('Hello');
+      await h.call.setMuted(true);
+      h.agent.submitted();
+      await pumpEventQueue();
+      expect(turns(), 0);
+    });
+
+    test('a turn Hermes answered at once', () async {
+      await h.say('Hello');
+      h.agent.answer(CallTurnAnswer.queued);
+      await pumpEventQueue();
+      expect(turns(), 0);
+    });
   });
 }

@@ -49,6 +49,7 @@ void main() {
         'Hello',
         onText: spoken.add,
         onAttention: (_) {},
+        wanted: () => true,
       );
       await pumpEventQueue();
       final send = transport.sends.single;
@@ -76,8 +77,19 @@ void main() {
   test('a busy chat is not queued or interrupted by a new call', () async {
     chat.submit('Unrelated work', const []);
     await expectLater(
-      agent.reply('Voice', onText: (_) {}, onAttention: (_) {}),
-      throwsStateError,
+      agent.reply(
+        'Voice',
+        onText: (_) {},
+        onAttention: (_) {},
+        wanted: () => true,
+      ),
+      throwsA(
+        isA<CallTurnRefused>().having(
+          (e) => e.reason,
+          'reason',
+          VoiceTurnRefusal.busy,
+        ),
+      ),
     );
     await agent.interrupt();
     expect(transport.sends.length, 1);
@@ -90,7 +102,12 @@ void main() {
     expect(agent.valid, isFalse);
   });
   test('interrupting an owned turn waits for its stopped event', () async {
-    final reply = agent.reply('Hello', onText: (_) {}, onAttention: (_) {});
+    final reply = agent.reply(
+      'Hello',
+      onText: (_) {},
+      onAttention: (_) {},
+      wanted: () => true,
+    );
     final failed = expectLater(reply, throwsStateError);
     await pumpEventQueue();
     final stopping = agent.interrupt();
@@ -109,6 +126,7 @@ void main() {
         'Check the server',
         onText: (_) {},
         onAttention: waiting.add,
+        wanted: () => true,
       );
       final interrupted = expectLater(reply, throwsStateError);
       await pumpEventQueue();
@@ -203,6 +221,7 @@ void main() {
         'Voice',
         onText: spoken.add,
         onAttention: (_) {},
+        wanted: () => true,
       );
       await pumpEventQueue();
       final send = transport.sends.single;
@@ -222,4 +241,279 @@ void main() {
       expect(spoken.join(), 'New answer.');
     },
   );
+
+  group('a voice turn', () {
+    Future<CallTurnRefused> refusal(Future<void> reply) async {
+      try {
+        await reply;
+      } on CallTurnRefused catch (e) {
+        return e;
+      }
+      fail('expected a refusal');
+    }
+
+    test('goes out as a voice turn that is never queued', () async {
+      final done = agent.reply(
+        'Hello',
+        onText: (_) {},
+        onAttention: (_) {},
+        wanted: () => true,
+      );
+      await pumpEventQueue();
+      final send = transport.sends.single;
+      expect(send.voiceTurn, isTrue);
+      expect(send.queued, isFalse);
+      expect(send.interrupted, isFalse);
+      send.emit(const ReplyCompleted('Hi.'));
+      await done;
+    });
+
+    test('asks to be marked interrupted only when told to', () async {
+      // A settled thread: an earlier typed turn ended and Hermes went idle.
+      await chat.submit('earlier', const []);
+      transport.sends.single
+        ..emit(const ReplyCompleted('Done'))
+        ..emit(const SessionInfo(running: false))
+        ..finish();
+      await pumpEventQueue();
+      final done = agent.reply(
+        'Hello',
+        onText: (_) {},
+        onAttention: (_) {},
+        wanted: () => true,
+        interrupted: true,
+      );
+      await pumpEventQueue();
+      expect(transport.sends.last.interrupted, isTrue);
+      transport.sends.last.emit(const ReplyCompleted('Hi.'));
+      await done;
+    });
+
+    test('refuses while a reply runs, sending nothing', () async {
+      await chat.submit('Unrelated work', const []);
+      final refused = await refusal(
+        agent.reply(
+          'Voice',
+          onText: (_) {},
+          onAttention: (_) {},
+          wanted: () => true,
+        ),
+      );
+      expect(refused.reason, VoiceTurnRefusal.busy);
+      expect(transport.sends, hasLength(1));
+    });
+
+    test('refuses while the queue is not empty', () async {
+      await chat.submit('Unrelated work', const []);
+      await chat.submit('Queued behind it', const []);
+      transport.sends.single
+        ..emit(const ReplyCompleted('', stopped: true))
+        ..finish();
+      await pumpEventQueue();
+      final thread = chat.selectedThread!;
+      expect(chat.queuedIn(thread), isNotEmpty);
+      final refused = await refusal(
+        agent.reply(
+          'Voice',
+          onText: (_) {},
+          onAttention: (_) {},
+          wanted: () => true,
+        ),
+      );
+      expect(refused.reason, VoiceTurnRefusal.busy);
+      expect(transport.sends, hasLength(1));
+      expect(chat.queuedIn(thread), hasLength(1));
+    });
+
+    test('End before prompt.submit is written sends nothing', () async {
+      var wanted = true;
+      var submitting = 0;
+      final done = agent.reply(
+        'Hello',
+        onText: (_) {},
+        onAttention: (_) {},
+        wanted: () => wanted,
+        onSubmitted: () => submitting++,
+      );
+      final refused = refusal(done);
+      await pumpEventQueue();
+      wanted = false;
+      expect(transport.sends.single.submit(), isFalse);
+      expect((await refused).reason, VoiceTurnRefusal.noLongerWanted);
+      expect(submitting, 0);
+      expect(chat.selectedThread!.messages, isEmpty);
+    });
+
+    test('runs onSubmitted where the transport writes the prompt', () async {
+      var submitting = 0;
+      final done = agent.reply(
+        'Hello',
+        onText: (_) {},
+        onAttention: (_) {},
+        wanted: () => true,
+        onSubmitted: () => submitting++,
+      );
+      await pumpEventQueue();
+      expect(submitting, 0, reason: 'handed over is not written');
+      expect(transport.sends.single.submit(), isTrue);
+      expect(submitting, 1);
+      transport.sends.single.emit(const ReplyCompleted('Hi.'));
+      await done;
+    });
+
+    for (final (status, answer) in [
+      ('queued', CallTurnAnswer.queued),
+      ('steered', CallTurnAnswer.steered),
+      ('redirected', CallTurnAnswer.redirected),
+    ]) {
+      test('$status ends the wait at once', () async {
+        final answers = <CallTurnAnswer>[];
+        final done = agent.reply(
+          'Hello',
+          onText: (_) {},
+          onAttention: (_) {},
+          wanted: () => true,
+          onAnswer: answers.add,
+        );
+        await pumpEventQueue();
+        transport.sends.single.emit(PromptAccepted(status));
+        await done.timeout(const Duration(seconds: 1));
+        expect(answers, [answer]);
+      });
+    }
+
+    test('voice_stopped ends the wait and leaves no placeholder', () async {
+      final answers = <CallTurnAnswer>[];
+      final done = agent.reply(
+        'stop',
+        onText: (_) {},
+        onAttention: (_) {},
+        wanted: () => true,
+        onAnswer: answers.add,
+      );
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await done.timeout(const Duration(seconds: 1));
+      expect(answers, [CallTurnAnswer.voiceStopped]);
+      expect(chat.selectedThread!.messages, isEmpty);
+    });
+
+    test('reports a message typed in the chat, not its own', () async {
+      var typed = 0;
+      agent.watchTyped(() => typed++);
+      final done = agent.reply(
+        'Hello',
+        onText: (_) {},
+        onAttention: (_) {},
+        wanted: () => true,
+      );
+      await pumpEventQueue();
+      expect(typed, 0, reason: 'the call\'s own prompt is not typed');
+      transport.sends.single.emit(const ReplyCompleted('Hi.'));
+      await done;
+      await chat.submit('typed in the chat', const []);
+      await pumpEventQueue();
+      expect(typed, 1);
+    });
+  });
+
+  group('a turn that was not sent leaves the chat as it was', () {
+    /// Sends a spoken turn and withdraws it before it is written.
+    Future<void> withdraw({bool interrupted = false}) async {
+      var wanted = true;
+      final refused = agent
+          .reply(
+            'Secret words',
+            onText: (_) {},
+            onAttention: (_) {},
+            wanted: () => wanted,
+            interrupted: interrupted,
+          )
+          .then<void>((_) {}, onError: (Object _) {});
+      await pumpEventQueue();
+      wanted = false;
+      transport.sends.last.submit();
+      await refused;
+      await pumpEventQueue();
+    }
+
+    test('the words do not become the chat title', () async {
+      await withdraw();
+      expect(chat.selectedThread!.title, 'New chat');
+      expect(chat.selectedThread!.messages, isEmpty);
+    });
+
+    test('a typed stop phrase leaves no title either', () async {
+      await chat.submit('Secret stop words', const []);
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(chat.selectedThread!.title, 'New chat');
+    });
+
+    test('is not mistaken for a typed message', () async {
+      var typed = 0;
+      agent.watchTyped(() => typed++);
+      await withdraw();
+      expect(typed, 0);
+    });
+
+    test('keeps a pending interrupted for the next turn', () async {
+      await chat.submit('earlier', const []);
+      transport.sends.single
+        ..emit(const ReplyCompleted('Done'))
+        ..emit(const SessionInfo(running: false))
+        ..finish();
+      await pumpEventQueue();
+      await withdraw(interrupted: true);
+      final done = agent.reply(
+        'Again',
+        onText: (_) {},
+        onAttention: (_) {},
+        wanted: () => true,
+        interrupted: true,
+      );
+      await pumpEventQueue();
+      expect(transport.sends.last.text, 'Again');
+      expect(transport.sends.last.interrupted, isTrue);
+      transport.sends.last.emit(const ReplyCompleted('Hi.'));
+      await done;
+    });
+
+    test(
+      'a chat bound by the withdrawn send creates its session again',
+      () async {
+        var wanted = true;
+        final first = agent
+            .reply(
+              'Hello',
+              onText: (_) {},
+              onAttention: (_) {},
+              wanted: () => wanted,
+            )
+            .then<void>((_) {}, onError: (Object _) {});
+        await pumpEventQueue();
+        transport.sends.single.emit(const ThreadBound('never-stored'));
+        await pumpEventQueue();
+        wanted = false;
+        transport.sends.single.submit();
+        await first;
+        await pumpEventQueue();
+        final done = agent.reply(
+          'Again',
+          onText: (_) {},
+          onAttention: (_) {},
+          wanted: () => true,
+        );
+        await pumpEventQueue();
+        expect(transport.sends.last.text, 'Again');
+        expect(transport.sends.last.threadId, isNull);
+        transport.sends.last.emit(const ReplyCompleted('Hi.'));
+        await done;
+      },
+    );
+  });
 }
