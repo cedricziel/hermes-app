@@ -105,7 +105,8 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    each request names; a failing run prints a table of surface to profile
    sent. The surfaces and the code each drives: Chat (`ChatController.loadThreads`
    with no profile: the session list and the profile it settles on), Bot
-   Screen (`BotScreenController(profile: chat.profile)`, `display.status`),
+   Screen (`BotScreenController(profile: botScreenProfileFor(chat.profile))`,
+   `display.status`; `botScreenProfileFor` is what `ChatScreen._syncBotScreen` calls),
    Files (`HermesFilesRepository(profile: filesProfileFor(chat.profile))`,
    the function `openFiles` calls), Workspaces
    (`ChatController.workspaceCatalog()`), background refresh
@@ -115,10 +116,10 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    are checked too) and Tools (`ToolsAvailability` seeded with
    `serverDefaultProfile`, as `AppShell` does, then `toolsProfileFor`, which
    `ChatScreen._openTools` calls). Files and Tools go through functions the
-   screens call, so the test follows the app. Bot Screen and Memory pass
-   `chat.profile` the way the screens do, copied by hand: the screens need a
-   whole app around them, so when `ChatScreen` changes what it passes, change
-   the test with it. The test is read only except for the transient gateway
+   screens call, so the test follows the app. Memory passes `chat.profile` the
+   way the sidebar entry does, copied by hand: the screen needs a whole app
+   around it, so when `ChatScreen` changes what it passes, change the test with
+   it. The test is read only except for the transient gateway
    sessions the Memory commands open. Without `HERMES_DEV_URL` and
    `HERMES_DEV_LAUNCH_PROFILE` the test skips (CI sets neither), and by hand:
 

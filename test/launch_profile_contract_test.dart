@@ -12,6 +12,7 @@ import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_profile.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
@@ -258,9 +259,8 @@ void main() {
           final controller = BotScreenController(
             BotScreenRepository(recordedRpc),
             const Stream.empty(),
-            // ChatScreen._syncBotScreen: a chat on the server's default
-            // profile names none, and display calls always name one.
-            profile: chat.profile ?? kDefaultProfile,
+            // ChatScreen._syncBotScreen resolves it with botScreenProfileFor.
+            profile: botScreenProfileFor(chat.profile),
           );
           final watch = controller.watch(frames: false);
           await _until(
