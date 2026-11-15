@@ -7093,15 +7093,23 @@ $extra''',
         await send('Many reads a', thread);
         await send('Many reads b', thread);
         // The reply stream ends on `message.complete`, a moment before Hermes
-        // marks the session idle, and a compress asked inside that gap is
-        // answered 4009. Wait for the server to list the chat as not running.
+        // clears the session's `running` flag, and a compress asked inside
+        // that gap is answered 4009 (`_manual_compress_turn` refuses while
+        // `session["running"]` is set). `session.active_list` reports that
+        // same flag as `working` or `idle`; wait until it lists the chat as
+        // `idle`. An unlisted chat or a failed call is not idle.
         final settled = DateTime.now().add(const Duration(seconds: 30));
         while (true) {
-          final statuses = await transport.activeStatuses(profile: 'default');
-          const live = {'starting', 'waiting', 'working', 'streaming'};
-          if (!live.contains(statuses[thread])) break;
+          final listed = await tap.rpc.request('session.active_list', {});
+          String? seen;
+          for (final row in listed['sessions']! as List) {
+            if (row is Map && row['session_key'] == thread) {
+              seen = row['status'] as String?;
+            }
+          }
+          if (seen == 'idle') break;
           if (DateTime.now().isAfter(settled)) {
-            fail('the chat was still running 30 s after its last reply');
+            fail('the chat was not listed as idle 30 s after its last reply');
           }
           await Future<void>.delayed(const Duration(milliseconds: 50));
         }
