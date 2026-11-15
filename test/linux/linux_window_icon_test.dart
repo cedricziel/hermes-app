@@ -14,14 +14,22 @@ void main() {
       .group(1)!;
 
   test('the icon is set after both title paths, by the .desktop icon name', () {
-    final headerBar = runner.indexOf('gtk_window_set_titlebar(window');
-    final plainTitle = runner.indexOf('gtk_window_set_title(window');
-    final call = runner.indexOf('  set_window_icon(window);');
+    // The call must follow the `}` that closes the header bar / plain title
+    // if-else, at function level, so neither branch can skip it.
+    final elseAt = runner.indexOf(
+      '  } else {\n    gtk_window_set_title(window',
+    );
+    expect(elseAt, isNonNegative);
+    final closeAt = runner.indexOf('\n  }\n', elseAt);
+    expect(closeAt, isNonNegative);
+    final calls = RegExp(
+      r'^  set_window_icon\(window\);$',
+      multiLine: true,
+    ).allMatches(runner).toList();
 
-    expect(headerBar, isNonNegative);
-    expect(plainTitle, isNonNegative);
-    expect(call, greaterThan(headerBar));
-    expect(call, greaterThan(plainTitle));
+    expect(calls, hasLength(1));
+    expect(calls.single.start, greaterThan(closeAt));
+    expect(runner, isNot(contains('    set_window_icon(window);')));
     expect(
       runner,
       contains('gtk_window_set_icon_name(window, APPLICATION_ID)'),
