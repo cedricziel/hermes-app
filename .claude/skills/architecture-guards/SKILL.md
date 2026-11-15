@@ -9,11 +9,11 @@ description: Use when a test under test/architecture/ fails (a guard or the base
 
 ## The ratchet
 
-- One baseline file per namespace: `test/architecture/baseline/<ns>.yaml` (`arch`, `style`, `test`), mapping rule id (`<ns>.<name>`) to (repo-relative path to allowed count). A rule with no violations has no entry. Each namespace has exactly one test file that calls `ratchetTests(rules, namespace: '<ns>')`; `ratchet_test.dart` fails when a namespace is registered from two files or a baseline file has none.
+- One baseline file per namespace: `test/architecture/baseline/<ns>.yaml` (`arch`, `style`, `test`), mapping rule id (`<ns>.<name>`) to (repo-relative path to allowed count). A rule with no violations has no entry. Each namespace has exactly one test file that calls `ratchetTests(rules, namespace: '<ns>')` directly in the body of its top-level `main()` (a helper, a closure, a tear-off or a non-literal namespace fails); `ratchet_test.dart` fails when a namespace is registered from two files or a baseline file has none.
 - A count above its entry, or a file not listed, fails with the offending lines and the building block to use instead.
 - A count below its entry fails too, with the edit to make: `lower <rule> <path> to N`, or remove the entry (and the rule id line if it was the last; an empty `arch.x:` still parses). That is how the debt only goes down.
 - A baseline id that none of the namespace's rules claims fails, and a rule id registered twice throws.
-- `UPDATE_BASELINE=1 flutter test test/architecture` makes the edits for you. It never raises a count or adds an entry, and it removes rule ids left with no entries and ids no rule claims. Each file has one writer, so no lock is needed; the write goes through a temp file and a rename.
+- `UPDATE_BASELINE=1 flutter test test/architecture` makes the edits for you. It never raises a count or adds an entry, and it removes entries and rule ids left with no entries. It keeps ids no rule claims (and the orphan test still fails): once a rule is really gone and its id removed from the code, run `UPDATE_BASELINE=prune flutter test test/architecture` once to drop them. Each file has one writer, so no lock is needed; the write goes through a temp file and a rename.
 
 ## When a guard fails
 

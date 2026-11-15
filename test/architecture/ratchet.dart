@@ -17,9 +17,11 @@
 /// - a baseline id that none of the namespace's rules claims fails too.
 ///
 /// With `UPDATE_BASELINE=1` the file is rewritten instead, lowering counts and
-/// removing entries, empty rule ids and orphan ids; it never raises a count or
-/// adds an entry. The rewrite goes through a temp file in the same directory
-/// and a rename.
+/// removing entries of registered rules (and rule ids left empty); it never
+/// raises a count or adds an entry, and it keeps orphan ids. Only
+/// `UPDATE_BASELINE=prune` also removes orphan ids, once the rule is really
+/// gone. The rewrite goes through a temp file in the same directory and a
+/// rename.
 library;
 
 import 'dart:io';
@@ -261,14 +263,34 @@ Set<String> claimRuleIds(String namespace, List<Rule> rules) {
   return ids;
 }
 
+/// The baseline after an update: [rewritten] rules replace theirs, orphan ids
+/// are removed only when [prune]. Never adds a path or raises a count.
+Map<String, Map<String, int>> updatedBaseline(
+  Map<String, Map<String, int>> current,
+  Map<String, Map<String, int>> rewritten,
+  List<String> orphans, {
+  required bool prune,
+}) {
+  final out = {...current, ...rewritten};
+  if (prune) {
+    for (final id in orphans) {
+      out.remove(id);
+    }
+  }
+  return out;
+}
+
 /// Registers one test per rule of [namespace] (`arch`, `style` or `test`),
 /// and one test that no baseline entry names a rule nobody registered. Call
-/// it once per namespace, from one test file. In update mode
-/// (`UPDATE_BASELINE=1`) the baseline is lowered instead of failing on a
-/// fall, and orphan ids are removed; a rise still fails.
+/// it once per namespace, from the top-level `main()` of one `*_test.dart`.
+/// With `UPDATE_BASELINE=1` the baseline is lowered instead of failing on a
+/// fall (orphan ids are kept and still fail); `UPDATE_BASELINE=prune` also
+/// removes orphan ids. A rise still fails.
 void ratchetTests(List<Rule> rules, {required String namespace}) {
   claimNamespace(namespace);
-  final update = Platform.environment['UPDATE_BASELINE'] == '1';
+  final mode = Platform.environment['UPDATE_BASELINE'];
+  final prune = mode == 'prune';
+  final update = mode == '1' || prune;
   final file = File(baselinePathFor(namespace));
   final baseline = file.existsSync()
       ? parseBaseline(file.readAsStringSync())
@@ -296,39 +318,44 @@ void ratchetTests(List<Rule> rules, {required String namespace}) {
 
   final orphans = orphanIds(baseline, namespace, ids);
   test('$namespace baseline names only registered rules', () {
-    if (update) return;
+    if (prune) return;
     expect(
       orphans,
       isEmpty,
       reason:
-          'remove ${orphans.join(', ')} from ${file.path}: no $namespace '
-          'rule has that id',
+          '${orphans.join(', ')} in ${file.path} has no $namespace rule: '
+          'register the rule again, or, if the rule is really gone, remove '
+          'the id and then run UPDATE_BASELINE=prune once',
     );
   });
 
   if (update && file.existsSync()) {
     tearDownAll(() {
       final text = file.readAsStringSync();
-      final current = parseBaseline(text)..addAll(rewritten);
-      for (final id in orphans) {
-        current.remove(id);
-      }
       writeFileAtomically(
         file,
-        serializeBaseline(baselineHeader(text), current),
+        serializeBaseline(
+          baselineHeader(text),
+          updatedBaseline(
+            parseBaseline(text),
+            rewritten,
+            orphans,
+            prune: prune,
+          ),
+        ),
       );
     });
   }
 }
 
-/// Every `ratchetTests(` call under [roots], and what is wrong with it.
+/// Every `ratchetTests` use under [roots], and what is wrong with it.
 class Registrations {
-  /// Namespace -> the files that register it with a literal.
+  /// Namespace -> the places that register it with a literal.
   final byNamespace = <String, List<String>>{};
 
-  /// Calls that are not allowed: outside a `*_test.dart` file, with a
-  /// namespace that is not a literal naming a known namespace, or a namespace
-  /// registered twice.
+  /// Uses that are not allowed: a call outside the top-level `main()` of a
+  /// `*_test.dart` file, a `namespace:` that is not a literal naming a known
+  /// namespace, a tear-off, or a namespace registered twice.
   final problems = <String>[];
 }
 
@@ -336,13 +363,91 @@ const _registrationRule =
     'call ratchetTests directly from exactly one *_test.dart per namespace, '
     'with a literal namespace';
 
-/// Scans the comment-free code of every Dart file under [roots] for
-/// `ratchetTests(` calls, with arguments matched by parenthesis depth.
+final _ident = RegExp(r'\bratchetTests\b');
+const _notTypes = {'return', 'await', 'yield', 'else', 'case', 'in', 'throw'};
+
+/// True when the `ratchetTests` at [start] in [code] is a declaration: a
+/// return type (`void`, `Future<void>`) comes right before it.
+bool _isDeclaration(String code, int start) {
+  final before = code.substring(0, start).trimRight();
+  if (before.endsWith('>')) return !before.endsWith('=>');
+  final word = RegExp(r'(\w+)$').firstMatch(before)?.group(1);
+  return word != null && !_notTypes.contains(word);
+}
+
+/// The ranges of the top-level `main()` bodies in [code]: (start of the body,
+/// end, whether it is an arrow body).
+List<(int, int, bool)> _mainBodies(String code) {
+  final out = <(int, int, bool)>[];
+  for (final m in RegExp(
+    r'\b(?:void|Future<void>)\s+main\s*\(',
+  ).allMatches(code)) {
+    final params = callEnd(code, m.end);
+    var i = params;
+    while (i < code.length && ' \n\t'.contains(code[i])) {
+      i++;
+    }
+    if (code.startsWith('async', i)) i += 5;
+    while (i < code.length && ' \n\t'.contains(code[i])) {
+      i++;
+    }
+    if (i < code.length && code[i] == '{') {
+      out.add((i, blockEnd(code, i), false));
+    } else if (code.startsWith('=>', i)) {
+      final semi = code.indexOf(';', i);
+      out.add((i + 2, semi < 0 ? code.length : semi, true));
+    }
+  }
+  return out;
+}
+
+/// True when [offset] sits directly in a `main()` body: at brace depth 1 and
+/// parenthesis depth 0 of a block body, or right after the `=>` of an arrow
+/// body.
+bool _directlyInMain(String code, int offset, List<(int, int, bool)> mains) {
+  for (final (start, end, arrow) in mains) {
+    if (offset <= start || offset >= end) continue;
+    if (arrow) {
+      if (code.substring(start, offset).trim().isEmpty) return true;
+      continue;
+    }
+    var braces = 0;
+    var parens = 0;
+    for (var i = start; i < offset; i++) {
+      final c = code[i];
+      if (c == '{') braces++;
+      if (c == '}') braces--;
+      if (c == '(') parens++;
+      if (c == ')') parens--;
+    }
+    if (braces == 1 && parens == 0) return true;
+  }
+  return false;
+}
+
+/// The literal of the call's own `namespace:` argument (depth 0 of its
+/// arguments, found in [code], read from [text]), or null.
+String? _namespaceLiteral(String code, String text, int argStart, int argEnd) {
+  var depth = 0;
+  for (var i = argStart; i < argEnd; i++) {
+    final c = code[i];
+    if (c == '(' || c == '[' || c == '{') depth++;
+    if (c == ')' || c == ']' || c == '}') depth--;
+    if (depth == 0 &&
+        code.startsWith('namespace', i) &&
+        (i == 0 || !RegExp(r'\w').hasMatch(code[i - 1]))) {
+      final m = RegExp(r"""^namespace\s*:\s*(?:'(\w+)'|"(\w+)")\s*(?:,|\))""")
+          .firstMatch(text.substring(i, argEnd));
+      return m == null ? null : (m.group(1) ?? m.group(2));
+    }
+  }
+  return null;
+}
+
+/// Scans the comment-free code of every Dart file under [roots]. Each
+/// `ratchetTests(` call must sit directly in the body of the top-level
+/// `main()` of a `*_test.dart` file, with a literal namespace.
 Registrations findRegistrations(List<Directory> roots) {
-  final call = RegExp(r'(?<!void\s)\bratchetTests\s*\(');
-  final literal = RegExp(
-    r"""\bnamespace\s*:\s*(?:'(\w+)'|"(\w+)")\s*(?:,|\))""",
-  );
   final out = Registrations();
   for (final root in roots) {
     if (!root.existsSync()) continue;
@@ -350,17 +455,37 @@ Registrations findRegistrations(List<Directory> roots) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final path = entity.path.replaceAll(r'\', '/');
       final file = SourceFile(path, entity.readAsStringSync());
-      for (final (offset, args) in callArguments(file, call)) {
-        final where = '$path:${file.lineOf(offset)}';
-        if (!path.endsWith('_test.dart')) {
+      final code = file.code;
+      final mains = path.endsWith('_test.dart')
+          ? _mainBodies(code)
+          : const <(int, int, bool)>[];
+      for (final m in _ident.allMatches(code)) {
+        if (_isDeclaration(code, m.start)) continue;
+        final where = '$path:${file.lineOf(m.start)}';
+        var open = m.end;
+        while (open < code.length && ' \n\t'.contains(code[open])) {
+          open++;
+        }
+        if (open >= code.length || code[open] != '(') {
           out.problems.add(
-            '$where: ratchetTests is called outside a *_test.dart file: '
+            '$where: ratchetTests is used as a value, not called: '
             '$_registrationRule',
           );
           continue;
         }
-        final m = literal.firstMatch(args);
-        final ns = m == null ? null : (m.group(1) ?? m.group(2));
+        if (!_directlyInMain(code, m.start, mains)) {
+          out.problems.add(
+            '$where: ratchetTests is not called directly in the top-level '
+            'main() of a *_test.dart file: $_registrationRule',
+          );
+          continue;
+        }
+        final ns = _namespaceLiteral(
+          code,
+          file.text,
+          open + 1,
+          callEnd(code, open + 1),
+        );
         if (ns == null) {
           out.problems.add(
             '$where: the namespace argument is not a string literal: '
