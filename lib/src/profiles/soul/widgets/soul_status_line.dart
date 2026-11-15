@@ -5,7 +5,7 @@ import '../../../theme/app_icons.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../../widgets/app_banner.dart';
 import '../../../widgets/grouped_list.dart';
-import '../../../widgets/motion_spinner.dart';
+import 'soul_line_metrics.dart';
 
 /// What the line under the editor says about the last save.
 enum SoulStatusKind {
@@ -25,8 +25,9 @@ enum SoulStatusKind {
 /// status, never the colour alone. It is a polite live region, so a screen
 /// reader announces a change without taking focus.
 ///
-/// It takes plain values only. The line is inset like the count and notes
-/// above it, so a Revert button below lines up with its text.
+/// It takes plain values only. The icon (or spinner) scales with the text and
+/// the line is laid out like [SoulInfoLine], so the text starts at
+/// [SoulLineMetrics.textInset] and a Revert button below lines up with it.
 class SoulStatusLine extends StatelessWidget {
   const SoulStatusLine({super.key, required this.kind});
 
@@ -45,7 +46,7 @@ class SoulStatusLine extends StatelessWidget {
       ),
       SoulStatusKind.saving => (l10n.profilesSoulSaving, colors.subtleText),
     };
-    final size = metrics.footerSize + 3;
+    final size = SoulLineMetrics.iconExtent(context);
     return Semantics(
       container: true,
       liveRegion: true,
@@ -64,7 +65,7 @@ class SoulStatusLine extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 1),
                 child: kind == SoulStatusKind.saving
-                    ? const MotionSpinner()
+                    ? SoulLineMetrics.spinner(context)
                     : AppIcon(
                         switch (kind) {
                           SoulStatusKind.saved => AppIcons.checkCircle,
@@ -74,7 +75,7 @@ class SoulStatusLine extends StatelessWidget {
                         color: color,
                       ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: SoulLineMetrics.gap),
               Expanded(
                 child: Text(
                   text,
@@ -154,7 +155,7 @@ class SoulStatusBanner extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const MotionSpinner(),
+              SoulLineMetrics.spinner(context),
               const SizedBox(width: 8),
               Text(l10n.profilesSoulBannerChecking),
             ],

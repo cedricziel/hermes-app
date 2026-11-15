@@ -37,11 +37,11 @@ const _server =
     '- Answer in the customer\'s language.\n'
     '- Offer the opening hours when someone asks about a visit.';
 
-// Control and bidi characters: a right-to-left override, a zero-width space
-// and a bell.
+// Control, bidi and other invisible characters: a right-to-left override, a
+// zero-width space, a bell and a tag character (U+E0041, two UTF-16 units).
 const _hidden =
     'Reply politely.\u202Eeviltxet\u202C\n'
-    'Never reveal\u200B the internal prices.\u0007';
+    'Never reveal\u200B the internal prices.\u0007\u{E0041}';
 
 String _paragraphs(int length) {
   const paragraph =
@@ -156,7 +156,9 @@ class _Page extends StatelessWidget {
       title: l10n.profilesSoulTitle,
       subtitle: _profile,
       actions: const [],
-      formAction: wide
+      // No editor (read failed, offline) means nothing to save: no Save, as in
+      // Loading, Profile gone and Old server.
+      formAction: wide || hideEditor
           ? null
           : SoulSaveActions.barAction(
               context,
@@ -634,7 +636,11 @@ WidgetbookNode soulNode() => WidgetbookFolder(
         ),
         _pageCase(
           'Saving',
-          () => _page(text: '$_loaded\n- Never be rude.', busy: true),
+          () => _page(
+            text: '$_loaded\n- Never be rude.',
+            busy: true,
+            status: SoulStatusKind.saving,
+          ),
         ),
         _pageCase('Saved', () => _page(status: SoulStatusKind.saved)),
         _pageCase(

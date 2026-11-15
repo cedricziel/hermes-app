@@ -7,6 +7,7 @@ import '../../../files/widgets/safe_path_text.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../../widgets/grouped_list.dart';
+import 'soul_line_metrics.dart';
 
 /// From this many characters on the editor says that Hermes may shorten the
 /// text when it builds a chat. It is a note, never a limit: the server has no
@@ -17,11 +18,14 @@ const int kSoulLongNoteLength = 20000;
 /// (the ones [safePathText] escapes) as a visible mark on a tinted
 /// background, one UTF-16 unit for one unit so the caret and the selection
 /// keep their offsets, and the text itself is never changed: what is saved is
-/// what was loaded or typed. A tab and line breaks are drawn as they are.
+/// what was loaded or typed. A character above U+FFFF (a tag character, say)
+/// is two units, so it is drawn as two marks. A tab and line breaks are drawn
+/// as they are.
 class SoulTextController extends TextEditingController {
   SoulTextController({super.text});
 
-  /// Whether the unit at [index] of [text] is drawn as a mark.
+  /// Whether the UTF-16 [unit] is a character drawn as a mark. A unit that is
+  /// half of a pair is judged by [hiddenUnits], not here.
   static bool isHidden(int unit) =>
       unit != 0x0A && unit != 0x0D && isUnsafeDisplayRune(unit);
 
@@ -33,8 +37,51 @@ class SoulTextController extends TextEditingController {
     return '�';
   }
 
-  /// Whether [text] holds anything [isHidden] says is drawn as a mark.
-  static bool hasHidden(String text) => text.codeUnits.any(isHidden);
+  /// Whether [text] holds anything drawn as a mark.
+  static bool hasHidden(String text) {
+    for (var i = 0; i < text.length; i++) {
+      final unit = text.codeUnitAt(i);
+      if (_isHigh(unit)) {
+        if (_pairAt(text, i) case final rune? when isUnsafeDisplayRune(rune)) {
+          return true;
+        }
+      } else if (isHidden(unit)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// For each UTF-16 unit of [text], whether it is drawn as a mark: a hidden
+  /// character below U+10000, or either half of a hidden character above it.
+  /// A lone surrogate is not hidden.
+  @visibleForTesting
+  static List<bool> hiddenUnits(String text) {
+    final hidden = List<bool>.filled(text.length, false);
+    for (var i = 0; i < text.length; i++) {
+      final unit = text.codeUnitAt(i);
+      if (_isHigh(unit)) {
+        if (_pairAt(text, i) case final rune? when isUnsafeDisplayRune(rune)) {
+          hidden[i] = hidden[i + 1] = true;
+          i++;
+        }
+      } else {
+        hidden[i] = isHidden(unit);
+      }
+    }
+    return hidden;
+  }
+
+  static bool _isHigh(int unit) => unit >= 0xD800 && unit <= 0xDBFF;
+
+  /// The character whose high surrogate is at [i], or null when no low
+  /// surrogate follows.
+  static int? _pairAt(String text, int i) {
+    if (i + 1 >= text.length) return null;
+    final low = text.codeUnitAt(i + 1);
+    if (low < 0xDC00 || low > 0xDFFF) return null;
+    return 0x10000 + ((text.codeUnitAt(i) - 0xD800) << 10) + (low - 0xDC00);
+  }
 
   @override
   TextSpan buildTextSpan({
@@ -50,38 +97,66 @@ class SoulTextController extends TextEditingController {
         withComposing: withComposing,
       );
     }
+    final hiddenAt = hiddenUnits(text);
     final composing = withComposing && value.isComposingRangeValid
         ? value.composing
         : TextRange.empty;
     final tint = context.hermesColors.warning.withValues(alpha: 0.28);
     final marked = (style ?? const TextStyle()).copyWith(backgroundColor: tint);
-    final underline = const TextStyle(decoration: TextDecoration.underline);
+    const underline = TextStyle(decoration: TextDecoration.underline);
     final children = <TextSpan>[];
-    final run = StringBuffer();
+    var start = 0;
     var runHidden = false;
     var runComposing = false;
-    void flush() {
-      if (run.isEmpty) return;
+    // The run [start, end): plain text is one substring; a hidden run is one
+    // mark per unit.
+    void flush(int end) {
+      if (end <= start) return;
       var s = runHidden ? marked : style;
       if (runComposing) s = (s ?? const TextStyle()).merge(underline);
-      children.add(TextSpan(text: run.toString(), style: s));
-      run.clear();
+      final shown = runHidden
+          ? String.fromCharCodes([
+              for (var i = start; i < end; i++)
+                markFor(text.codeUnitAt(i)).codeUnitAt(0),
+            ])
+          : text.substring(start, end);
+      children.add(TextSpan(text: shown, style: s));
     }
 
     for (var i = 0; i < text.length; i++) {
-      final unit = text.codeUnitAt(i);
-      final hidden = isHidden(unit);
+      final hidden = hiddenAt[i];
       final inComposing = i >= composing.start && i < composing.end;
-      if (run.isNotEmpty &&
-          (hidden != runHidden || inComposing != runComposing)) {
-        flush();
+      if (i > start && (hidden != runHidden || inComposing != runComposing)) {
+        flush(i);
+        start = i;
       }
       runHidden = hidden;
       runComposing = inComposing;
-      run.write(hidden ? markFor(unit) : text[i]);
     }
-    flush();
+    flush(text.length);
     return TextSpan(style: style, children: children);
+  }
+}
+
+/// The number of characters (code points, as the server counts them) in the
+/// text it is last asked about. Counting walks the whole string, which costs
+/// milliseconds in a long file, so it runs again only when the text is not
+/// the one it counted: a caret move notifies listeners without changing it.
+class SoulCharacterCount {
+  String? _text;
+  int _count = 0;
+
+  /// How many times a count actually ran.
+  @visibleForTesting
+  int computed = 0;
+
+  int of(String text) {
+    if (_text == null || !(identical(_text, text) || _text == text)) {
+      _text = text;
+      _count = text.runes.length;
+      computed++;
+    }
+    return _count;
   }
 }
 
@@ -149,11 +224,22 @@ class SoulEditor extends StatefulWidget {
   State<SoulEditor> createState() => _SoulEditorState();
 }
 
-class _SoulEditorState extends State<SoulEditor> {
+/// What a test reads from the editor's state.
+@visibleForTesting
+abstract interface class SoulEditorCountProbe {
+  int get debugCountComputed;
+}
+
+class _SoulEditorState extends State<SoulEditor>
+    implements SoulEditorCountProbe {
   Timer? _pause;
+  final _counter = SoulCharacterCount();
   late int _announced = _count;
 
-  int get _count => widget.controller.text.runes.length;
+  int get _count => _counter.of(widget.controller.text);
+
+  @override
+  int get debugCountComputed => _counter.computed;
 
   @override
   void initState() {
@@ -209,7 +295,8 @@ class _SoulEditorState extends State<SoulEditor> {
         enableIMEPersonalizedLearning: false,
         smartDashesType: SmartDashesType.disabled,
         smartQuotesType: SmartQuotesType.disabled,
-        // Null turns autofill off; an empty list would still opt in.
+        // TextField sends AutofillConfiguration.disabled only for null; its
+        // default, an empty list, still registers the field for autofill.
         autofillHints: null,
         spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
         style: TextStyle(
@@ -251,7 +338,7 @@ class _SoulEditorState extends State<SoulEditor> {
           listenable: widget.controller,
           builder: (context, _) {
             final text = widget.controller.text;
-            final count = text.runes.length;
+            final count = _counter.of(text);
             return Padding(
               padding: EdgeInsets.fromLTRB(
                 metrics.rowPadding,
@@ -316,12 +403,12 @@ class SoulInfoLine extends StatelessWidget {
               padding: const EdgeInsets.only(top: 1),
               child: AppIcon(
                 icon ?? AppIcons.info,
-                size: metrics.footerSize + 3,
+                size: SoulLineMetrics.iconExtent(context),
                 color: muted,
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: SoulLineMetrics.gap),
           Expanded(
             child: Text(
               text,

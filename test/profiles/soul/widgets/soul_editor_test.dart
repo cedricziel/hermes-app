@@ -228,6 +228,37 @@ void main() {
     });
   });
 
+  group('character count', () {
+    test('counts code points and recounts only when the text changed', () {
+      final counter = SoulCharacterCount();
+      const text = 'a\u{1F600}b';
+      expect(counter.of(text), 3);
+      expect(counter.of(text), 3);
+      expect(counter.of(String.fromCharCodes(text.codeUnits)), 3);
+      expect(counter.computed, 1);
+      expect(counter.of('abcd'), 4);
+      expect(counter.computed, 2);
+    });
+
+    testWidgets('a caret move does not recount; typing does', (tester) async {
+      final controller = SoulTextController(text: 'hello');
+      addTearDown(controller.dispose);
+      await pumpSoul(tester, _editor(controller));
+      final state = tester.state<State<SoulEditor>>(find.byType(SoulEditor));
+      int computed() => (state as SoulEditorCountProbe).debugCountComputed;
+      final before = computed();
+      controller.selection = const TextSelection.collapsed(offset: 2);
+      await tester.pump();
+      controller.selection = const TextSelection.collapsed(offset: 4);
+      await tester.pump();
+      expect(computed(), before);
+      controller.text = 'hello!';
+      await tester.pump();
+      expect(find.text('6 characters'), findsOneWidget);
+      expect(computed(), before + 1);
+    });
+  });
+
   group('control and bidi characters', () {
     const text = 'a\u202Eb\u200Bc\u0007d\ne\tf';
 
@@ -283,6 +314,78 @@ void main() {
       );
       expect(span.toPlainText(), 'plain\ntext');
       expect(SoulTextController.hasHidden('plain\ntext'), isFalse);
+    });
+
+    testWidgets(
+      'a tag character is two marks, one per unit, and offsets hold',
+      (tester) async {
+        // U+E0041 is the pair U+DB40 U+DC41: two units, drawn as two marks.
+        const hiddenTag = 'a\u{E0041}b';
+        expect(hiddenTag.length, 4);
+        final controller = SoulTextController(text: hiddenTag);
+        addTearDown(controller.dispose);
+        expect(SoulTextController.hasHidden(hiddenTag), isTrue);
+        expect(SoulTextController.hiddenUnits(hiddenTag), [
+          false,
+          true,
+          true,
+          false,
+        ]);
+        late BuildContext context;
+        await pumpSoul(
+          tester,
+          Builder(
+            builder: (c) {
+              context = c;
+              return const SizedBox();
+            },
+          ),
+        );
+        final span = controller.buildTextSpan(
+          context: context,
+          style: const TextStyle(),
+          withComposing: false,
+        );
+        final shown = span.toPlainText(includeSemanticsLabels: false);
+        expect(shown, 'a��b');
+        expect(shown.length, hiddenTag.length);
+        expect(controller.text, hiddenTag);
+      },
+    );
+
+    test('an ordinary emoji and a lone surrogate are not marked', () {
+      expect(SoulTextController.hasHidden('a\u{1F600}b'), isFalse);
+      expect(SoulTextController.hasHidden('a\uD800b'), isFalse);
+      expect(SoulTextController.hasHidden('a\uD800'), isFalse);
+      expect(SoulTextController.hasHidden('a\u00ADb'), isTrue);
+    });
+
+    testWidgets('runs split at the composing range and keep their text', (
+      tester,
+    ) async {
+      const mixed = 'ab\u202Ecd\u0007\u0007ef';
+      final controller = SoulTextController(text: mixed);
+      addTearDown(controller.dispose);
+      controller.value = controller.value.copyWith(
+        composing: const TextRange(start: 1, end: 4),
+      );
+      late BuildContext context;
+      await pumpSoul(
+        tester,
+        Builder(
+          builder: (c) {
+            context = c;
+            return const SizedBox();
+          },
+        ),
+      );
+      final span = controller.buildTextSpan(
+        context: context,
+        style: const TextStyle(),
+        withComposing: true,
+      );
+      final runs = [for (final c in span.children!) (c as TextSpan).text];
+      expect(runs, ['a', 'b', '�', 'c', 'd', '␇␇', 'ef']);
     });
   });
 }

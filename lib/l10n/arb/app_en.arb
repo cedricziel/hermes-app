@@ -2729,7 +2729,7 @@
   },
   "profilesSoulCount": "{count, plural, =1{1 character} other{{count} characters}}",
   "@profilesSoulCount": {
-    "description": "Length of the personality text, shown under the editor. The number is shown with the locale's thousands separator.",
+    "description": "Length of the personality text, shown under the editor. It counts code points, as the server does, not UTF-16 units. The number is shown with the locale's thousands separator.",
     "placeholders": {
       "count": {
         "type": "int",

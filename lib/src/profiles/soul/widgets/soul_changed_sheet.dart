@@ -29,7 +29,8 @@ enum SoulChangedChoice { keepEditing, replaceAnyway }
 /// text is a read-only, selectable box capped at 40% of the window's height
 /// that scrolls, with Copy under it; control and bidi characters are drawn as
 /// placeholders. When the file is gone on the server ([serverGone]) the body
-/// says so and the server's version reads "No personality set.".
+/// says so and the server's version reads "No personality set."; there is
+/// nothing to copy then, so Copy is not drawn.
 ///
 /// It takes plain values and callbacks, no controller. [dialog] only changes
 /// the frame: a drag handle on a phone sheet, none in a dialog on a Mac and on
@@ -181,41 +182,42 @@ class _SoulChangedSheetState extends State<SoulChangedSheet> {
                     ),
                     children: [
                       box,
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextButton.icon(
-                              onPressed: () {
-                                widget.onCopy(widget.serverText);
-                                setState(() => _copied = true);
-                              },
-                              style: toolsButtonStyle(context),
-                              icon: ExcludeSemantics(
-                                child: AppIcon(AppIcons.copy, size: 18),
+                      if (!widget.serverGone)
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () {
+                                  widget.onCopy(widget.serverText);
+                                  setState(() => _copied = true);
+                                },
+                                style: toolsButtonStyle(context),
+                                icon: ExcludeSemantics(
+                                  child: AppIcon(AppIcons.copy, size: 18),
+                                ),
+                                label: Text(l10n.profilesSoulChangedCopy),
                               ),
-                              label: Text(l10n.profilesSoulChangedCopy),
-                            ),
-                            if (_copied)
-                              Semantics(
-                                liveRegion: true,
-                                child: Padding(
-                                  padding: const EdgeInsetsDirectional.only(
-                                    start: 8,
-                                  ),
-                                  child: Text(
-                                    l10n.profilesSoulChangedCopied,
-                                    style: TextStyle(
-                                      fontSize: metrics.footerSize,
-                                      color: colors.subtleText,
+                              if (_copied)
+                                Semantics(
+                                  liveRegion: true,
+                                  child: Padding(
+                                    padding: const EdgeInsetsDirectional.only(
+                                      start: 8,
+                                    ),
+                                    child: Text(
+                                      l10n.profilesSoulChangedCopied,
+                                      style: TextStyle(
+                                        fontSize: metrics.footerSize,
+                                        color: colors.subtleText,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
