@@ -342,8 +342,19 @@ extension _ChatControllerSending on ChatController {
         // the server's, and the queue waits behind it as it did.
         _holdForReconnect(thread, reply);
       } else if (reply.isPending) {
+        // The queue rule after any failed reply: halted, so what waits in it
+        // stays and nothing is sent by itself.
         _turnEnded(thread, halted: true);
-        _updateReply(thread, reply, () => failReply(reply, error));
+        final loss = replyLossOf(error);
+        if (loss != null) {
+          breadcrumbs('chat.reply.settled', {'reason': loss.name});
+        }
+        _updateReply(
+          thread,
+          reply,
+          () =>
+              loss == null ? failReply(reply, error) : settleLost(reply, loss),
+        );
         if (!_currentActivity(epoch)) return;
         _announce(thread, const ReplyCompleted('', failed: true), profile);
         // A send that gave up asks for the thread to be read again: what

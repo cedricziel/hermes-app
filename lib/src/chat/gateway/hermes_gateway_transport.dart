@@ -126,6 +126,18 @@ const _liveStatuses = {
   'resuming',
 };
 
+/// The code a session-scoped call answers for a runtime session the server does
+/// not have (reaped after its grace, or lost to a restart).
+const _sessionNotFound = 4001;
+
+/// What `session.active_list` says of a reply's session when it is asked about.
+enum _Probe { running, over, refused }
+
+/// How many probes in a row may be refused or unreadable before a silent reply
+/// is given up on as unconfirmed. At the default probe interval that is three
+/// minutes of a server that answers nothing useful.
+const _maxRefusedProbes = 4;
+
 /// A stored session ID qualified by its explicit owning profile.
 typedef _ThreadOwner = (String?, String);
 
@@ -157,6 +169,7 @@ class HermesGatewayTransport
     this.reconnectWindow = _defaultReconnectWindow,
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
+    this.quietBound = const Duration(minutes: 20),
     this.readTimeout = const Duration(seconds: 10),
     this.longTimeout = const Duration(seconds: 90),
     Random? random,
@@ -208,6 +221,11 @@ class HermesGatewayTransport
   /// How long a reply in flight may go without a frame of its session before
   /// `session.active_list` is asked whether the turn still runs.
   final Duration silenceProbe;
+
+  /// How long a reply may get no frame of its session while the server keeps
+  /// listing its turn as running, before it is given up on as unconfirmed.
+  /// Longer than the server keeps a silent turn alive (600 s).
+  final Duration quietBound;
 
   final GatewayConnect _connect;
   final MessagingConnectionTracer? _telemetry;

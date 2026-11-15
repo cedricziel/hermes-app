@@ -412,10 +412,16 @@ final class UnsolicitedEvent extends ChatEvent {
 
 /// The reply text as the server now holds it. It replaces what streamed since
 /// the last seal, because the streamed deltas were lost or are out of date.
+///
+/// [continued]: the server was restarted and re-runs the turn this reply
+/// showed, so what the reply had is the interrupted attempt's: its calls that
+/// never reported an end ended with the process, and the text that streams now
+/// is the re-run's.
 final class ReplyRebuilt extends ChatEvent {
-  const ReplyRebuilt(this.text);
+  const ReplyRebuilt(this.text, {this.continued = false});
 
   final String text;
+  final bool continued;
 }
 
 /// The thread's history changed in a way the stream cannot carry, so the

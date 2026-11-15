@@ -20,6 +20,7 @@ import '../chat_models.dart'
         ApprovalRequest,
         ChatAttachment,
         ClarifyRequest,
+        ReplyLoss,
         Subagent,
         ToolCall,
         UnsupportedKind,
@@ -42,6 +43,7 @@ import 'reasoning_block.dart';
 import 'review_summary_note.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
+import 'reply_interrupted_note.dart';
 import 'reply_reconnecting_note.dart';
 import 'subagent_card.dart';
 import 'tool_call_group.dart';
@@ -247,6 +249,7 @@ Widget _buildText(
 }) {
   final scheme = Theme.of(context).colorScheme;
   final error = message.metadata?[kMetaError] as String?;
+  final loss = message.metadata?[kMetaLoss] as String?;
   final style = TextStyle(
     color: scheme.onSurface,
     fontSize: messageFontSizeFor(Theme.of(context).platform),
@@ -307,7 +310,17 @@ Widget _buildText(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (message.text.isNotEmpty) draggable,
-      if (error != null)
+      if (loss != null)
+        ReplyInterruptedNote(
+          unconfirmed: loss == ReplyLoss.unconfirmed.name,
+          text: switch (loss) {
+            'restarted' => context.l10n.chatReplyInterruptedRestarted,
+            'unconfirmed' => context.l10n.chatReplyUnconfirmed,
+            _ => context.l10n.chatReplyInterruptedGone,
+          },
+          announceKey: message.id,
+        )
+      else if (error != null)
         if (onCheckProviders != null && isProviderReplyError(error))
           Padding(
             padding: const EdgeInsets.only(top: 8),

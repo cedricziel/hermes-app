@@ -21,6 +21,19 @@ enum ChatRole { user, assistant }
 
 enum MessageStatus { sent, thinking, streaming, error }
 
+/// Why a reply was settled without an ending the server gave it, so the note
+/// under it says what is true (see [ChatMessage.loss]).
+enum ReplyLoss {
+  /// Hermes restarted (its replay epoch changed) and its turn died with it.
+  restarted,
+
+  /// The server answered and no longer has the turn or its session.
+  notOnServer,
+
+  /// The server could not be made to say how the turn ended.
+  unconfirmed,
+}
+
 /// Where a tool call stands. [cancelled] is a call the reply stopped before
 /// it finished, or one the model began to write but never ran.
 enum ToolCallStatus { running, completed, warning, error, cancelled }
@@ -636,6 +649,12 @@ class ChatMessage {
 
   /// Why the reply failed, shown under whatever text it kept.
   String? error;
+
+  /// With [MessageStatus.error] and no [error]: the reply was settled because
+  /// the server no longer has its turn, or could not confirm how it ended. It
+  /// is shown with a note that says which, not as a failure. A completion that
+  /// arrives later clears it.
+  ReplyLoss? loss;
 
   /// What the agent is doing now, shown in the thinking row. Null keeps the
   /// generic label. Setting it clears [activityKind].

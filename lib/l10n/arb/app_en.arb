@@ -94,6 +94,14 @@
   "@chatNoticeStopCommand": {
     "description": "Notice in the chat when a typed or queued message was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The text goes back into the message box."
   },
+  "chatReplyInterruptedGone": "This reply is no longer on the server.",
+  "@chatReplyInterruptedGone": {
+    "description": "Note under a reply that was settled because the server answered that it no longer has the turn or its session (and did not restart). Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyInterruptedRestarted": "Hermes restarted. This reply was interrupted.",
+  "@chatReplyInterruptedRestarted": {
+    "description": "Note under a reply that was settled because Hermes restarted while it was being written and did not bring the turn back. Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
   "chatReplyReconnectIdle": "Couldn't reconnect. Hermes may still be working on this. Trying again when you come back.",
   "@chatReplyReconnectIdle": {
     "description": "Note under a reply whose connection was lost and could not be won back after many tries. Nothing is being tried any more; the reply is picked up again when the app comes to the front or the chat is opened. Wraps at any text size."
@@ -101,6 +109,10 @@
   "chatReplyReconnecting": "Connection lost. Reconnecting…",
   "@chatReplyReconnecting": {
     "description": "Note under a reply whose connection to Hermes dropped while the answer may still be coming. Not an error: the reply keeps what it had and goes on when the connection is back. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyUnconfirmed": "Couldn't confirm how this reply ended. It may have finished; check the conversation before trying again.",
+  "@chatReplyUnconfirmed": {
+    "description": "Note under a reply that was settled because the server could not be made to say whether its turn still runs or how it ended (its answers were refused, or it went silent for longer than any live turn). Nothing was resent. Announced once to screen readers. Wraps at any text size."
   },
   "chatSessionExportConfirmButton": "Export",
   "@chatSessionExportConfirmButton": {

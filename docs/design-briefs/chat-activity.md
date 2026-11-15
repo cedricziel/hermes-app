@@ -73,3 +73,21 @@ This extends an existing designed surface (the reply in the transcript and its t
 **While it shows.** The composer keeps Stop (it asks the server and works when the server can be reached, and says "couldn't stop" otherwise). Messages typed meanwhile wait in the queue, nothing is sent. Retry, Edit and Branch are not offered, since the turn is still running.
 
 **Not checked.** VoiceOver and TalkBack output on a device, the real connection coming back while the app is in front, contrast of the warning token on the dark surface beyond an eye check.
+
+## Addendum: a reply the server no longer has
+
+This extends an existing designed surface (the tail of a reply in the transcript, next to `ReplyErrorNote` and the reconnecting note). It adds states, not a screen, and needs no new canvas.
+
+**What the person sees.** A reply was streaming and the server turns out not to have its turn any more (it restarted, or answers that the session is gone), or it cannot be made to say how the turn ended. The text that streamed stays. Its tool calls that were still running are shown as not finished (the existing cancelled look), not as failed. Stop goes. One line follows the reply, in the warning colour, never red and never with "try again" in it:
+
+- Hermes restarted: a stop-circle icon and "Hermes restarted. This reply was interrupted." (German: "Hermes wurde neu gestartet. Diese Antwort wurde unterbrochen.").
+- Not on the server (no restart seen): the same icon and "This reply is no longer on the server." (German: "Diese Antwort ist nicht mehr auf dem Server.").
+- Could not confirm (the server's answers were refused for minutes, or it went silent for 20 minutes): an info-circle icon and "Couldn't confirm how this reply ended. It may have finished; check the conversation before trying again." (German: "Das Ende dieser Antwort ließ sich nicht bestätigen. Sie ist möglicherweise fertig; sieh im Chat nach, bevor du es noch einmal versuchst.").
+
+**Widget (plain model).** `ReplyInterruptedNote(text, unconfirmed, announceKey)`: 16 pt icon, 13.5 pt text in the `warning` token, same 8 pt top gap as `ReplyErrorNote`, wraps at any text size. Icon plus sentence, never colour alone. A screen reader hears the sentence once per reply (`announceKey` is the reply id; the catalog passes none), not each time the row is built.
+
+**Catalog use cases** (`widgetbook/reply_interrupted_use_cases.dart`): each of the three sentences alone, under a reply whose call did not finish, with finished and unfinished calls, beside a failed reply for contrast, long sentences at 320 pt, largest text (restarted and unconfirmed). Light and dark, phone and desktop and English and German come from the catalog's addons.
+
+**While it shows.** The queue is paused as after any failed reply: queued messages stay, nothing is sent by itself. When the chat is read again and the history already has Hermes' answer after the prompt, the note goes with the placeholder reply and the real reply shows.
+
+**Not checked.** VoiceOver and TalkBack output on a device, the contrast of the warning token on the dark surface beyond an eye check, the sentences read by a German speaker.

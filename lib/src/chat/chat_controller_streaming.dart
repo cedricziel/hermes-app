@@ -250,10 +250,25 @@ extension _ChatControllerStreaming on ChatController {
       if (!disposed) notifyListeners();
       if (pending != null) _finishMoaTurn(thread, pending);
       if (pending != null && pending.isPending) {
+        // The queue rule after any failed reply: halted, so what waits in it
+        // stays and nothing is sent by itself.
         _turnEnded(thread, halted: true);
-        _updateReply(thread, pending, () => failReply(pending, error));
+        final loss = replyLossOf(error);
+        if (loss != null) {
+          breadcrumbs('chat.reply.settled', {'reason': loss.name});
+        }
+        _updateReply(
+          thread,
+          pending,
+          () => loss == null
+              ? failReply(pending, error)
+              : settleLost(pending, loss),
+        );
         if (!_currentActivity(epoch)) return;
         _announce(thread, const ReplyCompleted('', failed: true), profile);
+        // What the server did with the turn is in its history: read it again,
+        // and the settled reply is kept only while the history has no answer.
+        if (loss != null) _refetchForeignTurn(thread);
       }
     }
 
