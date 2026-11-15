@@ -110,8 +110,9 @@ PR, where a check can read it. A push after the review needs a new review of
 the new commits, with the new head SHA.
 
 Authors may add fix notes to `## Review`, but never write or change a
-`Reviewer: ... Head: ... Verdict:` line or its `Range:` line (once the reviewer emits one): those are pasted
-from the isolated reviewer's output, unchanged. Paste the block as plain lines,
+`Reviewer: ... Head: ... Verdict:` line or its `Range:` line (once the
+reviewer emits one): those are pasted from the isolated reviewer's output,
+unchanged. Paste the block as plain lines,
 not inside a code fence (`pr-policy` ignores review lines inside fences). Order:
 push, review the pushed head, paste.
 
@@ -130,14 +131,14 @@ A session reports READY to the orchestrator when all of these hold:
   origin/main is clean, (2) the later main commits do not change the same
   functions, classes or doc section the PR changes, (3) `Analyze & test` is
   green on the reviewed head, and (4) for a Dart PR, the trial check below
-  passes (once `scripts/premerge_check.sh` is on main, it does this). The READY
+  passes (once `scripts/premerge_check.sh` (not yet on main) is on main, it does this). The READY
   report names the later main commits checked for (2). If (2) fails, re-merge
   and get a scoped merge-only review.
 
-A "Dart PR" is one that touches `lib/`, `test/`, `widgetbook/`, `packages/`,
-`tool/`, `pubspec.*` or `analysis_options.yaml`. The "trial check" is a trial
-merge with current origin/main in a scratch worktree, then `flutter analyze` AND
-`flutter test test/architecture` there (the second catches two PRs that each
+A "Dart PR" is one that touches any `.dart` file, `pubspec.*`,
+`analysis_options.yaml` or `l10n.yaml`. The "trial check" is a trial merge with
+current origin/main in a scratch worktree, then `flutter pub get`, then
+`flutter analyze` and `flutter test test/architecture` there (the second catches two PRs that each
 lower a ratchet baseline).
 
 A READY report names the directories the PR touches under `lib/`, `test/`,
@@ -148,7 +149,7 @@ the required checks on the head. Read check state with `status-reader`
 or `pull_request_read`; pending, queued and in-progress are not green.
 
 The orchestrator has at most one armed or hand-merged Dart PR at a time, until
-it has merged. (The premerge script's overlap report is information only.)
+it has merged. (The overlap report of `scripts/premerge_check.sh` (not yet on main) is information only.)
 Exception: a hand merge may proceed while another Dart PR is armed, if the trial
 check runs with BOTH heads (merge the armed PR's head and this PR's head into a
 scratch worktree of current origin/main) and passes there.
@@ -156,9 +157,8 @@ scratch worktree of current origin/main) and passes there.
 Every hand merge needs a READY report, a clean recorded review for the exact
 head, and every required check green on that head, except the per-shard checks
 in the docs-only case. It is a squash merge, and the orchestrator does it. A
-Dart PR is hand-merged only when auto-merge cannot merge it (a required check
-that never reports, or the one-armed-Dart-PR limit), and then only after the
-trial check.
+Dart PR is hand-merged only when auto-merge cannot merge it (the
+one-armed-Dart-PR limit), and then only after the trial check.
 
 - HARD RULE: never push to a PR with auto-merge armed. The push would merge
   without a review of that commit. Ask the orchestrator to disarm first, then
