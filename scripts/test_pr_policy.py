@@ -4,8 +4,10 @@ import base64
 import io
 import json
 import os
+import subprocess
 import tempfile
 from contextlib import redirect_stdout
+from unittest import mock
 
 import pr_policy
 from pr_policy import check, corrupted_lines, review_recorded
@@ -475,6 +477,483 @@ class ReviewTest(unittest.TestCase):
         self.assertTrue(review_recorded(None, SHA))
 
 
+class Repo:
+    """A throwaway git repository: `main` is the base branch, and origin/main
+    is set so main() finds it."""
+
+    def __init__(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = self._tmp.name
+        self.git("init", "-q", "-b", "main")
+        self.git("config", "user.email", "t@example.com")
+        self.git("config", "user.name", "T")
+        self.git("config", "commit.gpgsign", "false")
+        self.git("config", "merge.renames", "true")
+        self.n = 0
+
+    def close(self):
+        self._tmp.cleanup()
+
+    def git(self, *args, check=True):
+        r = subprocess.run(
+            ["git", *args],
+            cwd=self.dir,
+            capture_output=True,
+            text=True,
+            env=dict(
+                os.environ, GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_NOSYSTEM="1"
+            ),
+        )
+        if check and r.returncode != 0:
+            raise AssertionError(f"git {args}: {r.stdout}{r.stderr}")
+        return r
+
+    def write(self, name, text):
+        path = os.path.join(self.dir, name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write(text)
+
+    def commit(self, name=None, text=None, msg="c"):
+        """Commits one file change (or an empty-ish unique change)."""
+        self.n += 1
+        name = name or f"f{self.n}.txt"
+        self.write(name, text if text is not None else f"{self.n}\n")
+        self.git("add", name)
+        self.git("commit", "-q", "-m", msg)
+        return self.head()
+
+    def head(self):
+        return self.git("rev-parse", "HEAD").stdout.strip()
+
+    def branch(self, name, start):
+        self.git("checkout", "-q", "-B", name, start)
+
+    def merge(self, other):
+        """A plain `git merge`; asserts it merged without conflict."""
+        self.git("merge", "-q", "--no-ff", "-m", f"Merge {other}", other)
+        return self.head()
+
+    def sync_origin(self):
+        self.git(
+            "update-ref",
+            "refs/remotes/origin/main",
+            self.git("rev-parse", "main").stdout.strip(),
+        )
+
+    def tip(self):
+        return self.git("rev-parse", "main").stdout.strip()
+
+    def pr_git(self):
+        return pr_policy.Git(self.dir)
+
+
+def blk(commit, base, reviewer="isolated-reviewer", verdict="clean", rng=True):
+    out = f"Reviewer: {reviewer} Head: {commit} Verdict: {verdict}\n"
+    if rng:
+        out += f"Range: {base}..{commit}\n"
+    return out + "Findings: none\n"
+
+
+class MergeReviewTest(unittest.TestCase):
+    """Rule (a) and (b) against real repositories."""
+
+    def setUp(self):
+        self.r = Repo()
+        self.addCleanup(self.r.close)
+        r = self.r
+        r.write("a.txt", "one\ntwo\nthree\n")
+        r.write("b.txt", "b\n")
+        r.git("add", "a.txt", "b.txt")
+        r.git("commit", "-q", "-m", "root")
+        self.root = r.head()
+        r.branch("pr", self.root)
+        self.rev = r.commit("pr1.txt")  # the reviewed commit R
+
+    def advance_main(self, name=None, text=None):
+        self.r.git("checkout", "-q", "main")
+        sha = self.r.commit(name, text, msg="main moves")
+        self.r.branch(
+            "pr", self.r.git("rev-parse", "pr").stdout.strip()
+        ) if False else None
+        self.r.git("checkout", "-q", "pr")
+        self.r.sync_origin()
+        return sha
+
+    def review(self, head, review, base=None):
+        return review_recorded(body(review=review), head, self.r.pr_git(), self.r.tip())
+
+    # --- rule (a) ---------------------------------------------------------
+
+    def test_reviewed_non_merge_head_passes(self):
+        self.r.sync_origin()
+        out = self.review(self.rev, blk(self.rev, self.root))
+        self.assertEqual(out, [])
+
+    def test_unreviewed_non_merge_head_fails(self):
+        self.r.sync_origin()
+        out = self.review(self.rev, "")
+        self.assertEqual(len(out), 1)
+        self.assertIn(f"No isolated review recorded for head {self.rev}", out[0])
+        self.assertIn("full review", out[0])
+        self.assertIn(f"Range: {self.r.tip()}..{self.rev}", out[0])
+        self.assertIn(f"Head: {self.rev}", out[0])
+
+    def test_block_for_another_head_fails(self):
+        self.r.sync_origin()
+        out = self.review(self.rev, blk(OLD, self.root))
+        self.assertIn(f"The review is for {OLD}", out[0])
+        self.assertIn(
+            f"needs one: ask the isolated reviewer for a full review of {self.rev}",
+            out[0],
+        )
+        self.assertIn(f"Range: {self.r.tip()}..{self.rev}", out[0])
+
+    def test_changes_requested_fails(self):
+        self.r.sync_origin()
+        out = self.review(
+            self.rev, blk(self.rev, self.root, verdict="changes-requested")
+        )
+        self.assertIn("says changes-requested", out[0])
+
+    def test_old_one_line_format_passes_for_non_merge_head(self):
+        self.r.sync_origin()
+        self.assertEqual(self.review(self.rev, blk(self.rev, self.root, rng=False)), [])
+
+    def test_old_format_rejected_once_the_transition_ends(self):
+        self.r.sync_origin()
+        with mock.patch.object(pr_policy, "ACCEPT_LEGACY_REVIEW_BLOCK", False):
+            out = self.review(self.rev, blk(self.rev, self.root, rng=False))
+        self.assertIn("has no Range line", out[0])
+        self.assertIn(f"Range: {self.r.tip()}..{self.rev}", out[0])
+
+    def test_range_base_not_an_ancestor_fails(self):
+        later = self.advance_main()  # on main, not an ancestor of R
+        out = self.review(self.rev, blk(self.rev, later))
+        self.assertIn(
+            f"starts at {later}, which is not an ancestor of {self.rev}", out[0]
+        )
+        self.assertIn("Paste the reviewer's block verbatim", out[0])
+
+    def test_range_base_unknown_commit_fails(self):
+        self.r.sync_origin()
+        out = self.review(self.rev, blk(self.rev, OLD))
+        self.assertIn("is not an ancestor", out[0])
+
+    def test_range_head_differs_from_head_fails(self):
+        self.r.sync_origin()
+        other = self.r.commit("pr2.txt")
+        out = self.review(
+            other,
+            f"Reviewer: r Head: {other} Verdict: clean\nRange: {self.root}..{self.rev}\n",
+        )
+        self.assertIn(f"ends at {self.rev}, not at its Head", out[0])
+
+    def test_range_malformed_fails(self):
+        self.r.sync_origin()
+        out = self.review(
+            self.rev,
+            f"Reviewer: r Head: {self.rev} Verdict: clean\nRange: main..{self.rev}\n",
+        )
+        self.assertIn("is not '<base sha>..<head sha>'", out[0])
+
+    def test_range_valid_but_present_in_old_block_for_other_commit_ignored(self):
+        # The Range belongs to the block opened last; one before any block is
+        # not taken as another block's.
+        self.r.sync_origin()
+        out = self.review(
+            self.rev,
+            f"Range: {self.root}..{self.rev}\n" + blk(self.rev, self.root, rng=False),
+        )
+        self.assertEqual(out, [])
+
+    def test_more_than_one_plain_block_fails(self):
+        self.r.sync_origin()
+        out = self.review(self.rev, blk(self.rev, self.root) + blk(OLD, self.root))
+        self.assertIn("holds 2 review lines", out[0])
+
+    def test_head_missing_from_checkout_fails(self):
+        self.r.sync_origin()
+        out = self.review(OLD, blk(OLD, self.root))
+        self.assertIn("is not in the checkout", out[0])
+
+    # --- rule (b1) --------------------------------------------------------
+
+    def clean_merge_of_main(self):
+        self.advance_main("m1.txt")
+        return self.r.merge("main")
+
+    def test_clean_merge_of_main_needs_no_new_line(self):
+        h = self.clean_merge_of_main()
+        self.assertEqual(
+            len(self.r.git("rev-list", "--parents", "-n1", h).stdout.split()), 3
+        )
+        self.assertEqual(self.review(h, blk(self.rev, self.root)), [])
+
+    def test_clean_merge_chain_of_two_passes(self):
+        self.advance_main("m1.txt")
+        self.r.merge("main")
+        self.advance_main("m2.txt")
+        h = self.r.merge("main")
+        self.assertEqual(self.review(h, blk(self.rev, self.root)), [])
+
+    def test_clean_merge_over_unreviewed_first_parent_fails(self):
+        self.advance_main("m1.txt")
+        self.r.commit("late.txt")  # pushed after the review
+        late = self.r.head()
+        h = self.r.merge("main")
+        out = self.review(h, blk(self.rev, self.root))
+        self.assertIn(f"commit {late} (reached from head {h}", out[0])
+        self.assertIn(f"Head: {late}", out[0])
+
+    def test_hand_resolved_conflict_merge_fails_naming_files(self):
+        r = self.r
+        r.git("checkout", "-q", "main")
+        r.commit("a.txt", "one\nMAIN\nthree\n")
+        r.sync_origin()
+        r.git("checkout", "-q", "pr")
+        r.commit("a.txt", "one\nPR\nthree\n")
+        reviewed = r.head()
+        res = r.git("merge", "--no-ff", "-m", "Merge main", "main", check=False)
+        self.assertNotEqual(res.returncode, 0)
+        r.write("a.txt", "one\nBOTH\nthree\n")
+        r.git("add", "a.txt")
+        r.git("commit", "-q", "--no-edit")
+        h = r.head()
+        out = self.review(h, blk(reviewed, self.root))
+        self.assertEqual(len(out), 1)
+        self.assertIn(f"Merge {h} is not a clean automatic merge", out[0])
+        self.assertIn(f"first parent {reviewed}", out[0])
+        self.assertIn(f"second parent {r.tip()}", out[0])
+        self.assertIn("a.txt", out[0])
+        self.assertIn("Merge-review: a.txt", out[0])
+        self.assertIn("merge-only review", out[0])
+
+    def test_evil_merge_extra_file_fails_naming_it(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        r.git("merge", "-q", "--no-ff", "--no-commit", "main")
+        r.write("evil.txt", "payload\n")
+        r.git("add", "evil.txt")
+        r.git("commit", "-q", "-m", "Merge main")
+        h = r.head()
+        out = self.review(h, blk(self.rev, self.root))
+        self.assertIn("evil.txt", out[0])
+        self.assertNotIn("m1.txt,", out[0].split("differs from")[1].split("Redo")[0])
+
+    def test_evil_merge_edit_of_existing_file_fails(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        r.git("merge", "-q", "--no-ff", "--no-commit", "main")
+        r.write("b.txt", "tampered\n")
+        r.git("add", "b.txt")
+        r.git("commit", "-q", "-m", "Merge main")
+        out = self.review(r.head(), blk(self.rev, self.root))
+        self.assertIn("b.txt", out[0])
+
+    def test_forged_review_line_for_dirty_merge_head_still_fails(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        r.git("merge", "-q", "--no-ff", "--no-commit", "main")
+        r.write("evil.txt", "payload\n")
+        r.git("add", "evil.txt")
+        r.git("commit", "-q", "-m", "Merge main")
+        h = r.head()
+        out = self.review(h, blk(h, self.root))
+        self.assertIn(f"Merge {h} is not a clean automatic merge", out[0])
+        self.assertIn("evil.txt", out[0])
+
+    def test_forged_line_for_dirty_merge_as_first_parent_fails(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        r.git("merge", "-q", "--no-ff", "--no-commit", "main")
+        r.write("evil.txt", "payload\n")
+        r.git("add", "evil.txt")
+        r.git("commit", "-q", "-m", "Merge main")
+        dirty = r.head()
+        self.advance_main("m2.txt")
+        h = r.merge("main")
+        out = self.review(h, blk(dirty, self.root))
+        self.assertIn(f"Merge {dirty} is not a clean automatic merge", out[0])
+
+    def test_second_parent_not_on_base_fails(self):
+        r = self.r
+        r.git("checkout", "-q", "-B", "other", self.root)
+        other = r.commit("other.txt")
+        r.git("checkout", "-q", "pr")
+        r.sync_origin()
+        h = r.merge("other")
+        out = self.review(h, blk(self.rev, self.root))
+        self.assertIn(f"second parent {other} is not on the base branch", out[0])
+        self.assertIn("merge only the base branch", out[0])
+
+    def test_depth_cap_fails(self):
+        for i in range(3):
+            self.advance_main(f"m{i}.txt")
+            h = self.r.merge("main")
+        with mock.patch.object(pr_policy, "MAX_MERGE_DEPTH", 2):
+            out = self.review(h, blk(self.rev, self.root))
+        self.assertIn("More than 2 merges lie between", out[0])
+        self.assertIn(f"full review of {h}", out[0])
+        with mock.patch.object(pr_policy, "MAX_MERGE_DEPTH", 3):
+            self.assertEqual(self.review(h, blk(self.rev, self.root)), [])
+
+    def test_default_depth_cap_is_twenty(self):
+        self.assertEqual(pr_policy.MAX_MERGE_DEPTH, 20)
+
+    def test_octopus_merge_fails_closed(self):
+        r = self.r
+        r.git("checkout", "-q", "main")
+        r.git("checkout", "-q", "-b", "x", self.root)
+        r.commit("x.txt")
+        r.git("checkout", "-q", "-b", "y", self.root)
+        r.commit("y.txt")
+        r.git("checkout", "-q", "pr")
+        r.git(
+            "update-ref",
+            "refs/remotes/origin/main",
+            r.git("rev-parse", "x").stdout.strip(),
+        )
+        r.git("merge", "-q", "--no-ff", "-m", "octopus", "x", "y")
+        h = r.head()
+        self.assertEqual(
+            len(r.git("rev-list", "--parents", "-n1", h).stdout.split()), 4
+        )
+        out = review_recorded(
+            body(review=blk(self.rev, self.root)),
+            h,
+            r.pr_git(),
+            r.git("rev-parse", "x").stdout.strip(),
+        )
+        self.assertIn("octopus merge (3 parents)", out[0])
+
+    # --- rule (b2) --------------------------------------------------------
+
+    def dirty_merge(self):
+        r = self.r
+        r.git("checkout", "-q", "main")
+        r.commit("a.txt", "one\nMAIN\nthree\n")
+        r.sync_origin()
+        r.git("checkout", "-q", "pr")
+        r.commit("a.txt", "one\nPR\nthree\n")
+        r.git("merge", "--no-ff", "-m", "Merge main", "main", check=False)
+        r.write("a.txt", "one\nBOTH\nthree\n")
+        r.git("add", "a.txt")
+        r.git("commit", "-q", "--no-edit")
+        return r.head()
+
+    def merge_review(
+        self, h, files="a.txt", verdict="clean", rng=True, reviewer_head=None
+    ):
+        out = f"Merge-review: {files}\n"
+        out += f"Reviewer: isolated-reviewer Head: {reviewer_head or h} Verdict: {verdict}\n"
+        if rng:
+            out += f"Range: {self.root}..{h}\n"
+        return out
+
+    def test_dirty_merge_with_merge_review_passes(self):
+        h = self.dirty_merge()
+        out = self.review(h, blk(self.rev, self.root) + "\n" + self.merge_review(h))
+        self.assertEqual(out, [])
+
+    def test_merge_review_for_another_commit_does_not_help(self):
+        h = self.dirty_merge()
+        out = self.review(h, self.merge_review(OLD))
+        self.assertIn(f"Merge {h} is not a clean automatic merge", out[0])
+
+    def test_merge_review_without_range_fails(self):
+        h = self.dirty_merge()
+        out = self.review(h, self.merge_review(h, rng=False))
+        self.assertIn("has no Range line", out[0])
+
+    def test_merge_review_with_bad_range_fails(self):
+        h = self.dirty_merge()
+        later = OLD
+        bad = (
+            f"Merge-review: a.txt\nReviewer: r Head: {h} Verdict: clean\n"
+            f"Range: {later}..{h}\n"
+        )
+        out = self.review(h, bad)
+        self.assertIn("is not an ancestor", out[0])
+
+    def test_merge_review_changes_requested_fails(self):
+        h = self.dirty_merge()
+        out = self.review(h, self.merge_review(h, verdict="changes-requested"))
+        self.assertIn("merge review of", out[0])
+        self.assertIn("changes-requested", out[0])
+
+    def test_merge_review_naming_no_files_fails(self):
+        h = self.dirty_merge()
+        out = self.review(h, self.merge_review(h, files=""))
+        self.assertIn("names no files", out[0])
+
+    def test_plain_block_after_merge_review_is_its_own_block(self):
+        h = self.dirty_merge()
+        review = self.merge_review(h) + blk(self.rev, self.root)
+        self.assertEqual(self.review(h, review), [])
+
+    def test_merge_review_also_rescues_a_foreign_second_parent(self):
+        r = self.r
+        r.git("checkout", "-q", "-B", "other", self.root)
+        r.commit("other.txt")
+        r.git("checkout", "-q", "pr")
+        r.sync_origin()
+        h = r.merge("other")
+        self.assertEqual(self.review(h, self.merge_review(h, files="other.txt")), [])
+
+
+class GitReviewMainTest(unittest.TestCase):
+    """main() in review mode with a real checkout."""
+
+    def run_review(self, repo, event_body, head):
+        pr = {
+            "number": 7,
+            "title": "feat: x",
+            "body": event_body,
+            "user": {"login": "cedricziel"},
+            "head": {"ref": "claude/x", "sha": head, "repo": {"full_name": "o/r"}},
+            "base": {"ref": "main", "sha": OLD, "repo": {"full_name": "o/r"}},
+        }
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "event.json")
+            with open(path, "w") as f:
+                json.dump({"pull_request": pr}, f)
+            old = os.environ.get("GITHUB_EVENT_PATH")
+            os.environ["GITHUB_EVENT_PATH"] = path
+            buf = io.StringIO()
+            try:
+                with redirect_stdout(buf):
+                    code = pr_policy.main(["x", "review"], git=repo.pr_git())
+            finally:
+                if old is None:
+                    del os.environ["GITHUB_EVENT_PATH"]
+                else:
+                    os.environ["GITHUB_EVENT_PATH"] = old
+        return code, buf.getvalue()
+
+    def setUp(self):
+        self.r = Repo()
+        self.addCleanup(self.r.close)
+        self.root = self.r.commit("a.txt", "x\n")
+        self.r.branch("pr", self.root)
+        self.rev = self.r.commit("p.txt")
+
+    def test_pass_and_fail_through_main(self):
+        self.r.sync_origin()
+        code, out = self.run_review(
+            self.r, body(review=blk(self.rev, self.root)), self.rev
+        )
+        self.assertEqual((code, out.strip()), (0, "ok"))
+        code, out = self.run_review(self.r, body(review=""), self.rev)
+        self.assertEqual(code, 1)
+        self.assertIn("::error::No isolated review recorded", out)
+
+    def test_missing_base_branch_fails_closed(self):
+        code, out = self.run_review(
+            self.r, body(review=blk(self.rev, self.root)), self.rev
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("base branch 'main' is not in the checkout", out)
 class MainTest(unittest.TestCase):
     """Runs main() against a saved event JSON and a fake file listing."""
 
@@ -626,12 +1105,12 @@ class MainTest(unittest.TestCase):
         files = [{"filename": "CLAUDE.md", "patch": "@@ -1 +1 @@\n-x86_64\n+x86*64"}]
         self.assertIn("corrupted", self.run_main("policy", self.event(), files)[1])
 
-    def test_review_mode_uses_event_only(self):
+    def test_review_mode_makes_no_api_calls(self):
+        # Review mode reads the event and git objects only; the checkout here
+        # has no origin/<base> for the event, so the run fails closed.
         code, out, calls = self.run_main("review", self.event())
-        self.assertEqual((code, calls), (0, []))
-        code, out, _ = self.run_main("review", self.event(body=body(review="")))
-        self.assertEqual(code, 1)
-        self.assertIn("::error::No isolated review recorded", out)
+        self.assertEqual((code, calls), (1, []))
+        self.assertIn("is not in the checkout", out)
 
     def test_fork_head_not_exempt(self):
         fork = {

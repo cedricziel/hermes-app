@@ -8,7 +8,9 @@ The workflow runs on pull_request_target from the default branch, so this file
 is main's copy, never the PR's. The script reads the pull_request event from
 $GITHUB_EVENT_PATH (the title and body never pass through a shell line) and
 asks the REST API for the PR's files and patches with a read-only token. It
-never checks out, fetches, executes or installs anything from the PR.
+never checks out, executes or installs anything from the PR.
+The review job also reads git objects of the PR head (fetched by SHA by the
+workflow) with read-only plumbing: see "Review recorded" below.
 `check`, `review_recorded` and `main` are tested in scripts/test_pr_policy.py.
 """
 
@@ -17,6 +19,7 @@ import difflib
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.request
 from urllib.parse import quote
@@ -311,13 +314,321 @@ def check(
     return failures
 
 
-def review_recorded(body, head_sha):
-    """Returns the failures of the ## Review section for head_sha. The section
-    must hold exactly one line `Reviewer: <name> Head: <40-hex> Verdict:
-    clean|changes-requested` outside fenced code; Head and Verdict come from
-    that one line, so quoted text in the findings cannot stand in for them."""
+# --- Review recorded -------------------------------------------------------
+#
+# The PR body is written through the same GitHub identity as the PR, so a
+# `Reviewer:` line proves nothing by itself. What the check can prove from git
+# is that a MERGE head is the clean automatic merge of main into a commit that
+# was reviewed. So a merge commit is never accepted on a review line (rule a);
+# it needs rule (b), a mechanical proof (b1) or a real review of the merge (b2).
+#
+#   (a)  non-merge commit C: a block `Reviewer: <name> Head: <C> Verdict:
+#        clean` plus `Range: <base>..<C>` (base an ancestor of C, range head
+#        equal to Head).
+#   (b1) merge commit H = merge(P, M): P is accepted (recursively), M is on the
+#        base branch, and `git merge-tree --write-tree P M` is clean and
+#        yields exactly H's tree (no conflict resolution, no extra change).
+#   (b2) merge commit H: a `Merge-review: <files>` block naming H, with its own
+#        Reviewer/Head/Verdict and Range lines.
+#
+# Transition: PRs opened before Range existed carry the one-line block. Until
+# the fleet rules (fleet-rules skill, isolated-reviewer agent) require Range,
+# a NON-MERGE head is accepted without it. Merge heads get rule (b) from day
+# one. Set this to False in the change that makes Range mandatory everywhere.
+ACCEPT_LEGACY_REVIEW_BLOCK = True
+# A chain of clean merges is followed at most this deep before failing.
+MAX_MERGE_DEPTH = 20
+
+_RANGE_LINE_RE = re.compile(r"^Range:[ \t]*(.*?)[ \t]*$")
+_RANGE_RE = re.compile(r"^([0-9a-fA-F]{40})\.\.([0-9a-fA-F]{40})$")
+_MERGE_REVIEW_RE = re.compile(r"^Merge-review:[ \t]*(.*?)[ \t]*$")
+
+
+class Block:
+    """One reviewer block of ## Review: a plain one or a Merge-review one."""
+
+    def __init__(self, files=None):
+        self.files = files  # None for a plain block, a list for Merge-review
+        self.head = None
+        self.verdict = None
+        self.range = None  # raw text after `Range:`, None when absent
+
+
+def parse_blocks(section):
+    """The blocks of a ## Review section (fenced code already removed). A
+    `Merge-review:` line opens a block that the next Reviewer line fills; any
+    other Reviewer line opens a plain block. A Range line goes to the block
+    last opened, if that has none."""
+    blocks, cur, pending = [], None, None
+    for raw in section.splitlines():
+        line = raw.strip()
+        m = _MERGE_REVIEW_RE.match(line)
+        if m:
+            files = [f.strip() for f in m.group(1).split(",") if f.strip()]
+            pending = cur = Block(files)
+            blocks.append(cur)
+            continue
+        m = REVIEW_LINE_RE.match(line)
+        if m:
+            if pending is not None and pending.head is None:
+                cur = pending
+            else:
+                cur = Block()
+                blocks.append(cur)
+            pending = None
+            cur.head, cur.verdict = m.group(1).lower(), m.group(2)
+            continue
+        m = _RANGE_LINE_RE.match(line)
+        if m and cur is not None and cur.range is None:
+            cur.range = m.group(1)
+    return blocks
+
+
+class Git:
+    """Read-only git on a checkout of the base branch that also holds the PR's
+    objects. Only cat-file, rev-parse, rev-list, merge-base, merge-tree and
+    diff-tree run, all on object ids; nothing is checked out or executed."""
+
+    def __init__(self, cwd):
+        self.cwd = cwd
+
+    def run(self, *args):
+        env = dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_OPTIONAL_LOCKS="0")
+        return subprocess.run(
+            ["git", *args],
+            cwd=self.cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+    def has_commit(self, sha):
+        return self.run("cat-file", "-e", f"{sha}^{{commit}}").returncode == 0
+
+    def rev(self, name):
+        r = self.run("rev-parse", "--verify", "--quiet", name)
+        return r.stdout.strip() if r.returncode == 0 else None
+
+    def parents(self, sha):
+        r = self.run("rev-list", "--parents", "-n", "1", sha)
+        if r.returncode != 0:
+            raise ValueError(f"cannot read commit {sha}")
+        return r.stdout.split()[1:]
+
+    def is_ancestor(self, a, b):
+        r = self.run("merge-base", "--is-ancestor", a, b)
+        if r.returncode not in (0, 1):
+            raise ValueError(f"cannot compare {a} and {b}")
+        return r.returncode == 0
+
+    def merge_tree(self, p, m):
+        """(clean, tree, conflicted files) of an automatic merge of p and m."""
+        r = self.run("merge-tree", "--write-tree", "--name-only", p, m)
+        lines = r.stdout.split("\n")
+        if r.returncode not in (0, 1) or not lines[0]:
+            raise ValueError(f"git merge-tree failed for {p} and {m}")
+        conflicted = []
+        for line in lines[1:]:
+            if not line:
+                break
+            conflicted.append(line)
+        return r.returncode == 0, lines[0].strip(), conflicted
+
+    def tree(self, commit):
+        return self.rev(f"{commit}^{{tree}}")
+
+    def changed_files(self, tree_a, tree_b):
+        r = self.run("diff-tree", "-r", "--name-only", "--no-renames", tree_a, tree_b)
+        return [line for line in r.stdout.split("\n") if line]
+
+
+def _paste(commit, base_tip, merge_files=None):
+    """What to ask for and the exact block to paste, as one sentence."""
+    lines = [f"Reviewer: isolated-reviewer  Head: {commit}  Verdict: clean"]
+    lines.append(f"Range: {base_tip}..{commit}")
+    if merge_files is not None:
+        lines.insert(0, f"Merge-review: {', '.join(merge_files)}")
+    return (
+        "Paste the reviewer's block verbatim into ## Review (never write or "
+        "edit it yourself), in this format, one item per line: "
+        + " | ".join(lines)
+        + "."
+    )
+
+
+class _Review:
+    def __init__(self, git, base_tip, blocks, head):
+        self.git, self.base_tip, self.head = git, base_tip, head
+        self.plain = [b for b in blocks if b.files is None]
+        self.merge_blocks = [b for b in blocks if b.files is not None]
+
+    def where(self, commit):
+        if commit == self.head:
+            return f"head {commit}"
+        return f"commit {commit} (reached from head {self.head} through clean merges)"
+
+    def range_failures(self, block, commit):
+        """Failures of the Range line of a block naming `commit`, or []."""
+        paste = _paste(commit, self.base_tip)
+        if block.range is None:
+            return [
+                f"The review block for {commit} has no Range line: ask the "
+                "isolated reviewer for its current block, which carries "
+                f"'Range: <base sha>..<head sha>'. {paste}"
+            ]
+        m = _RANGE_RE.match(block.range)
+        if not m:
+            return [
+                f"The Range {block.range!r} of the review for {commit} is not "
+                "'<base sha>..<head sha>' with two full 40-hex shas: ask the "
+                f"isolated reviewer for its block. {paste}"
+            ]
+        base, tip = m.group(1).lower(), m.group(2).lower()
+        if tip != commit:
+            return [
+                f"The Range of the review for {commit} ends at {tip}, not at "
+                f"its Head: ask the isolated reviewer for a review of "
+                f"{commit}. {paste}"
+            ]
+        if not self.git.has_commit(base) or not self.git.is_ancestor(base, commit):
+            return [
+                f"The Range of the review for {commit} starts at {base}, which "
+                f"is not an ancestor of {commit}: ask the isolated reviewer "
+                f"to review {self.base_tip}..{commit}. {paste}"
+            ]
+        return []
+
+    def reviewed(self, commit):
+        """Rule (a), for a commit with fewer than two parents."""
+        mine = [b for b in self.plain if b.head == commit]
+        paste = _paste(commit, self.base_tip)
+        if not mine:
+            others = sorted({b.head for b in self.plain if b.head})
+            if others:
+                return [
+                    f"The review is for {', '.join(others)}, but "
+                    f"{self.where(commit)} needs one: ask the isolated "
+                    f"reviewer for a full review of {commit}. {paste}"
+                ]
+            return [
+                f"No isolated review recorded for {self.where(commit)}: ask "
+                f"the isolated reviewer for a full review of {commit}. {paste}"
+            ]
+        block = mine[0]
+        if block.verdict != "clean":
+            return [
+                f"The review of {commit} says changes-requested: fix the "
+                "findings, push, and ask the isolated reviewer to review the "
+                "new head."
+            ]
+        if block.range is None and ACCEPT_LEGACY_REVIEW_BLOCK:
+            return []
+        return self.range_failures(block, commit)
+
+    def merge_review(self, commit):
+        """Rule (b2). Returns (accepted, failures); failures are empty when no
+        Merge-review block names the commit."""
+        mine = [b for b in self.merge_blocks if b.head == commit]
+        if not mine:
+            return False, []
+        block = mine[0]
+        if block.verdict != "clean":
+            return False, [
+                f"The merge review of {commit} says changes-requested: fix the "
+                "findings, push, and ask for a new merge review."
+            ]
+        if not block.files:
+            return False, [
+                f"The Merge-review block for {commit} names no files: it must "
+                "read 'Merge-review: <file>, <file>' followed by the "
+                "reviewer's Reviewer and Range lines."
+            ]
+        failures = self.range_failures(block, commit)
+        return not failures, failures
+
+    def accepted(self, commit, depth=0):
+        """The failures that keep `commit` from being accepted; [] accepts."""
+        parents = self.git.parents(commit)
+        if len(parents) > 2:
+            return [
+                f"{self.where(commit)} is an octopus merge ({len(parents)} "
+                "parents), which cannot be checked mechanically: merge one "
+                "branch at a time, or ask the isolated reviewer for a merge "
+                f"review. {_paste(commit, self.base_tip, ['<files>'])}"
+            ]
+        if len(parents) < 2:
+            return self.reviewed(commit)
+        failures = self.clean_merge(commit, parents[0], parents[1], depth)
+        if not failures:
+            return []
+        ok, blocked = self.merge_review(commit)
+        if ok:
+            return []
+        return blocked or failures
+
+    def clean_merge(self, h, p, m, depth):
+        """Rule (b1)."""
+        if depth >= MAX_MERGE_DEPTH:
+            return [
+                f"More than {MAX_MERGE_DEPTH} merges lie between {self.head} "
+                "and the last reviewed commit: stop merging into this branch "
+                f"and ask the isolated reviewer for a full review of "
+                f"{self.head}. {_paste(self.head, self.base_tip)}"
+            ]
+        if not self.git.has_commit(m) or not self.git.is_ancestor(m, self.base_tip):
+            return [
+                f"Merge {h}: its second parent {m} is not on the base branch "
+                f"(tip {self.base_tip}), so it brings someone else's work, not "
+                "main: merge only the base branch into this one, or ask the "
+                "isolated reviewer for a merge review of the files. "
+                f"{_paste(h, self.base_tip, ['<files>'])}"
+            ]
+        clean, tree, conflicted = self.git.merge_tree(p, m)
+        actual = self.git.tree(h)
+        if not clean or tree != actual:
+            files = sorted(set(conflicted) | set(self.git.changed_files(tree, actual)))
+            return [
+                f"Merge {h} is not a clean automatic merge of its parents "
+                f"(first parent {p}, second parent {m}); the files whose "
+                f"content differs from `git merge-tree {p} {m}`: "
+                f"{', '.join(files) or 'none listed'}. Redo the merge with no "
+                "manual edit (git merge, no conflict fixes, no extra changes) "
+                "and push, or ask the isolated reviewer for a merge-only "
+                f"review of these files. {_paste(h, self.base_tip, files or ['<files>'])}"
+            ]
+        return self.accepted(p, depth + 1)
+
+
+def review_recorded(body, head_sha, git=None, base_tip=None):
+    """Returns the failures of the ## Review section for head_sha.
+
+    With `git` (a Git on a checkout that holds the PR's objects) and `base_tip`
+    (the base branch's tip sha) the rules above apply. Without them only the
+    one-line Head comparison runs, for callers that have no repository."""
     _, texts = _sections(body or "")
     section = _strip_fences(texts.get("Review", ""))
+    if git is None:
+        return _legacy_review(section, head_sha)
+    head_sha = head_sha.lower()
+    review = _Review(git, base_tip, parse_blocks(section), head_sha)
+    if len(review.plain) > 1:
+        return [
+            f"## Review holds {len(review.plain)} review lines: keep exactly "
+            f"one, the isolated reviewer's block for {head_sha}."
+        ]
+    if not git.has_commit(head_sha):
+        return [f"The head {head_sha} is not in the checkout: re-run the job."]
+    try:
+        return review.accepted(head_sha)
+    except ValueError as e:
+        return [f"The review could not be checked mechanically ({e}): re-run the job."]
+
+
+def _legacy_review(section, head_sha):
+    """The SHA-only comparison: Head and Verdict come from the one review line,
+    so quoted text in the findings cannot stand in for them."""
     lines = REVIEW_LINE_RE.findall(section)
     if not lines:
         return [
@@ -454,9 +765,11 @@ def corruption_diff(files):
 READ_FILES = ("pubspec.yaml",) + CORRUPTION_FILES
 
 
-def main(argv, api=api_get):
-    """`api(path)` is injectable so tests can run a saved event JSON without
-    the network."""
+def main(argv, api=api_get, git=None):
+    """`api(path)` and `git` are injectable so tests can run a saved event JSON
+    without the network. `git` defaults to the checkout in the working
+    directory (base branch, plus the PR head's objects fetched by the
+    workflow)."""
     mode = argv[1] if len(argv) > 1 else ""
     with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as f:
         pr = json.load(f)["pull_request"]
@@ -497,16 +810,27 @@ def main(argv, api=api_get):
             same,
         )
     elif mode == "review":
-        failures = (
-            []
-            if is_bot(author, head_ref, same)
-            else review_recorded(pr.get("body") or "", head_sha)
-        )
+        if is_bot(author, head_ref, same):
+            failures = []
+        else:
+            git = git or Git(os.getcwd())
+            base_ref = pr["base"].get("ref", "")
+            base_tip = git.rev(f"refs/remotes/origin/{base_ref}^{{commit}}")
+            if base_tip is None:
+                failures = [
+                    f"The base branch {base_ref!r} is not in the checkout: "
+                    "re-run the job."
+                ]
+            else:
+                failures = review_recorded(
+                    pr.get("body") or "", head_sha, git, base_tip
+                )
     else:
         print("usage: pr_policy.py policy|review", file=sys.stderr)
         return 2
     for failure in failures:
-        print(f"::error::{failure}")
+        # A workflow command ends at a newline; %0A keeps a long message whole.
+        print("::error::" + failure.replace("%", "%25").replace("\n", "%0A"))
     if not failures:
         print("ok")
     return 1 if failures else 0
