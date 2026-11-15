@@ -155,6 +155,11 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   int _epoch = 0;
   int _runId = 0;
   int _confirmId = 0;
+  int _statusSeq = 0;
+
+  /// Status reads sent before this number are older than the last pause
+  /// answer and are dropped: they would undo the switch.
+  int _statusFloor = 0;
 
   CuratorLoad _load = CuratorLoad.loading;
   CuratorStatus? _status;
@@ -302,9 +307,14 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     if (_status == null) _load = CuratorLoad.loading;
     _refreshing = _status != null;
     notifyListeners();
+    final seq = ++_statusSeq;
     final result = await repository.status(profile: _profile);
     if (_gone(epoch)) return;
     _refreshing = false;
+    if (seq < _statusFloor) {
+      notifyListeners();
+      return;
+    }
     switch (result) {
       case CuratorOk(:final value):
         _status = value;
@@ -366,11 +376,13 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
       case CuratorOk(value: final answered):
         _status = _withPaused(_status ?? current, answered);
         _pause = CuratorPause.idle;
+        _statusFloor = ++_statusSeq;
         telemetry.paused(paused: answered);
       case CuratorProfileGone():
         _pause = CuratorPause.profileGone;
         onProfileGone?.call();
       case CuratorUnsupported():
+        _pause = CuratorPause.idle;
         _load = CuratorLoad.unsupported;
       case CuratorFailed(:final kind):
         _pause = switch (kind) {
@@ -418,11 +430,29 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     final id = ++_runId;
     _clearResult();
     _notStarted = null;
+    _phase = CuratorRunPhase.starting;
+    notifyListeners();
+    // The baseline must be the log as it is now, not as it was when the
+    // section opened: another client may have run a pass since. A pass that
+    // is going, or a read that proves nothing, sends no POST.
+    final before = await _readRun();
+    if (_gone(epoch, id)) return;
+    if (before case CuratorOk(:final value)) {
+      if (value.running) {
+        _baselineHeader = value.startHeader;
+        _phase = CuratorRunPhase.elsewhere;
+        notifyListeners();
+        return;
+      }
+      _baselineHeader = value.startHeader;
+    } else {
+      _phase = CuratorRunPhase.unchecked;
+      notifyListeners();
+      return;
+    }
     _own = true;
     _lastRunBefore = _status?.lastRunAt;
     _span = telemetry.startRun();
-    _phase = CuratorRunPhase.starting;
-    notifyListeners();
     final result = await repository.run(profile: _profile);
     if (_gone(epoch, id)) return;
     switch (result) {
@@ -574,6 +604,7 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
         telemetry.runFinished(
           outcome,
           archived: proof ? _archived(status.lines) : null,
+          resolvedByCheck: !first,
         );
       }
     }

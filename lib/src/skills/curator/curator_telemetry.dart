@@ -74,10 +74,18 @@ class CuratorTelemetry {
   }
 
   /// [archived] is the number of the `archived=N` line Hermes printed, or
-  /// null when no such line was found.
-  void runFinished(CuratorRunOutcome outcome, {int? archived}) => _quiet(
+  /// null when no such line was found. A pass that ended unknown or timed
+  /// out is logged then; when a later Check status resolves it as done or
+  /// failed it is logged again with [resolvedByCheck] true, so one pass can
+  /// have two events and the second is the one that says how it ended.
+  void runFinished(
+    CuratorRunOutcome outcome, {
+    int? archived,
+    bool resolvedByCheck = false,
+  }) => _quiet(
     () => connection.events('skills_curator.run_finished', {
       'outcome': outcome.slug,
+      if (resolvedByCheck) 'resolved_by_check': true,
       'archived': ?archived,
     }),
   );

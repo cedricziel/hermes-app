@@ -83,7 +83,9 @@ void main() {
 
   /// Answers the action status from [answers], one per read; the last one
   /// repeats.
-  void statuses(List<Object?> answers) {
+  void statuses(List<Object?> given) {
+    // The read before the POST answers like the one on open.
+    final answers = [given.first, given.first, ...given.skip(1)];
     var i = 0;
     server.onRequest(
       'GET',
@@ -500,6 +502,10 @@ void main() {
         expect(c.phase, CuratorRunPhase.stillRunning);
         final waited = delays.fold(Duration.zero, (a, b) => a + b);
         expect(waited, greaterThanOrEqualTo(CuratorController.followLimit));
+        expect(
+          waited,
+          lessThan(CuratorController.followLimit + const Duration(seconds: 6)),
+        );
         expect(c.canCheck, isTrue);
         expect(c.canRunNow, isFalse);
         expect(tracer.spans.single.attributes['outcome'], 'timed_out');
@@ -546,7 +552,7 @@ void main() {
     test('progress is lost after 10 s of failed polling', () async {
       var reads = 0;
       server.onRequest('GET', _statusPath, (r) {
-        if (reads++ == 0) return (status: 200, body: recordedStatusFinished);
+        if (reads++ < 2) return (status: 200, body: recordedStatusFinished);
         throw DioException(
           requestOptions: r,
           type: DioExceptionType.receiveTimeout,
@@ -573,12 +579,198 @@ void main() {
       await c.confirmRun();
 
       expect(c.phase, CuratorRunPhase.starting);
+      expect(c.confirmation, isNull);
       await until(() => count('POST', '/api/curator/run') == 1);
       statuses([recordedStatusFinished, recordedStatusArchived]);
       gate.complete((status: 200, body: recordedRunStarted));
       await first;
       expect(count('POST', '/api/curator/run'), 1);
     });
+  });
+
+  group('review fixes', () {
+    test(
+      'another client finishing a pass before a lost answer is not ours',
+      () async {
+        final c = await opened();
+        // Another client's pass ran and ended after the section opened.
+        statuses([recordedStatusArchived]);
+        server.onRequest(
+          'POST',
+          '/api/curator/run',
+          (r) => throw DioException(
+            requestOptions: r,
+            type: DioExceptionType.receiveTimeout,
+          ),
+        );
+        await confirm(c);
+        expect(c.phase, CuratorRunPhase.lostAnswer);
+
+        await c.checkStatus();
+
+        expect(c.phase, CuratorRunPhase.checkedNothing);
+        expect(c.hasOutput, isFalse);
+      },
+    );
+
+    test('a pass running elsewhere at confirm time sends no POST', () async {
+      final c = await opened();
+      statuses([_runningNow]);
+      await confirm(c);
+
+      expect(c.phase, CuratorRunPhase.elsewhere);
+      expect(count('POST', '/api/curator/run'), 0);
+      expect(c.canRunNow, isFalse);
+      expect(tracer.spans, isEmpty);
+    });
+
+    test('an unreadable read before the POST sends none', () async {
+      final c = await opened();
+      statuses([
+        {...recordedStatusFinished, 'running': 'no'},
+      ]);
+      await confirm(c);
+
+      expect(c.phase, CuratorRunPhase.unchecked);
+      expect(count('POST', '/api/curator/run'), 0);
+    });
+
+    test('an unsupported pause does not stay saving', () async {
+      final c = await opened();
+      server.on(
+        'PUT',
+        '/api/curator/paused',
+        recordedRouteMissing405.body,
+        status: recordedRouteMissing405.status,
+      );
+      await c.setPaused(true);
+      expect(c.pause, CuratorPause.idle);
+
+      server.on('PUT', '/api/curator/paused', recordedPausedOn);
+      await c.reload();
+      await c.setPaused(true);
+
+      expect(c.paused, isTrue);
+    });
+
+    test('a status read sent before a pause answer cannot undo it', () async {
+      final c = await opened();
+      final gate = Completer<FakeResponse>();
+      server.onRequest('GET', '/api/curator', (_) => gate.future);
+      final reload = c.reload();
+      await c.setPaused(true);
+      expect(c.paused, isTrue);
+
+      gate.complete((status: 200, body: recordedCuratorNeverRun));
+      await reload;
+
+      expect(c.paused, isTrue);
+    });
+
+    test('the confirmation sends nothing once Run now is off', () async {
+      final c = await opened();
+      c.beginRun();
+      server.on('GET', '/api/curator', recordedCuratorDisabled);
+      await c.reload();
+      await c.confirmRun();
+
+      expect(count('POST', '/api/curator/run'), 0);
+    });
+
+    test(
+      'a pass the app did not start is not proof, even with a header',
+      () async {
+        server.on('GET', _statusPath, 'no', status: 500);
+        final c = await opened();
+        expect(c.phase, CuratorRunPhase.unchecked);
+
+        var reads = 0;
+        server.onRequest('GET', _statusPath, (_) {
+          reads++;
+          return (
+            status: 200,
+            body: reads < 3 ? _runningNow : recordedStatusArchived,
+          );
+        });
+        await c.checkStatus();
+
+        expect(c.phase, CuratorRunPhase.checkedNothing);
+        expect(c.hasOutput, isFalse);
+      },
+    );
+
+    test('startedAt stays null when last_run_at did not change', () async {
+      server.on('GET', '/api/curator', recordedCuratorRan);
+      statuses([recordedStatusFinished, _runningNow, recordedStatusArchived]);
+      final c = await opened();
+      await confirm(c);
+
+      expect(c.phase, CuratorRunPhase.finished);
+      expect(c.startedAt, isNull);
+    });
+
+    test('a pass resolved by Check status is logged again, marked', () async {
+      statuses([recordedStatusFinished, _runningNow]);
+      final c = await opened();
+      await confirm(c);
+      statuses([recordedStatusArchived]);
+      await c.checkStatus();
+
+      expect(events.named('skills_curator.run_finished'), [
+        {'outcome': 'timed_out'},
+        {'outcome': 'done', 'archived': 1, 'resolved_by_check': true},
+      ]);
+    });
+
+    test('Check status after stopped keeps the earlier pass output', () async {
+      statuses([
+        recordedStatusNeverRun,
+        recordedStatusAfterRestart,
+        recordedStatusAfterRestart,
+      ]);
+      final c = await opened();
+      await confirm(c);
+      expect(c.phase, CuratorRunPhase.stopped);
+      await c.checkStatus();
+
+      expect(c.phase, CuratorRunPhase.checkedNothing);
+      expect(c.hasOutput, isTrue);
+    });
+
+    test('a profile switch ends the wait without the delay', () async {
+      statuses([recordedStatusFinished, ...List.filled(5, _runningNow)]);
+      final c = await opened();
+      delayGate = Completer<void>();
+      c.beginRun();
+      final run = c.confirmRun();
+      await until(() => delays.isNotEmpty);
+
+      c.switchProfile('demo-b');
+
+      await run.timeout(const Duration(seconds: 2));
+    });
+
+    test(
+      'polling failures that a success separates are not progress lost',
+      () async {
+        var reads = 0;
+        server.onRequest('GET', _statusPath, (r) {
+          final i = reads++;
+          if (i < 2) return (status: 200, body: recordedStatusFinished);
+          final k = i - 2;
+          if (k >= 24) return (status: 200, body: recordedStatusArchived);
+          if (k.isOdd) return (status: 200, body: _runningNow);
+          throw DioException(
+            requestOptions: r,
+            type: DioExceptionType.receiveTimeout,
+          );
+        });
+        final c = await opened();
+        await confirm(c);
+
+        expect(c.phase, CuratorRunPhase.finished);
+      },
+    );
   });
 
   group('finish proof traps', () {
@@ -864,7 +1056,11 @@ void main() {
       expect(c.phase, CuratorRunPhase.idle);
       expect(c.busy, isFalse);
       expect(c.profile, 'demo-b');
-      expect(count('GET', _statusPath), 2, reason: 'open, then the new open');
+      expect(
+        count('GET', _statusPath),
+        3,
+        reason: 'open, the read before the POST, then the new open',
+      );
     });
 
     test('an old pause answer does not touch the new profile', () async {
@@ -873,9 +1069,9 @@ void main() {
       server.onRequest('PUT', '/api/curator/paused', (_) => gate.future);
       final pause = c.setPaused(true);
       c.switchProfile('demo-b');
+      await until(() => c.load == CuratorLoad.loaded);
       gate.complete((status: 200, body: recordedPausedOn));
       await pause;
-      await until(() => c.load == CuratorLoad.loaded);
 
       expect(c.paused, isFalse);
       expect(c.pause, CuratorPause.idle);
