@@ -36,8 +36,10 @@ production timeout or add retries to mask a test-only scheduling assumption.
 
 After a fix, run the affected tests and analysis, push to the existing PR and
 check that CI starts for the new commit. Preserve the user's preference about
-waiting; describe pending checks as pending, never as green. Keep auto-merge
-subject to the required checks.
+waiting; describe pending checks as pending, never as green. The orchestrator
+arms auto-merge once the PR is READY, and GitHub merges when the required
+checks are green on the head (`fleet-rules`). Never push to a PR with
+auto-merge armed.
 
 VM catalog tests do not establish that the catalog compiles for the web. A
 native plugin may export a browser stub without its native-only methods (for
@@ -110,3 +112,33 @@ the script and `scripts/test_check_soloud_build_log.py` if the print line
 changed. Details: the flutter_soloud paragraph in
 `docs/architecture/native.md`. The script is in the `builds` path filter, so
 changing it runs the Linux build on a pull request.
+## PR policy and Review recorded
+
+`pr-policy.yml` runs `scripts/pr_policy.py` (`policy` and `review`) on every
+pull request. It triggers on `pull_request_target` and checks out the default
+branch only, so the gate is main's copy and a PR cannot edit its own checks (a
+PR that changes the workflow or the script is checked by main's version; the
+first live run of a change is the next PR after it merges). The script reads
+the event JSON and the changed files from the REST API and never touches the
+PR's code. Editing the PR body reruns it; a manual "Re-run jobs" reuses the old
+payload, so edit the body to re-check. Each failure names its fix:
+
+- Title: Conventional Commit, type from `release-please-config.json`.
+- Body sections: copy `.github/pull_request_template.md`; an HTML comment is not content, write "Nothing" where that is the answer.
+- `fix:` PRs: answer `What would have caught this earlier?` in `## Proof`, outside any comment.
+- Model names: drop them from title and body. Only `Co-Authored-By:` and `Claude-Session:` lines, the Claude Code footer and the session URL are skipped.
+- `pubspec.yaml` version: revert; release-please bumps it.
+- `docs/roadmap.md`: revert it and send the orchestrator the row. The check is by branch prefix (`claude/quirky-einstein-`), so it is loud, not tight.
+- "looks corrupted by a Markdown formatter": the hook turned `x86_64` into `x86*64` or unbalanced a backtick in CLAUDE.md or the roadmap. Restore the line from main and re-apply only your change, with a script instead of Edit/Write.
+- Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push. A block pasted with leading indentation is not recognised: paste it flush left.
+- "The PR head moved (<old> → <new>)": a push landed while the job ran, or the API lagged. The run on the newer head decides; re-run the job if that run is missing.
+- Known gap: model names inside inline code or fenced code are not checked.
+- TODO, TBD, n/a, `-` and `...` count as empty; "Nothing" is a valid answer for `## Not verified on a device`.
+
+Automation PRs from the same repository skip the title, body and review
+rules: the exact branches `chore/update-flutter`,
+`chore/update-hermes-contracts`, `chore/readme-screenshots-<run id>` and
+`release-please--branches--main--components--hermes-app`, and `dependabot/*`
+only with the author `dependabot[bot]`. A fork is never exempt.
+update-claude-plugins is not listed because its branch name lives in an
+external action; add it once a PR from it shows the name.

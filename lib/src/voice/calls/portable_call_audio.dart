@@ -193,20 +193,72 @@ class _Voice {
   }
 }
 
+/// The Android platform calls behind [AndroidCallAudioSession], so a test can
+/// stand in for `audio_session` (which only runs on a device).
+abstract interface class AndroidCallPlatform {
+  Future<void> configure(AudioSessionConfiguration configuration);
+  Future<bool> setActive(bool active);
+
+  /// Valid once [configure] has returned.
+  Stream<AudioInterruptionEvent> get interruptions;
+  Stream<void> get becomingNoisy;
+  Stream<void> get devicesChanged;
+  Future<void> setMode(AndroidAudioHardwareMode mode);
+  Future<void> setSpeakerphoneOn(bool on);
+}
+
+class PluginAndroidCallPlatform implements AndroidCallPlatform {
+  final _manager = AndroidAudioManager();
+  AudioSession? _session;
+  AudioSession get _ready => _session!;
+
+  @override
+  Future<void> configure(AudioSessionConfiguration configuration) async {
+    final session = _session = await AudioSession.instance;
+    await session.configure(configuration);
+  }
+
+  @override
+  Future<bool> setActive(bool active) async =>
+      (_session ??= await AudioSession.instance).setActive(active);
+
+  @override
+  Stream<AudioInterruptionEvent> get interruptions =>
+      _ready.interruptionEventStream;
+  @override
+  Stream<void> get becomingNoisy => _ready.becomingNoisyEventStream;
+  @override
+  Stream<void> get devicesChanged => _ready.devicesChangedEventStream;
+  @override
+  Future<void> setMode(AndroidAudioHardwareMode mode) => _manager.setMode(mode);
+  @override
+  Future<void> setSpeakerphoneOn(bool on) => _manager.setSpeakerphoneOn(on);
+}
+
 /// Audio focus and routing on Android through `audio_session`: a voice
 /// communication focus request, the in-communication audio mode (which the
 /// platform's echo canceller expects) and the speakerphone switch. A loss of
 /// focus other than ducking, and a changed device, reach the bridge as
-/// events; nothing resumes by itself.
+/// events; nothing resumes by itself. On Android this class, not CallKit,
+/// owns the audio session for the call: it first gives back any focus request
+/// this process still holds (a voice message or read-aloud the call paused
+/// keeps its own, and `audio_session` returns early from a new request while
+/// one is held), so the call's request is the one made.
 class AndroidCallAudioSession implements CallAudioSession {
+  AndroidCallAudioSession({
+    AndroidCallPlatform? platform,
+    this.releaseTimeout = const Duration(seconds: 2),
+  }) : _platform = platform ?? PluginAndroidCallPlatform();
+
+  final AndroidCallPlatform _platform;
+  final Duration releaseTimeout;
   // Closed by deactivate.
   // ignore: close_sinks
   final _interruptions = StreamController<AudioInterruptionEvent>.broadcast();
   // ignore: close_sinks
   final _routes = StreamController<void>.broadcast();
   final _watches = <StreamSubscription<Object?>>[];
-  final _manager = AndroidAudioManager();
-  AudioSession? _session;
+  bool _started = false;
   bool _closed = false;
 
   @override
@@ -217,8 +269,14 @@ class AndroidCallAudioSession implements CallAudioSession {
   @override
   Future<void> activate() async {
     if (_closed) return;
-    final session = _session = await AudioSession.instance;
-    await session.configure(
+    _started = true;
+    try {
+      await _platform.setActive(false).timeout(releaseTimeout);
+    } on Object {
+      // Best effort: nothing held, or the platform did not answer.
+    }
+    if (_closed) return;
+    await _platform.configure(
       const AudioSessionConfiguration(
         androidAudioAttributes: AndroidAudioAttributes(
           contentType: AndroidAudioContentType.speech,
@@ -232,19 +290,19 @@ class AndroidCallAudioSession implements CallAudioSession {
     // undo, so give back whatever is taken from here on.
     if (_closed) return;
     _watches
-      ..add(session.interruptionEventStream.listen(_interruptions.add))
-      ..add(session.becomingNoisyEventStream.listen(_routes.add))
-      ..add(session.devicesChangedEventStream.listen(_routes.add));
-    if (!await session.setActive(true)) {
+      ..add(_platform.interruptions.listen(_interruptions.add))
+      ..add(_platform.becomingNoisy.listen(_routes.add))
+      ..add(_platform.devicesChanged.listen(_routes.add));
+    if (!await _platform.setActive(true)) {
       await deactivate();
       throw StateError('Android did not give the call audio focus');
     }
     if (_closed) {
-      await session.setActive(false);
+      await _platform.setActive(false);
       return;
     }
-    await _manager.setMode(AndroidAudioHardwareMode.inCommunication);
-    if (_closed) await _undo(session);
+    await _platform.setMode(AndroidAudioHardwareMode.inCommunication);
+    if (_closed) await _undo();
   }
 
   @override
@@ -256,20 +314,21 @@ class AndroidCallAudioSession implements CallAudioSession {
     _watches.clear();
     unawaited(_interruptions.close());
     unawaited(_routes.close());
-    final session = _session;
-    _session = null;
-    if (session != null) await _undo(session);
+    if (_started) {
+      _started = false;
+      await _undo();
+    }
   }
 
-  Future<void> _undo(AudioSession session) async {
+  Future<void> _undo() async {
     try {
-      await _manager.setSpeakerphoneOn(false);
-      await _manager.setMode(AndroidAudioHardwareMode.normal);
+      await _platform.setSpeakerphoneOn(false);
+      await _platform.setMode(AndroidAudioHardwareMode.normal);
     } finally {
-      await session.setActive(false);
+      await _platform.setActive(false);
     }
   }
 
   @override
-  Future<void> setSpeaker(bool enabled) => _manager.setSpeakerphoneOn(enabled);
+  Future<void> setSpeaker(bool enabled) => _platform.setSpeakerphoneOn(enabled);
 }

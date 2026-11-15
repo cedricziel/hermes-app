@@ -85,6 +85,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenHelperModels,
     this.onOpenInNewWindow,
     this.changeFolderFor,
+    this.exportJsonFor,
     this.searchProfile,
     this.searchFocus,
     this.fullPage = false,
@@ -128,6 +129,10 @@ class ThreadSidebar extends StatelessWidget {
 
   /// "Change Folder…" of a row's menu, for the chat that can be moved.
   final ChangeFolderOffer? Function(ChatThread thread)? changeFolderFor;
+
+  /// "Export Chat as JSON…" of a Mac row's menu; the touch rows and the other
+  /// platforms' row menus do not offer it.
+  final ExportJsonOffer? Function(ChatThread thread)? exportJsonFor;
 
   /// The profile [search] looks in by default; results from another one name
   /// theirs.
@@ -307,6 +312,7 @@ class ThreadSidebar extends StatelessWidget {
               housekeeping: housekeeping,
               onOpenInNewWindow: onOpenInNewWindow,
               changeFolderFor: changeFolderFor,
+              exportJsonFor: exportJsonFor,
             ),
           ),
         ],
@@ -350,6 +356,7 @@ class ThreadSidebar extends StatelessWidget {
         housekeeping: this.housekeeping,
         onOpenInNewWindow: onOpenInNewWindow,
         changeFolderFor: changeFolderFor,
+        exportJsonFor: exportJsonFor,
         preferences: preferences,
         bottomPadding: contentBottomPadding,
       );
@@ -521,9 +528,10 @@ class _ThreadRowState extends State<_ThreadRow> {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final housekeeping = widget.housekeeping;
-    final touch = platformChromeOf(context) == PlatformChrome.ios;
-    final swipeable = touch && housekeeping != null;
-    final inlineButton = housekeeping != null && !touch;
+    final ios = platformChromeOf(context) == PlatformChrome.ios;
+    final touch = isTouchPlatform(context);
+    final swipeable = ios && housekeeping != null;
+    final inlineButton = housekeeping != null && !ios;
     final row = Semantics(
       hint: relativeTime(_thread.updatedAt),
       child: SidebarRow(
@@ -531,8 +539,10 @@ class _ThreadRowState extends State<_ThreadRow> {
         onTap: widget.onTap,
         onLongPress: inlineButton ? _openMenu : null,
         onSecondaryTap: inlineButton ? _openMenu : null,
-        padding: touch
+        padding: ios
             ? const EdgeInsets.symmetric(horizontal: 10)
+            : touch
+            ? EdgeInsets.fromLTRB(10, 0, inlineButton ? 0 : 10, 0)
             : EdgeInsets.fromLTRB(
                 10,
                 inlineButton ? 2 : 9,
@@ -541,7 +551,7 @@ class _ThreadRowState extends State<_ThreadRow> {
               ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            minHeight: touch ? kAppleMinTapTarget : 0,
+            minHeight: touch ? minTapTargetOf(context) : 0,
           ),
           child: Row(
             children: [
@@ -608,6 +618,7 @@ class _SectionedThreadList extends StatefulWidget {
     required this.housekeeping,
     required this.onOpenInNewWindow,
     this.changeFolderFor,
+    this.exportJsonFor,
     this.avatarBuilder,
     this.bottomPadding = 0,
   });
@@ -620,6 +631,7 @@ class _SectionedThreadList extends StatefulWidget {
   final ThreadHousekeeping? housekeeping;
   final ValueChanged<ChatThread>? onOpenInNewWindow;
   final ChangeFolderOffer? Function(ChatThread thread)? changeFolderFor;
+  final ExportJsonOffer? Function(ChatThread thread)? exportJsonFor;
   final Widget Function(ChatThread)? avatarBuilder;
   final double bottomPadding;
 
@@ -710,6 +722,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
     final housekeeping = thread.remote ? widget.housekeeping : null;
     final onOpenInNewWindow = widget.onOpenInNewWindow;
     final changeFolder = widget.changeFolderFor?.call(thread);
+    final exportJson = widget.exportJsonFor?.call(thread);
     void run(ThreadAction action) => action == ThreadAction.changeFolder
         ? changeFolder?.onSelected()
         : runThreadAction(
@@ -718,6 +731,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
             thread: thread,
             housekeeping: housekeeping,
             onOpenInNewWindow: onOpenInNewWindow,
+            exportJson: exportJson,
           );
     final row = MacThreadRow(
       avatar: widget.avatarBuilder?.call(thread),
@@ -734,6 +748,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
         canOpenInNewWindow: onOpenInNewWindow != null && thread.remote,
         canBranch: housekeeping?.branch != null && thread.remote,
         changeFolder: changeFolder,
+        exportJson: exportJson,
       ),
       onAction: run,
     );

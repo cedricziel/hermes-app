@@ -1,5 +1,113 @@
 # Changelog
 
+## [0.1.80](https://github.com/cedricziel/hermes-app/compare/v0.1.79...v0.1.80) (2026-11-15)
+
+
+### Features
+
+* **chat:** Export chat as JSON ([#1112](https://github.com/cedricziel/hermes-app/issues/1112)) ([254a05e](https://github.com/cedricziel/hermes-app/commit/254a05e8fd5ff473ef7252d79f087af2685f0d1a))
+* **chat:** offer Retry for earlier messages that failed to load ([#1160](https://github.com/cedricziel/hermes-app/issues/1160)) ([7879c72](https://github.com/cedricziel/hermes-app/commit/7879c7257951a9436105483d26714ddff1989c69))
+* **chat:** show a loading state while a chat's messages load ([#1122](https://github.com/cedricziel/hermes-app/issues/1122)) ([5e22534](https://github.com/cedricziel/hermes-app/commit/5e22534cb42487167b5b9d457ae5a73e8819869a))
+* **macos:** show reload, enclosing folder and change navigation in the menu ([#1139](https://github.com/cedricziel/hermes-app/issues/1139)) ([ce26b62](https://github.com/cedricziel/hermes-app/commit/ce26b6258ac722ef1bd8b3cbc246aab5ef864c60))
+* **messaging:** talk to the WhatsApp pairing routes ([#1159](https://github.com/cedricziel/hermes-app/issues/1159)) ([79687ba](https://github.com/cedricziel/hermes-app/commit/79687ba20614c1b9a41390d8bdda41572382f20b))
+* **skills:** curator run confirmation sheet body for the catalog ([#1201](https://github.com/cedricziel/hermes-app/issues/1201)) ([c03d431](https://github.com/cedricziel/hermes-app/commit/c03d431d0c2b79a9e29c2942051c8c59117096f1))
+* **skills:** follow and control the skill curator ([#1177](https://github.com/cedricziel/hermes-app/issues/1177)) ([c144ee1](https://github.com/cedricziel/hermes-app/commit/c144ee1c52a0a1dfc5a465d0adb10c9463ff39fc))
+* **skills:** read and drive the skill curator routes ([#1158](https://github.com/cedricziel/hermes-app/issues/1158)) ([ca8b283](https://github.com/cedricziel/hermes-app/commit/ca8b283bc4b87ba28017449dbd34a0fb129469ff))
+* **skills:** Skill curator section catalog widget ([#1190](https://github.com/cedricziel/hermes-app/issues/1190)) ([516a239](https://github.com/cedricziel/hermes-app/commit/516a2397a3505e01befdfc68401a595c5e9eaa3e))
+* **theme:** move the code palette to the canvas colours ([#1192](https://github.com/cedricziel/hermes-app/issues/1192)) ([947db7a](https://github.com/cedricziel/hermes-app/commit/947db7a43afe13520b625884440dfd196f1b068c))
+* **widgets:** touch-target action row and capped output tile for the skill curator ([#1186](https://github.com/cedricziel/hermes-app/issues/1186)) ([ee0ef59](https://github.com/cedricziel/hermes-app/commit/ee0ef59f40c64309d3b63a8d9bf7782694513aac))
+
+
+### Bug Fixes
+
+* **android:** add a monochrome layer for themed icons ([#1134](https://github.com/cedricziel/hermes-app/issues/1134)) ([567232c](https://github.com/cedricziel/hermes-app/commit/567232c5813d3a932eb3bc6a05ae604ad5cbae97))
+* **android:** opt in to predictive back ([#1130](https://github.com/cedricziel/hermes-app/issues/1130)) ([76f78c7](https://github.com/cedricziel/hermes-app/commit/76f78c79da39022a8489b33a47cd7a7f47de0ab6))
+* **chat:** a reply that lost its connection is not failed while the server may still run it ([#1123](https://github.com/cedricziel/hermes-app/issues/1123)) ([d1aa36b](https://github.com/cedricziel/hermes-app/commit/d1aa36ba8dbc338e67ee9c9d4850e17f8748f97d))
+* **chat:** gateway reconnect waits for the network and stops on a gone session ([#1116](https://github.com/cedricziel/hermes-app/issues/1116)) ([8867cc0](https://github.com/cedricziel/hermes-app/commit/8867cc05d52fa5da00dcda1edd87a1b445c39fb1))
+* **chat:** give Android touch-sized rows and message actions ([#1163](https://github.com/cedricziel/hermes-app/issues/1163)) ([df59da3](https://github.com/cedricziel/hermes-app/commit/df59da3d5d89dac12abbe18c87e94dedec85faaf))
+* **chat:** keep a stop command's words reliably and say it was another chat ([#1115](https://github.com/cedricziel/hermes-app/issues/1115)) ([1b2b876](https://github.com/cedricziel/hermes-app/commit/1b2b876c315cc5ed8175bd8b99029121f08127a7))
+* **chat:** keep opened tool calls open across list remounts and scrolling ([#1135](https://github.com/cedricziel/hermes-app/issues/1135)) ([be92826](https://github.com/cedricziel/hermes-app/commit/be928262d26256ead2de1eddfa2b1ceb0c8becc3))
+* **chat:** name the default model in the model picker ([#1129](https://github.com/cedricziel/hermes-app/issues/1129)) ([e032951](https://github.com/cedricziel/hermes-app/commit/e03295156ed100c9fcd5c1174f53451e29b76476))
+* **chat:** show the attach menu and skill status adaptively on wide screens ([#1137](https://github.com/cedricziel/hermes-app/issues/1137)) ([4396f8c](https://github.com/cedricziel/hermes-app/commit/4396f8c84630eb4be53236e4808f09df883b8166))
+* **chat:** show the server's current default model in a new chat ([#1118](https://github.com/cedricziel/hermes-app/issues/1118)) ([c96cc03](https://github.com/cedricziel/hermes-app/commit/c96cc0305ae3fcab253ffa9077db0fb5f2b9ecfc))
+* **chat:** use the app link colour for links in chat messages ([#1198](https://github.com/cedricziel/hermes-app/issues/1198)) ([8cd2209](https://github.com/cedricziel/hermes-app/commit/8cd2209791d0d8bd80dbc93dad4a7f95d925d139))
+* **files:** render Markdown task lists in the preview ([#1121](https://github.com/cedricziel/hermes-app/issues/1121)) ([5d1af7b](https://github.com/cedricziel/hermes-app/commit/5d1af7bec71cc9676ea3c9249524287a44fc8279))
+* **files:** replace lone surrogates before painting file and tool text ([#1191](https://github.com/cedricziel/hermes-app/issues/1191)) ([17ff5df](https://github.com/cedricziel/hermes-app/commit/17ff5dfff4f9d17bba252ad7e5f22e99ca932f64))
+* **kanban:** make the hovered drop strip label readable ([#1175](https://github.com/cedricziel/hermes-app/issues/1175)) ([3e69e7c](https://github.com/cedricziel/hermes-app/commit/3e69e7c78c93d0adc8a6a5e2a88daf888e5d3679))
+* **macos:** drop pull to refresh and the phone task sheet on the Mac ([#1131](https://github.com/cedricziel/hermes-app/issues/1131)) ([5c046a4](https://github.com/cedricziel/hermes-app/commit/5c046a479c706943b8198c6cebac6a56697f5f70))
+* **macos:** match the model popover to its design (surface, focus, gutter, search) ([#1194](https://github.com/cedricziel/hermes-app/issues/1194)) ([eace3db](https://github.com/cedricziel/hermes-app/commit/eace3db956496a02ea3ca2192020ba1dafef6718))
+* **macos:** mount the app's theme scopes in every engine and in pumpScreen ([#1183](https://github.com/cedricziel/hermes-app/issues/1183)) ([b7c1b44](https://github.com/cedricziel/hermes-app/commit/b7c1b448b38dba1f6b0fa4ddef618a9ddb70bc3e))
+* **macos:** open the model picker as a popover on desktop at any width ([#1162](https://github.com/cedricziel/hermes-app/issues/1162)) ([73b618b](https://github.com/cedricziel/hermes-app/commit/73b618be2c20195b7e0dcb09b91c9bcc0439014f))
+* **memory:** translate the leave and delete confirmations ([#1136](https://github.com/cedricziel/hermes-app/issues/1136)) ([e1a7cc3](https://github.com/cedricziel/hermes-app/commit/e1a7cc3234afdf867f88453a9a9f7d258e61ac82))
+* **models:** cap the model setup dialog width on wide screens ([#1138](https://github.com/cedricziel/hermes-app/issues/1138)) ([90e1dce](https://github.com/cedricziel/hermes-app/commit/90e1dce907ca535deb6c74242867d47e698328e2))
+* **notifications:** use a monochrome status bar icon on Android ([#1133](https://github.com/cedricziel/hermes-app/issues/1133)) ([3f5bfd8](https://github.com/cedricziel/hermes-app/commit/3f5bfd8c8b30b52bb87bc577cbeab6599c57272a))
+* **settings:** keep the dialog title clear of Done at large text ([#1165](https://github.com/cedricziel/hermes-app/issues/1165)) ([6392f53](https://github.com/cedricziel/hermes-app/commit/6392f532b3bb03e930794e066ffab289133e90d9))
+* **skills:** make the trust badges readable ([#1151](https://github.com/cedricziel/hermes-app/issues/1151)) ([c8683c9](https://github.com/cedricziel/hermes-app/commit/c8683c95b9e3286b2e27cca8717521ea56db032f))
+* **skills:** use the app's link colour in markdown previews ([#1176](https://github.com/cedricziel/hermes-app/issues/1176)) ([bf126a6](https://github.com/cedricziel/hermes-app/commit/bf126a6863de7a4aa921408b129886eee544f4c8))
+* stop four screens overflowing at large text ([#1156](https://github.com/cedricziel/hermes-app/issues/1156)) ([1eef1ca](https://github.com/cedricziel/hermes-app/commit/1eef1ca006c666a2e48549920462778036096641))
+* **theme:** remove the duplicate wifiOff icon that broke the build on main ([#1197](https://github.com/cedricziel/hermes-app/issues/1197)) ([f481fee](https://github.com/cedricziel/hermes-app/commit/f481feeb04e0708d1ddc1e5fb4dd7086386cacbc))
+* **voice:** stop taking over other apps' audio at launch and after a recording ([#1125](https://github.com/cedricziel/hermes-app/issues/1125)) ([2bc3c00](https://github.com/cedricziel/hermes-app/commit/2bc3c004257a4f8f0bac503fca18858f101dfe43))
+* **watch:** drop stale complication keys from the application context ([#1128](https://github.com/cedricziel/hermes-app/issues/1128)) ([ee5f3d9](https://github.com/cedricziel/hermes-app/commit/ee5f3d9231dd91510c555a4c56139ffa3e22e4cf))
+* **watch:** stop gating the watch on the phone's App Lock ([#1148](https://github.com/cedricziel/hermes-app/issues/1148)) ([5ce96ee](https://github.com/cedricziel/hermes-app/commit/5ce96eeb0ff3fe7803383697e61089e363d5b492))
+* **widgets:** centre alert message text on Apple platforms ([#1173](https://github.com/cedricziel/hermes-app/issues/1173)) ([1939d2c](https://github.com/cedricziel/hermes-app/commit/1939d2c94c898f8345de6696c8e03eeefbf7b690))
+
+
+### Documentation
+
+* check in the fleet rules, reviewer and status-reader agents ([#1142](https://github.com/cedricziel/hermes-app/issues/1142)) ([6b23cb0](https://github.com/cedricziel/hermes-app/commit/6b23cb0997836673afcb86894ebfbc73283dfc6c))
+* **design:** record the Android platform fix pass ([#1149](https://github.com/cedricziel/hermes-app/issues/1149)) ([3e4b775](https://github.com/cedricziel/hermes-app/commit/3e4b77501afcea1fab41b014165fc4c5c1e7af6e))
+* **design:** record the iPhone and iPad platform fix pass ([#1153](https://github.com/cedricziel/hermes-app/issues/1153)) ([863a2e0](https://github.com/cedricziel/hermes-app/commit/863a2e0c2dfc1cd46a6f96d75d33d91e77dd418e))
+* **design:** record the macOS menu and window pass ([#1146](https://github.com/cedricziel/hermes-app/issues/1146)) ([a853e7f](https://github.com/cedricziel/hermes-app/commit/a853e7f1ddeea4c864c3af71e7e203e6a0d44900))
+* **design:** record the trust badge and Windows/Linux passes ([#1141](https://github.com/cedricziel/hermes-app/issues/1141)) ([3bb10e4](https://github.com/cedricziel/hermes-app/commit/3bb10e4781571fd4b22c19d5f21731f0c9108c86))
+* **roadmap:** record the 0.1.79 cut, merges, baselines and new findings ([#1181](https://github.com/cedricziel/hermes-app/issues/1181)) ([d58c90f](https://github.com/cedricziel/hermes-app/commit/d58c90f53715429e5e80f5ec4bfe4fac276320f2))
+* **roadmap:** record the iPhone, style, harness and test findings and fix the delivery rules ([#1154](https://github.com/cedricziel/hermes-app/issues/1154)) ([03b14bc](https://github.com/cedricziel/hermes-app/commit/03b14bc4e41bbf5e8d2af85061a2e8b325616fba))
+* **roadmap:** record the morning's merges, new findings and rule changes ([#1193](https://github.com/cedricziel/hermes-app/issues/1193)) ([d8d5954](https://github.com/cedricziel/hermes-app/commit/d8d5954556b509698134b2d22554c043c145e263))
+* tighten reviewer, status-reader and stacked-PR wording ([#1199](https://github.com/cedricziel/hermes-app/issues/1199)) ([c81c8a2](https://github.com/cedricziel/hermes-app/commit/c81c8a261d1fa8df1586f1c436205e0da86f9ffe))
+
+## [0.1.79](https://github.com/cedricziel/hermes-app/compare/v0.1.78...v0.1.79) (2026-11-15)
+
+
+### Features
+
+* **chat:** fetch a session export ([#1106](https://github.com/cedricziel/hermes-app/issues/1106)) ([d597bed](https://github.com/cedricziel/hermes-app/commit/d597bed80ab9b6239bdb2aa1e902d8c1532fbe02))
+* **chat:** session export controller ([#1109](https://github.com/cedricziel/hermes-app/issues/1109)) ([70797c4](https://github.com/cedricziel/hermes-app/commit/70797c477794a9a5807cb4ebd7335e82af1fc3b6))
+* **chat:** session export dialog in the catalog ([#1104](https://github.com/cedricziel/hermes-app/issues/1104)) ([28f7c3e](https://github.com/cedricziel/hermes-app/commit/28f7c3e9f06fbf2a35f3af5be6b9cd0cfcf1c411))
+* **chat:** voice turn flags and outcomes ([#1101](https://github.com/cedricziel/hermes-app/issues/1101)) ([af9cb18](https://github.com/cedricziel/hermes-app/commit/af9cb184bdea8c78137dafc836d1894b00ef5efd))
+* **files:** code colours and Markdown polish ([#1089](https://github.com/cedricziel/hermes-app/issues/1089)) ([de7ac3b](https://github.com/cedricziel/hermes-app/commit/de7ac3b35b9f3be9eea074af53cbb2778acf530c))
+* **notifications:** reply to a finished reply from the notification ([#1079](https://github.com/cedricziel/hermes-app/issues/1079)) ([97bce9a](https://github.com/cedricziel/hermes-app/commit/97bce9a273859bbdb7a5eab59e63c5ad3d48a861))
+* **profile-soul:** a controller for editing a profile's personality ([#1103](https://github.com/cedricziel/hermes-app/issues/1103)) ([8c86616](https://github.com/cedricziel/hermes-app/commit/8c866164981f47c86c5f4c827f8435aff73e7e78))
+* **profile-soul:** Personality widgets in the catalog ([#1110](https://github.com/cedricziel/hermes-app/issues/1110)) ([6c05887](https://github.com/cedricziel/hermes-app/commit/6c05887f5def82ddccf3deec8c1aa667a357bb46))
+* **profile-soul:** read and write a profile's SOUL.md through a repository ([#1102](https://github.com/cedricziel/hermes-app/issues/1102)) ([55a6074](https://github.com/cedricziel/hermes-app/commit/55a60742da98a0554e105c3c5b2293243cfecb50))
+* **profile-soul:** stack the banner action at large text ([#1107](https://github.com/cedricziel/hermes-app/issues/1107)) ([9067faf](https://github.com/cedricziel/hermes-app/commit/9067faf39a839e28f41b161f7876526c3a8176c9))
+* **server-care:** attention on the status span, polls wake on resume ([#1086](https://github.com/cedricziel/hermes-app/issues/1086)) ([5396b0e](https://github.com/cedricziel/hermes-app/commit/5396b0ea4033281518ea625f90488621bb35c80c))
+* **voice:** call widgets in the catalog ([#1078](https://github.com/cedricziel/hermes-app/issues/1078)) ([eb028c6](https://github.com/cedricziel/hermes-app/commit/eb028c6f0386e093efb11fee83f194afef8dd390))
+* **voice:** consent, safe stopping and teardown for the iOS call ([#1087](https://github.com/cedricziel/hermes-app/issues/1087)) ([0c88c52](https://github.com/cedricziel/hermes-app/commit/0c88c52004cae28f633574d953ae7dfba4a4fd8c))
+
+
+### Bug Fixes
+
+* **chat:** bound the render cost of code blocks ([#1105](https://github.com/cedricziel/hermes-app/issues/1105)) ([d04c5a9](https://github.com/cedricziel/hermes-app/commit/d04c5a9f6ef436115703ed424c8d281f192d64d0))
+* **chat:** copy picked files out of the plugin directory ([#1113](https://github.com/cedricziel/hermes-app/issues/1113)) ([a41f3a2](https://github.com/cedricziel/hermes-app/commit/a41f3a21755bd90543244f21242b637691913cf8))
+* **chat:** drop a chat's agent roster when its session is retired ([#1085](https://github.com/cedricziel/hermes-app/issues/1085)) ([ad538e9](https://github.com/cedricziel/hermes-app/commit/ad538e94c6b1a0e84a7263658b9cecf8c72b3ee0))
+* **chat:** hide the recipient chip once a chat has messages ([#1114](https://github.com/cedricziel/hermes-app/issues/1114)) ([3e0348f](https://github.com/cedricziel/hermes-app/commit/3e0348ff892f52e5d9006d4b5db9c173893f1b2c))
+* **chat:** keep an opened tool call open when the next tool starts ([#1117](https://github.com/cedricziel/hermes-app/issues/1117)) ([a0c63ee](https://github.com/cedricziel/hermes-app/commit/a0c63ee1ea83277942c45f610d5555fa0f6087ca))
+* **chat:** say so when Hermes takes a typed message as a stop command, and tidy a withdrawn voice turn ([#1108](https://github.com/cedricziel/hermes-app/issues/1108)) ([2fc5d8c](https://github.com/cedricziel/hermes-app/commit/2fc5d8c5aa9c44031419bfe96fb1b8fcbef75046))
+* **files:** start a new chat's Files at the profile's folder; a refusal inside a listed folder is "not allowed" ([#1080](https://github.com/cedricziel/hermes-app/issues/1080)) ([92c5a78](https://github.com/cedricziel/hermes-app/commit/92c5a78d51bcabf421910978bd7f4c9b4e71ad03))
+* **voice:** retry a failed speech connection once and log per-turn timings ([#1095](https://github.com/cedricziel/hermes-app/issues/1095)) ([114558e](https://github.com/cedricziel/hermes-app/commit/114558e6d7e8a1f8e567b17d19e1762ebaafd7a1)), closes [#882](https://github.com/cedricziel/hermes-app/issues/882)
+
+
+### Documentation
+
+* **design:** record the personality canvas ([#1097](https://github.com/cedricziel/hermes-app/issues/1097)) ([33aad36](https://github.com/cedricziel/hermes-app/commit/33aad366373c6e73c99c6f424cc48ad9ab2eb28f))
+* **design:** record the session export canvas ([#1099](https://github.com/cedricziel/hermes-app/issues/1099)) ([2449b30](https://github.com/cedricziel/hermes-app/commit/2449b30121af556a77c255197006bd495d8ca1fb))
+* **design:** record the skills curator canvas ([#1098](https://github.com/cedricziel/hermes-app/issues/1098)) ([9831ccd](https://github.com/cedricziel/hermes-app/commit/9831ccd2c2c57d08a87976ef2b53eb82d57a3cd1))
+* **design:** record the WhatsApp onboarding canvas ([#1100](https://github.com/cedricziel/hermes-app/issues/1100)) ([703f19d](https://github.com/cedricziel/hermes-app/commit/703f19da2271399e0a5a29d8c9fb2d67a780c134))
+* **providers:** catalog screenshots of the provider screens (task 4.4) ([#1090](https://github.com/cedricziel/hermes-app/issues/1090)) ([f0cfc1e](https://github.com/cedricziel/hermes-app/commit/f0cfc1e55b9ef9040d3d63fe4ed5845566bf2863))
+* **roadmap:** record merges since [#1084](https://github.com/cedricziel/hermes-app/issues/1084), owner-reported bugs and the platform audits ([#1126](https://github.com/cedricziel/hermes-app/issues/1126)) ([7ce045a](https://github.com/cedricziel/hermes-app/commit/7ce045a6c99e22f3158f81428a5c332e7fa8cd4f))
+* **roadmap:** record merges through [#1081](https://github.com/cedricziel/hermes-app/issues/1081), the 0.1.78 cut and the real-backend findings ([#1084](https://github.com/cedricziel/hermes-app/issues/1084)) ([401d215](https://github.com/cedricziel/hermes-app/commit/401d215dc0abb92395368cfefdb520a55cbcba44))
+* **toolsets:** close 4.0a, BotChatBanner stays separate from AppBanner ([#1091](https://github.com/cedricziel/hermes-app/issues/1091)) ([47d9f09](https://github.com/cedricziel/hermes-app/commit/47d9f095ba8b99931943df59962b5db7e1c8cefd))
+* **watch:** match the spec and change records to what ships ([#1127](https://github.com/cedricziel/hermes-app/issues/1127)) ([1a4b330](https://github.com/cedricziel/hermes-app/commit/1a4b33026a5a3aaaa5166860ff019a54a6f15c57))
+
 ## [0.1.78](https://github.com/cedricziel/hermes-app/compare/v0.1.77...v0.1.78) (2026-11-14)
 
 

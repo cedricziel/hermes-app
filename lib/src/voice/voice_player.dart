@@ -6,6 +6,21 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 
 import 'voice_audio_focus.dart';
+import 'voice_audio_session.dart';
+
+/// The session a voice message or spoken reply plays in. `setActive(false)`
+/// takes its options from here, so every deactivation tells the apps this one
+/// interrupted (music, video) to resume, and on Android gives the focus back
+/// as a transient grant that may duck instead of taking it for good. Others
+/// are paused, not ducked: libmpv's own audio output, not this session, would
+/// decide whether a ducking category holds on iOS.
+final AudioSessionConfiguration voicePlaybackSession =
+    const AudioSessionConfiguration.speech().copyWith(
+      avAudioSessionSetActiveOptions:
+          AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
+      androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
+      androidWillPauseWhenDucked: true,
+    );
 
 /// A native player for one downloaded audio file; replaceable in tests.
 abstract class VoicePlayer extends ChangeNotifier {
@@ -21,7 +36,8 @@ abstract class VoicePlayer extends ChangeNotifier {
 }
 
 class NativeVoicePlayer extends VoicePlayer {
-  NativeVoicePlayer({Player? player}) {
+  NativeVoicePlayer({Player? player, VoiceAudioSession? audioSession})
+    : _audio = audioSession ?? VoiceAudioSession.shared {
     MediaKit.ensureInitialized();
     _player =
         player ??
@@ -40,11 +56,7 @@ class NativeVoicePlayer extends VoicePlayer {
         _completed = value;
         if (value) {
           _playing = false;
-          if (!VoiceAudioFocus.shared.inCall) {
-            unawaited(
-              _session?.setActive(false).catchError((Object _) => false),
-            );
-          }
+          unawaited(_giveBack());
         }
         notifyListeners();
       }, onError: _onError),
@@ -66,6 +78,7 @@ class NativeVoicePlayer extends VoicePlayer {
   // The bundled audio-only libmpv/FFmpeg decoder handles Ogg/Vorbis and
   // Ogg/Opus on Apple platforms too, where AVPlayer cannot play them.
   late final Player _player;
+  final VoiceAudioSession _audio;
   final _subscriptions = <StreamSubscription<dynamic>>[];
   bool _playing = false;
   bool _disposed = false;
@@ -75,7 +88,6 @@ class NativeVoicePlayer extends VoicePlayer {
   }
 
   bool _observesSession = false;
-  AudioSession? _session;
   Future<void>? _sessionReady;
   bool _completed = false;
   bool _failed = false;
@@ -123,23 +135,27 @@ class NativeVoicePlayer extends VoicePlayer {
       rethrow;
     }
     if (_disposed || intent != _intent || VoiceAudioFocus.shared.inCall) return;
-    if (!await _session!.setActive(true)) {
+    if (!await _audio.acquire(this, voicePlaybackSession)) {
       throw StateError('Audio focus unavailable');
     }
     if (_disposed || intent != _intent || VoiceAudioFocus.shared.inCall) {
-      if (!VoiceAudioFocus.shared.inCall) await _session?.setActive(false);
+      await _giveBack();
       return;
     }
     await _player.play();
   }
 
+  // A call that has taken the session (it is the focus owner before it pauses
+  // the players) is told nothing by this player: it is only dropped from the
+  // session's owners, so a later recording finds the session free.
+  Future<void> _giveBack() => VoiceAudioFocus.shared.inCall
+      ? _audio.forget(this)
+      : _audio.release(this);
+
   Future<void> _prepareSession() async {
     final session = await AudioSession.instance;
     if (_disposed) return;
     if (VoiceAudioFocus.shared.inCall) throw StateError('Call audio is active');
-    _session = session;
-    await session.configure(const AudioSessionConfiguration.speech());
-    if (_disposed) return;
     if (_observesSession) return;
     _observesSession = true;
     void interrupt() => unawaited(pause().catchError((Object _) {}));
@@ -156,7 +172,7 @@ class NativeVoicePlayer extends VoicePlayer {
     ++_intent;
     await _sessionReady?.catchError((Object _) {});
     await _player.pause();
-    if (!VoiceAudioFocus.shared.inCall) await _session?.setActive(false);
+    await _giveBack();
   }
 
   @override
@@ -170,9 +186,7 @@ class NativeVoicePlayer extends VoicePlayer {
       unawaited(subscription.cancel());
     }
     unawaited(_player.dispose().catchError((Object _) {}));
-    if (!VoiceAudioFocus.shared.inCall) {
-      unawaited(_session?.setActive(false).catchError((Object _) => false));
-    }
+    unawaited(_giveBack());
     VoiceAudioFocus.shared.removeListener(_focusChanged);
     super.dispose();
   }

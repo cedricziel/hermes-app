@@ -82,6 +82,20 @@ const _unsupportedImage = 4016;
 /// How many reconnect attempts follow a drop before the reply gives up.
 const _maxReconnectAttempts = 5;
 
+/// How long a reconnect keeps trying while no attempt has been answered by the
+/// server (no network yet, a socket that opens and stays silent). Such attempts
+/// do not use up [_maxReconnectAttempts] or [_reconnectBudget]; those count from
+/// the first answer. The window starts over each time the app asks the
+/// connection again (`checkConnection`, on coming to the front).
+const _defaultReconnectWindow = Duration(seconds: 60);
+
+/// The longest wait between two attempts that the server never answered.
+const _unansweredBackoffCap = Duration(seconds: 5);
+
+/// A backstop on unanswered attempts in one reconnect, so a sleep that returns
+/// at once cannot spin.
+const _maxUnansweredAttempts = 100;
+
 /// How many times a send opens its socket and session before it fails.
 const _sendOpenAttempts = 3;
 
@@ -139,6 +153,8 @@ class HermesGatewayTransport
     this._events = noopAppEventLogger,
     this.requestTimeout = const Duration(seconds: 30),
     this.probeTimeout = const Duration(seconds: 10),
+    this.reattachTimeout = const Duration(seconds: 20),
+    this.reconnectWindow = _defaultReconnectWindow,
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
     this.readTimeout = const Duration(seconds: 10),
@@ -164,6 +180,14 @@ class HermesGatewayTransport
   /// How long opening a session or submitting a prompt may go unanswered
   /// before the connection is given up on.
   final Duration requestTimeout;
+
+  /// How long a call of a reconnect (`session.resume`, `session.events.since`)
+  /// may go unanswered before its socket is dropped and a new one is tried.
+  final Duration reattachTimeout;
+
+  /// How long a reconnect keeps trying while the server has not answered (see
+  /// [_defaultReconnectWindow]). Tests shorten it.
+  final Duration reconnectWindow;
 
   /// How long a checkpoint or context read may go unanswered; the connection
   /// stays open.
@@ -232,6 +256,14 @@ class HermesGatewayTransport
 
   /// The runtime session a reply is in flight in, by the thread it belongs to.
   final _runtimeOf = <_ThreadOwner, String>{};
+
+  /// The runtime session of a reply whose connection could not be won back
+  /// before the reconnect gave up, by thread. The server may still be running
+  /// that turn: opening the thread resumes it with the replay ledger of that
+  /// runtime (so the gap is filled by seq, not rebuilt from nothing), and a
+  /// stop finds it. Dropped once a resume reaches the server, when a new send
+  /// takes the thread over, and with the connection.
+  final _lostReplies = <_ThreadOwner, String>{};
 
   /// The model each thread was last set to from here, by thread.
   final _modelOf = <_ThreadOwner, ModelChoice>{};
@@ -451,8 +483,15 @@ class HermesGatewayTransport
   /// the same answer instead of each waiting out a probe of their own.
   final _probes = <GatewayRpcClient, Future<bool>>{};
 
+  /// Completes (and is replaced) each time [checkConnection] runs.
+  var _nudge = Completer<void>();
+
   @override
   Future<void> checkConnection() async {
+    // A reconnect waiting for the network tries again now, with a new window.
+    final woken = _nudge;
+    _nudge = Completer<void>();
+    woken.complete();
     final open = _connected();
     if (open == null || await _alive(open)) return;
     _drop(open);
@@ -612,6 +651,7 @@ class HermesGatewayTransport
     final idle = _idle.values.toList();
     _idle.clear();
     _settledEarly.clear();
+    _lostReplies.clear();
     _ownedBindings.clear();
     unawaited(_ownedSessions.close());
     unawaited(_connectionEvents.close());

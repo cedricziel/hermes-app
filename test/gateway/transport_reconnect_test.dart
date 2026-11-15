@@ -1185,15 +1185,20 @@ void main() {
         gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
 
         final seen = _listen(transport.send(text: 'hi'));
-        async.elapse(const Duration(seconds: 10));
+        // No socket ever opens, so the attempts are not spent: the reply
+        // keeps trying through the 60 s window, then gives up.
+        async.elapse(const Duration(seconds: 59));
+        expect(seen.error, isNull);
+        async.elapse(const Duration(seconds: 2));
 
-        expect(attemptsAt, const [
+        expect(attemptsAt.take(5), const [
           Duration.zero,
           Duration(milliseconds: 300),
           Duration(milliseconds: 900),
           Duration(milliseconds: 2100),
           Duration(milliseconds: 4500),
         ]);
+        expect(attemptsAt.length, greaterThan(5));
         expect(seen.error, isA<GatewayConnectionClosed>());
       });
     });
@@ -1204,7 +1209,14 @@ void main() {
         var opened = 0;
         transport = HermesGatewayTransport(
           random: _FixedRandom(0.5),
-          sleep: (delay) async => waits.add(delay),
+          // Instant waits, until far past the backstop: without it the loop
+          // would stop here, and the test fails instead of hanging.
+          sleep: (delay) {
+            waits.add(delay);
+            return waits.length > 150
+                ? Completer<void>().future
+                : Future.value();
+          },
           connect: () async {
             if (opened++ == 0) return gateway.connect();
             throw StateError('gateway unreachable');
@@ -1215,12 +1227,14 @@ void main() {
         final seen = _listen(transport.send(text: 'hi'));
         async.flushMicrotasks();
 
-        expect(waits, const [
+        // An instant sleep cannot spin: unanswered attempts stop at a cap.
+        expect(waits.take(4), const [
           Duration(milliseconds: 300),
           Duration(milliseconds: 600),
           Duration(milliseconds: 1200),
           Duration(milliseconds: 2400),
         ]);
+        expect(waits.length, lessThanOrEqualTo(100));
         expect(seen.error, isA<GatewayConnectionClosed>());
       });
     });
@@ -1355,6 +1369,219 @@ void main() {
         );
         expect((since.last['params'] as Map)['last_seen'], 7);
         expect(_deltas(again), ['8', '9']);
+      });
+    });
+  });
+
+  group('A reply whose reconnect gave up', () {
+    /// A turn that streams seqs 1 to 7 and drops, with no way back for 60 s.
+    _Seen lose(FakeAsync async) {
+      gateway.silent.add('session.resume');
+      gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+      final seen = _listen(transport.send(text: 'hi'));
+      async.elapse(const Duration(seconds: 61));
+      expect(seen.error, isA<GatewayConnectionClosed>());
+      return seen;
+    }
+
+    test('ends as a lost connection, not as a session or turn gone', () {
+      fake((async) {
+        final seen = lose(async);
+
+        expect(seen.error, isNot(isA<GatewaySessionGone>()));
+        expect(seen.error, isNot(isA<GatewayTurnEnded>()));
+      });
+    });
+
+    test('a drop while prompt.submit is unanswered is not a lost reply', () {
+      fake((async) {
+        gateway.silent.add('prompt.submit');
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.drop();
+        async.elapse(const Duration(seconds: 5));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(seen.error, isNot(isA<GatewayReplyLost>()));
+        expect(
+          gateway.methods.where((m) => m == 'prompt.submit'),
+          hasLength(1),
+        );
+      });
+    });
+
+    test('says the prompt was accepted even with no row id and no frame', () {
+      fake((async) {
+        gateway.silent.add('session.resume');
+        // The turn starts nothing before the socket goes.
+        gateway.turn = (g, sid) => g.drop();
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 61));
+
+        expect(seen.events.whereType<PromptAcknowledged>(), isEmpty);
+        expect(seen.events.whereType<ReplyDelta>(), isEmpty);
+        expect(seen.error, isA<GatewayReplyLost>());
+        expect(
+          gateway.methods.where((m) => m == 'prompt.submit'),
+          hasLength(1),
+        );
+      });
+    });
+
+    test('is picked up again from the seq it had, and submits nothing', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.beforeEventsAnswer = (g) => _deltaSeqs(g, 'rt-1', 8, 9);
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(follow.error, isNull);
+        expect(follow.events.first, isA<ReplyStarted>());
+        expect(_deltas(follow), ['8', '9']);
+        expect(follow.events.whereType<ReplyRebuilt>(), isEmpty);
+        final since = gateway.requests.where(
+          (r) => r['method'] == 'session.events.since',
+        );
+        expect((since.last['params'] as Map)['last_seen'], 7);
+        expect(
+          gateway.methods.where((m) => m == 'prompt.submit'),
+          hasLength(1),
+        );
+        unawaited(follow.subscription.cancel());
+      });
+    });
+
+    test('tells a server still out of reach from one that is not', () {
+      fake((async) {
+        lose(async);
+
+        final follow = _listen(transport.followUps('stored-1'));
+        // The resume is not answered within the one attempt a pick-up makes.
+        async.elapse(const Duration(seconds: 30));
+
+        expect(follow.error, isA<GatewayConnectionClosed>());
+        expect(follow.error, isNot(isA<GatewaySessionGone>()));
+        expect(follow.error, isNot(isA<GatewayTurnEnded>()));
+
+        // The reply is still waited for: the next pick-up replays from seq 7.
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        final again = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        expect(again.error, isNull);
+        expect(again.events.first, isA<ReplyStarted>());
+        unawaited(again.subscription.cancel());
+      });
+    });
+
+    test('a turn that ended with nothing to show fails the reply', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(follow.error, isA<GatewayTurnEnded>());
+      });
+    });
+
+    test('a turn that finished meanwhile is delivered by its completion', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.beforeEventsAnswer = (g) {
+          _deltaSeqs(g, 'rt-1', 8, 9);
+          g.event('message.complete', 'rt-1', {
+            'text': 'all done',
+            'status': 'complete',
+          });
+        };
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(follow.error, isNull);
+        expect(_deltas(follow), ['8', '9']);
+        expect(
+          follow.events.whereType<ReplyCompleted>().single.text,
+          'all done',
+        );
+        unawaited(follow.subscription.cancel());
+      });
+    });
+
+    test('finished after the runtime was reaped: the stored reply lands', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        // The runtime id changed (resume minted a new one), the turn is over.
+        gateway.resumeResult = {
+          'session_id': 'rt-2',
+          'running': false,
+          'messages': [
+            {'role': 'assistant', 'text': 'all done'},
+          ],
+        };
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(follow.error, isNull);
+        expect(follow.events.whereType<ThreadNeedsRefetch>(), isNotEmpty);
+        expect(
+          follow.events.whereType<ReplyCompleted>().single.text,
+          'all done',
+        );
+        unawaited(follow.subscription.cancel());
+      });
+    });
+
+    test(
+      'an answered pick-up forgets the reply, so the next open is plain',
+      () {
+        fake((async) {
+          lose(async);
+          gateway.silent.remove('session.resume');
+          gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+          final first = _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+          expect(first.error, isA<GatewayTurnEnded>());
+          int sinceCalls() =>
+              gateway.methods.where((m) => m == 'session.events.since').length;
+          final before = sinceCalls();
+
+          final again = _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+
+          // No replay from a lost runtime, no refetch, and the idle session is
+          // listened to (the follow-ups stay open).
+          expect(sinceCalls(), before);
+          expect(again.error, isNull);
+          expect(again.events.whereType<ThreadNeedsRefetch>(), isEmpty);
+          expect(again.done, isFalse);
+          unawaited(again.subscription.cancel());
+        });
+      },
+    );
+
+    test('can be stopped on the server', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+
+        bool? stopped;
+        unawaited(transport.stopReply('stored-1').then((v) => stopped = v));
+        async.flushMicrotasks();
+
+        expect(gateway.methods, contains('session.interrupt'));
+        expect(stopped, isTrue);
       });
     });
   });
