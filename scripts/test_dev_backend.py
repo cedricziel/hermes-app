@@ -768,6 +768,38 @@ exec {REAL_FIND} "$@"
         self.mark()
         self.assertRefused(self.start(), message="newline")
 
+    def test_refuses_a_state_dir_that_resolves_to_a_path_hermes_would_expand(self):
+        # STATE_DIR is a plain symlink, but its target is literally named `$X`:
+        # Hermes runs expandvars on HERMES_HOME, so with X=../outside the writes
+        # would land in `outside`, beside the tree that was checked.
+        target = self.tmp / "lp" / "$X"
+        target.mkdir(parents=True)
+        (self.tmp / "lp" / "link").symlink_to(target)
+        self.mark()
+        for args in ((), ("--launch-profile", "lp")):
+            result = self.start(*args, state=self.tmp / "lp" / "link", X="../outside")
+            self.assertRefused(result, message="resolves to")
+        self.assertFalse((self.tmp / "outside").exists())
+        self.assertEqual(os.listdir(target), [], "state was created in the target")
+
+    def test_refuses_a_state_dir_that_resolves_through_a_tilde_or_backtick_name(self):
+        for name in ("~", "`id`", "a b\tc"):
+            with self.subTest(name=name):
+                target = self.tmp / "lp2" / name
+                target.mkdir(parents=True)
+                link = self.tmp / "lp2" / f"link{abs(hash(name))}"
+                link.symlink_to(target)
+                self.mark()
+                self.assertRefused(self.start(state=link), message="resolves to")
+
+    def test_verify_refuses_a_temp_root_that_resolves_to_a_path_hermes_would_expand(self):
+        target = self.tmp / "vt" / "$X"
+        target.mkdir(parents=True)
+        (self.tmp / "vt" / "link").symlink_to(target)
+        result = self.verify_clean(tmp_root=self.tmp / "vt" / "link")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("resolves to", result.stderr)
+
     def test_hermes_only_ever_sees_the_resolved_state_dir(self):
         real = self.tmp / "real"
         real.mkdir()
