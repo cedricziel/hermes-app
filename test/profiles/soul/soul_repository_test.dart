@@ -33,6 +33,37 @@ void main() {
       expect(request.queryParameters, isEmpty);
     });
 
+    test('a name with path characters stays one path segment', () async {
+      for (final name in ['a/b', '../../auth/x', 'a?x=1', 'a#b', '%2F']) {
+        server.on('GET', soulPath, soulWithText);
+        try {
+          await repository.read(name);
+        } on Object {
+          // No route matches an odd name; only the request matters.
+        }
+        final uri = server.requests.last.uri;
+        expect(uri.pathSegments.length, 4, reason: name);
+        expect(uri.pathSegments.take(2), ['api', 'profiles'], reason: name);
+        expect(uri.pathSegments.last, 'soul', reason: name);
+        expect(uri.pathSegments[2], name, reason: name);
+        expect(uri.hasQuery || uri.hasFragment, isFalse, reason: name);
+      }
+    });
+
+    test('dot names are refused without a request', () async {
+      for (final name in ['.', '..']) {
+        expect(
+          await failureOf(repository.read(name)),
+          SoulFailureKind.badRequest,
+        );
+        expect(
+          await failureOf(repository.write(name, 'x')),
+          SoulFailureKind.badRequest,
+        );
+      }
+      expect(server.requests, isEmpty);
+    });
+
     test('tells an absent file from an empty one', () async {
       server.on('GET', soulPath, soulAbsent);
       final absent = await repository.read(soulProfile);
@@ -129,6 +160,21 @@ void main() {
             401,
           ),
         ),
+      );
+    });
+
+    test('a 200 with unparseable JSON is malformed, not unreachable', () async {
+      server.onRequest(
+        'GET',
+        soulPath,
+        (request) => throw DioException(
+          requestOptions: request,
+          error: const FormatException('bad json'),
+        ),
+      );
+      expect(
+        await failureOf(repository.read(soulProfile)),
+        SoulFailureKind.malformed,
       );
     });
 

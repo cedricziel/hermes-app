@@ -89,7 +89,9 @@ class SoulRepository {
   Future<ProfileSoul> read(String profile) async {
     final Response<Object> response;
     try {
-      response = await _api.getProfileSoulApiProfilesNameSoulGet(name: profile);
+      response = await _api.getProfileSoulApiProfilesNameSoulGet(
+        name: _segment(profile),
+      );
     } on DioException catch (error) {
       throw _failure(error, noAnswer: SoulFailureKind.unreachable) ?? error;
     }
@@ -111,7 +113,7 @@ class SoulRepository {
     final Response<Object> response;
     try {
       response = await _api.updateProfileSoulApiProfilesNameSoulPut(
-        name: profile,
+        name: _segment(profile),
         profileSoulUpdate: ProfileSoulUpdate(content: content),
       );
     } on DioException catch (error) {
@@ -123,6 +125,17 @@ class SoulRepository {
         : SoulWriteResult.unconfirmed;
   }
 
+  /// The generated client pastes the name into the path as it is, so a name
+  /// with `/`, `?`, `#` or `..` would reach another route.
+  /// `.` and `..` survive any encoding (Uri normalises `%2E`), so they are
+  /// refused before anything is sent.
+  String _segment(String profile) {
+    if (profile == '.' || profile == '..') {
+      throw const SoulFailure(SoulFailureKind.badRequest);
+    }
+    return Uri.encodeComponent(profile);
+  }
+
   /// The failure for [error], or null for a 401 that must stay a
   /// [DioException].
   SoulFailure? _failure(
@@ -130,7 +143,13 @@ class SoulRepository {
     required SoulFailureKind noAnswer,
   }) {
     final response = error.response;
-    if (response == null) return SoulFailure(noAnswer);
+    if (response == null) {
+      // A 200 whose JSON did not parse has no response either.
+      return error.error is FormatException &&
+              noAnswer == SoulFailureKind.unreachable
+          ? const SoulFailure(SoulFailureKind.malformed)
+          : SoulFailure(noAnswer);
+    }
     final status = response.statusCode ?? 0;
     return switch (status) {
       401 => null,
