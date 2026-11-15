@@ -199,6 +199,7 @@ extension _ChatControllerHistory on ChatController {
       final switched = profile != _profile;
       if (switched) {
         _modelOptions = null;
+        _forgetQuietModelRead();
         _warmingUnchanged = false;
         _newChatModel = null;
         _ChatControllerWorkspace(this)._workspaceProfileSwitched();
@@ -220,6 +221,7 @@ extension _ChatControllerHistory on ChatController {
       unawaited(_loadModelOptions(profile, generation, notifyLoading: false));
       _threads = [...local, ...threads];
       _ChatControllerCheckpoints(this)._actionsAfterLoad();
+      _historyFailed.clear();
       _unloaded
         ..clear()
         ..addAll(
@@ -382,11 +384,33 @@ extension _ChatControllerHistory on ChatController {
     String? profile,
     int generation, {
     bool notifyLoading = true,
+    bool quiet = false,
   }) async {
     if (!active) return;
     final models = this.models;
     if (models == null) return;
     final request = ++_modelOptionsGeneration;
+    if (quiet) {
+      ModelOptions? options;
+      try {
+        options = await models.load(profile: profile);
+      } on Object {
+        return;
+      }
+      if (!active ||
+          generation != _loadGeneration ||
+          request != _modelOptionsGeneration ||
+          profile != _profile) {
+        return;
+      }
+      _modelOptions = options;
+      if (!options.warming) _warmingUnchanged = false;
+      _modelOptionsState = options.providers.isEmpty
+          ? ModelOptionsState.incomplete
+          : ModelOptionsState.ready;
+      notifyListeners();
+      return;
+    }
     if (_modelOptionsState != ModelOptionsState.loading) {
       _settledModelOptionsState = _modelOptionsState;
     }
@@ -426,6 +450,7 @@ extension _ChatControllerHistory on ChatController {
 
   Future<void> _loadMessages(String id) {
     if (!active || !_unloaded.remove(id)) return Future.value();
+    _historyFailed.remove(id);
     final load = _readFirstPage(id);
     _loadingMessages[id] = load;
     return load.whenComplete(() {
@@ -455,8 +480,12 @@ extension _ChatControllerHistory on ChatController {
       if (generation != _loadGeneration) return;
       _unloaded.add(id);
       if (!active) return;
+      _historyFailed.add(id);
+      // The failed state is read from the notification, so the read is no
+      // longer in flight by then. Reselecting the chat or Retry reads again.
+      _loadingMessages.removeWhere((key, _) => key == id);
       _readAgainUnderNewId(reading, id);
-      report('Could not load this chat');
+      notifyListeners();
     }
   }
 

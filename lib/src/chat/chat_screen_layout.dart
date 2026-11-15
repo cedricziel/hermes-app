@@ -59,6 +59,11 @@ extension _ChatScreenLayout on _ChatScreenState {
             macSidebar || isWideLayout(context, width: constraints.maxWidth);
         _wide = isWide;
         final selected = chat.selectedThread;
+        _toolCallExpansion.follow(
+          profile: chat.profile,
+          chat: selected,
+          chatId: selected?.id,
+        );
         final bot = selected?.botContext;
         final showFiles = selected != null && filesShown(context)
             ? () => _showFiles(FilesOpenedFrom.header)
@@ -142,6 +147,7 @@ extension _ChatScreenLayout on _ChatScreenState {
             screen: _screen,
             onOpenScreen: () => _openViewer('preview'),
             onShowAgentDetails: _showAgentDetails,
+            toolCallExpansion: _toolCallExpansion,
             needsYou: _needsYou,
             // The inspector lists the same items, so it replaces the line
             // (a phone's sheet covers the chat, so there the line stays); the
