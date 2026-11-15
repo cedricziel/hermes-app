@@ -44,19 +44,21 @@ String threadMarkdown(String title, Iterable<ChatMessage> messages) {
   return transcript.isEmpty ? heading : '$heading\n\n$transcript';
 }
 
-/// The file name of an exported chat: its title made safe, with `.md`. A dot
-/// inside the title (`Release 1.2 notes`) is not an extension, so `.md` is
-/// always added unless the title already ends in it; leading dots and spaces
-/// are dropped first, so a title of dots alone is called `Chat.md`.
-String threadExportFileName(String title) {
+/// The file name of an exported chat: its title made safe, with `.md` (or
+/// another [extension], without the dot). A dot inside the title (`Release 1.2
+/// notes`) is not an extension, so the extension is always added unless the
+/// title already ends in it; leading dots and spaces are dropped first, so a
+/// title of dots alone is called `Chat.md`.
+String threadExportFileName(String title, {String extension = 'md'}) {
+  final suffix = '.$extension';
   var base = title.trim();
-  if (base.toLowerCase().endsWith('.md')) {
-    base = base.substring(0, base.length - 3);
+  if (base.toLowerCase().endsWith(suffix)) {
+    base = base.substring(0, base.length - suffix.length);
   }
   base = base.replaceFirst(RegExp(r'^[.\s]+'), '');
   return sanitizeDragFileName(
-    base.isEmpty ? 'Chat.md' : '$base.md',
-    fallback: 'Chat.md',
+    base.isEmpty ? 'Chat$suffix' : '$base$suffix',
+    fallback: 'Chat$suffix',
   );
 }
 

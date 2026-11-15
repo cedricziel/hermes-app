@@ -61,8 +61,9 @@ class GroupedActionStatus {
 ///
 /// A null [onPressed] disables the row: it reads as a disabled button and
 /// ignores taps, and its [status] line and buttons still work. Colour and a
-/// fainter icon are the only visual cues, so a disabled row carries a
-/// [subtitle] (or a [status]) that says why. With [spinnerWhileWorking] the
+/// fainter icon are the only visual cues, and on the Mac the row has no icon,
+/// so only the colour is left there: a disabled row carries a [subtitle] (or
+/// a [status]) that says why. With [spinnerWhileWorking] the
 /// working phase leads with a spinner, on the Mac too, where the row has no
 /// icon otherwise. The icon and spinner follow the text size; beyond twice
 /// the normal size they stack above the text so it keeps the full width.

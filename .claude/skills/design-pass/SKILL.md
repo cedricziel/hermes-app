@@ -151,7 +151,7 @@ this section and say in the hand-back that nothing was rendered locally.
    ```
    The runtime bundles React and boots `<x-dc>`.
 3. Serve it in the background (`dc-import` fetches its files over HTTP):
-   `cd $S/render/project && python3 -I -m http.server 8765 --bind 127.0.0.1`
+   `python3 -I -m http.server 8765 -d $S/render/project --bind 127.0.0.1 >/dev/null 2>&1 & echo $! > $S/server.pid`
 4. List each board's size, then render each one:
    ```
    python3 -I -c "import json;d=json.load(open('canvas.json'))
@@ -163,7 +163,7 @@ this section and say in the hand-back that nothing was rendered locally.
 5. Make contact sheets and look at them:
    `montage a.png b.png -tile 4x1 -geometry 390x844+8+8 -background gray50 $S/shots/sheet1.png`.
    After a fix, copy the changed file into `$S/render/project/` and render again.
-   Stop the server with `pkill -f "http.server 8765"`.
+   Stop the server by its recorded PID: `kill "$(cat $S/server.pid)"`.
 
 This harness does not replace a look at the canvas in the claude.ai viewer.
 Say so in the report.

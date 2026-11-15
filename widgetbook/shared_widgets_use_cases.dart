@@ -336,24 +336,26 @@ WidgetbookNode sharedWidgetsNode() => WidgetbookFolder(
           name: 'Largest text, working with a spinner',
           builder: (context) => _largest(
             context,
-            _reduceMotion(
-              context,
-              frame(
-                GroupedSection(
-                  children: [
-                    GroupedActionRow(
-                      title: 'Run now',
-                      icon: AppIcons.play,
-                      onPressed: null,
-                      spinnerWhileWorking: true,
-                      status: const GroupedActionStatus(
-                        phase: GroupedActionPhase.working,
-                        text: 'Running on the server…',
+            Builder(
+              builder: (inner) => _reduceMotion(
+                inner,
+                frame(
+                  GroupedSection(
+                    children: [
+                      GroupedActionRow(
+                        title: 'Run now',
+                        icon: AppIcons.play,
+                        onPressed: null,
+                        spinnerWhileWorking: true,
+                        status: const GroupedActionStatus(
+                          phase: GroupedActionPhase.working,
+                          text: 'Running on the server…',
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  maxWidth: 320,
                 ),
-                maxWidth: 320,
               ),
             ),
           ),
