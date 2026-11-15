@@ -36,6 +36,7 @@ class VoiceCall extends ChangeNotifier {
     this.speechFallback,
     this.loadConfig,
     this.echoGuard,
+    this.replySpoken,
     this.tones,
     this.haptics,
     this.releaseLease,
@@ -75,6 +76,10 @@ class VoiceCall extends ChangeNotifier {
   /// Whether a transcript is the reply just spoken, heard back. It runs
   /// before the hallucination and stop-phrase checks; null drops nothing.
   final bool Function(String text)? echoGuard;
+
+  /// Told the reply as it is handed to the speech, so [echoGuard] has the
+  /// words to compare a transcript with.
+  final void Function(String reply)? replySpoken;
 
   /// The call's three sounds and its haptics. Null is silence.
   final CallTones? tones;
@@ -139,7 +144,7 @@ class VoiceCall extends ChangeNotifier {
   /// since. The next spoken turn is then sent `interrupted`, unless this is
   /// cleared first (mute, a route change, a typed message) or too old.
   DateTime? _cutOffAt;
-  CallPhase phase = CallPhase.connecting;
+  CallPhase _phase = CallPhase.connecting;
   bool muted = false;
   bool speaker = false;
   String route = 'iPhone';
@@ -149,6 +154,14 @@ class VoiceCall extends ChangeNotifier {
   /// What the screen explains, besides the state: a turn that could not be
   /// heard, or speech that failed.
   CallNotice? notice;
+
+  CallPhase get phase => _phase;
+  set phase(CallPhase value) {
+    if (_phase == value) return;
+    _phase = value;
+    // Where nothing cancels echo, the microphone is open only while listening.
+    _syncCapture();
+  }
 
   /// The fixed word that ended the call (the telemetry `reason`), once ended.
   String? endReason;
@@ -431,9 +444,13 @@ class VoiceCall extends ChangeNotifier {
   Future<void> voiceStopped() => _end('voice_stopped');
 
   /// Pauses or resumes capture to match what the call wants: closed while it
-  /// waits for the user or plays a tone. Pausing drops what was half heard.
+  /// waits for the user, plays a tone, or (with no barge-in) does anything but
+  /// listen. Pausing drops what was half heard.
   void _syncCapture() {
-    final want = waitingForYou || _tonesPlaying > 0;
+    final want =
+        waitingForYou ||
+        _tonesPlaying > 0 ||
+        (_active && !bargeInActive && _phase != CallPhase.listening);
     if (want == _paused || ended || _ending) return;
     _paused = want;
     if (want) _vad.reset();
@@ -667,6 +684,7 @@ class VoiceCall extends ChangeNotifier {
     DateTime? submitted, firstText, firstAudio, replyDone;
     CallTurnAnswer? answered;
     var refusedByChat = false;
+    final spokenReply = StringBuffer();
     Duration? transcription, speechOpen;
     try {
       final String text;
@@ -773,7 +791,11 @@ class VoiceCall extends ChangeNotifier {
           },
           onText: (part) {
             firstText ??= _now();
-            if (_current(epoch)) speech!.append(part);
+            if (_current(epoch)) {
+              spokenReply.write(part);
+              replySpoken?.call(spokenReply.toString());
+              speech!.append(part);
+            }
           },
           onAttention: (waiting) {
             _attentionReply = waiting;
@@ -796,7 +818,11 @@ class VoiceCall extends ChangeNotifier {
       // A tool-only turn may have nothing to read. Keep it conversational.
       if (!speech.hasText) {
         // Spoken by the server's voice, like the sentence above: kept English.
-        speech.append('I have finished. You can see the details in the chat.');
+        const finished =
+            'I have finished. You can see the details in the chat.';
+        spokenReply.write(finished);
+        replySpoken?.call(spokenReply.toString());
+        speech.append(finished);
       }
       step = 'speech';
       await speech.finish();
