@@ -156,6 +156,9 @@ dev_dependencies:
   # In-memory SharedPreferencesAsyncPlatform for widget tests.
   shared_preferences_platform_interface: ^2.4.2
 
+  # Reads test/architecture/baseline.yaml (the source-guard ratchet).
+  yaml: ^3.1.4
+
   # Component catalog (widgetbook/), run with -t widgetbook/main.dart.
   widgetbook: ^3.25.0
 
