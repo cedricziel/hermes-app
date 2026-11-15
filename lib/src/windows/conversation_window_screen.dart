@@ -166,7 +166,8 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
         if (mounted) announceNeedsYou(context, entry.kind);
       },
     );
-    _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
+    _attachmentSource =
+        widget.attachmentSource ?? PluginAttachmentSource.of(context);
     unawaited(_chat.loadThreads(_args.profile));
     _chat.open(
       NotificationTarget(threadId: _args.threadId, profile: _args.profile),
