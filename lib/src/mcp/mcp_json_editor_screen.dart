@@ -207,6 +207,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
     );
   }
 
+  static const _minEditorHeight = 240.0;
+
   Widget _body(ThemeData theme) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator.adaptive());
@@ -227,53 +229,71 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       );
     }
     final check = _check;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const AppBanner(
-            tone: AppBannerTone.warning,
-            icon: AppIcons.warning,
-            title: 'Replaces all servers of this profile.',
-            detail:
-                'Anything you remove here is deleted, not just switched off. '
-                "This is the profile's real configuration, including secrets "
-                'such as environment values and bearer tokens. It is not saved on '
-                'this device.',
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: McpJsonField(controller: _text, readOnly: _busy),
-          ),
-          if (check is McpJsonInvalid) ...[
-            const SizedBox(height: 8),
-            Text(
-              check.message,
-              key: const ValueKey('mcp-json-error'),
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-          ],
-          if (_problems.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Column(
-              key: const ValueKey('mcp-json-problems'),
-              crossAxisAlignment: CrossAxisAlignment.start,
+    // The editor fills the height the notes leave, but never less than
+    // [_minEditorHeight]: at large text the page scrolls instead of the
+    // banner squeezing the editor out.
+    return CustomScrollView(
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final problem in _problems)
+                const AppBanner(
+                  tone: AppBannerTone.warning,
+                  icon: AppIcons.warning,
+                  title: 'Replaces all servers of this profile.',
+                  detail:
+                      'Anything you remove here is deleted, not just switched off. '
+                      "This is the profile's real configuration, including secrets "
+                      'such as environment values and bearer tokens. It is not saved on '
+                      'this device.',
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: _minEditorHeight,
+                    ),
+                    child: McpJsonField(controller: _text, readOnly: _busy),
+                  ),
+                ),
+                if (check is McpJsonInvalid) ...[
+                  const SizedBox(height: 8),
                   Text(
-                    problem,
+                    check.message,
+                    key: const ValueKey('mcp-json-error'),
                     style: TextStyle(color: theme.colorScheme.error),
                   ),
+                ],
+                if (_problems.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Column(
+                    key: const ValueKey('mcp-json-problems'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final problem in _problems)
+                        Text(
+                          problem,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                    ],
+                  ),
+                ],
+                if (_failure case final failure?) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    failure,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ],
               ],
             ),
-          ],
-          if (_failure case final failure?) ...[
-            const SizedBox(height: 8),
-            Text(failure, style: TextStyle(color: theme.colorScheme.error)),
-          ],
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 }

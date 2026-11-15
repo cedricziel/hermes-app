@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Where workflow tests write their screenshots. Override with
 /// `WORKFLOW_SHOTS_DIR` to collect them somewhere else (CI uploads this).
+/// `WORKFLOW_SIZE=320x568` and `WORKFLOW_TEXT_SCALE=2.0` override the window
+/// and the text scale of every workflow, to look at a screen at large text.
 final _shotsRoot =
     Platform.environment['WORKFLOW_SHOTS_DIR'] ?? 'build/workflow_screenshots';
 
@@ -129,13 +131,25 @@ class ScreenshotRecorder {
     WidgetTester tester,
     Size size, {
     double pixelRatio = 1.0,
+    double? textScale,
   }) async {
     // A tap that misses would otherwise leave the same screen in every image.
     WidgetController.hitTestWarningShouldBeFatal = true;
     await tester.runAsync(() => _fontsLoaded ??= _loadFonts());
+    final override = Platform.environment['WORKFLOW_SIZE']?.split('x');
+    if (override != null && override.length == 2) {
+      size = Size(double.parse(override[0]), double.parse(override[1]));
+    }
     tester.view.physicalSize = size * pixelRatio;
     tester.view.devicePixelRatio = pixelRatio;
     addTearDown(tester.view.reset);
+    final scale =
+        double.tryParse(Platform.environment['WORKFLOW_TEXT_SCALE'] ?? '') ??
+        textScale;
+    if (scale != null) {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    }
   }
 
   Widget frame(Widget child) => RepaintBoundary(key: _boundary, child: child);

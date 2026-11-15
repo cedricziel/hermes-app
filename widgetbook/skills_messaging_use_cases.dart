@@ -434,6 +434,28 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
           () => _job('Installing web-scraper', succeeds: true),
         ),
         _sheet('Failed', () => _job('Installing web-scraper', succeeds: false)),
+        WidgetbookUseCase(
+          name: 'Large text in a short sheet',
+          builder: (_) => Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(2)),
+              child: Hosted<SkillJob>(
+                create: () => _job('Installing web-scraper', succeeds: false),
+                dispose: (job) => job.dispose(),
+                builder: (_, job) => Scaffold(
+                  body: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: SizedBox(
+                      height: 320,
+                      child: SkillJobSheet(job: job),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(

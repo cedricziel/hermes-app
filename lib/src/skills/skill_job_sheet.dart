@@ -101,19 +101,14 @@ class SkillJobSheet extends StatelessWidget {
         return SafeArea(
           child: Padding(
             padding: EdgeInsets.fromLTRB(16, desktop ? 16 : 0, 16, 16),
-            child: desktop
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(child: SingleChildScrollView(child: details)),
-                      const SizedBox(height: 8),
-                      close,
-                    ],
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [details, const SizedBox(height: 8), close],
-                  ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(child: SingleChildScrollView(child: details)),
+                const SizedBox(height: 8),
+                close,
+              ],
+            ),
           ),
         );
       },

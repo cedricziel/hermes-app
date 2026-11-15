@@ -111,6 +111,34 @@ void main() {
 
   int puts() => server.requestsTo('PUT', serversPath).length;
 
+  group('layout', () {
+    testWidgets('the editor fills a tall page at normal text', (tester) async {
+      await open(tester, size: const Size(420, 900));
+
+      expect(tester.getSize(editor).height, greaterThan(400));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'the page scrolls at 320 wide, text 2.0, and keeps the editor',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await open(tester, size: const Size(320, 568));
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(Scrollable), findsWidgets);
+        await tester.scrollUntilVisible(
+          editor,
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(tester.getSize(editor).height, greaterThanOrEqualTo(150));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
   group('loading', () {
     testWidgets('shows a progress indicator while it loads', (tester) async {
       final answer = Completer<FakeResponse>();

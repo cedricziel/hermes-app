@@ -170,53 +170,69 @@ class _CheckpointsPageState extends State<CheckpointsPage>
               : _refresh,
         ),
       ],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (controller.restoring)
-            ActivityWorkingLine(label: l10n.chatCheckpointsPageRestoring),
-          if (showOutcome)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-              child: RestoreOutcomeNote(
-                key: const Key('checkpoints-outcome'),
-                outcome: outcome,
-                filesWereFile: false,
-                onTryAgain: () => unawaited(
-                  restoreAgainFlow(
-                    context,
-                    controller: controller,
-                    changes: widget.chat,
-                  ),
+      body: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // The notes above the list scroll within half the page, so at
+            // large text they never push the list out of a small screen.
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: constraints.maxHeight / 2),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (controller.restoring)
+                      ActivityWorkingLine(
+                        label: l10n.chatCheckpointsPageRestoring,
+                      ),
+                    if (showOutcome)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                        child: RestoreOutcomeNote(
+                          key: const Key('checkpoints-outcome'),
+                          outcome: outcome,
+                          filesWereFile: false,
+                          onTryAgain: () => unawaited(
+                            restoreAgainFlow(
+                              context,
+                              controller: controller,
+                              changes: widget.chat,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-          Expanded(
-            child: CheckpointListBody(
-              status: _status(controller),
-              items: [
-                for (final checkpoint in controller.checkpoints)
-                  CheckpointListItem(
-                    checkpoint: checkpoint,
-                    timeLabel: _startOfLine(
-                      checkpointTimeLabel(l10n, checkpoint),
+            Expanded(
+              child: CheckpointListBody(
+                status: _status(controller),
+                items: [
+                  for (final checkpoint in controller.checkpoints)
+                    CheckpointListItem(
+                      checkpoint: checkpoint,
+                      timeLabel: _startOfLine(
+                        checkpointTimeLabel(l10n, checkpoint),
+                      ),
+                      timeSemanticsLabel: checkpointTimeSemantics(
+                        l10n,
+                        checkpoint,
+                      ),
                     ),
-                    timeSemanticsLabel: checkpointTimeSemantics(
-                      l10n,
-                      checkpoint,
-                    ),
-                  ),
-              ],
-              disconnected: controller.notUpToDate,
-              restoreRefusal: controller.restoreRefusal(),
-              lockedCount: controller.count,
-              onSeeChanges: _seeChanges,
-              onRestoreAll: _restoreAll,
-              onRetry: () => unawaited(_refresh()),
-              onRefresh: controller.notUpToDate ? null : _refresh,
+                ],
+                disconnected: controller.notUpToDate,
+                restoreRefusal: controller.restoreRefusal(),
+                lockedCount: controller.count,
+                onSeeChanges: _seeChanges,
+                onRestoreAll: _restoreAll,
+                onRetry: () => unawaited(_refresh()),
+                onRefresh: controller.notUpToDate ? null : _refresh,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
