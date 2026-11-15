@@ -77,17 +77,14 @@ class AppBanner extends StatelessWidget {
     // Semantics wrappers around the button do not hide its padding.
     var button = action;
     while (true) {
-      button = switch (button) {
+      final next = switch (button) {
         Semantics(:final child?) => child,
         ExcludeSemantics(:final child?) => child,
         MergeSemantics(:final child?) => child,
-        _ => button,
+        _ => null,
       };
-      if (button is! Semantics &&
-          button is! ExcludeSemantics &&
-          button is! MergeSemantics) {
-        break;
-      }
+      if (next == null) break;
+      button = next;
     }
     final own = button is ButtonStyleButton
         ? button.style?.padding?.resolve(const <WidgetState>{})

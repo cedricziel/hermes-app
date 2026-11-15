@@ -249,6 +249,31 @@ void main() {
       expect(tester.getSize(title).width, greaterThan(360 - 12 * 2 - 28 - 60));
     });
 
+    testWidgets('a semantics wrapper with no child as the action does not '
+        'hang the layout of a stacked banner', (tester) async {
+      for (final action in <Widget>[
+        Semantics(),
+        const ExcludeSemantics(),
+        const MergeSemantics(child: SizedBox()),
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('de'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: AppBanner(
+                tone: AppBannerTone.warning,
+                title: german,
+                action: action,
+              ),
+            ),
+          ),
+        );
+        expect(find.byType(AppBanner), findsOneWidget);
+      }
+    });
+
     testWidgets('in English at the normal size the action stays beside', (
       tester,
     ) async {
