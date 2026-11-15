@@ -203,6 +203,7 @@ class _Harness {
     required TargetPlatform platform,
     required bool dark,
     List<Map<String, Object?>>? rows,
+    double? textScale,
   }) async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
@@ -235,7 +236,7 @@ class _Harness {
       HermesProfilesRepository(server.client().raw),
     );
     addTearDown(profiles.dispose);
-    await shots.start(tester, size);
+    await shots.start(tester, size, textScale: textScale);
     await pumpChatScreen(
       tester,
       server: server,
@@ -795,6 +796,40 @@ void main() {
       );
     }
   }
+
+  testWidgets('the checkpoint list does not overflow at 320 wide, text 2.0', (
+    tester,
+  ) async {
+    final app = _Harness(tester, ScreenshotRecorder('checkpoints-large-text'));
+    await app.pump(
+      size: const Size(320, 568),
+      platform: TargetPlatform.iOS,
+      dark: false,
+      textScale: 2.0,
+    );
+    app.source.fake
+      ..list = _three()
+      ..changes = _changes;
+    await app.openLive();
+    await app.openActivity();
+    await app.tap(find.byType(FileCheckpointsRow));
+    expect(find.text('File checkpoints'), findsOneWidget);
+    await app.capture('checkpoint-list');
+    expect(tester.takeException(), isNull);
+
+    // The page with the note of a restore on top, the tallest header.
+    await app.tap(find.text('Before editing a file').first);
+    await app.tap(find.text('Restore all files…'));
+    await app.tap(find.text('Restore all files'));
+    app.source.fake
+      ..restore = const Restored(historyRemoved: 1)
+      ..list = _withSafety(_newest, [_safetyAll, _safety]);
+    await app.settle();
+    expect(find.byKey(const Key('checkpoints-outcome')), findsOneWidget);
+    await app.capture('restored-all-list');
+    expect(tester.takeException(), isNull);
+    await app.finish();
+  });
 
   for (final brightness in Brightness.values) {
     testWidgets('a conversation window shows neither row, '

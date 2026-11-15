@@ -148,7 +148,7 @@ class _Meta extends StatelessWidget {
     children: [
       AppIcon(icon, size: 13, color: style?.color),
       const SizedBox(width: 3),
-      Text(label, style: style),
+      Flexible(child: Text(label, style: style)),
     ],
   );
 }

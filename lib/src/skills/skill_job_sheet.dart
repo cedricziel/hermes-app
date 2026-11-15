@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/breakpoints.dart';
 import '../widgets/adaptive_sheet.dart';
 import '../widgets/busy_bar.dart';
 import 'skill_job.dart';
@@ -43,8 +42,6 @@ class SkillJobSheet extends StatelessWidget {
         final tail = job.lines.length > 6
             ? job.lines.sublist(job.lines.length - 6)
             : job.lines;
-        final dialog =
-            theme.platform == TargetPlatform.macOS || isWideLayout(context);
         final close = Align(
           alignment: Alignment.centerRight,
           child: TextButton(
@@ -93,19 +90,14 @@ class SkillJobSheet extends StatelessWidget {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: dialog
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(child: SingleChildScrollView(child: details)),
-                      const SizedBox(height: 8),
-                      close,
-                    ],
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [details, const SizedBox(height: 8), close],
-                  ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(child: SingleChildScrollView(child: details)),
+                const SizedBox(height: 8),
+                close,
+              ],
+            ),
           ),
         );
       },

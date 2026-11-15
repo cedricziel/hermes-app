@@ -27,15 +27,20 @@ class AdaptiveTabBar extends StatelessWidget implements PreferredSizeWidget {
       height: kTextTabBarHeight,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-        child: ListenableBuilder(
-          listenable: tabs.animation ?? tabs,
-          builder: (context, _) => apple
-              ? _CupertinoTabs(tabs: tabs, labels: labels)
-              : PillSegmentedControl<int>(
-                  value: tabs.index,
-                  segments: {for (final (i, l) in labels.indexed) i: l},
-                  onChanged: tabs.animateTo,
-                ),
+        // The bar's height is fixed by [preferredSize], so its labels stop
+        // growing past 1.3x instead of overflowing it at large text.
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: ListenableBuilder(
+            listenable: tabs.animation ?? tabs,
+            builder: (context, _) => apple
+                ? _CupertinoTabs(tabs: tabs, labels: labels)
+                : PillSegmentedControl<int>(
+                    value: tabs.index,
+                    segments: {for (final (i, l) in labels.indexed) i: l},
+                    onChanged: tabs.animateTo,
+                  ),
+          ),
         ),
       ),
     );
