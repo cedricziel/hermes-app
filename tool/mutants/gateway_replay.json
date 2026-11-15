@@ -1,0 +1,227 @@
+{
+  "subject": "gateway_replay",
+  "tests": [
+    "test/gateway/reconnect_recordings_test.dart",
+    "test/gateway/replay_units_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
+    "test/workflows/bot_screen_lease_workflow_test.dart",
+    "test/workflows/bot_screen_preview_workflow_test.dart",
+    "test/workflows/bot_screen_viewer_workflow_test.dart",
+    "test/workflows/bot_screen_workflow_test.dart",
+    "test/workflows/chat_autocomplete_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/chat_workflow_test.dart",
+    "test/workflows/chat_working_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/compact_chat_workflow_test.dart",
+    "test/workflows/connection_screens_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/group_creation_workflow_test.dart",
+    "test/workflows/handoff_workflow_test.dart",
+    "test/workflows/hands_free_strip_workflow_test.dart",
+    "test/workflows/kanban_extras_workflow_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart",
+    "test/workflows/kanban_task_activity_workflow_test.dart",
+    "test/workflows/kanban_task_metadata_workflow_test.dart",
+    "test/workflows/kanban_worker_log_workflow_test.dart",
+    "test/workflows/kanban_workflow_test.dart",
+    "test/workflows/mac_profiles_workflow_test.dart",
+    "test/workflows/management_workflow_test.dart",
+    "test/workflows/mcp_workflow_test.dart",
+    "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workflows/onboarding_workflow_test.dart",
+    "test/workflows/plugins_workflow_test.dart",
+    "test/workflows/process_control_workflow_test.dart",
+    "test/workflows/profile_creation_workflow_test.dart",
+    "test/workflows/provider_first_run_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/schedules_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workflows/skills_hub_workflow_test.dart",
+    "test/workflows/subagent_control_workflow_test.dart",
+    "test/workflows/tools_setup_workflow_test.dart",
+    "test/workflows/tools_workflow_test.dart",
+    "test/workflows/voice_call_phases_workflow_test.dart",
+    "test/workflows/voice_call_setup_workflow_test.dart",
+    "test/workflows/working_directory_workflow_test.dart"
+  ],
+  "quick_tests": [
+    "test/gateway/replay_units_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "gr01",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "if (seq == null) return true;",
+      "new": "if (seq == null) return false;",
+      "note": "seq-less events dropped"
+    },
+    {
+      "id": "gr02",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "      _watermarks.remove(sid);\n      _epochs.remove(sid);\n    }\n    final watermark",
+      "new": "      _epochs.remove(sid);\n    }\n    final watermark",
+      "note": "epoch change in observe keeps the old watermark"
+    },
+    {
+      "id": "gr03",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "seq <= watermark",
+      "new": "seq < watermark",
+      "note": "event at the watermark delivered twice"
+    },
+    {
+      "id": "gr04",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "seq <= watermark",
+      "new": "seq == watermark",
+      "note": "older seqs delivered again"
+    },
+    {
+      "id": "gr05",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "    _watermarks[sid] = seq;\n    if (epoch",
+      "new": "    if (epoch",
+      "note": "watermark never advances"
+    },
+    {
+      "id": "gr06",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "if (epoch != null) _epochs[sid] = epoch;",
+      "new": "",
+      "note": "epoch never recorded"
+    },
+    {
+      "id": "gr07",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "_watermarks[sid] ?? 0;",
+      "new": "_watermarks[sid] ?? 1;",
+      "note": "lastSeen default 1"
+    },
+    {
+      "id": "gr08",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "_watermarks.containsKey(sid);",
+      "new": "true;",
+      "note": "hasWatermark always true (last_seen:0 hands over whole ring)"
+    },
+    {
+      "id": "gr09",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "if (recorded != null && epoch != null && recorded != epoch) return 0;",
+      "new": "",
+      "note": "resumeFrom ignores epoch change"
+    },
+    {
+      "id": "gr10",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "recorded != epoch) return 0;",
+      "new": "recorded == epoch) return 0;",
+      "note": "resumeFrom epoch test inverted"
+    },
+    {
+      "id": "gr11",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "    .._watermarks.addAll(_watermarks)\n    .._epochs.addAll(_epochs);",
+      "new": "    .._watermarks.addAll(_watermarks);",
+      "note": "snapshot drops epochs"
+    },
+    {
+      "id": "gr12",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "epoch is String && epoch != recorded) {",
+      "new": "epoch is String && epoch == recorded) {",
+      "note": "merge epoch-change test inverted"
+    },
+    {
+      "id": "gr13",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "if (entry.value != epoch) entry.key,",
+      "new": "if (entry.value == epoch) entry.key,",
+      "note": "drops watermarks of the current epoch instead of stale ones"
+    },
+    {
+      "id": "gr14",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "if (result['truncated'] == true) return const Refetch();",
+      "new": "",
+      "note": "truncated replay trusted"
+    },
+    {
+      "id": "gr15",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "      if (event.sessionId != sid) continue;\n",
+      "new": "",
+      "note": "other sessions' events delivered"
+    },
+    {
+      "id": "gr16",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "[..._replayed(sid, result['events']), ...parked]",
+      "new": "[...parked, ..._replayed(sid, result['events'])]",
+      "note": "parked frames before replayed ones"
+    },
+    {
+      "id": "gr17",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "sessionId is String && sessionId.isNotEmpty",
+      "new": "sessionId is String",
+      "note": "empty session id kept"
+    },
+    {
+      "id": "gr18",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "seq: seq is int ? seq : null,",
+      "new": "seq: null,",
+      "note": "replayed events lose their seq"
+    },
+    {
+      "id": "gr19",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "pow(2, attempt).toDouble()",
+      "new": "pow(2, 0).toDouble()",
+      "note": "no backoff growth"
+    },
+    {
+      "id": "gr20",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "min(cap.inMicroseconds.toDouble(), grown)",
+      "new": "max(cap.inMicroseconds.toDouble(), grown)",
+      "note": "cap becomes floor"
+    },
+    {
+      "id": "gr21",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "(random.nextDouble() * bound).floor()",
+      "new": "bound.floor()",
+      "note": "jitter removed"
+    },
+    {
+      "id": "gr22",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "if (started) return true;",
+      "new": "if (started) return false;",
+      "note": "started turn never settles on idle report"
+    },
+    {
+      "id": "gr23",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "now.difference(submittedAt) >= _staleReportGrace",
+      "new": "now.difference(submittedAt) > _staleReportGrace",
+      "note": "grace boundary"
+    },
+    {
+      "id": "gr24",
+      "file": "lib/src/chat/gateway/gateway_replay.dart",
+      "old": "const Duration _staleReportGrace = Duration(seconds: 15);",
+      "new": "const Duration _staleReportGrace = Duration(seconds: 1);",
+      "note": "stale-report grace 15s -> 1s"
+    }
+  ]
+}

@@ -97,6 +97,7 @@ class ConversationWindowEntry {
     this.windowId,
     this.args, {
     this.pinned = false,
+    this.exportBusy = false,
   });
 
   final String windowId;
@@ -104,6 +105,9 @@ class ConversationWindowEntry {
 
   /// Whether the window's chat is pinned, as the window last reported.
   final bool pinned;
+
+  /// Whether the window's own chat export runs, as it last reported.
+  final bool exportBusy;
 }
 
 /// Keeps the open windows' arguments for the next launch.
@@ -826,12 +830,25 @@ class ConversationWindows extends ChangeNotifier {
           window.windowId,
           window.args.withTitle(title),
           pinned: pinned,
+          exportBusy: window.exportBusy,
         );
         if (window.args.title == title) {
           notifyListeners();
         } else {
           unawaited(_changed());
         }
+      case 'exportBusy':
+        final busy = args['busy'] == true;
+        final index = _windows.indexWhere((w) => w.windowId == windowId);
+        if (index < 0 || _windows[index].exportBusy == busy) return null;
+        final window = _windows[index];
+        _windows[index] = ConversationWindowEntry(
+          window.windowId,
+          window.args,
+          pinned: window.pinned,
+          exportBusy: busy,
+        );
+        notifyListeners();
       case 'showInMain':
         final threadId = args['thread_id'];
         if (threadId is String) {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -1254,6 +1255,7 @@ void main() {
       Duration sendTimeout = const Duration(seconds: 60),
       Duration waitingTimeout = const Duration(minutes: 15),
       Duration hold = const Duration(seconds: 20),
+      bool inline = false,
     }) {
       handler = WatchRequestHandler(
         context: () => const WatchContext("test-context", 1),
@@ -1262,6 +1264,8 @@ void main() {
         activeProfile: () async => profile,
         announce: announce,
         appLock: () => appLocked,
+        requestsAllowed: () => inline,
+        requestEligible: inline ? (_, _, _, _, _) => true : null,
         sendTimeout: sendTimeout,
         waitingTimeout: waitingTimeout,
         waitingHold: hold,
@@ -1359,23 +1363,31 @@ void main() {
       expect((await retry)['waiting'], 'working');
     });
 
-    test('gives up later while it waits', () async {
-      useHandler(
-        sendTimeout: const Duration(milliseconds: 20),
-        waitingTimeout: const Duration(seconds: 5),
-      );
-      final first = send();
-      await pumpEventQueue();
-      final turn = transport.sends.single
-        ..emit(const ThreadBound('new-1'))
-        ..emit(approval);
-      await first;
-      final retry = send();
+    test('gives up later while it waits', () {
+      // Virtual time: the handler's per-step timeouts and the delay must not
+      // race the machine, so a loaded runner cannot trip the 20 ms one early.
+      fakeAsync((async) {
+        useHandler(
+          sendTimeout: const Duration(milliseconds: 20),
+          waitingTimeout: const Duration(seconds: 5),
+        );
+        Map<String, Object?>? firstReply;
+        Map<String, Object?>? retryReply;
+        send().then((reply) => firstReply = reply);
+        async.flushMicrotasks();
+        final turn = transport.sends.single
+          ..emit(const ThreadBound('new-1'))
+          ..emit(approval);
+        async.flushMicrotasks();
+        expect(firstReply, isNotNull);
+        send().then((reply) => retryReply = reply);
 
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      turn.emit(const ReplyCompleted('Done.'));
+        async.elapse(const Duration(milliseconds: 60));
+        turn.emit(const ReplyCompleted('Done.'));
+        async.flushMicrotasks();
 
-      expect((await retry)['text'], 'Done.');
+        expect(retryReply?['text'], 'Done.');
+      });
     });
 
     test(
@@ -1419,6 +1431,25 @@ void main() {
       expect(reply, {'ok': false, 'error': 'failed'});
       expect(transport.sends, isEmpty);
     });
+
+    for (final lockOn in [false, true]) {
+      for (final (kind, event) in [
+        ('approval', approval as ChatEvent),
+        ('question', question as ChatEvent),
+      ]) {
+        test('with inline handling, waits on $kind with App Lock '
+            '${lockOn ? 'on' : 'off'}', () async {
+          useHandler(inline: true);
+          appLocked = lockOn;
+
+          final reply = await waitOn(event);
+
+          expect(reply['waiting'], kind);
+          expect(reply['text'], isNull);
+          expect(transport.closed, isFalse);
+        });
+      }
+    }
 
     for (final (why, setUpCase) in [
       ('no notification could be posted', () => posted = false),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
+import 'middle_ellipsis.dart';
 
 /// The sizes of a grouped settings list on one platform: iOS inset grouped
 /// lists, the Mac's 600 point column, and Material cards.
@@ -287,6 +288,8 @@ class GroupedRow extends StatelessWidget {
     this.meta,
     this.subtitle,
     this.subtitleMaxLines = 1,
+    this.titleMiddleEllipsis = false,
+    this.subtitleMiddleEllipsis = false,
     this.wrapWhenStacked = false,
     this.monospaceSubtitle = false,
     this.caption,
@@ -304,6 +307,7 @@ class GroupedRow extends StatelessWidget {
     this.enabled = true,
     this.checked,
     this.inMutuallyExclusiveGroup = false,
+    this.focusable = true,
     this.chevron,
     this.selected = false,
     this.destructive = false,
@@ -321,6 +325,15 @@ class GroupedRow extends StatelessWidget {
   /// How many lines the [subtitle] may take before it ends in an ellipsis;
   /// null lets it wrap, for text with nowhere else to be read.
   final int? subtitleMaxLines;
+
+  /// Draws the title as an identifier, cut in the middle (see
+  /// [MiddleTail.balanced]) after [titleMaxLines] lines (two when that is
+  /// null), so the end that tells ids apart stays. A title with a [meta] or
+  /// a [titleBadge] keeps the end cut.
+  final bool titleMiddleEllipsis;
+
+  /// The same for the [subtitle], after [subtitleMaxLines] lines.
+  final bool subtitleMiddleEllipsis;
 
   /// Lets the title and subtitle wrap in full while the [value] is stacked
   /// under the title, whatever [titleMaxLines] and [subtitleMaxLines] say.
@@ -376,6 +389,10 @@ class GroupedRow extends StatelessWidget {
   /// a picture of that state, so the row stays one node.
   final bool? checked;
   final bool inMutuallyExclusiveGroup;
+
+  /// Whether the row's own tap target takes keyboard focus. Off for a row
+  /// that holds a focusable control already, so one stop per row.
+  final bool focusable;
 
   /// Whether to draw the disclosure chevron; by default when the row opens
   /// something ([onTap]) and has no [trailing].
@@ -481,35 +498,45 @@ class GroupedRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text.rich(
-                  TextSpan(
-                    text: title,
-                    children: [
-                      if (meta != null)
-                        TextSpan(
-                          text: '  $meta',
-                          style: TextStyle(
-                            fontSize: metrics.subtitleSize,
-                            color: muted,
+                if (titleMiddleEllipsis && meta == null && titleBadge == null)
+                  MiddleEllipsisText(
+                    title,
+                    tail: MiddleTail.balanced,
+                    maxLines: titleMaxLines ?? 2,
+                    style: titleStyle,
+                  )
+                else
+                  Text.rich(
+                    TextSpan(
+                      text: title,
+                      children: [
+                        if (meta != null)
+                          TextSpan(
+                            text: '  $meta',
+                            style: TextStyle(
+                              fontSize: metrics.subtitleSize,
+                              color: muted,
+                            ),
                           ),
-                        ),
-                      if (titleBadge != null)
-                        WidgetSpan(
-                          alignment: PlaceholderAlignment.middle,
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.only(start: 8),
-                            child: titleBadge,
+                        if (titleBadge != null)
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 8,
+                              ),
+                              child: titleBadge,
+                            ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
+                    maxLines: stacked && wrapWhenStacked ? null : titleMaxLines,
+                    overflow:
+                        titleMaxLines == null || (stacked && wrapWhenStacked)
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
+                    style: titleStyle,
                   ),
-                  maxLines: stacked && wrapWhenStacked ? null : titleMaxLines,
-                  overflow:
-                      titleMaxLines == null || (stacked && wrapWhenStacked)
-                      ? TextOverflow.visible
-                      : TextOverflow.ellipsis,
-                  style: titleStyle,
-                ),
                 if (stacked)
                   // Set apart from the subtitle under it: the value is the
                   // row's answer, so it is darker and heavier.
@@ -521,7 +548,17 @@ class GroupedRow extends StatelessWidget {
                       color: scheme.onSurface,
                     ),
                   ),
-                if (subtitle != null)
+                if (subtitle != null && subtitleMiddleEllipsis)
+                  MiddleEllipsisText(
+                    subtitle,
+                    tail: MiddleTail.balanced,
+                    maxLines: subtitleMaxLines ?? 2,
+                    style: TextStyle(
+                      fontSize: metrics.subtitleSize,
+                      color: muted,
+                    ),
+                  )
+                else if (subtitle != null)
                   Text(
                     subtitle,
                     maxLines: stacked && wrapWhenStacked
@@ -615,7 +652,11 @@ class GroupedRow extends StatelessWidget {
               ),
       ),
     );
-    final ink = InkWell(onTap: enabled ? onTap : null, child: content);
+    final ink = InkWell(
+      canRequestFocus: focusable,
+      onTap: enabled ? onTap : null,
+      child: content,
+    );
     final color = selected ? scheme.outline : Colors.transparent;
     Widget merged(Widget child) => MergeSemantics(
       child: Semantics(

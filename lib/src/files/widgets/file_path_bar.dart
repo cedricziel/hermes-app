@@ -11,7 +11,7 @@ import '../../widgets/grouped_list.dart';
 import '../../widgets/named_icon_button.dart';
 import '../server_path.dart';
 import 'files_metrics.dart';
-import 'middle_ellipsis.dart';
+import '../../widgets/middle_ellipsis.dart';
 
 /// A segment longer than this many characters is cut in the middle.
 const int kPathSegmentMaxChars = 24;

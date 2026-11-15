@@ -101,6 +101,7 @@ extension _Turns on HermesGatewayTransport {
       _runtimeOf[to] = runtimeId;
     }
     if (_modelOf.remove(from) case final model?) _modelOf[to] = model;
+    if (_lostReplies.remove(from) case final lost?) _lostReplies[to] = lost;
     if (_settledEarly.remove(from)) _settledEarly.add(to);
     if (_idle.remove(from) case final watch?) {
       final displaced = _idle[to];
@@ -140,7 +141,7 @@ extension _Turns on HermesGatewayTransport {
       } on TimeoutException {
         if (await _stillRunning(watch.client, storedId)) continue;
         _record('gateway.turn_settled', {'via': 'silence_probe'});
-        throw const GatewayConnectionClosed();
+        throw const GatewayTurnEnded();
       }
     }
   }

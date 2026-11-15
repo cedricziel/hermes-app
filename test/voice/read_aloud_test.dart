@@ -26,6 +26,7 @@ import '../support/attachment_fixtures.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
 import '../support/fake_voice_player.dart';
+import '../support/real_async.dart';
 
 void main() {
   group('speakableText', () {
@@ -227,10 +228,13 @@ void main() {
       Future<void> tapAndWait(WidgetTester tester, String label) async {
         await tester.runAsync(() async {
           await tester.tap(find.byTooltip(label));
-          for (var i = 0; i < 100; i++) {
-            await Future<void>.delayed(const Duration(milliseconds: 5));
-            if (!playback.loading) break;
-          }
+          // One real turn first: Stop reading pauses and seeks without
+          // raising `loading`, so there is nothing else to wait for.
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+          await waitForReal(
+            () => !playback.loading,
+            what: '"$label" to finish',
+          );
         });
         await tester.pump();
       }
