@@ -55,16 +55,27 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
 
 ## Output
 
-End with exactly these four lines, nothing after them:
+End with these lines, with each finding listed under `Findings:`, nothing
+after them:
 
-- `Reviewer: isolated-reviewer  Head: <full sha>  Verdict: clean | changes-requested`
-- `Findings: <n> (each: severity, file:line, issue, fix expected)`
-- `Revert-the-fix: <test> failed when <fix> reverted | not applicable`
-- `Proof reproduced: yes | no (what)`
+- The `Reviewer:` line names `isolated-reviewer`, the full head SHA you
+  reviewed after `Head:`, and one verdict word after `Verdict:`: `clean` or
+  `changes-requested`, a single value, never both.
+- The `Findings:` line gives the count, then one line per finding (severity,
+  file:line, issue, fix expected).
+- The `Revert-the-fix:` line names the test and the fix reverted and says it
+  failed, or says `not applicable`.
+- The `Proof reproduced:` line says `yes`, or `no` and what.
 
-Emit them as plain lines, without a code fence, without the leading dash and
-without backticks: `pr-policy` ignores review lines inside a code fence, so a
-fenced block is not recorded.
+An example (emit it without the indentation, as plain lines: no dash, no
+backticks, no code fence; `pr-policy` ignores review lines inside a code fence,
+so a fenced block is not recorded):
+
+    Reviewer: isolated-reviewer  Head: 0123456789abcdef0123456789abcdef01234567  Verdict: changes-requested
+    Findings: 1
+    high, lib/src/x/y.dart:42, state read before await is written after it, re-read after the await
+    Revert-the-fix: foo_test.dart "keeps state" failed when the guard was reverted
+    Proof reproduced: yes
 
 List each finding on its own line under `Findings:`. Verdict is clean only with
 zero findings of any severity left open. Put reasoning before the block, not in

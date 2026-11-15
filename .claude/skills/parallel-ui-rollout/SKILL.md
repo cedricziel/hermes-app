@@ -108,10 +108,12 @@ levels and the orchestrator does the reviewing:
   path, leases, App Lock). Why: reviewers started this way found a defect the
   lead had missed in most PRs of the run that added this section.
 - The orchestrator sends the findings back to the same lead, which keeps its
-  context, and the lead writes the `## Review` section when it pushes the fixes.
+  context; the lead pushes the fixes and adds fix notes to `## Review`; the
+  isolated re-review of the pushed head supplies the `Reviewer:` line, which the
+  lead pastes unchanged.
 - The orchestrator arms auto-merge only after that follow-up push has been
-  re-reviewed (a new isolated review of the new head SHA, in `## Review`; its
-  block replaces the lead's). GitHub waits for the required checks.
+  re-reviewed (a new isolated review of the new head SHA, in `## Review`).
+  GitHub waits for the required checks.
 - A follow-up push cancels the previous commit's CI run, and `Analyze & test`
   then reports failure for the old commit. Compare a failure event's `head_sha`
   with the PR's current head before acting on it.
