@@ -247,6 +247,28 @@ void main() {
     expect(SoLoud.instance.isInitialized, isFalse);
   });
 
+  testWidgets('turning the switch off while the call screen checks stops the '
+      'call from starting', (tester) async {
+    final setup = await _open(
+      tester,
+      platform: TargetPlatform.linux,
+      size: const Size(1400, 900),
+      on: true,
+    );
+    await tester.tap(find.byKey(entry));
+    await tester.pump();
+    await tester.runAsync(() => setup.settings!.setEnabled(false));
+    await _settle(tester);
+    expect(find.byType(VoiceCallScreen), findsOneWidget);
+    expect(
+      find.textContaining('This chat changed'),
+      findsWidgets,
+      reason: 'the checks end as no longer current',
+    );
+    expect(find.text('Start call'), findsNothing);
+    expect(setup.bridges, isEmpty);
+  });
+
   testWidgets('on a Mac the call opens as a dialog, never a sheet', (
     tester,
   ) async {

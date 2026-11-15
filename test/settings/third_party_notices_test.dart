@@ -26,6 +26,7 @@ void main() {
       expect(text('signalsmith-stretch'), contains('Geraint Luff'));
       expect(text('signalsmith-linear'), contains('Signalsmith Audio'));
       expect(text('pffft'), contains('Julien Pommier'));
+      expect(text('pffft'), contains('(http://www.netlib.org/fftpack)'));
       expect(text('pffft'), contains('Redistributions in binary form'));
     },
   );

@@ -105,8 +105,9 @@ SOFTWARE.
 const _pffft = r'''
 Copyright (c) 2013  Julien Pommier ( pommier@modartt.com )
 
-Based on original fortran 77 code from FFTPACKv4 from NETLIB,
-authored by Dr Paul Swarztrauber of NCAR, in 1985.
+Based on original fortran 77 code from FFTPACKv4 from NETLIB
+(http://www.netlib.org/fftpack), authored by Dr Paul Swarztrauber
+of NCAR, in 1985.
 
 As confirmed by the NCAR fftpack software curators, the following
 FFTPACKv5 license applies to FFTPACKv4 sources. My changes are
@@ -148,4 +149,10 @@ EXEMPLARY, OR CONSEQUENTIAL DAMAGES OR OTHER LIABILITY, WHETHER IN AN
 ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH THE
 SOFTWARE.
+
+
+PFFFT : a Pretty Fast FFT.
+
+This file is largerly based on the original FFTPACK implementation, modified in
+order to take advantage of SIMD instructions of modern CPUs.
 ''';

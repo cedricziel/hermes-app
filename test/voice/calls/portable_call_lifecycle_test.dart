@@ -68,6 +68,14 @@ class _Portable {
   }
 }
 
+/// A `.clear(` on anything named like the preferences: `prefs.clear(`,
+/// `_prefs.clear(`, `preferences.clear(`, `SharedPreferencesAsync().clear(`,
+/// `SharedPreferences.getInstance().clear(` and the like.
+final _clearsPrefs = RegExp(
+  r'(prefs|preferences|sharedpreferences\w*)(\.\w+)?(\(\))?[?!]?\.clear\(',
+  caseSensitive: false,
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const desktop = [
@@ -112,12 +120,28 @@ void main() {
       expect(users, ['lib/src/voice/calls/portable_call_audio.dart']);
     });
 
+    test('the scan knows what clearing preferences looks like', () {
+      for (final code in [
+        'prefs.clear();',
+        '_prefs.clear()',
+        'preferences.clear();',
+        'await SharedPreferencesAsync().clear();',
+        'SharedPreferences.getInstance().clear()',
+        'widget.prefs?.clear();',
+      ]) {
+        expect(code, matches(_clearsPrefs), reason: code);
+      }
+      for (final code in ['items.clear();', 'controller.clear()']) {
+        expect(code, isNot(matches(_clearsPrefs)), reason: code);
+      }
+    });
+
     test('nothing wholesale clears the saved preferences', () {
       for (final entity in Directory('lib').listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         expect(
           entity.readAsStringSync(),
-          isNot(matches(RegExp(r'[Pp]refs(Async)?\)?\.clear\('))),
+          isNot(matches(_clearsPrefs)),
           reason: '${entity.path} would reset the calls switch',
         );
       }

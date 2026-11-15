@@ -185,6 +185,20 @@ the microphone. Only the first transcript after a reply is checked, whatever
 the answer; a later one never is, and a new reply arms the guard again. The
 check runs before the invented-transcript and stop-phrase checks.
 
+**The timing rule.** A real echo is acoustically close to the playback, so the
+guard only counts for speech that began (the speech detector's onset, not the
+end of the utterance or the time the transcript came back) while the reply was
+playing or within 1.5 s after its audio drained (`VoiceCall.echoTail`). The
+reply begins at its first spoken text; its audio ends when the speech drained
+or was cut off (the user speaking over it, End, an error). Speech that began
+later is never an echo, whatever it says and however alike: "Goodbye." said
+3 s after a reply of "Goodbye." ends the call as a stop phrase, and "Turn the
+lights on" after "Should I turn the lights on or off?" is sent. Where there is
+no barge-in the microphone is closed through the playback and reopens 400 ms
+after it, so only speech inside that 1.5 s tail can count there. A transcript
+outside the window still spends the guard. The rule below applies to what is
+inside the window.
+
 **The exact rule.** Both texts are lowercased and reduced to words (letters and
 digits; everything else is a space). For a transcript T and a stretch S of the
 reply, T is the echo of S when both hold:
@@ -234,8 +248,15 @@ error drops a real answer silently).
 | The weather in Berlin is cloudy today. | please turn on the kitchen lights now | kept and sent |
 
 The table is the test (`test/voice/calls/echo_guard_test.dart`, one row each,
-both ways), and call-level tests send "Yes, send the email to Anna" and "Yes,
-goodbye". There is deliberately no notice for a dropped echo.
+both ways). Answers made of the reply's own wording ("turn the lights on" after
+"Should I turn the lights on or off?", "book the table for Petra" after "...for
+Peter or Petra?", "send the email to Anna" after "Shall I send the email to
+Anna?", "move the meeting to Thursday" after "...Tuesday?", "the meeting is on
+Monday" after "...Sunday?") match the rule, so only the timing keeps them:
+call-level tests with a fake clock send them when said 3 s after the reply, drop
+them when said 0.5 s after it, and check the 1.4 s and 1.6 s edges and that the
+onset, not the end of the utterance, decides. Call-level tests also send "Yes,
+send the email to Anna" and "Yes, goodbye". There is deliberately no notice for a dropped echo.
 
 ## Other platforms
 
@@ -260,7 +281,9 @@ Android, macOS, Windows and Linux run the same loop through `PortableCallBridge`
   and nothing else in `lib/` imports it. Turning the switch off while a call
   runs leaves that call alone (its End and the strip stay); it only hides the
   way to start the next one. Until the saved choice has been read from disk
-  the switch counts as off.
+  the switch counts as off. Android's backup rules exclude only the Home Screen
+  widget preferences, so the switch is backed up and a restore onto a new device
+  from the user's own backup keeps their choice; that is intended.
 
 - **Audio.** The microphone is the `record` plugin (16 kHz mono PCM, the
   platform's echo canceller and noise suppressor asked for, the
@@ -384,9 +407,10 @@ The call shipped first without these rules. This version changes it:
   you, silent drops of invented transcripts, tones and haptics, the
   Hands-free strip, and a turn spoken while a reply runs being dropped
   ("Hermes is still answering. Nothing was sent.") instead of ending the call.
-- **Echo guard:** it now runs on iOS too, with the exact rule above (before,
-  the call had none). A transcript that is the reply read back is dropped
-  silently; an answer that adds words of its own is sent.
+- **Echo guard:** it now runs on iOS too, with the exact rule and timing above
+  (before, the call had none). Speech that began during the reply or within
+  1.5 s after it and is the reply read back is dropped silently; an answer that
+  adds words of its own, or that begins later, is sent.
 - **Telemetry:** the reason `voice_hang_up` is now `stop_phrase`; `background`,
   `idle`, `transcription` and `focus_lost` are new.
 - **Strings:** the call views read from the ARB files (English and German).
