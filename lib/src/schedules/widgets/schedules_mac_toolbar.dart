@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../theme/app_icons.dart';
 import 'schedule_filter_menu.dart';
@@ -46,7 +47,7 @@ class SchedulesMacToolbar extends StatelessWidget {
       const MacToolbarSeparator(),
       filterMenu,
       MacToolbarButton(
-        label: 'Refresh',
+        label: context.l10n.schedulesRefreshAction,
         shortcut: '⌘R',
         icon: AppIcons.refresh,
         onPressed: onRefresh,

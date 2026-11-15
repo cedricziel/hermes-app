@@ -99,6 +99,23 @@ void main() {
       )
       .selected;
 
+  testWidgets('View > Reload reads the board again', (tester) async {
+    final commands = MacCommandRegistry();
+    addTearDown(commands.dispose);
+    await pumpBoard(tester, commands: commands);
+    final before = server.requestsTo('GET', '/api/plugins/kanban/board').length;
+
+    expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
+    expect(commands.invoke(MacCommand.reload), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(
+      server.requestsTo('GET', '/api/plugins/kanban/board').length,
+      before + 1,
+    );
+    expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
+  });
+
   testWidgets('the Mac toolbar names the board, the filter and the count', (
     tester,
   ) async {

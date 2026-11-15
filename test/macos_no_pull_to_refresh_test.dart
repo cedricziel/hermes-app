@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/checkpoint_list_body.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -21,6 +22,7 @@ import 'hermes_plugin_manager_repository_test.dart'
     show catalogBody, catalogRow, hubBody, hubRow;
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/mac_commands_builder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -209,5 +211,59 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(refreshed, 1);
+  });
+
+  group('View > Reload on the Mac', () {
+    Future<MacCommandRegistry> pumpMac(WidgetTester tester, Widget home) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      tester.view.physicalSize = const Size(900, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme().copyWith(
+            platform: TargetPlatform.macOS,
+          ),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: macCommandsBuilder(commands),
+          home: home,
+        ),
+      );
+      await tester.pumpAndSettle();
+      return commands;
+    }
+
+    testWidgets('reloads the active workers', (tester) async {
+      final commands = await pumpMac(
+        tester,
+        KanbanWorkersScreen(
+          repository: KanbanRepository(server.client()),
+          board: 'ops',
+          onChanged: () {},
+        ),
+      );
+      const path = '/api/plugins/kanban/workers/active';
+      final before = server.requestsTo('GET', path).length;
+      expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
+      expect(commands.invoke(MacCommand.reload), isTrue);
+      await tester.pumpAndSettle();
+      expect(server.requestsTo('GET', path).length, before + 1);
+    });
+
+    testWidgets('reloads the Plugins tab in front', (tester) async {
+      final commands = await pumpMac(
+        tester,
+        PluginsScreen(
+          repository: HermesPluginManagerRepository(server.client().raw),
+        ),
+      );
+      const path = '/api/dashboard/plugins/hub';
+      final before = server.requestsTo('GET', path).length;
+      expect(commands.invoke(MacCommand.reload), isTrue);
+      await tester.pumpAndSettle();
+      expect(server.requestsTo('GET', path).length, before + 1);
+    });
   });
 }

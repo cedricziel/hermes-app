@@ -536,6 +536,29 @@ void main() {
       expect(commands.handlerFor(MacCommand.nextChange)?.enabled, isTrue);
     });
 
+    testWidgets('a Mac reloads the list from the menu', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await tester.runAsync(open);
+      await pumpPanel(
+        tester,
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      expect(commands.handlerFor(MacCommand.reload), isNull);
+      await openCheckpoints(tester);
+      expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
+      expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
+
+      final before = source.fake.count('list');
+      await tester.runAsync(() async {
+        expect(commands.invoke(MacCommand.reload), isTrue);
+        await pumpEventQueue();
+      });
+      await settle(tester);
+      expect(source.fake.count('list'), greaterThan(before));
+    });
+
     testWidgets('the commands go with the page', (tester) async {
       final commands = MacCommandRegistry();
       addTearDown(commands.dispose);

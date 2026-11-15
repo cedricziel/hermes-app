@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../../l10n/l10n.dart';
+import '../macos/mac_commands.dart';
+
 import '../theme/app_icons.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/platform_refresh.dart';
@@ -13,8 +16,6 @@ import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'widgets/kanban_list_rows.dart';
 import 'widgets/kanban_task_panel.dart';
-
-import 'package:flutter/services.dart';
 
 import '../theme/platform_chrome.dart';
 
@@ -146,7 +147,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
       previousTitle: 'Kanban',
       actions: [
         SettingsBarAction(
-          label: 'Refresh',
+          label: context.l10n.kanbanRefreshAction,
           icon: AppIcons.refresh,
           shortcut: mac ? '⌘R' : null,
           onPressed: _load,
@@ -202,10 +203,10 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
             ),
     );
     if (!mac) return scaffold;
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
-            unawaited(_load()),
+    // View > Reload owns ⌘R.
+    return MacCommandScope(
+      commands: {
+        MacCommand.reload: MacCommandHandler(() => unawaited(_load())),
       },
       child: scaffold,
     );

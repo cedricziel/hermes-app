@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../../l10n/l10n.dart';
 
 import '../theme/app_icons.dart';
 
@@ -180,6 +181,10 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
         () => _new(wide: _split),
         title: 'New Schedule',
       ),
+      if (platformChromeOf(context) == PlatformChrome.macos)
+        MacCommand.reload: MacCommandHandler(
+          () => unawaited(_controller.refresh()),
+        ),
     },
     child: _page(context),
   );
@@ -212,23 +217,14 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     onOpenRun: widget.onOpenRun,
                   );
             if (mac && wide) {
-              return CallbackShortcuts(
-                bindings: {
-                  const SingleActivator(
-                    LogicalKeyboardKey.keyR,
-                    meta: true,
-                  ): () =>
-                      unawaited(_controller.refresh()),
-                },
-                child: _MacLayout(
-                  controller: _controller,
-                  jobCount: visible.length,
-                  listWidth: box.maxWidth >= _macWideListWidth ? 340 : 250,
-                  list: list,
-                  detail: detail,
-                  filterMenu: _filterMenu(),
-                  onNew: () => _new(wide: true),
-                ),
+              return _MacLayout(
+                controller: _controller,
+                jobCount: visible.length,
+                listWidth: box.maxWidth >= _macWideListWidth ? 340 : 250,
+                list: list,
+                detail: detail,
+                filterMenu: _filterMenu(),
+                onNew: () => _new(wide: true),
               );
             }
             final ios = platformChromeOf(context) == PlatformChrome.ios;
@@ -250,7 +246,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 actions: [
                   _filterMenu(),
                   NamedIconButton(
-                    label: 'Refresh',
+                    label: context.l10n.schedulesRefreshAction,
                     icon: AppIcons.refresh,
                     style: barButton,
                     onPressed: _controller.refresh,

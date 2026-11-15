@@ -118,6 +118,19 @@ void main() {
       expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
     });
 
+    testWidgets('View > Reload lists the jobs again', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pumpScreen(tester, commands: commands);
+      final before = server.requestsTo('GET', '/api/cron/jobs').length;
+
+      expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
+      expect(commands.invoke(MacCommand.reload), isTrue);
+      await tester.pumpAndSettle();
+
+      expect(server.requestsTo('GET', '/api/cron/jobs').length, before + 1);
+    });
+
     testWidgets('Refresh lists the jobs again', (tester) async {
       await pumpScreen(tester);
       final before = server.requestsTo('GET', '/api/cron/jobs').length;

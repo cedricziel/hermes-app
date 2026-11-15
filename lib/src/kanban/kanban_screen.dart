@@ -6,7 +6,6 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 
@@ -152,6 +151,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
   Map<MacCommand, MacCommandHandler> _menuCommands() => {
     MacCommand.newChat: MacCommandHandler(_newTask, title: 'New Task'),
     if (_mac)
+      MacCommand.reload: MacCommandHandler(
+        () => unawaited(_controller.refresh()),
+      ),
+    if (_mac)
       MacCommand.toggleInspector: MacCommandHandler(
         _inspector.toggle,
         title: _inspector.shown ? 'Hide Inspector' : 'Show Inspector',
@@ -197,86 +200,72 @@ class _KanbanScreenState extends State<KanbanScreen> {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: Listenable.merge([_controller, _inspector]),
-      builder: (context, _) => _refreshKey(
-        Scaffold(
-          appBar: _controller.selecting
-              ? AppBar(
-                  leading: ShellMenu.clearOfWindowControls(
-                    context,
-                    NamedIconButton(
-                      label: 'Cancel selection',
-                      icon: AppIcons.close,
-                      onPressed: _controller.stopSelecting,
+      builder: (context, _) => Scaffold(
+        appBar: _controller.selecting
+            ? AppBar(
+                leading: ShellMenu.clearOfWindowControls(
+                  context,
+                  NamedIconButton(
+                    label: 'Cancel selection',
+                    icon: AppIcons.close,
+                    onPressed: _controller.stopSelecting,
+                  ),
+                ),
+                title: Text('${_controller.selected.length} selected'),
+              )
+            : _mac
+            ? _macToolbar()
+            : AppBar(
+                leading: ShellMenu.button(context),
+                title: const Text('Kanban'),
+                actions: [
+                  if (_controller.boards.isNotEmpty)
+                    KanbanBoardMenu(
+                      boards: _controller.boards,
+                      selected: _controller.boardSlug,
+                      onSelected: _selectBoard,
+                      onManage: _manageBoards,
                     ),
-                  ),
-                  title: Text('${_controller.selected.length} selected'),
-                )
-              : _mac
-              ? _macToolbar()
-              : AppBar(
-                  leading: ShellMenu.button(context),
-                  title: const Text('Kanban'),
-                  actions: [
-                    if (_controller.boards.isNotEmpty)
-                      KanbanBoardMenu(
-                        boards: _controller.boards,
-                        selected: _controller.boardSlug,
-                        onSelected: _selectBoard,
-                        onManage: _manageBoards,
-                      ),
-                    KanbanLiveDot(live: _controller.live),
-                    if (_controller.board != null) _moreMenu(),
-                    const SizedBox(width: 4),
-                  ],
+                  KanbanLiveDot(live: _controller.live),
+                  if (_controller.board != null) _moreMenu(),
+                  const SizedBox(width: 4),
+                ],
+              ),
+        bottomNavigationBar: _controller.selecting
+            ? KanbanBulkBar(
+                selectedCount: _controller.selected.length,
+                assignees: _controller.board?.assignees ?? const [],
+                onMove: (status) => unawaited(_bulk(status: status)),
+                onAssign: (assignee) => unawaited(_bulk(assignee: assignee)),
+                onPriority: (priority) => unawaited(_bulk(priority: priority)),
+                onEffort: (effort) => unawaited(
+                  effort.isEmpty
+                      ? _bulk(clearEffort: true)
+                      : _bulk(effort: effort),
                 ),
-          bottomNavigationBar: _controller.selecting
-              ? KanbanBulkBar(
-                  selectedCount: _controller.selected.length,
-                  assignees: _controller.board?.assignees ?? const [],
-                  onMove: (status) => unawaited(_bulk(status: status)),
-                  onAssign: (assignee) => unawaited(_bulk(assignee: assignee)),
-                  onPriority: (priority) =>
-                      unawaited(_bulk(priority: priority)),
-                  onEffort: (effort) => unawaited(
-                    effort.isEmpty
-                        ? _bulk(clearEffort: true)
-                        : _bulk(effort: effort),
-                  ),
-                  onArchive: () => unawaited(_bulk(archive: true)),
+                onArchive: () => unawaited(_bulk(archive: true)),
+              )
+            : null,
+        body: MacCommandScope(
+          commands: _menuCommands(),
+          child: _mac
+              ? KanbanInspectorLayout(
+                  board: _body(context),
+                  shown: _inspector.shown,
+                  inspector: _inspectorPanel(),
                 )
-              : null,
-          body: MacCommandScope(
-            commands: _menuCommands(),
-            child: _mac
-                ? KanbanInspectorLayout(
-                    board: _body(context),
-                    shown: _inspector.shown,
-                    inspector: _inspectorPanel(),
-                  )
-                : _body(context),
-          ),
-          floatingActionButton: _mac || _newTask == null
-              ? null
-              : FloatingActionButton.extended(
-                  onPressed: _newTask,
-                  icon: const AppIcon(AppIcons.add),
-                  label: const Text('New task'),
-                ),
+              : _body(context),
         ),
+        floatingActionButton: _mac || _newTask == null
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: _newTask,
+                icon: const AppIcon(AppIcons.add),
+                label: const Text('New task'),
+              ),
       ),
     );
   }
-
-  /// ⌘R reloads the board on the Mac, as its toolbar button does.
-  Widget _refreshKey(Widget child) => !_mac
-      ? child
-      : CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
-                unawaited(_controller.refresh()),
-          },
-          child: child,
-        );
 
   Future<void> _create() async {
     final created = await Navigator.of(context).push<bool>(
@@ -484,7 +473,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
               onTenantChanged: _controller.setTenant,
               onIncludeArchivedChanged: _controller.setIncludeArchived,
               onRefresh: _controller.refresh,
-              refreshShortcut: _mac ? '⌘R' : null,
             ),
             Expanded(child: wide ? _columns(context) : _list(context)),
           ],

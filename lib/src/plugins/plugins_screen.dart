@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
+
+import '../../l10n/l10n.dart';
+import '../macos/mac_commands.dart';
 
 import '../api/hermes_repositories.dart';
 import '../theme/app_icons.dart';
@@ -166,7 +168,7 @@ class _PluginsScreenState extends State<PluginsScreen>
             if (mac)
               SettingsBarAction(
                 key: const Key('plugins-refresh'),
-                label: 'Refresh',
+                label: context.l10n.pluginsRefreshAction,
                 icon: AppIcons.refresh,
                 shortcut: '⌘R',
                 onPressed: () => unawaited(_refreshCurrent()),
@@ -181,10 +183,12 @@ class _PluginsScreenState extends State<PluginsScreen>
           body: body!,
         );
         if (!mac) return scaffold;
-        return CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
-                unawaited(_refreshCurrent()),
+        // View > Reload owns ⌘R.
+        return MacCommandScope(
+          commands: {
+            MacCommand.reload: MacCommandHandler(
+              () => unawaited(_refreshCurrent()),
+            ),
           },
           child: scaffold,
         );

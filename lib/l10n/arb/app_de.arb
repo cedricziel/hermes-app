@@ -206,6 +206,7 @@
   "chatCheckpointsPageFileNext": "Nächste Datei",
   "chatCheckpointsPageFilePrevious": "Vorherige Datei",
   "chatCheckpointsPageRefresh": "Aktualisieren",
+  "chatCheckpointsPageRefreshTooltip": "Aktualisieren ⌘R",
   "chatCheckpointsPageRestoring": "Dateien werden wiederhergestellt …",
   "chatCheckpointsPageRowCount": "Datei-Checkpoints · {count}",
   "chatCheckpointsPageRowFailed": "Checkpoints konnten nicht gelesen werden",
@@ -541,6 +542,8 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanRefreshAction": "Aktualisieren",
+  "kanbanRefreshTooltip": "Aktualisieren ⌘R",
 
   "@@x-area-live_activities": "",
 
@@ -565,6 +568,7 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsRefreshAction": "Aktualisieren",
 
   "@@x-area-profiles": "",
   "profilesSoulBannerCheck": "Prüfen",
@@ -859,6 +863,7 @@
   "@@x-area-quick_panel": "",
 
   "@@x-area-schedules": "",
+  "schedulesRefreshAction": "Aktualisieren",
 
   "@@x-area-screens": "",
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/l10n.dart';
+import '../../../macos/mac_commands.dart';
 import '../../../theme/app_icons.dart';
 import '../../activity/activity_page_binding.dart';
 import '../../activity/widgets/activity_page_scaffold.dart';
@@ -15,8 +16,6 @@ import '../widgets/checkpoint_list_body.dart';
 import '../widgets/restore_outcome_note.dart';
 import 'changes_page.dart';
 import 'restore_flow.dart';
-
-import 'package:flutter/services.dart';
 
 import '../../../theme/platform_chrome.dart';
 
@@ -163,7 +162,7 @@ class _CheckpointsPageState extends State<CheckpointsPage>
         lastRestoreWasFile(controller) != true;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final canRefresh = !controller.loadingList && !controller.notUpToDate;
-    return ActivityPageScaffold(
+    final page = ActivityPageScaffold(
       title: l10n.chatCheckpointsPageTitle,
       onBack: () => Navigator.of(context).maybePop(),
       actions: [
@@ -171,15 +170,11 @@ class _CheckpointsPageState extends State<CheckpointsPage>
           key: const Key('checkpoints-refresh'),
           label: l10n.chatCheckpointsPageRefresh,
           icon: AppIcons.refresh,
-          shortcut: mac ? '⌘R' : null,
+          tooltip: mac ? l10n.chatCheckpointsPageRefreshTooltip : null,
           onPressed: canRefresh ? _refresh : null,
         ),
       ],
-      shortcuts: {
-        if (mac && canRefresh)
-          const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
-              unawaited(_refresh()),
-      },
+
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -228,6 +223,16 @@ class _CheckpointsPageState extends State<CheckpointsPage>
           ),
         ],
       ),
+    );
+    if (!mac) return page;
+    // View > Reload owns ⌘R.
+    return MacCommandScope(
+      commands: {
+        MacCommand.reload: MacCommandHandler(
+          canRefresh ? () => unawaited(_refresh()) : null,
+        ),
+      },
+      child: page,
     );
   }
 }
