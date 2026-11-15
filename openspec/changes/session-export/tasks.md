@@ -1,10 +1,10 @@
 # Tasks
 
-Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC)
+Design (done): canvas reviewed
 
-No build starts before the canvas exists: no task below begins until the canvas is built and the brief is brought in line with it.
+Canvas: https://claude.ai/artifact/UzB5uc13PXDSM8JYUYTjcs (private; ask its owner for access). 28 boards, one parametric page: header menu 1, alert states 5, failures 9, dark 2, largest text 2, German 2, App Lock 1, Android 3, Mac and iPad 3. Checked in a local render, not in the claude.ai viewer; what was not checked is listed in the brief's "Local render review".
 
-Three PRs, each under about 500 changed lines. The catalog PR comes first, after the canvas (`docs/design-briefs/session-export.md`).
+Three PRs, each under about 500 changed lines. The catalog PR comes first (`docs/design-briefs/session-export.md`).
 
 ## 1. PR 1 - `feat(chat): session export dialog in the catalog`
 
