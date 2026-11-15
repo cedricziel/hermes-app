@@ -272,10 +272,38 @@ class HermesApiClient {
     }
   }
 
-  Future<Uint8List> _getBytes(String route, Map<String, dynamic> query) async {
+  /// `GET /api/sessions/{id}/export?profile=` — the server's JSON for one
+  /// chat, as the bytes it sent. The generated method would decode a possibly
+  /// very large body into maps, so this asks for raw bytes like
+  /// [fetchKanbanAttachment]. The server streams it with no `Content-Length`,
+  /// so [onProgress] gets only the bytes received so far. Throws the
+  /// [DioException] unchanged; `classifySessionExportError` reads it. The
+  /// managed client's 30 s receive timeout and the 5-minute total apply.
+  Future<Uint8List> fetchSessionExport(
+    String id, {
+    required String profile,
+    CancelToken? cancelToken,
+    void Function(int received)? onProgress,
+  }) => _getBytes(
+    '/api/sessions/${Uri.encodeComponent(id)}/export',
+    {'profile': profile},
+    cancelToken: cancelToken,
+    onProgress: onProgress,
+  );
+
+  Future<Uint8List> _getBytes(
+    String route,
+    Map<String, dynamic> query, {
+    CancelToken? cancelToken,
+    void Function(int received)? onProgress,
+  }) async {
     final response = await _dio.get<List<int>>(
       route,
       queryParameters: query,
+      cancelToken: cancelToken,
+      onReceiveProgress: onProgress == null
+          ? null
+          : (received, _) => onProgress(received),
       options: Options(
         responseType: ResponseType.bytes,
         extra: requestDeadlineExtra(const Duration(minutes: 5)),

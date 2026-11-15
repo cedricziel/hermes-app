@@ -33,6 +33,8 @@ Verified in the Hermes source at `d923a5eb` (`openapi/HERMES_REF`), read only. T
 7. **Profile.** The profile the chat was listed under (`ThreadHousekeeping.profile`) is sent explicitly. A chat without one is not offered (`housekeeping == null` or a null profile hides the item); local and mock chats never are.
 8. **File name.** `threadExportFileName`'s rules with `.json`. The name stays on the device and goes to no telemetry.
 
+9. **Recorded findings (Hermes `d923a5eb`).** The 200 is chunked with no `Content-Length` and no `Content-Disposition`, so progress is bytes only; rows with `active` 0 and `compacted` 0 exist after a compression besides `compacted` 1; `tool_names` and `model_config` are JSON text strings, not objects.
+
 ## Known limit
 
 A chat the server compressed into a new session exports only its current session. The file says so only through its `parent_session_id`. The confirmation does not claim "the whole chat"; it says "this session as Hermes stored it".
