@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../../theme/app_icons.dart';
 import '../../bot_mode/widgets/bot_handoff_body.dart';
 import '../../theme/hermes_theme.dart';
@@ -129,7 +130,7 @@ class TerminalToolBody extends StatelessWidget {
                   style: TextStyle(color: subtle),
                 ),
                 TextSpan(
-                  text: command,
+                  text: wellFormedText(command),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -139,14 +140,14 @@ class TerminalToolBody extends StatelessWidget {
           if (output.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             SelectableText(
-              output.trimRight(),
+              wellFormedText(output.trimRight()),
               style: _mono.copyWith(color: scheme.onSurface),
             ),
           ],
           if (error.isNotEmpty) ...[
             const SizedBox(height: 6),
             SelectableText(
-              error,
+              wellFormedText(error),
               style: TextStyle(fontSize: 12, color: scheme.error),
             ),
           ],
@@ -349,7 +350,7 @@ class ToolDiffBody extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final success = context.hermesColors.success;
-    final lines = diff
+    final lines = wellFormedText(diff)
         .replaceAll(_ansi, '')
         .trimRight()
         .split('\n')

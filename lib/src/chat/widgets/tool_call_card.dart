@@ -8,6 +8,7 @@ import '../../telemetry/breadcrumbs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_json_view/flutter_json_view.dart';
 
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../../theme/app_icons.dart';
 import '../../bot_mode/widgets/bot_handoff_body.dart';
 import '../../theme/hermes_theme.dart';
@@ -128,9 +129,9 @@ class ToolCallCard extends StatelessWidget {
     ];
     final expandable = details.isNotEmpty;
     final handoff = BotHandoffBody.of(call);
-    final summary = handoff?.label ?? call.displaySummary;
+    final summary = wellFormedText(handoff?.label ?? call.displaySummary);
     final name = Text(
-      call.displayName,
+      wellFormedText(call.displayName),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
@@ -347,6 +348,23 @@ bool _isJsonContainer(String text) {
   }
 }
 
+/// JSON [text] with lone surrogates in its decoded strings and keys replaced,
+/// as JSON text again; [text] itself when it has none.
+String _wellFormedJson(String text) {
+  Object? clean(Object? v) => switch (v) {
+    String() => wellFormedText(v),
+    List() => [for (final e in v) clean(e)],
+    Map() => {
+      for (final e in v.entries) wellFormedText('${e.key}'): clean(e.value),
+    },
+    _ => v,
+  };
+  final decoded = jsonDecode(text);
+  final before = jsonEncode(decoded);
+  final after = jsonEncode(clean(decoded));
+  return before == after ? text : after;
+}
+
 class _Section extends StatelessWidget {
   const _Section({required this.label, required this.text});
 
@@ -362,7 +380,7 @@ class _Section extends StatelessWidget {
     const mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
     final Widget body = _isJsonContainer(text)
         ? JsonView.string(
-            text,
+            _wellFormedJson(text),
             theme: JsonViewTheme(
               backgroundColor: Colors.transparent,
               defaultTextStyle: mono.copyWith(color: scheme.onSurface),
@@ -379,7 +397,10 @@ class _Section extends StatelessWidget {
             ),
           )
         : SingleChildScrollView(
-            child: Text(text, style: mono.copyWith(color: scheme.onSurface)),
+            child: Text(
+              wellFormedText(text),
+              style: mono.copyWith(color: scheme.onSurface),
+            ),
           );
     return Container(
       decoration: BoxDecoration(
