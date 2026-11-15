@@ -135,6 +135,9 @@ import '../voice/composer_dictation.dart';
 import '../voice/read_aloud.dart';
 import '../voice/voice_support.dart';
 import 'media/media_store.dart';
+import 'session_export_controller.dart';
+import 'session_export_flow.dart';
+import 'session_export_telemetry.dart';
 import '../voice/voice_message_recording.dart';
 import '../voice/voice_recording_view.dart';
 import '../voice/dictation_settings.dart';
@@ -156,6 +159,7 @@ import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
 import 'widgets/new_chat_fab.dart';
+import 'widgets/tool_call_expansion.dart';
 import '../kanban/widgets/task_panel/kanban_task_sheet.dart';
 import '../widgets/inspector_layout.dart';
 
@@ -170,6 +174,7 @@ part 'chat_screen_calls.dart';
 part 'chat_screen_bot_screen.dart';
 part 'chat_screen_read_aloud.dart';
 part 'chat_screen_checkpoints.dart';
+part 'chat_screen_export.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -309,6 +314,12 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
 
+  /// The tool calls the reader opened in the open chat. Held here, above the
+  /// list, so a row scrolled away and back or a list mounted anew keeps them;
+  /// dropped when another chat or profile opens (`follow`) and with this
+  /// screen, so on sign-out.
+  final _toolCallExpansion = ToolCallExpansionStore();
+
   /// Tells the update question how many replies this chat has running.
   RepliesInProgress? _repliesCount;
   int _runningReplies() => _chat.threads
@@ -445,6 +456,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   ContextController? _menuContext;
 
   StarterContextLoader? _starterLoader;
+
+  /// The "Export chat as JSON" controller, null while there is no API client,
+  /// and what ends one early: App Lock, a sign-out, a new owner or server.
+  SessionExportController? _export;
+  AppLockController? _exportLock;
+  AuthController? _exportAuth;
+  StreamSubscription<void>? _exportSignedOut;
+  var _exportWasLocked = false;
+  int? _exportOwner;
+  String? _exportServer;
+  String? _exportProfile;
 
   /// Conversation windows (macOS); null elsewhere.
   ConversationWindows? _windows;
@@ -585,6 +607,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onHandBack: _handBackFromRestore,
       onSendNotice: _showSendNotice,
     )..addListener(_changed);
+    _initExport(repositories);
     _repliesCount = _maybeRead<RepliesInProgress>()?..attach(_runningReplies);
     _needsYou = needsYouQueueFor(
       _chat,
@@ -778,6 +801,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     _syncListChanges();
     _syncBotScreen();
+    _syncExport();
     final loading = _chat.loadingThreads;
     if (_wasLoadingThreads && !loading) {
       unawaited(_memoryWaiting?.refresh(_chat.profile));
@@ -954,6 +978,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     unawaited(_dictation?.refresh());
     _refreshReadAloud();
     _chat.checkConnection();
+    unawaited(_chat.refreshModelOptionsOnResume());
     unawaited(_memoryWaiting?.refreshIfStale(_chat.profile));
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
@@ -997,6 +1022,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chat
       ..removeListener(_changed)
       ..dispose();
+    _exportSignedOut?.cancel();
+    _disposeExport();
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
     _toolsAvailability?.removeListener(_toolsAvailabilityChanged);

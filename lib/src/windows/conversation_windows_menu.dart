@@ -47,12 +47,24 @@ class ConversationWindowsMenu extends StatelessWidget {
               // A settings page in the main window stays put.
               MacCommand.back: const MacCommandHandler(null),
               MacCommand.forward: const MacCommandHandler(null),
+              // Pages of the main window: the window has none to reload or
+              // step through.
+              MacCommand.reload: const MacCommandHandler(null),
+              MacCommand.enclosingFolder: const MacCommandHandler(null),
+              MacCommand.previousChange: const MacCommandHandler(null),
+              MacCommand.nextChange: const MacCommandHandler(null),
               MacCommand.pinThread: run(
                 ThreadAction.pin,
                 title: key.pinned ? 'Unpin' : 'Pin',
               ),
               MacCommand.renameThread: run(ThreadAction.rename),
               MacCommand.copyTranscript: run(ThreadAction.copyTranscript),
+              // Present in the menu bar, disabled without a profile and while
+              // the window's own export runs (the window reports it).
+              MacCommand.exportThread:
+                  key.args.profile == null || key.exportBusy
+                  ? const MacCommandHandler(null)
+                  : run(ThreadAction.exportJson),
               // A conversation window holds no checkpoint or context
               // controllers, so the main window's chat is not compressed
               // from it.

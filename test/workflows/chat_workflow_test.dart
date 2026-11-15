@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
@@ -539,6 +541,57 @@ void main() {
       });
     }
 
+    for (final brightness in Brightness.values) {
+      testWidgets('$name: a chat loading and failing to load '
+          '(${brightness.name})', (tester) async {
+        final shots = ScreenshotRecorder(
+          'chat-$name-loading-${brightness.name}',
+        );
+        Completer<void>? gate;
+        server
+          ..onRequest('GET', '/api/sessions/s2/messages', (_) async {
+            await (gate ??= Completer<void>()).future;
+            return (
+              status: 200,
+              body: messageListBody('s2', [
+                messageRow(
+                  id: 3,
+                  role: 'user',
+                  content: 'Draft the release notes.',
+                ),
+                messageRow(
+                  id: 4,
+                  role: 'assistant',
+                  content: 'Here is a first pass.',
+                ),
+              ]),
+            );
+          })
+          ..on('GET', '/api/sessions/s3/messages', {
+            'detail': 'boom',
+          }, status: 500);
+        await pumpChat(tester, shots, size: size, brightness: brightness);
+        await openSidebar(tester);
+        await tester.tap(find.byKey(const ValueKey('thread-s2')));
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await shots.capture(tester, 'loading');
+        gate!.complete();
+        await runFrames(tester);
+        await shots.capture(tester, 'loaded');
+
+        if (size == phoneSize) {
+          Navigator.of(tester.element(find.byType(ChatScreen))).maybePop();
+          await tester.pumpAndSettle();
+        }
+        await openSidebar(tester);
+        await tester.tap(find.byKey(const ValueKey('thread-s3')));
+        await runFrames(tester);
+        await shots.capture(tester, 'failed');
+      });
+    }
+
     testWidgets('$name: dark theme', (tester) async {
       final shots = ScreenshotRecorder('chat-$name-dark');
       await pumpChat(tester, shots, size: size, brightness: Brightness.dark);
@@ -601,6 +654,30 @@ void main() {
     await shots.capture(tester, 'results');
   });
 
+  testWidgets('the Mac model popover in dark, at the default window width', (
+    tester,
+  ) async {
+    final shots = ScreenshotRecorder('chat-mac-dark');
+    await pumpScreen(
+      tester,
+      shots,
+      MacSidebarScope(
+        child: ChatScreen(
+          repository: HermesChatRepository(server.client().raw),
+          models: HermesModelsRepository(server.client().raw),
+          transport: transport,
+        ),
+      ),
+      size: const Size(900, 760),
+      brightness: Brightness.dark,
+      platform: TargetPlatform.macOS,
+    );
+    await tester.tap(find.byKey(const Key('composer-model-pill')));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    await shots.capture(tester, 'model-picker');
+  });
+
   testWidgets('the Mac sidebar and toolbar search', (tester) async {
     server.on('GET', '/api/sessions/search', {
       'results': [
@@ -632,6 +709,13 @@ void main() {
         platform: TargetPlatform.macOS,
       );
       await shots.capture(tester, 'sidebar');
+      // The picker is a popover on the pill at every Mac width, never a sheet.
+      await tester.tap(find.byKey(const Key('composer-model-pill')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      await shots.capture(tester, 'model-picker');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
       if (name == 'compact') {
         await tester.tap(find.byKey(const Key('mac-sidebar-toggle')));
         await tester.pumpAndSettle();

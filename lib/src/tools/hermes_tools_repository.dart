@@ -109,7 +109,7 @@ class HermesToolsRepository {
     this._api, {
     required this.profile,
     this.telemetry = const ConnectionTelemetry(),
-  });
+  }) : assert(profile.isNotEmpty, 'Tools calls always name a profile');
 
   final DefaultApi _api;
 

@@ -21,6 +21,7 @@ import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_queue_keys.dart';
 import '../support/fake_queue_transport.dart';
+import '../support/queue_store_dir.dart';
 
 QueueScope _scope() => QueueScope(
   serverKey: 'server',
@@ -71,7 +72,7 @@ void main() {
 
   tearDown(() async {
     attention.dispose();
-    await directory.delete(recursive: true);
+    await deleteQueueStoreDir(directory);
   });
 
   /// A chat on the stored thread. With [gated] the protected queue store
