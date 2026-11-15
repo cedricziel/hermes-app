@@ -296,6 +296,7 @@ extension _Reconnect on HermesGatewayTransport {
             runtimeId: runtimeId,
             ended: ended,
             giveUp: true,
+            turnEnded: true,
             outcome: 'failed',
             replayedCount: replayedCount,
             truncated: truncated,

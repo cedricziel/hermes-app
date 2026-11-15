@@ -34,6 +34,7 @@ import 'chat_checkpoint_restore_use_cases.dart';
 import 'chat_context_use_cases.dart';
 import 'chat_send_hold_use_cases.dart';
 import 'transcript_outcome_line_use_cases.dart';
+import 'reply_reconnecting_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
@@ -155,6 +156,7 @@ final List<WidgetbookNode> directories = [
   chatCheckpointsNode(),
   chatCheckpointRestoreNode(),
   transcriptOutcomeLineNode(),
+  replyReconnectingNode(),
   chatSendHoldNode(),
   connectorOperationNode(),
   sideResultNode(),

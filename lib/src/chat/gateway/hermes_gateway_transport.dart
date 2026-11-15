@@ -252,6 +252,14 @@ class HermesGatewayTransport
   /// The runtime session a reply is in flight in, by the thread it belongs to.
   final _runtimeOf = <_ThreadOwner, String>{};
 
+  /// The runtime session of a reply whose connection could not be won back
+  /// before the reconnect gave up, by thread. The server may still be running
+  /// that turn: opening the thread resumes it with the replay ledger of that
+  /// runtime (so the gap is filled by seq, not rebuilt from nothing), and a
+  /// stop finds it. Dropped once a resume reaches the server, when a new send
+  /// takes the thread over, and with the connection.
+  final _lostReplies = <_ThreadOwner, String>{};
+
   /// The model each thread was last set to from here, by thread.
   final _modelOf = <_ThreadOwner, ModelChoice>{};
 
@@ -638,6 +646,7 @@ class HermesGatewayTransport
     final idle = _idle.values.toList();
     _idle.clear();
     _settledEarly.clear();
+    _lostReplies.clear();
     _ownedBindings.clear();
     unawaited(_ownedSessions.close());
     unawaited(_connectionEvents.close());

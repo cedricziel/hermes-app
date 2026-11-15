@@ -1,5 +1,7 @@
 import 'chat_models.dart';
 import 'chat_transport.dart';
+import 'gateway/gateway_rpc_client.dart'
+    show GatewayConnectionClosed, GatewaySessionGone, GatewayTurnEnded;
 
 const kReplyFailedMessage = 'Something went wrong. Try sending it again.';
 
@@ -11,6 +13,9 @@ const kProfileUnavailableMessage =
 /// Folds a transport event into the assistant message it belongs to. Thread
 /// events concern the thread, not the reply, and are left to the caller.
 void applyReplyEvent(ChatMessage reply, ChatEvent event) {
+  // An event that reaches the reply came over a connection that works: the
+  // loss it was reconnecting from is over, whatever the event says.
+  reply.reconnecting = false;
   switch (event) {
     case ReplyDelta(:final text):
       reply.reasoningActive = false;
@@ -322,6 +327,35 @@ bool _isSealedOrStreamed(ChatMessage reply, String text) {
   return sealed.isNotEmpty && sealed.last.text == text;
 }
 
+/// Whether [error] says only that the connection was lost, so the server may
+/// still be running the turn: a closed or unreachable gateway. Not a session
+/// the server no longer has ([GatewaySessionGone]) nor a turn it ended without
+/// a reply ([GatewayTurnEnded]), and not an answer it gave. A send that
+/// reported its step ([SendFailure]) is read through its cause, and only once
+/// the prompt was submitted: before that the server may not have the prompt at
+/// all.
+bool isConnectionLost(Object? error) {
+  if (error is SendFailure) {
+    return error.step == SendStep.reply && isConnectionLost(error.cause);
+  }
+  return error is GatewayConnectionClosed &&
+      error is! GatewaySessionGone &&
+      error is! GatewayTurnEnded;
+}
+
+/// Puts [reply] into the state of a turn whose connection was lost: it stays
+/// pending, keeps its text and its running tool calls as they are (the client
+/// never marks a call failed because its own connection dropped), shows no
+/// error, and is picked up again when the connection can be had. A repeat
+/// while it already is in that state counts as the same loss.
+void markReconnecting(ChatMessage reply) {
+  if (reply.reconnecting || !reply.isPending) return;
+  reply.reconnecting = true;
+  reply.reconnectEpisodes++;
+  reply.reasoningActive = false;
+  reply.activity = null;
+}
+
 /// Ends [reply] after the stream broke, keeping whatever had streamed. [error]
 /// is what broke it, when known: it decides the explanation shown. An error
 /// the server reported before the stream broke explains it better than the
@@ -414,6 +448,17 @@ bool _wroteSinceLastToolCall(ChatMessage reply) =>
 /// the text sealed so far, so what the reply does after it renders below its
 /// card.
 void _addInputRequest(ChatMessage reply, InputRequest request) {
+  // The server asks again for a request still open after a reconnect: the card
+  // the reply already shows is refreshed, not shown twice.
+  final shown = reply.inputRequests.indexWhere(
+    (r) =>
+        r.requestId == request.requestId &&
+        r.status == InputRequestStatus.pending,
+  );
+  if (shown >= 0) {
+    reply.inputRequests = [...reply.inputRequests]..[shown] = request;
+    return;
+  }
   reply.inputRequests = [...reply.inputRequests, request];
   reply.inputRequestSlots = {
     request.requestId: (
@@ -426,6 +471,7 @@ void _addInputRequest(ChatMessage reply, InputRequest request) {
 
 void _markFailed(ChatMessage reply, String error) {
   reply.reasoningActive = false;
+  reply.reconnecting = false;
   reply.error = error;
   reply.status = MessageStatus.error;
   _settleRunningTools(reply, ToolCallStatus.error);

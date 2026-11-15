@@ -145,6 +145,9 @@ extension _ChatControllerRequests on ChatController {
           _Hold.paused => others ? _Hold.paused : _Hold.none,
           _ => hold,
         });
+        // The server was reached and ends the turn: a reply that lost its
+        // connection hears how it ended now, not at the next try.
+        if (_reconnectingReply(thread) != null) _pickUp(thread);
         return;
       }
       if (stopped != false) {

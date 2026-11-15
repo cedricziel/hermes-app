@@ -57,3 +57,17 @@ iOS: detent sheet from the line. Android: Material modal sheet, 48 dp targets. i
 ## What was not checked
 
 The claude.ai viewer, real devices, VoiceOver and TalkBack output, reduced-motion animation, contrast beyond an eye check (warning text on the dark surface), live keyboard behaviour, the size transition (a static sketch), App Lock (not drawn). Not every board was re-rendered after the last small edits.
+
+## Addendum: a reply that lost its connection
+
+This extends an existing designed surface (the reply in the transcript and its tail, where `ReplyErrorNote` and the thinking row already sit). It adds one state and needs no new canvas.
+
+**What the person sees.** A reply was streaming, with tool calls, and the connection to Hermes dropped. Hermes may well still be working. The reply keeps its text and its running tool calls exactly as they were, and one line follows it: a Wi-Fi-off icon and "Connection lost. Reconnecting…" (German: "Verbindung unterbrochen. Verbindung wird wiederhergestellt …"). It is not an error: no red, no "Try sending it again", no failed tool cards. The thinking spinner is not drawn beside it, since nothing is thinking that this app can see. The line goes the moment anything arrives over a working connection again, and the reply goes on in the same bubble; if Hermes finished while the app was away, the finished answer fills that bubble.
+
+**Widget (plain model).** `ReplyReconnectingNote(text, announceKey)`: icon plus sentence in the `warning` token, wraps at any text size, 16 pt icon, 13.5 pt text, same 8 pt top gap as `ReplyErrorNote`. Status is icon plus word, never colour alone. A screen reader hears the sentence once per loss (`announceKey` names the loss; the catalog passes none), not each time the row is built.
+
+**Catalog use cases** (`widgetbook/reply_reconnecting_use_cases.dart`): alone, under a reply with a running call, under a reply with finished and running calls, beside a failed reply for contrast, a long sentence at 320 pt, largest text. Light and dark, phone and desktop and English and German come from the catalog's addons.
+
+**While it shows.** The composer keeps Stop (it asks the server and works when the server can be reached, and says "couldn't stop" otherwise). Messages typed meanwhile wait in the queue, nothing is sent. Retry, Edit and Branch are not offered, since the turn is still running.
+
+**Not checked.** VoiceOver and TalkBack output on a device, the real connection coming back while the app is in front, contrast of the warning token on the dark surface beyond an eye check.

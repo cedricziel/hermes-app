@@ -39,6 +39,7 @@ final class _Resumed {
     this.ended = const [],
     this.giveUp = false,
     this.gone,
+    this.turnEnded = false,
     this.outcome = 'replayed',
     this.replayedCount = 0,
     this.truncated = false,
@@ -66,9 +67,17 @@ final class _Resumed {
   /// [isFinalResumeRefusal]); [failure] is what the reply then fails with.
   final GatewaySessionGone? gone;
 
-  /// What the reply fails with once it gives up.
+  /// Set with [giveUp] when the server answered and the turn is over with no
+  /// reply to show: there is nothing to wait for, unlike a connection that
+  /// could not be made.
+  final bool turnEnded;
+
+  /// What the reply fails with once it gives up. A plain
+  /// [GatewayConnectionClosed] means the server was not reached: the turn may
+  /// still be running, and the reply is picked up again later.
   GatewayConnectionClosed get failure =>
-      gone ?? const GatewayConnectionClosed();
+      gone ??
+      (turnEnded ? const GatewayTurnEnded() : const GatewayConnectionClosed());
 
   /// How the reconnect went, for telemetry: `replayed` when the gap was filled
   /// from the server's ring, `rest_refetch` when the reply had to be rebuilt

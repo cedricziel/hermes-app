@@ -42,6 +42,7 @@ import 'reasoning_block.dart';
 import 'review_summary_note.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
+import 'reply_reconnecting_note.dart';
 import 'subagent_card.dart';
 import 'tool_call_group.dart';
 import 'transcript_outcome_line.dart';
@@ -416,6 +417,11 @@ Widget _buildCustom(
           ReplyStatusKind.compressing => context.l10n.chatStatusCompressing,
           _ => metadata[kMetaThinkingActivity] as String,
         },
+      );
+    case kKindReconnecting:
+      return ReplyReconnectingNote(
+        text: context.l10n.chatReplyReconnecting,
+        announceKey: '${message.id}#${metadata![kMetaReconnectEpisode]}',
       );
     case kKindInputRequest:
       return switch (metadata![kMetaInputRequest]) {

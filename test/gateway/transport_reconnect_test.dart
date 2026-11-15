@@ -1366,6 +1366,156 @@ void main() {
     });
   });
 
+  group('A reply whose reconnect gave up', () {
+    /// A turn that streams seqs 1 to 7 and drops, with no way back for 60 s.
+    _Seen lose(FakeAsync async) {
+      gateway.silent.add('session.resume');
+      gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+      final seen = _listen(transport.send(text: 'hi'));
+      async.elapse(const Duration(seconds: 61));
+      expect(seen.error, isA<GatewayConnectionClosed>());
+      return seen;
+    }
+
+    test('ends as a lost connection, not as a session or turn gone', () {
+      fake((async) {
+        final seen = lose(async);
+
+        expect(seen.error, isNot(isA<GatewaySessionGone>()));
+        expect(seen.error, isNot(isA<GatewayTurnEnded>()));
+      });
+    });
+
+    test('is picked up again from the seq it had, and submits nothing', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.beforeEventsAnswer = (g) => _deltaSeqs(g, 'rt-1', 8, 9);
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(follow.error, isNull);
+        expect(follow.events.first, isA<ReplyStarted>());
+        expect(_deltas(follow), ['8', '9']);
+        expect(follow.events.whereType<ReplyRebuilt>(), isEmpty);
+        final since = gateway.requests.where(
+          (r) => r['method'] == 'session.events.since',
+        );
+        expect((since.last['params'] as Map)['last_seen'], 7);
+        expect(
+          gateway.methods.where((m) => m == 'prompt.submit'),
+          hasLength(1),
+        );
+        unawaited(follow.subscription.cancel());
+      });
+    });
+
+    test('tells a server still out of reach from one that is not', () {
+      fake((async) {
+        lose(async);
+
+        final follow = _listen(transport.followUps('stored-1'));
+        // The resume is not answered within the one attempt a pick-up makes.
+        async.elapse(const Duration(seconds: 30));
+
+        expect(follow.error, isA<GatewayConnectionClosed>());
+        expect(follow.error, isNot(isA<GatewaySessionGone>()));
+        expect(follow.error, isNot(isA<GatewayTurnEnded>()));
+
+        // The reply is still waited for: the next pick-up replays from seq 7.
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        final again = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        expect(again.error, isNull);
+        expect(again.events.first, isA<ReplyStarted>());
+        unawaited(again.subscription.cancel());
+      });
+    });
+
+    test('a turn that ended with nothing to show fails the reply', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(follow.error, isA<GatewayTurnEnded>());
+      });
+    });
+
+    test('a turn that finished meanwhile is delivered by its completion', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.beforeEventsAnswer = (g) {
+          _deltaSeqs(g, 'rt-1', 8, 9);
+          g.event('message.complete', 'rt-1', {
+            'text': 'all done',
+            'status': 'complete',
+          });
+        };
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(follow.error, isNull);
+        expect(_deltas(follow), ['8', '9']);
+        expect(
+          follow.events.whereType<ReplyCompleted>().single.text,
+          'all done',
+        );
+        unawaited(follow.subscription.cancel());
+      });
+    });
+
+    test('finished after the runtime was reaped: the stored reply lands', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        // The runtime id changed (resume minted a new one), the turn is over.
+        gateway.resumeResult = {
+          'session_id': 'rt-2',
+          'running': false,
+          'messages': [
+            {'role': 'assistant', 'text': 'all done'},
+          ],
+        };
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(follow.error, isNull);
+        expect(follow.events.whereType<ThreadNeedsRefetch>(), isNotEmpty);
+        expect(
+          follow.events.whereType<ReplyCompleted>().single.text,
+          'all done',
+        );
+        unawaited(follow.subscription.cancel());
+      });
+    });
+
+    test('can be stopped on the server', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+
+        bool? stopped;
+        unawaited(transport.stopReply('stored-1').then((v) => stopped = v));
+        async.flushMicrotasks();
+
+        expect(gateway.methods, contains('session.interrupt'));
+        expect(stopped, isTrue);
+      });
+    });
+  });
+
   group('Following a thread across a reconnect', () {
     /// A reply that completed, so its session stays listened to.
     void finishedReply(FakeGateway g, String sid) {

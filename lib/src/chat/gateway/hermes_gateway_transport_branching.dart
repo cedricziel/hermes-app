@@ -14,8 +14,13 @@ extension _Branching on HermesGatewayTransport {
         runtimeId = matches.single.value;
       }
     }
+    // A reply that lost its connection may still be running on the server;
+    // its runtime session belonged to the connection that was lost, so the
+    // thread is resumed first.
+    final lost = runtimeId == null && _lostReplies.containsKey(owner);
+    runtimeId ??= _lostReplies[owner];
     if (runtimeId == null) return false;
-    var client = _connected();
+    var client = lost ? null : _connected();
     if (client == null) {
       // The listener may still be reconnecting after a dropped socket. Ask
       // the server which runtime session owns this stored thread before

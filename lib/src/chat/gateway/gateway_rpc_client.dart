@@ -102,6 +102,18 @@ class GatewaySessionGone extends GatewayConnectionClosed {
   String toString() => 'The gateway no longer has the session ($code)';
 }
 
+/// The server answered, and the turn the reply followed is no longer running
+/// and left nothing to show (the silence probe no longer lists it, or a resume
+/// found it over with no stored reply). A [GatewayConnectionClosed] so older
+/// readers still end the reply, but unlike a lost connection nothing is left
+/// to wait for: the reply fails.
+class GatewayTurnEnded extends GatewayConnectionClosed {
+  const GatewayTurnEnded();
+
+  @override
+  String toString() => 'The turn ended without a reply';
+}
+
 /// Whether a `session.resume` refusal is final: no later attempt can succeed.
 ///
 /// The codes are those Hermes' `session.resume` answers for a session it does

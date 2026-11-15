@@ -661,6 +661,18 @@ class ChatMessage {
   /// without a completion that would carry its own error.
   String? pendingError;
 
+  /// The connection to Hermes dropped while this reply ran and could not be
+  /// won back in time, but the server may well still be running the turn. The
+  /// reply stays pending with what it had (text and running tool calls
+  /// included, none of them marked failed) and says so, until the thread is
+  /// picked up again or the server says the turn is over. See
+  /// [markReconnecting].
+  bool reconnecting = false;
+
+  /// How many times this reply entered [reconnecting], so a screen reader is
+  /// told once per loss and not each time the row is built.
+  int reconnectEpisodes = 0;
+
   bool get isPending =>
       status == MessageStatus.thinking || status == MessageStatus.streaming;
 
