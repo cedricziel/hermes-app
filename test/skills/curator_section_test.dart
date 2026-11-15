@@ -805,6 +805,35 @@ void main() {
       expect(said, ['Curator pass started']);
     });
 
+    testWidgets('a start whose answer was lost is announced once it is seen', (
+      tester,
+    ) async {
+      final said = <String>[];
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+            message,
+          ) async {
+            final data = (message as Map)['data'];
+            if (data is Map) said.add(data['message'] as String);
+            return null;
+          });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger
+            .setMockDecodedMessageHandler<dynamic>(
+              SystemChannels.accessibility,
+              null,
+            ),
+      );
+      await pump(tester, _model(run: CuratorRunView.starting));
+      await pump(tester, _model(run: CuratorRunView.lostAnswer));
+      await pump(
+        tester,
+        _model(run: CuratorRunView.lostAnswer, checkFailed: true),
+      );
+      await pump(tester, _model(run: CuratorRunView.following));
+      expect(said, ['Curator pass started']);
+    });
+
     testWidgets('a pass picked up again after a lost run is not a start', (
       tester,
     ) async {
