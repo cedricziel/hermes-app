@@ -43,3 +43,8 @@ const double kKanbanColumnsBreakpoint = 720;
 
 /// The widest a skill's detail page or the skills list grows on a wide window.
 const double kDetailContentMaxWidth = 720;
+
+/// The smallest content size of the Mac app's main window, set natively in
+/// `MainFlutterWindow.minimumContentSize`. The default size, 1100x760
+/// (`MainMenu.xib`), is above [kWideLayoutBreakpoint].
+const Size kMacMainWindowMinSize = Size(640, 480);
