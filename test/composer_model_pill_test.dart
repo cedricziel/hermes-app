@@ -140,6 +140,25 @@ void main() {
     });
   }
 
+  testWidgets('the popover closes when the pill leaves the tree', (
+    tester,
+  ) async {
+    await _pumpPill(tester, width: 700, platform: TargetPlatform.macOS);
+    await tester.tap(find.byKey(const Key('composer-model-pill')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ModelPicker), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.macOS),
+        home: const Scaffold(body: SizedBox()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ModelPicker), findsNothing);
+  });
+
   testWidgets('keeps a visible loading selector without options', (
     tester,
   ) async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../files/widgets/safe_path_text.dart';
@@ -38,6 +39,7 @@ Future<void> showModelPicker(
   ModelOptions? Function()? latest,
   ModelChoice? Function()? latestSelected,
   Rect? anchor,
+  PopoverHandle? popoverHandle,
 }) {
   ModelOptions currentOptions() => latest?.call() ?? options;
   ModelChoice? currentSelected() =>
@@ -96,6 +98,7 @@ Future<void> showModelPicker(
       context,
       anchor: anchor,
       semanticLabel: title,
+      handle: popoverHandle,
       builder: (popover) =>
           live(popover, presentation: ModelPickerPresentation.popover),
     );
@@ -178,6 +181,23 @@ class _LivePickerState extends State<_LivePicker> {
   Widget build(BuildContext context) => widget.builder(_options, _selected);
 }
 
+/// In a popover the arrows only move focus, one row at a time, and Return or
+/// Space picks. The radio group's own arrows would pick as they move, so this
+/// sits below it, nearer the focus, and walks the rows itself.
+Widget _popoverKeys(bool popover, void Function(int step) move, Widget list) =>
+    !popover
+    ? list
+    : Shortcuts(
+        shortcuts: {
+          const SingleActivator(LogicalKeyboardKey.arrowDown):
+              VoidCallbackIntent(() => move(1)),
+          const SingleActivator(LogicalKeyboardKey.arrowUp): VoidCallbackIntent(
+            () => move(-1),
+          ),
+        },
+        child: list,
+      );
+
 /// Where a [ModelPicker] is shown.
 enum ModelPickerPresentation { sheet, dialog, popover }
 
@@ -235,6 +255,30 @@ class _ModelPickerState extends State<ModelPicker> {
   void didUpdateWidget(ModelPicker oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.selected != oldWidget.selected) _selected = widget.selected;
+  }
+
+  final _nodes = <_Pick, FocusNode>{};
+
+  FocusNode _nodeFor(_Pick pick) =>
+      _nodes.putIfAbsent(pick, () => FocusNode(debugLabel: 'model row'));
+
+  /// Moves focus [step] rows through [order], wrapping at the ends. Starts at
+  /// the first row when none has focus.
+  void _moveFocus(List<_Pick> order, int step) {
+    if (order.isEmpty) return;
+    final at = order.indexWhere((pick) => _nodeFor(pick).hasFocus);
+    final next = at < 0
+        ? (step > 0 ? 0 : order.length - 1)
+        : (at + step) % order.length;
+    _nodeFor(order[next]).requestFocus();
+  }
+
+  @override
+  void dispose() {
+    for (final node in _nodes.values) {
+      node.dispose();
+    }
+    super.dispose();
   }
 
   void _pick(ModelChoice choice) {
@@ -311,6 +355,12 @@ class _ModelPickerState extends State<ModelPicker> {
           )
         : null;
     final providers = _matching(query);
+    // The rows in the order they are drawn, for the popover's arrow keys.
+    final order = <_Pick>[
+      if (widget.onUseDefault != null && query.isEmpty) _defaultPick,
+      for (final provider in providers)
+        for (final model in provider.models) (provider.id, model.id),
+    ];
     final dividerIndent = GroupedChoiceRow.dividerIndent(context);
     final title = Text(
       widget.title,
@@ -374,63 +424,73 @@ class _ModelPickerState extends State<ModelPicker> {
                 ? (widget.onUseDefault == null ? null : _defaultPick)
                 : (selected.providerId, selected.modelId),
             onChanged: _onPicked,
-            child: ListView(
-              shrinkWrap: true,
-              padding: EdgeInsets.fromLTRB(
-                gutter,
-                0,
-                gutter,
-                popover ? 12 : 16,
-              ),
-              children: [
-                if (widget.onUseDefault != null && query.isEmpty)
-                  GroupedSection(
-                    children: [
-                      GroupedChoiceRow<_Pick>(
-                        key: const Key('model-default'),
-                        value: _defaultPick,
-                        autofocus: popover && selected == null,
-                        title: context.l10n.modelsPickerUseDefault,
-                        // The server's value, drawn with its control and
-                        // bidi characters visible.
-                        subtitle: widget.options.current == null
-                            ? null
-                            : context.l10n.modelsPickerDefaultUses(
-                                safePathText(widget.options.current!.modelId),
-                              ),
-                      ),
-                    ],
-                  ),
-                for (final provider in providers)
-                  GroupedSection(
-                    header: provider.displayLabel,
-                    dividerIndent: dividerIndent,
-                    children: [
-                      for (final model in provider.models)
+            child: _popoverKeys(
+              popover,
+              (step) => _moveFocus(order, step),
+              ListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.fromLTRB(
+                  gutter,
+                  0,
+                  gutter,
+                  popover ? 12 : 16,
+                ),
+                children: [
+                  if (widget.onUseDefault != null && query.isEmpty)
+                    GroupedSection(
+                      children: [
                         GroupedChoiceRow<_Pick>(
-                          key: Key('model-${provider.id}-${model.id}'),
-                          value: (provider.id, model.id),
-                          autofocus:
-                              popover &&
-                              selected?.providerId == provider.id &&
-                              selected?.modelId == model.id,
-                          title: model.id,
+                          key: const Key('model-default'),
+                          value: _defaultPick,
+                          autofocus: popover && selected == null,
+                          rowFocusable: !popover,
+                          focusNode: popover ? _nodeFor(_defaultPick) : null,
+                          title: context.l10n.modelsPickerUseDefault,
+                          // The server's value, drawn with its control and
+                          // bidi characters visible.
+                          subtitle: widget.options.current == null
+                              ? null
+                              : context.l10n.modelsPickerDefaultUses(
+                                  safePathText(widget.options.current!.modelId),
+                                ),
                         ),
-                    ],
-                  ),
-                if (providers.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      'No models match “$query”',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: metrics.subtitleSize,
-                        color: muted,
+                      ],
+                    ),
+                  for (final provider in providers)
+                    GroupedSection(
+                      header: provider.displayLabel,
+                      dividerIndent: dividerIndent,
+                      children: [
+                        for (final model in provider.models)
+                          GroupedChoiceRow<_Pick>(
+                            key: Key('model-${provider.id}-${model.id}'),
+                            value: (provider.id, model.id),
+                            rowFocusable: !popover,
+                            focusNode: popover
+                                ? _nodeFor((provider.id, model.id))
+                                : null,
+                            autofocus:
+                                popover &&
+                                selected?.providerId == provider.id &&
+                                selected?.modelId == model.id,
+                            title: model.id,
+                          ),
+                      ],
+                    ),
+                  if (providers.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(
+                        'No models match “$query”',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: metrics.subtitleSize,
+                          color: muted,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

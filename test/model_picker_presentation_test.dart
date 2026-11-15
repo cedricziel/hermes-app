@@ -238,12 +238,16 @@ void main() {
           findsWidgets,
         );
 
+        // The arrows only move focus; nothing is picked until Return.
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
         await tester.pump();
+        expect(opened.picked, isEmpty);
+        expect(_popover, findsOneWidget);
+
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
 
-        expect(opened.picked.last, const ModelChoice('acme', 'atlas-1'));
+        expect(opened.picked, [const ModelChoice('acme', 'atlas-1')]);
       });
 
       testWidgets('every row and effort pill is at least 28 pt tall', (

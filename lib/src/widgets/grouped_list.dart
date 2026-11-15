@@ -304,6 +304,7 @@ class GroupedRow extends StatelessWidget {
     this.enabled = true,
     this.checked,
     this.inMutuallyExclusiveGroup = false,
+    this.focusable = true,
     this.chevron,
     this.selected = false,
     this.destructive = false,
@@ -376,6 +377,10 @@ class GroupedRow extends StatelessWidget {
   /// a picture of that state, so the row stays one node.
   final bool? checked;
   final bool inMutuallyExclusiveGroup;
+
+  /// Whether the row's own tap target takes keyboard focus. Off for a row
+  /// that holds a focusable control already, so one stop per row.
+  final bool focusable;
 
   /// Whether to draw the disclosure chevron; by default when the row opens
   /// something ([onTap]) and has no [trailing].
@@ -615,7 +620,11 @@ class GroupedRow extends StatelessWidget {
               ),
       ),
     );
-    final ink = InkWell(onTap: enabled ? onTap : null, child: content);
+    final ink = InkWell(
+      canRequestFocus: focusable,
+      onTap: enabled ? onTap : null,
+      child: content,
+    );
     final color = selected ? scheme.outline : Colors.transparent;
     Widget merged(Widget child) => MergeSemantics(
       child: Semantics(

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../widgets/anchored_popover.dart';
 import '../../widgets/composer_selector_chip.dart';
 import '../model_options_state.dart';
 import '../model_provider_option.dart';
 import 'model_picker.dart';
 
 /// The current chat model and the state of its profile's model discovery.
-class ComposerModelPill extends StatelessWidget {
+class ComposerModelPill extends StatefulWidget {
   const ComposerModelPill({
     super.key,
     required this.options,
@@ -54,7 +55,9 @@ class ComposerModelPill extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  State<ComposerModelPill> createState() => _ComposerModelPillState();
+
+  Widget _build(BuildContext context, PopoverHandle popover) {
     final options = this.options;
     final state =
         this.state ??
@@ -104,6 +107,7 @@ class ComposerModelPill extends StatelessWidget {
           showModelPicker(
             context,
             anchor: anchor,
+            popoverHandle: popover,
             options: options,
             selected: shown,
             onChanged: onChanged,
@@ -122,4 +126,20 @@ class ComposerModelPill extends StatelessWidget {
       },
     );
   }
+}
+
+class _ComposerModelPillState extends State<ComposerModelPill> {
+  final _popover = PopoverHandle();
+
+  @override
+  void dispose() {
+    // A popover open on a pill that leaves the tree has nothing to point at.
+    // Removed after the frame: a route cannot be removed mid-teardown.
+    final popover = _popover;
+    WidgetsBinding.instance.addPostFrameCallback((_) => popover.close());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget._build(context, _popover);
 }

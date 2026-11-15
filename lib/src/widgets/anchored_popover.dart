@@ -94,6 +94,28 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
       old.preferAbove != preferAbove;
 }
 
+/// Lets the owner of an anchor close its popover from outside, such as a pill
+/// that leaves the tree while the popover is open.
+class PopoverHandle {
+  NavigatorState? _navigator;
+  Route<Object?>? _route;
+
+  void _attach(NavigatorState navigator, Route<Object?> route) {
+    _navigator = navigator;
+    _route = route;
+  }
+
+  /// Removes the popover if it is still open. Safe to call at any time.
+  void close() {
+    final navigator = _navigator;
+    final route = _route;
+    _navigator = null;
+    _route = null;
+    if (navigator == null || route == null) return;
+    if (navigator.mounted && route.isActive) navigator.removeRoute(route);
+  }
+}
+
 /// Shows what [builder] makes as a popover on [anchor], a rectangle in global
 /// coordinates read when it opens (never a context, so it cannot go stale
 /// across the await). A tap outside or Escape closes it with no result; focus
@@ -110,76 +132,77 @@ Future<T?> showAnchoredPopover<T>(
   double maxHeight = 480,
   double gap = 6,
   bool preferAbove = true,
+  PopoverHandle? handle,
 }) {
   final navigator = Navigator.of(context, rootNavigator: true);
   final themes = InheritedTheme.capture(from: context, to: navigator.context);
   final textScaler = MediaQuery.textScalerOf(context);
-  return navigator.push<T>(
-    RawDialogRoute<T>(
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.transparent,
-      transitionDuration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 120),
-      pageBuilder: (popover, animation, secondaryAnimation) => MediaQuery(
-        data: MediaQuery.of(popover).copyWith(textScaler: textScaler),
-        child: themes.wrap(
-          Builder(
-            builder: (context) {
-              final scheme = Theme.of(context).colorScheme;
-              return CustomSingleChildLayout(
-                delegate: _PopoverLayout(
-                  anchor: anchor,
-                  width: width,
-                  maxHeight: maxHeight,
-                  gap: gap,
-                  preferAbove: preferAbove,
-                ),
-                child: Shortcuts(
-                  shortcuts: const {
-                    SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+  final route = RawDialogRoute<T>(
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.transparent,
+    transitionDuration: MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 120),
+    pageBuilder: (popover, animation, secondaryAnimation) => MediaQuery(
+      data: MediaQuery.of(popover).copyWith(textScaler: textScaler),
+      child: themes.wrap(
+        Builder(
+          builder: (context) {
+            final scheme = Theme.of(context).colorScheme;
+            return CustomSingleChildLayout(
+              delegate: _PopoverLayout(
+                anchor: anchor,
+                width: width,
+                maxHeight: maxHeight,
+                gap: gap,
+                preferAbove: preferAbove,
+              ),
+              child: Shortcuts(
+                shortcuts: const {
+                  SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+                },
+                child: Actions(
+                  actions: {
+                    DismissIntent: CallbackAction<DismissIntent>(
+                      onInvoke: (_) {
+                        Navigator.of(popover).maybePop();
+                        return null;
+                      },
+                    ),
                   },
-                  child: Actions(
-                    actions: {
-                      DismissIntent: CallbackAction<DismissIntent>(
-                        onInvoke: (_) {
-                          Navigator.of(popover).maybePop();
-                          return null;
-                        },
-                      ),
-                    },
-                    child: Semantics(
-                      scopesRoute: true,
-                      namesRoute: true,
-                      label: semanticLabel,
-                      explicitChildNodes: true,
-                      child: FocusTraversalGroup(
-                        policy: ReadingOrderTraversalPolicy(),
-                        child: Material(
-                          color: scheme.surface,
-                          elevation: 8,
-                          shadowColor: Colors.black54,
-                          clipBehavior: Clip.antiAlias,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(color: scheme.outline),
-                          ),
-                          child: Builder(builder: builder),
+                  child: Semantics(
+                    scopesRoute: true,
+                    namesRoute: true,
+                    label: semanticLabel,
+                    explicitChildNodes: true,
+                    child: FocusTraversalGroup(
+                      policy: ReadingOrderTraversalPolicy(),
+                      child: Material(
+                        color: scheme.surface,
+                        elevation: 8,
+                        shadowColor: Colors.black54,
+                        clipBehavior: Clip.antiAlias,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: scheme.outline),
                         ),
+                        child: Builder(builder: builder),
                       ),
                     ),
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
-      transitionBuilder: (popover, animation, secondaryAnimation, child) =>
-          MediaQuery.disableAnimationsOf(popover)
-          ? child
-          : FadeTransition(opacity: animation, child: child),
     ),
+    transitionBuilder: (popover, animation, secondaryAnimation, child) =>
+        MediaQuery.disableAnimationsOf(popover)
+        ? child
+        : FadeTransition(opacity: animation, child: child),
   );
+  handle?._attach(navigator, route);
+  return navigator.push<T>(route);
 }
