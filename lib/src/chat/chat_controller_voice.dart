@@ -207,7 +207,11 @@ extension _ChatControllerVoice on ChatController {
       onDraft?.call(text);
     } else if (keep) {
       // Another chat's composer is not its to fill: wait for the chat.
-      _stopHandBacks[_stopKey(thread.id)] = text;
+      _stopHandBacks.update(
+        _stopKey(thread.id),
+        (kept) => '$kept\n$text',
+        ifAbsent: () => text,
+      );
     }
   }
 

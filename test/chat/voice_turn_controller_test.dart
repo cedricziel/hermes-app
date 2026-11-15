@@ -20,6 +20,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_queue_keys.dart';
+import '../support/fake_queue_transport.dart';
 
 QueueScope _scope() => QueueScope(
   serverKey: 'server',
@@ -679,6 +680,82 @@ void main() {
       chat.select('stored');
       await pumpEventQueue();
       expect(drafts, ['stop']);
+    });
+
+    test(
+      'hands over the words of a chat opened during a list refresh',
+      () async {
+        final chat = await stopElsewhere();
+        final load = chat.loadThreads('work');
+        chat.open(
+          const NotificationTarget(threadId: 'stored', profile: 'work'),
+          fetchMissing: true,
+        );
+        await load;
+        await pumpEventQueue();
+        expect(chat.selectedThread!.id, 'stored');
+        expect(drafts, ['stop']);
+      },
+    );
+
+    test('keeps the words of two stops in the same closed chat', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 'stored'), sessionRow(id: 'other')]),
+      );
+      server.on(
+        'GET',
+        '/api/sessions/other/messages',
+        messageListBody('other', []),
+      );
+      // Durable queued prompts go out through a transport that can queue.
+      final queued = FakeQueueTransport();
+      final chat = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        activity: activity,
+        transport: queued,
+        attention: attention,
+        report: reports.add,
+        onSendNotice: notices.add,
+        onDraft: drafts.add,
+        queueStore: () => Future.value(store),
+        queueChanges: ValueNotifier(true),
+        canShowQueues: () => true,
+        queueScope: (thread, profile) => QueueScope(
+          serverKey: 'server',
+          accountKey: 'account',
+          profile: profile,
+          conversationId: thread.id,
+        ),
+      );
+      addTearDown(chat.dispose);
+      await chat.loadThreads('work');
+      chat.select('stored');
+      while (chat.queueBusy(chat.selectedThread!)) {
+        await pumpEventQueue();
+      }
+      queued.acceptanceStatus = PromptAccepted.voiceStopped;
+      await chat.submit('first', const []);
+      await chat.submit('stop', const []);
+      await chat.submit('stop now', const []);
+      chat.select('other');
+      for (final count in [2, 3]) {
+        queued.sends.last
+          ..emit(const ReplyCompleted('Done'))
+          ..emit(const SessionInfo(running: false))
+          ..finish();
+        for (var i = 0; i < 50 && queued.sends.length < count; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        expect(queued.sends, hasLength(count));
+      }
+      queued.sends.last.finish();
+      await pumpEventQueue();
+      expect(drafts, isEmpty);
+      chat.select('stored');
+      await pumpEventQueue();
+      expect(drafts, ['stop\nstop now']);
     });
 
     test('forgets the words when the profile is switched', () async {

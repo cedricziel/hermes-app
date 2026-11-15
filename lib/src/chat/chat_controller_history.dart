@@ -313,6 +313,9 @@ extension _ChatControllerHistory on ChatController {
         );
       }
       notifyListeners();
+      if (launchedThread != null) {
+        _ChatControllerVoice(this)._stopHandBackSelected();
+      }
       if (!active || generation != _loadGeneration) return;
       _reportSurface(SurfaceTrigger.threads);
       if (!active || generation != _loadGeneration) return;
