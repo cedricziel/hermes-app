@@ -576,6 +576,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       onDraft: _draftFromLink,
       onHandBack: _handBackFromRestore,
+      onSendNotice: _showSendNotice,
     )..addListener(_changed);
     _repliesCount = _maybeRead<RepliesInProgress>()?..attach(_runningReplies);
     _needsYou = needsYouQueueFor(
@@ -707,7 +708,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
       widget.chatProfiles?.attach(_chat.loadThreads);
     }
-    _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
+    _attachmentSource =
+        widget.attachmentSource ?? PluginAttachmentSource.of(context);
     _share = context.read<ShareController>()..addListener(_onShared);
     if (widget.onExternalNavigation == null) {
       _absorbShared(held: true);
@@ -914,6 +916,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Work a link asked for on the thread list. Loading replaces that list and
   /// would drop a new chat made meanwhile, so it waits for the load to end.
   Future<void> Function()? _whenLoaded;
+
+  void _showSendNotice(ChatSendNotice notice) {
+    if (!mounted) return;
+    _showMessage(switch (notice) {
+      ChatSendNotice.stopCommand => context.l10n.chatNoticeStopCommand,
+      ChatSendNotice.stopCommandElsewhere =>
+        context.l10n.chatNoticeStopCommandElsewhere,
+    });
+  }
 
   void _showMessage(String message) {
     if (!mounted) return;

@@ -20,7 +20,27 @@ Both routes are in `openapi/hermes-agent.openapi.json` (`/api/profiles/{name}/so
 - **Other writers**: the Bots sheet, the agent's own file tools (gated by Hermes' protected-file approval), a shell or editor on the host, and `hermes profile update` for a distribution-owned SOUL.md (`load_soul_md` also treats that file as untrusted and may block it in the prompt; the route does not say so).
 - **Conflicts**: no version, etag, mtime or hash in either response and no precondition on PUT. It is last write wins.
 
-Could not verify: no backend was run for this note, so the 422 body, the plain-text 500 and the BOM and surrogate behaviour come from reading the code. Task 2.1 records them from `scripts/dev-backend.sh`.
+Recorded answers (task 2.1): `GET`/`PUT /api/profiles/{name}/soul` against a throwaway dashboard at `d923a5eb` (`scripts/install-hermes.sh`, `scripts/dev-backend.sh`, own `HERMES_HOME`, stopped and deleted afterwards). Fixtures: `test/profiles/soul/soul_fixtures.dart` (invented names and text).
+
+| Case | Answer |
+| --- | --- |
+| GET with text | 200 `{"content": "...", "exists": true}` |
+| GET, file absent | 200 `{"content": "", "exists": false}` |
+| GET, empty file | 200 `{"content": "", "exists": true}` |
+| GET, file with a leading BOM | 200, BOM dropped from `content` |
+| GET, invalid UTF-8 in the file | 500, `text/plain`, body `Internal Server Error` (the traceback is in the server log only) |
+| PUT ok | 200 `{"ok": true}`; the file holds the text; empty text saves, then GET says `exists: true` |
+| Unknown profile (GET and PUT) | 404 `{"detail": "Profile 'x' does not exist."}` |
+| Bad name `Bad_Name` (GET and PUT) | 400 `{"detail": "'Bad_Name' is not a valid profile name. Use lowercase ..."}` |
+| PUT without `content` | 422 `{"detail": [{"type": "missing", "loc": ["body", "content"], "msg": "Field required", ...}]}` |
+| PUT `content: 5` / malformed JSON | 422, `string_type` / `json_invalid`, same list shape |
+| No session token (GET and PUT) | 401 `{"detail": "Unauthorized"}`, `application/json` |
+| Unknown API path | GET 404 `{"detail": "No such API endpoint: /api/..."}`, PUT 405 `{"detail": "Method Not Allowed"}` |
+| POST to the soul route | 405 `{"detail": "Method Not Allowed"}` |
+
+The plain 500 is `text/plain`, not JSON: the app never reads a 5xx body.
+
+Could not verify: the `OSError` 500s (`Could not read SOUL.md: ...`, `Could not write SOUL.md: ...`; the sandbox runs as root, so a file mode cannot provoke them), a lone surrogate in a PUT, and the 401 behind the real password gate (the 401 above was the missing session token on a no-auth dashboard; the gated path was not driven). A GET on a profile other than `default` was not run; the profile route code is shared.
 
 ## What the app has
 
@@ -54,7 +74,7 @@ Recorded where the controller calls the repository. None holds text, titles, pro
 
 ## Design pass
 
-Status: Design (done): canvas reviewed. The full record is `docs/design-briefs/profile-soul.md`; the Design canvas (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, private: ask its owner for access) holds 60 boards: Entry 2, iPhone light P01-P18 and Q01-Q09, dark D01-D03, largest text X01-X03, German G01-G04, Android A01-A07, iPad W01-W04, Mac M01-M09, shared SoulPage. Checked: renders in a local headless Chrome. Not checked: the claude.ai viewer, DOM-measured control sizes and contrast, keyboard and text-input behaviour, sheet slide, spinner animation, reduced motion, VoiceOver and TalkBack; largest text on iPhone only, German on iPhone, Mac and the Android save question only. Decisions that change behaviour:
+Status: Design (done): canvas published, local render reviewed. The full record is `docs/design-briefs/profile-soul.md`; the Design canvas (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, private: ask its owner for access) holds 60 files (59 screen boards plus the shared SoulPage): Entry 2, iPhone light P01-P18 and Q01-Q09, dark D01-D03, largest text X01-X03, German G01-G04, Android A01-A07, iPad W01-W04, Mac M01-M09, shared SoulPage. Checked: renders in a local headless Chrome. Not checked: the claude.ai viewer, DOM-measured control sizes and contrast, keyboard and text-input behaviour, sheet slide, spinner animation, reduced motion, VoiceOver and TalkBack; largest text on iPhone only, German on iPhone, Mac and the Android save question only. Decisions that change behaviour:
 
 - **Check outcomes.** After a lost answer, Check reads the file and compares it with the text that was sent, not the editor. Equal to the sent text (the file exists and its content matches; a missing file never confirms, even when both texts are empty): Saved, the baseline becomes that text and edits made since stay dirty. Equal to the old baseline: the screen says "The server still has the earlier text. Your text is still here." and keeps the text (no conflict question, since nothing changed on the server). It is not a definite failure, because a timed-out PUT can still land later; the next Save asks again with the extra pending-save line. Anything else: the changed-on-server question.
 - **Unconfirmed save that landed.** Save after a lost answer still reads first; if the server's text equals the text about to be sent it reports Saved and moves the baseline without a PUT.

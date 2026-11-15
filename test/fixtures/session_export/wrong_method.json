@@ -1,0 +1,13 @@
+{
+  "revision": "d923a5eb487a17c0a68801bba9ef0f56c81040a8",
+  "request": "POST /api/sessions/no-such-chat/export?profile=garden",
+  "status": 405,
+  "headers": {
+    "content-type": "application/json",
+    "content-length": "31",
+    "allow": "GET"
+  },
+  "body": {
+    "detail": "Method Not Allowed"
+  }
+}

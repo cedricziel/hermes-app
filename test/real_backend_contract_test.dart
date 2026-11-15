@@ -53,6 +53,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/profiles/soul/soul_repository.dart';
 import 'package:hermes_app/src/providers/provider_models.dart';
 import 'package:hermes_app/src/providers/provider_results.dart';
 import 'package:hermes_app/src/providers/providers_repository.dart';
@@ -143,6 +144,10 @@ import 'support/attachment_fixtures.dart';
 /// the backend. `HERMES_DEV_HOME` (the backend's state folder) enables the
 /// live-database check, which opens a gateway session and closes it. The
 /// working directory tests create a project over the gateway and delete it.
+/// The session export tests create chats on a scripted model in a throwaway
+/// profile named `contract-export-…` (deleted after; like the other
+/// throwaway-profile tests they fail on a second run until the backend
+/// restarts), undo a turn and compress one, and only read the export.
 /// The checkpoint and context tests run a scripted model on the default
 /// profile (and put its config back); they write throwaway folders under the
 /// system temp directory, and with `HERMES_DEV_CHECKPOINTS=1` (the backend
@@ -3765,6 +3770,51 @@ void main() {
     }, skip: skip);
   });
 
+  group(
+    'profile SOUL.md (read only: never a PUT against a shared profile)',
+    () {
+      late SoulRepository soul;
+      setUp(() => soul = SoulRepository(client.raw));
+
+      Future<SoulFailureKind> failureOf(Future<Object?> call) async {
+        try {
+          await call;
+        } on SoulFailure catch (failure) {
+          return failure.kind;
+        }
+        fail('expected a SoulFailure');
+      }
+
+      test(
+        'reads the default profile with the content and exists fields',
+        () async {
+          final read = await soul.read('default');
+          expect(read.content, isA<String>());
+          if (!read.exists) expect(read.content, isEmpty);
+        },
+        skip: skip,
+      );
+
+      test(
+        'a profile that does not exist is profileGone, not unsupported',
+        () async {
+          expect(
+            await failureOf(soul.read('no-such-profile-zz')),
+            SoulFailureKind.profileGone,
+          );
+        },
+        skip: skip,
+      );
+
+      test('an invalid profile name is a 400', () async {
+        expect(
+          await failureOf(soul.read('Bad_Name')),
+          SoulFailureKind.badRequest,
+        );
+      }, skip: skip);
+    },
+  );
+
   group('tools (read only: nothing is switched, saved or installed)', () {
     late HermesToolsRepository tools;
 
@@ -4978,6 +5028,415 @@ model:
     });
   }, skip: skip);
 
+  group('session export on a scripted model (no paid model call)', () {
+    // GET /api/sessions/{id}/export?profile= : one session as one JSON object.
+    // The model is scripted on the loopback interface, so no turn costs
+    // anything; the profile is a throwaway one, deleted after. Raw answers go
+    // to `$HERMES_DEV_RECORD/session-export-<case>.json` for refreshing
+    // `test/fixtures/session_export/` after scrubbing.
+    final profile = 'contract-export-${DateTime.now().millisecondsSinceEpoch}';
+    final record = Platform.environment['HERMES_DEV_RECORD'];
+    late HttpServer model;
+    late Directory scratch;
+    late Dio raw;
+    late _GatewayTap tap;
+
+    setUpAll(() async {
+      if (url == null) return;
+      raw = Dio(
+        BaseOptions(
+          baseUrl: url,
+          headers: {'X-Hermes-Session-Token': ?sessionToken},
+          responseType: ResponseType.bytes,
+          validateStatus: (_) => true,
+        ),
+      );
+      final made = await Directory.systemTemp.createTemp('hermes-export-');
+      scratch = Directory(made.resolveSymbolicLinksSync());
+      File('${scratch.path}/notes.md').writeAsStringSync('# Plan\nWater\n');
+      model = await _serveScriptedModel(
+        reasoning: 'The user wants a quick answer, so I will be brief.',
+        scripts: {
+          'Use tools': [
+            [
+              {
+                'name': 'read_file',
+                'args': {'path': 'notes.md'},
+              },
+            ],
+          ],
+          'Many reads': [
+            for (var step = 0; step < 4; step++)
+              [
+                for (var i = 0; i < 3; i++)
+                  {
+                    'name': 'read_file',
+                    'args': {
+                      'path': 'notes.md',
+                      'offset': step * 3 + i + 1,
+                      'limit': 1,
+                    },
+                  },
+              ],
+          ],
+        },
+      );
+      await client.raw.createProfileEndpointApiProfilesPost(
+        profileCreate: ProfileCreate(name: profile, noSkills: true),
+      );
+      await client.raw.updateConfigRawApiConfigRawPut(
+        profile: profile,
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText:
+              '''
+model:
+  default: "scripted"
+  provider: "custom"
+  base_url: "http://127.0.0.1:${model.port}/v1"
+  api_key: "scripted"
+  context_length: 131072
+''',
+        ),
+      );
+      tap = _GatewayTap(
+        GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url,
+            authRequired: false,
+            api: client,
+          )(),
+        ),
+      );
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      try {
+        await tap.close();
+        await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+          name: profile,
+        );
+      } finally {
+        await model.close(force: true);
+        await scratch.delete(recursive: true);
+      }
+    });
+
+    /// A chat of [prompts], one turn each.
+    Future<({String runtime, String stored})> chat(List<String> prompts) async {
+      final created = await tap.rpc.request('session.create', {
+        'profile': profile,
+        'source': 'hermes_app',
+        'cwd': scratch.path,
+        'cwd_explicit': true,
+      });
+      final runtime = created['session_id'] as String;
+      final stored = created['stored_session_id'] as String;
+      addTearDown(
+        () => tap.rpc
+            .request('session.close', {'session_id': runtime})
+            .then((_) {}, onError: (Object _) {}),
+      );
+      var completed = 0;
+      for (final prompt in prompts) {
+        await tap.rpc.request('prompt.submit', {
+          'session_id': runtime,
+          'text': prompt,
+        });
+        completed++;
+        await tap.until(
+          () =>
+              tap.types(runtime).where((t) => t == 'message.complete').length >=
+                  completed &&
+              tap.idleAfterComplete(runtime),
+          'the turn "$prompt" to settle',
+        );
+      }
+      return (runtime: runtime, stored: stored);
+    }
+
+    /// The export of [id], as the server sent it.
+    Future<_Answer> export(
+      String id, {
+      String? asProfile,
+      required String name,
+      String method = 'GET',
+      String? path,
+    }) async {
+      final response = await raw.request<List<int>>(
+        path ?? '/api/sessions/${Uri.encodeComponent(id)}/export',
+        queryParameters: {'profile': ?asProfile},
+        options: Options(method: method),
+      );
+      final headers = {
+        for (final entry in response.headers.map.entries)
+          entry.key.toLowerCase(): entry.value.join(', '),
+      };
+      final body = Uint8List.fromList(response.data ?? const []);
+      if (record != null) {
+        File('$record/session-export-$name.json').writeAsStringSync(
+          jsonEncode({
+            'status': response.statusCode,
+            'headers': headers,
+            'body': utf8.decode(body, allowMalformed: true),
+          }),
+        );
+      }
+      return (status: response.statusCode!, headers: headers, body: body);
+    }
+
+    Map<String, dynamic> object(_Answer answer) =>
+        jsonDecode(utf8.decode(answer.body)) as Map<String, dynamic>;
+
+    List<Map<String, dynamic>> rows(Map<String, dynamic> body) =>
+        (body['messages'] as List).cast<Map<String, dynamic>>();
+
+    void expectJsonStream(_Answer got) {
+      expect(got.status, 200);
+      expect(got.headers['content-type'], startsWith('application/json'));
+      // Streamed: the total is unknown while it downloads, and the server
+      // names no file.
+      expect(got.headers, isNot(contains('content-length')));
+      expect(got.headers, isNot(contains('content-disposition')));
+      expect(got.headers['transfer-encoding'], 'chunked');
+    }
+
+    test(
+      'a short chat is one JSON object: the session row and its messages',
+      () async {
+        final made = await chat(['Say hello.']);
+
+        final got = await export(
+          made.stored,
+          asProfile: profile,
+          name: 'short',
+        );
+
+        expectJsonStream(got);
+        final body = object(got);
+        expect(body['id'], made.stored);
+        // Every column of the session row, resolved as `get_session` does:
+        // `model_config` and `tool_names` are JSON text, not objects.
+        expect(body['profile_name'], profile);
+        expect(body['message_count'], 2);
+        expect(body['rewind_count'], 0);
+        expect(body['started_at'], isA<num>());
+        expect(body['system_prompt'], isA<String>());
+        expect(body['tool_names'], isA<String>());
+        expect(body['messages'], isA<List<dynamic>>());
+        final messages = rows(body);
+        expect(messages.map((m) => m['role']), ['user', 'assistant']);
+        expect(messages.first['content'], 'Say hello.');
+        expect(messages.last['content'], 'Done.');
+        for (final message in messages) {
+          expect(message['id'], isA<int>());
+          expect(message['session_id'], made.stored);
+          expect(message['timestamp'], isA<num>());
+          expect(message['role'], isA<String>());
+          expect(message, containsPair('active', 1));
+          expect(message, containsPair('compacted', 0));
+        }
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
+
+    test(
+      'a chat with tool calls and reasoning keeps both on its rows',
+      () async {
+        final made = await chat(['Use tools. Think first.']);
+
+        final got = await export(
+          made.stored,
+          asProfile: profile,
+          name: 'tools',
+        );
+
+        expectJsonStream(got);
+        final messages = rows(object(got));
+        final called = messages.firstWhere((m) => m['tool_calls'] != null);
+        expect(called['role'], 'assistant');
+        expect(called['tool_calls'], isA<List<dynamic>>());
+        expect(
+          ((called['tool_calls'] as List).first as Map)['function'],
+          containsPair('name', 'read_file'),
+        );
+        final result = messages.firstWhere((m) => m['role'] == 'tool');
+        expect(result['tool_call_id'], isA<String>());
+        expect(result['tool_name'], 'read_file');
+        expect(
+          messages.any(
+            (m) =>
+                m['reasoning'] != null ||
+                m['reasoning_content'] != null ||
+                m['reasoning_details'] != null,
+          ),
+          isTrue,
+        );
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
+
+    test(
+      'an undone turn stays in the export with active 0',
+      () async {
+        final made = await chat(['Say hello.', 'Say hello again.']);
+        final undone = await tap.rpc.request('session.undo', {
+          'session_id': made.runtime,
+        });
+        expect(undone['removed'], greaterThan(0));
+
+        final got = await export(
+          made.stored,
+          asProfile: profile,
+          name: 'undone',
+        );
+
+        expectJsonStream(got);
+        final messages = rows(object(got));
+        expect(object(got)['rewind_count'], 1);
+        expect(object(got)['message_count'], 2, reason: 'the active rows');
+        expect(messages, hasLength(4), reason: 'the undone turn is kept');
+        expect(
+          messages.where((m) => m['active'] == 0).map((m) => m['compacted']),
+          everyElement(0),
+        );
+        expect(messages.where((m) => m['active'] == 1), hasLength(2));
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
+
+    test(
+      'a compressed chat keeps its archived rows with compacted 1',
+      () async {
+        final made = await chat([
+          'Many reads 0 [[tokens=120000]]',
+          'Many reads 1 [[tokens=120000]]',
+        ]);
+        final compressed = await tap.rpc.request('session.compress', {
+          'session_id': made.runtime,
+        });
+        expect(compressed['status'], 'compressed');
+
+        final got = await export(
+          made.stored,
+          asProfile: profile,
+          name: 'compacted',
+        );
+
+        expectJsonStream(got);
+        final messages = rows(object(got));
+        // Three kinds of rows: archived by the compaction (`compacted` 1,
+        // inactive), inactive rows the compaction replaced, and the active
+        // transcript, whose summary row alone carries `_compressed_summary`.
+        expect(
+          messages.where((m) => m['compacted'] == 1).map((m) => m['active']),
+          allOf(isNotEmpty, everyElement(0)),
+        );
+        expect(
+          messages.where((m) => m['active'] == 0 && m['compacted'] == 0),
+          isNotEmpty,
+        );
+        expect(messages.where((m) => m['active'] == 1), isNotEmpty);
+        expect(
+          messages.where((m) => m['_compressed_summary'] == true),
+          hasLength(1),
+        );
+        expect(
+          messages.length,
+          greaterThan(object(got)['message_count'] as int),
+        );
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'an unambiguous prefix finds the chat, an unknown id is a 404 '
+      '"Session not found"',
+      () async {
+        final made = await chat(['Say hello.']);
+
+        final byPrefix = await export(
+          made.stored.substring(0, made.stored.length - 1),
+          asProfile: profile,
+          name: 'prefix',
+        );
+        expect(byPrefix.status, 200);
+        expect(object(byPrefix)['id'], made.stored);
+
+        final unknown = await export(
+          'no-such-chat',
+          asProfile: profile,
+          name: 'unknown_id',
+        );
+        expect(unknown.status, 404);
+        expect(unknown.headers['content-type'], startsWith('application/json'));
+        expect(object(unknown), {'detail': 'Session not found'});
+
+        // Chats of another profile are not found in this one's store.
+        final elsewhere = await export(
+          made.stored,
+          asProfile: 'default',
+          name: 'other_profile',
+        );
+        expect(elsewhere.status, 404);
+        expect(object(elsewhere), {'detail': 'Session not found'});
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
+
+    test(
+      'an unknown profile is a 404 "Profile \'…\' does not exist.", a bad name '
+      'a 400',
+      () async {
+        final missing = await export(
+          'no-such-chat',
+          asProfile: 'contract-export-missing',
+          name: 'unknown_profile',
+        );
+        expect(missing.status, 404);
+        expect(object(missing), {
+          'detail': "Profile 'contract-export-missing' does not exist.",
+        });
+
+        final bad = await export(
+          'no-such-chat',
+          asProfile: 'Bad Name!',
+          name: 'invalid_profile',
+        );
+        expect(bad.status, 400);
+        expect(object(bad)['detail'], contains('is not a valid profile name'));
+      },
+      skip: skip,
+    );
+
+    test('a wrong route or method is not the export', () async {
+      final post = await export(
+        'no-such-chat',
+        asProfile: profile,
+        method: 'POST',
+        name: 'wrong_method',
+      );
+      expect(post.status, 405);
+      expect(post.headers['allow'], 'GET');
+      expect(object(post), {'detail': 'Method Not Allowed'});
+
+      final wrong = await export(
+        'no-such-chat',
+        path: '/api/sessions/no-such-chat/exports',
+        name: 'wrong_route',
+      );
+      // The text a server without the route answers with, and the one the
+      // app cannot tell from a missing chat by status alone.
+      expect(wrong.status, 404);
+      expect(object(wrong)['detail'], startsWith('No such API endpoint'));
+    }, skip: skip);
+  });
+
   group('a queued prompt on a scripted model (no paid model call)', () {
     final profile = 'contract-queued-${DateTime.now().millisecondsSinceEpoch}';
     late HttpServer model;
@@ -5044,6 +5503,45 @@ model:
 
     int completions(_GatewayTap tap, String sid) =>
         tap.types(sid).where((t) => t == 'message.complete').length;
+
+    test(
+      'session.resume of a session that was created and never given a prompt '
+      'answers the same way on every connection',
+      () async {
+        // A voice turn withdrawn before prompt.submit leaves a chat bound to
+        // the id session.create returned: what does Hermes say to a resume?
+        final owner = await openTap();
+        final created = await owner.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final stored = created['stored_session_id'] as String;
+        Future<String> resume(_GatewayTap tap, [String? id]) async {
+          try {
+            final resumed = await tap.rpc.request('session.resume', {
+              'session_id': id ?? stored,
+              'profile': profile,
+              'source': 'hermes_app',
+            });
+            return 'ok live=${resumed['session_id'] == created['session_id']}';
+          } on GatewayRpcException catch (error) {
+            return 'error ${error.code}';
+          }
+        }
+
+        final same = await resume(owner);
+        final other = await resume(await openTap());
+        await owner.close();
+        final after = await resume(await openTap());
+        // Hermes keeps the session live in its process, so the id works from
+        // any connection, even after the one that created it closed. An id it
+        // never had (or lost in a restart) is refused with 4007.
+        expect(same, 'ok live=true');
+        expect(other, 'ok live=true');
+        expect(after, 'ok live=true');
+        expect(await resume(await openTap(), 'never-created-id'), 'error 4007');
+      },
+    );
 
     test(
       'session.resume then prompt.submit with queued true: on an idle chat it '
@@ -5153,6 +5651,62 @@ model:
           'QUEUED-CHECK running chat: ${completions(busy, bsid)} completions, '
           'status=${running['status']}, second turn after first complete',
         );
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'prompt.submit with voice_turn and interrupted starts a turn on an idle '
+      'chat and is answered by the busy mode, never as queued input of its '
+      'own, on a running one',
+      () async {
+        final tap = await openTap();
+        final created = await tap.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final sid = created['session_id'] as String;
+        final idle = await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Say hello.',
+          'voice_turn': true,
+          'interrupted': true,
+        });
+        // ignore: avoid_print
+        print('VOICE-CHECK idle chat: status=${idle['status']}');
+        expect(idle['status'], 'streaming');
+        expect(idle, isNot(contains('voice_stopped')));
+        await tap.until(
+          () => tap.idleAfterComplete(sid),
+          'the voice turn to settle',
+        );
+
+        // A turn held in a tool call, then a second voice turn on the same
+        // chat: Hermes answers with its busy-input mode.
+        final held = await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Hold this turn.',
+        });
+        expect(held['status'], 'streaming');
+        await tap.until(
+          () => tap.types(sid).contains('tool.start'),
+          'the held turn to reach its tool',
+        );
+        final running = await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Say hello once more.',
+          'voice_turn': true,
+        });
+        // ignore: avoid_print
+        print('VOICE-CHECK running chat: status=${running['status']}');
+        expect(
+          running['status'],
+          anyOf('queued', 'steered', 'redirected'),
+          reason: 'the app reports each of these and never sends queued itself',
+        );
+        expect(running, isNot(contains('voice_stopped')));
+        await tap.rpc.request('session.interrupt', {'session_id': sid});
       },
       skip: skip,
       timeout: const Timeout(Duration(minutes: 3)),
@@ -7332,12 +7886,15 @@ class _ScriptControl {
 /// a `delegate_task` call holding two goals, and "Run background" with a
 /// background `terminal` call (`sleep 300`). A delegated child, told apart by
 /// its system prompt ("focused subagent"), runs `terminal` `sleep 30` on its
-/// first turn and answers plainly after the tool's result.
+/// first turn and answers plainly after the tool's result. With [reasoning],
+/// every answer to a prompt containing "Think" carries it as the model's
+/// `reasoning_content`.
 Future<HttpServer> _serveScriptedModel({
   String? command,
   Map<String, List<List<Map<String, Object?>>>> scripts = const {},
   _ScriptControl? control,
   void Function(String? authorization, List<String> tools)? onTurn,
+  String? reasoning,
 }) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
@@ -7457,6 +8014,7 @@ Future<HttpServer> _serveScriptedModel({
         ? control?.summary ?? 'Done.'
         : 'Done.';
     final finish = callTool ? 'tool_calls' : 'stop';
+    final thinks = reasoning != null && userText.contains('Think');
     final newestUser = messages.lastWhere(
       (m) => m['role'] == 'user',
       orElse: () => const {},
@@ -7483,6 +8041,7 @@ Future<HttpServer> _serveScriptedModel({
               'message': {
                 'role': 'assistant',
                 'content': content,
+                if (thinks) 'reasoning_content': reasoning,
                 if (callTool) 'tool_calls': calls,
               },
               'finish_reason': finish,
@@ -7505,6 +8064,7 @@ Future<HttpServer> _serveScriptedModel({
           'delta': {
             'role': 'assistant',
             'content': content ?? '',
+            if (thinks) 'reasoning_content': reasoning,
             if (callTool)
               'tool_calls': [
                 for (final (i, call) in calls.indexed) {'index': i, ...call},
@@ -7577,3 +8137,6 @@ class _GatewayTap {
     await rpc.close();
   }
 }
+
+/// One raw HTTP answer: status, lower-cased headers and the body bytes.
+typedef _Answer = ({int status, Map<String, String> headers, Uint8List body});

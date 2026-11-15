@@ -47,6 +47,27 @@ WidgetbookNode messengerIdentityNode() => WidgetbookFolder(
             ),
           ),
         ),
+        WidgetbookUseCase(
+          name: 'New chat, recipient and model',
+          builder: (_) => frame(
+            const _SelectorPairPreview(
+              recipient: RecipientSelectorState.choose,
+              model: ModelOptionsState.ready,
+            ),
+            maxWidth: 720,
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Ongoing chat, model only',
+          builder: (_) => frame(
+            const _SelectorPairPreview(
+              recipient: RecipientSelectorState.ready,
+              model: ModelOptionsState.ready,
+              ongoing: true,
+            ),
+            maxWidth: 720,
+          ),
+        ),
         for (final (label, recipient, model) in [
           (
             'Ready, long labels',
@@ -239,10 +260,17 @@ Widget _avatars({Uint8List? bytes}) => Wrap(
 );
 
 class _SelectorPairPreview extends StatefulWidget {
-  const _SelectorPairPreview({required this.recipient, required this.model});
+  const _SelectorPairPreview({
+    required this.recipient,
+    required this.model,
+    this.ongoing = false,
+  });
 
   final RecipientSelectorState recipient;
   final ModelOptionsState model;
+
+  /// An ongoing chat belongs to its profile, so only the model pill shows.
+  final bool ongoing;
 
   @override
   State<_SelectorPairPreview> createState() => _SelectorPairPreviewState();
@@ -285,20 +313,22 @@ class _SelectorPairPreviewState extends State<_SelectorPairPreview> {
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Flexible(
-        child: ProfileRecipientChip(
-          profile: _profile,
-          state: _recipient,
-          onTap: _chooseRecipient,
-          onRetry: () =>
-              setState(() => _recipient = RecipientSelectorState.ready),
-          onSetup: () => setState(() {
-            _profile = messengerRecipients.last;
-            _recipient = RecipientSelectorState.ready;
-          }),
+      if (!widget.ongoing) ...[
+        Flexible(
+          child: ProfileRecipientChip(
+            profile: _profile,
+            state: _recipient,
+            onTap: _chooseRecipient,
+            onRetry: () =>
+                setState(() => _recipient = RecipientSelectorState.ready),
+            onSetup: () => setState(() {
+              _profile = messengerRecipients.last;
+              _recipient = RecipientSelectorState.ready;
+            }),
+          ),
         ),
-      ),
-      const SizedBox(width: 8),
+        const SizedBox(width: 8),
+      ],
       Flexible(
         child: ComposerModelPill(
           options: _model == ModelOptionsState.incomplete

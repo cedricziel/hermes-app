@@ -50,6 +50,11 @@ class VoiceCall extends ChangeNotifier {
       _attentionThread = waiting;
       _attentionChanged();
     });
+    // A message typed in the chat ends the cut-off: the next spoken turn
+    // follows something else.
+    agent.watchTyped(_clearInterrupted);
+    // A typed prompt Hermes took as its stop phrase ends the call too.
+    agent.watchVoiceStopped(() => unawaited(voiceStopped()));
   }
   final CallBridge bridge;
   final CallAgent agent;
@@ -129,6 +134,11 @@ class VoiceCall extends ChangeNotifier {
   int _turns = 0;
   int _fallbacks = 0;
   int _speechRetries = 0;
+
+  /// When the user cut off speech and no turn has reached the transport
+  /// since. The next spoken turn is then sent `interrupted`, unless this is
+  /// cleared first (mute, a route change, a typed message) or too old.
+  DateTime? _cutOffAt;
   CallPhase phase = CallPhase.connecting;
   bool muted = false;
   bool speaker = false;
@@ -310,6 +320,7 @@ class VoiceCall extends ChangeNotifier {
         // The route changed: what was being heard and spoken is dropped. The
         // reply keeps running in the chat, and so does a pending approval.
         _epoch++;
+        _clearInterrupted();
         _vad.reset();
         _stopSpeech();
         // A reply of an earlier turn that is still going has been sent.
@@ -329,6 +340,7 @@ class VoiceCall extends ChangeNotifier {
         // A system mute is a request too; one this app is still making is
         // already counted.
         if (_muteRequests == 0) _requestedMute = muted;
+        if (_requestedMute) _clearInterrupted();
         _vad.reset();
         if (_requestedMute && phase == CallPhase.sending) _dropTurn();
         _lastPCM = _now();
@@ -494,6 +506,8 @@ class VoiceCall extends ChangeNotifier {
     if (activity.started) {
       _lastActivity = _now();
       notice = null;
+      // Speaking over the reply cuts it off.
+      if (phase == CallPhase.speaking) _cutOffAt = _now();
       _epoch++;
       // Speaking over the reply stops the voice. The reply itself goes on in
       // the chat until a real turn is about to be sent.
@@ -505,6 +519,20 @@ class VoiceCall extends ChangeNotifier {
     if (activity.utterance case final utterance?) {
       unawaited(_turn(utterance, _epoch));
     }
+  }
+
+  void _clearInterrupted() => _cutOffAt = null;
+
+  /// Whether the next spoken turn follows a cut-off no older than Hermes'
+  /// own latch, which expires after 120 seconds.
+  bool get _interruptedPending {
+    final at = _cutOffAt;
+    if (at == null) return false;
+    if (_now().difference(at) >= _interruptedTtl) {
+      _cutOffAt = null;
+      return false;
+    }
+    return true;
   }
 
   /// The turn is over for this call: nothing of it is sent and the call
@@ -550,6 +578,7 @@ class VoiceCall extends ChangeNotifier {
   /// The orb tap: stops the voice and the reply that is running, then listens.
   Future<void> interruptReply() async {
     if (phase != CallPhase.speaking || _ending || ended) return;
+    _cutOffAt = _now();
     _epoch++;
     _vad.reset();
     _stopSpeech();
@@ -578,6 +607,59 @@ class VoiceCall extends ChangeNotifier {
     _notify();
   }
 
+  /// The turn was not sent. The cut-off, if any, stays pending: a refused turn
+  /// never reached the transport.
+  Future<void> _refused(CallTurnRefused refused, int epoch) async {
+    if (!_current(epoch)) return;
+    if (refused.endsCall) {
+      await _end(
+        'turn',
+        'The conversation was interrupted. Your messages are saved in the chat.',
+        refused,
+        'agent',
+        refused.kind,
+      );
+      return;
+    }
+    _closeSpeech();
+    // A turn no longer wanted says nothing: the user or the chat moved on.
+    if (!refused.noLongerWanted) {
+      notice = refused.busy
+          ? CallNotice.busy
+          : refused.queuePaused
+          ? CallNotice.queuePaused
+          : CallNotice.notSent;
+    }
+    phase = _idlePhase;
+    caption = '';
+    _notify();
+  }
+
+  /// Hermes answered at once without a reply of its own to speak.
+  Future<void> _answeredByHermes(CallTurnAnswer answer, int epoch) async {
+    if (!_current(epoch)) return;
+    if (answer == CallTurnAnswer.voiceStopped) {
+      await voiceStopped();
+      return;
+    }
+    _closeSpeech();
+    notice = switch (answer) {
+      CallTurnAnswer.queued => CallNotice.hermesQueued,
+      CallTurnAnswer.steered => CallNotice.hermesSteered,
+      _ => CallNotice.hermesRedirected,
+    };
+    phase = _idlePhase;
+    caption = '';
+    _notify();
+  }
+
+  /// Closes the speech socket of a turn that has nothing to say.
+  void _closeSpeech() {
+    final speech = _speech;
+    _speech = null;
+    if (speech != null) unawaited(speech.close().catchError((Object _) {}));
+  }
+
   Future<void> _turn(Uint8List pcm, int epoch) async {
     if (_abandoned(epoch)) return;
     phase = CallPhase.sending;
@@ -587,6 +669,8 @@ class VoiceCall extends ChangeNotifier {
     var replying = false;
     var outcome = 'interrupted';
     DateTime? submitted, firstText, firstAudio, replyDone;
+    CallTurnAnswer? answered;
+    var refusedByChat = false;
     Duration? transcription, speechOpen;
     try {
       final String text;
@@ -667,31 +751,51 @@ class VoiceCall extends ChangeNotifier {
       _running++;
       replying = true;
       _replyEpoch = epoch;
-      submitted = _now();
-      // Sending ends here: from this call on, End or mute can no longer
-      // withdraw the words (that comes back with the queue restore and
-      // `authorize`, task 5.0), so the screen stops promising a cancel.
-      phase = CallPhase.thinking;
-      _notify();
-      await agent.reply(
-        text,
-        onSubmitted: () {
-          if (_current(epoch) && !waitingForYou) {
-            haptics?.submit();
-            unawaited(_tone(CallTone.sent));
-          }
-        },
-        onText: (part) {
-          firstText ??= _now();
-          if (_current(epoch)) speech!.append(part);
-        },
-        onAttention: (waiting) {
-          _attentionReply = waiting;
-          _attentionReplyBy = epoch;
-          _attentionChanged();
-        },
-      );
-      replyDone = _now();
+      // Sending lasts until the prompt is about to be written: End, mute or an
+      // approval before that sends nothing (the agent asks `wanted` right up
+      // to the write), and the hint keeps promising the cancel.
+      try {
+        await agent.reply(
+          text,
+          wanted: () =>
+              _current(epoch) && !_requestedMute && !waitingForYou && consented,
+          interrupted: _interruptedPending,
+          onSubmitted: () {
+            // From the write on, the stages are counted; the first turn that
+            // reaches the transport spends the cut-off, whatever Hermes answers.
+            submitted = _now();
+            _clearInterrupted();
+            if (!_current(epoch)) return;
+            if (!waitingForYou) {
+              haptics?.submit();
+              unawaited(_tone(CallTone.sent));
+            }
+            if (phase == CallPhase.sending) {
+              phase = CallPhase.thinking;
+              _notify();
+            }
+          },
+          onText: (part) {
+            firstText ??= _now();
+            if (_current(epoch)) speech!.append(part);
+          },
+          onAttention: (waiting) {
+            _attentionReply = waiting;
+            _attentionReplyBy = epoch;
+            _attentionChanged();
+          },
+          onAnswer: (answer) => answered = answer,
+        );
+        replyDone = _now();
+      } on CallTurnRefused catch (refused) {
+        refusedByChat = true;
+        await _refused(refused, epoch);
+        return;
+      }
+      if (answered != null) {
+        await _answeredByHermes(answered!, epoch);
+        return;
+      }
       if (!_current(epoch)) return;
       // A tool-only turn may have nothing to read. Keep it conversational.
       if (!speech.hasText) {
@@ -720,19 +824,24 @@ class VoiceCall extends ChangeNotifier {
         );
       }
     } finally {
+      // A turn the chat refused or withdrew, or Hermes answered at once, has
+      // no stages to report.
       if (replying) {
+        final from = submitted;
         Duration? since(DateTime? at) =>
-            at == null || submitted == null ? null : at.difference(submitted);
-        _log('voice_call.turn', {
-          'transcription': callLatencyBucket(transcription),
-          'speech_open': callLatencyBucket(speechOpen),
-          'first_text': callLatencyBucket(since(firstText)),
-          'first_audio': callLatencyBucket(since(firstAudio)),
-          'reply_complete': callLatencyBucket(since(replyDone)),
-          'device_speech': deviceSpeech,
-          'fallback': speech?.usedFallback ?? false,
-          'outcome': outcome,
-        });
+            at == null || from == null ? null : at.difference(from);
+        if (!refusedByChat && answered == null) {
+          _log('voice_call.turn', {
+            'transcription': callLatencyBucket(transcription),
+            'speech_open': callLatencyBucket(speechOpen),
+            'first_text': callLatencyBucket(since(firstText)),
+            'first_audio': callLatencyBucket(since(firstAudio)),
+            'reply_complete': callLatencyBucket(since(replyDone)),
+            'device_speech': deviceSpeech,
+            'fallback': speech?.usedFallback ?? false,
+            'outcome': outcome,
+          });
+        }
         _running--;
         if (_replyEpoch == epoch) _replyEpoch = null;
         if (_attentionReplyBy == epoch && _attentionReply) {
@@ -756,6 +865,7 @@ class VoiceCall extends ChangeNotifier {
     _notify();
     if (value) {
       _vad.reset();
+      _clearInterrupted();
       if (phase == CallPhase.sending) _dropTurn();
     }
     try {
@@ -881,6 +991,10 @@ class VoiceCall extends ChangeNotifier {
 
 /// How long a call may go without speech and without a reply.
 const callIdleLimit = Duration(minutes: 5);
+
+/// How long a cut-off stays pending: Hermes keeps its own process-wide latch
+/// for 120 seconds, so a flag older than that would mark someone else's turn.
+const _interruptedTtl = Duration(seconds: 120);
 
 const _stopToneReasons = {'app', 'stop_phrase', 'voice_stopped', 'idle'};
 

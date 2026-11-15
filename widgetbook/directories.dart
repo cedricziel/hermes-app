@@ -38,6 +38,7 @@ import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
 import 'new_chat_fab_use_cases.dart';
+import 'session_export_use_cases.dart';
 
 import 'package:widgetbook/widgetbook.dart';
 
@@ -78,6 +79,7 @@ import 'skills_messaging_use_cases.dart';
 import 'skills_use_cases.dart';
 import 'state_message_use_cases.dart';
 import 'bot_screen_use_cases.dart';
+import 'soul_use_cases.dart';
 import 'busy_bar_use_cases.dart';
 import 'menu_bar_extra_use_cases.dart';
 import 'spotlight_use_cases.dart';
@@ -172,6 +174,7 @@ final List<WidgetbookNode> directories = [
   macSidebarNode(),
   threadGroupingNode(),
   newChatFabNode(),
+  sessionExportAlertNode(),
   conversationWindowNode(),
   quickPanelNode(),
   modelNode(),
@@ -198,4 +201,5 @@ final List<WidgetbookNode> directories = [
   mcpScreensNode(),
   settingsScreensNode(),
   toolsNode(),
+  soulNode(),
 ];

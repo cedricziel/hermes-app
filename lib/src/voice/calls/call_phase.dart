@@ -33,4 +33,24 @@ enum CallNotice {
 
   /// The app was hidden, which ends a call everywhere but on iOS.
   left,
+
+  /// A reply is running or a queue is about to send, so the turn was not sent.
+  busy,
+
+  /// A queue holds prompts that wait for the user and no reply runs: the turn
+  /// was not sent.
+  queuePaused,
+
+  /// The chat refused the turn for another reason the call survives (the
+  /// model, a branch, the persisted queue): nothing was sent.
+  notSent,
+
+  /// Hermes will answer the words after the reply it is running.
+  hermesQueued,
+
+  /// Hermes took the words into the reply it is running.
+  hermesSteered,
+
+  /// Hermes is adjusting the reply it is running to the words.
+  hermesRedirected,
 }
