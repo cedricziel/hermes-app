@@ -489,6 +489,7 @@ class WatchBridge {
     _auth?.removeListener(_sessionChanged);
     _requestActions?.clear();
     unawaited(_departure?.cancel());
+    unawaited(_handler.statusSource?.close());
     _channel.setMethodCallHandler(null);
   }
 

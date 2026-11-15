@@ -340,6 +340,9 @@ class WatchRequestHandler {
             }
           }
         }
+      } on TimeoutException {
+        // The socket may be dead or half open; the next refresh starts over.
+        unawaited(statusSource?.close());
       } on Object {
         // Optional status failure must not hide the successful chat list.
       }
