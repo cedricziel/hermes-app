@@ -4,7 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
-import 'package:hermes_app/src/chat/chat_models.dart' show ChatThread;
+import 'package:hermes_app/src/chat/chat_models.dart'
+    show ChatMessage, ChatRole, ChatThread, MessageStatus;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/queue_storage/durable_queue_store.dart';
@@ -12,6 +13,7 @@ import 'package:hermes_app/src/chat/queue_storage/queue_record.dart';
 import 'package:hermes_app/src/chat/thread_sections.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -37,6 +39,7 @@ void main() {
   late List<String> reports;
   late List<ChatSendNotice> notices;
   late List<String> drafts;
+  late ValueNotifier<bool> activity;
   Completer<DurableQueueStore>? storeGate;
 
   setUp(() async {
@@ -49,6 +52,7 @@ void main() {
     reports = [];
     notices = [];
     drafts = [];
+    activity = ValueNotifier(true);
     storeGate = null;
     attention = AttentionNotifier(
       service: null,
@@ -81,7 +85,7 @@ void main() {
     final chat = ChatController(
       repository: HermesChatRepository(server.client().raw),
       models: models ? HermesModelsRepository(server.client().raw) : null,
-      activity: ValueNotifier(true),
+      activity: activity,
       transport: transport,
       attention: attention,
       report: reports.add,
@@ -410,7 +414,7 @@ void main() {
         ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
         ..finish();
       await pumpEventQueue();
-      expect(notices, [ChatSendNotice.stopCommand]);
+      expect(notices, [ChatSendNotice.stopCommandElsewhere]);
       expect(drafts, isEmpty);
     });
 
@@ -624,6 +628,135 @@ void main() {
       });
     },
   );
+
+  group('a stop phrase typed in a chat that is not open', () {
+    /// Two stored chats, a prompt `stop` sent in the first and the second
+    /// opened, then Hermes taking the words as a stop command.
+    Future<ChatController> stopElsewhere() async {
+      server
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([sessionRow(id: 'stored'), sessionRow(id: 'other')]),
+        )
+        ..on(
+          'GET',
+          '/api/sessions/other/messages',
+          messageListBody('other', []),
+        )
+        ..on('GET', '/api/sessions/stored', sessionRow(id: 'stored'))
+        ..on('DELETE', '/api/sessions/stored', {'ok': true});
+      final chat = await open();
+      await chat.submit('stop', const []);
+      chat.select('other');
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(notices, [ChatSendNotice.stopCommandElsewhere]);
+      expect(drafts, isEmpty);
+      return chat;
+    }
+
+    test('keeps the words through a refresh of the chat list', () async {
+      final chat = await stopElsewhere();
+      final before = chat.threads.firstWhere((t) => t.id == 'stored');
+      await chat.loadThreads('work');
+      // The refresh replaced the thread the words were typed in.
+      expect(
+        chat.threads.firstWhere((t) => t.id == 'stored'),
+        isNot(same(before)),
+      );
+      chat.select('stored');
+      await pumpEventQueue();
+      expect(drafts, ['stop']);
+    });
+
+    test('forgets the words when the profile is switched', () async {
+      final chat = await stopElsewhere();
+      await chat.loadThreads('home');
+      await chat.loadThreads('work');
+      chat.select('stored');
+      await pumpEventQueue();
+      expect(drafts, isEmpty);
+    });
+
+    test('forgets the words when the chat is deleted', () async {
+      final chat = await stopElsewhere();
+      await chat.housekeeping!.delete(
+        chat.threads.firstWhere((t) => t.id == 'stored'),
+      );
+      await chat.loadThreads('work');
+      chat.select('stored');
+      await pumpEventQueue();
+      expect(drafts, isEmpty);
+    });
+
+    test('forgets the words when the app is suspended', () async {
+      final chat = await stopElsewhere();
+      activity.value = false;
+      activity.value = true;
+      await pumpEventQueue();
+      while (chat.loadingThreads) {
+        await pumpEventQueue();
+      }
+      chat.select('stored');
+      await pumpEventQueue();
+      expect(drafts, isEmpty);
+    });
+
+    test('hands the words over when a notification opens the chat', () async {
+      final chat = await stopElsewhere();
+      expect(
+        await chat.restoreHandoff(
+          const NotificationTarget(threadId: 'stored', profile: 'work'),
+          () => true,
+        ),
+        isTrue,
+      );
+      expect(chat.selectedThread!.id, 'stored');
+      expect(drafts, ['stop']);
+    });
+
+    test(
+      'hands the words over when a notification opens a replying chat',
+      () async {
+        final chat = await stopElsewhere();
+        chat.threads
+            .firstWhere((t) => t.id == 'stored')
+            .messages
+            .add(
+              ChatMessage(
+                id: 'live',
+                role: ChatRole.assistant,
+                content: 'Still replying',
+                createdAt: DateTime.now(),
+                status: MessageStatus.streaming,
+              ),
+            );
+        expect(
+          await chat.restoreHandoff(
+            const NotificationTarget(threadId: 'stored', profile: 'work'),
+            () => true,
+          ),
+          isTrue,
+        );
+        expect(chat.selectedThread!.id, 'stored');
+        expect(drafts, ['stop']);
+      },
+    );
+
+    test('hands the words over when open() selects the chat', () async {
+      final chat = await stopElsewhere();
+      chat.open(
+        const NotificationTarget(threadId: 'stored', profile: 'work'),
+        fetchMissing: true,
+      );
+      await pumpEventQueue();
+      expect(drafts, ['stop']);
+    });
+  });
 
   test('a stop phrase is reported with the thread it was sent in', () async {
     final chat = await open();

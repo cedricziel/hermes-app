@@ -203,6 +203,7 @@ extension _ChatControllerHistory on ChatController {
         _newChatModel = null;
         _ChatControllerWorkspace(this)._workspaceProfileSwitched();
         search?.clear();
+        _stopHandBacks.clear();
       }
       _carryReplies();
       for (final entry in interruptedLocalReplies.entries) {

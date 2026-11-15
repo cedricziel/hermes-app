@@ -94,6 +94,10 @@
   "@chatNoticeStopCommand": {
     "description": "Notice in the chat when a typed or queued message was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The text goes back into the message box."
   },
+  "chatNoticeStopCommandElsewhere": "Hermes took a message in another chat as a stop command. Nothing was sent; the words wait in that chat.",
+  "@chatNoticeStopCommandElsewhere": {
+    "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
+  },
   "chatSessionExportConfirmButton": "Export",
   "@chatSessionExportConfirmButton": {
     "description": "Button of the export confirmation that starts fetching the chat file."

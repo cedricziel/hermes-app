@@ -224,7 +224,7 @@ void main() {
     await pumpEventQueue();
     transport.sends.last.finish();
     await pumpEventQueue();
-    expect(notices, [ChatSendNotice.stopCommand]);
+    expect(notices, [ChatSendNotice.stopCommandElsewhere]);
     expect(drafts, isEmpty);
     chat.select(thread.id);
     await pumpEventQueue();
