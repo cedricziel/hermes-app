@@ -67,14 +67,132 @@ void main() {
       },
     );
 
-    test('JSON above the size bound is not parsed and stays plain', () {
+    test('JSON above the size bound is not parsed, only recognised by shape', () {
       final inside = '[${List.filled(1000, '1').join(',')}]';
       expect(inside.length, lessThan(kToolJsonSniffMaxChars));
       expect(toolValueLanguage(inside), 'json');
       final over = '[${List.filled(kToolJsonSniffMaxChars, '1').join(',')}]';
       expect(over.length, greaterThan(kToolJsonSniffMaxChars));
-      expect(toolValueLanguage(over), isNull);
       expect(isJsonContainerText(over), isFalse);
+      // Coloured flat as JSON all the same, with the outline as the only test.
+      expect(toolValueLanguage(over), 'json');
+      expect(toolValueLanguage('x' * (kToolJsonSniffMaxChars + 1)), isNull);
+      expect(
+        toolValueLanguage('{${'x' * kToolJsonSniffMaxChars}'),
+        isNull,
+        reason: 'no closing brace',
+      );
+    });
+
+    test('a fence tag names the grammar, by alias and case, or nothing', () {
+      expect(toolValueLanguage('x', fence: 'python'), 'python');
+      expect(toolValueLanguage('x', fence: 'PY'), 'python');
+      expect(toolValueLanguage('x', fence: 'sh'), 'bash');
+      expect(toolValueLanguage('x', fence: 'json title="a"'), 'json');
+      expect(toolValueLanguage('x', fence: 'yml'), 'yaml');
+      expect(toolValueLanguage('x', fence: 'nosuchlang'), isNull);
+      expect(toolValueLanguage('x', fence: 'text'), isNull);
+      expect(toolValueLanguage('x', fence: ''), isNull);
+      // The fence wins over the path and the sniff.
+      expect(
+        toolValueLanguage('{"a": 1}', path: 'a.py', fence: 'dart'),
+        'dart',
+      );
+      expect(toolValueLanguage('{"a": 1}', fence: 'unknown'), isNull);
+    });
+
+    test('a path names the language of code and a fence-less text is JSON', () {
+      expect(toolValueLanguage('print(1)', path: 'tools/a.py'), 'python');
+      expect(toolValueLanguage('plain words'), isNull);
+    });
+  });
+
+  group('limits', () {
+    test('the three numbers', () {
+      expect(kToolJsonSniffMaxChars, 64 * 1024);
+      expect(kToolValueColourMaxChars, 512 * 1024);
+      expect(kToolValueColourMaxChars, kCodeHighlightMaxChars);
+      expect(kToolJsonTreeMaxDepth, 64);
+    });
+
+    String json(int length) {
+      // An array of "x" padded to exactly [length] characters.
+      const head = '["';
+      const tail = '"]';
+      return '$head${'x' * (length - head.length - tail.length)}$tail';
+    }
+
+    test('JSON of exactly 64 KB still gets the tree, one more does not', () {
+      final exact = json(kToolJsonSniffMaxChars);
+      expect(exact.length, kToolJsonSniffMaxChars);
+      final shape = toolValueShape(exact, language: 'json');
+      expect(shape.offersTree, isTrue);
+      expect(shape.notice, ToolValueNotice.none);
+
+      final over = json(kToolJsonSniffMaxChars + 1);
+      final overShape = toolValueShape(over, language: 'json');
+      expect(overShape.offersTree, isFalse);
+      expect(overShape.language, 'json');
+      expect(overShape.notice, ToolValueNotice.tooLongForTree);
+    });
+
+    test(
+      'text of exactly 512 KB is coloured, one more is plain and says so',
+      () {
+        final exact = json(kToolValueColourMaxChars);
+        final shape = toolValueShape(exact, language: 'json');
+        expect(shape.notice, ToolValueNotice.tooLongForTree);
+        expect(shape.language, 'json');
+
+        final over = json(kToolValueColourMaxChars + 1);
+        final overShape = toolValueShape(over, language: 'json');
+        expect(overShape.notice, ToolValueNotice.tooLongToColour);
+        expect(overShape.offersTree, isFalse);
+
+        final code = 'x = 1\n' * 100000;
+        expect(code.length, greaterThan(kToolValueColourMaxChars));
+        expect(
+          toolValueShape(code, language: 'python').notice,
+          ToolValueNotice.tooLongToColour,
+        );
+        expect(
+          toolValueShape(
+            'x' * kToolValueColourMaxChars,
+            language: 'python',
+          ).notice,
+          ToolValueNotice.none,
+        );
+      },
+    );
+
+    test('depth 64 gets the tree, depth 65 is flat and says so', () {
+      final ok = '[' * 64 + ']' * 64;
+      expect(toolValueShape(ok, language: 'json').offersTree, isTrue);
+      final deep = '[' * 65 + ']' * 65;
+      final shape = toolValueShape(deep, language: 'json');
+      expect(shape.offersTree, isFalse);
+      expect(shape.language, 'json');
+      expect(shape.notice, ToolValueNotice.tooDeepForTree);
+    });
+
+    test('a running call, plain text and invalid JSON say nothing', () {
+      for (final shape in [
+        toolValueShape('{"a": 1}', language: 'json', settled: false),
+        toolValueShape('words'),
+        toolValueShape('{"a": 1', language: 'json'),
+        toolValueShape('x' * (kToolValueColourMaxChars + 1)),
+      ]) {
+        expect(shape.language, isNull);
+        expect(shape.notice, ToolValueNotice.none);
+        expect(shape.offersTree, isFalse);
+      }
+    });
+
+    test('code gets no tree and no notice', () {
+      final shape = toolValueShape('print(1)', language: 'python');
+      expect(shape.language, 'python');
+      expect(shape.offersTree, isFalse);
+      expect(shape.notice, ToolValueNotice.none);
     });
   });
 }

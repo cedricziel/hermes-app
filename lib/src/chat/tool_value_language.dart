@@ -1,10 +1,20 @@
 import 'dart:convert';
 
+import '../files/code_highlight.dart'
+    show hasCodeGrammar, kCodeHighlightMaxChars;
+
 /// The most characters of a tool input or output that are parsed to tell
-/// whether it is JSON. A parse of this size took about 10 ms on the UI
-/// isolate in a debug test run (less in a release build); a larger text stays
-/// plain.
+/// whether it is JSON, and so the most the Tree view is offered for ("64 KB",
+/// counted in characters). A parse of this size took about 10 ms on the UI
+/// isolate in a debug test run (less in a release build). A JSON text above it
+/// is coloured flat with no Tree and says so
+/// ([ToolValueNotice.tooLongForTree]).
 const int kToolJsonSniffMaxChars = 64 * 1024;
+
+/// The most characters of a tool text that are coloured at all ("512 KB"):
+/// the Files limit, [kCodeHighlightMaxChars]. Above it the text is plain and
+/// says so ([ToolValueNotice.tooLongToColour]).
+const int kToolValueColourMaxChars = kCodeHighlightMaxChars;
 
 /// Whether [text] is a JSON object or array, by a parse of at most
 /// [kToolJsonSniffMaxChars] characters. A bare string, number or `null` is not
@@ -111,13 +121,23 @@ const _byExtension = <String, String>{
 /// The grammar name to colour [text] with, or null to show it plain. Decided
 /// on the client from what the call itself says, never from the server:
 ///
+/// - [fence], the tag of a fenced block: that grammar, or null when the app
+///   has none by that name.
 /// - [isCommand], the `command` argument of a terminal call: shell.
 /// - [path], the `path` argument of a file tool: its extension.
-/// - otherwise the text, when it parses as a JSON object or array.
+/// - otherwise the text, when it parses as a JSON object or array; a text
+///   above [kToolJsonSniffMaxChars] is not parsed and counts as JSON when it
+///   has the outline of one ([looksLikeJsonContainer]).
 ///
 /// An extension this does not know, a [path] without one and a text that is
 /// none of these give null.
-String? toolValueLanguage(String text, {String? path, bool isCommand = false}) {
+String? toolValueLanguage(
+  String text, {
+  String? path,
+  bool isCommand = false,
+  String? fence,
+}) {
+  if (fence != null) return fenceLanguage(fence);
   if (isCommand) return 'bash';
   if (path != null) {
     final name = path.substring(path.lastIndexOf('/') + 1).toLowerCase();
@@ -127,5 +147,138 @@ String? toolValueLanguage(String text, {String? path, bool isCommand = false}) {
       if (language != null) return language;
     }
   }
+  if (text.length > kToolJsonSniffMaxChars) {
+    return looksLikeJsonContainer(text) ? 'json' : null;
+  }
   return isJsonContainerText(text) ? 'json' : null;
+}
+
+/// Whether [text] has the outline of a JSON object or array, by its first and
+/// last characters outside blanks. No parse: it is for a text too long to
+/// parse, which is coloured as JSON all the same (a text that is not JSON
+/// loses nothing but its colour).
+bool looksLikeJsonContainer(String text) {
+  var start = 0;
+  var end = text.length - 1;
+  bool blank(int unit) =>
+      unit == 0x20 || unit == 0x09 || unit == 0x0A || unit == 0x0D;
+  while (start <= end && blank(text.codeUnitAt(start))) {
+    start++;
+  }
+  while (end > start && blank(text.codeUnitAt(end))) {
+    end--;
+  }
+  if (start >= end) return false;
+  final first = text.codeUnitAt(start);
+  final last = text.codeUnitAt(end);
+  return (first == 0x7B && last == 0x7D) || (first == 0x5B && last == 0x5D);
+}
+
+const _fenceAliases = <String, String>{
+  'py': 'python',
+  'python3': 'python',
+  'js': 'javascript',
+  'ts': 'typescript',
+  'sh': 'bash',
+  'shell': 'bash',
+  'zsh': 'bash',
+  'console': 'bash',
+  'yml': 'yaml',
+  'html': 'xml',
+  'rs': 'rust',
+  'rb': 'ruby',
+  'kt': 'kotlin',
+  'md': 'markdown',
+  'jsonc': 'json',
+};
+
+/// The grammar name a fence tag (`python`, `py`, `json title="x"`) stands for,
+/// or null when it names none the app has.
+String? fenceLanguage(String? tag) {
+  if (tag == null) return null;
+  final word = tag.trim().toLowerCase().split(RegExp(r'[\s{]')).first;
+  if (word.isEmpty) return null;
+  final name = _fenceAliases[word] ?? word;
+  return hasCodeGrammar(name) && name != 'text' && name != 'plaintext'
+      ? name
+      : null;
+}
+
+/// What a settled tool text says about how it is shown, besides the view.
+enum ToolValueNotice {
+  /// Nothing to explain.
+  none,
+
+  /// Above [kToolValueColourMaxChars]: plain text, no switch.
+  tooLongToColour,
+
+  /// JSON above [kToolJsonSniffMaxChars]: coloured flat, no switch.
+  tooLongForTree,
+
+  /// JSON nested deeper than [kToolJsonTreeMaxDepth]: coloured flat, no
+  /// switch.
+  tooDeepForTree,
+}
+
+/// How one tool text is shown: its [language] (null is plain and names no
+/// content), the decoded JSON when the Tree is on offer ([tree]) and the
+/// [notice] for a text shown plainer than its content could be.
+class ToolValueShape {
+  const ToolValueShape({this.language, this.tree, required this.notice});
+
+  /// The grammar the text is coloured with; null for plain text.
+  final String? language;
+
+  /// The decoded object or array, non-null only when the Tree is offered.
+  final Object? tree;
+
+  final ToolValueNotice notice;
+
+  bool get offersTree => tree != null;
+}
+
+/// The shape of [text] given the [language] [toolValueLanguage] found.
+///
+/// - A running call ([settled] false) is plain: its text grows with every
+///   delta, and nothing is decided until it settles.
+/// - Above [kToolValueColourMaxChars] it stays plain and says so.
+/// - JSON above [kToolJsonSniffMaxChars], or nested deeper than
+///   [kToolJsonTreeMaxDepth], is coloured flat with no Tree and says so; JSON
+///   that does not parse is plain and unnamed.
+/// - Code gets no Tree.
+ToolValueShape toolValueShape(
+  String text, {
+  String? language,
+  bool settled = true,
+}) {
+  const plain = ToolValueShape(notice: ToolValueNotice.none);
+  if (!settled || language == null) return plain;
+  if (text.length > kToolValueColourMaxChars) {
+    return ToolValueShape(
+      language: language,
+      notice: ToolValueNotice.tooLongToColour,
+    );
+  }
+  if (language != 'json') {
+    return ToolValueShape(language: language, notice: ToolValueNotice.none);
+  }
+  if (text.length > kToolJsonSniffMaxChars) {
+    return const ToolValueShape(
+      language: 'json',
+      notice: ToolValueNotice.tooLongForTree,
+    );
+  }
+  final decoded = tryDecodeJsonContainer(text);
+  if (decoded == null) return plain;
+  if (jsonNestingDepth(text) > kToolJsonTreeMaxDepth) {
+    return const ToolValueShape(
+      language: 'json',
+      notice: ToolValueNotice.tooDeepForTree,
+    );
+  }
+  return ToolValueShape(
+    language: 'json',
+    tree: decoded,
+    notice: ToolValueNotice.none,
+  );
 }
