@@ -84,6 +84,16 @@ queued one is replaced by the newer one, so main's latest finished run is the
 one to read. `widgetbook.yml` still cancels on main: a Pages deploy is
 superseded by the next one.
 
+`Analyze & test` runs before the builds and cannot wait for them, so the `Builds`
+job (`needs` all five, `if: always()`) aggregates them. It fails when `Analyze &
+test` did not succeed; otherwise it expects `success` from every build when
+`code` and `builds` are both true, and `skipped` from every build when not. A
+failed, cancelled or unexpectedly skipped build fails it, and the log names the
+job and what was expected. `Test native audio (Linux)` is left out on purpose
+(advisory). `Builds` is a required check only once the owner adds it to the
+ruleset; until then a red `Builds` does not block a merge, so read it before
+merging a PR that touches native code or `pubspec.yaml`.
+
 The platform builds must not rely on the default `success()`: it is false when
 any job upstream was skipped, and `Test watch core` is skipped on most pull
 requests. Their `if` therefore names `needs.analyze-and-test.result ==

@@ -426,3 +426,42 @@ jobs:
 
       - name: Inspect the .deb
         run: dpkg-deb --info build/linux-dist/*.deb && dpkg-deb --contents build/linux-dist/*.deb
+
+  # Aggregates the five platform builds. They run after Analyze & test, so that
+  # check cannot wait for them. A build that was needed must have succeeded; one
+  # that was not (docs-only or Dart-only pull request) must show as skipped. A
+  # failed or cancelled build, or an unexpected skip, fails this check. The
+  # advisory native audio test is left out on purpose.
+  builds:
+    name: Builds
+    runs-on: ubuntu-latest
+    needs: [changes, analyze-and-test, build-android, build-windows, build-ios, build-macos, build-linux]
+    if: always()
+    steps:
+      - name: Check results
+        env:
+          ANALYZE_AND_TEST: ${{ needs.analyze-and-test.result }}
+          ANDROID: ${{ needs.build-android.result }}
+          WINDOWS: ${{ needs.build-windows.result }}
+          IOS: ${{ needs.build-ios.result }}
+          MACOS: ${{ needs.build-macos.result }}
+          LINUX: ${{ needs.build-linux.result }}
+          NEED_CODE: ${{ needs.changes.outputs.code }}
+          NEED_BUILDS: ${{ needs.changes.outputs.builds }}
+        run: |
+          fail=0
+          expect() {
+            echo "$1: $2 (expected $3)"
+            [ "$2" = "$3" ] || fail=1
+          }
+          if [ "$ANALYZE_AND_TEST" != success ]; then
+            echo "analyze-and-test: $ANALYZE_AND_TEST (expected success); the builds could not run because Analyze & test failed"
+            exit 1
+          fi
+          if [ "$NEED_CODE" = true ] && [ "$NEED_BUILDS" = true ]; then want=success; else want=skipped; fi
+          expect build-android "$ANDROID" "$want"
+          expect build-windows "$WINDOWS" "$want"
+          expect build-ios "$IOS" "$want"
+          expect build-macos "$MACOS" "$want"
+          expect build-linux "$LINUX" "$want"
+          exit $fail
