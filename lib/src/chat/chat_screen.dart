@@ -156,6 +156,7 @@ import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
 import 'widgets/new_chat_fab.dart';
+import 'widgets/tool_call_expansion.dart';
 import '../kanban/widgets/task_panel/kanban_task_sheet.dart';
 import '../widgets/inspector_layout.dart';
 
@@ -303,6 +304,12 @@ class ChatScreen extends StatefulWidget {
 /// Owns resources and lifecycle; private parts group feature behavior and layout.
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
+
+  /// The tool calls the reader opened in the open chat. Held here, above the
+  /// list, so a row scrolled away and back or a list mounted anew keeps them;
+  /// dropped when another chat or profile opens (`follow`) and with this
+  /// screen, so on sign-out.
+  final _toolCallExpansion = ToolCallExpansionStore();
 
   /// Tells the update question how many replies this chat has running.
   RepliesInProgress? _repliesCount;
@@ -948,6 +955,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     unawaited(_dictation?.refresh());
     _refreshReadAloud();
     _chat.checkConnection();
+    unawaited(_chat.refreshModelOptionsOnResume());
     unawaited(_memoryWaiting?.refreshIfStale(_chat.profile));
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
