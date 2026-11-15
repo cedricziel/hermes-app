@@ -314,16 +314,46 @@ void main() {
     });
   });
 
-  testWidgets('a notice has 8 pt of room above it', (tester) async {
+  testWidgets('a notice sits between the label row and the body', (
+    tester,
+  ) async {
     final text = '{"a": "${'x' * (kToolJsonSniffMaxChars + 10)}"}';
     await tester.pumpWidget(
       _host(ToolValuePanel(label: 'Result', text: text, language: 'json')),
     );
-    final panel = tester.getRect(find.byType(ToolValuePanel));
+    final header = tester.getRect(find.byType(ToolValueHeader));
     final notice = tester.getRect(
       find.byKey(const ValueKey('tool-value-notice')),
     );
-    expect(notice.top - panel.top, greaterThanOrEqualTo(8));
+    final body = tester.getRect(find.byType(ToolValueView));
+    expect(notice.top, greaterThanOrEqualTo(header.bottom));
+    expect(notice.bottom, lessThanOrEqualTo(body.top));
+  });
+
+  testWidgets('a tree-offering text has its notice below the switch row', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ToolValueBudgetScope(
+          budget: ToolValueBudget(maxChars: 10),
+          child: ToolValuePanel(
+            label: 'Result',
+            text: _object(20),
+            language: 'json',
+          ),
+        ),
+      ),
+    );
+    final header = tester.getRect(find.byType(ToolValueHeader));
+    final notice = tester.getRect(
+      find.byKey(const ValueKey('tool-value-notice')),
+    );
+    expect(notice.top, greaterThanOrEqualTo(header.bottom));
+    expect(
+      tester.getRect(find.byType(ToolValueView)).top,
+      greaterThanOrEqualTo(notice.bottom),
+    );
   });
 
   group('the label row and notices (canvas fixes)', () {
@@ -338,26 +368,27 @@ void main() {
       expect(find.byKey(const ValueKey('tool-value-notice')), findsOneWidget);
     });
 
-    testWidgets('the notice is above the body, with an info mark', (
-      tester,
-    ) async {
-      final text = '{"a": "${'x' * (kToolJsonSniffMaxChars + 10)}"}';
-      await tester.pumpWidget(
-        _host(ToolValuePanel(label: 'Result', text: text, language: 'json')),
-      );
-      final notice = tester.getRect(
-        find.byKey(const ValueKey('tool-value-notice')),
-      );
-      final body = tester.getRect(find.byType(ToolValueView));
-      expect(notice.bottom, lessThanOrEqualTo(body.top));
-      final handle = tester.ensureSemantics();
-      expect(
-        find.bySemanticsLabel('Too long for the tree view.'),
-        findsOneWidget,
-      );
-      expect(find.byType(ExcludeSemantics), findsWidgets);
-      handle.dispose();
-    });
+    testWidgets(
+      'the notice is between the label row and the body, with an info mark',
+      (tester) async {
+        final text = '{"a": "${'x' * (kToolJsonSniffMaxChars + 10)}"}';
+        await tester.pumpWidget(
+          _host(ToolValuePanel(label: 'Result', text: text, language: 'json')),
+        );
+        final notice = tester.getRect(
+          find.byKey(const ValueKey('tool-value-notice')),
+        );
+        final body = tester.getRect(find.byType(ToolValueView));
+        expect(notice.bottom, lessThanOrEqualTo(body.top));
+        final handle = tester.ensureSemantics();
+        expect(
+          find.bySemanticsLabel('Too long for the tree view.'),
+          findsOneWidget,
+        );
+        expect(find.byType(ExcludeSemantics), findsWidgets);
+        handle.dispose();
+      },
+    );
 
     testWidgets(
       'the copy button has no border and says Copied in full colour',
@@ -453,11 +484,35 @@ void main() {
     );
     expect(find.textContaining('2 keys', findRichText: true), findsNothing);
     expect(find.textContaining('{', findRichText: true), findsNothing);
-    expect(find.textContaining('0: 10', findRichText: true), findsOneWidget);
-    expect(
-      find.textContaining('list: 2 items', findRichText: true),
-      findsOneWidget,
-    );
+    String plain(RichText w) => w.text.toPlainText().replaceAll('\uFFFC', ' ');
+    final rows = tester
+        .widgetList<RichText>(
+          find.descendant(
+            of: find.byType(ToolJsonTree),
+            matching: find.byType(RichText),
+          ),
+        )
+        .map(plain)
+        .toList();
+    expect(rows, contains('0 10'), reason: 'an index has no colon');
+    expect(rows, contains('list: 2 items'), reason: 'a key keeps its colon');
+    expect(rows.any((r) => r.contains('0: ')), isFalse);
+    // The count is in the UI font, not the code font of the row.
+    TextSpan? count;
+    for (final row in tester.widgetList<RichText>(
+      find.descendant(
+        of: find.byType(ToolJsonTree),
+        matching: find.byType(RichText),
+      ),
+    )) {
+      row.text.visitChildren((span) {
+        if (span is TextSpan && span.text == '2 items') count = span;
+        return true;
+      });
+    }
+    expect(count, isNotNull);
+    expect(count!.style?.inherit, isFalse);
+    expect(count!.style?.fontFamily, isNot('monospace'));
     expect(find.byType(CustomPaint), findsWidgets);
   });
 }

@@ -381,12 +381,16 @@ class ToolJsonView extends StatefulWidget {
     this.bodyMaxHeight,
     this.section = ToolValueSection.result,
     this.colour = true,
+    this.notice,
   });
 
   final String text;
 
   /// Whether the flat text is coloured; false shows it plain.
   final bool colour;
+
+  /// A [ToolValueNoticeLine] between the header row and the body.
+  final Widget? notice;
 
   /// [text] already decoded (an object or array within the depth the tree is
   /// offered for), so the tree does not parse it again.
@@ -427,6 +431,7 @@ class _ToolJsonViewState extends State<ToolJsonView> {
           ...widget.actions,
         ],
       ),
+      ?widget.notice,
       ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: widget.bodyMaxHeight ?? double.infinity,
@@ -617,7 +622,6 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (notice != null) ToolValueNoticeLine(text: notice),
           if (_shape.offersTree)
             ToolJsonView(
               text: widget.text,
@@ -628,9 +632,11 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
               bodyMaxHeight: ToolValuePanel.maxHeight,
               section: widget.section,
               colour: _colour,
+              notice: notice == null ? null : ToolValueNoticeLine(text: notice),
             )
           else ...[
             ToolValueHeader(label: label, actions: [?copy]),
+            if (notice != null) ToolValueNoticeLine(text: notice),
             ConstrainedBox(
               constraints: const BoxConstraints(
                 maxHeight: ToolValuePanel.maxHeight,
@@ -650,7 +656,7 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
   }
 }
 
-/// A muted line above the body saying why the text is shown plainer than its
+/// A muted line between the label row and the body saying why the text is shown plainer than its
 /// content could be: an info mark and the words. The mark is decoration; the
 /// text is what a screen reader reads.
 class ToolValueNoticeLine extends StatelessWidget {
@@ -662,7 +668,7 @@ class ToolValueNoticeLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final subtle = context.hermesColors.subtleText;
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 6),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

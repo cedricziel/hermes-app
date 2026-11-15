@@ -146,28 +146,23 @@ class _StructuredValueState extends State<_StructuredValue> {
           )
         : null;
     if (_shape.offersTree) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ?notice,
-          ToolJsonView(
-            // The tree it shows is for this text: another value, another view.
-            key: ValueKey(_text),
-            text: _text,
-            nodes: _shape.tree,
-            header: label,
-            bodyMaxHeight: ToolValuePanel.maxHeight,
-            section: ToolValueSection.input,
-            colour: _colour,
-          ),
-        ],
+      return ToolJsonView(
+        // The tree it shows is for this text: another value, another view.
+        key: ValueKey(_text),
+        text: _text,
+        nodes: _shape.tree,
+        header: label,
+        bodyMaxHeight: ToolValuePanel.maxHeight,
+        section: ToolValueSection.input,
+        colour: _colour,
+        notice: notice,
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ?notice,
         label,
+        ?notice,
         const SizedBox(height: 3),
         ConstrainedBox(
           constraints: const BoxConstraints(

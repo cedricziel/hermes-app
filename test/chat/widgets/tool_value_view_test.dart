@@ -132,8 +132,15 @@ String _boxLabel(WidgetTester tester, int index) =>
 Finder _label(String label) => find.bySemanticsLabel(label);
 
 /// A row of the tree, whether or not the 220 pt box has scrolled it into view.
-Finder _rich(String text) =>
-    find.textContaining(text, findRichText: true, skipOffstage: false);
+///
+/// A gap in a row (between a container's key or index and its count) is a
+/// widget span, read here as one space.
+Finder _rich(String text) => find.byWidgetPredicate(
+  (w) =>
+      w is RichText &&
+      w.text.toPlainText().replaceAll('\uFFFC', ' ').contains(text),
+  skipOffstage: false,
+);
 
 void main() {
   group('ToolValueView', () {
@@ -1000,8 +1007,13 @@ void main() {
       expect(_rich('a: 2 items'), findsOneWidget);
       expect(_rich('one: 1 item'), findsOneWidget);
       expect(_rich('o: 2 keys'), findsOneWidget);
-      expect(_rich('0: 1'), findsOneWidget, reason: 'array items have indexes');
-      expect(_rich('1: 2'), findsOneWidget);
+      expect(
+        _rich('0 1'),
+        findsOneWidget,
+        reason: 'array items have indexes and no colon',
+      );
+      expect(_rich('1 2'), findsOneWidget);
+      expect(_rich('0: '), findsNothing);
       expect(_rich('k: 1'), findsOneWidget, reason: 'first item at depth 2');
       expect(_rich('m: 2'), findsNothing, reason: 'the next one starts folded');
       await tester.tap(_rich('q: 1 key'));
@@ -1531,7 +1543,7 @@ void main() {
       expect(
         node,
         isSemantics(
-          label: 'a: 1 key',
+          label: 'a:\n1 key',
           isButton: true,
           hasExpandedState: true,
           isExpanded: true,
@@ -1556,7 +1568,7 @@ void main() {
           hasExpandedState: true,
           isExpanded: false,
           hasTapAction: true,
-          label: 'a: 1 key',
+          label: 'a:\n1 key',
         ),
       );
       handle.dispose();

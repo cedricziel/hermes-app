@@ -164,6 +164,12 @@ class AdaptiveSegmentedControl<T extends Object> extends StatelessWidget {
       maximumSize: const Size(double.infinity, kCompactSegmentedHeight),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       iconSize: 14,
+      // The selected segment sits on the high surface in the text colour, the
+      // check and the outline still tell it apart without colour.
+      selectedBackgroundColor: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest,
+      selectedForegroundColor: Theme.of(context).colorScheme.onSurface,
       textStyle:
           Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 12) ??
           const TextStyle(fontSize: 12),

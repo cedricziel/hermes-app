@@ -206,17 +206,25 @@ class _TreeRow extends StatelessWidget {
 
     final spans = <InlineSpan>[];
     final key = node.key;
+    final container = node.isContainer;
+    // A container's count follows its key or index after a 4 pt gap; any
+    // other value follows a colon (a key) or a wider gap (an index).
+    final gap = WidgetSpan(child: SizedBox(width: container ? 4 : 8));
     if (key != null) {
       spans
         ..addAll(text(key, keyStyle))
-        ..add(TextSpan(text: ': ', style: punctuation));
+        ..add(TextSpan(text: container ? ':' : ': ', style: punctuation));
+      if (container) spans.add(gap);
     } else if (position >= 0) {
-      spans.add(
-        TextSpan(
-          text: '$position: ',
-          style: base.copyWith(color: subtle),
-        ),
-      );
+      // An array item shows its index, with no colon.
+      spans
+        ..add(
+          TextSpan(
+            text: '$position',
+            style: base.copyWith(color: subtle),
+          ),
+        )
+        ..add(gap);
     }
     switch (node.kind) {
       case JsonTreeKind.object || JsonTreeKind.array:
@@ -228,7 +236,17 @@ class _TreeRow extends StatelessWidget {
         spans.add(
           TextSpan(
             text: summary,
-            style: TextStyle(fontSize: 11.5, color: subtle),
+            // The UI font, not the code font the row inherits.
+            style: TextStyle(
+              inherit: false,
+              fontSize: 11.5,
+              color: subtle,
+              fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+              fontFamilyFallback: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.fontFamilyFallback,
+            ),
           ),
         );
       case JsonTreeKind.string:
