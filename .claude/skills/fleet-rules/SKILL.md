@@ -68,8 +68,9 @@ useful when it:
 ## Git and PR
 
 - One PR per item. Conventional Commits for commits and PR titles.
-- Branch from `origin/main` explicitly, after a `git fetch` (`git checkout -b <name>
-  origin/main`): an agent worktree can start at a stale commit. State the base
+- Branch from `origin/main` explicitly, after a `git fetch`
+  (`git checkout -b <name> origin/main`; for a stacked PR, from the fetched
+  lower branch, `origin/<lower>`): an agent worktree can start at a stale commit. State the base
   SHA in every report; check it before trusting numbers or opening a PR.
 - Never rebase or force-push a pushed branch. Merge main in.
 - No `git stash` (the stash list is shared between worktrees). Commit or use a
