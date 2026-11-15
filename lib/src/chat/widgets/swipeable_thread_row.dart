@@ -3,11 +3,14 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/breakpoints.dart';
 import 'thread_actions_menu.dart';
+import 'touch_row_menu.dart';
 
 /// The iOS way to act on a thread row: swipe right to pin, swipe left to
-/// delete, long press for every action in an action sheet. VoiceOver gets the
-/// same actions as custom actions on the row.
+/// delete, long press for every action in an action sheet, or in a popover
+/// menu at the row on an iPad ([TouchRowMenu]). VoiceOver gets the same
+/// actions as custom actions on the row.
 class SwipeableThreadRow extends StatelessWidget {
   const SwipeableThreadRow({
     super.key,
@@ -94,11 +97,18 @@ class SwipeableThreadRow extends StatelessWidget {
             ),
           ],
         ),
-        child: GestureDetector(
-          behavior: HitTestBehavior.deferToChild,
-          onLongPress: () => _showSheet(context),
-          child: child,
-        ),
+        child: isWideLayout(context)
+            ? TouchRowMenu(
+                title: title,
+                pinned: pinned,
+                onAction: onAction,
+                child: child,
+              )
+            : GestureDetector(
+                behavior: HitTestBehavior.deferToChild,
+                onLongPress: () => _showSheet(context),
+                child: child,
+              ),
       ),
     );
   }

@@ -55,6 +55,8 @@ void main() {
       tester,
     ) async {
       await pump(tester);
+      tester.view.physicalSize = const Size(393, 852);
+      await tester.pumpAndSettle();
 
       await tester.longPress(title);
       await tester.pumpAndSettle();
@@ -183,6 +185,9 @@ void main() {
   testWidgets('a sheet left open after its row is gone runs nothing', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final actions = <Object>[];
     final present = ValueNotifier(true);
     await tester.pumpWidget(

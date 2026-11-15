@@ -313,12 +313,13 @@ Future<void> runThreadAction(
         await housekeeping.archive(thread);
       }
     case (ThreadAction.delete, final housekeeping?):
-      final confirmed = await showConfirmDialog(
+      final l10n = context.l10n;
+      final confirmed = await showDestructiveConfirm(
         context,
-        title: 'Delete this chat?',
-        message: '"${thread.title}" and its messages will be deleted for good.',
-        confirmLabel: 'Delete',
-        destructive: true,
+        title: l10n.chatWidgetsThreadMenuDeleteTitle,
+        message: l10n.chatWidgetsThreadMenuDeleteMessage(thread.title),
+        confirmLabel: l10n.chatWidgetsThreadMenuDelete,
+        cancelLabel: l10n.chatWidgetsThreadMenuCancel,
       );
       if (confirmed) await housekeeping.delete(thread);
   }

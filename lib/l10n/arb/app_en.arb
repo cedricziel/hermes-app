@@ -2180,6 +2180,54 @@
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
   },
+  "chatWidgetsThreadMenuArchive": "Archive",
+  "@chatWidgetsThreadMenuArchive": {
+    "description": "Row of a chat's popover menu on an iPad that archives the chat."
+  },
+  "chatWidgetsThreadMenuCancel": "Cancel",
+  "@chatWidgetsThreadMenuCancel": {
+    "description": "Cancel button of the alert that asks before deleting a chat from its row menu."
+  },
+  "chatWidgetsThreadMenuDelete": "Delete",
+  "@chatWidgetsThreadMenuDelete": {
+    "description": "Row of a chat's popover menu on an iPad that deletes the chat, and the red button of the alert that confirms it."
+  },
+  "chatWidgetsThreadMenuDeleteMessage": "\"{title}\" and its messages will be deleted for good.",
+  "@chatWidgetsThreadMenuDeleteMessage": {
+    "description": "Text of the alert that asks before deleting a chat from its row menu.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsThreadMenuDeleteTitle": "Delete this chat?",
+  "@chatWidgetsThreadMenuDeleteTitle": {
+    "description": "Title of the alert that asks before deleting a chat from its row menu."
+  },
+  "chatWidgetsThreadMenuLabel": "Chat actions for {title}",
+  "@chatWidgetsThreadMenuLabel": {
+    "description": "Screen reader hint of a chat row on an iPad: a long press opens the chat's menu.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsThreadMenuPin": "Pin",
+  "@chatWidgetsThreadMenuPin": {
+    "description": "Row of a chat's popover menu on an iPad that pins the chat to the top of the list."
+  },
+  "chatWidgetsThreadMenuRename": "Rename",
+  "@chatWidgetsThreadMenuRename": {
+    "description": "Row of a chat's popover menu on an iPad that renames the chat."
+  },
+  "chatWidgetsThreadMenuUnpin": "Unpin",
+  "@chatWidgetsThreadMenuUnpin": {
+    "description": "Row of a chat's popover menu on an iPad that takes a pinned chat off the top of the list."
+  },
   "chatWidgetsToolValueCopied": "Copied",
   "@chatWidgetsToolValueCopied": {
     "description": "Shown for two seconds on the Copy button of a tool call's input or result after it was copied, and announced to screen readers."
