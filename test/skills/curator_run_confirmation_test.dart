@@ -272,6 +272,95 @@ void main() {
       expect(calls.runs, 0);
     });
 
+    group('a caller that does not close the sheet', () {
+      Future<void> open(WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 3000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(platform: TargetPlatform.android),
+            home: Builder(
+              builder: (context) => TextButton(
+                key: const ValueKey('open'),
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => CuratorRunConfirmation(
+                    model: _known,
+                    onCancel: () => calls.cancels++,
+                    onRun: () => calls.runs++,
+                  ),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byKey(const ValueKey('open')));
+        await tester.pumpAndSettle();
+        expect(_run, findsOneWidget);
+      }
+
+      testWidgets('Run, then back closes it and calls nothing more', (
+        tester,
+      ) async {
+        await open(tester);
+        await tester.tap(_run);
+        await tester.pumpAndSettle();
+        expect(_run, findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(_run, findsNothing);
+        expect(calls.runs, 1);
+        expect(calls.cancels, 0);
+      });
+
+      testWidgets('back cancels once, and Run afterwards sends nothing', (
+        tester,
+      ) async {
+        await open(tester);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(calls.cancels, 1);
+        expect(_run, findsOneWidget);
+        await tester.tap(_run);
+        await tester.pumpAndSettle();
+        expect(calls.runs, 0);
+        expect(calls.cancels, 1);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(_run, findsNothing);
+        expect(calls.cancels, 1);
+      });
+
+      testWidgets('Run, then Escape closes it and calls nothing more', (
+        tester,
+      ) async {
+        await open(tester);
+        await tester.tap(_run);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(_run, findsNothing);
+        expect(calls.runs, 1);
+        expect(calls.cancels, 0);
+      });
+
+      testWidgets('Run, then a tap on the barrier closes it', (tester) async {
+        await open(tester);
+        await tester.tap(_run);
+        await tester.pumpAndSettle();
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+        expect(_run, findsNothing);
+        expect(calls.runs, 1);
+        expect(calls.cancels, 0);
+      });
+    });
+
     for (final (platform, minHeight, name) in [
       (TargetPlatform.iOS, 44.0, 'iOS 44 pt'),
       (TargetPlatform.android, 48.0, 'Android 48 dp'),
@@ -348,6 +437,21 @@ void main() {
     });
 
     for (final platform in [TargetPlatform.android, TargetPlatform.macOS]) {
+      testWidgets('exactly 1.5x text stacks on $platform', (tester) async {
+        await pump(
+          tester,
+          _known,
+          platform: platform,
+          scale: 1.5,
+          dialog: platform == TargetPlatform.macOS,
+        );
+        expect(tester.getTopLeft(_cancel).dx, tester.getTopLeft(_run).dx);
+        expect(
+          tester.getTopLeft(_cancel).dy,
+          lessThan(tester.getTopLeft(_run).dy),
+        );
+      });
+
       testWidgets('1.4x text is still side by side on $platform', (
         tester,
       ) async {
@@ -453,8 +557,8 @@ void main() {
         size: const Size(320, 568),
       );
       final viewport = tester.getSize(find.byType(SingleChildScrollView).first);
-      // Measured 153 of 568 pt (26.9 percent) with the labels unclamped, 278
-      // (48.9 percent) with them clamped to 2x.
+      // At least 25 percent of the window (measured with the test font; about
+      // 48 percent with the real font).
       expect(viewport.height, greaterThanOrEqualTo(568 * 0.25));
       final label = tester.widget<Text>(
         find.descendant(of: _run, matching: find.byType(Text)),

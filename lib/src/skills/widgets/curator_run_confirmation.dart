@@ -62,9 +62,9 @@ class CuratorRunConfirmation extends StatefulWidget {
   final VoidCallback onRun;
   final bool dialog;
 
-  /// Past this scaled size of a 14 pt label, the buttons stack.
+  /// From this scaled size of a 14 pt label (1.5x), the buttons stack.
   static bool stackedForText(BuildContext context) =>
-      MediaQuery.textScalerOf(context).scale(14) > 21;
+      MediaQuery.textScalerOf(context).scale(14) >= 21;
 
   @override
   State<CuratorRunConfirmation> createState() => _CuratorRunConfirmationState();
@@ -78,15 +78,32 @@ class _CuratorRunConfirmationState extends State<CuratorRunConfirmation> {
   /// a decision is never changed once made.
   var _decided = false;
 
+  /// Marks the decision and lets the route be closed by back, the barrier or
+  /// Escape from now on, whatever the caller does with its callback.
+  void _decide() {
+    _decided = true;
+    if (mounted) setState(() {});
+  }
+
   void _cancel() {
     if (_decided) return;
-    _decided = true;
+    _decide();
     widget.onCancel();
+  }
+
+  /// Escape decides like Cancel; once decided it only closes the route and
+  /// calls nothing.
+  void _escape() {
+    if (_decided) {
+      Navigator.maybePop(context);
+    } else {
+      _cancel();
+    }
   }
 
   void _run() {
     if (_decided) return;
-    _decided = true;
+    _decide();
     widget.onRun();
   }
 
@@ -130,12 +147,12 @@ class _CuratorRunConfirmationState extends State<CuratorRunConfirmation> {
       ),
     );
     return PopScope(
-      canPop: false,
+      canPop: _decided,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _cancel();
       },
       child: CallbackShortcuts(
-        bindings: {const SingleActivator(LogicalKeyboardKey.escape): _cancel},
+        bindings: {const SingleActivator(LogicalKeyboardKey.escape): _escape},
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
           child: LayoutBuilder(
