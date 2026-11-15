@@ -1,0 +1,16 @@
+# The ratchet for the source-scan guards under test/architecture/.
+#
+# Format: rule id -> (repo-relative path -> allowed count of violations).
+# Rule ids are namespaced: `arch.*` (architecture guards), `style.*` (design
+# system guards), `test.*` (test hygiene guards).
+#
+# Shrink-only. A count above its entry, or a file not listed, fails the guard
+# with the offending lines and the building block to use instead. A count
+# BELOW its entry fails too, with the exact edit ("lower <rule> <path> to N"
+# or "remove the entry"), so the debt can only go down. Never raise or add an
+# entry to get green: fix the call site, or, if the site is legitimate, add it
+# to the rule's allowlist in code with a reason, in a reviewed change.
+#
+# `UPDATE_BASELINE=1 flutter test --concurrency=1 test/architecture` rewrites
+# this file by lowering counts and removing entries. It never raises a count
+# or adds an entry. A rule with no violations has no entry.
