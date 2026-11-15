@@ -189,13 +189,21 @@ typedef WhatsAppRefusal = ({
 ///
 /// Nothing is sent without a user action: Start, the Finish question and its
 /// confirmation, Check. Start and apply go once and are never resent.
-/// Polling runs only while the app is in front and unlocked. Leaving before
-/// Finish asks the server to drop the pairing once, ignoring a failure.
+/// Polling runs only while the app is in front and unlocked, and a connected
+/// record is read only to restore what App Lock dropped, so Finish (offered
+/// only once that read is in) never races a poll. Leaving before Finish asks the server to drop the
+/// pairing once, ignoring a failure.
+///
+/// The telemetry is per connection, not per screen visit: the shell passes one
+/// shared [WhatsAppPairingTelemetry] so `whatsapp.pair.unavailable` is logged
+/// once per connection rather than once per visit. Without one, a private
+/// instance is made (tests, previews).
 class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   WhatsAppPairingController({
     required HermesMessagingRepository repository,
     required this.profile,
     required this.handset,
+    bool? followsWindowFocus,
     this._mode = WhatsAppMode.bot,
     this._allowedUsers = '',
     WhatsAppPairingTelemetry? telemetry,
@@ -205,6 +213,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   }) : _repository = repository.forProfile(profile),
        _telemetry = telemetry ?? WhatsAppPairingTelemetry(),
        _now = now ?? DateTime.now,
+       followsWindowFocus = followsWindowFocus ?? !handset,
        _revealed = !handset;
 
   final HermesMessagingRepository _repository;
@@ -218,6 +227,13 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   /// code needs a tap, again after every hide, and window focus does not
   /// matter. Tablets and computers show it at once.
   final bool handset;
+
+  /// Whether the code is hidden while the window has no focus. The shell sets
+  /// it on the computer operating systems (macOS, Windows, Linux), whatever
+  /// the window's size: a narrow window can be [handset] by size and must
+  /// still hide on focus loss. It defaults to `!handset`, which is right for
+  /// the phone and tablet classes, where no window focus is ever reported.
+  final bool followsWindowFocus;
 
   final Duration pollInterval;
   final Duration answerTimeout;
@@ -297,7 +313,14 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     if (_closed || _covered || !_foreground) {
       return WhatsAppCodeVisibility.hidden;
     }
-    if (!handset && !_windowFocused) return WhatsAppCodeVisibility.hidden;
+    if (followsWindowFocus && !_windowFocused) {
+      return WhatsAppCodeVisibility.hidden;
+    }
+    // A waiting record whose code is not held (App Lock dropped it and the
+    // read again has not answered, or failed): nothing to draw or tap for.
+    if (_phase == WhatsAppPairingPhase.waiting && _qr == null) {
+      return WhatsAppCodeVisibility.hidden;
+    }
     return _revealed
         ? WhatsAppCodeVisibility.shown
         : WhatsAppCodeVisibility.needsTap;
@@ -364,14 +387,31 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   bool get covered => _covered;
   bool get closed => _closed;
 
-  bool get canStart => !_closed && _phase == WhatsAppPairingPhase.setup;
+  bool get canStart =>
+      !_closed && !_covered && _phase == WhatsAppPairingPhase.setup;
 
+  /// Finish is offered only with the record read: after App Lock the account
+  /// is unknown until the read again answers (`_needsRefresh`).
   bool get canFinish =>
       !_closed &&
       !_covered &&
+      !_needsRefresh &&
       _phase == WhatsAppPairingPhase.connected &&
       (_applyStatus == WhatsAppApplyStatus.idle ||
           _applyStatus == WhatsAppApplyStatus.refused);
+
+  /// What the controller holds, for tests only: the code, the pairing id and
+  /// any server text. Lets a test see that App Lock and closing really drop
+  /// them rather than only hiding them behind a getter.
+  @visibleForTesting
+  ({bool code, bool id, bool serverText}) get debugHeld => (
+    code: _qr != null,
+    id: _id != null,
+    serverText:
+        _serverText != null ||
+        _startFailure?.serverText != null ||
+        _applyFailure?.serverText != null,
+  );
 
   bool get canCheck =>
       !_closed &&
@@ -431,6 +471,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     }
     _numbersProblem = null;
     _startFailure = null;
+    _revealed = !handset;
     final epoch = ++_epoch;
     _endLogged = false;
     _phase = WhatsAppPairingPhase.starting;
@@ -529,6 +570,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     if (!canStartAgain) return;
     _epoch++;
     _dropPairing();
+    _revealed = !handset;
     _phase = WhatsAppPairingPhase.setup;
     _applyStatus = WhatsAppApplyStatus.idle;
     _applyResult = null;
@@ -542,10 +584,13 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   }
 
   /// The user tapped "Show QR code" (or shows it again after [hideCode]). It
-  /// shows only while the app is in front, unlocked and focused.
+  /// counts only while a code is waiting to be scanned and held, and the app
+  /// is in front, unlocked and focused.
   void revealQr() {
     if (_closed ||
         _revealed ||
+        _phase != WhatsAppPairingPhase.waiting ||
+        _qr == null ||
         codeVisibility == WhatsAppCodeVisibility.hidden) {
       return;
     }
@@ -570,8 +615,10 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     _changed();
   }
 
-  /// A desktop window's focus. A tablet or computer hides the code while it
-  /// has none and shows it again with focus; a handset ignores it.
+  /// A desktop window's focus, reported only by the computer operating
+  /// systems. With [followsWindowFocus] the code is hidden while the window
+  /// has none and shows again with focus (after the tap, on a handset-sized
+  /// window); without it, the focus is ignored.
   void setWindowFocused(bool value) {
     if (_closed || value == _windowFocused) return;
     _windowFocused = value;
@@ -580,8 +627,10 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
 
   /// App Lock covers the app: the code, the account and the server's text go
   /// at once and nothing polls. A request in flight finishes and its outcome
-  /// is dropped (an apply's is kept: it happened). [uncover] reads the
-  /// pairing again.
+  /// is dropped (an apply's is kept: it happened, but its text is not shown).
+  /// [uncover] reads the pairing again whenever the account, the code or the
+  /// text was dropped from a record that is still live; until it answers,
+  /// Finish is not offered.
   void cover() {
     if (_closed || _covered) return;
     _covered = true;
@@ -594,6 +643,8 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
     if (_applyStatus == WhatsAppApplyStatus.asking) {
       _applyStatus = _statusBeforeQuestion;
     }
+    // An apply still out is not counted here: when it answers with the record
+    // still live (a refusal), its outcome sets the flag.
     _needsRefresh =
         _id != null &&
         (_applyStatus == WhatsAppApplyStatus.idle ||
@@ -693,6 +744,8 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
       // The record is most likely gone either way: never resent, Check reads.
       _applyStatus = WhatsAppApplyStatus.lostAnswer;
       _id = null;
+      _needsRefresh = false;
+      _syncPolling();
       _telemetry.endApply(
         span,
         result != null
@@ -728,6 +781,10 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
           kind: failure,
           serverText: _covered ? null : failureText,
         );
+        // Answered while App Lock covered: the account was dropped, read it
+        // again after unlock.
+        _needsRefresh = _covered;
+        _syncPolling();
     }
     _changed();
   }
@@ -1011,8 +1068,13 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
       default:
         // Keep the last state and poll on; the code may be out of date.
         _pollFailing = true;
+        // Only a record that can still change expires on the clock: a
+        // connected or failed one stays until the server drops it.
         final end = _expiresAt;
-        if (end != null && !_now().isBefore(end)) {
+        if (end != null &&
+            !_now().isBefore(end) &&
+            (_phase == WhatsAppPairingPhase.working ||
+                _phase == WhatsAppPairingPhase.waiting)) {
           _expireLocally();
         }
     }
