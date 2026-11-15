@@ -29,8 +29,8 @@ const double kAppleNavBarHeight = 44;
 /// The smallest tap area Material asks for on Android, in logical pixels.
 const double kMaterialMinTapTarget = 48;
 
-/// Whether [context] runs on a phone-class platform (iOS or Android) rather
-/// than a desktop, so controls take a finger-sized hit area.
+/// Whether [context] runs on a touch platform (iPhone, iPad or Android)
+/// rather than a desktop, so controls take a finger-sized hit area.
 bool isTouchPlatform(BuildContext context) =>
     switch (Theme.of(context).platform) {
       TargetPlatform.iOS || TargetPlatform.android => true,

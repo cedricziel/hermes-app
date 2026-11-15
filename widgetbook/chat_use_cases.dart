@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_chat_ui/flutter_chat_ui.dart'
+    show ComposerHeightNotifier;
+import 'package:hermes_app/src/chat/widgets/scroll_to_latest_button.dart';
 import 'package:hermes_app/src/chat/attachments/draggable_attachment.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
     show
@@ -681,6 +684,33 @@ WidgetbookNode chatNode() => WidgetbookFolder(
             child: Text('The build finished.'),
           ),
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ScrollToLatestButton',
+      useCases: [
+        for (final (name, value) in [('Shown', 1.0), ('Scaled away', 0.0)])
+          WidgetbookUseCase(
+            name: name,
+            builder: (context) => Theme(
+              data: Theme.of(context)
+                  .copyWith(platform: TargetPlatform.android),
+              child: ChangeNotifierProvider(
+                create: (_) => ComposerHeightNotifier(),
+                child: SizedBox(
+                  height: 160,
+                  child: Stack(
+                    children: [
+                      ScrollToLatestButton(
+                        animation: AlwaysStoppedAnimation(value),
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     ),
     WidgetbookComponent(

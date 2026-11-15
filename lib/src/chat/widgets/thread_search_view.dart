@@ -74,9 +74,8 @@ class _ThreadSearchFieldState extends State<ThreadSearchField> {
                 onPressed: () => widget.onChanged(''),
               ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        constraints: BoxConstraints(
-          minHeight: isAndroid(context) ? kMaterialMinTapTarget : 0,
+        contentPadding: EdgeInsets.symmetric(
+          vertical: isAndroid(context) ? 15 : 8,
         ),
       ),
     );

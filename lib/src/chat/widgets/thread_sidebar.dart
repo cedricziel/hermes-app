@@ -532,7 +532,7 @@ class _ThreadRowState extends State<_ThreadRow> {
         padding: ios
             ? const EdgeInsets.symmetric(horizontal: 10)
             : touch
-            ? EdgeInsets.fromLTRB(10, 0, inlineButton ? 2 : 10, 0)
+            ? EdgeInsets.fromLTRB(10, 0, inlineButton ? 0 : 10, 0)
             : EdgeInsets.fromLTRB(
                 10,
                 inlineButton ? 2 : 9,
@@ -572,11 +572,16 @@ class _ThreadRowState extends State<_ThreadRow> {
                 const SizedBox(width: 4),
               ],
               if (inlineButton)
-                ThreadActionsButton(
-                  key: _actions,
-                  thread: _thread,
-                  housekeeping: housekeeping,
-                  dense: true,
+                // On Android the 48dp target is shifted 8dp toward the edge so
+                // the glyph stays where the 28dp button put it.
+                Transform.translate(
+                  offset: Offset(touch ? 8 : 0, 0),
+                  child: ThreadActionsButton(
+                    key: _actions,
+                    thread: _thread,
+                    housekeeping: housekeeping,
+                    dense: true,
+                  ),
                 ),
             ],
           ),
