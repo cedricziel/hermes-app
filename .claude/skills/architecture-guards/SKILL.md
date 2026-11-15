@@ -33,6 +33,6 @@ description: Use when a test under test/architecture/ fails (a guard or the base
 
 The scans read text, not types, so some slips get through. They are known, and a review is still the backstop:
 
-- `arch.error-interpolation-in-telemetry`: an error handler held in a variable (`final handler = (e, st) {...}; fut.catchError(handler)`), a helper that takes the error as a parameter with another name and logs it, and an error built into a string before the call (`final msg = '$e'; debugPrint(msg)`).
+- `arch.error-interpolation-in-telemetry`: an error handler held in a variable (`final handler = (e, st) {...}; fut.catchError(handler)`), a helper that takes the error as a parameter with another name and logs it, an error built into a string before the call (`final msg = '$e'; debugPrint(msg)`), and the errors of an isolate (`ReceivePort.listen` on an `addErrorListener` port).
 - `arch.doctor-fix`: a route held in a `const` and passed by name, and a string split across two literals (`'--fi' 'x'`, `'/api/ops/' 'doctor'`).
 - A bare `e`, `ex` or `st` is only an error name where a catch, a `catchError`/`handleError`/`onError`/`runZonedGuarded` handler or a `StackTrace`/`FlutterErrorDetails` parameter binds it.

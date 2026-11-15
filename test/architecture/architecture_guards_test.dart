@@ -124,7 +124,7 @@ List<(int, int, Set<String>)> _errorBindings(String code) {
   final handler = RegExp(
     r'\b(?:catchError|handleError)\s*\(\s*\(([^)]*)\)'
     r'|\bonError\s*:\s*\(([^)]*)\)'
-    r'|\.onError\s*=\s*\(([^)]*)\)',
+    r'|\b(?:FlutterError|PlatformDispatcher\.instance)\.onError\s*=\s*\(([^)]*)\)',
   );
   for (final m in handler.allMatches(code)) {
     final params = m.group(1) ?? m.group(2) ?? m.group(3)!;
@@ -162,21 +162,27 @@ List<(int, int, Set<String>)> _errorBindings(String code) {
 /// only where it is bound as an error: by `catch (e, st)`, by the closure
 /// given to `catchError(`, `handleError(` or `onError:`, or as a parameter
 /// typed `StackTrace` or `FlutterErrorDetails`, or the handler of
-/// `runZonedGuarded(` or an `X.onError = (e, st)` assignment. `details.exception`
-/// and `details.stack` count too. So a loop variable `e`, or `${stack.length}` on an
+/// `runZonedGuarded(` or a `FlutterError.onError` / `PlatformDispatcher.instance
+/// .onError` assignment. `details.exception` and `details.stack` count for a
+/// `FlutterErrorDetails`-typed parameter or inside a `FlutterError.onError`
+/// handler. So a loop variable `e`, or `${stack.length}` on an
 /// unrelated `stack`, is not a hit.
 List<Hit> errorInterpolationHits(SourceFile file) {
   final bindings = _errorBindings(file.code);
-  // `details.exception` / `details.stack` of a FlutterErrorDetails.
-  final detailNames = {
-    'details',
+  // `details.exception` / `details.stack` of a FlutterErrorDetails: a
+  // parameter typed so, or the parameter of a FlutterError.onError handler.
+  final typedDetails = {
     for (final m in RegExp(
       r'\bFlutterErrorDetails\??\s+(\w+)',
     ).allMatches(file.code))
       m.group(1)!,
   };
-  final details =
-      '\\b(?:${detailNames.join('|')})\\.(?:exception|stack|exceptionAsString\\(\\))';
+  final flutterHandlers = <(int, int, Set<String>)>[
+    for (final m in RegExp(
+      r'\bFlutterError\.onError\s*=\s*\(([^)]*)\)',
+    ).allMatches(file.code))
+      (m.end, _bodyEnd(file.code, m.end), _paramNames(m.group(1)!)),
+  ];
   final hits = <Hit>[];
   for (final (offset, args) in callArguments(file, _telemetryCall)) {
     final names = {
@@ -185,6 +191,14 @@ List<Hit> errorInterpolationHits(SourceFile file) {
         if (offset > start && offset < end) ...bound,
     };
     final n = '(?:${names.join('|')})';
+    final detailNames = {
+      ...typedDetails,
+      for (final (start, end, bound) in flutterHandlers)
+        if (offset > start && offset < end) ...bound,
+    };
+    final details = detailNames.isEmpty
+        ? '(?!)'
+        : '\\b(?:${detailNames.join('|')})\\.(?:exception|stack|exceptionAsString\\(\\))';
     final bad = RegExp(
       // `$e`, `$error` (the rest of the name is literal text)
       '\\\$$n\\b'
@@ -468,12 +482,14 @@ void main() {
 
     test('flags details.exception and details.stack', () {
       expect(
-        count(r"f(Object details) { debugPrint('${details.exception}'); }"),
+        count(
+          r"f() { FlutterError.onError = (details) { debugPrint('${details.exception}'); }; }",
+        ),
         1,
       );
       expect(
-        count(r"f(FlutterErrorDetails d) { events('x', {'s': d.stack}); }"),
-        1,
+        count(r"f(Object details) { debugPrint('${details.exception}'); }"),
+        0,
       );
       expect(count(r"f(FlutterErrorDetails d) { debugPrint('$d'); }"), 1);
       expect(
