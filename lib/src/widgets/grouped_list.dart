@@ -300,6 +300,7 @@ class GroupedRow extends StatelessWidget {
     this.titleBadge,
     this.leading,
     this.value,
+    this.valueStyle,
     this.trailing,
     this.separateTrailing = false,
     this.trailingBelow = false,
@@ -308,6 +309,7 @@ class GroupedRow extends StatelessWidget {
     this.checked,
     this.inMutuallyExclusiveGroup = false,
     this.focusable = true,
+    this.focusFill = true,
     this.chevron,
     this.selected = false,
     this.destructive = false,
@@ -369,6 +371,11 @@ class GroupedRow extends StatelessWidget {
   /// A status in muted text before the chevron, such as "Off" or "3 tools".
   final String? value;
 
+  /// Opt-in look of the [value], beside the title and stacked under it
+  /// alike: the muted subtitle-size text, merged with this. Without it the
+  /// value keeps its default look, which stacks darker and heavier.
+  final TextStyle? valueStyle;
+
   /// Takes the place of the chevron, such as a switch.
   final Widget? trailing;
 
@@ -393,6 +400,10 @@ class GroupedRow extends StatelessWidget {
   /// Whether the row's own tap target takes keyboard focus. Off for a row
   /// that holds a focusable control already, so one stop per row.
   final bool focusable;
+
+  /// Whether a keyboard-focused row is filled, as Settings rows are. Off for
+  /// a row that draws its own focus mark, such as the model popover's outline.
+  final bool focusFill;
 
   /// Whether to draw the disclosure chevron; by default when the row opens
   /// something ([onTap]) and has no [trailing].
@@ -542,11 +553,16 @@ class GroupedRow extends StatelessWidget {
                   // row's answer, so it is darker and heavier.
                   Text(
                     value!,
-                    style: TextStyle(
-                      fontSize: metrics.subtitleSize + 1,
-                      fontWeight: FontWeight.w500,
-                      color: scheme.onSurface,
-                    ),
+                    style: valueStyle == null
+                        ? TextStyle(
+                            fontSize: metrics.subtitleSize + 1,
+                            fontWeight: FontWeight.w500,
+                            color: scheme.onSurface,
+                          )
+                        : TextStyle(
+                            fontSize: metrics.subtitleSize,
+                            color: muted,
+                          ).merge(valueStyle),
                   ),
                 if (subtitle != null && subtitleMiddleEllipsis)
                   MiddleEllipsisText(
@@ -616,7 +632,10 @@ class GroupedRow extends StatelessWidget {
                 value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: metrics.subtitleSize, color: muted),
+                style: TextStyle(
+                  fontSize: metrics.subtitleSize,
+                  color: muted,
+                ).merge(valueStyle),
               ),
             ),
           ),
@@ -654,6 +673,7 @@ class GroupedRow extends StatelessWidget {
     );
     final ink = InkWell(
       canRequestFocus: focusable,
+      focusColor: focusFill ? null : Colors.transparent,
       onTap: enabled ? onTap : null,
       child: content,
     );

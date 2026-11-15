@@ -409,6 +409,50 @@ void main() {
               .height;
         }
 
+        testWidgets('linkColoredButtons give the label the link colour', (
+          tester,
+        ) async {
+          Future<OutlinedButton> button(
+            bool link, {
+            bool enabled = true,
+          }) async {
+            await tester.pumpWidget(
+              _host(
+                GroupedSection(
+                  children: [
+                    GroupedActionRow(
+                      title: 'Run now',
+                      icon: AppIcons.play,
+                      onPressed: () {},
+                      linkColoredButtons: link,
+                      touchTargetButtons: true,
+                      status: GroupedActionStatus(
+                        phase: GroupedActionPhase.neutral,
+                        text: 'Still running.',
+                        buttons: [
+                          GroupedActionButton(
+                            label: 'Check status',
+                            onPressed: enabled ? () {} : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                platform: platform,
+              ),
+            );
+            return tester.widget<OutlinedButton>(find.byType(OutlinedButton));
+          }
+
+          final link = (await button(true)).style!.foregroundColor!;
+          final context = tester.element(find.text('Check status'));
+          expect(link.resolve({}), context.hermesColors.link);
+          // A disabled button keeps the theme's faded label.
+          expect(link.resolve({WidgetState.disabled}), isNull);
+          expect((await button(false)).style!.foregroundColor, isNull);
+        });
+
         testWidgets('touchTargetButtons are $min tall on $platform', (
           tester,
         ) async {

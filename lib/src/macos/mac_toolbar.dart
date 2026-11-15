@@ -174,6 +174,7 @@ class MacToolbarButton extends StatelessWidget {
     this.shortcut,
     this.selected,
     this.marked = false,
+    this.busy = false,
   });
 
   final String label;
@@ -189,6 +190,9 @@ class MacToolbarButton extends StatelessWidget {
   /// Draws the attention mark at the icon's top right; [label] says why.
   final bool marked;
 
+  /// A spinner takes the glyph's place while the action runs.
+  final bool busy;
+
   @override
   Widget build(BuildContext context) {
     final shortcut = this.shortcut;
@@ -197,6 +201,7 @@ class MacToolbarButton extends StatelessWidget {
       tooltip: shortcut == null ? label : '$label $shortcut',
       icon: icon,
       isSelected: selected,
+      busy: busy,
       onPressed: onPressed,
       style: macToolbarButtonStyle(context),
     );
