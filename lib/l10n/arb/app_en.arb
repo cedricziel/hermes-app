@@ -106,6 +106,10 @@
   "@chatReplyReconnecting": {
     "description": "Note under a reply whose connection to Hermes dropped while the answer may still be coming. Not an error: the reply keeps what it had and goes on when the connection is back. Announced once to screen readers. Wraps at any text size."
   },
+  "chatScrollToLatest": "Scroll to latest message",
+  "@chatScrollToLatest": {
+    "description": "Accessibility label of the round button in the chat list that jumps to the newest message."
+  },
   "chatSessionExportConfirmButton": "Export",
   "@chatSessionExportConfirmButton": {
     "description": "Button of the export confirmation that starts fetching the chat file."
