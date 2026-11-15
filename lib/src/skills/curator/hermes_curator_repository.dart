@@ -97,11 +97,15 @@ class HermesCuratorRepository {
     final result = await _care.actionStatus(
       CareAction.curatorRun,
       lines: kCuratorStatusLines,
+      timeout: timeout,
     );
     return switch (result) {
       CareOk(:final value) => CuratorOk(value),
       CareUnsupported() => const CuratorUnsupported(),
-      CareFailed(:final kind) => CuratorFailed(switch (kind) {
+      CareFailed(:final kind, :final timedOut) => CuratorFailed(switch (kind) {
+        // A poll that left and got no answer is a read that timed out; only
+        // one that never connected is offline.
+        CareFailureKind.offline when timedOut => CuratorFailure.timeout,
         CareFailureKind.offline => CuratorFailure.offline,
         CareFailureKind.unauthorized => CuratorFailure.unauthorized,
         CareFailureKind.unreadable => CuratorFailure.unreadable,
