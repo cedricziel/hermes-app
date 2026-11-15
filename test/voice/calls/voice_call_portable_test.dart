@@ -7,6 +7,7 @@ import 'package:hermes_app/src/voice/calls/echo_guard.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
 
 import 'call_harness.dart';
+import 'fakes.dart' show pcm;
 
 void main() {
   late CallHarness h;
@@ -91,6 +92,131 @@ void main() {
       // Said again later, it is a real stop phrase.
       await h.say('Goodbye.');
       expect(h.call.ended, isTrue);
+    });
+  });
+
+  group('echo guard timing', () {
+    /// Hermes finishes speaking [reply] after the user said [first].
+    Future<void> spokenThrough(String first, String reply) async {
+      await speaks(first, reply);
+      h.agent.pending!.complete();
+      h.socket.foreign.sink.add(jsonEncode({'type': 'end'}));
+      await pumpEventQueue();
+      expect(h.call.phase, CallPhase.listening);
+    }
+
+    /// The user speaks [text]: it starts [after] the playback ended and the
+    /// pause that closes it comes [lasting] later.
+    Future<void> saysAfter(
+      String text,
+      Duration after, {
+      Duration lasting = Duration.zero,
+    }) async {
+      h.clock = h.clock.add(after);
+      h.transcripts.add(text);
+      h.bridge.emit('pcm', {'data': pcm()});
+      h.clock = h.clock.add(lasting);
+      for (var i = 0; i < 9; i++) {
+        h.bridge.emit('pcm', {'data': pcm(amplitude: 0)});
+      }
+      await pumpEventQueue();
+    }
+
+    setUp(() async => h.rebuild(echo: EchoGuard()));
+
+    test('"Goodbye." heard right after the reply is dropped', () async {
+      await h.activate();
+      await spokenThrough('Say bye', 'Goodbye.');
+      await saysAfter('Goodbye.', const Duration(milliseconds: 600));
+      expect(h.call.ended, isFalse);
+      expect(h.agent.prompts, ['Say bye']);
+    });
+
+    test('"goodbye" said 3 s later ends the call', () async {
+      await h.activate();
+      await spokenThrough('Say bye', 'Goodbye.');
+      await saysAfter('goodbye', const Duration(seconds: 3));
+      expect(h.call.endReason, 'stop_phrase');
+    });
+
+    test('an echo while the reply is still playing is dropped', () async {
+      await h.activate();
+      await speaks('Say bye', 'Goodbye.');
+      await saysAfter('Goodbye.', const Duration(seconds: 20));
+      expect(h.call.ended, isFalse);
+      expect(h.agent.prompts, ['Say bye']);
+    });
+
+    test('the window is 1.5 s after the audio drained', () async {
+      await h.activate();
+      await spokenThrough('Say bye', 'Goodbye.');
+      await saysAfter('Goodbye.', const Duration(milliseconds: 1400));
+      expect(h.call.ended, isFalse);
+      await h.rebuild(echo: EchoGuard());
+      await h.activate();
+      await spokenThrough('Say bye', 'Goodbye.');
+      await saysAfter('Goodbye.', const Duration(milliseconds: 1600));
+      expect(h.call.endReason, 'stop_phrase');
+    });
+
+    test('what counts is when the speech began, not when it ended', () async {
+      await h.activate();
+      await spokenThrough('Say bye', 'Goodbye.');
+      await saysAfter(
+        'Goodbye.',
+        const Duration(milliseconds: 500),
+        lasting: const Duration(seconds: 4),
+      );
+      expect(h.call.ended, isFalse, reason: 'began inside the window');
+      await h.rebuild(echo: EchoGuard());
+      await h.activate();
+      await spokenThrough('Say bye', 'Goodbye.');
+      await saysAfter(
+        'goodbye',
+        const Duration(milliseconds: 1700),
+        lasting: Duration.zero,
+      );
+      expect(h.call.endReason, 'stop_phrase', reason: 'began outside it');
+    });
+
+    const answers = [
+      ('Should I turn the lights on or off?', 'turn the lights on'),
+      (
+        'Should I book the table for Peter or Petra?',
+        'book the table for Petra',
+      ),
+      ('Shall I send the email to Anna?', 'send the email to Anna'),
+      ('Should I move the meeting to Tuesday?', 'move the meeting to Thursday'),
+      ('Is the meeting on Sunday?', 'the meeting is on Monday'),
+    ];
+    for (final (reply, answer) in answers) {
+      test(
+        '"$answer" after "$reply" is sent when said after the window',
+        () async {
+          await h.activate();
+          await spokenThrough('Ask me', reply);
+          await saysAfter(answer, const Duration(seconds: 3));
+          expect(h.agent.prompts, ['Ask me', answer]);
+        },
+      );
+
+      test('"$answer" inside the window is dropped only because it is the '
+          'reply\'s own wording', () async {
+        await h.activate();
+        await spokenThrough('Ask me', reply);
+        await saysAfter(answer, const Duration(milliseconds: 500));
+        // Whether the rule takes it for the echo is the rule's table; the
+        // window never lets one through that the rule would drop.
+        final dropped = (EchoGuard()..spoken(reply)).isEcho(answer);
+        expect(h.agent.prompts, dropped ? ['Ask me'] : ['Ask me', answer]);
+      });
+    }
+
+    test('an answer that is not the reply is sent inside the window', () async {
+      await h.activate();
+      await spokenThrough('Ask me', 'Shall I send the email to Anna?');
+      await saysAfter('Yes, send the email', const Duration(milliseconds: 500));
+      expect(h.agent.prompts, ['Ask me', 'Yes, send the email']);
     });
   });
 

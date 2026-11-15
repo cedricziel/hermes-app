@@ -180,4 +180,25 @@ void main() {
       });
     }
   });
+
+  group('answers made of the reply\'s own wording match the rule', () {
+    // The rule alone cannot tell these from an echo; `VoiceCall` only applies
+    // it to speech that began during the reply or within 1.5 s after it, and
+    // voice_call_portable_test.dart keeps them when said later.
+    const table = <(String, String)>[
+      ('Should I turn the lights on or off?', 'turn the lights on'),
+      (
+        'Should I book the table for Peter or Petra?',
+        'book the table for Petra',
+      ),
+      ('Shall I send the email to Anna?', 'send the email to Anna'),
+      ('Should I move the meeting to Tuesday?', 'move the meeting to Thursday'),
+      ('Is the meeting on Sunday?', 'the meeting is on Monday'),
+    ];
+    for (final (reply, answer) in table) {
+      test('"$answer" after "$reply"', () {
+        expect((EchoGuard()..spoken(reply)).isEcho(answer), isTrue);
+      });
+    }
+  });
 }

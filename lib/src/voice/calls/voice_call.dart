@@ -81,6 +81,34 @@ class VoiceCall extends ChangeNotifier {
   /// The call's own guard, used unless [echoGuard] replaces it (tests).
   final _echo = EchoGuard();
 
+  /// How long after the reply's audio drained a transcript can still be that
+  /// audio heard back: the room's tail and the microphone's reopening.
+  static const echoTail = Duration(milliseconds: 1500);
+
+  /// When the reply being spoken began, and when its audio ended or was cut
+  /// off (null while it plays). Speech that began outside this span, widened
+  /// by [echoTail], is never taken for its echo.
+  DateTime? _replyBegan, _replyEnded;
+
+  /// When the utterance being heard began.
+  DateTime? _onsetAt;
+
+  void _replyStarts() {
+    _replyBegan = _now();
+    _replyEnded = null;
+  }
+
+  void _replyAudioEnded() {
+    if (_replyBegan != null) _replyEnded ??= _now();
+  }
+
+  bool _beganInEchoWindow(DateTime onset) {
+    final began = _replyBegan;
+    if (began == null || onset.isBefore(began)) return false;
+    final ended = _replyEnded;
+    return ended == null || !onset.isAfter(ended.add(echoTail));
+  }
+
   void _replySpoken(String reply) {
     _echo.spoken(reply);
     replySpoken?.call(reply);
@@ -532,7 +560,10 @@ class VoiceCall extends ChangeNotifier {
   void _stopSpeech() {
     final speech = _speech;
     _speech = null;
-    if (speech != null) _after(speech.stop());
+    if (speech != null) {
+      _replyAudioEnded();
+      _after(speech.stop());
+    }
   }
 
   void _after(Future<void> work) {
@@ -548,7 +579,7 @@ class VoiceCall extends ChangeNotifier {
     if (!bargeInActive && phase != CallPhase.listening) return;
     final activity = _vad.add(pcm);
     if (activity.started) {
-      _lastActivity = _now();
+      _lastActivity = _onsetAt = _now();
       notice = null;
       // Speaking over the reply cuts it off.
       if (phase == CallPhase.speaking) _cutOffAt = _now();
@@ -561,7 +592,7 @@ class VoiceCall extends ChangeNotifier {
       _notify();
     }
     if (activity.utterance case final utterance?) {
-      unawaited(_turn(utterance, _epoch));
+      unawaited(_turn(utterance, _epoch, _onsetAt ?? _now()));
     }
   }
 
@@ -704,7 +735,7 @@ class VoiceCall extends ChangeNotifier {
     if (speech != null) unawaited(speech.close().catchError((Object _) {}));
   }
 
-  Future<void> _turn(Uint8List pcm, int epoch) async {
+  Future<void> _turn(Uint8List pcm, int epoch, DateTime onset) async {
     if (_abandoned(epoch)) return;
     phase = CallPhase.sending;
     _notify();
@@ -734,8 +765,11 @@ class VoiceCall extends ChangeNotifier {
       // One order, the first match decides: empty, echo, hallucination, stop
       // phrase, else sent. A dropped transcript says nothing, and the reply
       // that may still be running is left alone.
+      // The guard is spent by this transcript whatever the answer; it only
+      // counts for speech that began while the reply played or just after.
+      final looksLikeEcho = echoGuard?.call(text) ?? _echo.isEcho(text);
       if (text.isEmpty ||
-          (echoGuard?.call(text) ?? _echo.isEcho(text)) ||
+          (looksLikeEcho && _beganInEchoWindow(onset)) ||
           isWhisperHallucination(text)) {
         phase = _idlePhase;
         _notify();
@@ -823,6 +857,7 @@ class VoiceCall extends ChangeNotifier {
           onText: (part) {
             firstText ??= _now();
             if (_current(epoch)) {
+              if (spokenReply.isEmpty) _replyStarts();
               spokenReply.write(part);
               _replySpoken(spokenReply.toString());
               speech!.append(part);
@@ -851,12 +886,14 @@ class VoiceCall extends ChangeNotifier {
         // Spoken by the server's voice, like the sentence above: kept English.
         const finished =
             'I have finished. You can see the details in the chat.';
+        if (spokenReply.isEmpty) _replyStarts();
         spokenReply.write(finished);
         _replySpoken(spokenReply.toString());
         speech.append(finished);
       }
       step = 'speech';
       await speech.finish();
+      _replyAudioEnded();
       if (speech.usedFallback) _fallbacks++;
       if (!_current(epoch)) return;
       _turns++;
