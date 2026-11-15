@@ -579,6 +579,26 @@ void main() {
         expect(earlier.settledWithoutCompletion, isTrue);
       });
 
+      test('a stop asked during a withdrawn turn is not current for the next '
+          'turn', () async {
+        final chat = await open();
+        final thread = chat.selectedThread!;
+        final stop = Completer<bool>();
+        transport.onStop = (_) => stop.future;
+        await chat.submit('stop', const []);
+        final stopping = chat.stopReply(thread);
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+          ..finish();
+        await pumpEventQueue();
+        await chat.submit('next', const []);
+        await pumpEventQueue();
+        stop.completeError(StateError('lost'));
+        await stopping;
+        expect(reports, isEmpty);
+      });
+
       test('an answer to an earlier stop is still current', () async {
         final chat = await open();
         final thread = chat.selectedThread!;

@@ -113,7 +113,7 @@ extension _ChatControllerSending on ChatController {
     // to one is no longer about this thread's current reply.
     _holds.remove(thread);
     _interrupts.remove(thread);
-    _generations.update(thread, (n) => n + 1, ifAbsent: () => 1);
+    _generations[thread] = ++_generationSeq;
     undo.bumped = _generations[thread];
     final placeholder = _addPlaceholder(thread);
     thread.updatedAt = undo.stamped = DateTime.now();

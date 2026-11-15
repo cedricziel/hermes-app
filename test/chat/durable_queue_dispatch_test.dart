@@ -208,6 +208,32 @@ void main() {
     expect(drafts, ['stop']);
   });
 
+  test('a queued stop phrase drained in a chat that is not open is handed '
+      'over when the chat is opened', () async {
+    final chat = await open();
+    final thread = chat.selectedThread!;
+    transport.acceptanceStatus = PromptAccepted.voiceStopped;
+    expect(await chat.submit('first', const []), isTrue);
+    expect(await chat.submit('stop', const []), isTrue);
+    chat.newThread();
+    transport.sends.single
+      ..emit(const ReplyCompleted('Done'))
+      ..emit(const SessionInfo(running: false))
+      ..finish();
+    await transport.prepared.timeout(const Duration(seconds: 5));
+    await pumpEventQueue();
+    transport.sends.last.finish();
+    await pumpEventQueue();
+    expect(notices, [ChatSendNotice.stopCommand]);
+    expect(drafts, isEmpty);
+    chat.select(thread.id);
+    await pumpEventQueue();
+    expect(drafts, ['stop']);
+    chat.select(thread.id);
+    await pumpEventQueue();
+    expect(drafts, ['stop']);
+  });
+
   test(
     'a prompt typed while a voice turn opens its session is not stranded',
     () async {

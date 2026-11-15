@@ -170,14 +170,9 @@ class ChatCallAgent implements CallAgent {
         thread.isCanonicalBotChat) {
       throw StateError('This chat is not ready for another voice turn.');
     }
+    // A running reply is busy; what a queue means (about to send, or paused
+    // for the user) is for the chat to say once it has read the queue.
     if (thread.isReplying) throw const CallTurnRefused(VoiceTurnRefusal.busy);
-    if (chat.queuedIn(thread).isNotEmpty) {
-      throw CallTurnRefused(
-        chat.queuePaused(thread)
-            ? VoiceTurnRefusal.queuePaused
-            : VoiceTurnRefusal.busy,
-      );
-    }
     final done = _reply = Completer<void>();
     // Observe errors before submit's asynchronous admission checks complete.
     unawaited(

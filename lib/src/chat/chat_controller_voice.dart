@@ -195,9 +195,20 @@ extension _ChatControllerVoice on ChatController {
   /// the composer (under any new draft) rather than losing them.
   void _stopCommandTyped(ChatThread thread, String text) {
     onSendNotice?.call(ChatSendNotice.stopCommand);
-    if (text.isNotEmpty && identical(selectedThread, thread)) {
+    if (text.isEmpty) return;
+    if (identical(selectedThread, thread)) {
       onDraft?.call(text);
+    } else if (_threads.contains(thread)) {
+      // Another chat's composer is not its to fill: wait for the chat.
+      _stopHandBacks[thread] = text;
     }
+  }
+
+  /// The selected chat has words waiting from a stop phrase: hand them over.
+  void _stopHandBackSelected() {
+    final thread = selectedThread;
+    final text = thread == null ? null : _stopHandBacks.remove(thread);
+    if (text != null) onDraft?.call(text);
   }
 
   /// Takes a turn that was not sent, or that Hermes ended as a stop phrase,

@@ -272,7 +272,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _pendingTapPrompt = null;
     _opening = Future<void>.value();
     for (final thread in _generations.keys.toList()) {
-      _generations[thread] = _generations[thread]! + 1;
+      _generations[thread] = ++_generationSeq;
     }
     _queueEpoch++;
     _queueRestoring.clear();
@@ -1591,6 +1591,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
     }
     _ChatControllerCheckpoints(this)._actionsSelected(id);
+    _ChatControllerVoice(this)._stopHandBackSelected();
     unawaited(refreshActive());
   }
 
@@ -2025,6 +2026,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Bumped when the user sends in a thread. An interrupt's answer is about
   /// the generation it was sent in, and changes no hold of a later one.
   final _generations = <ChatThread, int>{};
+
+  /// The last reply generation handed out. A number is never handed out
+  /// twice, so an answer recorded under one cannot match a later turn's.
+  int _generationSeq = 0;
+
+  /// A prompt withdrawn from a chat that was not open: its words wait for the
+  /// chat to be selected, then go to the composer.
+  final _stopHandBacks = <ChatThread, String>{};
 
   Future<void> stopReply(ChatThread thread) =>
       _ChatControllerRequests(this)._stopReplyImpl(thread);

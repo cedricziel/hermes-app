@@ -326,6 +326,26 @@ void main() {
       expect(chat.queuedIn(thread), hasLength(1));
     });
 
+    test('a queue about to send is busy, not paused', () async {
+      await chat.submit('Unrelated work', const []);
+      await chat.submit('Queued behind it', const []);
+      // The reply ends but the session is not reported idle yet: the queue
+      // waits for it and then sends.
+      transport.sends.single
+        ..emit(const ReplyCompleted('Done'))
+        ..finish();
+      await pumpEventQueue();
+      final refused = await refusal(
+        agent.reply(
+          'Voice',
+          onText: (_) {},
+          onAttention: (_) {},
+          wanted: () => true,
+        ),
+      );
+      expect(refused.reason, VoiceTurnRefusal.busy);
+    });
+
     test('End before prompt.submit is written sends nothing', () async {
       var wanted = true;
       var submitting = 0;
