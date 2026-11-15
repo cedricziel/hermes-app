@@ -45,6 +45,9 @@ abstract final class AppIcons {
     Icons.error_outline,
     CupertinoIcons.exclamationmark_circle,
   );
+
+  /// The connection to the server is lost.
+  static const wifiOff = AppIconSet(Icons.wifi_off, CupertinoIcons.wifi_slash);
   static const errorFilled = AppIconSet(
     Icons.error,
     CupertinoIcons.exclamationmark_circle_fill,
