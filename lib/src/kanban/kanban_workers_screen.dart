@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../../l10n/l10n.dart';
+import '../macos/mac_commands.dart';
 import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'kanban_errors.dart';
@@ -35,11 +41,23 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
   List<KanbanWorker>? _workers;
   String? _failure;
   int _loads = 0;
+  bool _reloading = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  /// A reload the user asked for, from the bar or View > Reload: the button
+  /// shows a spinner meanwhile.
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    try {
+      await _load();
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
   }
 
   Future<void> _load() async {
@@ -132,15 +150,18 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
   Widget build(BuildContext context) {
     final workers = _workers;
     final failure = _failure;
-    return SettingsScaffold(
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    final scaffold = SettingsScaffold(
       title: 'Active workers',
       subtitle: workers == null ? null : '${workers.length} running',
       previousTitle: 'Kanban',
       actions: [
         SettingsBarAction(
-          label: 'Refresh',
+          label: context.l10n.kanbanRefreshAction,
           icon: AppIcons.refresh,
-          onPressed: _load,
+          shortcut: mac ? '⌘R' : null,
+          busy: _reloading,
+          onPressed: _reload,
         ),
       ],
       body: workers == null
@@ -156,10 +177,11 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                     ),
                   )
                 : const Center(child: CircularProgressIndicator.adaptive())
-          : RefreshIndicator(
+          : PlatformRefresh(
               onRefresh: _load,
               child: workers.isEmpty
                   ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       children: const [
                         SizedBox(height: 120),
                         StateMessage(title: 'No workers are running'),
@@ -190,6 +212,16 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                       ],
                     ),
             ),
+    );
+    if (!mac) return scaffold;
+    // View > Reload owns ⌘R.
+    return MacCommandScope(
+      commands: {
+        MacCommand.reload: MacCommandHandler(
+          _reloading ? null : () => unawaited(_reload()),
+        ),
+      },
+      child: scaffold,
     );
   }
 }

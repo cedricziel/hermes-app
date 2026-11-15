@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_icons.dart';
 import 'plugins_controller.dart' show PluginsFailure;
+import 'plugins_refresh.dart';
 import 'provider_settings.dart';
 import 'providers_controller.dart';
 
@@ -10,6 +11,7 @@ import '../widgets/disclosure_tile.dart';
 import '../widgets/grouped_choice_row.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/named_icon_button.dart';
+import '../widgets/platform_refresh.dart';
 
 /// Where the agent keeps its memory and how it compresses long chats. It
 /// loads when it is first shown, and keeps what the user picked but has not
@@ -36,14 +38,11 @@ class _ProvidersTabState extends State<ProvidersTab>
     _controller.load();
   }
 
-  Future<void> _refresh() async {
-    final messenger = ScaffoldMessenger.of(context);
-    if (!await _controller.refresh()) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Could not refresh provider settings')),
-      );
-    }
-  }
+  Future<void> _refresh() => refreshReporting(
+    ScaffoldMessenger.of(context),
+    _controller.refresh,
+    kProvidersRefreshFailed,
+  );
 
   Future<void> _save() async {
     final messenger = ScaffoldMessenger.of(context);
@@ -101,7 +100,7 @@ class _ProvidersTabState extends State<ProvidersTab>
         return Column(
           children: [
             Expanded(
-              child: RefreshIndicator(
+              child: PlatformRefresh(
                 onRefresh: _refresh,
                 child: GroupedListView(
                   key: const Key('providers-list'),
