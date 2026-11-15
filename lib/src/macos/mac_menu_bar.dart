@@ -4,6 +4,7 @@ import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
 import '../settings/about_dialog.dart';
 import '../telemetry/breadcrumbs.dart';
@@ -50,6 +51,7 @@ class _MacMenuBarState extends State<MacMenuBar> {
   /// platform whenever it gets a new list, so the list is only rebuilt when
   /// the registry changes, not when a theme animation rebuilds this widget.
   List<PlatformMenuItem>? _menus;
+  AppLocalizations? _l10n;
 
   IpadMenuBridge? _ipad;
 
@@ -62,10 +64,19 @@ class _MacMenuBarState extends State<MacMenuBar> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final l10n = context.l10n;
+    if (_l10n != l10n) {
+      // A new language: the menus are built again, and the iPad gets the
+      // layout again with its new labels.
+      _l10n = l10n;
+      _menus = null;
+      _ipad?.l10n = l10n;
+    }
     final ios = platformChromeOf(context) == PlatformChrome.ios;
     if (ios && _ipad == null) {
       _ipad = IpadMenuBridge(
         registry: _registry,
+        localizations: l10n,
         breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
         events: () =>
             HermesRepositories.maybeOf(context)?.telemetry.events ??
@@ -118,7 +129,7 @@ class _MacMenuBarState extends State<MacMenuBar> {
       return content;
     }
     return PlatformMenuBar(
-      menus: _menus ??= macMenus(_registry),
+      menus: _menus ??= macMenus(_registry, context.l10n),
       child: content,
     );
   }
@@ -126,7 +137,10 @@ class _MacMenuBarState extends State<MacMenuBar> {
 
 /// The menus of the Mac menu bar, each item enabled while [registry] has a
 /// handler for its command.
-List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
+List<PlatformMenuItem> macMenus(
+  MacCommandRegistry registry,
+  AppLocalizations l10n,
+) {
   PlatformMenuItem item(
     MacCommand command,
     String label, {
@@ -145,7 +159,7 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
 
   PlatformMenuItem entryItem(MenuEntry entry) => item(
     entry.command,
-    entry.label,
+    entry.label(l10n),
     shortcut: entry.shortcutOn(MenuPlatform.mac),
     run: entry.command == MacCommand.deleteThread
         ? _deleteThreadOrLine(registry)
@@ -174,7 +188,7 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
   }) {
     final section = menuLayout.firstWhere((s) => s.id == id);
     return PlatformMenu(
-      label: section.label,
+      label: section.label(l10n),
       menus: [
         for (final entries in section.groupsOn(MenuPlatform.mac))
           group([for (final entry in entries) entryItem(entry)]),
@@ -199,38 +213,38 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
     ),
     section('file'),
     PlatformMenu(
-      label: 'Edit',
+      label: l10n.macosMenuEdit,
       menus: [
         group([
           edit(
-            'Undo',
+            l10n.macosMenuUndo,
             const UndoTextIntent(cause),
             metaActivator(LogicalKeyboardKey.keyZ),
           ),
           edit(
-            'Redo',
+            l10n.macosMenuRedo,
             const RedoTextIntent(cause),
             metaActivator(LogicalKeyboardKey.keyZ, shift: true),
           ),
         ]),
         group([
           edit(
-            'Cut',
+            l10n.macosMenuCut,
             const CopySelectionTextIntent.cut(cause),
             metaActivator(LogicalKeyboardKey.keyX),
           ),
           edit(
-            'Copy',
+            l10n.macosMenuCopy,
             CopySelectionTextIntent.copy,
             metaActivator(LogicalKeyboardKey.keyC),
           ),
           edit(
-            'Paste',
+            l10n.macosMenuPaste,
             const PasteTextIntent(cause),
             metaActivator(LogicalKeyboardKey.keyV),
           ),
           edit(
-            'Select All',
+            l10n.macosMenuSelectAll,
             const SelectAllTextIntent(cause),
             metaActivator(LogicalKeyboardKey.keyA),
           ),
@@ -245,7 +259,7 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
     ),
     section('chat'),
     PlatformMenu(
-      label: 'Window',
+      label: l10n.macosMenuWindow,
       menus: [
         group([
           provided(PlatformProvidedMenuItemType.minimizeWindow),
