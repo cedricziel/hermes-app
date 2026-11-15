@@ -89,3 +89,24 @@ any job upstream was skipped, and `Test watch core` is skipped on most pull
 requests. Their `if` therefore names `needs.analyze-and-test.result ==
 'success'` under `!cancelled()`. If builds show as skipped on a pull request that
 changes code, look there first.
+
+## flutter_soloud build guard
+
+`Build Linux (release)` runs `flutter build linux --release -v`, writes
+`build/flutter_build_linux.log`, then `scripts/check-soloud-build-log.sh`. It
+fails when the flutter_soloud build hook downloaded or built Xiph libraries or
+enabled VST3: it needs `[flutter_soloud] Building on Linux (<arch>) with Xiph
+libs [disabled]` (read from the hook's `stdout.txt` under
+`.dart_tool/hooks_runner/flutter_soloud/`, since Flutter keeps it out of the
+verbose log) and none of `Downloading prebuild archive`, `Extracting archive`,
+`releases/download`, `Configuring ogg|opus|vorbis|flac`, `Cloning`. A failure
+means `hooks.user_defines.flutter_soloud` in `pubspec.yaml` lost
+`no_xiph_libs: true` or `enable_vst3: false`, or a new version changed what the
+hook does. The unit-level twin is `test/dependency_flutter_soloud_guard_test.dart`
+(user-defines, exact pin, `kFlutterSoloudNoticesVersion` equal to the pin and the
+lock). To fix after a bump: read the new `hook/build.dart`, update
+`lib/src/settings/third_party_notices.dart` and its constant together, and adjust
+the script and `scripts/test_check_soloud_build_log.py` if the print line
+changed. Details: the flutter_soloud paragraph in
+`docs/architecture/native.md`. The script is in the `builds` path filter, so
+changing it runs the Linux build on a pull request.

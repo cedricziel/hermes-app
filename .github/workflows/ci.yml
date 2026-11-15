@@ -75,7 +75,7 @@ jobs:
                     packages/hermes_api/lib/*) ;;
                     android/* | ios/* | macos/* | linux/* | windows/* | web/* | packages/* | assets/* | fastlane/*) builds=true ;;
                     pubspec.yaml | pubspec.lock | */pubspec.yaml | */pubspec.lock | .fvmrc) builds=true ;;
-                    scripts/package-linux.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
+                    scripts/package-linux.sh | scripts/check-soloud-build-log.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
                   esac
                 done < "$list"
               fi
@@ -418,8 +418,19 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
 
+      # Verbose so the build log holds the build hooks' commands. flutter_soloud's
+      # hook must neither download nor build Xiph libraries nor enable VST3; the
+      # guard reads the log and the hook's stdout (docs/architecture/native.md).
       - name: Build release bundle
-        run: flutter build linux --release
+        run: |
+          set -o pipefail
+          mkdir -p build
+          flutter build linux --release -v 2>&1 | tee build/flutter_build_linux.log
+
+      - name: Check flutter_soloud fetched no Xiph or VST3 library
+        run: |
+          scripts/check-soloud-build-log.sh build/flutter_build_linux.log
+          test -f build/linux/x64/release/bundle/lib/libflutter_soloud_plugin.so
 
       - name: Package tar.gz and .deb
         run: scripts/package-linux.sh 0.0.0-ci
