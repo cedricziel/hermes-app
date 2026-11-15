@@ -499,5 +499,44 @@ void main() {
       );
       expect(find.text('Before editing a file'), findsOneWidget);
     });
+
+    testWidgets('a tall header scrolls with the list as one page', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          SizedBox(
+            height: 400,
+            child: CheckpointListBody(
+              status: CheckpointListStatus.loaded,
+              header: const SizedBox(
+                key: Key('header'),
+                height: 600,
+                child: Text('Restored 5 files'),
+              ),
+              items: const [
+                CheckpointListItem(
+                  checkpoint: Checkpoint(
+                    hash: 'aaa111bbb222',
+                    reason: CheckpointReason.beforeEdit,
+                  ),
+                  timeLabel: '12 min ago',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      // The header is not capped to half the height: it is the first thing
+      // in the list, and the list's own scroll reaches the rows below it.
+      expect(tester.getSize(find.byKey(const Key('header'))).height, 600);
+      await tester.scrollUntilVisible(
+        find.text('Before editing a file'),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('Before editing a file'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

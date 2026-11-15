@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/widgets/composer_status_line.dart';
@@ -22,6 +23,7 @@ import 'package:hermes_app/src/chat/context/context_controller.dart';
 import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -162,27 +164,35 @@ void main() {
     return chat.selectedThread!;
   }
 
-  Future<void> pumpPanel(WidgetTester tester, {bool rows = true}) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.topRight,
-            child: SizedBox(
-              width: 380,
-              child: ListenableBuilder(
-                listenable: chat,
-                builder: (_, _) => BoundActivityPanel(
-                  chat: chat,
-                  thread: chat.selectedThread,
-                  checkpointsAndContext: rows,
-                ),
+  Future<void> pumpPanel(
+    WidgetTester tester, {
+    bool rows = true,
+    TargetPlatform? platform,
+    MacCommandRegistry? commands,
+  }) async {
+    Widget app = MaterialApp(
+      theme: ThemeData(platform: platform),
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topRight,
+          child: SizedBox(
+            width: 380,
+            child: ListenableBuilder(
+              listenable: chat,
+              builder: (_, _) => BoundActivityPanel(
+                chat: chat,
+                thread: chat.selectedThread,
+                checkpointsAndContext: rows,
               ),
             ),
           ),
         ),
       ),
     );
+    if (commands != null) {
+      app = MacCommandScope.root(registry: commands, child: app);
+    }
+    await tester.pumpWidget(app);
     await settle(tester);
   }
 
@@ -474,6 +484,85 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await settle(tester);
       expect(source.fake.compressRequests, isEmpty);
+    });
+  });
+
+  group('file page keys', () {
+    Future<void> openFirstFile(WidgetTester tester) async {
+      await openCheckpoints(tester);
+      await tester.tap(find.text('Before editing a file'));
+      await settle(tester);
+      await tester.tap(find.text(breakableFileName('token_refresh.dart')));
+      await settle(tester);
+      expect(find.text('Restore this file…'), findsOneWidget);
+    }
+
+    Future<void> optionArrow(
+      WidgetTester tester,
+      LogicalKeyboardKey key,
+    ) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(key);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await settle(tester);
+    }
+
+    testWidgets('a Mac steps through the files from the menu, not a key', (
+      tester,
+    ) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await tester.runAsync(open);
+      await pumpPanel(
+        tester,
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      await openFirstFile(tester);
+
+      expect(commands.handlerFor(MacCommand.previousChange)?.enabled, isFalse);
+      expect(commands.handlerFor(MacCommand.nextChange)?.enabled, isTrue);
+      // The page binds no key of its own on a Mac.
+      await optionArrow(tester, LogicalKeyboardKey.arrowDown);
+      expect(commands.handlerFor(MacCommand.previousChange)?.enabled, isFalse);
+
+      expect(commands.invoke(MacCommand.nextChange), isTrue);
+      await settle(tester);
+      expect(commands.handlerFor(MacCommand.previousChange)?.enabled, isTrue);
+      expect(commands.handlerFor(MacCommand.nextChange)?.enabled, isFalse);
+      expect(commands.invoke(MacCommand.previousChange), isTrue);
+      await settle(tester);
+      expect(commands.handlerFor(MacCommand.previousChange)?.enabled, isFalse);
+      expect(commands.handlerFor(MacCommand.nextChange)?.enabled, isTrue);
+    });
+
+    testWidgets('the commands go with the page', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await tester.runAsync(open);
+      await pumpPanel(
+        tester,
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      expect(commands.handlerFor(MacCommand.nextChange), isNull);
+      await openFirstFile(tester);
+      expect(commands.handlerFor(MacCommand.nextChange), isNotNull);
+      await tester.tap(find.byKey(const Key('activity-page-back')));
+      await settle(tester);
+      expect(commands.handlerFor(MacCommand.nextChange), isNull);
+    });
+
+    testWidgets('other platforms keep the keys', (tester) async {
+      await tester.runAsync(open);
+      await pumpPanel(tester, platform: TargetPlatform.windows);
+      await openFirstFile(tester);
+      expect(find.text(breakableFileName('token_refresh.dart')), findsWidgets);
+
+      await optionArrow(tester, LogicalKeyboardKey.arrowDown);
+      expect(find.text(breakableFileName('token_refresh.dart')), findsNothing);
+      await optionArrow(tester, LogicalKeyboardKey.arrowUp);
+      expect(find.text(breakableFileName('token_refresh.dart')), findsWidgets);
     });
   });
 

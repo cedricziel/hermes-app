@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/providers/provider_detail_pane.dart';
 import 'package:hermes_app/src/providers/widgets/provider_detail_frame.dart';
 import 'package:hermes_app/src/providers/widgets/provider_detail_view.dart';
@@ -415,7 +416,33 @@ void main() {
       expect(find.byType(RefreshIndicator), findsNothing);
     });
 
-    testWidgets('Command R reads again on a Mac', (tester) async {
+    testWidgets('View > Reload reads again on a Mac', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      final rig = ProvidersRig(backend: _connected());
+      await rig.pump(
+        tester,
+        size: const Size(1000, 800),
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      final before = rig.backend.server
+          .requestsTo('GET', '/api/model/options')
+          .length;
+      expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
+
+      expect(commands.invoke(MacCommand.reload), isTrue);
+      await _settle(tester);
+
+      expect(
+        rig.backend.server.requestsTo('GET', '/api/model/options').length,
+        before + 1,
+      );
+    });
+
+    testWidgets('the screen binds no key of its own for Reload', (
+      tester,
+    ) async {
       final rig = ProvidersRig(backend: _connected());
       await rig.pump(
         tester,
@@ -433,7 +460,7 @@ void main() {
 
       expect(
         rig.backend.server.requestsTo('GET', '/api/model/options').length,
-        before + 1,
+        before,
       );
     });
   });
