@@ -152,9 +152,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
   /// the Mac, which has a toolbar button), so lists end clear of it.
   bool get _fabShown => !_mac && _newTask != null;
 
-  /// The same room the chat list leaves under its button; the extended
-  /// button is the same 56 points tall.
-  double get _fabInset => _fabShown ? NewChatFab.listBottomPadding : 0;
+  /// The same room the chat list leaves under its button (the extended
+  /// button is the same 56 points tall), plus the bottom inset the button sits
+  /// above: an explicit list padding replaces the safe area a null one adds.
+  double get _fabInset => _fabShown
+      ? NewChatFab.listBottomPadding + MediaQuery.paddingOf(context).bottom
+      : 0;
 
   bool _reloading = false;
 

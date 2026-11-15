@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
@@ -35,8 +36,11 @@ void main() {
     WidgetTester tester, {
     required Size size,
     required TargetPlatform platform,
+    double bottomInset = 0,
   }) async {
     tester.view.physicalSize = size;
+    tester.view.padding = FakeViewPadding(bottom: bottomInset);
+    tester.view.viewPadding = FakeViewPadding(bottom: bottomInset);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -57,6 +61,12 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  /// The last task's whole card, not just its title.
+  final lastCard = find.ancestor(
+    of: find.text('Chore number 11'),
+    matching: find.byType(KanbanCard),
+  );
 
   /// Scrolls the board sideways until its last column is on screen.
   Future<void> showLastColumn(WidgetTester tester) async {
@@ -94,15 +104,31 @@ void main() {
       await scrollToEnd(tester);
 
       final fab = tester.getRect(find.byType(FloatingActionButton));
-      final last = tester.getRect(find.text('Chore number 11'));
+      final last = tester.getRect(lastCard);
       expect(last.overlaps(fab), isFalse);
-      final card = find.ancestor(
-        of: find.text('Chore number 11'),
-        matching: find.byType(Card),
-      );
-      if (card.evaluate().isNotEmpty) {
-        expect(tester.getRect(card.first).overlaps(fab), isFalse);
+    });
+  }
+
+  for (final (platform, size, inset) in [
+    (TargetPlatform.iOS, const Size(390, 844), 34.0),
+    (TargetPlatform.android, const Size(900, 600), 48.0),
+  ]) {
+    testWidgets('a list ends clear of the button above a ${inset}pt inset on '
+        '$platform', (tester) async {
+      await pump(tester, size: size, platform: platform, bottomInset: inset);
+      if (size.width < 720) {
+        await tester.ensureVisible(find.text('Done 12'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Done 12'));
+        await tester.pumpAndSettle();
+      } else {
+        await showLastColumn(tester);
       }
+      await scrollToEnd(tester);
+
+      final fab = tester.getRect(find.byType(FloatingActionButton));
+      final last = tester.getRect(lastCard);
+      expect(last.overlaps(fab), isFalse);
     });
   }
 
@@ -118,7 +144,7 @@ void main() {
     await scrollToEnd(tester);
 
     final fab = tester.getRect(find.byType(FloatingActionButton));
-    final last = tester.getRect(find.text('Chore number 11'));
+    final last = tester.getRect(lastCard);
     expect(last.overlaps(fab), isFalse);
   });
 
