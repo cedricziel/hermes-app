@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.81](https://github.com/cedricziel/hermes-app/compare/v0.1.80...v0.1.81) (2026-11-15)
+
+
+### Features
+
+* **chat:** add the tool value view with its label row and catalog use cases ([#1207](https://github.com/cedricziel/hermes-app/issues/1207)) ([f241765](https://github.com/cedricziel/hermes-app/commit/f241765b7d4d73e8b314372f7078fa2a4962cf74))
+* **scripts:** add premerge_check.sh, a trial merge with current main before arming ([#1209](https://github.com/cedricziel/hermes-app/issues/1209)) ([3d67900](https://github.com/cedricziel/hermes-app/commit/3d679008f1dd9fb799a3e4a798b375bd9bbce861))
+* **skills:** see, pause and run the skill curator on the Skills screen ([#1225](https://github.com/cedricziel/hermes-app/issues/1225)) ([4ddc651](https://github.com/cedricziel/hermes-app/commit/4ddc6510dbc596b9e7fd158dffcde92f115aadf2))
+* **voice:** voice calls on Android and desktop ([#1111](https://github.com/cedricziel/hermes-app/issues/1111)) ([2a56be1](https://github.com/cedricziel/hermes-app/commit/2a56be123fe56f36df02a6c0765ff5068d5f81f9))
+
+
+### Bug Fixes
+
+* **chat:** settle a reply the server no longer has, with a notice that says why ([#1187](https://github.com/cedricziel/hermes-app/issues/1187)) ([b8fb191](https://github.com/cedricziel/hermes-app/commit/b8fb1912f6516be795082bb69fc9396d5980e63b))
+* **kanban:** keep the last cards clear of the New task button ([#1213](https://github.com/cedricziel/hermes-app/issues/1213)) ([fb9dc4c](https://github.com/cedricziel/hermes-app/commit/fb9dc4cd0950d06809f24aa376290ae0a9e04f0c))
+* **linux:** show the Hermes icon in the window title bar ([#1205](https://github.com/cedricziel/hermes-app/issues/1205)) ([2432175](https://github.com/cedricziel/hermes-app/commit/24321758735937c376e1ca1a92a6a79d06833947))
+* **macos:** translate the menu bar ([#1208](https://github.com/cedricziel/hermes-app/issues/1208)) ([4e4363a](https://github.com/cedricziel/hermes-app/commit/4e4363aaa110433a419b39b698f2952cd10413e5))
+* **notifications:** offer to open settings after notifications were denied ([#1155](https://github.com/cedricziel/hermes-app/issues/1155)) ([fbda629](https://github.com/cedricziel/hermes-app/commit/fbda629c94c915e13e27a9f8ad5bffc63fd7f971))
+
+
+### Documentation
+
+* **openspec:** match the android-home-widgets tasks 1.3 and 1.7 to the code ([#1204](https://github.com/cedricziel/hermes-app/issues/1204)) ([6933dfd](https://github.com/cedricziel/hermes-app/commit/6933dfdfab4d3cc73e4c80d4993826ff71b1c1d6))
+* roadmap update for 0.1.80, the second main break and new findings ([#1229](https://github.com/cedricziel/hermes-app/issues/1229)) ([abd47aa](https://github.com/cedricziel/hermes-app/commit/abd47aad1c6253b00bf1326d14a7600608ef79ec))
+* **roadmap:** record the main break, the day's merges and new findings ([#1210](https://github.com/cedricziel/hermes-app/issues/1210)) ([123d4bb](https://github.com/cedricziel/hermes-app/commit/123d4bb2846bbba0b2172681acdd07436bbd37a6))
+
 ## [0.1.80](https://github.com/cedricziel/hermes-app/compare/v0.1.79...v0.1.80) (2026-11-15)
 
 
