@@ -109,6 +109,43 @@ void main() {
     );
   });
 
+  test(
+    'a saved frame comes back unchanged: only enlarged below the minimum',
+    () {
+      final swift = File('macos/Runner/MainFlutterWindow.swift')
+          .readAsStringSync();
+      final correct = RegExp(
+        r'private func correctSavedFrame\(\) \{.*?\n  \}\n',
+        dotAll: true,
+      ).firstMatch(swift)!.group(0)!;
+      // Sizes only grow to the minimum; no content-rect conversion of the saved
+      // frame, which loses the title bar (CI measured 900x600 back as 900x568).
+      expect(correct, contains('max(frame.width, smallest.width)'));
+      expect(correct, contains('max(frame.height, smallest.height)'));
+      expect(correct, isNot(contains('contentRect(forFrameRect')));
+      expect(correct, isNot(contains('setContentSize')));
+      expect(correct, contains('restoredFrame = self.frame'));
+      // Dart-side styling happens after awakeFromNib; the runner puts the frame
+      // back once it is done.
+      expect(swift, contains('case "settleFrame":'));
+      expect(
+        File('lib/src/macos/mac_window.dart').readAsStringSync(),
+        contains("invokeMethod<void>('settleFrame')"),
+      );
+      // The CI round trip resizes the frame, not the content.
+      final delegate = File('macos/Runner/AppDelegate.swift')
+          .readAsStringSync();
+      final set = delegate.substring(
+        delegate.indexOf('HERMES_REPORT_WINDOW_SET'),
+      );
+      expect(set, contains('window.setFrame('));
+      expect(
+        set.substring(0, set.indexOf('NSApp.terminate')),
+        isNot(contains('setContentSize')),
+      );
+    },
+  );
+
   test('the CI window report exists only in debug builds and then quits', () {
     final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
     const flag = 'HERMES_REPORT_WINDOW';

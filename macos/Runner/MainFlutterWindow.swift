@@ -33,7 +33,12 @@ class MainFlutterWindow: NSWindow {
   /// happen before applicationDidFinishLaunching.
   private(set) var flutterViewController: FlutterViewController?
 
+  /// The frame AppKit restored and `correctSavedFrame` left, until Dart has
+  /// finished styling the window (see "settleFrame"). Nil when none was saved.
+  private var restoredFrame: NSRect?
+
   /// A remembered frame can be below the minimum or on a display that is gone.
+  /// It only enlarges a frame below the minimum; any other size is left as saved.
   private func correctSavedFrame() {
     var frame = self.frame
     // The smallest frame is the live minimum content size under the style mask
@@ -50,6 +55,7 @@ class MainFlutterWindow: NSWindow {
       return shown.width >= 100 && shown.height >= 40
     }
     if !reachable { center() }
+    restoredFrame = self.frame
   }
 
   override func awakeFromNib() {
@@ -96,6 +102,15 @@ class MainFlutterWindow: NSWindow {
         if self?.isMiniaturized == true { self?.deminiaturize(nil) }
         self?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        result(nil)
+      case "settleFrame":
+        // macos_window_utils adds the full-size content view and a toolbar after
+        // awakeFromNib, which relaunched a saved 900x600 frame as 900x568 (one
+        // title bar short; CI, launch 2). Put the restored frame back once.
+        if let restored = self?.restoredFrame, let window = self {
+          self?.restoredFrame = nil
+          if window.frame.size != restored.size { window.setFrame(restored, display: true) }
+        }
         result(nil)
       case "setContentSize":
         if let args = call.arguments as? [String: Double],
