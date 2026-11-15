@@ -304,9 +304,15 @@ jobs:
       contents: read
       pull-requests: read
     steps:
+      # Only the gate script is needed. A failed checkout must not turn a
+      # passing run red: the gate step then fails and the result falls back
+      # to the Changes job's decision.
       - uses: actions/checkout@v7
+        continue-on-error: true
         with:
           persist-credentials: false
+          sparse-checkout: scripts/ci_gate.py
+          sparse-checkout-cone-mode: false
 
       - name: Read the current labels
         id: gate
