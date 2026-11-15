@@ -72,11 +72,18 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    password per run) and a scripted model (`scripts/verify_scripted_model.py`,
    fixed reply, no key). The app signs in through its real RFC 8252 loopback
    - PKCE flow: `scripts/verify_browser.py`, registered as the http handler,
-     plays the browser. Then it sends a prompt and waits for the reply, and
-     opens the Server screen from the account menu. Screenshots: `01-sign-in`,
-     `02-signed-in`, `03-reply`, `04-server`.
+     plays the browser. Then it sends a prompt and waits for the reply, opens
+     the voice call from the header (a dialog over the chat on Linux, with its
+     readiness checks run against the backend; nothing is started, the
+     container has no audio device) and closes it with Escape, and opens the
+     Server screen from the account menu. Screenshots: `01-sign-in`,
+     `02-signed-in`, `03-reply`, `04-voice-call`, `05-server`. The first run
+     after `flutter_soloud` changes compiles SoLoud through `dart run`'s build
+     hook (a minute or two), which the stand-in NetworkManager's wait allows
+     for.
 
-**Not proven here:** anything native outside Linux desktop: iOS, macOS,
+**Not proven here:** a call's audio on any platform (no device in the
+container, so recording, playback, echo and focus are unverified), and anything native outside Linux desktop: iOS, macOS,
 Android, Windows builds and behaviour; notifications, Home Screen widgets,
 Live Activities, the watch, Siri/App Intents, Spotlight, share extensions,
 App Lock biometrics, Keychain behaviour, the menu bar. OIDC sign-in (only the

@@ -401,7 +401,10 @@ EOF
       DBUS_SYSTEM_BUS_ADDRESS="$(dbus-daemon --session --fork --print-address)"
       export DBUS_SYSTEM_BUS_ADDRESS
       dart run scripts/verify_fake_nm.dart >"$NM_LOG" 2>&1 &
-      for _ in $(seq 150); do
+      # dart run first builds the native assets of the dependencies (SoLoud is
+      # compiled, a minute or two cold), so wait long. No quotes in here: this
+      # whole block is one single-quoted string.
+      for _ in $(seq 1500); do
         grep -q ready "$NM_LOG" && break
         sleep 0.2
       done
