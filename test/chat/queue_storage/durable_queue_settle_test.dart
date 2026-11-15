@@ -38,9 +38,9 @@ void main() {
   test('settle waits for operations a finished one then enqueues', () async {
     final queue = store();
     final finished = <String>[];
-    // The way the chat controller works: each write starts once the one
-    // before it has completed, so a load queued behind the first would return
-    // before the third is even enqueued.
+    // Each write starts from a microtask continuation of the one before it,
+    // so a load queued behind the first would return before the third is
+    // even enqueued.
     unawaited(
       queue
           .commit(_scope, 'first')
@@ -75,5 +75,37 @@ void main() {
     gate.complete();
     await held;
     await DurableQueueStore.settle(directory);
+  });
+
+  test('deleteQueueStoreDir copes with an I/O gap between two store '
+      'writes', () async {
+    final queue = store();
+    // Real I/O between two operations leaves the store chain idle for a
+    // moment, so settle alone can return before the second write is enqueued.
+    // Whether that write then lands before, during or after the delete
+    // depends on the machine's load, so the test pins only that the helper
+    // never fails on it; a write that lands after the delete recreates the
+    // directory, which the tearDown removes.
+    final writer = queue.commit(_scope, 'first').then((_) async {
+      await File('${directory.path}/gap').exists();
+      await queue.commit(_scope, 'second');
+    });
+    await deleteQueueStoreDir(directory);
+    await writer;
+  });
+
+  test('deleteQueueStoreDir needs one round when nothing is pending', () async {
+    await store().commit(_scope, 'only');
+    expect(await deleteQueueStoreDir(directory), 1);
+  });
+
+  test('deleteQueueStoreDir rethrows any other error at once', () async {
+    final missing = Directory('${directory.path}/missing');
+    final watch = Stopwatch()..start();
+    await expectLater(
+      deleteQueueStoreDir(missing, timeout: const Duration(seconds: 30)),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
   });
 }

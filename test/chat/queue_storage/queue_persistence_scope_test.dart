@@ -13,6 +13,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../../support/fake_device_authenticator.dart';
 import '../../support/fake_queue_keys.dart';
 import '../../support/fake_session_auth.dart';
+import '../../support/queue_store_dir.dart';
 
 class _Store extends DurableQueueStore {
   _Store(Directory directory)
@@ -54,7 +55,7 @@ void main() {
     persistence.dispose();
     lock.dispose();
     auth.dispose();
-    await directory.delete(recursive: true);
+    await deleteQueueStoreDir(directory);
   });
 
   test('durable scope requires an explicit profile and protected owner', () {

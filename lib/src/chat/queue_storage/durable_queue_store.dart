@@ -61,12 +61,13 @@ class DurableQueueStore implements PromptQueueStore {
   static final _safeName = RegExp(r'^[a-f0-9]{32}$');
   static final _safeBlobName = RegExp(r'^[a-f0-9]{32}-[a-f0-9]{32}\.blob$');
 
-  /// Completes once no operation on [directory] is running or queued, also
-  /// following operations that a caller enqueues when an earlier one finishes.
-  /// Tests call it before deleting a temp directory, so a write the code under
-  /// test started without awaiting cannot land in a tree being removed. Fails
-  /// after [timeout] instead of hanging, e.g. when a test gate still holds an
-  /// operation.
+  /// Completes once no operation on [directory] is running or queued,
+  /// including operations that a finished one enqueues from a microtask
+  /// continuation. It does not see a write a caller starts after real I/O or a
+  /// timer: such a gap leaves the chain idle for a moment. Tests use it before
+  /// deleting a temp directory, so an unawaited write cannot land in a tree
+  /// being removed. Fails after [timeout] instead of hanging, e.g. when a test
+  /// gate still holds an operation.
   @visibleForTesting
   static Future<void> settle(
     Directory directory, {
