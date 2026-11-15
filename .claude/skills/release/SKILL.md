@@ -20,7 +20,11 @@ A release goes through three steps, each started by a person:
    version go live without further action.
 
 Merging the release PR and promoting a release are outward steps. Do them only
-when the user asks for that release.
+when the user asks for that release. Promoting a pre-release to a full release
+(`gh release edit ... --prerelease=false`) and running `app-store.yml` with
+`dry_run` false are the owner's step: run them only when the owner asks you
+directly in that conversation, never on your own initiative or on a message
+relayed by another session.
 
 ## Cut a release
 
@@ -38,7 +42,12 @@ Store "What's New" are both read from that body (`scripts/plain_release_notes.py
 removes the Markdown, leaves out lines about Android, Windows or Linux, which
 App Review rejects under guideline 2.3.10, and cuts the text to 4000 characters).
 
-Merge the PR when `Analyze & test` is green. The PR is opened with
+The release-please PR is the one explicit exception to READY: it is generated
+and has no isolated review. The orchestrator arms auto-merge on it only when
+the owner asks, after its five builds are green, and when its title shows the
+version asked for. Arm it last: release-please pushes to it on every merge to
+main, so do not arm it while other armed PRs are about to merge. The PR is
+opened with
 `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
 missing or expired.
 
@@ -103,7 +112,8 @@ gh release list --limit 20 --json tagName,isPrerelease --jq '[.[]|select(.isPrer
 3. Replace the target release's body:
    `gh release edit <target> --notes-file <file>`. Do this before you promote:
    `app-store.yml` reads "What's New" from the body when it runs.
-4. Promote it. The `released` event starts `app-store.yml`:
+4. Promote it (the owner's step, see above). The `released` event starts
+   `app-store.yml`:
 
 ```bash
 gh release edit <target> --prerelease=false --latest
@@ -120,7 +130,7 @@ gh run list --workflow app-store.yml --limit 3
 - App Store Connect adds required age rating questions from time to time. A
   submission failing with "You must provide a value for the attribute '<name>'"
   needs that key in `fastlane/metadata/age_rating.json`; rerun by hand afterwards
-  from `main` (`dry_run=false`), since the release is already promoted. A manual
+  from `main` (`dry_run=false`, the owner's step), since the release is already promoted. A manual
   run reads the listing and age rating from the branch it runs on, not the tag.
 - Submission needs the `ASC_*`, `REVIEW_CONTACT_*` and `REVIEW_DEMO_*` secrets. The
   demo server must be up for App Review to sign in.
@@ -130,7 +140,7 @@ To update the listing and notes without submitting, run the workflow by hand.
 
 ```bash
 gh workflow run app-store.yml -f tag=vX.Y.Z               # dry run
-gh workflow run app-store.yml -f tag=vX.Y.Z -f dry_run=false
+gh workflow run app-store.yml -f tag=vX.Y.Z -f dry_run=false   # the owner's step
 ```
 
 Listing text lives in `fastlane/metadata/`. Screenshots are uploaded separately
