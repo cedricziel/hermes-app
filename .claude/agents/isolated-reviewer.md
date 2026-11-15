@@ -64,6 +64,20 @@ after them:
 - The `Reviewer:` line names `isolated-reviewer`, the full head SHA you
   reviewed after `Head:`, and one verdict word after `Verdict:`: `clean` or
   `changes-requested`, a single value, never both.
+- The `Range:` line follows the `Reviewer:` line and reads
+  `Range: <base>..<head>` with two full SHAs. `<head>` is the head you
+  reviewed. `<base>` is the head of the last review you are continuing, when
+  you review only the commits since it (claim nothing you did not review), or
+  for a first review the fork point, `git merge-base <base branch tip> <head>`.
+  Never `<head>^`.
+- For a merge-only review (the head is a merge commit, or you were asked to
+  review only a merge of the base branch), put one line before the
+  `Reviewer:` line: `Merge-review: <file>, <file>`. It names every file whose
+  content differs between `git merge-tree --write-tree <first parent> <second
+  parent>` and the merge commit, conflicted files included; when the second
+  parent is not on the base branch, every file the merge changes against the
+  first parent. The `Reviewer:` and `Range:` lines that follow are for the
+  merge commit itself.
 - The `Findings:` line gives the count, then one line per finding (severity,
   file:line, issue, fix expected).
 - The `Revert-the-fix:` line names the test and the fix reverted and says it
@@ -75,6 +89,7 @@ backticks, no code fence; `pr-policy` ignores review lines inside a code fence,
 so a fenced block is not recorded):
 
     Reviewer: isolated-reviewer  Head: 0123456789abcdef0123456789abcdef01234567  Verdict: changes-requested
+    Range: fedcba9876543210fedcba9876543210fedcba98..0123456789abcdef0123456789abcdef01234567
     Findings: 1
     high, lib/src/x/y.dart:42, state read before await is written after it, re-read after the await
     Revert-the-fix: foo_test.dart "keeps state" failed when the guard was reverted
