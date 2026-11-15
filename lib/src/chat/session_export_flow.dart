@@ -66,33 +66,50 @@ Future<void> showSessionExport(
   final messenger = ScaffoldMessenger.maybeOf(context);
   final savedText = context.l10n.chatSessionExportSaved;
 
+  var open = false;
+  late final Future<void> Function() present;
+
   Future<void> confirm() async {
     final result = await controller.confirm();
     if (result == SessionExportSaveResult.saved) {
       messenger?.showSnackBar(SnackBar(content: Text(savedText)));
+    } else if (!open && controller.phase is SessionExportFailed) {
+      // The save sheet failed after the alert had closed behind it: show the
+      // failure again, or nothing could close it and a new export would be
+      // refused.
+      if (context.mounted) {
+        unawaited(present());
+      } else {
+        controller.close();
+      }
     }
   }
 
-  final shown = showAppDialog<void>(
-    context: context,
-    builder: (_) => _SessionExportDialog(
-      controller: controller,
-      onConfirm: () => unawaited(confirm()),
-    ),
-  );
-  await shown;
-  // Escape, a tap outside or the back gesture closed a confirmation or a
-  // failure: only the progress is protected from that.
-  switch (controller.phase) {
-    case SessionExportConfirm() || SessionExportFailed():
-      controller.close();
-    case SessionExportProgress():
-      // A navigation that pops every route (a notification tap, a deep link)
-      // ignores PopScope: the alert is gone, so the run goes with it.
-      controller.cancel();
-    case null:
-      break;
-  }
+  present = () async {
+    open = true;
+    await showAppDialog<void>(
+      context: context,
+      builder: (_) => _SessionExportDialog(
+        controller: controller,
+        onConfirm: () => unawaited(confirm()),
+      ),
+    );
+    open = false;
+    // Escape, a tap outside or the back gesture closed a confirmation or a
+    // failure: only the progress is protected from that.
+    switch (controller.phase) {
+      case SessionExportConfirm() || SessionExportFailed():
+        controller.close();
+      case SessionExportProgress():
+        // A navigation that pops every route (a notification tap, a deep
+        // link) ignores PopScope: the alert is gone, so the run goes too.
+        controller.cancel();
+      case null:
+        break;
+    }
+  };
+
+  await present();
 }
 
 class _SessionExportDialog extends StatefulWidget {
@@ -142,6 +159,11 @@ class _SessionExportDialogState extends State<_SessionExportDialog> {
   }
 
   void _close() {
+    // A newer phase came back before the frame (a late failure): stay.
+    if (_controller.phase != null) {
+      _closing = false;
+      return;
+    }
     if (!mounted) return;
     final route = ModalRoute.of(context);
     if (route == null || !route.isActive) return;

@@ -33,6 +33,7 @@ void main() {
   late Completer<bool>? saveGate;
   late Completer<FakeResponse>? answer;
   var saveResult = true;
+  var saveThrows = false;
 
   setUp(() {
     server = FakeHermesServer();
@@ -40,6 +41,7 @@ void main() {
     saveGate = null;
     answer = null;
     saveResult = true;
+    saveThrows = false;
     server.onRequest('GET', '/api/sessions/s1/export', (_) async {
       final held = answer;
       return held == null ? (status: 200, body: _session()) : await held.future;
@@ -48,6 +50,10 @@ void main() {
       api: server.client(),
       save: (name, bytes) async {
         saved.add(name);
+        if (saveThrows) {
+          await saveGate?.future;
+          throw StateError('sheet broke');
+        }
         return saveGate?.future ?? saveResult;
       },
     );
@@ -396,6 +402,62 @@ void main() {
         hasLength(1),
       );
       expect(saved, ['Plan the release.json']);
+    });
+  });
+
+  group('a save sheet that throws', () {
+    testWidgets('late: the failure shows, Close works, a new start opens', (
+      tester,
+    ) async {
+      saveThrows = true;
+      saveGate = Completer<bool>();
+      await pump(tester);
+      await confirm(tester);
+      await frames(tester);
+      expect(find.byType(SessionExportAlert), findsNothing);
+
+      saveGate!.complete(true);
+      await frames(tester);
+      expect(find.text("Couldn't export this chat"), findsOneWidget);
+
+      await tester.tap(find.text('Close'));
+      await frames(tester);
+      expect(find.byType(SessionExportAlert), findsNothing);
+      expect(controller.phase, isNull);
+
+      saveThrows = false;
+      await tester.tap(find.text('Start'));
+      await frames(tester);
+      expect(find.text('Export this chat as JSON?'), findsOneWidget);
+    });
+
+    testWidgets('instantly: the failure shows in the same alert', (
+      tester,
+    ) async {
+      saveThrows = true;
+      await pump(tester);
+      await confirm(tester);
+      await frames(tester);
+
+      expect(find.text("Couldn't export this chat"), findsOneWidget);
+      await tester.tap(find.text('Close'));
+      await frames(tester);
+      expect(controller.phase, isNull);
+      expect(controller.begin('s1', 'work'), isTrue);
+    });
+
+    testWidgets('after a lock shows nothing', (tester) async {
+      saveThrows = true;
+      saveGate = Completer<bool>();
+      await pump(tester);
+      await confirm(tester);
+      await frames(tester);
+
+      controller.locked();
+      saveGate!.complete(true);
+      await frames(tester);
+      expect(find.byType(SessionExportAlert), findsNothing);
+      expect(controller.phase, isNull);
     });
   });
 }

@@ -257,6 +257,15 @@ void main() {
       await tester.pump();
       expect(registry.handlerFor(MacCommand.exportThread)!.enabled, isFalse);
 
+      // A later title report of the same window keeps the flag.
+      await host.call('title', {
+        'window_id': 'w0',
+        'title': 'A new title',
+        'pinned': true,
+      });
+      await tester.pump();
+      expect(registry.handlerFor(MacCommand.exportThread)!.enabled, isFalse);
+
       await host.call('exportBusy', {'window_id': 'w0', 'busy': false});
       await tester.pump();
       expect(registry.handlerFor(MacCommand.exportThread)!.enabled, isTrue);
