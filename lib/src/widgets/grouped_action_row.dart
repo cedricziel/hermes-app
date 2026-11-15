@@ -80,6 +80,7 @@ class GroupedActionRow extends StatelessWidget {
     this.spinnerWhileWorking = false,
     this.semanticLabel,
     this.touchTargetButtons = false,
+    this.linkColoredButtons = false,
   }) : assert(
          onPressed != null || subtitle != null || status != null,
          'A disabled row needs a subtitle or status that says why.',
@@ -105,6 +106,10 @@ class GroupedActionRow extends StatelessWidget {
   /// standard density, instead of the compact 44 pt Server care has always
   /// had.
   final bool touchTargetButtons;
+
+  /// Status buttons with the link colour for their label, in place of the
+  /// theme's default text colour.
+  final bool linkColoredButtons;
 
   /// Text scale beyond which the leading icon stacks above the text.
   static const stackedScale = 2.0;
@@ -145,7 +150,16 @@ class GroupedActionRow extends StatelessWidget {
       GroupedActionPhase.neutral => (AppIcons.info, colors.subtleText),
       _ => null,
     };
-    final buttonStyle = touchTargetButtons
+    final linkStyle = linkColoredButtons
+        ? ButtonStyle(
+            // A disabled button keeps the theme's faded colour.
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (states) =>
+                  states.contains(WidgetState.disabled) ? null : colors.link,
+            ),
+          )
+        : null;
+    final sizeStyle = touchTargetButtons
         ? ButtonStyle(
             minimumSize: WidgetStatePropertyAll(
               Size(0, switch (platformChromeOf(context)) {
@@ -160,6 +174,9 @@ class GroupedActionRow extends StatelessWidget {
             minimumSize: WidgetStatePropertyAll(Size(0, 44)),
             visualDensity: VisualDensity.compact,
           );
+    final buttonStyle = linkStyle == null
+        ? sizeStyle
+        : sizeStyle.merge(linkStyle);
     final Widget leadingWidget = spinner
         ? SizedBox.square(
             dimension: leadingSize,

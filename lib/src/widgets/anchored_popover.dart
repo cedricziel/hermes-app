@@ -196,7 +196,9 @@ Future<T?> showAnchoredPopover<T>(
                       child: FocusTraversalGroup(
                         policy: ReadingOrderTraversalPolicy(),
                         child: Material(
-                          color: scheme.surface,
+                          color:
+                              Theme.of(context).dialogTheme.backgroundColor ??
+                              scheme.surfaceContainerHigh,
                           elevation: 8,
                           shadowColor: Colors.black54,
                           clipBehavior: Clip.antiAlias,

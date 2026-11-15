@@ -40,72 +40,82 @@ void main() {
     await tester.pumpAndSettle();
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  for (final running in [true, false]) {
-    testWidgets(
-      'Mac long logs remain scrollable at text scale 2: running=$running',
-      (tester) async {
-        final waiting = Completer<void>();
-        final job = SkillJob(
-          title: 'Installing a demonstration skill',
-          start: () async => const StartedJob(name: 'fixture'),
-          status: (_) async => JobStatus(
-            running: running,
-            exitCode: running ? null : 0,
-            lines: List.filled(
-              6,
-              'A long invented output line describing installation steps and package verification. ' *
-                  8,
+  for (final (platform, size) in [
+    (TargetPlatform.macOS, const Size(390, 400)),
+    (TargetPlatform.android, const Size(1024, 400)),
+  ]) {
+    for (final running in [true, false]) {
+      testWidgets(
+        '$platform long logs remain scrollable at text scale 2: running=$running',
+        (tester) async {
+          final waiting = Completer<void>();
+          final job = SkillJob(
+            title: 'Installing a demonstration skill',
+            start: () async => const StartedJob(name: 'fixture'),
+            status: (_) async => JobStatus(
+              running: running,
+              exitCode: running ? null : 0,
+              lines: List.filled(
+                6,
+                'A long invented output line describing installation steps and package verification. ' *
+                    8,
+              ),
             ),
-          ),
-          wait: (_) => waiting.future,
-        );
-        unawaited(job.run());
-        addTearDown(() {
-          job.dispose();
-          waiting.complete();
-        });
-        tester.view.physicalSize = const Size(390, 400);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.macOS),
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context)
-                  .copyWith(textScaler: const TextScaler.linear(2)),
-              child: child!,
-            ),
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () => showSkillJobStatus(context, job),
-                  child: const Text('Open'),
+            wait: (_) => waiting.future,
+          );
+          unawaited(job.run());
+          addTearDown(() {
+            job.dispose();
+            waiting.complete();
+          });
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(platform: platform),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: const TextScaler.linear(2)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => showSkillJobStatus(context, job),
+                    child: const Text('Open'),
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-        await tester.tap(find.text('Open'));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 200));
-        expect(tester.takeException(), isNull);
-        final close = find.text(running ? 'Run in background' : 'Close');
-        expect(close.hitTestable(), findsOneWidget);
-        final scroll = find.byType(SingleChildScrollView);
-        final scrollable = tester.state<ScrollableState>(
-          find.descendant(of: scroll, matching: find.byType(Scrollable)),
-        );
-        expect(scrollable.position.maxScrollExtent, greaterThan(0));
-        await tester.drag(scroll, const Offset(0, -200));
-        await tester.pump();
-        expect(scrollable.position.pixels, greaterThan(0));
-        expect(close.hitTestable(), findsOneWidget);
-        await tester.tap(close);
-        await tester.pumpAndSettle();
-        expect(find.text('Open'), findsOneWidget);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-    );
+          );
+          await tester.tap(find.text('Open'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(tester.takeException(), isNull);
+          expect(
+            tester.getTopLeft(find.text(job.title)).dy -
+                tester.getTopLeft(find.byType(SkillJobSheet)).dy,
+            greaterThanOrEqualTo(16),
+          );
+          final close = find.text(running ? 'Run in background' : 'Close');
+          expect(close.hitTestable(), findsOneWidget);
+          final scroll = find.byType(SingleChildScrollView);
+          final scrollable = tester.state<ScrollableState>(
+            find.descendant(of: scroll, matching: find.byType(Scrollable)),
+          );
+          expect(scrollable.position.maxScrollExtent, greaterThan(0));
+          await tester.drag(scroll, const Offset(0, -200));
+          await tester.pump();
+          expect(scrollable.position.pixels, greaterThan(0));
+          expect(close.hitTestable(), findsOneWidget);
+          await tester.tap(close);
+          await tester.pumpAndSettle();
+          expect(find.text('Open'), findsOneWidget);
+        },
+        variant: TargetPlatformVariant.only(platform),
+      );
+    }
   }
   for (final platform in [
     TargetPlatform.macOS,
