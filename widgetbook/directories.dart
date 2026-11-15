@@ -11,6 +11,7 @@ import 'memory_proposal_use_cases.dart';
 import 'memory_tool_use_cases.dart';
 import 'memory_use_cases.dart';
 import 'session_usage_use_cases.dart';
+import 'tool_value_use_cases.dart';
 import 'connector_operation_use_cases.dart';
 import 'side_result_use_cases.dart';
 import 'process_output_use_cases.dart';
@@ -28,6 +29,7 @@ import 'needs_you_dock_use_cases.dart';
 import 'activity_line_use_cases.dart';
 import 'moa_progress_use_cases.dart';
 import 'background_check_status_use_cases.dart';
+import 'open_settings_button_use_cases.dart';
 import 'queue_recovery_use_cases.dart';
 import 'chat_checkpoints_use_cases.dart';
 import 'chat_checkpoint_restore_use_cases.dart';
@@ -125,6 +127,7 @@ final List<WidgetbookNode> directories = [
   activityWaitingMarkerNode(),
   moaProgressNode(),
   backgroundCheckStatusNode(),
+  openSettingsButtonNode(),
   queueRecoveryNode(),
   connectionNode(),
   handoffNode(),
@@ -157,6 +160,7 @@ final List<WidgetbookNode> directories = [
   memoryProposalsNode(),
   memoryToolNode(),
   sessionUsageNode(),
+  toolValueNode(),
   chatContextNode(),
   chatCheckpointsNode(),
   chatCheckpointRestoreNode(),

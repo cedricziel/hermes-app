@@ -58,6 +58,111 @@ iOS: detent sheet from the line. Android: Material modal sheet, 48 dp targets. i
 
 The claude.ai viewer, real devices, VoiceOver and TalkBack output, reduced-motion animation, contrast beyond an eye check (warning text on the dark surface), live keyboard behaviour, the size transition (a static sketch), App Lock (not drawn). Not every board was re-rendered after the last small edits.
 
+## Tool call inputs and outputs: JSON and code
+
+What a tool call card shows when opened: what the tool was given (Input, Arguments, Content) and what it returned (Result, Error, Output). Today that is flat monospace text plus a collapsible JSON tree (`flutter_json_view`) for a JSON object or array. This section is the design for colouring it. The catalog widgets are `ToolValueView`, `ToolJsonView` and `ToolValuePanel` (`lib/src/chat/widgets/tool_value_view.dart`, use cases under "ToolValuePanel"). Wiring them into `ToolCallCard`, `ToolArgumentsView` and the Terminal body is the next change; it does not touch card keys, ids or the open and closed state (lifted separately).
+
+Design status: the Claude Design canvas was not reachable from this work, so the pass was done with what the repo holds: the Files code palette (`--h-code-*` in `design/web/src/styles/tokens.css`, `HermesCodeColors`, 5.2:1 or better on both surfaces) and rendered catalog use cases on phone and desktop, light and dark, and at text scale 2. A canvas board for the two options below was not drawn.
+
+### Decisions fixed beforehand
+
+- Reuse the Files palette and its guards; no new canvas colours. Colour is the only difference to today's text: the characters are never changed.
+- Text is shown **as sent**: no reformatting, no re-indenting. What the server sent is what the person can read and copy.
+- Language is derived on the client from the call alone (`toolValueLanguage`): the `command` of a terminal call is shell, the extension of the `path` argument names the language of a file's content, a JSON object or array is JSON, anything else is plain. Never from the server, never guessed from content beyond the JSON parse.
+- Control and bidi characters are drawn as visible `<U+202E>` placeholders (`safeContentText`), as in Files.
+- The 220 px height cap stays; the body scrolls inside it and the header row does not scroll.
+
+### The two options for JSON
+
+|            | A: text as sent by default, Tree switch                                                                                                | B: tree by default, Text switch                                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| First view | Coloured flat text, exactly the bytes sent                                                                                             | Today's collapsible tree                                              |
+| Switch     | "Tree view" opens the collapsible tree                                                                                                 | "Text view" shows the coloured text                                   |
+| Good at    | Reading a short payload at a glance, comparing with the logs, copying what you see, a phone's narrow width (the tree indents by depth) | Exploring a deep result, hiding what you do not need                  |
+| Cost       | The tree costs one tap                                                                                                                 | The common case, a payload of a few keys, costs a tap to read as sent |
+
+**Recorded choice: A.** Most inputs are a handful of keys and most results are short; for those the flat text is shorter than the tree (no indent per level, no arrow column) and is the one that can be compared with a log or a command line. The tree stays one labelled tap away for the large, deep result where folding helps. The render check bore this out: at 390 pt the tree clips values at depth three while the text wraps in place. No problem found that would reverse it.
+
+### The switch
+
+A text button with an icon and a word: "Tree view" while the text shows, "Text view" while the tree shows (German: "Baumansicht", "Textansicht"). It names the view you will get, and the icon changes with it, so it is not colour or an icon alone. Target 44 pt on iOS, 48 dp on Android, 28 pt on a Mac (buttons keep `VisualDensity.standard`); the copy button beside it has the same size. The header is one row: the section label, the switch, copy; at large text sizes the buttons wrap under the label instead of squeezing it. Which view shows is state of `ToolJsonView`, so it survives a rebuild of the card; it ends with the widget (a card rebuilt in another place starts on the text).
+
+The switch is offered only for a **settled** call whose text parses as a JSON object or array within the size bound. It is absent for invalid JSON, plain text, a running call and a scalar.
+
+### States
+
+| State                                | What shows                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settled JSON                         | Coloured text as sent, "Tree view" switch, copy                                                                                                                                                                                                                                                                                                               |
+| Settled JSON, tree                   | The collapsible tree, "Text view" switch, copy                                                                                                                                                                                                                                                                                                                |
+| Running (streaming)                  | Plain text with the control placeholders, no switch, no colour: the text grows with each delta and colouring would start over each time. It is coloured when the call settles                                                                                                                                                                                 |
+| Failed                               | Same as settled: the section is labelled "Error", the card header carries the error icon, and the text is coloured only if it is JSON or has a known language. Status is never colour alone: icon, label and the error text itself                                                                                                                            |
+| Very long                            | The body scrolls inside the 220 px cap, there is no "show all". Text that is not small and plain shaped is coloured by the worker and shows plain meanwhile; text above 512 KB, a stretch of 10,000 characters without a break, or more than 1,000 spans stays plain (the Files guards). A JSON text above 64 KB is not parsed, so it is plain with no switch. JSON nested deeper than 64 levels (counted by a bracket scan outside strings, before anything is decoded) is coloured flat text with no switch and no tree: the tree's widgets nest one level per level and a few thousand overflow the stack |
+| Invalid JSON                         | Plain text, no switch, never an error                                                                                                                                                                                                                                                                                                                         |
+| Plain text                           | Plain text, no switch                                                                                                                                                                                                                                                                                                                                         |
+| Terminal                             | The command is shell-coloured; the output is plain unless it parses as JSON                                                                                                                                                                                                                                                                                   |
+| Diff                                 | Untouched: the diff body keeps its own view                                                                                                                                                                                                                                                                                                                   |
+| Code argument (`write_file` content) | Coloured by the extension of its `path`; an unknown extension is plain                                                                                                                                                                                                                                                                                        |
+
+Phone and desktop differ only in width and in the target sizes above. Both themes use the Files palette, which was checked for contrast on surfaces of both themes. Largest text (scale 2): the header wraps, the body is still capped at 220 px and scrolls; the text wraps in place (no horizontal scroll).
+
+### Canvas decisions for the tool value view
+
+The Claude Design canvas for this section is https://claude.ai/artifact/Y5SRsysGBcfRaPeYQ2apVS; its decisions were given as a list and are recorded here. Where they differ from the sections above (the "Very long" and "Settled JSON" rows, the switch, the Copy button, `<U+202E>` placeholders), this list wins.
+
+- **Label row.** The label (Input, Result, Error), a muted tag naming the content ("JSON", "Python", ...; none for plain text, invalid JSON and a running call), the view switch, Copy at the right. Everything wraps under the label from about 2x text size (a `Wrap`); at 1.5x on a phone it is one row.
+- **Interim switch.** The switch is a plain text button reading "Text | Tree", the shown view bold and underlined (`ToolViewSwitch`), in the catalog only. The next change (the wiring) replaces it with the shared segmented control, extended with a compact size, a Material variant and an extended hit area. Its group is named "Show input/result/error as" and its option "Show as text" or "Show as tree".
+- **Copy.** A pill 28 pt high (22 pt on a Mac), icon only, with a hit area of 44 pt on iOS, 48 dp on Android, Windows and Linux and 28 pt on a Mac. It copies the section text exactly as sent in either view, hidden characters and CRLF included, shows a check and "Copied" for 2 s and announces "Copied" to screen readers. An Input above "Raw arguments" has no Copy of its own (`showCopy: false`). The canvas extends the hit area into the 8 pt of padding above the row so the row does not grow; Flutter's hit testing stops at each ancestor's bounds, so instead the section has no top padding and the row is as high as the hit area (the interim switch is already that high). The pill sits 8 pt under the divider on iOS.
+- **Hidden characters** are drawn as a boxed `U+XXXX` in the flat text, the tree and plain text: the box border (subtle text colour) is the marker, so it does not rely on colour. A screen reader hears "hidden character U+XXXX". The set is the Files set (controls except tab and line break, zero-width, bidirectional marks, overrides and isolates, the BOM, the invisible-but-not-space characters); U+200C and U+200D stay as in Files. The carriage return of a CRLF is not drawn, a lone one is boxed. In the tree a line break inside a string is a boxed `\n` ("line break"). At most 200 boxes are built per text or row; the rest of a text is plain `<U+XXXX>` in one span, so ten thousand hidden characters cost 200 widgets. Files keeps its `<U+XXXX>` text (`safeContentText` is unchanged).
+- **Limits and the three lines.** Counted in characters, not bytes:
+
+  | Limit                          | Constant                                                | Shown                                                            |
+  | ------------------------------ | ------------------------------------------------------- | ---------------------------------------------------------------- |
+  | 512 KB (512 \* 1024)           | `kToolValueColourMaxChars` (= `kCodeHighlightMaxChars`) | Plain, no switch: "Too long to colour. Shown as plain text."     |
+  | 64 KB (64 \* 1024) for JSON    | `kToolJsonSniffMaxChars`                                | Coloured flat, no switch: "Too long for the tree view."          |
+  | Nesting depth 64 (65 and more) | `kToolJsonTreeMaxDepth`                                 | Coloured flat, no switch: "Too deeply nested for the tree view." |
+
+  Exactly 64 KB and exactly 512 KB are still inside the limit, one more is not; depth 64 gets the tree, depth 65 does not. A JSON text above 64 KB is not parsed: it counts as JSON when it starts with `{` or `[` and ends with the matching `}` or `]` outside blanks, so it is coloured and tagged. The lines are muted text under the section, in English and German.
+
+- **Language** comes from the fence tag when the section is a fenced block (`toolValueLanguage(fence:)`, with the usual aliases `py`, `js`, `sh`, `yml`), else from the extension of the path that was read, else from the JSON parse. Code gets no Tree, an unknown language is plain, a running call is plain (no colour restart per delta). A failed call keeps its "Error" label; a plain error text is plain monospace, a JSON error body is coloured and has the tree.
+- **Colours** are read from the code palette through `codeTokenStyle` (key blue, string teal, number purple, literal purple semibold); JSON keys use the `key` role. Red and green are never syntax colours, and there are no new colours. The tree uses the same.
+- **The tree** is its own widget (`ToolJsonTree`), not `flutter_json_view`: rows are built lazily, are not selectable, show "{count} keys" or "{count} items", start open to the second level and fold on tap (a container row is as high as the hit area). The card still uses the package until the wiring.
+- **Text size.** The 220 px inner-scrolling box stays, there is no "Show more", long lines wrap and nothing scrolls sideways.
+
+- **Hit-area rule, as implemented.** The canvas rule (a hit area of 44 pt, 48 dp or 28 pt that does not make the row grow) is implemented as: no top padding on the section and a row as high as the hit area, with the pill centred in it. Rows therefore are not shorter than the hit area; the comparison of card heights with `main` is done when the sections are wired in, since nothing in the app uses them yet.
+- **What is boxed, and what is not.** Boxed: the C0 and C1 controls except tab and line break, U+200B, U+2060 to U+2064, U+206A to U+206F, the bidirectional marks (U+200E, U+200F, U+061C), overrides (U+202A to U+202E) and isolates (U+2066 to U+2069), the BOM (U+FEFF), the line and paragraph separators and the invisible-but-not-space characters Files escapes. Not boxed: the zero-width non-joiner (U+200C) and joiner (U+200D), which Persian and Indic scripts and emoji sequences need; boxing them would break ordinary text. They are shown and copied unchanged.
+- **Tree size.** The Tree is offered for at most 2,000 nodes (every object, array and scalar, the root included; `kToolJsonTreeMaxNodes`), counted on the decoded value before any widget exists. Above it the JSON is coloured flat with "Too long for the tree view." and no switch. A closed node builds no rows, and rows of an open node are built lazily.
+- **The JSON tag above 64 KB** is shown only when, after trimming blanks and line breaks, the text starts with `{` and ends with `}` or starts with `[` and ends with `]`. Otherwise it is plain with no tag. "JSON" is a content tag only; nothing on screen says a text is valid.
+- **Selecting a box.** A flat text is a `Text.rich` in a `SelectionArea` (the chat's, when there is one), so a selection that spans a box copies its escape text (`U+202E`); `SelectableText` would copy U+FFFC. The Copy button copies the original text. The tree is not selectable.
+
+- **Tree numbers and parsing (supersedes "Tree size" above where it differs).** The tree is built by its own iterative parser (`parseJsonTree`), not from `jsonDecode`, so a number is shown exactly as written (`12345678901234567890`, `1.50`, `1e3`, `-0`, `1E+2`), object keys keep their order and duplicates, and strings are decoded for display only. The 64-level and 2,000-node caps are enforced while parsing, with no recursion, and again inside the tree widget itself, so `ToolJsonView` used on its own shows flat text for a text over either cap or one that does not parse.
+- **Copy sits at the trailing edge** of the label row in both text directions; when the row wraps (large text) the switch and Copy go under the label.
+- **Tag characters.** U+E0020 to U+E007F are boxed as hidden text, except those that follow U+1F3F4 (the black flag), which is how the England, Scotland and Wales flags are written; a tag character anywhere else is boxed.
+- **The JSON tag above 64 KB** also needs the first non-blank character after the opening bracket to be able to start an entry (`"`, `{`, `[`, a digit, `-`, `t`, `f`, `n` or `]` after `[`; `"` or `}` after `{`), so a log line such as `[INFO] ... [done]` is plain with no tag.
+
+- **Tag characters, exactly (supersedes the bullet above).** Only U+1F3F4 followed by one to six tag letters or digits (U+E0030 to E0039, U+E0061 to E007A) and then the cancel tag U+E007F is shown unboxed, which covers the England, Scotland and Wales flags (`gbeng`, `gbsct`, `gbwls`). Every other tag character is boxed: a longer run, a run with no cancel tag, other tag characters, and anything after the cancel tag, since tag characters are a known way to hide instructions in text.
+
+### Cost
+
+The colouring is the Files one and obeys its rules:
+
+- At most 2,000 characters of small, plainly shaped text are coloured while the frame builds; anything else is coloured in one killable isolate (at most one per text, timeout 2 s, ended with the widget) and shows plain until it answers; a failure or a timeout leaves it plain.
+- A section keeps one State, so a rebuild with the same text does not colour again. Colouring runs only when the call has settled, never per delta.
+- A chat-wide budget like the one the fences of a Markdown document share (`CodeHighlightBudget`) is for the wiring change to apply: with many cards open at once, those over the budget stay plain. `HighlightedCode` already takes one.
+- No highlighter code lives outside `lib/src/files/code_highlight.dart`.
+
+### Copy
+
+The copy button copies the **original** text, byte for byte, with no placeholder in it. Selecting text with the pointer copies what is shown, so a placeholder like `<U+202E>` can be in a selection; the button is the exact copy. Nothing is copied unless the person taps.
+
+### Privacy
+
+Tool inputs and outputs never reach logs, spans or breadcrumbs: not their text, not their language, not the choice of view. The switch and the copy button record nothing.
+
+### Not drawn
+
+The canvas board (see above); a "show all" for a body over the cap (not needed while the body scrolls); a chat-wide budget (wiring change); VoiceOver and TalkBack output for the switch (its name is its visible text).
+
 ## Transcript loading state (a stored chat's messages)
 
 ## Design (done)

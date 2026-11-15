@@ -4,7 +4,7 @@
 
 The surface snapshot (`lib/src/surfaces/`, spec `surface-snapshot`) is one JSON string under `hermes.surface.v1`, written by `SurfaceSnapshotStore` through the `home_widget` plugin. On iOS it lives in the App Group's `UserDefaults` and the three Home Screen widgets, built in `ios/HermesLiveActivity` over the pure models in `ios/HermesSurfaceKit/.../WidgetModels.swift`, read it (spec `home-screen-widgets`). On Android the same plugin keeps it in the `HomeWidgetPreferences` `SharedPreferences` file (`appGroupId` is ignored there), private to the app. Nothing on Android reads it yet.
 
-What is in `android/` today: a single `MainActivity` (`singleTop`, `taskAffinity=""`, a `hermes` VIEW intent filter delivered by `app_links`), the notification plugin's `ActionBroadcastReceiver` (request actions, `android-request-actions`), quick-action icons kept by `res/raw/keep.xml`, Kotlin 2.4.21, AGP 9.5.1 with `android.builtInKotlin=false`, no `res/xml`, no `allowBackup` or backup rules (the default is on), no Compose, no unit tests.
+What is in `android/` today: a single `MainActivity` (`singleTop`, `taskAffinity=""`, a `hermes` VIEW intent filter delivered by `app_links`), the notification plugin's `ActionBroadcastReceiver` (request actions, `android-request-actions`), quick-action icons kept by `res/raw/keep.xml`, Kotlin 2.4.21, AGP 9.5.1 with `android.builtInKotlin=false`, `res/xml/backup_rules.xml` and `res/xml/data_extraction_rules.xml` now exclude `HomeWidgetPreferences.xml` and `InternalHomeWidgetPreferences.xml` from backup, no Compose, no unit tests.
 
 Two facts found while reading the code:
 
