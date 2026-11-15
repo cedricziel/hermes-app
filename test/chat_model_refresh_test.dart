@@ -177,6 +177,59 @@ void main() {
       );
     });
 
+    Future<void> resumeAfterHeldRead(
+      ChatController chat,
+      Future<void> Function() ownerChange,
+    ) async {
+      final held = Completer<void>();
+      var first = true;
+      server.onRequest('GET', '/api/model/options', (_) async {
+        if (first) {
+          first = false;
+          await held.future;
+        }
+        return (status: 200, body: _options('deepseek-v3'));
+      });
+      final out = chat.refreshModelOptionsOnResume();
+      await pumpEventQueue();
+      await ownerChange();
+      held.complete();
+      await out;
+      await pumpEventQueue();
+      final before = server.requestsTo('GET', '/api/model/options').length;
+
+      now = now.add(const Duration(seconds: 5));
+      await chat.refreshModelOptionsOnResume();
+
+      expect(server.requestsTo('GET', '/api/model/options').length, before + 1);
+    }
+
+    test('a read that ends after a profile switch does not stamp', () async {
+      now = DateTime(2026, 1, 1, 12);
+      final chat = timed();
+      addTearDown(chat.dispose);
+      await chat.loadThreads();
+      await pumpEventQueue();
+      await resumeAfterHeldRead(chat, () async {
+        await chat.loadThreads('other');
+        await pumpEventQueue();
+      });
+    });
+
+    test('a read that ends after the owner went away does not stamp', () async {
+      now = DateTime(2026, 1, 1, 12);
+      final chat = timed();
+      addTearDown(chat.dispose);
+      await chat.loadThreads();
+      await pumpEventQueue();
+      await resumeAfterHeldRead(chat, () async {
+        activity.value = false;
+        await pumpEventQueue();
+        activity.value = true;
+        await pumpEventQueue();
+      });
+    });
+
     test('a resume after the interval reads again', () async {
       now = DateTime(2026, 1, 1, 12);
       final chat = timed();
