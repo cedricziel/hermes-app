@@ -54,9 +54,11 @@ Auth: the request goes through the managed `Dio`, so a 401 follows the existing 
 
 ## Design pass
 
-Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC)
+Design (done): canvas reviewed
 
-Brief: `docs/design-briefs/session-export.md` (no Claude Design canvas yet; written from the design system README and the repo). Decisions that change behaviour:
+Canvas: https://claude.ai/artifact/UzB5uc13PXDSM8JYUYTjcs (private; ask its owner for access). 28 boards, one parametric page: header menu 1, alert states 5, failures 9, dark 2, largest text 2, German 2, App Lock 1, Android 3, Mac and iPad 3. Checked in a local render with design-system tokens; not opened in the claude.ai viewer, and the items under "What could not be checked" in the brief's "Local render review" were not checked.
+
+Brief: `docs/design-briefs/session-export.md` (written from the design system README and the repo; the canvas is linked above). Decisions that change behaviour:
 
 - One modal alert (`AppAlertDialog`) in three phases, confirm, progress, failure, with no screen and no sheet. It never shows the chat's title, so App Lock has nothing to blank.
 - Progress cannot be dismissed by Escape, the back gesture or a tap outside, only by Cancel (`PopScope(canPop: phase != progress)` in the alert); the confirmation can, except by a tap outside on iOS, where the barrier is not dismissible. Cancel and Close are `isDefault: true, filledOnMaterial: false`.
