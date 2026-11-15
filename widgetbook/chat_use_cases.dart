@@ -101,13 +101,21 @@ const _queued = [
   ]),
 ];
 
-WidgetbookUseCase _phoneBar(String name, TargetPlatform platform) =>
-    WidgetbookUseCase(
-      name: name,
-      builder: (context) => Theme(
-        data: Theme.of(context).copyWith(platform: platform),
-        child: Builder(
-          builder: (context) => Scaffold(
+WidgetbookUseCase _phoneBar(
+  String name,
+  TargetPlatform platform, {
+  double textScale = 1,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (context) => Theme(
+    data: Theme.of(context).copyWith(platform: platform),
+    child: MediaQuery(
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: TextScaler.linear(textScale)),
+      child: Builder(
+        builder: (context) {
+          final below = chatTitleBelowBar(context);
+          return Scaffold(
             appBar: buildChatAppBar(
               context,
               leading: IconButton(
@@ -115,13 +123,18 @@ WidgetbookUseCase _phoneBar(String name, TargetPlatform platform) =>
                 tooltip: 'Open navigation menu',
                 onPressed: () {},
               ),
-              title: Text(threads[0].title),
+              title: below ? null : Text(threads[0].title),
+              bottom: below
+                  ? chatTitleBelowBarRow(context, text: threads[0].title)
+                  : null,
               actions: [NewChatButton(onPressed: () {})],
             ),
-          ),
-        ),
+          );
+        },
       ),
-    );
+    ),
+  ),
+);
 
 WidgetbookUseCase _tool(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card));
@@ -404,6 +417,11 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       useCases: [
         _phoneBar('iOS', TargetPlatform.iOS),
         _phoneBar('Material (Android)', TargetPlatform.android),
+        _phoneBar(
+          'Material (Android), large text',
+          TargetPlatform.android,
+          textScale: 2,
+        ),
       ],
     ),
     WidgetbookComponent(
