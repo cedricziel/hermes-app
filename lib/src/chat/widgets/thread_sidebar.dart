@@ -572,16 +572,11 @@ class _ThreadRowState extends State<_ThreadRow> {
                 const SizedBox(width: 4),
               ],
               if (inlineButton)
-                // On Android the 48dp target is shifted 8dp toward the edge so
-                // the glyph stays where the 28dp button put it.
-                Transform.translate(
-                  offset: Offset(touch ? 8 : 0, 0),
-                  child: ThreadActionsButton(
-                    key: _actions,
-                    thread: _thread,
-                    housekeeping: housekeeping,
-                    dense: true,
-                  ),
+                ThreadActionsButton(
+                  key: _actions,
+                  thread: _thread,
+                  housekeeping: housekeeping,
+                  dense: true,
                 ),
             ],
           ),

@@ -697,15 +697,17 @@ WidgetbookNode chatNode() => WidgetbookFolder(
                   .copyWith(platform: TargetPlatform.android),
               child: ChangeNotifierProvider(
                 create: (_) => ComposerHeightNotifier(),
-                child: SizedBox(
-                  height: 160,
-                  child: Stack(
-                    children: [
-                      ScrollToLatestButton(
-                        animation: AlwaysStoppedAnimation(value),
-                        onPressed: () {},
-                      ),
-                    ],
+                child: frame(
+                  SizedBox(
+                    height: 160,
+                    child: Stack(
+                      children: [
+                        ScrollToLatestButton(
+                          animation: AlwaysStoppedAnimation(value),
+                          onPressed: () {},
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

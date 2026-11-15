@@ -45,10 +45,7 @@ class ScrollToLatestButton extends StatelessWidget {
               foregroundColor: scheme.onSurface,
               tooltip: context.l10n.chatScrollToLatest,
               onPressed: onPressed,
-              child: Icon(
-                Icons.keyboard_arrow_down,
-                semanticLabel: context.l10n.chatScrollToLatest,
-              ),
+              child: const Icon(Icons.keyboard_arrow_down),
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/widgets/scroll_to_latest_button.dart';
@@ -102,7 +103,7 @@ void main() {
         ),
       );
       expect(find.byType(FloatingActionButton).evaluate().length, 1);
-      expect(find.semantics.byLabel('Scroll to latest message'), findsNothing);
+      expect(find.semantics.byFlag(SemanticsFlag.isButton), findsNothing);
       final ignore = tester.widget<IgnorePointer>(
         find
             .descendant(
@@ -115,15 +116,48 @@ void main() {
 
       animation.value = 1;
       await tester.pump();
-      expect(
-        find.semantics.byLabel('Scroll to latest message'),
-        findsOneWidget,
-      );
+      expect(find.semantics.byFlag(SemanticsFlag.isButton), findsOneWidget);
+      expect(find.byTooltip('Scroll to latest message'), findsOneWidget);
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
       handle.dispose();
     },
   );
+
+  testWidgets('the row and header "..." take taps at their outer edges', (
+    tester,
+  ) async {
+    await pump(tester);
+    final row = find.byKey(const ValueKey('thread-s2'));
+    final targets = [
+      (
+        find.descendant(of: row, matching: find.byTooltip('Chat actions')),
+        find.text('Rename'),
+      ),
+      (find.byTooltip('Group chats'), find.text('Group by')),
+    ];
+    for (final (target, menuItem) in targets) {
+      final rect = tester.getRect(target);
+      expect(rect.size, const Size(48, 48));
+      for (final point in [
+        rect.centerLeft + const Offset(1, 0),
+        rect.centerRight - const Offset(1, 0),
+        rect.topCenter + const Offset(0, 1),
+        rect.bottomCenter - const Offset(0, 1),
+      ]) {
+        await tester.tapAt(point);
+        await tester.pumpAndSettle();
+        expect(menuItem, findsOneWidget, reason: '$point misses the target');
+        await tester.tapAt(const Offset(200, 600));
+        await tester.pumpAndSettle();
+        expect(menuItem, findsNothing);
+      }
+    }
+    expect(
+      tester.getCenter(targets[0].$1).dx,
+      closeTo(tester.getCenter(targets[1].$1).dx, 1),
+    );
+  });
 
   group('desktop sizes stay as they were', () {
     for (final platform in [TargetPlatform.windows, TargetPlatform.linux]) {
