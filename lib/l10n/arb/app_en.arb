@@ -90,6 +90,110 @@
   "@chatComposerHoldRestoring": {
     "description": "Line above the message box while files are restored from a checkpoint; Send is off until it finishes, typing is not."
   },
+  "chatSessionExportConfirmButton": "Export",
+  "@chatSessionExportConfirmButton": {
+    "description": "Button of the export confirmation that starts fetching the chat file."
+  },
+  "chatSessionExportConfirmMessage": "The file holds this session as Hermes stored it, including the system prompt, tool output and file paths. It can contain secrets such as keys. Save it only somewhere you trust.",
+  "@chatSessionExportConfirmMessage": {
+    "description": "Message of the export confirmation alert. Warns that the file is unredacted. Three sentences."
+  },
+  "chatSessionExportConfirmTitle": "Export this chat as JSON?",
+  "@chatSessionExportConfirmTitle": {
+    "description": "Title of the alert that asks before a chat is exported as a JSON file."
+  },
+  "chatSessionExportFailureFailedMessage": "Hermes answered with an error. Nothing was saved.",
+  "@chatSessionExportFailureFailedMessage": {
+    "description": "Message of the export failure for any other server error."
+  },
+  "chatSessionExportFailureFailedTitle": "Couldn't export this chat",
+  "@chatSessionExportFailureFailedTitle": {
+    "description": "Title of the export failure for any other server error."
+  },
+  "chatSessionExportFailureGoneMessage": "This chat is no longer on the server. Nothing was saved.",
+  "@chatSessionExportFailureGoneMessage": {
+    "description": "Message of the export failure when the server no longer has the chat."
+  },
+  "chatSessionExportFailureGoneTitle": "Chat not on the server",
+  "@chatSessionExportFailureGoneTitle": {
+    "description": "Title of the export failure when the server no longer has the chat."
+  },
+  "chatSessionExportFailureIncompleteMessage": "The file stopped before the end, so nothing was saved.",
+  "@chatSessionExportFailureIncompleteMessage": {
+    "description": "Message of the export failure when the download stopped before the end."
+  },
+  "chatSessionExportFailureIncompleteTitle": "The export was incomplete",
+  "@chatSessionExportFailureIncompleteTitle": {
+    "description": "Title of the export failure when the download stopped before the end."
+  },
+  "chatSessionExportFailureLostMessage": "Hermes didn't answer in time. Nothing was saved.",
+  "@chatSessionExportFailureLostMessage": {
+    "description": "Message of the export failure when the server sent nothing in time."
+  },
+  "chatSessionExportFailureLostTitle": "Couldn't confirm the export",
+  "@chatSessionExportFailureLostTitle": {
+    "description": "Title of the export failure when the server sent nothing in time."
+  },
+  "chatSessionExportFailureOfflineMessage": "Connect to the internet or your server, then try again. Nothing was saved.",
+  "@chatSessionExportFailureOfflineMessage": {
+    "description": "Message of the export failure when the device is offline."
+  },
+  "chatSessionExportFailureOfflineTitle": "You're offline",
+  "@chatSessionExportFailureOfflineTitle": {
+    "description": "Title of the export failure when the device is offline."
+  },
+  "chatSessionExportFailureProfileInvalidMessage": "Hermes didn't accept this chat's profile name, so it couldn't read the chat. Nothing was saved.",
+  "@chatSessionExportFailureProfileInvalidMessage": {
+    "description": "Message of the export failure when the server rejects the chat's profile name."
+  },
+  "chatSessionExportFailureProfileInvalidTitle": "Profile name not valid",
+  "@chatSessionExportFailureProfileInvalidTitle": {
+    "description": "Title of the export failure when the server rejects the chat's profile name."
+  },
+  "chatSessionExportFailureProfileMissingMessage": "The profile this chat belongs to doesn't exist on the server any more. Nothing was saved.",
+  "@chatSessionExportFailureProfileMissingMessage": {
+    "description": "Message of the export failure when the chat's profile is gone from the server."
+  },
+  "chatSessionExportFailureProfileMissingTitle": "Profile not found",
+  "@chatSessionExportFailureProfileMissingTitle": {
+    "description": "Title of the export failure when the chat's profile is gone from the server."
+  },
+  "chatSessionExportFailureUnreadableMessage": "The server's chat store couldn't be read. Check the server, then try again. Nothing was saved.",
+  "@chatSessionExportFailureUnreadableMessage": {
+    "description": "Message of the export failure when the server's chat database cannot be read."
+  },
+  "chatSessionExportFailureUnreadableTitle": "Hermes can't read its chats",
+  "@chatSessionExportFailureUnreadableTitle": {
+    "description": "Title of the export failure when the server's chat database cannot be read."
+  },
+  "chatSessionExportFailureUnsupportedMessage": "It may be running an older version of Hermes. Nothing was saved.",
+  "@chatSessionExportFailureUnsupportedMessage": {
+    "description": "Message of the export failure when the server has no export route."
+  },
+  "chatSessionExportFailureUnsupportedTitle": "This server can't export chats",
+  "@chatSessionExportFailureUnsupportedTitle": {
+    "description": "Title of the export failure when the server has no export route."
+  },
+  "chatSessionExportProgressMessage": "Hermes is sending the file. A long chat can take a while.",
+  "@chatSessionExportProgressMessage": {
+    "description": "Message of the export alert while the file is being fetched."
+  },
+  "chatSessionExportProgressTitle": "Preparing the export…",
+  "@chatSessionExportProgressTitle": {
+    "description": "Title of the export alert while the file is being fetched."
+  },
+  "chatSessionExportSaved": "Chat saved",
+  "@chatSessionExportSaved": {
+    "description": "Snack bar after the exported chat file was saved. No path or name."
+  },
+  "chatSessionExportStalled": "Still waiting for Hermes.",
+  "@chatSessionExportStalled": {
+    "description": "Extra line in the export alert after 10 seconds without the first byte. One line in a 270 pt alert."
+  },
+  "chatSessionExportTryAgain": "Try again",
+  "@chatSessionExportTryAgain": {
+    "description": "Button of an export failure that returns to the confirmation. Fits next to Close."
+  },
   "chatStatusCompacting": "Compacting the conversation…",
   "@chatStatusCompacting": {
     "description": "Status line under the agent’s thinking row while Hermes compacts the conversation on its own."
@@ -7032,6 +7136,10 @@
   "@voiceConsentSwitchSubtitle": {
     "description": "Subtitle of the consent switch: the choice is not remembered."
   },
+  "voiceNoticeBusyTitle": "Hermes is still answering. Nothing was sent.",
+  "@voiceNoticeBusyTitle": {
+    "description": "Notice in a call when a spoken turn was not sent because a reply is still running or prompts are queued."
+  },
   "voiceNoticeEndedDetail": "Every turn of this call is in the chat.",
   "@voiceNoticeEndedDetail": {
     "description": "Detail of the notice after the user ended the call."
@@ -7039,6 +7147,18 @@
   "voiceNoticeEndedTitle": "The microphone is closed.",
   "@voiceNoticeEndedTitle": {
     "description": "Title of the notice after the user ended the call."
+  },
+  "voiceNoticeHermesQueuedTitle": "Hermes will answer your words after its current reply.",
+  "@voiceNoticeHermesQueuedTitle": {
+    "description": "Notice in a call when Hermes queued the spoken words behind the reply it is running."
+  },
+  "voiceNoticeHermesRedirectedTitle": "Hermes is adjusting its current reply to your words.",
+  "@voiceNoticeHermesRedirectedTitle": {
+    "description": "Notice in a call when Hermes is adjusting the reply it is running to the spoken words."
+  },
+  "voiceNoticeHermesSteeredTitle": "Hermes took your words into its current reply.",
+  "@voiceNoticeHermesSteeredTitle": {
+    "description": "Notice in a call when Hermes took the spoken words into the reply it is running."
   },
   "voiceNoticeIdleDetail": "The microphone is closed.",
   "@voiceNoticeIdleDetail": {
@@ -7071,6 +7191,10 @@
   "voiceNoticeMicMayBeOpenTitle": "The call ended, but the microphone may still be open.",
   "@voiceNoticeMicMayBeOpenTitle": {
     "description": "Title of the notice when the call ended but the app could not confirm the microphone closed."
+  },
+  "voiceNoticeNotSentTitle": "Couldn't send. Nothing was sent.",
+  "@voiceNoticeNotSentTitle": {
+    "description": "Notice in a call when the chat refused a spoken turn for a reason the call survives."
   },
   "voiceNoticeRouteNeutralTitle": "Audio route changed. Please repeat if needed.",
   "@voiceNoticeRouteNeutralTitle": {

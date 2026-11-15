@@ -33,6 +33,8 @@ Verified in the Hermes source at `d923a5eb` (`openapi/HERMES_REF`), read only. T
 7. **Profile.** The profile the chat was listed under (`ThreadHousekeeping.profile`) is sent explicitly. A chat without one is not offered (`housekeeping == null` or a null profile hides the item); local and mock chats never are.
 8. **File name.** `threadExportFileName`'s rules with `.json`. The name stays on the device and goes to no telemetry.
 
+9. **Recorded findings (Hermes `d923a5eb`).** The 200 is chunked with no `Content-Length` and no `Content-Disposition`, so progress is bytes only; rows with `active` 0 and `compacted` 0 exist after a compression besides `compacted` 1; `tool_names` and `model_config` are JSON text strings, not objects.
+
 ## Known limit
 
 A chat the server compressed into a new session exports only its current session. The file says so only through its `parent_session_id`. The confirmation does not claim "the whole chat"; it says "this session as Hermes stored it".
@@ -54,7 +56,7 @@ Auth: the request goes through the managed `Dio`, so a 401 follows the existing 
 
 ## Design pass
 
-Design (done): canvas reviewed
+Design (done): canvas published, local render reviewed
 
 Canvas: https://claude.ai/artifact/UzB5uc13PXDSM8JYUYTjcs (private; ask its owner for access). 28 boards, one parametric page: header menu 1, alert states 5, failures 9, dark 2, largest text 2, German 2, App Lock 1, Android 3, Mac and iPad 3. Checked in a local render with design-system tokens; not opened in the claude.ai viewer, and the items under "What could not be checked" in the brief's "Local render review" were not checked.
 
@@ -64,8 +66,8 @@ Brief: `docs/design-briefs/session-export.md` (written from the design system RE
 - Progress cannot be dismissed by Escape, the back gesture or a tap outside, only by Cancel (`PopScope(canPop: phase != progress)` in the alert); the confirmation can, except by a tap outside on iOS, where the barrier is not dismissible. Cancel and Close are `isDefault: true, filledOnMaterial: false`.
 - One export at a time: while one runs, the row is disabled in every menu. The Mac and iPad menu bars keep the item and disable it for a chat without a profile (open question 1 of the brief; the other menus omit the row). Entry points: the header menu on every platform; the Mac sidebar row menu, the Mac toolbar "…" (compact windows only), the Chat menu (Mac and iPad) and the conversation window. The non-Mac sidebar row menu and the touch swipe sheet do not offer Copy transcript, so they do not offer Export for now (owner decision); the header menu is the entry off the Mac, and the two can get it later together with Copy transcript.
 - After 10 s without the first byte the progress alert adds "Still waiting for Hermes." This is the one exception to the 10-second lost-answer rule; 30 s without a byte (the managed `Dio` `receiveTimeout`) ends as `lost`, a stall after bytes as `incomplete`, and the total stays five minutes (owner decision: 30 s of silence stays). A "Downloaded 12 MB" line, in the wording of `FileDownloadProgress`, shows the bytes received (kept by the owner).
-- Menu placement after the local render review: the Export row sits directly after Copy Transcript in the Mac and iPad Chat menu (Find…, Pin, Rename…, Copy Transcript, Export Chat as JSON…, Archive, Delete…) and in the header menu (Copy transcript, Export chat as JSON…, then Rename, Pin, Archive, Delete). The Apple failure buttons are Close left, Try again right, and stack at large text and in German.
-- A timeout is `lost` ("Couldn't confirm the export"); a connection that drops after bytes arrived is `incomplete`. Try again returns to the confirmation, never to a request.
+- Menu placement after the local render review: the Export row sits directly after Copy Transcript in the Mac and iPad Chat menu (Find…, Pin, Rename…, Copy Transcript, Export Chat as JSON…, Archive, Delete…) and in the header menu (Copy transcript, Export chat as JSON…, then Rename, Pin, Archive, Delete). The Apple failure buttons are Close left, Try again right side by side, and stack at large text and in German with Close above Try again (the Cupertino alert stacks its actions in list order).
+- A receive timeout with no byte is `lost` ("Couldn't confirm the export"); a connection that drops after bytes arrived (receive timeout, connection error or Dio's `unknown` with an `HttpException`) is `incomplete`. A connect timeout is `offline`: the request never reached Hermes. A cancel is its own outcome (`SessionExportCancelled`), never a failure. `fetchSessionExport` throws only `SessionExportRequestFailed(kind)` or `SessionExportCancelled`, which carry no chat id, profile, address or body. Try again returns to the confirmation, never to a request.
 - Failure kinds are one enum of nine shared by the widget and the controller: `gone`, `unsupported`, `profileMissing` (404), `profileInvalid` (400), `unreadable`, `lost`, `incomplete`, `offline` and `failed` (any other status, such as 500, 502, 504, 413, 422, or an unexpected error; Try again). The widget picks the 404 or 400 copy from the kind alone.
 - A saved file shows the snack bar "Chat saved" (no path); a cancelled save sheet shows nothing.
 

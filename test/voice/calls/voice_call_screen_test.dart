@@ -271,6 +271,55 @@ void main() {
     await flow.dispose(tester);
   });
 
+  group('the notices of a turn that was not sent or was answered at once', () {
+    for (final (notice, text) in [
+      (CallNotice.busy, 'Hermes is still answering. Nothing was sent.'),
+      (CallNotice.notSent, "Couldn't send. Nothing was sent."),
+      (
+        CallNotice.hermesQueued,
+        'Hermes will answer your words after its current reply.',
+      ),
+      (
+        CallNotice.hermesSteered,
+        'Hermes took your words into its current reply.',
+      ),
+      (
+        CallNotice.hermesRedirected,
+        'Hermes is adjusting its current reply to your words.',
+      ),
+    ]) {
+      testWidgets('$notice says "$text"', (tester) async {
+        final flow = _Flow();
+        await flow.open(tester);
+        await flow.consentAndStart(tester);
+        await tester.runAsync(() async {
+          await pumpEventQueue();
+          // The call's own turn logic is tested with the call; this shows
+          // what the screen says for each notice it can be left with.
+          flow.call!.notice = notice;
+          await flow.call!.setSpeaker(true);
+        });
+        await tester.pump();
+        expect(find.text(text), findsOneWidget);
+        await flow.dispose(tester);
+      });
+    }
+
+    testWidgets('only busy says Hermes is still answering', (tester) async {
+      final flow = _Flow();
+      await flow.open(tester);
+      await flow.consentAndStart(tester);
+      await tester.runAsync(() async {
+        await pumpEventQueue();
+        flow.call!.notice = CallNotice.notSent;
+        await flow.call!.setSpeaker(true);
+      });
+      await tester.pump();
+      expect(find.textContaining('still answering'), findsNothing);
+      await flow.dispose(tester);
+    });
+  });
+
   testWidgets('a microphone that cannot be confirmed closed says so', (
     tester,
   ) async {
