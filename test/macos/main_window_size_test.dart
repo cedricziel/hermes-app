@@ -48,7 +48,7 @@ void main() {
       Size(double.parse(minimum![1]!), double.parse(minimum[2]!)),
       kMacMainWindowMinSize,
     );
-    // The decisive places: the minimum and the centring are set in
+    // The decisive places: the minimum and the remembered frame are set in
     // awakeFromNib and nothing after it (macos_window_utils included) resets
     // the minimum; no Dart code resizes the window at startup.
     final start = swift.indexOf('override func awakeFromNib()');
@@ -63,7 +63,7 @@ void main() {
         .join('\n');
     expect(awake, contains('self.contentMinSize = Self.minimumContentSize'));
     final setFrame = awake.indexOf('self.setFrame(windowFrame');
-    final center = awake.indexOf('self.center()');
+    final center = awake.indexOf('center()');
     expect(setFrame, isNonNegative);
     expect(center, isNonNegative);
     expect(
@@ -76,6 +76,24 @@ void main() {
       hasLength(1),
       reason: 'contentMinSize is set only in awakeFromNib',
     );
+    // The remembered frame is AppKit's frame autosave, set once in
+    // awakeFromNib; the centred default applies only when none exists.
+    expect(
+      swift,
+      contains('static let frameAutosaveName = "HermesMainWindow"'),
+    );
+    expect(swift, isNot(contains('isRestorable')));
+    expect(
+      RegExp(
+        r'if setFrameUsingName\(Self\.frameAutosaveName\) \{\s*'
+        r'correctSavedFrame\(\)\s*\} else \{\s*center\(\)\s*\}\s*'
+        r'setFrameAutosaveName\(Self\.frameAutosaveName\)',
+      ).hasMatch(awake),
+      isTrue,
+    );
+    // The one bare center() is the no-saved-frame branch; the screenshot
+    // resize (`self?.center()` in the channel handler) is a different call.
+    expect(RegExp(r'(?<![?.])\bcenter\(\)').allMatches(awake), hasLength(1));
     for (final file in Directory('lib').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
       expect(
@@ -85,7 +103,79 @@ void main() {
       );
     }
     final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
-    expect(delegate, isNot(contains('contentMinSize')));
+    expect(
+      RegExp(r'contentMinSize[\w.]*\s*=[^=]').allMatches(delegate),
+      isEmpty,
+    );
+  });
+
+  test(
+    'a saved frame comes back unchanged: only enlarged below the minimum',
+    () {
+      final swift = File('macos/Runner/MainFlutterWindow.swift')
+          .readAsStringSync();
+      final correct = RegExp(
+        r'private func correctSavedFrame\(\) \{.*?\n  \}\n',
+        dotAll: true,
+      ).firstMatch(swift)!.group(0)!;
+      // Sizes only grow to the minimum; no content-rect conversion of the saved
+      // frame, which loses the title bar (CI measured 900x600 back as 900x568).
+      expect(correct, contains('max(frame.width, smallest.width)'));
+      expect(correct, contains('max(frame.height, smallest.height)'));
+      expect(correct, isNot(contains('contentRect(forFrameRect')));
+      expect(correct, isNot(contains('setContentSize')));
+      expect(correct, contains('restoredFrame = self.frame'));
+      // Dart-side styling happens after awakeFromNib; the runner puts the frame
+      // back once it is done.
+      expect(swift, contains('case "settleFrame":'));
+      expect(
+        File('lib/src/macos/mac_window.dart').readAsStringSync(),
+        contains("invokeMethod<void>('settleFrame')"),
+      );
+      // The CI round trip resizes the frame, not the content.
+      final delegate = File('macos/Runner/AppDelegate.swift')
+          .readAsStringSync();
+      final set = delegate.substring(
+        delegate.indexOf('HERMES_REPORT_WINDOW_SET'),
+      );
+      expect(set, contains('window.setFrame('));
+      expect(
+        set.substring(0, set.indexOf('NSApp.terminate')),
+        isNot(contains('setContentSize')),
+      );
+    },
+  );
+
+  test('the CI window report exists only in debug builds and then quits', () {
+    final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
+    const flag = 'HERMES_REPORT_WINDOW';
+    // The conditionals open at a position: an unrelated `#if os(...)` elsewhere
+    // in the file must not matter, only that `#if DEBUG` encloses the flag.
+    List<String> openAt(int offset) {
+      final open = <String>[];
+      for (final line in delegate.substring(0, offset).split('\n')) {
+        final t = line.trim();
+        if (t.startsWith('#if ')) open.add(t);
+        if (t == '#endif' && open.isNotEmpty) open.removeLast();
+      }
+      return open;
+    }
+
+    final hits = flag.allMatches(delegate).toList();
+    expect(hits, hasLength(greaterThanOrEqualTo(1)));
+    for (final hit in hits) {
+      expect(
+        openAt(hit.start),
+        contains('#if DEBUG'),
+        reason: '$flag is not inside an #if DEBUG ... #endif',
+      );
+    }
+    final block = delegate.substring(
+      hits.first.start,
+      delegate.indexOf('#endif', hits.last.end),
+    );
+    expect(block, contains('NSApp.terminate(nil)'));
+    expect(block, contains('HERMES_WINDOW frame='));
   });
 
   group('home shell', () {

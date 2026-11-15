@@ -75,19 +75,15 @@ version>`. Check the editable version on App Store Connect first and pass
   only the light Kanban board and task details, preserving other raw captures.
 - The seed script uses `DEMO_SERVER_URL` to create Kanban tasks through the
   backend API after checking that `/api/status` reports the throwaway home.
-- The main window has a 1100 x 760 xib default and a 640 x 480 minimum set in
-  `awakeFromNib`. An earlier note said a size in the xib or in
-  `MainFlutterWindow.swift` never reached the built app. The likely reason:
-  the xib window is restorable, and AppKit's saved state can bring the last
-  frame back after a kill (`dev-app.sh stop`, `flutter run`), a crash, Quit
-  and Keep Windows (⌥⌘Q), a logout with "Reopen windows", or when "Close
-  windows when quitting an application" is off; with the default setting a
-  Cmd-Q throws the state away, so a normal relaunch starts at 1100 x 760.
-  This is unverified on a Mac (`scripts/dev-app.sh start` and `screenshot`
-  show it). Keep resizing for screenshots through the `setContentSize` call
-  on the `hermes_app/window` channel (`SHOT_WINDOW`, and
-  `SHOT_MAC_COMPACT_WINDOW` for `mac compact`, 800x600), whatever the default
-  is.
+- The main window opens at 1100 x 760 on a first launch and then remembers its
+  last frame (frame autosave `HermesMainWindow`, PR #1132 and its follow-up);
+  the `build-macos` CI job measures both (see docs/architecture/macos.md). The
+  screenshot test resizes it through the `setContentSize` call (followed by
+  `center()`) on the `hermes_app/window` channel (`SHOT_WINDOW`) every run
+  (`SHOT_MAC_COMPACT_WINDOW`, 800x600, for `mac compact`), so a remembered frame
+  never reaches a screenshot; `scripts/store-screenshots.sh` deletes the frame
+  the run leaves in the dev app's defaults afterwards (the sandbox container's
+  plist under ~/Library/Containers/com.cedricziel.hermesApp.dev).
 - Don't add erase boxes for the dev address by hand. The test finds the
   address text and writes its pixel box to `<screen>.erase`; `finish` erases
   that. A fixed box goes stale with the next layout change.
