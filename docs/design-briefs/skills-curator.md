@@ -39,7 +39,7 @@ New components needed (all plain-model, Widgetbook first):
 | `OutputLinesTile`        | The "Show output" disclosure with monospace lines, a cap, a footnote and a blank mode                                | `UpdateDetailsDisclosure` in `update_step_list.dart` (extract and extend it; do not copy)            |
 | Wrapping rows | Every subtitle, caption, error and warning line of this feature wraps in full; the design system's `GroupedRow` cuts them at one line with an ellipsis, so the app's rows need a wrap mode (`wrapWhenStacked` goes this way already) | `GroupedRow`, `GroupedSwitchRow` and `GroupedActionRow` with wrapping text |
 | Stacked rows at large text | A stacked mode for the switch and action rows: label and subtitle full width, the switch, play icon and spinner at the text scaler's size | `GroupedRow` stacking its value |
-| `AppIcons.wifiOff` | The offline banner's icon (see Offline) | `AppIcons.cloud` (reads as online; not used) |
+| `AppIcons.wifiOff` | The offline banner's icon (see Offline; `Icons.wifi_off` on Material) | `AppIcons.cloud` (reads as online; not used) |
 | Extend `GroupedActionRow` | A subtitle slot, a neutral line with a Check status button, a "Run again" label after a pass, and on a Mac a leading spinner in the working phase | `GroupedActionRow` in `lib/src/server_care/widgets/grouped_action_row.dart`, moved to `lib/src/widgets/`; Server care's callers keep their look |
 
 Everything else is existing kit.
@@ -108,7 +108,7 @@ The Last ran value reads relative; the screen-reader label always carries both (
 - **Paused:** Status value "Paused", the switch on. The Run now row stays.
 - **Off in config (`enabled` false):** Status row and its subtitle only, plus the footer. Nothing to press.
 - **Unknown fields:** "Unknown" as above; the Pause switch is shown only if `paused` is known, otherwise it is absent and a muted line says "Couldn't read the pause setting."
-- **Offline (the request never left the device):** the rows are replaced by an `AppBanner` (warning, with a new `AppIcons.wifiOff` entry: `Icons.wifi_off_outlined` on Material, the nearest Cupertino slash glyph (`CupertinoIcons.wifi_slash`, checked when built) on Apple; `AppIcons.cloud` reads as online and is not used) "Can't reach Hermes", detail "Check that the server is on and that you're connected to its network.", action "Try again". Old values are not kept under it.
+- **Offline (the request never left the device):** the rows are replaced by an `AppBanner` (warning, with a new `AppIcons.wifiOff` entry: `Icons.wifi_off` on Material, the nearest Cupertino slash glyph (`CupertinoIcons.wifi_slash`, checked when built) on Apple; `AppIcons.cloud` reads as online and is not used) "Can't reach Hermes", detail "Check that the server is on and that you're connected to its network.", action "Try again". Old values are not kept under it.
 - **Curator could not load (500 "Curator unavailable"):** `AppBanner` (error) "The server's curator could not load", action "Try again".
 - **Other failure (400 invalid profile, unreadable answer):** `AppBanner` (error) "Couldn't load the curator", action "Try again".
 - **Profile gone (404 `Profile '`):** `AppBanner` (warning) "This profile no longer exists", no action; the profile list reloads.
