@@ -260,6 +260,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     search?.setActivity(false);
     housekeeping?.setActivity(false);
     _loadGeneration++;
+    _forgetQuietModelRead();
     _openGeneration++;
     _activeRefresh++;
     _pauses++;
@@ -797,16 +798,25 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> refreshModelOptionsQuietly() {
     if (!active || models == null) return Future.value();
     if (_modelOptionsState == ModelOptionsState.loading) return Future.value();
+    final epoch = _quietReadEpoch;
     return _quietModelRefresh ??=
         _loadModelOptions(_profile, _loadGeneration, quiet: true).whenComplete(
           () {
             _quietModelRefresh = null;
-            _lastQuietModelRead = _clock();
+            if (epoch == _quietReadEpoch) _lastQuietModelRead = _clock();
           },
         );
   }
 
   DateTime? _lastQuietModelRead;
+  int _quietReadEpoch = 0;
+
+  /// Forgets the last quiet read, so the next resume reads at once. A read
+  /// still out for the old profile or owner does not stamp afterwards.
+  void _forgetQuietModelRead() {
+    _quietReadEpoch++;
+    _lastQuietModelRead = null;
+  }
 
   /// How soon after the last finished quiet read a foreground resume reads
   /// again, so a brief inactive-to-resumed flap (Control Centre, a system
