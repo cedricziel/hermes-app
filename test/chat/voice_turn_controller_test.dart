@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
+import 'package:hermes_app/src/chat/chat_models.dart' show ChatThread;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/queue_storage/durable_queue_store.dart';
@@ -455,5 +456,22 @@ void main() {
       await pumpEventQueue();
       expect(transport.followUpCalls, greaterThan(before));
     });
+  });
+
+  test('a stop phrase is reported with the thread it was sent in', () async {
+    final chat = await open();
+    final sent = chat.selectedThread!;
+    final heard = <ChatThread>[];
+    chat.addVoiceStoppedListener(heard.add);
+    await chat.submit('stop', const []);
+    // The user moved to another chat meanwhile.
+    chat.newThread();
+    transport.sends.single
+      ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+      ..finish();
+    await pumpEventQueue();
+    expect(heard, hasLength(1));
+    expect(heard.single, same(sent));
+    expect(chat.selectedThread, isNot(same(sent)));
   });
 }

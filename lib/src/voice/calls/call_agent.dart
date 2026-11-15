@@ -100,7 +100,7 @@ class ChatCallAgent implements CallAgent {
   /// Set by [interrupt]: whatever this call sends from then on is withdrawn.
   bool _stopped = false;
   void Function()? _typed;
-  void Function()? _voiceStopped;
+  void Function(ChatThread)? _voiceStopped;
   ChatMessage? _knownPrompt;
   Completer<void>? _reply;
   String? _messageID;
@@ -134,8 +134,9 @@ class ChatCallAgent implements CallAgent {
   void watchVoiceStopped(void Function() listener) {
     final previous = _voiceStopped;
     if (previous != null) chat.removeVoiceStoppedListener(previous);
-    void heard() {
-      if (!_disposed && valid) listener();
+    void heard(ChatThread thread) {
+      // Only a prompt of the call's own chat ends it.
+      if (!_disposed && valid && identical(thread, _thread)) listener();
     }
 
     _voiceStopped = heard;

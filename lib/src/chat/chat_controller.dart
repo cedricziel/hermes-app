@@ -1846,14 +1846,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     onAnswer: onAnswer,
   );
 
-  final _voiceStoppedListeners = <void Function()>[];
+  final _voiceStoppedListeners = <void Function(ChatThread)>[];
 
-  /// Calls [listener] when Hermes takes a typed prompt as the stop phrase of
-  /// its voice mode, which ends a call that is running.
-  void addVoiceStoppedListener(void Function() listener) =>
+  /// Calls [listener] with the thread when Hermes takes a typed prompt there
+  /// as the stop phrase of its voice mode, which ends a call on that thread.
+  void addVoiceStoppedListener(void Function(ChatThread thread) listener) =>
       _voiceStoppedListeners.add(listener);
 
-  void removeVoiceStoppedListener(void Function() listener) =>
+  void removeVoiceStoppedListener(void Function(ChatThread thread) listener) =>
       _voiceStoppedListeners.remove(listener);
 
   FutureOr<bool> _submitTo(

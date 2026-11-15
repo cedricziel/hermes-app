@@ -471,7 +471,7 @@ extension _ChatControllerSending on ChatController {
           // A typed prompt has no call turn to hear it: tell the calls.
           if (voice == null) {
             for (final listener in [..._voiceStoppedListeners]) {
-              listener();
+              listener(thread);
             }
           }
           return;

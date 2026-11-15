@@ -280,10 +280,10 @@ too, the one-piece speech fallback speaks the reply as before.
 Each reply the call sent also logs one `voice_call.turn` with the bucketed
 time of each stage (`<0.5s`, `0.5-1s`, `1-2s`, `2-5s`, `5-10s`, `10-30s`,
 `>30s`, or `none` for a stage that never ran): `transcription`, `speech_open`
-and, counted from the moment the prompt was handed to the chat, `first_text`,
+and, counted from the moment `prompt.submit` is written, `first_text`,
 `first_audio` and `reply_complete`, plus `device_speech` and `fallback`
 (flags) and `outcome` (`spoken`, `interrupted`, `failed`). Raw durations,
-text and ids are never recorded.
+text and ids are never recorded. A turn the chat refused or withdrew before the write, or that Hermes answered at once (`queued`, `steered`, `redirected`, `voice_stopped`), logs no `voice_call.turn`.
 A native failure's `voice_call.ended` carries `step` set to the native code
 (`start_request`, `start_action`, `activation_timeout`, `audio_start`,
 `audio_reset`, `provider_reset`, `action_timeout`, `end_request`, `detached`),

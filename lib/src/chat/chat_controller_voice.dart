@@ -184,7 +184,13 @@ extension _ChatControllerVoice on ChatController {
     // Hermes stores a session with its first prompt: a chat bound by a create
     // whose prompt was never written is bound to an id Hermes does not know,
     // so the next send creates a session again.
-    if (!undo.bound) _bound.remove(thread);
+    // Not while a prompt typed meanwhile waits on this binding: it goes out
+    // with the id the create gave.
+    if (!undo.bound &&
+        (_queues[thread]?.isEmpty ?? true) &&
+        !_enqueueing.contains(thread)) {
+      _bound.remove(thread);
+    }
     _removeReply(thread, reply);
     _removeReply(thread, prompt);
     // The words were the chat's title only because they were its first prompt.

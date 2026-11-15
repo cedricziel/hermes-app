@@ -197,6 +197,35 @@ void main() {
     expect((await store.load(scope())).records, isEmpty);
   });
 
+  test(
+    'a prompt typed while a voice turn opens its session is not stranded',
+    () async {
+      final chat = await open();
+      chat.newThread();
+      final thread = chat.selectedThread!;
+      var wanted = true;
+      expect(
+        await chat.submitVoiceTurn('spoken', wanted: () => wanted),
+        isNull,
+      );
+      final voice = transport.sends.single;
+      voice.emit(const ThreadBound('fresh'));
+      await pumpEventQueue();
+      // The user types while the voice turn is still being opened.
+      expect(await chat.submit('typed meanwhile', const []), isTrue);
+      await queueIdle(chat);
+      expect(chat.queuedIn(thread).single.text, 'typed meanwhile');
+      wanted = false;
+      voice.submit();
+      await pumpEventQueue();
+      await transport.prepared.timeout(const Duration(seconds: 5));
+      await pumpEventQueue();
+      expect(transport.sends, hasLength(2));
+      expect(transport.sends.last.text, 'typed meanwhile');
+      expect(transport.sends.last.threadId, 'fresh');
+    },
+  );
+
   test('new input on restored queue stays paused', () async {
     await store.commit(scope(), 'restored');
     final chat = await open();

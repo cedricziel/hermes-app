@@ -665,6 +665,8 @@ class VoiceCall extends ChangeNotifier {
     var replying = false;
     var outcome = 'interrupted';
     DateTime? submitted, firstText, firstAudio, replyDone;
+    CallTurnAnswer? answered;
+    var refusedByChat = false;
     Duration? transcription, speechOpen;
     try {
       final String text;
@@ -748,7 +750,6 @@ class VoiceCall extends ChangeNotifier {
       // Sending lasts until the prompt is about to be written: End, mute or an
       // approval before that sends nothing (the agent asks `wanted` right up
       // to the write), and the hint keeps promising the cancel.
-      CallTurnAnswer? answered;
       try {
         await agent.reply(
           text,
@@ -783,6 +784,7 @@ class VoiceCall extends ChangeNotifier {
         );
         replyDone = _now();
       } on CallTurnRefused catch (refused) {
+        refusedByChat = true;
         await _refused(refused, epoch);
         return;
       }
@@ -818,20 +820,24 @@ class VoiceCall extends ChangeNotifier {
         );
       }
     } finally {
+      // A turn the chat refused or withdrew, or Hermes answered at once, has
+      // no stages to report.
       if (replying) {
         final from = submitted;
         Duration? since(DateTime? at) =>
             at == null || from == null ? null : at.difference(from);
-        _log('voice_call.turn', {
-          'transcription': callLatencyBucket(transcription),
-          'speech_open': callLatencyBucket(speechOpen),
-          'first_text': callLatencyBucket(since(firstText)),
-          'first_audio': callLatencyBucket(since(firstAudio)),
-          'reply_complete': callLatencyBucket(since(replyDone)),
-          'device_speech': deviceSpeech,
-          'fallback': speech?.usedFallback ?? false,
-          'outcome': outcome,
-        });
+        if (!refusedByChat && answered == null) {
+          _log('voice_call.turn', {
+            'transcription': callLatencyBucket(transcription),
+            'speech_open': callLatencyBucket(speechOpen),
+            'first_text': callLatencyBucket(since(firstText)),
+            'first_audio': callLatencyBucket(since(firstAudio)),
+            'reply_complete': callLatencyBucket(since(replyDone)),
+            'device_speech': deviceSpeech,
+            'fallback': speech?.usedFallback ?? false,
+            'outcome': outcome,
+          });
+        }
         _running--;
         if (_replyEpoch == epoch) _replyEpoch = null;
         if (_attentionReplyBy == epoch && _attentionReply) {
