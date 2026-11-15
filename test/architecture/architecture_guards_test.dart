@@ -1,7 +1,7 @@
 /// Source-scan guards for rules that were only tested at their existing call
 /// sites. Each [_guard] cites the rule it enforces, scans `lib/` (or `test/`)
 /// and fails when a new call site breaks it. Known old violations sit in
-/// `baseline.yaml` (shrink-only, see `ratchet.dart`); legitimate sites are in
+/// `baseline/arch.yaml` (shrink-only, see `ratchet.dart`); legitimate sites are in
 /// the guard's `allow`, each with its reason.
 ///
 /// Comments never count. A pattern runs over a comment-free view of the file
@@ -67,7 +67,6 @@ const _errorNames = [
   'cause',
   'failure',
   'stackTrace',
-  'stack',
 ];
 
 /// Calls that reach telemetry or logs: app events, breadcrumbs, span
@@ -109,26 +108,83 @@ List<(int, String)> callArguments(SourceFile file, RegExp callee) => [
     (call.start, file.text.substring(call.end, _callEnd(file.code, call.end))),
 ];
 
-/// Hits of the telemetry-error rule in one file: a telemetry call whose
-/// arguments carry an error's message or stack. Names bound by an enclosing
-/// `catch (e, st)` count in that block; `error`, `err`, `exception`, `cause`,
-/// `failure`, `stackTrace` and `stack` count anywhere. A bare `e`, `ex` or
-/// `st` outside a catch block (a loop variable, say) does not.
-List<Hit> errorInterpolationHits(SourceFile file) {
-  final catches = <(int, int, Set<String>)>[];
-  for (final m in _catchClause.allMatches(file.code)) {
-    final bound = {
-      for (final name in m.group(1)!.split(','))
-        if (RegExp(r'(\w+)\s*$').firstMatch(name.trim()) case final n?)
-          n.group(1)!,
-    };
-    catches.add((m.end - 1, _blockEnd(file.code, m.end - 1), bound));
+/// The names a parameter list binds: `(e, st)`, `(Object e, StackTrace st)`.
+Set<String> _paramNames(String params) => {
+  for (final part in params.split(','))
+    if (RegExp(r'(\w+)\s*$').firstMatch(part.trim()) case final m?) m.group(1)!,
+};
+
+/// The end of the closure or function body that starts at [from] (just after
+/// its parameter list): `{ ... }`, or `=> expr` up to the `,` or `)` that ends
+/// it.
+int _bodyEnd(String code, int from) {
+  var i = from;
+  while (i < code.length && ' \n\t'.contains(code[i])) {
+    i++;
   }
+  if (code.startsWith('async', i)) i += 5;
+  while (i < code.length && ' \n\t'.contains(code[i])) {
+    i++;
+  }
+  if (i < code.length && code[i] == '{') return _blockEnd(code, i);
+  if (!code.startsWith('=>', i)) return from;
+  var depth = 0;
+  for (i += 2; i < code.length; i++) {
+    final c = code[i];
+    if (c == '(' || c == '[' || c == '{') depth++;
+    if (c == ')' || c == ']' || c == '}') {
+      if (depth == 0) return i;
+      depth--;
+    }
+    if ((c == ',' || c == ';') && depth == 0) return i;
+  }
+  return code.length;
+}
+
+/// Where an error name is bound as a parameter or catch variable:
+/// (start, end, names) of the code the names are visible in.
+List<(int, int, Set<String>)> _errorBindings(String code) {
+  final out = <(int, int, Set<String>)>[];
+  // catch (e, st) { ... }
+  for (final m in _catchClause.allMatches(code)) {
+    out.add((m.end - 1, _blockEnd(code, m.end - 1), _paramNames(m.group(1)!)));
+  }
+  // fut.catchError((e) => ...), stream.handleError((e, st) {...}),
+  // listen(.., onError: (e, st) {...})
+  final handler = RegExp(
+    r'\b(?:catchError|handleError)\s*\(\s*\(([^)]*)\)|\bonError\s*:\s*\(([^)]*)\)',
+  );
+  for (final m in handler.allMatches(code)) {
+    final params = m.group(1) ?? m.group(2)!;
+    out.add((m.end, _bodyEnd(code, m.end), _paramNames(params)));
+  }
+  // Any parameter typed StackTrace, in its function or closure.
+  for (final m in RegExp(r'\bStackTrace\??\s+(\w+)').allMatches(code)) {
+    var depth = 0;
+    var i = m.end;
+    for (; i < code.length; i++) {
+      if (code[i] == '(') depth++;
+      if (code[i] == ')' && depth-- == 0) break;
+    }
+    out.add((m.start, _bodyEnd(code, i + 1), {m.group(1)!}));
+  }
+  return out;
+}
+
+/// Hits of the telemetry-error rule in one file: a telemetry call whose
+/// arguments carry an error's message or stack. `error`, `err`, `exception`,
+/// `cause`, `failure` and `stackTrace` count anywhere. Any other name counts
+/// only where it is bound as an error: by `catch (e, st)`, by the closure
+/// given to `catchError(`, `handleError(` or `onError:`, or as a parameter
+/// typed `StackTrace`. So a loop variable `e`, or `${stack.length}` on an
+/// unrelated `stack`, is not a hit.
+List<Hit> errorInterpolationHits(SourceFile file) {
+  final bindings = _errorBindings(file.code);
   final hits = <Hit>[];
   for (final (offset, args) in callArguments(file, _telemetryCall)) {
     final names = {
       ..._errorNames,
-      for (final (start, end, bound) in catches)
+      for (final (start, end, bound) in bindings)
         if (offset > start && offset < end) ...bound,
     };
     final n = '(?:${names.join('|')})';
@@ -154,26 +210,32 @@ List<Hit> _errorInterpolation() => [
   for (final file in dartFiles('lib')) ...errorInterpolationHits(file),
 ];
 
-/// `--fix` anywhere, and `fix: true` or a `'fix'` key in a call that names
-/// the doctor.
+/// `--fix` anywhere, and `fix: true` or a `'fix'` key in a call that names the
+/// doctor or whose arguments contain `/api/ops/doctor`.
 List<Hit> _doctorFix() {
   const allow = ['lib/src/server_care/widgets/server_check_body.dart'];
   final hits = <Hit>[];
   final flag = RegExp(r'--fix');
   final fixArg = RegExp(r"""\bfix\s*:\s*true\b|['"]fix['"]""");
   final doctorCall = RegExp(r'\b\w*[Dd]octor\w*\s*\(');
+  final anyCall = RegExp(r'\b[\w.]+\s*\(');
   for (final file in dartFiles('lib')) {
     if (isAllowed(file.path, allow)) continue;
-    void add(int offset) {
-      final line = file.lineOf(offset);
-      hits.add(Hit(file.path, line, file.lineText(line)));
-    }
-
+    final lines = <int>{};
     for (final m in flag.allMatches(file.text)) {
-      add(m.start);
+      lines.add(file.lineOf(m.start));
     }
-    for (final (offset, args) in callArguments(file, doctorCall)) {
-      if (fixArg.hasMatch(args)) add(offset);
+    final calls = [
+      ...callArguments(file, doctorCall),
+      if (file.text.contains('/api/ops/doctor'))
+        for (final call in callArguments(file, anyCall))
+          if (call.$2.contains('/api/ops/doctor')) call,
+    ];
+    for (final (offset, args) in calls) {
+      if (fixArg.hasMatch(args)) lines.add(file.lineOf(offset));
+    }
+    for (final line in lines.toList()..sort()) {
+      hits.add(Hit(file.path, line, file.lineText(line)));
     }
   }
   return hits;
@@ -365,6 +427,36 @@ void main() {
       expect(count("f(Object err) { events('x', {'m': err.toString()}); }"), 1);
       expect(count("f(Object stackTrace) { debugPrint('\$stackTrace'); }"), 1);
       expect(count("f(Object failure) { debugPrint('\${failure}'); }"), 1);
+    });
+
+    test('binds closure parameters of catchError, handleError, onError', () {
+      expect(count(r"f(fut) { fut.catchError((e) => debugPrint('$e')); }"), 1);
+      expect(
+        count(
+          r"f(s) { s.listen(null, onError: (e, st) { debugPrint('$e'); }); }",
+        ),
+        1,
+      );
+      expect(
+        count(r"f(s) { s.handleError((x) { events('a', {'m': '$x'}); }); }"),
+        1,
+      );
+      expect(
+        count(r"f(Object o, StackTrace trace) { debugPrint('$trace'); }"),
+        1,
+      );
+    });
+
+    test('stack counts only where it is bound as an error', () {
+      expect(count(r"f(List stack) { debugPrint('n=${stack.length}'); }"), 0);
+      expect(
+        count(r"f() { try {} catch (e, stack) { debugPrint('$stack'); } }"),
+        1,
+      );
+      expect(
+        count(r"f(Object o, StackTrace stack) { debugPrint('$stack'); }"),
+        1,
+      );
     });
 
     test('lets the type through, and a loop variable named e', () {
