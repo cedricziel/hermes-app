@@ -36,6 +36,9 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
    (concurrent calls, disposal, owner generation, profile switch, sign-out).
 2. CLAUDE.md privacy rules: no message text, titles, profile names, server
    addresses, ids, tokens or passwords in breadcrumbs, logs, spans, snapshots.
+   Two deliberate exceptions: the crash reporter logs uncaught errors with full
+   message, stack trace and breadcrumbs, and spans and request logs describe
+   their server with `hermes.*` attributes (version, install ID and the like).
    Secrets stay in secure storage.
 3. The area's `docs/architecture/` file: the change keeps its stated rules, and
    the file is updated if behaviour changed.
