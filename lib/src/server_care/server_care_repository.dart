@@ -18,7 +18,8 @@ enum CareAction {
   hermesUpdate('hermes-update'),
   gatewayRestart('gateway-restart'),
   gatewayStart('gateway-start'),
-  doctor('doctor');
+  doctor('doctor'),
+  curatorRun('curator-run');
 
   const CareAction(this.routeName);
 
