@@ -83,6 +83,18 @@ void main() {
     expect(snapshot.recentChats.first.title, 'Quarterly numbers');
   });
 
+  test(
+    'names the launch profile as the open one when nothing else does',
+    () async {
+      server.on('GET', '/api/profiles/active', {
+        'active': 'default',
+        'current': 'work',
+      });
+
+      expect((await build()).profile, 'work');
+    },
+  );
+
   test('a chat the server has not named shows a fixed title, not its '
       'preview', () async {
     server.on(

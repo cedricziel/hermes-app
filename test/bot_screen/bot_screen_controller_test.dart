@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -74,7 +76,7 @@ void main() {
       controller = BotScreenController(
         BotScreenRepository(transport.requestKeepingConnection),
         events?.call() ?? transport.connectionEvents,
-        profile: 'work',
+        profile: resolvedProfile('work'),
         events: (name, [attributes = const {}]) =>
             logged.add('$name $attributes'),
       );

@@ -22,6 +22,7 @@ import '../models/model_options_state.dart';
 import '../live_activities/live_activities.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
+import '../profiles/profile_resolver.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../share/shared_item.dart';
 import '../surfaces/chat_hints.dart';
@@ -155,6 +156,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ChatController({
     this.repository,
     this.profiles,
+    ProfileResolver? profileResolver,
     this.models,
     this.transport,
     this.activity,
@@ -192,6 +194,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.lostAdoptWindow = const Duration(seconds: 45),
     DateTime Function()? now,
   }) : _clock = now ?? DateTime.now,
+       // ignore: prefer_initializing_formals
+       _profileResolver = profileResolver,
        _watchSource = watchStatus?.source() {
     final repository = this.repository;
     if (repository == null) {
@@ -342,6 +346,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   final HermesChatRepository? repository;
   final HermesProfilesRepository? profiles;
+
+  /// Where a chat with no profile works; the profiles' own unless given.
+  late final ProfileResolver? profileResolver =
+      _profileResolver ?? profiles?.resolver;
+  final ProfileResolver? _profileResolver;
   final HermesModelsRepository? models;
   final ChatTransport? transport;
   final AppLockController? appLock;

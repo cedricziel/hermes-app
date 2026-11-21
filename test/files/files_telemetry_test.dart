@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -45,7 +47,7 @@ void main() {
     RecordingTracer? withTracer,
   }) => HermesFilesRepository(
     client,
-    profile: 'work',
+    profile: resolvedProfile('work'),
     idleTimeout: idle,
     telemetry: FilesTelemetry(
       ConnectionTelemetry(

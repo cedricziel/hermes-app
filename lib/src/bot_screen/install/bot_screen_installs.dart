@@ -1,3 +1,5 @@
+import '../../profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -92,7 +94,7 @@ class BotScreenInstalls extends ChangeNotifier {
 
   /// What the install of [profile] is doing or
   /// ended with; null when none was started.
-  InstallState? stateFor(String profile) {
+  InstallState? stateFor(ResolvedProfile profile) {
     final name = profile;
     for (final install in _running) {
       if (install.profile == name) {
@@ -109,7 +111,7 @@ class BotScreenInstalls extends ChangeNotifier {
   /// profile as `display.status` reported it, so the broadcasts that arrive
   /// before Hermes' answer are not lost. Does nothing while an install of
   /// that profile runs.
-  Future<void> start(String profile, {String? profileKey}) async {
+  Future<void> start(ResolvedProfile profile, {String? profileKey}) async {
     final name = profile;
     if (_disposed || _running.any((install) => install.profile == name)) return;
     final install = _Install(name, profileKey);
@@ -355,7 +357,7 @@ class BotScreenInstalls extends ChangeNotifier {
 class _Install {
   _Install(this.profile, this.profileKey);
 
-  final String profile;
+  final ResolvedProfile profile;
 
   /// The key its broadcasts carry; known from the status before Hermes
   /// answers, and confirmed by the answer.

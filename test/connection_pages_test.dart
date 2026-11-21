@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -311,7 +313,7 @@ void main() {
     final repository = HermesRepositories.forAuth(
       auth,
       null,
-    )!.tools.forProfile('work');
+    )!.tools.forProfile(resolvedProfile('work'));
     final navigator = rootNavigator(tester);
     unawaited(
       navigator.push(

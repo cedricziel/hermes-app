@@ -17,6 +17,7 @@ import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/profiles/chat_profiles.dart';
 import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -104,6 +105,9 @@ Future<void> pumpChatScreen(
           visible: shown,
           repository: client == null ? null : HermesChatRepository(client.raw),
           profiles: withProfiles ? HermesProfilesRepository(client!.raw) : null,
+          profileResolver: withProfiles
+              ? null
+              : ProfileResolver.known('default'),
           skills: withSkills ? HermesSkillsRepository(client!.raw) : null,
           models: models,
           providers: providersRepository,

@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:dio/dio.dart' show RequestOptions;
@@ -82,7 +84,7 @@ void main() {
                 builder: (_, name, _) => ToolsScreen(
                   repository: HermesToolsRepository(
                     server.client().raw,
-                    profile: name,
+                    profile: resolvedProfile(name),
                   ),
                   availability: availability,
                   onProfileGone: onProfileGone,
@@ -210,7 +212,9 @@ void main() {
         HermesToolsRoot(server.client().raw),
       );
       addTearDown(availability.dispose);
-      await tester.runAsync(() => availability.refresh('work'));
+      await tester.runAsync(
+        () => availability.refresh(resolvedProfile('work')),
+      );
       final before = listReads();
       final gate = holdAnswer(server, 'GET', '/api/tools/toolsets');
 

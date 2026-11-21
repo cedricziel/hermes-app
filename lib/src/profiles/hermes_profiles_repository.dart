@@ -1,5 +1,7 @@
 import 'package:hermes_api/hermes_api.dart';
 
+import 'profile_resolver.dart';
+
 class HermesProfile {
   const HermesProfile({
     required this.name,
@@ -51,6 +53,10 @@ class HermesProfilesRepository {
   HermesProfilesRepository(this._api);
 
   final DefaultApi _api;
+
+  /// Where a chat with no profile works; see [ProfileResolver]. One per
+  /// repository, so one per connection.
+  late final ProfileResolver resolver = ProfileResolver(loadActive);
 
   Future<ActiveProfile> loadActive() async {
     final response = await _api.getActiveProfileEndpointApiProfilesActiveGet();

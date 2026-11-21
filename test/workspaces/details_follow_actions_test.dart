@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -70,6 +72,7 @@ void main() {
         'scan_enabled': false,
       });
     chat = ChatController(
+      profileResolver: ProfileResolver.known('default'),
       repository: HermesChatRepository(server.client().raw),
       transport: source,
       workspaces: HermesWorkspacesRepository(

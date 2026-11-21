@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -99,7 +101,9 @@ void main() {
         'fit', () async {
       server.on('GET', '/api/chat/workspaces', _catalogBody);
 
-      final catalog = ok(await repository.catalog(profile: 'work'));
+      final catalog = ok(
+        await repository.catalog(profile: resolvedProfile('work')),
+      );
 
       expect(catalog.projects.map((p) => p.id), ['p_1a2b3c4d']);
       final project = catalog.projects.single;
@@ -122,8 +126,8 @@ void main() {
         'scan only when asked', () async {
       server.on('GET', '/api/chat/workspaces', _catalogBody);
 
-      await repository.catalog();
-      await repository.catalog(profile: 'work', scan: true);
+      await repository.catalog(profile: resolvedProfile('default'));
+      await repository.catalog(profile: resolvedProfile('work'), scan: true);
 
       final sent = server.requestsTo('GET', '/api/chat/workspaces').toList();
       expect(sent[0].queryParameters['profile'], 'default');
@@ -136,24 +140,36 @@ void main() {
       server.on('GET', '/api/chat/workspaces', {
         'detail': 'Not Found',
       }, status: 404);
-      expect(await repository.catalog(), isA<WorkspacesUnsupported>());
+      expect(
+        await repository.catalog(profile: resolvedProfile('default')),
+        isA<WorkspacesUnsupported>(),
+      );
 
       server.on('GET', '/api/chat/workspaces', {
         'detail': "Profile 'x' does not exist.",
       }, status: 404);
       expectFailed(
-        await repository.catalog(),
+        await repository.catalog(profile: resolvedProfile('default')),
         WorkspacesFailure.unknownProfile,
       );
     });
 
     test('an unreachable server and a bad body are failure kinds', () async {
       server.on('GET', '/api/chat/workspaces', {}, status: 503);
-      expectFailed(await repository.catalog(), WorkspacesFailure.unreachable);
+      expectFailed(
+        await repository.catalog(profile: resolvedProfile('default')),
+        WorkspacesFailure.unreachable,
+      );
       server.on('GET', '/api/chat/workspaces', {}, status: 500);
-      expectFailed(await repository.catalog(), WorkspacesFailure.unknown);
+      expectFailed(
+        await repository.catalog(profile: resolvedProfile('default')),
+        WorkspacesFailure.unknown,
+      );
       server.on('GET', '/api/chat/workspaces', ['not', 'a map']);
-      expectFailed(await repository.catalog(), WorkspacesFailure.unknown);
+      expectFailed(
+        await repository.catalog(profile: resolvedProfile('default')),
+        WorkspacesFailure.unknown,
+      );
     });
   });
 
@@ -168,7 +184,12 @@ void main() {
         ],
       });
 
-      final listing = ok(await repository.listFolders('/tmp/project'));
+      final listing = ok(
+        await repository.listFolders(
+          profile: resolvedProfile('default'),
+          '/tmp/project',
+        ),
+      );
 
       expect(listing.folders.map((f) => (f.name, f.path)), [
         ('a_dir', '/tmp/project/a_dir'),
@@ -187,7 +208,13 @@ void main() {
         ('read-error', WorkspacesFailure.unknown),
       ]) {
         server.on('GET', '/api/fs/list', {'entries': [], 'error': error});
-        expectFailed(await repository.listFolders('/x'), kind);
+        expectFailed(
+          await repository.listFolders(
+            profile: resolvedProfile('default'),
+            '/x',
+          ),
+          kind,
+        );
       }
     });
 
@@ -209,7 +236,13 @@ void main() {
           (null, WorkspacesFailure.outsideBoundary),
         ]) {
           server.on('GET', '/api/fs/list', {'detail': detail}, status: 403);
-          expectFailed(await repository.listFolders('/x'), kind);
+          expectFailed(
+            await repository.listFolders(
+              profile: resolvedProfile('default'),
+              '/x',
+            ),
+            kind,
+          );
         }
       },
     );
@@ -220,9 +253,16 @@ void main() {
         'detail': 'File not found',
       }, status: 404);
 
-      expect(await repository.listFolders('/x'), isA<WorkspacesUnsupported>());
+      expect(
+        await repository.listFolders(profile: resolvedProfile('default'), '/x'),
+        isA<WorkspacesUnsupported>(),
+      );
       expectFailed(
-        await repository.listFolders('/x', routeKnown: true),
+        await repository.listFolders(
+          profile: resolvedProfile('default'),
+          '/x',
+          routeKnown: true,
+        ),
         WorkspacesFailure.notFound,
       );
     });
@@ -231,12 +271,12 @@ void main() {
         'is unreachable', () async {
       server.on('GET', '/api/fs/list', {'detail': 'x'}, status: 400);
       expectFailed(
-        await repository.listFolders('/x'),
+        await repository.listFolders(profile: resolvedProfile('default'), '/x'),
         WorkspacesFailure.notADirectory,
       );
       server.on('GET', '/api/fs/list', {'detail': 'x'}, status: 503);
       expectFailed(
-        await repository.listFolders('/x'),
+        await repository.listFolders(profile: resolvedProfile('default'), '/x'),
         WorkspacesFailure.unreachable,
       );
 
@@ -244,7 +284,11 @@ void main() {
         'detail': "Profile 'x' does not exist.",
       }, status: 404);
       expectFailed(
-        await repository.listFolders('/x', routeKnown: true),
+        await repository.listFolders(
+          profile: resolvedProfile('default'),
+          '/x',
+          routeKnown: true,
+        ),
         WorkspacesFailure.unknownProfile,
       );
     });
@@ -263,7 +307,12 @@ void main() {
         {'text': '../me/cool', 'display': 'cool', 'meta': 'dir'},
       ]);
 
-      final got = ok(await repository.complete('/home/me/co', profile: 'work'));
+      final got = ok(
+        await repository.complete(
+          '/home/me/co',
+          profile: resolvedProfile('work'),
+        ),
+      );
 
       expect(got.folders.map((s) => s.text), [
         '/home/me/code/',
@@ -280,9 +329,27 @@ void main() {
         {'text': 'x', 'display': 'etc/', 'meta': 'dir'},
       ]);
 
-      expect(ok(await repository.complete('/')).folders.single.text, '/etc/');
-      expect(ok(await repository.complete('~/')).folders.single.text, '~/etc/');
-      expect(ok(await repository.complete('~')).folders.single.text, '~/etc/');
+      expect(
+        ok(await repository.complete(profile: resolvedProfile('default'), '/'))
+            .folders
+            .single
+            .text,
+        '/etc/',
+      );
+      expect(
+        ok(await repository.complete(profile: resolvedProfile('default'), '~/'))
+            .folders
+            .single
+            .text,
+        '~/etc/',
+      );
+      expect(
+        ok(await repository.complete(profile: resolvedProfile('default'), '~'))
+            .folders
+            .single
+            .text,
+        '~/etc/',
+      );
     });
 
     test('says when 30 items came back, folders or not', () async {
@@ -291,14 +358,24 @@ void main() {
           {'text': 'f$i', 'display': 'f$i', 'meta': ''},
       ]);
 
-      final got = ok(await repository.complete('/srv/'));
+      final got = ok(
+        await repository.complete(profile: resolvedProfile('default'), '/srv/'),
+      );
 
       expect(got.folders, isEmpty);
       expect(got.capped, isTrue);
     });
 
     test('a relative word is never sent', () async {
-      expect(ok(await repository.complete('code/')).folders, isEmpty);
+      expect(
+        ok(
+          await repository.complete(
+            profile: resolvedProfile('default'),
+            'code/',
+          ),
+        ).folders,
+        isEmpty,
+      );
       expect(calls, isEmpty);
     });
 
@@ -309,11 +386,21 @@ void main() {
         ],
       };
       expect(
-        ok(await repository.complete(r'C:\code\s')).folders.single.text,
+        ok(
+          await repository.complete(
+            profile: resolvedProfile('default'),
+            r'C:\code\s',
+          ),
+        ).folders.single.text,
         r'C:\code\src/',
       );
       expect(
-        ok(await repository.complete(r'\\nas\share\s')).folders.single.text,
+        ok(
+          await repository.complete(
+            profile: resolvedProfile('default'),
+            r'\\nas\share\s',
+          ),
+        ).folders.single.text,
         r'\\nas\share\src/',
       );
       expect(calls, hasLength(2));
@@ -326,7 +413,9 @@ void main() {
           {'text': 'x', 'display': '~foobar/', 'meta': 'dir'},
         ],
       };
-      final got = ok(await repository.complete('~foo'));
+      final got = ok(
+        await repository.complete(profile: resolvedProfile('default'), '~foo'),
+      );
       expect(got.folders.map((s) => s.text), ['~foobar/']);
       expect(calls, hasLength(1));
     });
@@ -334,7 +423,7 @@ void main() {
     test('maps the gateway errors', () async {
       Future<WorkspacesResult<PathSuggestions>> failWith(Object error) {
         answer = (_, _) => Future.error(error);
-        return repository.complete('/x');
+        return repository.complete(profile: resolvedProfile('default'), '/x');
       }
 
       expect(
@@ -370,7 +459,7 @@ void main() {
         await repository.moveWorkspace(
           'stored-1',
           '/home/me/code/other/lib',
-          profile: 'work',
+          profile: resolvedProfile('work'),
         ),
       );
 
@@ -393,7 +482,13 @@ void main() {
         'git_repo_root': '',
       };
 
-      final moved = ok(await repository.moveWorkspace('s', '/srv/plain'));
+      final moved = ok(
+        await repository.moveWorkspace(
+          profile: resolvedProfile('default'),
+          's',
+          '/srv/plain',
+        ),
+      );
 
       expect(moved.branch, isNull);
       expect(moved.gitRepoRoot, isNull);
@@ -405,7 +500,11 @@ void main() {
         'folder', () async {
       for (final path in ['relative/dir', './x', '', ' /srv', '/srv/../x']) {
         expectFailed(
-          await repository.moveWorkspace('s', path),
+          await repository.moveWorkspace(
+            profile: resolvedProfile('default'),
+            's',
+            path,
+          ),
           WorkspacesFailure.notAServerPath,
         );
       }
@@ -415,7 +514,13 @@ void main() {
     test('a Windows drive, a UNC and a ~ folder are sent', () async {
       for (final path in [r'C:\Users\me\code', r'\\nas\share\code', '~/code']) {
         answer = (_, params) async => {'cwd': params['cwd']};
-        final moved = ok(await repository.moveWorkspace('s', path));
+        final moved = ok(
+          await repository.moveWorkspace(
+            profile: resolvedProfile('default'),
+            's',
+            path,
+          ),
+        );
         expect(moved.cwd, path);
       }
       expect(calls, hasLength(3));
@@ -431,7 +536,14 @@ void main() {
         (4009, WorkspacesFailure.unknown),
       ]) {
         answer = (_, _) => Future.error(GatewayRpcException(code, 'x'));
-        expectFailed(await repository.moveWorkspace('s', '/x'), kind);
+        expectFailed(
+          await repository.moveWorkspace(
+            profile: resolvedProfile('default'),
+            's',
+            '/x',
+          ),
+          kind,
+        );
       }
     });
 
@@ -441,21 +553,37 @@ void main() {
         'cwd': ' /srv/demo/sub ',
         'git_repo_root': '/srv/demo/',
       };
-      final moved = ok(await repository.moveWorkspace('s', '/srv/demo/sub'));
+      final moved = ok(
+        await repository.moveWorkspace(
+          profile: resolvedProfile('default'),
+          's',
+          '/srv/demo/sub',
+        ),
+      );
       expect(moved.cwd, ' /srv/demo/sub ');
       expect(moved.gitRepoRoot, '/srv/demo/');
       expect(moved.folderPath, '/srv/demo');
 
       answer = (_, _) async => {'cwd': '/srv/demo', 'git_repo_root': null};
       expect(
-        ok(await repository.moveWorkspace('s', '/srv/demo')).folderPath,
+        ok(
+          await repository.moveWorkspace(
+            profile: resolvedProfile('default'),
+            's',
+            '/srv/demo',
+          ),
+        ).folderPath,
         ok(
           await (() async {
             answer = (_, _) async => {
               'cwd': '/srv/demo/',
               'git_repo_root': null,
             };
-            return repository.moveWorkspace('s', '/srv/demo/');
+            return repository.moveWorkspace(
+              profile: resolvedProfile('default'),
+              's',
+              '/srv/demo/',
+            );
           })(),
         ).folderPath,
       );
@@ -470,12 +598,23 @@ void main() {
         (5007, WorkspacesFailure.busy),
       ]) {
         answer = (_, _) => Future.error(GatewayRpcException(code, 'x'));
-        expectFailed(await repository.moveWorkspace('s', '/x'), kind);
+        expectFailed(
+          await repository.moveWorkspace(
+            profile: resolvedProfile('default'),
+            's',
+            '/x',
+          ),
+          kind,
+        );
       }
       answer = (_, _) =>
           Future.error(const GatewayRpcException(kGatewayMethodNotFound, 'u'));
       expect(
-        await repository.moveWorkspace('s', '/x'),
+        await repository.moveWorkspace(
+          profile: resolvedProfile('default'),
+          's',
+          '/x',
+        ),
         isA<WorkspacesUnsupported>(),
       );
     });
@@ -489,7 +628,11 @@ void main() {
         calls.clear();
         answer = (_, _) => Future.error(lost);
         expectFailed(
-          await repository.moveWorkspace('s', '/x'),
+          await repository.moveWorkspace(
+            profile: resolvedProfile('default'),
+            's',
+            '/x',
+          ),
           WorkspacesFailure.unreachable,
         );
         expect(calls, hasLength(1));
@@ -499,7 +642,11 @@ void main() {
     test('an answer without a folder may still have moved the chat', () async {
       answer = (_, _) async => {'branch': 'main'};
       expectFailed(
-        await repository.moveWorkspace('s', '/x'),
+        await repository.moveWorkspace(
+          profile: resolvedProfile('default'),
+          's',
+          '/x',
+        ),
         WorkspacesFailure.unreachable,
       );
     });
@@ -514,7 +661,9 @@ void main() {
         'git_repo_root': '/srv/demo',
       });
 
-      final folder = ok(await repository.sessionFolder('abc', profile: 'work'));
+      final folder = ok(
+        await repository.sessionFolder('abc', profile: resolvedProfile('work')),
+      );
 
       expect(folder.cwd, '/srv/demo/lib');
       expect(folder.branch, 'dev');
@@ -530,7 +679,12 @@ void main() {
         'cwd': '/srv/demo/ ',
         'git_repo_root': '/srv/demo/',
       });
-      final folder = ok(await repository.sessionFolder('raw'));
+      final folder = ok(
+        await repository.sessionFolder(
+          profile: resolvedProfile('default'),
+          'raw',
+        ),
+      );
       expect(folder.cwd, '/srv/demo/ ');
       expect(folder.gitRepoRoot, '/srv/demo/');
     });
@@ -540,7 +694,7 @@ void main() {
         'detail': "Profile 'x' does not exist.",
       }, status: 404);
       expectFailed(
-        await repository.sessionFolder('abc', profile: 'x'),
+        await repository.sessionFolder('abc', profile: resolvedProfile('x')),
         WorkspacesFailure.unknownProfile,
       );
     });
@@ -548,12 +702,20 @@ void main() {
     test('a missing chat and a row without folders', () async {
       server.on('GET', '/api/sessions/gone', {'detail': 'x'}, status: 404);
       expectFailed(
-        await repository.sessionFolder('gone'),
+        await repository.sessionFolder(
+          profile: resolvedProfile('default'),
+          'gone',
+        ),
         WorkspacesFailure.sessionGone,
       );
 
       server.on('GET', '/api/sessions/old', {'id': 'old'});
-      final folder = ok(await repository.sessionFolder('old'));
+      final folder = ok(
+        await repository.sessionFolder(
+          profile: resolvedProfile('default'),
+          'old',
+        ),
+      );
       expect(folder.cwd, isNull);
       expect(
         server.requestsTo('GET', '/api/sessions/old').single.queryParameters,
@@ -569,16 +731,20 @@ void main() {
         server.on('GET', '/api/config', {
           'desktop': {'repo_scan_roots': <String>[]},
         });
-        expect(ok(await repository.scanRoots()), isEmpty);
+        expect(
+          ok(await repository.scanRoots(profile: resolvedProfile('default'))),
+          isEmpty,
+        );
 
         server.on('GET', '/api/config', {
           'desktop': {
             'repo_scan_roots': ['/home/me/code', 7, ' '],
           },
         });
-        expect(ok(await repository.scanRoots(profile: 'work')), [
-          '/home/me/code',
-        ]);
+        expect(
+          ok(await repository.scanRoots(profile: resolvedProfile('work'))),
+          ['/home/me/code'],
+        );
         expect(
           server.requestsTo('GET', '/api/config').last.queryParameters,
           containsPair('profile', 'work'),
@@ -594,10 +760,16 @@ void main() {
           },
         },
       });
-      expect(ok(await repository.scanRoots()), ['/a']);
+      expect(
+        ok(await repository.scanRoots(profile: resolvedProfile('default'))),
+        ['/a'],
+      );
 
       server.on('GET', '/api/config', {'model': 'x'});
-      expect(ok(await repository.scanRoots()), isEmpty);
+      expect(
+        ok(await repository.scanRoots(profile: resolvedProfile('default'))),
+        isEmpty,
+      );
     });
   });
 
@@ -626,10 +798,13 @@ void main() {
       );
 
       final results = <Object>[
-        await failing.catalog(),
-        await failing.listFolders(_secret),
-        await failing.sessionFolder('$_secret-id'),
-        await failing.scanRoots(),
+        await failing.catalog(profile: resolvedProfile('default')),
+        await failing.listFolders(profile: resolvedProfile('default'), _secret),
+        await failing.sessionFolder(
+          profile: resolvedProfile('default'),
+          '$_secret-id',
+        ),
+        await failing.scanRoots(profile: resolvedProfile('default')),
       ];
 
       for (final result in results) {
@@ -651,7 +826,11 @@ void main() {
         server.on('GET', '/api/fs/list', {
           'detail': 'Path is outside the managed read boundary: $_secret',
         }, status: status);
-        await traced.listFolders(_secret, routeKnown: true);
+        await traced.listFolders(
+          profile: resolvedProfile('default'),
+          _secret,
+          routeKnown: true,
+        );
       }
 
       expect(tracer.spans, isNotEmpty);
@@ -681,7 +860,10 @@ void main() {
           'detail': 'Path is outside the managed read boundary: $_secret',
         }, status: 403);
 
-        final result = await repository.listFolders(_secret);
+        final result = await repository.listFolders(
+          profile: resolvedProfile('default'),
+          _secret,
+        );
 
         expect(show(result), isNot(contains(_secret)));
         expectFailed(result, WorkspacesFailure.outsideBoundary);
@@ -696,7 +878,11 @@ void main() {
         ),
       );
 
-      final result = await repository.moveWorkspace('s', _secret);
+      final result = await repository.moveWorkspace(
+        profile: resolvedProfile('default'),
+        's',
+        _secret,
+      );
 
       expect(show(result), isNot(contains(_secret)));
       expectFailed(result, WorkspacesFailure.notFound);
@@ -705,7 +891,10 @@ void main() {
     test('a thrown error of any kind is dropped, not rethrown', () async {
       answer = (_, _) => throw StateError('boom $_secret');
 
-      final result = await repository.complete('/x');
+      final result = await repository.complete(
+        profile: resolvedProfile('default'),
+        '/x',
+      );
 
       expect(show(result), isNot(contains(_secret)));
     });

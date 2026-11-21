@@ -1,3 +1,5 @@
+import '../profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -115,7 +117,7 @@ class WorkspacePickerController extends ChangeNotifier {
   final WorkspaceCatalogLoader _loader;
 
   /// The profile every read names.
-  final String profile;
+  final ResolvedProfile profile;
 
   /// The folder of the chat being moved, null for a new chat.
   final String? current;

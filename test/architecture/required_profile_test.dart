@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +17,9 @@ import '../support/fake_hermes_server.dart';
 void main() {
   test('a tools request carries the profile it was bound to', () async {
     final server = FakeHermesServer()..on('GET', '/api/tools/toolsets', {});
-    await HermesToolsRoot(server.client().raw).forProfile('work').list();
+    await HermesToolsRoot(server.client().raw)
+        .forProfile(resolvedProfile('work'))
+        .list();
 
     expect(server.requests.single.queryParameters['profile'], 'work');
   });
@@ -38,7 +42,7 @@ void main() {
       sent.add(params);
       return {};
     });
-    await repository.status('work');
+    await repository.status(resolvedProfile('work'));
 
     expect(sent.single['profile'], 'work');
   });

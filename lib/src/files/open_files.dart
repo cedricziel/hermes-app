@@ -11,7 +11,6 @@ import '../chat/media/media_store.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'files_availability.dart';
 import 'files_platform_policy.dart';
-import 'files_profile.dart';
 import 'files_screen.dart';
 import 'files_telemetry.dart';
 import 'hermes_files_repository.dart';
@@ -48,7 +47,9 @@ Future<void> openFiles(
   } on ProviderNotFoundException {
     breadcrumbs = Breadcrumbs.none;
   }
-  final profile = filesProfileFor(chat.profile);
+  final resolver = chat.profileResolver;
+  final profile = resolver?.resolve(chat.profile);
+  if (resolver == null || profile == null) return;
   final threadId = thread.id;
   final telemetry = FilesTelemetry(repositories.telemetry, breadcrumbs);
   // A new chat with no stored folder yet runs in the folder the workspace
@@ -72,7 +73,7 @@ Future<void> openFiles(
         closeWhen: chat,
         shouldClose: () =>
             chat.selectedId != threadId ||
-            filesProfileFor(chat.profile) != profile,
+            resolver.resolve(chat.profile) != profile,
         share: _canShare ? _share : null,
         policy: FilesPlatformPolicy(),
       ),

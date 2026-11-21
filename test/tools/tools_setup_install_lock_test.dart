@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -24,8 +26,10 @@ void main() {
   const computerText =
       "See a desktop's screen and move its mouse and keyboard.";
 
-  HermesToolsRepository repository() =>
-      HermesToolsRepository(world.server.client().raw, profile: 'work');
+  HermesToolsRepository repository() => HermesToolsRepository(
+    world.server.client().raw,
+    profile: resolvedProfile('work'),
+  );
 
   Future<void> start(
     WidgetTester tester, {

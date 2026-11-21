@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart' show CupertinoMenuItem;
@@ -134,6 +136,7 @@ void main() {
     tester,
     shots,
     ChatScreen(
+      profileResolver: ProfileResolver.known('default'),
       repository: HermesChatRepository(server.client().raw),
       transport: transport,
       workspaces: HermesWorkspacesRepository(server.client().raw, (

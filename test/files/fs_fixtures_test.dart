@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -47,8 +49,10 @@ void main() {
 
   setUp(() {
     server = FakeHermesServer();
-    files = HermesFilesRepository(server.client(), profile: 'default')
-      ..highestFolder = _p('/srv/demo');
+    files = HermesFilesRepository(
+      server.client(),
+      profile: resolvedProfile('default'),
+    )..highestFolder = _p('/srv/demo');
   });
 
   test('the fixture holds every case these tests name', () {
@@ -227,7 +231,10 @@ void main() {
     // No highest folder yet: the first read is the one the server refuses.
     late HermesFilesRepository any;
     setUp(
-      () => any = HermesFilesRepository(server.client(), profile: 'default'),
+      () => any = HermesFilesRepository(
+        server.client(),
+        profile: resolvedProfile('default'),
+      ),
     );
 
     test('outside the root is fixedFolder on list and read-text, inside '
