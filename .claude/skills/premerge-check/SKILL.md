@@ -102,10 +102,16 @@ Environment (positive integers; a bad value exits 1):
 | `PREMERGE_TEST_CONCURRENCY`  | 4       | `flutter test --concurrency`                                    |
 | `PREMERGE_TEST_BATCH`        | 20      | Files per `flutter test` call (the budget is checked per batch) |
 
+`PREMERGE_ALLOW_CAPPED` is a flag, not a number, and is not validated: only the exact value `1` counts; any other value (`true`, `yes`, empty) keeps exit 7.
+
 Over the cap it prints `affected tests: CAPPED` and names the `lib/src/<dir>/`
-or `lib/l10n/` directories whose (c2) tests were skipped. The PASS line says
-`affected tests: N files run` (N may be 0; nothing is run then) and `CAPPED` when
-it applies. A budget cut prints `affected tests CUT SHORT after N/M files
+or `lib/l10n/` directories whose (c2) tests were skipped. The PASS line then
+reads `PASS (CAPPED: directory-wide tests skipped for <dirs>)` and the run exits
+7, not 0, unless `PREMERGE_ALLOW_CAPPED=1` (then it exits 0 and the line still
+says CAPPED). A capped pass is not a full pass: a theme-wide or helper-wide
+selection needs `PREMERGE_TEST_CAP` and `PREMERGE_TEST_BUDGET` raised (one recent
+run needed 3000 s). The second line says `affected tests: N files run` (N may be
+0; nothing is run then). A budget cut prints `affected tests CUT SHORT after N/M files
 (budget X s); not a pass` and lists the files not run: exit 6, never 0. A
 failure in a batch that ran before the cut exits 5, not 6, and the cut notice is
 printed too.
@@ -138,6 +144,7 @@ replaced by `/tmp`. A full run takes about two minutes.
 | 4    | Architecture tests failed                                     | Rerun with `--keep`, run `flutter test test/architecture` in the trial merge, fix the PR, or merge origin/main in if the clash is main's. |
 | 5    | Affected tests failed (files named)                           | Rerun with `--keep`, run `flutter test <file>` in the trial merge, fix the PR, or merge origin/main in if the clash is main's.            |
 | 6    | Affected tests cut short by the budget (files not run listed) | Not a pass. Rerun with a larger `PREMERGE_TEST_BUDGET`, or run the listed files, then rerun the check.                                    |
+| 7    | `PASS (CAPPED: ...)`: the cap skipped directory-wide (c2) tests | Not a full pass. Rerun with `PREMERGE_TEST_CAP` and `PREMERGE_TEST_BUDGET` raised, or set `PREMERGE_ALLOW_CAPPED=1` to accept the skipped tests (exit 0, still says CAPPED). 5 and 6 win over 7. |
 
 ## Arming: tie it to the head and the base
 

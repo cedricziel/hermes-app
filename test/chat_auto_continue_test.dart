@@ -491,7 +491,7 @@ void main() {
         'while the prompt\'s own reply is pending', () async {
       final (thread, send) = sendPrompt();
       await pumpEventQueue();
-      chat.submit('Then this', const []);
+      await chat.submit('Then this', const []);
       send
         ..emit(const UnsolicitedEvent(ReplyStarted()))
         ..emit(const UnsolicitedEvent(ReplyDelta('resumed work')))
@@ -508,7 +508,7 @@ void main() {
         'alone', () async {
       final (thread, send) = sendPrompt();
       await pumpEventQueue();
-      chat.submit('Then this', const []);
+      await chat.submit('Then this', const []);
       transport.stopGate = Completer<void>();
       final stopping = chat.stopReply(thread);
       await pumpEventQueue();

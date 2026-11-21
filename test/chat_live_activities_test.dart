@@ -218,7 +218,7 @@ void main() {
     });
     await tester.runAsync(chat.loadThreads);
     chat.select('s1');
-    chat.submit('Any news?', const []);
+    await chat.submit('Any news?', const []);
     await tester.pump();
     expect(service.running, hasLength(1));
 

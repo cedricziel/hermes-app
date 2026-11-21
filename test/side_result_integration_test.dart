@@ -129,7 +129,7 @@ void main() {
     () async {
       await open();
       final thread = chat.selectedThread!;
-      chat.submit('Foreground', const []);
+      await chat.submit('Foreground', const []);
       await pumpEventQueue();
       result('background.complete', 'Background answer');
       result('btw.complete', 'Side answer');
@@ -179,7 +179,7 @@ void main() {
       hasLength(submitsBefore),
     );
     final state = chat.sideResultsIn(thread);
-    chat.submit('Same owned runtime', const []);
+    await chat.submit('Same owned runtime', const []);
     await pumpEventQueue();
     expect(chat.sideResultsIn(thread), same(state));
     expect(state!.results, hasLength(2));
@@ -595,7 +595,7 @@ void main() {
           'total': 5,
         };
         await open();
-        chat.submit('Synthetic advisor prompt', const []);
+        await chat.submit('Synthetic advisor prompt', const []);
         await pumpEventQueue();
         gateway.event('message.start', 'rt-1');
         gateway.event('agent.terminal.output', 'rt-1', {

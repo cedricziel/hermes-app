@@ -66,7 +66,7 @@ void main() {
     await chat.loadThreads('default');
     chat.select('shared');
     await pumpEventQueue();
-    chat.submit('Old prompt', const []);
+    await chat.submit('Old prompt', const []);
     final oldSend = transport.sends.single;
 
     await chat.loadThreads('work');
