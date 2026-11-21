@@ -128,6 +128,34 @@ void main() {
     },
   );
 
+  test('a stored default stays even when the launch profile is already '
+      'known', () async {
+    server.on('GET', '/api/profiles/active', {
+      'active': 'default',
+      'current': 'work',
+    });
+    final repositories = HermesRepositories(server.client());
+    expect(await repositories.profiles.resolver.load(), 'work');
+    final known = SurfaceSnapshotBuilder(
+      repositories,
+      timeout: const Duration(milliseconds: 200),
+      now: () => now,
+    );
+    final previous = SurfaceSnapshot(
+      updatedAt: now,
+      profile: 'default',
+      profiles: const ['default', 'work'],
+    );
+
+    final result = await known.build(
+      signedIn: true,
+      previous: previous,
+      refreshRemote: true,
+    );
+
+    expect(result.snapshot.profile, 'default');
+  });
+
   test('a hint still wins over the launch profile', () async {
     server.on('GET', '/api/profiles/active', {
       'active': 'default',
