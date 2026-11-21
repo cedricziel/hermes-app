@@ -279,7 +279,21 @@ void main() {
   });
 
   test('a queued prompt that Hermes already accepted cannot begin its '
-      'submission again', () async {
+      'submission again, even when its cleanup failed', () async {
+    // The second state write is the accepted cleanup (the first is the
+    // submission's own start): failing it leaves the record in
+    // submissionStarted with this send's claim, where a repeated begin would
+    // succeed and let a transport submit the prompt a second time.
+    var stateWrites = 0;
+    store = DurableQueueStore(
+      directory: directory,
+      keys: FakeQueueKeys(),
+      beforeCommit: (operation) async {
+        if (operation == 'state' && ++stateWrites == 2) {
+          throw const FileSystemException('disk full');
+        }
+      },
+    );
     await store.commit(_scope(), 'once');
     final transport = _LateSubmitTransport();
     final chat = await open(transport);
@@ -293,7 +307,10 @@ void main() {
     transport.lateCall.complete();
 
     expect(await transport.again.future, isA<QueueSubmissionNotStarted>());
-    expect(transport.sends.map((send) => send.text), ['once']);
     expect(chat.queuedIn(thread), isEmpty);
+    expect(
+      (await store.load(_scope())).records.single.state,
+      QueueRecordState.submissionStarted,
+    );
   });
 }
