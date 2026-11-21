@@ -33,6 +33,7 @@ import 'attachment_views.dart';
 import 'clarify_card.dart';
 import 'following_chat_list.dart';
 import 'message_actions.dart';
+import '../../macos/menu_selection_area.dart';
 import 'message_drag_grip.dart';
 import 'read_aloud_actions.dart';
 import '../first_run_card.dart' show isProviderReplyError;
@@ -266,7 +267,7 @@ Widget _buildText(
     fontSize: messageFontSizeFor(Theme.of(context).platform),
     height: 1.5,
   );
-  final bubble = SelectionArea(
+  final bubble = MenuSelectionArea(
     child: ChatTextMessage(
       message: message,
       linksDecoration: TextDecoration.underline,
