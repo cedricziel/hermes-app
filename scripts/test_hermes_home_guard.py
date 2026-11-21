@@ -265,28 +265,34 @@ def tracked_files(root):
         ).stdout.decode().strip()
         if not top or os.path.realpath(top) != os.path.realpath(root):
             return None
-        out = subprocess.run(
-            ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others",
-             "--exclude-standard"],
-            capture_output=True,
-            check=True,
-            env=git_env(),
-        ).stdout
+        names = git_ls_files(root, "--cached", "--others", "--exclude-standard")
     except (OSError, subprocess.CalledProcessError):
         return None
-    names = {n for n in out.decode().split("\0") if n}
     return names or None
+
+
+def git_ls_files(root, *flags):
+    out = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z", *flags],
+        capture_output=True,
+        check=True,
+        env=git_env(),
+    ).stdout
+    return {n for n in out.decode().split("\0") if n}
 
 
 def scanned_files(root=None):
     root = ROOT if root is None else root
     tracked = tracked_files(root)
+    # A file committed under .claude/worktrees/ is part of the repo and stays
+    # scanned; an untracked copy there is an agent worktree's and is skipped.
+    committed = git_ls_files(root, "--cached") if tracked is not None else set()
 
     def keep(p):
         if not p.is_file():
             return False
         rel = p.relative_to(root).as_posix()
-        if rel.startswith(".claude/worktrees/"):
+        if rel.startswith(".claude/worktrees/") and rel not in committed:
             return False
         return tracked is None or rel in tracked
 
@@ -578,6 +584,24 @@ class RealScripts(unittest.TestCase):
             found = [s for s in check_repo(repo) if s.problem]
         self.assertEqual(listed, {"scripts/dev.sh"})
         self.assertTrue(found)
+
+    def test_scan_still_catches_a_committed_file_under_agent_worktrees(self):
+        rel = ".claude/worktrees/x/scripts/d.sh"
+        repo = self.make_repo(rel, track=False)
+        subprocess.run(
+            ["git", "-C", str(repo), "add", "-f", rel], check=True, env=git_env()
+        )
+        names = {s.path for s in check_repo(repo) if s.problem}
+        self.assertIn(rel, names)
+        self.plant(repo, ".claude/worktrees/y/scripts/d.sh")
+        names = {s.path for s in check_repo(repo) if s.problem}
+        self.assertNotIn(".claude/worktrees/y/scripts/d.sh", names)
+
+    def test_an_empty_git_listing_counts_as_none(self):
+        repo = pathlib.Path(tempfile.mkdtemp(prefix="hermes-home-scan.")).resolve()
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True, env=git_env())
+        self.assertIsNone(tracked_files(repo))
 
     def test_scan_without_git_skips_agent_worktrees(self):
         repo = self.make_repo(".claude/worktrees/x/scripts/dev.sh", track=False)
