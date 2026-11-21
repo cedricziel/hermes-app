@@ -11,6 +11,7 @@ import 'package:hermes_app/src/bot_screen/rfb/display_socket.dart';
 import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway_connection_transport.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../../support/fake_rfb_server.dart';
@@ -172,7 +173,7 @@ void main() {
       screen = BotScreenController(
         repository,
         broadcasts.stream,
-        profile: 'work',
+        profile: resolvedProfile('work'),
       );
       viewer = BotScreenViewerController(
         repository: repository,
@@ -195,7 +196,7 @@ void main() {
               return next;
           }
         },
-        profile: 'work',
+        profile: resolvedProfile('work'),
         random: random ?? _Fixed(0.5),
         telemetry: ConnectionTelemetry(
           tracer: tracer,

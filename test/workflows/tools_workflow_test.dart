@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:dio/dio.dart' show RequestOptions;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -117,7 +118,7 @@ void main() {
           ToolsScreen(
             repository: HermesToolsRepository(
               server.client().raw,
-              profile: 'work',
+              profile: resolvedProfile('work'),
             ),
           ),
           brightness: brightness,

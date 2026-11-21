@@ -364,7 +364,11 @@ class SettingsScaffold extends StatelessWidget {
         (tabs == null ? 0 : kTextTabBarHeight) +
         (search == null
             ? 0
-            : SettingsSearchField.heightFor(ios: ios) + _searchBottomGap);
+            : SettingsSearchField.heightFor(
+                    ios: ios,
+                    textScaler: MediaQuery.textScalerOf(context),
+                  ) +
+                  _searchBottomGap);
     // A page the shell shows at the top level opens the shell's drawer.
     final pane = inSettingsPane(context);
     final back = Navigator.canPop(context) && !pane;

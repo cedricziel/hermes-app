@@ -145,7 +145,13 @@ extension _ChatControllerWorkspace on ChatController {
     notifyListeners();
   }
 
-  String get _profileKey => _profile ?? kDefaultProfile;
+  /// The profile the chat's requests carry: its own, else the one the
+  /// dashboard was launched with; null while neither is known.
+  ResolvedProfile? get _resolved => profileResolver?.resolve(_profile);
+
+  /// Where the chat's folders are kept; empty while no profile is known,
+  /// when nothing is read.
+  String get _profileKey => _resolved?.name ?? '';
 
   /// The server's home folder, when the profile's catalog was read.
   String? get _homeImpl => _workspace.loaders[_profileKey]?.catalog?.home;
@@ -188,10 +194,12 @@ extension _ChatControllerWorkspace on ChatController {
     if (repository == null || !active || (appLock?.locked ?? false)) {
       return null;
     }
-    final key = profile ?? _profileKey;
+    final resolved = profileResolver?.resolve(profile ?? _profile);
+    if (resolved == null) return null;
+    final key = resolved.name;
     var loader = _workspace.loaders[key];
     if (loader == null) {
-      loader = WorkspaceCatalogLoader(repository: repository, profile: key)
+      loader = WorkspaceCatalogLoader(repository: repository, profile: resolved)
         ..addListener(notifyListeners);
       _workspace.loaders[key] = loader;
       // Not now: this runs while a screen builds, and a read starting
@@ -413,7 +421,8 @@ extension _ChatControllerWorkspace on ChatController {
     if (block != null) return block;
     final repository = workspaces!;
     final epoch = _activityEpoch;
-    final profile = _profile;
+    final profile = _resolved;
+    if (profile == null) return WorkspaceMoveBlock.notAvailable;
     final key = _moveKey(thread);
     breadcrumbs('workspace.move.confirmed');
     final record = _workspace.moves.putIfAbsent(key, _MoveRecord.new);
@@ -514,7 +523,7 @@ extension _ChatControllerWorkspace on ChatController {
     (String, String) key,
     _MoveRecord record,
     int epoch,
-    String? profile, {
+    ResolvedProfile? profile, {
     bool timedOut = false,
   }) async {
     final repository = workspaces!;
@@ -524,6 +533,10 @@ extension _ChatControllerWorkspace on ChatController {
       record,
       WorkspaceMoveState(WorkspaceMovePhase.checking, timedOut: timedOut),
     );
+    if (profile == null) {
+      _unconfirmed(key, record);
+      return;
+    }
     final read = repository.sessionFolder(key.$2, profile: profile);
     final result = await _within(read);
     if (disposed || record.readGen != generation) return;
@@ -648,6 +661,6 @@ extension _ChatControllerWorkspace on ChatController {
         record.target == null) {
       return;
     }
-    await _recheck(key, record, _activityEpoch, _profile);
+    await _recheck(key, record, _activityEpoch, _resolved);
   }
 }

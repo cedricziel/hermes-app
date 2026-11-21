@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:flutter/cupertino.dart' show CupertinoTextField;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -126,7 +127,7 @@ void main() {
     BotScreenInstalls installs,
   ) async {
     await tester.runAsync(() async {
-      await installs.start('work', profileKey: _key);
+      await installs.start(resolvedProfile('work'), profileKey: _key);
       await Future<void>.delayed(const Duration(milliseconds: 30));
     });
     await tester.pump();
@@ -230,7 +231,7 @@ void main() {
     await settle(tester);
 
     expect(prompt, findsNothing);
-    expect(installs.stateFor('work'), isA<InstallEnded>());
+    expect(installs.stateFor(resolvedProfile('work')), isA<InstallEnded>());
   });
 
   testWidgets('a request for an install nobody started is refused and shows '
@@ -267,11 +268,11 @@ void main() {
   ) async {
     final installs = await pumpShell(tester);
     await startInstall(tester, installs);
-    expect(installs.stateFor('work'), isA<InstallRunning>());
+    expect(installs.stateFor(resolvedProfile('work')), isA<InstallRunning>());
 
     await openBoard(tester);
 
-    expect(installs.stateFor('work'), isA<InstallRunning>());
+    expect(installs.stateFor(resolvedProfile('work')), isA<InstallRunning>());
   });
 
   testWidgets('every platform builds the question', (tester) async {

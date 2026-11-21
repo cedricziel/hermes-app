@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -67,9 +68,9 @@ void main() {
 
   group('profile', () {
     test('every call names the profile', () async {
-      await repository.status('work');
-      await repository.start('work');
-      await repository.thumbnail('work');
+      await repository.status(resolvedProfile('work'));
+      await repository.start(resolvedProfile('work'));
+      await repository.thumbnail(resolvedProfile('work'));
 
       for (final method in [
         'display.status',
@@ -81,8 +82,8 @@ void main() {
     });
 
     test('the default profile is named explicitly', () async {
-      await repository.status('default');
-      await repository.thumbnail('default');
+      await repository.status(resolvedProfile('default'));
+      await repository.thumbnail(resolvedProfile('default'));
 
       expect(gateway.requestOf('display.status')['params'], {
         'profile': 'default',
@@ -114,7 +115,7 @@ void main() {
         },
       );
 
-      final status = await ok(repository.status('work'));
+      final status = await ok(repository.status(resolvedProfile('work')));
 
       expect(status.supported, isTrue);
       expect(status.installed, isFalse);
@@ -140,7 +141,7 @@ void main() {
         'lease': {'holder': 'agent'},
       };
 
-      final status = await ok(repository.status('work'));
+      final status = await ok(repository.status(resolvedProfile('work')));
 
       expect(status.running, isTrue);
       expect(status.installed, isFalse);
@@ -164,7 +165,7 @@ void main() {
             'lease': ?lease,
           };
 
-          final status = await ok(repository.status('work'));
+          final status = await ok(repository.status(resolvedProfile('work')));
 
           expect(status.lease.holder, BotScreenHolder.human, reason: '$lease');
         }
@@ -175,13 +176,16 @@ void main() {
       gateway.handlers['display.status'] = (_) =>
           throw const FakeRpcError(kGatewayMethodNotFound, 'unknown method');
 
-      expect(await repository.status('work'), isA<BotScreenUnsupported>());
+      expect(
+        await repository.status(resolvedProfile('work')),
+        isA<BotScreenUnsupported>(),
+      );
     });
   });
 
   group('display.thumbnail', () {
     test('decodes the JPEG data URL', () async {
-      final frame = await ok(repository.thumbnail('work'));
+      final frame = await ok(repository.thumbnail(resolvedProfile('work')));
 
       expect(frame, isA<BotScreenJpeg>());
       expect((frame as BotScreenJpeg).bytes, jpeg);
@@ -193,7 +197,7 @@ void main() {
         'suppressed': 'human_has_control',
       };
 
-      final frame = await ok(repository.thumbnail('work'));
+      final frame = await ok(repository.thumbnail(resolvedProfile('work')));
 
       expect(frame, isA<BotScreenSuppressed>());
       expect((frame as BotScreenSuppressed).reason, 'human_has_control');
@@ -202,13 +206,16 @@ void main() {
     test('a null picture without a reason means the screen stopped', () async {
       gateway.handlers['display.thumbnail'] = (_) => {'data_url': null};
 
-      expect(await ok(repository.thumbnail('work')), isA<BotScreenStopped>());
+      expect(
+        await ok(repository.thumbnail(resolvedProfile('work'))),
+        isA<BotScreenStopped>(),
+      );
     });
 
     test('a picture that is not a base64 data URL is a failure', () async {
       gateway.handlers['display.thumbnail'] = (_) => {'data_url': 'nonsense'};
 
-      final result = await repository.thumbnail('work');
+      final result = await repository.thumbnail(resolvedProfile('work'));
 
       expect(result, isA<BotScreenFailed>());
       expect((result as BotScreenFailed).kind, BotScreenFailure.display);
@@ -219,14 +226,17 @@ void main() {
     test('returns the new status', () async {
       gateway.handlers['display.start'] = (_) => statusJson(running: true);
 
-      expect((await ok(repository.start('work'))).running, isTrue);
+      expect(
+        (await ok(repository.start(resolvedProfile('work')))).running,
+        isTrue,
+      );
     });
 
     test('returns the failure when Hermes refuses', () async {
       gateway.handlers['display.start'] = (_) =>
           throw const FakeRpcError(5300, 'Xvnc not installed');
 
-      final result = await repository.start('work');
+      final result = await repository.start(resolvedProfile('work'));
 
       expect((result as BotScreenFailed).kind, BotScreenFailure.display);
     });
@@ -240,7 +250,7 @@ void main() {
         'profile_key': '/home/u/.hermes/profiles/work',
       };
 
-      final started = await ok(repository.install('work'));
+      final started = await ok(repository.install(resolvedProfile('work')));
 
       expect(gateway.requestOf('display.install')['params'], {
         'profile': 'work',
@@ -259,8 +269,8 @@ void main() {
         connectionRpc: transport.requestKeepingConnectionOnClient,
       );
 
-      final started = await ok(withClient.install('work'));
-      final without = await ok(repository.install('work'));
+      final started = await ok(withClient.install(resolvedProfile('work')));
+      final without = await ok(repository.install(resolvedProfile('work')));
 
       expect(
         identical(started.connection, transport.gatewayConnection),
@@ -282,7 +292,7 @@ void main() {
         gateway.handlers['display.install'] = (_) =>
             throw const FakeRpcError(5300, 'an install is already running');
 
-        final result = await logging.install('work');
+        final result = await logging.install(resolvedProfile('work'));
 
         final failed = result as BotScreenFailed;
         expect(failed.kind, BotScreenFailure.display);
@@ -294,7 +304,7 @@ void main() {
     test('an answer without a profile key is unreadable', () async {
       gateway.handlers['display.install'] = (_) => {'started': true};
 
-      final result = await repository.install('work');
+      final result = await repository.install(resolvedProfile('work'));
 
       expect((result as BotScreenFailed).kind, BotScreenFailure.display);
     });
@@ -305,7 +315,7 @@ void main() {
       gateway.handlers['display.thumbnail'] = (_) =>
           throw const FakeRpcError(5300, 'no frame');
 
-      final result = await repository.thumbnail('work');
+      final result = await repository.thumbnail(resolvedProfile('work'));
 
       expect((result as BotScreenFailed).kind, BotScreenFailure.display);
     });
@@ -313,8 +323,8 @@ void main() {
     test('no answer in time is a timeout and keeps the connection', () async {
       gateway.silent.add('display.thumbnail');
 
-      final result = await repository.thumbnail('work');
-      await ok(repository.status('work'));
+      final result = await repository.thumbnail(resolvedProfile('work'));
+      await ok(repository.status(resolvedProfile('work')));
 
       expect((result as BotScreenFailed).kind, BotScreenFailure.timeout);
       expect(gateway.methods.where((m) => m == 'display.status'), hasLength(1));
@@ -323,7 +333,7 @@ void main() {
 
     test('a connection that closes mid-call is a closed failure', () async {
       gateway.silent.add('display.thumbnail');
-      final result = repository.thumbnail('work');
+      final result = repository.thumbnail(resolvedProfile('work'));
       await pumpEventQueue();
 
       gateway.drop();
@@ -344,7 +354,9 @@ void main() {
     test(
       'names the profile and reads the ticket, path, id and status',
       () async {
-        final observation = await ok(repository.observe('work'));
+        final observation = await ok(
+          repository.observe(resolvedProfile('work')),
+        );
 
         expect(gateway.requestOf('display.observe')['params'], {
           'profile': 'work',
@@ -363,8 +375,8 @@ void main() {
         connectionRpc: transport.requestKeepingConnectionOnClient,
       );
 
-      final observation = await ok(withClient.observe('work'));
-      final without = await ok(repository.observe('work'));
+      final observation = await ok(withClient.observe(resolvedProfile('work')));
+      final without = await ok(repository.observe(resolvedProfile('work')));
 
       expect(
         identical(observation.connection, transport.gatewayConnection),
@@ -374,7 +386,10 @@ void main() {
     });
 
     test('names the default profile and passes a viewer id along', () async {
-      await repository.observe('default', viewerId: 'viewer-1');
+      await repository.observe(
+        resolvedProfile('default'),
+        viewerId: 'viewer-1',
+      );
 
       expect(gateway.requestOf('display.observe')['params'], {
         'profile': 'default',
@@ -383,7 +398,7 @@ void main() {
     });
 
     test('a printed observation holds neither ticket nor id', () async {
-      final observation = await ok(repository.observe('work'));
+      final observation = await ok(repository.observe(resolvedProfile('work')));
 
       expect('$observation', isNot(contains('ticket-secret')));
       expect('$observation', isNot(contains('viewer-1')));
@@ -393,7 +408,7 @@ void main() {
       gateway.handlers['display.observe'] = (_) =>
           throw const FakeRpcError(5300, 'not running');
 
-      final result = await repository.observe('work');
+      final result = await repository.observe(resolvedProfile('work'));
 
       expect((result as BotScreenFailed).kind, BotScreenFailure.display);
     });
@@ -402,7 +417,10 @@ void main() {
       gateway.handlers['display.observe'] = (_) =>
           throw const FakeRpcError(-32601, 'unknown method');
 
-      expect(await repository.observe('work'), isA<BotScreenUnsupported>());
+      expect(
+        await repository.observe(resolvedProfile('work')),
+        isA<BotScreenUnsupported>(),
+      );
     });
 
     test('an answer without a ticket or path cannot be used', () async {
@@ -414,7 +432,7 @@ void main() {
       ]) {
         gateway.handlers['display.observe'] = (_) => broken;
 
-        final result = await repository.observe('work');
+        final result = await repository.observe(resolvedProfile('work'));
 
         expect((result as BotScreenFailed).kind, BotScreenFailure.display);
       }
@@ -455,7 +473,7 @@ void main() {
     });
 
     Future<Object> observedConnection() async =>
-        (await ok(pinned.observe('work'))).connection!;
+        (await ok(pinned.observe(resolvedProfile('work')))).connection!;
 
     test(
       'acquire names the profile and the viewer id and reads the lease',
@@ -465,7 +483,11 @@ void main() {
         final connection = await observedConnection();
 
         final lease = await ok(
-          pinned.acquire('work', viewerId: 'viewer-1', connection: connection),
+          pinned.acquire(
+            resolvedProfile('work'),
+            viewerId: 'viewer-1',
+            connection: connection,
+          ),
         );
 
         expect(gateway.requestOf('display.lease.acquire')['params'], {
@@ -483,7 +505,11 @@ void main() {
       final connection = await observedConnection();
 
       final lease = await ok(
-        pinned.release('work', viewerId: 'viewer-1', connection: connection),
+        pinned.release(
+          resolvedProfile('work'),
+          viewerId: 'viewer-1',
+          connection: connection,
+        ),
       );
 
       expect(gateway.requestOf('display.lease.release')['params'], {
@@ -499,7 +525,7 @@ void main() {
       await pumpEventQueue();
 
       final result = await pinned.acquire(
-        'work',
+        resolvedProfile('work'),
         viewerId: 'viewer-1',
         connection: connection,
       );
@@ -517,7 +543,7 @@ void main() {
       final connection = await observedConnection();
 
       final result = await pinned.acquire(
-        'work',
+        resolvedProfile('work'),
         viewerId: 'viewer-1',
         connection: connection,
       );
@@ -531,7 +557,7 @@ void main() {
       final connection = await observedConnection();
 
       final result = await pinned.release(
-        'work',
+        resolvedProfile('work'),
         viewerId: 'viewer-1',
         connection: connection,
       );
@@ -544,7 +570,7 @@ void main() {
       final connection = await observedConnection();
 
       final result = await pinned.acquire(
-        'work',
+        resolvedProfile('work'),
         viewerId: 'viewer-1',
         connection: connection,
       );
@@ -556,7 +582,7 @@ void main() {
       final connection = await observedConnection();
 
       final result = await repository.acquire(
-        'work',
+        resolvedProfile('work'),
         viewerId: 'viewer-1',
         connection: connection,
       );
@@ -568,7 +594,7 @@ void main() {
     test('a forced release sends force and no viewer id', () async {
       gateway.handlers['display.lease.release'] = (_) => leaseOf('agent');
 
-      final lease = await ok(pinned.forceRelease('work'));
+      final lease = await ok(pinned.forceRelease(resolvedProfile('work')));
 
       expect(gateway.requestOf('display.lease.release')['params'], {
         'profile': 'work',
@@ -589,7 +615,7 @@ void main() {
       gateway.handlers['display.lease.release'] = (_) =>
           throw const FakeRpcError(5300, 'broken');
 
-      await logging.forceRelease('work');
+      await logging.forceRelease(resolvedProfile('work'));
 
       expect(logged, isEmpty);
     });
