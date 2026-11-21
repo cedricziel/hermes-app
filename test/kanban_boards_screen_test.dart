@@ -66,6 +66,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Opening a board fetches it through Dio, whose zero-duration timer runs
+  /// outside the fake clock. Let that request finish, so no timer outlives
+  /// the test.
+  Future<void> boardLoaded(WidgetTester tester) async {
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+    expect(controller.loading, isFalse);
+  }
+
   test('derives a slug the plugin accepts from a name', () {
     expect(KanbanBoardsScreen.slugFor('  Ops team! '), 'ops-team');
     expect(KanbanBoardsScreen.slugFor('Q3 / Launch'), 'q3-launch');
@@ -149,6 +158,7 @@ void main() {
 
     await tester.tap(find.text('Ops'));
     await tester.pumpAndSettle();
+    await boardLoaded(tester);
 
     expect(controller.boardSlug, 'ops');
   });
@@ -230,6 +240,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Import'));
     await tester.pumpAndSettle();
+    await boardLoaded(tester);
 
     expect(
       jsonBody(
@@ -258,6 +269,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Import'));
     await tester.pumpAndSettle();
+    await boardLoaded(tester);
 
     expect(find.textContaining('the board is ops-2'), findsOneWidget);
   });
