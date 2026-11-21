@@ -96,6 +96,7 @@ class Cmd:
         self.herestrings = []
         self.piped_from = None
         self.paren_closed = False  # a `)` ended it: `*.dart)` is a case pattern
+        self.in_case = False  # the text holds a `case ... in ... esac` block
 
 
 def _lex(s, i=0, nested=False):
@@ -1192,6 +1193,7 @@ MSG_GH_RUNNER = (
 )
 
 
+CASE_BLOCK = re.compile(r"\bcase\b.*\bin\b.*\besac\b", re.S)
 GLOB_CHARS = "*?[{"
 MSG_GH_GLOB = (
     "Blocked: a program name with a glob pattern isn't allowed in cloud sessions "
@@ -1414,7 +1416,7 @@ def _check_cmds(cmds, cwd, depth):
             return MSG_GH_RUNNER
         if (
             _is_cloud()
-            and not (cmd.paren_closed and len(cmd.words) == 1)  # case pattern
+            and not ((cmd.paren_closed or cmd.in_case) and len(cmd.words) == 1)  # case pattern
             and _glob_prog(argv[0])
         ):
             return MSG_GH_GLOB
@@ -1467,6 +1469,9 @@ def _check_cmds(cmds, cwd, depth):
 
 def _check(command, cwd, depth):
     cmds, _ = _lex(command)
+    if CASE_BLOCK.search(command):
+        for cmd in cmds:  # a lone word there may be a case pattern (`*.py|*.sh)`)
+            cmd.in_case = True
     m = _check_cmds(cmds, cwd, depth)
     if m is None and _is_cloud() and GH_WORD.search(command):
         for cmd in cmds:  # fail closed: a computed program name may be gh
