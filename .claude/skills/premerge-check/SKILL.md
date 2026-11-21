@@ -99,9 +99,10 @@ Environment (positive integers; a bad value exits 1):
 | ---------------------------- | ------- | --------------------------------------------------------------- |
 | `PREMERGE_TEST_BUDGET`       | 600     | Seconds for the whole affected-test run; the process tree is killed at expiry |
 | `PREMERGE_TEST_CAP`          | 150     | Files; (a), (b), (c1) are kept whole, (c2) is dropped beyond it |
-| `PREMERGE_ALLOW_CAPPED`      | unset   | `1` makes a capped run exit 0 instead of 7 (the PASS line still says CAPPED) |
 | `PREMERGE_TEST_CONCURRENCY`  | 4       | `flutter test --concurrency`                                    |
 | `PREMERGE_TEST_BATCH`        | 20      | Files per `flutter test` call (the budget is checked per batch) |
+
+`PREMERGE_ALLOW_CAPPED` is a flag, not a number, and is not validated: only the exact value `1` counts; any other value (`true`, `yes`, empty) keeps exit 7.
 
 Over the cap it prints `affected tests: CAPPED` and names the `lib/src/<dir>/`
 or `lib/l10n/` directories whose (c2) tests were skipped. The PASS line then

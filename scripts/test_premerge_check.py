@@ -1113,6 +1113,7 @@ class PremergeTest(unittest.TestCase):
         self.fixture()
         self.pr(10, {"lib/src/kanban/kanban_model.dart": "// changed\n"})
         r = self.run_check(10, PREMERGE_TEST_CAP="7")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(len(self.ran()), 7)
         self.assertNotIn("CAPPED", r.stdout)
 
@@ -1470,6 +1471,16 @@ class PremergeTest(unittest.TestCase):
             self.assertIn(head, r.stdout)
         self.assertIn("stacked: #11 #12", r.stdout.split("PASS")[1])
         self.assert_clean_up()
+
+    def test_stack_where_only_the_stacked_pr_is_capped_exits_7(self):
+        self.fixture()
+        self.pr(11, {"lib/src/kanban/kanban_model.dart": "// changed\n"})
+        self.pr(10, {"README.md": "docs\n"})
+        r = self.run_check(10, "--stack", 11, PREMERGE_TEST_CAP="1")
+        self.assertEqual(r.returncode, 7, r.stdout + r.stderr)
+        line = [l for l in r.stdout.splitlines() if l.startswith("PASS")]
+        self.assertEqual(len(line), 1, r.stdout)
+        self.assertIn("PASS (CAPPED: directory-wide tests skipped for lib/src/kanban/)", line[0])
 
     def test_stack_selection_covers_the_union_of_all_prs(self):
         self.fixture()
