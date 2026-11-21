@@ -20,6 +20,7 @@ import '../../test/support/fake_chat_transport.dart';
 import '../../test/support/fake_hermes_server.dart';
 import '../../test/support/fake_share_inbox.dart';
 import '../../test/support/pump_chat.dart' show composerField;
+import '../../test/support/test_localizations.dart';
 import '../../test/support/screenshot_recorder.dart'
     show desktopSize, phoneSize, withScreenshotFont;
 import 'fonts.dart';
@@ -162,7 +163,7 @@ Future<BenchChat> openBenchChat(
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: _theme(macSidebar ? TargetPlatform.macOS : null),
       home: ChatScreen(

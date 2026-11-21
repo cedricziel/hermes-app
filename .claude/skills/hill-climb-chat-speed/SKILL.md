@@ -43,10 +43,12 @@ the benchmark.
   pump (unmeasured pumps in between, such as the scroll before an `s3` tap, are
   not counted).
   Use this for absolute numbers. `raster_*` is reported beside it; under Xvfb the
-  Linux embedder reports it as 0, so ignore it. Frame counts exceed the pump
-  count (the engine makes extra, mostly cheap frames), which lowers p50 and p95
-  too; only `max` is immune. Compare p50 and p95 only between runs of the same
-  scenario, where the extra frames are alike.
+  Linux embedder reports it as 0, so ignore it. Frames equal measured pumps
+  (`s4a` 174/174, `s6` 149/149), except where one measured pump makes more than
+  one engine frame: `s3` (179-180 frames against 174 pumps) and `s5b` (page
+  loads during the drag). There the extra cheap frames dilute p50 and p95; only
+  `max` is immune. Compare p50 and p95 only between runs of the same scenario,
+  where the extra frames are alike.
 
 ## Reading results
 
