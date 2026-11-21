@@ -4,12 +4,13 @@ import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_window.dart';
+import '../navigation/desktop_navigation_history.dart';
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'adaptive_back_button.dart';
-import '../navigation/desktop_navigation_history.dart';
 import 'adaptive_popup_menu_button.dart';
 import 'adaptive_tab_bar.dart';
 import 'named_icon_button.dart';
@@ -80,15 +81,20 @@ class SettingsFormAction {
   Widget _mac(BuildContext context) => FilledButton(
     key: key,
     onPressed: _onPressed,
-    style: FilledButton.styleFrom(
-      minimumSize: Size.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.standard,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      textStyle: Theme.of(context).textTheme.labelLarge
-          ?.copyWith(fontSize: 12, fontWeight: FontWeight.w500),
-    ),
+    style:
+        FilledButton.styleFrom(
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.standard,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          textStyle: Theme.of(context).textTheme.labelLarge
+              ?.copyWith(fontSize: 12, fontWeight: FontWeight.w500),
+        ).copyWith(
+          shape: focusRingShapeOf(
+            context,
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
     child: busy ? _progress(12) : Text(label),
   );
 
