@@ -15,6 +15,16 @@ import '../support/fake_hermes_server.dart';
 
 /// The Mac main window cannot be resized below [kMacMainWindowMinSize], and
 /// the home shell must lay out there without an overflow.
+/// A Swift file without its comments, so a scan cannot match text that is
+/// commented out.
+String readSwift(String path) =>
+    File(path)
+        .readAsStringSync()
+        .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), '')
+        .split('\n')
+        .where((line) => !line.trimLeft().startsWith('//'))
+        .join('\n');
+
 void main() {
   test('the native sizes match the Dart constants', () {
     final xib = File('macos/Runner/Base.lproj/MainMenu.xib').readAsStringSync();
@@ -38,8 +48,7 @@ void main() {
       reason: 'the content view frame matches the content rect',
     );
 
-    final swift = File('macos/Runner/MainFlutterWindow.swift')
-        .readAsStringSync();
+    final swift = readSwift('macos/Runner/MainFlutterWindow.swift');
     final minimum = RegExp(
       r'minimumContentSize = NSSize\(width: (\d+), height: (\d+)\)',
     ).firstMatch(swift);
@@ -107,7 +116,7 @@ void main() {
         reason: file.path,
       );
     }
-    final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
+    final delegate = readSwift('macos/Runner/AppDelegate.swift');
     expect(
       RegExp(r'contentMinSize[\w.]*\s*=[^=]').allMatches(delegate),
       isEmpty,
@@ -117,8 +126,7 @@ void main() {
   test(
     'a saved frame comes back unchanged: only enlarged below the minimum',
     () {
-      final swift = File('macos/Runner/MainFlutterWindow.swift')
-          .readAsStringSync();
+      final swift = readSwift('macos/Runner/MainFlutterWindow.swift');
       final correct = RegExp(
         r'private func correctSavedFrame\(\) \{.*?\n  \}\n',
         dotAll: true,
@@ -153,8 +161,7 @@ void main() {
         inInclusiveRange(0, settle.indexOf('if let restored')),
       );
       // The CI round trip resizes the frame, not the content.
-      final delegate = File('macos/Runner/AppDelegate.swift')
-          .readAsStringSync();
+      final delegate = readSwift('macos/Runner/AppDelegate.swift');
       final set = delegate.substring(
         delegate.indexOf('HERMES_REPORT_WINDOW_SET'),
       );
@@ -167,7 +174,7 @@ void main() {
   );
 
   test('the CI window report exists only in debug builds and then quits', () {
-    final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
+    final delegate = readSwift('macos/Runner/AppDelegate.swift');
     const flag = 'HERMES_REPORT_WINDOW';
     // The conditionals open at a position: an unrelated `#if os(...)` elsewhere
     // in the file must not matter, only that `#if DEBUG` encloses the flag.
@@ -205,6 +212,10 @@ void main() {
       ),
     );
     expect(block, contains('if !settled && waited < 10 {'));
+    expect(
+      block.indexOf('if !settled {'),
+      inInclusiveRange(0, block.indexOf('HERMES_WINDOW unsettled')),
+    );
     expect(block, contains('HERMES_WINDOW unsettled'));
     expect(
       block.indexOf('HERMES_WINDOW unsettled'),
