@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../../telemetry/breadcrumbs.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_json_view/flutter_json_view.dart';
 
 import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../../theme/app_icons.dart';
@@ -15,11 +14,13 @@ import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_tile.dart';
 import '../chat_models.dart';
+import '../tool_value_language.dart';
 import '../tool_call_presentation.dart';
 import 'approval_card.dart';
 import 'thinking_indicator.dart' show formatThinkingElapsed;
 import 'tool_call_bodies.dart';
 import 'tool_arguments_view.dart';
+import 'tool_value_view.dart';
 
 /// A compact summary of a tool the agent ran — assistant-ui surfaces tool
 /// calls as their own inline card rather than mixing them into the message
@@ -70,30 +71,12 @@ class ToolCallCard extends StatelessWidget {
     final details = [
       if (call.isToolBridge) ...[
         if (call.argumentGroups.isEmpty && call.displayTools.isNotEmpty)
-          _Section(
-            label: 'Tools',
-            text: call.displayTools
-                .map(
-                  (tool) =>
-                      '${tool.text}${tool.name.isNotEmpty && tool.name != tool.text ? ' (${tool.name})' : ''}${tool.preview.isNotEmpty ? '\n${tool.preview}' : ''}',
-                )
-                .join('\n\n'),
-          )
+          _Section(call: call, kind: _SectionKind.tools)
         else if (call.name == 'tool_call' && call.argumentGroups.isEmpty)
-          _Section(
-            label: 'Tool details',
-            text: call.preparing
-                ? 'The tool name will appear when Hermes starts the call.'
-                : 'Hermes did not include the underlying tool name.',
-          ),
+          _Section(call: call, kind: _SectionKind.toolDetails),
       ],
-      if (call.outputRisk case final risk?)
-        _Section(
-          label: 'Output risk',
-          text: risk.findings.isEmpty
-              ? 'No further details'
-              : risk.findings.join('\n'),
-        ),
+      if (call.outputRisk != null)
+        _Section(call: call, kind: _SectionKind.outputRisk),
       ...switch (toolCallBody(call)) {
         final Widget body => [
           body,
@@ -114,12 +97,9 @@ class ToolCallCard extends StatelessWidget {
           title: const Text('Raw arguments', style: TextStyle(fontSize: 12)),
           children: [
             if (call.isToolBridge)
-              _Section(label: 'Dispatcher', text: call.name),
+              _Section(call: call, kind: _SectionKind.dispatcher),
             if (call.args != null)
-              _Section(
-                label: 'Input',
-                text: const JsonEncoder.withIndent('  ').convert(call.args),
-              ),
+              _Section(call: call, kind: _SectionKind.rawInput),
           ],
         ),
       if (approvalCard != null && !_waiting) ...[
@@ -233,25 +213,24 @@ class ToolCallCard extends StatelessWidget {
   }
 }
 
-/// The generic view of a call: what it was given and what it returned.
+/// The generic view of a call: what it was given and what it returned. Only
+/// the sections are made here; their text is made when the card is opened.
 List<Widget> _genericSections(ToolCall call) {
   final args = call.args;
-  final input = args != null
-      ? const JsonEncoder.withIndent('  ').convert(args)
-      : call.summary.trim();
-  final result = call.result.trim();
   return [
     if (call.argumentGroups.isNotEmpty)
       for (final group in call.argumentGroups)
         ToolArgumentsView(title: group.title, arguments: group.arguments)
     else if (args != null && args.isNotEmpty)
       ToolArgumentsView(arguments: args)
-    else if (input.isNotEmpty)
-      _Section(label: 'Input', text: input),
-    if (result.isNotEmpty)
+    else if (args != null || call.summary.trim().isNotEmpty)
+      _Section(call: call, kind: _SectionKind.input),
+    if (call.result.trim().isNotEmpty)
       _Section(
-        label: call.status == ToolCallStatus.error ? 'Error' : 'Result',
-        text: result,
+        call: call,
+        kind: call.status == ToolCallStatus.error
+            ? _SectionKind.error
+            : _SectionKind.result,
       ),
   ];
 }
@@ -340,139 +319,132 @@ String formatToolDuration(Duration took) {
   return formatThinkingElapsed(took);
 }
 
-const int _maxJsonTreeDepth = 64;
-
-/// How deeply [text] nests brackets outside strings, counted without
-/// recursion and stopped once past [_maxJsonTreeDepth].
-int _jsonDepth(String text) {
-  var depth = 0;
-  var inString = false;
-  var escaped = false;
-  for (var i = 0; i < text.length; i++) {
-    final c = text.codeUnitAt(i);
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (c == 0x5C) {
-        escaped = true;
-      } else if (c == 0x22) {
-        inString = false;
-      }
-    } else if (c == 0x22) {
-      inString = true;
-    } else if (c == 0x5B || c == 0x7B) {
-      if (++depth > _maxJsonTreeDepth) return depth;
-    } else if (c == 0x5D || c == 0x7D) {
-      depth--;
-    }
-  }
-  return depth;
+enum _SectionKind {
+  input,
+  rawInput,
+  result,
+  error,
+  dispatcher,
+  tools,
+  toolDetails,
+  outputRisk,
 }
 
-/// The JSON text a tree view may show for [text], or null when [text] is not
-/// a JSON object or array, nests deeper than [_maxJsonTreeDepth], or cleaning
-/// would merge two keys: it is then shown as flat text. A lone surrogate in a
-/// decoded string or key (JSON can spell one `\ud800`) is replaced by U+FFFD,
-/// which the tree view cannot paint otherwise.
-String? _jsonTreeText(String text) {
-  if (!text.startsWith('{') && !text.startsWith('[')) return null;
-  if (_jsonDepth(text) > _maxJsonTreeDepth) return null;
-  try {
-    final decoded = jsonDecode(text);
-    if (decoded is! Map && decoded is! List) return null;
-    var changed = false;
-    var merged = false;
-    String fix(String v) {
-      final out = wellFormedText(v);
-      if (!identical(out, v)) changed = true;
-      return out;
-    }
+/// One section of the open card. Its text, its language and its view are made
+/// when the card opens (the card does not build its children while closed),
+/// and again only when [call] is another object: a rebuild of the same call
+/// keeps them, and the view the reader chose (text or tree) with them.
+class _Section extends StatefulWidget {
+  const _Section({required this.call, required this.kind});
 
-    Object? clean(Object? v) => switch (v) {
-      String() => fix(v),
-      List() => [for (final e in v) clean(e)],
-      Map() => () {
-        final out = <String, Object?>{};
-        for (final e in v.entries) {
-          final key = fix('${e.key}');
-          if (out.containsKey(key)) merged = true;
-          out[key] = clean(e.value);
-        }
-        return out;
-      }(),
-      _ => v,
-    };
-    final cleaned = clean(decoded);
-    if (merged) return null;
-    return changed ? jsonEncode(cleaned) : text;
-  } on FormatException {
-    return null;
-  } on Error {
-    return null;
-  }
+  final ToolCall call;
+  final _SectionKind kind;
+
+  @override
+  State<_Section> createState() => _SectionState();
 }
 
-class _Section extends StatelessWidget {
-  const _Section({required this.label, required this.text});
+class _SectionState extends State<_Section> {
+  late String _text;
+  late String? _language;
 
-  final String label;
-  final String text;
+  @override
+  void initState() {
+    super.initState();
+    _make();
+  }
 
-  static const double _maxHeight = 220;
+  @override
+  void didUpdateWidget(_Section oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.call, widget.call) ||
+        oldWidget.kind != widget.kind) {
+      _make();
+    }
+  }
+
+  void _make() {
+    final call = widget.call;
+    switch (widget.kind) {
+      case _SectionKind.input:
+        final args = call.args;
+        _text = args != null
+            ? const JsonEncoder.withIndent('  ').convert(args)
+            : call.summary.trim();
+        // Encoded arguments are JSON by construction; a summary is sniffed.
+        _language = args != null ? 'json' : toolValueLanguage(_text);
+      case _SectionKind.rawInput:
+        _text = const JsonEncoder.withIndent('  ').convert(call.args);
+        _language = 'json';
+      case _SectionKind.result || _SectionKind.error:
+        _text = call.result.trim();
+        _language = toolValueLanguage(
+          _text,
+          path: widget.kind == _SectionKind.result ? _readPath(call) : null,
+        );
+      case _SectionKind.dispatcher:
+        _text = call.name;
+        _language = null;
+      case _SectionKind.tools:
+        _text = call.displayTools
+            .map(
+              (tool) =>
+                  '${tool.text}${tool.name.isNotEmpty && tool.name != tool.text ? ' (${tool.name})' : ''}${tool.preview.isNotEmpty ? '\n${tool.preview}' : ''}',
+            )
+            .join('\n\n');
+        _language = null;
+      case _SectionKind.toolDetails:
+        _text = call.preparing
+            ? 'The tool name will appear when Hermes starts the call.'
+            : 'Hermes did not include the underlying tool name.';
+        _language = null;
+      case _SectionKind.outputRisk:
+        final risk = call.outputRisk;
+        _text = risk == null || risk.findings.isEmpty
+            ? 'No further details'
+            : risk.findings.join('\n');
+        _language = null;
+    }
+    _text = wellFormedText(_text);
+  }
+
+  /// The path a file-reading tool was given: its extension names the language
+  /// of what it returned. Another tool's path says nothing about its result.
+  static String? _readPath(ToolCall call) {
+    if (!call.name.toLowerCase().contains('read')) return null;
+    final args = call.args;
+    final path = args?['path'] ?? args?['file_path'];
+    return path is String ? path : null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final subtle = context.hermesColors.subtleText;
-    const mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
-    final tree = _jsonTreeText(text);
-    final Widget body = tree != null
-        ? JsonView.string(
-            tree,
-            theme: JsonViewTheme(
-              backgroundColor: Colors.transparent,
-              defaultTextStyle: mono.copyWith(color: scheme.onSurface),
-              keyStyle: TextStyle(color: subtle),
-              stringStyle: TextStyle(color: scheme.onSurface),
-              intStyle: TextStyle(color: scheme.secondary),
-              doubleStyle: TextStyle(color: scheme.secondary),
-              boolStyle: TextStyle(
-                color: scheme.secondary,
-                fontWeight: FontWeight.w600,
-              ),
-              openIcon: AppIcon(AppIcons.dropDown, size: 18, color: subtle),
-              closeIcon: AppIcon(AppIcons.dropRight, size: 18, color: subtle),
-            ),
-          )
-        : SingleChildScrollView(
-            child: Text(
-              wellFormedText(text),
-              style: mono.copyWith(color: scheme.onSurface),
-            ),
-          );
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: scheme.outline)),
-      ),
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: subtle,
-            ),
-          ),
-          const SizedBox(height: 4),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: _maxHeight),
-            child: body,
-          ),
-        ],
-      ),
+    final kind = widget.kind;
+    final label = switch (kind) {
+      _SectionKind.input || _SectionKind.rawInput => 'Input',
+      _SectionKind.result => 'Result',
+      _SectionKind.error => 'Error',
+      _SectionKind.dispatcher => 'Dispatcher',
+      _SectionKind.tools => 'Tools',
+      _SectionKind.toolDetails => 'Tool details',
+      _SectionKind.outputRisk => 'Output risk',
+    };
+    return ToolValuePanel(
+      label: label,
+      text: _text,
+      language: _language,
+      settled: widget.call.status != ToolCallStatus.running,
+      section: switch (kind) {
+        _SectionKind.input || _SectionKind.rawInput => ToolValueSection.input,
+        _SectionKind.error => ToolValueSection.error,
+        _ => ToolValueSection.result,
+      },
+      // An Input above "Raw arguments" is copied there; the labels that only
+      // explain the call have nothing worth copying.
+      showCopy:
+          kind == _SectionKind.rawInput ||
+          kind == _SectionKind.result ||
+          kind == _SectionKind.error,
     );
   }
 }

@@ -285,6 +285,19 @@ def aggregate(
 
 
 class AggregateStructure(unittest.TestCase):
+    def test_the_linux_build_keeps_main_s_soloud_guard(self):
+        jobs = load_jobs()
+        names = [step.get("name", "") for step in jobs["build-linux"]["steps"]]
+        self.assertTrue(any("flutter_soloud" in name for name in names), names)
+        filter_script = next(
+            step["run"]
+            for step in jobs["changes"]["steps"]
+            if step.get("id") == "filter"
+        )
+        self.assertIn("scripts/check-soloud-build-log.sh", filter_script)
+        # The build is still gated like the other builds.
+        self.assertIn("needs.changes.outputs.full == 'true'", jobs["build-linux"]["if"])
+
     def test_every_job_and_the_self_cancel_step_has_a_timeout(self):
         for job_id, job in load_jobs().items():
             self.assertIn("timeout-minutes", job, job_id)

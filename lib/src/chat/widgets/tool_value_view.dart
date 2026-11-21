@@ -10,17 +10,23 @@ import '../../files/widgets/files_metrics.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
+import '../../widgets/adaptive_segmented_control.dart';
 import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../json_tree_parser.dart';
+import '../tool_value_budget.dart';
 import '../tool_value_language.dart';
 import 'tool_hidden_chars.dart';
 import 'tool_json_tree.dart';
 
-const TextStyle _mono = TextStyle(
+/// The code style of a tool value. Ligatures and contextual alternates are
+/// off, so `->` and `!=` stay the characters that were sent.
+const TextStyle kToolMonoStyle = TextStyle(
   fontFamily: 'monospace',
   fontSize: 12,
   height: 1.4,
+  fontFeatures: [FontFeature.disable('liga'), FontFeature.disable('calt')],
 );
+const TextStyle _mono = kToolMonoStyle;
 
 /// Which part of a call a section is, for the words a screen reader hears
 /// ("Copy result", "Show input as").
@@ -294,7 +300,6 @@ class ToolValueCopyButton extends StatelessWidget {
                   ? const EdgeInsets.symmetric(horizontal: 8)
                   : EdgeInsets.zero,
               decoration: BoxDecoration(
-                border: Border.all(color: scheme.outline),
                 borderRadius: BorderRadius.circular(height / 2),
               ),
               child: Row(
@@ -309,7 +314,7 @@ class ToolValueCopyButton extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       context.l10n.chatWidgetsToolValueCopied,
-                      style: TextStyle(fontSize: 11.5, color: subtle),
+                      style: TextStyle(fontSize: 11.5, color: scheme.onSurface),
                     ),
                   ],
                 ],
@@ -322,79 +327,39 @@ class ToolValueCopyButton extends StatelessWidget {
   }
 }
 
-/// The switch between the text and the tree of a JSON section. Interim: a
-/// plain text button reading "Text | Tree" with the view that shows in bold
-/// and underlined, so it is not colour alone. The shared segmented control
-/// replaces it when the sections are wired into the card.
+/// The switch between the text and the tree of a JSON section: the shared
+/// [AdaptiveSegmentedControl] in its compact size, "Text" and "Tree", named
+/// for a screen reader "Show input/result/error as". The segment that shows is
+/// told by its shape (thumb, check, weight), not by colour.
 class ToolViewSwitch extends StatelessWidget {
   const ToolViewSwitch({
     super.key,
     required this.tree,
-    required this.onToggle,
+    required this.onChanged,
     this.section = ToolValueSection.result,
   });
 
   /// Whether the tree shows.
   final bool tree;
-  final VoidCallback onToggle;
+  final ValueChanged<bool> onChanged;
   final ToolValueSection section;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final subtle = context.hermesColors.subtleText;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final group = switch (section) {
-      ToolValueSection.input => l10n.chatWidgetsToolValueShowInputAs,
-      ToolValueSection.result => l10n.chatWidgetsToolValueShowResultAs,
-      ToolValueSection.error => l10n.chatWidgetsToolValueShowErrorAs,
-    };
-    TextSpan option(String text, {required bool active}) => TextSpan(
-      text: text,
-      style: active
-          ? TextStyle(
-              color: onSurface,
-              fontWeight: FontWeight.w700,
-              decoration: TextDecoration.underline,
-            )
-          : TextStyle(color: subtle),
-    );
-    final metrics = FilesMetrics.of(context);
-    return Semantics(
-      container: true,
-      label: group,
-      child: Semantics(
-        button: true,
-        toggled: tree,
-        label: tree
-            ? l10n.chatWidgetsToolValueShowAsText
-            : l10n.chatWidgetsToolValueShowAsTree,
-        excludeSemantics: true,
-        onTap: onToggle,
-        child: TextButton(
-          key: const ValueKey('tool-json-toggle'),
-          style: metrics.buttonStyle().merge(
-            TextButton.styleFrom(
-              foregroundColor: subtle,
-              textStyle: Theme.of(context).textTheme.labelLarge
-                  ?.copyWith(fontSize: 12),
-            ),
-          ),
-          onPressed: onToggle,
-          child: Text.rich(
-            TextSpan(
-              children: [
-                option(l10n.chatWidgetsToolValueViewText, active: !tree),
-                TextSpan(
-                  text: ' | ',
-                  style: TextStyle(color: subtle),
-                ),
-                option(l10n.chatWidgetsToolValueViewTree, active: tree),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return AdaptiveSegmentedControl<bool>(
+      key: const ValueKey('tool-json-toggle'),
+      value: tree,
+      semanticLabel: switch (section) {
+        ToolValueSection.input => l10n.chatWidgetsToolValueShowInputAs,
+        ToolValueSection.result => l10n.chatWidgetsToolValueShowResultAs,
+        ToolValueSection.error => l10n.chatWidgetsToolValueShowErrorAs,
+      },
+      segments: {
+        false: l10n.chatWidgetsToolValueViewText,
+        true: l10n.chatWidgetsToolValueViewTree,
+      },
+      onChanged: onChanged,
     );
   }
 }
@@ -415,9 +380,17 @@ class ToolJsonView extends StatefulWidget {
     this.initiallyTree = false,
     this.bodyMaxHeight,
     this.section = ToolValueSection.result,
+    this.colour = true,
+    this.notice,
   });
 
   final String text;
+
+  /// Whether the flat text is coloured; false shows it plain.
+  final bool colour;
+
+  /// A [ToolValueNoticeLine] between the header row and the body.
+  final Widget? notice;
 
   /// [text] already decoded (an object or array within the depth the tree is
   /// offered for), so the tree does not parse it again.
@@ -445,7 +418,7 @@ class ToolJsonView extends StatefulWidget {
 class _ToolJsonViewState extends State<ToolJsonView> {
   late bool _tree = widget.initiallyTree;
 
-  void _toggle() => setState(() => _tree = !_tree);
+  void _set(bool tree) => setState(() => _tree = tree);
 
   @override
   Widget build(BuildContext context) => Column(
@@ -454,14 +427,11 @@ class _ToolJsonViewState extends State<ToolJsonView> {
       ToolValueHeader(
         label: widget.header,
         actions: [
-          ToolViewSwitch(
-            tree: _tree,
-            onToggle: _toggle,
-            section: widget.section,
-          ),
+          ToolViewSwitch(tree: _tree, onChanged: _set, section: widget.section),
           ...widget.actions,
         ],
       ),
+      ?widget.notice,
       ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: widget.bodyMaxHeight ?? double.infinity,
@@ -469,7 +439,10 @@ class _ToolJsonViewState extends State<ToolJsonView> {
         child: _tree
             ? ToolJsonTree(text: widget.text, nodes: widget.nodes)
             : SingleChildScrollView(
-                child: ToolValueView(text: widget.text, language: 'json'),
+                child: ToolValueView(
+                  text: widget.text,
+                  language: widget.colour ? 'json' : null,
+                ),
               ),
       ),
     ],
@@ -519,16 +492,56 @@ class ToolValuePanel extends StatefulWidget {
   State<ToolValuePanel> createState() => _ToolValuePanelState();
 }
 
+/// [shape] judged against the open cards' colouring [budget]: unchanged when
+/// the text takes its share (or there is no budget, or nothing would be
+/// coloured), otherwise plain with no tag, the tree kept, and the budget line.
+/// [owner] holds the share until it calls [ToolValueBudget.release].
+({ToolValueShape shape, bool colour}) judgeToolValueColour(
+  ToolValueShape shape, {
+  required ToolValueBudget? budget,
+  required Object owner,
+  required int chars,
+}) {
+  if (budget == null) return (shape: shape, colour: true);
+  if (shape.language == null ||
+      shape.notice == ToolValueNotice.tooLongToColour) {
+    budget.release(owner);
+    return (shape: shape, colour: true);
+  }
+  if (budget.admit(owner, chars)) return (shape: shape, colour: true);
+  return (
+    shape: ToolValueShape(
+      tree: shape.tree,
+      notice: ToolValueNotice.colourBudgetSpent,
+    ),
+    colour: false,
+  );
+}
+
 class _ToolValuePanelState extends State<ToolValuePanel> {
   late ToolValueShape _shape = _decide();
   Timer? _copiedTimer;
   var _copied = false;
+  ToolValueBudget? _budget;
 
-  ToolValueShape _decide() => toolValueShape(
-    widget.text,
-    language: widget.language,
-    settled: widget.settled,
-  );
+  /// Whether the flat text is coloured: false when the chat's budget refused.
+  var _colour = true;
+
+  ToolValueShape _decide() {
+    final shape = toolValueShape(
+      widget.text,
+      language: widget.language,
+      settled: widget.settled,
+    );
+    final judged = judgeToolValueColour(
+      shape,
+      budget: _budget ??= ToolValueBudgetScope.maybeOf(context),
+      owner: this,
+      chars: widget.text.length,
+    );
+    _colour = judged.colour;
+    return judged.shape;
+  }
 
   @override
   void didUpdateWidget(ToolValuePanel oldWidget) {
@@ -543,6 +556,7 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
   @override
   void dispose() {
     _copiedTimer?.cancel();
+    _budget?.release(this);
     super.dispose();
   }
 
@@ -597,6 +611,8 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
         l10n.chatWidgetsToolValueNoticeTooLongForTree,
       ToolValueNotice.tooDeepForTree =>
         l10n.chatWidgetsToolValueNoticeTooDeepForTree,
+      ToolValueNotice.colourBudgetSpent =>
+        l10n.chatWidgetsToolValueNoticeColourBudget,
     };
     return Container(
       decoration: BoxDecoration(
@@ -615,9 +631,12 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
               initiallyTree: widget.initiallyTree,
               bodyMaxHeight: ToolValuePanel.maxHeight,
               section: widget.section,
+              colour: _colour,
+              notice: notice == null ? null : ToolValueNoticeLine(text: notice),
             )
           else ...[
             ToolValueHeader(label: label, actions: [?copy]),
+            if (notice != null) ToolValueNoticeLine(text: notice),
             ConstrainedBox(
               constraints: const BoxConstraints(
                 maxHeight: ToolValuePanel.maxHeight,
@@ -631,18 +650,39 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
               ),
             ),
           ],
-          if (notice != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                notice,
-                key: const ValueKey('tool-value-notice'),
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: context.hermesColors.subtleText,
-                ),
-              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A muted line between the label row and the body saying why the text is shown plainer than its
+/// content could be: an info mark and the words. The mark is decoration; the
+/// text is what a screen reader reads.
+class ToolValueNoticeLine extends StatelessWidget {
+  const ToolValueNoticeLine({super.key, required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtle = context.hermesColors.subtleText;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ExcludeSemantics(
+            child: AppIcon(AppIcons.info, size: 14, color: subtle),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              key: const ValueKey('tool-value-notice'),
+              style: TextStyle(fontSize: 11.5, color: subtle),
             ),
+          ),
         ],
       ),
     );

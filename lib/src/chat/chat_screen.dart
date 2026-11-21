@@ -13,6 +13,7 @@ import '../voice/calls/active_call.dart';
 import '../voice/calls/call_tones.dart';
 import '../voice/calls/call_audio_decoder.dart';
 import '../voice/calls/call_agent.dart';
+import '../voice/calls/call_tts_lease.dart';
 import '../voice/calls/voice_call.dart';
 import '../voice/calls/voice_model_route.dart';
 import '../voice/calls/call_microphone.dart';
@@ -161,6 +162,7 @@ import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
 import 'widgets/new_chat_fab.dart';
+import 'tool_value_budget.dart';
 import 'widgets/tool_call_expansion.dart';
 import '../kanban/widgets/task_panel/kanban_task_sheet.dart';
 import '../widgets/inspector_layout.dart';
@@ -321,6 +323,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// dropped when another chat or profile opens (`follow`) and with this
   /// screen, so on sign-out.
   final _toolCallExpansion = ToolCallExpansionStore();
+  final _toolValueBudget = ToolValueBudget();
 
   /// Tells the update question how many replies this chat has running.
   RepliesInProgress? _repliesCount;
