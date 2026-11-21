@@ -304,6 +304,130 @@ void main() {
     });
   }
 
+  group('grouped row ring radius', () {
+    for (final (platform, section) in [
+      (TargetPlatform.android, 14.0),
+      (TargetPlatform.iOS, 12.0),
+      (TargetPlatform.macOS, 10.0),
+    ]) {
+      testWidgets('follows the section radius ($section) minus the inset on '
+          '$platform', (tester) async {
+        _strategy(FocusHighlightStrategy.alwaysTraditional);
+        await _pump(
+          tester,
+          buildHermesLightTheme(platform: platform),
+          GroupedRow(title: 'Setting', onTap: () {}),
+        );
+        expect(
+          GroupedMetrics.of(tester.element(find.text('Setting'))).radius,
+          section,
+        );
+        Focus.of(tester.element(find.text('Setting'))).requestFocus();
+        await tester.pumpAndSettle();
+        expect(_painter(tester).radius, section - kFocusRingOffset);
+      });
+    }
+  });
+
+  testWidgets('a focused text field does not rebuild its ancestors when the '
+      'input changes', (tester) async {
+    _strategy(FocusHighlightStrategy.alwaysTraditional);
+    final node = FocusNode();
+    addTearDown(node.dispose);
+    var builds = 0;
+    await _pump(
+      tester,
+      buildHermesLightTheme(),
+      Builder(
+        builder: (context) {
+          builds++;
+          return SizedBox(width: 200, child: TextField(focusNode: node));
+        },
+      ),
+    );
+    node.requestFocus();
+    await tester.pumpAndSettle();
+    final before = builds;
+
+    await tester.tap(find.byType(TextField), kind: PointerDeviceKind.mouse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTouch;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    await tester.pumpAndSettle();
+    expect(node.hasFocus, isTrue);
+    expect(builds, before, reason: 'only a focused button is marked dirty');
+  });
+
+  testWidgets('an unfocused FocusRing is not marked dirty when the input '
+      'changes', (tester) async {
+    _strategy(FocusHighlightStrategy.alwaysTraditional);
+    await _pump(
+      tester,
+      buildHermesLightTheme(),
+      const FocusRing(child: SizedBox(width: 40, height: 40)),
+    );
+    final ring = tester.element(find.byType(FocusRing));
+    expect(ring.dirty, isFalse);
+    // A pointer-down flips the input; no frame has run yet.
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(FocusRing)),
+      kind: PointerDeviceKind.mouse,
+    );
+    expect(ring.dirty, isFalse, reason: 'nothing it paints has changed');
+    await gesture.up();
+  });
+
+  testWidgets('a mouse click that opens a dialog shows no ring on its '
+      'autofocused button; the next key does', (tester) async {
+    // Nothing has resolved a button style yet, as on a fresh screen.
+    forgetFocusRingWatchers();
+    addTearDown(forgetFocusRingWatchers);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    content: const Text('Sure?'),
+                    actions: [
+                      FilledButton(
+                        autofocus: true,
+                        onPressed: () {},
+                        child: const Text('Confirm'),
+                      ),
+                    ],
+                  ),
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'), kind: PointerDeviceKind.mouse);
+    await tester.pumpAndSettle();
+    final confirm = find.widgetWithText(FilledButton, 'Confirm');
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<FilledButton>()
+          ?.autofocus,
+      isTrue,
+      reason: 'the dialog button has the focus',
+    );
+    expect(_material(tester, confirm).shape, isNot(isA<FocusRingBorder>()));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(_material(tester, confirm).shape, isA<FocusRingBorder>());
+  });
+
   testWidgets('a text field keeps its own focus border, with no ring', (
     tester,
   ) async {

@@ -11,6 +11,7 @@ import 'package:hermes_app/src/plugins/widgets/catalog_row.dart';
 import 'package:hermes_app/src/skills/widgets/curator_run_confirmation.dart';
 import 'package:hermes_app/src/skills/widgets/installed_skills_list.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/voice/widgets/hands_free_strip.dart';
 import 'package:hermes_app/src/workspaces/widgets/folder_toolbar_button.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
@@ -72,6 +73,10 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
         if (!mounted) return;
       }
       var nodes = FocusScope.of(context).traversalDescendants.toList();
+      // A click on an earlier example must not hide this one's ring.
+      if (widget.button != null || widget.focusIndex != null) {
+        markFocusRingKeyboardInput();
+      }
       final button = widget.button;
       if (button != null) {
         nodes = [

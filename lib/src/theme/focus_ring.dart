@@ -35,29 +35,39 @@ final _inputChanges = _InputChanges();
 GestureBinding? _watchedGestures;
 FocusManager? _watchedManager;
 
+void _pointerRoute(PointerEvent event) {
+  if (event is PointerDownEvent && !_pointerWasLast) {
+    _pointerWasLast = true;
+    _inputChanged();
+  }
+}
+
+void _highlightMode(FocusHighlightMode mode) => _inputChanged();
+
+KeyEventResult _earlyKey(KeyEvent event) {
+  if (event is KeyDownEvent && _pointerWasLast) {
+    _pointerWasLast = false;
+    _inputChanged();
+  }
+  return KeyEventResult.ignored;
+}
+
+/// Starts following pointer presses, key presses and the highlight mode. It
+/// runs on every style resolution and for every [FocusRing], also when
+/// nothing is focused, so a pointer press that opens a dialog is seen before
+/// the dialog's button takes focus.
 void _watchInput() {
   final gestures = GestureBinding.instance;
   if (!identical(_watchedGestures, gestures)) {
     _watchedGestures = gestures;
-    gestures.pointerRouter.addGlobalRoute((event) {
-      if (event is PointerDownEvent && !_pointerWasLast) {
-        _pointerWasLast = true;
-        _inputChanged();
-      }
-    });
+    gestures.pointerRouter.addGlobalRoute(_pointerRoute);
   }
   final manager = FocusManager.instance;
   // A test binding replaces the manager between tests.
   if (!identical(_watchedManager, manager)) {
     _watchedManager = manager;
-    manager.addHighlightModeListener((_) => _inputChanged());
-    manager.addEarlyKeyEventHandler((event) {
-      if (event is KeyDownEvent && _pointerWasLast) {
-        _pointerWasLast = false;
-        _inputChanged();
-      }
-      return KeyEventResult.ignored;
-    });
+    manager.addHighlightModeListener(_highlightMode);
+    manager.addEarlyKeyEventHandler(_earlyKey);
   }
 }
 
@@ -65,16 +75,45 @@ void _watchInput() {
 @visibleForTesting
 void resetFocusRingInput() => _pointerWasLast = false;
 
-/// A button does not rebuild when the input changes, so the focused one is
-/// marked dirty here and its style resolves again.
+/// Drops what [_watchInput] installed, so a test can start from a screen that
+/// has not resolved a style yet.
+@visibleForTesting
+void forgetFocusRingWatchers() {
+  _watchedGestures?.pointerRouter.removeGlobalRoute(_pointerRoute);
+  _watchedManager?.removeHighlightModeListener(_highlightMode);
+  _watchedManager?.removeEarlyKeyEventHandler(_earlyKey);
+  _watchedGestures = null;
+  _watchedManager = null;
+  _pointerWasLast = false;
+}
+
+/// Marks the last input as the keyboard, for a catalog preview that shows the
+/// ring on a control it focused itself. Real input takes over on the next
+/// press.
+void markFocusRingKeyboardInput() {
+  _watchInput();
+  if (!_pointerWasLast) return;
+  _pointerWasLast = false;
+  _inputChanged();
+}
+
+/// A button does not rebuild when the input changes, so the focused button is
+/// marked dirty and its style resolves again. Only the nearest button is
+/// marked, and nothing when the focus is not inside one (a text field, a
+/// row, a menu item): [FocusRing] listens on its own.
 void _inputChanged() {
   _inputChanges.notify();
   final context = FocusManager.instance.primaryFocus?.context;
   if (context is! Element || !context.mounted) return;
+  Element? button;
   context.visitAncestorElements((element) {
-    element.markNeedsBuild();
-    return element.widget is! ButtonStyleButton;
+    if (element.widget is ButtonStyleButton) {
+      button = element;
+      return false;
+    }
+    return true;
   });
+  button?.markNeedsBuild();
 }
 
 /// [base] with a focus ring painted [offset] outside it: the same shape grown
@@ -183,6 +222,7 @@ WidgetStateProperty<OutlinedBorder?> focusRingShape(
   OutlinedBorder base,
   Color ring,
 ) => WidgetStateProperty.resolveWith((states) {
+  _watchInput();
   return states.contains(WidgetState.focused) && keyboardFocusShows
       ? FocusRingBorder(base: base, color: ring)
       : base;
@@ -299,7 +339,13 @@ class _FocusRingState extends State<FocusRing> {
     super.dispose();
   }
 
-  void _onInput() => setState(() => _keyboard = keyboardFocusShows);
+  void _onInput() {
+    final next = keyboardFocusShows;
+    if (next == _keyboard) return;
+    _keyboard = next;
+    // Only a focused ring paints differently.
+    if (_focused) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {

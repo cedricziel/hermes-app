@@ -105,15 +105,27 @@ Rule _custom({
 
 final _buttonStyleCall = RegExp(r'\b(?:\w*Button\.styleFrom|ButtonStyle)\(');
 
-/// A `shape:` argument of a button style (`styleFrom` or `ButtonStyle`) that
-/// does not go through `focusRingShape`/`focusRingShapeOf`.
+/// A `copyWith` is on a button style when its `shape:` is a property of
+/// widget states, which no other `copyWith` takes.
+final _copyWithCall = RegExp(r'\.copyWith\(');
+
+/// A `shape:` argument of a button style (`styleFrom`, `ButtonStyle` or a
+/// `copyWith` with a state property) that does not go through
+/// `focusRingShape`/`focusRingShapeOf`, or the theme's `buttonShape`.
 List<Hit> _buttonShapeHits() => [
   for (final file in dartFiles('lib'))
     for (final call in _buttonStyleCall.allMatches(file.code))
-      ..._shapeArgs(file, call.end),
+      ..._shapeArgs(file, call.end, onlyStateProperty: false),
+  for (final file in dartFiles('lib'))
+    for (final call in _copyWithCall.allMatches(file.code))
+      ..._shapeArgs(file, call.end, onlyStateProperty: true),
 ];
 
-Iterable<Hit> _shapeArgs(SourceFile file, int from) sync* {
+Iterable<Hit> _shapeArgs(
+  SourceFile file,
+  int from, {
+  required bool onlyStateProperty,
+}) sync* {
   final code = file.code;
   var depth = 1;
   for (var i = from; i < code.length && depth > 0; i++) {
@@ -126,7 +138,9 @@ Iterable<Hit> _shapeArgs(SourceFile file, int from) sync* {
         code.startsWith('shape:', i) &&
         (i == 0 || !RegExp(r'\w').hasMatch(code[i - 1]))) {
       final value = code.substring(i + 6).trimLeft();
-      if (!value.startsWith('focusRingShape')) {
+      final ringed =
+          value.startsWith('focusRingShape') || value.startsWith('buttonShape');
+      if (!ringed && (!onlyStateProperty || value.startsWith('WidgetState'))) {
         yield Hit(file.path, file.lineOf(i), file.lineText(file.lineOf(i)));
       }
     }
@@ -606,17 +620,20 @@ final guardRules = <Rule>[
     allow: {'lib/src/widgets/named_icon_button.dart': 'the implementation'},
   ),
 
-  // docs/architecture/telemetry.md: events, breadcrumbs, span attributes and
-  // debugPrint carry error.runtimeType, never the message.
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": a button
+  // style's own shape replaces the theme's and takes the ring with it.
   _custom(
     name: 'button-shape-without-focus-ring',
     message:
         'a button style that sets its own shape drops the keyboard focus '
         'ring: write .copyWith(shape: focusRingShapeOf(context, shape)) '
-        '(lib/src/theme/focus_ring.dart) instead of shape: in styleFrom.',
+        '(lib/src/theme/focus_ring.dart) instead of shape: in styleFrom, '
+        'ButtonStyle or a copyWith with a WidgetStateProperty.',
     hits: _buttonShapeHits,
   ),
 
+  // docs/architecture/telemetry.md: events, breadcrumbs, span attributes and
+  // debugPrint carry error.runtimeType, never the message.
   _custom(
     name: 'error-interpolation-in-telemetry',
     message:

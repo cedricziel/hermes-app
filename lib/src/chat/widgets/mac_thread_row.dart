@@ -107,7 +107,9 @@ class _MacThreadRowState extends State<MacThreadRow> {
                       style: _buttonStyle(context),
                       onPressed: onArchive,
                     ),
-                  const SizedBox(width: 2),
+                  // The 20 pt buttons' rings reach 4 pt out; a 2 pt gap would
+                  // put one over the other.
+                  const SizedBox(width: 4),
                   NamedPopupMenuButton<ThreadAction>(
                     controller: _menu,
                     label: 'More actions for ${widget.title}',

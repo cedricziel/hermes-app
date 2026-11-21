@@ -47,6 +47,9 @@ class FocusRingMenuItem<T> extends PopupMenuItem<T> {
     super.enabled,
     super.height,
     super.padding,
+    super.textStyle,
+    super.labelTextStyle,
+    super.mouseCursor,
     super.child,
   });
 
@@ -224,6 +227,7 @@ class _AdaptivePopupMenuButtonState<T>
 
   PopupMenuEntry<T> _plain(PopupMenuEntry<T> entry) => switch (entry) {
     AdaptiveMenuItem<T>(destructive: true) => FocusRingMenuItem<T>(
+      key: entry.key,
       value: entry.value,
       onTap: entry.onTap,
       enabled: entry.enabled,
@@ -236,11 +240,15 @@ class _AdaptivePopupMenuButtonState<T>
     ),
     CheckedPopupMenuItem<T>() => entry,
     PopupMenuItem<T>() => FocusRingMenuItem<T>(
+      key: entry.key,
       value: entry.value,
       onTap: entry.onTap,
       enabled: entry.enabled,
       height: entry.height,
       padding: entry.padding,
+      textStyle: entry.textStyle,
+      labelTextStyle: entry.labelTextStyle,
+      mouseCursor: entry.mouseCursor,
       child: entry.child,
     ),
     _ => entry,
