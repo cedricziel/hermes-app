@@ -134,7 +134,7 @@ jobs:
           if [ "$EVENT_NAME" = pull_request ]; then
             labels="$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/labels" --jq '.[].name')" || labels_error=true
           fi
-          decision="$(LABELS="$labels" LABELS_ERROR="$labels_error" GH_TOKEN= python3 -I scripts/ci_gate.py)"
+          decision="$(LABELS="$labels" LABELS_ERROR="$labels_error" GH_TOKEN='' python3 -I scripts/ci_gate.py)"
           echo "$decision" >> "$GITHUB_OUTPUT"
           echo "gate: $decision" | tr '\n' ' ' >> "$GITHUB_STEP_SUMMARY"
           echo >> "$GITHUB_STEP_SUMMARY"
@@ -350,7 +350,7 @@ jobs:
           if [ "$EVENT_NAME" = pull_request ]; then
             labels="$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/labels" --jq '.[].name')" || labels_error=true
           fi
-          LABELS="$labels" LABELS_ERROR="$labels_error" GH_TOKEN= python3 -I scripts/ci_gate.py | tee -a "$GITHUB_OUTPUT"
+          LABELS="$labels" LABELS_ERROR="$labels_error" GH_TOKEN='' python3 -I scripts/ci_gate.py | tee -a "$GITHUB_OUTPUT"
 
       - name: Check results
         env:
@@ -698,8 +698,9 @@ jobs:
           }
           # A deferred run (no ci:full label, see Changes) did not build: say so
           # instead of passing. It must not skip, because a skipped required
-          # check counts as passing. A pull request that needs no builds passes
-          # deferred, like a docs-only one.
+          # check counts as passing. Only a docs-only pull request passes
+          # deferred: a deferred pull request that needs no builds (a Dart-only
+          # one) fails through Analyze & test above.
           if [ "$NEED_CODE" != false ] && [ "$NEED_BUILDS" != false ] && [ "$FULL_AT_CHANGES" = false ]; then
             msg="Tests deferred: add the ci:full label when the PR is ready (fleet rules). Nothing merges until the tests ran on this head."
             echo "::error::$msg"

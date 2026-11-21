@@ -432,6 +432,7 @@ class LabelGate(unittest.TestCase):
         # Changes was deferred, so its tests were skipped.
         ok, out, _ = aggregate(full="false", test="skipped", labels=("ci:full",))
         self.assertFalse(ok, out)
+        self.assertIn(DEFERRED_MESSAGE, out)
 
     def test_failed_lookup_on_a_full_run_gives_the_real_results(self):
         ok, out, _ = aggregate(gh_fails=True)
@@ -442,6 +443,7 @@ class LabelGate(unittest.TestCase):
     def test_failed_lookup_does_not_rescue_a_deferred_run(self):
         ok, out, _ = aggregate(gh_fails=True, full="false", test="skipped")
         self.assertFalse(ok, out)
+        self.assertIn(DEFERRED_MESSAGE, out)
 
     def test_push_is_full_without_a_lookup(self):
         ok, out, _ = aggregate(event="push", base="", labels=(), gh_fails=True)
@@ -453,6 +455,7 @@ class LabelGate(unittest.TestCase):
 
 
 _KEYWORDS = {"then", "do", "else", "elif", "fi", "done", "{", "}"}
+_HEREDOC = re.compile(r"<<(-?)[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
 
 
 def commands(script):
@@ -464,10 +467,15 @@ def commands(script):
     a word start outside quotes, belongs to the LAST segment of its line only.
     The quote state runs across lines and nests: `<(` or `>(` inside quotes is
     text, but inside `$(...)` within double quotes it is code again. A
-    backslash-newline joins lines."""
+    backslash-newline joins lines. Heredoc bodies (up to their delimiter)
+    are text, `$'...'` is quoted text, and a comment inside `$(...)` ends at
+    its line. A script that ends inside a quote, a substitution or a heredoc
+    cannot be read reliably, so it counts as one unmarked substitution.""" 
     results = []
     stack = [["cmd", 0, False]]  # kind, paren depth, nested ($( or <( )
     segment, segments, hit = [], [], False
+    heredocs = []  # (delimiter, tabs may indent it) waiting for their body
+    unbalanced = False
     index, length = 0, len(script)
 
     def end_segment():
@@ -497,6 +505,14 @@ def commands(script):
             segment.append(char)
             if char == "'":
                 stack.pop()
+        elif kind == "ansi":
+            if char == "\\" and index + 1 < length:
+                segment.append(pair)
+                index += 1
+            else:
+                segment.append(char)
+                if char == "'":
+                    stack.pop()
         elif kind == "dq":
             if char == "\\" and index + 1 < length:
                 segment.append(pair)
@@ -515,6 +531,10 @@ def commands(script):
             if char == "\\" and index + 1 < length:
                 segment.append(" " if script[index + 1] == "\n" else pair)
                 index += 1
+            elif pair == "$'":
+                segment.append(pair)
+                stack.append(["ansi", 0, False])
+                index += 1
             elif char == "'":
                 segment.append(char)
                 stack.append(["sq", 0, False])
@@ -525,6 +545,16 @@ def commands(script):
                 segment.append(pair)
                 stack.append(["cmd", 0, True])
                 index += 1
+            elif (
+                top_level
+                and pair == "<<"
+                and script[index - 1 : index] != "<"
+                and (heredoc := _HEREDOC.match(script, index))
+            ):
+                heredocs.append((heredoc.group(3), heredoc.group(1) == "-"))
+                segment.append(heredoc.group(0))
+                index = heredoc.end()
+                continue
             elif pair in ("<(", ">("):
                 hit = True
                 segment.append(pair)
@@ -546,16 +576,40 @@ def commands(script):
                 end_command(script[index:end])
                 index = end
                 continue
+            elif not top_level and char == "#" and (
+                not segment or segment[-1].isspace()
+            ):
+                end = script.find("\n", index)
+                index = length if end == -1 else end
+                continue
             elif top_level and char == ";":
                 end_segment()
             elif top_level and char == "\n":
                 end_segment()
                 end_command("")
+                if heredocs:
+                    position = index + 1
+                    for delimiter, tabs in heredocs:
+                        while True:
+                            if position >= length:
+                                unbalanced = True
+                                break
+                            end = script.find("\n", position)
+                            end = length if end == -1 else end
+                            line = script[position:end].rstrip("\r")
+                            position = min(end + 1, length)
+                            if (line.lstrip("\t") if tabs else line) == delimiter:
+                                break
+                    heredocs.clear()
+                    index = position
+                    continue
             else:
                 segment.append(char)
         index += 1
     end_segment()
     end_command("")
+    if unbalanced or heredocs or len(stack) > 1:
+        results.append(("<script ends inside a quote, substitution or heredoc>", True, ""))
     return results
 
 
@@ -634,6 +688,61 @@ class ProcessSubstitution(unittest.TestCase):
     def test_a_then_belongs_to_the_command_before_it(self):
         script = "if diff <(a) <(b); then # process-substitution-ok: x\n  echo ok\nfi"
         self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_heredoc_body_does_not_hide_a_later_substitution(self):
+        script = "cat <<EOF\nit's\nEOF\ndiff <(a) <(b)"
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_heredoc_body_is_text(self):
+        for script in (
+            "cat <<EOF\n<(x) it's\nEOF",
+            "cat <<'EOF'\n>(x)\nEOF",
+            'cat <<"EOF"\n<(x)\nEOF',
+            "cat <<-EOF\n\t<(x)\n\tEOF",
+        ):
+            with self.subTest(script=script):
+                self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_a_here_string_is_no_heredoc(self):
+        # A line `x` follows, so reading `<<< "x"` as a heredoc would swallow
+        # the diff line and still look balanced.
+        script = 'cat <<< "x"\ndiff <(a) <(b)\nx'
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_ansi_c_quoting_does_not_hide_a_later_substitution(self):
+        # The apostrophe in the trailing comment would close the quote that a
+        # reader without $'...' support opens, hiding the diff while balanced.
+        script = "echo $'a\\'b'; diff <(a) <(b) # it's"
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_ansi_c_quoted_text_is_text(self):
+        self.assertEqual(unmarked_substitutions("echo $'<(x)'"), [])
+
+    def test_a_comment_in_a_command_substitution_is_a_comment(self):
+        # Without comment support the first apostrophe hides the diff until
+        # the second one, and the script still looks balanced.
+        script = (
+            'echo "$(echo hi # it\'s\n)"\n'
+            "diff <(a) <(b)\n"
+            'echo "$(echo x # don\'t\n)"'
+        )
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_an_unbalanced_script_fails_closed(self):
+        for script in (
+            "echo 'unterminated\ndiff <(a)",
+            'echo "$(echo hi',
+            "cat <<EOF\nnever closed",
+            'echo "open',
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_balanced_scripts_do_not_trip_the_unbalanced_check(self):
+        self.assertEqual(
+            unmarked_substitutions("echo 'a'\necho \"$(echo b)\"\ncat <<EOF\nx\nEOF"),
+            [],
+        )
 
     def test_marker_must_carry_a_reason(self):
         self.assertEqual(
@@ -894,7 +1003,7 @@ class SupersededHead(unittest.TestCase):
             ][0]
             self.assertEqual(gate["env"]["GH_TOKEN"], "${{ github.token }}")
             script = gate["run"]
-            self.assertIn("GH_TOKEN= python3 -I scripts/ci_gate.py", script)
+            self.assertIn("GH_TOKEN='' python3 -I scripts/ci_gate.py", script)
             self.assertEqual(script.count("python3 -I scripts/ci_gate.py"), 1)
             self.assertLess(
                 script.index("gh api"), script.index("python3 -I scripts/ci_gate.py")

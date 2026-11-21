@@ -253,7 +253,10 @@ for the same reason no step of an aggregate job may carry an `if:` (an
 allowlist in the test, empty today). A process substitution (`<(...)`,
 `>(...)`) in a workflow `run:` script fails the test unless the command ends in
 a trailing shell comment `# process-substitution-ok: <reason>` outside quotes,
-because `pipefail` does not see a failure inside it.
+because `pipefail` does not see a failure inside it. The scanner skips heredoc
+bodies, reads `$'...'` as quoted text, ends a comment inside `$(...)` at its
+line, and fails closed on a script that ends inside a quote, a substitution or
+a heredoc.
 `scripts/*.sh` is out of scope. One known case: `scripts/test-shard.sh` reads
 its file list via `< <(find ...)`, so a failing `find` gives a smaller shard
 instead of an error (an empty list still exits 1). The scripts run in the
