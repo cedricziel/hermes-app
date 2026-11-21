@@ -43,11 +43,17 @@ removes the Markdown, leaves out lines about Android, Windows or Linux, which
 App Review rejects under guideline 2.3.10, and cuts the text to 4000 characters).
 
 The release-please PR is the one explicit exception to READY: it is generated
-and has no isolated review. The orchestrator arms auto-merge on it only when
-the owner asks, after its five builds are green, and when its title shows the
-version asked for. Arm it last: release-please pushes to it on every merge to
-main, so do not arm it while other armed PRs are about to merge. The PR is
-opened with
+and has no isolated review. The orchestrator merges it only when
+the owner asks, and when its title shows the version asked for. CI classifies it
+as docs-only (`Changes` code=false) while its diff is exactly the release files,
+so its builds and test shards are skipped and auto-merge cannot complete: the
+orchestrator hand-merges it (squash) once `PR policy` and `Analyze & test` are
+green on its exact head, and only when main's latest full CI run, builds
+included, is green on the commit it is based on (its builds are covered by
+main's full run and the `release-please.yml` tag run). Merge it last:
+release-please pushes to it on every merge to main, so do not merge it while
+other armed PRs are about to merge. If `Changes` shows code=true on it, its diff
+held more than the release files: stop and look. The PR is opened with
 `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
 missing or expired.
 

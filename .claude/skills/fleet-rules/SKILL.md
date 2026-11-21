@@ -181,8 +181,14 @@ one-armed-Dart-PR limit), and then only after the trial check.
   green and it still has not merged after about 15 minutes, disarm, then
   re-arm.
 - Exception: the release-please PR is generated and has no isolated review.
-  It is armed only when the owner asks, after its five builds are green, with
-  the asked-for version in its title, and last (see the `release` skill).
+  It is merged only when the owner asks, with the asked-for version in its
+  title, and last (see the `release` skill). While its diff is exactly
+  `CHANGELOG.md`, `.release-please-manifest.json` and the `version:` line of
+  `pubspec.yaml`, it shows `Changes` code=false, so the orchestrator
+  hand-merges it (squash) like a docs-only PR once `PR policy` and
+  `Analyze & test` are green on its exact head, and only when main's latest
+  full CI run, builds included, is green on the commit it is based on (its
+  builds are covered by main's full run and the `release-please.yml` tag run).
 - Docs-only PRs cannot auto-merge while the ruleset requires the individual
   test shards (they never report on a docs-only PR). Docs-only means the
   `Changes` job output `code=false` on the exact head, so the shards show

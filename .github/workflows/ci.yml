@@ -23,6 +23,10 @@ jobs:
   # packages, dependencies, assets, the packaging script, fastlane or this
   # workflow): Dart under lib/ and test/ is analyzed and tested on every code
   # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to the `builds` case in the filter below.
+  # The release-please pull request counts as docs-only too, but only while its
+  # diff is exactly CHANGELOG.md, .release-please-manifest.json and the
+  # `version:` line of pubspec.yaml: the code it carries was already tested on
+  # main, and its tag run builds everything in release-please.yml.
   changes:
     name: Changes
     runs-on: ubuntu-latest
@@ -42,6 +46,9 @@ jobs:
         id: filter
         env:
           EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           code=true
@@ -79,6 +86,54 @@ jobs:
                     scripts/package-linux.sh | scripts/check-soloud-build-log.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
                   esac
                 done < "$list"
+                if [ "$HEAD_REF" = release-please--branches--main--components--hermes-app ] \
+                  && [ -n "$HEAD_REPO" ] && [ "$HEAD_REPO" = "$BASE_REPO" ]; then
+                  # Fail closed: every check below must pass, any other
+                  # outcome keeps the classification above. The raw diff must
+                  # list only plain modifications (no add, delete, rename,
+                  # mode change) of the three release files, each exactly once.
+                  release=true
+                  raw="$(git -c core.quotePath=false diff --raw --no-renames HEAD^1 HEAD)" || release=false
+                  if [ "$release" = true ]; then
+                    seen_changelog=0
+                    seen_manifest=0
+                    seen_pubspec=0
+                    while IFS= read -r line; do
+                      case "$line" in
+                        ":100644 100644 "*" M"$'\t'CHANGELOG.md) seen_changelog=$((seen_changelog + 1)) ;;
+                        ":100644 100644 "*" M"$'\t'.release-please-manifest.json) seen_manifest=$((seen_manifest + 1)) ;;
+                        ":100644 100644 "*" M"$'\t'pubspec.yaml) seen_pubspec=$((seen_pubspec + 1)) ;;
+                        *) release=false ;;
+                      esac
+                    done <<< "$raw"
+                    if [ "$seen_changelog" != 1 ] || [ "$seen_manifest" != 1 ] || [ "$seen_pubspec" != 1 ]; then
+                      release=false
+                    fi
+                  fi
+                  if [ "$release" = true ]; then
+                    # pubspec.yaml: one removed and one added line, both the
+                    # `version:` line. numstat counts a binary change as `-`.
+                    numstat="$(git diff --numstat --no-renames HEAD^1 HEAD -- pubspec.yaml)" || release=false
+                    if [ "$numstat" != "$(printf '1\t1\tpubspec.yaml')" ]; then
+                      release=false
+                    fi
+                    # Only lines after the first hunk header are content.
+                    changed="$(git diff -U0 --no-renames HEAD^1 HEAD -- pubspec.yaml | sed -n '/^@@/,$p' | grep -E '^[-+]' || true)"
+                    if [ "$(printf '%s\n' "$changed" | grep -c '^-version: ' || true)" != 1 ] \
+                      || [ "$(printf '%s\n' "$changed" | grep -c '^+version: ' || true)" != 1 ] \
+                      || [ "$(printf '%s\n' "$changed" | wc -l)" != 2 ]; then
+                      release=false
+                    fi
+                  fi
+                  if [ "$release" = true ]; then
+                    echo "release-please pull request: treated as docs-only"
+                    code=false
+                    watch=false
+                    builds=false
+                  else
+                    echo "::warning::release-please branch changes more than its release files; classifying normally"
+                  fi
+                fi
               fi
             fi
           fi
