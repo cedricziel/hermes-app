@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.82](https://github.com/cedricziel/hermes-app/compare/v0.1.81...v0.1.82) (2026-11-21)
+
+
+### Features
+
+* **chat:** show tool call inputs and results as coloured text with a tree view ([#1222](https://github.com/cedricziel/hermes-app/issues/1222)) ([e03fe35](https://github.com/cedricziel/hermes-app/commit/e03fe354ee492d4e69a97596bd4ca9f3b001a7fb))
+* **scripts:** premerge check runs the tests a PR can break, takes --stack, and ties a pass to a base ([#1231](https://github.com/cedricziel/hermes-app/issues/1231)) ([2a69d09](https://github.com/cedricziel/hermes-app/commit/2a69d09e82c51088869b772d7541955944d376fd))
+* **voice:** last turn lines, Speak replies switch, tts-lease and a flutter_soloud build guard ([#1223](https://github.com/cedricziel/hermes-app/issues/1223)) ([4241a66](https://github.com/cedricziel/hermes-app/commit/4241a662cdb6bb5dd19dc26f866784fc3a68cf80))
+
+
+### Bug Fixes
+
+* **linux:** give the window a minimum size and a default that fits the screen ([#1206](https://github.com/cedricziel/hermes-app/issues/1206)) ([bb7e255](https://github.com/cedricziel/hermes-app/commit/bb7e2551d951cebce7c69f263ea990ba0fbcb040))
+* **network:** stop the Linux app touching NetworkManager when there is no system bus ([#1211](https://github.com/cedricziel/hermes-app/issues/1211)) ([4f204f9](https://github.com/cedricziel/hermes-app/commit/4f204f913a1919ac712c13b1b99c92632d5941b9))
+
 ## [0.1.81](https://github.com/cedricziel/hermes-app/compare/v0.1.80...v0.1.81) (2026-11-15)
 
 
