@@ -3,6 +3,7 @@ import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/watch/watch_context.dart';
 import 'package:hermes_app/src/watch/watch_request_handler.dart';
+import 'package:hermes_app/src/watch/watch_status_source.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/fake_gateway.dart';
@@ -29,8 +30,9 @@ void main() {
       transport: () => null,
       activeProfile: () async => 'work',
       now: () => DateTime.utc(2026),
-      statusTransport: () =>
-          HermesGatewayTransport(connect: () async => gateway.channel),
+      statusSource: WatchStatusSource(
+        () => HermesGatewayTransport(connect: () async => gateway.channel),
+      ),
     );
   });
   test(
