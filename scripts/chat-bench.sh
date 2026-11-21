@@ -82,6 +82,8 @@ for i in $(seq 1 "$runs"); do
   status=${PIPESTATUS[0]}
   set -e
   if [ "$status" -ne 0 ]; then
+    # The test runner's tearDownAll writes the results of a failed run too.
+    rm -f "$dir/run-$i.json"
     echo "run $i failed with exit status $status (see $dir/run-$i.log)" >&2
     exit "$status"
   fi

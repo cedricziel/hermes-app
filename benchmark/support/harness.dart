@@ -88,7 +88,8 @@ class Composer {
 
 /// Mounts the screen at [size] and opens [history] (oldest first) as the
 /// stored chat [threadId]. With [settle] false it returns right after the
-/// first frame, so a scenario can time the open itself.
+/// first frame, so a scenario can time the open itself; give it a [mountLog]
+/// and that first frame (the mount) is the first one measured in it.
 Future<BenchChat> openBenchChat(
   WidgetTester tester, {
   required Size size,
@@ -96,6 +97,7 @@ Future<BenchChat> openBenchChat(
   List<Map<String, Object?>> chats = const [],
   bool macSidebar = false,
   bool settle = true,
+  FrameLog? mountLog,
 }) async {
   // Profile mode runs in a real window with the system's fonts.
   if (!profileMode) {
@@ -171,7 +173,11 @@ Future<BenchChat> openBenchChat(
     ),
   );
   if (macSidebar) app = MacSidebarScope(child: app);
-  await tester.pumpWidget(app);
+  if (mountLog != null) {
+    await mountLog.frame(tester, before: () => tester.pumpWidget(app));
+  } else {
+    await tester.pumpWidget(app);
+  }
   if (settle) {
     // The Mac window never goes idle (its toolbar keeps a frame scheduled).
     if (macSidebar) {

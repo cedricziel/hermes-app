@@ -42,7 +42,9 @@ the benchmark.
   thread build, layout, paint) of the frames made while the measured pumps ran.
   Use this for absolute numbers. `raster_*` is reported beside it; under Xvfb the
   Linux embedder reports it as 0, so ignore it. Frame counts exceed the pump
-  count (the engine makes extra frames), which dilutes p50, not max or p95.
+  count (the engine makes extra, mostly cheap frames), which lowers p50 and p95
+  too; only `max` is immune. Compare p50 and p95 only between runs of the same
+  scenario, where the extra frames are alike.
 
 ## Reading results
 
@@ -50,8 +52,8 @@ the benchmark.
 `p95`/`p50` describe the steady cost; `>16`/`>100` count frames over those ms.
 The first frames of each stream are warm-up and left out. `extra` fields:
 `slowest` (index of the three worst frames among the measured ones, to find the
-step of the script), `pumps`, `open_wall_ms` (s5a: real ms from mount to the
-newest message on screen), `disclosures_opened` (s3).
+step of the script), `pumps`, `open_wall_ms` (s5a: real ms from the mount frame to the
+newest message on screen, before the settle), `disclosures_opened` (s3).
 
 `CHAT_BENCH_PHASES=1` (test mode only) splits each frame into event handling,
 build, and layout+paint, and counts the elements rebuilt per frame by widget
@@ -67,8 +69,8 @@ AB=${CHAT_BENCH_AB:-${TMPDIR:-/tmp}/hermes-chat-ab}    # scratch dir, outside th
 mkdir -p "$AB" && git worktree add --detach "$AB/base" origin/main   # baseline
 # candidate = this checkout
 for i in 1 2 3 4 5; do
-  (cd "$AB/base" && flutter pub get >/dev/null && CHAT_BENCH_DIR="$AB/base-$i" scripts/chat-bench.sh --mode test 1 "$FILTER")
-  CHAT_BENCH_DIR="$AB/cand-$i" scripts/chat-bench.sh --mode test 1 "$FILTER"
+  (cd "$AB/base" && flutter pub get >/dev/null && CHAT_BENCH_DIR="$AB/base-$i" scripts/chat-bench.sh --mode test 1 "$FILTER") || exit 1
+  CHAT_BENCH_DIR="$AB/cand-$i" scripts/chat-bench.sh --mode test 1 "$FILTER" || exit 1
 done
 python3 -I scripts/chat_bench_aggregate.py "$AB/base.json" "$AB"/base-*/test/run-1.json
 python3 -I scripts/chat_bench_aggregate.py "$AB/cand.json" "$AB"/cand-*/test/run-1.json
@@ -79,8 +81,8 @@ Same machine, nothing else running, one test process at a time. Measure one
 benchmark at a time on a machine: wrap runs in `flock -o <lockfile> scripts/chat-bench.sh ...`
 (`-o` keeps a background child from inheriting the lock). Compare the
 medians; treat a difference as real only when it is larger than about twice the
-CV of that scenario and statistic (below). Copy `benchmark/` and
-`scripts/chat-bench.sh` into the baseline worktree if it predates them. Confirm
+CV of that scenario and statistic (below). Copy `benchmark/`,
+`scripts/chat-bench.sh` and `scripts/chat_bench_aggregate.py` into the baseline worktree if it predates them. Confirm
 the winner in profile mode before claiming a speed-up.
 
 ## Noise (measured at b3d73a50: 3 test runs, 5 profile runs)

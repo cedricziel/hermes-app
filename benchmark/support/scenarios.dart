@@ -29,11 +29,17 @@ Future<void> _finish(BenchChat chat) async {
   await chat.tester.pump(frameStep);
 }
 
-/// Taps the [n]th lowest match on screen (0 is the newest of several groups).
-/// The reader first scrolls to the end, repeatedly: until the items are laid
-/// out the list's end is an estimate that keeps moving.
-/// False when there is nothing to tap (the list built fewer matches).
-Future<bool> _tapNthLowest(WidgetTester tester, Finder finder, int n) async {
+/// Brings the [n]th lowest match on screen (0 is the newest of several groups)
+/// into view and returns it, or null when the list built fewer matches. The
+/// reader first scrolls to the end, repeatedly: until the items are laid out
+/// the list's end is an estimate that keeps moving. This takes about nine
+/// pumps, so a scenario calls it outside the timed frame and times the tap
+/// alone.
+Future<Finder?> _prepareNthLowest(
+  WidgetTester tester,
+  Finder finder,
+  int n,
+) async {
   Finder? nth() {
     final matches = finder.evaluate().toList();
     if (matches.length <= n) return null;
@@ -50,13 +56,10 @@ Future<bool> _tapNthLowest(WidgetTester tester, Finder finder, int n) async {
     await tester.pump(frameStep);
   }
   final target = nth();
-  if (target == null) return false;
+  if (target == null) return null;
   await tester.ensureVisible(target);
   await tester.pump(frameStep);
-  final again = nth();
-  if (again == null) return false;
-  await tester.tap(again);
-  return true;
+  return nth();
 }
 
 final _chatList = find
@@ -224,13 +227,15 @@ void registerScenarios() {
       }
 
       // Opening a disclosure animates for about 200 ms; measure every frame.
-      // A target the list did not build is not counted; the scenario fails
-      // below unless every one of the six taps landed.
+      // The scroll that brings the target into view is not measured: only the
+      // tap is inside the timed frame. A target the list did not build is not
+      // counted; the scenario fails below unless every one of the six taps
+      // landed.
       var opened = 0;
-      Future<void> open(Future<bool> Function() tap) async {
-        var done = false;
-        await tick(() async => done = await tap());
-        if (!done) return;
+      Future<void> open(Finder finder, int n) async {
+        final target = await _prepareNthLowest(tester, finder, n);
+        if (target == null) return;
+        await tick(() => tester.tap(target));
         opened++;
         for (var k = 0; k < 14; k++) {
           await tick();
@@ -268,8 +273,8 @@ void registerScenarios() {
         }
         await tick(() async => chat.send.emit(ReplyDelta('${sentence(r)} ')));
         if (run == 0) {
-          await open(() => _tapNthLowest(tester, find.text('Used 5 tools'), 0));
-          await open(() => _tapNthLowest(tester, find.text(firsts[0]), 0));
+          await open(find.text('Used 5 tools'), 0);
+          await open(find.text(firsts[0]), 0);
           // Opening a disclosure stops the list following; scrolling back to
           // the end resumes it.
           await tick(() async => _scrollToEnd(tester));
@@ -279,10 +284,10 @@ void registerScenarios() {
       // each. Both headers first, and the older group's call before the
       // newer one's: an opened call is thousands of pixels tall and pushes
       // the other group out of the built range.
-      await open(() => _tapNthLowest(tester, find.text('Used 5 tools'), 0));
-      await open(() => _tapNthLowest(tester, find.text('Used 5 tools'), 1));
-      await open(() => _tapNthLowest(tester, find.text(firsts[6]), 0));
-      await open(() => _tapNthLowest(tester, find.text(firsts[7]), 0));
+      await open(find.text('Used 5 tools'), 0);
+      await open(find.text('Used 5 tools'), 1);
+      await open(find.text(firsts[6]), 0);
+      await open(find.text(firsts[7]), 0);
       chat.send.emit(ReplyCompleted(markdownReply(80, seed: 8)));
       await tick();
       await _finish(chat);
@@ -336,13 +341,16 @@ void registerScenarios() {
     body: (tester, width, size) async {
       const marker = 'Closing remarks of the long audit.';
       final history = historyRows(2000, closing: '$marker ');
+      final open = FrameLog();
+      // The mount frame is the first measured one, so the window runs from
+      // mounting the screen to the newest message on it.
       final chat = await openBenchChat(
         tester,
         size: size,
         history: history,
         settle: false,
+        mountLog: open,
       );
-      final open = FrameLog();
       var tapped = false;
       var frames = 0;
       bool shown() =>
@@ -364,14 +372,16 @@ void registerScenarios() {
         frames++;
       }
       expect(shown(), isTrue, reason: 'the newest message never appeared');
+      final openWallMs = open.wallMs;
       // Let the open finish, unmeasured, so the scroll starts from rest.
       await tester.pumpAndSettle();
       await record(
         's5a-open-2000',
         width,
         open,
-        // The real time from mounting the screen to the newest message on it.
-        extra: {'open_wall_ms': open.wallMs},
+        // The real time from mounting the screen to the newest message on it,
+        // read before the unmeasured settle.
+        extra: {'open_wall_ms': openWallMs},
       );
 
       final scroll = FrameLog();
