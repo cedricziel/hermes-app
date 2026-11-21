@@ -1,0 +1,280 @@
+import contextlib
+import io
+import pathlib
+import sys
+import unittest
+from unittest import mock
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+import ci_gate  # noqa: E402
+
+LABEL = "ci:full"
+RELEASE = "release-please--branches--main--components--hermes-app"
+
+
+def pr(labels, base="main", head="claude/feature", head_repo="o/r", repo="o/r"):
+    return ci_gate.decide(
+        "pull_request",
+        base,
+        labels,
+        head_ref=head,
+        head_repo=head_repo,
+        repo=repo,
+    )
+
+
+class PullRequestShapes(unittest.TestCase):
+    """One case per event shape. The decision depends on the label set only,
+    never on the action, so an event and its label set give the same answer."""
+
+    def check(self, result, mode, reason):
+        self.assertEqual(result, (mode, reason))
+
+    def test_opened_without_label(self):
+        self.check(pr([]), "deferred", ci_gate.REASON_DEFERRED)
+
+    def test_opened_with_label(self):
+        self.check(pr([LABEL]), "full", ci_gate.REASON_LABEL)
+
+    def test_labeled_with_ci_full(self):
+        self.check(pr([LABEL]), "full", ci_gate.REASON_LABEL)
+
+    def test_labeled_unrelated_without_ci_full_stays_deferred(self):
+        self.check(pr(["bot"]), "deferred", ci_gate.REASON_DEFERRED)
+
+    def test_labeled_unrelated_with_ci_full_stays_full(self):
+        self.check(pr([LABEL, "bot"]), "full", ci_gate.REASON_LABEL)
+
+    def test_unlabeled_ci_full_becomes_deferred(self):
+        self.check(pr([]), "deferred", ci_gate.REASON_DEFERRED)
+
+    def test_unlabeled_unrelated_while_ci_full_stays(self):
+        self.check(pr([LABEL]), "full", ci_gate.REASON_LABEL)
+
+    def test_synchronize_with_label(self):
+        self.check(pr([LABEL, "other"]), "full", ci_gate.REASON_LABEL)
+
+    def test_synchronize_without_label(self):
+        self.check(pr(["other"]), "deferred", ci_gate.REASON_DEFERRED)
+
+    def test_label_match_is_exact(self):
+        for name in ("ci:Full", "ci:full ", "ci:full-ish", "ci", "full"):
+            with self.subTest(name=name):
+                self.check(pr([name]), "deferred", ci_gate.REASON_DEFERRED)
+
+    def test_base_not_main(self):
+        self.check(pr([], base="claude/other"), "full", ci_gate.REASON_STACKED)
+
+    def test_base_not_main_wins_over_missing_label(self):
+        self.check(pr(["bot"], base="release/1"), "full", ci_gate.REASON_STACKED)
+
+    def test_release_please_branch_is_full_without_label(self):
+        self.check(pr([], head=RELEASE), "full", ci_gate.REASON_RELEASE)
+
+    def test_release_please_lookalike_is_deferred(self):
+        self.check(pr([], head=RELEASE + "-2"), "deferred", ci_gate.REASON_DEFERRED)
+
+    def test_dependabot_is_deferred_like_any_pr(self):
+        self.check(
+            pr([], head="dependabot/pub/dio-5.9.0"),
+            "deferred",
+            ci_gate.REASON_DEFERRED,
+        )
+
+
+class MissingHeadAndForks(unittest.TestCase):
+    def test_missing_head_without_label_fails_closed(self):
+        for head in (None, ""):
+            with self.subTest(head=head):
+                self.assertEqual(
+                    pr([], head=head), ("full", ci_gate.REASON_MISSING)
+                )
+
+    def test_missing_head_with_label_is_decided_by_the_label(self):
+        self.assertEqual(pr([LABEL], head=None), ("full", ci_gate.REASON_LABEL))
+
+    def test_missing_head_on_a_stacked_pull_request_is_stacked(self):
+        self.assertEqual(
+            pr([], base="x", head=None), ("full", ci_gate.REASON_STACKED)
+        )
+
+    def test_from_env_without_head_ref_fails_closed(self):
+        env = {"EVENT_NAME": "pull_request", "BASE_REF": "main", "LABELS": ""}
+        self.assertEqual(ci_gate.from_env(env), ("full", ci_gate.REASON_MISSING))
+
+    def test_release_branch_from_a_fork_gets_no_shortcut(self):
+        self.assertEqual(
+            pr([], head=RELEASE, head_repo="fork/r"),
+            ("deferred", ci_gate.REASON_DEFERRED),
+        )
+        self.assertEqual(
+            pr([LABEL], head=RELEASE, head_repo="fork/r"),
+            ("full", ci_gate.REASON_LABEL),
+        )
+
+    def test_release_branch_with_unknown_repos_fails_closed(self):
+        for head_repo, repo in ((None, "o/r"), ("o/r", None), ("", "")):
+            with self.subTest(head_repo=head_repo, repo=repo):
+                self.assertEqual(
+                    pr([], head=RELEASE, head_repo=head_repo, repo=repo),
+                    ("full", ci_gate.REASON_MISSING),
+                )
+
+    def test_release_branch_from_the_same_repo_is_full(self):
+        self.assertEqual(
+            pr([], head=RELEASE), ("full", ci_gate.REASON_RELEASE)
+        )
+
+
+class OtherEvents(unittest.TestCase):
+    def test_push(self):
+        self.assertEqual(ci_gate.decide("push", "", []), ("full", ci_gate.REASON_EVENT))
+
+    def test_workflow_dispatch(self):
+        self.assertEqual(
+            ci_gate.decide("workflow_dispatch", "", []),
+            ("full", ci_gate.REASON_EVENT),
+        )
+
+    def test_merge_group(self):
+        self.assertEqual(
+            ci_gate.decide("merge_group", "", []), ("full", ci_gate.REASON_EVENT)
+        )
+
+
+class FailClosed(unittest.TestCase):
+    def test_error_flag(self):
+        self.assertEqual(
+            ci_gate.decide("pull_request", "main", [], error=True),
+            ("full", ci_gate.REASON_ERROR),
+        )
+
+    def test_unknown_event(self):
+        for event in ("", None, "schedule", "pull_request_target"):
+            with self.subTest(event=event):
+                self.assertEqual(
+                    ci_gate.decide(event, "main", []),
+                    ("full", ci_gate.REASON_UNKNOWN_EVENT),
+                )
+
+    def test_missing_base(self):
+        for base in ("", None, 7):
+            with self.subTest(base=base):
+                self.assertEqual(
+                    ci_gate.decide("pull_request", base, []),
+                    ("full", ci_gate.REASON_MISSING),
+                )
+
+    def test_missing_or_malformed_labels(self):
+        for labels in (None, "ci:full", 5, [LABEL, 3], {LABEL}):
+            with self.subTest(labels=labels):
+                self.assertEqual(
+                    ci_gate.decide("pull_request", "main", labels),
+                    ("full", ci_gate.REASON_MISSING),
+                )
+
+
+class FromEnvironment(unittest.TestCase):
+    def test_opened_without_label(self):
+        env = {
+            "EVENT_NAME": "pull_request",
+            "BASE_REF": "main",
+            "HEAD_REF": "claude/feature",
+            "LABELS": "",
+        }
+        self.assertEqual(ci_gate.from_env(env), ("deferred", ci_gate.REASON_DEFERRED))
+
+    def test_labels_are_one_per_line(self):
+        env = {
+            "EVENT_NAME": "pull_request",
+            "BASE_REF": "main",
+            "LABELS": "bot\nci:full\n",
+        }
+        self.assertEqual(ci_gate.from_env(env), ("full", ci_gate.REASON_LABEL))
+
+    def test_label_names_may_contain_spaces(self):
+        env = {
+            "EVENT_NAME": "pull_request",
+            "BASE_REF": "main",
+            "HEAD_REF": "claude/feature",
+            "LABELS": "good first issue",
+        }
+        self.assertEqual(ci_gate.from_env(env), ("deferred", ci_gate.REASON_DEFERRED))
+
+    def test_label_lookup_failed(self):
+        env = {
+            "EVENT_NAME": "pull_request",
+            "BASE_REF": "main",
+            "LABELS": "",
+            "LABELS_ERROR": "true",
+        }
+        self.assertEqual(ci_gate.from_env(env), ("full", ci_gate.REASON_ERROR))
+
+    def test_unset_labels_on_a_pull_request(self):
+        env = {"EVENT_NAME": "pull_request", "BASE_REF": "main"}
+        self.assertEqual(ci_gate.from_env(env), ("full", ci_gate.REASON_MISSING))
+
+    def test_unexpected_error_flag_value(self):
+        env = {
+            "EVENT_NAME": "pull_request",
+            "BASE_REF": "main",
+            "LABELS": "",
+            "LABELS_ERROR": "maybe",
+        }
+        self.assertEqual(ci_gate.from_env(env), ("full", ci_gate.REASON_ERROR))
+
+    def test_empty_environment(self):
+        self.assertEqual(ci_gate.from_env({}), ("full", ci_gate.REASON_UNKNOWN_EVENT))
+
+    def test_push_needs_no_labels(self):
+        self.assertEqual(
+            ci_gate.from_env({"EVENT_NAME": "push"}), ("full", ci_gate.REASON_EVENT)
+        )
+
+    def test_release_branch_from_head_ref(self):
+        env = {
+            "EVENT_NAME": "pull_request",
+            "BASE_REF": "main",
+            "HEAD_REF": RELEASE,
+            "HEAD_REPO": "o/r",
+            "REPO": "o/r",
+            "LABELS": "",
+        }
+        self.assertEqual(ci_gate.from_env(env), ("full", ci_gate.REASON_RELEASE))
+
+    def test_label_with_trailing_space_is_not_stripped(self):
+        env = {
+            "EVENT_NAME": "pull_request",
+            "BASE_REF": "main",
+            "HEAD_REF": "claude/feature",
+            "LABELS": "ci:full \n",
+        }
+        self.assertEqual(ci_gate.from_env(env), ("deferred", ci_gate.REASON_DEFERRED))
+
+    def test_main_prints_full_when_from_env_raises(self):
+        def boom(env):
+            raise RuntimeError("boom")
+
+        out = io.StringIO()
+        with mock.patch.object(ci_gate, "from_env", boom):
+            with contextlib.redirect_stdout(out):
+                ci_gate.main()
+        self.assertEqual(
+            out.getvalue().splitlines(),
+            ["full=true", f"gate_reason={ci_gate.REASON_ERROR}"],
+        )
+
+    def test_output_lines(self):
+        self.assertEqual(
+            ci_gate.output_lines("deferred", "because"),
+            ["full=false", "gate_reason=because"],
+        )
+        self.assertEqual(
+            ci_gate.output_lines("full", "because"),
+            ["full=true", "gate_reason=because"],
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

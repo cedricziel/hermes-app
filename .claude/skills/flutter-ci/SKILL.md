@@ -53,7 +53,9 @@ with `scripts/build-widgetbook.sh` locally or the catalog build in CI.
 `ci.yml` starts with a `Changes` job. On a pull request it diffs the merge
 commit against its base (`HEAD^1`) and outputs `code` (anything besides
 `docs/**`, `openspec/**` and `*.md`) and `watch` (anything
-under `ios/HermesWatch`, `ios/HermesSurfaceKit` or `ci.yml`). Push to main and
+under `ios/HermesWatch`, `ios/HermesSurfaceKit` or `ci.yml`, except Markdown, which
+is docs and sets neither: a README there once left `watch` true with `code`
+false, and an unlabeled run then failed on a skipped watch job). Push to main and
 `workflow_dispatch` set both to true. The shards, coverage and all platform
 builds need `code`; `Test watch core` needs `watch`. `Analyze & test` expects
 `success` from a job that was needed and `skipped` from one that was not, so a
@@ -74,7 +76,7 @@ change can cause (icon tree shaking on a non-const `IconData`, AOT-only or
 conditional-import problems, a platform-only plugin call) are caught on main's
 run only, since push to main and `workflow_dispatch` build everything. The
 native audio test (`test/voice/native_voice_player_test.dart`, real libmpv)
-runs for every code PR in its own job, `Test native audio (Linux)`, which
+runs for every full code PR (see "Label gate") in its own job, `Test native audio (Linux)`, which
 `Analyze & test` does not wait for. When a build starts to read a
 new path (a script it calls, a new asset folder), add it to the `builds` case in
 the `Changes` job, or PRs that touch only that path will skip the build.
@@ -115,6 +117,158 @@ any job upstream was skipped, and `Test watch core` is skipped on most pull
 requests. Their `if` therefore names `needs.analyze-and-test.result ==
 'success'` under `!cancelled()`. If builds show as skipped on a pull request that
 changes code, look there first.
+
+## Label gate: "Tests deferred"
+
+The test shards are about 93% of runner time, so on a pull request they run
+only when the PR is ready. `Changes` runs `scripts/ci_gate.py`, which outputs
+`full` (a pure function of the event name, the base branch, the PR's current
+labels read from the API, and the head branch). A run is FULL when any holds:
+
+- the event is `push`, `workflow_dispatch` or `merge_group`;
+- the PR's base is not `main` (a stacked PR);
+- the PR has the label `ci:full`;
+- the PR's branch is the release-please branch and its head repository is this
+  one (a fork using the name gets no shortcut; unknown repositories fail
+  closed);
+- the gate cannot decide: the label lookup failed, data is missing or
+  malformed, or the head branch of a PR to `main` without the label is unknown.
+  This fails closed, so such a PR runs FULL even without `ci:full`.
+
+Otherwise it is DEFERRED. Always run, full or deferred: `Changes`, `Analyze`
+(format, analyze, the script tests including `scripts/test_ci_gate.py`) and
+`Analyze & test`. Run only when FULL, and still under their path conditions
+(`code`, `watch`, `builds`): the shards, `Coverage`, `Test native audio
+(Linux)`, `Test watch core` and the five platform builds. A full Dart-only PR
+therefore still skips the builds. `PR policy` is a separate workflow and is not
+gated.
+
+**What "Tests deferred" means.** On a deferred run `Analyze & test` fails, as an
+`::error::` annotation and in the step summary: "Tests deferred: add the
+ci:full label when the PR is ready (fleet rules). Nothing merges until the
+tests ran on this head." It fails instead of skipping because a skipped
+required check counts as passing. It says the tests did not run on this head.
+It says nothing about whether the code is good, so never read it as a test
+failure and never as green. Exception: a docs-only PR (only `docs/`, `openspec/`
+and Markdown changed) needs no tests, so it passes deferred and needs no label.
+`Builds` fails the same way on a deferred run that wants builds (a pull request
+that needs none, such as a Dart-only one, fails on `Analyze & test` already).
+
+**How to add the label.** `gh pr edit <number> --add-label ci:full`, or on the
+PR page. Add it when the PR is ready, not before, unless a CI-only failure
+needs a full run to debug. The label must exist in the repo: the owner creates
+it once (`gh label create ci:full --description "Run the full CI test suite"`);
+until then the first session to label a PR creates it, since adding a label
+through the API creates it when missing. Do not use "Re-run jobs" to get a full
+run after labelling: the label event starts a new run by itself. "Re-run all
+jobs" re-reads the labels in `Changes`; "Re-run failed jobs" keeps the
+successful `Changes` job's old `full` output, so `Analyze & test` reads the
+current labels again itself (a failed lookup there counts as full, so a full
+run that passed is not turned red by a flaky API call).
+
+| Event | Labels after it | Run | `Analyze & test` |
+| --- | --- | --- | --- |
+| opened / reopened / synchronize | none of ours | deferred | fails (tests deferred) |
+| opened / reopened / synchronize | `ci:full` | full | tests' result |
+| labeled `ci:full` | `ci:full` | full, cancels a run in progress | tests' result |
+| unlabeled `ci:full` | none of ours | deferred, cancels a run in progress | fails (tests deferred) |
+| labeled or unlabeled, other label, `ci:full` absent | none of ours | deferred | fails (tests deferred) |
+| labeled or unlabeled, other label, `ci:full` present | `ci:full` | full, queued behind a run in progress | tests' result |
+| base not `main` | any | full | tests' result |
+| release-please branch | any | full | tests' result |
+| push to main, `workflow_dispatch`, `merge_group` | n/a | full | tests' result |
+| gate error | n/a | full | tests' result |
+
+Docs-only PRs pass in every row, because `code` is false and the shards are
+skipped as they were before the gate.
+
+**Why the label events behave this way.** GitHub reads the latest check run
+named `Analyze & test` on the head, so a newer deferred run that fails turns an
+armed PR red even if an earlier full run on the same head was green: removing
+`ci:full` is enough, and no one has to push. Adding `ci:full` to a head that
+had a deferred run starts a full run on that head whose aggregate replaces the
+failed one. The workflow is triggered by every label event, so an unrelated
+label could otherwise cancel a full run: only `ci:full` events cancel a run in
+progress. Any other label event queues behind it (a queued run is replaced by a
+newer one), recomputes the same decision from the label set, and so gives the
+same result. A re-run (run attempt above 1) never cancels a run in progress
+either: the group is per pull request, so re-running a run on a replaced head
+must not cancel the current head's run (a queued run is still replaced by a
+newer queued one). After `ci:full` is removed there is a short window: until the
+new run's `Analyze & test` appears (after Analyze finishes), the previous green
+check is still the latest, so the PR stays mergeable. The tests did run on that
+head. The cost is one repeated full run per unrelated label added to a
+PR that has `ci:full` and has finished or is running; the workflow cannot
+filter by label name, and a skipped aggregate would count as passing. Labels
+other than `ci:full` that a bot adds belong on the PR before `ci:full` is
+added, so the labelling does not repeat a full run.
+
+**Release and bot PRs.** The release-please PR is classified like any pull
+request (there is no docs-only special case: its `CHANGELOG.md` is Markdown,
+but the `pubspec.yaml` and manifest changes make it a code PR) and runs FULL by
+itself, without the label, because the gate recognises its branch name; the
+fleet rules arm it only after its builds are green. Dependabot and other bots are treated like
+any PR: deferred until someone adds `ci:full`.
+
+**Costs.** A PR needs one label action before it can merge. A deferred head has
+a red required check. Reading the label through the API needs
+`pull-requests: read` on `Changes` and `Analyze & test`; a failed lookup runs
+everything, and a failed gate step in `Changes` falls back to full. Push and
+dispatch never depend on that step. `merge_group`
+is classified as full but `ci.yml` does not trigger on it today.
+
+**A cancelled `Analyze & test` on an old head.** When a newer push replaces a
+run, the cancelled run still reaches `Analyze & test` (its `if:` is `always()`)
+and used to post a red check on the old head. Its first step now compares the
+run's head with the pull request's current head (`GET /pulls/{n}`). If the head
+moved on and the pull request is open, the run cancels itself
+(`POST /actions/runs/{id}/cancel`), waits about 60 seconds and fails if it is
+still running; it never passes after deciding "superseded", and no later step
+runs. So a cancelled aggregate on a superseded head is not a failure: look at
+the current head instead. A red or cancelled aggregate on the CURRENT head is
+real and stays red (a manual cancel, a timeout, a closed or merged pull
+request and a failed lookup all fall through to the normal checks; a refused
+cancel goes straight to `exit 1` and stays red). Push and dispatch runs skip
+the step. The jobs `Analyze & test` and `Builds`
+need `actions: write` for the cancel, on top of `contents: read` and
+`pull-requests: read`: a permission increase, scoped to those two jobs. The
+step has its own `timeout-minutes`, like every job.
+
+**Aggregate tests.** `scripts/test_ci_aggregates.py` (PyYAML is installed in
+the `Test scripts` step; a missing module fails the test) runs the real `run:`
+scripts of `Analyze & test` in the default shell of a step without `shell:`
+(`bash -e {0}`, no pipefail; a script that needs it sets it), with the step
+conditions modelled
+too: a step's `if:` with the implicit `success()`, later steps skipped after a
+failure unless `always()` or `failure()`, `continue-on-error`, and the job
+failing only when a step failed without it. It does so for every outcome of the
+job's needs (success, failure, cancelled, skipped, empty), so the aggregate can
+be the only required test context. It also evaluates each job's `if:` over
+every combination of the Changes outputs (a small evaluator that fails on any
+syntax it does not know), runs the real aggregate with the resulting results,
+and asserts that a pass never hides a skip the outputs did not allow. Changes'
+`full` output expression is evaluated over event and gate output as well. The
+aggregate rejects a `code` or `watch` output that is not exactly `true` or
+`false`, so an empty output never reads as "not needed". Its `if:` must stay
+`always()`: a job skipped by its `if:` reports success to required checks, and
+for the same reason no step of an aggregate job may carry an `if:` (an
+allowlist in the test, empty today). A process substitution (`<(...)`,
+`>(...)`) in a workflow `run:` script fails the test unless the command ends in
+a trailing shell comment `# process-substitution-ok: <reason>` outside quotes,
+because `pipefail` does not see a failure inside it. The scanner skips heredoc
+bodies, reads `$'...'` as quoted text, ends a comment inside `$(...)` at its
+line, and fails closed on a script that ends inside a quote, a substitution or
+a heredoc, or has a `<<` it cannot read. Shell arithmetic (`((`, `$((`, `$[`,
+`let`) is not supported in workflow scripts and is flagged, because bash falls
+back from it to subshells; use a variable or a script file. `${{ ... }}`
+expressions are skipped as a whole.
+`scripts/*.sh` is out of scope. One known case: `scripts/test-shard.sh` reads
+its file list via `< <(find ...)`, so a failing `find` gives a smaller shard
+instead of an error (an empty list still exits 1). The scripts run in the
+default shell of a step without `shell:` (`bash -e {0}`, no pipefail), and no
+aggregate step may set `shell:` or `working-directory:` nor the workflow `defaults.run`.
+`Builds` gets the same matrix and the same simulation, and the same
+self-cancel first step (with `actions: write`).
 
 ## flutter_soloud build guard
 
