@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:flutter/services.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
@@ -7,6 +8,7 @@ import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../widgets/route_dismissal.dart';
 import '../../widgets/named_popup_menu_button.dart';
 import '../chat_models.dart';
 import '../thread_export.dart';
@@ -294,8 +296,12 @@ Future<void> runThreadAction(
       await housekeeping.branch?.call(thread);
     case (ThreadAction.rename, final housekeeping?):
       if (thread.isCanonicalBotChat) return;
-      final title = await showAdaptiveDialog<String>(
+      final title = await showAppDialog<String>(
         context: context,
+        // A stray click on macOS must not throw away the typed title.
+        barrierDismissible: platformChromeOf(context) == PlatformChrome.macos
+            ? false
+            : null,
         builder: (_) => _RenameDialog(initial: thread.title),
       );
       if (title != null && title != thread.title) {
@@ -377,26 +383,37 @@ class _RenameDialogState extends State<_RenameDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AppAlertDialog(
-      title: const Text('Rename chat'),
-      content: AppDialogTextField(
-        controller: _controller,
-        onSubmitted: (_) => _save(),
-      ),
-      actions: [
-        AppDialogAction(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+    return Actions(
+      // The macOS barrier is inert here, which also turns Esc off; the other
+      // platforms keep what they had.
+      actions: platformChromeOf(context) == PlatformChrome.macos
+          ? {
+              DismissIntent: CallbackAction<DismissIntent>(
+                onInvoke: (_) => dismissRoute(context),
+              ),
+            }
+          : const {},
+      child: AppAlertDialog(
+        title: const Text('Rename chat'),
+        content: AppDialogTextField(
+          controller: _controller,
+          onSubmitted: (_) => _save(),
         ),
-        ListenableBuilder(
-          listenable: _controller,
-          builder: (context, _) => AppDialogAction(
-            isDefault: true,
-            onPressed: _controller.text.trim().isEmpty ? null : _save,
-            child: const Text('Save'),
+        actions: [
+          AppDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
           ),
-        ),
-      ],
+          ListenableBuilder(
+            listenable: _controller,
+            builder: (context, _) => AppDialogAction(
+              isDefault: true,
+              onPressed: _controller.text.trim().isEmpty ? null : _save,
+              child: const Text('Save'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

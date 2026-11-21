@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 
 import '../widgets/settings_scaffold.dart';
 import '../widgets/grouped_list.dart';
@@ -86,7 +87,7 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
   Future<void> _confirmAndInstall() async {
     final scan = _scan;
     if (scan == null) return;
-    final go = await showAdaptiveDialog<bool>(
+    final go = await showAppDialog<bool>(
       context: context,
       builder: (context) => AppAlertDialog(
         title: Text('Install ${widget.skill.name}?'),
