@@ -224,8 +224,8 @@ void main() {
   });
 
   // Near the width where the button stops fitting, the title is never squeezed
-  // below a quarter of the row (or its own width): the button's own padding
-  // and border count in the decision.
+  // below a quarter of the row (or its own width): only the button's own
+  // padding counts in the decision (its border is drawn inside the box).
   for (final (c, scale, from, to) in [
     (_macUpdates, 1.5, 440.0, 520.0),
     (_materialSetUp, 2.0, 300.0, 480.0),
