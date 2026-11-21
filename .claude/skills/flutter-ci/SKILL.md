@@ -36,8 +36,10 @@ production timeout or add retries to mask a test-only scheduling assumption.
 
 After a fix, run the affected tests and analysis, push to the existing PR and
 check that CI starts for the new commit. Preserve the user's preference about
-waiting; describe pending checks as pending, never as green. Keep auto-merge
-subject to the required checks.
+waiting; describe pending checks as pending, never as green. The orchestrator
+arms auto-merge once the PR is READY, and GitHub merges when the required
+checks are green on the head (`fleet-rules`). Never push to a PR with
+auto-merge armed.
 
 VM catalog tests do not establish that the catalog compiles for the web. A
 native plugin may export a browser stub without its native-only methods (for
@@ -77,13 +79,6 @@ runs for every full code PR (see "Label gate") in its own job, `Test native audi
 new path (a script it calls, a new asset folder), add it to the `builds` case in
 the `Changes` job, or PRs that touch only that path will skip the build.
 
-A pull request from the branch `release-please--branches--main--components--hermes-app`
-whose diff is exactly `CHANGELOG.md`, `.release-please-manifest.json` and a
-`pubspec.yaml` change of the `version:` line alone (one removed and one added
-line) gets `code`, `watch` and `builds` false, like docs-only. Any other file or
-pubspec line falls through to the normal classification. The branch name comes
-in through `HEAD_REF` (env), never interpolated into the script.
-
 `verify-hermes-api-client.yml`'s job is a required check, so the workflow has no
 `paths:` filter (a skipped required workflow stays pending). Its first step
 diffs the merge commit like `Changes` does and sets `steps.scope.outputs.run`;
@@ -103,6 +98,17 @@ and `verify-hermes-api-client.yml`). On main a run in progress finishes and a
 queued one is replaced by the newer one, so main's latest finished run is the
 one to read. `widgetbook.yml` still cancels on main: a Pages deploy is
 superseded by the next one.
+
+`Analyze & test` runs before the builds and cannot wait for them, so the `Builds`
+job (`needs` all five, `if: always()`) aggregates them. It fails when `Analyze &
+test` did not succeed. Only an explicit `false` in `code` or `builds` from
+`Changes` makes it expect every build `skipped`; any other value, empty
+included, expects `success` from every build, so it fails closed. A
+failed, cancelled or unexpectedly skipped build fails it, and the log names the
+job and what was expected. `Test native audio (Linux)` is left out on purpose
+(advisory). `Builds` is a required check only once the owner adds it to the
+ruleset; until then a red `Builds` does not block a merge, so read it before
+merging a PR that touches native code or `pubspec.yaml`.
 
 The platform builds must not rely on the default `success()`: it is false when
 any job upstream was skipped, and `Test watch core` is skipped on most pull
@@ -138,9 +144,10 @@ ci:full label when the PR is ready (fleet rules). Nothing merges until the
 tests ran on this head." It fails instead of skipping because a skipped
 required check counts as passing. It says the tests did not run on this head.
 It says nothing about whether the code is good, so never read it as a test
-failure and never as green. Exception: a docs-only PR (including the
-release-please PR when it changes only the changelog, the manifest and the
-version line) needs no tests, so it passes deferred and needs no label.
+failure and never as green. Exception: a docs-only PR (only `docs/`, `openspec/`
+and Markdown changed) needs no tests, so it passes deferred and needs no label.
+`Builds` fails the same way on a deferred run that wants builds (a pull request
+that needs none, such as a Dart-only one, fails on `Analyze & test` already).
 
 **How to add the label.** `gh pr edit <number> --add-label ci:full`, or on the
 PR page. Add it when the PR is ready, not before, unless a CI-only failure
@@ -163,7 +170,7 @@ run that passed is not turned red by a flaky API call).
 | labeled or unlabeled, other label, `ci:full` absent | none of ours | deferred | fails (tests deferred) |
 | labeled or unlabeled, other label, `ci:full` present | `ci:full` | full, queued behind a run in progress | tests' result |
 | base not `main` | any | full | tests' result |
-| release-please branch | any | full; docs-like runs nothing heavy | tests' result, or pass when docs-only |
+| release-please branch | any | full | tests' result |
 | push to main, `workflow_dispatch`, `merge_group` | n/a | full | tests' result |
 | gate error | n/a | full | tests' result |
 
@@ -188,10 +195,11 @@ filter by label name, and a skipped aggregate would count as passing. Labels
 other than `ci:full` that a bot adds belong on the PR before `ci:full` is
 added, so the labelling does not repeat a full run.
 
-**Release and bot PRs.** The release-please PR runs FULL by itself, without the
-label, when its diff is more than the changelog, the manifest and the version
-line (the fleet rules arm it only after its builds are green). When it is
-docs-like it passes without a label. Dependabot and other bots are treated like
+**Release and bot PRs.** The release-please PR is classified like any pull
+request (there is no docs-only special case: its `CHANGELOG.md` is Markdown,
+but the `pubspec.yaml` and manifest changes make it a code PR) and runs FULL by
+itself, without the label, because the gate recognises its branch name; the
+fleet rules arm it only after its builds are green. Dependabot and other bots are treated like
 any PR: deferred until someone adds `ci:full`.
 
 **Costs.** A PR needs one label action before it can merge. A deferred head has
@@ -213,9 +221,10 @@ the current head instead. A red or cancelled aggregate on the CURRENT head is
 real and stays red (a manual cancel, a timeout, a closed or merged pull
 request and a failed lookup all fall through to the normal checks; a refused
 cancel goes straight to `exit 1` and stays red). Push and dispatch runs skip
-the step. The job needs `actions: write`
-for the cancel, on top of `contents: read` and `pull-requests: read`: a
-permission increase, scoped to this one job.
+the step. The jobs `Analyze & test` and `Builds`
+need `actions: write` for the cancel, on top of `contents: read` and
+`pull-requests: read`: a permission increase, scoped to those two jobs. The
+step has its own `timeout-minutes`, like every job.
 
 **Aggregate tests.** `scripts/test_ci_aggregates.py` (PyYAML is installed in
 the `Test scripts` step; a missing module fails the test) runs the real `run:`
@@ -243,4 +252,36 @@ its file list via `< <(find ...)`, so a failing `find` gives a smaller shard
 instead of an error (an empty list still exits 1). The scripts run in GitHub's
 default shell (`bash --noprofile --norc -eo pipefail`), and no aggregate step
 may set `shell:` or `working-directory:` nor the workflow `defaults.run`.
-A `Builds` aggregate gets the same matrix when it exists.
+`Builds` gets the same matrix and the same simulation, and the same
+self-cancel first step (with `actions: write`).
+
+## PR policy and Review recorded
+
+`pr-policy.yml` runs `scripts/pr_policy.py` (`policy` and `review`) on every
+pull request. It triggers on `pull_request_target` and checks out the default
+branch only, so the gate is main's copy and a PR cannot edit its own checks (a
+PR that changes the workflow or the script is checked by main's version; the
+first live run of a change is the next PR after it merges). The script reads
+the event JSON and the changed files from the REST API and never touches the
+PR's code. Editing the PR body reruns it; a manual "Re-run jobs" reuses the old
+payload, so edit the body to re-check. Each failure names its fix:
+
+- Title: Conventional Commit, type from `release-please-config.json`.
+- Body sections: copy `.github/pull_request_template.md`; an HTML comment is not content, write "Nothing" where that is the answer.
+- `fix:` PRs: answer `What would have caught this earlier?` in `## Proof`, outside any comment.
+- Model names: drop them from title and body. Only `Co-Authored-By:` and `Claude-Session:` lines, the Claude Code footer and the session URL are skipped.
+- `pubspec.yaml` version: revert; release-please bumps it.
+- `docs/roadmap.md`: revert it and send the orchestrator the row. The check is by branch prefix (`claude/quirky-einstein-`), so it is loud, not tight.
+- "looks corrupted by a Markdown formatter": the hook turned `x86_64` into `x86*64` or unbalanced a backtick in CLAUDE.md or the roadmap. Restore the line from main and re-apply only your change, with a script instead of Edit/Write.
+- Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push. A block pasted with leading indentation is not recognised: paste it flush left.
+- "The PR head moved (<old> → <new>)": a push landed while the job ran, or the API lagged. The run on the newer head decides; re-run the job if that run is missing.
+- Known gap: model names inside inline code or fenced code are not checked.
+- TODO, TBD, n/a, `-` and `...` count as empty; "Nothing" is a valid answer for `## Not verified on a device`.
+
+Automation PRs from the same repository skip the title, body and review
+rules: the exact branches `chore/update-flutter`,
+`chore/update-hermes-contracts`, `chore/readme-screenshots-<run id>` and
+`release-please--branches--main--components--hermes-app`, and `dependabot/*`
+only with the author `dependabot[bot]`. A fork is never exempt.
+update-claude-plugins is not listed because its branch name lives in an
+external action; add it once a PR from it shows the name.

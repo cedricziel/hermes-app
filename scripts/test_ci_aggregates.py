@@ -10,6 +10,7 @@ expressions, so an edit to ci.yml is tested, not a copy of it.
 PyYAML is imported without a fallback: a missing module fails the test.
 """
 
+import copy
 import functools
 import json
 import os
@@ -113,6 +114,10 @@ def run_job(
         (stub / "gh").write_text(
             """#!/usr/bin/env bash
 echo "gh $*" >> "$STUB_LOG"
+if [ -z "$GH_TOKEN" ]; then
+  echo "gh: no GH_TOKEN" >&2
+  exit 4
+fi
 case "$*" in
   *"/actions/runs/"*"/cancel"*)
     [ "$STUB_CANCEL" = ok ] || exit 1
@@ -185,6 +190,9 @@ esac
                         GITHUB_OUTPUT=str(output_file),
                         GITHUB_STEP_SUMMARY=str(summary_file),
                     )
+                    # A token only from the step's own env, never the runner's.
+                    env.pop("GH_TOKEN", None)
+                    env.pop("GITHUB_TOKEN", None)
                     env.update(resolved_env)
                     script = work / f"step{index}.sh"
                     script.write_text(step["run"])
@@ -282,6 +290,14 @@ def aggregate(
 
 
 class AggregateStructure(unittest.TestCase):
+    def test_every_job_and_the_self_cancel_step_has_a_timeout(self):
+        for job_id, job in load_jobs().items():
+            self.assertIn("timeout-minutes", job, job_id)
+        for job_id in aggregate_jobs():
+            step = load_jobs()[job_id]["steps"][0]
+            self.assertEqual(step["id"], "superseded", job_id)
+            self.assertIn("timeout-minutes", step, job_id)
+
     def test_if_is_exactly_always_a_skipped_job_reports_success(self):
         # A job skipped by its `if:` reports success to required checks, so
         # `!cancelled()` would let a cancelled current-head run satisfy
@@ -547,19 +563,15 @@ class BuildsAggregate(unittest.TestCase):
                 "builds aggregate job absent from ci.yml (arrives with #1140)"
             )
 
-    def ctx(self, **overrides):
+    OUTPUTS = {"code": "true", "watch": "false", "full": "true", "builds": "true"}
+    DEFERRED_ERROR = "::error::" + DEFERRED_MESSAGE
+
+    def ctx(self, outputs=None, **overrides):
         needs = {name: "success" for name in self.job["needs"]}
         needs.update(overrides)
         return {
             "needs_results": needs,
-            "needs_outputs": {
-                "changes": {
-                    "code": "true",
-                    "watch": "false",
-                    "full": "true",
-                    "builds": "true",
-                }
-            },
+            "needs_outputs": {"changes": dict(self.OUTPUTS, **(outputs or {}))},
             "event_name": "pull_request",
             "base_ref": "main",
             "head_ref": "claude/feature",
@@ -578,6 +590,89 @@ class BuildsAggregate(unittest.TestCase):
                 with self.subTest(need=name, result=result):
                     ok, out, _ = run_job("builds", self.ctx(**{name: result}))
                     self.assertFalse(ok, out)
+
+    def skipped_builds(self, **overrides):
+        return {
+            name: "skipped"
+            for name in self.job["needs"]
+            if name.startswith("build-")
+        } | overrides
+
+    def test_deferred_run_that_wants_builds_fails_with_the_message(self):
+        ok, out, summary = run_job(
+            "builds",
+            self.ctx(
+                outputs={"full": "false"},
+                **self.skipped_builds(**{"analyze-and-test": "failure"}),
+            ),
+        )
+        self.assertFalse(ok)
+        self.assertIn(self.DEFERRED_ERROR, out)
+        self.assertIn(DEFERRED_MESSAGE, summary)
+
+    def test_deferred_run_fails_even_if_analyze_and_test_looks_green(self):
+        # Changes says deferred; a stale green aggregate must not pass it.
+        ok, out, _ = run_job(
+            "builds",
+            self.ctx(outputs={"full": "false"}, **self.skipped_builds()),
+        )
+        self.assertFalse(ok)
+        self.assertIn(self.DEFERRED_ERROR, out)
+
+    def test_deferred_by_the_fresh_labels_fails_through_analyze_and_test(self):
+        ok, out, _ = run_job(
+            "builds",
+            self.ctx(**self.skipped_builds(**{"analyze-and-test": "failure"})),
+        )
+        self.assertFalse(ok, out)
+
+    def test_deferred_run_that_needs_no_builds_still_fails_on_analyze_and_test(self):
+        ok, out, _ = run_job(
+            "builds",
+            self.ctx(
+                outputs={"full": "false", "builds": "false"},
+                **self.skipped_builds(**{"analyze-and-test": "failure"}),
+            ),
+        )
+        self.assertFalse(ok, out)
+
+    def test_docs_only_deferred_run_passes_with_the_builds_skipped(self):
+        ok, out, _ = run_job(
+            "builds",
+            self.ctx(
+                outputs={"code": "false", "builds": "false", "full": "false"},
+                **self.skipped_builds(),
+            ),
+        )
+        self.assertTrue(ok, out)
+
+    def test_dart_only_full_run_passes_with_the_builds_skipped(self):
+        ok, out, _ = run_job(
+            "builds",
+            self.ctx(outputs={"builds": "false"}, **self.skipped_builds()),
+        )
+        self.assertTrue(ok, out)
+
+    def test_builds_skipped_when_wanted_fails(self):
+        ok, out, _ = run_job("builds", self.ctx(**self.skipped_builds()))
+        self.assertFalse(ok, out)
+
+    def test_first_step_is_the_same_self_cancel_step_as_analyze_and_test(self):
+        jobs = load_jobs()
+        self.assertEqual(jobs["builds"]["steps"][0], jobs["analyze-and-test"]["steps"][0])
+        self.assertEqual(jobs["builds"]["permissions"]["actions"], "write")
+
+    def test_superseded_head_cancels_the_builds_run_too(self):
+        ctx = self.ctx(**{name: "cancelled" for name in self.job["needs"]})
+        ctx["head_sha"] = "head-a"
+        ok, out, _ = run_job(
+            "builds",
+            ctx,
+            pull={"head": {"sha": "head-b"}, "state": "open"},
+        )
+        self.assertFalse(ok, out)
+        self.assertIn("/actions/runs/42/cancel", out)
+        self.assertNotIn("(expected", out)
 
 
 def superseding_step():
@@ -708,6 +803,17 @@ class SupersededHead(unittest.TestCase):
             self.assertLess(
                 script.index("gh api"), script.index("python3 -I scripts/ci_gate.py")
             )
+
+    def test_without_a_token_the_step_fails_closed(self):
+        # No GH_TOKEN: the pull request lookup fails, so nothing is cancelled
+        # and the aggregate stays red on its cancelled needs, as today.
+        jobs = copy.deepcopy(load_jobs())
+        del jobs["analyze-and-test"]["steps"][0]["env"]["GH_TOKEN"]
+        with mock.patch(f"{__name__}.load_jobs", lambda: jobs):
+            ok, out, _ = self.run_case(pull=self.NEW_HEAD)
+        self.assertFalse(ok, out)
+        self.assertNotIn("/actions/runs/42/cancel", out)
+        self.assertIn("(expected", out, "the existing steps must have run")
 
     def test_empty_head_sha_is_not_superseded(self):
         ok, out, _ = self.run_case(pull=self.NEW_HEAD, head_sha="")
@@ -1239,6 +1345,23 @@ class NeedsGraphSimulation(unittest.TestCase):
                 and not ok
             ):
                 holes.append(f"fails although the run is full: {label}")
+            if (
+                name == "builds"
+                and outputs["code"] == "true"
+                and outputs["builds"] == "true"
+                and outputs["full"] == "true"
+                and outputs["watch"] in ("true", "false")
+                and (event == "push" or fresh != "none")
+                and not ok
+            ):
+                holes.append(f"Builds fails although the run is full: {label}")
+            if (
+                name == "builds"
+                and outputs["code"] == "false"
+                and outputs["watch"] == "false"
+                and not ok
+            ):
+                holes.append(f"Builds fails although the PR is docs-only: {label}")
             if (
                 name == "analyze-and-test"
                 and outputs["code"] == "false"

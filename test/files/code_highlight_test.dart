@@ -75,7 +75,7 @@ def hello(name):
   });
 
   group('tokenOfScope', () {
-    test('maps grammar scopes to the six palette tokens', () {
+    test('maps grammar scopes to the palette tokens', () {
       expect(tokenOfScope('keyword'), CodeToken.keyword);
       expect(tokenOfScope('string'), CodeToken.string);
       expect(tokenOfScope('comment'), CodeToken.comment);
@@ -83,8 +83,42 @@ def hello(name):
       expect(tokenOfScope('function.call'), CodeToken.function);
       expect(tokenOfScope('type.builtin'), CodeToken.type);
       expect(tokenOfScope('attribute'), CodeToken.type);
+      expect(tokenOfScope('property'), CodeToken.key);
+      expect(tokenOfScope('literal'), CodeToken.literal);
+      expect(tokenOfScope('punctuation'), CodeToken.punctuation);
       expect(tokenOfScope('operator'), isNull);
-      expect(tokenOfScope('punctuation'), isNull);
+    });
+  });
+
+  test('a fenced block inside Markdown is coloured by its own grammar', () {
+    const md = '# t\n\n```python\ndef f(): pass\n```\n';
+    final runs = highlightCode(md, 'markdown');
+    expect(_joined(runs), md);
+    expect(_of(runs, 'def'), CodeToken.keyword);
+  });
+
+  test('python3 and shellscript are aliases', () {
+    expect(hasCodeGrammar('python3'), isTrue);
+    expect(hasCodeGrammar('shellscript'), isTrue);
+  });
+
+  group('JSON', () {
+    const json = '{"name": "x", "n": 3, "ok": true, "z": null}';
+
+    test('keys, strings, numbers, literals and punctuation are told apart', () {
+      final runs = highlightCode(json, 'json');
+      expect(_joined(runs), json);
+      expect(_of(runs, '"name"'), CodeToken.key);
+      expect(_of(runs, '"x"'), CodeToken.string);
+      expect(_of(runs, '3'), CodeToken.number);
+      expect(_of(runs, 'true'), CodeToken.literal);
+      expect(_of(runs, 'null'), CodeToken.literal);
+      expect(_of(runs, '{'), CodeToken.punctuation);
+    });
+
+    test('a bracket inside a string stays part of the string', () {
+      final runs = highlightCode('{"a": "[x]"}', 'json');
+      expect(_of(runs, '"[x]"'), CodeToken.string);
     });
   });
 

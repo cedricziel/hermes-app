@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:macos_window_utils/widgets/transparent_macos_sidebar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../l10n/l10n.dart';
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
@@ -193,8 +194,8 @@ class _MacSidebarScopeState extends State<MacSidebarScope> {
           MacCommand.toggleSidebar: MacCommandHandler(
             () => _controller.toggle(compact: compact),
             title: _controller.hidden(compact: compact)
-                ? 'Show Sidebar'
-                : 'Hide Sidebar',
+                ? context.l10n.macosMenuShowSidebar
+                : context.l10n.macosMenuHideSidebar,
           ),
         },
         child: child!,

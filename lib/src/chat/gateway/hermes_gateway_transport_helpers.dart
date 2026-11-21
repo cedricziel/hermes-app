@@ -38,6 +38,8 @@ final class _Resumed {
     this.idle,
     this.ended = const [],
     this.giveUp = false,
+    this.gone,
+    this.turnEnded = false,
     this.outcome = 'replayed',
     this.replayedCount = 0,
     this.truncated = false,
@@ -61,6 +63,24 @@ final class _Resumed {
   /// turn ended without a reply to show, so the reply fails after [ended].
   final bool giveUp;
 
+  /// Set with [giveUp] when `session.resume` refused with a final error (see
+  /// [isFinalResumeRefusal]); [failure] is what the reply then fails with.
+  final GatewaySessionGone? gone;
+
+  /// Set with [giveUp] when the server answered and the turn is over with no
+  /// reply to show: there is nothing to wait for, unlike a connection that
+  /// could not be made.
+  final bool turnEnded;
+
+  /// What the reply fails with once it gives up. A plain
+  /// [GatewayConnectionClosed] means the server was not reached: the turn may
+  /// still be running, and the reply is picked up again later.
+  GatewayConnectionClosed get failure =>
+      gone ??
+      (turnEnded
+          ? GatewayTurnEnded(restarted: epochChanged)
+          : const GatewayReplyLost());
+
   /// How the reconnect went, for telemetry: `replayed` when the gap was filled
   /// from the server's ring, `rest_refetch` when the reply had to be rebuilt
   /// from the resume snapshot or the stored thread, `ended` when the turn was
@@ -81,6 +101,14 @@ final class _Resumed {
     unawaited(watch?.close());
     unawaited(idle?.close());
   }
+}
+
+/// What one reconnect attempt learned about the server.
+class _Attempt {
+  /// The server answered a call of the attempt, with a result or an error. An
+  /// attempt that never got there (no socket, no answer in time) is not held
+  /// against the reconnect's attempts.
+  bool answered = false;
 }
 
 /// A [StreamIterator] that counts the frames it handed out.

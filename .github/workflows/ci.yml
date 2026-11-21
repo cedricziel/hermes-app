@@ -29,19 +29,16 @@ jobs:
   # on a pull request run only when a path they read changed (native folders,
   # packages, dependencies, assets, the packaging script, fastlane or this
   # workflow): Dart under lib/ and test/ is analyzed and tested on every code
-  # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to `builds` below.
-  # The release-please pull request (its branch, CHANGELOG.md, the version line
-  # of pubspec.yaml and .release-please-manifest.json, nothing else) counts as
-  # docs-only too: it is rebuilt after every merge to main and each rebuild
-  # cancelled a full test run, while the code it carries was already tested on
-  # main. Its tag run builds everything in release-please.yml.
+  # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to the `builds` case in the filter below.
   #
   # Label gate: the heavy jobs (shards, coverage, native audio, watch test and
   # the platform builds) also need `full`, decided by scripts/ci_gate.py. A pull
-  # request is FULL with the label `ci:full`, from the release-please branch, or
-  # when its base is not main; push, manual and merge-group runs are always
-  # FULL; any doubt is FULL. Otherwise it is DEFERRED, and `Analyze & test`
-  # fails (unless the pull request is docs-only) until the label is added.
+  # request is FULL with the label `ci:full`, from the release-please branch
+  # (it is classified like any pull request, but runs FULL by itself), or when
+  # its base is not main; push, manual and merge-group runs are always FULL;
+  # any doubt is FULL. Otherwise it is DEFERRED, and `Analyze & test` fails
+  # (unless the pull request is docs-only) until the label is added; `Builds`
+  # fails with it when builds are wanted.
   changes:
     name: Changes
     runs-on: ubuntu-latest
@@ -66,7 +63,6 @@ jobs:
         id: filter
         env:
           EVENT_NAME: ${{ github.event_name }}
-          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
           code=true
@@ -88,18 +84,8 @@ jobs:
                 code=false
                 watch=false
                 builds=false
-                # Stays true only while every file is one a release-please
-                # pull request changes.
-                release=false
-                if [ "$HEAD_REF" = release-please--branches--main--components--hermes-app ]; then
-                  release=true
-                fi
                 while IFS= read -r -d '' file; do
                   echo "changed: $file"
-                  case "$file" in
-                    CHANGELOG.md | pubspec.yaml | .release-please-manifest.json) ;;
-                    *) release=false ;;
-                  esac
                   case "$file" in
                     docs/* | openspec/* | *.md) ;;
                     *) code=true ;;
@@ -114,26 +100,6 @@ jobs:
                     scripts/package-linux.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
                   esac
                 done < "$list"
-                if [ "$release" = true ]; then
-                  # pubspec.yaml may change on its version line only: each
-                  # side has exactly one `version: ` line and the files are
-                  # equal without it. Compared as files, not as a diff, so no
-                  # content line can hide behind diff markers. Any failed
-                  # command makes the condition false (fail closed).
-                  base_versions="$(git show HEAD^1:pubspec.yaml 2>/dev/null | grep -c '^version: ' || true)"
-                  head_versions="$(git show HEAD:pubspec.yaml 2>/dev/null | grep -c '^version: ' || true)"
-                  if [ "$base_versions" = 1 ] && [ "$head_versions" = 1 ] \
-                    && diff -q \
-                      <(git show HEAD^1:pubspec.yaml | sed '/^version: /d') \
-                      <(git show HEAD:pubspec.yaml | sed '/^version: /d') > /dev/null 2>&1; then # process-substitution-ok: both files were already shown above with grep -c (a failure there leaves the count at 0 and the condition false), and a differing or failed diff only makes the pull request normal
-                    echo "release-please pull request: treated as docs-only"
-                    code=false
-                    watch=false
-                    builds=false
-                  else
-                    echo "::warning::release-please branch changes more than the version; classifying normally"
-                  fi
-                fi
               fi
             fi
           fi
@@ -318,6 +284,7 @@ jobs:
       # success. SUPERSEDED_WAIT (seconds, default 60) is for the tests only.
       - name: Cancel when this head is superseded
         id: superseded
+        timeout-minutes: 3
         env:
           EVENT_NAME: ${{ github.event_name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -536,6 +503,14 @@ jobs:
       - name: Build simulator app with share extension and watch app
         run: flutter build ios --simulator --debug --no-codesign -d "${{ steps.simulator.outputs.udid }}"
 
+      # The Runner's unit tests (the watch relay). The build above generated
+      # the Flutter package the workspace needs.
+      - name: Runner unit tests
+        run: |
+          xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -only-testing:RunnerTests -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+
       # The project-level Release and Profile settings say iphoneos only, and a
       # watch target that inherits that is archived with the iOS SDK. No job
       # here archives for a device, so check the setting directly. It needs the
@@ -597,7 +572,7 @@ jobs:
         run: flutter pub get
 
       - name: Test native voice codecs
-        run: flutter test test/voice/native_voice_player_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
+        run: flutter test test/voice/native_voice_player_test.dart test/voice/native_voice_player_session_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
 
   # Builds the release bundle and packages it exactly as the release workflow
   # does, so a broken tarball or .deb shows up on the PR instead of at release.
@@ -633,3 +608,107 @@ jobs:
 
       - name: Inspect the .deb
         run: dpkg-deb --info build/linux-dist/*.deb && dpkg-deb --contents build/linux-dist/*.deb
+
+  # Aggregates the five platform builds. They run after Analyze & test, so that
+  # check cannot wait for them. A build that was needed must have succeeded; one
+  # that was not (docs-only or Dart-only pull request) must show as skipped. A
+  # failed or cancelled build, or an unexpected skip, fails this check. The
+  # advisory native audio test is left out on purpose.
+  builds:
+    name: Builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [changes, analyze-and-test, build-android, build-windows, build-ios, build-macos, build-linux]
+    if: always()
+    # actions: write lets the first step cancel the run of a superseded head.
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    steps:
+      # The same step as in Analyze & test: a run whose head a newer push
+      # replaced cancels itself, so its cancelled needs do not post a red
+      # check on the old head. Everything else stays as it was: the
+      # same head (a manual cancel or a timeout), a closed or merged pull
+      # request, an API failure and an unreadable answer all fall through to
+      # the checks below, which fail on a cancelled need. This step never exits
+      # 0 once it decided "superseded": it waits for the cancel and fails if the
+      # run is still alive, and no step after it runs. It decides inside the
+      # script, with no step-level `if:`, so a skipped step cannot read as
+      # success. SUPERSEDED_WAIT (seconds, default 60) is for the tests only.
+      - name: Cancel when this head is superseded
+        id: superseded
+        timeout-minutes: 3
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          if [ "$EVENT_NAME" != pull_request ]; then
+            exit 0
+          fi
+          current_head=""
+          state=""
+          if response="$(gh api "repos/$REPO/pulls/$PR_NUMBER")" \
+            && parsed="$(printf '%s' "$response" | python3 -I -c 'import json, sys; d = json.load(sys.stdin); print(d["head"]["sha"], d["state"])')"; then
+            read -r current_head state <<< "$parsed"
+          fi
+          superseded=false
+          if [ -n "$HEAD_SHA" ] && [ -n "$current_head" ] && [ "$state" = open ] && [ "$current_head" != "$HEAD_SHA" ]; then
+            superseded=true
+          fi
+          if [ "$superseded" = true ]; then
+            echo "::notice::A newer head replaced this one; cancelling this run."
+            if gh api -X POST "repos/$REPO/actions/runs/$RUN_ID/cancel" > /dev/null; then
+              sleep "${SUPERSEDED_WAIT:-60}"
+            else
+              echo "::warning::The cancel request was refused; this run stays red."
+            fi
+            exit 1
+          fi
+          exit 0
+
+      - name: Check results
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          ANALYZE_AND_TEST: ${{ needs.analyze-and-test.result }}
+          ANDROID: ${{ needs.build-android.result }}
+          WINDOWS: ${{ needs.build-windows.result }}
+          IOS: ${{ needs.build-ios.result }}
+          MACOS: ${{ needs.build-macos.result }}
+          LINUX: ${{ needs.build-linux.result }}
+          NEED_CODE: ${{ needs.changes.outputs.code }}
+          NEED_BUILDS: ${{ needs.changes.outputs.builds }}
+          FULL_AT_CHANGES: ${{ needs.changes.outputs.full }}
+        run: |
+          fail=0
+          expect() {
+            echo "$1: $2 (expected $3)"
+            [ "$2" = "$3" ] || fail=1
+          }
+          # A deferred run (no ci:full label, see Changes) did not build: say so
+          # instead of passing. It must not skip, because a skipped required
+          # check counts as passing. A pull request that needs no builds passes
+          # deferred, like a docs-only one.
+          if [ "$NEED_CODE" != false ] && [ "$NEED_BUILDS" != false ] && [ "$FULL_AT_CHANGES" = false ]; then
+            msg="Tests deferred: add the ci:full label when the PR is ready (fleet rules). Nothing merges until the tests ran on this head."
+            echo "::error::$msg"
+            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          expect changes "$CHANGES" success
+          if [ "$ANALYZE_AND_TEST" != success ]; then
+            echo "analyze-and-test: $ANALYZE_AND_TEST (expected success); the builds could not run because Analyze & test did not succeed"
+            exit 1
+          fi
+          # Fail closed: only an explicit "false" from Changes means no build was needed.
+          if [ "$NEED_CODE" = false ] || [ "$NEED_BUILDS" = false ]; then want=skipped; else want=success; fi
+          expect build-android "$ANDROID" "$want"
+          expect build-windows "$WINDOWS" "$want"
+          expect build-ios "$IOS" "$want"
+          expect build-macos "$MACOS" "$want"
+          expect build-linux "$LINUX" "$want"
+          exit $fail

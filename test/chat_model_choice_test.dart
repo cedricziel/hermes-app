@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/profiles/widgets/recipient_picker.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -217,7 +220,7 @@ void main() {
       server
           .requestsTo('GET', '/api/model/options')
           .map((r) => r.queryParameters['profile']),
-      ['default', 'work', 'work'],
+      ['default', 'default', 'work', 'work'],
     );
   });
 
@@ -286,5 +289,220 @@ void main() {
       server.requestsTo('GET', '/api/model/auxiliary').single.queryParameters,
       {'profile': 'work'},
     );
+  });
+
+  group('follows the server default', () {
+    void serverDefault(String model, {String profile = 'default'}) => server.on(
+      'GET',
+      '/api/model/options',
+      _options(model),
+      query: {'profile': profile},
+    );
+
+    int reads() => server.requestsTo('GET', '/api/model/options').length;
+
+    Finder shows(String model) =>
+        find.descendant(of: pill, matching: find.text(model));
+
+    // One profile, so New chat starts a chat without asking who it is for.
+    void onlyDefaultProfile() => server.on(
+      'GET',
+      '/api/profiles',
+      profileListBody([profileRow(name: 'default', isDefault: true)]),
+    );
+
+    Future<void> newChat(WidgetTester tester, {bool settle = true}) async {
+      await tester.tap(find.text('New chat').first);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(RecipientPicker),
+          matching: find.text('default'),
+        ),
+      );
+      if (settle) await tester.pumpAndSettle();
+      if (!settle) await tester.pump();
+    }
+
+    Future<void> background(WidgetTester tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a new chat shows the changed default and sends no model', (
+      tester,
+    ) async {
+      onlyDefaultProfile();
+      await pumpChat(tester);
+      await openThread(tester, 'default');
+      expect(shows('claude-opus-4'), findsOneWidget);
+
+      serverDefault('deepseek-v3');
+      await newChat(tester);
+
+      expect(shows('deepseek-v3'), findsOneWidget);
+      await send(tester, 'hi');
+      expect(transport.sends.single.model, isNull);
+      finishReply();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('returning from the background shows the changed default', (
+      tester,
+    ) async {
+      addTearDown(
+        () => tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        ),
+      );
+      await pumpChat(tester);
+      expect(shows('claude-opus-4'), findsOneWidget);
+
+      serverDefault('deepseek-v3');
+      await background(tester);
+
+      expect(shows('deepseek-v3'), findsOneWidget);
+    });
+
+    testWidgets('an explicit pick survives a new chat and a resume', (
+      tester,
+    ) async {
+      addTearDown(
+        () => tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        ),
+      );
+      onlyDefaultProfile();
+      await pumpChat(tester);
+      await pick(tester, ['model-anthropic-claude-haiku-4-5']);
+
+      serverDefault('deepseek-v3');
+      await newChat(tester);
+      await background(tester);
+
+      expect(shows('claude-haiku-4-5'), findsOneWidget);
+      await send(tester, 'hi');
+      expect(
+        transport.sends.single.model,
+        const ModelChoice('anthropic', 'claude-haiku-4-5'),
+      );
+      finishReply();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a failed refresh keeps the last options and shows no error', (
+      tester,
+    ) async {
+      onlyDefaultProfile();
+      await pumpChat(tester);
+      await openThread(tester, 'default');
+
+      server.on(
+        'GET',
+        '/api/model/options',
+        {'detail': 'boom'},
+        status: 500,
+        query: {'profile': 'default'},
+      );
+      final before = reads();
+      await newChat(tester);
+
+      expect(reads(), before + 1);
+      expect(shows('claude-opus-4'), findsOneWidget);
+      expect(find.text('Could not load models'), findsNothing);
+      expect(find.text('Loading models'), findsNothing);
+    });
+
+    testWidgets('an answer that arrives after a profile switch is dropped', (
+      tester,
+    ) async {
+      await pumpChat(tester);
+      await openThread(tester, 'default');
+      final held = Completer<void>();
+      server.onRequest('GET', '/api/model/options', (_) async {
+        await held.future;
+        return (status: 200, body: _options('deepseek-v3'));
+      }, query: {'profile': 'default'});
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      activate('work');
+      await openSidebarMore(tester);
+      await tester.tap(find.text('Profiles'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Work assistant'));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      held.complete();
+      await tester.pumpAndSettle();
+
+      expect(shows('claude-sonnet-4-5'), findsOneWidget);
+      expect(find.text('deepseek-v3'), findsNothing);
+    });
+
+    testWidgets('rapid new chats read the options once at a time', (
+      tester,
+    ) async {
+      onlyDefaultProfile();
+      await pumpChat(tester);
+      await openThread(tester, 'default');
+      final held = Completer<void>();
+      server.onRequest('GET', '/api/model/options', (_) async {
+        await held.future;
+        return (status: 200, body: _options('deepseek-v3'));
+      }, query: {'profile': 'default'});
+      final before = reads();
+
+      for (var i = 0; i < 3; i++) {
+        await newChat(tester, settle: false);
+      }
+      expect(reads(), before + 1);
+      held.complete();
+      await tester.pumpAndSettle();
+
+      expect(shows('deepseek-v3'), findsOneWidget);
+    });
+
+    testWidgets('opening the picker reads again and shows a new model '
+        'without closing it', (tester) async {
+      await pumpChat(tester);
+      final before = reads();
+      server.on(
+        'GET',
+        '/api/model/options',
+        _options('claude-opus-4')
+          ..['providers'] = [
+            {
+              'slug': 'anthropic',
+              'name': 'Anthropic',
+              'authenticated': true,
+              'models': ['claude-opus-4', 'claude-haiku-4-5', 'deepseek-v3'],
+            },
+          ],
+        query: {'profile': 'default'},
+      );
+      await tester.tap(pill);
+      await tester.pump();
+      expect(find.text('Model'), findsOneWidget);
+      expect(
+        find.byKey(const Key('model-anthropic-deepseek-v3')),
+        findsNothing,
+      );
+      await tester.pumpAndSettle();
+      expect(reads(), before + 1);
+
+      expect(find.text('Model'), findsOneWidget);
+      expect(
+        find.byKey(const Key('model-anthropic-deepseek-v3')),
+        findsOneWidget,
+      );
+    });
   });
 }

@@ -28,7 +28,7 @@ Secret/sudo answers, arbitrary Yes/No chat text as approval, adding or broadenin
 
 ### Security and privacy
 
-The watch receives no tokens. Sensitive text remains outside telemetry. Logout and identity change clear private watch state. App Lock additionally clears and blocks inline request details and answer drafts. Existing secure-storage and concurrent-401 behavior remain intact. Request detail changes do not expand the surface snapshot.
+The watch receives no tokens. Sensitive text remains outside telemetry. Logout and identity change clear private watch state. The phone's App Lock does not gate inline request details or answer drafts, because the watch has its own lock. Existing secure-storage and concurrent-401 behavior remain intact. Request detail changes do not expand the surface snapshot.
 
 ### Observability
 

@@ -10,6 +10,10 @@
   "@commonOn": {
     "description": "A setting that is switched on."
   },
+  "commonRefreshing": "Refreshing",
+  "@commonRefreshing": {
+    "description": "Spoken state of a Refresh button while its reload is running."
+  },
   "commonRetry": "Retry",
   "@commonRetry": {
     "description": "Button that tries a failed load again."
@@ -97,6 +101,30 @@
   "chatNoticeStopCommandElsewhere": "Hermes took a message in another chat as a stop command. Nothing was sent; the words wait in that chat.",
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
+  },
+  "chatReplyInterruptedGone": "This reply is no longer on the server.",
+  "@chatReplyInterruptedGone": {
+    "description": "Note under a reply that was settled because the server answered that it no longer has the turn or its session (and did not restart). Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyInterruptedRestarted": "Hermes restarted. This reply was interrupted.",
+  "@chatReplyInterruptedRestarted": {
+    "description": "Note under a reply that was settled because Hermes restarted while it was being written and did not bring the turn back. Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyReconnectIdle": "Couldn't reconnect. Hermes may still be working on this. Trying again when you come back.",
+  "@chatReplyReconnectIdle": {
+    "description": "Note under a reply whose connection was lost and could not be won back after many tries. Nothing is being tried any more; the reply is picked up again when the app comes to the front or the chat is opened. Wraps at any text size."
+  },
+  "chatReplyReconnecting": "Connection lost. Reconnecting…",
+  "@chatReplyReconnecting": {
+    "description": "Note under a reply whose connection to Hermes dropped while the answer may still be coming. Not an error: the reply keeps what it had and goes on when the connection is back. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyUnconfirmed": "Couldn't confirm how this reply ended. It may have finished; check the conversation first.",
+  "@chatReplyUnconfirmed": {
+    "description": "Note under a reply that was settled because the server could not be made to say whether its turn still runs or how it ended (its answers were refused, or it went silent for longer than any live turn). Nothing was resent. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatScrollToLatest": "Scroll to latest message",
+  "@chatScrollToLatest": {
+    "description": "Accessibility label of the round button in the chat list that jumps to the newest message."
   },
   "chatSessionExportConfirmButton": "Export",
   "@chatSessionExportConfirmButton": {
@@ -585,6 +613,22 @@
     "description": "Note under the process output cards in the Activity panel when older cards were dropped."
   },
   "@@x-area-chat/attachments": "",
+  "chatAttachmentsMenuTitle": "Attach",
+  "@chatAttachmentsMenuTitle": {
+    "description": "Title of the attach menu when it opens as a dialog on wide screens and macOS."
+  },
+  "chatAttachmentsOriginCamera": "Take a photo",
+  "@chatAttachmentsOriginCamera": {
+    "description": "Attach menu row that opens the camera."
+  },
+  "chatAttachmentsOriginFiles": "Choose files",
+  "@chatAttachmentsOriginFiles": {
+    "description": "Attach menu row that opens the file picker."
+  },
+  "chatAttachmentsOriginPhotos": "Photo library",
+  "@chatAttachmentsOriginPhotos": {
+    "description": "Attach menu row that opens the photo library."
+  },
 
   "@@x-area-chat/checkpoints": "",
   "chatCheckpointsChangesBarCount": "{count, plural, =1{1 file differs} other{{count} files differ}}",
@@ -1001,6 +1045,10 @@
   "chatCheckpointsPageRefresh": "Refresh",
   "@chatCheckpointsPageRefresh": {
     "description": "Bar button of the File checkpoints page that reads the list again."
+  },
+  "chatCheckpointsPageRefreshTooltip": "Refresh ⌘R",
+  "@chatCheckpointsPageRefreshTooltip": {
+    "description": "Hover text of the File checkpoints page Refresh button on a Mac; names the key."
   },
   "chatCheckpointsPageRestoring": "Restoring files…",
   "@chatCheckpointsPageRestoring": {
@@ -2022,6 +2070,30 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
+  "@chatWidgetsHistoryEarlierFailedTitle": {
+    "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
+  },
+  "chatWidgetsHistoryEarlierRetryLabel": "Retry loading earlier messages",
+  "@chatWidgetsHistoryEarlierRetryLabel": {
+    "description": "Screen reader label of the Retry button in the row shown when a chat's earlier messages could not be loaded."
+  },
+  "chatWidgetsHistoryEarlierRetrying": "Retrying…",
+  "@chatWidgetsHistoryEarlierRetrying": {
+    "description": "Shown beside a small spinner in place of the Retry button while a chat's earlier messages are read again."
+  },
+  "chatWidgetsHistoryFailedDetail": "Check your connection, then try again.",
+  "@chatWidgetsHistoryFailedDetail": {
+    "description": "Detail under the title shown when a stored chat's messages could not be loaded; the Retry button sits below it."
+  },
+  "chatWidgetsHistoryFailedTitle": "Could not load the messages",
+  "@chatWidgetsHistoryFailedTitle": {
+    "description": "Title shown in a stored chat's transcript when reading its messages failed."
+  },
+  "chatWidgetsHistoryLoading": "Loading chat",
+  "@chatWidgetsHistoryLoading": {
+    "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
+  },
   "chatWidgetsProgramConfirmCancel": "Cancel",
   "@chatWidgetsProgramConfirmCancel": {
     "description": "Cancel button of the program stop confirmation."
@@ -2119,6 +2191,101 @@
   "chatWidgetsProgramStopButton": "Stop program",
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
+  },
+  "chatWidgetsToolValueCopied": "Copied",
+  "@chatWidgetsToolValueCopied": {
+    "description": "Shown for two seconds on the Copy button of a tool call's input or result after it was copied, and announced to screen readers."
+  },
+  "chatWidgetsToolValueCopyError": "Copy error",
+  "@chatWidgetsToolValueCopyError": {
+    "description": "Accessible name of the button that copies a tool call's error text exactly as it was sent."
+  },
+  "chatWidgetsToolValueCopyInput": "Copy input",
+  "@chatWidgetsToolValueCopyInput": {
+    "description": "Accessible name of the button that copies a tool call's input exactly as it was sent."
+  },
+  "chatWidgetsToolValueCopyResult": "Copy result",
+  "@chatWidgetsToolValueCopyResult": {
+    "description": "Accessible name of the button that copies a tool call's result exactly as it was sent."
+  },
+  "chatWidgetsToolValueHiddenChar": "hidden character {code}",
+  "@chatWidgetsToolValueHiddenChar": {
+    "description": "What a screen reader says for a boxed escape in a tool call's text, a character that hides or reorders text. {code} is its code point, such as U+202E.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsToolValueItems": "{count, plural, =1{1 item} other{{count} items}}",
+  "@chatWidgetsToolValueItems": {
+    "description": "Summary of a JSON array in the tree view of a tool call's input or result. {count} is how many entries it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsToolValueKeys": "{count, plural, =1{1 key} other{{count} keys}}",
+  "@chatWidgetsToolValueKeys": {
+    "description": "Summary of a JSON object in the tree view of a tool call's input or result. {count} is how many keys it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsToolValueLineBreak": "line break",
+  "@chatWidgetsToolValueLineBreak": {
+    "description": "What a screen reader says for the boxed line break inside a string of the tree view of a tool call's JSON."
+  },
+  "chatWidgetsToolValueNoticeTooDeepForTree": "Too deeply nested for the tree view.",
+  "@chatWidgetsToolValueNoticeTooDeepForTree": {
+    "description": "Muted line under a tool call's JSON that is nested too deep for the tree view; it is shown as coloured text only."
+  },
+  "chatWidgetsToolValueNoticeTooLongForTree": "Too long for the tree view.",
+  "@chatWidgetsToolValueNoticeTooLongForTree": {
+    "description": "Muted line under a tool call's JSON that is too long for the tree view; it is shown as coloured text only."
+  },
+  "chatWidgetsToolValueNoticeTooLongToColour": "Too long to colour. Shown as plain text.",
+  "@chatWidgetsToolValueNoticeTooLongToColour": {
+    "description": "Muted line under a tool call's text that is too long to be coloured; it is shown as plain text."
+  },
+  "chatWidgetsToolValueShowAsText": "Show as text",
+  "@chatWidgetsToolValueShowAsText": {
+    "description": "Accessible name of the view switch option that shows a tool call's JSON as the text it was sent as."
+  },
+  "chatWidgetsToolValueShowAsTree": "Show as tree",
+  "@chatWidgetsToolValueShowAsTree": {
+    "description": "Accessible name of the view switch option that shows a tool call's JSON as a collapsible tree."
+  },
+  "chatWidgetsToolValueShowErrorAs": "Show error as",
+  "@chatWidgetsToolValueShowErrorAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's error."
+  },
+  "chatWidgetsToolValueShowInputAs": "Show input as",
+  "@chatWidgetsToolValueShowInputAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's input."
+  },
+  "chatWidgetsToolValueShowResultAs": "Show result as",
+  "@chatWidgetsToolValueShowResultAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's result."
+  },
+  "chatWidgetsToolValueTagJson": "JSON",
+  "@chatWidgetsToolValueTagJson": {
+    "description": "Muted tag beside the label of a tool call's input or result that is JSON."
+  },
+  "chatWidgetsToolValueTagPython": "Python",
+  "@chatWidgetsToolValueTagPython": {
+    "description": "Muted tag beside the label of a tool call's input or result that is Python code."
+  },
+  "chatWidgetsToolValueViewText": "Text",
+  "@chatWidgetsToolValueViewText": {
+    "description": "Option of the view switch that shows a tool call's JSON as the text it was sent as."
+  },
+  "chatWidgetsToolValueViewTree": "Tree",
+  "@chatWidgetsToolValueViewTree": {
+    "description": "Option of the view switch that shows a tool call's JSON as a collapsible tree."
   },
 
   "@@x-area-core": "",
@@ -2611,6 +2778,10 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanRefreshAction": "Refresh",
+  "@kanbanRefreshAction": {
+    "description": "Name of the Refresh button on the board and the workers page; reads the list again."
+  },
 
   "@@x-area-live_activities": "",
 
@@ -2619,20 +2790,419 @@
   "@macosCompressConversation": {
     "description": "Mac menu bar, Chat menu item: asks to summarize the open chat's earlier messages to free up context; opens a confirmation. Title case, keep it short."
   },
+  "macosMenuAbout": "About Hermes",
+  "@macosMenuAbout": {
+    "description": "Hermes menu: opens the About dialog."
+  },
+  "macosMenuArchive": "Archive",
+  "@macosMenuArchive": {
+    "description": "Chat menu: archives the open chat."
+  },
+  "macosMenuBack": "Back",
+  "@macosMenuBack": {
+    "description": "View menu: leaves the settings page in front."
+  },
+  "macosMenuChangeFolder": "Change Folder…",
+  "@macosMenuChangeFolder": {
+    "description": "Chat menu: moves the open chat to another working folder; opens a picker."
+  },
+  "macosMenuChat": "Chat",
+  "@macosMenuChat": {
+    "description": "Title of the Chat menu in the menu bar."
+  },
+  "macosMenuCloseWindow": "Close Window",
+  "@macosMenuCloseWindow": {
+    "description": "File menu: closes the window in front."
+  },
+  "macosMenuConnectionDetails": "Connection Details",
+  "@macosMenuConnectionDetails": {
+    "description": "Hermes menu: opens the connection page."
+  },
+  "macosMenuCopy": "Copy",
+  "@macosMenuCopy": {
+    "description": "Edit menu: copies the selection."
+  },
+  "macosMenuCopyTranscript": "Copy Transcript",
+  "@macosMenuCopyTranscript": {
+    "description": "Chat menu: copies the open chat as text."
+  },
+  "macosMenuCut": "Cut",
+  "@macosMenuCut": {
+    "description": "Edit menu: cuts the selection."
+  },
+  "macosMenuDelete": "Delete…",
+  "@macosMenuDelete": {
+    "description": "Chat menu: deletes the open chat after a confirmation."
+  },
+  "macosMenuEdit": "Edit",
+  "@macosMenuEdit": {
+    "description": "Title of the Edit menu in the menu bar."
+  },
+  "macosMenuEnclosingFolder": "Enclosing Folder",
+  "@macosMenuEnclosingFolder": {
+    "description": "View menu: goes up one folder on the Files page."
+  },
+  "macosMenuExportChat": "Export Chat as JSON…",
+  "@macosMenuExportChat": {
+    "description": "Chat menu: saves the open chat as a JSON file; a dialog follows."
+  },
+  "macosMenuFile": "File",
+  "@macosMenuFile": {
+    "description": "Title of the File menu in the menu bar; the system name."
+  },
+  "macosMenuFind": "Find…",
+  "@macosMenuFind": {
+    "description": "Chat menu: focuses the chat search field."
+  },
+  "macosMenuForward": "Forward",
+  "@macosMenuForward": {
+    "description": "View menu: goes forward in the navigation history."
+  },
+  "macosMenuHelp": "Help",
+  "@macosMenuHelp": {
+    "description": "Title of the Help menu in the menu bar; the system name."
+  },
+  "macosMenuHermesHelp": "Hermes Help",
+  "@macosMenuHermesHelp": {
+    "description": "Help menu: opens the help page in the browser."
+  },
+  "macosMenuHideSidebar": "Hide Sidebar",
+  "@macosMenuHideSidebar": {
+    "description": "View menu while the chat list is shown: hides it."
+  },
+  "macosMenuNewChat": "New Chat",
+  "@macosMenuNewChat": {
+    "description": "File menu: starts a new chat."
+  },
+  "macosMenuNewSchedule": "New Schedule",
+  "@macosMenuNewSchedule": {
+    "description": "File menu while the Schedules page is in front: starts a new scheduled task."
+  },
+  "macosMenuNewTask": "New Task",
+  "@macosMenuNewTask": {
+    "description": "File menu while the Kanban board is in front: starts a new task."
+  },
+  "macosMenuNextChange": "Next Change",
+  "@macosMenuNextChange": {
+    "description": "View menu: shows the next changed file."
+  },
+  "macosMenuOpenInNewWindow": "Open in New Window",
+  "@macosMenuOpenInNewWindow": {
+    "description": "File menu: opens the chat in a window of its own."
+  },
+  "macosMenuPaste": "Paste",
+  "@macosMenuPaste": {
+    "description": "Edit menu: pastes the clipboard."
+  },
+  "macosMenuPin": "Pin",
+  "@macosMenuPin": {
+    "description": "Chat menu: pins the open chat to the top of the list."
+  },
+  "macosMenuPreviousChange": "Previous Change",
+  "@macosMenuPreviousChange": {
+    "description": "View menu: shows the previous changed file."
+  },
+  "macosMenuRedo": "Redo",
+  "@macosMenuRedo": {
+    "description": "Edit menu: redoes the last undone edit."
+  },
+  "macosMenuReload": "Reload",
+  "@macosMenuReload": {
+    "description": "View menu: reads the page in front again."
+  },
+  "macosMenuRename": "Rename…",
+  "@macosMenuRename": {
+    "description": "Chat menu: renames the open chat."
+  },
+  "macosMenuSelectAll": "Select All",
+  "@macosMenuSelectAll": {
+    "description": "Edit menu: selects all text in the focused field."
+  },
+  "macosMenuSettings": "Settings…",
+  "@macosMenuSettings": {
+    "description": "Hermes menu: opens Settings."
+  },
+  "macosMenuShowFiles": "Show Files",
+  "@macosMenuShowFiles": {
+    "description": "View menu: opens the Files page of the chat."
+  },
+  "macosMenuShowSidebar": "Show Sidebar",
+  "@macosMenuShowSidebar": {
+    "description": "View menu while the chat list is hidden: shows it."
+  },
+  "macosMenuSignOut": "Sign Out…",
+  "@macosMenuSignOut": {
+    "description": "Hermes menu: signs out after a confirmation."
+  },
+  "macosMenuUndo": "Undo",
+  "@macosMenuUndo": {
+    "description": "Edit menu: undoes the last edit."
+  },
+  "macosMenuUnpin": "Unpin",
+  "@macosMenuUnpin": {
+    "description": "Chat menu while the chat is pinned: removes the pin."
+  },
+  "macosMenuView": "View",
+  "@macosMenuView": {
+    "description": "Title of the View menu in the menu bar; the system name."
+  },
+  "macosMenuWindow": "Window",
+  "@macosMenuWindow": {
+    "description": "Title of the Window menu in the menu bar; the system name."
+  },
 
   "@@x-area-mcp": "",
 
   "@@x-area-memory": "",
+  "memoryAllMemories": "All memories",
+  "@memoryAllMemories": {
+    "description": "Link on an open memory entry that goes back to the list of entries."
+  },
+  "memoryApproveAll": "Approve all",
+  "@memoryApproveAll": {
+    "description": "Action of the Waiting for you page: approves every listed change."
+  },
+  "memoryChangeTitle": "Change",
+  "@memoryChangeTitle": {
+    "description": "Title of the page of one waiting change whose kind is not known yet."
+  },
+  "memoryChooseProfile": "Choose memory profile",
+  "@memoryChooseProfile": {
+    "description": "Accessible name of the menu that switches the profile whose memory is shown."
+  },
+  "memoryDeleteConfirmAction": "Delete permanently",
+  "@memoryDeleteConfirmAction": {
+    "description": "Destructive button of the delete-memory confirmation. Keep it short."
+  },
+  "memoryDeleteConfirmMessage": "This removes the selected memory permanently. It cannot be restored from the app.",
+  "@memoryDeleteConfirmMessage": {
+    "description": "Body of the delete-memory confirmation."
+  },
+  "memoryDeleteConfirmTitle": "Permanently delete this memory?",
+  "@memoryDeleteConfirmTitle": {
+    "description": "Title of the confirmation before one memory entry is deleted."
+  },
+  "memoryEntryPlace": "Entry {index} of {count} in {tab} ({file})",
+  "@memoryEntryPlace": {
+    "description": "Position line of an open memory entry. {index} and {count} are numbers, {tab} the name of the memory file and {file} its file name.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      },
+      "tab": {
+        "type": "String"
+      },
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryLeaveDiscard": "Discard and leave",
+  "@memoryLeaveDiscard": {
+    "description": "Button of the leave confirmation: throws away the unsaved draft and goes on. Keep it short."
+  },
+  "memoryLeaveKeepDraft": "Keep draft",
+  "@memoryLeaveKeepDraft": {
+    "description": "Button of the leave confirmation: stays on the memory with the draft. Keep it short."
+  },
+  "memoryLeaveMessagePending": "The request may still complete in the original profile. Leaving discards this draft.",
+  "@memoryLeaveMessagePending": {
+    "description": "Body of the leave confirmation while a save or delete request has no answer yet."
+  },
+  "memoryLeaveMessageUnsaved": "Leaving discards your unsaved draft. Any unconfirmed change may still have completed.",
+  "@memoryLeaveMessageUnsaved": {
+    "description": "Body of the leave confirmation for an unsaved draft."
+  },
+  "memoryLeaveTitle": "Leave this memory?",
+  "@memoryLeaveTitle": {
+    "description": "Title of the confirmation shown when the user leaves a memory entry that has an unsaved draft."
+  },
+  "memoryRefresh": "Refresh",
+  "@memoryRefresh": {
+    "description": "Reads the memory entries or the waiting changes again."
+  },
+  "memoryRejectAllAction": "Reject all",
+  "@memoryRejectAllAction": {
+    "description": "Destructive button of the reject-all confirmation. Keep it short."
+  },
+  "memoryRejectAllMessage": "{count, plural, =1{Hermes drops the 1 change listed here. This cannot be undone.} other{Hermes drops the {count} changes listed here. This cannot be undone.}}",
+  "@memoryRejectAllMessage": {
+    "description": "Body of the confirmation before all waiting memory changes are rejected. {count} is how many are listed.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryRejectAllTitle": "Reject all changes?",
+  "@memoryRejectAllTitle": {
+    "description": "Title of the confirmation before all waiting memory changes are rejected."
+  },
+  "memoryResetAboutYou": "Reset about you",
+  "@memoryResetAboutYou": {
+    "description": "Button of the reset dialog: erases the file about the user. Keep it short."
+  },
+  "memoryResetAgentNotes": "Reset agent notes",
+  "@memoryResetAgentNotes": {
+    "description": "Button of the reset dialog: erases the agent's own notes file. Keep it short."
+  },
+  "memoryResetBoth": "Reset both",
+  "@memoryResetBoth": {
+    "description": "Button of the reset dialog: erases both memory files. Keep it short."
+  },
+  "memoryResetMessage": "Hermes forgets what you pick, on the server, for the {profile} profile. This can't be undone.",
+  "@memoryResetMessage": {
+    "description": "Body of the memory reset dialog. {profile} is the profile name.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "memoryResetTitle": "Reset memory?",
+  "@memoryResetTitle": {
+    "description": "Title of the dialog that asks which memory files to erase."
+  },
+  "memoryTabAboutYou": "About you",
+  "@memoryTabAboutYou": {
+    "description": "Name of the memory file about the user, used as a tab and in the position line."
+  },
+  "memoryTabAgentNotes": "Agent notes",
+  "@memoryTabAgentNotes": {
+    "description": "Name of the memory file with the agent's own notes, used as a tab and in the position line."
+  },
+  "memoryTitle": "Memory",
+  "@memoryTitle": {
+    "description": "Title of the Memory screen."
+  },
+  "memoryWaitingTitle": "Waiting for you",
+  "@memoryWaitingTitle": {
+    "description": "Title of the page that lists the memory and skill changes Hermes holds for approval."
+  },
 
   "@@x-area-messaging": "",
 
   "@@x-area-models": "",
+  "modelsPickerDefaultUses": "Uses {model}",
+  "@modelsPickerDefaultUses": {
+    "description": "Subtitle of the model picker's default row: the model a chat without an explicit pick uses. {model} is the server's model id.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPickerEffortHeader": "Reasoning effort",
+  "@modelsPickerEffortHeader": {
+    "description": "Header over the reasoning effort pills of the model picker. Drawn in capitals on iOS and Mac."
+  },
+  "modelsPickerNoMatch": "No models match “{query}”",
+  "@modelsPickerNoMatch": {
+    "description": "Shown in the model picker when the search matches no model. {query} is what was typed.",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPickerSearchHint": "Search models",
+  "@modelsPickerSearchHint": {
+    "description": "Hint of the model picker's search field, which also names the field."
+  },
+  "modelsPickerTitle": "Model",
+  "@modelsPickerTitle": {
+    "description": "Title of the model picker, and its name for a screen reader, when the caller gives none."
+  },
+  "modelsPickerUseDefault": "Use the profile’s default",
+  "@modelsPickerUseDefault": {
+    "description": "Title of the first row of the model picker, which clears an explicit pick so the profile's default model is used."
+  },
+  "modelsPillChoose": "Choose a model",
+  "@modelsPillChoose": {
+    "description": "Label of the composer's model pill when no model is picked and the chat has no profile default to name."
+  },
+  "modelsPillDiscoveryUnavailable": "{label}. Model discovery is unavailable.",
+  "@modelsPillDiscoveryUnavailable": {
+    "description": "Screen reader name of the model pill when the server cannot list models. {label} is what the pill shows.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPillLoadFailed": "Could not load models",
+  "@modelsPillLoadFailed": {
+    "description": "Label of the model pill when loading the model list failed."
+  },
+  "modelsPillLoading": "Loading models",
+  "@modelsPillLoading": {
+    "description": "Label of the model pill while the model list loads."
+  },
+  "modelsPillProfileDefault": "Profile default",
+  "@modelsPillProfileDefault": {
+    "description": "Label of the model pill when the profile's default model is used."
+  },
+  "modelsPillRetry": "Retry",
+  "@modelsPillRetry": {
+    "description": "Visible label of the model pill's button that loads the model list again."
+  },
+  "modelsPillRetryModels": "Retry models",
+  "@modelsPillRetryModels": {
+    "description": "Screen reader name of the model pill's retry button."
+  },
+  "modelsPillSelectedModel": "{label}, selected model {model}",
+  "@modelsPillSelectedModel": {
+    "description": "Screen reader name of the model pill while loading or after a failure: what it shows and the model that stays selected. {model} is the server's model id.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsPillSetUp": "Set up a model",
+  "@modelsPillSetUp": {
+    "description": "Label of the model pill when no provider offers a model yet; it opens model setup."
+  },
+  "modelsSetupBody": "Configure a provider and model for the {profile} profile on your Hermes server. Run this command on that server, then check again:",
+  "@modelsSetupBody": {
+    "description": "Explains how to set up a model for a profile; the server command follows below it.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work",
+        "description": "The name of the profile to set up, or default."
+      }
+    }
+  },
+  "modelsSetupCheckAgain": "Check again",
+  "@modelsSetupCheckAgain": {
+    "description": "Button that closes the model setup dialog so the composer reads the model options again."
+  },
+  "modelsSetupTitle": "Set up a model",
+  "@modelsSetupTitle": {
+    "description": "Title of the dialog that tells how to configure a model on the server."
+  },
 
   "@@x-area-navigation": "",
 
   "@@x-area-network": "",
 
   "@@x-area-notifications": "",
+  "notificationsDeniedWarning": "Turn on notifications for Hermes in system settings.",
+  "@notificationsDeniedWarning": {
+    "description": "Warning under the Notify me switch after the system refused notifications; the Open settings button sits under it. Keep it to two lines."
+  },
+  "notificationsOpenSettings": "Open settings",
+  "@notificationsOpenSettings": {
+    "description": "Button under the Notify me switch's warning after the system refused notifications; opens the app's notification settings in the system."
+  },
   "notificationsReplyFootnote": "On iPhone, iPad and Mac you can reply to a finished reply from its notification. Not while App Lock is on.",
   "@notificationsReplyFootnote": {
     "description": "Last sentence of the footer under the Notify me switch, shown on iOS and macOS: a finished reply's notification has a Reply button, and it is not offered while App Lock is on."
@@ -2641,6 +3211,10 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsRefreshAction": "Refresh",
+  "@pluginsRefreshAction": {
+    "description": "Name of the Mac toolbar button that reads the open Plugins tab again."
+  },
 
   "@@x-area-profiles": "",
   "profilesSoulBannerCheck": "Check",
@@ -4193,8 +4767,16 @@
   "@@x-area-quick_panel": "",
 
   "@@x-area-schedules": "",
+  "schedulesRefreshAction": "Refresh",
+  "@schedulesRefreshAction": {
+    "description": "Name of the Refresh button of the Schedules bar; reads the jobs again."
+  },
 
   "@@x-area-screens": "",
+  "screensRefreshAction": "Refresh",
+  "@screensRefreshAction": {
+    "description": "Name of the Refresh button of the Connection page; reads the server status again."
+  },
 
   "@@x-area-server_care": "",
   "serverCareAccountButtonLabel": "Account",
@@ -5745,6 +6327,10 @@
   "@settingsAboutHermes": {
     "description": "Settings row that opens the About dialog."
   },
+  "settingsAboutLicenses": "Open source licenses",
+  "@settingsAboutLicenses": {
+    "description": "About dialog row that opens the list of open source licenses."
+  },
   "settingsAboutTitle": "About",
   "@settingsAboutTitle": {
     "description": "Title of the About dialog."
@@ -5919,12 +6505,484 @@
   "@settingsTitle": {
     "description": "Title of the settings dialog."
   },
+  "settingsVoiceCalls": "Voice calls",
+  "@settingsVoiceCalls": {
+    "description": "Settings row, and the title of its dialog, for turning voice calls on or off on this device. Not shown on iOS."
+  },
 
   "@@x-area-share": "",
 
   "@@x-area-shell": "",
 
   "@@x-area-skills": "",
+  "skillsCuratorAnnounceFinished": "Curator pass finished",
+  "@skillsCuratorAnnounceFinished": {
+    "description": "Announced by a screen reader once when a pass ends well."
+  },
+  "skillsCuratorAnnounceResumed": "Resumed",
+  "@skillsCuratorAnnounceResumed": {
+    "description": "Announced by a screen reader once after scheduled passes were switched back on."
+  },
+  "skillsCuratorAnnounceStarted": "Curator pass started",
+  "@skillsCuratorAnnounceStarted": {
+    "description": "Announced by a screen reader once when a pass starts."
+  },
+  "skillsCuratorCantReach": "Can't reach Hermes",
+  "@skillsCuratorCantReach": {
+    "description": "Title of the banner and of error lines when the request never left the device."
+  },
+  "skillsCuratorCantReachDetail": "Check that the server is on and that you're connected to its network.",
+  "@skillsCuratorCantReachDetail": {
+    "description": "Detail of the offline banner."
+  },
+  "skillsCuratorCheckStatus": "Check status",
+  "@skillsCuratorCheckStatus": {
+    "description": "Button that reads the server once to see whether a pass runs."
+  },
+  "skillsCuratorCheckedNothing": "No pass is running now.",
+  "@skillsCuratorCheckedNothing": {
+    "description": "Line after Check status found nothing running."
+  },
+  "skillsCuratorCheckedNothingSince": "No pass is running now. Last pass or first check {when}.",
+  "@skillsCuratorCheckedNothingSince": {
+    "description": "Line after Check status found nothing running. {when} is a relative time such as \"3 days ago\".",
+    "placeholders": {
+      "when": {
+        "type": "String",
+        "example": "3 days ago"
+      }
+    }
+  },
+  "skillsCuratorChecking": "Checking…",
+  "@skillsCuratorChecking": {
+    "description": "Status text of the Run now row while Check status is reading the server."
+  },
+  "skillsCuratorConfirmArchived": "Archived skills are moved aside on the server, not deleted. This app can't undo a pass.",
+  "@skillsCuratorConfirmArchived": {
+    "description": "Line under the items of the run confirmation: nothing is deleted, and the app cannot bring a skill back."
+  },
+  "skillsCuratorConfirmBuiltins": "Include skills that came with Hermes.",
+  "@skillsCuratorConfirmBuiltins": {
+    "description": "Item shown when the server's config says built-in skills are pruned too."
+  },
+  "skillsCuratorConfirmBuiltinsMaybe": "May include skills that came with Hermes.",
+  "@skillsCuratorConfirmBuiltinsMaybe": {
+    "description": "Same item when the config could not be read."
+  },
+  "skillsCuratorConfirmCancel": "Cancel",
+  "@skillsCuratorConfirmCancel": {
+    "description": "Default button of the run confirmation; sends nothing."
+  },
+  "skillsCuratorConfirmConsolidate": "Merge and rewrite skills, and update scheduled tasks that use them.",
+  "@skillsCuratorConfirmConsolidate": {
+    "description": "Item shown when the server's config says a pass consolidates skills."
+  },
+  "skillsCuratorConfirmConsolidateMaybe": "May also merge and rewrite skills, and update scheduled tasks that use them.",
+  "@skillsCuratorConfirmConsolidateMaybe": {
+    "description": "Same item when the config could not be read."
+  },
+  "skillsCuratorConfirmConsolidateOff": "It archives unused skills only.",
+  "@skillsCuratorConfirmConsolidateOff": {
+    "description": "Line shown in place of the merge item when the config says a pass does not consolidate."
+  },
+  "skillsCuratorConfirmLead": "A pass reviews the skills on the server. It may:",
+  "@skillsCuratorConfirmLead": {
+    "description": "Lead sentence above the list of what a pass may do."
+  },
+  "skillsCuratorConfirmPlaceholders": "Replace <name> with the skill and add your profile in place of <profile>.",
+  "@skillsCuratorConfirmPlaceholders": {
+    "description": "Line under the restore command; the angle-bracket words are placeholders that stay as typed in the command."
+  },
+  "skillsCuratorConfirmRestoreLead": "To bring an archived skill back, run this on the server:",
+  "@skillsCuratorConfirmRestoreLead": {
+    "description": "Lead above the copyable restore command."
+  },
+  "skillsCuratorConfirmRollbackNote": "Merged or rewritten skills can only be rolled back on the server.",
+  "@skillsCuratorConfirmRollbackNote": {
+    "description": "Added to the merge item, because restore does not undo a merge or rewrite."
+  },
+  "skillsCuratorConfirmRun": "Run now",
+  "@skillsCuratorConfirmRun": {
+    "description": "Button that starts a pass."
+  },
+  "skillsCuratorConfirmSkipped": "Pinned skills, skills a scheduled task uses and skills installed from the hub are skipped.",
+  "@skillsCuratorConfirmSkipped": {
+    "description": "Line saying what a pass leaves alone."
+  },
+  "skillsCuratorConfirmStale": "Mark skills stale after {stale, plural, =1{1 day} other{{stale} days}} without use and archive them after {archive, plural, =1{1 day} other{{archive} days}}.",
+  "@skillsCuratorConfirmStale": {
+    "description": "First item: the two thresholds, in days, from the server's status.",
+    "placeholders": {
+      "stale": {
+        "type": "int"
+      },
+      "archive": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorConfirmStaleAgentMade": "Only skills recorded as agent-made count.",
+  "@skillsCuratorConfirmStaleAgentMade": {
+    "description": "Second sentence of the first item."
+  },
+  "skillsCuratorConfirmStaleUnknown": "Mark skills stale and archive them after the set number of days.",
+  "@skillsCuratorConfirmStaleUnknown": {
+    "description": "First item when the server gave no thresholds."
+  },
+  "skillsCuratorConfirmTitle": "Run the curator now?",
+  "@skillsCuratorConfirmTitle": {
+    "description": "Title of the run confirmation."
+  },
+  "skillsCuratorCouldntConfirm": "Couldn't confirm.",
+  "@skillsCuratorCouldntConfirm": {
+    "description": "Warning line when Check status got no answer."
+  },
+  "skillsCuratorElsewhere": "A pass is running on this server",
+  "@skillsCuratorElsewhere": {
+    "description": "Subtitle of the disabled Run now row when a pass the app did not start is running."
+  },
+  "skillsCuratorElsewhereNote": "This app didn't start it, so it shows no output.",
+  "@skillsCuratorElsewhereNote": {
+    "description": "Neutral line under the disabled Run now row."
+  },
+  "skillsCuratorEveryDays": "{count, plural, =1{Every day} other{Every {count} days}}",
+  "@skillsCuratorEveryDays": {
+    "description": "Interval value for a whole number of days.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorEveryHour": "Every hour",
+  "@skillsCuratorEveryHour": {
+    "description": "Interval value: one hour."
+  },
+  "skillsCuratorEveryHours": "Every {count} hours",
+  "@skillsCuratorEveryHours": {
+    "description": "Interval value for a number of hours that is not a whole number of days.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorFailed": "Failed",
+  "@skillsCuratorFailed": {
+    "description": "Result headline when the pass ended with an error."
+  },
+  "skillsCuratorFinished": "The pass finished",
+  "@skillsCuratorFinished": {
+    "description": "Result headline when the pass ended."
+  },
+  "skillsCuratorFinishedNote": "See Hermes' output for what changed.",
+  "@skillsCuratorFinishedNote": {
+    "description": "Line under the result headline."
+  },
+  "skillsCuratorFooter": "Hermes tidies skills the agent made. Unused ones are marked stale, then archived, never deleted. Passes also start by themselves on the server, whether or not this app is open.",
+  "@skillsCuratorFooter": {
+    "description": "Footer under the curator section. A pass is one run of the curator."
+  },
+  "skillsCuratorLastRan": "Last pass or first check",
+  "@skillsCuratorLastRan": {
+    "description": "Row title. Hermes also sets this time the first time it sees a profile, so it can be a first check rather than a pass."
+  },
+  "skillsCuratorLastRanExact": "{date}, {time}",
+  "@skillsCuratorLastRanExact": {
+    "description": "The exact time of the last pass, shown under the row when tapped.",
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "d MMM y",
+        "isCustomDateFormat": "true"
+      },
+      "time": {
+        "type": "DateTime",
+        "format": "Hm"
+      }
+    }
+  },
+  "skillsCuratorLastRanFootnote": "Hermes also sets this time the first time it sees a profile, without a pass.",
+  "@skillsCuratorLastRanFootnote": {
+    "description": "Muted line directly under the last pass row."
+  },
+  "skillsCuratorLastRanNever": "Hasn't run yet",
+  "@skillsCuratorLastRanNever": {
+    "description": "Value of the last pass row when there is no time yet."
+  },
+  "skillsCuratorLastRanNeverNote": "The first scheduled pass waits one interval ({length}).",
+  "@skillsCuratorLastRanNeverNote": {
+    "description": "Subtitle when the curator has not run. {length} is the interval, such as \"7 days\".",
+    "placeholders": {
+      "length": {
+        "type": "String",
+        "example": "7 days"
+      }
+    }
+  },
+  "skillsCuratorLastRanNeverNoteUnknown": "The first scheduled pass waits one interval.",
+  "@skillsCuratorLastRanNeverNoteUnknown": {
+    "description": "Subtitle when the curator has not run and the interval is unknown."
+  },
+  "skillsCuratorLastRanSemantics": "Last ran {relative}, {exact}",
+  "@skillsCuratorLastRanSemantics": {
+    "description": "Accessibility label of the last pass row. {relative} is a relative time such as \"3 days ago\", {exact} an exact date and time.",
+    "placeholders": {
+      "relative": {
+        "type": "String",
+        "example": "3 days ago"
+      },
+      "exact": {
+        "type": "String",
+        "example": "12 November 2026 at 09:12"
+      }
+    }
+  },
+  "skillsCuratorLeaveNote": "Leaving this screen doesn't stop it.",
+  "@skillsCuratorLeaveNote": {
+    "description": "Subtitle under the running pass."
+  },
+  "skillsCuratorLengthDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@skillsCuratorLengthDays": {
+    "description": "A length of time in days, inside a sentence.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorLengthHours": "{count, plural, =1{1 hour} other{{count} hours}}",
+  "@skillsCuratorLengthHours": {
+    "description": "A length of time in hours, inside a sentence.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorLoadFailed": "Couldn't load the curator",
+  "@skillsCuratorLoadFailed": {
+    "description": "Title of the banner for any other failure reading the curator."
+  },
+  "skillsCuratorLoading": "Loading the curator",
+  "@skillsCuratorLoading": {
+    "description": "Accessibility label of the loading placeholder."
+  },
+  "skillsCuratorLostStart": "We couldn't tell if it started. Nothing was sent again. It may be running on the server.",
+  "@skillsCuratorLostStart": {
+    "description": "Warning line when no answer came to the request that starts a pass."
+  },
+  "skillsCuratorLostState": "Couldn't confirm the curator's state",
+  "@skillsCuratorLostState": {
+    "description": "Title of the banner when the status read got no answer in time."
+  },
+  "skillsCuratorNoOutput": "Hermes printed no output.",
+  "@skillsCuratorNoOutput": {
+    "description": "Muted line instead of the output tile when the pass printed nothing."
+  },
+  "skillsCuratorNotStartedFailed": "Nothing started.",
+  "@skillsCuratorNotStartedFailed": {
+    "description": "Error line when Hermes could not start the pass; Hermes' own text follows it."
+  },
+  "skillsCuratorNotStartedOffline": "Can't reach Hermes. Nothing started.",
+  "@skillsCuratorNotStartedOffline": {
+    "description": "Error line when the request to start a pass never left the device."
+  },
+  "skillsCuratorNotStartedProfile": "This profile no longer exists. Nothing started.",
+  "@skillsCuratorNotStartedProfile": {
+    "description": "Error line when the profile was deleted before the pass."
+  },
+  "skillsCuratorNotStartedRefused": "Nothing started. Hermes needs to know which profile to run.",
+  "@skillsCuratorNotStartedRefused": {
+    "description": "Error line when Hermes refused a run for lack of a profile."
+  },
+  "skillsCuratorOffNote": "Turned off in the server's config. Change it there to use the curator.",
+  "@skillsCuratorOffNote": {
+    "description": "Subtitle of the Status row when the curator is switched off in the server config (value Off)."
+  },
+  "skillsCuratorOutputCleared": "Output cleared when the app locked.",
+  "@skillsCuratorOutputCleared": {
+    "description": "One muted line shown where the output was, after App Lock cleared the lines for good."
+  },
+  "skillsCuratorOutputEarlier": "{count, plural, =1{1 earlier line not shown} other{{count} earlier lines not shown}}",
+  "@skillsCuratorOutputEarlier": {
+    "description": "First line of the output box when older lines were left out.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorOutputFootnote": "Hermes keeps one log for every profile on this server, so these lines can include another profile's run.",
+  "@skillsCuratorOutputFootnote": {
+    "description": "Footnote under the output box."
+  },
+  "skillsCuratorOutputHidden": "Hidden while the app is locked or away",
+  "@skillsCuratorOutputHidden": {
+    "description": "One muted line shown in place of the output while App Lock covers the app or it is inactive."
+  },
+  "skillsCuratorPause": "Pause scheduled passes",
+  "@skillsCuratorPause": {
+    "description": "Title of the switch that pauses scheduled curator passes."
+  },
+  "skillsCuratorPauseFailed": "Couldn't change it",
+  "@skillsCuratorPauseFailed": {
+    "description": "Error line under the pause switch when Hermes refused the change."
+  },
+  "skillsCuratorPauseFailedWith": "Couldn't change it: {detail}",
+  "@skillsCuratorPauseFailedWith": {
+    "description": "Error line under the pause switch when Hermes refused the change and said why. {detail} is Hermes' own text.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "example": "value is not allowed"
+      }
+    }
+  },
+  "skillsCuratorPauseLost": "Couldn't confirm whether this changed.",
+  "@skillsCuratorPauseLost": {
+    "description": "Warning line under the pause switch when no answer came; the switch is back at its last known value."
+  },
+  "skillsCuratorPauseNote": "Run now still works while paused.",
+  "@skillsCuratorPauseNote": {
+    "description": "Subtitle of the pause switch."
+  },
+  "skillsCuratorPauseSaving": "Saving…",
+  "@skillsCuratorPauseSaving": {
+    "description": "Subtitle of the pause switch while the change is being sent."
+  },
+  "skillsCuratorPauseUnreadable": "Couldn't read the pause setting.",
+  "@skillsCuratorPauseUnreadable": {
+    "description": "Muted line shown in place of the pause switch when the server did not say whether passes are paused."
+  },
+  "skillsCuratorPausedNote": "Scheduled passes are paused.",
+  "@skillsCuratorPausedNote": {
+    "description": "Subtitle of the Status row while paused."
+  },
+  "skillsCuratorProfileGone": "This profile no longer exists",
+  "@skillsCuratorProfileGone": {
+    "description": "Title of the banner when the profile was deleted; also a line under the pause switch."
+  },
+  "skillsCuratorProgressLost": "Couldn't confirm how the pass is going.",
+  "@skillsCuratorProgressLost": {
+    "description": "Warning line when following a running pass failed."
+  },
+  "skillsCuratorRunAgain": "Run again",
+  "@skillsCuratorRunAgain": {
+    "description": "Title of the row that starts another pass after one ended."
+  },
+  "skillsCuratorRunNow": "Run now",
+  "@skillsCuratorRunNow": {
+    "description": "Title of the row that starts a curator pass."
+  },
+  "skillsCuratorRunNowNote": "Hermes reviews skills on the server.",
+  "@skillsCuratorRunNowNote": {
+    "description": "Subtitle of the Run now row."
+  },
+  "skillsCuratorRunNowRunning": "Run now, running",
+  "@skillsCuratorRunNowRunning": {
+    "description": "Accessibility label of the Run now row while a pass runs."
+  },
+  "skillsCuratorRunning": "Running on the server…",
+  "@skillsCuratorRunning": {
+    "description": "Status text of the Run now row while a pass runs."
+  },
+  "skillsCuratorSchedule": "Schedule",
+  "@skillsCuratorSchedule": {
+    "description": "Row title: how often scheduled passes run."
+  },
+  "skillsCuratorShowOutput": "Show output",
+  "@skillsCuratorShowOutput": {
+    "description": "Label of the closed disclosure that opens the lines Hermes printed."
+  },
+  "skillsCuratorShowOutputCount": "Show output · {count, plural, =1{1 line} other{{count} lines}}",
+  "@skillsCuratorShowOutputCount": {
+    "description": "Label of the closed disclosure that opens the lines Hermes printed, with how many there are. The disclosure state is added by the system.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorShowOutputEarlier": "Show output of the earlier pass",
+  "@skillsCuratorShowOutputEarlier": {
+    "description": "Label of the closed disclosure that opens the lines of a pass that is no longer shown as running."
+  },
+  "skillsCuratorStartedAt": "A pass started on {date} at {time}",
+  "@skillsCuratorStartedAt": {
+    "description": "Subtitle when a newer last pass time was seen. {date} is a date such as 12 Nov 2026, {time} a time of day.",
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "d MMM y",
+        "isCustomDateFormat": "true"
+      },
+      "time": {
+        "type": "DateTime",
+        "format": "Hm"
+      }
+    }
+  },
+  "skillsCuratorStatus": "Status",
+  "@skillsCuratorStatus": {
+    "description": "Row title: whether the curator is on."
+  },
+  "skillsCuratorStatusActive": "Active",
+  "@skillsCuratorStatusActive": {
+    "description": "Value of the Status row when the curator is on and scheduled passes run."
+  },
+  "skillsCuratorStatusPaused": "Paused",
+  "@skillsCuratorStatusPaused": {
+    "description": "Value of the Status row when scheduled passes are paused."
+  },
+  "skillsCuratorStatusUnknown": "Unknown",
+  "@skillsCuratorStatusUnknown": {
+    "description": "Value shown in muted text when the server did not say. Used for several rows."
+  },
+  "skillsCuratorStillRunning": "Still running on the server.",
+  "@skillsCuratorStillRunning": {
+    "description": "Neutral line after 15 minutes of following; the app stopped following but not the pass."
+  },
+  "skillsCuratorStopped": "Hermes stopped, but the app can't tell whether the pass finished.",
+  "@skillsCuratorStopped": {
+    "description": "Neutral line when the server restarted during a pass and gave no exit code."
+  },
+  "skillsCuratorTitle": "Skill curator",
+  "@skillsCuratorTitle": {
+    "description": "Header of the section on the Skills screen that shows the curator, the Hermes job that tidies unused skills."
+  },
+  "skillsCuratorTryAgain": "Try again",
+  "@skillsCuratorTryAgain": {
+    "description": "Button that reads or starts again."
+  },
+  "skillsCuratorUnavailable": "The server's curator could not load",
+  "@skillsCuratorUnavailable": {
+    "description": "Title of the banner when the server answers that its curator module failed to load."
+  },
+  "skillsCuratorUnchecked": "Couldn't confirm whether a pass is running.",
+  "@skillsCuratorUnchecked": {
+    "description": "Warning line when the first read of the running state failed."
+  },
+  "skillsCuratorUnconfirmed": "Couldn't confirm it finished.",
+  "@skillsCuratorUnconfirmed": {
+    "description": "Warning line when the server shows a newer time but no proof the pass ended."
+  },
+  "skillsCuratorUnused": "Unused skills",
+  "@skillsCuratorUnused": {
+    "description": "Row title: when unused skills are marked stale and archived."
+  },
+  "skillsCuratorUnusedNote": "Marked stale after {stale, plural, =1{1 day} other{{stale} days}}, archived after {archive}.",
+  "@skillsCuratorUnusedNote": {
+    "description": "Subtitle of the unused skills row: after how many days unused skills are marked stale, and after how many (a bare number) archived.",
+    "placeholders": {
+      "stale": {
+        "type": "int"
+      },
+      "archive": {
+        "type": "int"
+      }
+    }
+  },
 
   "@@x-area-spotlight": "",
 
@@ -7112,6 +8170,14 @@
   "@voiceCallUnmute": {
     "description": "Label of the round control that unmutes the microphone."
   },
+  "voiceCallsDeviceNote": "New on this platform: calls stay off until you turn them on.",
+  "@voiceCallsDeviceNote": {
+    "description": "One-line note under the voice calls switch: calls are new on this platform and off by default."
+  },
+  "voiceCallsDeviceTitle": "Voice calls on this device (beta)",
+  "@voiceCallsDeviceTitle": {
+    "description": "Title of the switch that turns voice calls on for this device (Android, macOS, Windows, Linux)."
+  },
   "voiceCheckModelFollowsMain": "Voice replies follow your main model.",
   "@voiceCheckModelFollowsMain": {
     "description": "Detail of the Voice model row when voice chat follows the main model."
@@ -7288,7 +8354,7 @@
   "@voiceSetupOpenDictation": {
     "description": "Button that opens the system dictation settings."
   },
-  "voiceSetupOpenSystemSettings": "Open iOS Settings",
+  "voiceSetupOpenSystemSettings": "Open Settings",
   "@voiceSetupOpenSystemSettings": {
     "description": "Button that opens the system settings after microphone access was denied."
   },
@@ -7343,6 +8409,10 @@
   "widgetsCancel": "Cancel",
   "@widgetsCancel": {
     "description": "Label of the button that closes a form or dialog in a settings page bar without saving."
+  },
+  "widgetsDone": "Done",
+  "@widgetsDone": {
+    "description": "Button in the header of a settings dialog that closes it."
   },
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} character entered} other{{count} characters entered}}",
   "@widgetsSecretCharactersEntered": {

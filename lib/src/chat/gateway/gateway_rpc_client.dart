@@ -88,6 +88,88 @@ class GatewayConnectionClosed implements Exception {
   String toString() => 'The gateway connection closed';
 }
 
+/// `session.resume` was answered with an error that says this session or turn
+/// is not on the server any more (or never will resume), so reconnecting again
+/// cannot help. A [GatewayConnectionClosed], so code that treats a lost
+/// connection as the reply's end still does; a reader that wants to say why
+/// checks for this type first. [code] is the JSON-RPC code of the refusal.
+///
+/// [restarted]: the server's replay epoch changed since the app last heard from
+/// the session, so the server was restarted and its turn died with it.
+class GatewaySessionGone extends GatewayConnectionClosed {
+  const GatewaySessionGone(this.code, {this.restarted = false});
+
+  final int code;
+  final bool restarted;
+
+  @override
+  String toString() => 'The gateway no longer has the session ($code)';
+}
+
+/// The connection was lost under a reply the server had accepted (the prompt
+/// was answered), and the reconnect gave up: the server was not reached, so the
+/// turn may well still run. A [GatewayConnectionClosed], and the one kind of it
+/// that says the prompt was accepted whether or not any frame of the reply
+/// came, so the reply waits instead of failing.
+class GatewayReplyLost extends GatewayConnectionClosed {
+  const GatewayReplyLost();
+
+  @override
+  String toString() => 'The gateway connection was lost under a reply';
+}
+
+/// The reply cannot be waited for: the server answered and the turn is no
+/// longer running with nothing to show (the silence probe no longer lists it,
+/// or a resume found it over with no stored reply), or a turn handed over live
+/// was lost and the thread is read again instead. A [GatewayConnectionClosed]
+/// so older readers still end the reply, but unlike a lost connection nothing
+/// is left to wait for: the reply fails.
+///
+/// [restarted]: the server was restarted since the app last heard from the
+/// session (its replay epoch changed) and brought nothing back, so the turn was
+/// interrupted by the restart.
+class GatewayTurnEnded extends GatewayConnectionClosed {
+  const GatewayTurnEnded({this.restarted = false});
+
+  final bool restarted;
+
+  @override
+  String toString() => 'The turn ended without a reply';
+}
+
+/// The server cannot be made to say whether the turn still runs: its answers to
+/// "is this session still working?" were refused or unreadable for as long as
+/// the transport is willing to ask, or the turn has been silent for longer than
+/// any live one is. Nothing is waited for any more and nothing is resent, and
+/// the reply says it could not confirm how the turn ended. A
+/// [GatewayConnectionClosed] so older readers still end the reply.
+class GatewayReplyUnconfirmed extends GatewayConnectionClosed {
+  const GatewayReplyUnconfirmed();
+
+  @override
+  String toString() => 'The gateway could not confirm the turn';
+}
+
+/// Whether a `session.resume` refusal is final: no later attempt can succeed.
+///
+/// The codes are those Hermes' `session.resume` answers for a session it does
+/// not have or will not resume: `4000` (params refused), `4006` (no id),
+/// `4007` "session not found", `4064` (profile gone), `4130` (transcript too
+/// large) and `4132` (a Kanban worker's session). `4007` is final only when its
+/// message says "not found"; any other `4007` (such as "session no longer
+/// live; retry resume", a race the next attempt wins) is retried, as are `4009`
+/// and `5000`.
+bool isFinalResumeRefusal(GatewayRpcException error) {
+  switch (error.code) {
+    case kGatewayInvalidParams || 4006 || 4064 || 4130 || 4132:
+      return true;
+    case 4007:
+      return error.message.toLowerCase().contains('not found');
+    default:
+      return false;
+  }
+}
+
 /// A request that asked not to take the connection down with it gave up
 /// waiting for its answer. The connection is still open.
 class GatewayRequestTimeout implements Exception {
