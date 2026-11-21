@@ -11,8 +11,8 @@ import 'grouped_list.dart';
 /// [width] is the row's full width (a `LayoutBuilder` above the row gives it)
 /// and [leading] the width the row's leading widget takes with its gap. The
 /// button's width is its label in [buttonStyle] plus that style's horizontal
-/// padding and the border of the theme's `OutlinedButton`, so it follows the
-/// button the row draws. The title keeps at least its own width or a quarter
+/// padding (the border is drawn inside it and adds no width), so it follows
+/// the button the row draws. The title keeps at least its own width or a quarter
 /// of the row.
 ///
 /// The row cannot ask its own trailing widget for its width before it lays
@@ -42,15 +42,8 @@ bool trailingActionStacks(
     buttonStyle.textStyle?.resolve({}),
   );
   final padding = buttonStyle.padding?.resolve({}) ?? EdgeInsets.zero;
-  final side =
-      (buttonStyle.side ?? theme.outlinedButtonTheme.style?.side)
-          ?.resolve({})
-          ?.width ??
-      1;
   final actionNeeds =
-      measureRowText(context, actionLabel, labelStyle) +
-      padding.horizontal +
-      2 * side;
+      measureRowText(context, actionLabel, labelStyle) + padding.horizontal;
   // The row's padding on both sides and the gap before the button.
   final room = width - 2 * metrics.rowPadding - 8 - leading;
   final titleMin = titleNeeds < width / 4 ? titleNeeds : width / 4;
