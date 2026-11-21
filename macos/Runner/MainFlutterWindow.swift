@@ -16,6 +16,10 @@ class MainFlutterWindow: NSWindow {
   /// The one main window, whose engine owns the session.
   static weak var shared: MainFlutterWindow?
 
+  /// The smallest content area the main window can be resized to. Keep it in
+  /// step with `kMacMainWindowMinSize` in lib/src/theme/breakpoints.dart.
+  static let minimumContentSize = NSSize(width: 640, height: 480)
+
   private var keyObserver: WindowKeyObserver?
   private var channel: FlutterMethodChannel?
   private var menuBarStatusItem: MenuBarStatusItem?
@@ -31,6 +35,8 @@ class MainFlutterWindow: NSWindow {
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
+    self.contentMinSize = Self.minimumContentSize
+    self.center()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     QueueStorageDirectory.install(messenger: flutterViewController.engine.binaryMessenger)
