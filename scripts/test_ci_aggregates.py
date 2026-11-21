@@ -508,6 +508,25 @@ def heredoc_word(script, start):
     return ("".join(word), index) if word else None
 
 
+ARITH_MESSAGE = (
+    "shell arithmetic is not supported in workflow scripts; use a variable or "
+    "a script file"
+)
+_COMMAND_WORDS = {"then", "do", "else", "elif", "if", "while", "until", "!", "time"}
+
+
+def at_command_position(segment):
+    """True when the next word starts a command: at the start of a segment,
+    after `;`, `&`, `|`, `(`, `{`, a newline, or a reserved word."""
+    previous = segment[-1] if segment else ""
+    if previous and not previous.isspace() and previous not in ";&|({`\n":
+        return False  # inside a word, as in `xlet`
+    text = "".join(segment).rstrip(" \t")
+    if not text or text[-1] in ";&|({`\n":
+        return True
+    return text.split()[-1] in _COMMAND_WORDS
+
+
 def commands(script):
     """Splits a script into (segment, has_substitution, comment) triples.
 
@@ -521,16 +540,18 @@ def commands(script):
     are text, `$'...'` is quoted text, and a comment inside `$(...)` ends at
     its line. A script that ends inside a quote, a substitution or a heredoc
     cannot be read reliably, so it counts as one unmarked substitution. So does a
-    `<<` whose delimiter word cannot be read with certainty; `<<<` and a shift
-    inside `((...))` or `$((...))` are not heredocs. Heredocs are recognised in
-    every command context, and the delimiter word has its quotes and
-    backslashes removed."""
+    `<<` whose delimiter word cannot be read with certainty, and so does any
+    shell arithmetic (`((`, `$((`, `$[`, `let`), which is not supported in
+    workflow scripts. `<<<` is not a heredoc. Heredocs are recognised in every
+    command context, and the delimiter word has its quotes and backslashes
+    removed. `${{ ... }}` expressions are skipped as a whole."""
     results = []
     stack = [["cmd", 0, False]]  # kind, paren depth, nested ($( or <( )
     segment, segments, hit = [], [], False
     heredocs = []  # (delimiter, tabs may indent it) waiting for their body
     unbalanced = False
     unreadable = False  # a `<<` that could not be read with certainty
+    arithmetic = False  # shell arithmetic, `$[`, or `let` was found
     index, length = 0, len(script)
 
     def end_segment():
@@ -556,28 +577,15 @@ def commands(script):
         char = script[index]
         pair = script[index : index + 2]
         kind = stack[-1][0]
+        if script.startswith("${{", index) and script.find("}}", index) != -1:
+            end = script.find("}}", index) + 2
+            segment.append(script[index:end])
+            index = end
+            continue
         if kind == "sq":
             segment.append(char)
             if char == "'":
                 stack.pop()
-        elif kind == "arith":
-            # Nothing inside arithmetic is read: bash falls back to nested
-            # subshells when it is not arithmetic, so a command substitution, a
-            # backtick or a process substitution here makes the script
-            # unreadable (flagged). A false positive on `a<(b)` is accepted.
-            if pair in ("$(", "<(", ">(") or char == "`":
-                unreadable = True
-            segment.append(char)
-            if char == "(":
-                stack[-1][1] += 1
-            elif char == ")":
-                if stack[-1][1] > 0:
-                    stack[-1][1] -= 1
-                else:
-                    if script[index + 1 : index + 2] == ")":
-                        segment.append(")")
-                        index += 1
-                    stack.pop()
         elif kind == "ansi":
             if char == "\\" and index + 1 < length:
                 segment.append(pair)
@@ -593,6 +601,9 @@ def commands(script):
             elif char == '"':
                 segment.append(char)
                 stack.pop()
+            elif script.startswith("$((", index) or script.startswith("$[", index):
+                arithmetic = True
+                segment.append(char)
             elif pair == "$(":
                 segment.append(pair)
                 stack.append(["cmd", 0, True])
@@ -614,11 +625,20 @@ def commands(script):
             elif char == '"':
                 segment.append(char)
                 stack.append(["dq", 0, False])
-            elif script[index : index + 3] == "$((" or pair == "((":
-                width = 3 if char == "$" else 2
-                segment.append(script[index : index + width])
-                stack.append(["arith", 0, True])
-                index += width - 1
+            elif (
+                pair == "(("
+                or script.startswith("$((", index)
+                or script.startswith("$[", index)
+                or (
+                    script.startswith("let", index)
+                    and script[index + 3 : index + 4] in ("", " ", "\t", "\n")
+                    and at_command_position(segment)
+                )
+            ):
+                # Not read: bash falls back from arithmetic to subshells, so
+                # the scanner cannot say what runs. The script is flagged.
+                arithmetic = True
+                segment.append(char)
             elif pair == "$(":
                 segment.append(pair)
                 stack.append(["cmd", 0, True])
@@ -699,6 +719,8 @@ def commands(script):
         index += 1
     end_segment()
     end_command("")
+    if arithmetic:
+        results.append((ARITH_MESSAGE, True, ""))
     if unbalanced or unreadable or heredocs or len(stack) > 1:
         results.append(
             (
@@ -826,35 +848,49 @@ class ProcessSubstitution(unittest.TestCase):
         script = "x=$(cat <<EOF\n<(x)\nEOF\n)\necho done"
         self.assertEqual(unmarked_substitutions(script), [])
 
-    def test_a_shift_in_arithmetic_is_no_heredoc(self):
-        for script in (
-            "(( y << z ))\ndiff <(a) <(b)",
-            "echo $(( 1 << 2 )); diff <(a) <(b)",
-            "if (( y << z )); then\n  diff <(a) <(b)\nfi",
-            "x=$(( (1 << 2) + (3 << 4) )); diff <(a) <(b)",
-        ):
-            with self.subTest(script=script):
-                self.assertEqual(len(unmarked_substitutions(script)), 1)
+    def arithmetic_flagged(self, script):
+        return any(
+            "shell arithmetic" in text for text in unmarked_substitutions(script)
+        )
 
-    def test_a_substitution_inside_arithmetic_is_flagged(self):
-        # bash falls back from arithmetic to nested subshells, so each of
-        # these runs the diff. The scanner reads nothing inside `((`, so any
-        # substitution there makes the script unreadable and flags it.
+    def test_shell_arithmetic_is_not_supported_and_flags(self):
         for script in (
+            # The comment's `)` ended the old arithmetic state early and the
+            # apostrophe then hid the diff, which bash -e runs.
+            "((echo hi # ) it's\n); true)\ndiff <(echo a) <(echo a) && echo RAN3",
             "((diff <(a) <(b) && echo RAN); true)",
             "x=$((diff <(a) <(b)) )",
             "echo $(( $(diff <(a) <(b); echo 1) + 1 ))",
             "(( $(diff <(a) <(b) | wc -l) ))",
-            "echo $(( `diff <(a) <(b)` + 1 ))",
-            "(( >(cat) ))",
-            "echo $(( $(echo 1) + 1 ))",
-            "echo $(( `echo 1` + 1 ))",
+            "echo $[ 1 + 2 ]",
+            "let i=1",
+            "for ((;;)); do :; done",
+            "(( i++ ))",
+            "x=$((1 + 2))",
+            "(( y << z ))",
+            'echo "$(( 1 + 2 ))"',
+            'echo "$[ 1 + 2 ]"',
+            "if true; then let x=1; fi",
+            "true && let x=1",
+            "echo $( (( i++ )) )",
         ):
             with self.subTest(script=script):
-                self.assertTrue(unmarked_substitutions(script))
+                self.assertTrue(self.arithmetic_flagged(script))
 
-    def test_plain_arithmetic_is_not_flagged(self):
-        for script in ("(( y << z ))", "echo $(( (1 + 2) * 3 ))", "(( i++ ))"):
+    def test_text_that_only_looks_like_arithmetic_is_readable(self):
+        for script in (
+            "( (cd x && y) )",
+            "echo '(('",
+            'echo "(("',
+            "echo $'(('",
+            "echo hi # ((",
+            "cat <<EOF\n(( $[ let\nEOF",
+            "echo let me",
+            "cat let.txt",
+            "x=let",
+            "echo ${{ ((a) && (b)) }}",
+            "echo '$[x]'",
+        ):
             with self.subTest(script=script):
                 self.assertEqual(unmarked_substitutions(script), [])
 

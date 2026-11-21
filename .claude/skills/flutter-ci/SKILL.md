@@ -256,7 +256,10 @@ a trailing shell comment `# process-substitution-ok: <reason>` outside quotes,
 because `pipefail` does not see a failure inside it. The scanner skips heredoc
 bodies, reads `$'...'` as quoted text, ends a comment inside `$(...)` at its
 line, and fails closed on a script that ends inside a quote, a substitution or
-a heredoc.
+a heredoc, or has a `<<` it cannot read. Shell arithmetic (`((`, `$((`, `$[`,
+`let`) is not supported in workflow scripts and is flagged, because bash falls
+back from it to subshells; use a variable or a script file. `${{ ... }}`
+expressions are skipped as a whole.
 `scripts/*.sh` is out of scope. One known case: `scripts/test-shard.sh` reads
 its file list via `< <(find ...)`, so a failing `find` gives a smaller shard
 instead of an error (an empty list still exits 1). The scripts run in the
