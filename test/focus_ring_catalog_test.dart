@@ -7,18 +7,31 @@ import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../widgetbook/focus_ring_use_cases.dart';
+import '../widgetbook/model_use_cases.dart';
 
 /// What the app and the catalog mount above the home.
 Widget _scoped(BuildContext context, Widget? child) =>
     AppThemeScopes(child: child!);
 
-WidgetbookUseCase _useCase(String name) =>
-    (focusRingNode() as WidgetbookComponent).useCases.firstWhere(
-      (u) => u.name == name,
-    );
+WidgetbookUseCase _useCase(String name, [WidgetbookNode? from]) {
+  WidgetbookUseCase? find(WidgetbookNode node) {
+    if (node is WidgetbookUseCase) return node.name == name ? node : null;
+    for (final child in node.children ?? const <WidgetbookNode>[]) {
+      final hit = find(child);
+      if (hit != null) return hit;
+    }
+    return null;
+  }
+
+  return find(from ?? focusRingNode())!;
+}
 
 /// Mounts [name] after a mouse press on another example, as in the catalog.
-Future<void> _openAfterClick(WidgetTester tester, String name) async {
+Future<void> _openAfterClick(
+  WidgetTester tester,
+  String name, {
+  WidgetbookNode? from,
+}) async {
   addTearDown(forgetFocusRingWatchers);
   forgetFocusRingWatchers();
   await tester.pumpWidget(
@@ -43,7 +56,7 @@ Future<void> _openAfterClick(WidgetTester tester, String name) async {
     MaterialApp(
       theme: buildHermesLightTheme(),
       builder: _scoped,
-      home: Scaffold(body: Builder(builder: _useCase(name).builder)),
+      home: Scaffold(body: Builder(builder: _useCase(name, from).builder)),
     ),
   );
   await tester.pumpAndSettle();
@@ -150,4 +163,23 @@ void main() {
       );
     });
   }
+
+  testWidgets('the popover\'s keyboard-focused row shows its ring after a '
+      'click elsewhere', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1200, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _openAfterClick(
+      tester,
+      'Desktop popover: Keyboard focus on a row, wide',
+      from: modelNode(),
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.foregroundPainter is FocusRingPainter,
+      ),
+      findsOneWidget,
+    );
+  });
 }
