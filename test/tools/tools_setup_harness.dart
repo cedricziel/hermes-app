@@ -1,5 +1,3 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -8,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';

@@ -1,5 +1,3 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
@@ -9,6 +7,7 @@ import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/bot_screen/install/bot_screen_installs.dart';
 import 'package:hermes_app/src/bot_screen/install/install_state.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../support/fake_gateway.dart';

@@ -1,9 +1,8 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/toolset_installs.dart';
 import 'package:hermes_app/src/tools/widgets/tools_switch.dart';

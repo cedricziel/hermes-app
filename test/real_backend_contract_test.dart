@@ -1,5 +1,3 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -56,6 +54,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/profiles/soul/soul_repository.dart';
 import 'package:hermes_app/src/providers/provider_models.dart';
 import 'package:hermes_app/src/providers/provider_results.dart';

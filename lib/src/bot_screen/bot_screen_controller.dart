@@ -1,5 +1,3 @@
-import '../profiles/profile_resolver.dart';
-
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +5,7 @@ import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
 import '../chat/gateway_connection_transport.dart';
+import '../profiles/profile_resolver.dart';
 import 'bot_screen_models.dart';
 import 'bot_screen_repository.dart';
 import 'bot_screen_viewer_ids.dart';

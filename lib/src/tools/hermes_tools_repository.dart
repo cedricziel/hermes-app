@@ -1,11 +1,10 @@
-import '../profiles/profile_resolver.dart';
-
 import 'dart:io' show SocketException;
 
 import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart' show Span;
 import 'package:hermes_api/hermes_api.dart';
 
+import '../profiles/profile_resolver.dart';
 import '../telemetry/telemetry.dart';
 import 'tools_models.dart';
 import 'tools_write.dart' show quietly;

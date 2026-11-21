@@ -1,10 +1,9 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/workspace_models.dart';
 

@@ -6,16 +6,17 @@ import 'server_default_profile.dart';
 
 /// A profile name that a request may carry: the chat's own, or else the
 /// profile the dashboard was launched with. Only [ProfileResolver] makes one,
-/// so a repository that asks for it cannot be handed a bare string, a
-/// literal `default` or the server's sticky `active` profile.
+/// so a repository that asks for it cannot be handed a bare string or a
+/// literal `default`.
 ///
 /// It is a [String] at runtime and in use (`implements String`); the type
 /// only closes the way in.
 extension type const ResolvedProfile._(String name) implements String {}
 
 /// Where a chat with no profile of its own works: the dashboard's launch
-/// profile, `current` of `GET /api/profiles/active` (not `active`, the sticky
-/// default that new CLI runs pick up). Read once per connection and kept.
+/// profile, `current` of `GET /api/profiles/active`. `active`, the sticky
+/// default that new CLI runs pick up, is used only when an older server sends
+/// no `current`. Read once per connection and kept.
 class ProfileResolver extends ChangeNotifier {
   /// Resolves through [read], the answer of `GET /api/profiles/active`.
   ProfileResolver(this._read);

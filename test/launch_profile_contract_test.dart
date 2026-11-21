@@ -26,6 +26,7 @@ import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/tools_availability.dart';
+import 'package:hermes_app/src/watch/watch_bridge.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/workspace_catalog_loader.dart';
 import 'package:provider/provider.dart';
@@ -380,6 +381,12 @@ void main() {
         for (final r in seen.where(memoryRead))
           if (r.profile != null) r.profile!,
       });
+    });
+
+    test('Watch: the profile the watch names for its chats '
+        '(watchProfile, as WatchBridge.create wires it)', () async {
+      final name = await watchProfile(api);
+      check('Watch profile', {?name});
     });
 
     test('Tools: /api/tools/* of a chat with no profile '

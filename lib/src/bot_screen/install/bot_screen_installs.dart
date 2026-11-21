@@ -1,5 +1,3 @@
-import '../../profiles/profile_resolver.dart';
-
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +7,7 @@ import '../../chat/gateway/gateway_rpc_client.dart';
 import '../../chat/gateway/hermes_gateway_transport.dart'
     show ServerRequestHandler;
 import '../../chat/gateway_connection_transport.dart';
+import '../../profiles/profile_resolver.dart';
 import '../../telemetry/telemetry.dart';
 import '../bot_screen_models.dart';
 import '../bot_screen_repository.dart';

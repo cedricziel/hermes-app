@@ -52,6 +52,10 @@ Future<void> pumpChatScreen(
   FakeHermesServer? server,
   HermesApiClient? api,
   bool withProfiles = false,
+  // Where a chat with no profile works. Left out, a chat on a screen without
+  // `withProfiles` resolves to `default`; pass one to test another launch
+  // profile, or none known.
+  ProfileResolver? profileResolver,
   bool withSkills = false,
   HermesModelsRepository? models,
   ProvidersRepository? providersRepository,
@@ -105,9 +109,9 @@ Future<void> pumpChatScreen(
           visible: shown,
           repository: client == null ? null : HermesChatRepository(client.raw),
           profiles: withProfiles ? HermesProfilesRepository(client!.raw) : null,
-          profileResolver: withProfiles
-              ? null
-              : ProfileResolver.known('default'),
+          profileResolver:
+              profileResolver ??
+              (withProfiles ? null : ProfileResolver.known('default')),
           skills: withSkills ? HermesSkillsRepository(client!.raw) : null,
           models: models,
           providers: providersRepository,

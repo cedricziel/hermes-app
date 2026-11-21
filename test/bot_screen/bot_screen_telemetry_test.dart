@@ -1,5 +1,3 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -9,6 +7,7 @@ import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway_connection_transport.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../support/recording_tracer.dart';

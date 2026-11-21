@@ -415,7 +415,7 @@ class WatchBridge {
           return null;
         }
         try {
-          return (await HermesProfilesRepository(api.raw).loadActive()).active;
+          return await watchProfile(api);
         } on Object catch (e, stack) {
           reportBug(e, stack, 'the watch active profile');
           return null;
@@ -549,3 +549,9 @@ class WatchBridge {
     return {...reply}..remove('engine');
   }
 }
+
+/// The profile the watch's chats belong to: the one the dashboard was
+/// launched with (`current`), the same the phone's chat resolves; null when
+/// the server has none or it cannot be read.
+Future<String?> watchProfile(HermesApiClient api) =>
+    HermesProfilesRepository(api.raw).resolver.load();

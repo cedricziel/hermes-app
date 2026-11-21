@@ -1,10 +1,9 @@
-import '../profiles/profile_resolver.dart';
-
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
 import '../files/server_path.dart';
+import '../profiles/profile_resolver.dart';
 import 'folder_labels.dart';
 import 'hermes_workspaces_repository.dart';
 import 'widgets/folder_browser_view.dart' show FolderBrowserLevel;

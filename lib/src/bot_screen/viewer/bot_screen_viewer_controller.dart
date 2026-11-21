@@ -1,5 +1,3 @@
-import '../../profiles/profile_resolver.dart';
-
 import 'dart:async';
 import 'dart:math';
 
@@ -8,6 +6,7 @@ import 'package:flutter_otel/flutter_otel.dart' show Span;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../chat/gateway/gateway_replay.dart' show reconnectDelay;
+import '../../profiles/profile_resolver.dart';
 import '../../telemetry/telemetry.dart';
 import '../bot_screen_controller.dart';
 import '../bot_screen_models.dart';

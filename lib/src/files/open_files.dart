@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../api/hermes_repositories.dart';
 import '../chat/chat_controller.dart';
 import '../chat/media/media_store.dart';
+import '../profiles/profile_resolver.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'files_availability.dart';
 import 'files_platform_policy.dart';
@@ -48,8 +49,11 @@ Future<void> openFiles(
     breadcrumbs = Breadcrumbs.none;
   }
   final resolver = chat.profileResolver;
-  final profile = resolver?.resolve(chat.profile);
-  if (resolver == null || profile == null) return;
+  if (resolver == null) return;
+  final profile =
+      resolver.resolve(chat.profile) ??
+      await _resolveAfterLoad(resolver, chat.profile);
+  if (profile == null || !context.mounted) return;
   final threadId = thread.id;
   final telemetry = FilesTelemetry(repositories.telemetry, breadcrumbs);
   // A new chat with no stored folder yet runs in the folder the workspace
@@ -88,3 +92,17 @@ bool get _canShare =>
 Future<void> _share(File file, Rect? origin) => SharePlus.instance.share(
   ShareParams(files: [XFile(file.path)], sharePositionOrigin: origin),
 );
+
+/// The profile once the launch profile was asked for again: it may not have
+/// been read yet, or the read failed earlier. Null when it is still unknown.
+Future<ResolvedProfile?> _resolveAfterLoad(
+  ProfileResolver resolver,
+  String? chatProfile,
+) async {
+  try {
+    await resolver.load();
+  } on Object {
+    // Left unresolved: nothing is opened.
+  }
+  return resolver.resolve(chatProfile);
+}

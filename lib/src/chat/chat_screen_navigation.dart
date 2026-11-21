@@ -375,7 +375,18 @@ extension _ChatScreenNavigation on _ChatScreenState {
     final availability = _toolsAvailability;
     // The chat's profile, else the launch profile. Not the one the list was
     // last asked for: that may be another chat's.
-    final profile = _chat.profileResolver?.resolve(_chat.profile);
+    final resolver = _chat.profileResolver;
+    var profile = resolver?.resolve(_chat.profile);
+    if (profile == null && resolver != null) {
+      // Not read yet, or the read failed earlier: ask once more.
+      try {
+        await resolver.load();
+      } on Object {
+        // Left unresolved: nothing is opened.
+      }
+      if (!mounted) return;
+      profile = resolver.resolve(_chat.profile);
+    }
     final tools = profile == null ? null : _tools?.forProfile(profile);
     if (tools == null) return;
     // The Computer use details link to the bot's screen. The status is read

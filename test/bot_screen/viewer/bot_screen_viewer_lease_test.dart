@@ -1,5 +1,3 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:async';
 import 'dart:math';
 
@@ -14,6 +12,7 @@ import 'package:hermes_app/src/bot_screen/input/screen_paste.dart'
     show PasteOutcome;
 import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../../support/fake_display_server.dart';

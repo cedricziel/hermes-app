@@ -1,8 +1,7 @@
-import '../profiles/profile_resolver.dart';
-
 import 'package:flutter/foundation.dart';
 
 import '../core/safe_notifier.dart';
+import '../profiles/profile_resolver.dart';
 import '../telemetry/telemetry.dart';
 import 'hermes_tools_repository.dart';
 import 'tools_models.dart';

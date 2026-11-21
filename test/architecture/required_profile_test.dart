@@ -1,11 +1,10 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -83,6 +82,33 @@ void main() {
       offenders,
       isEmpty,
       reason: 'Kanban is shared by every profile; send no profile',
+    );
+  });
+
+  test('only the Profiles page names a profile by hand', () {
+    // `ProfileResolver.named` takes any string: it is for a name the person
+    // picked from the server's own list. Everything else resolves.
+    const allowed = {'lib/src/profiles/mac_profiles_page.dart'};
+    final offenders = <String>[];
+    for (final file in Directory('lib/src').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (allowed.contains(file.path)) continue;
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].contains('resolver.named(') ||
+            lines[i].contains('.named(')) {
+          if (lines[i].trimLeft().startsWith('//')) continue;
+          offenders.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'resolve the profile with ProfileResolver.resolve; named() is '
+          'for a name picked from the server profile list',
     );
   });
 }

@@ -1,5 +1,3 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -13,6 +11,7 @@ import 'package:hermes_app/src/files/files_failure.dart';
 import 'package:hermes_app/src/files/files_models.dart';
 import 'package:hermes_app/src/files/hermes_files_repository.dart';
 import 'package:hermes_app/src/files/server_path.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 
 import '../support/fake_hermes_server.dart';
 import '../support/fs_download_adapter.dart';

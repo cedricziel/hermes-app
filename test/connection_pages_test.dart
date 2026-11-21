@@ -1,5 +1,3 @@
-import 'package:hermes_app/src/profiles/profile_resolver.dart';
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -10,6 +8,7 @@ import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/screens/login_screen.dart';
 import 'package:hermes_app/src/screens/server_setup_screen.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
