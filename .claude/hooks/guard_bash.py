@@ -13,6 +13,7 @@ Run with `--post` as a PostToolUse hook: after a git pull/merge that changed
 lib/l10n/arb/*.arb it runs `flutter gen-l10n` (fail open).
 """
 
+import fnmatch
 import json
 import os
 import re
@@ -1188,15 +1189,31 @@ MSG_GH_RUNNER = (
 )
 
 
+GLOB_CHARS = "*?[{"
+MSG_GH_GLOB = (
+    "Blocked: a program name with a glob pattern isn't allowed in cloud sessions "
+    "(fleet rules: gh is for search only); name the program literally."
+)
+
+
+def _glob_prog(word):
+    """A program word with a glob or brace pattern (`/usr/bin/g[h]`); `[` and `[[` are tests."""
+    return word not in ("[", "[[") and any(c in word for c in GLOB_CHARS)
+
+
 def _has_gh_token(word):
     """A word, or any whitespace-split part of it (a variable that held `/usr/bin/gh pr`),
-    has basename gh."""
-    return any(os.path.basename(t) == "gh" for t in word.split())
+    has basename gh, or is a glob pattern that can match gh."""
+    for t in word.split():
+        b = os.path.basename(t)
+        if b == "gh" or (any(c in b for c in GLOB_CHARS) and fnmatch.fnmatchcase("gh", b)):
+            return True
+    return False
 
 
 def _is_gh_program(words):
     argv = _strip_prefix(list(words))
-    return bool(argv) and _has_gh_token(argv[0])
+    return bool(argv) and (_has_gh_token(argv[0]) or _glob_prog(argv[0]))
 
 
 def _runner_has_gh(prog, argv):
@@ -1381,6 +1398,8 @@ def _check_cmds(cmds, cwd, depth):
         prog = os.path.basename(argv[0])
         if _is_cloud() and _xargs_gh(words):
             return MSG_GH_RUNNER
+        if _is_cloud() and _glob_prog(argv[0]):
+            return MSG_GH_GLOB
         if _is_cloud() and cmd.dyn_prog and _has_gh_token(argv[0]):
             return MSG_GH_UNPARSED  # computed program whose value holds gh
         m = _check_hermes_home(argv, cmd, cwd, home_set)
