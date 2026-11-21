@@ -14,7 +14,7 @@ frame. It is not under `test/`, so CI never runs it.
 ```bash
 scripts/chat-bench.sh --mode test 5            # debug JIT on the widget-test binding, ~18 min a run
 scripts/chat-bench.sh --mode profile 5         # real Linux app, AOT, under Xvfb, ~13 min a run
-scripts/chat-bench.sh --mode test 3 's4b|s3'   # filter: a regex on scenario ids
+scripts/chat-bench.sh --mode test 3 's4b|s3'   # runs (positive integer, else exit 64), then a regex filter on scenario ids
 CHAT_BENCH_PHASES=1 CHAT_BENCH_FILTER=s4b flutter test benchmark/chat_render_bench_test.dart -j 1
 ```
 
@@ -39,7 +39,9 @@ the benchmark.
   those of a release build, so do not quote them as what users feel.
 - **profile**: `flutter drive --profile -d linux` under Xvfb, the real app in
   AOT with no asserts. A frame is the engine's `FrameTiming.buildDuration` (UI
-  thread build, layout, paint) of the frames made while the measured pumps ran.
+  thread build, layout, paint) of the frames that started inside a measured
+  pump (unmeasured pumps in between, such as the scroll before an `s3` tap, are
+  not counted).
   Use this for absolute numbers. `raster_*` is reported beside it; under Xvfb the
   Linux embedder reports it as 0, so ignore it. Frame counts exceed the pump
   count (the engine makes extra, mostly cheap frames), which lowers p50 and p95
