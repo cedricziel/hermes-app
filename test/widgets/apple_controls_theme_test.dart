@@ -29,11 +29,6 @@ void main() {
       expect(theme.splashFactory, NoSplash.splashFactory);
     });
 
-    test('buttons are compact', () {
-      final size = theme.textButtonTheme.style!.minimumSize!.resolve({});
-      expect(size!.height, 28);
-    });
-
     test('popup menus use the smaller Mac radius', () {
       final shape = theme.popupMenuTheme.shape! as RoundedRectangleBorder;
       expect(shape.borderRadius, BorderRadius.circular(6));

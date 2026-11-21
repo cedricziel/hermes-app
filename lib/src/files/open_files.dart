@@ -8,10 +8,10 @@ import 'package:share_plus/share_plus.dart';
 import '../api/hermes_repositories.dart';
 import '../chat/chat_controller.dart';
 import '../chat/media/media_store.dart';
-import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import '../telemetry/breadcrumbs.dart';
 import 'files_availability.dart';
 import 'files_platform_policy.dart';
+import 'files_profile.dart';
 import 'files_screen.dart';
 import 'files_telemetry.dart';
 import 'hermes_files_repository.dart';
@@ -48,7 +48,7 @@ Future<void> openFiles(
   } on ProviderNotFoundException {
     breadcrumbs = Breadcrumbs.none;
   }
-  final profile = chat.profile ?? kDefaultProfile;
+  final profile = filesProfileFor(chat.profile);
   final threadId = thread.id;
   final telemetry = FilesTelemetry(repositories.telemetry, breadcrumbs);
   // A new chat with no stored folder yet runs in the folder the workspace
@@ -72,7 +72,7 @@ Future<void> openFiles(
         closeWhen: chat,
         shouldClose: () =>
             chat.selectedId != threadId ||
-            (chat.profile ?? kDefaultProfile) != profile,
+            filesProfileFor(chat.profile) != profile,
         share: _canShare ? _share : null,
         policy: FilesPlatformPolicy(),
       ),

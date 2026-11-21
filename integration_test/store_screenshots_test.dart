@@ -20,8 +20,8 @@ const _kanbanOnly = bool.fromEnvironment('SHOT_KANBAN_ONLY');
 /// is what the simulators are set to.
 const _shotTheme = String.fromEnvironment('SHOT_THEME');
 
-/// `<width>x<height>` in points resizes the Mac window first, which opens at
-/// 800 x 600, below the wide layout.
+/// `<width>x<height>` in points resizes the Mac window first, so the shots do
+/// not depend on its default size.
 const _shotWindow = String.fromEnvironment('SHOT_WINDOW');
 
 const _serverUrl = String.fromEnvironment('HERMES_SERVER_URL');
