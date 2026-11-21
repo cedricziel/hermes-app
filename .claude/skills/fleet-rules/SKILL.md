@@ -154,7 +154,9 @@ or `pull_request_read`; pending, queued and in-progress are not green.
 The orchestrator has at most one armed or hand-merged Dart PR at a time, until
 it has merged. (The overlap report of `scripts/premerge_check.sh` is information
 only.) Exception: a hand merge may proceed while another Dart PR is armed, if
-the trial check runs with `--stack <armed pr>` and passes.
+both `scripts/premerge_check.sh <pr> --stack <armed pr>` and the unstacked
+`scripts/premerge_check.sh <pr>` pass, each under the same base and head rule
+(the hand-merged PR lands first, so main plus that PR alone must be tested too).
 
 Every hand merge needs a READY report, a clean recorded review for the exact
 head, and every required check green on that head, except the per-shard checks
