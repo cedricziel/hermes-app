@@ -76,6 +76,11 @@ void main() {
       hasLength(1),
       reason: 'contentMinSize is set only in awakeFromNib',
     );
+    // The saved frame is restored under the final style mask, or AppKit holds a
+    // saved 640x480 frame to the minimum plus a title bar.
+    final insert = awake.indexOf('self.styleMask.insert(.fullSizeContentView)');
+    expect(insert, isNonNegative);
+    expect(insert, lessThan(awake.indexOf('setFrameUsingName(')));
     // The remembered frame is AppKit's frame autosave, set once in
     // awakeFromNib; the centred default applies only when none exists.
     expect(
@@ -186,6 +191,14 @@ void main() {
     );
     expect(block, contains('NSApp.terminate(nil)'));
     expect(block, contains('HERMES_WINDOW frame='));
+    // The report waits for the settleFrame call and, if it never comes, prints a
+    // line the CI check rejects instead of a frame that looks settled.
+    expect(block, contains('frameSettled'));
+    expect(block, contains('HERMES_WINDOW unsettled'));
+    expect(
+      block.indexOf('HERMES_WINDOW unsettled'),
+      lessThan(block.indexOf('HERMES_WINDOW frame=')),
+    );
   });
 
   group('home shell', () {

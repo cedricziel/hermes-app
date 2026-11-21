@@ -435,7 +435,7 @@ jobs:
               echo "::error::Unreadable HERMES_WINDOW line: $line"; forget; exit 1
             fi
             # The frame is only the xib's content size plus the title bar once the
-            # full-size content view is in; the report waits up to 5 s for it.
+            # window is styled; the report waits up to 10 s for settleFrame.
             if [ "$full" != "true" ]; then
               echo "::error::Launch $1: the window never got the full-size content view: $line"; forget; exit 1
             fi
@@ -481,6 +481,13 @@ jobs:
           fi
           if [ "$frame" != "900x600" ]; then
             echo "::error::Launch 2: the window came back as a $frame frame, expected the 900x600 it was resized to (screen $screen): $line"; forget; exit 1
+          fi
+          # A frame at the minimum must come back as saved too: under the titled
+          # mask alone AppKit would hold it to the minimum plus a title bar.
+          launch 3 640x480
+          launch 4
+          if [ "$frame" != "640x480" ]; then
+            echo "::error::Launch 4: the window came back as a $frame frame, expected the 640x480 it was resized to (screen $screen): $line"; forget; exit 1
           fi
           forget
 

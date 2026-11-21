@@ -94,11 +94,20 @@ class AppDelegate: FlutterAppDelegate {
             var waited = 0.0
             func report() {
                 guard let window = mainFlutterWindow else { NSApp.terminate(nil); return }
-                // macos_window_utils adds the full-size content view when Dart initializes it;
-                // wait up to 5 s for that, so the frame is measured in its final style.
-                if !window.styleMask.contains(.fullSizeContentView) && waited < 5 {
+                // Dart styles the window after launch and then calls "settleFrame", which
+                // puts the remembered frame back; wait up to 10 s for that call, so the
+                // frame is measured in its final style and not in between.
+                let settled = (window as? MainFlutterWindow)?.frameSettled == true
+                if !settled && waited < 10 {
                     waited += 0.25
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { report() }
+                    return
+                }
+                if !settled {
+                    // Not a frame that looks settled: the CI check fails on this line.
+                    print("HERMES_WINDOW unsettled: settleFrame did not run within 10 s")
+                    fflush(stdout)
+                    NSApp.terminate(nil)
                     return
                 }
                 // The frame is stable: the xib content size plus the title bar. The
