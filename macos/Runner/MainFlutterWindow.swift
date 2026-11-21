@@ -39,6 +39,7 @@ class MainFlutterWindow: NSWindow {
     self.center()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    SoloudTerminationGuard.disarm(in: flutterViewController)
     QueueStorageDirectory.install(messenger: flutterViewController.engine.binaryMessenger)
 
     Self.registerClipboard(messenger: flutterViewController.engine.binaryMessenger)
@@ -153,6 +154,39 @@ class MainFlutterWindow: NSWindow {
       guard let url = object as? NSURL, url.isFileURL else { return nil }
       return url.path
     }
+  }
+}
+
+/// Stops flutter_soloud's plugin from running its quit handler.
+///
+/// flutter_soloud 5.3.0 and 5.3.1 add every plugin instance (one per Flutter
+/// engine) as an NSApplicationWillTerminate observer. The handler clears the
+/// engine's Dart callback registrations and then calls
+/// `soloud_vst3HostUnloadAll()`, a symbol of the native-assets library that
+/// loads only when Dart first uses SoLoud. Audio stays unbuilt until a call
+/// starts, so on every other quit that call jumps to null (EXC_BAD_ACCESS at
+/// 0x0). Removing the observer is safe: the handler only retires Dart callback
+/// registrations, which mean nothing to a process that is exiting, and
+/// unloads VST3 hosts, which `enable_vst3: false` in pubspec.yaml turns off
+/// (the function is then an empty body). Nothing else in the plugin reads the
+/// notification; its engine teardown runs from `dealloc`, which stays.
+///
+/// Call it after every `RegisterGeneratedPlugins` (one engine each). It
+/// fails closed: an instance it cannot find is logged once and launch goes on.
+enum SoloudTerminationGuard {
+  static let pluginKey = "FlutterSoloudPlugin"
+  private static var logged = false
+
+  static func disarm(in registry: FlutterPluginRegistry) {
+    guard let instance = registry.valuePublished(byPlugin: pluginKey) else {
+      if !logged {
+        logged = true
+        NSLog("flutter_soloud quit handler not disarmed: plugin instance not found")
+      }
+      return
+    }
+    NotificationCenter.default.removeObserver(
+      instance, name: NSApplication.willTerminateNotification, object: nil)
   }
 }
 

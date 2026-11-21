@@ -101,7 +101,8 @@ class AppDelegate: FlutterAppDelegate {
             }
         }
         #endif
-        super.applicationDidFinishLaunching(notification)
+        // No super call: FlutterAppDelegate does not implement
+        // applicationDidFinishLaunching, so it threw "unrecognized selector".
     }
 
     /// The share extension opens `hermes-share://share` once it has left the
