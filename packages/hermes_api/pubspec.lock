@@ -133,18 +133,18 @@ packages:
     dependency: "direct main"
     description:
       name: copy_with_extension
-      sha256: "9a832fe40e5a5fcbe58e094d2c857ac6b185f34ec200241051daebe48b1b0403"
+      sha256: "40b1d96086685be1376d2dea8d7ea6aea97ab7e07e13ed66bee5fba1871b8100"
       url: "https://pub.dev"
     source: hosted
-    version: "18.0.0"
+    version: "18.0.1"
   copy_with_extension_gen:
     dependency: "direct dev"
     description:
       name: copy_with_extension_gen
-      sha256: "4475dfeaa67d41760e7f8b690cbbbbc0d71efb34797997478ae869c0933a5fe1"
+      sha256: dfdfc112da2f28150a09026f12ae2bf9841819ebef05dfee06a1ed5b4e210c1d
       url: "https://pub.dev"
     source: hosted
-    version: "18.0.0"
+    version: "18.0.1"
   coverage:
     dependency: transitive
     description:

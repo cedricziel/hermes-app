@@ -67,8 +67,8 @@ dependencies:
   flutter_chat_ui: ^2.12.0
   flutter_chat_core: ^2.9.1
   gpt_markdown: ^1.4.1
-  material_ui: ^1.11.0
-  cupertino_ui: ^1.1.6
+  material_ui: ^1.11.1
+  cupertino_ui: ^1.1.7
   # OpenTelemetry logs and traces, exported to SignalDB.
   flutter_otel: ^0.1.9
   # Coarse device facts for the telemetry resource.
@@ -85,7 +85,7 @@ dependencies:
   upgrader: ^14.0.0
   version: ^3.0.2
   local_auth: ^3.0.2
-  file_picker: ^13.3.3
+  file_picker: ^13.4.0
   image_picker: ^1.2.4
   desktop_drop: ^0.8.4
   pasteboard: ^0.6.0
@@ -94,7 +94,6 @@ dependencies:
   open_file: ^4.0.0
   # The app's cache directory, where media the agent sent is downloaded.
   path_provider: ^2.1.6
-  flutter_json_view: ^1.1.5
   connectivity_plus: ^7.3.1
   # App version shown in the About dialog.
   package_info_plus: ^10.2.2

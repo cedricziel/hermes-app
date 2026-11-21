@@ -2243,25 +2243,21 @@
   "@chatWidgetsToolValueLineBreak": {
     "description": "What a screen reader says for the boxed line break inside a string of the tree view of a tool call's JSON."
   },
+  "chatWidgetsToolValueNoticeColourBudget": "Not coloured while many long texts are open. Shown as plain text.",
+  "@chatWidgetsToolValueNoticeColourBudget": {
+    "description": "Muted line between the label row and the body of a tool call's text that is not coloured because the open tool calls of this chat have used up the colouring they share; it is shown as plain text."
+  },
   "chatWidgetsToolValueNoticeTooDeepForTree": "Too deeply nested for the tree view.",
   "@chatWidgetsToolValueNoticeTooDeepForTree": {
-    "description": "Muted line under a tool call's JSON that is nested too deep for the tree view; it is shown as coloured text only."
+    "description": "Muted line between the label row and the body of a tool call's JSON that is nested too deep for the tree view; it is shown as coloured text only."
   },
   "chatWidgetsToolValueNoticeTooLongForTree": "Too long for the tree view.",
   "@chatWidgetsToolValueNoticeTooLongForTree": {
-    "description": "Muted line under a tool call's JSON that is too long for the tree view; it is shown as coloured text only."
+    "description": "Muted line between the label row and the body of a tool call's JSON that is too long for the tree view; it is shown as coloured text only."
   },
   "chatWidgetsToolValueNoticeTooLongToColour": "Too long to colour. Shown as plain text.",
   "@chatWidgetsToolValueNoticeTooLongToColour": {
-    "description": "Muted line under a tool call's text that is too long to be coloured; it is shown as plain text."
-  },
-  "chatWidgetsToolValueShowAsText": "Show as text",
-  "@chatWidgetsToolValueShowAsText": {
-    "description": "Accessible name of the view switch option that shows a tool call's JSON as the text it was sent as."
-  },
-  "chatWidgetsToolValueShowAsTree": "Show as tree",
-  "@chatWidgetsToolValueShowAsTree": {
-    "description": "Accessible name of the view switch option that shows a tool call's JSON as a collapsible tree."
+    "description": "Muted line between the label row and the body of a tool call's text that is too long to be coloured; it is shown as plain text."
   },
   "chatWidgetsToolValueShowErrorAs": "Show error as",
   "@chatWidgetsToolValueShowErrorAs": {
@@ -8086,6 +8082,10 @@
   "@voiceCallHintSending": {
     "description": "Hint under the state word while the words are being prepared; End or Mute still cancels the send."
   },
+  "voiceCallHintSpeakOff": "Replies are not spoken. The answer will be in the chat.",
+  "@voiceCallHintSpeakOff": {
+    "description": "Hint under the state word while listening, when Speak replies is off for this call."
+  },
   "voiceCallHintSpeakingPaused": "Microphone paused while Hermes speaks. Tap the orb to interrupt.",
   "@voiceCallHintSpeakingPaused": {
     "description": "Hint while Hermes speaks on desktop, where the microphone is paused. The orb is the round button in the middle of the screen."
@@ -8118,9 +8118,17 @@
   "@voiceCallMute": {
     "description": "Label of the round control that mutes the microphone."
   },
+  "voiceCallReplyInChat": "Reply is in the chat",
+  "@voiceCallReplyInChat": {
+    "description": "Hermes line of the last turn when Speak replies is off: the reply finished and is in the chat."
+  },
   "voiceCallShowChat": "Show chat",
   "@voiceCallShowChat": {
     "description": "Button on the call screen that leaves the call screen without ending the call."
+  },
+  "voiceCallSpeakReplies": "Speak replies",
+  "@voiceCallSpeakReplies": {
+    "description": "Label of the switch under the call controls: whether Hermes reads its replies aloud during this call. On again for the next call."
   },
   "voiceCallSpeaker": "Speaker",
   "@voiceCallSpeaker": {
@@ -8169,6 +8177,14 @@
   "voiceCallStateWaiting": "Waiting for you",
   "@voiceCallStateWaiting": {
     "description": "State word under the orb while Hermes needs an answer in the chat."
+  },
+  "voiceCallTurnHermes": "Hermes",
+  "@voiceCallTurnHermes": {
+    "description": "Name before Hermes's words in the last-turns list of the call screen."
+  },
+  "voiceCallTurnYou": "You",
+  "@voiceCallTurnYou": {
+    "description": "Name before the user's words in the last-turns list of the call screen."
   },
   "voiceCallUnmute": "Unmute",
   "@voiceCallUnmute": {

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../files/code_highlight.dart'
     show hasCodeGrammar, kCodeHighlightMaxChars;
 import 'json_tree_parser.dart';
@@ -16,6 +18,11 @@ const int kToolJsonSniffMaxChars = 64 * 1024;
 /// the Files limit, [kCodeHighlightMaxChars]. Above it the text is plain and
 /// says so ([ToolValueNotice.tooLongToColour]).
 const int kToolValueColourMaxChars = kCodeHighlightMaxChars;
+
+/// How many JSON parses tool values have made (sniffing, the tree). A test
+/// reads it to see that a closed card parses nothing.
+@visibleForTesting
+int debugToolValueParses = 0;
 
 /// Whether [text] is a JSON object or array, by a parse of at most
 /// [kToolJsonSniffMaxChars] characters. A bare string, number or `null` is not
@@ -78,6 +85,7 @@ Object? tryDecodeJsonContainer(String text) {
   if (text.length > kToolJsonSniffMaxChars) return null;
   final trimmed = text.trimLeft();
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
+  debugToolValueParses++;
   try {
     final decoded = jsonDecode(text);
     return decoded is Map || decoded is List ? decoded : null;
@@ -245,6 +253,10 @@ enum ToolValueNotice {
   /// JSON nested deeper than [kToolJsonTreeMaxDepth]: coloured flat, no
   /// switch.
   tooDeepForTree,
+
+  /// Within the limits of one text, but the open cards of the chat have used
+  /// up the colouring they share ([ToolValueBudget]): plain, tree kept.
+  colourBudgetSpent,
 }
 
 /// How one tool text is shown: its [language] (null is plain and names no
@@ -282,10 +294,8 @@ ToolValueShape toolValueShape(
   const plain = ToolValueShape(notice: ToolValueNotice.none);
   if (!settled || language == null) return plain;
   if (text.length > kToolValueColourMaxChars) {
-    return ToolValueShape(
-      language: language,
-      notice: ToolValueNotice.tooLongToColour,
-    );
+    // Nothing is coloured, so the text has no tag either.
+    return const ToolValueShape(notice: ToolValueNotice.tooLongToColour);
   }
   if (language != 'json') {
     return ToolValueShape(language: language, notice: ToolValueNotice.none);
@@ -297,6 +307,7 @@ ToolValueShape toolValueShape(
     );
   }
   if (tryDecodeJsonContainer(text) == null) return plain;
+  debugToolValueParses++;
   final parsed = parseJsonTree(
     text,
     maxDepth: kToolJsonTreeMaxDepth,
