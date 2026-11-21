@@ -400,7 +400,11 @@ extension HermesThemeX on BuildContext {
 
 /// Keeps the iOS/macOS toggle's native shape and motion but swaps its green
 /// for the zinc primary; the thumb takes `onPrimary` so it stays visible on
-/// the near-white dark-mode track.
+/// the near-white dark-mode track. Every other platform draws Material's
+/// switch, whose off state is made visible against the row (WCAG 1.4.11):
+/// Material's defaults leave the outline, track and thumb all within a shade
+/// of the row's `surface`. The off state of the Apple switch is below 3:1 too;
+/// that is left as it is until the owner chooses its colour.
 class _AppleSwitchAdaptation extends Adaptation<SwitchThemeData> {
   const _AppleSwitchAdaptation(this.scheme);
 
@@ -425,7 +429,24 @@ class _AppleSwitchAdaptation extends Adaptation<SwitchThemeData> {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
-        return defaultValue;
+        final dark = scheme.brightness == Brightness.dark;
+        // A disabled switch is exempt from the contrast rule and keeps
+        // Material's dimmed look, as does the on state.
+        bool plainOff(Set<WidgetState> states) =>
+            !states.contains(WidgetState.selected) &&
+            !states.contains(WidgetState.disabled);
+        return defaultValue.copyWith(
+          trackOutlineColor: WidgetStateProperty.resolveWith(
+            (states) => plainOff(states)
+                ? HermesColors.zinc500
+                : defaultValue.trackOutlineColor?.resolve(states),
+          ),
+          thumbColor: WidgetStateProperty.resolveWith(
+            (states) => plainOff(states)
+                ? (dark ? HermesColors.zinc400 : HermesColors.zinc500)
+                : defaultValue.thumbColor?.resolve(states),
+          ),
+        );
     }
   }
 }
