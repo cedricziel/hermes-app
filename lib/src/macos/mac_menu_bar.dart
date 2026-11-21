@@ -227,6 +227,7 @@ List<PlatformMenuItem> macMenus(
     section('file'),
     PlatformMenu(
       label: l10n.macosMenuEdit,
+      onOpen: editMenu?.refreshClipboard,
       menus: [
         group([
           edit(

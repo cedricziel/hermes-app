@@ -50,10 +50,6 @@ class EditAvailability {
 class EditMenuState extends ValueNotifier<EditAvailability> {
   EditMenuState() : super(EditAvailability.none) {
     FocusManager.instance.addListener(_focusChanged);
-    // A focused field can be rebuilt with other controllers; there is no
-    // event for that, so each frame checks whether the bound ones are still
-    // the field's.
-    SchedulerBinding.instance.addPersistentFrameCallback((_) => _rebind());
     _focusChanged();
   }
 
@@ -64,6 +60,7 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
   TextEditingController? _boundController;
   UndoHistoryController? _boundUndo;
   bool _suspended = false;
+  bool _rebindArmed = false;
 
   /// Turns all six items off while another window than this engine's main
   /// window is key: this engine's focus is then not what the user edits.
@@ -135,6 +132,29 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
     _refresh();
   }
 
+  /// Re-reads the pasteboard for the focused field; the Edit menu calls it
+  /// when it opens, since a copy made without a focus change (a message's
+  /// Copy button, Copy Transcript) is not seen by the field.
+  void refreshClipboard() {
+    final field = _field;
+    if (field != null && field.mounted) {
+      unawaited(field.clipboardStatus.update());
+    }
+  }
+
+  // A focused field can be rebuilt with other controllers and nothing says
+  // so, so while one is bound each frame checks that the bound controllers
+  // are still the field's. The check re-arms itself and stops with the field.
+  void _armRebind() {
+    if (_rebindArmed || _disposed || _field == null) return;
+    _rebindArmed = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _rebindArmed = false;
+      _rebind();
+      _armRebind();
+    });
+  }
+
   void _bind(EditableTextState field) {
     _boundController = field.widget.controller;
     _boundUndo = field.widget.undoController;
@@ -143,6 +163,7 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
       _boundUndo,
       field.clipboardStatus,
     ])..addListener(_fieldChanged);
+    _armRebind();
   }
 
   void _unbind() {
@@ -220,6 +241,9 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
     _disposed = true;
     FocusManager.instance.removeListener(_focusChanged);
     _unbind();
+    _field = null;
+    _boundController = null;
+    _boundUndo = null;
     super.dispose();
   }
 }

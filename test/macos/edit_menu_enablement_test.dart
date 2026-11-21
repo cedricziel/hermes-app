@@ -344,4 +344,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(on(channel), {'Copy'});
   }, variant: mac);
+
+  testWidgets('Paste turns on when the Edit menu opens after a copy made '
+      'without a focus change', (tester) async {
+    mockClipboard(tester);
+    final channel = await pump(tester, const TextField(autofocus: true));
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Paste'), isFalse);
+
+    // A message's Copy button or Copy Transcript: the field stays focused.
+    clipboard = 'copied in the app';
+    await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+      SystemChannels.menu.name,
+      SystemChannels.menu.codec.encodeMethodCall(
+        MethodCall('Menu.opened', channel.menu('Edit')['id']),
+      ),
+      (_) {},
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Paste'), isTrue);
+  }, variant: mac);
 }

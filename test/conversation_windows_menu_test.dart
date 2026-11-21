@@ -282,4 +282,48 @@ void main() {
     await tester.pump();
     expect(edit.value.selectAll, isTrue);
   });
+
+  testWidgets('the Edit items go off while the quick panel is shown', (
+    tester,
+  ) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+
+    await windows.togglePanel();
+    await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    await host.call('panel', {
+      'window_id': 'p0',
+      'event': 'hidden',
+      'reason': 'focus_lost',
+    });
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+  });
 }
