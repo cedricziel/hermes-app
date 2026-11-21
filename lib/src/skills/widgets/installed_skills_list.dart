@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
@@ -120,43 +121,40 @@ class SkillUpdatesSection extends StatelessWidget {
   final VoidCallback? onPressed;
 
   static const _label = 'Check for updates';
-  static const _macLabel = 'Check for Updates';
-  static const _macStyle = TextStyle(fontSize: 12);
+
+  static final _macButtonStyle = OutlinedButton.styleFrom(
+    minimumSize: const Size(0, 22),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+    textStyle: const TextStyle(fontSize: 12),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+  );
 
   @override
   Widget build(BuildContext context) {
     final row = switch (platformChromeOf(context)) {
       PlatformChrome.macos => LayoutBuilder(
         builder: (context, box) {
+          final label = context.l10n.skillsCheckForUpdatesMac;
+          final style = _macButtonStyle;
           // Past the width the button fits beside the title, it goes on a
-          // line of its own, still a separate control.
-          final stacked = trailingActionStacks(
-            context,
-            width: box.maxWidth,
-            title: 'Hub skills',
-            actionLabel: _macLabel,
-            actionStyle: _macStyle,
-            actionChrome: 22,
-          );
+          // line of its own. Its own accessibility node at every size, so a
+          // screen reader finds the same controls however large the text.
           return GroupedRow(
             title: 'Hub skills',
-            separateTrailing: stacked,
-            trailingBelow: stacked,
+            separateTrailing: true,
+            trailingBelow: trailingActionStacks(
+              context,
+              width: box.maxWidth,
+              title: 'Hub skills',
+              actionLabel: label,
+              buttonStyle: style,
+            ),
             trailing: OutlinedButton(
               onPressed: onPressed,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 22),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 3,
-                ),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              child: const Text(_macLabel, style: _macStyle),
+              style: style,
+              child: Text(label),
             ),
           );
         },

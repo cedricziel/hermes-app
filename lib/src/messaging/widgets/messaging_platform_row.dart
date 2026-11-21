@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
+import '../../../l10n/l10n.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/trailing_action_fit.dart';
 import '../hermes_messaging_repository.dart';
@@ -28,14 +29,22 @@ class MessagingPlatformRow extends StatelessWidget {
       final chrome = platformChromeOf(context);
       final ios = chrome == PlatformChrome.ios;
       final mac = chrome == PlatformChrome.macos;
+      final l10n = context.l10n;
+      final label = mac ? l10n.messagingSetUpMac : l10n.messagingSetUp;
       GroupedRow row({bool stacked = false}) => GroupedRow(
         title: platform.name,
         subtitle: subtitle,
         error: platform.errorMessage,
         leading: leading,
         onTap: onSetUp,
-        value: ios ? 'Set Up' : null,
-        trailing: ios ? null : _SetUpButton(mac: mac, onSetUp),
+        value: ios ? l10n.messagingSetUpValue : null,
+        trailing: ios
+            ? null
+            : OutlinedButton(
+                onPressed: onSetUp,
+                style: _setUpStyle(context, mac: mac),
+                child: Text(label),
+              ),
         trailingBelow: stacked,
       );
       if (ios) return row();
@@ -49,9 +58,8 @@ class MessagingPlatformRow extends StatelessWidget {
               context,
               width: box.maxWidth,
               title: platform.name,
-              actionLabel: _SetUpButton.label(mac),
-              actionStyle: _SetUpButton.labelStyle(mac),
-              actionChrome: mac ? 22 : 26,
+              actionLabel: label,
+              buttonStyle: _setUpStyle(context, mac: mac),
               leading: metrics.tileSize + metrics.leadingGap,
             ),
           );
@@ -72,40 +80,24 @@ class MessagingPlatformRow extends StatelessWidget {
   }
 }
 
-class _SetUpButton extends StatelessWidget {
-  const _SetUpButton(this.onPressed, {required this.mac});
-
-  final VoidCallback onPressed;
-  final bool mac;
-
-  static String label(bool mac) => mac ? 'Set Up…' : 'Set up';
-
-  static TextStyle labelStyle(bool mac) => TextStyle(
-    fontSize: mac ? 12 : 14,
-    fontWeight: mac ? FontWeight.w400 : FontWeight.w600,
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        minimumSize: Size.zero,
-        // Taps reach the pill across 48 dp; a Mac takes clicks.
-        tapTargetSize: mac
-            ? MaterialTapTargetSize.shrinkWrap
-            : MaterialTapTargetSize.padded,
-        visualDensity: VisualDensity.standard,
-        padding: mac
-            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
-            : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(mac ? 6 : 999),
-        ),
-        textStyle: Theme.of(context).textTheme.labelLarge
-            ?.merge(labelStyle(mac)),
+/// The bordered "Set up" button of a row: a pill on Material, a small
+/// rounded rectangle on a Mac.
+ButtonStyle _setUpStyle(BuildContext context, {required bool mac}) =>
+    OutlinedButton.styleFrom(
+      minimumSize: Size.zero,
+      // Taps reach the pill across 48 dp; a Mac takes clicks.
+      tapTargetSize: mac
+          ? MaterialTapTargetSize.shrinkWrap
+          : MaterialTapTargetSize.padded,
+      visualDensity: VisualDensity.standard,
+      padding: mac
+          ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
+          : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(mac ? 6 : 999),
       ),
-      child: Text(label(mac)),
+      textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+        fontSize: mac ? 12 : 14,
+        fontWeight: mac ? FontWeight.w400 : FontWeight.w600,
+      ),
     );
-  }
-}
