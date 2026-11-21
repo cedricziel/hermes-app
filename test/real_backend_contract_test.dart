@@ -54,6 +54,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/profiles/soul/soul_repository.dart';
 import 'package:hermes_app/src/providers/provider_models.dart';
 import 'package:hermes_app/src/providers/provider_results.dart';
@@ -1464,7 +1465,7 @@ void main() {
       expect(raw['lease'], containsPair('holder', isIn(['agent', 'human'])));
       expect(raw['lease'], containsPair('epoch', isA<int>()));
 
-      final status = switch (await screen.status('default')) {
+      final status = switch (await screen.status(resolvedProfile('default'))) {
         BotScreenOk(:final value) => value,
         final other => fail('expected a status, got $other'),
       };
@@ -1481,7 +1482,9 @@ void main() {
       final raw = await rpc.request('display.thumbnail', {
         'profile': 'default',
       });
-      final frame = switch (await screen.thumbnail('default')) {
+      final frame = switch (await screen.thumbnail(
+        resolvedProfile('default'),
+      )) {
         BotScreenOk(:final value) => value,
         final other => fail('expected a frame result, got $other'),
       };
@@ -1660,16 +1663,23 @@ void main() {
       expect(body['home'], anyOf(isNull, isA<String>()));
       expect(body['scan_enabled'], isA<bool>());
 
-      value(await workspaces.catalog(profile: 'default'));
+      value(await workspaces.catalog(profile: resolvedProfile('default')));
       failedWith(
-        await workspaces.catalog(profile: 'contract-check-missing'),
+        await workspaces.catalog(
+          profile: resolvedProfile('contract-check-missing'),
+        ),
         WorkspacesFailure.unknownProfile,
       );
     }, skip: skip);
 
     test('fs/list lists the folders of a temp directory and reports a bad '
         'one in a 200 with error', () async {
-      final listing = value(await workspaces.listFolders(root.path));
+      final listing = value(
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          root.path,
+        ),
+      );
       expect(listing.folders.map((f) => f.name), ['inner']);
 
       final raw = (await client.raw.fsListApiFsListGet(
@@ -1678,11 +1688,17 @@ void main() {
       )).data!;
       expect((raw as Map)['error'], 'ENOENT');
       failedWith(
-        await workspaces.listFolders('${root.path}/missing'),
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          '${root.path}/missing',
+        ),
         WorkspacesFailure.notFound,
       );
       failedWith(
-        await workspaces.listFolders('${root.path}/note.txt'),
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          '${root.path}/note.txt',
+        ),
         WorkspacesFailure.notADirectory,
       );
     }, skip: skip);
@@ -1718,8 +1734,12 @@ void main() {
       expect(rows['linked']!['isDirectory'], isFalse, reason: 'the symlink');
       expect(rows['inner']!['path'], '${root.path}/inner');
 
-      final folders = value(await workspaces.listFolders(root.path)).folders
-          .map((f) => f.name);
+      final folders = value(
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          root.path,
+        ),
+      ).folders.map((f) => f.name);
       expect(folders, unorderedEquals(['inner', '.hiddendir']));
       // The link's own path lists its target: a file put there shows, with
       // the target's resolved path. It is no folder, so the folder listing
@@ -1736,10 +1756,20 @@ void main() {
         'inside.txt',
       ]);
       expect(
-        value(await workspaces.listFolders('${root.path}/linked')).folders,
+        value(
+          await workspaces.listFolders(
+            profile: resolvedProfile('default'),
+            '${root.path}/linked',
+          ),
+        ).folders,
         isEmpty,
       );
-      final typed = value(await workspaces.complete('${root.path}/lin'));
+      final typed = value(
+        await workspaces.complete(
+          profile: resolvedProfile('default'),
+          '${root.path}/lin',
+        ),
+      );
       expect(typed.folders.map((s) => s.text), ['${root.path}/linked/']);
     }, skip: skip);
 
@@ -1776,7 +1806,9 @@ void main() {
       ]);
       expect((row['folders'] as List).cast<Map>().first['is_primary'], isTrue);
 
-      final catalog = value(await workspaces.catalog(profile: 'default'));
+      final catalog = value(
+        await workspaces.catalog(profile: resolvedProfile('default')),
+      );
       final project = catalog.projects.singleWhere((p) => p.id == id);
       expect(project.folders.map((f) => f.path), [root.path, inner]);
       expect(project.folders.first.isPrimary, isTrue);
@@ -1792,7 +1824,12 @@ void main() {
     }, skip: skip);
 
     test('complete.path with an absolute word lists folders', () async {
-      final got = value(await workspaces.complete('${root.path}/in'));
+      final got = value(
+        await workspaces.complete(
+          profile: resolvedProfile('default'),
+          '${root.path}/in',
+        ),
+      );
       expect(got.folders.map((s) => s.text), ['${root.path}/inner/']);
     }, skip: skip);
 
@@ -1811,12 +1848,24 @@ void main() {
       final created = await create({'cwd': root.path, 'cwd_explicit': true});
       final stored = created['stored_session_id'] as String;
 
-      expect(value(await workspaces.moveWorkspace(stored, inner)).cwd, inner);
+      expect(
+        value(
+          await workspaces.moveWorkspace(
+            profile: resolvedProfile('default'),
+            stored,
+            inner,
+          ),
+        ).cwd,
+        inner,
+      );
       // A draft has no stored row until its first message (the server moves
       // it live: "A draft has no row yet; the live re-home still applies"),
       // so the stored chat reads as gone, not as a chat in the new folder.
       failedWith(
-        await workspaces.sessionFolder(stored),
+        await workspaces.sessionFolder(
+          profile: resolvedProfile('default'),
+          stored,
+        ),
         WorkspacesFailure.sessionGone,
       );
 
@@ -1831,18 +1880,26 @@ void main() {
         throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', 4017)),
       );
       failedWith(
-        await workspaces.moveWorkspace(stored, '${root.path}/missing'),
+        await workspaces.moveWorkspace(
+          profile: resolvedProfile('default'),
+          stored,
+          '${root.path}/missing',
+        ),
         WorkspacesFailure.notFound,
       );
       failedWith(
-        await workspaces.moveWorkspace('20200101_000000_ffffff', inner),
+        await workspaces.moveWorkspace(
+          profile: resolvedProfile('default'),
+          '20200101_000000_ffffff',
+          inner,
+        ),
         WorkspacesFailure.sessionGone,
       );
       failedWith(
         await workspaces.moveWorkspace(
           stored,
           inner,
-          profile: 'contract-check-missing',
+          profile: resolvedProfile('contract-check-missing'),
         ),
         WorkspacesFailure.unknownProfile,
       );
@@ -1864,7 +1921,13 @@ void main() {
       expect(rawMoved['cwd'], root.path);
       final rawRoot = rawMoved['git_repo_root']! as String;
       final rawBranch = rawMoved['branch']! as String;
-      final moved = value(await workspaces.moveWorkspace(stored, root.path));
+      final moved = value(
+        await workspaces.moveWorkspace(
+          profile: resolvedProfile('default'),
+          stored,
+          root.path,
+        ),
+      );
       if (ancestor == null) {
         expect(rawRoot, isEmpty);
         expect(rawBranch, isEmpty);
@@ -1889,7 +1952,10 @@ void main() {
       // The stored folder after a first message is read in the scripted-model
       // group below.
       failedWith(
-        await workspaces.sessionFolder(created['stored_session_id'] as String),
+        await workspaces.sessionFolder(
+          profile: resolvedProfile('default'),
+          created['stored_session_id'] as String,
+        ),
         WorkspacesFailure.sessionGone,
       );
     }, skip: skip);
@@ -1909,9 +1975,14 @@ void main() {
           contains('path is outside the managed read boundary'),
         );
       }
-      value(await workspaces.listFolders(base));
+      value(
+        await workspaces.listFolders(profile: resolvedProfile('default'), base),
+      );
       failedWith(
-        await workspaces.listFolders(outside),
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          outside,
+        ),
         WorkspacesFailure.outsideBoundary,
       );
     }, skip: skip ?? (filesRoot == null ? 'set HERMES_DEV_FILES_ROOT' : null));
@@ -3749,7 +3820,7 @@ void main() {
 
     MemoryDecisions decisions() => MemoryDecisions(
       available: () => true,
-      run: (command) => session.run('default', command),
+      run: (command) => session.run(resolvedProfile('default'), command),
       surface: 'inbox',
     );
 
@@ -3797,7 +3868,9 @@ void main() {
       );
 
       final proposals = {
-        for (final p in (await repository.load('default')).memory.proposals)
+        for (final p in (await repository.load(
+          resolvedProfile('default'),
+        )).memory.proposals)
           p.id: p,
       };
 
@@ -3839,7 +3912,8 @@ void main() {
 
       expect(inbox.stateOf(id).phase, MemoryDecisionPhase.saved);
       expect(memoryFile.readAsStringSync(), startsWith('Prefers spaces'));
-      final listed = (await repository.load('default')).proposals;
+      final listed = (await repository.load(resolvedProfile('default')))
+          .proposals;
       expect(listed.map((p) => p.id), isNot(contains(id)));
     }, skip: skip);
 
@@ -3896,7 +3970,8 @@ void main() {
         expect(inbox.stateOf(id).text, startsWith('Entry changed'));
         expect(memoryFile.readAsStringSync(), startsWith('Prefers tabs in Go'));
         expect(
-          (await repository.load('default')).proposals.map((p) => p.id),
+          (await repository.load(resolvedProfile('default'))).proposals
+              .map((p) => p.id),
           contains(id),
         );
       },
@@ -3917,7 +3992,8 @@ void main() {
       expect(inbox.stateOf(id).phase, MemoryDecisionPhase.rejected);
       expect(userFile.readAsStringSync(), 'Likes tea, no sugar');
       expect(
-        (await repository.load('default')).proposals.map((p) => p.id),
+        (await repository.load(resolvedProfile('default'))).proposals
+            .map((p) => p.id),
         isNot(contains(id)),
       );
     }, skip: skip);
@@ -3928,7 +4004,8 @@ void main() {
         'target': 'user',
         'content': 'Runs on a Mac',
       }, summary: 'add to user profile: Runs on a Mac');
-      final listed = (await repository.load('default')).proposals
+      final listed = (await repository.load(resolvedProfile('default')))
+          .proposals
           .where((p) => p.id == first)
           .toList();
       final later = stage('memory', {
@@ -3945,7 +4022,8 @@ void main() {
       expect(inbox.stateOf(later).phase, MemoryDecisionPhase.idle);
       expect(userFile.readAsStringSync(), isNot(contains('chess')));
       expect(
-        (await repository.load('default')).proposals.map((p) => p.id),
+        (await repository.load(resolvedProfile('default'))).proposals
+            .map((p) => p.id),
         contains(later),
       );
     }, skip: skip);
@@ -3962,11 +4040,14 @@ void main() {
         origin: 'background_review',
       );
 
-      final snapshot = await repository.load('default');
+      final snapshot = await repository.load(resolvedProfile('default'));
       final skill = snapshot.skills.proposals.singleWhere((p) => p.id == id);
       expect(skill.skillName, 'contract-check');
       expect(skill.background, isTrue);
-      expect(await repository.diff('default', id), startsWith('---\nname:'));
+      expect(
+        await repository.diff(resolvedProfile('default'), id),
+        startsWith('---\nname:'),
+      );
 
       final inbox = decisions();
       addTearDown(inbox.dispose);
@@ -3978,7 +4059,7 @@ void main() {
       'a command the server does not know answers Unknown command',
       () async {
         expect(
-          await session.run('default', '/nosuch pending'),
+          await session.run(resolvedProfile('default'), '/nosuch pending'),
           startsWith('Unknown command'),
         );
       },
@@ -3989,8 +4070,8 @@ void main() {
       final before = (await HermesChatRepository(
         client.raw,
       ).loadThreads()).map((t) => t.id).toSet();
-      await repository.load('default');
-      await repository.load('default');
+      await repository.load(resolvedProfile('default'));
+      await repository.load(resolvedProfile('default'));
       final after = (await HermesChatRepository(
         client.raw,
       ).loadThreads()).map((t) => t.id).toSet();
@@ -4046,7 +4127,12 @@ void main() {
   group('tools (read only: nothing is switched, saved or installed)', () {
     late HermesToolsRepository tools;
 
-    setUp(() => tools = HermesToolsRepository(client.raw, profile: 'default'));
+    setUp(
+      () => tools = HermesToolsRepository(
+        client.raw,
+        profile: resolvedProfile('default'),
+      ),
+    );
 
     T value<T>(ToolsResult<T> result) {
       expect(result, isA<ToolsOk<T>>());
@@ -4171,9 +4257,11 @@ void main() {
 
     test('a profile that does not exist is told apart from a missing '
         'route', () async {
-      final gone = HermesToolsRoot(
-        client.raw,
-      ).forProfile('contract-missing-${DateTime.now().millisecondsSinceEpoch}');
+      final gone = HermesToolsRoot(client.raw).forProfile(
+        resolvedProfile(
+          'contract-missing-${DateTime.now().millisecondsSinceEpoch}',
+        ),
+      );
 
       expect(await gone.list(), isA<ToolsProfileGone<ToolsetList>>());
     });
@@ -4636,7 +4724,10 @@ model:
 ''',
         ),
       );
-      tools = HermesToolsRepository(client.raw, profile: profile);
+      tools = HermesToolsRepository(
+        client.raw,
+        profile: resolvedProfile(profile),
+      );
     });
 
     tearDownAll(() async {
@@ -4858,7 +4949,10 @@ model:
     }
 
     setUp(() async {
-      files = HermesFilesRepository(client, profile: 'default');
+      files = HermesFilesRepository(
+        client,
+        profile: resolvedProfile('default'),
+      );
       cwd = value(await files.defaultCwd());
       // The page never leaves the start folder's repository; here the start
       // folder itself stands in, so the boundary is exercised on real rows.
@@ -4919,7 +5013,7 @@ model:
     test('a profile the server does not have is badRequest', () async {
       final other = HermesFilesRepository(
         client,
-        profile: 'contract-check-missing-profile',
+        profile: resolvedProfile('contract-check-missing-profile'),
       );
       final answer = await other.list(cwd);
       expect(answer, isA<FilesFailed<FsListing>>());
@@ -5006,7 +5100,7 @@ model:
       await File('${proj.path}/blob.bin')
           .writeAsBytes([for (var i = 0; i < 2000; i++) i % 256]);
       await File('${proj.path}/big.txt').writeAsString('line\n' * 150000);
-      files = HermesFilesRepository(client, profile: 'default')
+      files = HermesFilesRepository(client, profile: resolvedProfile('default'))
         ..highestFolder = at(dir.path);
       raw = Dio(
         BaseOptions(
@@ -5164,7 +5258,10 @@ model:
               .then((_) {}, onError: (Object _) {}),
         );
 
-        final any = HermesFilesRepository(client, profile: 'default');
+        final any = HermesFilesRepository(
+          client,
+          profile: resolvedProfile('default'),
+        );
         expect(kind(await any.readText(at(db))), FilesFailure.busy);
         final sink = File('${dir.path}/db').openWrite();
         final download = await any.download(at(db), sink: sink);
@@ -5187,7 +5284,10 @@ model:
     test('with the files root set, the start folder is outside it: its first '
         'list is the fixed-folder 403, git-root and default-cwd still answer, '
         'and a folder inside lists', () async {
-      final any = HermesFilesRepository(client, profile: 'default');
+      final any = HermesFilesRepository(
+        client,
+        profile: resolvedProfile('default'),
+      );
       final start = value(await any.defaultCwd());
       expect(start.isWithin(at(filesRoot!)), isFalse);
       expect(kind(await any.list(start)), FilesFailure.fixedFolder);
@@ -5212,11 +5312,14 @@ model:
       expect(invalid.statusCode, 400);
       expect((invalid.data as Map)['detail'], isA<String>());
 
-      final other = HermesFilesRepository(client, profile: '../bad name');
+      final other = HermesFilesRepository(
+        client,
+        profile: resolvedProfile('../bad name'),
+      );
       expect(kind(await other.list(at(proj.path))), FilesFailure.badRequest);
       final ghost = HermesFilesRepository(
         client,
-        profile: 'contract-check-missing-profile',
+        profile: resolvedProfile('contract-check-missing-profile'),
       );
       expect(kind(await ghost.defaultCwd()), FilesFailure.badRequest);
     });
@@ -6023,7 +6126,9 @@ approvals:
         // named profile that is its own folder, while fs/default-cwd (the
         // Files page's start for a chat without a stored folder) answers the
         // dashboard's launch folder: a gap noted in the change's design.
-        final catalog = await workspaces.catalog(profile: profile);
+        final catalog = await workspaces.catalog(
+          profile: resolvedProfile(profile),
+        );
         expect(
           catalog,
           isA<WorkspacesOk<WorkspaceCatalog>>(),
@@ -6031,7 +6136,10 @@ approvals:
         );
         final defaultCwd =
             (catalog as WorkspacesOk<WorkspaceCatalog>).value.defaultCwd;
-        final stored = await workspaces.sessionFolder(id, profile: profile);
+        final stored = await workspaces.sessionFolder(
+          id,
+          profile: resolvedProfile(profile),
+        );
         expect(stored, isA<WorkspacesOk<SessionFolder>>(), reason: '$stored');
         final folder = (stored as WorkspacesOk<SessionFolder>).value;
         expect(folder.cwd, isNotNull);
@@ -6054,10 +6162,13 @@ approvals:
         final moved = await workspaces.moveWorkspace(
           id,
           resolved,
-          profile: profile,
+          profile: resolvedProfile(profile),
         );
         expect(moved, isA<WorkspacesOk<MovedWorkspace>>(), reason: '$moved');
-        final after = await workspaces.sessionFolder(id, profile: profile);
+        final after = await workspaces.sessionFolder(
+          id,
+          profile: resolvedProfile(profile),
+        );
         expect(after, isA<WorkspacesOk<SessionFolder>>(), reason: '$after');
         expect((after as WorkspacesOk<SessionFolder>).value.cwd, resolved);
       },

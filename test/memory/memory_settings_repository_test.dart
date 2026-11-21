@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_settings.dart';
 import 'package:hermes_app/src/memory/memory_settings_repository.dart';
@@ -31,7 +32,7 @@ void main() {
             updates: 'verbose',
           ),
         );
-      final settings = await repository(server).read('work');
+      final settings = await repository(server).read(resolvedProfile('work'));
       expect(settings.userProfile, isFalse);
       expect(settings.agentNotes, isFalse);
       expect(settings.writeApproval, isTrue);
@@ -52,13 +53,16 @@ void main() {
           },
           'display': {'memory_notifications': 4},
         });
-      expect(await repository(server).read('work'), MemorySettings.defaults);
+      expect(
+        await repository(server).read(resolvedProfile('work')),
+        MemorySettings.defaults,
+      );
     });
 
     test('an answer that is not an object is unreadable', () async {
       final server = FakeHermesServer()..on('GET', '/api/config', ['no']);
       await expectLater(
-        repository(server).read('work'),
+        repository(server).read(resolvedProfile('work')),
         throwsA(MemoryFailure.malformed),
       );
     });
@@ -67,7 +71,7 @@ void main() {
       final server = FakeHermesServer()
         ..on('GET', '/api/config', {'detail': 'boom'}, status: 500);
       await expectLater(
-        repository(server).read('work'),
+        repository(server).read(resolvedProfile('work')),
         throwsA(MemoryFailure.transport),
       );
     });
@@ -80,7 +84,8 @@ void main() {
 
     test('sends only the changed leaf and the profile', () async {
       final server = FakeHermesServer()..on('PUT', '/api/config', {'ok': true});
-      await repository(server).write('work', MemorySetting.writeApproval, true);
+      await repository(server)
+          .write(resolvedProfile('work'), MemorySetting.writeApproval, true);
       expect(
         server
             .requestsTo('PUT', '/api/config')
@@ -98,8 +103,9 @@ void main() {
 
     test('the in-chat reports go under display', () async {
       final server = FakeHermesServer()..on('PUT', '/api/config', {'ok': true});
-      await repository(server)
-          .write('work', MemorySetting.updatesInChat, 'verbose');
+      await repository(
+        server,
+      ).write(resolvedProfile('work'), MemorySetting.updatesInChat, 'verbose');
       expect(sent(server), {
         'config': {
           'display': {'memory_notifications': 'verbose'},
@@ -112,7 +118,8 @@ void main() {
       final refusing = FakeHermesServer()
         ..on('PUT', '/api/config', {'detail': 'nope'}, status: 400);
       await expectLater(
-        repository(refusing).write('work', MemorySetting.agentNotes, false),
+        repository(refusing)
+            .write(resolvedProfile('work'), MemorySetting.agentNotes, false),
         throwsA(
           isA<MemoryWriteFailure>().having(
             (e) => e.uncertain,
@@ -131,7 +138,8 @@ void main() {
           ),
         );
       await expectLater(
-        repository(lost).write('work', MemorySetting.agentNotes, false),
+        repository(lost)
+            .write(resolvedProfile('work'), MemorySetting.agentNotes, false),
         throwsA(
           isA<MemoryWriteFailure>().having(
             (e) => e.uncertain,
@@ -153,7 +161,11 @@ void main() {
           events: (name, [attributes = const {}]) =>
               events.add('$name $attributes'),
         ),
-      ).write('private-profile', MemorySetting.reviewInterval, 5);
+      ).write(
+        resolvedProfile('private-profile'),
+        MemorySetting.reviewInterval,
+        5,
+      );
       final span = tracer.spans.single;
       expect(span.name, 'memory.settings.write');
       expect(span.attributes['key'], 'nudge_interval');
@@ -175,7 +187,7 @@ void main() {
     await repository(
       server,
       telemetry: ConnectionTelemetry(tracer: tracer),
-    ).read('work');
+    ).read(resolvedProfile('work'));
     expect(tracer.spans.single.name, 'memory.settings.fetch');
     expect(tracer.spans.single.attributes['outcome'], 'success');
   });

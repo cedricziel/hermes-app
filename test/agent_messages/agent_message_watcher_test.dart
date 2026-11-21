@@ -260,6 +260,41 @@ void main() {
         });
       });
 
+      testWidgets('takes the launch profile as the one the user is on, not '
+          'the sticky default', (tester) async {
+        await tester.runAsync(() async {
+          server.on(
+            'GET',
+            '/api/profiles/active',
+            activeProfileBody(active: 'home', current: 'work'),
+          );
+
+          await twoDeliveries();
+
+          expect(
+            {for (final alert in service.shown) alert.title},
+            {'Report (default)', 'Other'},
+          );
+        });
+      });
+
+      testWidgets('names no profile when the server has no profiles route', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          server.on('GET', '/api/profiles/active', {
+            'detail': 'no',
+          }, status: 404);
+
+          await twoDeliveries();
+
+          expect(
+            {for (final alert in service.shown) alert.title},
+            {'Report', 'Other'},
+          );
+        });
+      });
+
       testWidgets('asks for the active profile while the texts are read', (
         tester,
       ) async {

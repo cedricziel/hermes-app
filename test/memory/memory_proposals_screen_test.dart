@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
@@ -56,11 +57,17 @@ void main() {
 
   Future<void> bind(WidgetTester tester) async {
     await tester.runAsync(() async {
-      memory.bind(MemoryRepository(server.client().raw), 'work');
-      settings.bind(MemorySettingsRepository(server.client().raw), 'work');
+      memory.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
+      settings.bind(
+        MemorySettingsRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       proposals.bind(
         MemoryProposalsRepository(MemoryProposalSession(transport)),
-        'work',
+        resolvedProfile('work'),
       );
       await pumpEventQueue();
       await settings.whenIdle;

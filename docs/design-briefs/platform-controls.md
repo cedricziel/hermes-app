@@ -55,3 +55,57 @@ Open (follow-ups, not part of this change):
 - The design system's Mac `SettingsScaffold` `formAction` is a roughly 22 pt button with a 6 pt radius; it should become the 28 pt button.
 
 Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device.
+
+## Search fields at large text
+
+The shared search fields clipped their placeholder and text at large text (iOS above about 1.4x, Material above about 1.8x, Mac above 1.3x), because their height was fixed.
+
+Decisions:
+
+- Phone (`SettingsSearchField` on iOS and Material): the height is a minimum that grows with the text scaler, `max(36 or 44, scaled line height + 8)`, from one function (`SettingsSearchField.heightFor`) that `SettingsScaffold`'s bar bottom also uses, so the bar grows with the field. At 1.0x the heights stay 36 and 44. The filter and clear buttons keep their platform size.
+- Mac (`MacToolbarSearchField`, also what `SettingsSearchField` shows on macOS): the field stays a 26 pt toolbar control and its text scaling is clamped at 1.3x, and the line height shrinks only when a scaled line would not fit the border (below 1.5 from about 1.13x), so at 1.0x the field, caret and selection are as before.
+
+Reason: a Mac toolbar control does not grow with the text size (AppKit toolbars stay at their set height); a phone search field has room to grow and the bar below the title can follow it.
+
+Alternative considered: growing the Mac toolbar with the text. Rejected, because every toolbar button, the 52 pt toolbar and the window chrome would have to grow with it for one field.
+
+Checked by `test/widgets/search_field_large_text_test.dart` and the catalog use cases `SettingsSearchField / Largest text`.
+
+### Design (done)
+
+Canvas: https://claude.ai/artifact/HPwY5Tj74AMWYYUYLrzeyH (private, ask its owner for access), 2026-11-21. Five artboards: iOS light and dark, Android light and dark (phone settings header with search at text scale 1.0 / 2.0 / 3.1, short hint "Search skills" and long hint "Search the skills hub" with the filter button), and the Mac toolbar (1.0x and the 1.3x clamp, light and dark). Text scale is simulated by scaling font sizes (the design system has no textScale prop).
+
+Decisions:
+- iOS and Android: the field's minimum height is max(36 or 44, scaled font x 1.5 + 8): iOS 36 / 59 / 87 pt and Android 44 / 56 / 82.4 dp at 1.0 / 2.0 / 3.1. The bar below the title grows with it (toolbar + field + 8). At 1.0x nothing changes.
+- The hint stays on one line and ends in an ellipsis; it never wraps.
+- Search, clear and filter icons keep their platform size.
+- Mac: the field stays 26 pt in the 52 pt toolbar; text scale is clamped at 1.3x; the line height shrinks only when a scaled line would not fit the border.
+
+Accepted differences from the Flutter renders: ellipsis position (Flutter breaks at a word, Chrome at a character); icons do not scale with text; the Flutter Mac field is wider than the design system's 180 / 240 pt field; the canvas stretches the filter button to the field's height, while Flutter keeps it at its platform size (36 / 44) centred in the taller field, which keeps its tap target and icon unchanged (tested in `search_field_large_text_test.dart` and shown in the "Largest text" use case).
+
+## Android switch off state
+
+### Design (done)
+
+- Canvas: https://claude.ai/artifact/X2xtELLCTgUqYCbN9L9b5S (private; ask the owner for access)
+- Date: 2026-11-21
+- Boards (6, Android 412 wide, light and dark): switch states in a grouped section; Memory settings with mixed switches; before and after.
+
+Decisions:
+
+- Scope: Material switch (Android, Windows, Linux).
+- OFF outline is zinc500 (#71717A) in light and dark.
+- OFF thumb is zinc400 (#A1A1AA) in dark and zinc500 in light.
+- The track, the ON state and the disabled states are unchanged.
+- Contrast (WCAG 1.4.11, 3:1): outline against the page 4.12:1 dark and 4.83:1 light; thumb against the track 5.81:1 dark and 4.40:1 light. Before: 1.34:1 dark and 1.27:1 light, with the thumb at 1.00:1 (dark) and 1.16:1 (light) on the track.
+- Disabled switches are exempt from 1.4.11 and keep their dimmed look.
+
+Accepted differences (canvas against Flutter):
+
+- The design system's Switch component still draws the old OFF look; the canvas overrides it with token CSS on a wrapper. The design system needs the same change.
+- The design system draws a darker ring on the disabled ON switch (translucent border over translucent fill); Flutter draws a flat track. Disabled is unchanged and exempt.
+- Row height differs (subtitles in the canvas); the Flutter renders use the Ahem test font.
+
+Open owner decision:
+
+- iOS and macOS are unchanged. Their OFF colour is still undecided, because the same contrast question applies there (OFF track against the row: 1.43:1 dark, 1.20:1 light). The theme test holds them at those values so they cannot get worse.

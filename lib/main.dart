@@ -44,7 +44,7 @@ Future<void> main([List<String> args = const []]) async {
       providers: [
         ...authProviders(telemetry),
         ...telemetryProviders(telemetry),
-        ...deepLinkProviders(telemetry),
+        ...deepLinkProviders(telemetry, launchArguments: args),
         ...macosInputProviders(telemetry),
         ...appLockProviders(telemetry),
         ...macosWindowProviders(telemetry),

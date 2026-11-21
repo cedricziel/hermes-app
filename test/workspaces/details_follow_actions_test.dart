@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/ui/workspace_flows.dart';
@@ -70,6 +71,7 @@ void main() {
         'scan_enabled': false,
       });
     chat = ChatController(
+      profileResolver: ProfileResolver.known('default'),
       repository: HermesChatRepository(server.client().raw),
       transport: source,
       workspaces: HermesWorkspacesRepository(

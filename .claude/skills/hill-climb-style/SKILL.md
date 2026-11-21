@@ -46,9 +46,10 @@ Decisions and limits:
 - The spacing scale is provisional (no spacing token yet): 0, 2, 4, 6, 8, 12, 16, 20,
   24, 32, 40, 48, 56, 64. It is the const `spacingScale` in `tool/style_score/scanner.dart`;
   change it there when a token lands. 10 and 14 are off-scale on purpose.
-- A plain `Switch` counts even though the theme has `_AppleSwitchAdaptation`: that
-  adaptation only recolours the track and thumb of the Material switch (it does not make
-  it a Cupertino switch), so on iOS and macOS a plain `Switch` still draws Material.
+- A plain `Switch` counts even though the theme has `_SwitchAdaptation`: that
+  adaptation only recolours the Material switch (track and thumb on iOS and macOS, the
+  off outline and thumb on Android, Windows and Linux); it does not make it a Cupertino
+  switch, so on iOS and macOS a plain `Switch` still draws Material.
 - `showAdaptiveDialog` counts as a bypass of `showAppDialog` (it skips the macOS path).
 - Syntactic only: constants (`kGap`, `kHermesRadius`), computed values (`base * 2`) and dot
   shorthands (`.all(8)`) are not seen. A `SizedBox` used as a fixed-size box inside a
@@ -88,7 +89,8 @@ it. Prefer fixing the code to adding an entry.
 ## Tap targets T: `scripts/tap-report.sh`
 
 ```bash
-scripts/tap-report.sh              # workflow screens, then the Widgetbook catalog
+scripts/tap-report.sh              # workflow screens (default run, then WORKFLOW_PLATFORM=macOS), then the Widgetbook catalog
+MAC_WORKFLOWS=0 scripts/tap-report.sh  # skip the macOS workflow pass
 WORKFLOWS=0 scripts/tap-report.sh  # catalog only (deletes build/tap_targets first)
 WORKFLOWS=0 KEEP_WORKFLOWS=1 scripts/tap-report.sh  # catalog only, reusing (KEEP_WORKFLOWS=1 without WORKFLOWS=0 is an error) the last workflow data
 ```
@@ -113,11 +115,24 @@ guidelines but does not stop at the first failure.
   390x844, macOS (28 pt) on 1280x800. Use cases that throw are skipped (the catalog test
   owns them).
 - Workflow screens: with `HERMES_TAP_REPORT=1`, `ScreenshotRecorder.capture` measures the
-  screen and appends it to `build/tap_targets/workflows/<flow>.jsonl`; the script runs all
-  of `test/workflows`. A screen is judged by the macOS minimum when its window is 700
-  logical pixels wide or more, else by the platform its theme was built for (the test's
-  `platform:`, `WORKFLOW_PLATFORM`, or Android when neither is set); a phone-sized screen
-  built for another platform is skipped and listed under `screensSkipped`.
+  screen and appends it to `build/tap_targets/workflows/<run>/<flow>.jsonl`, where `<run>` is
+  `WORKFLOW_PLATFORM` or `default`. The script runs all of `test/workflows` twice: once as
+  is (Android unless a test sets `platform:`), once with `WORKFLOW_PLATFORM=macOS`, so the
+  Mac numbers come from real macOS-themed renders: the macOS pass records only screens whose
+  theme platform is macOS, so tests that ignore `WORKFLOW_PLATFORM` count once, from the
+  default pass; a test that pins `platform: macOS` is recorded in both passes and the reader
+  drops the macOS pass's copy of any screen (same source, same rendered platform) the default
+  pass already holds. The macOS pass has known failures
+  (about 145 tests use Android-specific finders), so its macOS counts miss the screens after
+  a failing step; the script prints the failed count and files at the end and still exits 0.
+  Only a failing default workflow pass or report step makes it exit non-zero.
+  A screen is judged by the platform of the root theme it rendered with, never by window
+  width: android (and fuchsia) 48, ios 44, macos 28 plus the inflated check. Windows and
+  Linux render Material with a pointer; they are judged by the same 28 pt desktop rule but
+  reported as their own `windows` and `linux` platforms, whatever the window size. The
+  window class (`phone` below 700 logical px, else `desktop`) is recorded in each sample's
+  `window` field, so an Android theme in a desktop-sized window is an Android finding and
+  nothing is dropped.
 - Headline numbers: `totals` counts distinct (platform, screen with the theme suffix
   `-dark`/`-light` of its flow dropped, label, size, position rounded to 1 px), so the
   same control in light and dark counts once while ten identical buttons at ten places
@@ -126,7 +141,7 @@ guidelines but does not stop at the first failure.
   theme only. Zero-area nodes and nodes fully outside the
   window are not targets.
 - Also reported: tap targets without a label or tooltip (`labeledTapTargetGuideline`'s
-  rule), and macOS targets exactly 44 or 48 wide or high (`macosInflated`: Material's
+  rule), and macOS targets exactly 44 or 48 wide or high (`macosInflated`, macOS-themed screens only: Material's
   `kMinInteractiveDimension`, which a pointer does not need).
 - No per-file attribution: a semantics node does not carry its widget's creation
   location, so a finding names its screen or use case, label and size.
