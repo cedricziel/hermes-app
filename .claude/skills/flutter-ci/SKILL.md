@@ -258,7 +258,8 @@ a trailing shell comment `# process-substitution-ok: <reason>` outside quotes,
 because `pipefail` does not see a failure inside it. Any literal `<(` or `>(` anywhere in the text counts, quotes, comments, heredoc
 bodies and `${{ }}` included, and needs the marker (a blunt rule that closes the
 evasions a structured reader cannot see, such as arithmetic-evaluated quotes);
-a `${{ format(...) }}` is flagged, and an expanding heredoc body with a live
+a `${{ format(...) }}` or any `${{ }}` holding a quote is flagged (it can
+assemble shell text, as in `${{ '<' }}(a)`), and an expanding heredoc body with a live
 `$(` or backtick (an even number of backslashes before it) too. For the quote
 state the scanner skips heredoc
 bodies, reads `$'...'` as quoted text, ends a comment inside `$(...)` at its

@@ -597,8 +597,9 @@ def commands(script):
             region = script[index:end]
             if _RAW_SUBSTITUTION.search(region):
                 hit = True
-            if _FORMAT_CALL.search(region):
-                # format() can assemble shell text from pieces.
+            if _FORMAT_CALL.search(region) or "'" in region or '"' in region:
+                # format() or a string literal can assemble shell text from
+                # pieces (`${{ '<' }}(a)`), which no text scan can see.
                 unreadable = True
             segment.append(region)
             index = end
@@ -859,11 +860,27 @@ class ProcessSubstitution(unittest.TestCase):
             with self.subTest(script=script):
                 self.assertTrue(unmarked_substitutions(script))
 
+    def test_a_quote_inside_an_expression_is_unreadable(self):
+        # `${{ '<' }}(a)` assembles `<(` with no `format(` and no contiguous
+        # `<(` in the text.
+        for script in (
+            "diff ${{ '<' }}(a) ${{ '<' }}(b)",
+            "echo ${{ github.event_name == 'push' }}",
+            "echo ${{ github.event_name == 'push' && 'a' || 'b' }}",
+            'echo ${{ github.ref == "refs/heads/main" }}',
+            "echo ${{ '' }}",
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_a_quote_flag_is_not_approved_by_the_marker(self):
+        script = "echo ${{ 'x' }} # process-substitution-ok: reviewed"
+        self.assertTrue(unmarked_substitutions(script))
+
     def test_plain_expressions_stay_readable(self):
         for script in (
             "echo ${{ github.event_name }}",
             "echo ${{ matrix.shard }} ${{ steps.a.outputs.b }}",
-            "echo ${{ github.event_name == 'push' && 'a' || 'b' }}",
         ):
             with self.subTest(script=script):
                 self.assertEqual(unmarked_substitutions(script), [])
