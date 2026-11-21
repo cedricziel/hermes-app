@@ -94,6 +94,10 @@
   "@chatComposerHoldRestoring": {
     "description": "Line above the message box while files are restored from a checkpoint; Send is off until it finishes, typing is not."
   },
+  "chatNewMessageTitle": "New message",
+  "@chatNewMessageTitle": {
+    "description": "Title in the phone chat bar of a chat that has no title yet."
+  },
   "chatNoticeStopCommand": "Hermes took that as a stop command. Nothing was sent.",
   "@chatNoticeStopCommand": {
     "description": "Notice in the chat when a typed or queued message was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The text goes back into the message box."
@@ -2191,6 +2195,18 @@
   "chatWidgetsProgramStopButton": "Stop program",
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
+  },
+  "chatWidgetsThreadListRefreshFailedDetail": "Pull down to try again.",
+  "@chatWidgetsThreadListRefreshFailedDetail": {
+    "description": "Detail under the title of the notice above the chat list after a pull to refresh failed; the list stays as it was and nothing is retried on its own."
+  },
+  "chatWidgetsThreadListRefreshFailedTitle": "Couldn't refresh your chats.",
+  "@chatWidgetsThreadListRefreshFailedTitle": {
+    "description": "Title of the notice above the chat list when reading the first page of chats again, by pulling the list down, failed."
+  },
+  "chatWidgetsThreadListRefreshing": "Refreshing chats",
+  "@chatWidgetsThreadListRefreshing": {
+    "description": "Screen reader announcement of the spinner shown while the chat list is read again after a pull to refresh."
   },
   "chatWidgetsThreadMenuArchive": "Archive",
   "@chatWidgetsThreadMenuArchive": {
@@ -6962,10 +6978,6 @@
   "skillsCuratorSchedule": "Schedule",
   "@skillsCuratorSchedule": {
     "description": "Row title: how often scheduled passes run."
-  },
-  "skillsCuratorShowOutput": "Show output",
-  "@skillsCuratorShowOutput": {
-    "description": "Label of the closed disclosure that opens the lines Hermes printed."
   },
   "skillsCuratorShowOutputCount": "Show output · {count, plural, =1{1 line} other{{count} lines}}",
   "@skillsCuratorShowOutputCount": {
