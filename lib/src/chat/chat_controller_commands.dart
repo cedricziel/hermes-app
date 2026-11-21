@@ -228,10 +228,11 @@ extension _ChatControllerCommands on ChatController {
 
   /// Whether the last prompt of [thread] can be taken back on the server:
   /// edited, or sent again in place of its turn.
-  bool _canEditLastPromptImpl(ChatThread thread) {
+  bool _canEditLastPromptImpl(ChatThread thread, {bool ignoringHold = false}) {
     if (!active || _sessionStates[thread]?.reclaimedReason != null) {
       return false;
     }
+    if (!ignoringHold && _turnHeldImpl(thread)) return false;
     final prompt = lastPromptText(thread);
     return transport != null &&
         _bound.contains(thread) &&
@@ -244,12 +245,33 @@ extension _ChatControllerCommands on ChatController {
         !prompt.startsWith('/');
   }
 
+  /// Whether the server may still be running the turn of the last reply of
+  /// [thread] (see [ChatMessage.serverMayRun]): Retry, Edit and Branch wait,
+  /// since the server would answer them busy, or run the prompt twice. A reply
+  /// that is still replying holds them already.
+  bool _turnHeldImpl(ChatThread thread) => _lastReplyHeld(thread) != null;
+
+  /// The last reply of [thread] when it ended with the server possibly still
+  /// running its turn.
+  ChatMessage? _lastReplyHeld(ChatThread thread) {
+    for (final message in thread.messages.reversed) {
+      if (message.role != ChatRole.assistant) continue;
+      return message.status == MessageStatus.error && message.serverMayRun
+          ? message
+          : null;
+    }
+    return null;
+  }
+
   /// Sends the text of the last prompt again. The server drops the turn it
   /// replaces first, so the model does not see that reply again. A command, a
   /// prompt that had files (they are not sent again) and a server that cannot
   /// undo get a new turn instead.
   Future<void> _retryImpl(ChatThread thread) async {
     if (_sessionStates[thread]?.reclaimedReason != null) return;
+    // The server may still run the turn: neither an undo nor a new prompt
+    // goes out, and the actions say why.
+    if (_turnHeldImpl(thread)) return;
     // A full restore is rewinding the chat: another undo would take a second
     // turn.
     if (_ChatControllerCheckpoints(this)._actionHolds(thread) ||
@@ -292,7 +314,7 @@ extension _ChatControllerCommands on ChatController {
       } on Object catch (error) {
         if (_currentActivity(epoch) &&
             _sessionActionCurrent(thread, generation)) {
-          _failTurnAction(thread, error, 'try again');
+          _failTurnAction(thread, error, TurnAction.retry);
         }
         return;
       }
@@ -323,7 +345,7 @@ extension _ChatControllerCommands on ChatController {
     } on Object catch (error) {
       if (_currentActivity(epoch) &&
           _sessionActionCurrent(thread, generation)) {
-        _failTurnAction(thread, error, 'edit the prompt');
+        _failTurnAction(thread, error, TurnAction.edit);
       }
       return;
     }
@@ -350,6 +372,7 @@ extension _ChatControllerCommands on ChatController {
       !_ChatControllerCheckpoints(this)._actionHolds(thread) &&
       !_moveHolds(thread) &&
       !thread.isReplying &&
+      !_turnHeldImpl(thread) &&
       !_queues.containsKey(thread);
 
   /// How many prompts Hermes holds after the message the flyer id [messageId]
@@ -426,16 +449,13 @@ extension _ChatControllerCommands on ChatController {
     if (failure != null) {
       breadcrumbs('chat.branch', {'outcome': 'failed', 'from': from});
       // Hermes refused, or answered what the app cannot use.
-      final answered =
-          failure is GatewayRpcException ||
-          failure is FormatException ||
-          failure is StateError;
-      final problem = answered
-          ? "Hermes couldn't branch the chat."
-          : "Couldn't reach Hermes to branch the chat. Check your connection.";
-      // Said under the chat's last reply when it is open, else as a note.
+      final problem = _turnProblemOf(TurnAction.branch, failure);
+      // Said under the chat's last reply when it is open, in the screen's
+      // language. A chat that is not open can only be told through `report`,
+      // a plain-text sink, so that one note is worded here in the device's
+      // language (a follow-up: make `report` take a kind).
       if (selectedThread != thread) {
-        report(problem);
+        report(problem.text(l10nForPlatformLocale()));
       } else if (_sessionActionCurrent(thread, generation)) {
         _turnProblems[thread] = problem;
         notifyListeners();
@@ -455,16 +475,31 @@ extension _ChatControllerCommands on ChatController {
     );
   }
 
+  /// What to say of a failed [action]: Hermes answered busy (its turn still
+  /// runs; nothing was changed), Hermes refused, or it could not be reached.
+  TurnActionProblem _turnProblemOf(TurnAction action, Object error) {
+    final kind = switch (error) {
+      GatewayRpcException(code: 4009) => TurnProblemKind.busy,
+      GatewayRpcException() ||
+      FormatException() ||
+      StateError() => TurnProblemKind.rejected,
+      _ => TurnProblemKind.unreachable,
+    };
+    return TurnActionProblem(action, kind);
+  }
+
   /// Says under the last reply why taking back its turn failed. The error
   /// itself is meant for developers, so only its kind goes to the crumb.
-  void _failTurnAction(ChatThread thread, Object error, String action) {
-    final rejected = error is GatewayRpcException;
+  void _failTurnAction(ChatThread thread, Object error, TurnAction action) {
+    final problem = _turnProblemOf(action, error);
     breadcrumbs('chat.undo.failed', {
-      'cause': rejected ? 'rejected' : 'unreachable',
+      'cause': switch (problem.kind) {
+        TurnProblemKind.busy => 'busy',
+        TurnProblemKind.rejected => 'rejected',
+        TurnProblemKind.unreachable => 'unreachable',
+      },
     });
-    _turnProblems[thread] = rejected
-        ? "Hermes couldn't $action."
-        : "Couldn't reach Hermes to $action. Check your connection.";
+    _turnProblems[thread] = problem;
     notifyListeners();
   }
 
@@ -473,6 +508,7 @@ extension _ChatControllerCommands on ChatController {
   TurnActionStatus _turnActionStatusImpl(ChatThread thread) => TurnActionStatus(
     running: _undoing[thread],
     problem: _turnProblems[thread],
+    held: _turnHeldImpl(thread),
   );
 
   /// Drops the last turn of [thread] on the server and then here. False when

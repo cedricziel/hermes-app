@@ -4,7 +4,6 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
-import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 
@@ -278,7 +277,8 @@ void main() {
         expect(ended.replying, isFalse);
         expect(ended.reply.isPending, isFalse);
         expect(ended.reply.status, MessageStatus.error);
-        expect(ended.reply.error, kReplyFailedMessage);
+        expect(ended.reply.error, isNull);
+        expect(ended.reply.failure, ReplyFailure.generic);
       },
     );
   });

@@ -250,3 +250,17 @@ This extends an existing designed surface (the tail of a reply in the transcript
 **While it shows.** The queue is paused as after any failed reply: queued messages stay, nothing is sent by itself. When the chat is read again and the history already has Hermes' answer after the prompt, the note goes with the placeholder reply and the real reply shows.
 
 **Not checked.** VoiceOver and TalkBack output on a device, the contrast of the warning token on the dark surface beyond an eye check, the sentences read by a German speaker.
+
+## Addendum: Retry and Edit while the server may still run the turn
+
+This extends an existing designed surface (the action bar under a reply, `MessageActions`, and the notes under a reply). It adds states, not a screen, and needs no new canvas.
+
+**What the person sees.** A reply ended because the connection to Hermes broke, or because Hermes could not be made to say how the turn ended, and the server may still be running it. Under the reply, Try again and Edit prompt stay on the bar but dimmed, and one line under the bar says why, in the warning colour with an info icon: "Hermes may still be working on this." (German: "Hermes arbeitet möglicherweise noch daran."). The failure line of such a reply no longer says "Try sending it again": it says "Something went wrong. Hermes may still be working on this." (German: "Etwas ist schiefgegangen. Hermes arbeitet möglicherweise noch daran."). Branch in new chat is not offered, as while a reply is being written. Nothing is sent by tapping the dimmed buttons. The buttons come back by themselves once Hermes says the turn is over. A reply the server answered, restarted or no longer has keeps both buttons on.
+
+**A busy answer.** If Hermes still answers Try again, Edit prompt or Branch with "busy", the line under the reply says what is true, as a warning note (info icon, not red, since nothing failed): "Hermes is still working on this. Try again when it is done." (German: "Hermes arbeitet noch daran. Versuche es erneut, wenn es fertig ist."). Nothing was changed and nothing is resent.
+
+**Widgets (plain models).** `MessageActions(status: TurnActionStatus(held:, problem:), heldAnnounceKey)` and `ReplyInterruptedNote` for both lines; no new widget. The held line is announced once per reply (`heldAnnounceKey`), the busy note is a live region. Dimmed glyphs are never the only signal: the sentence is always there, and it wraps at any text size.
+
+**Catalog use cases** (`widgetbook/chat_use_cases.dart` MessageActions, `widgetbook/chat_thread_use_cases.dart`): held with the failure line, held on a reply without text, held with Read aloud, held at the largest text on a 320 pt screen, the busy answer (also at the largest text), a refused edit, a failed try again, and two whole-thread cases (a failed reply that may still run, and "could not confirm"). Light and dark, phone and desktop and English and German come from the catalog's addons.
+
+**Not checked.** VoiceOver and TalkBack output on a device, the contrast of the dimmed glyphs on the dark surface beyond an eye check, the German sentences read by a German speaker.
