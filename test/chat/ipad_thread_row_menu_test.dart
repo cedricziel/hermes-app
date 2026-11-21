@@ -84,7 +84,7 @@ void main() {
     );
     expect(menu.top, closeTo(rowRect.top, 1), reason: 'level with the row');
     expect(said, [
-      'Chat actions for Release notes',
+      (message: 'Chat actions for Release notes', textDirection: 1),
     ], reason: 'the open menu is named by an announcement');
   });
 

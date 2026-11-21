@@ -112,7 +112,9 @@ void main() {
         reason: label,
       );
     }
-    expect(said, ['Chat-Aktionen für Release notes']);
+    expect(said, [
+      (message: 'Chat-Aktionen für Release notes', textDirection: 1),
+    ]);
   });
 
   testWidgets('a Bot Chat popover has no Rename and offers Retire', (
