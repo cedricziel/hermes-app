@@ -177,18 +177,32 @@ class HermesCuratorRepository {
     }
     if (status == 404 || status == 405) return const CuratorUnsupported();
     if (status >= 400 && status < 500) {
-      return const CuratorFailed(CuratorFailure.refused);
+      return CuratorFailed(
+        CuratorFailure.refused,
+        detail: call == _Call.pause ? _shown(detail) : null,
+      );
     }
     if (call == _Call.run) return _runFailure(status, detail);
     if (call == _Call.pause &&
         (status == 502 || status == 503 || status == 504)) {
       return const CuratorFailed(CuratorFailure.lostAnswer);
     }
+    final unavailable =
+        status == 500 && (detail?.startsWith('Curator unavailable') ?? false);
     return CuratorFailed(
-      status == 500 && (detail?.startsWith('Curator unavailable') ?? false)
-          ? CuratorFailure.unavailable
-          : CuratorFailure.server,
+      unavailable ? CuratorFailure.unavailable : CuratorFailure.server,
+      detail: call == _Call.pause && !unavailable ? _shown(detail) : null,
     );
+  }
+
+  /// Hermes' text for a screen to word a failure with: only a non-blank
+  /// string. The most kept is [_detailLimit] characters, so a huge answer is
+  /// never held; the controller cleans it for display.
+  static String? _shown(String? detail) {
+    if (detail == null || detail.trim().isEmpty) return null;
+    return detail.length > _detailLimit
+        ? detail.substring(0, _detailLimit)
+        : detail;
   }
 
   /// A run's 5xx. Hermes wraps a failed spawn, and the 404 or 400 of a bad
@@ -201,15 +215,15 @@ class HermesCuratorRepository {
       if (rest.startsWith("404: $_profileGone")) {
         return const CuratorProfileGone();
       }
-      return CuratorFailed(
-        rest.startsWith('400:')
-            ? CuratorFailure.refused
-            : CuratorFailure.spawnFailed,
-      );
+      if (rest.startsWith('400:')) {
+        return const CuratorFailed(CuratorFailure.refused);
+      }
+      return CuratorFailed(CuratorFailure.spawnFailed, detail: _shown(detail));
     }
     return const CuratorFailed(CuratorFailure.lostAnswer);
   }
 
+  static const _detailLimit = 1000;
   static const _profileGone = "Profile '";
   static const _runPrefix = 'Failed to run curator: ';
 }

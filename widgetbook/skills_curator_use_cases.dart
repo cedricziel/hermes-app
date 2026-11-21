@@ -67,6 +67,7 @@ CuratorSectionModel _model({
   bool checking = false,
   bool checkFailed = false,
   List<String> lines = const [],
+  int? lineCount,
   int earlier = 0,
   bool? hasOutput,
   bool blanked = false,
@@ -89,6 +90,7 @@ CuratorSectionModel _model({
     startedAt: run == CuratorRunView.unconfirmed ? _ranAt : null,
     outputLines: lines,
     earlierLines: earlier,
+    outputLineCount: lineCount,
     hasOutput: hasOutput ?? lines.isNotEmpty,
     outputBlanked: blanked,
     outputDropped: dropped,
@@ -332,7 +334,7 @@ const _knownDays = CuratorRunConfirmationModel(
   consolidate: false,
 );
 
-enum _Where { iPhone, iPad, mac, android }
+enum _Where { iPhone, iPad, mac, android, windows, linux }
 
 /// The confirmation the way `showAdaptiveSheet` presents it: a bottom sheet
 /// on a phone, a centred dialog on an iPad and a Mac.
@@ -345,11 +347,17 @@ WidgetbookUseCase _confirm(
 }) => WidgetbookUseCase(
   name: name,
   builder: (context) {
-    final dialog = where == _Where.iPad || where == _Where.mac;
+    final dialog =
+        where == _Where.iPad ||
+        where == _Where.mac ||
+        where == _Where.windows ||
+        where == _Where.linux;
     final platform = switch (where) {
       _Where.iPhone || _Where.iPad => TargetPlatform.iOS,
       _Where.mac => TargetPlatform.macOS,
       _Where.android => TargetPlatform.android,
+      _Where.windows => TargetPlatform.windows,
+      _Where.linux => TargetPlatform.linux,
     };
     Widget body = Theme(
       data: Theme.of(context).copyWith(platform: platform),
@@ -485,7 +493,7 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'Run now row',
       useCases: [
-        ..._states('Idle', _model()),
+        ..._states('Idle', _model(), platforms: true),
         ..._states('Opening', _model(run: CuratorRunView.opening)),
         ..._states(
           'Running',
@@ -502,8 +510,15 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
         ),
         ..._states(
           'Finished, output hidden',
-          _model(run: CuratorRunView.finished, hasOutput: true, blanked: true),
+          // The lines are hidden, the count in the label stays.
+          _model(
+            run: CuratorRunView.finished,
+            hasOutput: true,
+            lineCount: 12,
+            blanked: true,
+          ),
           open: true,
+          platforms: true,
         ),
         ..._states(
           'Finished with no output',
@@ -611,6 +626,9 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
         _confirm('Archive only (iPad dialog)', _knownDays, where: _Where.iPad),
         _confirm('Archive only (Mac)', _knownDays, where: _Where.mac),
         _confirm('Archive only (Android)', _knownDays, where: _Where.android),
+        _confirm('Archive only (Windows)', _knownDays, where: _Where.windows),
+        _confirm('Archive only (Linux)', _knownDays, where: _Where.linux),
+        _confirm('German (Mac)', _knownDays, where: _Where.mac, german: true),
         _confirm(
           'Built-ins included (iPhone)',
           const CuratorRunConfirmationModel(
