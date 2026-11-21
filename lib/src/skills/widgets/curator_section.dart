@@ -101,6 +101,7 @@ class CuratorSectionModel {
     this.startedAt,
     this.outputLines = const [],
     this.earlierLines = 0,
+    this.outputLineCount,
     this.hasOutput = false,
     this.outputBlanked = false,
     this.outputDropped = false,
@@ -136,6 +137,11 @@ class CuratorSectionModel {
   final DateTime? startedAt;
   final List<String> outputLines;
   final int earlierLines;
+
+  /// How many lines the pass left on screen, [outputLines] and
+  /// [earlierLines] together. Set while the lines are blanked (the list is
+  /// empty then, the count stays); null derives it from the two.
+  final int? outputLineCount;
 
   /// The pass printed lines, even when they are blanked now.
   final bool hasOutput;
@@ -673,14 +679,14 @@ class _CuratorBody extends StatelessWidget {
             : l10n.skillsCuratorNoOutput,
       );
     }
-    final count = model.outputLines.length + model.earlierLines;
+    final count =
+        model.outputLineCount ?? model.outputLines.length + model.earlierLines;
     return OutputLinesTile(
-      // The count is in the label, so it reads the same seen and heard. Not
-      // while blanked, nor for the earlier pass, whose lines are not these.
+      // The count is in the label, so it reads the same seen and heard, and
+      // it stays while the lines are blanked (only the lines are hidden).
+      // Not for the earlier pass, whose lines are not these.
       label: earlier
           ? l10n.skillsCuratorShowOutputEarlier
-          : model.outputBlanked
-          ? l10n.skillsCuratorShowOutput
           : l10n.skillsCuratorShowOutputCount(count),
       lines: model.outputLines,
       initiallyOpen: outputInitiallyOpen,
