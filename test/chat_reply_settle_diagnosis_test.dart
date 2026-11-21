@@ -171,4 +171,59 @@ void main() {
 
     expect(outcomes(), ['lost_connection', 'failed']);
   });
+
+  test('Stop 4001 on a held reply with a queue records the pause', () async {
+    await startTurn();
+    chat.submit('queued', const []);
+    await pumpEventQueue();
+    await lose(const GatewayReplyLost());
+    transport.onStop = (_) async => throw const GatewaySessionGone(4001);
+    await chat.stopReply(thread);
+    await pumpEventQueue();
+
+    expect(outcomes(), ['lost_connection', 'failed']);
+    expect(events.named('chat.queue.state'), [
+      {'state': 'held', 'count': '1'},
+      {'state': 'paused', 'count': '1'},
+    ]);
+  });
+
+  test('a held reply that fails with no error logs a server error', () async {
+    await startTurn();
+    await lose(const GatewayReplyLost());
+    chat.checkConnection();
+    await pumpEventQueue();
+    transport.followUpStreams['s1']!
+      ..emit(const ReplyStarted())
+      ..emit(const ReplyCompleted('', failed: true));
+    await pumpEventQueue();
+
+    expect(outcomes(), ['lost_connection', 'failed']);
+    expect(ended().last['cause'], 'server_error');
+  });
+
+  test('an idle report that ends a stopped held reply is a stop', () async {
+    await startTurn();
+    await lose(const GatewayReplyLost());
+    await chat.stopReply(thread);
+    await pumpEventQueue();
+    transport.followUpStreams['s1']!
+      ..emit(const ReplyStarted())
+      ..emit(const SessionInfo(running: false));
+    await pumpEventQueue();
+
+    expect(outcomes(), ['lost_connection', 'stopped']);
+  });
+
+  test('an idle report that ends a stopped running reply is a stop', () async {
+    await startTurn();
+    await chat.stopReply(thread);
+    await pumpEventQueue();
+    send
+      ..emit(const SessionInfo(running: false))
+      ..finish();
+    await pumpEventQueue();
+
+    expect(outcomes(), ['stopped']);
+  });
 }

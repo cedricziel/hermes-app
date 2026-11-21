@@ -238,6 +238,7 @@ class ReplyDiagnostics {
       error: error,
       stopped: outcome == 'stopped',
       queued: queued,
+      serverReportedFailure: outcome == 'failed',
     );
   }
 

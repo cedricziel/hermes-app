@@ -346,6 +346,12 @@ extension _ChatControllerStreaming on ChatController {
               _reconnectTimers.remove(thread)?.cancel();
               _reconnectTries.remove(thread);
             }
+            // Read before the event settles the hold: an idle report that ends
+            // a turn the user stopped is a stop, not a completion.
+            final stoppedByUser = switch (_holdOf(thread)) {
+              _Hold.stopping || _Hold.paused => true,
+              _ => false,
+            };
             _onReplyEvent(thread, current, event, profile);
             if (!_currentActivity(epoch)) return;
             if (event is ReplyCompleted) {
@@ -376,6 +382,8 @@ extension _ChatControllerStreaming on ChatController {
                 thread,
                 outcome: current.status == MessageStatus.error
                     ? 'failed'
+                    : stoppedByUser
+                    ? 'stopped'
                     : 'completed',
                 error: null,
                 queued: _queues[thread]?.length ?? 0,

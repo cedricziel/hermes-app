@@ -237,6 +237,7 @@ extension _ChatControllerSending on ChatController {
     _rememberedSince.remove((profile, thread.id));
     var failed = false;
     var stopped = false;
+    var stoppedIdle = false;
     var folded = false;
     var settled = false;
     // Set once the turn is the server's: its prompt was accepted or a frame of
@@ -311,9 +312,11 @@ extension _ChatControllerSending on ChatController {
             ? 'withdrawn'
             : endedAs == 'reconnecting'
             ? 'lost_connection'
+            : endedAs == 'completed' && stoppedIdle
+            ? 'stopped'
             : endedAs,
         error: error,
-        stopped: stopped,
+        stopped: stopped || (stoppedIdle && endedAs == 'completed'),
         queued: queuedBehind,
         serverReportedFailure: failed || reply.status == MessageStatus.error,
       );
@@ -609,7 +612,15 @@ extension _ChatControllerSending on ChatController {
           stopped = event.stopped;
         }
         if (event is PromptFolded) folded = true;
-        if (event is SessionInfo && event.running == false) settled = true;
+        if (event is SessionInfo && event.running == false) {
+          settled = true;
+          // For telemetry only: an idle report that ends a turn the user
+          // stopped is a stop, not a completion.
+          stoppedIdle = switch (_holdOf(thread)) {
+            _Hold.stopping || _Hold.paused => true,
+            _ => stoppedIdle,
+          };
+        }
         if (event is UnsolicitedEvent) {
           _onOwnTurnEvent(thread, reply, own, event.event, profile);
           return;

@@ -44,7 +44,13 @@ final class _Resumed {
     this.replayedCount = 0,
     this.truncated = false,
     this.epochChanged = false,
+    this.refetch = false,
   });
+
+  /// Whether the reply asks for the thread to be read again: a
+  /// [ThreadNeedsRefetch] was added to what the reconnect hands over. False
+  /// when the replay restored the reply without one. For telemetry.
+  final bool refetch;
 
   /// The runtime session the reply is on now.
   final String runtimeId;

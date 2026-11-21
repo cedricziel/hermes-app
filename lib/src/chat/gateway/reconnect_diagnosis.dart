@@ -25,6 +25,9 @@ const kReconnectResults = {
   'busy',
   'rejected',
   'credential',
+  'http_error',
+  'bad_certificate',
+  'cancelled',
   'window_expired',
   'other',
 };
@@ -40,6 +43,7 @@ const kReconnectErrorTypes = {
   'closed',
   'rpc',
   'credential',
+  'cancelled',
   'other',
 };
 
@@ -78,7 +82,7 @@ ReconnectDiagnosis diagnoseReconnectError(Object? error) {
       return (result: 'refused', errorType: 'tls');
     case HttpException() || WebSocketException():
       return (result: 'refused', errorType: 'http');
-    case DioException(:final type):
+    case DioException(:final type, :final response):
       return switch (type) {
         DioExceptionType.connectionTimeout ||
         DioExceptionType.sendTimeout ||
@@ -90,7 +94,23 @@ ReconnectDiagnosis diagnoseReconnectError(Object? error) {
           result: 'no_network',
           errorType: 'http',
         ),
-        _ => (result: 'credential', errorType: 'http'),
+        // Only a refused credential is a credential problem.
+        DioExceptionType.badResponse
+            when response?.statusCode == 401 || response?.statusCode == 403 =>
+          (result: 'credential', errorType: 'http'),
+        DioExceptionType.badResponse => (
+          result: 'http_error',
+          errorType: 'http',
+        ),
+        DioExceptionType.badCertificate => (
+          result: 'bad_certificate',
+          errorType: 'tls',
+        ),
+        DioExceptionType.cancel => (
+          result: 'cancelled',
+          errorType: 'cancelled',
+        ),
+        _ => (result: 'other', errorType: 'other'),
       };
     default:
       return (result: 'other', errorType: 'other');

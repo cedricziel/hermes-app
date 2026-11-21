@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart';
@@ -37,6 +39,18 @@ import '../support/local_dashboard.dart';
 import '../support/memory_token_store.dart';
 import '../support/pump_chat.dart';
 import '../support/recording_tracer.dart';
+
+/// A [Random] whose draws are fixed, so reconnect backoff is known.
+class _FixedRandom implements Random {
+  @override
+  bool nextBool() => true;
+
+  @override
+  double nextDouble() => 0.5;
+
+  @override
+  int nextInt(int max) => max ~/ 2;
+}
 
 /// The privacy guard for telemetry: breadcrumbs, app events, request logs,
 /// spans, `debugPrint` and `print` carry fixed names, counts, flags and
@@ -456,48 +470,74 @@ void main() {
     expectClean();
   });
 
-  test('reply loss: socket close, reconnect attempts, reattach', () async {
-    final gateway = FakeGateway()
-      ..createResult = {
-        'session_id': _runtimeSession,
-        'stored_session_id': _storedSession,
+  test('reply loss: socket close, reconnect attempts, reattach', () {
+    fakeAsync((async) {
+      final gateway = FakeGateway()
+        ..stampSeq = true
+        ..sendReady = true
+        ..createResult = {
+          'session_id': _runtimeSession,
+          'stored_session_id': _storedSession,
+        }
+        ..resumeResult = {'session_id': _runtimeSession, 'running': true}
+        ..turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.delta', sid, {'text': 'echo $_msg'});
+          g.drop();
+        };
+      final connection = sinks.connection(_serverAttributes);
+      var opened = 0;
+      var unreachable = true;
+      final transport = HermesGatewayTransport(
+        connect: () async {
+          // The first socket is the chat's; until the recovery window runs
+          // out every later one fails with a message that quotes the server's
+          // address. After that the server answers, but never the resume.
+          if (opened++ > 0 && unreachable) {
+            throw StateError('cannot reach $_host with $_token');
+          }
+          return gateway.connect();
+        },
+        telemetry: connection.gateway(),
+        events: connection.events,
+        random: _FixedRandom(),
+      );
+
+      unawaited(
+        sinks.capturingPrint(() async {
+          final seen = transport
+              .send(text: _msg)
+              .listen((_) {}, onError: (Object _) {});
+          // The recovery window (60 s of fake time) runs out.
+          await Future<void>.delayed(const Duration(seconds: 70));
+          unawaited(seen.cancel());
+          unreachable = false;
+          gateway.silent.add('session.resume');
+          // A pick-up of the thread the reply lost.
+          final follow = transport
+              .followUps(_storedSession)
+              .listen((_) {}, onError: (Object _) {});
+          await Future<void>.delayed(const Duration(seconds: 30));
+          await follow.cancel();
+          await transport.close();
+        }),
+      );
+      async.elapse(const Duration(seconds: 110));
+      async.flushMicrotasks();
+
+      for (final name in [
+        'gateway.socket_closed',
+        'gateway.reconnect_attempt',
+        'gateway.reattach',
+      ]) {
+        expect(
+          sinks.records.any((r) => r.text.contains(name)),
+          isTrue,
+          reason: '$name was captured',
+        );
       }
-      ..resumeResult = {'session_id': _runtimeSession, 'running': true}
-      ..turn = (g, sid) {
-        g.event('message.start', sid);
-        g.event('message.delta', sid, {'text': 'echo $_msg'});
-        g.drop();
-      };
-    final connection = sinks.connection(_serverAttributes);
-    var opened = 0;
-    final transport = HermesGatewayTransport(
-      connect: () async {
-        // The first socket is the chat's; every later one fails with a
-        // message that quotes the server's address.
-        if (opened++ == 0) return gateway.channel;
-        throw StateError('cannot reach $_host with $_token');
-      },
-      telemetry: connection.gateway(),
-      events: connection.events,
-    );
-    addTearDown(transport.close);
-
-    await sinks.capturingPrint(() async {
-      final seen = transport
-          .send(text: _msg, profile: _profile)
-          .listen((_) {}, onError: (Object _) {});
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
-      await seen.cancel();
-      // A pick-up of the thread the reply lost.
-      final follow = transport
-          .followUps(_storedSession, profile: _profile)
-          .listen((_) {}, onError: (Object _) {});
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      await follow.cancel();
-      await transport.close();
+      expectClean();
     });
-
-    expectClean();
   });
 
   testWidgets('reply loss: lifecycle, ended, late event, queue', (

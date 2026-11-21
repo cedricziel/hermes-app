@@ -398,6 +398,7 @@ extension _Reconnect on HermesGatewayTransport {
             replayedCount: replayedCount,
             truncated: truncated,
             epochChanged: epochChanged,
+            refetch: ended.any((e) => e.$1 is ThreadNeedsRefetch),
           );
         }
         // Frames the replay did not cover (the merge counts them itself).
@@ -423,6 +424,7 @@ extension _Reconnect on HermesGatewayTransport {
         ),
         outcome: outcome,
         replayedCount: replayedCount,
+        refetch: ended.any((e) => e.$1 is ThreadNeedsRefetch),
         truncated: truncated,
         epochChanged: epochChanged,
       );
@@ -490,6 +492,7 @@ extension _Reconnect on HermesGatewayTransport {
       ),
       outcome: decision is Deliver ? 'replayed' : 'rest_refetch',
       replayedCount: replayedCount,
+      refetch: injected.any((e) => e.$1 is ThreadNeedsRefetch),
       truncated: truncated,
       epochChanged: epochChanged,
     );

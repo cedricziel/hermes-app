@@ -235,9 +235,12 @@ void main() {
         ..emit(const ReplyCompleted('Done.'))
         ..finish();
       await pumpEventQueue();
-      await Future<void>.delayed(const Duration(seconds: 3));
+      // The session reports itself idle: the queue goes on at once, with no
+      // wait for the settle timer.
+      transport.followUpStreams['s1']!.emit(const SessionInfo(running: false));
       await pumpEventQueue();
 
+      expect(transport.sends, hasLength(2));
       expect(
         events.named('chat.queue.state'),
         anyElement(equals({'state': 'drained', 'count': '0'})),

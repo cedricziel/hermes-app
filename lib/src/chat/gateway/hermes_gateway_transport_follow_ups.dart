@@ -65,7 +65,7 @@ extension _FollowUps on HermesGatewayTransport {
     }
     _record('gateway.reattach', {
       'outcome': outcome,
-      'refetch': resumed.ended.any((e) => e.$1 is ThreadNeedsRefetch),
+      'refetch': resumed.refetch,
       'replayed_count': resumed.replayedCount,
     });
   }

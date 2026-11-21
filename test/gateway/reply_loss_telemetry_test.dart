@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -17,6 +18,17 @@ import '../support/recorded_events.dart';
 /// Recognisable text no transport event may carry.
 const _prompt = 'SENTINEL_PROMPT_5e1a launch the secret rocket';
 const _serverText = 'SENTINEL_SERVER_5e1a.internal.example';
+
+DioException _dio(DioExceptionType type, [int? status]) {
+  final options = RequestOptions(path: '/x');
+  return DioException(
+    requestOptions: options,
+    type: type,
+    response: status == null
+        ? null
+        : Response<Object?>(requestOptions: options, statusCode: status),
+  );
+}
 
 class _Seen {
   final events = <ChatEvent>[];
@@ -378,6 +390,40 @@ void main() {
       });
     });
 
+    test('a refetch the pick-up asks for is flagged, even on a live reply', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(events.named('gateway.reattach').single, {
+          'outcome': 'same_reply',
+          'refetch': true,
+          'replayed_count': 0,
+        });
+      });
+    });
+
+    test('a snapshot that rebuilds the reply asks for no refetch', () {
+      fake((async) {
+        lose(async);
+        gateway.silent.remove('session.resume');
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'abc'},
+        };
+        _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(events.named('gateway.reattach').single['refetch'], isFalse);
+      });
+    });
+
     test('a thread that lost no reply logs no reattach', () {
       fake((async) {
         gateway.resumeResult = {'session_id': 'rt-9', 'running': false};
@@ -477,6 +523,15 @@ void main() {
         ),
         const HandshakeException(_serverText): ('refused', 'tls'),
         StateError(_serverText): ('other', 'other'),
+        _dio(DioExceptionType.badResponse, 401): ('credential', 'http'),
+        _dio(DioExceptionType.badResponse, 403): ('credential', 'http'),
+        _dio(DioExceptionType.badResponse, 502): ('http_error', 'http'),
+        _dio(DioExceptionType.badResponse): ('http_error', 'http'),
+        _dio(DioExceptionType.badCertificate): ('bad_certificate', 'tls'),
+        _dio(DioExceptionType.cancel): ('cancelled', 'cancelled'),
+        _dio(DioExceptionType.unknown): ('other', 'other'),
+        _dio(DioExceptionType.connectionError): ('no_network', 'http'),
+        _dio(DioExceptionType.receiveTimeout): ('timeout', 'timeout'),
       };
       for (final entry in cases.entries) {
         final got = diagnoseReconnectError(entry.key);
