@@ -1961,8 +1961,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         try {
           // Strict: the server's last change may be the one a read during the
           // hold already saw, and only the hold changed since.
-          await _ChatControllerHistory(this)
-              ._refreshThreadImpl(thread.id, strict: true);
+          await _ChatControllerHistory(this)._refreshThreadImpl(
+            thread.id,
+            strict: true,
+            releasing: true,
+            sendGeneration: asked[thread]!.$2 ?? 0,
+          );
         } on Object catch (e, stack) {
           if (e is! StateError) reportBug(e, stack, 'the held release re-read');
           continue;
@@ -1981,8 +1985,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
   }
 
-  /// The threads whose held reply is being released: a re-read in that state
-  /// no longer keeps the held bubble (see `_failedTurn`).
+  /// The threads whose held reply a poll is releasing right now, so only one
+  /// poll does.
   final _releasing = <ChatThread>{};
 
   Future<bool> _applyActive(

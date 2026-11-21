@@ -23,8 +23,15 @@ void main() {
   late List<Map<String, Object?>> stored;
   var messagesFail = false;
 
+  /// While set, each messages read waits for the test to say how it ends
+  /// (true: the page, false: a server error).
+  var gating = false;
+  final messageCalls = <Completer<bool>>[];
+
   setUp(() {
     messagesFail = false;
+    gating = false;
+    messageCalls.clear();
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     server = FakeHermesServer();
@@ -48,6 +55,13 @@ void main() {
         )
         ..onRequest('GET', '/api/sessions/s1/messages', (_) async {
           if (messagesFail) return (status: 500, body: {'detail': 'down'});
+          if (gating) {
+            final call = Completer<bool>();
+            messageCalls.add(call);
+            if (!await call.future) {
+              return (status: 500, body: {'detail': 'down'});
+            }
+          }
           return (status: 200, body: messageListBody('s1', List.of(stored)));
         });
     }
@@ -218,6 +232,76 @@ void main() {
     expect(chat.canEditLastPrompt(thread), isFalse);
     expect(transport.undos, isEmpty);
     expect(transport.sends, hasLength(2));
+  });
+
+  /// The stored rows of both turns: each answered.
+  void storeBothTurns() {
+    stored
+      ..add(messageRow(id: 3, role: 'user', content: 'Run the build'))
+      ..add(messageRow(id: 4, role: 'assistant', content: 'Done.'))
+      ..add(messageRow(id: 5, role: 'user', content: 'And again'))
+      ..add(messageRow(id: 6, role: 'assistant', content: 'Partial.'));
+  }
+
+  test('a send that starts and fails unconfirmed while the release re-read '
+      'waits keeps its held bubble and its hold', () async {
+    final thread = await heldTurn('default');
+    storeBothTurns();
+    transport
+      ..active.clear()
+      ..activeInProfile['default'] = {};
+    gating = true;
+    final probe = chat.refreshActive();
+    await pumpEventQueue();
+    expect(messageCalls, hasLength(1));
+
+    // B is sent while the read waits, and ends where the server may run it.
+    chat.submit('And again', const []);
+    transport.active['s1'] = 'working';
+    transport.activeInProfile['default'] = {'s1': 'working'};
+    transport.sends.last.fail(const GatewayReplyUnconfirmed());
+    await pumpEventQueue();
+    expect(chat.turnActionsHeld(thread), isTrue);
+
+    messageCalls.first.complete(true);
+    await probe;
+    await pumpEventQueue();
+
+    expect(chat.turnActionsHeld(thread), isTrue);
+    expect(chat.canEditLastPrompt(thread), isFalse);
+    expect(lastAssistant(thread).status, MessageStatus.error);
+    expect(transport.sends, hasLength(2));
+    expect(transport.undos, isEmpty);
+  });
+
+  test('an ordinary re-read that is already waiting when a release starts '
+      'keeps the held bubble, even if the release read then fails', () async {
+    final thread = await heldTurn('default');
+    stored
+      ..add(messageRow(id: 3, role: 'user', content: 'Run the build'))
+      ..add(messageRow(id: 4, role: 'assistant', content: 'Partial.'));
+    transport
+      ..active.clear()
+      ..activeInProfile['default'] = {};
+    gating = true;
+    final ordinary = chat.refreshThread('s1');
+    await pumpEventQueue();
+    final probe = chat.refreshActive();
+    await pumpEventQueue();
+    expect(messageCalls, hasLength(2));
+
+    // The ordinary read lands first, while the release read is in flight.
+    messageCalls[0].complete(true);
+    await ordinary;
+    await pumpEventQueue();
+    messageCalls[1].complete(false);
+    await probe;
+    await pumpEventQueue();
+
+    expect(chat.turnActionsHeld(thread), isTrue);
+    expect(lastAssistant(thread).status, MessageStatus.error);
+    expect(transport.sends, hasLength(1));
+    expect(transport.undos, isEmpty);
   });
 
   test('a ask that throws releases nothing and does not throw', () async {
