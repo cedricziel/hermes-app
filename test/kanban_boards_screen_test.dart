@@ -68,11 +68,20 @@ void main() {
 
   /// Opening a board fetches it through Dio, whose zero-duration timer runs
   /// outside the fake clock. Let that request finish, so no timer outlives
-  /// the test.
-  Future<void> boardLoaded(WidgetTester tester) async {
+  /// the test, and fail if it has not: the fetch for [slug] was made, and the
+  /// controller is done loading with no error.
+  Future<void> boardLoaded(WidgetTester tester, String slug) async {
     await tester.runAsync(pumpEventQueue);
     await tester.pumpAndSettle();
+    expect(
+      server
+          .requestsTo('GET', '/api/plugins/kanban/board')
+          .last
+          .queryParameters['board'],
+      slug,
+    );
     expect(controller.loading, isFalse);
+    expect(controller.error, isNull);
   }
 
   test('derives a slug the plugin accepts from a name', () {
@@ -158,7 +167,7 @@ void main() {
 
     await tester.tap(find.text('Ops'));
     await tester.pumpAndSettle();
-    await boardLoaded(tester);
+    await boardLoaded(tester, 'ops');
 
     expect(controller.boardSlug, 'ops');
   });
@@ -240,7 +249,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Import'));
     await tester.pumpAndSettle();
-    await boardLoaded(tester);
+    await boardLoaded(tester, 'restored');
 
     expect(
       jsonBody(
@@ -269,7 +278,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Import'));
     await tester.pumpAndSettle();
-    await boardLoaded(tester);
+    await boardLoaded(tester, 'ops-2');
 
     expect(find.textContaining('the board is ops-2'), findsOneWidget);
   });
