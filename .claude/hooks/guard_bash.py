@@ -1153,6 +1153,12 @@ def _gh_policy(args):
         return None
     if sub == "api":
         return _gh_api_policy(rest)
+    if sub == "search":
+        return (
+            MSG_GH_PREFIX
+            + "the gh search subcommand is not allowed; use "
+            + "`gh api -X GET search/<code|repositories|issues|commits|users> -f q=…`."
+        )
     hint = GH_SUB_HINTS.get(sub)
     if isinstance(hint, dict):
         verb = next((r for r in rest if not r.startswith("-")), "")
@@ -1166,6 +1172,56 @@ def _gh_policy(args):
             % (MSG_GH_PREFIX, sub[:30])
         )
     return _gh_block(tool, what)
+
+
+GH_RUNNER_SKIP = {"ssh": 1, "flock": 1, "chroot": 1, "taskset": 1}
+GH_RUNNER_VALUED = {"-o", "-i", "-e", "-c", "-n", "-p", "-u", "-s", "-j", "-l", "-E"}
+
+
+def _runner_gh_ranges(prog, argv):
+    """(start, end) slices of argv that a runner command executes as `gh ...`.
+
+    Only the program operand counts: `find -name gh` or `grep gh` is not a gh call.
+    """
+    words = argv
+    out = []
+    if prog == "find":
+        k = 1
+        while k < len(words):
+            if words[k] in ("-exec", "-execdir", "-ok", "-okdir"):
+                e = k + 1
+                while e < len(words) and words[e] not in (";", "+"):
+                    e += 1
+                if k + 1 < e and os.path.basename(words[k + 1]) == "gh":
+                    hi = e - 1 if e - 1 > k + 1 and words[e - 1] == "{}" else e
+                    out.append((k + 1, hi))
+                k = e
+            k += 1
+        return out
+    end = len(words)
+    if prog == "parallel":
+        for k, w in enumerate(words):
+            if w in (":::", "::::"):
+                end = k
+                break
+    skip = GH_RUNNER_SKIP.get(prog, 0)
+    k = 1
+    while k < end:
+        w = words[k]
+        if w == "--":
+            k += 1
+            continue
+        if w.startswith("-") and w != "-":
+            k += 2 if w in GH_RUNNER_VALUED else 1
+            continue
+        if skip:
+            skip -= 1
+            k += 1
+            continue
+        if os.path.basename(w) == "gh":
+            out.append((k, end))
+        break
+    return out
 
 
 def _is_cloud():
@@ -1276,6 +1332,9 @@ def _check_cmds(cmds, cwd, depth):
     home_set = False
     env = {}
     for cmd in cmds:
+        orig_words = list(cmd.words)
+        orig_prog = _strip_prefix(orig_words)
+        cmd.dyn_prog = bool(orig_prog) and ("$" in orig_prog[0] or "`" in orig_prog[0])
         cmd.words = [_expand(w, env) for w in cmd.words]
         cmd.redirs = [_expand(w, env) for w in cmd.redirs]
         words = cmd.words
@@ -1318,12 +1377,25 @@ def _check_cmds(cmds, cwd, depth):
             m = _check_git(argv, cwd, saw_setup, prefix)
         elif prog == "gh":
             m = _gh_check(argv)
+            if not m and _is_cloud():
+                # judge the words as typed too: a variable that decides the
+                # subcommand or endpoint is not a literal (scope is not modelled)
+                oargv = _strip_prefix(orig_words)
+                if oargv and os.path.basename(oargv[0]) == "gh":
+                    m = _gh_policy(oargv[1:])
+            if (
+                not m
+                and len(argv) == 1
+                and _is_cloud()
+                and any(os.path.basename(w) == "xargs" for w in words)
+            ):
+                m = MSG_GH_UNPARSED  # xargs feeds the subcommand: cannot be checked
         else:
             m = _check_program(argv)
-            if not m and prog in GH_RUNNERS:
-                for k, w in enumerate(argv[1:], 1):
-                    if os.path.basename(w) == "gh":
-                        m = _gh_check(argv[k:])
+            if not m and _is_cloud() and prog in GH_RUNNERS:
+                for lo, hi in _runner_gh_ranges(prog, argv):
+                    m = _gh_check(argv[lo:hi])
+                    if m:
                         break
         if m:
             return m
@@ -1350,7 +1422,9 @@ def _check(command, cwd, depth):
     if m is None and _is_cloud() and GH_WORD.search(command):
         for cmd in cmds:  # fail closed: a computed program name may be gh
             argv = _strip_prefix(cmd.words)
-            if argv and ("$" in argv[0] or "`" in argv[0]):
+            if getattr(cmd, "dyn_prog", False) or (
+                argv and ("$" in argv[0] or "`" in argv[0])
+            ):
                 return MSG_GH_UNPARSED
     return m
 

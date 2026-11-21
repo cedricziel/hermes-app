@@ -892,13 +892,14 @@ class GuardTest(unittest.TestCase):
 
 
 class GhSearchOnlyTest(unittest.TestCase):
+    """Cloud (CLAUDE_CODE_REMOTE=true). F.333: gh is for search only; everything else goes through the GitHub MCP tools."""
+
     ENV = "true"
 
     def setUp(self):
         patcher = mock.patch.dict(os.environ, {"CLAUDE_CODE_REMOTE": self.ENV})
         patcher.start()
         self.addCleanup(patcher.stop)
-    """Cloud (CLAUDE_CODE_REMOTE=true). F.333: gh is for search only; everything else goes through the GitHub MCP tools."""
 
     ALLOW = [
         "gh api -X GET search/code -f q=foo",
@@ -912,6 +913,17 @@ class GhSearchOnlyTest(unittest.TestCase):
         "gh api search/code?q=x --jq .total_count --paginate",
         "gh api -X GET search/issues -f q=x | head",
         "gh --version",
+        "find / -name gh -type f",
+        "find . -name gh -print",
+        "find . -exec echo gh pr merge 1 --delete-branch \\;",
+        "find . -exec gh api -X GET search/code -f q=x \\;",
+        "find . -exec gh api -X GET search/code -f q=x {} +",
+        "find . -exec gh help \\; -exec gh help \\;",
+        "gh api -X GET search/code -f q=\"$Q\"",
+        "find gh -type f",
+        "find . -exec grep -l gh {} \\;",
+        "stdbuf -oL grep gh log",
+        "parallel echo ::: gh hub",
         "gh",  # bare gh only prints help
         "gh help",
         "gh help api",
@@ -1005,6 +1017,20 @@ class GhSearchOnlyTest(unittest.TestCase):
         "sh -c \"gh api repos/o/r\"",
         "eval 'gh pr view 1'",
         "xargs gh pr view",
+        "echo 'pr view 1' | xargs gh",
+        "find . -exec gh help \\; -exec gh pr merge 1 --squash \\;",
+        "SUB=pr; (SUB=help); gh \"$SUB\" merge 1 --squash",
+        "gh api -X \"$M\" search/code",
+        "gh api search/$KIND",
+        "G='gh pr'; $G merge 1 --squash",
+        "G=gh; $G pr view 1",
+        "gh $(echo pr) view 1",
+        "xargs gh < f",
+        "ssh host gh pr list",
+        "flock /tmp/l gh pr list",
+        "parallel gh pr view ::: 1 2",
+        "find . -type f -exec gh pr view 1 \\;",
+        "stdbuf -oL gh pr list",
         "echo 1 | xargs -n1 gh pr view",
         "find . -exec gh pr list \\;",
         "watch -n1 gh pr list",
@@ -1043,6 +1069,11 @@ class GhSearchOnlyTest(unittest.TestCase):
             msg = guard.check(c, "/tmp")
             self.assertIn("mcp__github__", msg, c)
             self.assertIn(tool, msg, c)
+
+    def test_gh_search_hint(self):
+        msg = guard.check("gh search code foo", "/tmp")
+        self.assertIn("gh api -X GET search/", msg)
+        self.assertNotIn("no gh replacement", msg)
 
     def test_hook_process_exit_codes(self):
         def run(cmd):
@@ -1094,6 +1125,15 @@ class GhLocalUnchangedTest(unittest.TestCase):
         "echo $(gh pr view 1)",
         "$G pr view 1; echo gh",
         "gh api -X GET search/issues -f q='repo:o/r is:pr is:merged'",
+        "ssh host gh pr merge 1 -d",
+        "find . -exec echo gh pr merge 1 --delete-branch \\;",
+        "find . -exec gh help \\; -exec gh pr merge 1 --squash \\;",
+        "SUB=pr; (SUB=help); gh \"$SUB\" merge 1 --squash",
+        "G='gh pr'; $G merge 1 --squash",
+        "find . -exec gh pr merge 1 -d \\;",
+        "parallel gh pr merge 1 ::: --delete-branch",
+        "flock /tmp/l gh pr merge 1 --delete-branch",
+        "strace -f gh api -X DELETE repos/o/r/git/refs/heads/x",
     ]
     STILL_BLOCKED = [
         "gh pr merge 1 --delete-branch",
