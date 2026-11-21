@@ -61,6 +61,9 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
   UndoHistoryController? _boundUndo;
   bool _suspended = false;
   bool _rebindArmed = false;
+  bool _boundReadOnly = false;
+  bool _boundObscure = false;
+  bool _boundSelectable = true;
 
   /// Turns all six items off while another window than this engine's main
   /// window is key: this engine's focus is then not what the user edits.
@@ -158,6 +161,9 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
   void _bind(EditableTextState field) {
     _boundController = field.widget.controller;
     _boundUndo = field.widget.undoController;
+    _boundReadOnly = field.widget.readOnly;
+    _boundObscure = field.widget.obscureText;
+    _boundSelectable = field.widget.enableInteractiveSelection;
     _fieldListenable = Listenable.merge([
       _boundController,
       _boundUndo,
@@ -174,9 +180,18 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
   void _rebind() {
     final field = _field;
     if (_disposed || field == null || !field.mounted) return;
-    if (identical(field.widget.controller, _boundController) &&
-        identical(field.widget.undoController, _boundUndo)) {
-      return;
+    final widget = field.widget;
+    final controllerChanged = !identical(widget.controller, _boundController);
+    final undoChanged = !identical(widget.undoController, _boundUndo);
+    final flagsChanged =
+        widget.readOnly != _boundReadOnly ||
+        widget.obscureText != _boundObscure ||
+        widget.enableInteractiveSelection != _boundSelectable;
+    if (!controllerChanged && !undoChanged && !flagsChanged) return;
+    if (controllerChanged) {
+      // The estimated history belonged to the old controller's text.
+      _redoable = false;
+      _baseline = _lastText = field.textEditingValue.text;
     }
     _unbind();
     _bind(field);

@@ -365,4 +365,70 @@ void main() {
     await tester.pump();
     expect(channel.enabled('Edit', 'Paste'), isTrue);
   }, variant: mac);
+
+  testWidgets('a focused field that turns read-only loses Cut and Paste', (
+    tester,
+  ) async {
+    mockClipboard(tester, text: 'pasteboard');
+    final text = TextEditingController(text: 'some text');
+    addTearDown(text.dispose);
+    final readOnly = ValueNotifier(false);
+    addTearDown(readOnly.dispose);
+    final channel = await pump(
+      tester,
+      ValueListenableBuilder(
+        valueListenable: readOnly,
+        builder: (_, value, _) =>
+            TextField(autofocus: true, controller: text, readOnly: value),
+      ),
+    );
+    await tester.pump();
+    text.selection = const TextSelection(baseOffset: 0, extentOffset: 4);
+    await tester.pump();
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Cut'), isTrue);
+    expect(channel.enabled('Edit', 'Paste'), isTrue);
+
+    readOnly.value = true;
+    await tester.pump();
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Cut'), isFalse);
+    expect(channel.enabled('Edit', 'Paste'), isFalse);
+    expect(channel.enabled('Edit', 'Copy'), isTrue);
+  }, variant: mac);
+
+  testWidgets('swapping the text controller drops the old Redo', (
+    tester,
+  ) async {
+    mockClipboard(tester);
+    final first = TextEditingController();
+    final second = TextEditingController(text: 'other');
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    final current = ValueNotifier(first);
+    addTearDown(current.dispose);
+    final channel = await pump(
+      tester,
+      ValueListenableBuilder(
+        valueListenable: current,
+        builder: (_, controller, _) =>
+            TextField(autofocus: true, controller: controller),
+      ),
+    );
+    await tester.pump();
+    for (final value in ['one', 'one two']) {
+      await tester.enterText(find.byType(TextField), value);
+      await tester.pump(_undoSettles);
+      await tester.pump();
+    }
+    await channel.select('Edit', 'Undo');
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Redo'), isTrue);
+
+    current.value = second;
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Redo'), isFalse);
+  }, variant: mac);
 }

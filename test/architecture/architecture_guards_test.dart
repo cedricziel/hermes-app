@@ -395,8 +395,6 @@ final guardRules = <Rule>[
     },
   ),
 
-  // docs/architecture/headless-runtime.md: work without a screen goes
-  // through withHeadlessHermes, never its own AuthController.
   // docs/architecture/macos.md: the Mac Edit menu keeps Copy on for selected
   // text only where the selection area reports to it.
   _guard(
@@ -410,6 +408,8 @@ final guardRules = <Rule>[
     allow: {'lib/src/macos/menu_selection_area.dart': 'the wrapper itself'},
   ),
 
+  // docs/architecture/headless-runtime.md: work without a screen goes
+  // through withHeadlessHermes, never its own AuthController.
   _guard(
     name: 'auth-controller-construction',
     message:
