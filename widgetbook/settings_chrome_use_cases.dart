@@ -76,6 +76,14 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
           'Filter in use',
           (_) => _searchField(query: '', filterActive: true),
         ),
+        ...onEachPlatform(
+          'Largest text',
+          (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3.1)),
+            child: _searchField(query: '', filterActive: true),
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(
