@@ -78,7 +78,7 @@ Canvas: https://claude.ai/artifact/HPwY5Tj74AMWYYUYLrzeyH (private, ask its owne
 Decisions:
 - iOS and Android: the field's minimum height is max(36 or 44, scaled font x 1.5 + 8): iOS 36 / 59 / 87 pt and Android 44 / 56 / 83 dp at 1.0 / 2.0 / 3.1. The bar below the title grows with it (toolbar + field + 8). At 1.0x nothing changes.
 - The hint stays on one line and ends in an ellipsis; it never wraps.
-- Search, clear and filter icons keep their platform size; the filter button keeps its platform width and height (36 / 44) and stays centred in the taller field (it does not fill the field height).
+- Search, clear and filter icons keep their platform size.
 - Mac: the field stays 26 pt in the 52 pt toolbar; text scale is clamped at 1.3x; the line height shrinks only when a scaled line would not fit the border.
 
-Accepted differences from the Flutter renders: ellipsis position (Flutter breaks at a word, Chrome at a character); icons do not scale with text; the Flutter Mac field is wider than the design system's 180 / 240 pt field. The filter button at large text is covered by the filter case in the "Largest text" use case and its test.
+Accepted differences from the Flutter renders: ellipsis position (Flutter breaks at a word, Chrome at a character); icons do not scale with text; the Flutter Mac field is wider than the design system's 180 / 240 pt field; the canvas stretches the filter button to the field's height, while Flutter keeps it at its platform size (36 / 44) centred in the taller field, which keeps its tap target and icon unchanged (tested in `search_field_large_text_test.dart` and shown in the "Largest text" use case).
