@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:provider/provider.dart';
 
 import '../../chat/media/media_store.dart';
@@ -231,7 +232,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     bool toggle = false,
   }) => _run(() => _task.preview(a, trigger: trigger, toggle: toggle));
 
-  void _showLog() => showAdaptiveDialog<void>(
+  void _showLog() => showAppDialog<void>(
     context: context,
     builder: (_) => KanbanTaskLogDialog(
       repository: widget.repository,
@@ -252,7 +253,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   Future<void> _assign(KanbanTask task) async {
     final names = await _task.loadAssignees();
     if (!mounted) return;
-    final picked = await showAdaptiveDialog<String>(
+    final picked = await showAppDialog<String>(
       context: context,
       builder: (context) => KanbanTaskChoiceDialog<String>(
         title: 'Assign to',
@@ -267,7 +268,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   Future<void> _prioritise(KanbanTask task) async {
-    final picked = await showAdaptiveDialog<int>(
+    final picked = await showAppDialog<int>(
       context: context,
       builder: (context) => KanbanTaskChoiceDialog<int>(
         title: 'Priority',
