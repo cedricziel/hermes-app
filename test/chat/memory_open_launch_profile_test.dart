@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
@@ -8,6 +10,8 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/memory/memory_destination.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart'
+    show ActiveProfile;
 import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -48,7 +52,8 @@ void main() {
 
   Future<void> pumpPanel(
     WidgetTester tester, {
-    required ProfileResolver resolver,
+    ProfileResolver? resolver,
+    String? chatProfile,
   }) async {
     final c = chat = ChatController(
       repository: HermesChatRepository(server.client().raw),
@@ -57,7 +62,7 @@ void main() {
       report: (_) {},
     );
     await tester.runAsync(() async {
-      await c.loadThreads();
+      await c.loadThreads(chatProfile);
       c.select('stored-1');
       await pumpEventQueue();
     });
@@ -86,18 +91,22 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> openMemory(WidgetTester tester) async {
+    await tester.tap(find.text('Memory'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+  }
+
+  String? openedProfile(WidgetTester tester) =>
+      tester.widget<MemoryDestination>(find.byType(MemoryDestination)).profile;
+
   testWidgets('a chat with no profile opens Memory on the launch profile', (
     tester,
   ) async {
     await pumpPanel(tester, resolver: ProfileResolver.known('main'));
     expect(chat!.profile, isNull);
-    await tester.tap(find.text('Memory'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    final destination = tester.widget<MemoryDestination>(
-      find.byType(MemoryDestination),
-    );
-    expect(destination.profile, 'main');
+    await openMemory(tester);
+    expect(openedProfile(tester), 'main');
   });
 
   testWidgets('with no launch profile either there is no Open Memory', (
@@ -105,10 +114,42 @@ void main() {
   ) async {
     await pumpPanel(
       tester,
-      resolver: ProfileResolver(
-        () async => throw Exception('no launch profile'),
-      ),
+      resolver: ProfileResolver(() async => throw Exception('none')),
     );
+    expect(find.text('Memory updated'), findsOneWidget);
     expect(find.text('Memory'), findsNothing);
+  });
+
+  testWidgets("the chat's own profile wins over the launch profile", (
+    tester,
+  ) async {
+    await pumpPanel(
+      tester,
+      resolver: ProfileResolver.known('main'),
+      chatProfile: 'work',
+    );
+    await openMemory(tester);
+    expect(openedProfile(tester), 'work');
+  });
+
+  testWidgets('an own profile opens Memory without a resolver', (tester) async {
+    await pumpPanel(tester, chatProfile: 'work');
+    await openMemory(tester);
+    expect(openedProfile(tester), 'work');
+  });
+
+  testWidgets('a launch profile that arrives later shows the link', (
+    tester,
+  ) async {
+    final answer = Completer<ActiveProfile>();
+    final resolver = ProfileResolver(() => answer.future);
+    await pumpPanel(tester, resolver: resolver);
+    expect(find.text('Memory updated'), findsOneWidget);
+    expect(find.text('Memory'), findsNothing);
+    answer.complete((active: 'main', current: 'main'));
+    await tester.runAsync(resolver.load);
+    await tester.pump();
+    await openMemory(tester);
+    expect(openedProfile(tester), 'main');
   });
 }
