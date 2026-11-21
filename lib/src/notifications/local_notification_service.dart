@@ -142,7 +142,8 @@ int _currentUid() {
 /// exception of the `dbus` package (named `DBus...`; it is not a direct
 /// dependency, so matched by name), or one of the plain strings and address `FormatException`s it
 /// throws for a malformed address. An unrelated `TimeoutException` is not one:
-/// `_guard`'s own timeout marks the bus failed itself.
+/// A timeout fails only its own call (and latches only until a `show` is
+/// answered), so it is no bus error.
 bool isLinuxBusError(Object error) =>
     error is SocketException ||
     // The dbus package is the only thing in these zones that throws raw

@@ -7,6 +7,7 @@ import 'dart:io'
         InternetAddress,
         InternetAddressType,
         Link,
+        Platform,
         ServerSocket,
         SocketException;
 
@@ -39,6 +40,9 @@ class DBusServiceUnknownException implements Exception {}
 
 /// Thrown locally by the package when the socket is already closed.
 class DBusClosedException implements Exception {}
+
+/// A DBus-named exception that is neither a reply nor a closed connection.
+class DBusPropertySignatureException implements Exception {}
 
 class _FakePlugin implements FlutterLocalNotificationsPlugin {
   final posted = <_Posted>[];
@@ -1967,33 +1971,31 @@ void main() {
       });
     });
 
-    test(
-      'a show that fails with DBusClosedException does not prove the bus alive',
-      () {
-        fakeAsync((async) {
-          final plugin = _FakePlugin()..showError = DBusClosedException();
-          final service = serviceWith(plugin, bus: true);
-          NotificationPostResult? first;
-          service.post(note).then((r) => first = r);
-          async.flushMicrotasks();
-          expect(first?.status, NotificationPostStatus.failed);
+    test('a show that fails with a DBus-named non-reply does not prove the bus alive', () {
+      fakeAsync((async) {
+        final plugin = _FakePlugin()
+          ..showError = DBusPropertySignatureException();
+        final service = serviceWith(plugin, bus: true);
+        NotificationPostResult? first;
+        service.post(note).then((r) => first = r);
+        async.flushMicrotasks();
+        expect(first?.status, NotificationPostStatus.failed);
 
-          plugin
-            ..showError = null
-            ..showGate = Completer<void>();
-          service.post(note);
-          async.flushMicrotasks();
-          async.elapse(kLinuxCallTimeout);
-          async.flushMicrotasks();
+        plugin
+          ..showError = null
+          ..showGate = Completer<void>();
+        service.post(note);
+        async.flushMicrotasks();
+        async.elapse(kLinuxCallTimeout);
+        async.flushMicrotasks();
 
-          NotificationPostResult? next;
-          service.post(note).then((r) => next = r);
-          async.flushMicrotasks();
-          expect(next?.status, NotificationPostStatus.unsupported);
-          debugDefaultTargetPlatformOverride = null;
-        });
-      },
-    );
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+        expect(next?.status, NotificationPostStatus.unsupported);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    });
 
     test('a bus error reply to a show proves the bus alive', () {
       fakeAsync((async) {
@@ -2113,25 +2115,29 @@ void main() {
       }
     });
 
-    test('only a unix socket counts as the bus socket', () async {
-      final dir = Directory.systemTemp.createTempSync('hermes_bus_probe_');
-      addTearDown(() => dir.deleteSync(recursive: true));
-      final file = File('${dir.path}/file')..writeAsStringSync('x');
-      final folder = Directory('${dir.path}/folder')..createSync();
-      final socketPath = '${dir.path}/bus';
-      final server = await ServerSocket.bind(
-        InternetAddress(socketPath, type: InternetAddressType.unix),
-        0,
-      );
-      addTearDown(server.close);
-      Link('${dir.path}/link').createSync(socketPath);
+    test(
+      'only a unix socket counts as the bus socket',
+      skip: Platform.isWindows,
+      () async {
+        final dir = Directory.systemTemp.createTempSync('hermes_bus_probe_');
+        addTearDown(() => dir.deleteSync(recursive: true));
+        final file = File('${dir.path}/file')..writeAsStringSync('x');
+        final folder = Directory('${dir.path}/folder')..createSync();
+        final socketPath = '${dir.path}/bus';
+        final server = await ServerSocket.bind(
+          InternetAddress(socketPath, type: InternetAddressType.unix),
+          0,
+        );
+        addTearDown(server.close);
+        Link('${dir.path}/link').createSync(socketPath);
 
-      expect(isUnixSocket(file.path), isFalse);
-      expect(isUnixSocket(folder.path), isFalse);
-      expect(isUnixSocket('${dir.path}/missing'), isFalse);
-      expect(isUnixSocket(socketPath), isTrue);
-      expect(isUnixSocket('${dir.path}/link'), isTrue);
-    });
+        expect(isUnixSocket(file.path), isFalse);
+        expect(isUnixSocket(folder.path), isFalse);
+        expect(isUnixSocket('${dir.path}/missing'), isFalse);
+        expect(isUnixSocket(socketPath), isTrue);
+        expect(isUnixSocket('${dir.path}/link'), isTrue);
+      },
+    );
 
     test('is false with nothing set and no socket', () {
       expect(check({}, {}), isFalse);
