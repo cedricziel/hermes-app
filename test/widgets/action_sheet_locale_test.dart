@@ -5,9 +5,11 @@ import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
 
+import '../support/test_localizations.dart';
+
 Widget _host(Widget child) => MaterialApp(
   locale: const Locale('de'),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: ThemeData(platform: TargetPlatform.iOS),
   home: Scaffold(body: child),
