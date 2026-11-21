@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../profiles/profile_resolver.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'memory_decisions.dart';
 import 'memory_proposals.dart';
@@ -36,7 +37,7 @@ class MemoryProposalsController extends ChangeNotifier {
   final Breadcrumbs breadcrumbs;
 
   MemoryProposalsRepository? _repository;
-  String? _profile;
+  ResolvedProfile? _profile;
   int _generation = 0;
   int _reads = 0;
   bool _disposed = false;
@@ -55,7 +56,7 @@ class MemoryProposalsController extends ChangeNotifier {
   /// Decides the proposals of the bound profile; null while unbound.
   MemoryDecisions? decisions;
 
-  String? get profile => _profile;
+  ResolvedProfile? get profile => _profile;
 
   /// How many changes wait, or null when neither kind could be read.
   int? get waiting => snapshot?.waiting;
@@ -81,7 +82,7 @@ class MemoryProposalsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void bind(MemoryProposalsRepository? repository, String? profile) {
+  void bind(MemoryProposalsRepository? repository, ResolvedProfile? profile) {
     if (identical(_repository, repository) && _profile == profile) return;
     final generation = ++_generation;
     decisions?.dispose();
