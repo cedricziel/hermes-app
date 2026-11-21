@@ -41,7 +41,9 @@ add a test, do not work around it.
 - With `--post` the same script is a PostToolUse hook that runs
   `flutter gen-l10n` after a pull or merge that changed `lib/l10n/arb/*.arb`.
 
-- `gh` is search-only (F.333): only `gh api` GET on `search/{code,repositories,
+- Only when `CLAUDE_CODE_REMOTE=true` (cloud sessions; unset, empty, `false` or
+  anything else is local and behaves as before, so the release skill's `gh`
+  commands work locally), `gh` is search-only (F.333): only `gh api` GET on `search/{code,repositories,
   issues,commits,users}` (with `-f` needing an explicit `-X GET`, since gh turns
   `-f` into a POST), `gh --version`, `gh help` and bare `gh` pass; every other
   `gh` call is blocked with the nearest `mcp__github__*` tool. It sees `gh` after

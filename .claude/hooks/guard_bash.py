@@ -1168,6 +1168,11 @@ def _gh_policy(args):
     return _gh_block(tool, what)
 
 
+def _is_cloud():
+    """Cloud sessions only: anything but exactly "true" is a local session."""
+    return os.environ.get("CLAUDE_CODE_REMOTE") == "true"
+
+
 def _gh_check(argv):
     args = argv[1:]
     if not args:
@@ -1191,7 +1196,7 @@ def _gh_check(argv):
                 method = a[2:]
         if method and method.upper() == "DELETE" and any("git/refs" in a for a in args):
             return MSG_DELETE
-    return _gh_policy(args)
+    return _gh_policy(args) if _is_cloud() else None
 
 
 # ---------------------------------------------------------------- driver
@@ -1342,7 +1347,7 @@ def _check_cmds(cmds, cwd, depth):
 def _check(command, cwd, depth):
     cmds, _ = _lex(command)
     m = _check_cmds(cmds, cwd, depth)
-    if m is None and GH_WORD.search(command):
+    if m is None and _is_cloud() and GH_WORD.search(command):
         for cmd in cmds:  # fail closed: a computed program name may be gh
             argv = _strip_prefix(cmd.words)
             if argv and ("$" in argv[0] or "`" in argv[0]):

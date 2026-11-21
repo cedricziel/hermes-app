@@ -23,7 +23,7 @@ dart run tool/setup_git_hooks.dart  # installs the dart_pre_commit hook (format 
 flutter run -d macos -t widgetbook/main.dart   # component catalog (Widgetbook); see the `component-catalog` skill
 ```
 
-`gh` is for search only (`gh api -X GET search/<code|repositories|issues|commits|users>`); the PreToolUse guard `.claude/hooks/guard_bash.py` blocks every other `gh` call and names the GitHub MCP tool to use instead (`agent-guard` skill).
+In cloud sessions (`CLAUDE_CODE_REMOTE=true`) `gh` is for search only (`gh api -X GET search/<code|repositories|issues|commits|users>`); local sessions are unchanged and the skills' `gh` commands keep working. The PreToolUse guard `.claude/hooks/guard_bash.py` blocks every other `gh` call and names the GitHub MCP tool to use instead (`agent-guard` skill).
 
 Install the hook in every clone, cloud sessions included, before the first commit. A failing hook is fixed, never bypassed (no `--no-verify`, no `core.hooksPath` change, no edit of the `dart_pre_commit:` config). An agent guard (`.claude/hooks/guard_bash.py`, a PreToolUse hook on Bash wired in `.claude/settings.json`) enforces this and the other banned commands (force push, `git stash`, `git add -A`, a rebase of a pushed branch, the real `~/.hermes`, `pkill -f`) in agent sessions; when it blocks a command, do what its message says, and add or change rules with the `agent-guard` skill. Its `outdated` check at level `major` fails a commit while a dependency is a major version behind, so dependency updates are part of normal work: `flutter pub upgrade`, raise the constraint, fix the break.
 

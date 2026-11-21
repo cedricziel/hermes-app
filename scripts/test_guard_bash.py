@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 HOOK = Path(__file__).resolve().parent.parent / ".claude" / "hooks" / "guard_bash.py"
@@ -112,6 +113,7 @@ REVIEW_ALLOW = [
     'git log --oneline -5 | grep stash',
     "grep -rn 'git stash' docs/",
     "rg -- '--no-verify' .claude",
+    "gh pr create --title x --body 'never git push --force; pkill -f'",
     'git config core.hooksPath',
     'git config --get core.hooksPath',
     'pgrep -f flutter',
@@ -218,6 +220,12 @@ ROUND2_ALLOW = [
     'chmod u+x .git/hooks/pre-commit',
     'ls -l .git/hooks/pre-commit',
     'cat .git/hooks/pre-commit',
+    'gh pr merge 12 --squash',
+    'gh pr merge 12 --auto --squash',
+    'gh pr view 12 --json state',
+    'gh api repos/o/r/git/refs/heads/x',
+    'gh api -X DELETE repos/o/r/issues/comments/1',
+    "gh pr merge 12 --merge --body 'delete branch later'",
     "bash -o pipefail -c 'flutter test'",
     'bash -e scripts/verify.sh all',
     'watch -n1 git status',
@@ -240,6 +248,7 @@ class GuardTest(unittest.TestCase):
     def setUpClass(cls):
         # an agent session exports it; the tests choose their own project
         cls.saved_project = os.environ.pop("CLAUDE_PROJECT_DIR", None)
+        cls.saved_remote = os.environ.pop("CLAUDE_CODE_REMOTE", None)  # local mode
         cls.tmp = tempfile.TemporaryDirectory()
         cls.repo = cls.tmp.name
         git(cls.repo, "init", "-q", "-b", "claude/pushed")
@@ -271,6 +280,8 @@ class GuardTest(unittest.TestCase):
     def tearDownClass(cls):
         if cls.saved_project is not None:
             os.environ["CLAUDE_PROJECT_DIR"] = cls.saved_project
+        if cls.saved_remote is not None:
+            os.environ["CLAUDE_CODE_REMOTE"] = cls.saved_remote
         cls.tmp.cleanup()
         cls.nohook.cleanup()
 
@@ -416,6 +427,7 @@ class GuardTest(unittest.TestCase):
         self.allowed("git commit -m 'never touch ~/.hermes'")
         self.allowed("echo ~/.hermes")
         self.allowed("ls ~/.hermes-other")
+        self.allowed("gh pr create --body 'do not use ~/.hermes'")
 
     def test_kill(self):
         for c in [
@@ -592,6 +604,9 @@ class GuardTest(unittest.TestCase):
                   "gh api -X DELETE repos/o/r/git/refs/heads/x", "gh api --method DELETE repos/o/r/git/refs/heads/x",
                   "gh api -XDELETE repos/o/r/git/refs/heads/x"]:
             self.blocked(c, needle="remote branches")
+        self.allowed("gh pr merge 1 --squash")
+        self.allowed("gh api repos/o/r/git/refs/heads/x")
+        self.allowed("gh api -X DELETE repos/o/r/issues/comments/1")
 
     def test_post_hook_detection(self):
         for c in ["git pull", "git merge origin/main", "git -C . pull --ff-only", "cd x && git pull"]:
@@ -659,7 +674,7 @@ class GuardTest(unittest.TestCase):
         self.blocked("echo 'git stash' | tee /tmp/x | bash")
         self.blocked("cat <<EOF | tee /tmp/x | sh\ngit stash\nEOF")
         self.blocked("gh pr merge 1 --delete-branch=true")
-        self.blocked("gh pr merge 1 --delete-branch=false")  # gh is search-only
+        self.allowed("gh pr merge 1 --delete-branch=false")
         self.blocked("git -c pull.rebase pull")
         self.allowed("echo 'ls' | tee /tmp/x | bash")
 
@@ -877,7 +892,13 @@ class GuardTest(unittest.TestCase):
 
 
 class GhSearchOnlyTest(unittest.TestCase):
-    """F.333: gh is for search only; everything else goes through the GitHub MCP tools."""
+    ENV = "true"
+
+    def setUp(self):
+        patcher = mock.patch.dict(os.environ, {"CLAUDE_CODE_REMOTE": self.ENV})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+    """Cloud (CLAUDE_CODE_REMOTE=true). F.333: gh is for search only; everything else goes through the GitHub MCP tools."""
 
     ALLOW = [
         "gh api -X GET search/code -f q=foo",
@@ -1030,6 +1051,7 @@ class GhSearchOnlyTest(unittest.TestCase):
                 input=json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": "/tmp"}),
                 capture_output=True,
                 text=True,
+                env={**os.environ, "CLAUDE_CODE_REMOTE": self.ENV},
             )
 
         r = run("gh api repos/o/r/pulls/1178")
@@ -1038,6 +1060,77 @@ class GhSearchOnlyTest(unittest.TestCase):
         r = run("gh api -X GET search/code -f q=x")
         self.assertEqual(r.returncode, 0)
 
+
+
+class GhLocalUnchangedTest(unittest.TestCase):
+    """Anything but CLAUDE_CODE_REMOTE=true is a local session: main's behaviour."""
+
+    SKILL_GH = [
+        "gh pr list --label release-please --json number,title",
+        "gh pr view 12 --json mergeStateStatus,statusCheckRollup",
+        "gh pr view 12 --json state",
+        "gh pr checks 12",
+        "gh pr create --title x --body y",
+        "gh pr merge 12 --auto --squash --match-head-commit abc123",
+        "gh pr merge 12 --squash",
+        "gh run list --workflow release-please.yml --limit 3",
+        "gh run list --workflow app-store.yml --limit 3",
+        "gh run view 99 --log-failed",
+        "gh run watch 99",
+        "gh release view v1.2.3 --json body --jq .body",
+        "gh release list --limit 20 --json tagName,isPrerelease",
+        "gh release edit v1.2.3 --prerelease=false --latest",
+        "gh release edit v1.2.3 --notes-file notes.md",
+        "gh workflow run release-please.yml -f tag=v1.2.3 -f only=testflight",
+        "gh workflow run app-store.yml -f tag=v1.2.3 -f dry_run=false",
+        "gh issue list",
+        "gh repo view o/r",
+        "gh label list",
+        "gh api repos/o/r/pulls/1178",
+        "gh api repos/o/r/git/refs/heads/x",
+        "gh api -X DELETE repos/o/r/issues/comments/1",
+        "gh api graphql -f query=x",
+        "env gh pr view 1",
+        "echo $(gh pr view 1)",
+        "$G pr view 1; echo gh",
+        "gh api -X GET search/issues -f q='repo:o/r is:pr is:merged'",
+    ]
+    STILL_BLOCKED = [
+        "gh pr merge 1 --delete-branch",
+        "gh api -X DELETE repos/o/r/git/refs/heads/x",
+    ]
+
+    def test_local_values(self):
+        for val in (None, "", "false", "1", "True", "yes", " true"):
+            env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_REMOTE"}
+            if val is not None:
+                env["CLAUDE_CODE_REMOTE"] = val
+            with mock.patch.dict(os.environ, env, clear=True):
+                for c in self.SKILL_GH:
+                    self.assertIsNone(guard.check(c, "/tmp"), "%r should allow: %s" % (val, c))
+                for c in self.STILL_BLOCKED:
+                    self.assertIsNotNone(guard.check(c, "/tmp"), "%r should block: %s" % (val, c))
+
+    def test_cloud_detection(self):
+        with mock.patch.dict(os.environ, {"CLAUDE_CODE_REMOTE": "true"}):
+            self.assertTrue(guard._is_cloud())
+            self.assertIsNotNone(guard.check("gh pr view 1", "/tmp"))
+        with mock.patch.dict(os.environ, {"CLAUDE_CODE_REMOTE": "false"}):
+            self.assertFalse(guard._is_cloud())
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_REMOTE"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertFalse(guard._is_cloud())
+
+    def test_hook_process_local(self):
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_REMOTE"}
+        r = subprocess.run(
+            [sys.executable, "-I", str(HOOK)],
+            input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "gh pr view 1"}, "cwd": "/tmp"}),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(r.returncode, 0)
 
 if __name__ == "__main__":
     unittest.main()
