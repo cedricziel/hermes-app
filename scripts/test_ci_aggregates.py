@@ -455,7 +455,44 @@ class LabelGate(unittest.TestCase):
 
 
 _KEYWORDS = {"then", "do", "else", "elif", "fi", "done", "{", "}"}
-_HEREDOC = re.compile(r"<<(-?)[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+def heredoc_word(script, start):
+    """Reads the delimiter word of a heredoc at `start`, quotes and backslashes
+    removed, as (word, end). None when the word cannot be read with certainty:
+    empty, an unterminated quote, or an expansion (`$`, a backtick)."""
+    word, index, length = [], start, len(script)
+    while index < length:
+        char = script[index]
+        if char in " \t\n;&|<>()":
+            break
+        if char == "\\":
+            if index + 1 >= length:
+                return None
+            word.append(script[index + 1])
+            index += 2
+        elif char in "$`":
+            return None
+        elif char == "'":
+            end = script.find("'", index + 1)
+            if end == -1:
+                return None
+            word.append(script[index + 1 : end])
+            index = end + 1
+        elif char == '"':
+            index += 1
+            while index < length and script[index] != '"':
+                if script[index] in "$`":
+                    return None
+                if script[index] == "\\" and index + 1 < length:
+                    index += 1
+                word.append(script[index])
+                index += 1
+            if index >= length:
+                return None
+            index += 1
+        else:
+            word.append(char)
+            index += 1
+    return ("".join(word), index) if word else None
 
 
 def commands(script):
@@ -470,12 +507,17 @@ def commands(script):
     backslash-newline joins lines. Heredoc bodies (up to their delimiter)
     are text, `$'...'` is quoted text, and a comment inside `$(...)` ends at
     its line. A script that ends inside a quote, a substitution or a heredoc
-    cannot be read reliably, so it counts as one unmarked substitution.""" 
+    cannot be read reliably, so it counts as one unmarked substitution. So does a
+    `<<` whose delimiter word cannot be read with certainty; `<<<` and a shift
+    inside `((...))` or `$((...))` are not heredocs. Heredocs are recognised in
+    every command context, and the delimiter word has its quotes and
+    backslashes removed."""
     results = []
     stack = [["cmd", 0, False]]  # kind, paren depth, nested ($( or <( )
     segment, segments, hit = [], [], False
     heredocs = []  # (delimiter, tabs may indent it) waiting for their body
     unbalanced = False
+    unreadable = False  # a `<<` that could not be read with certainty
     index, length = 0, len(script)
 
     def end_segment():
@@ -505,6 +547,18 @@ def commands(script):
             segment.append(char)
             if char == "'":
                 stack.pop()
+        elif kind == "arith":
+            segment.append(char)
+            if char == "(":
+                stack[-1][1] += 1
+            elif char == ")":
+                if stack[-1][1] > 0:
+                    stack[-1][1] -= 1
+                else:
+                    if script[index + 1 : index + 2] == ")":
+                        segment.append(")")
+                        index += 1
+                    stack.pop()
         elif kind == "ansi":
             if char == "\\" and index + 1 < length:
                 segment.append(pair)
@@ -541,20 +595,35 @@ def commands(script):
             elif char == '"':
                 segment.append(char)
                 stack.append(["dq", 0, False])
+            elif script[index : index + 3] == "$((" or pair == "((":
+                width = 3 if char == "$" else 2
+                segment.append(script[index : index + width])
+                stack.append(["arith", 0, True])
+                index += width - 1
             elif pair == "$(":
                 segment.append(pair)
                 stack.append(["cmd", 0, True])
                 index += 1
             elif (
-                top_level
-                and pair == "<<"
+                pair == "<<"
                 and script[index - 1 : index] != "<"
-                and (heredoc := _HEREDOC.match(script, index))
+                and script[index + 2 : index + 3] != "<"
             ):
-                heredocs.append((heredoc.group(3), heredoc.group(1) == "-"))
-                segment.append(heredoc.group(0))
-                index = heredoc.end()
-                continue
+                position = index + 2
+                dash = script[position : position + 1] == "-"
+                position += 1 if dash else 0
+                while script[position : position + 1] in (" ", "\t"):
+                    position += 1
+                word = heredoc_word(script, position)
+                if word is None:
+                    unreadable = True
+                    segment.append(pair)
+                    index += 1
+                else:
+                    heredocs.append((word[0], dash))
+                    segment.append(script[index : word[1]])
+                    index = word[1]
+                    continue
             elif pair in ("<(", ">("):
                 hit = True
                 segment.append(pair)
@@ -584,9 +653,12 @@ def commands(script):
                 continue
             elif top_level and char == ";":
                 end_segment()
-            elif top_level and char == "\n":
-                end_segment()
-                end_command("")
+            elif char == "\n":
+                if top_level:
+                    end_segment()
+                    end_command("")
+                else:
+                    segment.append(char)
                 if heredocs:
                     position = index + 1
                     for delimiter, tabs in heredocs:
@@ -608,8 +680,15 @@ def commands(script):
         index += 1
     end_segment()
     end_command("")
-    if unbalanced or heredocs or len(stack) > 1:
-        results.append(("<script ends inside a quote, substitution or heredoc>", True, ""))
+    if unbalanced or unreadable or heredocs or len(stack) > 1:
+        results.append(
+            (
+                "<script ends inside a quote, substitution or heredoc, or has a `<<` "
+                "that cannot be read>",
+                True,
+                "",
+            )
+        )
     return results
 
 
@@ -702,6 +781,61 @@ class ProcessSubstitution(unittest.TestCase):
         ):
             with self.subTest(script=script):
                 self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_a_heredoc_inside_a_command_substitution_is_recognised(self):
+        # Read as plain text, the apostrophes would hide the diff between them
+        # while the script still looks balanced.
+        script = (
+            "x=$(cat <<EOF\nit's\nEOF\n)\n"
+            "diff <(a) <(b)\n"
+            "y=$(cat <<EOF\nit's\nEOF\n)"
+        )
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_heredoc_delimiter_words_are_unquoted(self):
+        for word in ("\\EOF", "E'OF'", "'EOF'", '"EOF"', 'E"O"F', "EO\\F"):
+            with self.subTest(word=word):
+                # The last line is the word as written. A scanner that does not
+                # unquote it takes that line as the delimiter, swallows the
+                # diff, and still looks balanced.
+                script = (
+                    f"cat <<{word}\nit's <(x)\nEOF\ndiff <(a) <(b)\n{word}\n"
+                )
+                self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_a_heredoc_body_inside_a_command_substitution_is_text(self):
+        script = "x=$(cat <<EOF\n<(x)\nEOF\n)\necho done"
+        self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_a_shift_in_arithmetic_is_no_heredoc(self):
+        for script in (
+            "(( y << z ))\ndiff <(a) <(b)",
+            "echo $(( 1 << 2 )); diff <(a) <(b)",
+            "if (( y << z )); then\n  diff <(a) <(b)\nfi",
+            "x=$(( (1 << 2) + (3 << 4) )); diff <(a) <(b)",
+        ):
+            with self.subTest(script=script):
+                self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_a_heredoc_marker_the_scanner_cannot_read_flags(self):
+        for script in (
+            "cat <<\nbody",
+            "cat <<'EOF\nbody\nEOF",
+            "cat <<$X\nbody\n$X",
+            "cat <<`x`\nbody",
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_a_tab_indented_delimiter_does_not_close_a_plain_heredoc(self):
+        # Only <<- strips tabs. The <(x) is still body text here, and closes
+        # at the real EOF; a scanner that closes early reads it as code.
+        script = "cat <<EOF\n\tEOF\n<(x)\nEOF"
+        self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_a_tab_indented_delimiter_closes_a_dash_heredoc(self):
+        script = "cat <<-EOF\n\tEOF\n<(x)"
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
 
     def test_a_here_string_is_no_heredoc(self):
         # A line `x` follows, so reading `<<< "x"` as a heredoc would swallow
