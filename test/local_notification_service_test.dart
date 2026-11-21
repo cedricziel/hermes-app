@@ -41,8 +41,9 @@ class DBusServiceUnknownException implements Exception {}
 /// Thrown locally by the package when the socket is already closed.
 class DBusClosedException implements Exception {}
 
-/// A DBus-named exception that is neither a reply nor a closed connection.
-class DBusPropertySignatureException implements Exception {}
+/// A DBus-named exception thrown locally, while a match rule is parsed and
+/// before anything is sent: neither a reply nor a closed connection.
+class DBusMatchRuleException implements Exception {}
 
 class _FakePlugin implements FlutterLocalNotificationsPlugin {
   final posted = <_Posted>[];
@@ -1973,8 +1974,7 @@ void main() {
 
     test('a show that fails with a DBus-named non-reply does not prove the bus alive', () {
       fakeAsync((async) {
-        final plugin = _FakePlugin()
-          ..showError = DBusPropertySignatureException();
+        final plugin = _FakePlugin()..showError = DBusMatchRuleException();
         final service = serviceWith(plugin, bus: true);
         NotificationPostResult? first;
         service.post(note).then((r) => first = r);
