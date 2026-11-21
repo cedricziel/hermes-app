@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -218,8 +216,8 @@ void main() {
   group('chat.queue.state', () {
     test('a failed reply pauses what waited behind it', () async {
       await startTurn();
-      unawaited(Future.value(chat.submit('second', const [])));
-      unawaited(Future.value(chat.submit('third', const [])));
+      await chat.submit('second', const []);
+      await chat.submit('third', const []);
       await pumpEventQueue();
       send.fail(StateError(_serverText));
       await pumpEventQueue();
