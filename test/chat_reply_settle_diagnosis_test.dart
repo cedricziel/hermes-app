@@ -47,7 +47,7 @@ void main() {
   Future<void> startTurn() async {
     chat.newThread();
     thread = chat.selectedThread!;
-    chat.submit('Run the build', const []);
+    await chat.submit('Run the build', const []);
     send = transport.sends.single;
     send
       ..emit(const ThreadBound('s1'))
@@ -174,7 +174,7 @@ void main() {
 
   test('Stop 4001 on a held reply with a queue records the pause', () async {
     await startTurn();
-    chat.submit('queued', const []);
+    await chat.submit('queued', const []);
     await pumpEventQueue();
     await lose(const GatewayReplyLost());
     transport.onStop = (_) async => throw const GatewaySessionGone(4001);

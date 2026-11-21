@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
@@ -13,11 +14,12 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'memory_fixtures.dart';
+import '../support/test_localizations.dart';
 
 Widget _german(Widget home, {TargetPlatform? platform}) => MaterialApp(
   theme: ThemeData(platform: platform),
   locale: const Locale('de'),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: home,
 );
@@ -58,7 +60,10 @@ void main() {
     final controller = MemoryController();
     addTearDown(controller.dispose);
     await tester.runAsync(() async {
-      controller.bind(MemoryRepository(server.client().raw), 'work');
+      controller.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       await pumpEventQueue();
       await controller.open(controller.entries.first);
     });
@@ -124,7 +129,10 @@ void main() {
     final controller = MemoryController();
     addTearDown(controller.dispose);
     await tester.runAsync(() async {
-      controller.bind(MemoryRepository(server.client().raw), 'work');
+      controller.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       await pumpEventQueue();
       await controller.open(controller.entries.first);
     });
@@ -164,7 +172,10 @@ void main() {
     final controller = MemoryController();
     addTearDown(controller.dispose);
     await tester.runAsync(() async {
-      controller.bind(MemoryRepository(server.client().raw), 'work');
+      controller.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       await pumpEventQueue();
       await controller.open(controller.entries.first);
     });
@@ -291,7 +302,10 @@ void main() {
     final controller = MemoryController();
     addTearDown(controller.dispose);
     await tester.runAsync(() async {
-      controller.bind(MemoryRepository(server.client().raw), 'work');
+      controller.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       await pumpEventQueue();
       await controller.open(controller.entries.first);
     });

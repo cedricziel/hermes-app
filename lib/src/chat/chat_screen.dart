@@ -44,7 +44,6 @@ import 'subagents/activity_selection.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
 import '../bot_screen/bot_screen_controller.dart';
-import '../bot_screen/bot_screen_profile.dart';
 import '../bot_screen/bot_screen_repository.dart';
 import '../bot_screen/bot_screen_viewer_ids.dart';
 import '../bot_screen/install/bot_screen_installs.dart';
@@ -68,7 +67,6 @@ import '../workspaces/workspace_telemetry.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../tools/hermes_tools_repository.dart';
 import '../tools/tools_availability.dart';
-import '../tools/tools_profile.dart';
 import '../tools/tools_screen.dart';
 import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';
@@ -86,6 +84,7 @@ import '../notifications/notification_settings.dart';
 import '../notifications/request_notifications.dart' show accountHashFor;
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../plugins/plugins_screen.dart';
+import '../profiles/profile_resolver.dart';
 import '../profiles/chat_profiles.dart';
 import 'gateway_connection_transport.dart';
 import 'invalidation/change_invalidation_binding.dart';
@@ -204,6 +203,7 @@ class ChatScreen extends StatefulWidget {
     this.mcp,
     this.tools,
     this.toolsAvailability,
+    this.profileResolver,
     this.onShowChat,
     this.onExternalNavigation,
     this.onShareEntry,
@@ -248,6 +248,10 @@ class ChatScreen extends StatefulWidget {
   /// Whether the server offers Tools; the shell's when null. Without either
   /// there is no Tools entry.
   final ToolsAvailability? toolsAvailability;
+
+  /// Where a chat with no profile works; the profiles' own unless given
+  /// (tests do).
+  final ProfileResolver? profileResolver;
 
   /// Reads what the welcome view's starter prompts are built from; the
   /// connected dashboard's when null.
@@ -371,7 +375,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The Bot Screen of the chat's profile, and what it was made for.
   BotScreenController? _screen;
   BotScreenRepository? _screenRepository;
-  String? _screenProfile;
+  ResolvedProfile? _screenProfile;
 
   /// The viewer ids the server minted for this app in this run, which tell a
   /// lease that is this device's from someone else's.
@@ -588,6 +592,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       usageTelemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
       repository: widget.repository ?? repositories?.chat,
       profiles: _profiles,
+      profileResolver: widget.profileResolver,
       models: _models,
       transport: transport,
       appLock: appLock,
@@ -631,6 +636,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           telemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
         ),
       )..addListener(_memoryWaitingChanged);
+      // A launch profile read that failed leaves no count; count when a later
+      // read succeeds.
+      _chat.profileResolver?.addListener(_launchProfileKnown);
     }
     if (auth != null &&
         transport is GatewayConnectionTransport &&
@@ -797,6 +805,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     blocked: _chat.threadListInvalidationBlocked,
   );
 
+  /// Counts the changes waiting in the chat's profile, or the launch profile
+  /// when the chat has none of its own. With neither known (the shell reads
+  /// the launch profile at connect) nothing is asked and no count shows.
+  Future<void> _refreshMemoryWaiting({bool ifStale = false}) async {
+    final waiting = _memoryWaiting;
+    if (waiting == null) return;
+    final profile = _chat.profileResolver?.resolve(_chat.profile);
+    await (ifStale
+        ? waiting.refreshIfStale(profile)
+        : waiting.refresh(profile));
+  }
+
+  void _launchProfileKnown() => unawaited(_refreshMemoryWaiting());
+
   void _memoryWaitingChanged() {
     if (mounted) setState(() {});
   }
@@ -812,7 +834,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _syncExport();
     final loading = _chat.loadingThreads;
     if (_wasLoadingThreads && !loading) {
-      unawaited(_memoryWaiting?.refresh(_chat.profile));
+      unawaited(_refreshMemoryWaiting());
     }
     _wasLoadingThreads = loading;
     final thread = _chat.selectedThread;
@@ -988,7 +1010,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _refreshReadAloud();
     _chat.checkConnection();
     unawaited(_chat.refreshModelOptionsOnResume());
-    unawaited(_memoryWaiting?.refreshIfStale(_chat.profile));
+    unawaited(_refreshMemoryWaiting(ifStale: true));
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
 
@@ -1037,6 +1059,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
     _toolsAvailability?.removeListener(_toolsAvailabilityChanged);
+    _chat.profileResolver?.removeListener(_launchProfileKnown);
     _memoryWaiting
       ?..removeListener(_memoryWaitingChanged)
       ..dispose();

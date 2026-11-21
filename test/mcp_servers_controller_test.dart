@@ -108,4 +108,28 @@ void main() {
       'travel',
     );
   });
+
+  test('with no profile given it asks for the launch profile, not the sticky '
+      'default', () async {
+    server.on('GET', '/api/profiles/active', {
+      'active': 'home',
+      'current': 'work',
+    });
+    final unscoped = McpServersController(
+      repository: HermesMcpRepository(server.client().raw),
+      profiles: HermesProfilesRepository(server.client().raw),
+    );
+    addTearDown(unscoped.dispose);
+
+    await unscoped.load();
+
+    expect(unscoped.profile, 'work');
+    expect(
+      server
+          .requestsTo('GET', '/api/mcp/servers')
+          .last
+          .queryParameters['profile'],
+      'work',
+    );
+  });
 }

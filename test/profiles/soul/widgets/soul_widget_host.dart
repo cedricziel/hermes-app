@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../../support/test_localizations.dart';
+
 /// The smallest target on each platform: 44 pt on iOS, 48 dp on Android, 28 pt
 /// on a Mac.
 const soulTargets = {
@@ -21,7 +23,7 @@ Widget soulHost(
   theme: dark
       ? buildHermesDarkTheme(platform: platform)
       : buildHermesLightTheme(platform: platform),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   locale: locale,
   builder: textScaler == null

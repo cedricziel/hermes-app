@@ -11,6 +11,7 @@ import 'package:hermes_app/src/workspaces/widgets/working_directory_line.dart';
 import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/pump_chat.dart';
+import '../support/test_localizations.dart';
 
 /// The open chat's phone app bar at a large text size: the title stays
 /// readable and every action keeps its touch target.
@@ -214,7 +215,7 @@ void main() {
       late bool decided;
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
           home: MediaQuery(
@@ -280,9 +281,14 @@ void main() {
     // Deleting the open chat leaves the bar without a thread to name.
     await tester.tap(find.byKey(const Key('header-thread-actions')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete'));
+    final delete = lookupAppLocalizations(const Locale('de'))
+        .chatWidgetsThreadMenuDelete;
+    await tester.tap(find.text(delete));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
+    // The dialog's confirm button reuses the menu's label.
+    await tester.tap(
+      find.descendant(of: find.byType(Dialog), matching: find.text(delete)),
+    );
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: bar, matching: find.text('Neue Nachricht')),

@@ -12,6 +12,8 @@ import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../support/test_localizations.dart';
+
 String _object(int keys) => jsonEncode({
   for (var i = 0; i < keys; i++) 'key_$i': i.isEven ? 'value $i' : i,
 });
@@ -19,7 +21,7 @@ String _object(int keys) => jsonEncode({
 Widget _host(Widget child, {bool dark = false, double width = 360}) =>
     MaterialApp(
       theme: dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SingleChildScrollView(
@@ -62,7 +64,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: buildHermesLightTheme().copyWith(platform: platform),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SingleChildScrollView(
@@ -94,7 +96,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: buildHermesLightTheme().copyWith(platform: platform),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(
             body: Align(

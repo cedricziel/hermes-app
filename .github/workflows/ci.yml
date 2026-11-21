@@ -451,13 +451,29 @@ jobs:
       - name: Build release bundle
         run: |
           set -o pipefail
-          mkdir -p build
+          mkdir -p build build/linux/x64/release
+          # Leave the cache a failed first configure leaves (a stale install
+          # prefix), so the build reconfigures over it; without the forced prefix
+          # in linux/CMakeLists.txt the prefix check below fails.
+          echo 'CMAKE_INSTALL_PREFIX:PATH=/usr/local' > build/linux/x64/release/CMakeCache.txt
           flutter build linux --release -v 2>&1 | tee build/flutter_build_linux.log
 
       - name: Check flutter_soloud fetched no Xiph or VST3 library
         run: |
           scripts/check-soloud-build-log.sh build/flutter_build_linux.log
           test -f build/linux/x64/release/bundle/lib/libflutter_soloud_plugin.so
+
+      # The build above started from a cache holding /usr/local, as after a failed
+      # first configure. linux/CMakeLists.txt must have forced it back.
+      - name: Check the install prefix is the bundle directory
+        run: |
+          cache=$(ls build/linux/*/release/CMakeCache.txt)
+          prefix=$(sed -n 's/^CMAKE_INSTALL_PREFIX:[A-Z]*=//p' $cache)
+          echo "CMAKE_INSTALL_PREFIX=$prefix"
+          case "$prefix" in
+            "$PWD"/build/linux/*/release/bundle) ;;
+            *) echo "install prefix escapes the build tree" >&2; exit 1 ;;
+          esac
 
       - name: Package tar.gz and .deb
         run: scripts/package-linux.sh 0.0.0-ci

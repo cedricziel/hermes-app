@@ -28,6 +28,8 @@ import 'package:hermes_app/src/chat/widgets/vault_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import 'support/test_localizations.dart';
+
 Message _custom(Map<String, dynamic> metadata) => Message.custom(
   id: 'm-${metadata.hashCode}',
   authorId: kAssistantAuthorId,
@@ -292,7 +294,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
             home: Scaffold(

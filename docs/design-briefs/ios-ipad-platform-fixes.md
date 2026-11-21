@@ -118,6 +118,7 @@ Where a decision differs from the canvas:
 
 - B2: the canvas labels the popover the kit's touch `Menu`, 250 pt. In Flutter it is `CupertinoMenuAnchor`, 262 pt at 768 pt and up, 250 pt below, so use the Flutter widths.
 - B2: the canvas does not draw the Delete confirmation; it uses `showDestructiveConfirm`.
+- B2: `CupertinoMenuAnchor` scopes the open menu as a route but takes no name for it, and a label-only node inside the menu is dropped by Flutter for having no size. So the accessible name "Chat actions for <title>" is spoken when the popover opens (`SemanticsService.sendAnnouncement`, from the anchor's `onOpen`) instead of being a label on the menu; the row's long-press hint carries the same text.
 - B3: the canvas shows the dialog from 700 pt on every platform. In code it is 700 pt on a full-screen iPad and 900 pt elsewhere.
 - B4: the canvas shows the command in the message; the code puts it in a monospace content line.
 - D3: the canvas ellipsizes a long Kanban assignee; the decision is to wrap it. The canvas checkpoints row shows a Restore button; the real row has a "..." menu, and the page body scrolls instead.

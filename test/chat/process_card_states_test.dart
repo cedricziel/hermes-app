@@ -8,6 +8,8 @@ import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
 
+import '../support/test_localizations.dart';
+
 Future<void> pump(
   WidgetTester tester, {
   ProcessCardInfo? info,
@@ -21,7 +23,7 @@ Future<void> pump(
   MaterialApp(
     theme: buildHermesLightTheme().copyWith(platform: platform),
     locale: locale,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
@@ -321,7 +323,7 @@ void main() {
         MaterialApp(
           theme: ThemeData(platform: platform),
           locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => TextButton(
@@ -360,7 +362,7 @@ void main() {
       bool? answer;
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => TextButton(
@@ -441,7 +443,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Builder(
               builder: (context) => TextButton(

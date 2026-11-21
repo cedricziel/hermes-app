@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -142,4 +143,7 @@ void serveToolsReads(FakeHermesServer server) {
 HermesToolsRepository toolsRepository(
   FakeHermesServer server, {
   String profile = 'work',
-}) => HermesToolsRepository(server.client().raw, profile: profile);
+}) => HermesToolsRepository(
+  server.client().raw,
+  profile: resolvedProfile(profile),
+);

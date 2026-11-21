@@ -1,3 +1,4 @@
+
 style.adaptive:
   lib/src/bot_mode/groups/widgets/group_widgets.dart: 1
   lib/src/chat/activity/widgets/working_indicator.dart: 1
@@ -12,6 +13,7 @@ style.adaptive:
   lib/src/tools/widgets/provider_row.dart: 1
   lib/src/voice/widgets/voice_message_view.dart: 1
   lib/src/widgets/destructive_tint_button.dart: 1
+
 style.color:
   lib/src/bot_screen/viewer/bot_screen_viewer.dart: 2
   lib/src/bot_screen/viewer/bot_screen_viewer_presenter.dart: 1
@@ -29,6 +31,7 @@ style.color:
   lib/src/widgets/anchored_popover.dart: 1
   lib/src/widgets/dialog_presentation.dart: 1
   lib/src/widgets/grouped_dialog.dart: 2
+
 style.dialog:
   lib/src/app_lock/app_lock_dialog.dart: 1
   lib/src/bot_mode/bot_mode_roster_screen.dart: 2
@@ -62,6 +65,7 @@ style.dialog:
   lib/src/widgets/adaptive_dialog.dart: 2
   lib/src/widgets/adaptive_pickers.dart: 1
   lib/src/widgets/row_actions.dart: 1
+
 style.elevation:
   lib/src/chat/widgets/new_chat_fab.dart: 1
   lib/src/kanban/widgets/kanban_card_drag.dart: 1
@@ -69,6 +73,7 @@ style.elevation:
   lib/src/macos/mac_sidebar.dart: 1
   lib/src/widgets/anchored_popover.dart: 1
   lib/src/widgets/inspector_layout.dart: 1
+
 style.font.offRole:
   lib/src/bot_screen/widgets/bot_screen_preview.dart: 1
   lib/src/chat/activity/widgets/activity_working_line.dart: 1
@@ -114,6 +119,7 @@ style.font.offRole:
   lib/src/skills/widgets/skill_security_scan.dart: 1
   lib/src/voice/widgets/voice_message_view.dart: 1
   lib/src/widgets/grouped_dialog.dart: 1
+
 style.font.role:
   lib/src/chat/checkpoints/widgets/checkpoint_row.dart: 1
   lib/src/chat/checkpoints/widgets/file_checkpoints_row.dart: 3
@@ -145,7 +151,6 @@ style.font.role:
   lib/src/kanban/widgets/kanban_worker_log.dart: 1
   lib/src/macos/mac_source_list.dart: 1
   lib/src/macos/mac_toolbar.dart: 1
-  lib/src/macos/mac_toolbar_search_field.dart: 2
   lib/src/mcp/mcp_command_review.dart: 1
   lib/src/mcp/mcp_install_panel.dart: 2
   lib/src/mcp/mcp_server_detail.dart: 1
@@ -182,6 +187,7 @@ style.font.role:
   lib/src/widgets/install_parts.dart: 1
   lib/src/widgets/settings_scaffold.dart: 4
   lib/src/workspaces/widgets/folder_toolbar_button.dart: 1
+
 style.radius:
   lib/src/bot_mode/groups/widgets/group_widgets.dart: 1
   lib/src/bot_mode/widgets/bot_chat_banner.dart: 1
@@ -220,6 +226,7 @@ style.radius:
   lib/src/workspaces/widgets/folder_mismatch_notice.dart: 1
   lib/src/workspaces/widgets/working_directory_row.dart: 1
   lib/src/workspaces/widgets/workspace_picker_view.dart: 1
+
 style.spacing:
   lib/src/bot_mode/groups/widgets/group_widgets.dart: 3
   lib/src/bot_mode/widgets/bot_chat_banner.dart: 2
@@ -321,6 +328,7 @@ style.spacing:
   lib/src/workspaces/widgets/working_directory_details.dart: 1
   lib/src/workspaces/widgets/working_directory_row.dart: 1
   lib/src/workspaces/widgets/workspace_picker_view.dart: 2
+
 style.string:
   lib/src/app_lock/app_lock_gate.dart: 2
   lib/src/bot_mode/bot_mode_roster_screen.dart: 20
@@ -373,8 +381,7 @@ style.string:
   lib/src/chat/widgets/reasoning_block.dart: 1
   lib/src/chat/widgets/review_summary_note.dart: 1
   lib/src/chat/widgets/session_status_card.dart: 2
-  lib/src/chat/widgets/swipeable_thread_row.dart: 6
-  lib/src/chat/widgets/thread_actions_menu.dart: 24
+  lib/src/chat/widgets/thread_actions_menu.dart: 14
   lib/src/chat/widgets/thread_grouping_controls.dart: 3
   lib/src/chat/widgets/thread_search_view.dart: 2
   lib/src/chat/widgets/thread_sidebar.dart: 15

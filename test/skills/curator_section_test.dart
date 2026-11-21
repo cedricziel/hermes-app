@@ -7,6 +7,8 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/output_lines_tile.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../support/test_localizations.dart';
+
 final _now = DateTime.utc(2026, 11, 15, 12);
 final _ran = DateTime.utc(2026, 11, 12, 9, 12);
 
@@ -104,7 +106,7 @@ Widget _host(
     child: child!,
   ),
   locale: locale,
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: buildHermesLightTheme(platform: platform),
   home: Scaffold(

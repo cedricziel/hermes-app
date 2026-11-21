@@ -6,6 +6,8 @@ import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_note_field.dart';
 import 'package:hermes_app/src/widgets/app_banner.dart';
 
+import '../../../support/test_localizations.dart';
+
 Future<void> _pump(
   WidgetTester tester,
   AgentNoteModel model, {
@@ -24,7 +26,7 @@ Future<void> _pump(
     MaterialApp(
       theme: ThemeData(platform: platform),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)

@@ -13,6 +13,7 @@ import 'package:hermes_app/src/chat/chat_thread_bindings.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:provider/provider.dart';
@@ -140,7 +141,7 @@ void main() {
       screen ??= BotScreenController(
         BotScreenRepository(transport.requestKeepingConnection),
         transport.connectionEvents,
-        profile: 'work',
+        profile: resolvedProfile('work'),
       );
     }
     final composer = TextEditingController();

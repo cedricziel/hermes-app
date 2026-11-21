@@ -86,7 +86,7 @@ void main() {
   test('process output during a main turn stays grouped without changing its prose or settlement', () async {
     await open();
     final thread = chat.selectedThread!;
-    chat.submit('Foreground', const []);
+    await chat.submit('Foreground', const []);
     await pumpEventQueue();
     output('one', 'first');
     output('two', 'other');
@@ -130,7 +130,7 @@ void main() {
       gateway.methods.where((method) => method == 'prompt.submit'),
       hasLength(submits),
     );
-    chat.submit('Same owned runtime', const []);
+    await chat.submit('Same owned runtime', const []);
     await pumpEventQueue();
     expect(chat.processOutputsIn(thread), same(state));
     expect(state.cards.single.text, 'late output');
