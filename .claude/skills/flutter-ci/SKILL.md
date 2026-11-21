@@ -36,8 +36,10 @@ production timeout or add retries to mask a test-only scheduling assumption.
 
 After a fix, run the affected tests and analysis, push to the existing PR and
 check that CI starts for the new commit. Preserve the user's preference about
-waiting; describe pending checks as pending, never as green. Keep auto-merge
-subject to the required checks.
+waiting; describe pending checks as pending, never as green. The orchestrator
+arms auto-merge once the PR is READY, and GitHub merges when the required
+checks are green on the head (`fleet-rules`). Never push to a PR with
+auto-merge armed.
 
 VM catalog tests do not establish that the catalog compiles for the web. A
 native plugin may export a browser stub without its native-only methods (for
@@ -77,6 +79,19 @@ runs for every code PR in its own job, `Test native audio (Linux)`, which
 new path (a script it calls, a new asset folder), add it to the `builds` case in
 the `Changes` job, or PRs that touch only that path will skip the build.
 
+`verify-hermes-api-client.yml`'s job is a required check, so the workflow has no
+`paths:` filter (a skipped required workflow stays pending). Its first step
+diffs the merge commit like `Changes` does and sets `steps.scope.outputs.run`;
+the setup and regeneration steps carry `if:` on it, so the job still reports
+success when nothing under `openapi/`, `scripts/`, `packages/hermes_api/`,
+`openapitools.json`, `.fvmrc`, `pubspec.yaml`, `pubspec.lock` or the workflow
+changed. A non-merge HEAD or an empty diff runs the full check, and so does
+push to main.
+
+Every job in `ci.yml`, `widgetbook.yml` and `verify-hermes-api-client.yml` has
+`timeout-minutes` at 2x or more of the longest successful run seen (shards 45,
+platform builds 25 to 40, Analyze 15); raise it when a job legitimately grows.
+
 Only pull-request runs are cancelled by a newer push (`cancel-in-progress` is
 conditional in `ci.yml`, `messenger-plugin.yml`, `real-backend-contract.yml`
 and `verify-hermes-api-client.yml`). On main a run in progress finishes and a
@@ -84,8 +99,70 @@ queued one is replaced by the newer one, so main's latest finished run is the
 one to read. `widgetbook.yml` still cancels on main: a Pages deploy is
 superseded by the next one.
 
+`Analyze & test` runs before the builds and cannot wait for them, so the `Builds`
+job (`needs` all five, `if: always()`) aggregates them. It fails when `Analyze &
+test` did not succeed. Only an explicit `false` in `code` or `builds` from
+`Changes` makes it expect every build `skipped`; any other value, empty
+included, expects `success` from every build, so it fails closed. A
+failed, cancelled or unexpectedly skipped build fails it, and the log names the
+job and what was expected. `Test native audio (Linux)` is left out on purpose
+(advisory). `Builds` is a required check only once the owner adds it to the
+ruleset; until then a red `Builds` does not block a merge, so read it before
+merging a PR that touches native code or `pubspec.yaml`.
+
 The platform builds must not rely on the default `success()`: it is false when
 any job upstream was skipped, and `Test watch core` is skipped on most pull
 requests. Their `if` therefore names `needs.analyze-and-test.result ==
 'success'` under `!cancelled()`. If builds show as skipped on a pull request that
 changes code, look there first.
+
+## flutter_soloud build guard
+
+`Build Linux (release)` runs `flutter build linux --release -v`, writes
+`build/flutter_build_linux.log`, then `scripts/check-soloud-build-log.sh`. It
+fails when the flutter_soloud build hook downloaded or built Xiph libraries or
+enabled VST3: it needs `[flutter_soloud] Building on Linux (<arch>) with Xiph
+libs [disabled]` (read from the hook's `stdout.txt` under
+`.dart_tool/hooks_runner/flutter_soloud/`, since Flutter keeps it out of the
+verbose log) and none of `Downloading prebuild archive`, `Extracting archive`,
+`releases/download`, `Configuring ogg|opus|vorbis|flac`, `Cloning`. A failure
+means `hooks.user_defines.flutter_soloud` in `pubspec.yaml` lost
+`no_xiph_libs: true` or `enable_vst3: false`, or a new version changed what the
+hook does. The unit-level twin is `test/dependency_flutter_soloud_guard_test.dart`
+(user-defines, exact pin, `kFlutterSoloudNoticesVersion` equal to the pin and the
+lock). To fix after a bump: read the new `hook/build.dart`, update
+`lib/src/settings/third_party_notices.dart` and its constant together, and adjust
+the script and `scripts/test_check_soloud_build_log.py` if the print line
+changed. Details: the flutter_soloud paragraph in
+`docs/architecture/native.md`. The script is in the `builds` path filter, so
+changing it runs the Linux build on a pull request.
+## PR policy and Review recorded
+
+`pr-policy.yml` runs `scripts/pr_policy.py` (`policy` and `review`) on every
+pull request. It triggers on `pull_request_target` and checks out the default
+branch only, so the gate is main's copy and a PR cannot edit its own checks (a
+PR that changes the workflow or the script is checked by main's version; the
+first live run of a change is the next PR after it merges). The script reads
+the event JSON and the changed files from the REST API and never touches the
+PR's code. Editing the PR body reruns it; a manual "Re-run jobs" reuses the old
+payload, so edit the body to re-check. Each failure names its fix:
+
+- Title: Conventional Commit, type from `release-please-config.json`.
+- Body sections: copy `.github/pull_request_template.md`; an HTML comment is not content, write "Nothing" where that is the answer.
+- `fix:` PRs: answer `What would have caught this earlier?` in `## Proof`, outside any comment.
+- Model names: drop them from title and body. Only `Co-Authored-By:` and `Claude-Session:` lines, the Claude Code footer and the session URL are skipped.
+- `pubspec.yaml` version: revert; release-please bumps it.
+- `docs/roadmap.md`: revert it and send the orchestrator the row. The check is by branch prefix (`claude/quirky-einstein-`), so it is loud, not tight.
+- "looks corrupted by a Markdown formatter": the hook turned `x86_64` into `x86*64` or unbalanced a backtick in CLAUDE.md or the roadmap. Restore the line from main and re-apply only your change, with a script instead of Edit/Write.
+- Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push. A block pasted with leading indentation is not recognised: paste it flush left.
+- "The PR head moved (<old> → <new>)": a push landed while the job ran, or the API lagged. The run on the newer head decides; re-run the job if that run is missing.
+- Known gap: model names inside inline code or fenced code are not checked.
+- TODO, TBD, n/a, `-` and `...` count as empty; "Nothing" is a valid answer for `## Not verified on a device`.
+
+Automation PRs from the same repository skip the title, body and review
+rules: the exact branches `chore/update-flutter`,
+`chore/update-hermes-contracts`, `chore/readme-screenshots-<run id>` and
+`release-please--branches--main--components--hermes-app`, and `dependabot/*`
+only with the author `dependabot[bot]`. A fork is never exempt.
+update-claude-plugins is not listed because its branch name lives in an
+external action; add it once a PR from it shows the name.

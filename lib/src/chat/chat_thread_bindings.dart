@@ -20,6 +20,8 @@ import 'slash_command.dart';
 import 'starter_prompts.dart';
 import 'widgets/chat_thread_view.dart';
 import 'widgets/message_actions.dart' show TurnActionStatus;
+import 'tool_value_budget.dart' show ToolValueBudget;
+import 'widgets/tool_call_expansion.dart';
 
 /// The current chat model, its discovery state, and recovery actions.
 Widget composerModelPill(ChatController chat, {VoidCallback? onSetupModel}) =>
@@ -39,6 +41,10 @@ Widget composerModelPill(ChatController chat, {VoidCallback? onSetupModel}) =>
             }
           },
           onRetry: chat.refreshModelOptions,
+          onPickerOpened: () => unawaited(chat.refreshModelOptionsQuietly()),
+          pickerUpdates: chat,
+          pickerOptions: () => chat.modelOptions,
+          pickerChoice: () => chat.modelChoice,
           onSetup:
               onSetupModel ??
               () async {
@@ -129,7 +135,8 @@ Widget? protectedQueueView(ChatController chat, ChatThread? t) =>
 /// screen owns it) the requests that wait on the user dock above the
 /// composer. [onOpenActivity] draws the activity line under the header and
 /// opens the Activity panel from it; without it no line is drawn (the Mac
-/// toolbar and the quick panel).
+/// toolbar and the quick panel). A [toolCallExpansion] keeps the tool calls the
+/// reader opened while the list is rebuilt.
 ChatThreadView boundChatThreadView({
   required ChatController chat,
   required ChatThread? thread,
@@ -165,18 +172,25 @@ ChatThreadView boundChatThreadView({
   VoidCallback? onOpenActivity,
   Widget? workingDirectoryRow,
   Widget? workspaceNotice,
+  ToolCallExpansionStore? toolCallExpansion,
+  ToolValueBudget? toolValueBudget,
 }) {
   final t = thread;
   return ChatThreadView(
     workingDirectoryRow: workingDirectoryRow,
     workspaceNotice: workspaceNotice,
     thread: t,
+    historyStatus: t == null ? null : chat.historyStatusOf(t),
+    onRetryHistory: t == null ? null : () => chat.retryHistory(t),
+    earlierMessages: t == null ? null : chat.earlierMessagesStatusOf(t),
     sendHeld: t != null && chat.sendHeldIn(t),
     draftHandedBack: draftHandedBack,
     activityLine: t == null || onOpenActivity == null
         ? null
         : BoundActivityLine(chat: chat, thread: t, onOpen: onOpenActivity),
     onShowAgentDetails: onShowAgentDetails,
+    toolCallExpansion: toolCallExpansion,
+    toolValueBudget: toolValueBudget,
     screenPreview: screen == null
         ? null
         : (run) => BoundBotScreenPreview(

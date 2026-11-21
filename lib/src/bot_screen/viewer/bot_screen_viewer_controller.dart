@@ -73,7 +73,7 @@ class BotScreenViewerController extends ChangeNotifier {
     required this.repository,
     required this.screen,
     required this.openSocket,
-    this.profile,
+    required this.profile,
     this.telemetry = const ConnectionTelemetry(),
     this.coverGrace = kViewerCoverGrace,
     this.readClipboard = readDeviceClipboard,
@@ -87,7 +87,7 @@ class BotScreenViewerController extends ChangeNotifier {
   final DisplaySocketOpener openSocket;
 
   /// The profile watched; null is the server's default.
-  final String? profile;
+  final String profile;
   final ConnectionTelemetry telemetry;
 
   /// How long a cover may last, while in control, before the stream closes.

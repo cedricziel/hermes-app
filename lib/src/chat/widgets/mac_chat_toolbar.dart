@@ -8,12 +8,13 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_popup_menu_button.dart';
 import '../../widgets/named_popup_menu_button.dart';
+import 'thread_actions_menu.dart' show ExportJsonOffer;
 
 /// From this window width the toolbar shows the search field itself; below
 /// it a button that opens the field.
 const double kMacToolbarSearchFieldWidth = 1000;
 
-enum _More { showFiles, copyTranscript, connection }
+enum _More { showFiles, copyTranscript, exportJson, connection }
 
 /// The chat's toolbar in a Mac window: the chat's title over "profile ·
 /// model", then New Chat, Copy Transcript, Connection Details and search.
@@ -30,8 +31,10 @@ class MacChatToolbar extends StatelessWidget {
     required this.onNewChat,
     required this.onShowConnection,
     this.onCopyTranscript,
+    this.exportJson,
     this.onShowFiles,
     this.folderButton,
+    this.callButton,
     this.activityOpen = false,
     this.activityWaiting = 0,
     this.onToggleActivity,
@@ -57,12 +60,19 @@ class MacChatToolbar extends StatelessWidget {
   /// Copies the open chat as Markdown; null while no chat is open.
   final VoidCallback? onCopyTranscript;
 
+  /// "Export Chat as JSON…" in the compact window's … menu, after Copy
+  /// Transcript; null leaves it out. Wide windows use the Chat menu.
+  final ExportJsonOffer? exportJson;
+
   /// Opens the chat's Files page; null hides the item (an older server).
   final VoidCallback? onShowFiles;
 
   /// The titled folder button before New Chat: opens the picker on a new chat
   /// and the details on an open one. Null shows none (an older server).
   final Widget? folderButton;
+
+  /// Starts or returns to the voice call, before New Chat; null shows none.
+  final Widget? callButton;
   final bool activityOpen;
 
   /// How many requests need the user; marks the Activity button.
@@ -90,6 +100,7 @@ class MacChatToolbar extends StatelessWidget {
       subtitleBuilder: subtitleBuilder,
       actions: [
         ?folderButton,
+        ?callButton,
         MacToolbarButton(
           key: const Key('toolbar-new-chat'),
           label: 'New Chat',
@@ -170,6 +181,7 @@ class MacChatToolbar extends StatelessWidget {
       onSelected: (item) => switch (item) {
         _More.showFiles => onShowFiles?.call(),
         _More.copyTranscript => onCopyTranscript?.call(),
+        _More.exportJson => exportJson?.onSelected(),
         _More.connection => onShowConnection(),
       },
       itemBuilder: (_) => [
@@ -184,6 +196,12 @@ class MacChatToolbar extends StatelessWidget {
           enabled: onCopyTranscript != null,
           child: const Text('Copy Transcript'),
         ),
+        if (exportJson case final offer?)
+          AdaptiveMenuItem(
+            value: _More.exportJson,
+            enabled: offer.enabled,
+            child: const Text('Export Chat as JSON…'),
+          ),
         const AdaptiveMenuItem(
           value: _More.connection,
           child: Text('Connection Details'),

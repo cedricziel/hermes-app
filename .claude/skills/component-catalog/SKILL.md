@@ -70,6 +70,20 @@ lower-cased names with `-` for spaces.
    exception or an overflow. The test font is wider than the real one, so
    check text scale in the catalog (Addons panel), not in the test.
 
+## State that must outlive a remount
+
+A widget whose open or selected state must survive its row being rebuilt (a
+chat list remounting, a row scrolled away and back) takes a plain store or
+initial values plus callbacks, not a controller, and falls back to its own
+state when none is given. Show it in the catalog with a host that holds the
+store above a `KeyedSubtree` and a "Remount" button that changes the key
+(`ToolCallGroup` / "Opened, then remounted"). In a real-`ChatScreen` test,
+`tester.drag` the list's own `Scrollable` (find it under `ChatAnimatedList`; on
+desktop the first `Scrollable` is the sidebar), pump a tap's animation in
+16 ms frames (one long `pump` makes the toggle window of `FollowingChatList`
+look shorter than it is), and use a test hook rather than viewport changes to
+remount: a resize rebuilds the items and so never trips the watchdog.
+
 ## Platforms and screenshots
 
 Inside `testWidgets`, use `tester.runAsync` for controller HTTP loads that must
@@ -100,8 +114,17 @@ one use case per platform this way (`_onEach`).
 
 For PR screenshots without running the catalog, render use cases in a
 throwaway test with `ScreenshotRecorder` (`test/support/screenshot_recorder.dart`):
-pump `rec.frame(MaterialApp(theme: withScreenshotFont(theme), home:
-Scaffold(body: Builder(builder: useCase.builder))))` and `rec.capture`. It loads
+pump this and `rec.capture`:
+
+```dart
+rec.frame(MaterialApp(
+  theme: withScreenshotFont(theme),
+  builder: (c, child) => AppThemeScopes(child: child!),
+  home: Scaffold(body: Builder(builder: useCase.builder)),
+))
+```
+
+It loads
 real fonts, so the PNGs read like the app. Don't commit the test.
 
 ## Rules
@@ -115,6 +138,9 @@ real fonts, so the PNGs read like the app. Don't commit the test.
   screen calls (see `kanbanServer()` in `kanban_screen_use_cases.dart`), and
   let `Hosted` (`host.dart`) create and dispose the controller. Never mock the
   repository itself.
+- `widgetbook/main.dart` mounts the app's `AppThemeScopes` through a
+  `BuilderAddon` after the theme addon (`gpt_markdown` draws near-black
+  headings in dark without it). `test/widgetbook_test.dart` mounts it too.
 - `test/widgetbook_test.dart` sets in-memory shared preferences, so a use case
   may build an `AuthController`, and it unmounts each use case and lets timers
   run out, so a screen that polls must cancel its timer on dispose.

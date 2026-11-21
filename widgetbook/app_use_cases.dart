@@ -14,7 +14,10 @@ import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
 import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/connect_failure.dart';
+import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/attachment_surface.dart';
+import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
+import 'package:hermes_app/src/widgets/adaptive_sheet.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
@@ -102,7 +105,9 @@ Widget _notificationsDenied() => Hosted<NotificationSettings>(
   dispose: (settings) => settings.dispose(),
   builder: (_, settings) => withAppProviders(
     CatalogAuth(),
-    _dialog(showNotificationsDialog),
+    _dialog(
+      (context) => showNotificationsDialog(context, openSettings: () async {}),
+    ),
     notificationSettings: settings,
   ),
 );
@@ -441,6 +446,58 @@ WidgetbookNode appNode() => WidgetbookFolder(
             ),
           ),
         ),
+        WidgetbookUseCase(
+          name: 'Threads on Android',
+          builder: (context) => Theme(
+            data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+            child: Hosted<CatalogAuth>(
+              create: () => CatalogAuth(gated: true),
+              dispose: (auth) => auth.dispose(),
+              builder: (_, auth) => withAppProviders(
+                auth,
+                fill(
+                  ThreadSidebar(
+                    threads: threads,
+                    selectedId: 'thread-1',
+                    onSelect: (_) {},
+                    onNewThread: () {},
+                    onOpenProfiles: () {},
+                  ),
+                  width: 411,
+                ),
+              ),
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Searching on Android',
+          builder: (context) => Theme(
+            data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+            child: Hosted<CatalogAuth>(
+              create: () => CatalogAuth(gated: true),
+              dispose: (auth) => auth.dispose(),
+              builder: (_, auth) => withAppProviders(
+                auth,
+                Hosted<ThreadSearch>(
+                  create: () =>
+                      ThreadSearch((_) async => searchHits)..update('backup'),
+                  dispose: (search) => search.dispose(),
+                  builder: (_, search) => fill(
+                    ThreadSidebar(
+                      threads: threads,
+                      selectedId: 'thread-2',
+                      onSelect: (_) {},
+                      onNewThread: () {},
+                      search: search,
+                      onOpenHit: (_) {},
+                    ),
+                    width: 411,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         _screen(
           'No threads',
           () => CatalogAuth(),
@@ -645,6 +702,38 @@ WidgetbookNode appNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
+      name: 'AttachMenu',
+      useCases: [
+        WidgetbookUseCase(
+          name: 'Rows',
+          builder: (_) => frame(
+            const Card(
+              child: AttachMenu(
+                origins: AttachOrigin.values,
+                onPick: _ignoreOrigin,
+              ),
+            ),
+            maxWidth: 420,
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Presented (sheet on phone, dialog when wide)',
+          builder: (_) => openOnShow(
+            (context) => showAdaptiveSheet<AttachOrigin>(
+              context,
+              maxWidth: 420,
+              showDragHandle: true,
+              maxSheetHeightFraction: 0.9,
+              builder: (sheet) => AttachMenu(
+                origins: AttachOrigin.values,
+                onPick: (origin) => Navigator.of(sheet).pop(origin),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
       name: 'AttachmentSurface',
       useCases: [
         for (final (name, drops) in [
@@ -838,3 +927,5 @@ Widget _shortShellSidebar() => Builder(
     ),
   ),
 );
+
+void _ignoreOrigin(AttachOrigin _) {}

@@ -11,6 +11,8 @@ import 'tap_targets.dart';
 
 /// Where workflow tests write their screenshots. Override with
 /// `WORKFLOW_SHOTS_DIR` to collect them somewhere else (CI uploads this).
+/// `WORKFLOW_SIZE=320x568` and `WORKFLOW_TEXT_SCALE=2.0` override the window
+/// and the text scale of every workflow, to look at a screen at large text.
 final _shotsRoot =
     Platform.environment['WORKFLOW_SHOTS_DIR'] ?? 'build/workflow_screenshots';
 
@@ -19,6 +21,10 @@ const phoneSize = Size(390, 844);
 const desktopSize = Size(1280, 800);
 
 Future<void>? _fontsLoaded;
+
+/// Loads the real fonts, once per run, for a test that needs text to take the
+/// room it does on a device (the Ahem test font is as wide as it is tall).
+Future<void> loadTestFonts() => _fontsLoaded ??= _loadFonts();
 
 /// Widget tests draw text in the Ahem test font (solid boxes) and icons as
 /// empty squares. Load the real Roboto and Material Icons from the Flutter
@@ -131,13 +137,33 @@ class ScreenshotRecorder {
     WidgetTester tester,
     Size size, {
     double pixelRatio = 1.0,
+    double? textScale,
   }) async {
     // A tap that misses would otherwise leave the same screen in every image.
     WidgetController.hitTestWarningShouldBeFatal = true;
     await tester.runAsync(() => _fontsLoaded ??= _loadFonts());
+    final raw = Platform.environment['WORKFLOW_SIZE'];
+    if (raw != null) {
+      final parts = raw.split('x');
+      final width = parts.length == 2 ? double.tryParse(parts[0]) : null;
+      final height = parts.length == 2 ? double.tryParse(parts[1]) : null;
+      if (width != null && height != null) {
+        size = Size(width, height);
+      } else {
+        // ignore: avoid_print
+        print('Ignoring WORKFLOW_SIZE="$raw": expected <width>x<height>.');
+      }
+    }
     tester.view.physicalSize = size * pixelRatio;
     tester.view.devicePixelRatio = pixelRatio;
     addTearDown(tester.view.reset);
+    final scale =
+        double.tryParse(Platform.environment['WORKFLOW_TEXT_SCALE'] ?? '') ??
+        textScale;
+    if (scale != null) {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    }
   }
 
   Widget frame(Widget child) => RepaintBoundary(key: _boundary, child: child);

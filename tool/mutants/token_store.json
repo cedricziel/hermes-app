@@ -1,0 +1,227 @@
+{
+  "subject": "token_store",
+  "tests": [
+    "test/background/headless_hermes_test.dart",
+    "test/token_store_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
+    "test/workflows/bot_screen_lease_workflow_test.dart",
+    "test/workflows/bot_screen_preview_workflow_test.dart",
+    "test/workflows/bot_screen_viewer_workflow_test.dart",
+    "test/workflows/bot_screen_workflow_test.dart",
+    "test/workflows/chat_autocomplete_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/chat_workflow_test.dart",
+    "test/workflows/chat_working_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/compact_chat_workflow_test.dart",
+    "test/workflows/connection_screens_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/group_creation_workflow_test.dart",
+    "test/workflows/handoff_workflow_test.dart",
+    "test/workflows/hands_free_strip_workflow_test.dart",
+    "test/workflows/kanban_extras_workflow_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart",
+    "test/workflows/kanban_task_activity_workflow_test.dart",
+    "test/workflows/kanban_task_metadata_workflow_test.dart",
+    "test/workflows/kanban_worker_log_workflow_test.dart",
+    "test/workflows/kanban_workflow_test.dart",
+    "test/workflows/mac_profiles_workflow_test.dart",
+    "test/workflows/management_workflow_test.dart",
+    "test/workflows/mcp_workflow_test.dart",
+    "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workflows/onboarding_workflow_test.dart",
+    "test/workflows/plugins_workflow_test.dart",
+    "test/workflows/process_control_workflow_test.dart",
+    "test/workflows/profile_creation_workflow_test.dart",
+    "test/workflows/provider_first_run_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/schedules_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workflows/skills_hub_workflow_test.dart",
+    "test/workflows/subagent_control_workflow_test.dart",
+    "test/workflows/tools_setup_workflow_test.dart",
+    "test/workflows/tools_workflow_test.dart",
+    "test/workflows/voice_call_phases_workflow_test.dart",
+    "test/workflows/voice_call_setup_workflow_test.dart",
+    "test/workflows/working_directory_workflow_test.dart"
+  ],
+  "quick_tests": [
+    "test/token_store_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "ts01",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "        if (stored is SessionUnreadable) {\n          throw StateError('Secure storage is temporarily unreadable');\n        }\n        // The connection validates",
+      "new": "        if (stored is SessionUnreadable && false) {\n          throw StateError('Secure storage is temporarily unreadable');\n        }\n        // The connection validates",
+      "note": "unreadable storage no longer throws (falls to compare, returns false)"
+    },
+    {
+      "id": "ts01b",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "    if (stored is SessionUnreadable) {\n      throw StateError('Secure storage is temporarily unreadable');\n    }\n    final current = stored.session;\n    if (current == null || current.serverUrl != null) return;",
+      "new": "    if (stored is SessionUnreadable && false) {\n      throw StateError('Secure storage is temporarily unreadable');\n    }\n    final current = stored.session;\n    if (current == null || current.serverUrl != null) return;",
+      "note": "recordMinter: unreadable storage no longer throws (clears or rewrites on an unreadable read)"
+    },
+    {
+      "id": "ts02",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "current.refreshToken != expected.refreshToken ||",
+      "new": "false ||",
+      "note": "refresh token not compared"
+    },
+    {
+      "id": "ts03",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "current.accessToken != expected.accessToken ||",
+      "new": "false ||",
+      "note": "access token not compared"
+    },
+    {
+      "id": "ts04",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "current.userId != expected.userId ||",
+      "new": "false ||",
+      "note": "userId not compared"
+    },
+    {
+      "id": "ts05",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "current.provider != expected.provider) {",
+      "new": "false) {",
+      "note": "provider not compared"
+    },
+    {
+      "id": "ts06",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "          return false;\n        }\n        if (next == null) {",
+      "new": "          return true;\n        }\n        if (next == null) {",
+      "note": "mismatch reports success without writing"
+    },
+    {
+      "id": "ts07",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "        if (next == null) {\n          await clear();",
+      "new": "        if (next != null) {\n          await clear();",
+      "note": "clear/write branches swapped"
+    },
+    {
+      "id": "ts08",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "await clear();\n        } else {",
+      "new": "clear();\n        } else {",
+      "note": "clear not awaited in replace"
+    },
+    {
+      "id": "ts09",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "await write(next);",
+      "new": "write(next);",
+      "note": "write not awaited in replace"
+    },
+    {
+      "id": "ts10",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "return SessionUnreadable(locked: _isLocked(error));",
+      "new": "return const SessionEmpty();",
+      "note": "unreadable keychain reported as empty (would sign user out)"
+    },
+    {
+      "id": "ts11",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "return SessionUnreadable(locked: _isLocked(error));",
+      "new": "return SessionUnreadable(locked: false);",
+      "note": "locked flag always false"
+    },
+    {
+      "id": "ts12",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "      return const SessionEmpty();\n    }\n  }\n\n  /// `errSecInteractionNotAllowed`",
+      "new": "      return const SessionUnreadable();\n    }\n  }\n\n  /// `errSecInteractionNotAllowed`",
+      "note": "corrupt payload becomes unreadable instead of empty"
+    },
+    {
+      "id": "ts13",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "error.code == '-25308' ||",
+      "new": "error.code == '-25309' ||",
+      "note": "locked code off by one"
+    },
+    {
+      "id": "ts14",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "error.details == -25308 ||",
+      "new": "error.details != -25308 ||",
+      "note": "details check inverted"
+    },
+    {
+      "id": "ts15",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "(error.message?.contains('-25308') ?? false)",
+      "new": "(error.message?.contains('-25308') ?? true)",
+      "note": "null message counts as locked"
+    },
+    {
+      "id": "ts16",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "held is _HeldLock && held.active && identical(held.owner, this)",
+      "new": "held is _HeldLock && identical(held.owner, this)",
+      "note": "reentrancy ignores lease.active"
+    },
+    {
+      "id": "ts17",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "held is _HeldLock && held.active && identical(held.owner, this)",
+      "new": "held is _HeldLock && held.active",
+      "note": "reentrancy ignores which store holds the lock"
+    },
+    {
+      "id": "ts18",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "        lease.active = false;\n",
+      "new": "",
+      "note": "lease never deactivated"
+    },
+    {
+      "id": "ts19",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "held is _HeldLock && held.active && identical(held.owner, this)",
+      "new": "true",
+      "note": "always reentrant: no mutual exclusion"
+    },
+    {
+      "id": "ts20",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "Future<void> clear() => _exclusive(() => _storage.delete(key: _sessionKey));",
+      "new": "Future<void> clear() => _storage.delete(key: _sessionKey);",
+      "note": "clear outside the session lock"
+    },
+    {
+      "id": "ts21",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "    return _exclusive(\n      () => _storage.write(\n        key: _sessionKey,\n        value: jsonEncode(session.toStorageJson()),\n      ),\n    );",
+      "new": "    return _storage.write(\n      key: _sessionKey,\n      value: jsonEncode(session.toStorageJson()),\n    );",
+      "note": "write outside the session lock"
+    },
+    {
+      "id": "ts22",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "      _exclusive(() async {\n        final stored",
+      "new": "      Future.sync(() async {\n        final stored",
+      "note": "compare-and-replace outside the lock"
+    },
+    {
+      "id": "ts23",
+      "file": "lib/src/auth/token_store.dart",
+      "old": "json is! Map<String, dynamic>",
+      "new": "json is! Map<String, dynamic> && json is! List",
+      "note": "non-object list payload accepted (then cast fails -> empty); likely equivalent"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import '../../notifications/notification_settings.dart';
 import '../../settings/theme_controller.dart';
 import '../../spotlight/spotlight_settings.dart';
 import '../../telemetry/breadcrumbs.dart';
+import '../../voice/calls/portable_call_settings.dart';
 import '../../voice/dictation_settings.dart';
 
 /// The user settings.
@@ -13,6 +14,7 @@ List<SingleChildWidget> settingsProviders() => [
   ChangeNotifierProvider(create: (_) => ThemeController()..load()),
   ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
   ChangeNotifierProvider(create: (_) => DictationSettings()..load()),
+  ChangeNotifierProvider(create: (_) => PortableCallSettings()..load()),
   ChangeNotifierProvider(
     create: (context) =>
         SpotlightSettings(breadcrumbs: context.read<Breadcrumbs>())..load(),

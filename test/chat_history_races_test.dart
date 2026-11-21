@@ -77,6 +77,13 @@ void main() {
     });
   }
 
+  void gatePageFails(Completer<void> gate, {String id = 's1'}) {
+    server.onRequest('GET', '/api/sessions/$id/messages', (_) async {
+      await gate.future;
+      return (status: 500, body: {'detail': 'boom'});
+    });
+  }
+
   void page(List<Map<String, Object?>> rows, {String id = 's1'}) =>
       server.on('GET', '/api/sessions/$id/messages', messageListBody(id, rows));
 
@@ -912,6 +919,25 @@ void main() {
       'under that id', () async {
     final gate = Completer<void>();
     gatePage(gate, history);
+    page(history(), id: 's1b');
+    await open();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    transport.sends.single.emit(const SessionInfo(storedSessionId: 's1b'));
+    await pumpEventQueue();
+
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+
+    expect(chat.selectedThread?.id, 's1b');
+    expect(contents('s1b'), ['Hi', 'Hello', 'More', '']);
+  });
+
+  test('a chat stored under a new id while its page fails to load gets its '
+      'history under that id', () async {
+    final gate = Completer<void>();
+    gatePageFails(gate);
     page(history(), id: 's1b');
     await open();
     final sent = chat.submit('More', const []);

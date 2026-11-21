@@ -48,6 +48,8 @@ List<Message> chatMessageToFlyer(
   final keepEmptyReasoning = m.thinkingStarted && m.isPending;
   final showThinking =
       thinking &&
+      // The note says what is going on; a spinner beside it would not be true.
+      !m.reconnecting &&
       !m.awaitingInput &&
       m.sealedProse.isEmpty &&
       m.reasoning.isEmpty &&
@@ -195,6 +197,9 @@ List<Message> chatMessageToFlyer(
             ? media.text
             : insertTableBlankLines(media.text),
         metadata: switch (m.status) {
+          MessageStatus.error when m.loss != null && m.error == null => {
+            kMetaLoss: m.loss!.name,
+          },
           MessageStatus.error => {kMetaError: m.error ?? kReplyFailedMessage},
           MessageStatus.streaming => {kMetaStreaming: true},
           _ when m.stopped => {kMetaStopped: true},
@@ -203,6 +208,17 @@ List<Message> chatMessageToFlyer(
       ),
     for (final (i, attachment) in media.attachments.indexed)
       attachmentMessage('${m.id}-media-$i', attachment),
+    if (m.reconnecting && m.isPending)
+      CustomMessage(
+        id: '${m.id}-reconnecting',
+        authorId: authorId,
+        createdAt: createdAt,
+        metadata: {
+          kMetaKind: kKindReconnecting,
+          kMetaReconnectEpisode: m.reconnectEpisodes,
+          kMetaReconnectIdle: m.reconnectIdle,
+        },
+      ),
     if (showThinking)
       CustomMessage(
         id: '${m.id}-tool-${m.toolCalls.length}-reasoning',

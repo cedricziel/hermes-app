@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/call_config.dart';
 import 'package:hermes_app/src/voice/calls/call_speech_stream.dart';
+import 'package:hermes_app/src/voice/calls/echo_guard.dart';
 import 'package:hermes_app/src/voice/calls/call_tones.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -62,8 +63,10 @@ class CallHarness {
     TargetPlatform platform = TargetPlatform.iOS,
     bool withTones = false,
     Future<void> Function()? releaseLease,
+    Future<void> Function()? holdLease,
     CallSpeechFallback? fallback,
     bool Function(String)? echoGuard,
+    EchoGuard? echo,
   }) => VoiceCall(
     bridge: bridge,
     agent: agent,
@@ -73,8 +76,11 @@ class CallHarness {
     tones: withTones ? tones : null,
     haptics: withTones ? haptics : null,
     releaseLease: releaseLease,
+    // A call that is given a release has held the lease it releases.
+    holdLease: holdLease ?? (releaseLease == null ? null : () async {}),
     loadConfig: config == null ? null : () async => config,
-    echoGuard: echoGuard,
+    echoGuard: echo?.isEcho ?? echoGuard,
+    replySpoken: echo?.spoken,
     speechFallback: fallback,
     connect: ([_ = const {}]) {
       if (openSocket != null) return openSocket!();
@@ -102,8 +108,10 @@ class CallHarness {
     TargetPlatform platform = TargetPlatform.iOS,
     bool withTones = false,
     Future<void> Function()? releaseLease,
+    Future<void> Function()? holdLease,
     CallSpeechFallback? fallback,
     bool Function(String)? echoGuard,
+    EchoGuard? echo,
   }) async {
     await call.end();
     call.dispose();
@@ -115,8 +123,10 @@ class CallHarness {
       platform: platform,
       withTones: withTones,
       releaseLease: releaseLease,
+      holdLease: holdLease,
       fallback: fallback,
       echoGuard: echoGuard,
+      echo: echo,
     );
   }
 

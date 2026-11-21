@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart' show CupertinoSearchTextField;
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -82,9 +83,10 @@ class KanbanBoardToolbar extends StatelessWidget {
                         ),
                 ),
               ),
-              if (wide)
+              // The Mac has Refresh in its own toolbar.
+              if (wide && platformChromeOf(context) != PlatformChrome.macos)
                 NamedIconButton(
-                  label: 'Refresh',
+                  label: context.l10n.kanbanRefreshAction,
                   icon: AppIcons.refresh,
                   onPressed: onRefresh,
                 ),

@@ -17,6 +17,10 @@ enum MacCommand {
   closeWindow,
   back,
   forward,
+  enclosingFolder,
+  reload,
+  previousChange,
+  nextChange,
   toggleSidebar,
   toggleInspector,
   showFiles,
@@ -25,6 +29,7 @@ enum MacCommand {
   renameThread,
   changeFolder,
   copyTranscript,
+  exportThread,
   compress,
   archiveThread,
   deleteThread,
@@ -193,7 +198,9 @@ class MacCommandRegistration {
 ///     MacCommand.newChat: MacCommandHandler(_newThread),
 ///     MacCommand.pinThread: MacCommandHandler(
 ///       thread == null ? null : () => _pin(thread),
-///       title: thread?.pinned ?? false ? 'Unpin' : 'Pin',
+///       title: thread?.pinned ?? false
+///           ? context.l10n.macosMenuUnpin
+///           : context.l10n.macosMenuPin,
 ///     ),
 ///   },
 ///   child: ...,
