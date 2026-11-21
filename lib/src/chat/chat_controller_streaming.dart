@@ -298,6 +298,8 @@ extension _ChatControllerStreaming on ChatController {
         // What the server did with the turn is in its history: read it again,
         // and the settled reply is kept only while the history has no answer.
         if (loss != null) _afterLossSettle(thread, transport, profile);
+        // Whether the server still runs it decides if the actions come back.
+        if (pending.serverMayRun) unawaited(refreshActive());
       }
     }
 
@@ -328,7 +330,17 @@ extension _ChatControllerStreaming on ChatController {
               // result belongs in that bubble. The queue stays paused.
               mayAdopt = false;
               if (_lostReply(thread) case final lost?) {
-                _onReplyEvent(thread, lost, event, profile);
+                // The settle told the person the reply failed. A completion
+                // that proves it did not is told once, as the success it is
+                // (it replaces the failure in the tray); one that failed
+                // again is not told twice.
+                _onReplyEvent(
+                  thread,
+                  lost,
+                  event,
+                  profile,
+                  announce: !event.failed,
+                );
                 return;
               }
             }
@@ -539,6 +551,8 @@ extension _ChatControllerStreaming on ChatController {
     _updateReply(thread, reply, () {
       reply.loss = null;
       reply.error = null;
+      reply.failure = null;
+      reply.serverMayRun = false;
       reply.status = reply.content.isEmpty && reply.sealedProse.isEmpty
           ? MessageStatus.thinking
           : MessageStatus.streaming;

@@ -12,6 +12,7 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/l10n.dart' show l10nForPlatformLocale;
 import '../background/running_replies.dart';
 import '../core/safe_notifier.dart';
 import '../bot_mode/bot_chat_context.dart';
@@ -92,7 +93,8 @@ import 'slash_command.dart';
 import 'thread_housekeeping.dart';
 import 'thread_search.dart';
 import 'thread_sections.dart' show sessionFolderPath;
-import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
+import 'widgets/message_actions.dart'
+    show TurnAction, TurnActionProblem, TurnActionStatus, TurnProblemKind;
 import '../telemetry/report_bug.dart';
 
 part 'chat_controller_billing.dart';
@@ -1900,13 +1902,92 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final generation = _loadGeneration;
     final refresh = ++_activeRefresh;
     try {
-      return await _applyActive(transport, generation, refresh);
+      final answered = await _applyActive(transport, generation, refresh);
+      await _releaseHolds(transport, generation);
+      return answered;
     } finally {
       // The newest read's answer, or its failure (the poll goes on), ends
       // not knowing.
       if (refresh == _activeRefresh) _activeKnown = true;
     }
   }
+
+  /// Gives Retry and Edit back to the replies whose turn the server may still
+  /// run, when the server really answers that it does not run them. An
+  /// unreachable server, an error answer and an unreadable one release
+  /// nothing ([ChatTransport.activeStatusesAnswered] is null then), and every
+  /// status that counts as running ([_runningStatuses]: starting, streaming,
+  /// resuming as well as working and waiting) keeps the hold.
+  Future<void> _releaseHolds(ChatTransport transport, int generation) async {
+    // What each hold stood for when the ask went out: a turn sent after that
+    // is a different one, and an answer that predates it says nothing of it.
+    final asked = <ChatThread, (ChatMessage, int?)>{
+      for (final thread in _threads)
+        if (_ChatControllerCommands(this)._lastReplyHeld(thread)
+            case final held?)
+          thread: (held, _generations[thread]),
+    };
+    if (asked.isEmpty) return;
+    bool same(ChatThread thread, ChatMessage held) =>
+        asked[thread]!.$1 == held && asked[thread]!.$2 == _generations[thread];
+    final Map<String, String>? answered;
+    try {
+      answered = await transport.activeStatusesAnswered(profile: _profile);
+    } on Object catch (e, stack) {
+      // A poll never throws: nothing is released. An answer that failed is
+      // expected; anything else is a bug.
+      if (e is! Exception) reportBug(e, stack, 'the held release ask');
+      return;
+    }
+    if (answered == null || !active || generation != _loadGeneration) return;
+    for (final thread in [...asked.keys]) {
+      final held = _ChatControllerCommands(this)._lastReplyHeld(thread);
+      if (held == null ||
+          !same(thread, held) ||
+          _runningStatuses.contains(answered[thread.id])) {
+        continue;
+      }
+      // The turn is over. What it stored is read again (read-only, nothing is
+      // sent) BEFORE the hold goes, so a stored answer replaces the failed
+      // bubble instead of standing beside it with Retry on; the hold stays
+      // until that read has landed, and a read that fails leaves it for the
+      // next poll to try again. A chat with nothing to read back (not stored
+      // on the server, or its messages never loaded) has no stale bubble.
+      if (repository != null &&
+          thread.remote &&
+          !_unloaded.contains(thread.id)) {
+        // Another poll is already releasing this thread: it decides.
+        if (!_releasing.add(thread)) continue;
+        try {
+          // Strict: the server's last change may be the one a read during the
+          // hold already saw, and only the hold changed since.
+          await _ChatControllerHistory(this)._refreshThreadImpl(
+            thread.id,
+            strict: true,
+            releasing: true,
+            sendGeneration: asked[thread]!.$2 ?? 0,
+          );
+        } on Object catch (e, stack) {
+          if (e is! StateError) reportBug(e, stack, 'the held release re-read');
+          continue;
+        } finally {
+          _releasing.remove(thread);
+        }
+        if (!active || generation != _loadGeneration) return;
+      }
+      // The re-read may have dropped the bubble; then nothing is held. A
+      // send that came meanwhile keeps its own hold.
+      if (_ChatControllerCommands(this)._lastReplyHeld(thread) case final h?
+          when same(thread, h)) {
+        _ChatControllerStreaming(this)
+            ._updateReply(thread, h, () => h.serverMayRun = false);
+      }
+    }
+  }
+
+  /// The threads whose held reply a poll is releasing right now, so only one
+  /// poll does.
+  final _releasing = <ChatThread>{};
 
   Future<bool> _applyActive(
     ChatTransport transport,
@@ -1996,8 +2077,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Whether the last prompt of [thread] can be taken back on the server:
   /// edited, or sent again in place of its turn.
-  bool canEditLastPrompt(ChatThread thread) =>
-      _ChatControllerCommands(this)._canEditLastPromptImpl(thread);
+  ///
+  /// False while the server may still run the turn of the last reply
+  /// ([turnActionsHeld]); [ignoringHold] asks whether it would otherwise be
+  /// offered, so the action can be shown dimmed with the reason.
+  bool canEditLastPrompt(ChatThread thread, {bool ignoringHold = false}) =>
+      _ChatControllerCommands(this)
+          ._canEditLastPromptImpl(thread, ignoringHold: ignoringHold);
+
+  /// Whether the server may still be running the turn of the last reply of
+  /// [thread], because it ended on a lost connection or on a server that could
+  /// not say (`ChatMessage.serverMayRun`). Retry, Edit and Branch wait until
+  /// the server lists the session as not running; nothing is sent meanwhile.
+  bool turnActionsHeld(ChatThread thread) =>
+      _ChatControllerCommands(this)._turnHeldImpl(thread);
 
   /// Sends the text of the last prompt again. The server drops the turn it
   /// replaces first, so the model does not see that reply again. A command, a
@@ -2039,7 +2132,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Why the last retry or edit of a thread failed, until the next one or the
   /// next prompt.
-  final _turnProblems = <ChatThread, String>{};
+  final _turnProblems = <ChatThread, TurnActionProblem>{};
 
   /// The prompts waiting in [thread] for its reply to end.
   List<QueuedPrompt> queuedIn(ChatThread thread) =>

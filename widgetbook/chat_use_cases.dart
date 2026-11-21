@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ComposerHeightNotifier;
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/scroll_to_latest_button.dart';
 import 'package:hermes_app/src/chat/attachments/draggable_attachment.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
@@ -31,7 +32,6 @@ import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/named_icon_button.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
-import 'package:hermes_app/src/chat/chat_reply.dart' show kReplyFailedMessage;
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/message_drag_grip.dart';
 import 'package:hermes_app/src/chat/widgets/reply_error_note.dart';
@@ -1070,16 +1070,127 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const ReplyErrorNote(kReplyFailedMessage),
+              Builder(
+                builder: (context) =>
+                    ReplyErrorNote(context.l10n.chatReplyFailedGeneric),
+              ),
               MessageActions(
                 text: 'Timed out',
                 showCopy: false,
                 onRetry: () {},
                 status: const TurnActionStatus(
-                  problem: "Couldn't reach Hermes to try again. Check your connection.",
+                  problem: TurnActionProblem(
+                    TurnAction.retry,
+                    TurnProblemKind.unreachable,
+                  ),
                 ),
               ),
             ],
+          ),
+        ),
+        _tool(
+          'Edit refused by Hermes',
+          MessageActions(
+            text: 'The build finished.',
+            onRetry: () {},
+            onEdit: () {},
+            status: const TurnActionStatus(
+              problem: TurnActionProblem(
+                TurnAction.edit,
+                TurnProblemKind.rejected,
+              ),
+            ),
+          ),
+        ),
+        _tool(
+          'Hermes answered busy (not an error: nothing changed)',
+          MessageActions(
+            text: 'Timed out',
+            showCopy: false,
+            onRetry: () {},
+            onEdit: () {},
+            status: const TurnActionStatus(
+              problem: TurnActionProblem(
+                TurnAction.retry,
+                TurnProblemKind.busy,
+              ),
+            ),
+          ),
+        ),
+        _tool(
+          'Held: the server may still run the turn',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Builder(
+                builder: (context) =>
+                    ReplyErrorNote(context.l10n.chatReplyFailedMayStillRun),
+              ),
+              MessageActions(
+                text: 'Starting the build.',
+                onRetry: () {},
+                onEdit: () {},
+                status: const TurnActionStatus(held: true),
+              ),
+            ],
+          ),
+        ),
+        _tool(
+          'Held, a failed reply that kept no text',
+          MessageActions(
+            text: '',
+            showCopy: false,
+            onRetry: () {},
+            onEdit: () {},
+            status: const TurnActionStatus(held: true),
+          ),
+        ),
+        _tool(
+          'Held, with Read aloud',
+          MessageActions(
+            text: 'Starting the build.',
+            onRetry: () {},
+            onEdit: () {},
+            status: const TurnActionStatus(held: true),
+            readAloud: ReadAloudState.idle,
+            onReadAloud: () {},
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Held, largest text on a narrow screen',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              MessageActions(
+                text: 'Starting the build.',
+                onRetry: () {},
+                onEdit: () {},
+                status: const TurnActionStatus(held: true),
+              ),
+              maxWidth: 320,
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Busy answer, largest text on a narrow screen',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              MessageActions(
+                text: 'Starting the build.',
+                onRetry: () {},
+                onEdit: () {},
+                status: const TurnActionStatus(
+                  problem: TurnActionProblem(
+                    TurnAction.retry,
+                    TurnProblemKind.busy,
+                  ),
+                ),
+              ),
+              maxWidth: 320,
+            ),
           ),
         ),
       ],
