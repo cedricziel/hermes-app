@@ -1193,7 +1193,20 @@ MSG_GH_RUNNER = (
 )
 
 
-CASE_BLOCK = re.compile(r"\bcase\b.*\bin\b.*\besac\b", re.S)
+CASE_WORD = re.compile(r"\bcase\b")
+IN_WORD = re.compile(r"\bin\b")
+ESAC_WORD = re.compile(r"\besac\b")
+
+
+def _has_case_block(text):
+    """True when `case`, `in` and `esac` appear as words in that order (three linear scans)."""
+    m = CASE_WORD.search(text)
+    if not m:
+        return False
+    m = IN_WORD.search(text, m.end())
+    return bool(m) and ESAC_WORD.search(text, m.end()) is not None
+
+
 GLOB_CHARS = "*?[{"
 MSG_GH_GLOB = (
     "Blocked: a program name with a glob pattern isn't allowed in cloud sessions "
@@ -1469,7 +1482,7 @@ def _check_cmds(cmds, cwd, depth):
 
 def _check(command, cwd, depth):
     cmds, _ = _lex(command)
-    if CASE_BLOCK.search(command):
+    if _is_cloud() and _has_case_block(command):
         for cmd in cmds:  # a lone word there may be a case pattern (`*.py|*.sh)`)
             cmd.in_case = True
     m = _check_cmds(cmds, cwd, depth)

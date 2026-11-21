@@ -1132,6 +1132,12 @@ class GhSearchOnlyTest(unittest.TestCase):
             self.assertIn("mcp__github__", msg, c)
             self.assertIn(tool, msg, c)
 
+    def test_case_scan_is_linear(self):
+        for text in ("case in " * 2000, "case in " * 2000 + "esac", "in case " * 2000):
+            start = time.monotonic()
+            guard.check(text, "/tmp")
+            self.assertLess(time.monotonic() - start, 0.5, text[:12])
+
     def test_gh_search_hint(self):
         msg = guard.check("gh search code foo", "/tmp")
         self.assertIn("gh api -X GET search/", msg)
@@ -1223,6 +1229,15 @@ class GhLocalUnchangedTest(unittest.TestCase):
                     self.assertIsNone(guard.check(c, "/tmp"), "%r should allow: %s" % (val, c))
                 for c in self.STILL_BLOCKED:
                     self.assertIsNotNone(guard.check(c, "/tmp"), "%r should block: %s" % (val, c))
+
+    def test_local_never_scans_for_case(self):
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_REMOTE"}
+
+        def boom(_text):
+            raise AssertionError("case scan ran in a local session")
+
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(guard, "_has_case_block", boom):
+            self.assertIsNone(guard.check("case a in a) echo;; esac", "/tmp"))
 
     def test_cloud_detection(self):
         with mock.patch.dict(os.environ, {"CLAUDE_CODE_REMOTE": "true"}):
