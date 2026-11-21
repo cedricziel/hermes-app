@@ -26,6 +26,7 @@ class _HostState extends State<_Host> {
   ThemeData theme = buildHermesLightTheme();
   double textScale = 1;
   Locale locale = const Locale('en');
+  Widget? preview;
 
   void update(VoidCallback change) => setState(change);
 
@@ -59,6 +60,7 @@ class _HostState extends State<_Host> {
           calls: List.of(calls),
           approvals: Map.of(approvals),
           onAnswerApproval: answer == null ? null : _closeOver(answer!),
+          preview: preview,
           expansion: widget.store,
           expansionScope: 'm1',
         ),
@@ -404,8 +406,13 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     final once = find.text(approvalChoiceLabels['once'] ?? 'once');
     expect(once, findsOneWidget);
-    await tapIt(tester, once);
-    expect(answered, isEmpty);
+    // No callback yet: the choice is shown but cannot be pressed.
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Allow once'))
+          .onPressed,
+      isNull,
+    );
 
     host.currentState!.update(
       () =>
@@ -417,5 +424,39 @@ void main() {
     await tapIt(tester, once);
 
     expect(answered, ['r1:once']);
+  });
+
+  // Kill tests: a card the reader opened stays open when the screen preview
+  // comes or goes, which moves the cards to another place in the column.
+  const previewMark = Text('PREVIEW-MARK');
+
+  testWidgets('an opened card stays open when the preview goes away', (
+    tester,
+  ) async {
+    await mount(tester, [_call('a'), _call('b')]);
+    host.currentState!.update(() => host.currentState!.preview = previewMark);
+    await tester.pump();
+    await openFirst(tester);
+
+    host.currentState!.update(() => host.currentState!.preview = null);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('PREVIEW-MARK'), findsNothing);
+    expect(input, findsOneWidget);
+  });
+
+  testWidgets('an opened card stays open when a preview appears', (
+    tester,
+  ) async {
+    await mount(tester, [_call('a'), _call('b')]);
+    await openFirst(tester);
+
+    host.currentState!.update(() => host.currentState!.preview = previewMark);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('PREVIEW-MARK'), findsOneWidget);
+    expect(input, findsOneWidget);
   });
 }

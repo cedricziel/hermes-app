@@ -262,7 +262,11 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
         },
       );
       if (showsOpen) {
+        // Keyed, with the preview below, so the cards keep their state (the
+        // ones the reader opened) when the preview comes or goes and they
+        // would otherwise move to another slot of the column and mount anew.
         cards = Padding(
+          key: _cardsKey,
           padding: const EdgeInsets.only(top: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,6 +314,7 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
         pieces.header!,
         if (preview != null)
           Padding(
+            key: _previewKey,
             padding: const EdgeInsets.only(left: 2, top: 2),
             child: SizedBox(width: double.infinity, child: preview),
           ),
@@ -318,6 +323,9 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
     );
   }
 }
+
+const _cardsKey = ValueKey('tool-group-cards');
+const _previewKey = ValueKey('tool-group-preview');
 
 /// The widgets one build of [_ToolCallGroupState] made, with the inputs they
 /// were made from. The preview is not one of them: the parent hands it in anew
