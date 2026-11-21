@@ -971,7 +971,7 @@ MSG_GH_UNPARSED = (
     "Write the `gh api -X GET search/<code|repositories|issues|commits|users>` call "
     "out in plain words, or use the GitHub MCP tool `mcp__github__…`."
 )
-GH_WORD = re.compile(r"(?<![\w./-])gh(?![\w-])")
+GH_WORD = re.compile(r"(?<![\w.-])gh(?![\w-])")  # also after a slash: /usr/bin/gh
 GH_RUNNERS = {
     "find",
     "parallel",
@@ -1188,9 +1188,15 @@ MSG_GH_RUNNER = (
 )
 
 
+def _has_gh_token(word):
+    """A word, or any whitespace-split part of it (a variable that held `/usr/bin/gh pr`),
+    has basename gh."""
+    return any(os.path.basename(t) == "gh" for t in word.split())
+
+
 def _is_gh_program(words):
     argv = _strip_prefix(list(words))
-    return bool(argv) and os.path.basename(argv[0]) == "gh"
+    return bool(argv) and _has_gh_token(argv[0])
 
 
 def _runner_has_gh(prog, argv):
@@ -1215,7 +1221,7 @@ def _runner_has_gh(prog, argv):
                 end = k
                 break
     if prog in GH_RUNNERS_ANY_WORD:
-        return any(os.path.basename(w) == "gh" for w in words[1:end])
+        return any(_has_gh_token(w) for w in words[1:end])
     k = 1
     while k < end:
         w = words[k]
@@ -1232,7 +1238,7 @@ def _xargs_gh(words):
     """`xargs` followed by any gh word, in any position."""
     for k, w in enumerate(words):
         if os.path.basename(w) == "xargs":
-            return any(os.path.basename(x) == "gh" for x in words[k + 1 :])
+            return any(_has_gh_token(x) for x in words[k + 1 :])
     return False
 
 
@@ -1375,6 +1381,8 @@ def _check_cmds(cmds, cwd, depth):
         prog = os.path.basename(argv[0])
         if _is_cloud() and _xargs_gh(words):
             return MSG_GH_RUNNER
+        if _is_cloud() and cmd.dyn_prog and _has_gh_token(argv[0]):
+            return MSG_GH_UNPARSED  # computed program whose value holds gh
         m = _check_hermes_home(argv, cmd, cwd, home_set)
         if m:
             return m
