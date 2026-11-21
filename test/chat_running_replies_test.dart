@@ -86,7 +86,7 @@ void main() {
     await chat.loadThreads('work');
     chat.select(id);
     await pumpEventQueue();
-    chat.submit('Any news?', const []);
+    await chat.submit('Any news?', const []);
     await pumpEventQueue();
     return transport.sends.last;
   }
@@ -169,7 +169,7 @@ void main() {
     final first = await replyIn('s1');
     chat.select('s2');
     await pumpEventQueue();
-    chat.submit('And here?', const []);
+    await chat.submit('And here?', const []);
     await pumpEventQueue();
     chat.rememberRunningReplies();
     await pumpEventQueue();
@@ -201,7 +201,7 @@ void main() {
       await chat.loadThreads('home');
       chat.select('s9');
       await pumpEventQueue();
-      chat.submit('Here too', const []);
+      await chat.submit('Here too', const []);
       await pumpEventQueue();
 
       chat.rememberRunningReplies();
@@ -292,7 +292,7 @@ void main() {
       await aging.loadThreads('work');
       aging.select('s1');
       await pumpEventQueue();
-      aging.submit('Any news?', const []);
+      await aging.submit('Any news?', const []);
       await pumpEventQueue();
       await aging.loadThreads('home');
       aging.rememberRunningReplies();
@@ -322,7 +322,7 @@ void main() {
       await slow.loadThreads('work');
       slow.select('s1');
       await pumpEventQueue();
-      slow.submit('Any news?', const []);
+      await slow.submit('Any news?', const []);
       await pumpEventQueue();
       await slow.loadThreads('home');
       slow.rememberRunningReplies();
@@ -353,7 +353,7 @@ void main() {
       await slow.loadThreads('work');
       slow.select('s1');
       await pumpEventQueue();
-      slow.submit('Any news?', const []);
+      await slow.submit('Any news?', const []);
       await pumpEventQueue();
       await slow.loadThreads('home');
       slow.rememberRunningReplies();
@@ -364,7 +364,7 @@ void main() {
       await pumpEventQueue();
       slow.select('s9');
       await pumpEventQueue();
-      slow.submit('Here too', const []);
+      await slow.submit('Here too', const []);
       await pumpEventQueue();
       await slow.loadThreads('work');
       slow.rememberRunningReplies();
@@ -453,7 +453,7 @@ void main() {
       turn.emit(const ReplyCompleted('Done.'));
       await pumpEventQueue();
 
-      chat.submit('And again?', const []);
+      await chat.submit('And again?', const []);
       await pumpEventQueue();
       transport.sends.last.emit(const ReplyCompleted('Again.'));
       await pumpEventQueue();
@@ -488,7 +488,7 @@ void main() {
         await back.loadThreads('work');
         back.select('s1');
         await pumpEventQueue();
-        back.submit('Any news?', const []);
+        await back.submit('Any news?', const []);
         await pumpEventQueue();
         final turn = transport.sends.last;
         back.rememberRunningReplies();
@@ -516,7 +516,7 @@ void main() {
       await back.loadThreads('work');
       back.select('s1');
       await pumpEventQueue();
-      back.submit('Any news?', const []);
+      await back.submit('Any news?', const []);
       await pumpEventQueue();
       final turn = transport.sends.last;
       back.rememberRunningReplies();
@@ -535,7 +535,7 @@ void main() {
       await pumpEventQueue();
       await running.markAnnounced([announced()]);
 
-      chat.submit('Next', const []);
+      await chat.submit('Next', const []);
       await pumpEventQueue();
 
       expect(await running.readAnnounced(), isEmpty);

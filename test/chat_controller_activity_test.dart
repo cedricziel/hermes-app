@@ -117,8 +117,8 @@ void main() {
     });
     chat = create();
     chat.newThread();
-    chat.submit('original', const []);
-    chat.submit('queued', const []);
+    await chat.submit('original', const []);
+    await chat.submit('queued', const []);
     final selected = chat.selectedThread!;
     final send = transport.sends.single;
 
@@ -235,7 +235,7 @@ void main() {
       chat = create();
       chat.newThread();
       final selected = chat.selectedThread!;
-      chat.submit('original', const []);
+      await chat.submit('original', const []);
       chat.clearSelection();
       var suspended = false;
       chat.addListener(() {
@@ -264,8 +264,8 @@ void main() {
       await chat.loadThreads('work');
       chat.newThread();
       final local = chat.selectedThread!;
-      chat.submit('original', const []);
-      chat.submit('queued', const []);
+      await chat.submit('original', const []);
+      await chat.submit('queued', const []);
       activity.value = false;
       activity.value = true;
       await pumpEventQueue();
@@ -335,7 +335,7 @@ void main() {
       server.onRequest('GET', '/api/sessions', (_) => gate.future);
 
       activity.value = true;
-      chat.submit('fresh', const []);
+      await chat.submit('fresh', const []);
       await pumpEventQueue();
       gate.complete((status: 200, body: sessionListBody([])));
       await pumpEventQueue();
@@ -362,8 +362,8 @@ void main() {
     activity.value = true;
     await pumpEventQueue();
 
-    chat.submit('fresh', const []);
-    chat.submit('new queue', const []);
+    await chat.submit('fresh', const []);
+    await chat.submit('new queue', const []);
     gate.complete((status: 200, body: sessionListBody([])));
     await pumpEventQueue();
 
@@ -391,8 +391,8 @@ void main() {
 
       chat.newThread();
       final fresh = chat.selectedThread!;
-      chat.submit('fresh', const []);
-      chat.submit('new queue', const []);
+      await chat.submit('fresh', const []);
+      await chat.submit('new queue', const []);
       gate.complete((status: 200, body: sessionListBody([])));
       await pumpEventQueue();
 
@@ -525,7 +525,7 @@ void main() {
       chat = create();
       chat.newThread();
       final selected = chat.selectedThread!;
-      chat.submit('original', const []);
+      await chat.submit('original', const []);
       final send = transport.sends.single;
       send.emit(const ThreadBound('remote'));
       await pumpEventQueue();
@@ -548,7 +548,7 @@ void main() {
       chat = create();
       chat.newThread();
       final selected = chat.selectedThread!;
-      chat.submit('original', const []);
+      await chat.submit('original', const []);
       transport.sends.single.emit(
         const ApprovalRequested(
           ApprovalRequest(
@@ -579,7 +579,7 @@ void main() {
       chat = create();
       chat.newThread();
       final selected = chat.selectedThread!;
-      chat.submit('original', const []);
+      await chat.submit('original', const []);
       final send = transport.sends.single;
       send.emit(const ThreadBound('remote'));
       send.emit(const ReplyCompleted('done'));
@@ -644,8 +644,8 @@ void main() {
   ) async {
     chat = create();
     chat.newThread();
-    chat.submit('original', const []);
-    chat.submit('queued', const []);
+    await chat.submit('original', const []);
+    await chat.submit('queued', const []);
     final selected = chat.selectedThread!;
     final send = transport.sends.single;
     send.emit(const ReplyCompleted('done'));
@@ -849,7 +849,7 @@ void main() {
     chat = create();
     chat.newThread();
     final selected = chat.selectedThread!;
-    chat.submit('original', const []);
+    await chat.submit('original', const []);
     transport.sends.single.emit(
       const ApprovalRequested(
         ApprovalRequest(
@@ -894,8 +894,8 @@ void main() {
         await chat.loadThreads('work');
         chat.select('selected');
         await pumpEventQueue();
-        chat.submit('original', const []);
-        chat.submit('queued', const []);
+        await chat.submit('original', const []);
+        await chat.submit('queued', const []);
         activity.value = false;
         activity.value = true;
         await pumpEventQueue();
@@ -971,8 +971,8 @@ void main() {
       await chat.loadThreads('work');
       chat.select('selected');
       await pumpEventQueue();
-      chat.submit('original', const []);
-      chat.submit('queued', const []);
+      await chat.submit('original', const []);
+      await chat.submit('queued', const []);
       activity.value = false;
       server.on(
         'GET',
@@ -1036,16 +1036,16 @@ void main() {
       await chat.loadThreads('work');
       chat.select('valid');
       await pumpEventQueue();
-      chat.submit('original valid', const []);
-      chat.submit('queued valid', const []);
+      await chat.submit('original valid', const []);
+      await chat.submit('queued valid', const []);
       chat.select('missing');
       await pumpEventQueue();
-      chat.submit('original missing', const []);
-      chat.submit('queued missing', const []);
+      await chat.submit('original missing', const []);
+      await chat.submit('queued missing', const []);
       chat.select('unreadable');
       await pumpEventQueue();
-      chat.submit('original unreadable', const []);
-      chat.submit('queued unreadable', const []);
+      await chat.submit('original unreadable', const []);
+      await chat.submit('queued unreadable', const []);
       chat.select('recent');
       await pumpEventQueue();
       activity.value = false;
@@ -1338,8 +1338,8 @@ void main() {
     await chat.loadThreads('work');
     chat.select('shared');
     await pumpEventQueue();
-    chat.submit('original work', const []);
-    chat.submit('queued work', const []);
+    await chat.submit('original work', const []);
+    await chat.submit('queued work', const []);
     activity.value = false;
     activity.value = true;
     await pumpEventQueue();
@@ -1377,8 +1377,8 @@ void main() {
       await chat.loadThreads('work');
       chat.select('missing');
       await pumpEventQueue();
-      chat.submit('original', const []);
-      chat.submit('queued', const []);
+      await chat.submit('original', const []);
+      await chat.submit('queued', const []);
       activity.value = false;
       server.on('GET', '/api/sessions', sessionListBody([]));
       activity.value = true;
@@ -1409,7 +1409,7 @@ void main() {
       await pumpEventQueue();
 
       expect(chat.selectedThread, same(local));
-      chat.submit('fresh', const []);
+      await chat.submit('fresh', const []);
 
       expect(transport.sends.single.threadId, isNull);
       expect(transport.sends.single.profile, 'work');
@@ -1436,8 +1436,8 @@ void main() {
     chat = create();
     chat.newThread();
     final local = chat.selectedThread!;
-    chat.submit('original', const []);
-    chat.submit('queued', const []);
+    await chat.submit('original', const []);
+    await chat.submit('queued', const []);
     activity.value = false;
     activity.value = true;
     await pumpEventQueue();

@@ -48,6 +48,15 @@ behind a conditional import/export with a matching browser stub; a runtime
 platform check alone cannot fix missing-method compilation errors. Validate
 with `scripts/build-widgetbook.sh` locally or the catalog build in CI.
 
+## Require pubspec.lock resolved with the pinned Flutter
+
+The `Analyze` step of that name fails when `flutter pub get` rewrites
+`pubspec.lock`. The lock was resolved with another Flutter than `.fvmrc`, for
+example by dependabot, or an SDK-pinned package such as `test_api` moved with
+the SDK. Fix: run `flutter pub get` on the `.fvmrc` Flutter and commit
+`pubspec.lock` (by name; pub get also rewrites generated platform files, which
+stay out). `update-flutter.yml` does this for its bump PR.
+
 ## Which jobs run
 
 `ci.yml` starts with a `Changes` job. On a pull request it diffs the merge

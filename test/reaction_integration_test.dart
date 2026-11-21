@@ -120,7 +120,7 @@ void main() {
       reaction(42, 'user', '🎉');
       return {'status': 'streaming', 'user_row_id': 42};
     };
-    chat.submit('Repeated', const []);
+    await chat.submit('Repeated', const []);
     await pumpEventQueue();
     final thread = chat.selectedThread!;
     final ownUser = thread.messages[thread.messages.length - 2];
@@ -143,7 +143,7 @@ void main() {
 
   test('identity-free supported acknowledgement does not assign a message or settle main reply', () async {
     await open();
-    chat.submit('New prompt', const []);
+    await chat.submit('New prompt', const []);
     await pumpEventQueue();
     final thread = chat.selectedThread!;
     gateway.event('reaction', 'rt-1', {'kind': 'future'});
