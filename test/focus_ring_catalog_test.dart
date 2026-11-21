@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../widgetbook/focus_ring_use_cases.dart';
+
+/// What the app and the catalog mount above the home.
+Widget _scoped(BuildContext context, Widget? child) =>
+    AppThemeScopes(child: child!);
 
 WidgetbookUseCase _useCase(String name) =>
     (focusRingNode() as WidgetbookComponent).useCases.firstWhere(
@@ -17,13 +22,18 @@ Future<void> _openAfterClick(WidgetTester tester, String name) async {
   addTearDown(forgetFocusRingWatchers);
   forgetFocusRingWatchers();
   await tester.pumpWidget(
-    MaterialApp(theme: buildHermesLightTheme(), home: const Scaffold()),
+    MaterialApp(
+      theme: buildHermesLightTheme(),
+      builder: _scoped,
+      home: const Scaffold(),
+    ),
   );
   // Starts the input tracking, as the previous example did.
   final probe = FilledButton(onPressed: () {}, child: const Text('x'));
   await tester.pumpWidget(
     MaterialApp(
       theme: buildHermesLightTheme(),
+      builder: _scoped,
       home: Scaffold(body: Center(child: probe)),
     ),
   );
@@ -32,6 +42,7 @@ Future<void> _openAfterClick(WidgetTester tester, String name) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: buildHermesLightTheme(),
+      builder: _scoped,
       home: Scaffold(body: Builder(builder: _useCase(name).builder)),
     ),
   );
@@ -89,6 +100,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: buildHermesLightTheme(),
+            builder: _scoped,
             home: Scaffold(body: Builder(builder: _useCase(name).builder)),
           ),
         );
@@ -111,6 +123,31 @@ void main() {
             .first,
       );
       expect(material.shape, isA<FocusRingBorder>());
+    });
+  }
+
+  // A platform may draw a tappable row where another draws a button; each
+  // variant of these previews must still show a ring.
+  for (final name in [
+    'Check for updates (iPhone)',
+    'Check for updates (Mac)',
+    'Check for updates (Material)',
+    'Messaging Set up (iPhone)',
+    'Messaging Set up (Mac)',
+    'Messaging Set up (Material)',
+  ]) {
+    testWidgets('the "$name" preview shows a ring', (tester) async {
+      await _openAfterClick(tester, name);
+      final painted = find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.foregroundPainter is FocusRingPainter,
+      );
+      final onButton = find.byWidgetPredicate(
+        (w) => w is Material && w.shape is FocusRingBorder,
+      );
+      expect(
+        painted.evaluate().isNotEmpty || onButton.evaluate().isNotEmpty,
+        isTrue,
+      );
     });
   }
 }

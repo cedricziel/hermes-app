@@ -106,6 +106,12 @@ Rule _custom({
 /// A use of the catalog's keyboard override, a call or a tear-off.
 final _keyboardOverride = RegExp(r'\bmarkFocusRingKeyboardInput\b');
 
+/// A call of the ring helpers, not a name that merely starts with theirs.
+final _ringCall = RegExp(r'^focusRingShape(?:Of)?\(');
+
+/// The theme's own `buttonShape`, exactly.
+final _themeButtonShape = RegExp(r'^buttonShape(?![\w$])');
+
 final _buttonStyleCall = RegExp(r'\b(?:\w*Button\.styleFrom|ButtonStyle)\(');
 final _copyWithCall = RegExp(r'\.copyWith\(');
 
@@ -136,9 +142,9 @@ List<Hit> buttonShapeHitsIn(SourceFile file) {
           var value = code.substring(i + 6).trimLeft();
           if (value.startsWith('const ')) value = value.substring(6).trimLeft();
           final ringed =
-              value.startsWith('focusRingShape') ||
+              _ringCall.hasMatch(value) ||
               (file.path == 'lib/src/theme/hermes_theme.dart' &&
-                  value.startsWith('buttonShape'));
+                  _themeButtonShape.hasMatch(value));
           if (!ringed) {
             hits.add(
               Hit(file.path, file.lineOf(i), file.lineText(file.lineOf(i))),
@@ -700,6 +706,21 @@ void main() {
       expect(hits('final a = TextButton.styleFrom(shape: buttonShapeX);'), 1);
       expect(
         hits('final a = ButtonStyle(shape: WidgetStatePropertyAll(b));'),
+        1,
+      );
+    });
+
+    test('rejects a name that only starts like a ring helper', () {
+      expect(hits('final a = s.copyWith(shape: focusRingShapeOverride);'), 1);
+      expect(
+        hits('final a = s.copyWith(shape: focusRingShapeOfX(context, b));'),
+        1,
+      );
+      expect(
+        hits(
+          'final a = s.copyWith(shape: buttonShapeOverride);',
+          path: 'lib/src/theme/hermes_theme.dart',
+        ),
         1,
       );
     });

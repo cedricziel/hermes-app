@@ -92,12 +92,20 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
       if (widget.button != null || widget.focusIndex != null) {
         markFocusRingKeyboardInput();
       }
-      final button = widget.button;
+      var button = widget.button;
       if (button != null) {
-        nodes = [
+        final buttons = [
           for (final n in nodes)
             if (_insideButton(n)) n,
         ];
+        // A platform may draw a tappable row where another draws a button
+        // (the iPhone and Material "Check for updates"): the first control
+        // takes the focus then.
+        if (buttons.isEmpty) {
+          button = 0;
+        } else {
+          nodes = buttons;
+        }
       }
       final index = button ?? widget.focusIndex;
       if (index != null && index < nodes.length) nodes[index].requestFocus();
