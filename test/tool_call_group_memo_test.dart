@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -8,6 +7,8 @@ import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_expansion.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/test_localizations.dart';
 
 /// A group the parent rebuilds in place, as the chat does on every streamed
 /// tick, with everything the group reads settable from outside.
@@ -40,10 +41,11 @@ class _HostState extends State<_Host> {
     theme: theme,
     locale: locale,
     supportedLocales: const [Locale('en'), Locale('ar')],
-    localizationsDelegates: const [
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+    // The shared delegates, less the app's own strings, which have no Arabic;
+    // the locale test needs a right-to-left locale.
+    localizationsDelegates: [
+      for (final d in kTestLocalizationsDelegates)
+        if (d.isSupported(locale)) d,
     ],
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context)
