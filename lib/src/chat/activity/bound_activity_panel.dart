@@ -96,7 +96,8 @@ class BoundActivityPanel extends StatelessWidget {
     // The chat replaces a thread's controllers when its session changes, so
     // they are looked up again on every chat change, then listened to.
     final panel = ListenableBuilder(
-      listenable: chat,
+      // The launch profile arriving shows the Memory link.
+      listenable: Listenable.merge([chat, ?chat.profileResolver]),
       builder: (context, _) => _sections(context, t),
     );
     final screen = this.screen;
@@ -243,6 +244,12 @@ class BoundActivityPanel extends StatelessWidget {
         );
         // The original review remains bound to its reply in the model. Its
         // presentation is reference activity, outside the transcript.
+        // The chat's own profile, else the launch profile (only through the
+        // resolver); null while neither is known.
+        final own = chat.profile;
+        final memoryProfile =
+            chat.profileResolver?.resolve(own)?.name ??
+            (own == null || own.isEmpty ? null : own);
         final reviewNotes = t.messages.reversed
             .map((message) => message.reviewNotes)
             .firstWhere(
@@ -337,13 +344,13 @@ class BoundActivityPanel extends StatelessWidget {
                 recalls: state?.memoryRecalls ?? const [],
                 earlierRecallsOmitted: state?.earlierRecallsOmitted ?? false,
                 reviewNotes: reviewNotes,
-                onOpenMemory: chat.repository == null || chat.profile == null
+                onOpenMemory: chat.repository == null || memoryProfile == null
                     ? null
                     // Over the whole app, not inside the panel's own pages.
                     : () => Navigator.of(context, rootNavigator: true).push(
                         MaterialPageRoute<void>(
                           builder: (_) =>
-                              MemoryDestination(profile: chat.profile),
+                              MemoryDestination(profile: memoryProfile),
                         ),
                       ),
               ),
