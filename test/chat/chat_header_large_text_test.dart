@@ -280,9 +280,14 @@ void main() {
     // Deleting the open chat leaves the bar without a thread to name.
     await tester.tap(find.byKey(const Key('header-thread-actions')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete'));
+    final delete = lookupAppLocalizations(const Locale('de'))
+        .chatWidgetsThreadMenuDelete;
+    await tester.tap(find.text(delete));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
+    // The dialog's confirm button reuses the menu's label.
+    await tester.tap(
+      find.descendant(of: find.byType(Dialog), matching: find.text(delete)),
+    );
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: bar, matching: find.text('Neue Nachricht')),
