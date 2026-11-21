@@ -555,7 +555,7 @@ void main() {
       expect(compressOn(), isTrue);
 
       final chat = await chatOf(tester);
-      chat.submit('One more thing', const []);
+      await chat.submit('One more thing', const []);
       await tester.pump();
       expect(compressOn(), isFalse);
       source.sends.last

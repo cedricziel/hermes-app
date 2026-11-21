@@ -81,7 +81,7 @@ void main() {
       await chat.loadThreads('work');
       chat.select('stored-1');
       await pumpEventQueue();
-      chat.submit('Start', const []);
+      await chat.submit('Start', const []);
       await pumpEventQueue();
       gateway.event('todo.updated', 'rt-1', {
         'revision': 1,

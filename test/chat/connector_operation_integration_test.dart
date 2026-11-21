@@ -205,7 +205,7 @@ void main() {
   test('actual session requests offer scoped responses without settling the main turn', () async {
     await open();
     final thread = chat.selectedThread!;
-    chat.submit('Foreground', const []);
+    await chat.submit('Foreground', const []);
     await pumpEventQueue();
     request();
     update();
@@ -458,7 +458,7 @@ void main() {
     expect(old.operations.single.targets.single.connectUrl, isNull);
     expect(old.canRespond(operation.key), isFalse);
     expect(chat.connectorOperationsIn(thread), same(old));
-    chat.submit('Reconnect through normal send', const []);
+    await chat.submit('Reconnect through normal send', const []);
     await pumpEventQueue();
     request();
     await pumpEventQueue();
