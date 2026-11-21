@@ -519,6 +519,20 @@ ARITH_MESSAGE = (
 )
 
 
+_RAW_SUBSTITUTION = re.compile(r"[<>]\(")
+_FORMAT_CALL = re.compile(r"format\s*\(", re.IGNORECASE)
+
+
+def expands(text):
+    """True when a heredoc body has a live `$(` or backtick: one preceded by an
+    even number of backslashes (`\\$(` escapes it, `\\\\$(` does not)."""
+    for match in re.finditer(r"\$\(|`", text):
+        before = text[: match.start()]
+        if (len(before) - len(before.rstrip("\\"))) % 2 == 0:
+            return True
+    return False
+
+
 def commands(script):
     """Splits a script into (segment, has_substitution, comment) triples.
 
@@ -560,18 +574,33 @@ def commands(script):
             else:
                 merged.append([text, found])
         for position, (text, found) in enumerate(merged):
-            if text.strip():
+            if text.strip() or found:
                 last = position == len(merged) - 1
-                results.append((text.strip(), found, comment if last else ""))
+                results.append(
+                    (text.strip() or "<comment>", found, comment if last else "")
+                )
         segments.clear()
 
     while index < length:
         char = script[index]
         pair = script[index : index + 2]
         kind = stack[-1][0]
+        # Blunt rule: a literal `<(` or `>(` anywhere (quotes, comments,
+        # heredoc bodies and ${{ }} included, an escaped one too) belongs to
+        # the current command, which then needs the marker.
+        if pair in ("<(", ">(") or (
+            char == "\\" and script[index + 1 : index + 3] in ("<(", ">(")
+        ):
+            hit = True
         if script.startswith("${{", index) and script.find("}}", index) != -1:
             end = script.find("}}", index) + 2
-            segment.append(script[index:end])
+            region = script[index:end]
+            if _RAW_SUBSTITUTION.search(region):
+                hit = True
+            if _FORMAT_CALL.search(region):
+                # format() can assemble shell text from pieces.
+                unreadable = True
+            segment.append(region)
             index = end
             continue
         if kind == "sq":
@@ -672,6 +701,8 @@ def commands(script):
             elif top_level and char == "#" and (not segment or segment[-1].isspace()):
                 end = script.find("\n", index)
                 end = length if end == -1 else end
+                if _RAW_SUBSTITUTION.search(script[index:end]):
+                    hit = True
                 end_segment()
                 end_command(script[index:end])
                 index = end
@@ -680,7 +711,10 @@ def commands(script):
                 not segment or segment[-1].isspace()
             ):
                 end = script.find("\n", index)
-                index = length if end == -1 else end
+                end = length if end == -1 else end
+                if _RAW_SUBSTITUTION.search(script[index:end]):
+                    hit = True
+                index = end
                 continue
             elif top_level and char == ";":
                 end_segment()
@@ -707,10 +741,14 @@ def commands(script):
                             body.append(line)
                         # An unquoted delimiter expands $(...) and backticks
                         # in the body, which can run a process substitution.
-                        if not quoted and re.search(
-                            r"(?<!\\)(\$\(|`)", "\n".join(body)
-                        ):
+                        if not quoted and expands("\n".join(body)):
                             unreadable = True
+                        if _RAW_SUBSTITUTION.search("\n".join(body)):
+                            if top_level and results:
+                                last = results[-1]
+                                results[-1] = (last[0], True, last[2])
+                            else:
+                                hit = True
                     heredocs.clear()
                     index = position
                     continue
@@ -776,16 +814,59 @@ class ProcessSubstitution(unittest.TestCase):
         script = 'echo "open\n# process-substitution-ok: fake" <(x)'
         self.assertEqual(len(unmarked_substitutions(script)), 1)
 
-    def test_substitution_inside_quoted_text_is_no_code(self):
+    def test_a_literal_substitution_anywhere_is_flagged_unless_marked(self):
+        # The blunt rule: any literal `<(` or `>(` in a run: text is flagged,
+        # quotes, comments and heredoc bodies included, unless its command
+        # carries the marker.
         for script in (
             'echo "<(x)"',
             "echo '>(x)'",
             'echo "a <(x) b" # fine',
             "echo \\<(x)",
+            "echo $'<(x)'",
+            "echo hi # not <(real)",
+            "cat <<EOF\n<(x)\nEOF",
+            "cat <<'EOF'\n>(x)\nEOF",
+            "diff ${{ '<(a)' }} ${{ '<(b)' }}",
+            "echo ${{ format('{0}', 'diff <(a) <(b)') }}",
+            "\"let\" 'x=a[$(diff <(a) <(b))]'",
+            "\\let 'x=a[$(diff <(a) <(b))]'",
+            "[[ 1 -eq 'a[$(diff <(a) <(b))]' ]]",
+            "declare -i x='a[$(diff <(a) <(b))]'",
+            "echo $(( 1 )) # <(x)",
+            'echo "$(echo hi # <(x)\n)"',
+            "# note about <(x)\necho ok",
+            "x=$(cat <<EOF\n<(x)\nEOF\n)",
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_a_marked_literal_substitution_is_accepted(self):
+        for script in (
+            'echo "<(x)" # process-substitution-ok: literal text',
+            "cat <<EOF # process-substitution-ok: literal body\n<(x)\nEOF",
+            "echo '>(x)' # process-substitution-ok: literal text",
         ):
             with self.subTest(script=script):
                 self.assertEqual(unmarked_substitutions(script), [])
 
+    def test_a_format_call_in_an_expression_is_unreadable(self):
+        for script in (
+            "echo ${{ format('{0}{1}', '<', '(a)') }}",
+            "echo ${{ Format('{0}', 'x') }}",
+            "echo ${{ FORMAT ('{0}', 'x') }}",
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_plain_expressions_stay_readable(self):
+        for script in (
+            "echo ${{ github.event_name }}",
+            "echo ${{ matrix.shard }} ${{ steps.a.outputs.b }}",
+            "echo ${{ github.event_name == 'push' && 'a' || 'b' }}",
+        ):
+            with self.subTest(script=script):
+                self.assertEqual(unmarked_substitutions(script), [])
     def test_substitution_inside_a_command_substitution_in_quotes_is_code(self):
         self.assertEqual(
             len(unmarked_substitutions('echo "$(diff <(a) <(b))"')), 1
@@ -815,14 +896,13 @@ class ProcessSubstitution(unittest.TestCase):
 
     def test_heredoc_body_is_text(self):
         for script in (
-            "cat <<EOF\n<(x) it's\nEOF",
-            "cat <<'EOF'\n>(x)\nEOF",
-            'cat <<"EOF"\n<(x)\nEOF',
-            "cat <<-EOF\n\t<(x)\n\tEOF",
+            "cat <<EOF\nit's $HOME\nEOF",
+            "cat <<'EOF'\n$(date)\nEOF",
+            'cat <<"EOF"\nit\'s\nEOF',
+            "cat <<-EOF\n\tit's\n\tEOF",
         ):
             with self.subTest(script=script):
                 self.assertEqual(unmarked_substitutions(script), [])
-
     def test_a_heredoc_inside_a_command_substitution_is_recognised(self):
         # Read as plain text, the apostrophes would hide the diff between them
         # while the script still looks balanced.
@@ -839,15 +919,11 @@ class ProcessSubstitution(unittest.TestCase):
                 # The last line is the word as written. A scanner that does not
                 # unquote it takes that line as the delimiter, swallows the
                 # diff, and still looks balanced.
-                script = (
-                    f"cat <<{word}\nit's <(x)\nEOF\ndiff <(a) <(b)\n{word}\n"
-                )
+                script = f"cat <<{word}\nit's\nEOF\ndiff <(a) <(b)\n{word}\n"
                 self.assertEqual(len(unmarked_substitutions(script)), 1)
-
     def test_a_heredoc_body_inside_a_command_substitution_is_text(self):
-        script = "x=$(cat <<EOF\n<(x)\nEOF\n)\necho done"
+        script = "x=$(cat <<EOF\nit's\nEOF\n)\necho done"
         self.assertEqual(unmarked_substitutions(script), [])
-
     def arithmetic_flagged(self, script):
         return any(
             "shell arithmetic" in text for text in unmarked_substitutions(script)
@@ -921,9 +997,10 @@ class ProcessSubstitution(unittest.TestCase):
 
     def test_a_literal_or_quoted_heredoc_body_stays_readable(self):
         for script in (
-            "cat <<EOF\n<(x) $HOME ${HOME}\nEOF",
-            "cat <<EOF\n\\$(x) \\`y\\`\nEOF",
-            "cat <<'EOF'\n$(cat <(printf x)) `y`\nEOF",
+            "cat <<EOF\n$HOME ${HOME}\nEOF",
+            "cat <<EOF\n\\$(date) \\`y\\`\nEOF",
+            "cat <<EOF\n\\\\\\$(date)\nEOF",
+            "cat <<'EOF'\n$(date) `y`\nEOF",
             'cat <<"EOF"\n$(date)\nEOF',
             "cat <<\\EOF\n$(date)\nEOF",
             "cat <<E'OF'\n`date`\nEOF",
@@ -931,6 +1008,16 @@ class ProcessSubstitution(unittest.TestCase):
             with self.subTest(script=script):
                 self.assertEqual(unmarked_substitutions(script), [])
 
+    def test_an_even_number_of_backslashes_leaves_the_expansion_live(self):
+        for script in (
+            "cat <<EOF\n\\\\$(date)\nEOF",
+            "cat <<EOF\n\\\\\\\\$(date)\nEOF",
+            "cat <<EOF\n\\\\`date`\nEOF",
+            "cat <<EOF\n\\\\$(cat <(printf x))\nEOF",
+            "cat <<EOF\n\\\\\\\\`date`\nEOF",
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
     def test_arithmetic_in_double_quotes_gives_the_arithmetic_message(self):
         self.assertEqual(
             unmarked_substitutions('echo "$((1 << 2))"'), [ARITH_MESSAGE]
@@ -947,11 +1034,13 @@ class ProcessSubstitution(unittest.TestCase):
                 self.assertTrue(unmarked_substitutions(script))
 
     def test_a_tab_indented_delimiter_does_not_close_a_plain_heredoc(self):
-        # Only <<- strips tabs. The <(x) is still body text here, and closes
-        # at the real EOF; a scanner that closes early reads it as code.
-        script = "cat <<EOF\n\tEOF\n<(x)\nEOF"
+        # Only <<- strips tabs. The body (with its literal <(x)) is marked and
+        # closes at the real EOF; a scanner that closes early reads the later
+        # <(x) as unmarked code.
+        script = (
+            "cat <<EOF # process-substitution-ok: literal body\n\tEOF\n<(x)\nEOF"
+        )
         self.assertEqual(unmarked_substitutions(script), [])
-
     def test_a_tab_indented_delimiter_closes_a_dash_heredoc(self):
         script = "cat <<-EOF\n\tEOF\n<(x)"
         self.assertEqual(len(unmarked_substitutions(script)), 1)
@@ -968,9 +1057,13 @@ class ProcessSubstitution(unittest.TestCase):
         script = "echo $'a\\'b'; diff <(a) <(b) # it's"
         self.assertEqual(len(unmarked_substitutions(script)), 1)
 
-    def test_ansi_c_quoted_text_is_text(self):
-        self.assertEqual(unmarked_substitutions("echo $'<(x)'"), [])
-
+    def test_ansi_c_quoted_text_is_text_unless_it_holds_a_substitution(self):
+        self.assertEqual(unmarked_substitutions("echo $'a(b'"), [])
+        self.assertTrue(unmarked_substitutions("echo $'<(x)'"))
+        self.assertEqual(
+            unmarked_substitutions("echo $'<(x)' # process-substitution-ok: text"),
+            [],
+        )
     def test_a_comment_in_a_command_substitution_is_a_comment(self):
         # Without comment support the first apostrophe hides the diff until
         # the second one, and the script still looks balanced.
@@ -1002,9 +1095,8 @@ class ProcessSubstitution(unittest.TestCase):
             len(unmarked_substitutions("diff <(a) <(b) # process-substitution-ok:")), 1
         )
 
-    def test_substitution_inside_the_comment_is_no_code(self):
-        self.assertEqual(unmarked_substitutions("echo hi # not <(real)"), [])
-
+    def test_a_comment_is_flagged_only_for_a_literal_substitution(self):
+        self.assertEqual(unmarked_substitutions("echo hi # not real"), [])
     def test_output_substitution_is_found(self):
         self.assertEqual(len(unmarked_substitutions("tee >(cat)")), 1)
 

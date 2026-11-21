@@ -255,7 +255,12 @@ for the same reason no step of an aggregate job may carry an `if:` (an
 allowlist in the test, empty today). A process substitution (`<(...)`,
 `>(...)`) in a workflow `run:` script fails the test unless the command ends in
 a trailing shell comment `# process-substitution-ok: <reason>` outside quotes,
-because `pipefail` does not see a failure inside it. The scanner skips heredoc
+because `pipefail` does not see a failure inside it. Any literal `<(` or `>(` anywhere in the text counts, quotes, comments, heredoc
+bodies and `${{ }}` included, and needs the marker (a blunt rule that closes the
+evasions a structured reader cannot see, such as arithmetic-evaluated quotes);
+a `${{ format(...) }}` is flagged, and an expanding heredoc body with a live
+`$(` or backtick (an even number of backslashes before it) too. For the quote
+state the scanner skips heredoc
 bodies, reads `$'...'` as quoted text, ends a comment inside `$(...)` at its
 line, and fails closed on a script that ends inside a quote, a substitution or
 a heredoc, or has a `<<` it cannot read. Shell arithmetic (`((`, `$((`, `$[`,
