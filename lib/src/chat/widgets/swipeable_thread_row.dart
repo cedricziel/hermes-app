@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../theme/app_icons.dart';
+import '../../widgets/app_action_sheet.dart';
 import 'thread_actions_menu.dart';
 
 /// The iOS way to act on a thread row: swipe right to pin, swipe left to
@@ -25,31 +26,19 @@ class SwipeableThreadRow extends StatelessWidget {
   String get _pinLabel => pinned ? 'Unpin' : 'Pin';
 
   Future<void> _showSheet(BuildContext context) async {
-    final action = await showCupertinoModalPopup<ThreadAction>(
+    final action = await showAppActionSheet<ThreadAction>(
       context: context,
-      builder: (sheet) => CupertinoActionSheet(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: [
-          for (final (action, label) in [
-            (ThreadAction.rename, 'Rename'),
-            (ThreadAction.pin, _pinLabel),
-            (ThreadAction.archive, 'Archive'),
-          ])
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(sheet).pop(action),
-              child: Text(label),
-            ),
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(sheet).pop(ThreadAction.delete),
-            child: const Text('Delete'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(sheet).pop(),
-          child: const Text('Cancel'),
+      title: title,
+      entries: [
+        const AppActionSheetEntry('Rename', ThreadAction.rename),
+        AppActionSheetEntry(_pinLabel, ThreadAction.pin),
+        const AppActionSheetEntry('Archive', ThreadAction.archive),
+        const AppActionSheetEntry(
+          'Delete',
+          ThreadAction.delete,
+          destructive: true,
         ),
-      ),
+      ],
     );
     if (action != null && context.mounted) onAction(action);
   }

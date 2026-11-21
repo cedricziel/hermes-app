@@ -7,6 +7,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../theme/platform_chrome.dart';
+import 'app_action_sheet.dart';
 
 /// One thing a list row can do besides opening: switch it, run it, delete it.
 class RowAction {
@@ -42,23 +43,17 @@ class RowActions extends StatelessWidget {
   final Widget child;
 
   Future<void> _showSheet(BuildContext context) async {
-    final action = await showCupertinoModalPopup<RowAction>(
+    final action = await showAppActionSheet<RowAction>(
       context: context,
-      builder: (sheet) => CupertinoActionSheet(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: [
-          for (final action in actions)
-            CupertinoActionSheetAction(
-              isDestructiveAction: action.destructive,
-              onPressed: () => Navigator.of(sheet).pop(action),
-              child: Text(action.label),
-            ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(sheet).pop(),
-          child: const Text('Cancel'),
-        ),
-      ),
+      title: title,
+      entries: [
+        for (final action in actions)
+          AppActionSheetEntry(
+            action.label,
+            action,
+            destructive: action.destructive,
+          ),
+      ],
     );
     action?.onPressed();
   }
