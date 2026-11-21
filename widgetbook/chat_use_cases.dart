@@ -46,6 +46,7 @@ import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
+import 'package:hermes_app/src/chat/widgets/touch_row_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
@@ -440,6 +441,48 @@ WidgetbookNode chatNode() => WidgetbookFolder(
                 ),
               ),
               maxWidth: 300,
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'TouchRowMenu',
+      useCases: [
+        for (final (name, pinned, canonical, open) in [
+          ('Unpinned', false, false, false),
+          ('Pinned', true, false, false),
+          ('Menu open, unpinned', false, false, true),
+          ('Menu open, pinned', true, false, true),
+          ('Menu open, Bot Chat', false, true, true),
+        ])
+          WidgetbookUseCase(
+            name: name,
+            builder: (_) => frame(
+              SizedBox(
+                height: open ? 300 : null,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: TouchRowMenu(
+                    title: 'Release notes',
+                    pinned: pinned,
+                    canonical: canonical,
+                    initiallyOpen: open,
+                    onAction: (_) {},
+                    child: SidebarRow(
+                      selected: false,
+                      onTap: () {},
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
+                      child: const Text(
+                        'Release notes (long press for the menu)',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              maxWidth: 360,
             ),
           ),
       ],

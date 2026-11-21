@@ -597,6 +597,7 @@ class _ThreadRowState extends State<_ThreadRow> {
     return SwipeableThreadRow(
       title: _thread.title,
       pinned: _thread.pinned,
+      canonical: _thread.isCanonicalBotChat,
       onAction: (action) => runThreadAction(
         context,
         action,

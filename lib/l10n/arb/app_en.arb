@@ -2192,6 +2192,82 @@
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
   },
+  "chatWidgetsThreadMenuArchive": "Archive",
+  "@chatWidgetsThreadMenuArchive": {
+    "description": "A chat row's Archive action, shown in the iPad popover menu, the iPhone action sheet, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
+  "chatWidgetsThreadMenuCancel": "Cancel",
+  "@chatWidgetsThreadMenuCancel": {
+    "description": "Cancel button of the iPhone chat row action sheet and of the alerts that ask before deleting a chat or retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuCopyTranscript": "Copy transcript",
+  "@chatWidgetsThreadMenuCopyTranscript": {
+    "description": "Row of the chat actions menu in the chat header that copies the whole conversation as text."
+  },
+  "chatWidgetsThreadMenuDelete": "Delete",
+  "@chatWidgetsThreadMenuDelete": {
+    "description": "A chat row's Delete action, shown in the iPad popover menu (red), the iPhone action sheet, the swipe action, the VoiceOver actions of the row and the chat actions menu of the other platforms; also the red button of the alert that confirms deleting."
+  },
+  "chatWidgetsThreadMenuDeleteMessage": "\"{title}\" and its messages will be deleted for good.",
+  "@chatWidgetsThreadMenuDeleteMessage": {
+    "description": "Text of the alert that asks before deleting a chat from its row menu.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsThreadMenuDeleteTitle": "Delete this chat?",
+  "@chatWidgetsThreadMenuDeleteTitle": {
+    "description": "Title of the alert that asks before deleting a chat from its row menu."
+  },
+  "chatWidgetsThreadMenuExportJson": "Export chat as JSON…",
+  "@chatWidgetsThreadMenuExportJson": {
+    "description": "Row of the chat actions menu in the chat header that saves the conversation as a JSON file, after a confirmation."
+  },
+  "chatWidgetsThreadMenuLabel": "Chat actions for {title}",
+  "@chatWidgetsThreadMenuLabel": {
+    "description": "Name of a chat's actions: the screen reader name of the open iPad popover menu, the long-press hint of the chat row on an iPad, and the name of the chat actions button on the other platforms.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsThreadMenuPin": "Pin",
+  "@chatWidgetsThreadMenuPin": {
+    "description": "A chat row's Pin action, shown in the iPad popover menu, the iPhone action sheet, the swipe action, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
+  "chatWidgetsThreadMenuRename": "Rename",
+  "@chatWidgetsThreadMenuRename": {
+    "description": "A chat row's Rename action, shown in the iPad popover menu, the iPhone action sheet, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
+  "chatWidgetsThreadMenuRetire": "Retire Bot Chat…",
+  "@chatWidgetsThreadMenuRetire": {
+    "description": "A Bot Chat row's action that archives the canonical conversation, in place of Archive: shown in the iPad popover menu, the iPhone action sheet, the VoiceOver actions of the row and the chat actions menu; it opens a confirmation."
+  },
+  "chatWidgetsThreadMenuRetireConfirmButton": "Retire Bot Chat",
+  "@chatWidgetsThreadMenuRetireConfirmButton": {
+    "description": "Confirm button of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuRetireConfirmMessage": "This archives the canonical conversation. The next time you open this bot, a new Bot Chat is created after the server confirms retirement.",
+  "@chatWidgetsThreadMenuRetireConfirmMessage": {
+    "description": "Text of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuRetireConfirmTitle": "Retire this Bot Chat?",
+  "@chatWidgetsThreadMenuRetireConfirmTitle": {
+    "description": "Title of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuTooltip": "Chat actions",
+  "@chatWidgetsThreadMenuTooltip": {
+    "description": "Hover text of the button that opens a chat's actions menu on the iPhone, Android and desktop."
+  },
+  "chatWidgetsThreadMenuUnpin": "Unpin",
+  "@chatWidgetsThreadMenuUnpin": {
+    "description": "A pinned chat row's action that takes it off the top of the list, shown in the iPad popover menu, the iPhone action sheet, the swipe action, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
   "chatWidgetsToolValueCopied": "Copied",
   "@chatWidgetsToolValueCopied": {
     "description": "Shown for two seconds on the Copy button of a tool call's input or result after it was copied, and announced to screen readers."
