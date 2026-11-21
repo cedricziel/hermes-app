@@ -64,6 +64,25 @@ void main() {
     expect(server.requestsTo('GET', '/api/profiles/active'), isEmpty);
   });
 
+  testWidgets('opens on the launch profile when none is named', (tester) async {
+    server.on('GET', '/api/profiles/active', {
+      'active': 'other',
+      'current': 'work',
+    });
+    await tester.pumpWidget(
+      Provider<HermesRepositories?>.value(
+        value: HermesRepositories(server.client()),
+        child: const MaterialApp(home: MemoryDestination()),
+      ),
+    );
+    await settle(tester);
+
+    expect(
+      server.requestsTo('GET', '/api/learning/graph').single.queryParameters,
+      {'profile': 'work'},
+    );
+  });
+
   testWidgets('the waiting card counts the changes of the named profile', (
     tester,
   ) async {

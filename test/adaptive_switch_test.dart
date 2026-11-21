@@ -95,12 +95,30 @@ void main() {
     });
   }
 
-  test('other platforms keep the default switch theme', () {
-    final theme = themed(TargetPlatform.android);
-    const defaults = SwitchThemeData();
-    expect(
-      theme.getAdaptation<SwitchThemeData>()!.adapt(theme, defaults),
-      same(defaults),
-    );
-  });
+  test(
+    'other platforms keep the default switch theme apart from the off colours',
+    () {
+      final theme = themed(TargetPlatform.android);
+      const fromDefaults = Color(0xFF123456);
+      const defaults = SwitchThemeData(
+        splashRadius: 7,
+        thumbColor: WidgetStatePropertyAll(fromDefaults),
+        trackOutlineColor: WidgetStatePropertyAll(fromDefaults),
+      );
+      final adapted = theme.getAdaptation<SwitchThemeData>()!.adapt(
+        theme,
+        defaults,
+      );
+      expect(adapted.splashRadius, 7);
+      for (final states in [
+        {WidgetState.selected},
+        {WidgetState.disabled},
+      ]) {
+        expect(adapted.thumbColor!.resolve(states), fromDefaults);
+        expect(adapted.trackOutlineColor!.resolve(states), fromDefaults);
+      }
+      expect(adapted.thumbColor!.resolve({}), isNot(fromDefaults));
+      expect(adapted.trackOutlineColor!.resolve({}), isNot(fromDefaults));
+    },
+  );
 }

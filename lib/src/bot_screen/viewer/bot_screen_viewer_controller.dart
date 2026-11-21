@@ -6,6 +6,7 @@ import 'package:flutter_otel/flutter_otel.dart' show Span;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../chat/gateway/gateway_replay.dart' show reconnectDelay;
+import '../../profiles/profile_resolver.dart';
 import '../../telemetry/telemetry.dart';
 import '../bot_screen_controller.dart';
 import '../bot_screen_models.dart';
@@ -87,7 +88,7 @@ class BotScreenViewerController extends ChangeNotifier {
   final DisplaySocketOpener openSocket;
 
   /// The profile watched; null is the server's default.
-  final String profile;
+  final ResolvedProfile profile;
   final ConnectionTelemetry telemetry;
 
   /// How long a cover may last, while in control, before the stream closes.

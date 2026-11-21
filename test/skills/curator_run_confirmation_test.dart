@@ -8,6 +8,8 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/skills/widgets/curator_run_confirmation.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../support/test_localizations.dart';
+
 class _Calls {
   var cancels = 0;
   var runs = 0;
@@ -35,7 +37,7 @@ Widget _host(
       child: child!,
     ),
     locale: locale,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     theme: buildHermesLightTheme(platform: platform),
     home: Scaffold(body: wrap == null ? body : wrap(body)),
@@ -282,7 +284,7 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: TargetPlatform.android),
             home: Builder(
@@ -371,7 +373,7 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: TargetPlatform.android),
             home: Scaffold(
@@ -426,7 +428,7 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: TargetPlatform.android),
             home: Scaffold(
@@ -505,7 +507,7 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: TargetPlatform.android),
             home: Builder(

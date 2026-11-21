@@ -53,6 +53,33 @@ void main() {
       expect(controller.activeProfile, 'work');
     });
 
+    test('lists the launch profile, not the sticky default', () async {
+      server
+        ..on('GET', '/api/profiles/active', {
+          'active': 'home',
+          'current': 'work',
+        })
+        ..on('GET', '/api/cron/jobs', [cronJobRow()]);
+
+      await controller.refresh();
+
+      expect(jobRequests(), ['profile=work']);
+      expect(controller.activeProfile, 'work');
+    });
+
+    test(
+      'an older server with no current is scoped to its active profile',
+      () async {
+        server
+          ..on('GET', '/api/profiles/active', {'active': 'work'})
+          ..on('GET', '/api/cron/jobs', [cronJobRow()]);
+
+        await controller.refresh();
+
+        expect(jobRequests(), ['profile=work']);
+      },
+    );
+
     test('lists every profile on request and names them in the rows', () async {
       server.on('GET', '/api/cron/jobs', [
         cronJobRow(),

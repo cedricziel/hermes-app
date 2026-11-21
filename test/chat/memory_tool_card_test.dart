@@ -310,7 +310,7 @@ void main() {
         expect(chat.memoryDecisionsIn(thread), same(decisions));
         expect(decisions.available(), isFalse);
 
-        chat.submit('Remember this', const []);
+        await chat.submit('Remember this', const []);
         transport.sends.single
           ..emit(const ThreadBound('s1'))
           ..emit(const ReplyCompleted('Done'));

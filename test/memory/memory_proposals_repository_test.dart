@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_otel/flutter_otel.dart' show StatusCode;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
 import 'package:hermes_app/src/memory/memory_proposals.dart';
@@ -37,8 +38,11 @@ void main() {
     test('runs each command in a new session of the profile', () async {
       transport.script['/memory pending'] = noPendingMemory;
       final session = MemoryProposalSession(transport);
-      expect(await session.run('work', '/memory pending'), noPendingMemory);
-      await session.run('work', '/memory pending');
+      expect(
+        await session.run(resolvedProfile('work'), '/memory pending'),
+        noPendingMemory,
+      );
+      await session.run(resolvedProfile('work'), '/memory pending');
       expect(transport.asked, [
         (null, 'work', '/memory pending'),
         (null, 'work', '/memory pending'),
@@ -51,7 +55,7 @@ void main() {
       final memory = Completer<String>(), skills = Completer<String>();
       transport.script['/memory pending'] = memory;
       transport.script['/skills pending'] = skills;
-      final loading = repository.load('work');
+      final loading = repository.load(resolvedProfile('work'));
       await pumpEventQueue();
       expect(transport.slashRuns, ['/memory pending', '/skills pending']);
       skills.complete(skillsPending);
@@ -69,7 +73,7 @@ void main() {
     test('a kind that fails leaves the other readable', () async {
       transport.script['/memory pending'] = const GatewayConnectionClosed();
       transport.script['/skills pending'] = skillsPending;
-      final snapshot = await repository.load('work');
+      final snapshot = await repository.load(resolvedProfile('work'));
       expect(snapshot.memory.status, ProposalReadStatus.failed);
       expect(snapshot.skills.status, ProposalReadStatus.ok);
       expect(snapshot.count, 2);
@@ -78,7 +82,7 @@ void main() {
     test('a command the server does not know is unsupported', () async {
       transport.script['/memory pending'] = unknownCommand;
       transport.script['/skills pending'] = noPendingSkills;
-      final snapshot = await repository.load('work');
+      final snapshot = await repository.load(resolvedProfile('work'));
       expect(snapshot.memory.status, ProposalReadStatus.unsupported);
       expect(snapshot.skills.status, ProposalReadStatus.ok);
       expect(snapshot.count, 0);
@@ -87,7 +91,7 @@ void main() {
     test('an answer nobody can read keeps its text', () async {
       transport.script['/memory pending'] = 'Memory is on fire.';
       transport.script['/skills pending'] = noPendingSkills;
-      final snapshot = await repository.load('work');
+      final snapshot = await repository.load(resolvedProfile('work'));
       expect(snapshot.memory.status, ProposalReadStatus.unreadable);
       expect(snapshot.memory.raw, 'Memory is on fire.');
     });
@@ -95,7 +99,7 @@ void main() {
     test('an empty answer is readable and empty', () async {
       transport.script['/memory pending'] = noPendingMemory;
       transport.script['/skills pending'] = noPendingSkills;
-      final snapshot = await repository.load('work');
+      final snapshot = await repository.load(resolvedProfile('work'));
       expect(snapshot.memory.status, ProposalReadStatus.ok);
       expect(snapshot.count, 0);
     });
@@ -104,7 +108,7 @@ void main() {
   group('diff', () {
     test('runs /skills diff and drops the progress line and header', () async {
       transport.script['/skills diff cc000001'] = skillDiffCreate;
-      final text = await repository.diff('work', 'cc000001');
+      final text = await repository.diff(resolvedProfile('work'), 'cc000001');
       expect(transport.slashRuns, ['/skills diff cc000001']);
       expect(text, startsWith('---\nname: contract-check'));
     });
@@ -113,7 +117,7 @@ void main() {
       transport.script['/skills diff cc000001'] =
           const GatewayConnectionClosed();
       await expectLater(
-        repository.diff('work', 'cc000001'),
+        repository.diff(resolvedProfile('work'), 'cc000001'),
         throwsA(isA<GatewayConnectionClosed>()),
       );
       expect(tracer.spans.single.name, 'memory.proposals.diff');
@@ -126,7 +130,7 @@ void main() {
     test('a read is one span per kind with counts only', () async {
       transport.script['/memory pending'] = mixedMemoryPending;
       transport.script['/skills pending'] = const GatewayConnectionClosed();
-      await repository.load('private-profile');
+      await repository.load(resolvedProfile('private-profile'));
       final spans = tracer.spans;
       expect(spans.map((s) => s.name), everyElement('memory.proposals.fetch'));
       expect(spans.every((s) => s.ended), isTrue);
@@ -156,7 +160,7 @@ void main() {
       transport.script['/memory pending'] =
           'Heads up\nMore news\n$mixedMemoryPending';
       transport.script['/skills pending'] = skillsPending;
-      await repository.load('work');
+      await repository.load(resolvedProfile('work'));
       expect(events, [
         "memory.proposals.parse_lenient {kind: memory, unknown_lines: 2}",
       ]);
@@ -165,14 +169,14 @@ void main() {
     test('a clean read logs nothing', () async {
       transport.script['/memory pending'] = mixedMemoryPending;
       transport.script['/skills pending'] = skillsPending;
-      await repository.load('work');
+      await repository.load(resolvedProfile('work'));
       expect(events, isEmpty);
     });
 
     test('an unsupported kind is traced as such', () async {
       transport.script['/memory pending'] = unknownCommand;
       transport.script['/skills pending'] = noPendingSkills;
-      await repository.load('work');
+      await repository.load(resolvedProfile('work'));
       expect(tracer.spans.first.attributes['outcome'], 'unsupported');
     });
   });

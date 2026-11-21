@@ -39,6 +39,7 @@ import '../../support/fake_chat_transport.dart';
 import '../../support/fake_checkpoints_transport.dart';
 import '../../support/fake_hermes_server.dart';
 import '../../support/pump_chat.dart';
+import '../../support/test_localizations.dart';
 
 /// Invented content only.
 const _prompt = 'Split the token refresh out';
@@ -369,7 +370,7 @@ void main() {
     Future<void> pumpView(WidgetTester tester, TextEditingController text) =>
         tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
             home: Scaffold(

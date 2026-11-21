@@ -11,10 +11,12 @@ import 'package:hermes_app/src/server_care/widgets/update_status_card.dart';
 import 'package:hermes_app/src/server_care/widgets/update_step_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../support/test_localizations.dart';
+
 Widget _german(Widget child) => MaterialApp(
   theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
   locale: const Locale('de'),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(body: SingleChildScrollView(child: child)),
 );

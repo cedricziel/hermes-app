@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/ui/workspace_flows.dart';
@@ -17,6 +18,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/actions_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/test_localizations.dart';
 
 final _hash = 'b' * 40;
 const _reason = 'Wait for the restore or compression to finish.';
@@ -70,6 +72,7 @@ void main() {
         'scan_enabled': false,
       });
     chat = ChatController(
+      profileResolver: ProfileResolver.known('default'),
       repository: HermesChatRepository(server.client().raw),
       transport: source,
       workspaces: HermesWorkspacesRepository(
@@ -94,7 +97,7 @@ void main() {
     opened.workingDirectory = '/srv/a';
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(),
         home: Builder(

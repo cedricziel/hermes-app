@@ -31,6 +31,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/recording_tracer.dart';
 import '../support/fake_chat_transport.dart';
 import 'connector_fixtures.dart';
+import '../support/test_localizations.dart';
 
 void main() {
   late FakeGateway gateway;
@@ -644,7 +645,7 @@ void main() {
     addTearDown(queue.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: boundChatThreadView(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../profiles/profile_resolver.dart';
 import 'hermes_workspaces_repository.dart';
 import 'workspace_models.dart';
 import 'workspace_paths.dart';
@@ -48,7 +49,7 @@ class WorkspaceCatalogLoader extends ChangeNotifier {
   final HermesWorkspacesRepository _repository;
 
   /// The profile every read names.
-  final String profile;
+  final ResolvedProfile profile;
 
   /// How long a read may go unanswered before [stalled] says so.
   final Duration slowAfter;

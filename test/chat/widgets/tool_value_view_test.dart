@@ -13,6 +13,7 @@ import 'package:hermes_app/src/theme/hermes_code_colors.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import '../../support/screenshot_recorder.dart';
+import '../../support/test_localizations.dart';
 
 Widget _host(
   Widget child, {
@@ -28,7 +29,7 @@ Widget _host(
     theme: platform == null ? base : base.copyWith(platform: platform),
     themeAnimationDuration: Duration.zero,
     locale: locale,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: MediaQuery(
       data: MediaQueryData(

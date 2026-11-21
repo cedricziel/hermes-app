@@ -10,6 +10,7 @@ import 'package:hermes_app/src/widgets/app_banner.dart';
 import 'package:hermes_app/src/widgets/motion_spinner.dart';
 
 import 'support/screenshot_recorder.dart';
+import 'support/test_localizations.dart';
 
 Widget _host(
   Widget child, {
@@ -17,7 +18,7 @@ Widget _host(
   double textScale = 1,
   double width = 360,
 }) => MaterialApp(
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: buildHermesLightTheme().copyWith(platform: platform),
   home: MediaQuery(
@@ -237,7 +238,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: withScreenshotFont(
               buildHermesLightTheme(platform: platform),
@@ -283,7 +284,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
             home: MediaQuery(
@@ -350,7 +351,7 @@ void main() {
           : buildHermesDarkTheme();
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: theme,
           home: const Scaffold(
