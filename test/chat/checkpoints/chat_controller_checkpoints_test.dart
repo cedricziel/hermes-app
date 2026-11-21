@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/chat/chat_workspace_state.dart'
     show WorkspaceMoveBlock;
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
@@ -165,6 +166,7 @@ void main() {
   late List<String> drafts;
 
   ChatController build({ValueListenable<bool>? activity}) => ChatController(
+    profileResolver: ProfileResolver.known('default'),
     repository: HermesChatRepository(server.client().raw),
     transport: source,
     attention: attention,
@@ -281,6 +283,7 @@ void main() {
       chat.dispose();
       final plain = FakeChatTransport();
       chat = ChatController(
+        profileResolver: ProfileResolver.known('default'),
         repository: HermesChatRepository(server.client().raw),
         transport: plain,
         attention: attention,
@@ -1089,6 +1092,7 @@ void main() {
       chat.dispose();
       moves = [];
       chat = ChatController(
+        profileResolver: ProfileResolver.known('default'),
         repository: HermesChatRepository(server.client().raw),
         transport: source,
         workspaces: HermesWorkspacesRepository(server.client().raw, (
@@ -1163,6 +1167,7 @@ void main() {
         chat.dispose();
         moves = [];
         chat = ChatController(
+          profileResolver: ProfileResolver.known('default'),
           repository: HermesChatRepository(server.client().raw),
           transport: source,
           workspaces: HermesWorkspacesRepository(server.client().raw, (
@@ -1292,6 +1297,7 @@ void main() {
         final answer = Completer<Map<String, Object?>>();
         chat.dispose();
         chat = ChatController(
+          profileResolver: ProfileResolver.known('default'),
           repository: HermesChatRepository(server.client().raw),
           transport: source,
           workspaces: HermesWorkspacesRepository(server.client().raw, (

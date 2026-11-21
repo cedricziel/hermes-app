@@ -122,8 +122,8 @@ void main() {
     expect(_voiceProfiles(server).last, 'work');
   });
 
-  testWidgets('lists the sessions of the active profile', (tester) async {
-    activate('work', current: 'default');
+  testWidgets('lists the sessions of the launch profile', (tester) async {
+    activate('default', current: 'work');
     await pumpChat(tester);
 
     expect(find.text('Sprint planning'), findsWidgets);
@@ -132,8 +132,8 @@ void main() {
     expect(request.queryParameters['profile'], 'work');
   });
 
-  testWidgets('reads the open session from the active profile', (tester) async {
-    activate('work', current: 'default');
+  testWidgets('reads the open session from the launch profile', (tester) async {
+    activate('default', current: 'work');
     await pumpChat(tester);
     await openThread(tester, 'Sprint planning');
 
@@ -153,7 +153,7 @@ void main() {
     expect(find.text('Could not load your chats'), findsOneWidget);
     expect(server.requestsTo('GET', '/api/sessions'), isEmpty);
 
-    activate('work', current: 'default');
+    activate('default', current: 'work');
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
 
@@ -251,7 +251,7 @@ void main() {
   testWidgets('a message goes to the gateway under the shown profile', (
     tester,
   ) async {
-    activate('work', current: 'default');
+    activate('default', current: 'work');
     await pumpChat(tester);
     await openThread(tester, 'Sprint planning');
 
@@ -291,7 +291,7 @@ void main() {
     await pumpChat(tester);
     expect(find.byType(EditableText), findsNothing);
 
-    activate('work', current: 'default');
+    activate('default', current: 'work');
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
     await sendMessage(tester, 'hello');

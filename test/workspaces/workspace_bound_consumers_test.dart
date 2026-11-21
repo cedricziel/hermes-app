@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/activity/bound_needs_you_dock.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -48,6 +49,7 @@ void main() {
         onOpen: (_) {},
       );
       chat = ChatController(
+        profileResolver: ProfileResolver.known('default'),
         repository: HermesChatRepository(server.client().raw),
         transport: transport,
         attention: attention,

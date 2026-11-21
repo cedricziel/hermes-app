@@ -12,6 +12,7 @@ import 'package:hermes_app/src/chat/chat_workspace_state.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/workspace_catalog_loader.dart';
 import 'package:hermes_app/src/workspaces/workspace_models.dart';
@@ -107,6 +108,7 @@ void main() {
       onOpen: (_) {},
     );
     chat = ChatController(
+      profileResolver: ProfileResolver.known('default'),
       repository: HermesChatRepository(server.client().raw),
       workspaces: workspaces,
       activity: activity,
@@ -289,7 +291,11 @@ void main() {
       await pumpEventQueue();
 
       expect(loader.catalog, isNull);
-      chat = ChatController(attention: attention, report: (_) {});
+      chat = ChatController(
+        profileResolver: ProfileResolver.known('default'),
+        attention: attention,
+        report: (_) {},
+      );
     });
 
     test(
@@ -513,7 +519,11 @@ void main() {
     });
 
     test('is empty without a repository', () {
-      final bare = ChatController(attention: attention, report: (_) {});
+      final bare = ChatController(
+        profileResolver: ProfileResolver.known('default'),
+        attention: attention,
+        report: (_) {},
+      );
       addTearDown(bare.dispose);
 
       expect(bare.workspaceCatalog(), isNull);
@@ -1183,7 +1193,7 @@ void main() {
             catalogServer.client().raw,
             (method, params, {required timeout}) async => {},
           ),
-          profile: profile,
+          profile: resolvedProfile(profile),
         );
 
     setUp(() => catalogServer = FakeHermesServer());
