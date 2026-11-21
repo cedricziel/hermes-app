@@ -50,7 +50,8 @@ class _PlatformRefreshState extends State<PlatformRefresh> {
     if (chrome != PlatformChrome.ios || label == null) return indicator;
     // The same tree whether idle or refreshing: a root that changed shape
     // would remount the indicator and the list under it mid-refresh. Only
-    // the live region's label changes.
+    // the node's label and live-region flag change, and the tree keeps its
+    // shape. An idle live region would post an empty announcement on iOS.
     return Stack(
       children: [
         Positioned.fill(child: indicator),
