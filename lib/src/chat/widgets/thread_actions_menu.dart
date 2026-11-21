@@ -384,12 +384,15 @@ class _RenameDialogState extends State<_RenameDialog> {
   @override
   Widget build(BuildContext context) {
     return Actions(
-      // The macOS barrier is inert here, which also turns Esc off.
-      actions: {
-        DismissIntent: CallbackAction<DismissIntent>(
-          onInvoke: (_) => dismissRoute(context),
-        ),
-      },
+      // The macOS barrier is inert here, which also turns Esc off; the other
+      // platforms keep what they had.
+      actions: platformChromeOf(context) == PlatformChrome.macos
+          ? {
+              DismissIntent: CallbackAction<DismissIntent>(
+                onInvoke: (_) => dismissRoute(context),
+              ),
+            }
+          : const {},
       child: AppAlertDialog(
         title: const Text('Rename chat'),
         content: AppDialogTextField(

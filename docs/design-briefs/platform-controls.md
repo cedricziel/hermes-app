@@ -124,7 +124,7 @@ Decisions:
 
 - Transition: a 150 ms fade, none with reduced motion (was the Cupertino scale-in).
 - Barrier: the theme's `DialogTheme.barrierColor`: 54% black in light (the light theme sets none, so `Colors.black54`) and `0x99000000`, 60% black, in dark. Cupertino's system barrier was 20% black light and 48% dark.
-- A click outside closes the dialog, as Esc already does (the Cupertino route did not close on a click). Exception: the two dialogs with a text field (thread rename, Kanban text) do not close on a click outside on macOS, so a stray click does not discard typed text; Esc and Cancel close them. This follows the new-profile dialog.
+- Esc now closes all nine dialogs on macOS (new: the Cupertino route's non-dismissible barrier disabled it). A click outside closes all but the two dialogs with a text field (thread rename, Kanban text), so a stray click does not discard typed text; those two handle Esc themselves because their barrier is inert, and Cancel closes them too. This follows the new-profile dialog.
 - SafeArea and closed-loop focus traversal inside the dialog.
 - The dialog content (`AppAlertDialog`, `GroupedDialog`) does not change.
 

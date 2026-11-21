@@ -109,4 +109,14 @@ void main() {
       expect(find.text(opens[name]!.$1), findsNothing);
     });
   }
+
+  for (final name in ['thread rename', 'kanban text']) {
+    testWidgets('$name on iOS: Esc leaves it open', (tester) async {
+      await pump(tester, TargetPlatform.iOS);
+      await open(tester, name);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text(opens[name]!.$1), findsWidgets);
+    });
+  }
 }
