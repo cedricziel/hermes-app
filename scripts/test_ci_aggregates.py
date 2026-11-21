@@ -561,6 +561,12 @@ def commands(script):
             if char == "'":
                 stack.pop()
         elif kind == "arith":
+            # Nothing inside arithmetic is read: bash falls back to nested
+            # subshells when it is not arithmetic, so a command substitution, a
+            # backtick or a process substitution here makes the script
+            # unreadable (flagged). A false positive on `a<(b)` is accepted.
+            if pair in ("$(", "<(", ">(") or char == "`":
+                unreadable = True
             segment.append(char)
             if char == "(":
                 stack[-1][1] += 1
@@ -829,6 +835,28 @@ class ProcessSubstitution(unittest.TestCase):
         ):
             with self.subTest(script=script):
                 self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_a_substitution_inside_arithmetic_is_flagged(self):
+        # bash falls back from arithmetic to nested subshells, so each of
+        # these runs the diff. The scanner reads nothing inside `((`, so any
+        # substitution there makes the script unreadable and flags it.
+        for script in (
+            "((diff <(a) <(b) && echo RAN); true)",
+            "x=$((diff <(a) <(b)) )",
+            "echo $(( $(diff <(a) <(b); echo 1) + 1 ))",
+            "(( $(diff <(a) <(b) | wc -l) ))",
+            "echo $(( `diff <(a) <(b)` + 1 ))",
+            "(( >(cat) ))",
+            "echo $(( $(echo 1) + 1 ))",
+            "echo $(( `echo 1` + 1 ))",
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_plain_arithmetic_is_not_flagged(self):
+        for script in ("(( y << z ))", "echo $(( (1 + 2) * 3 ))", "(( i++ ))"):
+            with self.subTest(script=script):
+                self.assertEqual(unmarked_substitutions(script), [])
 
     def test_a_heredoc_marker_the_scanner_cannot_read_flags(self):
         for script in (
