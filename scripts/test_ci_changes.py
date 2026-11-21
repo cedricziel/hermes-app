@@ -36,7 +36,14 @@ def git(cwd, *args):
 
 
 class ChangesFilterTest(unittest.TestCase):
-    def classify(self, files, head_ref=RELEASE_REF, executable=()):
+    def classify(
+        self,
+        files,
+        head_ref=RELEASE_REF,
+        executable=(),
+        head_repo="o/r",
+        binary=(),
+    ):
         """files: path -> content (None deletes). Returns the outputs dict."""
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo"
@@ -61,7 +68,10 @@ class ChangesFilterTest(unittest.TestCase):
                     p.unlink()
                 else:
                     p.parent.mkdir(parents=True, exist_ok=True)
-                    p.write_text(content)
+                    if name in binary:
+                        p.write_bytes(b"\x00\x01\x02" + content.encode())
+                    else:
+                        p.write_text(content)
                     if name in executable:
                         p.chmod(0o755)
             git(repo, "add", "-A")
@@ -78,6 +88,8 @@ class ChangesFilterTest(unittest.TestCase):
                 **os.environ,
                 "EVENT_NAME": "pull_request",
                 "HEAD_REF": head_ref,
+                "HEAD_REPO": head_repo,
+                "BASE_REPO": "o/r",
                 "GITHUB_OUTPUT": str(out),
                 "GITHUB_STEP_SUMMARY": str(summary),
             }
@@ -175,10 +187,59 @@ class ChangesFilterTest(unittest.TestCase):
             self.assertNormal(out)
             self.assertFalse(marker.exists())
 
+    def test_fork_with_same_branch_and_exact_diff_is_normal(self):
+        out = self.classify(self.release_files(), head_repo="fork/r")
+        self.assertNormal(out)
+        self.assertEqual(out["builds"], "true")
+
+    def test_empty_head_repo_is_normal(self):
+        self.assertNormal(self.classify(self.release_files(), head_repo=""))
+
+    def test_renamed_code_file_is_normal(self):
+        files = self.release_files(**{"lib/b.dart": "a\n"})
+        files["lib/a.dart"] = None
+        self.assertNormal(self.classify(files))
+
+    def test_rename_onto_release_file_is_normal(self):
+        files = self.release_files(**{"CHANGELOG.md": "a\n"})
+        files["lib/a.dart"] = None
+        self.assertNormal(self.classify(files))
+
+    def test_rename_from_release_file_is_normal(self):
+        files = self.release_files(**{"lib/c.md": "# Changes\n"})
+        files["CHANGELOG.md"] = None
+        self.assertNormal(self.classify(files))
+
+    def test_pubspec_second_version_line_replacing_other_line_is_normal(self):
+        text = "name: app\nversion: 1.0.0+1\ndependencies:\n  a: 1\n".replace(
+            "dependencies:", "version: 2.0.0+1"
+        )
+        out = self.classify(self.release_files(**{"pubspec.yaml": text}))
+        self.assertNormal(out)
+
+    def test_binary_pubspec_is_normal(self):
+        out = self.classify(
+            self.release_files(**{"pubspec.yaml": "version: 1.1.0+2\n"}),
+            binary=("pubspec.yaml",),
+        )
+        self.assertNormal(out)
+
+    def test_pubspec_only_is_normal(self):
+        files = self.release_files()
+        del files["CHANGELOG.md"], files[".release-please-manifest.json"]
+        self.assertNormal(self.classify(files))
+
+    def test_pubspec_and_changelog_only_is_normal(self):
+        files = self.release_files()
+        del files[".release-please-manifest.json"]
+        self.assertNormal(self.classify(files))
+
     def test_workflow_passes_branch_through_env(self):
         text = WORKFLOW.read_text()
         self.assertIn("HEAD_REF: ${{ github.head_ref }}", text)
+        self.assertIn("HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}", text)
         self.assertNotIn("github.head_ref", filter_script())
+        self.assertNotIn("github.event.pull_request", filter_script())
 
 
 if __name__ == "__main__":

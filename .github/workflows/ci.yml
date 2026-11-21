@@ -47,6 +47,8 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           code=true
@@ -84,20 +86,29 @@ jobs:
                     scripts/package-linux.sh | scripts/check-soloud-build-log.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
                   esac
                 done < "$list"
-                if [ "$HEAD_REF" = release-please--branches--main--components--hermes-app ]; then
+                if [ "$HEAD_REF" = release-please--branches--main--components--hermes-app ] \
+                  && [ -n "$HEAD_REPO" ] && [ "$HEAD_REPO" = "$BASE_REPO" ]; then
                   # Fail closed: every check below must pass, any other
                   # outcome keeps the classification above. The raw diff must
                   # list only plain modifications (no add, delete, rename,
-                  # mode change) of the three release files.
+                  # mode change) of the three release files, each exactly once.
                   release=true
                   raw="$(git -c core.quotePath=false diff --raw --no-renames HEAD^1 HEAD)" || release=false
                   if [ "$release" = true ]; then
+                    seen_changelog=0
+                    seen_manifest=0
+                    seen_pubspec=0
                     while IFS= read -r line; do
                       case "$line" in
-                        ":100644 100644 "*" M"$'\t'CHANGELOG.md | ":100644 100644 "*" M"$'\t'.release-please-manifest.json | ":100644 100644 "*" M"$'\t'pubspec.yaml) ;;
+                        ":100644 100644 "*" M"$'\t'CHANGELOG.md) seen_changelog=$((seen_changelog + 1)) ;;
+                        ":100644 100644 "*" M"$'\t'.release-please-manifest.json) seen_manifest=$((seen_manifest + 1)) ;;
+                        ":100644 100644 "*" M"$'\t'pubspec.yaml) seen_pubspec=$((seen_pubspec + 1)) ;;
                         *) release=false ;;
                       esac
                     done <<< "$raw"
+                    if [ "$seen_changelog" != 1 ] || [ "$seen_manifest" != 1 ] || [ "$seen_pubspec" != 1 ]; then
+                      release=false
+                    fi
                   fi
                   if [ "$release" = true ]; then
                     # pubspec.yaml: one removed and one added line, both the
