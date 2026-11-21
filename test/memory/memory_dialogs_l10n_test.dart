@@ -14,11 +14,12 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'memory_fixtures.dart';
+import '../support/test_localizations.dart';
 
 Widget _german(Widget home, {TargetPlatform? platform}) => MaterialApp(
   theme: ThemeData(platform: platform),
   locale: const Locale('de'),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: home,
 );

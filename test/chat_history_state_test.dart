@@ -7,6 +7,8 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/loading_skeleton.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 
+import 'support/test_localizations.dart';
+
 /// The loading and failed states of a stored chat's transcript, alone.
 Widget _host(
   Widget child, {
@@ -16,7 +18,7 @@ Widget _host(
   double? height,
   double? width,
 }) => MaterialApp(
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: brightness == Brightness.light
       ? buildHermesLightTheme()
@@ -73,7 +75,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(),
         home: const Scaffold(
@@ -131,7 +133,7 @@ void main() {
     var retried = 0;
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(platform: TargetPlatform.android),
         home: Scaffold(
@@ -161,7 +163,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(),
           home: const Scaffold(
@@ -240,7 +242,7 @@ void main() {
   testWidgets('on a Mac Retry is 32 pt', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: Scaffold(

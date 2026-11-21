@@ -21,6 +21,7 @@ import '../../support/fake_attachment_source.dart';
 import '../../support/fake_gateway.dart';
 import '../../support/fake_hermes_server.dart';
 import '../billing_fixtures.dart';
+import '../../support/test_localizations.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -117,7 +118,7 @@ void main() {
     }
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Row(

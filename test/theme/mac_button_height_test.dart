@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/tools/widgets/tools_target.dart';
 import 'package:hermes_app/src/widgets/app_banner.dart';
+
+import '../support/test_localizations.dart';
 
 typedef _Theme = ThemeData Function({TargetPlatform? platform});
 
@@ -109,12 +110,7 @@ void main() {
           MaterialApp(
             theme: themed ?? theme(platform: TargetPlatform.macOS),
             locale: const Locale('de'),
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(body: Center(child: child)),
           ),

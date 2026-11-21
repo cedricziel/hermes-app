@@ -10,6 +10,7 @@ import 'package:hermes_app/src/voice/widgets/hands_free_strip.dart';
 import 'package:provider/provider.dart';
 
 import 'call_harness.dart';
+import '../../support/test_localizations.dart';
 
 void main() {
   late CallHarness h;
@@ -38,7 +39,7 @@ void main() {
     Widget app = MaterialApp(
       navigatorKey: navigator,
       theme: buildHermesLightTheme(),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => HandsFreeStripLayer(child: child!),
       home: home ?? const Scaffold(body: Center(child: Text('chat'))),

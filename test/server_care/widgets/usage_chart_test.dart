@@ -8,6 +8,8 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_chart.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../support/test_localizations.dart';
+
 // 30 days ending 12 Nov: 8.4M in all, 812K on the 12th with 9 conversations,
 // the highest day 5 Nov at 1.2M.
 List<UsageChartDay> _days() {
@@ -36,7 +38,7 @@ Widget _host(
 }) => MaterialApp(
   locale: locale,
   theme: theme,
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: MediaQuery(
     data: MediaQueryData(
