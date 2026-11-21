@@ -6921,10 +6921,6 @@
   "@skillsCuratorSchedule": {
     "description": "Row title: how often scheduled passes run."
   },
-  "skillsCuratorShowOutput": "Show output",
-  "@skillsCuratorShowOutput": {
-    "description": "Label of the closed disclosure that opens the lines Hermes printed."
-  },
   "skillsCuratorShowOutputCount": "Show output · {count, plural, =1{1 line} other{{count} lines}}",
   "@skillsCuratorShowOutputCount": {
     "description": "Label of the closed disclosure that opens the lines Hermes printed, with how many there are. The disclosure state is added by the system.",
