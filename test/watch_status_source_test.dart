@@ -148,4 +148,76 @@ void main() {
       expect(transports, hasLength(1));
     });
   });
+
+  test('a read still pending on a released transport does not stop the '
+      'newer one from closing when idle', () {
+    fakeAsync((async) {
+      final transports = <_Transport>[];
+      final source = WatchStatusSource(() {
+        final t = _Transport();
+        transports.add(t);
+        return t;
+      }, idleTimeout: idle);
+      const long = Duration(milliseconds: 500);
+      unawaited(
+        source.activeStatuses(budget: budget).then((_) {}, onError: (_) {}),
+      ); // A on X: times out at 50 ms and releases X.
+      async.elapse(const Duration(milliseconds: 30));
+      unawaited(
+        source.activeStatuses(budget: long).then((_) {}, onError: (_) {}),
+      ); // B on X: still pending.
+      async.elapse(const Duration(milliseconds: 30));
+      unawaited(source.activeStatuses(budget: long).then((_) {}));
+      expect(transports, hasLength(2)); // C on Y.
+      transports[1].reads.single.complete({});
+      async.flushMicrotasks();
+      transports[0].reads.last.complete({}); // B ends on X.
+      async.flushMicrotasks();
+      async.elapse(idle + const Duration(milliseconds: 1));
+      expect(transports[1].closed, isTrue);
+    });
+  });
+
+  test('reads spaced under the idle timeout keep one transport open', () {
+    fakeAsync((async) {
+      final transports = <_Transport>[];
+      final source = WatchStatusSource(() {
+        final t = _Transport();
+        transports.add(t);
+        return t;
+      }, idleTimeout: idle);
+      for (var i = 0; i < 5; i++) {
+        unawaited(source.activeStatuses().then((_) {}));
+        transports.last.reads.last.complete({});
+        async.elapse(const Duration(milliseconds: 60));
+      }
+      expect(transports, hasLength(1));
+      expect(transports.single.closed, isFalse);
+    });
+  });
+
+  test(
+    'close() cancels the idle timer so it cannot close a newer transport',
+    () {
+      fakeAsync((async) {
+        final transports = <_Transport>[];
+        final source = WatchStatusSource(() {
+          final t = _Transport();
+          transports.add(t);
+          return t;
+        }, idleTimeout: idle);
+        unawaited(source.activeStatuses().then((_) {}));
+        transports[0].reads.single.complete({}); // arms the idle timer at 0 ms
+        async.elapse(const Duration(milliseconds: 10));
+        unawaited(source.close()); // as invalidateSession does
+        async.elapse(const Duration(milliseconds: 10));
+        unawaited(source.activeStatuses().then((_) {}));
+        expect(transports, hasLength(2));
+        transports[1].reads.single.complete({}); // arms its own timer at 20 ms
+        // Past the first timer's deadline (100 ms), before the new one's (120).
+        async.elapse(const Duration(milliseconds: 90));
+        expect(transports[1].closed, isFalse);
+      });
+    },
+  );
 }
