@@ -24,8 +24,16 @@ bool get tapReportEnabled => Platform.environment[tapReportVariable] == '1';
 String get tapReportDir =>
     Platform.environment['HERMES_TAP_DIR'] ?? 'build/tap_targets';
 
-/// Smallest tap target a platform accepts, in logical pixels.
-const tapThresholds = {'android': 48.0, 'ios': 44.0, 'macos': 28.0};
+/// Smallest tap target a platform accepts, in logical pixels. Windows and
+/// Linux render Material with a pointer, so they use the same 28 pt desktop
+/// rule as macOS, but are reported on their own.
+const tapThresholds = {
+  'android': 48.0,
+  'ios': 44.0,
+  'macos': 28.0,
+  'windows': 28.0,
+  'linux': 28.0,
+};
 
 class TapTarget {
   const TapTarget({
@@ -158,6 +166,7 @@ class TapSample {
     this.targets, [
     this.rendered,
     this.reason,
+    this.window,
   ]);
 
   factory TapSample.fromJson(Map<String, Object?> json) => TapSample(
@@ -169,12 +178,14 @@ class TapSample {
     ],
     json['rendered'] as String?,
     json['reason'] as String?,
+    json['window'] as String?,
   );
 
   final String source;
 
-  /// `android`, `ios` or `macos`: the minimum that judges this screen; `skip`
-  /// when the screen ran as a platform none of them covers.
+  /// `android`, `ios`, `macos`, `windows` or `linux`: the minimum that judges
+  /// this screen, from the platform of the theme it rendered with; `skip` for
+  /// a use case pass that pins another platform.
   final String platform;
   final List<TapTarget> targets;
 
@@ -184,6 +195,10 @@ class TapSample {
   /// Why a skipped pass was not judged, e.g. `pins android`.
   final String? reason;
 
+  /// `phone` or `desktop`: the class of the window the screen was measured in.
+  /// Recorded, never used to pick the rule.
+  final String? window;
+
   bool get skipped => platform == 'skip';
 
   Map<String, Object?> toJson() => {
@@ -191,33 +206,37 @@ class TapSample {
     'platform': platform,
     if (rendered != null) 'rendered': rendered,
     if (reason != null) 'reason': reason,
+    if (window != null) 'window': window,
     'targets': [for (final t in targets) t.toJson()],
   };
 }
 
+/// The minimum that judges a screen: the platform of the theme it rendered
+/// with. Fuchsia is Android's rule. Windows and Linux render Material and are
+/// judged by the 28 pt desktop rule (on a phone-sized window too: the window
+/// class is recorded in [TapSample.window], not used to pick the rule).
 String platformKey(TargetPlatform platform) => switch (platform) {
+  TargetPlatform.android || TargetPlatform.fuchsia => 'android',
+  TargetPlatform.iOS => 'ios',
+  TargetPlatform.macOS => 'macos',
+  TargetPlatform.windows => 'windows',
+  TargetPlatform.linux => 'linux',
+};
+
+/// From this logical width a window is `desktop`, else `phone`.
+const desktopWidth = 700.0;
+
+String windowClass(double width) => width >= desktopWidth ? 'desktop' : 'phone';
+
+/// Which of the three looks a use case's pinned `Theme` stands for; desktop
+/// platforms share one, as the catalog measures them in its macOS pass.
+String _pinKey(TargetPlatform platform) => switch (platform) {
   TargetPlatform.android || TargetPlatform.fuchsia => 'android',
   TargetPlatform.iOS => 'ios',
   TargetPlatform.macOS ||
   TargetPlatform.windows ||
   TargetPlatform.linux => 'macos',
 };
-
-/// From this logical width a screen is a desktop window, judged by the macOS
-/// minimum whatever the theme platform is.
-const desktopWidth = 700.0;
-
-/// The minimum that judges a workflow screen: macOS for a desktop-sized
-/// window; on a phone, the platform the theme was built for when that is
-/// Android or iOS, else `skip` (it is not a platform a phone runs).
-String judgedPlatform(TargetPlatform rendered, double width) {
-  if (width >= desktopWidth) return 'macos';
-  return switch (rendered) {
-    TargetPlatform.android => 'android',
-    TargetPlatform.iOS => 'ios',
-    _ => 'skip',
-  };
-}
 
 /// The platform key a use case pins: the first of [themePlatforms] (the
 /// `Theme.data.platform` of every `Theme` the use case itself builds) when
@@ -229,10 +248,10 @@ String? pinnedPlatform(
   Iterable<TargetPlatform> themePlatforms,
   TargetPlatform pass,
 ) {
-  final passKey = platformKey(pass);
+  final passKey = _pinKey(pass);
   String? other;
   for (final p in themePlatforms) {
-    final key = platformKey(p);
+    final key = _pinKey(p);
     if (key == passKey) return null;
     other ??= key;
   }
@@ -262,25 +281,29 @@ Future<TapSample> measureScreen(
   String source,
   String platform, [
   String? rendered,
+  String? window,
 ]) async {
   final handle = tester.ensureSemantics();
   try {
     await tester.pump();
-    return TapSample(source, platform, collectTapTargets(tester), rendered);
+    return TapSample(
+      source,
+      platform,
+      collectTapTargets(tester),
+      rendered,
+      null,
+      window,
+    );
   } finally {
     handle.dispose();
   }
 }
 
-/// Called by the workflow screenshots when `HERMES_TAP_REPORT=1`: measures the
-/// screen and appends it to the flow's file. The screen is judged by the
-/// platform its theme was built for (what `WORKFLOW_PLATFORM` or the test's
-/// `platform:` set; Android when neither did) on a phone, and by the macOS
-/// minimum when the window is desktop-sized.
-Future<void> recordWorkflowScreen(
+/// Measures the screen as a workflow does: judged by the platform of the root
+/// theme it rendered with, with the window class recorded.
+Future<TapSample> measureWorkflowScreen(
   WidgetTester tester,
-  String flow,
-  String step,
+  String source,
 ) async {
   var rendered = defaultTargetPlatform;
   try {
@@ -290,13 +313,30 @@ Future<void> recordWorkflowScreen(
   }
   final view = tester.view;
   final width = view.physicalSize.width / view.devicePixelRatio;
-  final sample = await measureScreen(
+  return measureScreen(
     tester,
-    '$flow/$step',
-    judgedPlatform(rendered, width),
+    source,
+    platformKey(rendered),
     rendered.name,
+    windowClass(width),
   );
-  final file = File('$tapReportDir/workflows/$flow.jsonl');
+}
+
+/// Called by the workflow screenshots when `HERMES_TAP_REPORT=1`: measures the
+/// screen and appends it to the flow's file under the run's own folder
+/// (`WORKFLOW_PLATFORM`, else `default`), so a second run with another
+/// platform never mixes with the first. The screen is judged by the platform
+/// of the root theme it rendered with (what `WORKFLOW_PLATFORM` or the test's
+/// `platform:` set; Android when neither did), whatever the window size; the
+/// window class is recorded beside it.
+Future<void> recordWorkflowScreen(
+  WidgetTester tester,
+  String flow,
+  String step,
+) async {
+  final sample = await measureWorkflowScreen(tester, '$flow/$step');
+  final run = Platform.environment['WORKFLOW_PLATFORM'] ?? 'default';
+  final file = File('$tapReportDir/workflows/$run/$flow.jsonl');
   file.parent.createSync(recursive: true);
   file.writeAsStringSync(
     '${jsonEncode(sample.toJson())}\n',
@@ -307,8 +347,13 @@ Future<void> recordWorkflowScreen(
 List<TapSample> readWorkflowSamples() {
   final dir = Directory('$tapReportDir/workflows');
   if (!dir.existsSync()) return [];
-  final files = dir.listSync().whereType<File>().toList()
-    ..sort((a, b) => a.path.compareTo(b.path));
+  final files =
+      dir
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.jsonl'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
   return [
     for (final f in files)
       for (final line in f.readAsLinesSync())
@@ -488,7 +533,7 @@ class TapReport {
       '  unlabeled tap targets: ${unlabeled().length} [${rawUnlabeled().length}]',
     );
     b.writeln(
-      '  macOS inflated to 44/48: ${inflated().length} [${rawInflated().length}]',
+      '  macOS inflated to 44/48 (macOS-themed screens only): ${inflated().length} [${rawInflated().length}]',
     );
     if (skippedPasses.isNotEmpty) {
       b.writeln('  skipped passes (use case pins a platform): $skippedPasses');
