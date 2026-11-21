@@ -43,6 +43,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   InitializationSettings? settings;
   void Function()? duringInitialize;
   Completer<void>? showGate;
+  var showCalls = 0;
   Completer<void>? activeGate;
   Completer<void>? cancelGate;
   Completer<void>? launchGate;
@@ -73,6 +74,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     NotificationDetails? notificationDetails,
     String? payload,
   }) async {
+    showCalls++;
     if (showError case final error?) throw error;
     await showGate?.future;
     posted.add(_Posted(id, title, body, payload, notificationDetails));
@@ -1624,9 +1626,10 @@ void main() {
       });
     });
 
-    test('a first call that never answers latches the bus as failed', () {
+    test('a first show that never answers latches the bus as failed', () {
       fakeAsync((async) {
-        final plugin = _FakePlugin()..initializeHeld = Completer<void>();
+        // The real plugin's initialize returns at once, without the bus.
+        final plugin = _FakePlugin()..showGate = Completer<void>();
         final service = serviceWith(plugin, bus: true);
         NotificationPostResult? result;
         service.post(note).then((r) => result = r);
@@ -1641,7 +1644,7 @@ void main() {
         service.post(note).then((r) => next = r);
         async.flushMicrotasks();
         expect(next?.status, NotificationPostStatus.unsupported);
-        expect(plugin.initializeCalls, 1);
+        expect(plugin.showCalls, 1);
         debugDefaultTargetPlatformOverride = null;
       });
     });

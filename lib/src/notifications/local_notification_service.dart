@@ -348,7 +348,9 @@ class LocalNotificationService
   /// returned; the service is unsupported from then on.
   var _linuxBusFailed = false;
 
-  /// Whether any guarded call ever got an answer, a failure included.
+  /// Whether a call that waits for a D-Bus reply (`show`) ever got one, an
+  /// error reply included. `initialize` returns at once, listing calls throw
+  /// locally and a `cancel` may never reach the bus, so they say nothing.
   var _busResponded = false;
   final _pendingCalls = <void Function()>{};
 
@@ -366,7 +368,7 @@ class LocalNotificationService
   /// has failed or [kLinuxCallTimeout] passes, which also marks the bus
   /// failed: the plugin's D-Bus client leaves a call pending forever once
   /// its connection failed.
-  Future<T> _guard<T>(Future<T> Function() call) {
+  Future<T> _guard<T>(Future<T> Function() call, {bool awaitsBus = false}) {
     if (defaultTargetPlatform != TargetPlatform.linux) return call();
     if (_linuxBusFailed) return Future.error(StateError('D-Bus unavailable'));
     final out = Completer<T>();
@@ -385,11 +387,11 @@ class LocalNotificationService
     _pendingCalls.add(fail);
     Future.sync(call).then(
       (value) {
-        _busResponded = true;
+        if (awaitsBus) _busResponded = true;
         if (!out.isCompleted) out.complete(value);
       },
       onError: (Object error, StackTrace stack) {
-        _busResponded = true;
+        if (awaitsBus) _busResponded = true;
         if (!out.isCompleted) out.completeError(error, stack);
       },
     );
@@ -693,6 +695,7 @@ class LocalNotificationService
           ),
           payload: notificationPayload(notification),
         ),
+        awaitsBus: true,
       );
       return const NotificationPostResult(NotificationPostStatus.accepted);
     } on Object catch (error) {
