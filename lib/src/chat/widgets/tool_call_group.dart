@@ -1,6 +1,6 @@
 import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';

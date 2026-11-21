@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:cupertino_ui/cupertino_ui.dart' as cui;
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_localizations/flutter_localizations.dart' as fl;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -177,9 +177,9 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             localizationsDelegates: [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
+              fl.GlobalMaterialLocalizations.delegate,
+              fl.GlobalWidgetsLocalizations.delegate,
+              fl.GlobalCupertinoLocalizations.delegate,
               if (bridged) ...kMaterialUiLocalizationsDelegates,
             ],
             home: Builder(

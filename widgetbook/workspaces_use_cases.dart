@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart' show CupertinoMenuAnchor;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoMenuAnchor;
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/chat_workspace_state.dart';
 import 'package:hermes_app/src/chat/widgets/thread_grouping_controls.dart';
 import 'package:hermes_app/src/chat/thread_list_preferences.dart';

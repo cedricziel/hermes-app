@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_choice_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';

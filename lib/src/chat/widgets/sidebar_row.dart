@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The rounded, tappable shell of a sidebar row, filled when [selected].
 class SidebarRow extends StatelessWidget {

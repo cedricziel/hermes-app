@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Shows an adaptive dialog with stationary, restrained motion on macOS.
 Future<T?> showAppDialog<T>({

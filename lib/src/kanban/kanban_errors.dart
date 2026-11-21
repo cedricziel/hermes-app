@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../telemetry/report_bug.dart';

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -17,11 +17,23 @@ class HermesWidgetbook extends StatelessWidget {
       home: const Center(child: Text('Pick a component in the list.')),
       directories: directories,
       addons: [
-        MaterialThemeAddon(
+        // Widgetbook's MaterialThemeAddon takes Flutter's ThemeData; the app's
+        // themes are material_ui's, so this is its builder with those types.
+        ThemeAddon<ThemeData>(
           themes: [
             for (final e in themes.entries)
               WidgetbookTheme(name: e.key, data: e.value),
           ],
+          themeBuilder: (context, theme, child) => Theme(
+            data: theme,
+            child: ColoredBox(
+              color: theme.scaffoldBackgroundColor,
+              child: DefaultTextStyle(
+                style: theme.textTheme.bodyMedium!,
+                child: child,
+              ),
+            ),
+          ),
         ),
         LocalizationAddon(
           locales: AppLocalizations.supportedLocales,

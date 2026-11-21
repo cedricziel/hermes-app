@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/macos/menu_bar_extra/widgets/menu_bar_item_section.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:widgetbook/widgetbook.dart';

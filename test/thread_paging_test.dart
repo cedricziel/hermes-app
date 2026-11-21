@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart' show RequestOptions;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';

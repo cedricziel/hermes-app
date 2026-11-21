@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/api/hermes_repositories.dart';

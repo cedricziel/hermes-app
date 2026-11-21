@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:hermes_app/src/chat/connector_operation_state.dart';

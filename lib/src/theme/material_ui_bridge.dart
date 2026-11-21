@@ -1,5 +1,5 @@
 import 'package:cupertino_ui/cupertino_ui.dart' as cui;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 
 /// Localizations that `material_ui` and `cupertino_ui` widgets look up. Those

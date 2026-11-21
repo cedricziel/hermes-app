@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoints_state.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/restore_all_confirmation.dart';

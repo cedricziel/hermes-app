@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart' show MaterialPageRoute;
+import 'package:material_ui/material_ui.dart' show MaterialPageRoute;
 import 'package:flutter/widgets.dart';
 
 import '../../../l10n/l10n.dart';

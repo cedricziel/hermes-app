@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 import 'package:hermes_app/src/drag_out/drag_out_source.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
