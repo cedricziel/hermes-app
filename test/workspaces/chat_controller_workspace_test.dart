@@ -597,7 +597,7 @@ void main() {
       final target = thread('s1');
       chat.select('s1');
       await settle();
-      chat.submit('go', const []);
+      await chat.submit('go', const []);
       await settle();
       expect(target.isReplying, isTrue);
 
@@ -617,7 +617,7 @@ void main() {
 
         chat.select('s1');
         await settle();
-        chat.submit('go', const []);
+        await chat.submit('go', const []);
         await settle();
 
         expect(

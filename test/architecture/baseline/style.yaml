@@ -38,7 +38,6 @@ style.dialog:
   lib/src/bot_mode/groups/group_chat_screen.dart: 2
   lib/src/bot_mode/groups/widgets/group_widgets.dart: 1
   lib/src/chat/chat_screen_recipients.dart: 1
-  lib/src/chat/widgets/swipeable_thread_row.dart: 1
   lib/src/chat/widgets/thread_actions_menu.dart: 1
   lib/src/kanban/kanban_boards_screen.dart: 3
   lib/src/kanban/kanban_errors.dart: 1
@@ -62,9 +61,6 @@ style.dialog:
   lib/src/spotlight/spotlight_dialog.dart: 1
   lib/src/voice/dictation_dialog.dart: 1
   lib/src/voice/portable_calls_dialog.dart: 1
-  lib/src/widgets/adaptive_dialog.dart: 2
-  lib/src/widgets/adaptive_pickers.dart: 1
-  lib/src/widgets/row_actions.dart: 1
 
 style.elevation:
   lib/src/chat/widgets/new_chat_fab.dart: 1
@@ -506,7 +502,6 @@ style.string:
   lib/src/voice/widgets/voice_recording_controls.dart: 4
   lib/src/voice/widgets/voice_waveform.dart: 1
   lib/src/widgets/adaptive_pickers.dart: 2
-  lib/src/widgets/row_actions.dart: 1
   lib/src/widgets/settings_scaffold.dart: 1
   lib/src/widgets/settings_search_field.dart: 3
   lib/src/windows/conversation_window_screen.dart: 2

@@ -29,4 +29,10 @@ Rules are stated in full in the area's file under `docs/architecture/`.
 
 ## UI
 
-Owned by the style session; filled in a later PR.
+Owned by the style session; the rest is filled in a later PR.
+
+| Need | Building block | Where | Rule it enforces |
+| --- | --- | --- | --- |
+| A dialog | `showAppDialog` (`barrierDismissible`: null keeps the platform default, false makes the barrier inert everywhere) | `lib/src/widgets/dialog_presentation.dart` | No raw `showDialog` or `showAdaptiveDialog` (`style.dialog`). |
+| A sheet (dialog on a Mac and wide windows) | `showAdaptiveSheet` | `lib/src/widgets/adaptive_sheet.dart` | No raw `showModalBottomSheet` (`style.dialog`). |
+| An iOS action sheet (title, entries, Cancel from `widgetsCancel`) | `showAppActionSheet`, `AppActionSheetEntry` | `lib/src/widgets/app_action_sheet.dart` | `style.dialog` catches a raw `showCupertinoModalPopup` (and the other `show*` dialog calls, `AlertDialog`, `CupertinoAlertDialog`) outside the building-block files; use this helper for an action sheet. |
