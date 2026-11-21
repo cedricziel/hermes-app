@@ -17,6 +17,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/test_localizations.dart';
 
 const _demo = '/home/me/code/demo';
 const _other = '/home/me/code/other';
@@ -178,7 +179,7 @@ void main() {
       late BuildContext context;
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (c) {

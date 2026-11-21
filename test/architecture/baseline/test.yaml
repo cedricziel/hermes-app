@@ -9,16 +9,12 @@
 # `UPDATE_BASELINE=1 flutter test test/architecture` lowers it for you and
 # never raises it. A rule with no violations has no entry.
 
-# Files that open pull requests (#1119, #1221, #1241) change; switch each to
-# kTestLocalizationsDelegates once that PR has merged.
+# Files that open pull requests change (#1119, #1182, #1221, #1260); switch each
+# to kTestLocalizationsDelegates once that PR has merged: mac_menu_bar_test
+# (#1119), chat_header_large_text_test (#1221), pump_chat (#1182) and
+# launch_profile_contract_test (#1260).
 test.localization-delegates:
   test/chat/chat_header_large_text_test.dart: 1
   test/launch_profile_contract_test.dart: 1
   test/macos/mac_menu_bar_test.dart: 1
   test/support/pump_chat.dart: 1
-  test/tools/tools_screen_test.dart: 1
-  test/tools/tools_setup_harness.dart: 1
-  test/workflows/tools_workflow_test.dart: 1
-  test/workspaces/details_follow_actions_test.dart: 1
-  test/workspaces/safe_path_display_extra_test.dart: 1
-  test/workspaces/safe_path_display_test.dart: 1

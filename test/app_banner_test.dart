@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/files/widgets/files_notes.dart';
@@ -129,7 +128,7 @@ void main() {
       return MaterialApp(
         theme: theme,
         locale: locale,
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: const [Locale('en'), Locale('de')],
         home: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
