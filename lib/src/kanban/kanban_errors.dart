@@ -3,6 +3,8 @@ import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../telemetry/report_bug.dart';
+import '../theme/platform_chrome.dart';
+import '../widgets/route_dismissal.dart';
 import 'kanban_repository.dart';
 
 /// Runs a write, and tells the user why when the plugin refuses it. Returns
@@ -40,6 +42,10 @@ Future<String?> askKanbanText(
   bool multiline = false,
 }) => showAppDialog<String>(
   context: context,
+  // A stray click on macOS must not throw away typed text; Esc and Cancel close.
+  barrierDismissible: platformChromeOf(context) == PlatformChrome.macos
+      ? false
+      : null,
   builder: (_) => _TextDialog(
     title: title,
     hint: hint,
@@ -78,25 +84,33 @@ class _TextDialogState extends State<_TextDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AppAlertDialog(
-    title: Text(widget.title),
-    content: AppDialogTextField(
-      controller: _controller,
-      hint: widget.hint,
-      minLines: widget.multiline ? 3 : 1,
-      maxLines: widget.multiline ? 6 : 1,
+  Widget build(BuildContext context) => Actions(
+    // The macOS barrier is inert here, which also turns Esc off.
+    actions: {
+      DismissIntent: CallbackAction<DismissIntent>(
+        onInvoke: (_) => dismissRoute(context),
+      ),
+    },
+    child: AppAlertDialog(
+      title: Text(widget.title),
+      content: AppDialogTextField(
+        controller: _controller,
+        hint: widget.hint,
+        minLines: widget.multiline ? 3 : 1,
+        maxLines: widget.multiline ? 6 : 1,
+      ),
+      actions: [
+        AppDialogAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        AppDialogAction(
+          isDefault: true,
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: Text(widget.confirm),
+        ),
+      ],
     ),
-    actions: [
-      AppDialogAction(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      AppDialogAction(
-        isDefault: true,
-        onPressed: () => Navigator.pop(context, _controller.text.trim()),
-        child: Text(widget.confirm),
-      ),
-    ],
   );
 }
 
