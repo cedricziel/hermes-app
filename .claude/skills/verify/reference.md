@@ -156,7 +156,7 @@ any of its processes survived.
   `mimalloc-*.tar.gz` that fails the next configure's integrity check: seed it
   as `verify.sh` does. The install prefix no longer matters there: the build
   file forces it into the bundle directory (`test/linux/linux_install_prefix_test.dart`
-  and the `Build Linux (release)` job check it).
+  and the `Build Linux (release)` job, which builds over a cache poisoned with `/usr/local`, check it).
 - A run killed with SIGKILL leaves `/tmp/hermes-verify.*` and processes:
   `scripts/verify.sh clean` (also done at the start of every run).
 - To look at a live run, add a `sleep` to the test and, from another shell,

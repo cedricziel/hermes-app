@@ -15,14 +15,11 @@ void main() {
       .join('\n');
 
   test('the install prefix is forced to the bundle directory', () {
-    expect(
-      cmake,
-      matches(
-        RegExp(
-          r'set\(CMAKE_INSTALL_PREFIX\s+"\$\{BUILD_BUNDLE_DIR\}"\s+CACHE\s+PATH\s+"[^"]*"\s+FORCE\)',
-        ),
-      ),
+    final forced = RegExp(
+      r'^set\(CMAKE_INSTALL_PREFIX\s+"\$\{BUILD_BUNDLE_DIR\}"\s+CACHE\s+PATH\s+"[^"]*"\s+FORCE\)',
+      multiLine: true,
     );
+    expect(forced.hasMatch(cmake), isTrue);
   });
 
   test('the prefix is not set only while it is still the default', () {
