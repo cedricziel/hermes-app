@@ -12,6 +12,7 @@ import 'package:hermes_app/src/chat/widgets/session_export_alert.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/test_localizations.dart';
 
 Uint8List _session() => Uint8List.fromList(
   utf8.encode(
@@ -109,7 +110,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(platform: platform),
         home: Scaffold(

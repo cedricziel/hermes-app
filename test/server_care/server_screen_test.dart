@@ -21,6 +21,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
+import '../support/test_localizations.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -96,7 +97,7 @@ void main() {
         child: MaterialApp(
           navigatorObservers: [pushedRoutes],
           locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(),
           home: MultiProvider(
@@ -495,7 +496,7 @@ void main() {
             ChangeNotifierProvider<ServerCheckController>.value(value: check),
           ],
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
             home: const ServerScreen(source: 'test'),

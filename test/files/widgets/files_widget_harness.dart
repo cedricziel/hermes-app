@@ -4,6 +4,8 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../support/test_localizations.dart';
+
 ServerPath serverPath(String text) => ServerPath.tryParse(text)!;
 
 /// Mounts [child] in the app's theme on [platform], in [locale], at
@@ -30,7 +32,7 @@ Future<void> pumpFiles(
   await tester.pumpWidget(
     MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: base,
       builder: (context, app) => MediaQuery(

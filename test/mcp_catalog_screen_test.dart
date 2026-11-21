@@ -127,9 +127,13 @@ void main() {
       );
     });
 
-    testWidgets('the subtitle follows the profile the servers learn', (
-      tester,
-    ) async {
+    testWidgets('the subtitle names the launch profile the servers learn, '
+        'not the sticky default', (tester) async {
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'home', current: 'work'),
+      );
       final servers = McpServersController(
         repository: HermesMcpRepository(server.client().raw),
         profiles: HermesProfilesRepository(server.client().raw),
@@ -139,17 +143,9 @@ void main() {
         MaterialApp(home: McpCatalogScreen(servers: servers)),
       );
       await tester.pumpAndSettle();
+
       expect(find.text('Installing into: work'), findsOneWidget);
-
-      server.on(
-        'GET',
-        '/api/profiles/active',
-        activeProfileBody(active: 'home'),
-      );
-      unawaited(servers.load());
-      await tester.pumpAndSettle();
-
-      expect(find.text('Installing into: home'), findsOneWidget);
+      expect(find.text('Installing into: home'), findsNothing);
     });
 
     testWidgets('the empty state has a button to the catalog', (tester) async {

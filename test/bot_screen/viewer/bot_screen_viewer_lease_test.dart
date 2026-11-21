@@ -12,6 +12,7 @@ import 'package:hermes_app/src/bot_screen/input/screen_paste.dart'
     show PasteOutcome;
 import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../../support/fake_display_server.dart';
@@ -104,7 +105,7 @@ void main() {
       screen = BotScreenController(
         repository,
         transport.connectionEvents,
-        profile: 'work',
+        profile: resolvedProfile('work'),
         viewerIds: ids,
         events: telemetry.events,
       );
@@ -116,7 +117,7 @@ void main() {
           channels.add(next);
           return next;
         },
-        profile: 'work',
+        profile: resolvedProfile('work'),
         random: _Fixed(),
         telemetry: telemetry,
         coverGrace: coverGrace,
@@ -1109,7 +1110,7 @@ void main() {
         final otherScreen = BotScreenController(
           repository,
           transport.connectionEvents,
-          profile: 'work',
+          profile: resolvedProfile('work'),
           viewerIds: ids,
           events: telemetry.events,
         );
@@ -1121,7 +1122,7 @@ void main() {
             channels.add(next);
             return next;
           },
-          profile: 'work',
+          profile: resolvedProfile('work'),
           random: _Fixed(),
           telemetry: telemetry,
           platform: TargetPlatform.macOS,
@@ -1173,7 +1174,7 @@ void main() {
           channels.add(next);
           return next;
         },
-        profile: 'work',
+        profile: resolvedProfile('work'),
         random: _Fixed(),
         telemetry: telemetry,
         platform: TargetPlatform.macOS,
@@ -1294,7 +1295,7 @@ void main() {
         final otherScreen = BotScreenController(
           repository,
           transport.connectionEvents,
-          profile: 'work',
+          profile: resolvedProfile('work'),
           viewerIds: ids,
           events: telemetry.events,
         );
@@ -1306,7 +1307,7 @@ void main() {
             channels.add(next);
             return next;
           },
-          profile: 'work',
+          profile: resolvedProfile('work'),
           random: _Fixed(),
           telemetry: telemetry,
           platform: TargetPlatform.macOS,

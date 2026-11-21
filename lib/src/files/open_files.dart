@@ -8,10 +8,10 @@ import 'package:share_plus/share_plus.dart';
 import '../api/hermes_repositories.dart';
 import '../chat/chat_controller.dart';
 import '../chat/media/media_store.dart';
+import '../profiles/profile_resolver.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'files_availability.dart';
 import 'files_platform_policy.dart';
-import 'files_profile.dart';
 import 'files_screen.dart';
 import 'files_telemetry.dart';
 import 'hermes_files_repository.dart';
@@ -48,7 +48,15 @@ Future<void> openFiles(
   } on ProviderNotFoundException {
     breadcrumbs = Breadcrumbs.none;
   }
-  final profile = filesProfileFor(chat.profile);
+  final resolver = chat.profileResolver;
+  if (resolver == null) return;
+  final profile =
+      resolver.resolve(chat.profile) ??
+      await _resolveAfterLoad(resolver, chat.profile);
+  // The person may have moved to another chat while the profile was read.
+  if (profile == null || !context.mounted || chat.selectedId != thread.id) {
+    return;
+  }
   final threadId = thread.id;
   final telemetry = FilesTelemetry(repositories.telemetry, breadcrumbs);
   // A new chat with no stored folder yet runs in the folder the workspace
@@ -72,7 +80,7 @@ Future<void> openFiles(
         closeWhen: chat,
         shouldClose: () =>
             chat.selectedId != threadId ||
-            filesProfileFor(chat.profile) != profile,
+            resolver.resolve(chat.profile) != profile,
         share: _canShare ? _share : null,
         policy: FilesPlatformPolicy(),
       ),
@@ -87,3 +95,17 @@ bool get _canShare =>
 Future<void> _share(File file, Rect? origin) => SharePlus.instance.share(
   ShareParams(files: [XFile(file.path)], sharePositionOrigin: origin),
 );
+
+/// The profile once the launch profile was asked for again: it may not have
+/// been read yet, or the read failed earlier. Null when it is still unknown.
+Future<ResolvedProfile?> _resolveAfterLoad(
+  ProfileResolver resolver,
+  String? chatProfile,
+) async {
+  try {
+    await resolver.load();
+  } on Object {
+    // Left unresolved: nothing is opened.
+  }
+  return resolver.resolve(chatProfile);
+}

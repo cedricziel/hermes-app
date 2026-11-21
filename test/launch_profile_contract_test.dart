@@ -12,24 +12,23 @@ import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
-import 'package:hermes_app/src/bot_screen/bot_screen_profile.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
-import 'package:hermes_app/src/files/files_profile.dart';
 import 'package:hermes_app/src/files/hermes_files_repository.dart';
 import 'package:hermes_app/src/memory/memory_destination.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
-import 'package:hermes_app/src/profiles/server_default_profile.dart';
+import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
+import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/tools_availability.dart';
-import 'package:hermes_app/src/tools/tools_profile.dart';
+import 'package:hermes_app/src/watch/watch_bridge.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/workspace_catalog_loader.dart';
 import 'package:provider/provider.dart';
@@ -39,6 +38,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/memory_token_store.dart';
+import 'support/test_localizations.dart';
 
 /// Which profile the app names for a chat whose profile is null, on a
 /// dashboard that was started with a launch profile other than `default` while
@@ -255,12 +255,13 @@ void main() {
       () async {
         final chat = newChat();
         expect(chat.profile, isNull);
+        await profiles.resolver.load();
         final profilesSent = await sent(() async {
           final controller = BotScreenController(
             BotScreenRepository(recordedRpc),
             const Stream.empty(),
-            // ChatScreen._syncBotScreen resolves it with botScreenProfileFor.
-            profile: botScreenProfileFor(chat.profile),
+            // ChatScreen._syncBotScreen resolves it through the resolver.
+            profile: profiles.resolver.resolve(chat.profile)!,
           );
           final watch = controller.watch(frames: false);
           await _until(
@@ -280,11 +281,12 @@ void main() {
         '(HermesFilesRepository, as openFiles builds it)', () async {
       final chat = newChat();
       expect(chat.profile, isNull);
+      await profiles.resolver.load();
       final profilesSent = await sent(() async {
-        // open_files.dart builds the repository with filesProfileFor.
+        // open_files.dart resolves the profile through the resolver.
         final files = HermesFilesRepository(
           api,
-          profile: filesProfileFor(chat.profile),
+          profile: profiles.resolver.resolve(chat.profile)!,
         );
         await files.defaultCwd();
       });
@@ -294,6 +296,7 @@ void main() {
     test('Workspaces: the catalog of a chat with no profile '
         '(ChatController.workspaceCatalog, the welcome view and the '
         'picker)', () async {
+      await profiles.resolver.load();
       final chat = newChat();
       expect(chat.profile, isNull);
       final profilesSent = await sent(() async {
@@ -355,7 +358,7 @@ void main() {
       await tester.runAsync(() async {
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Provider<HermesRepositories?>.value(
               value: repositories,
@@ -384,22 +387,43 @@ void main() {
       });
     });
 
+    test('Schedules: the jobs of the profile the tab opens on '
+        '(SchedulesController, scope as it is on first load)', () async {
+      final controller = SchedulesController(
+        repository: HermesCronRepository(api.raw),
+        profiles: profiles,
+      );
+      addTearDown(controller.dispose);
+      final profilesSent = await sent(() async {
+        await controller.refresh();
+        expect(controller.loaded, isTrue);
+      });
+      // The jobs request names the profile it scopes to; the launch lookup
+      // and the controller's own reads name none.
+      check('Schedules /api/cron/jobs', profilesSent);
+    });
+
+    test('Watch: the profile the watch names for its chats '
+        '(watchProfile, as WatchBridge.create wires it)', () async {
+      final name = await watchProfile(api);
+      check('Watch profile', {?name});
+    });
+
     test('Tools: /api/tools/* of a chat with no profile '
         '(ToolsAvailability as AppShell seeds it, then the screen)', () async {
       final chat = newChat();
       expect(chat.profile, isNull);
       final profilesSent = await sent(() async {
-        // AppShell._resolveServerCareProfile: the server's own default.
-        final name = serverDefaultProfile(await profiles.loadActive());
-        expect(name, isNotNull);
+        // AppShell._resolveServerCareProfile: the launch profile.
+        expect(await profiles.resolver.load(), isNotNull);
         final availability = ToolsAvailability(HermesToolsRoot(api.raw));
         addTearDown(availability.dispose);
-        // AppShell._followToolsProfile
-        await availability.refresh(name!);
-        // ChatScreen._openTools
-        final opened = toolsProfileFor(chat.profile, availability);
+        // AppShell._followToolsProfile, then ChatScreen._openTools: both
+        // resolve the chat's profile through the resolver.
+        final opened = profiles.resolver.resolve(chat.profile);
         expect(opened, isNotNull);
-        await HermesToolsRoot(api.raw).forProfile(opened!).list();
+        await availability.refresh(opened!);
+        await HermesToolsRoot(api.raw).forProfile(opened).list();
       });
       check('Tools /api/tools/toolsets', profilesSent);
     });

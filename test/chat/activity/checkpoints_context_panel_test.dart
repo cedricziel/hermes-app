@@ -474,7 +474,7 @@ void main() {
       expect(find.text('Compress this conversation?'), findsOneWidget);
       expect(find.text("What's in it"), findsOneWidget);
 
-      chat.submit('Another question', const []);
+      await chat.submit('Another question', const []);
       await settle(tester);
       expect(find.text('Wait for the reply to finish.'), findsWidgets);
       final compress = tester.widget<TextButton>(
@@ -687,7 +687,7 @@ void main() {
       await openCheckpoints(tester);
       await tester.tap(find.text('Before editing a file'));
       await settle(tester);
-      chat.submit('Another question', const []);
+      await chat.submit('Another question', const []);
       await settle(tester);
       expect(find.text('Wait for the reply to finish.'), findsOneWidget);
       final bar = tester.widget<OutlinedButton>(

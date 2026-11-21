@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../profiles/profile_resolver.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'memory_repository.dart';
 import 'memory_usage.dart';
@@ -12,7 +13,7 @@ class MemoryController extends ChangeNotifier {
   MemoryController({this.breadcrumbs = Breadcrumbs.none});
   final Breadcrumbs breadcrumbs;
   MemoryRepository? _repository;
-  String? profile;
+  ResolvedProfile? profile;
   List<MemoryEntry> entries = const [];
   MemoryLimits limits = MemoryLimits.unknown;
   MemoryTab tab = MemoryTab.aboutYou;
@@ -208,7 +209,7 @@ class MemoryController extends ChangeNotifier {
   int _generation = 0;
   bool _disposed = false;
 
-  void bind(MemoryRepository? repository, String? nextProfile) {
+  void bind(MemoryRepository? repository, ResolvedProfile? nextProfile) {
     if (identical(_repository, repository) && profile == nextProfile) return;
     _generation++;
     _clearEditor();

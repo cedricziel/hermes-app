@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
 import 'package:hermes_app/src/memory/memory_proposals_controller.dart';
 import 'package:hermes_app/src/memory/memory_proposals_repository.dart';
@@ -42,10 +43,13 @@ void main() {
     settings = MemorySettingsController();
     addTearDown(proposals.dispose);
     addTearDown(settings.dispose);
-    settings.bind(MemorySettingsRepository(server.client().raw), 'work');
+    settings.bind(
+      MemorySettingsRepository(server.client().raw),
+      resolvedProfile('work'),
+    );
     proposals.bind(
       MemoryProposalsRepository(MemoryProposalSession(transport)),
-      'work',
+      resolvedProfile('work'),
     );
   });
 

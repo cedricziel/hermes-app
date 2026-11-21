@@ -8,7 +8,6 @@ import '../chat/chat_transport.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../plugins/plugins_screen.dart';
-import '../profiles/hermes_profiles_repository.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
@@ -54,7 +53,7 @@ Future<void> openMemory(
 
 /// Memory of one profile. [profile] is the one its entry point names, which
 /// the server's active profile never replaces; without one the screen opens
-/// on the active profile.
+/// on the launch profile.
 class MemoryDestination extends StatefulWidget {
   const MemoryDestination({super.key, this.profile, this.transport});
 
@@ -218,7 +217,11 @@ class _MemoryDestinationState extends State<MemoryDestination> {
     );
   }
 
-  void _show(String profile) {
+  /// Shows the profile the person picked from the server's own list. A name
+  /// the resolver does not accept is left out, and nothing is requested.
+  void _show(String name) {
+    final profile = _repositories?.profiles.resolver.resolve(name);
+    if (profile == null) return;
     _controller.bind(_memory, profile);
     _settings.bind(_settingsRepository, profile);
     _proposals.bind(_proposalsRepository, profile);
@@ -247,20 +250,17 @@ class _MemoryDestinationState extends State<MemoryDestination> {
       _failure = null;
     });
     try {
-      final named = widget.profile;
-      final ProfilesOverview? overview = named == null
-          ? await repositories.profiles.load()
-          : null;
-      final listed = overview?.profiles ?? await repositories.profiles.list();
+      // Without a profile of its own the screen opens on the one the
+      // dashboard was launched with, not the sticky active one.
+      final resolver = repositories.profiles.resolver;
+      if (widget.profile == null) await resolver.load();
+      final selected = resolver.resolve(widget.profile);
+      final listed = await repositories.profiles.list();
       if (!mounted || generation != _generation) return;
       final profiles = {
         for (final profile in listed) profile.name: profile.label,
       };
-      final selected =
-          named ??
-          (profiles.containsKey(overview!.active)
-              ? overview.active
-              : overview.current);
+      if (selected == null) throw MemoryFailure.profileUnavailable;
       if (!profiles.containsKey(selected)) {
         throw MemoryFailure.profileUnavailable;
       }
