@@ -138,3 +138,45 @@ Accepted differences from the Flutter build:
 - Only the rename and the Priority choice are drawn; the other sites share the same route and barrier.
 
 Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device.
+
+## Settings dialog presentation
+
+### Design (done)
+
+- Canvas: https://claude.ai/artifact/Cej19PSApPQxiW9ScV9PzA (private; ask the owner for access)
+- Date: 2026-11-21
+- Boards (8): iPhone 390x844, Appearance over the chat, light and dark, before and after (4); iPhone after, Notifications (longest content) light; iPhone after, Memory choice dark; Mac 1280x800 after, Settings light and dark.
+
+Scope: nine `GroupedDialog`s move from `showDialog` to `showAppDialog` (`lib/src/widgets/dialog_presentation.dart`): App Lock, About, Appearance, Settings (Mac only), Notifications, Spotlight (iOS and macOS), Dictation (iOS and macOS), Portable calls (not iOS) and Memory choice. Their content does not change.
+
+- iOS: Material route (fade, `showDialog` barrier, tap outside closes) becomes the Cupertino route (scale-in, Cupertino barrier, tap outside does not close; Done stays, and Esc closes the dialog the same way Done does).
+- macOS: Material route becomes the app's 150 ms fade, theme barrier, click outside closes, as in "Mac dialog presentation".
+- Android, Windows and Linux: unchanged.
+
+Decisions:
+
+- Losing tap-outside on iOS is accepted. Every one of the nine has Done in its header. On iOS a modal panel with a Done button (a Settings-style sheet, a form or page sheet, an alert) is left through its button, and an outside tap is for popovers and action sheets. It also matches every other adaptive dialog in the app on iOS (`showAdaptiveDialog` defaults `barrierDismissible` to false there) and removes accidental closes. In Memory choice a row pick still closes with the value and Done closes with none.
+- Esc keeps closing these dialogs on iOS (a hardware keyboard on iPad): `GroupedDialog` binds Esc to Done on iOS, because the Cupertino route's inert barrier does not.
+- iOS barrier: Cupertino's (`kCupertinoModalBarrierColor`: 0.20 light, 0.478 dark; the design system's `--h-apple-scrim`) replaces `showDialog`'s (black54, 0.541, in light; the theme's 0.60 in dark). One barrier per platform, the same as the other iOS dialogs. Passing `barrierColor` on iOS to keep the old one was rejected: it would need a new `showAppDialog` parameter and would make these nine differ from the rest.
+- macOS barrier: unchanged (theme barrier: black54 in light, 0.60 in dark). Only the route and its 150 ms fade change.
+- Android, Windows, Linux: unchanged.
+
+Contrast (WCAG ratio, dialog panel against the dimmed chat page, iPhone):
+
+| Theme | Barrier before | Barrier after | Before | After |
+|---|---|---|---|---|
+| Light | 0.541 (page #757575) | 0.200 (page #CCCCCC) | 4.61:1 | 1.61:1 |
+| Dark | 0.600 (page #040404) | 0.478 (page #050506) | 1.03:1 | 1.02:1 |
+
+In dark the panel is the page colour and is carried by its 1px zinc500 edge, which stands 4.24:1 off the page before and 4.22:1 after. In light the panel loses 3.0 points and falls below 3:1 (WCAG 1.4.11) if its boundary counts as required graphics; the shadow and 14 pt corners still separate it. Accepted for consistency with the other iOS dialogs.
+
+Open owner decision: a hairline edge on the light panel on iOS (dark already has one) would restore the boundary for every iOS dialog at no cost to the barrier. It is not in this change.
+
+Accepted differences (canvas against Flutter):
+
+- Motion (scale-in on iOS, 150 ms fade on Mac), tap-outside and Esc cannot be shown in a static render.
+- The Flutter dialog is a Material `Dialog` with an elevation shadow; the canvas draws an approximation (`0 6px 18px`), and adds the dark 1px edge (`hermesOverlayEdge`) the design system's inline dialog lacks.
+- The design system's Notifications dialog has no "Messages from Hermes" group or background-check section, and its Settings dialog omits the Mac menu-bar and shortcut rows, so the canvas panels are shorter than the app's.
+- Memory choice has no design-system component; the canvas builds it from `GroupedDialog` and `GroupedChoiceRow`.
+
+Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device. Barrier values read from the Flutter SDK source and `lib/src/theme/hermes_theme.dart`; contrast computed and confirmed by pixel samples of the renders.
