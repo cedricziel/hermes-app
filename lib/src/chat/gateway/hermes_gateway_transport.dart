@@ -126,6 +126,18 @@ const _liveStatuses = {
   'resuming',
 };
 
+/// The code a session-scoped call answers for a runtime session the server does
+/// not have (reaped after its grace, or lost to a restart).
+const _sessionNotFound = 4001;
+
+/// What `session.active_list` says of a reply's session when it is asked about.
+enum _Probe { running, over, refused, closed }
+
+/// How many probes in a row may be refused or unreadable before a silent reply
+/// is given up on as unconfirmed. At the default probe interval that is three
+/// minutes of a server that answers nothing useful.
+const _maxRefusedProbes = 4;
+
 /// A stored session ID qualified by its explicit owning profile.
 typedef _ThreadOwner = (String?, String);
 
@@ -256,6 +268,14 @@ class HermesGatewayTransport
 
   /// The runtime session a reply is in flight in, by the thread it belongs to.
   final _runtimeOf = <_ThreadOwner, String>{};
+
+  /// The runtime session of a reply whose connection could not be won back
+  /// before the reconnect gave up, by thread. The server may still be running
+  /// that turn: opening the thread resumes it with the replay ledger of that
+  /// runtime (so the gap is filled by seq, not rebuilt from nothing), and a
+  /// stop finds it. Dropped once a resume reaches the server, when a new send
+  /// takes the thread over, and with the connection.
+  final _lostReplies = <_ThreadOwner, String>{};
 
   /// The model each thread was last set to from here, by thread.
   final _modelOf = <_ThreadOwner, ModelChoice>{};
@@ -643,6 +663,7 @@ class HermesGatewayTransport
     final idle = _idle.values.toList();
     _idle.clear();
     _settledEarly.clear();
+    _lostReplies.clear();
     _ownedBindings.clear();
     unawaited(_ownedSessions.close());
     unawaited(_connectionEvents.close());

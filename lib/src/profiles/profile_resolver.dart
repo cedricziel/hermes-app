@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
 
+import 'hermes_profiles_repository.dart' show ActiveProfile;
+import 'server_default_profile.dart';
+
 /// A profile name that a request may carry: the chat's own, or else the
 /// profile the dashboard was launched with. Only [ProfileResolver] makes one,
 /// so a repository that asks for it cannot be handed a bare string, a
@@ -23,7 +26,7 @@ class ProfileResolver extends ChangeNotifier {
     : _read = null,
       _launch = name.isEmpty ? null : name;
 
-  final Future<({String active, String current})> Function()? _read;
+  final Future<ActiveProfile> Function()? _read;
   String? _launch;
   Future<String?>? _loading;
 
@@ -42,15 +45,15 @@ class ProfileResolver extends ChangeNotifier {
   Future<String?> _fetch() async {
     final read = _read;
     if (read == null) return null;
-    final ({String active, String current}) answer;
+    final ActiveProfile answer;
     try {
       answer = await read();
     } on Object catch (error) {
       if (_isMissingRoute(error)) return null;
       rethrow;
     }
-    final name = answer.current.isNotEmpty ? answer.current : answer.active;
-    if (name.isEmpty) return null;
+    final name = serverDefaultProfile(answer);
+    if (name == null) return null;
     _launch = name;
     notifyListeners();
     return name;

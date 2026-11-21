@@ -30,6 +30,7 @@ import '../share/shared_item.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../widgets/inspector_layout.dart';
 import 'conversation_window_args.dart';
+import '../chat/tool_value_budget.dart';
 import '../chat/widgets/tool_call_expansion.dart';
 import 'conversation_windows.dart' show kInspectorWindowCommand;
 import 'desktop_conversation_windows.dart';
@@ -80,6 +81,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   /// The tool calls the reader opened. A window holds one chat, so it is never
   /// cleared; it goes with the window.
   final _toolCallExpansion = ToolCallExpansionStore();
+  final _toolValueBudget = ToolValueBudget();
   BrokerQueueStore? _protectedQueue;
   late final AttachmentSource _attachmentSource;
   late final _composerController = TextEditingController(
@@ -394,6 +396,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
       body = boundChatThreadView(
         onShowAgentDetails: _showAgentDetails,
         toolCallExpansion: _toolCallExpansion,
+        toolValueBudget: _toolValueBudget,
         chat: chat,
         thread: thread,
         composerController: _composerController,

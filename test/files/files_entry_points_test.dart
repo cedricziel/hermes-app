@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart'
@@ -281,7 +282,10 @@ void main() {
       final view = menuLayout.singleWhere((s) => s.id == 'view');
       final entry = [for (final group in view.groups) ...group]
           .singleWhere((e) => e.command == MacCommand.showFiles);
-      expect(entry.label, 'Show Files');
+      expect(
+        entry.label(lookupAppLocalizations(const Locale('en'))),
+        'Show Files',
+      );
       final chord = entry.shortcut!;
       expect(chord.shift, isTrue);
       expect(chord.meta, isTrue);

@@ -26,6 +26,7 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/voice/calls/call_bridge.dart';
 import 'package:hermes_app/src/voice/voice_recorder.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
@@ -64,6 +65,7 @@ Future<void> pumpChatScreen(
   TargetPlatform? platform,
   MacCommandRegistry? commands,
   VoiceRecorder? voiceRecorder,
+  CallBridge Function()? callBridge,
   VoiceRecorder? voiceMessageRecorder,
   DisplaySocketOpener? displaySocketOpener,
   TakeoverSetting? takeoverSetting,
@@ -115,6 +117,7 @@ Future<void> pumpChatScreen(
           attachmentSource: attachmentSource,
           starterContext: starterContext,
           voiceRecorder: voiceRecorder,
+          callBridge: callBridge,
           voiceMessageRecorder: voiceMessageRecorder,
           displaySocketOpener: displaySocketOpener,
           takeoverSetting: takeoverSetting,

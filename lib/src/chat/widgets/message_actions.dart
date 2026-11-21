@@ -120,6 +120,7 @@ class _MessageActionsState extends State<MessageActions> {
       return const SizedBox.shrink();
     }
     final color = context.hermesColors.subtleText;
+    final android = isAndroid(context);
     final touch = platformChromeOf(context) == PlatformChrome.ios;
     final box = touch ? kAppleMinTapTarget : 32.0;
     Widget action(String label, AppIconSet icon, VoidCallback? onPressed) =>
@@ -129,9 +130,17 @@ class _MessageActionsState extends State<MessageActions> {
           iconSize: 16,
           color: color,
           onPressed: onPressed,
-          visualDensity: touch ? VisualDensity.standard : VisualDensity.compact,
+          visualDensity: touch || android
+              ? VisualDensity.standard
+              : VisualDensity.compact,
           constraints: BoxConstraints.tightFor(width: box, height: box),
           padding: EdgeInsets.zero,
+          style: android
+              ? IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  minimumSize: const Size.square(32),
+                )
+              : null,
         );
     final running = widget.status.running;
     final problem = widget.status.problem;

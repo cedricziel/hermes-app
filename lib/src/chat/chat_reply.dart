@@ -1,5 +1,11 @@
 import 'chat_models.dart';
 import 'chat_transport.dart';
+import 'gateway/gateway_rpc_client.dart'
+    show
+        GatewayConnectionClosed,
+        GatewayReplyUnconfirmed,
+        GatewaySessionGone,
+        GatewayTurnEnded;
 
 const kReplyFailedMessage = 'Something went wrong. Try sending it again.';
 
@@ -11,6 +17,10 @@ const kProfileUnavailableMessage =
 /// Folds a transport event into the assistant message it belongs to. Thread
 /// events concern the thread, not the reply, and are left to the caller.
 void applyReplyEvent(ChatMessage reply, ChatEvent event) {
+  // An event that reaches the reply came over a connection that works: the
+  // loss it was reconnecting from is over, whatever the event says.
+  reply.reconnecting = false;
+  reply.reconnectIdle = false;
   switch (event) {
     case ReplyDelta(:final text):
       reply.reasoningActive = false;
@@ -168,6 +178,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       reply.pendingError = null;
       reply.errorEventSeen = false;
       reply.settledWithoutCompletion = false;
+      reply.loss = null;
       if (failed) {
         if (partial) {
           // The text is what streamed before the failure: it stays, and the
@@ -235,9 +246,17 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ReplyStatus(:final text, :final kind):
       reply.activity = text.isEmpty ? null : text;
       reply.activityKind = kind;
-    case ReplyRebuilt(:final text):
+    case ReplyRebuilt(:final text, :final continued):
       reply.reasoningActive = false;
       reply.activity = null;
+      if (continued) {
+        // The process that ran these calls is gone: they never report an end,
+        // and the re-run starts its text over.
+        _settleRunningTools(reply, ToolCallStatus.cancelled);
+        reply.content = '';
+        reply.reasoning = '';
+        return;
+      }
       reply.content = _unsealed(reply, text);
       if (text.isNotEmpty && reply.status == MessageStatus.thinking) {
         reply.status = MessageStatus.streaming;
@@ -320,6 +339,71 @@ bool _isSealedOrStreamed(ChatMessage reply, String text) {
   if (text == reply.content) return true;
   final sealed = reply.sealedProse;
   return sealed.isNotEmpty && sealed.last.text == text;
+}
+
+/// Whether [error] says only that the connection was lost, so the server may
+/// still be running the turn: a closed or unreachable gateway. Not a session
+/// the server no longer has ([GatewaySessionGone]) nor a turn it ended without
+/// a reply ([GatewayTurnEnded]), and not an answer it gave. A send that
+/// reported its step ([SendFailure]) is read through its cause, and only once
+/// the prompt was submitted: before that the server may not have the prompt at
+/// all.
+bool isConnectionLost(Object? error) {
+  if (error is SendFailure) {
+    return error.step == SendStep.reply && isConnectionLost(error.cause);
+  }
+  return error is GatewayConnectionClosed &&
+      error is! GatewaySessionGone &&
+      error is! GatewayTurnEnded &&
+      error is! GatewayReplyUnconfirmed;
+}
+
+/// What [error] says about a reply whose turn the server no longer has, or null
+/// when it says nothing of the kind: a session the server does not have, a turn
+/// found over after a restart with nothing to show, or a server that could not
+/// be made to say. A [SendFailure] is read through its cause once the prompt
+/// was submitted.
+ReplyLoss? replyLossOf(Object? error) => switch (error) {
+  SendFailure(:final step, :final cause) =>
+    step == SendStep.reply ? replyLossOf(cause) : null,
+  GatewaySessionGone(:final restarted) =>
+    restarted ? ReplyLoss.restarted : ReplyLoss.notOnServer,
+  GatewayTurnEnded(restarted: true) => ReplyLoss.restarted,
+  GatewayReplyUnconfirmed() => ReplyLoss.unconfirmed,
+  _ => null,
+};
+
+/// Settles [reply] because the server no longer has its turn or could not say
+/// how it ended ([loss]). The text it had stays. Calls still running are
+/// settled by that, as not finished: this is the only thing known of them, and
+/// not a failure of theirs. Nothing is announced as an error text: the note
+/// says what happened.
+void settleLost(ChatMessage reply, ReplyLoss loss) {
+  reply.pendingError = null;
+  reply.errorEventSeen = false;
+  reply.reasoningActive = false;
+  reply.activity = null;
+  reply.reconnecting = false;
+  reply.reconnectIdle = false;
+  reply.error = null;
+  reply.loss = loss;
+  reply.status = MessageStatus.error;
+  _settleRunningTools(reply, ToolCallStatus.cancelled);
+  expireInputRequests(reply);
+}
+
+/// Puts [reply] into the state of a turn whose connection was lost: it stays
+/// pending, keeps its text and its running tool calls as they are (the client
+/// never marks a call failed because its own connection dropped), shows no
+/// error, and is picked up again when the connection can be had. A repeat
+/// while it already is in that state counts as the same loss.
+void markReconnecting(ChatMessage reply) {
+  if (reply.reconnecting || !reply.isPending) return;
+  reply.reconnecting = true;
+  reply.reconnectIdle = false;
+  reply.reconnectEpisodes++;
+  reply.reasoningActive = false;
+  reply.activity = null;
 }
 
 /// Ends [reply] after the stream broke, keeping whatever had streamed. [error]
@@ -414,6 +498,17 @@ bool _wroteSinceLastToolCall(ChatMessage reply) =>
 /// the text sealed so far, so what the reply does after it renders below its
 /// card.
 void _addInputRequest(ChatMessage reply, InputRequest request) {
+  // The server asks again for a request still open after a reconnect: the card
+  // the reply already shows is refreshed, not shown twice.
+  final shown = reply.inputRequests.indexWhere(
+    (r) =>
+        r.requestId == request.requestId &&
+        r.status == InputRequestStatus.pending,
+  );
+  if (shown >= 0) {
+    reply.inputRequests = [...reply.inputRequests]..[shown] = request;
+    return;
+  }
   reply.inputRequests = [...reply.inputRequests, request];
   reply.inputRequestSlots = {
     request.requestId: (
@@ -426,6 +521,8 @@ void _addInputRequest(ChatMessage reply, InputRequest request) {
 
 void _markFailed(ChatMessage reply, String error) {
   reply.reasoningActive = false;
+  reply.reconnecting = false;
+  reply.reconnectIdle = false;
   reply.error = error;
   reply.status = MessageStatus.error;
   _settleRunningTools(reply, ToolCallStatus.error);

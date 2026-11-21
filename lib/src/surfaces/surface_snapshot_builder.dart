@@ -94,7 +94,22 @@ class SurfaceSnapshotBuilder {
     bool redact = false,
     Duration? budget,
   }) async {
-    final openProfile = hints?.profile ?? previous?.profile ?? kDefaultProfile;
+    // With nothing open and nothing kept, the open profile is the one the
+    // dashboard was launched with; `default` only on a server with no
+    // profiles at all.
+    final resolver = _repositories.profiles.resolver;
+    if (refreshRemote && hints?.profile == null && previous?.profile == null) {
+      try {
+        await resolver.load();
+      } on Object {
+        // Unreadable: the snapshot then names the fallback.
+      }
+    }
+    final openProfile =
+        hints?.profile ??
+        previous?.profile ??
+        resolver.launch ??
+        kDefaultProfile;
     final now = _now();
     var profiles = previous?.profiles ?? const <String>[];
     final kept = previous?.recentChats ?? const <RecentChat>[];

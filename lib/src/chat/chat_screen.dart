@@ -10,19 +10,21 @@ import 'context/pages/compress_flow.dart';
 import 'context/context_controller.dart';
 
 import '../voice/calls/active_call.dart';
-import '../voice/calls/call_bridge.dart';
 import '../voice/calls/call_tones.dart';
 import '../voice/calls/call_audio_decoder.dart';
 import '../voice/calls/call_agent.dart';
+import '../voice/calls/call_tts_lease.dart';
 import '../voice/calls/voice_call.dart';
 import '../voice/calls/voice_model_route.dart';
 import '../voice/calls/call_microphone.dart';
+import '../voice/calls/call_bridge.dart';
+import '../voice/calls/portable_call_audio.dart';
+import '../voice/calls/portable_call_settings.dart';
+import '../voice/call_presentation.dart';
 import '../voice/calls/call_readiness_checker.dart';
 import '../voice/calls/call_speech_probe.dart';
 import '../voice/voice_call_screen.dart';
 import '../voice/dictation_dialog.dart';
-
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
@@ -102,6 +104,7 @@ import '../macos/dock/dock_menu_controller.dart';
 import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
+import '../macos/mac_toolbar.dart' show MacToolbarButton;
 import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
 import '../server_care/replies_in_progress.dart';
 import '../shell/shell_navigation.dart';
@@ -159,6 +162,7 @@ import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
 import 'widgets/new_chat_fab.dart';
+import 'tool_value_budget.dart';
 import 'widgets/tool_call_expansion.dart';
 import '../kanban/widgets/task_panel/kanban_task_sheet.dart';
 import '../widgets/inspector_layout.dart';
@@ -212,6 +216,7 @@ class ChatScreen extends StatefulWidget {
     this.shareEntry = 0,
     this.chatProfiles,
     this.voiceRecorder,
+    this.callBridge,
     this.voiceMessageRecorder,
     this.displaySocketOpener,
     this.takeoverSetting,
@@ -291,6 +296,10 @@ class ChatScreen extends StatefulWidget {
   /// own.
   final VoiceRecorder? voiceRecorder;
 
+  /// Makes the call's audio when a call starts; the platform's unless a test
+  /// supplies its own.
+  final CallBridge Function()? callBridge;
+
   /// Optional microphone override for draft audio attachments.
   final VoiceRecorder? voiceMessageRecorder;
 
@@ -319,6 +328,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// dropped when another chat or profile opens (`follow`) and with this
   /// screen, so on sign-out.
   final _toolCallExpansion = ToolCallExpansionStore();
+  final _toolValueBudget = ToolValueBudget();
 
   /// Tells the update question how many replies this chat has running.
   RepliesInProgress? _repliesCount;
@@ -385,6 +395,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   SessionActivity? _sessionActivity;
   final _composerController = TextEditingController();
   VoiceCall? _voiceCall;
+  PortableCallSettings? _callSettings;
 
   /// Where [_voiceCall] was announced, so this screen lets go of it on dispose.
   ActiveCallRegistry? _callRegistry;
@@ -494,6 +505,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
     _finds = _maybeRead<AgentMessageFinds>()?..addListener(_onAgentMessages);
+    _callSettings = _maybeRead<PortableCallSettings>()
+      ?..addListener(_callSettingsChanged);
     final liveActivities = _maybeRead<LiveActivities?>();
     final appLock = _maybeRead<AppLockController>();
     final auth = _maybeRead<AuthController>();
@@ -1008,6 +1021,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _windows?.removeListener(_advertise);
     _attention.dispose();
     _sessionActivity?.removeListener(_callOwnerChanged);
+    _callSettings?.removeListener(_callSettingsChanged);
     _voiceCall?.removeListener(_callChanged);
     // A disposed call tells nobody that it ended; the registry ends it first
     // and keeps what the shell's strip still has to say. It acts only on the
