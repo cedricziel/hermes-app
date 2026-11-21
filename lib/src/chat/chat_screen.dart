@@ -636,6 +636,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           telemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
         ),
       )..addListener(_memoryWaitingChanged);
+      // A launch profile read that failed leaves no count; count when a later
+      // read succeeds.
+      _chat.profileResolver?.addListener(_launchProfileKnown);
     }
     if (auth != null &&
         transport is GatewayConnectionTransport &&
@@ -802,6 +805,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     blocked: _chat.threadListInvalidationBlocked,
   );
 
+  /// Counts the changes waiting in the chat's profile, or the launch profile
+  /// when the chat has none of its own. With neither known (the shell reads
+  /// the launch profile at connect) nothing is asked and no count shows.
+  Future<void> _refreshMemoryWaiting({bool ifStale = false}) async {
+    final waiting = _memoryWaiting;
+    if (waiting == null) return;
+    final profile = _chat.profileResolver?.resolve(_chat.profile);
+    await (ifStale
+        ? waiting.refreshIfStale(profile)
+        : waiting.refresh(profile));
+  }
+
+  void _launchProfileKnown() => unawaited(_refreshMemoryWaiting());
+
   void _memoryWaitingChanged() {
     if (mounted) setState(() {});
   }
@@ -817,7 +834,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _syncExport();
     final loading = _chat.loadingThreads;
     if (_wasLoadingThreads && !loading) {
-      unawaited(_memoryWaiting?.refresh(_chat.profile));
+      unawaited(_refreshMemoryWaiting());
     }
     _wasLoadingThreads = loading;
     final thread = _chat.selectedThread;
@@ -993,7 +1010,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _refreshReadAloud();
     _chat.checkConnection();
     unawaited(_chat.refreshModelOptionsOnResume());
-    unawaited(_memoryWaiting?.refreshIfStale(_chat.profile));
+    unawaited(_refreshMemoryWaiting(ifStale: true));
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
 
@@ -1042,6 +1059,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
     _toolsAvailability?.removeListener(_toolsAvailabilityChanged);
+    _chat.profileResolver?.removeListener(_launchProfileKnown);
     _memoryWaiting
       ?..removeListener(_memoryWaitingChanged)
       ..dispose();

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_usage.dart';
@@ -29,8 +30,8 @@ void main() {
     final repository = MemoryRepository(server.client().raw);
     final controller = MemoryController();
     addTearDown(controller.dispose);
-    controller.bind(repository, 'old');
-    controller.bind(repository, 'new');
+    controller.bind(repository, resolvedProfile('old'));
+    controller.bind(repository, resolvedProfile('new'));
     await pumpEventQueue();
     held.complete((status: 200, body: memoryGraph));
     await pumpEventQueue();
@@ -45,7 +46,10 @@ void main() {
     server.onRequest('GET', '/api/learning/node', (_) => held.future);
     final controller = MemoryController();
     addTearDown(controller.dispose);
-    controller.bind(MemoryRepository(server.client().raw), 'work');
+    controller.bind(
+      MemoryRepository(server.client().raw),
+      resolvedProfile('work'),
+    );
     await pumpEventQueue();
     final opening = controller.open(controller.entries.first);
     controller.bind(null, null);
@@ -63,7 +67,10 @@ void main() {
     server.onRequest('GET', '/api/learning/node', (_) => held.future);
     final controller = MemoryController();
     addTearDown(controller.dispose);
-    controller.bind(MemoryRepository(server.client().raw), 'work');
+    controller.bind(
+      MemoryRepository(server.client().raw),
+      resolvedProfile('work'),
+    );
     await pumpEventQueue();
     final opening = controller.open(controller.entries.first);
     controller.showList();
@@ -100,7 +107,10 @@ void main() {
         );
       final controller = MemoryController(breadcrumbs: breadcrumbs);
       addTearDown(controller.dispose);
-      controller.bind(MemoryRepository(server.client().raw), 'work');
+      controller.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       await pumpEventQueue();
       return controller;
     }
@@ -140,7 +150,10 @@ void main() {
         ..on('GET', '/api/config', {}, status: 500);
       final controller = MemoryController();
       addTearDown(controller.dispose);
-      controller.bind(MemoryRepository(server.client().raw), 'work');
+      controller.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       await pumpEventQueue();
       expect(controller.failure, isNull);
       expect(controller.entries, hasLength(1));

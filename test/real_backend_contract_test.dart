@@ -3820,7 +3820,7 @@ void main() {
 
     MemoryDecisions decisions() => MemoryDecisions(
       available: () => true,
-      run: (command) => session.run('default', command),
+      run: (command) => session.run(resolvedProfile('default'), command),
       surface: 'inbox',
     );
 
@@ -3868,7 +3868,9 @@ void main() {
       );
 
       final proposals = {
-        for (final p in (await repository.load('default')).memory.proposals)
+        for (final p in (await repository.load(
+          resolvedProfile('default'),
+        )).memory.proposals)
           p.id: p,
       };
 
@@ -3910,7 +3912,8 @@ void main() {
 
       expect(inbox.stateOf(id).phase, MemoryDecisionPhase.saved);
       expect(memoryFile.readAsStringSync(), startsWith('Prefers spaces'));
-      final listed = (await repository.load('default')).proposals;
+      final listed = (await repository.load(resolvedProfile('default')))
+          .proposals;
       expect(listed.map((p) => p.id), isNot(contains(id)));
     }, skip: skip);
 
@@ -3967,7 +3970,8 @@ void main() {
         expect(inbox.stateOf(id).text, startsWith('Entry changed'));
         expect(memoryFile.readAsStringSync(), startsWith('Prefers tabs in Go'));
         expect(
-          (await repository.load('default')).proposals.map((p) => p.id),
+          (await repository.load(resolvedProfile('default'))).proposals
+              .map((p) => p.id),
           contains(id),
         );
       },
@@ -3988,7 +3992,8 @@ void main() {
       expect(inbox.stateOf(id).phase, MemoryDecisionPhase.rejected);
       expect(userFile.readAsStringSync(), 'Likes tea, no sugar');
       expect(
-        (await repository.load('default')).proposals.map((p) => p.id),
+        (await repository.load(resolvedProfile('default'))).proposals
+            .map((p) => p.id),
         isNot(contains(id)),
       );
     }, skip: skip);
@@ -3999,7 +4004,8 @@ void main() {
         'target': 'user',
         'content': 'Runs on a Mac',
       }, summary: 'add to user profile: Runs on a Mac');
-      final listed = (await repository.load('default')).proposals
+      final listed = (await repository.load(resolvedProfile('default')))
+          .proposals
           .where((p) => p.id == first)
           .toList();
       final later = stage('memory', {
@@ -4016,7 +4022,8 @@ void main() {
       expect(inbox.stateOf(later).phase, MemoryDecisionPhase.idle);
       expect(userFile.readAsStringSync(), isNot(contains('chess')));
       expect(
-        (await repository.load('default')).proposals.map((p) => p.id),
+        (await repository.load(resolvedProfile('default'))).proposals
+            .map((p) => p.id),
         contains(later),
       );
     }, skip: skip);
@@ -4033,11 +4040,14 @@ void main() {
         origin: 'background_review',
       );
 
-      final snapshot = await repository.load('default');
+      final snapshot = await repository.load(resolvedProfile('default'));
       final skill = snapshot.skills.proposals.singleWhere((p) => p.id == id);
       expect(skill.skillName, 'contract-check');
       expect(skill.background, isTrue);
-      expect(await repository.diff('default', id), startsWith('---\nname:'));
+      expect(
+        await repository.diff(resolvedProfile('default'), id),
+        startsWith('---\nname:'),
+      );
 
       final inbox = decisions();
       addTearDown(inbox.dispose);
@@ -4049,7 +4059,7 @@ void main() {
       'a command the server does not know answers Unknown command',
       () async {
         expect(
-          await session.run('default', '/nosuch pending'),
+          await session.run(resolvedProfile('default'), '/nosuch pending'),
           startsWith('Unknown command'),
         );
       },
@@ -4060,8 +4070,8 @@ void main() {
       final before = (await HermesChatRepository(
         client.raw,
       ).loadThreads()).map((t) => t.id).toSet();
-      await repository.load('default');
-      await repository.load('default');
+      await repository.load(resolvedProfile('default'));
+      await repository.load(resolvedProfile('default'));
       final after = (await HermesChatRepository(
         client.raw,
       ).loadThreads()).map((t) => t.id).toSet();

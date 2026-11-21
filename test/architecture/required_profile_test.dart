@@ -26,7 +26,7 @@ void main() {
   test('a memory request carries the profile it was given', () async {
     final server = FakeHermesServer()
       ..on('GET', '/api/learning/graph', {'nodes': <Object?>[]});
-    await MemoryRepository(server.client().raw).count('work');
+    await MemoryRepository(server.client().raw).count(resolvedProfile('work'));
 
     expect(server.requests.single.queryParameters['profile'], 'work');
   });
