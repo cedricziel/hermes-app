@@ -21,6 +21,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RAW_DIR="$ROOT_DIR/build/screenshots"
+# shellcheck source=profile-names.sh
+source "$ROOT_DIR/scripts/profile-names.sh"
 PORT="${SHOT_PORT:-45777}"
 IPHONE="${SHOT_IPHONE:-iPhone 17 Pro Max}"
 IPAD="${SHOT_IPAD:-iPad Pro 13-inch (M5)}"
@@ -53,7 +55,14 @@ sys.exit(f"no simulator named {name} for {runtime}")
 }
 
 start_backend() {
-  local home="$ROOT_DIR/.dart_tool/hermes-dev/home"
+  local home state
+  # The directory dev-backend.sh binds its home to, resolved. Hermes expands
+  # `$` and `~` in HERMES_HOME, so it is checked before the seeding gets it.
+  state="$(canonical_resolved_path "$ROOT_DIR/.dart_tool/hermes-dev")" || {
+    echo "refusing: $ROOT_DIR/.dart_tool/hermes-dev is not a canonical absolute path once resolved (no //, ., .., ~, \$ or backtick)" >&2
+    exit 3
+  }
+  home="$state/home"
   "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
   rm -f "$home"/state.db*
   "$ROOT_DIR/scripts/dev-backend.sh" start >&2 || exit 1
