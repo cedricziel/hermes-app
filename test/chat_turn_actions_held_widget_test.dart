@@ -17,6 +17,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+import 'support/test_localizations.dart';
 
 /// What the person sees under a reply that ended on a lost connection while the
 /// server may still run its turn: Retry and Edit dimmed with a line that says
@@ -64,7 +65,7 @@ void main() {
         child: MaterialApp(
           theme: buildHermesLightTheme(),
           locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: ChatScreen(
             repository: HermesChatRepository(server.client().raw),
