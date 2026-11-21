@@ -35,8 +35,11 @@ if [ "${WORKFLOWS:-1}" != 0 ]; then
     # warning at the end, never a failure of the script.
     mac_log=$(mktemp)
     WORKFLOW_PLATFORM=macOS flutter test test/workflows 2>&1 | tee "$mac_log" || true
-    mac_failed=$(grep -a '\[E\]' "$mac_log" | sed 's/^[0-9:]* *[+-][0-9]* *\(-[0-9]*\)\{0,1\}: *//' | sort -u | wc -l | tr -d ' ' || true)
-    mac_files=$(grep -a '\[E\]' "$mac_log" | grep -ao 'workflows/[a-z_0-9]*\.dart' | sort | uniq -c | sort -rn || true)
+    # One entry per failed test: a test with several [E] lines (the +N -N ~N
+    # counters change between them) is one.
+    mac_tests=$(grep -a '\[E\]' "$mac_log" | sed 's/^[0-9:]* *[+-][0-9]*\( *[-~][0-9]*\)*: *//; s/ *\[E\]$//' | sort -u || true)
+    mac_failed=$(printf '%s' "$mac_tests" | grep -c . || true)
+    mac_files=$(printf '%s' "$mac_tests" | grep -ao 'workflows/[a-z_0-9]*\.dart' | sort | uniq -c | sort -rn || true)
     rm -f "$mac_log"
   fi
 fi

@@ -329,14 +329,24 @@ Future<TapSample> measureWorkflowScreen(
 /// of the root theme it rendered with (what `WORKFLOW_PLATFORM` or the test's
 /// `platform:` set; Android when neither did), whatever the window size; the
 /// window class is recorded beside it.
+///
+/// A run with `WORKFLOW_PLATFORM` set records only the screens whose theme
+/// really has that platform: tests that ignore the variable (or pin their own
+/// `platform:`) already ran in the default pass and are not counted twice.
+/// [dir] and [run] default to `HERMES_TAP_DIR` and `WORKFLOW_PLATFORM`.
 Future<void> recordWorkflowScreen(
   WidgetTester tester,
   String flow,
-  String step,
-) async {
+  String step, {
+  String? dir,
+  String? run,
+}) async {
+  run ??= Platform.environment['WORKFLOW_PLATFORM'];
   final sample = await measureWorkflowScreen(tester, '$flow/$step');
-  final run = Platform.environment['WORKFLOW_PLATFORM'] ?? 'default';
-  final file = File('$tapReportDir/workflows/$run/$flow.jsonl');
+  if (run != null && sample.rendered != run) return;
+  final file = File(
+    '${dir ?? tapReportDir}/workflows/${run ?? 'default'}/$flow.jsonl',
+  );
   file.parent.createSync(recursive: true);
   file.writeAsStringSync(
     '${jsonEncode(sample.toJson())}\n',
@@ -344,11 +354,11 @@ Future<void> recordWorkflowScreen(
   );
 }
 
-List<TapSample> readWorkflowSamples() {
-  final dir = Directory('$tapReportDir/workflows');
-  if (!dir.existsSync()) return [];
+List<TapSample> readWorkflowSamples({String? dir}) {
+  final root = Directory('${dir ?? tapReportDir}/workflows');
+  if (!root.existsSync()) return [];
   final files =
-      dir
+      root
           .listSync(recursive: true)
           .whereType<File>()
           .where((f) => f.path.endsWith('.jsonl'))
@@ -464,14 +474,6 @@ class TapReport {
     return list.take(n).toList();
   }
 
-  Map<String, int> get skippedByPlatform {
-    final out = <String, int>{};
-    for (final s in samples.where((s) => s.skipped && s.reason == null)) {
-      out[s.rendered ?? '?'] = (out[s.rendered ?? '?'] ?? 0) + 1;
-    }
-    return out;
-  }
-
   /// Passes not judged because the use case pins another platform, by reason.
   Map<String, int> get skippedPasses {
     final out = <String, int>{};
@@ -486,7 +488,6 @@ class TapReport {
     ...meta,
     'thresholds': tapThresholds,
     'screensMeasured': _judged.length,
-    'screensSkipped': skippedByPlatform,
     'passesSkipped': skippedPasses,
     'targetsMeasured': _judged.fold<int>(0, (n, s) => n + s.targets.length),
     // Distinct (platform, screen, label, size): the number to climb down.
@@ -537,9 +538,6 @@ class TapReport {
     );
     if (skippedPasses.isNotEmpty) {
       b.writeln('  skipped passes (use case pins a platform): $skippedPasses');
-    }
-    if (skippedByPlatform.isNotEmpty) {
-      b.writeln('  skipped screens by rendered platform: $skippedByPlatform');
     }
     for (final p in tapThresholds.keys) {
       b.writeln('\nTop $p labels (screens  label  size)');
