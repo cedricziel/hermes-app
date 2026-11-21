@@ -15,7 +15,7 @@ run it: hooks exist only in Claude Code sessions, and nothing under
 
 Do what the message says; do not look for another spelling of the same command.
 The messages are the rules: no `--no-verify`/`-n`, no `core.hooksPath` change,
-no `git stash`, no staging everything (`git add -A`, `.`, `commit -a`), no force
+no `git stash`, no `git worktree prune` (any form), no staging everything (`git add -A`, `.`, `commit -a`), no force
 push or remote branch deletion, no rebase of a branch that exists on origin,
 no commit before `dart run tool/setup_git_hooks.dart`, no touching the real
 `~/.hermes`, no `pkill -f`/`killall`.
