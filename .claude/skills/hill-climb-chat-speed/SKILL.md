@@ -12,7 +12,7 @@ frame. It is not under `test/`, so CI never runs it.
 ## Run it
 
 ```bash
-scripts/chat-bench.sh --mode test 5            # debug JIT on the widget-test binding, ~14 min a run
+scripts/chat-bench.sh --mode test 5            # debug JIT on the widget-test binding, ~18 min a run
 scripts/chat-bench.sh --mode profile 5         # real Linux app, AOT, under Xvfb, ~13 min a run
 scripts/chat-bench.sh --mode test 3 's4b|s3'   # filter: a regex on scenario ids
 CHAT_BENCH_PHASES=1 CHAT_BENCH_FILTER=s4b flutter test benchmark/chat_render_bench_test.dart -j 1
@@ -63,17 +63,21 @@ layout+paint; read `rebuilt_per_frame` to see whether a change cut rebuilds.
 Machine noise drifts, so never run all of A and then all of B.
 
 ```bash
-git worktree add ../hermes-base origin/main       # baseline
+AB=${CHAT_BENCH_AB:-${TMPDIR:-/tmp}/hermes-chat-ab}    # scratch dir, outside the repo
+mkdir -p "$AB" && git worktree add --detach "$AB/base" origin/main   # baseline
 # candidate = this checkout
 for i in 1 2 3 4 5; do
-  (cd ../hermes-base && flutter pub get >/dev/null && CHAT_BENCH_DIR=/tmp/ab/base-$i scripts/chat-bench.sh --mode test 1 "$FILTER")
-  CHAT_BENCH_DIR=/tmp/ab/cand-$i scripts/chat-bench.sh --mode test 1 "$FILTER"
+  (cd "$AB/base" && flutter pub get >/dev/null && CHAT_BENCH_DIR="$AB/base-$i" scripts/chat-bench.sh --mode test 1 "$FILTER")
+  CHAT_BENCH_DIR="$AB/cand-$i" scripts/chat-bench.sh --mode test 1 "$FILTER"
 done
-python3 -I scripts/chat_bench_aggregate.py /tmp/ab/base.json /tmp/ab/base-*/test/run-1.json
-python3 -I scripts/chat_bench_aggregate.py /tmp/ab/cand.json /tmp/ab/cand-*/test/run-1.json
+python3 -I scripts/chat_bench_aggregate.py "$AB/base.json" "$AB"/base-*/test/run-1.json
+python3 -I scripts/chat_bench_aggregate.py "$AB/cand.json" "$AB"/cand-*/test/run-1.json
+git worktree remove --force "$AB/base" && rm -rf "$AB"    # clean up
 ```
 
-Same machine, nothing else running, one test process at a time. Compare the
+Same machine, nothing else running, one test process at a time. Measure one
+benchmark at a time on a machine: wrap runs in `flock -o <lockfile> scripts/chat-bench.sh ...`
+(`-o` keeps a background child from inheriting the lock). Compare the
 medians; treat a difference as real only when it is larger than about twice the
 CV of that scenario and statistic (below). Copy `benchmark/` and
 `scripts/chat-bench.sh` into the baseline worktree if it predates them. Confirm
@@ -102,7 +106,7 @@ CV of the per-run value, across runs:
 - Sending a prompt pins it to the top of the list; `FollowingChatList` stops
   following when a disclosure is opened, and the end of the list is an
   estimate until items are laid out. The tool-call scenario scrolls to the end
-  again before tapping, and skips a tap whose target was not built.
+  again before tapping, and fails the run when a tap does not land (s3 opens six disclosures).
 - Loading a page remounts the list and drops a held drag: the scroll scenario
   starts a new drag when the list stops moving, and looks the scrollable up
   every frame.

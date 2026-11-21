@@ -197,6 +197,9 @@ List<Message> chatMessageToFlyer(
             ? media.text
             : insertTableBlankLines(media.text),
         metadata: switch (m.status) {
+          MessageStatus.error when m.loss != null && m.error == null => {
+            kMetaLoss: m.loss!.name,
+          },
           MessageStatus.error => {kMetaError: m.error ?? kReplyFailedMessage},
           MessageStatus.streaming => {kMetaStreaming: true},
           _ when m.stopped => {kMetaStopped: true},

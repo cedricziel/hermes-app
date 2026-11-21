@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:hermes_app/src/windows/conversation_windows_menu.dart';
@@ -18,7 +19,7 @@ void main() {
   late ConversationWindows windows;
   late List<String> mainCommands;
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {Locale? locale}) async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     registry = MacCommandRegistry();
@@ -36,35 +37,45 @@ void main() {
       host.dispose();
       registry.dispose();
     });
+    Widget app(Widget child) => locale == null
+        ? child
+        : Localizations(
+            locale: locale,
+            delegates: AppLocalizations.localizationsDelegates,
+            child: child,
+          );
     await tester.pumpWidget(
-      ChangeNotifierProvider<ConversationWindows?>.value(
-        value: windows,
-        child: MacCommandScope.root(
-          registry: registry,
-          child: MacCommandScope(
-            priority: 1,
-            commands: {
-              MacCommand.back: MacCommandHandler(
-                () => mainCommands.add('back'),
-              ),
-              MacCommand.forward: MacCommandHandler(
-                () => mainCommands.add('forward'),
-              ),
-              MacCommand.closeWindow: MacCommandHandler(
-                () => mainCommands.add('close'),
-              ),
-              MacCommand.pinThread: MacCommandHandler(
-                () => mainCommands.add('pin'),
-              ),
-              MacCommand.showMainWindow: MacCommandHandler(
-                () => mainCommands.add('main'),
-              ),
-            },
-            child: const ConversationWindowsMenu(child: SizedBox()),
+      app(
+        ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: MacCommandScope(
+              priority: 1,
+              commands: {
+                MacCommand.back: MacCommandHandler(
+                  () => mainCommands.add('back'),
+                ),
+                MacCommand.forward: MacCommandHandler(
+                  () => mainCommands.add('forward'),
+                ),
+                MacCommand.closeWindow: MacCommandHandler(
+                  () => mainCommands.add('close'),
+                ),
+                MacCommand.pinThread: MacCommandHandler(
+                  () => mainCommands.add('pin'),
+                ),
+                MacCommand.showMainWindow: MacCommandHandler(
+                  () => mainCommands.add('main'),
+                ),
+              },
+              child: const ConversationWindowsMenu(child: SizedBox()),
+            ),
           ),
         ),
       ),
     );
+    await tester.pump();
   }
 
   Future<void> focus(WidgetTester tester, String id) async {
@@ -177,6 +188,24 @@ void main() {
     await tester.pump();
 
     expect(registry.handlerFor(MacCommand.pinThread)!.title, 'Unpin');
+  });
+
+  testWidgets('the key window\'s Pin and Show Inspector titles are German', (
+    tester,
+  ) async {
+    await pump(tester, locale: const Locale('de'));
+    await windows.open('s1', profile: null, title: 'A');
+    await focus(tester, 'w0');
+    expect(registry.handlerFor(MacCommand.pinThread)!.title, 'Anheften');
+    expect(
+      registry.handlerFor(MacCommand.toggleInspector)!.title,
+      'Informationen einblenden',
+    );
+
+    await host.call('title', {'window_id': 'w0', 'title': 'A', 'pinned': true});
+    await tester.pump();
+
+    expect(registry.handlerFor(MacCommand.pinThread)!.title, 'Lösen');
   });
 
   testWidgets('Open in New Window is off while a conversation window is key', (

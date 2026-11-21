@@ -3,7 +3,7 @@
 #   scripts/chat-bench.sh [--mode test|profile] [runs] [scenario-filter]
 #
 # --mode test     (default) `flutter test benchmark/chat_render_bench_test.dart`:
-#                 debug JIT on the test binding, fake clock, ~8 min a run.
+#                 debug JIT on the test binding, fake clock, ~18 min a run.
 # --mode profile  `flutter drive --profile -d linux` under Xvfb: the real
 #                 Linux app in AOT with no debug asserts, measured with the
 #                 engine's FrameTiming (buildDuration = UI thread). Needs the
@@ -12,7 +12,8 @@
 #                 xvfb). Set CHAT_BENCH_DYNAMIC_MIMALLOC=1 where GitHub
 #                 downloads are blocked (apt install libmimalloc-dev): it
 #                 links mimalloc dynamically for this run by patching
-#                 linux/CMakeLists.txt and restoring it on exit.
+#                 linux/CMakeLists.txt and restoring it, and removing
+#                 build/linux, on exit.
 #
 # `runs` defaults to 5; the filter is a regular expression matched against the
 # scenario ids (s1-markdown, s2-code-blocks, s2b-fences-100/300/1000,
@@ -20,6 +21,8 @@
 # s7-mac-sidebar). Results land in build/chat_bench/<mode>/ (override with
 # CHAT_BENCH_DIR): run-<n>.json per run and aggregate.json. Runs go one after
 # the other, so they do not compete for CPU; keep the machine otherwise idle.
+# Profile mode takes about 13 min a run. Measure one benchmark at a time on a
+# machine: wrap runs in `flock -o <lockfile> scripts/chat-bench.sh ...`.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -40,7 +43,15 @@ if [ "$mode" = profile ] && [ -n "${CHAT_BENCH_DYNAMIC_MIMALLOC:-}" ]; then
     echo "linux/CMakeLists.txt has local changes; refusing to patch it" >&2
     exit 1
   fi
-  trap 'git checkout -- linux/CMakeLists.txt' EXIT
+  # The forced cache entry lives on in build/linux/CMakeCache.txt, so the
+  # build directory goes with the patch, also on Ctrl-C, kill or a failed run.
+  restore_cmake() {
+    git checkout -- linux/CMakeLists.txt
+    rm -rf build/linux
+  }
+  trap restore_cmake EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
   sed -i '/^add_subdirectory(${FLUTTER_MANAGED_DIR})/i set(MIMALLOC_USE_STATIC_LIBS OFF CACHE BOOL "dynamic mimalloc" FORCE)' linux/CMakeLists.txt
   # A build directory configured without it keeps the old install prefix.
   rm -rf build/linux

@@ -224,7 +224,8 @@ void registerScenarios() {
       }
 
       // Opening a disclosure animates for about 200 ms; measure every frame.
-      // A target the list did not build is skipped, and not counted.
+      // A target the list did not build is not counted; the scenario fails
+      // below unless every one of the six taps landed.
       var opened = 0;
       Future<void> open(Future<bool> Function() tap) async {
         var done = false;
@@ -275,14 +276,17 @@ void registerScenarios() {
         }
       }
       // Then the reader opens the last two groups and the first call of
-      // each.
-      for (var n = 0; n < 2; n++) {
-        await open(() => _tapNthLowest(tester, find.text('Used 5 tools'), n));
-        await open(() => _tapNthLowest(tester, find.text(firsts[7 - n]), 0));
-      }
+      // each. Both headers first, and the older group's call before the
+      // newer one's: an opened call is thousands of pixels tall and pushes
+      // the other group out of the built range.
+      await open(() => _tapNthLowest(tester, find.text('Used 5 tools'), 0));
+      await open(() => _tapNthLowest(tester, find.text('Used 5 tools'), 1));
+      await open(() => _tapNthLowest(tester, find.text(firsts[6]), 0));
+      await open(() => _tapNthLowest(tester, find.text(firsts[7]), 0));
       chat.send.emit(ReplyCompleted(markdownReply(80, seed: 8)));
       await tick();
       await _finish(chat);
+      expect(opened, 6, reason: 'every disclosure tap must land');
       await record(
         's3-tool-calls',
         width,
@@ -374,9 +378,6 @@ void registerScenarios() {
       final before = chat.server
           .requestsTo('GET', '/api/sessions/$threadId/messages')
           .length;
-      // A fast flick, scripted: the list moves 600 px per frame towards the
-      // oldest message (a dragged gesture is resampled by the binding and
-      // would not move the same distance on every run).
       // A fast flick, scripted: a held drag moves the list 600 px per frame
       // towards the oldest message. Loading a page remounts the list under the
       // finger, which drops the drag, so a stalled drag starts again.
