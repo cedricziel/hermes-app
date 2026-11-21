@@ -41,8 +41,11 @@ class FrameLog {
 
   /// Real time since the first frame of this log, measured or not.
   double get wallMs => _wall.elapsedMicroseconds / 1000;
-  int _startUs = 0;
-  int _endUs = 0;
+
+  /// Profile mode: the [start, end] of every measured pump on the timeline
+  /// clock. Pumps made between them (a scroll that prepares a tap) are not
+  /// part of the measurement, so their frames are not counted.
+  final _spans = <(int, int)>[];
   int pumps = 0;
 
   /// Pumps one frame and records what it cost. [before] runs inside the
@@ -54,10 +57,10 @@ class FrameLog {
   }) async {
     _wall.start();
     if (profileMode) {
-      if (pumps == 0) _startUs = Timeline.now;
+      final start = Timeline.now;
       if (before != null) await before();
       await tester.pump(frameStep);
-      _endUs = Timeline.now;
+      _spans.add((start, Timeline.now));
       pumps++;
       return;
     }
@@ -173,14 +176,19 @@ class FrameLog {
     await tester.pump(frameStep);
   }
 
-  /// In profile mode, picks the engine's timings of the measured window. They
-  /// reach the app in batches, so this waits for the last ones.
+  /// In profile mode, picks the engine's timings of the frames that started
+  /// inside a measured pump. `Timeline.now` and `FrameTiming` timestamps are
+  /// both microseconds on the engine's monotonic clock, and a pump awaits its
+  /// frame, so a frame's vsync start falls inside the span of the pump that
+  /// produced it (`frameNumber` is not used: the engine's extra frames have no
+  /// pump to match). The timings reach the app in batches, so this waits for
+  /// the last ones.
   Future<void> resolve() async {
     if (!profileMode) return;
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     for (final t in _timings) {
       final at = t.timestampInMicroseconds(FramePhase.vsyncStart);
-      if (at < _startUs || at > _endUs) continue;
+      if (!_spans.any((s) => at >= s.$1 && at <= s.$2)) continue;
       ms.add(t.buildDuration.inMicroseconds / 1000);
       raster.add(t.rasterDuration.inMicroseconds / 1000);
     }

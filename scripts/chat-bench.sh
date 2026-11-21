@@ -15,7 +15,7 @@
 #                 linux/CMakeLists.txt and restoring it, and removing
 #                 build/linux, on exit.
 #
-# `runs` defaults to 5; the filter is a regular expression matched against the
+# `runs` is a positive integer (default 5; anything else exits 64); the filter is a regular expression matched against the
 # scenario ids (s1-markdown, s2-code-blocks, s2b-fences-100/300/1000,
 # s3-tool-calls, s4a-tables, s4b-lists, s5-open-2000, s6-typing,
 # s7-mac-sidebar). Results land in build/chat_bench/<mode>/ (override with
@@ -33,10 +33,17 @@ if [ "${1:-}" = "--mode" ]; then
 fi
 case "$mode" in test | profile) ;; *) echo "unknown mode: $mode" >&2; exit 64 ;; esac
 runs=${1:-5}
+case "$runs" in
+  '' | *[!0-9]* | 0 | 0[0-9]*)
+    echo "usage: $0 [--mode test|profile] [runs] [scenario-filter]" >&2
+    echo "runs must be a positive integer, got: $runs" >&2
+    exit 64
+    ;;
+esac
 filter=${2:-}
 dir=${CHAT_BENCH_DIR:-build/chat_bench}/$mode
 mkdir -p "$dir"
-rm -f "$dir"/run-*.json
+rm -f "$dir"/run-*.json "$dir"/aggregate.json
 
 if [ "$mode" = profile ] && [ -n "${CHAT_BENCH_DYNAMIC_MIMALLOC:-}" ]; then
   if ! git diff --quiet -- linux/CMakeLists.txt; then
