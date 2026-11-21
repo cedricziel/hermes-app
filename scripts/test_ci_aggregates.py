@@ -529,6 +529,17 @@ _DOT_COMMAND = re.compile(r"\.(?=\s)")
 _COMMAND_WORDS = {"then", "do", "else", "elif", "if", "while", "until", "!", "time"}
 
 
+_CONTINUATION = re.compile(r"(?<!\\)((?:\\\\)*)\\\n")
+
+
+def raw_substitution_at(script, position):
+    """The raw `<(` / `>(` pattern at `position`, seeing through backslash-
+    newline pairs. It over-approximates (single quotes and quoted heredoc
+    bodies do not join), which only ever flags more."""
+    chunk = _CONTINUATION.sub(r"\1", script[position : position + 96])
+    return _RAW_SUBSTITUTION.match(chunk)
+
+
 def at_command_position(segment):
     """True when the next word starts a command: at the start of a segment,
     after `;`, `&`, `|`, `(`, `{`, a newline, or a reserved word."""
@@ -575,9 +586,6 @@ def commands(script):
     workflow scripts. `<<<` is not a heredoc. Heredocs are recognised in every
     command context, and the delimiter word has its quotes and backslashes
     removed. `${{ ... }}` expressions are skipped as a whole."""
-    # A backslash-newline (an odd run of backslashes before the newline)
-    # joins lines in every context, so `<` + newline + `(a)` is `<(a)`.
-    script = re.sub(r"(?<!\\)((?:\\\\)*)\\\n", r"\1", script)
     results = []
     stack = [["cmd", 0, False]]  # kind, paren depth, nested ($( or <( )
     segment, segments, hit = [], [], False
@@ -621,8 +629,8 @@ def commands(script):
         # Blunt rule: a literal `<(` or `>(` anywhere (quotes, comments,
         # heredoc bodies and ${{ }} included, an escaped one too) belongs to
         # the current command, which then needs the marker.
-        if _RAW_SUBSTITUTION.match(script, index) or (
-            char == "\\" and _RAW_SUBSTITUTION.match(script, index + 1)
+        if raw_substitution_at(script, index) or (
+            char == "\\" and raw_substitution_at(script, index + 1)
         ):
             hit = True
         if script.startswith("${{", index) and script.find("}}", index) != -1:
@@ -653,7 +661,8 @@ def commands(script):
                     stack.pop()
         elif kind == "dq":
             if char == "\\" and index + 1 < length:
-                segment.append(pair)
+                if script[index + 1] != "\n":  # a continuation joins lines
+                    segment.append(pair)
                 index += 1
             elif char == '"':
                 segment.append(char)
@@ -670,7 +679,8 @@ def commands(script):
         else:  # a command context
             top_level = len(stack) == 1
             if char == "\\" and index + 1 < length:
-                segment.append(" " if script[index + 1] == "\n" else pair)
+                if script[index + 1] != "\n":  # a continuation joins lines
+                    segment.append(pair)
                 index += 1
             elif pair == "$'":
                 segment.append(pair)
@@ -787,6 +797,17 @@ def commands(script):
                             end = length if end == -1 else end
                             line = script[position:end].rstrip("\r")
                             position = min(end + 1, length)
+                            while (
+                                not quoted
+                                and position < length
+                                and (len(line) - len(line.rstrip("\\"))) % 2 == 1
+                            ):
+                                # An unquoted body joins a line ending in a
+                                # backslash with the next one.
+                                end = script.find("\n", position)
+                                end = length if end == -1 else end
+                                line = line[:-1] + script[position:end].rstrip("\r")
+                                position = min(end + 1, length)
                             if (line.lstrip("\t") if tabs else line) == delimiter:
                                 break
                             body.append(line)
@@ -794,7 +815,9 @@ def commands(script):
                         # in the body, which can run a process substitution.
                         if not quoted and expands("\n".join(body)):
                             unreadable = True
-                        if _RAW_SUBSTITUTION.search("\n".join(body)):
+                        if _RAW_SUBSTITUTION.search(
+                            _CONTINUATION.sub(r"\1", "\n".join(body))
+                        ):
                             # Pinned to the command that opened the heredoc.
                             if heredoc_id in owner_result:
                                 opener = results[owner_result[heredoc_id]]
@@ -1100,10 +1123,63 @@ class ProcessSubstitution(unittest.TestCase):
             "diff <\\\n(a)",
             "diff >\\\n(a)",
             'echo "<\\\n(a)"',
-            "echo hi # <\\\n(a)",
             "x=$(diff <\\\n(a))",
         ):
             with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_a_comment_does_not_continue_onto_the_next_line(self):
+        # bash ends a comment at the newline whatever precedes it, so the diff
+        # is its own, unmarked command.
+        script = (
+            "# process-substitution-ok: see below \\\n"
+            "diff <(echo a) <(echo a)"
+        )
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_a_quoted_heredoc_body_does_not_join_lines(self):
+        # `C:\` at the end of a body line must not swallow the EOF line: the
+        # heredoc closes there, and the diff after it is an unmarked command.
+        script = (
+            "bash <<'EOF' # process-substitution-ok: r\n"
+            "C:\\\n"
+            "EOF\n"
+            "diff <(a) <(b)"
+        )
+        self.assertTrue(unmarked_substitutions(script))
+
+    def test_an_unquoted_heredoc_body_joins_lines(self):
+        # Here `x \` joins the EOF line into the body, so the heredoc stays
+        # open until the second EOF and its marked body covers the `<(y)`.
+        script = (
+            "cat <<EOF # process-substitution-ok: r\n"
+            "x \\\n"
+            "EOF\n"
+            "<(y)\n"
+            "EOF"
+        )
+        self.assertEqual(unmarked_substitutions(script), [])
+        quoted = script.replace("<<EOF", "<<'EOF'")
+        self.assertTrue(unmarked_substitutions(quoted))
+
+    def test_continuations_are_joined_only_where_bash_joins(self):
+        def text(script):
+            return commands(script)[0][0]
+
+        self.assertEqual(text("echo a\\\nb"), "echo ab")
+        self.assertEqual(text('echo "a\\\nb"'), 'echo "ab"')
+        self.assertEqual(text("echo 'a\\\nb'"), "echo 'a\\\nb'")
+        self.assertEqual(text("echo $'a\\\nb'"), "echo $'a\\\nb'")
+
+    def test_a_line_continuation_in_single_quotes_is_not_a_substitution(self):
+        # Not joined: `<` newline `(a)` in single quotes stays two lines. The
+        # raw check over-approximates, so this is still flagged (fail closed).
+        self.assertTrue(unmarked_substitutions("echo '<\\\n(a)'"))
+
+    def test_a_continued_substitution_in_a_heredoc_body_is_flagged(self):
+        for delimiter in ("EOF", "'EOF'"):
+            with self.subTest(delimiter=delimiter):
+                script = f"cat <<{delimiter}\n<\\\n(x)\nEOF"
                 self.assertTrue(unmarked_substitutions(script))
 
     def test_an_escaped_backslash_is_no_continuation(self):

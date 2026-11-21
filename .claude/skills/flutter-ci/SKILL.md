@@ -260,7 +260,9 @@ bodies and `${{ }}` included, and needs the marker (a blunt rule that closes the
 evasions a structured reader cannot see, such as arithmetic-evaluated quotes);
 a `${{ format(...) }}` or any `${{ }}` holding a quote is flagged (it can
 assemble shell text, as in `${{ '<' }}(a)`), and an expanding heredoc body with a live
-`$(` or backtick (an even number of backslashes before it) too. Line continuations are joined first; `<` and `>` followed by quotes or
+`$(` or backtick (an even number of backslashes before it) too. Line continuations are joined where bash joins them (command text, double
+quotes, `$(...)` and unquoted heredoc bodies), not after a comment, in single
+quotes, in `$'...'` or in a quoted heredoc body; `<` and `>` followed by quotes or
 backslashes before `(` count too. `eval`, `source`, `.`, `sh -c`/`bash -c`, a
 pipe into a shell and `}}(` are unreadable and no marker approves them, and a
 heredoc body's literal `<(` is pinned to the command that opened the heredoc.
