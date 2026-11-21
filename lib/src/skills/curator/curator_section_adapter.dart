@@ -9,8 +9,9 @@ import 'curator_status.dart';
 ///
 /// The controller's `unsupported` load hides the section before this is
 /// called (`CuratorController.visible`), so it has no view. Hermes' own text
-/// (a refused pause, a spawn failure, a failed pass's last line) never
-/// reaches the controller, so the three detail fields stay empty.
+/// (a refused pause, a spawn failure, a failed pass's last line) comes from
+/// the controller already cleaned for display and capped, and is null when
+/// there is none, when the app is locked or away, or after a drop.
 CuratorSectionModel curatorSectionModel(CuratorController c, {DateTime? now}) {
   final status = c.status;
   return CuratorSectionModel(
@@ -23,11 +24,15 @@ CuratorSectionModel curatorSectionModel(CuratorController c, {DateTime? now}) {
     notStarted: c.notStarted == null
         ? null
         : curatorNotStartedView(c.notStarted!),
+    notStartedDetail: c.notStartedDetail,
+    pauseDetail: c.pauseDetail,
+    failureLine: c.failureLine,
     checking: c.checking,
     checkFailed: c.checkFailed,
     startedAt: c.startedAt,
     outputLines: c.outputLines,
     earlierLines: c.earlierLines,
+    outputLineCount: c.outputLineCount,
     hasOutput: c.hasOutput,
     outputBlanked: c.blanked,
     outputDropped: c.outputDropped,
