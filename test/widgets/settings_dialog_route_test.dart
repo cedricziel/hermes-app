@@ -105,12 +105,10 @@ void main() {
         expect(_dialog, findsNothing);
       });
 
-      // Recorded, not endorsed: plain showDialog closed on Esc on iOS too;
-      // the Cupertino route has no Esc binding.
-      testWidgets('iOS: Esc leaves it open', (tester) async {
+      testWidgets('iOS: Esc closes it like Done', (tester) async {
         await _show(tester, TargetPlatform.iOS, open);
         await _esc(tester);
-        expect(_dialog, findsOneWidget);
+        expect(_dialog, findsNothing);
       });
     });
   }
@@ -129,4 +127,55 @@ void main() {
     expect(picked, 'off');
     expect(_dialog, findsNothing);
   });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets('${platform.name}: Esc pops the dialog only, once', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: kTestLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: buildHermesLightTheme().copyWith(platform: platform),
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (page) => Scaffold(
+                    body: TextButton(
+                      onPressed: () => _memoryChoice(page),
+                      child: const Text('Page two'),
+                    ),
+                  ),
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Page two'));
+      await tester.pumpAndSettle();
+      expect(_dialog, findsOneWidget);
+      await _esc(tester);
+      expect(_dialog, findsNothing);
+      expect(find.text('Page two'), findsOneWidget);
+    });
+
+    testWidgets('${platform.name}: Esc with focus in a row closes it', (
+      tester,
+    ) async {
+      await _show(tester, platform, _memoryChoice);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        primaryFocus?.context?.findAncestorWidgetOfExactType<GroupedDialog>(),
+        isNotNull,
+      );
+      await _esc(tester);
+      expect(_dialog, findsNothing);
+    });
+  }
 }

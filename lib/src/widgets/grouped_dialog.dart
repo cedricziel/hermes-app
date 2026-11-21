@@ -7,6 +7,7 @@ import '../../l10n/l10n.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'grouped_list.dart';
+import 'route_dismissal.dart';
 
 /// A grouped settings or form dialog using the platform's page chrome.
 /// Custom [actions] replace the default Done button.
@@ -37,7 +38,7 @@ class GroupedDialog extends StatelessWidget {
       PlatformChrome.material => (560.0, 28.0),
     };
     final rowsHeight = _RowsHeight();
-    return Dialog(
+    final dialog = Dialog(
       backgroundColor: theme.scaffoldBackgroundColor,
       surfaceTintColor: Colors.transparent,
       // A phone gives the rows, and a warning beside a switch, the width.
@@ -101,6 +102,17 @@ class GroupedDialog extends StatelessWidget {
           ),
         ),
       ),
+    );
+    // Esc does what Done does; the Cupertino route has no Esc of its own.
+    if (chrome != PlatformChrome.ios || actions != null) return dialog;
+    return Actions(
+      actions: {
+        DismissIntent: CallbackAction<DismissIntent>(
+          onInvoke: (_) => dismissRoute(context),
+        ),
+      },
+      // Focus must sit inside, or the key event never reaches the Actions.
+      child: Focus(autofocus: true, skipTraversal: true, child: dialog),
     );
   }
 }
