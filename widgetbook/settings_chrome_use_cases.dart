@@ -37,6 +37,10 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
         ),
         ...onEachPlatform('Switches', (_) => _list(_switchSections())),
         ...onEachPlatform(
+          'Switch states: off, on, disabled',
+          (_) => _list(_switchStateSections()),
+        ),
+        ...onEachPlatform(
           'Meta, warning and selection',
           (_) => _list(_metaSection()),
         ),
@@ -264,6 +268,28 @@ List<Widget> _switchSections() => [
     header: 'Danger zone',
     children: [
       GroupedRow(title: 'Remove plugin', destructive: true, onTap: () {}),
+    ],
+  ),
+];
+
+/// Every state of the switch, so an off switch can be checked against the row
+/// in both themes (WCAG 1.4.11: 3:1 for its boundary and its thumb).
+List<Widget> _switchStateSections() => [
+  GroupedSection(
+    header: 'Switch states',
+    children: [
+      GroupedSwitchRow(title: 'Off', value: false, onChanged: (_) {}),
+      GroupedSwitchRow(title: 'On', value: true, onChanged: (_) {}),
+      const GroupedSwitchRow(
+        title: 'Disabled, off',
+        value: false,
+        onChanged: null,
+      ),
+      const GroupedSwitchRow(
+        title: 'Disabled, on',
+        value: true,
+        onChanged: null,
+      ),
     ],
   ),
 ];

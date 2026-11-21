@@ -46,9 +46,10 @@ Decisions and limits:
 - The spacing scale is provisional (no spacing token yet): 0, 2, 4, 6, 8, 12, 16, 20,
   24, 32, 40, 48, 56, 64. It is the const `spacingScale` in `tool/style_score/scanner.dart`;
   change it there when a token lands. 10 and 14 are off-scale on purpose.
-- A plain `Switch` counts even though the theme has `_AppleSwitchAdaptation`: that
-  adaptation only recolours the track and thumb of the Material switch (it does not make
-  it a Cupertino switch), so on iOS and macOS a plain `Switch` still draws Material.
+- A plain `Switch` counts even though the theme has `_SwitchAdaptation`: that
+  adaptation only recolours the Material switch (track and thumb on iOS and macOS, the
+  off outline and thumb on Android, Windows and Linux); it does not make it a Cupertino
+  switch, so on iOS and macOS a plain `Switch` still draws Material.
 - `showAdaptiveDialog` counts as a bypass of `showAppDialog` (it skips the macOS path).
 - Syntactic only: constants (`kGap`, `kHermesRadius`), computed values (`base * 2`) and dot
   shorthands (`.all(8)`) are not seen. A `SizedBox` used as a fixed-size box inside a
