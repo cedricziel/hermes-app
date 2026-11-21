@@ -46,10 +46,16 @@ To see one widget in every state without a flow around it, use the
   its `builder:`. Without it `mui.Theme.of` does not throw but falls back to the
   light theme, so dark markdown headings draw near-black (1.17:1) and code blocks
   draw light on a dark page, in the screenshot and never in the app.
-  `test/app_theme_scopes_test.dart` enforces it: it derives the widgets that read
-  the theme from `lib/` and fails, naming the file and the widget, for a test
-  that builds an app, references one and mounts nothing (navigation-only roots
-  `AppShell`, `MacProfilesPage` and `HermesApp` do not count as readers). Add new app-level
+  `test/app_theme_scopes_test.dart` enforces it. It derives the readers from
+  `lib/` (every class, function, getter or extension that reads `mui.Theme.of`,
+  draws `GptMarkdown`, or mentions one that does; the navigation-only roots
+  `AppShell`, `MacProfilesPage` and `HermesApp` do not count). A `*_test.dart`
+  file fails, naming the file and the readers, when it references one and builds
+  an app whose own `builder:` or `home:` does not call `AppThemeScopes(`,
+  `MaterialUiThemeScope(`, `FlyerMaterialScope(` or `mui.Theme(`, or calls a
+  helper (any function or class under `test/` outside `*_test.dart` files) whose
+  app does not. A mention in a string, an import or a `find.byType` does not
+  count, and one mounted app does not excuse another in the same file. Add new app-level
   theme scopes inside `AppThemeScopes`. `test/app_theme_scopes_test.dart` compares
   the theme-like inherited widgets above the `Navigator` in `HermesApp` and
   `pumpScreen` (a scope added in `app.dart` that the harness lacks fails it; a
