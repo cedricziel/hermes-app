@@ -44,38 +44,69 @@ bool linuxSessionBusAvailable({
   return (exists ?? _socketExists)(path);
 }
 
-/// An address the `dbus` package can open. It reads the whole value as one
-/// address (no `;` list) and opens only `unix:` with a `path=` or `abstract=`
-/// and `tcp:` with a `host=`, a numeric `port=` and, if given, `family=` ipv4
-/// or ipv6; every property must be `key=value`. Anything else (such as the
-/// `disabled:` that switches D-Bus off) makes the package throw, so the plugin
-/// is not started for it.
+/// An address the `dbus` package can open, as its `DBusAddress` parser reads
+/// it (the package is not a direct dependency: a direct one would have to
+/// follow the latest release, which this app has not verified): the whole
+/// value is one address, every property is `key=value` with `%nn` escapes
+/// decoded, and no key repeats. Only `unix:` with a `path=` or `abstract=`
+/// and `tcp:` with a `host=`, a `port=` from 0 to 65535 and, if given,
+/// `family=` ipv4 or ipv6 are opened. Anything else (such as the `disabled:`
+/// that switches D-Bus off) makes the package throw, so the plugin is not
+/// started for it.
 bool usableBusAddress(String address) {
-  Map<String, String>? props(String rest) {
-    final out = <String, String>{};
+  final colon = address.indexOf(':');
+  if (colon < 0) return false;
+  final transport = address.substring(0, colon);
+  final props = <String, String>{};
+  final rest = address.substring(colon + 1);
+  if (rest.isNotEmpty) {
     for (final p in rest.split(',')) {
       final eq = p.indexOf('=');
-      if (eq <= 0) return null;
-      out[p.substring(0, eq)] = p.substring(eq + 1);
+      if (eq < 0) return false;
+      final key = p.substring(0, eq);
+      if (props.containsKey(key)) return false;
+      final value = _decodeBusValue(p.substring(eq + 1));
+      if (value == null) return false;
+      props[key] = value;
     }
-    return out;
   }
-
-  if (address.startsWith('unix:')) {
-    final p = props(address.substring(5));
-    return p != null &&
-        ((p['path']?.isNotEmpty ?? false) ||
-            (p['abstract']?.isNotEmpty ?? false));
+  if (transport == 'unix') {
+    return (props['path']?.isNotEmpty ?? false) ||
+        (props['abstract']?.isNotEmpty ?? false);
   }
-  if (address.startsWith('tcp:')) {
-    final p = props(address.substring(4));
-    final family = p?['family'];
-    return p != null &&
-        (p['host']?.isNotEmpty ?? false) &&
-        int.tryParse(p['port'] ?? '') != null &&
+  if (transport == 'tcp') {
+    final port = int.tryParse(props['port'] ?? '');
+    final family = props['family'];
+    return (props['host']?.isNotEmpty ?? false) &&
+        port != null &&
+        port >= 0 &&
+        port <= 65535 &&
         (family == null || family == 'ipv4' || family == 'ipv6');
   }
   return false;
+}
+
+/// A `%nn`-escaped address value, decoded the way the `dbus` package does, or
+/// null when it cannot be.
+String? _decodeBusValue(String encoded) {
+  try {
+    final bytes = utf8.encode(encoded);
+    final out = <int>[];
+    for (var i = 0; i < bytes.length; i++) {
+      if (bytes[i] == 0x25) {
+        if (i + 3 > bytes.length) return null;
+        out.add(
+          int.parse(utf8.decode([bytes[i + 1], bytes[i + 2]]), radix: 16),
+        );
+        i += 2;
+      } else {
+        out.add(bytes[i]);
+      }
+    }
+    return utf8.decode(out);
+  } on Object {
+    return null;
+  }
 }
 
 bool _socketExists(String path) {
@@ -375,7 +406,6 @@ class LocalNotificationService
 
   /// Set when the Linux plugin's D-Bus setup failed, even after `initialize`
   /// returned; the service is unsupported from then on.
-  var _linuxBusFailed = false;
 
   /// Whether a call that waits for a D-Bus reply (`show`) ever got one, an
   /// error reply included. `initialize` returns at once, listing calls throw
@@ -386,8 +416,26 @@ class LocalNotificationService
   @visibleForTesting
   int get pendingGuardedCalls => _pendingCalls.length;
 
-  void _markBusFailed() {
-    _linuxBusFailed = true;
+  /// Set while the failure is only a timeout's verdict, which a late answer
+  /// to the call that timed out takes back. A bus failure never is.
+  var _timeoutLatched = false;
+  var _failedForGood = false;
+
+  bool get _linuxBusFailed => _failedForGood || _timeoutLatched;
+
+  /// A call that waits for the bus got its answer, possibly after it timed
+  /// out: a verdict that only a timeout reached is taken back.
+  void _answered() {
+    _busResponded = true;
+    _timeoutLatched = false;
+  }
+
+  void _markBusFailed({bool byTimeout = false}) {
+    if (byTimeout) {
+      _timeoutLatched = true;
+    } else {
+      _failedForGood = true;
+    }
     for (final fail in _pendingCalls.toList()) {
       fail();
     }
@@ -404,7 +452,7 @@ class LocalNotificationService
     final timer = Timer(kLinuxCallTimeout, () {
       // A bus that never answered is dead; one that has answered before may
       // only be slow (a notification daemon starting on demand).
-      if (!_busResponded) _markBusFailed();
+      if (!_busResponded) _markBusFailed(byTimeout: true);
       if (!out.isCompleted) {
         out.completeError(TimeoutException('D-Bus call', kLinuxCallTimeout));
       }
@@ -416,12 +464,12 @@ class LocalNotificationService
     _pendingCalls.add(fail);
     Future.sync(call).then(
       (value) {
-        if (awaitsBus) _busResponded = true;
+        if (awaitsBus) _answered();
         if (!out.isCompleted) out.complete(value);
       },
       onError: (Object error, StackTrace stack) {
         // A local throw before Notify went out proves nothing about the bus.
-        if (awaitsBus && isDBusReplyError(error)) _busResponded = true;
+        if (awaitsBus && isDBusReplyError(error)) _answered();
         if (!out.isCompleted) out.completeError(error, stack);
       },
     );

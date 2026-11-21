@@ -1657,6 +1657,93 @@ void main() {
       });
     });
 
+    test(
+      'a first show that answers after the deadline takes the timeout back',
+      () {
+        fakeAsync((async) {
+          final plugin = _FakePlugin()..showGate = Completer<void>();
+          final service = serviceWith(plugin, bus: true);
+          NotificationPostResult? result;
+          service.post(note).then((r) => result = r);
+          async.flushMicrotasks();
+          async.elapse(kLinuxCallTimeout);
+          async.flushMicrotasks();
+          expect(result?.status, NotificationPostStatus.failed);
+
+          // The bus had answered; the plugin's cache write was what was slow.
+          plugin.showGate!.complete();
+          async.flushMicrotasks();
+          plugin.showGate = null;
+
+          NotificationPostResult? next;
+          service.post(note).then((r) => next = r);
+          async.flushMicrotasks();
+          expect(next?.status, NotificationPostStatus.accepted);
+          debugDefaultTargetPlatformOverride = null;
+        });
+      },
+    );
+
+    test('a bus failure is not taken back by a later answer', () {
+      fakeAsync((async) {
+        late Zone pluginZone;
+        final plugin = _FakePlugin()
+          ..showGate = Completer<void>()
+          ..duringInitialize = () {
+            pluginZone = Zone.current;
+          };
+        final service = serviceWith(plugin, bus: true);
+        NotificationPostResult? result;
+        service.post(note).then((r) => result = r);
+        async.flushMicrotasks();
+        pluginZone.handleUncaughtError(
+          const SocketException('dead bus'),
+          StackTrace.current,
+        );
+        async.flushMicrotasks();
+        expect(result?.status, NotificationPostStatus.failed);
+
+        plugin.showGate!.complete();
+        async.flushMicrotasks();
+
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+        expect(next?.status, NotificationPostStatus.unsupported);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    });
+
+    test('a timeout followed by a bus failure is not taken back either', () {
+      fakeAsync((async) {
+        late Zone pluginZone;
+        final plugin = _FakePlugin()
+          ..showGate = Completer<void>()
+          ..duringInitialize = () {
+            pluginZone = Zone.current;
+          };
+        final service = serviceWith(plugin, bus: true);
+        service.post(note);
+        async.flushMicrotasks();
+        async.elapse(kLinuxCallTimeout);
+        async.flushMicrotasks();
+        pluginZone.handleUncaughtError(
+          const SocketException('dead bus'),
+          StackTrace.current,
+        );
+        async.flushMicrotasks();
+
+        plugin.showGate!.complete();
+        async.flushMicrotasks();
+
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+        expect(next?.status, NotificationPostStatus.unsupported);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    });
+
     test('a slow call on a bus that answered before fails only that call', () {
       fakeAsync((async) {
         final plugin = _FakePlugin();
@@ -1901,6 +1988,11 @@ void main() {
         'tcp:host=x,port=1,family=ipv5',
         'tcp:port=1',
         'unix:path=/x,bad',
+        'unix:path=/a,path=/b',
+        'tcp:host=x,port=70000',
+        'tcp:host=x,port=-1',
+        'unix:path=%zz',
+        'unix:path=%2',
         'unix:dir=/tmp',
         'disabled:;unix:path=/x',
       ]) {
@@ -1917,6 +2009,10 @@ void main() {
         'unix:path=/x',
         'unix:abstract=/tmp/dbus-x',
         'tcp:host=localhost,port=1',
+        'tcp:host=x,port=1234',
+        'tcp:host=x,port=%312345',
+        'tcp:host=x,port=65535',
+        'unix:path=%2Frun%2Fbus',
       ]) {
         expect(
           check({'DBUS_SESSION_BUS_ADDRESS': address}, {}),
