@@ -21,16 +21,25 @@ Future<void> settle(WidgetTester tester) async {
 }
 
 void main() {
+  late FakeHermesServer server;
+  var shellGeneration = 0;
+
   setUp(() {
+    shellGeneration = 0;
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
   });
 
-  testWidgets('each status chip on a phone keeps its own scroll position', (
-    tester,
-  ) async {
-    final server = FakeHermesServer()
-      ..on('GET', '/api/plugins/kanban/boards', kanbanBoardsBody([]))
+  setUp(() {
+    server = FakeHermesServer()
+      ..on(
+        'GET',
+        '/api/plugins/kanban/boards',
+        kanbanBoardsBody([
+          (slug: 'default', name: 'Default', total: 24, current: true),
+          (slug: 'ops', name: 'Ops', total: 24, current: false),
+        ]),
+      )
       ..on(
         'GET',
         '/api/plugins/kanban/board',
@@ -45,54 +54,111 @@ void main() {
           ],
         ]),
       );
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+  });
+
+  Future<void> pumpShell(WidgetTester tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthController>(
         create: (_) => AuthController(),
         child: MaterialApp(
           theme: buildHermesLightTheme(platform: TargetPlatform.android),
-          home: ShellMenu(
-            onOpen: () {},
-            child: KanbanScreen(
-              repository: KanbanRepository(server.client()),
-              connect: ({required since, board}) async =>
-                  StreamChannelController<String>().foreign,
+          // A new key is a new owner: the shell and the board below it are
+          // rebuilt, but the route's PageStorage stays.
+          home: KeyedSubtree(
+            key: ValueKey(shellGeneration),
+            child: ShellMenu(
+              onOpen: () {},
+              child: KanbanScreen(
+                repository: KanbanRepository(server.client()),
+                connect: ({required since, board}) async =>
+                    StreamChannelController<String>().foreign,
+              ),
             ),
           ),
         ),
       ),
     );
     await settle(tester);
+  }
 
-    Future<void> showChip(String label) async {
-      final chip = find.text(label);
-      await tester.ensureVisible(chip);
-      await settle(tester);
-      await tester.tap(chip);
-      await settle(tester);
-    }
+  Future<void> showChip(WidgetTester tester, String label) async {
+    final chip = find.text(label);
+    await tester.ensureVisible(chip);
+    await settle(tester);
+    await tester.tap(chip);
+    await settle(tester);
+  }
 
-    ScrollableState list(String firstCard) => tester.state<ScrollableState>(
-      find
-          .ancestor(of: find.text(firstCard), matching: find.byType(Scrollable))
-          .first,
-    );
+  ScrollableState list(WidgetTester tester, String firstCard) =>
+      tester.state<ScrollableState>(
+        find
+            .ancestor(
+              of: find.text(firstCard),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
 
-    await showChip('Running 12');
-    final running = list('Running job 0');
+  /// Opens Running on a phone and scrolls it to the bottom.
+  Future<void> openRunningAtBottom(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await pumpShell(tester);
+    await showChip(tester, 'Running 12');
+    final running = list(tester, 'Running job 0');
     running.position.jumpTo(running.position.maxScrollExtent);
     await settle(tester);
+    expect(find.text('Running job 0'), findsNothing);
+  }
+
+  void expectAtTop(WidgetTester tester) {
+    expect(list(tester, 'Running job 0').position.pixels, 0);
+  }
+
+  testWidgets('each status chip on a phone keeps its own scroll position', (
+    tester,
+  ) async {
+    await openRunningAtBottom(tester);
+
+    await showChip(tester, 'Todo 12');
+    expect(list(tester, 'Todo job 0').position.pixels, 0);
+
+    await showChip(tester, 'Running 12');
     expect(find.text('Running job 11'), findsOneWidget);
     expect(find.text('Running job 0'), findsNothing);
+  });
 
-    await showChip('Todo 12');
-    expect(find.text('Todo job 0'), findsOneWidget);
-    expect(list('Todo job 0').position.pixels, 0);
+  testWidgets('a search puts the column back at its top', (tester) async {
+    await openRunningAtBottom(tester);
 
-    await showChip('Running 12');
-    expect(find.text('Running job 11'), findsOneWidget);
-    expect(find.text('Running job 0'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'Running');
+    await settle(tester);
+
+    expectAtTop(tester);
+  });
+
+  testWidgets('switching board puts the column back at its top', (
+    tester,
+  ) async {
+    await openRunningAtBottom(tester);
+
+    await tester.tap(find.byTooltip('Switch board'));
+    await settle(tester);
+    await tester.tap(find.text('Ops (24)'));
+    await settle(tester);
+    await showChip(tester, 'Running 12');
+
+    expectAtTop(tester);
+  });
+
+  testWidgets('a rebuilt shell starts its columns at the top', (tester) async {
+    await openRunningAtBottom(tester);
+
+    shellGeneration++;
+    await pumpShell(tester);
+    await showChip(tester, 'Running 12');
+
+    expectAtTop(tester);
   });
 }

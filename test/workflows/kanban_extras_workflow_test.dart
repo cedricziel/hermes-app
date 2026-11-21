@@ -684,20 +684,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.widgetWithText(Chip, 'All assignees'), findsOneWidget);
       await showColumn(tester, size, 'Running');
-      if (!wide(size)) {
-        // The running list comes back where it was left, scrolled down in an
-        // earlier step; the filters since left it fewer tasks, so go to its top.
-        final running = tester.state<ScrollableState>(
-          find
-              .descendant(
-                of: find.byType(ListView).last,
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        );
-        running.position.jumpTo(0);
-        await tester.pumpAndSettle();
-      }
       expect(columnLabel(size, 'Running', 7), findsOneWidget);
       expect(card(richTitle), findsOneWidget);
 

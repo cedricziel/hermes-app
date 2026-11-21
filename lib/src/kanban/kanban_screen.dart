@@ -70,6 +70,9 @@ class KanbanScreen extends StatefulWidget {
 
 class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
+
+  /// Saved phone list offsets; owned here so a rebuilt shell starts at the top.
+  final _offsets = PageStorageBucket();
   late final KanbanRepository _repository;
   late final AppLifecycleListener _lifecycle;
 
@@ -518,51 +521,64 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final shown = _controller.shownStatus;
     final tasks =
         columns.where((c) => c.name == shown).firstOrNull?.tasks ?? const [];
-    return Column(
-      children: [
-        KanbanStatusChips(
-          columns: columns,
-          selected: shown,
-          onSelected: _controller.showStatus,
-        ),
-        Expanded(
-          child: Stack(
-            children: [
-              PlatformRefresh(
-                onRefresh: _controller.refresh,
-                child: tasks.isEmpty
-                    ? ListView(
-                        key: PageStorageKey<String>('kanban-status-$shown'),
-                        children: const [
-                          SizedBox(height: 80),
-                          Center(child: Text('No tasks here')),
-                        ],
-                      )
-                    : ListView.separated(
-                        // One saved offset per status chip.
-                        key: PageStorageKey<String>('kanban-status-$shown'),
-                        padding: EdgeInsets.fromLTRB(
-                          12,
-                          12,
-                          12,
-                          12 + _fabInset,
-                        ),
-                        itemCount: tasks.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _item(tasks[i], narrow: true),
-                      ),
-              ),
-              if (tasks.any((t) => t.id == _dragId))
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: KanbanDropStrip(onDrop: _move),
-                ),
-            ],
+    // An offset belongs to one status of one board under one set of filters.
+    final scope = [
+      _controller.boardSlug,
+      _controller.tenant,
+      _controller.assignee,
+      _controller.includeArchived,
+      _controller.query,
+      shown,
+    ].join('\u0000');
+    return PageStorage(
+      bucket: _offsets,
+      child: Column(
+        children: [
+          KanbanStatusChips(
+            columns: columns,
+            selected: shown,
+            onSelected: _controller.showStatus,
           ),
-        ),
-      ],
+          Expanded(
+            child: Stack(
+              children: [
+                PlatformRefresh(
+                  onRefresh: _controller.refresh,
+                  child: tasks.isEmpty
+                      ? ListView(
+                          key: PageStorageKey<String>(scope),
+                          children: const [
+                            SizedBox(height: 80),
+                            Center(child: Text('No tasks here')),
+                          ],
+                        )
+                      : ListView.separated(
+                          // One saved offset per status chip.
+                          key: PageStorageKey<String>(scope),
+                          padding: EdgeInsets.fromLTRB(
+                            12,
+                            12,
+                            12,
+                            12 + _fabInset,
+                          ),
+                          itemCount: tasks.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (_, i) => _item(tasks[i], narrow: true),
+                        ),
+                ),
+                if (tasks.any((t) => t.id == _dragId))
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: KanbanDropStrip(onDrop: _move),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
