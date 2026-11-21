@@ -123,6 +123,13 @@ together.
   equivalent alone, since the AAD binds the scope hash and the JSON check
   still rejects a record moved between scopes. Only removing both changes
   behaviour, which needs a multi-edit mutant.
+- `queue` q12 (record id vs file name): the AAD binds the file name and
+  `_save` derives the name from the id, so a record that opens always matches.
+- `queue` q18 (attachment size check): the blob is sealed under a name-bound
+  AAD and its size is taken from the same bytes (`bytes.length`).
+- `model` mo05 (`profile != _profile` after the await in `_loadModelOptions`):
+  `_profile` only changes in `_loadThreads`, which bumps `_loadGeneration`
+  first, so the generation guard beside it already rejects the late answer.
 
 ## The removal rule
 

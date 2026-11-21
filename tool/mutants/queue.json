@@ -155,13 +155,6 @@
       "note": "accepted records not purged on load"
     },
     {
-      "id": "q12",
-      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
-      "old": "if (_recordName(record.id) != name) throw const FormatException();",
-      "new": "if (false) throw const FormatException();",
-      "note": "record id vs file name unchecked"
-    },
-    {
       "id": "q13",
       "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
       "old": "records.sort((a, b) => a.sequence.compareTo(b.sequence));",
@@ -195,13 +188,6 @@
       "old": "record.submissionClaimHash != _hash(claim))) {",
       "new": "false)) {",
       "note": "wrong claim may restore a started submission (resend)"
-    },
-    {
-      "id": "q18",
-      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
-      "old": "if (bytes.length != attachment.size) {",
-      "new": "if (false) {",
-      "note": "attachment corruption unchecked"
     },
     {
       "id": "q19",

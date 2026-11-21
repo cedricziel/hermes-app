@@ -194,13 +194,6 @@
       "note": "warmingUnchanged never cleared"
     },
     {
-      "id": "mo05",
-      "file": "lib/src/chat/chat_controller_history.dart",
-      "old": "        profile != _profile) {\n      return;\n    }\n    if (options != null)",
-      "new": "        false) {\n      return;\n    }\n    if (options != null)",
-      "note": "late answer for old profile applied"
-    },
-    {
       "id": "mo06",
       "file": "lib/src/chat/chat_controller_history.dart",
       "old": "if (_modelOptionsState != ModelOptionsState.loading) {",
