@@ -122,14 +122,19 @@ class SkillUpdatesSection extends StatelessWidget {
 
   static const _label = 'Check for updates';
 
-  static final _macButtonStyle = OutlinedButton.styleFrom(
-    minimumSize: const Size(0, 22),
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    visualDensity: VisualDensity.compact,
-    textStyle: const TextStyle(fontSize: 12),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-  );
+  static const _hubTitle = 'Hub skills';
+
+  /// The Mac's small bordered button: the theme's label style at 12 pt.
+  static ButtonStyle _macButtonStyle(BuildContext context) =>
+      OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 22),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        textStyle: Theme.of(context).textTheme.labelLarge
+            ?.copyWith(fontSize: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -137,17 +142,17 @@ class SkillUpdatesSection extends StatelessWidget {
       PlatformChrome.macos => LayoutBuilder(
         builder: (context, box) {
           final label = context.l10n.skillsCheckForUpdatesMac;
-          final style = _macButtonStyle;
+          final style = _macButtonStyle(context);
           // Past the width the button fits beside the title, it goes on a
           // line of its own. Its own accessibility node at every size, so a
           // screen reader finds the same controls however large the text.
           return GroupedRow(
-            title: 'Hub skills',
+            title: _hubTitle,
             separateTrailing: true,
             trailingBelow: trailingActionStacks(
               context,
               width: box.maxWidth,
-              title: 'Hub skills',
+              title: _hubTitle,
               actionLabel: label,
               buttonStyle: style,
             ),

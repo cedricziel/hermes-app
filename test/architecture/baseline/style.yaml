@@ -489,7 +489,7 @@ style.string:
   lib/src/skills/skill_editor_screen.dart: 7
   lib/src/skills/skill_job_sheet.dart: 1
   lib/src/skills/skills_screen.dart: 10
-  lib/src/skills/widgets/installed_skills_list.dart: 4
+  lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_detail_actions.dart: 4
   lib/src/skills/widgets/skill_security_scan.dart: 3
   lib/src/spotlight/spotlight_dialog.dart: 1

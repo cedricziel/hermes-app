@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
@@ -198,4 +199,59 @@ void main() {
       });
     }
   });
+
+  testWidgets('the Mac button keeps the theme label style at 1x', (
+    tester,
+  ) async {
+    await _pump(tester, _macUpdates, scale: 1, size: _phone);
+    final label = _l10n(tester, find.byType(Scaffold)).skillsCheckForUpdatesMac;
+    final theme = Theme.of(tester.element(find.byType(Scaffold)));
+    final expected = theme.textTheme.labelLarge!;
+    final drawn = tester
+        .renderObject<RenderParagraph>(
+          find.descendant(
+            of: find.byType(OutlinedButton),
+            matching: find.text(label),
+          ),
+        )
+        .text
+        .style!;
+    expect(drawn.fontSize, 12);
+    expect(drawn.fontFamily, expected.fontFamily);
+    expect(drawn.fontWeight, expected.fontWeight);
+    expect(drawn.letterSpacing, expected.letterSpacing);
+    expect(drawn.height, expected.height);
+  });
+
+  // Near the width where the button stops fitting, the title is never squeezed
+  // below a quarter of the row (or its own width): the button's own padding
+  // and border count in the decision.
+  for (final (c, scale, from, to) in [
+    (_macUpdates, 1.5, 440.0, 520.0),
+    (_materialSetUp, 2.0, 300.0, 480.0),
+  ]) {
+    testWidgets('${c.name} stacks before it squeezes the title', (
+      tester,
+    ) async {
+      await _pump(tester, c, scale: scale, size: _desktop);
+      final natural = tester
+          .getSize(find.text(c.title(_l10n(tester, find.byType(Scaffold)))))
+          .width;
+      for (var w = from; w <= to; w += 1) {
+        await _pump(tester, c, scale: scale, size: Size(w, 900));
+        expect(tester.takeException(), isNull, reason: '$w');
+        final title = find.text(c.title(_l10n(tester, find.byType(Scaffold))));
+        final row = tester.getSize(find.byType(GroupedRow)).width;
+        final beside =
+            tester.getRect(_button(tester, c)).top <
+            tester.getRect(title).bottom;
+        if (!beside) continue;
+        expect(
+          tester.getSize(title).width,
+          greaterThanOrEqualTo(natural < row / 4 ? natural : row / 4 - 0.5),
+          reason: 'row $row',
+        );
+      }
+    });
+  }
 }
