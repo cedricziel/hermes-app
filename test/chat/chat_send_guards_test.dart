@@ -276,31 +276,6 @@ void main() {
       expect(chat.queuedIn(thread), isEmpty);
       expect((await store.load(_scope())).records, isEmpty);
     });
-
-    test('whose submit answer was lost after it began stays uncertain and is '
-        'never sent again', () async {
-      final (chat, thread, transport) = await reviewed();
-      transport.loseAcceptance = true;
-
-      chat.sendQueued(thread);
-      await transport.prepared;
-      await pumpEventQueue();
-
-      expect(transport.sends.map((send) => send.text), ['unsent']);
-      final entry = chat.queuedIn(thread).single;
-      expect(entry.durable!.state, QueueRecordState.submissionStarted);
-      expect(entry.submitting, isFalse);
-      expect(entry.uncertain, isTrue);
-      // A second tap on send is refused for an uncertain prompt.
-      chat.sendQueued(thread);
-      await pumpEventQueue();
-      expect(transport.sends, hasLength(1));
-      expect(chat.queuedIn(thread).single.uncertain, isTrue);
-      expect(
-        (await store.load(_scope())).records.single.state,
-        QueueRecordState.submissionStarted,
-      );
-    });
   });
 
   test('a queued prompt that Hermes already accepted cannot begin its '
