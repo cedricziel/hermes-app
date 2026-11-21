@@ -1005,7 +1005,7 @@ void main() {
     addTearDown(activities.dispose);
     await tester.runAsync(live.loadThreads);
     live.select('s1');
-    live.submit('Any news?', const []);
+    await live.submit('Any news?', const []);
     await tester.pump();
 
     expect(service.running, hasLength(1));

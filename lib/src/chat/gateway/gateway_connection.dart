@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../api/hermes_api_client.dart';
+import 'gateway_rpc_client.dart';
 import 'hermes_gateway_transport.dart';
 
 /// The WebSocket URL of [path] (the gateway's `/api/ws` unless told
@@ -45,7 +48,24 @@ Future<WebSocketChannel> connectWebSocketChannel(
 
 /// Opens a WebSocket to [uri] once the server has accepted the upgrade.
 Future<StreamChannel<String>> openWebSocket(Uri uri) async =>
-    (await connectWebSocketChannel(uri)).cast<String>();
+    _CodedChannel<String>(await connectWebSocketChannel(uri));
+
+/// A cast WebSocket channel that still says its close code.
+class _CodedChannel<T> with StreamChannelMixin<T> implements SocketCloseCode {
+  _CodedChannel(this._inner) : _cast = _inner.cast<T>();
+
+  final WebSocketChannel _inner;
+  final StreamChannel<T> _cast;
+
+  @override
+  Stream<T> get stream => _cast.stream;
+
+  @override
+  StreamSink<T> get sink => _cast.sink;
+
+  @override
+  int? get closeCode => _inner.closeCode;
+}
 
 /// Opens a WebSocket to a dashboard [path], optionally with extra [query]
 /// parameters beside the credential.

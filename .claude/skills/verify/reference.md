@@ -103,9 +103,10 @@ any of its processes survived.
   and starts `gnome-keyring-daemon --unlock --components=secrets` there; with
   `XDG_DATA_HOME` in the run dir the keyring file is throwaway too.
 - **NetworkManager.** `connectivity_plus` asks NetworkManager on the system
-  bus, which a container lacks; the unhandled D-Bus error fails the app at
-  start. Inside the private session the run starts a second `dbus-daemon`,
-  exports it as `DBUS_SYSTEM_BUS_ADDRESS`, and `scripts/verify_fake_nm.dart`
+  bus, which a container lacks; the app does not create the plugin when no
+  system bus exists, and guards it otherwise, so a missing bus no longer
+  fails the app at start. The run still gives it one: inside the private
+  session it starts a second `dbus-daemon`, exports it as `DBUS_SYSTEM_BUS_ADDRESS`, and `scripts/verify_fake_nm.dart`
   owns `org.freedesktop.NetworkManager` there with an empty object manager.
 - **git.** The isolated HOME hides the real `~/.gitconfig`, whose
   `safe.directory` entry Flutter's own checkout may need ("dubious ownership",
@@ -146,8 +147,16 @@ any of its processes survived.
 - `refusing to run with <NAME> in the environment`: the allowlist let a
   secret-looking name through; it should not, so report it rather than
   renaming the variable.
-- `dbus` `SocketException` at app start: no system bus in a container;
-  harmless.
+- A `dbus` `SocketException` at app start is a bug now: with no system bus
+  the app skips `connectivity_plus` (and guards it with one), so look for the
+  call that escaped the guard instead of dismissing it.
+- A failed first `flutter build linux` configure (the mimalloc download for
+  `media_kit_libs_linux` is blocked by the proxy) leaves `CMakeCache.txt` with
+  `CMAKE_INSTALL_PREFIX=/usr/local`, and the next build installs the bundle's
+  37 files under `/usr/local`. Seed mimalloc first, as `verify.sh` does, or
+  delete `build/linux` after a failed configure, and check
+  `grep CMAKE_INSTALL_PREFIX build/linux/x64/*/CMakeCache.txt` points into
+  the bundle directory.
 - A run killed with SIGKILL leaves `/tmp/hermes-verify.*` and processes:
   `scripts/verify.sh clean` (also done at the start of every run).
 - To look at a live run, add a `sleep` to the test and, from another shell,

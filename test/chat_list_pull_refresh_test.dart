@@ -1,0 +1,406 @@
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
+import 'package:flutter/material.dart';
+
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/api/hermes_api_client.dart';
+import 'package:hermes_app/src/chat/chat_controller.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'support/fake_chat_transport.dart';
+import 'support/fake_hermes_server.dart';
+import 'support/pump_chat.dart';
+
+/// Pulling the chat list down reads its first page again (D7). The Mac has
+/// View > Reload and no pull to refresh.
+void main() {
+  late FakeHermesServer server;
+
+  List<({String? offset})> listReads() => [
+    for (final r in server.requestsTo('GET', '/api/sessions'))
+      (offset: r.queryParameters['offset']?.toString()),
+  ];
+
+  setUp(() {
+    server = FakeHermesServer()
+      ..on('GET', '/api/profiles/active', activeProfileBody(active: 'default'))
+      ..on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 's2', title: 'Release notes', lastActive: 1780000100),
+        ]),
+      )
+      ..on(
+        'GET',
+        '/api/sessions/s2/messages',
+        messageListBody('s2', [messageRow(id: 1, role: 'user', content: 'hi')]),
+      );
+  });
+
+  final row = find.byKey(const ValueKey('thread-s2'));
+  const failedTitle = "Couldn't refresh your chats.";
+
+  /// Frames in steps: one long pump does not run the release animation and
+  /// the request that follows it.
+  Future<void> stepFrames(WidgetTester tester) async {
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+  }
+
+  /// Whether the refresh's announcement node is a live region right now. An
+  /// idle one would post an empty announcement on iOS.
+  bool liveRegion(WidgetTester tester) => tester
+      .widget<Semantics>(
+        find.byWidgetPredicate(
+          (w) => w is Semantics && w.container && w.child is SizedBox,
+        ),
+      )
+      .properties
+      .liveRegion!;
+
+  Future<void> pull(WidgetTester tester) async {
+    await tester.drag(row, const Offset(0, 400));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'on iOS a short list can be pulled and a pull reads the first page and shows the new chat',
+    (tester) async {
+      await pumpChatScreen(
+        tester,
+        server: server,
+        withProfiles: true,
+        platform: TargetPlatform.iOS,
+      );
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      final before = listReads().length;
+      expect(find.text('Fresh chat'), findsNothing);
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 's3', title: 'Fresh chat', lastActive: 1780000200),
+          sessionRow(id: 's2', title: 'Release notes', lastActive: 1780000100),
+        ]),
+      );
+
+      await pull(tester);
+
+      final reads = listReads();
+      expect(reads.length - before, 1);
+      expect(reads.last.offset, anyOf(isNull, '0'));
+      expect(find.text('Fresh chat'), findsOneWidget);
+      expect(find.text(failedTitle), findsNothing);
+    },
+  );
+
+  testWidgets('a failed pull keeps the list and shows a notice', (
+    tester,
+  ) async {
+    await pumpChatScreen(
+      tester,
+      server: server,
+      withProfiles: true,
+      platform: TargetPlatform.iOS,
+    );
+    server.on('GET', '/api/sessions', {'detail': 'boom'}, status: 500);
+
+    await pull(tester);
+
+    expect(find.text(failedTitle), findsOneWidget);
+    expect(find.text('Pull down to try again.'), findsOneWidget);
+    expect(find.text('Release notes'), findsOneWidget);
+
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([
+        sessionRow(id: 's2', title: 'Release notes', lastActive: 1780000100),
+      ]),
+    );
+    await pull(tester);
+
+    expect(find.text(failedTitle), findsNothing);
+  });
+
+  testWidgets('on iOS a pull announces Refreshing chats while it runs', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pumpChatScreen(
+      tester,
+      server: server,
+      withProfiles: true,
+      platform: TargetPlatform.iOS,
+    );
+    final hold = Completer<void>();
+    server.onRequest('GET', '/api/sessions', (_) async {
+      await hold.future;
+      return (
+        status: 200,
+        body: sessionListBody([
+          sessionRow(id: 's2', title: 'Release notes', lastActive: 1780000100),
+        ]),
+      );
+    });
+    expect(find.bySemanticsLabel('Refreshing chats'), findsNothing);
+    expect(liveRegion(tester), isFalse);
+    final stateBefore = tester.state(find.byType(RefreshIndicator));
+    final reads = listReads().length;
+
+    await tester.drag(row, const Offset(0, 400));
+    await stepFrames(tester);
+
+    expect(find.bySemanticsLabel('Refreshing chats'), findsOneWidget);
+    expect(liveRegion(tester), isTrue);
+    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+    expect(tester.state(find.byType(RefreshIndicator)), same(stateBefore));
+    expect(listReads().length - reads, 1);
+
+    // A second pull while the first runs reads nothing more.
+    await tester.drag(row, const Offset(0, 400));
+    await stepFrames(tester);
+    expect(listReads().length - reads, 1);
+    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+
+    hold.complete();
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Refreshing chats'), findsNothing);
+    expect(liveRegion(tester), isFalse);
+    handle.dispose();
+  });
+
+  testWidgets('on Android the list has no refresh indicator', (tester) async {
+    await pumpChatScreen(
+      tester,
+      server: server,
+      withProfiles: true,
+      platform: TargetPlatform.android,
+    );
+
+    expect(find.byType(RefreshIndicator), findsNothing);
+  });
+
+  testWidgets('on an iPhone an empty chats page can be pulled', (tester) async {
+    server.on('GET', '/api/sessions', sessionListBody(const []));
+    await pumpChatScreen(
+      tester,
+      server: server,
+      withProfiles: true,
+      platform: TargetPlatform.iOS,
+      size: const Size(390, 844),
+    );
+    expect(find.text('No chats yet. Start a new message.'), findsOneWidget);
+    final before = listReads().length;
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([
+        sessionRow(id: 's3', title: 'Fresh chat', lastActive: 1780000200),
+      ]),
+    );
+
+    await tester.drag(
+      find.text('No chats yet. Start a new message.'),
+      const Offset(0, 400),
+    );
+    await tester.pumpAndSettle();
+
+    expect(listReads().length - before, 1);
+    expect(find.text('Fresh chat'), findsOneWidget);
+  });
+
+  testWidgets('on macOS the list has no refresh indicator', (tester) async {
+    await pumpChatScreen(
+      tester,
+      server: server,
+      withProfiles: true,
+      platform: TargetPlatform.macOS,
+    );
+
+    expect(find.byType(RefreshIndicator), findsNothing);
+  });
+
+  group('the controller while the list cannot take a read', () {
+    late ChatController chat;
+    late Completer<void> hold;
+
+    /// Lets the held request and everything chained to it finish: the test
+    /// zone runs its microtasks only on a pump, real I/O only in runAsync.
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() => pumpEventQueue(times: 50));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    List<String> ids() => [for (final t in chat.threads) t.id];
+
+    setUp(() async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final attention = AttentionNotifier(
+        service: null,
+        settings: null,
+        onOpen: (_) {},
+      );
+      chat = ChatController(
+        repository: HermesChatRepository(HermesApiClient(server.dio()).raw),
+        transport: FakeChatTransport(),
+        attention: attention,
+        report: (_) {},
+      );
+      addTearDown(() {
+        chat.dispose();
+        attention.dispose();
+      });
+      await chat.loadThreads('default');
+      hold = Completer<void>();
+      var reads = 0;
+      // The first read (the load) is held; a later read answers a row only a
+      // read after the hold can bring.
+      server.onRequest('GET', '/api/sessions', (_) async {
+        if (reads++ == 0) {
+          await hold.future;
+          return (
+            status: 200,
+            body: sessionListBody([
+              sessionRow(id: 's2', title: 'Release notes', lastActive: 1),
+            ]),
+          );
+        }
+        return (
+          status: 200,
+          body: sessionListBody([
+            sessionRow(id: 's3', title: 'Fresh chat', lastActive: 1780000200),
+          ]),
+        );
+      });
+    });
+
+    test('waits for the list to settle, then reads once and merges', () async {
+      final base = listReads().length;
+      unawaited(chat.loadThreads('default'));
+      await pumpEventQueue();
+      expect(chat.threadListInvalidationBlocked, isTrue);
+
+      var done = false;
+      final result = chat.pullRefreshThreadList().whenComplete(
+        () => done = true,
+      );
+      await pumpEventQueue();
+      expect(done, isFalse);
+
+      hold.complete();
+
+      expect(await result, ThreadListRefreshResult.refreshed);
+      expect(ids(), contains('s3'));
+      expect(listReads().length - base, 2);
+      expect(chat.threadListRefreshFailed, isFalse);
+    });
+
+    testWidgets('a timed-out pull fails and never merges later', (
+      tester,
+    ) async {
+      chat.threadListRefreshTimeout = const Duration(seconds: 5);
+      final base = listReads().length;
+      unawaited(chat.loadThreads('default'));
+      await tester.pump();
+
+      final result = chat.pullRefreshThreadList();
+      await tester.pump(const Duration(seconds: 6));
+
+      expect(await result, ThreadListRefreshResult.failed);
+      expect(chat.threadListRefreshFailed, isTrue);
+
+      hold.complete();
+      await settle(tester);
+      expect(chat.threadListInvalidationBlocked, isFalse);
+
+      expect(ids(), isNot(contains('s3')));
+      expect(listReads().length - base, 1);
+    });
+
+    testWidgets('a pull that times out during its read never merges it', (
+      tester,
+    ) async {
+      chat.threadListRefreshTimeout = const Duration(seconds: 5);
+      final readHold = Completer<void>();
+      server.onRequest('GET', '/api/sessions', (_) async {
+        await readHold.future;
+        return (
+          status: 200,
+          body: sessionListBody([
+            sessionRow(id: 's3', title: 'Fresh chat', lastActive: 1780000200),
+          ]),
+        );
+      });
+      expect(chat.threadListInvalidationBlocked, isFalse);
+
+      final result = chat.pullRefreshThreadList();
+      await tester.pump(const Duration(seconds: 6));
+      expect(await result, ThreadListRefreshResult.failed);
+
+      readHold.complete();
+      await settle(tester);
+
+      expect(ids(), isNot(contains('s3')));
+    });
+  });
+
+  group('the notice of a failed pull', () {
+    late ChatController chat;
+
+    setUp(() async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final attention = AttentionNotifier(
+        service: null,
+        settings: null,
+        onOpen: (_) {},
+      );
+      chat = ChatController(
+        repository: HermesChatRepository(HermesApiClient(server.dio()).raw),
+        transport: FakeChatTransport(),
+        attention: attention,
+        report: (_) {},
+      );
+      addTearDown(() {
+        chat.dispose();
+        attention.dispose();
+      });
+      await chat.loadThreads('default');
+      server.on('GET', '/api/sessions', {'detail': 'boom'}, status: 500);
+      expect(
+        await chat.pullRefreshThreadList(),
+        ThreadListRefreshResult.failed,
+      );
+      expect(chat.threadListRefreshFailed, isTrue);
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 's2', title: 'Release notes', lastActive: 1780000100),
+        ]),
+      );
+    });
+
+    test('a successful refreshThreadList clears it', () async {
+      await chat.refreshThreadList();
+
+      expect(chat.threadListRefreshFailed, isFalse);
+    });
+
+    test('a list load clears it', () async {
+      await chat.loadThreads('default');
+
+      expect(chat.threadListRefreshFailed, isFalse);
+    });
+  });
+}

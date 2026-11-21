@@ -69,9 +69,8 @@ void main() {
   test('queued prompts go out one per completed reply', () async {
     final (thread, first) = start('One');
     await pumpEventQueue();
-    chat
-      ..submit('Two', const [])
-      ..submit('Three', const []);
+    await chat.submit('Two', const []);
+    await chat.submit('Three', const []);
 
     await complete(first);
     // The queue waits for the session to settle before it sends.
@@ -100,7 +99,7 @@ void main() {
         ..emit(const ReplyStarted());
       await pumpEventQueue();
 
-      chat.submit('Two', const []);
+      await chat.submit('Two', const []);
       expect(transport.sends, hasLength(1));
 
       follow.emit(const ReplyCompleted('Carried on.'));
@@ -116,7 +115,7 @@ void main() {
   test('a stopped reply pauses the queue until sent by hand', () async {
     final (thread, first) = start('One');
     await pumpEventQueue();
-    chat.submit('Two', const []);
+    await chat.submit('Two', const []);
 
     await complete(first, stopped: true);
 
@@ -133,7 +132,7 @@ void main() {
   test('a failed reply pauses the queue', () async {
     final (thread, first) = start('One');
     await pumpEventQueue();
-    chat.submit('Two', const []);
+    await chat.submit('Two', const []);
 
     first.fail();
     await pumpEventQueue();
@@ -145,7 +144,7 @@ void main() {
   test('a prompt sent on a paused queue joins its end', () async {
     final (thread, first) = start('One');
     await pumpEventQueue();
-    chat.submit('Two', const []);
+    await chat.submit('Two', const []);
     await complete(first, stopped: true);
 
     expect(chat.submit('Three', const []), isTrue);
@@ -157,9 +156,9 @@ void main() {
   test('a removed prompt is never sent', () async {
     final (thread, first) = start('One');
     await pumpEventQueue();
-    chat.submit('Two', const []);
+    await chat.submit('Two', const []);
 
-    chat.removeQueued(thread, chat.queuedIn(thread).single);
+    await chat.removeQueued(thread, chat.queuedIn(thread).single);
     await complete(first);
 
     expect(transport.sends, hasLength(1));
@@ -171,7 +170,7 @@ void main() {
     final report = SharedFile(path: file.path, name: 'report.pdf');
     final (_, first) = start('One');
     await pumpEventQueue();
-    chat.submit('Read this', [report]);
+    await chat.submit('Read this', [report]);
 
     await complete(first);
     transport.followUpStreams['s1']!.emit(const SessionInfo(running: false));
@@ -196,7 +195,7 @@ void main() {
     await pumpEventQueue();
     chat.newThread();
 
-    chat.submit('Elsewhere', const []);
+    await chat.submit('Elsewhere', const []);
 
     expect(transport.sends.map((s) => s.text), ['One', 'Elsewhere']);
     expect(chat.queuedIn(first), isEmpty);

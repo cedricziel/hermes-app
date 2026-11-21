@@ -22,6 +22,10 @@ class HermesProfile {
   String get label => displayName.isNotEmpty ? displayName : name;
 }
 
+/// What `GET /api/profiles/active` answers: the sticky default and the
+/// profile the running dashboard is scoped to.
+typedef ActiveProfile = ({String active, String current});
+
 class ProfilesOverview {
   const ProfilesOverview({
     required this.profiles,
@@ -48,7 +52,7 @@ class HermesProfilesRepository {
 
   final DefaultApi _api;
 
-  Future<({String active, String current})> loadActive() async {
+  Future<ActiveProfile> loadActive() async {
     final response = await _api.getActiveProfileEndpointApiProfilesActiveGet();
     final body = response.data is Map ? response.data as Map : const {};
     final active = body['active'] as String? ?? '';
