@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
 
 /// Opens an [AdaptivePopupMenuButton]'s menu from outside, for a right-click
@@ -34,6 +35,34 @@ class AdaptiveMenuItem<T> extends PopupMenuItem<T> {
   /// The row's height in a Mac menu, for an item of two lines; one line of
   /// [AdaptivePopupMenuButton.macRowHeight] when null.
   final double? macHeight;
+}
+
+/// A [PopupMenuItem] that shows the keyboard focus ring, inside the row, and
+/// takes the hover fill while it has keyboard focus.
+class FocusRingMenuItem<T> extends PopupMenuItem<T> {
+  const FocusRingMenuItem({
+    super.key,
+    super.value,
+    super.onTap,
+    super.enabled,
+    super.height,
+    super.padding,
+    super.child,
+  });
+
+  @override
+  PopupMenuItemState<T, PopupMenuItem<T>> createState() =>
+      _FocusRingMenuItemState<T>();
+}
+
+class _FocusRingMenuItemState<T>
+    extends PopupMenuItemState<T, FocusRingMenuItem<T>> {
+  @override
+  Widget build(BuildContext context) => FocusRing(
+    radius: 4,
+    fill: Theme.of(context).hoverColor,
+    child: super.build(context),
+  );
 }
 
 /// A [PopupMenuButton] that follows the platform: a pull-down
@@ -194,7 +223,7 @@ class _AdaptivePopupMenuButtonState<T>
   }
 
   PopupMenuEntry<T> _plain(PopupMenuEntry<T> entry) => switch (entry) {
-    AdaptiveMenuItem<T>(destructive: true) => PopupMenuItem<T>(
+    AdaptiveMenuItem<T>(destructive: true) => FocusRingMenuItem<T>(
       value: entry.value,
       onTap: entry.onTap,
       enabled: entry.enabled,
@@ -204,6 +233,15 @@ class _AdaptivePopupMenuButtonState<T>
           child: entry.child ?? const SizedBox.shrink(),
         ),
       ),
+    ),
+    CheckedPopupMenuItem<T>() => entry,
+    PopupMenuItem<T>() => FocusRingMenuItem<T>(
+      value: entry.value,
+      onTap: entry.onTap,
+      enabled: entry.enabled,
+      height: entry.height,
+      padding: entry.padding,
+      child: entry.child,
     ),
     _ => entry,
   };

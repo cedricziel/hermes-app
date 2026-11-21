@@ -30,3 +30,5 @@ Rules are stated in full in the area's file under `docs/architecture/`.
 ## UI
 
 Owned by the style session; filled in a later PR.
+
+**Keyboard focus ring** (`lib/src/theme/focus_ring.dart`): `focusRingShape` in a button style, `FocusRing` around a row, menu item or segment that a container clips; never a hand-drawn focus border or a raw colour. Rule: keyboard focus only, 2 px in the link colour. See `docs/architecture/settings-screens.md`.
