@@ -287,4 +287,37 @@ void main() {
     held.complete((status: 200, body: kanbanBoardBody([])));
     await settle(tester);
   });
+
+  testWidgets('a board that vanished from the list reopens at the top', (
+    tester,
+  ) async {
+    await openRunningAtBottom(tester);
+    // The shown board is gone from the server's list once a board is made
+    // under Manage boards; the controller falls back to the current one.
+    server
+      ..on(
+        'GET',
+        '/api/plugins/kanban/boards',
+        kanbanBoardsBody([
+          (slug: 'ops', name: 'Ops', total: 24, current: true),
+        ]),
+      )
+      ..on('POST', '/api/plugins/kanban/boards', {'board': {}});
+
+    await tester.tap(find.byTooltip('Switch board'));
+    await settle(tester);
+    await tester.tap(find.text('Manage boards…'));
+    await settle(tester);
+    await tester.tap(find.byTooltip('New board'));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), 'Extra');
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await settle(tester);
+    expect(lastBoardQuery()['board'], 'ops');
+    await tester.pageBack();
+    await settle(tester);
+    await showChip(tester, 'Running 12');
+
+    expectAtTop(tester);
+  });
 }
