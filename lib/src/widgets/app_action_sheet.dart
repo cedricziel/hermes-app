@@ -3,7 +3,11 @@ import 'package:flutter/cupertino.dart';
 /// One entry of [showAppActionSheet]: [value] is what the sheet answers when
 /// the entry is tapped.
 class AppActionSheetEntry<T> {
-  const AppActionSheetEntry(this.label, this.value, {this.destructive = false});
+  const AppActionSheetEntry({
+    required this.label,
+    required this.value,
+    this.destructive = false,
+  });
 
   final String label;
   final T value;
@@ -17,7 +21,7 @@ Future<T?> showAppActionSheet<T>({
   required BuildContext context,
   required String title,
   required List<AppActionSheetEntry<T>> entries,
-  String cancelLabel = 'Cancel',
+  required String cancelLabel,
 }) {
   return showCupertinoModalPopup<T>(
     context: context,

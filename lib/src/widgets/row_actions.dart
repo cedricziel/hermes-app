@@ -46,11 +46,12 @@ class RowActions extends StatelessWidget {
     final action = await showAppActionSheet<RowAction>(
       context: context,
       title: title,
+      cancelLabel: 'Cancel',
       entries: [
         for (final action in actions)
           AppActionSheetEntry(
-            action.label,
-            action,
+            label: action.label,
+            value: action,
             destructive: action.destructive,
           ),
       ],

@@ -35,4 +35,4 @@ Owned by the style session; the rest is filled in a later PR.
 | --- | --- | --- | --- |
 | A dialog | `showAppDialog` (`barrierDismissible`: null keeps the platform default, false makes the barrier inert everywhere) | `lib/src/widgets/dialog_presentation.dart` | No raw `showDialog` or `showAdaptiveDialog` (`style.dialog`). |
 | A sheet (dialog on a Mac and wide windows) | `showAdaptiveSheet` | `lib/src/widgets/adaptive_sheet.dart` | No raw `showModalBottomSheet` (`style.dialog`). |
-| An iOS action sheet (title, entries, Cancel) | `showAppActionSheet`, `AppActionSheetEntry` | `lib/src/widgets/app_action_sheet.dart` | No raw `showCupertinoModalPopup` or `CupertinoActionSheet` (`style.dialog`). |
+| An iOS action sheet (title, entries, `cancelLabel`) | `showAppActionSheet`, `AppActionSheetEntry` | `lib/src/widgets/app_action_sheet.dart` | No raw `showCupertinoModalPopup` or `CupertinoActionSheet` (`style.dialog`). |

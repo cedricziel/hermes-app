@@ -14,9 +14,14 @@ void main() {
               await showAppActionSheet<String>(
                 context: context,
                 title: 'Nightly',
+                cancelLabel: 'Cancel',
                 entries: const [
-                  AppActionSheetEntry('Rename', 'rename'),
-                  AppActionSheetEntry('Delete', 'delete', destructive: true),
+                  AppActionSheetEntry(label: 'Rename', value: 'rename'),
+                  AppActionSheetEntry(
+                    label: 'Delete',
+                    value: 'delete',
+                    destructive: true,
+                  ),
                 ],
               ),
             ),

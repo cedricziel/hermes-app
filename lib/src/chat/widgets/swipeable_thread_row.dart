@@ -29,13 +29,17 @@ class SwipeableThreadRow extends StatelessWidget {
     final action = await showAppActionSheet<ThreadAction>(
       context: context,
       title: title,
+      cancelLabel: 'Cancel',
       entries: [
-        const AppActionSheetEntry('Rename', ThreadAction.rename),
-        AppActionSheetEntry(_pinLabel, ThreadAction.pin),
-        const AppActionSheetEntry('Archive', ThreadAction.archive),
+        const AppActionSheetEntry(label: 'Rename', value: ThreadAction.rename),
+        AppActionSheetEntry(label: _pinLabel, value: ThreadAction.pin),
         const AppActionSheetEntry(
-          'Delete',
-          ThreadAction.delete,
+          label: 'Archive',
+          value: ThreadAction.archive,
+        ),
+        const AppActionSheetEntry(
+          label: 'Delete',
+          value: ThreadAction.delete,
           destructive: true,
         ),
       ],
