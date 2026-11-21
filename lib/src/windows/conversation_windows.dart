@@ -293,6 +293,19 @@ class ConversationWindows extends ChangeNotifier {
   String? get keyWindowId => _keyWindowId;
   String? _keyWindowId;
 
+  /// Whether the quick panel is shown, and so key: the native panel is made
+  /// key when shown and hides itself when it loses focus, except while it is
+  /// held (then it stays up with no event until the hold ends). It reports
+  /// shown and hidden, not key changes, so those stand for them.
+  bool get quickPanelKey => _panelKey;
+  bool _panelKey = false;
+
+  void _setPanelKey(bool key) {
+    if (_panelKey == key) return;
+    _panelKey = key;
+    notifyListeners();
+  }
+
   final _touched = <ConversationRef>{};
 
   /// The conversation window that is key, or null while the main window is.
@@ -660,6 +673,7 @@ class ConversationWindows extends ChangeNotifier {
     if (_windows.isNotEmpty) _breadcrumbs('window.closed', {'open': 0});
     _windows.clear();
     _panel = null;
+    _setPanelKey(false);
     _creatingPanel = null;
     _touched.clear();
     _setKey(null);
@@ -698,7 +712,10 @@ class ConversationWindows extends ChangeNotifier {
   }
 
   void _retain(Set<String> live) {
-    if (!live.contains(_panel?.id)) _panel = null;
+    if (!live.contains(_panel?.id)) {
+      _panel = null;
+      _setPanelKey(false);
+    }
     unawaited(_removeWhere((w) => !live.contains(w.windowId)));
   }
 
@@ -866,6 +883,14 @@ class ConversationWindows extends ChangeNotifier {
       case 'panel':
         if (args['event'] == 'shown' && windowId == _panel?.id) {
           _panel?.presented = true;
+        }
+        if (windowId == _panel?.id) {
+          switch (args['event']) {
+            case 'shown':
+              _setPanelKey(true);
+            case 'hidden':
+              _setPanelKey(false);
+          }
         }
         _recordPanel(args['event'], args['reason'], args['continued']);
       case 'panel.showInWindow':

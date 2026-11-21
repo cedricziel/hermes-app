@@ -34,6 +34,17 @@ enum ReplyLoss {
   unconfirmed,
 }
 
+/// What a failed reply says when the server gave no explanation of its own
+/// (see [ChatMessage.failure]). The widget layer words it, so it follows the
+/// locale of the screen that shows it.
+enum ReplyFailure {
+  /// The send or the stream broke and nothing more is known.
+  generic,
+
+  /// The profile the reply was sent for is gone.
+  profileUnavailable,
+}
+
 /// Why a stored chat's transcript has nothing to show yet: its messages are
 /// being read, or reading them failed.
 enum ChatHistoryStatus { loading, failed }
@@ -577,6 +588,8 @@ class ChatMessage {
     this.sealedProse = const [],
     this.subagents = const [],
     this.error,
+    this.failure,
+    this.loss,
   }) : reasoningActive = status == MessageStatus.thinking,
        thinkingStarted = status == MessageStatus.thinking && toolCalls.isEmpty;
 
@@ -656,8 +669,23 @@ class ChatMessage {
   /// What the sender attached, shown above the text.
   final List<ChatAttachment> attachments;
 
-  /// Why the reply failed, shown under whatever text it kept.
+  /// Why the reply failed, as the server said it, shown under whatever text it
+  /// kept. Null with [MessageStatus.error] means the server gave no
+  /// explanation: [failure] (or [loss]) says what is shown instead.
   String? error;
+
+  /// With [MessageStatus.error], no [error] and no [loss]: which wording the
+  /// widget layer gives the failure. Null reads as [ReplyFailure.generic].
+  ReplyFailure? failure;
+
+  /// With [MessageStatus.error]: the server may still be running this reply's
+  /// turn, because the reply ended on a lost connection or on a server that
+  /// could not be made to say how the turn ended, not on an answer of the
+  /// server's. Retry, Edit and Branch are held while it is set, since the
+  /// server would answer them busy, or run the prompt twice. It is cleared
+  /// when the server lists the session as not running, or when a completion
+  /// reaches the reply.
+  bool serverMayRun = false;
 
   /// With [MessageStatus.error] and no [error]: the reply was settled because
   /// the server no longer has its turn, or could not confirm how it ended. It

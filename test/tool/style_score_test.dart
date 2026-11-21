@@ -268,6 +268,20 @@ void main() {
         ),
         isEmpty,
       );
+      for (final file in [
+        'adaptive_dialog',
+        'adaptive_pickers',
+        'app_action_sheet',
+      ]) {
+        expect(
+          scan(
+            'void f() { showCupertinoModalPopup(context: c); }',
+            path: 'lib/src/widgets/$file.dart',
+          ),
+          isEmpty,
+          reason: file,
+        );
+      }
     });
   });
 
