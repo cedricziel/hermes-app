@@ -4,6 +4,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/state_message.dart';
+import '../../widgets/trailing_action_fit.dart';
 import '../../widgets/whats_the_difference_link.dart';
 import '../hermes_skills_repository.dart';
 import '../skills_controller.dart';
@@ -119,28 +120,46 @@ class SkillUpdatesSection extends StatelessWidget {
   final VoidCallback? onPressed;
 
   static const _label = 'Check for updates';
+  static const _macLabel = 'Check for Updates';
+  static const _macStyle = TextStyle(fontSize: 12);
 
   @override
   Widget build(BuildContext context) {
     final row = switch (platformChromeOf(context)) {
-      PlatformChrome.macos => GroupedRow(
-        title: 'Hub skills',
-        trailing: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 22),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
+      PlatformChrome.macos => LayoutBuilder(
+        builder: (context, box) {
+          // Past the width the button fits beside the title, it goes on a
+          // line of its own, still a separate control.
+          final stacked = trailingActionStacks(
+            context,
+            width: box.maxWidth,
+            title: 'Hub skills',
+            actionLabel: _macLabel,
+            actionStyle: _macStyle,
+            actionChrome: 22,
+          );
+          return GroupedRow(
+            title: 'Hub skills',
+            separateTrailing: stacked,
+            trailingBelow: stacked,
+            trailing: OutlinedButton(
+              onPressed: onPressed,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 22),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: const Text(_macLabel, style: _macStyle),
             ),
-          ),
-          child: const Text(
-            'Check for Updates',
-            style: TextStyle(fontSize: 12),
-          ),
-        ),
+          );
+        },
       ),
       PlatformChrome.ios => GroupedRow(
         title: _label,

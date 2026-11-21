@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
+import '../../widgets/trailing_action_fit.dart';
 import '../hermes_messaging_repository.dart';
 
 /// One messaging platform in the platform group: its switch, or a "Set Up"
@@ -26,16 +27,35 @@ class MessagingPlatformRow extends StatelessWidget {
     if (!platform.configured && !platform.enabled) {
       final chrome = platformChromeOf(context);
       final ios = chrome == PlatformChrome.ios;
-      return GroupedRow(
+      final mac = chrome == PlatformChrome.macos;
+      GroupedRow row({bool stacked = false}) => GroupedRow(
         title: platform.name,
         subtitle: subtitle,
         error: platform.errorMessage,
         leading: leading,
         onTap: onSetUp,
         value: ios ? 'Set Up' : null,
-        trailing: ios
-            ? null
-            : _SetUpButton(mac: chrome == PlatformChrome.macos, onSetUp),
+        trailing: ios ? null : _SetUpButton(mac: mac, onSetUp),
+        trailingBelow: stacked,
+      );
+      if (ios) return row();
+      // Past the width the button fits beside the name, it goes on a line of
+      // its own under the text, still its own control.
+      return LayoutBuilder(
+        builder: (context, box) {
+          final metrics = GroupedMetrics.of(context);
+          return row(
+            stacked: trailingActionStacks(
+              context,
+              width: box.maxWidth,
+              title: platform.name,
+              actionLabel: _SetUpButton.label(mac),
+              actionStyle: _SetUpButton.labelStyle(mac),
+              actionChrome: mac ? 22 : 26,
+              leading: metrics.tileSize + metrics.leadingGap,
+            ),
+          );
+        },
       );
     }
     return GroupedSwitchRow(
@@ -58,6 +78,13 @@ class _SetUpButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool mac;
 
+  static String label(bool mac) => mac ? 'Set Up…' : 'Set up';
+
+  static TextStyle labelStyle(bool mac) => TextStyle(
+    fontSize: mac ? 12 : 14,
+    fontWeight: mac ? FontWeight.w400 : FontWeight.w600,
+  );
+
   @override
   Widget build(BuildContext context) {
     return OutlinedButton(
@@ -75,12 +102,10 @@ class _SetUpButton extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(mac ? 6 : 999),
         ),
-        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontSize: mac ? 12 : 14,
-          fontWeight: mac ? FontWeight.w400 : FontWeight.w600,
-        ),
+        textStyle: Theme.of(context).textTheme.labelLarge
+            ?.merge(labelStyle(mac)),
       ),
-      child: Text(mac ? 'Set Up…' : 'Set up'),
+      child: Text(label(mac)),
     );
   }
 }

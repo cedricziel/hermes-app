@@ -56,3 +56,12 @@ Reload, Ctrl+B, Enclosing Folder and the change navigation are new menu commands
 - Focus: set the ring once (the exact Flutter hook is still to be chosen: a `ButtonStyle` `side` or `overlayColor`, `focusColor`, or a focus-aware decoration; there is no `FocusOutlineStyle` API) in `lib/src/theme/hermes_theme.dart` (button themes, `ListTileTheme`, `MenuItemButton` style) instead of per widget, and add a Widgetbook use case with every control focused in both themes. Popup items suppress it today: `PopupMenuItem` draws no focus, so use `MenuItemButton` or give the item a focus decoration.
 - Window: `linux/runner/my_application.cc` (`gtk_window_set_default_size(window, 1280, 720)` today) and `windows/runner/main.cpp` (`Win32Window::Point origin(10, 10)` and `Win32Window::Size size(1280, 720)`, lines 28-29).
 - Tests: a widget test that tabs to each control and finds the ring; a unit test for the clamp (work area in, size out).
+
+## Addendum: bordered row buttons at large text
+
+The Mac "Check for Updates" button (`SkillUpdatesSection`) and the Material and Mac "Set up" button (`MessagingPlatformRow`) overflowed a 390 pt row at 2x and 3x text. Decision, not a canvas pass: this is a placement fix that reuses an existing pattern, so no new board.
+
+- Where the button no longer fits beside the title, it moves to a line of its own under the text, at the start edge, with its own size and shape. It stays a separate control (`separateTrailing`), so its name and tap are unchanged. This is `GroupedRow.trailingBelow`, already used by the Tools and Curator rows; nothing new is drawn.
+- Where it fits, the row is as it was: at the default text size on any width, and at large text on a wide window. `trailingActionStacks` (`lib/src/widgets/trailing_action_fit.dart`) measures the title and the button label at the current text scale and answers; the title keeps at least a quarter of the row.
+- The button is not capped and its label may wrap on its own line. Targets stay as they were: 48 dp on Material (`MaterialTapTargetSize.padded`), 28 pt on the Mac wherever the scaled label makes the button that tall, and the iOS row is the whole row, which has no button.
+- Catalog: `SkillUpdatesSection` (Mac, 1x, 2x, 3x) and `MessagingPlatformRow` ("Set up, text 2x/3x (Material)"). Test: `test/widgets/large_text_button_rows_test.dart`.

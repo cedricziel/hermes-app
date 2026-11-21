@@ -441,7 +441,6 @@ style.string:
   lib/src/messaging/messaging_screen.dart: 4
   lib/src/messaging/messaging_setup_screen.dart: 7
   lib/src/messaging/telegram_pairing_screen.dart: 10
-  lib/src/messaging/widgets/messaging_platform_row.dart: 1
   lib/src/notifications/background_check_section.dart: 5
   lib/src/notifications/notifications_dialog.dart: 5
   lib/src/platform_hint/widgets/platform_hint_prompt.dart: 10
