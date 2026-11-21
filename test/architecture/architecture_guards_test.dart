@@ -104,48 +104,56 @@ Rule _custom({
 }
 
 final _buttonStyleCall = RegExp(r'\b(?:\w*Button\.styleFrom|ButtonStyle)\(');
-
-/// A `copyWith` is on a button style when its `shape:` is a property of
-/// widget states, which no other `copyWith` takes.
 final _copyWithCall = RegExp(r'\.copyWith\(');
 
-/// A `shape:` argument of a button style (`styleFrom`, `ButtonStyle` or a
-/// `copyWith` with a state property) that does not go through
-/// `focusRingShape`/`focusRingShapeOf`, or the theme's `buttonShape`.
-List<Hit> _buttonShapeHits() => [
-  for (final file in dartFiles('lib'))
-    for (final call in _buttonStyleCall.allMatches(file.code))
-      ..._shapeArgs(file, call.end, onlyStateProperty: false),
-  for (final file in dartFiles('lib'))
-    for (final call in _copyWithCall.allMatches(file.code))
-      ..._shapeArgs(file, call.end, onlyStateProperty: true),
-];
+/// `shape:` of a `copyWith` that is not a button style's: the paths and why.
+/// A button's `copyWith(shape: ...)` is the style's own and must have the
+/// ring; these are other widgets' themes.
+const _nonButtonCopyWithShape = <String, String>{};
 
-Iterable<Hit> _shapeArgs(
-  SourceFile file,
-  int from, {
-  required bool onlyStateProperty,
-}) sync* {
-  final code = file.code;
-  var depth = 1;
-  for (var i = from; i < code.length && depth > 0; i++) {
-    final c = code[i];
-    if ('([{'.contains(c)) {
-      depth++;
-    } else if (')]}'.contains(c)) {
-      depth--;
-    } else if (depth == 1 &&
-        code.startsWith('shape:', i) &&
-        (i == 0 || !RegExp(r'\w').hasMatch(code[i - 1]))) {
-      final value = code.substring(i + 6).trimLeft();
-      final ringed =
-          value.startsWith('focusRingShape') || value.startsWith('buttonShape');
-      if (!ringed && (!onlyStateProperty || value.startsWith('WidgetState'))) {
-        yield Hit(file.path, file.lineOf(i), file.lineText(file.lineOf(i)));
+/// Every `shape:` argument of a button style (`styleFrom`, `ButtonStyle`) or
+/// of a `copyWith` in [file] that does not go through `focusRingShape` or
+/// `focusRingShapeOf`, or the theme's `buttonShape` (in `hermes_theme.dart`
+/// only). A leading `const` is ignored; a variable is not ringed.
+List<Hit> buttonShapeHitsIn(SourceFile file) {
+  final hits = <Hit>[];
+  void scan(RegExp call) {
+    for (final m in call.allMatches(file.code)) {
+      final code = file.code;
+      var depth = 1;
+      for (var i = m.end; i < code.length && depth > 0; i++) {
+        final c = code[i];
+        if ('([{'.contains(c)) {
+          depth++;
+        } else if (')]}'.contains(c)) {
+          depth--;
+        } else if (depth == 1 &&
+            code.startsWith('shape:', i) &&
+            (i == 0 || !RegExp(r'\w').hasMatch(code[i - 1]))) {
+          var value = code.substring(i + 6).trimLeft();
+          if (value.startsWith('const ')) value = value.substring(6).trimLeft();
+          final ringed =
+              value.startsWith('focusRingShape') ||
+              (file.path == 'lib/src/theme/hermes_theme.dart' &&
+                  value.startsWith('buttonShape'));
+          if (!ringed) {
+            hits.add(
+              Hit(file.path, file.lineOf(i), file.lineText(file.lineOf(i))),
+            );
+          }
+        }
       }
     }
   }
+
+  scan(_buttonStyleCall);
+  if (!_nonButtonCopyWithShape.containsKey(file.path)) scan(_copyWithCall);
+  return hits;
 }
+
+List<Hit> _buttonShapeHits() => [
+  for (final file in dartFiles('lib')) ...buttonShapeHitsIn(file),
+];
 
 /// Names that are an error in any scope.
 const _errorNames = [
@@ -632,6 +640,19 @@ final guardRules = <Rule>[
     hits: _buttonShapeHits,
   ),
 
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": the catalog
+  // forces the keyboard state of its previews; app code never does, since the
+  // ring would show after a pointer press in a release build.
+  _guard(
+    name: 'focus-ring-keyboard-override',
+    message:
+        'markFocusRingKeyboardInput is for the catalog (widgetbook/) and '
+        'tests only: the ring follows real input (lib/src/theme/focus_ring.dart).',
+    pattern: RegExp(r'\bmarkFocusRingKeyboardInput\s*\('),
+    view: _code,
+    allow: {'lib/src/theme/focus_ring.dart': 'defines it'},
+  ),
+
   // docs/architecture/telemetry.md: events, breadcrumbs, span attributes and
   // debugPrint carry error.runtimeType, never the message.
   _custom(
@@ -645,6 +666,49 @@ final guardRules = <Rule>[
 
 void main() {
   ratchetTests(guardRules, namespace: 'arch');
+
+  group('button-shape scan', () {
+    int hits(String source, {String path = 'lib/x.dart'}) =>
+        buttonShapeHitsIn(SourceFile(path, source)).length;
+
+    test('flags a state property, a variable and a buttonShape name', () {
+      expect(
+        hits('final a = s.copyWith(shape: WidgetStatePropertyAll(b));'),
+        1,
+      );
+      expect(
+        hits('final a = s.copyWith(shape: const WidgetStatePropertyAll(b));'),
+        1,
+        reason: 'a leading const does not hide it',
+      );
+      expect(hits('final a = s.copyWith(shape: myShape);'), 1);
+      expect(hits('final a = TextButton.styleFrom(shape: buttonShapeX);'), 1);
+      expect(
+        hits('final a = ButtonStyle(shape: WidgetStatePropertyAll(b));'),
+        1,
+      );
+    });
+
+    test('accepts the ring helpers and the theme\'s own buttonShape', () {
+      expect(
+        hits('final a = s.copyWith(shape: focusRingShapeOf(context, b));'),
+        0,
+      );
+      expect(
+        hits('final a = s.copyWith(shape: const focusRingShape(b, c));'),
+        0,
+      );
+      expect(hits('final a = TextButton.styleFrom(minimumSize: z);'), 0);
+      expect(hits('final a = s.copyWith(shape: buttonShape);'), 1);
+      expect(
+        hits(
+          'final a = s.copyWith(shape: buttonShape);',
+          path: 'lib/src/theme/hermes_theme.dart',
+        ),
+        0,
+      );
+    });
+  });
 
   group('exact allowlists', () {
     test('a file below its allowance must shrink the allowlist', () {

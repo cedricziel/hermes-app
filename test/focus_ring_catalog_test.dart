@@ -53,6 +53,20 @@ void main() {
     );
   });
 
+  testWidgets('a keyboard-focus preview shows its ring after a click '
+      'elsewhere', (tester) async {
+    await _openAfterClick(tester, 'Filled button');
+    final material = tester.widget<Material>(
+      find
+          .descendant(
+            of: find.byType(FilledButton).first,
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(material.shape, isA<FocusRingBorder>());
+  });
+
   testWidgets('"Try it" keeps pointer suppression after a click', (
     tester,
   ) async {

@@ -107,6 +107,7 @@ void main() {
     tester,
   ) async {
     const style = TextStyle(fontSize: 21);
+    const label = TextStyle(fontSize: 23);
     await tester.pumpWidget(
       MaterialApp(
         theme: buildHermesLightTheme(platform: TargetPlatform.android),
@@ -120,6 +121,7 @@ void main() {
                   value: 'rename',
                   mouseCursor: SystemMouseCursors.help,
                   textStyle: style,
+                  labelTextStyle: WidgetStatePropertyAll(label),
                   child: Text('Rename'),
                 ),
               ],
@@ -136,6 +138,7 @@ void main() {
     expect(item, isA<FocusRingMenuItem<String>>());
     expect(item.mouseCursor, SystemMouseCursors.help);
     expect(item.textStyle, style);
+    expect(item.labelTextStyle?.resolve({}), label);
   });
 
   testWidgets('a right-click on a row opens its menu on macOS', (tester) async {

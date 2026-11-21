@@ -332,6 +332,11 @@ void main() {
   testWidgets('a focused text field does not rebuild its ancestors when the '
       'input changes', (tester) async {
     _strategy(FocusHighlightStrategy.alwaysTraditional);
+    // Input tracking runs, as it does once the app resolved any button style;
+    // alone, this test would otherwise watch nothing and pass for any walk.
+    forgetFocusRingWatchers();
+    addTearDown(forgetFocusRingWatchers);
+    expect(keyboardFocusShows, isTrue);
     final node = FocusNode();
     addTearDown(node.dispose);
     var builds = 0;

@@ -88,8 +88,9 @@ void forgetFocusRingWatchers() {
 }
 
 /// Marks the last input as the keyboard, for a catalog preview that shows the
-/// ring on a control it focused itself. Real input takes over on the next
-/// press.
+/// ring on a control it focused itself. Catalog and tests only (the guard
+/// `arch.focus-ring-keyboard-override` fails on a call under `lib/`): app code
+/// must let real input decide. Real input takes over on the next press.
 void markFocusRingKeyboardInput() {
   _watchInput();
   if (!_pointerWasLast) return;
