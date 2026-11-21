@@ -38,6 +38,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/memory_token_store.dart';
+import 'support/test_localizations.dart';
 
 /// Which profile the app names for a chat whose profile is null, on a
 /// dashboard that was started with a launch profile other than `default` while
@@ -357,7 +358,7 @@ void main() {
       await tester.runAsync(() async {
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Provider<HermesRepositories?>.value(
               value: repositories,

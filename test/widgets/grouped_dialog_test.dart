@@ -7,6 +7,7 @@ import 'package:hermes_app/src/widgets/grouped_list.dart';
 
 import '../support/legacy_grouped_dialog.dart';
 import '../support/screenshot_recorder.dart';
+import '../support/test_localizations.dart';
 
 Future<void> _open(
   WidgetTester tester, {
@@ -28,7 +29,7 @@ Future<void> _open(
   await tester.pumpWidget(
     MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: realFonts
           ? withScreenshotFont(ThemeData(platform: platform))
@@ -299,7 +300,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(platform: TargetPlatform.iOS),
         builder: (context, child) =>
@@ -436,7 +437,7 @@ void main() {
       final scale = ValueNotifier<double>(1);
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: ThemeData(platform: platform),
           builder: (context, child) => ValueListenableBuilder<double>(
@@ -580,7 +581,7 @@ void main() {
           ];
           await tester.pumpWidget(
             MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: kTestLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               theme: ThemeData(platform: platform),
               builder: (context, child) => MediaQuery(

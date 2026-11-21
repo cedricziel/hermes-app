@@ -10,6 +10,7 @@ import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/widgets/change_folder_confirmation.dart';
 
 import '../support/fake_hermes_server.dart';
+import '../support/test_localizations.dart';
 
 const _bidi = '/srv/\u202Eevil/gpj.exe';
 const _isolate = '/srv/\u2066hidden/app';
@@ -17,7 +18,7 @@ const _crlf = '/srv/a\r\nb';
 const _esc = '/srv/\u001B[2Jx';
 
 Widget _app(Widget child) => MaterialApp(
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: buildHermesLightTheme(),
   home: Scaffold(body: child),

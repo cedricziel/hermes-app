@@ -24,6 +24,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
+import '../support/test_localizations.dart';
 
 /// A widget test that puts the platform override back before the framework
 /// checks that no debug variable was left changed.
@@ -126,7 +127,7 @@ void main() {
         ],
         child: MaterialApp(
           navigatorObservers: [pushedRoutes],
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: platform),
           home: pushed

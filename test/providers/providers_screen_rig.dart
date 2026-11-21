@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import 'fake_provider_backend.dart';
+import '../support/test_localizations.dart';
 
 /// A [ProvidersScreen] on a stateful fake Hermes, in a themed app at [size].
 class ProvidersRig {
@@ -59,7 +60,7 @@ class ProvidersRig {
     Widget app = MaterialApp(
       debugShowCheckedModeBanner: false,
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: brightness == Brightness.dark
           ? buildHermesDarkTheme(platform: platform)

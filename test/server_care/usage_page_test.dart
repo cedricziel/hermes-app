@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
+import '../support/test_localizations.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -61,7 +62,7 @@ void main() {
           Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
         ],
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: TargetPlatform.android),
           home: UsagePage(onRunCheck: runCheck),

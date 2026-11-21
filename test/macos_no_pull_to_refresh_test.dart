@@ -26,6 +26,7 @@ import 'hermes_plugin_manager_repository_test.dart'
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/mac_commands_builder.dart';
+import 'support/test_localizations.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -47,7 +48,7 @@ void main() {
 
   Widget app(TargetPlatform platform, Widget home) => MaterialApp(
     theme: buildHermesLightTheme().copyWith(platform: platform),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: home,
   );
@@ -229,7 +230,7 @@ void main() {
           theme: buildHermesLightTheme().copyWith(
             platform: TargetPlatform.macOS,
           ),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: macCommandsBuilder(commands),
           home: home,

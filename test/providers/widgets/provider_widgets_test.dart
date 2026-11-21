@@ -8,6 +8,8 @@ import 'package:hermes_app/src/providers/widgets/provider_view_models.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 
+import '../../support/test_localizations.dart';
+
 Future<void> _pump(
   WidgetTester tester,
   Widget child, {
@@ -22,7 +24,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: buildHermesLightTheme().copyWith(platform: platform),
       builder: (context, c) => MediaQuery(

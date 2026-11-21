@@ -7,6 +7,8 @@ import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import 'support/test_localizations.dart';
+
 const _options = ModelOptions(
   current: ModelChoice('anthropic', 'claude-opus-4'),
   providers: [
@@ -164,7 +166,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('de'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(),
         home: Scaffold(
