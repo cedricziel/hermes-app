@@ -10,6 +10,7 @@ import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -26,7 +27,11 @@ Widget _wrap(Widget child, {ShareController? share}) {
         create: (_) => share ?? ShareController(FakeShareInbox()),
       ),
     ],
-    child: MaterialApp(theme: buildHermesLightTheme(), home: child),
+    child: MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
+      theme: buildHermesLightTheme(),
+      home: child,
+    ),
   );
 }
 

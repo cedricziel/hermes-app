@@ -6,6 +6,7 @@ import 'package:hermes_app/src/files/widgets/file_previews.dart';
 import 'package:hermes_app/src/files/widgets/safe_path_text.dart';
 import 'package:hermes_app/src/theme/hermes_code_colors.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'files_widget_harness.dart';
 
@@ -157,6 +158,7 @@ void main() {
       expect(CodeHighlightWorker.alive, 1);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(),
           home: const Scaffold(
             body: CodePreview(text: 'x = 1', language: 'python'),
@@ -178,6 +180,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(),
           home: const Scaffold(body: CodePreview(text: 'plain words')),
         ),

@@ -15,6 +15,7 @@ import 'package:hermes_app/src/chat/process_output_state.dart';
 import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -407,6 +408,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: Row(
               children: [
