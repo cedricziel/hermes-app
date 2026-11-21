@@ -460,6 +460,8 @@ extension _ChatControllerQueues on ChatController {
       queued: true,
     )) {
       (_queues[thread] ??= []).insert(0, next);
+    } else {
+      _diag.queue(thread, 'drained', _queues[thread]?.length ?? 0);
     }
     notifyListeners();
   }

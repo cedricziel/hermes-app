@@ -43,6 +43,33 @@ extension _FollowUps on HermesGatewayTransport {
     return follow.watch.close();
   }
 
+  /// Logs how picking up a reply that lost its connection went: the same
+  /// reply still running (`same_reply`), a turn that ended while the app was
+  /// away (`finished_while_away`, with its stored reply or a refetch), one
+  /// that ended with nothing to show (`finished_no_reply`), a session the
+  /// server no longer has (`gone`), or a server that could not be reached
+  /// (`unreachable`). Nothing is logged for a pick-up that was cancelled.
+  void _reportReattach(_Resumed resumed, bool cancelled) {
+    if (cancelled) return;
+    final String outcome;
+    if (resumed.gone != null) {
+      outcome = 'gone';
+    } else if (resumed.turnEnded) {
+      outcome = 'finished_no_reply';
+    } else if (resumed.giveUp) {
+      outcome = 'unreachable';
+    } else if (resumed.watch != null) {
+      outcome = 'same_reply';
+    } else {
+      outcome = 'finished_while_away';
+    }
+    _record('gateway.reattach', {
+      'outcome': outcome,
+      'refetch': resumed.ended.any((e) => e.$1 is ThreadNeedsRefetch),
+      'replayed_count': resumed.replayedCount,
+    });
+  }
+
   Future<void> _pickUp(
     _ThreadOwner owner,
     StreamController<ChatEvent> out,
@@ -66,6 +93,7 @@ extension _FollowUps on HermesGatewayTransport {
       maxAttempts: 1,
       cancelled: () => canceled || out.isClosed,
     );
+    if (lost != null) _reportReattach(resumed, canceled || out.isClosed);
     // The server answered (reached, gone or over): nothing is waited for.
     if (lost != null &&
         (!resumed.giveUp || resumed.gone != null || resumed.turnEnded)) {

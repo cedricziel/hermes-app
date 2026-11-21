@@ -9,7 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
+import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -450,6 +453,112 @@ void main() {
     });
 
     expect(sinks.tracer.all, isNotEmpty);
+    expectClean();
+  });
+
+  test('reply loss: socket close, reconnect attempts, reattach', () async {
+    final gateway = FakeGateway()
+      ..createResult = {
+        'session_id': _runtimeSession,
+        'stored_session_id': _storedSession,
+      }
+      ..resumeResult = {'session_id': _runtimeSession, 'running': true}
+      ..turn = (g, sid) {
+        g.event('message.start', sid);
+        g.event('message.delta', sid, {'text': 'echo $_msg'});
+        g.drop();
+      };
+    final connection = sinks.connection(_serverAttributes);
+    var opened = 0;
+    final transport = HermesGatewayTransport(
+      connect: () async {
+        // The first socket is the chat's; every later one fails with a
+        // message that quotes the server's address.
+        if (opened++ == 0) return gateway.channel;
+        throw StateError('cannot reach $_host with $_token');
+      },
+      telemetry: connection.gateway(),
+      events: connection.events,
+    );
+    addTearDown(transport.close);
+
+    await sinks.capturingPrint(() async {
+      final seen = transport
+          .send(text: _msg, profile: _profile)
+          .listen((_) {}, onError: (Object _) {});
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      await seen.cancel();
+      // A pick-up of the thread the reply lost.
+      final follow = transport
+          .followUps(_storedSession, profile: _profile)
+          .listen((_) {}, onError: (Object _) {});
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await follow.cancel();
+      await transport.close();
+    });
+
+    expectClean();
+  });
+
+  testWidgets('reply loss: lifecycle, ended, late event, queue', (
+    tester,
+  ) async {
+    final connection = sinks.connection(_serverAttributes);
+    final transport = FakeChatTransport();
+    final attention = AttentionNotifier(
+      service: null,
+      settings: null,
+      onOpen: (_) {},
+    );
+    final chat = ChatController(
+      transport: transport,
+      attention: attention,
+      report: (_) {},
+      events: connection.events,
+      breadcrumbs: sinks.breadcrumbs,
+      reconnectRetry: const Duration(hours: 1),
+    );
+    addTearDown(() {
+      chat.dispose();
+      attention.dispose();
+    });
+
+    await sinks.capturingPrint(() async {
+      await tester.runAsync(() async {
+        chat.newThread();
+        chat.submit(_msg, const []);
+        transport.sends.single
+          ..emit(const ThreadBound(_storedSession))
+          ..emit(const PromptAcknowledged(1))
+          ..emit(ReplyDelta('echo $_msg'));
+        await pumpEventQueue();
+        chat.submit('queued $_msg', const []);
+        chat.appLifecycleChanged(AppLifecycleState.paused);
+        transport.sends.single.fail(const GatewayReplyLost());
+        await pumpEventQueue();
+        chat.appLifecycleChanged(AppLifecycleState.resumed);
+        chat.checkConnection();
+        await pumpEventQueue();
+        transport.followUpStreams[_storedSession]!
+          ..emit(const ReplyStarted())
+          ..emit(ReplyDelta('late $_msg'))
+          ..emit(ReplyCompleted('done $_msg'));
+        await pumpEventQueue();
+        // A reply the server could not confirm, settled as lost.
+        chat.newThread();
+        chat.submit('again $_msg', const []);
+        transport.sends.last
+          ..emit(const ThreadBound(_session))
+          ..emit(const PromptAcknowledged(2))
+          ..fail(const GatewayReplyUnconfirmed());
+        await pumpEventQueue();
+      });
+    });
+
+    expect(
+      sinks.records.any((r) => r.text.contains('chat.reply.ended')),
+      isTrue,
+    );
     expectClean();
   });
 

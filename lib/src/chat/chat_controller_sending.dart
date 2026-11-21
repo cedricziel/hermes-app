@@ -229,6 +229,7 @@ extension _ChatControllerSending on ChatController {
     _beginMoaTurn(thread, reply);
     final epoch = _activityEpoch;
     final queueGeneration = _loadGeneration;
+    final run = _diag.begin(thread);
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
     // A new turn: what a run announced of an earlier one says nothing of it.
@@ -299,7 +300,26 @@ extension _ChatControllerSending on ChatController {
       }
       _sending.update(thread, (n) => n - 1);
       if (_sending[thread] == 0) _sending.remove(thread);
-      breadcrumbs('chat.reply.ended', {'outcome': outcome(error)});
+      final endedAs = outcome(error);
+      breadcrumbs('chat.reply.ended', {'outcome': endedAs});
+      final queuedBehind = _queues[thread]?.length ?? 0;
+      if (holding) _diag.hold(thread, run);
+      _diag.ended(
+        thread,
+        run,
+        outcome: withdrawn != null
+            ? 'withdrawn'
+            : endedAs == 'reconnecting'
+            ? 'lost_connection'
+            : endedAs,
+        error: error,
+        stopped: stopped,
+        queued: queuedBehind,
+        serverReportedFailure: failed || reply.status == MessageStatus.error,
+      );
+      if (holding && queuedBehind > 0) {
+        _diag.queue(thread, 'held', queuedBehind);
+      }
       _closeOwnTurn(
         thread,
         own,
