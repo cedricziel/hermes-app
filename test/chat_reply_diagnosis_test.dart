@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -102,7 +104,7 @@ void main() {
     test('a loss before the server had the prompt is a failed reply', () async {
       chat.newThread();
       thread = chat.selectedThread!;
-      chat.submit(_prompt, const []);
+      await chat.submit(_prompt, const []);
       send = transport.sends.single;
       send.emit(const ThreadBound('s1'));
       await pumpEventQueue();
@@ -114,7 +116,7 @@ void main() {
 
     test('a send that failed at a step names the step', () async {
       chat.newThread();
-      chat.submit(_prompt, const []);
+      await chat.submit(_prompt, const []);
       transport.sends.single.fail(
         const SendFailure(SendStep.connect, GatewayCallTimedOut()),
       );
@@ -202,7 +204,7 @@ void main() {
 
     test('the queue behind a reply is counted, never listed', () async {
       await startTurn();
-      chat.submit('SENTINEL_QUEUED_91c2', const []);
+      await chat.submit('SENTINEL_QUEUED_91c2', const []);
       await pumpEventQueue();
       await lose();
 
@@ -216,8 +218,8 @@ void main() {
   group('chat.queue.state', () {
     test('a failed reply pauses what waited behind it', () async {
       await startTurn();
-      chat.submit('second', const []);
-      chat.submit('third', const []);
+      unawaited(Future.value(chat.submit('second', const [])));
+      unawaited(Future.value(chat.submit('third', const [])));
       await pumpEventQueue();
       send.fail(StateError(_serverText));
       await pumpEventQueue();
@@ -229,7 +231,7 @@ void main() {
 
     test('a completed reply drains the next prompt', () async {
       await startTurn();
-      chat.submit('second', const []);
+      await chat.submit('second', const []);
       await pumpEventQueue();
       send
         ..emit(const ReplyCompleted('Done.'))
@@ -305,7 +307,7 @@ void main() {
       () async {
         chat.newThread();
         thread = chat.selectedThread!;
-        chat.submit(_prompt, const []);
+        await chat.submit(_prompt, const []);
         send = transport.sends.single;
         send.emit(const ThreadBound('s1'));
         await pumpEventQueue();
@@ -346,7 +348,7 @@ void main() {
   group('privacy and robustness', () {
     test('no attribute carries what was typed, named or said', () async {
       await startTurn();
-      chat.submit('SENTINEL_QUEUED_91c2', const []);
+      await chat.submit('SENTINEL_QUEUED_91c2', const []);
       await pumpEventQueue();
       chat.appLifecycleChanged(AppLifecycleState.paused);
       await lose(StateError(_serverText));
