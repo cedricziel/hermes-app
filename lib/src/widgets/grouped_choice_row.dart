@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/hermes_theme.dart';
+import '../theme/focus_ring.dart';
 import '../theme/platform_chrome.dart';
 import 'grouped_list.dart';
 
@@ -105,60 +105,6 @@ class GroupedChoiceRow<T> extends StatelessWidget {
       enabled: enabled,
       onTap: group == null ? null : () => group.onChanged(value),
     );
-    return rowFocusable ? row : _FocusOutline(child: row);
-  }
-}
-
-/// A 2 px outline in the link colour, radius 10, around [child] while the
-/// keyboard has focus inside it: the focus mark of a popover row, which the
-/// arrow keys walk. Nothing is drawn for a pointer.
-class _FocusOutline extends StatefulWidget {
-  const _FocusOutline({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_FocusOutline> createState() => _FocusOutlineState();
-}
-
-class _FocusOutlineState extends State<_FocusOutline> {
-  bool _focused = false;
-  bool _keyboard = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _keyboard =
-        FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
-    FocusManager.instance.addHighlightModeListener(_modeChanged);
-  }
-
-  @override
-  void dispose() {
-    FocusManager.instance.removeHighlightModeListener(_modeChanged);
-    super.dispose();
-  }
-
-  void _modeChanged(FocusHighlightMode mode) =>
-      setState(() => _keyboard = mode == FocusHighlightMode.traditional);
-
-  @override
-  Widget build(BuildContext context) {
-    final outline = _focused && _keyboard;
-    return Focus(
-      canRequestFocus: false,
-      skipTraversal: true,
-      onFocusChange: (focused) => setState(() => _focused = focused),
-      child: DecoratedBox(
-        position: DecorationPosition.foreground,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: outline
-              ? Border.all(color: context.hermesColors.link, width: 2)
-              : null,
-        ),
-        child: widget.child,
-      ),
-    );
+    return rowFocusable ? row : FocusRing(radius: 10, inset: 0, child: row);
   }
 }
