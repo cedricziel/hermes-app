@@ -36,6 +36,7 @@
     "test/chat_reply_fault_matrix_test.dart",
     "test/chat_reply_no_flip_test.dart",
     "test/chat_screen_review_regressions_test.dart",
+    "test/chat_turn_actions_held_real_transport_test.dart",
     "test/conversation_window_screen_test.dart",
     "test/gateway/agent_work_transport_test.dart",
     "test/gateway/answer_open_request_test.dart",

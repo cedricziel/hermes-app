@@ -45,6 +45,7 @@
     "test/chat_screen_shell_menu_test.dart",
     "test/chat_screen_test.dart",
     "test/chat_streaming_test.dart",
+    "test/chat_turn_actions_held_widget_test.dart",
     "test/connection_page_closer_test.dart",
     "test/connection_pages_test.dart",
     "test/connection_socket_telemetry_test.dart",

@@ -27,8 +27,9 @@ Subjects: `auth_controller`, `server_address`, `token_store`, `chat_sending`,
 `gateway_reconnect`, `gateway_replay`, `app_lock`, `deeplinks`, `files`
 (`ServerPath`, `SecretNames`), `inline_reply`, `kanban`, `media`, `model`
 (chat model choice, first-run card, composer pill) and `queue` (the durable
-queue store). A new list defines `quick_tests` as its curated core and
-`tests` as that plus every importer.
+queue store). `tests` is every importer plus `test/workflows/*`;
+`quick_tests` is optional (`deeplinks` and `inline_reply` have none, so
+`--quick` runs their full list), and where present it is the curated core.
 
 ## Run it
 
@@ -110,6 +111,18 @@ killed / (killed + survived).
 - Re-run a subject's mutants after any merge that touches it (its product
   files or its tests), and state the main commit next to every result. A
   kill rate without a commit is not comparable.
+
+## Known equivalent mutants
+
+A mutant that no test can kill because the code has a second defence is not a
+gap. It is dropped from its list and recorded here with the reason; the
+runner applies one edit per mutant, so a pair of defences cannot be removed
+together.
+
+- `queue` q11 (JSON scope check on load) and q24 (scope in the AAD): each is
+  equivalent alone, since the AAD binds the scope hash and the JSON check
+  still rejects a record moved between scopes. Only removing both changes
+  behaviour, which needs a multi-edit mutant.
 
 ## The removal rule
 
