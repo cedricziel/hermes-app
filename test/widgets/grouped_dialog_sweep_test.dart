@@ -9,6 +9,7 @@ import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 
 import '../support/legacy_grouped_dialog.dart';
 import '../support/screenshot_recorder.dart';
+import '../support/test_localizations.dart';
 
 /// The rule for the dialog header, swept over phones, keyboards and text
 /// scales and checked against main's real dialog (`LegacyGroupedDialog`,
@@ -69,7 +70,7 @@ Widget _app(_Cell cell, {required bool legacy}) {
   ];
   return MaterialApp(
     debugShowCheckedModeBanner: false,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     theme: withScreenshotFont(
       buildHermesLightTheme().copyWith(platform: cell.platform),

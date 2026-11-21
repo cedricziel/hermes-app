@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../support/test_localizations.dart';
 import 'tools_setup_world.dart';
 
 /// A phone's width and a tall window, so a long page builds all of its rows.
@@ -66,7 +67,7 @@ class SetupHarness {
         : buildHermesLightTheme(platform: platform);
     final app = MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: theme,
       home: const Scaffold(body: Text('home')),

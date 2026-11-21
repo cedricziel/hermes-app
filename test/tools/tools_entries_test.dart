@@ -17,6 +17,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/protected_catalog_auth.dart';
 import '../support/pump_chat.dart' show openSidebarMore;
 import 'tools_screen_fixtures.dart';
+import '../support/test_localizations.dart';
 
 /// A connection the test can sign out of or move to another server.
 class _MovableAuth extends ProtectedCatalogAuth {
@@ -86,7 +87,7 @@ void main() {
       withAppProviders(
         auth,
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: platform),
           home: const AppShell(),
@@ -324,7 +325,7 @@ void main() {
         withAppProviders(
           auth,
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(
               platform: platform ?? TargetPlatform.android,

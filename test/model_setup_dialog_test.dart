@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/models/widgets/model_setup_dialog.dart';
 
+import 'support/test_localizations.dart';
+
 Future<void> _open(
   WidgetTester tester, {
   required TargetPlatform platform,
@@ -24,7 +26,7 @@ Future<void> _open(
             .copyWith(textScaler: TextScaler.linear(textScale)),
         child: child!,
       ),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
         builder: (context) => TextButton(

@@ -24,6 +24,7 @@ import 'fake_notification_service.dart';
 import 'find_app_icon.dart';
 import 'fake_share_inbox.dart';
 import 'screenshot_recorder.dart';
+import 'test_localizations.dart';
 
 final workflowPlatform = Platform.environment['WORKFLOW_PLATFORM'] == null
     ? null
@@ -152,10 +153,7 @@ Future<void> pumpScreen(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           locale: locale,
-          localizationsDelegates: [
-            ...AppLocalizations.localizationsDelegates,
-            ...kMaterialUiLocalizationsDelegates,
-          ],
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => AppThemeScopes(child: child!),
           theme: withScreenshotFont(

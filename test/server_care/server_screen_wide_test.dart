@@ -31,6 +31,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
+import '../support/test_localizations.dart';
 
 /// Counts the routes pushed, to tell a page beside the list from a pushed one.
 class _Pushes extends NavigatorObserver {
@@ -153,7 +154,7 @@ void main() {
         ],
         child: MaterialApp(
           navigatorObservers: [pushes, pushedRoutes],
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: platform),
           builder: (context, child) => MediaQuery(

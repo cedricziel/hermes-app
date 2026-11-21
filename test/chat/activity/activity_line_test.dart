@@ -8,6 +8,8 @@ import 'package:hermes_app/src/chat/activity/widgets/working_indicator.dart';
 import 'package:hermes_app/src/chat/activity/working_summary.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../support/test_localizations.dart';
+
 Future<void> _pump(
   WidgetTester tester,
   Widget child, {
@@ -19,7 +21,7 @@ Future<void> _pump(
 }) => tester.pumpWidget(
   MaterialApp(
     locale: locale,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     theme: buildHermesLightTheme(platform: platform),
     builder: (context, child) => MediaQuery(

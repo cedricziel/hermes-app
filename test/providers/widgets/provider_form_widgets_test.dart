@@ -13,6 +13,8 @@ import 'package:hermes_app/src/providers/widgets/server_command_view.dart';
 import 'package:hermes_app/src/providers/widgets/sign_in_code_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../support/test_localizations.dart';
+
 const _fakeKey = 'test-key-not-real';
 
 Future<void> _pump(
@@ -29,7 +31,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: buildHermesLightTheme().copyWith(platform: platform),
       builder: (context, c) => MediaQuery(
@@ -1147,7 +1149,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(),
           home: const Scaffold(
