@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
 import '../chat/widgets/thread_actions_menu.dart';
+import '../macos/edit_menu_state.dart';
 import '../macos/mac_commands.dart';
 import 'conversation_windows.dart';
 
@@ -33,6 +34,14 @@ class ConversationWindowsMenu extends StatelessWidget {
         ),
     ];
     final key = windows.keyWindow;
+    // A conversation window or the quick panel is key (the panel has an id
+    // but no entry): the Edit items would follow this engine's focus, which
+    // is the main window behind.
+    try {
+      context.read<EditMenuState>().suspended = windows.keyWindowId != null;
+    } on ProviderNotFoundException {
+      // No Mac menu bar above: nothing to turn off.
+    }
     MacCommandHandler run(ThreadAction action, {String? title}) =>
         MacCommandHandler(() => windows!.runInKeyWindow(action), title: title);
     return MacCommandScope(

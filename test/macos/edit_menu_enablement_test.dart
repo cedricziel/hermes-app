@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
+import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/chat/chat_message_kinds.dart';
+import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/macos/mac_menu_bar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/macos/menu_selection_area.dart';
@@ -253,4 +257,91 @@ void main() {
       expect(on(channel), isEmpty);
     }, variant: mac);
   });
+
+  testWidgets('Paste turns on for a field that gets focus after a copy made '
+      'elsewhere', (tester) async {
+    mockClipboard(tester);
+    final channel = await pump(
+      tester,
+      const Column(children: [TextField(autofocus: true), TextField()]),
+    );
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Paste'), isFalse);
+
+    // Text copied from a chat bubble or another app: no field saw it.
+    clipboard = 'copied elsewhere';
+    await tester.tap(find.byType(TextField).last);
+    await tester.pump();
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Paste'), isTrue);
+  }, variant: mac);
+
+  testWidgets('the menu follows a controller the focused field is rebuilt '
+      'with', (tester) async {
+    mockClipboard(tester);
+    final first = TextEditingController(text: 'first');
+    final second = TextEditingController(text: 'second');
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    final current = ValueNotifier(first);
+    addTearDown(current.dispose);
+    final channel = await pump(
+      tester,
+      ValueListenableBuilder(
+        valueListenable: current,
+        builder: (_, controller, _) =>
+            TextField(autofocus: true, controller: controller),
+      ),
+    );
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Copy'), isFalse);
+
+    current.value = second;
+    await tester.pump();
+    second.selection = const TextSelection(baseOffset: 0, extentOffset: 6);
+    await tester.pump();
+    await tester.pump();
+    expect(channel.enabled('Edit', 'Copy'), isTrue);
+  }, variant: mac);
+
+  testWidgets('selected text in a real chat bubble keeps Copy on', (
+    tester,
+  ) async {
+    mockClipboard(tester);
+    final messages = InMemoryChatController(
+      messages: [
+        Message.text(
+          id: 'reply',
+          authorId: kAssistantAuthorId,
+          text: 'reply text',
+          createdAt: DateTime.utc(2026, 1, 1, 14, 30),
+        ),
+      ],
+    );
+    addTearDown(messages.dispose);
+    final channel = await pump(
+      tester,
+      Chat(
+        currentUserId: kUserAuthorId,
+        resolveUser: (id) async => User(id: id),
+        chatController: messages,
+        builders: buildChatBuilders(onPickPrompt: (_) {})
+            .copyWith(composerBuilder: (_) => const SizedBox.shrink()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(on(channel), isEmpty);
+
+    final center = tester.getCenter(find.text('reply text'));
+    final gesture = await tester.startGesture(
+      center,
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.up();
+    await tester.pump(kDoubleTapMinTime);
+    await gesture.down(center);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(on(channel), {'Copy'});
+  }, variant: mac);
 }

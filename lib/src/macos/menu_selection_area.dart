@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:provider/provider.dart';
 
 import 'edit_menu_state.dart';
@@ -7,9 +8,21 @@ import 'edit_menu_state.dart';
 /// text, so Copy stays on for it. Outside a Mac menu bar it is a plain
 /// [SelectionArea].
 class MenuSelectionArea extends StatefulWidget {
-  const MenuSelectionArea({super.key, required this.child});
+  const MenuSelectionArea({
+    super.key,
+    required this.child,
+    this.selectionKey,
+    this.onSelectionChanged,
+  });
 
   final Widget child;
+
+  /// Key of the inner [SelectionArea], for a caller that clears or reads its
+  /// selection.
+  final GlobalKey<SelectionAreaState>? selectionKey;
+
+  /// Called with each change of the selection, besides the menu being told.
+  final ValueChanged<SelectedContent?>? onSelectionChanged;
 
   @override
   State<MenuSelectionArea> createState() => _MenuSelectionAreaState();
@@ -36,10 +49,14 @@ class _MenuSelectionAreaState extends State<MenuSelectionArea> {
 
   @override
   Widget build(BuildContext context) => SelectionArea(
-    onSelectionChanged: (content) => _menu?.reportSelection(
-      this,
-      selected: content != null && content.plainText.isNotEmpty,
-    ),
+    key: widget.selectionKey,
+    onSelectionChanged: (content) {
+      _menu?.reportSelection(
+        this,
+        selected: content != null && content.plainText.isNotEmpty,
+      );
+      widget.onSelectionChanged?.call(content);
+    },
     child: widget.child,
   );
 }

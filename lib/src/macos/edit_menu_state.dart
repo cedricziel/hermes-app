@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -48,6 +50,10 @@ class EditAvailability {
 class EditMenuState extends ValueNotifier<EditAvailability> {
   EditMenuState() : super(EditAvailability.none) {
     FocusManager.instance.addListener(_focusChanged);
+    // A focused field can be rebuilt with other controllers; there is no
+    // event for that, so each frame checks whether the bound ones are still
+    // the field's.
+    SchedulerBinding.instance.addPersistentFrameCallback((_) => _rebind());
     _focusChanged();
   }
 
@@ -55,6 +61,17 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
 
   EditableTextState? _field;
   Listenable? _fieldListenable;
+  TextEditingController? _boundController;
+  UndoHistoryController? _boundUndo;
+  bool _suspended = false;
+
+  /// Turns all six items off while another window than this engine's main
+  /// window is key: this engine's focus is then not what the user edits.
+  set suspended(bool suspended) {
+    if (_suspended == suspended) return;
+    _suspended = suspended;
+    _refreshSoon();
+  }
 
   // Flutter keeps a field's undo stack private unless the field was given an
   // UndoHistoryController. Without one the history is estimated: Undo is on
@@ -104,19 +121,44 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
   void _focusChanged() {
     final field = focusedField();
     if (!identical(field, _field)) {
-      _fieldListenable?.removeListener(_fieldChanged);
+      _unbind();
       _field = field;
       _redoable = false;
       _baseline = _lastText = field?.textEditingValue.text ?? '';
-      _fieldListenable = field == null
-          ? null
-          : Listenable.merge([
-              field.widget.controller,
-              field.widget.undoController,
-              field.clipboardStatus,
-            ]);
-      _fieldListenable?.addListener(_fieldChanged);
+      if (field != null) {
+        _bind(field);
+        // The field reads the pasteboard when it is created, not when it
+        // gets focus, and text may have been copied elsewhere since.
+        unawaited(field.clipboardStatus.update());
+      }
     }
+    _refresh();
+  }
+
+  void _bind(EditableTextState field) {
+    _boundController = field.widget.controller;
+    _boundUndo = field.widget.undoController;
+    _fieldListenable = Listenable.merge([
+      _boundController,
+      _boundUndo,
+      field.clipboardStatus,
+    ])..addListener(_fieldChanged);
+  }
+
+  void _unbind() {
+    _fieldListenable?.removeListener(_fieldChanged);
+    _fieldListenable = null;
+  }
+
+  void _rebind() {
+    final field = _field;
+    if (_disposed || field == null || !field.mounted) return;
+    if (identical(field.widget.controller, _boundController) &&
+        identical(field.widget.undoController, _boundUndo)) {
+      return;
+    }
+    _unbind();
+    _bind(field);
     _refresh();
   }
 
@@ -146,6 +188,7 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
   void _refresh() => value = _read();
 
   EditAvailability _read() {
+    if (_suspended) return EditAvailability.none;
     final field = _field;
     if (field == null) {
       final inRegion =
@@ -176,7 +219,7 @@ class EditMenuState extends ValueNotifier<EditAvailability> {
   void dispose() {
     _disposed = true;
     FocusManager.instance.removeListener(_focusChanged);
-    _fieldListenable?.removeListener(_fieldChanged);
+    _unbind();
     super.dispose();
   }
 }
