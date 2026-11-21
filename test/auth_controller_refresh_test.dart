@@ -497,45 +497,48 @@ void main() {
     ]);
   });
 
-  test('a rejected refresh neither serves nor ends a session that now '
-      'belongs to another user', () async {
-    final gated = _GatedReadTokenStore(_session());
-    store = gated;
-    controller = AuthController(
-      tokenStore: gated,
-      devServerUrl: dashboard.url,
-      telemetry: events.connection,
-      rejectionRecheck: const Duration(milliseconds: 20),
-    );
-    await controller.bootstrap();
-    dashboard
-      ..validAccess = 'revoked'
-      ..refreshFailure = 401
-      ..refreshFailureBody = _sessionExpired
-      ..refreshUserId = 'u2';
-    // Reads after this point: 1 is the refresh looking for a newer pair, 2 is
-    // the recheck after the rejection, which waits here.
-    gated.holdRead(2);
-    final rejected = expectLater(
-      controller.api!.fetchMe(),
-      throwsA(isA<DioException>()),
-    );
-    await gated.held.future;
-    // Meanwhile a second request refreshes, and the server answers it with
-    // another user's pair.
-    dashboard.refreshFailure = null;
-    await controller.api!.fetchMe();
-    expect(store.session?.userId, 'u2');
-    final requestsBefore = dashboard.authRequests;
+  // Reads of the store after the first request: 1 is the refresh looking for
+  // a newer pair, 2 is the immediate first look after the rejection, 3 is the
+  // look after the recheck wait, the last one before the final owner check.
+  for (final (read, moment) in [(2, 'first look'), (3, 'delayed recheck')]) {
+    test('a rejected refresh neither serves nor ends a session that now '
+        'belongs to another user (held at the $moment)', () async {
+      final gated = _GatedReadTokenStore(_session());
+      store = gated;
+      controller = AuthController(
+        tokenStore: gated,
+        devServerUrl: dashboard.url,
+        telemetry: events.connection,
+        rejectionRecheck: const Duration(milliseconds: 20),
+      );
+      await controller.bootstrap();
+      dashboard
+        ..validAccess = 'revoked'
+        ..refreshFailure = 401
+        ..refreshFailureBody = _sessionExpired
+        ..refreshUserId = 'u2';
+      gated.holdRead(read);
+      final rejected = expectLater(
+        controller.api!.fetchMe(),
+        throwsA(isA<DioException>()),
+      );
+      await gated.held.future;
+      // Meanwhile a second request refreshes, and the server answers it with
+      // another user's pair.
+      dashboard.refreshFailure = null;
+      await controller.api!.fetchMe();
+      expect(store.session?.userId, 'u2');
+      final requestsBefore = dashboard.authRequests;
 
-    gated.release();
-    await rejected;
+      gated.release();
+      await rejected;
 
-    expect(dashboard.authRequests, requestsBefore);
-    expect(store.session?.userId, 'u2');
-    expect(controller.state, HermesConnectionState.ready);
-    expect(events.named('auth.session.expired'), isEmpty);
-  });
+      expect(dashboard.authRequests, requestsBefore);
+      expect(store.session?.userId, 'u2');
+      expect(controller.state, HermesConnectionState.ready);
+      expect(events.named('auth.session.expired'), isEmpty);
+    });
+  }
 
   test('a rejected refresh adopts the pair another isolate stored', () async {
     await bootstrapWith(_session());
@@ -1673,24 +1676,6 @@ void main() {
       expect(headers, {'Authorization': 'Bearer access-1'});
       expect(dashboard.rotations, 0);
     });
-
-    test(
-      'refreshes once for windows that report the current token rejected',
-      () async {
-        await bootstrapWith(_session());
-        dashboard.refreshDelay = const Duration(milliseconds: 50);
-        const rejected = {'Authorization': 'Bearer access-1'};
-
-        final answers = await Future.wait([
-          controller.windowAuthHeaders(rejected: rejected),
-          controller.windowAuthHeaders(rejected: rejected),
-        ]);
-
-        expect(dashboard.rotations, 1);
-        expect(answers, everyElement({'Authorization': 'Bearer access-2'}));
-        expect(store.session?.refreshToken, 'refresh-2');
-      },
-    );
 
     test('windows reporting the same rejected token share one refresh '
         'request', () async {
