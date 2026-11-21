@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -16,10 +17,15 @@ FocusRingPainter _painter(WidgetTester tester) =>
     tester.widget<CustomPaint>(_ringPainter.first).foregroundPainter!
         as FocusRingPainter;
 
+/// What the app and the catalog mount above the home.
+Widget _scoped(BuildContext context, Widget? child) =>
+    AppThemeScopes(child: child!);
+
 Future<void> _pump(WidgetTester tester, ThemeData theme, Widget body) =>
     tester.pumpWidget(
       MaterialApp(
         theme: theme,
+        builder: _scoped,
         home: Scaffold(body: Center(child: body)),
       ),
     );
@@ -392,6 +398,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildHermesLightTheme(),
+        builder: _scoped,
         home: Builder(
           builder: (context) => Scaffold(
             body: Center(

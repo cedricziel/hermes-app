@@ -27,7 +27,8 @@ import 'frame.dart';
 /// [focusIndex]-th focusable control, or to its [button]-th button: the
 /// highlight mode is forced to traditional, as it is after a Tab press, and
 /// put back when the use case goes away. With neither, every control is at
-/// rest. [hover] puts a mouse over the child first, for controls a row shows
+/// rest. A [button] that finds no button in [child] falls back to its first
+/// focusable control, for a platform that draws a tappable row there. [hover] puts a mouse over the child first, for controls a row shows
 /// only while hovered.
 class _KeyboardFocus extends StatefulWidget {
   const _KeyboardFocus({
@@ -98,9 +99,9 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
           for (final n in nodes)
             if (_insideButton(n)) n,
         ];
-        // A platform may draw a tappable row where another draws a button
-        // (the iPhone and Material "Check for updates"): the first control
-        // takes the focus then.
+        // A platform may draw a tappable row where another draws a button:
+        // "Check for updates" (iPhone, Material) and "Messaging Set up"
+        // (iPhone). The first focusable control takes the focus then.
         if (buttons.isEmpty) {
           button = 0;
         } else {
