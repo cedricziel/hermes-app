@@ -108,8 +108,8 @@ void main() {
     });
     await chat.loadThreads('work');
     chat.select('s1');
-    chat.submit('Current turn', const []);
-    chat.submit('Queued prompt', const []);
+    await chat.submit('Current turn', const []);
+    await chat.submit('Queued prompt', const []);
     final target = chat.selectedThread!;
     final generation = chat.threadListGeneration;
     expect(

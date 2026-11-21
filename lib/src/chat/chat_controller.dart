@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, Message;
@@ -52,6 +53,7 @@ import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
 import 'chat_reply.dart';
+import 'reply_diagnostics.dart';
 import 'chat_transport.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
@@ -127,6 +129,18 @@ const _couldNotStop = 'Could not stop the reply. Try again.';
 
 /// The title of a chat that has no prompt yet.
 const _newChatTitle = 'New chat';
+
+/// How a pull to refresh of the chat list ended.
+enum ThreadListRefreshResult {
+  /// The first page was read and merged in.
+  refreshed,
+
+  /// The read failed or did not finish in time.
+  failed,
+
+  /// Nothing to refresh, or the list changed owner while it was waiting.
+  skipped,
+}
 
 /// An external open interrupted by suspension, for owner-controlled recovery.
 class InterruptedChatOpening {
@@ -604,6 +618,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.
   final Breadcrumbs breadcrumbs;
+
+  /// What a reply that is lost, failed or waiting is diagnosed with.
+  late final ReplyDiagnostics _diag = ReplyDiagnostics(
+    events: events,
+    now: _clock,
+  );
+
+  /// The app moved to [state]: logged while a reply runs, with how long the
+  /// app was away on the return (see [ReplyDiagnostics.lifecycle]).
+  void appLifecycleChanged(AppLifecycleState state) => _diag.lifecycle(
+    state,
+    replyRunning: _sending.isNotEmpty || _threads.any((t) => t.isReplying),
+  );
   final AppEventLogger events;
   final ConnectionTelemetry usageTelemetry;
   final Future<bool> Function(Uri)? connectorBrowser;
@@ -1070,6 +1097,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         profile: profile,
         generation: generation,
       );
+      if (applied && _listRefreshFailed) {
+        _listRefreshFailed = false;
+        notifyListeners();
+      }
       // A change that started during the read: wait for it and read again.
       if (!applied &&
           active &&
@@ -1083,6 +1114,24 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       // The next find, or opening the screen again, reads the list.
     }
   }
+
+  /// How long a pull to refresh waits for the list to settle and be read
+  /// before it ends as a failure.
+  Duration threadListRefreshTimeout = const Duration(seconds: 30);
+
+  bool _listRefreshFailed = false;
+
+  /// Whether the last pull to refresh of the list failed; the list shows its
+  /// notice until the next read of the list succeeds.
+  bool get threadListRefreshFailed => _listRefreshFailed;
+
+  /// A pull to refresh of the chat list: reads its first page again and
+  /// merges it in. While the list cannot take it (it is loading, or has
+  /// pending changes) it waits for the list to settle, then reads; it never
+  /// throws and ends in [ThreadListRefreshResult.failed] when the wait or the
+  /// read fails or takes longer than [threadListRefreshTimeout].
+  Future<ThreadListRefreshResult> pullRefreshThreadList() =>
+      _ChatControllerHistory(this)._pullRefreshThreadList();
 
   @override
   void notifyListeners() {
@@ -1540,6 +1589,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _reclaimedQueueReview.remove(thread);
     _warnings.remove(thread)?.clear();
     _warningGenerations.remove(thread);
+    final abandoned = _queues[thread]?.length ?? 0;
+    if (abandoned > 0) _diag.queue(thread, 'abandoned', abandoned);
+    _diag.forget(thread);
     _queues.remove(thread);
     _loadedQueues.remove(thread);
     _restoredQueues.remove(thread);
@@ -1802,6 +1854,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// and shows its replying indicator. An idle thread closes the stream
   /// without events.
   void _pickUp(ChatThread thread, {bool retry = false}) {
+    if (_reconnectingReply(thread) != null) _diag.pickedUp(thread);
     if (queueStore != null) unawaited(_restoreQueue(thread));
     if (!retry) _ChatControllerStreaming(this)._restartReconnect(thread);
     final transport = this.transport;

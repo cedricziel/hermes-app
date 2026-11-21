@@ -11,6 +11,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 import '../../api/session_source.dart';
 import '../../models/model_provider_option.dart';
+import '../../telemetry/diagnosis_buckets.dart';
 import '../../workspaces/workspace_models.dart';
 import '../chat_models.dart';
 import '../checkpoints/checkpoint_models.dart';
@@ -29,6 +30,7 @@ import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
 import 'gateway_replay.dart';
 import 'gateway_rpc_client.dart';
+import 'reconnect_diagnosis.dart';
 import 'unmapped_events.dart';
 
 part 'hermes_gateway_transport_helpers.dart';
