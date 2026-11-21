@@ -1,0 +1,263 @@
+{
+  "subject": "app_lock",
+  "tests": [
+    "test/app_audio_launch_test.dart",
+    "test/app_lock_test.dart",
+    "test/app_shell_test.dart",
+    "test/app_theme_scopes_test.dart",
+    "test/app_without_conversation_windows_test.dart",
+    "test/bot_screen/bot_screen_chat_preview_test.dart",
+    "test/bot_screen/bot_screen_chat_screen_test.dart",
+    "test/bot_screen/bot_screen_install_shell_test.dart",
+    "test/bot_screen/bot_screen_viewer_chat_screen_test.dart",
+    "test/bot_screen/bot_screen_viewer_input_chat_screen_test.dart",
+    "test/bot_screen/bot_screen_viewer_lease_chat_screen_test.dart",
+    "test/chat/activity/bound_activity_panel_test.dart",
+    "test/chat/activity/checkpoints_context_panel_test.dart",
+    "test/chat/activity/needs_you_chat_screen_test.dart",
+    "test/chat/billing_verification_integration_test.dart",
+    "test/chat/checkpoints/chat_controller_checkpoints_test.dart",
+    "test/chat/checkpoints/checkpoints_chrome_test.dart",
+    "test/chat/durable_queue_composer_test.dart",
+    "test/chat/queue_storage/queue_persistence_scope_test.dart",
+    "test/chat/queue_storage/queue_persistence_test.dart",
+    "test/chat/subagents/bound_activity_panel_agents_test.dart",
+    "test/chat_screen_quote_test.dart",
+    "test/chat_screen_session_activity_test.dart",
+    "test/deep_links/app_shell_deep_link_test.dart",
+    "test/deep_links/chat_deep_link_test.dart",
+    "test/desktop_history_window_focus_test.dart",
+    "test/files/files_lock_cleanup_test.dart",
+    "test/files/files_screen_test.dart",
+    "test/handoff_gate_test.dart",
+    "test/live_activities/live_activity_controller_test.dart",
+    "test/mac_profile_scope_test.dart",
+    "test/macos/dock_menu_gate_test.dart",
+    "test/macos/menu_bar_extra_host_test.dart",
+    "test/macos/menu_bar_extra_test.dart",
+    "test/notifications/inline_reply_test.dart",
+    "test/providers/providers_navigation_test.dart",
+    "test/providers/providers_sheets_test.dart",
+    "test/request_answers_test.dart",
+    "test/server_care/server_logs_page_test.dart",
+    "test/server_care/server_screen_wide_test.dart",
+    "test/session_export_chat_screen_test.dart",
+    "test/skills/skills_screen_curator_test.dart",
+    "test/spotlight/chat_spotlight_indexer_test.dart",
+    "test/surfaces/surface_snapshots_test.dart",
+    "test/theme_controller_test.dart",
+    "test/tools/tools_screen_test.dart",
+    "test/tools/tools_setup_actions_test.dart",
+    "test/voice/calls/app_lock_call_test.dart",
+    "test/voice/calls/voice_call_turn_list_screen_test.dart",
+    "test/widget_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workspaces/workspace_review_fixes_test.dart",
+    "test/workspaces/workspace_screen_test.dart",
+    "test/workspaces/workspace_telemetry_test.dart"
+  ],
+  "quick_tests": [
+    "test/app_lock_test.dart",
+    "test/app_shell_test.dart",
+    "test/chat/queue_storage/queue_persistence_test.dart",
+    "test/files/files_lock_cleanup_test.dart",
+    "test/handoff_gate_test.dart",
+    "test/live_activities/live_activity_controller_test.dart",
+    "test/macos/dock_menu_gate_test.dart",
+    "test/macos/menu_bar_extra_test.dart",
+    "test/notifications/inline_reply_test.dart",
+    "test/request_answers_test.dart",
+    "test/spotlight/chat_spotlight_indexer_test.dart",
+    "test/surfaces/surface_snapshots_test.dart",
+    "test/voice/calls/app_lock_call_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "a01",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "bool get covered => !_loaded || _locked || _inactive;",
+      "new": "bool get covered => !_loaded || _locked;",
+      "note": "inactive cover dropped"
+    },
+    {
+      "id": "a02",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "bool get covered => !_loaded || _locked || _inactive;",
+      "new": "bool get covered => _locked || _inactive;",
+      "note": "content shown before load"
+    },
+    {
+      "id": "a03",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "bool get _enforced => _enabled && _available != false;",
+      "new": "bool get _enforced => _enabled;",
+      "note": "lock enforced without device support (lockout)"
+    },
+    {
+      "id": "a04",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "bool get _enforced => _enabled && _available != false;",
+      "new": "bool get _enforced => _enabled && _available == true;",
+      "note": "failed availability check drops the lock"
+    },
+    {
+      "id": "a05",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "    } on Object {\n      return true;\n    }\n  }\n\n  Future<void> load",
+      "new": "    } on Object {\n      return false;\n    }\n  }\n\n  Future<void> load",
+      "note": "unreadable saved setting counts as off"
+    },
+    {
+      "id": "a06",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "_locked = _enforced;",
+      "new": "_locked = false;",
+      "note": "not locked at launch"
+    },
+    {
+      "id": "a07",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (_locked) await unlock();",
+      "new": "",
+      "note": "no unlock prompt at launch"
+    },
+    {
+      "id": "a08",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "_enabled = enabled ?? false;",
+      "new": "_enabled = enabled ?? true;",
+      "note": "default on when unset"
+    },
+    {
+      "id": "a09",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (value == _enabled) return true;",
+      "new": "if (value == _enabled) return false;",
+      "note": "no-op set returns false"
+    },
+    {
+      "id": "a10",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (!available || _authenticating) return false;",
+      "new": "if (_authenticating) return false;",
+      "note": "lock turned on without device support"
+    },
+    {
+      "id": "a11",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (await _confirm('Confirm to turn on app lock') !=",
+      "new": "if (false && await _confirm('Confirm to turn on app lock') !=",
+      "note": "lock turned on without confirmation"
+    },
+    {
+      "id": "a12",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "    _enabled = value;\n    _locked = false;",
+      "new": "    _enabled = value;",
+      "note": "stays locked after setting change"
+    },
+    {
+      "id": "a13",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "await _prefs.setBool(_prefsEnabledKey, value);",
+      "new": "",
+      "note": "choice not persisted"
+    },
+    {
+      "id": "a14",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (!_locked) return Future.value(true);",
+      "new": "if (!_locked) return Future.value(false);",
+      "note": "unlock of unlocked app returns false"
+    },
+    {
+      "id": "a15",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "return _unlocking ??= _unlockOnce().whenComplete(() => _unlocking = null);",
+      "new": "return _unlockOnce();",
+      "note": "concurrent unlock does not share one prompt"
+    },
+    {
+      "id": "a16",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (_authenticating) return false;",
+      "new": "if (false) return false;",
+      "note": "unlock during confirm prompt"
+    },
+    {
+      "id": "a17",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (_available == null) {",
+      "new": "if (false) {",
+      "note": "availability not re-asked on unlock"
+    },
+    {
+      "id": "a18",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (!_enforced) {",
+      "new": "if (_enforced) {",
+      "note": "unenforced state check inverted"
+    },
+    {
+      "id": "a19",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (result == DeviceAuthResult.unavailable && checkFailed) {",
+      "new": "if (false) {",
+      "note": "unavailable device after failed check keeps lock"
+    },
+    {
+      "id": "a20",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "_available = await _authenticator.isAvailable() ?? false;",
+      "new": "_available = await _authenticator.isAvailable() ?? true;",
+      "note": "unknown availability treated as available"
+    },
+    {
+      "id": "a21",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (result != DeviceAuthResult.confirmed && _enforced) return false;",
+      "new": "if (result != DeviceAuthResult.confirmed && false) return false;",
+      "note": "unlock without confirmation"
+    },
+    {
+      "id": "a22",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (_enforced && !_locked) {",
+      "new": "if (!_locked) {",
+      "note": "locks when not enforced (lockout)"
+    },
+    {
+      "id": "a23",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "unawaited(unlock());",
+      "new": "",
+      "note": "no unlock prompt on resume"
+    },
+    {
+      "id": "a24",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "        if (_inactive) {\n          _inactive = false;",
+      "new": "        if (false) {\n          _inactive = false;",
+      "note": "inactive cover stays after resume"
+    },
+    {
+      "id": "a25",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (_coverWhenInactive && _enforced && !_authenticating && !_inactive) {",
+      "new": "if (_coverWhenInactive && _enforced && !_inactive) {",
+      "note": "cover while device prompt shows"
+    },
+    {
+      "id": "a26",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "(defaultTargetPlatform == TargetPlatform.iOS ||",
+      "new": "(false ||",
+      "note": "iOS does not cover when inactive by default"
+    }
+  ]
+}

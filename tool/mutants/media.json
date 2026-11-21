@@ -1,0 +1,239 @@
+{
+  "subject": "media",
+  "tests": [
+    "test/accessibility_chat_test.dart",
+    "test/chat_media_test.dart",
+    "test/chat_screen_read_aloud_test.dart",
+    "test/draggable_attachment_test.dart",
+    "test/files/files_controller_test.dart",
+    "test/files/files_entry_points_test.dart",
+    "test/files/files_lock_cleanup_test.dart",
+    "test/files/files_platform_policy_test.dart",
+    "test/files/files_screen_test.dart",
+    "test/ios_photo_preview_test.dart",
+    "test/kanban_quick_look_test.dart",
+    "test/media_store_test.dart",
+    "test/plugin_attachment_pick_copy_test.dart",
+    "test/profiles/call_site_fallback_test.dart",
+    "test/profiles/launch_profile_files_test.dart",
+    "test/quick_look_attachment_test.dart",
+    "test/session_export_chat_screen_test.dart",
+    "test/session_export_window_test.dart",
+    "test/voice/read_aloud_test.dart",
+    "test/voice/voice_message_attachment_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/session_export_workflow_test.dart"
+  ],
+  "quick_tests": [
+    "test/chat_media_test.dart",
+    "test/chat_screen_read_aloud_test.dart",
+    "test/draggable_attachment_test.dart",
+    "test/files/files_controller_test.dart",
+    "test/files/files_entry_points_test.dart",
+    "test/files/files_lock_cleanup_test.dart",
+    "test/files/files_platform_policy_test.dart",
+    "test/files/files_screen_test.dart",
+    "test/ios_photo_preview_test.dart",
+    "test/kanban_quick_look_test.dart",
+    "test/media_store_test.dart",
+    "test/plugin_attachment_pick_copy_test.dart",
+    "test/quick_look_attachment_test.dart",
+    "test/voice/read_aloud_test.dart",
+    "test/voice/voice_message_attachment_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "m01",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "key.startsWith(kFilesCopyKeyPrefix) ||",
+      "new": "false ||",
+      "note": "fs: keys not treated as Files keys"
+    },
+    {
+      "id": "m02",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "key.startsWith(kSecretCopyKeyPrefix);",
+      "new": "false;",
+      "note": "fs-secret: keys not Files keys"
+    },
+    {
+      "id": "m03",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (key.startsWith(kSecretCopyKeyPrefix)) return '$_secretFolderMark$hash';",
+      "new": "if (false) return '$_secretFolderMark$hash';",
+      "note": "secret copies not in marked folder"
+    },
+    {
+      "id": "m04",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (key.startsWith(kFilesCopyKeyPrefix)) return '$_filesFolderMark$hash';",
+      "new": "if (false) return '$_filesFolderMark$hash';",
+      "note": "Files downloads not in marked folder"
+    },
+    {
+      "id": "m05",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "  Future<void> clearFileDownloads() async {\n    _filesGeneration++;",
+      "new": "  Future<void> clearFileDownloads() async {",
+      "note": "in-flight Files download survives lock"
+    },
+    {
+      "id": "m06",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "_fileFetches.removeWhere((key, _) => _isFilesKey(key));",
+      "new": "_fileFetches.removeWhere((key, _) => false);",
+      "note": "Files fetches not forgotten on lock"
+    },
+    {
+      "id": "m07",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (!name.startsWith(_filesFolderMark) &&",
+      "new": "if (false &&",
+      "note": "lock cleanup deletes chat attachments too"
+    },
+    {
+      "id": "m08",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "    await _quietly(_quickLook.close);\n    _fileFetches.removeWhere",
+      "new": "    _fileFetches.removeWhere",
+      "note": "Quick Look left open on lock"
+    },
+    {
+      "id": "m09",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "await _retryUndeleted();",
+      "new": "",
+      "note": "undeleted folders not retried after lock cleanup"
+    },
+    {
+      "id": "m10",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "      _undeleted.add(folder.path);\n",
+      "new": "",
+      "note": "failed folder delete forgotten"
+    },
+    {
+      "id": "m11",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (await _quietlyExists(folder)) {",
+      "new": "if (false) {",
+      "note": "retry never deletes"
+    },
+    {
+      "id": "m12",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (generation != current()) {",
+      "new": "if (false) {",
+      "note": "late download after lock keeps its file"
+    },
+    {
+      "id": "m13",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "int current() => files ? _filesGeneration : _generation;",
+      "new": "int current() => _generation;",
+      "note": "Files downloads ignore the files generation"
+    },
+    {
+      "id": "m14",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "await leftover.delete();",
+      "new": "leftover.path;",
+      "note": ".part left behind after failure"
+    },
+    {
+      "id": "m15",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (e is MediaFetchException || identical(e, fillFailure)) rethrow;",
+      "new": "if (e is MediaFetchException) rethrow;",
+      "note": "fill errors no longer reach caller as-is"
+    },
+    {
+      "id": "m16",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "part = File('${target.path}.$_partSuffix-${_partCounter++}.part');",
+      "new": "part = File(target.path);",
+      "note": "no .part: half file taken for download"
+    },
+    {
+      "id": "m17",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "await part.rename(target.path);",
+      "new": "await part.copy(target.path);",
+      "note": "part not renamed (left behind)"
+    },
+    {
+      "id": "m18",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "await _quietly(sink.close);",
+      "new": "",
+      "note": "sink not closed on download failure"
+    },
+    {
+      "id": "m19",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (generation == current()) unawaited(_fileFetches.remove(key));",
+      "new": "if (false) unawaited(_fileFetches.remove(key));",
+      "note": "failed fetch cached forever"
+    },
+    {
+      "id": "m20",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "return _fileFetches.putIfAbsent(key, () => _make(key, name, fill));",
+      "new": "return _make(key, name, fill);",
+      "note": "concurrent requests not shared"
+    },
+    {
+      "id": "m21",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (name.startsWith(_filesFolderMark) ||",
+      "new": "if (false ||",
+      "note": "launch wipe skips Files downloads"
+    },
+    {
+      "id": "m22",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (!name.startsWith(_secretFolderMark)) continue;",
+      "new": "if (name.startsWith(_secretFolderMark)) continue;",
+      "note": "wipeSecretCopies deletes the wrong folders"
+    },
+    {
+      "id": "m23",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (segments.length != rootSegments.length + 2) return;",
+      "new": "if (segments.length < rootSegments.length + 2) return;",
+      "note": "discard accepts deeper paths"
+    },
+    {
+      "id": "m24",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "if (!_stagedCopyFolder.hasMatch(folder)) return;",
+      "new": "if (false) return;",
+      "note": "discard deletes Files-page folders"
+    },
+    {
+      "id": "m25",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": ".any((s) => s.isEmpty || s == '.' || s == '..')) {",
+      "new": ".any((s) => s.isEmpty)) {",
+      "note": "discard accepts dot segments"
+    },
+    {
+      "id": "m26",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "_folderOf(key)}');\n    if (await folder.exists()) await folder.delete(recursive: true);",
+      "new": "_folderOf(key)}');\n    if (false) await folder.delete(recursive: true);",
+      "note": "evict does nothing"
+    },
+    {
+      "id": "m27",
+      "file": "lib/src/chat/media/media_store.dart",
+      "old": "  Future<void> clear() async {\n    _generation++;",
+      "new": "  Future<void> clear() async {",
+      "note": "clear keeps late fetches"
+    }
+  ]
+}

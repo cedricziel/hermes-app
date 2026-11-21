@@ -1,0 +1,211 @@
+{
+  "subject": "queue",
+  "tests": [
+    "test/change_invalidation_queue_test.dart",
+    "test/chat/chat_send_guards_test.dart",
+    "test/chat/durable_queue_composer_test.dart",
+    "test/chat/durable_queue_dispatch_test.dart",
+    "test/chat/durable_queue_recovery_test.dart",
+    "test/chat/queue_storage/durable_queue_settle_test.dart",
+    "test/chat/queue_storage/durable_queue_store_binding_test.dart",
+    "test/chat/queue_storage/durable_queue_store_test.dart",
+    "test/chat/queue_storage/queue_broker_test.dart",
+    "test/chat/queue_storage/queue_persistence_scope_test.dart",
+    "test/chat/queue_storage/queue_persistence_test.dart",
+    "test/chat/voice_turn_controller_test.dart",
+    "test/chat_threads_reload_running_turn_test.dart",
+    "test/reaction_queue_test.dart",
+    "test/windows/durable_queue_windows_test.dart"
+  ],
+  "quick_tests": [
+    "test/change_invalidation_queue_test.dart",
+    "test/chat/durable_queue_composer_test.dart",
+    "test/chat/durable_queue_dispatch_test.dart",
+    "test/chat/durable_queue_recovery_test.dart",
+    "test/chat/queue_storage/durable_queue_store_test.dart",
+    "test/chat/queue_storage/queue_broker_test.dart",
+    "test/chat/queue_storage/queue_persistence_scope_test.dart",
+    "test/chat/queue_storage/queue_persistence_test.dart",
+    "test/chat/voice_turn_controller_test.dart",
+    "test/chat_threads_reload_running_turn_test.dart",
+    "test/reaction_queue_test.dart",
+    "test/windows/durable_queue_windows_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "q01",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "RegExp(r'^[a-f0-9]{32}$');\n  static final _safeBlobName",
+      "new": "RegExp(r'[a-f0-9]{32}');\n  static final _safeBlobName",
+      "note": "record-id regexp unanchored (path traversal ids accepted)"
+    },
+    {
+      "id": "q02",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (raw.length != 32) {",
+      "new": "if (raw.length < 16) {",
+      "note": "key length check weakened"
+    },
+    {
+      "id": "q03",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (!create || hasPayload) {",
+      "new": "if (!create) {",
+      "note": "new key created though encrypted payload exists (silent data loss)"
+    },
+    {
+      "id": "q04",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (await File('${directory.path}/${_server(scope)}.delete').exists() ||",
+      "new": "if (false ||",
+      "note": "server tombstone ignored"
+    },
+    {
+      "id": "q05",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "await File('${_accountDir(scope).path}.delete').exists() ||",
+      "new": "false ||",
+      "note": "account tombstone ignored"
+    },
+    {
+      "id": "q06",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (await source.length() > kMaxAttachmentBytes) {",
+      "new": "if (await source.length() >= kMaxAttachmentBytes) {",
+      "note": "off-by-one on attachment limit"
+    },
+    {
+      "id": "q07",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "loaded.records.last.sequence + 1",
+      "new": "loaded.records.last.sequence",
+      "note": "sequence not incremented"
+    },
+    {
+      "id": "q08",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "state == QueueRecordState.queued) {",
+      "new": "state == QueueRecordState.queued && false) {",
+      "note": "submissionStarted -> queued transition allowed (resend)"
+    },
+    {
+      "id": "q09",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (state == QueueRecordState.accepted) await _remove(scope, record);",
+      "new": "if (false) await _remove(scope, record);",
+      "note": "accepted record not removed on setState"
+    },
+    {
+      "id": "q10",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (record.state == QueueRecordState.accepted) {",
+      "new": "if (false) {",
+      "note": "accepted records not purged on load"
+    },
+    {
+      "id": "q11",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "jsonEncode(value['scope']) != jsonEncode(scope.toJson())) {",
+      "new": "false) {",
+      "note": "record scope binding unchecked on load"
+    },
+    {
+      "id": "q12",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (_recordName(record.id) != name) throw const FormatException();",
+      "new": "if (false) throw const FormatException();",
+      "note": "record id vs file name unchecked"
+    },
+    {
+      "id": "q13",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "records.sort((a, b) => a.sequence.compareTo(b.sequence));",
+      "new": "records.sort((a, b) => b.sequence.compareTo(a.sequence));",
+      "note": "queue order reversed"
+    },
+    {
+      "id": "q14",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (name.endsWith('.tmp') ||",
+      "new": "if (false ||",
+      "note": "tmp files not cleaned on load"
+    },
+    {
+      "id": "q15",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (!_safeName.hasMatch(claim)) {",
+      "new": "if (false) {",
+      "note": "claim format unchecked"
+    },
+    {
+      "id": "q16",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (record.submissionClaimHash == digest) return;",
+      "new": "if (true) return;",
+      "note": "any claim joins an already started submission (double send)"
+    },
+    {
+      "id": "q17",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "record.submissionClaimHash != _hash(claim))) {",
+      "new": "false)) {",
+      "note": "wrong claim may restore a started submission (resend)"
+    },
+    {
+      "id": "q18",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (bytes.length != attachment.size) {",
+      "new": "if (false) {",
+      "note": "attachment corruption unchecked"
+    },
+    {
+      "id": "q19",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (await blob.exists()) await blob.delete();",
+      "new": "if (false) await blob.delete();",
+      "note": "accepted record's blobs leak"
+    },
+    {
+      "id": "q20",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (name.startsWith('$id-') && _safeBlobName.hasMatch(name)) {",
+      "new": "if (name.startsWith('$id-')) {",
+      "note": "discard deletes non-blob files with the id prefix"
+    },
+    {
+      "id": "q21",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (await record.exists()) await record.delete();",
+      "new": "if (false) await record.delete();",
+      "note": "discard keeps record file"
+    },
+    {
+      "id": "q22",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "await tombstone.delete();",
+      "new": "tombstone.path;",
+      "note": "tombstone left behind after delete"
+    },
+    {
+      "id": "q23",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "await keys.delete(account);",
+      "new": "account.hashCode;",
+      "note": "account key survives account delete"
+    },
+    {
+      "id": "q24",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "'queue.v1/${_server(scope)}/${_account(scope)}/${_scope(scope)}/$name',",
+      "new": "'queue.v1/$name',",
+      "note": "AAD no longer binds the scope"
+    },
+    {
+      "id": "q25",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (!await _file(scope, _recordName(id)).exists()) {",
+      "new": "if (false) {",
+      "note": "failed commit leaves blobs"
+    }
+  ]
+}

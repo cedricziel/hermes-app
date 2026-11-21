@@ -8,6 +8,7 @@
     "test/bot_screen/bot_screen_controller_install_test.dart",
     "test/bot_screen/bot_screen_controller_lease_test.dart",
     "test/bot_screen/bot_screen_controller_test.dart",
+    "test/bot_screen/bot_screen_default_profile_test.dart",
     "test/bot_screen/bot_screen_install_panel_test.dart",
     "test/bot_screen/bot_screen_installs_test.dart",
     "test/bot_screen/bot_screen_panel_test.dart",
@@ -32,6 +33,8 @@
     "test/chat/process_output_integration_test.dart",
     "test/chat/subagents/bound_activity_panel_agents_test.dart",
     "test/chat/subagents/chat_controller_clearing_test.dart",
+    "test/chat_reply_fault_matrix_test.dart",
+    "test/chat_reply_no_flip_test.dart",
     "test/chat_screen_review_regressions_test.dart",
     "test/conversation_window_screen_test.dart",
     "test/gateway/agent_work_transport_test.dart",
@@ -50,13 +53,16 @@
     "test/gateway/prompt_acknowledgement_test.dart",
     "test/gateway/prompt_receipt_test.dart",
     "test/gateway/reaction_transport_test.dart",
+    "test/gateway/reply_loss_telemetry_test.dart",
     "test/gateway/review_fixes_test.dart",
     "test/gateway/send_failure_test.dart",
     "test/gateway/server_request_handlers_test.dart",
     "test/gateway/session_state_transport_test.dart",
     "test/gateway/session_usage_transport_test.dart",
     "test/gateway/side_result_transport_test.dart",
+    "test/gateway/transport_network_wait_test.dart",
     "test/gateway/transport_reconnect_test.dart",
+    "test/gateway/transport_server_lost_reply_test.dart",
     "test/gateway/transport_settle_test.dart",
     "test/gateway/transport_signals_test.dart",
     "test/gateway/transport_telemetry_test.dart",
@@ -65,7 +71,11 @@
     "test/gateway/workspace_transport_test.dart",
     "test/gateway_connection_test.dart",
     "test/hermes_gateway_transport_test.dart",
+    "test/launch_profile_contract_test.dart",
     "test/moa_progress_integration_test.dart",
+    "test/privacy/telemetry_sentinel_test.dart",
+    "test/profiles/call_site_fallback_test.dart",
+    "test/profiles/launch_profile_chat_test.dart",
     "test/reaction_integration_test.dart",
     "test/reaction_queue_test.dart",
     "test/real_backend_contract_test.dart",
@@ -74,16 +84,15 @@
     "test/todo_plan_integration_test.dart",
     "test/watch_glanceable_relay_test.dart",
     "test/watch_request_actions_test.dart",
+    "test/watch_status_reuse_test.dart",
     "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
     "test/workflows/bot_screen_lease_workflow_test.dart",
     "test/workflows/bot_screen_preview_workflow_test.dart",
     "test/workflows/bot_screen_viewer_workflow_test.dart",
     "test/workflows/bot_screen_workflow_test.dart",
-    "test/workflows/needs_you_workflow_test.dart",
-    "test/workspaces/workspaces_gateway_test.dart",
-    "test/workflows/activity_panel_workflow_test.dart",
-    "test/workflows/bot_chat_workflow_test.dart",
-    "test/workflows/bot_mode_workflow_test.dart",
     "test/workflows/chat_autocomplete_workflow_test.dart",
     "test/workflows/chat_rich_workflow_test.dart",
     "test/workflows/chat_workflow_test.dart",
@@ -106,6 +115,7 @@
     "test/workflows/management_workflow_test.dart",
     "test/workflows/mcp_workflow_test.dart",
     "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
     "test/workflows/onboarding_workflow_test.dart",
     "test/workflows/plugins_workflow_test.dart",
     "test/workflows/process_control_workflow_test.dart",
@@ -121,7 +131,8 @@
     "test/workflows/tools_workflow_test.dart",
     "test/workflows/voice_call_phases_workflow_test.dart",
     "test/workflows/voice_call_setup_workflow_test.dart",
-    "test/workflows/working_directory_workflow_test.dart"
+    "test/workflows/working_directory_workflow_test.dart",
+    "test/workspaces/workspaces_gateway_test.dart"
   ],
   "quick_tests": [
     "test/gateway/transport_reconnect_test.dart",
@@ -199,8 +210,8 @@
     {
       "id": "rc10",
       "file": "lib/src/chat/gateway/hermes_gateway_transport_follow_ups.dart",
-      "old": "        if (made >= _maxReplyReconnects) {\n          out.addError(",
-      "new": "        if (made > _maxReplyReconnects) {\n          out.addError(",
+      "old": "        if (made >= _maxReplyReconnects) {\n          _lostReplies[key] = runtimeId;",
+      "new": "        if (made > _maxReplyReconnects) {\n          _lostReplies[key] = runtimeId;",
       "note": "follow-up path: limit off by one"
     },
     {
@@ -234,37 +245,37 @@
     {
       "id": "rc15",
       "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
-      "old": "      for (var attempt = 0; attempt < maxAttempts; attempt++) {\n        if (stop()) break;",
-      "new": "      for (var attempt = 0; attempt < maxAttempts; attempt++) {",
+      "old": "        if (stop()) break;\n        nudge = _nudge;",
+      "new": "        nudge = _nudge;",
       "note": "no stop check before the backoff sleep"
     },
     {
       "id": "rc16",
       "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
-      "old": "        final index = attempt + drops;",
-      "new": "        final index = attempt;",
+      "old": "        final index = tried + unanswered + drops;",
+      "new": "        final index = tried + unanswered;",
       "note": "backoff forgets earlier drops"
     },
     {
       "id": "rc17",
       "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
-      "old": "        if (index > 0) {\n          await _within(",
-      "new": "        if (index > 1) {\n          await _within(",
+      "old": "        if (index > 0) {\n          final delay",
+      "new": "        if (index > 1) {\n          final delay",
       "note": "second attempt not delayed"
     },
     {
       "id": "rc18",
       "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
-      "old": "_sleep(reconnectDelay(index, _random)),",
-      "new": "_sleep(reconnectDelay(0, _random)),",
+      "old": "          final delay = reconnectDelay(\n            index,",
+      "new": "          final delay = reconnectDelay(\n            0,",
       "note": "constant backoff"
     },
     {
       "id": "rc19",
       "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
-      "old": "        tried = attempt + 1;",
-      "new": "        tried = attempt;",
-      "note": "telemetry attempt count off by one"
+      "old": "              _reportReconnect(tried + unanswered + 1, resumed);",
+      "new": "              _reportReconnect(tried + unanswered, resumed);",
+      "note": "telemetry reconnect attempt count off by one"
     },
     {
       "id": "rc20",
@@ -325,8 +336,8 @@
     {
       "id": "rc28",
       "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
-      "old": "        replayEpoch is String &&\n        replayEpoch != recordedEpoch;",
-      "new": "        replayEpoch is String &&\n        replayEpoch == recordedEpoch;",
+      "old": "            replayEpoch != recordedEpoch ||",
+      "new": "            replayEpoch == recordedEpoch ||",
       "note": "epochChanged inverted"
     },
     {

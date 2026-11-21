@@ -1,6 +1,7 @@
 {
   "subject": "token_store",
   "tests": [
+    "test/auth_controller_refresh_test.dart",
     "test/background/headless_hermes_test.dart",
     "test/token_store_test.dart",
     "test/workflows/activity_line_workflow_test.dart",

@@ -1,0 +1,135 @@
+{
+  "subject": "deeplinks",
+  "tests": [
+    "test/deep_links/deep_link_parser_test.dart",
+    "test/deep_links/deep_link_uri_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "d01",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "if (!isHermesLink(uri) || uri.host.isEmpty) return null;",
+      "new": "if (uri.host.isEmpty) return null;",
+      "note": "scheme not checked in parse"
+    },
+    {
+      "id": "d02",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "uri.scheme.toLowerCase() == 'hermes'",
+      "new": "uri.scheme.toLowerCase().startsWith('hermes')",
+      "note": "hermes-activity/-share accepted as ours"
+    },
+    {
+      "id": "d03",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "return text == null || text.isEmpty ? null : text;",
+      "new": "return text;",
+      "note": "empty values no longer absent"
+    },
+    {
+      "id": "d04",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "value('prompt')?.trim()",
+      "new": "value('prompt')",
+      "note": "prompt not trimmed"
+    },
+    {
+      "id": "d05",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "if (text == null || text.isEmpty) return null;",
+      "new": "if (text == null) return null;",
+      "note": "blank prompt becomes empty string"
+    },
+    {
+      "id": "d06",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "const deepLinkPromptLimit = 4000;",
+      "new": "const deepLinkPromptLimit = 4001;",
+      "note": "limit off by one"
+    },
+    {
+      "id": "d07",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "text.characters.take(deepLinkPromptLimit).toString()",
+      "new": "text.substring(0, text.length.clamp(0, deepLinkPromptLimit))",
+      "note": "limit by code units, may split graphemes"
+    },
+    {
+      "id": "d08",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "const {'1', 'true'}.contains(value('dictate'))",
+      "new": "value('dictate') != null",
+      "note": "any dictate value starts the mic"
+    },
+    {
+      "id": "d09",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "const {'1', 'true'}.contains(value('dictate'))",
+      "new": "const {'1'}.contains(value('dictate'))",
+      "note": "dictate=true no longer accepted"
+    },
+    {
+      "id": "d10",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "      null => null,\n",
+      "new": "      null => OpenChat(profile: value('profile'), threadId: '', prompt: prompt()),\n",
+      "note": "chat link without id opens an empty thread"
+    },
+    {
+      "id": "d11",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "'chat' => switch (value('id')) {",
+      "new": "'chat' => switch (value('thread')) {",
+      "note": "wrong id key"
+    },
+    {
+      "id": "d12",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "jobId: value('job'),",
+      "new": "jobId: value('id'),",
+      "note": "wrong job key"
+    },
+    {
+      "id": "d13",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "'requests' => const OpenRequests(),",
+      "new": "'requests' => const OpenKanban(),",
+      "note": "requests link opens kanban"
+    },
+    {
+      "id": "d14",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "    _ => null,\n",
+      "new": "    _ => const OpenRequests(),\n",
+      "note": "unknown hosts are accepted"
+    },
+    {
+      "id": "d15",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "return _hosts.contains(kind) ? 'malformed' : 'unknown';",
+      "new": "return _hosts.contains(kind) ? 'unknown' : 'malformed';",
+      "note": "ignored reason swapped"
+    },
+    {
+      "id": "d16",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "const _hosts = {'chat', 'new', 'requests', 'kanban', 'schedules'};",
+      "new": "const _hosts = {'chat', 'new', 'requests', 'kanban'};",
+      "note": "schedules not a known kind in ignored reason"
+    },
+    {
+      "id": "d17",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "final kind = (uri.host.isNotEmpty ? uri.host : uri.path).toLowerCase();",
+      "new": "final kind = uri.host.toLowerCase();",
+      "note": "path-style hermes:chat reads unknown"
+    },
+    {
+      "id": "d18",
+      "file": "lib/src/deep_links/deep_link_parser.dart",
+      "old": "      prompt: prompt(),\n    ),\n    'requests'",
+      "new": "      prompt: null,\n    ),\n    'requests'",
+      "note": "new-chat prompt dropped"
+    }
+  ]
+}

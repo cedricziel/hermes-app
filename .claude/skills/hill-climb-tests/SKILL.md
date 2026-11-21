@@ -23,6 +23,13 @@ Files:
   `flutter`); CI runs them with `python3 -m unittest discover -s scripts -p 'test_*.py'`.
 - Results: `.dart_tool/mutation-sample/<subject>.json` (not committed).
 
+Subjects: `auth_controller`, `server_address`, `token_store`, `chat_sending`,
+`gateway_reconnect`, `gateway_replay`, `app_lock`, `deeplinks`, `files`
+(`ServerPath`, `SecretNames`), `inline_reply`, `kanban`, `media`, `model`
+(chat model choice, first-run card, composer pill) and `queue` (the durable
+queue store). A new list defines `quick_tests` as its curated core and
+`tests` as that plus every importer.
+
 ## Run it
 
 ```bash
@@ -90,6 +97,19 @@ killed / (killed + survived).
 4. When code moves or changes, re-anchor: an `old` that no longer occurs once
    fails `--check`. Keep the id and its intent; drop a mutant only when the
    code it targeted is gone, and say so in the PR.
+
+## Keep the lists honest
+
+- `--check` must pass for every list before a list is committed. It checks
+  anchors and that the files exist; it does not check importers.
+- Missing importers: a test that imports a subject's library but is not in
+  `tests` can kill a mutant the list says survives. Scan `test/` for
+  `import`/`export` of each mutated file (for a `part of` file, of the parent
+  library that has its `part '...'` line) and diff against `tests`. Run that
+  scan after a pull that adds test files, and add what it finds.
+- Re-run a subject's mutants after any merge that touches it (its product
+  files or its tests), and state the main commit next to every result. A
+  kill rate without a commit is not comparable.
 
 ## The removal rule
 
