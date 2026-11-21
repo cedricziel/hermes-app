@@ -7,8 +7,12 @@ import '../theme/hermes_theme.dart';
 const double _restingWidth = 180;
 const double _maxTextScale = 1.3;
 
-// One line at the clamped size (17 points) fits the 24 inside the border.
-const double _lineHeight = 1.2;
+/// The room for a line inside the 26 point field and its border.
+const double _lineRoom = 22;
+const double _fontSize = 13;
+
+/// The line height the theme gives the field's text at the normal size.
+const double _themeLineHeight = 1.5;
 const double _activeWidth = 240;
 
 /// The search field of a Mac toolbar: a 26pt rounded field that grows from
@@ -113,56 +117,64 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
         ),
         child: MediaQuery.withClampedTextScaling(
           maxScaleFactor: _maxTextScale,
-          child: Row(
-            children: [
-              const SizedBox(width: 7),
-              AppIcon(AppIcons.search, size: 14, color: subtle),
-              const SizedBox(width: 5),
-              Expanded(
-                child: TextField(
-                  key: const Key('toolbar-search-field'),
-                  controller: _text,
-                  focusNode: _focus,
-                  onChanged: widget.onChanged,
-                  onSubmitted: widget.onSubmitted,
-                  textInputAction: TextInputAction.search,
-                  style: const TextStyle(fontSize: 13, height: _lineHeight),
-                  decoration: InputDecoration(
-                    isCollapsed: true,
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                    hintText: widget.hint,
-                    hintStyle: TextStyle(
-                      fontSize: 13,
-                      height: _lineHeight,
-                      color: subtle,
-                    ),
-                  ),
-                ),
-              ),
-              if (widget.query.isNotEmpty || widget.active)
-                Semantics(
-                  button: true,
-                  label: 'End search',
-                  child: GestureDetector(
-                    key: const Key('toolbar-search-clear'),
-                    onTap: _end,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: AppIcon(
-                        AppIcons.clearFilled,
-                        size: 14,
-                        color: subtle,
+          child: Builder(
+            builder: (context) {
+              // The theme's line height, unless a scaled line would not fit.
+              final scaled = MediaQuery.textScalerOf(context).scale(_fontSize);
+              final fit = _lineRoom / scaled;
+              final lineHeight = fit < _themeLineHeight ? fit : null;
+              return Row(
+                children: [
+                  const SizedBox(width: 7),
+                  AppIcon(AppIcons.search, size: 14, color: subtle),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: TextField(
+                      key: const Key('toolbar-search-field'),
+                      controller: _text,
+                      focusNode: _focus,
+                      onChanged: widget.onChanged,
+                      onSubmitted: widget.onSubmitted,
+                      textInputAction: TextInputAction.search,
+                      style: TextStyle(fontSize: _fontSize, height: lineHeight),
+                      decoration: InputDecoration(
+                        isCollapsed: true,
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        hintText: widget.hint,
+                        hintStyle: TextStyle(
+                          fontSize: _fontSize,
+                          height: lineHeight,
+                          color: subtle,
+                        ),
                       ),
                     ),
                   ),
-                )
-              else
-                const SizedBox(width: 7),
-            ],
+                  if (widget.query.isNotEmpty || widget.active)
+                    Semantics(
+                      button: true,
+                      label: 'End search',
+                      child: GestureDetector(
+                        key: const Key('toolbar-search-clear'),
+                        onTap: _end,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: AppIcon(
+                            AppIcons.clearFilled,
+                            size: 14,
+                            color: subtle,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 7),
+                ],
+              );
+            },
           ),
         ),
       ),

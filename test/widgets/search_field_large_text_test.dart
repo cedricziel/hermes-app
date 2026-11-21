@@ -61,10 +61,21 @@ void main() {
         if (scale == 1.0) {
           expect(fieldBox.height, ios ? 36 : 44);
         }
-        // The bar's bottom holds the field.
-        final bar = tester.getRect(find.byType(PreferredSize).first);
-        expect(fieldBox.bottom, lessThanOrEqualTo(bar.bottom));
-        expect(fieldBox.top, greaterThanOrEqualTo(bar.top));
+        // The bar keeps its whole toolbar and grows by the field and its gap.
+        final bar = tester.widget<AppBar>(find.byType(AppBar));
+        expect(
+          tester.getSize(find.byType(AppBar)).height,
+          bar.toolbarHeight! +
+              SettingsSearchField.heightFor(
+                ios: ios,
+                textScaler: TextScaler.linear(scale),
+              ) +
+              8,
+        );
+        expect(
+          tester.getRect(find.byType(AppBar)).bottom,
+          greaterThanOrEqualTo(fieldBox.bottom),
+        );
       });
     }
   }
@@ -96,5 +107,33 @@ void main() {
     expect(tester.getSize(field).height, 26);
     // 26 points less the 1 point border on each side.
     expect(_hintHeight(tester, field), lessThanOrEqualTo(24));
+  });
+
+  testWidgets('the Mac field keeps its normal caret height at 1.0x', (
+    tester,
+  ) async {
+    await tester.runAsync(loadTestFonts);
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.macOS,
+        1,
+        Scaffold(
+          body: MacToolbarSearchField(
+            query: '',
+            active: false,
+            onChanged: (_) {},
+            onEnd: () {},
+          ),
+        ),
+      ),
+    );
+    RenderEditable? editable;
+    void visit(RenderObject object) {
+      if (object is RenderEditable) editable = object;
+      object.visitChildren(visit);
+    }
+
+    visit(tester.renderObject(find.byType(TextField)));
+    expect(editable!.preferredLineHeight, equals(20));
   });
 }

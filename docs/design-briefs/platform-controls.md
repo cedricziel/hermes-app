@@ -58,12 +58,12 @@ Rendered locally with headless Chrome; not checked in the claude.ai viewer or on
 
 ## Search fields at large text
 
-The shared search fields clipped their placeholder and text from 2.0x text, because their height was fixed.
+The shared search fields clipped their placeholder and text at large text (iOS above about 1.4x, Material above about 1.8x, Mac above 1.3x), because their height was fixed.
 
 Decisions:
 
 - Phone (`SettingsSearchField` on iOS and Material): the height is a minimum that grows with the text scaler, `max(36 or 44, scaled line height + 8)`, from one function (`SettingsSearchField.heightFor`) that `SettingsScaffold`'s bar bottom also uses, so the bar grows with the field. At 1.0x the heights stay 36 and 44. The filter and clear buttons keep their platform size.
-- Mac (`MacToolbarSearchField`, also what `SettingsSearchField` shows on macOS): the field stays a 26 pt toolbar control and its text scaling is clamped at 1.3x, with a 1.2 line height so one line fits inside the border.
+- Mac (`MacToolbarSearchField`, also what `SettingsSearchField` shows on macOS): the field stays a 26 pt toolbar control and its text scaling is clamped at 1.3x, and the line height shrinks only when a scaled line would not fit the border (below 1.5 from about 1.13x), so at 1.0x the field, caret and selection are as before.
 
 Reason: a Mac toolbar control does not grow with the text size (AppKit toolbars stay at their set height); a phone search field has room to grow and the bar below the title can follow it.
 

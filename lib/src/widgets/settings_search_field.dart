@@ -44,8 +44,9 @@ class SettingsSearch {
   bool get filterActive => filters.isNotEmpty && !filters.first.selected;
 }
 
-/// The search field of a settings page: 36 points (more at large text) with a 10 point radius on
-/// iOS, a 44 point pill on Material, and the toolbar search field on macOS.
+/// The search field of a settings page: 36 points with a 10 point radius on
+/// iOS, a 44 point pill on Material (both taller at large text), and the
+/// toolbar search field on macOS.
 class SettingsSearchField extends StatefulWidget {
   const SettingsSearchField({
     super.key,
