@@ -17,6 +17,7 @@ import '../tool_value_budget.dart';
 import '../tool_value_language.dart';
 import 'tool_hidden_chars.dart';
 import 'tool_json_tree.dart';
+import '../../macos/menu_selection_area.dart';
 
 /// The code style of a tool value. Ligatures and contextual alternates are
 /// off, so `->` and `!=` stay the characters that were sent.
@@ -146,7 +147,7 @@ class _ToolValueViewState extends State<ToolValueView> {
     if (!widget.selectable || SelectionContainer.maybeOf(context) != null) {
       return text;
     }
-    return SelectionArea(child: text);
+    return MenuSelectionArea(child: text);
   }
 }
 

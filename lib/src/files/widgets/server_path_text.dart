@@ -4,6 +4,7 @@ import '../../../l10n/l10n.dart';
 import '../server_path.dart';
 import 'files_metrics.dart';
 import 'safe_path_text.dart';
+import '../../macos/menu_selection_area.dart';
 
 /// "· on your server" as one unit that never breaks inside: the spaces are
 /// non-breaking, so a wrapped path moves the whole suffix to the next line.
@@ -201,7 +202,7 @@ class ServerPathText extends StatelessWidget {
         text = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            selectable ? SelectionArea(child: pathText) : pathText,
+            selectable ? MenuSelectionArea(child: pathText) : pathText,
             Text(suffix, style: base),
           ],
         );
@@ -227,7 +228,7 @@ class ServerPathText extends StatelessWidget {
             ],
           ),
         );
-        text = selectable ? SelectionArea(child: inline) : inline;
+        text = selectable ? MenuSelectionArea(child: inline) : inline;
       }
     }
     return Semantics(
