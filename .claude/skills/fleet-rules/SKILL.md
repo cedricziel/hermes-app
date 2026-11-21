@@ -142,7 +142,7 @@ A "Dart PR" is one that touches any `.dart` file, `pubspec.*`,
 SHA of the PR (and of every `--stack` PR) it checked. A pass (exit 0) counts
 only while origin/main still equals that base SHA and each of those PR heads
 still equals the head SHA it printed; otherwise rerun it. Exit 6 (budget cut)
-is not a pass.
+and exit 7 (capped) are not a pass (exit codes below).
 
 A READY report names the directories the PR touches under `lib/`, `test/`,
 `widgetbook/` and `packages/` (or "none").
