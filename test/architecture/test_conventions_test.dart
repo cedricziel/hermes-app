@@ -22,7 +22,7 @@ final _delegatesPattern = RegExp(
 );
 
 List<Hit> _delegateHits() => [
-  for (final root in const ['test', 'widgetbook'])
+  for (final root in const ['test', 'widgetbook', 'benchmark'])
     ...scanPattern(
       root,
       _delegatesPattern,

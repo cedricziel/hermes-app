@@ -140,12 +140,16 @@ void main() {
     test('a turn found over with nothing to show, and no restart, is a plain '
         'failure still', () async {
       await startTurn();
+      transport.active['s1'] = 'working';
       await lose(const GatewayTurnEnded());
 
       expect(assistant().status, MessageStatus.error);
       expect(assistant().loss, isNull);
-      expect(assistant().error, kReplyFailedMessage);
-      expect(assistant().toolCalls.single.status, ToolCallStatus.error);
+      expect(assistant().error, isNull);
+      expect(assistant().failure, ReplyFailure.generic);
+      // The client lost the connection; nothing says the call failed.
+      expect(assistant().toolCalls.single.status, ToolCallStatus.cancelled);
+      expect(assistant().serverMayRun, isTrue);
       expectOneSubmit();
     });
 

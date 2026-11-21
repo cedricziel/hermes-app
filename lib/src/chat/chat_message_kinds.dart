@@ -112,4 +112,12 @@ const String kMetaStopped = 'stopped';
 /// under the reply says which, in words.
 const String kMetaLoss = 'loss';
 
+/// On a failed reply's `TextMessage` that carries neither `error` nor `loss`:
+/// the server gave no explanation, so the widget layer words it. The value is
+/// a `ReplyFailure` name, or [kFailureMayStillRun] for a generic failure whose
+/// turn the server may still be running (`ChatMessage.serverMayRun`), which
+/// must not invite a retry.
+const String kMetaFailure = 'failure';
+const String kFailureMayStillRun = 'mayStillRun';
+
 const String kMetaCanonicalRow = 'canonical_reaction_row';

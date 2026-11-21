@@ -391,6 +391,9 @@ extension _ChatControllerSending on ChatController {
         // A reply the server lost may still be picked up and read again: what
         // it did meanwhile goes into this same bubble.
         if (loss != null) _afterLossSettle(thread, transport, profile);
+        // Whether the server still runs the turn decides if Retry and Edit
+        // come back.
+        if (reply.serverMayRun) unawaited(refreshActive());
         // A send that gave up asks for the thread to be read again: what
         // Hermes ran meanwhile is in its history. The read keeps this failed
         // turn after it (see [refreshThread]).

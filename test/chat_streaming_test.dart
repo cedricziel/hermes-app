@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
-import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -43,6 +42,10 @@ typedef _SharedFiles = ({
 /// Sending through a [ChatTransport]: the streamed reply, from the composer
 /// through the real widget tree, against a fake dashboard for the session
 /// list and a hand-driven fake transport for the reply.
+const _failedText = 'Something went wrong. Try sending it again.';
+const _profileGoneText =
+    'That profile is no longer available. Pick another one.';
+
 void main() {
   late FakeHermesServer server;
   late FakeChatTransport transport;
@@ -287,10 +290,10 @@ void main() {
     transport.sends.single.fail();
     await tester.pump();
 
-    expect(inTranscript(kReplyFailedMessage), findsOneWidget);
+    expect(inTranscript(_failedText), findsOneWidget);
     expect(waitingForReasoning, findsNothing);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {kMetaError: kReplyFailedMessage});
+    expect(last.metadata, {kMetaFailure: 'generic'});
   });
 
   chatTest('a profile that no longer exists is explained, not retried', (
@@ -302,12 +305,12 @@ void main() {
     transport.sends.single.fail(const ProfileUnavailableException());
     await tester.pump();
 
-    expect(inTranscript(kProfileUnavailableMessage), findsOneWidget);
-    expect(inTranscript(kReplyFailedMessage), findsNothing);
+    expect(inTranscript(_profileGoneText), findsOneWidget);
+    expect(inTranscript(_failedText), findsNothing);
     expect(inTranscript('Any news?'), findsOneWidget);
     expect(waitingForReasoning, findsNothing);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {kMetaError: kProfileUnavailableMessage});
+    expect(last.metadata, {kMetaFailure: 'profileUnavailable'});
     expect(transport.sends, hasLength(1));
   });
 
@@ -323,9 +326,9 @@ void main() {
     await tester.pump();
 
     expect(inTranscript('Half an ans'), findsOneWidget);
-    expect(inTranscript(kReplyFailedMessage), findsOneWidget);
+    expect(inTranscript(_failedText), findsOneWidget);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {kMetaError: kReplyFailedMessage});
+    expect(last.metadata, {kMetaFailure: 'generic'});
   });
 
   chatTest('the user can send again after a dropped stream', (tester) async {
@@ -341,7 +344,7 @@ void main() {
 
     expect(transport.sends, hasLength(2));
     expect(inTranscript('Here you go.'), findsOneWidget);
-    expect(inTranscript(kReplyFailedMessage), findsOneWidget);
+    expect(inTranscript(_failedText), findsOneWidget);
   });
 
   chatTest('sending to a server thread passes its id', (tester) async {
@@ -797,7 +800,7 @@ void main() {
         inTranscript('Could not attach report.pdf: disk full'),
         findsOneWidget,
       );
-      expect(inTranscript(kReplyFailedMessage), findsNothing);
+      expect(inTranscript(_failedText), findsNothing);
       expect(waitingForReasoning, findsNothing);
     });
   });
