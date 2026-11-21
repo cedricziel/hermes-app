@@ -10,12 +10,14 @@ import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/tools/widgets/status_chip.dart';
 
+import '../support/test_localizations.dart';
+
 /// Pins what the text badges and the status chip look and measure like, so
 /// the shared badge stays behaviour-neutral.
 Future<void> _pump(WidgetTester tester, Widget child, {bool dark = false}) {
   return tester.pumpWidget(
     MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
       home: Scaffold(

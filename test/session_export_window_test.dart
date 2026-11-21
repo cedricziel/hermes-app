@@ -26,6 +26,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_conversation_window_host.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
+import 'support/test_localizations.dart';
 
 class _Link
     implements ConversationWindowLink, QueueWindowLink, ExportBusyWindowLink {
@@ -133,7 +134,7 @@ void main() {
       Provider<MediaStore?>.value(
         value: store,
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
           home: ConversationWindowScreen(

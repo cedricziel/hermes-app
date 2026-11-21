@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../support/screenshot_recorder.dart';
 import '../voice/calls/call_harness.dart';
+import '../support/test_localizations.dart';
 
 /// The Hands-free strip in the app around a page and a pushed page, in every
 /// state, on a phone and on a desktop window.
@@ -39,7 +40,7 @@ void main() {
               debugShowCheckedModeBanner: false,
               navigatorKey: navigator,
               theme: theme,
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: kTestLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               builder: (context, child) =>
                   shots.frame(HandsFreeStripLayer(child: child!)),

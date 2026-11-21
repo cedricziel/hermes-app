@@ -7,6 +7,8 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/app_banner.dart';
 
+import 'support/test_localizations.dart';
+
 Widget _host(Widget child, {ThemeData? theme}) => MaterialApp(
   theme: theme ?? buildHermesLightTheme(),
   home: Scaffold(body: child),
@@ -259,7 +261,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             locale: const Locale('de'),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: AppBanner(
@@ -297,7 +299,7 @@ void main() {
     }) => MaterialApp(
       theme: buildHermesLightTheme().copyWith(platform: platform),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -465,7 +467,7 @@ void main() {
         MaterialApp(
           theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
           locale: const Locale('de'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Align(

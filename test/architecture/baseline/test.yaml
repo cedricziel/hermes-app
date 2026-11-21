@@ -1,0 +1,23 @@
+# Baseline of the `test.*` source guards (test/architecture/test_conventions_test.dart).
+#
+# Rule id -> (repo-relative path -> allowed count of violations). Shrink-only:
+# a count above its entry or an unlisted file fails with the offending lines
+# and the building block to use instead; a count below its entry fails with the
+# exact edit ("lower <rule> <path> to N" or "remove the entry"). Never raise or
+# add an entry to get green: fix the call site, or, if the site is legitimate,
+# add it to the rule's allowlist in code with a reason, in a reviewed change.
+# `UPDATE_BASELINE=1 flutter test test/architecture` lowers it for you and
+# never raises it. A rule with no violations has no entry.
+
+# Files that open pull requests change at the time of this entry; switch each
+# to kTestLocalizationsDelegates once that PR has merged.
+test.localization-delegates:
+  test/launch_profile_contract_test.dart: 1
+  test/macos/mac_menu_bar_test.dart: 1
+  test/support/pump_chat.dart: 1
+  test/tools/tools_screen_test.dart: 1
+  test/tools/tools_setup_harness.dart: 1
+  test/workflows/tools_workflow_test.dart: 1
+  test/workspaces/details_follow_actions_test.dart: 1
+  test/workspaces/safe_path_display_extra_test.dart: 1
+  test/workspaces/safe_path_display_test.dart: 1

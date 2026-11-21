@@ -21,6 +21,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
+import '../support/test_localizations.dart';
 
 const _old = 'old1111';
 const _fresh = 'new2222';
@@ -119,7 +120,7 @@ void main() {
           ChangeNotifierProvider<HermesUpdateRun>.value(value: run),
         ],
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: platform),
           home: const ServerScreen(source: 'test'),
@@ -422,7 +423,7 @@ void main() {
           ],
           child: MaterialApp(
             navigatorObservers: [pushedRoutes],
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
             home: MultiProvider(
