@@ -636,6 +636,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           telemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
         ),
       )..addListener(_memoryWaitingChanged);
+      // A launch profile read that failed leaves no count; count when a later
+      // read succeeds.
+      _chat.profileResolver?.addListener(_launchProfileKnown);
     }
     if (auth != null &&
         transport is GatewayConnectionTransport &&
@@ -813,6 +816,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ? waiting.refreshIfStale(profile)
         : waiting.refresh(profile));
   }
+
+  void _launchProfileKnown() => unawaited(_refreshMemoryWaiting());
 
   void _memoryWaitingChanged() {
     if (mounted) setState(() {});
@@ -1054,6 +1059,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
     _toolsAvailability?.removeListener(_toolsAvailabilityChanged);
+    _chat.profileResolver?.removeListener(_launchProfileKnown);
     _memoryWaiting
       ?..removeListener(_memoryWaitingChanged)
       ..dispose();

@@ -390,6 +390,46 @@ final guardRules = <Rule>[
     },
   ),
 
+  // docs/architecture/app-shell.md: the launch profile comes from
+  // ProfileResolver; `active` of /api/profiles/active is the sticky CLI
+  // default.
+  _guard(
+    name: 'sticky-active-profile',
+    message:
+        'ask the launch profile with repositories.profiles.resolver.load(), '
+        'not loadActive() (the sticky active profile).',
+    pattern: RegExp(r'\bloadActive\('),
+    view: _code,
+    allow: {
+      'lib/src/profiles/hermes_profiles_repository.dart':
+          'defines loadActive; the resolver and the Profiles page read it',
+    },
+  ),
+
+  // docs/architecture/app-shell.md: a missing profile is resolved, never
+  // named by hand. Limit: it sees `<x>profile ?? 'default'` only, not a
+  // ternary (`profile == null ? 'default' : ...`) or another variable name.
+  _guard(
+    name: 'default-profile-fallback',
+    message:
+        'resolve a missing profile with ProfileResolver.resolve; do not '
+        'write `profile ?? kDefaultProfile` or `profile ?? \'default\'`.',
+    pattern: RegExp(
+      r"""[pP]rofile\w*\s*\?\?\s*(?:kDefaultProfile|['"]default['"])""",
+    ),
+    allow: {
+      'lib/src/chat/chat_controller.dart':
+          'compares with a stored pending request; requests nothing',
+      'lib/src/chat/chat_controller_voice.dart': 'key of the stop hand-backs',
+      'lib/src/chat/chat_screen_navigation.dart':
+          'label of the connect card; requests nothing',
+      'lib/src/providers/providers_screen.dart':
+          'label for a server without profiles',
+      'lib/src/surfaces/surface_snapshot_builder.dart':
+          'open profile of a snapshot; stores none, no request carries it',
+    },
+  ),
+
   // CLAUDE.md "Server care": doctor never runs with --fix.
   _custom(
     name: 'doctor-fix',

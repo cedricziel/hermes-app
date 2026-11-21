@@ -360,8 +360,13 @@ extension _ChatScreenNavigation on _ChatScreenState {
     _closeDrawerIfNarrow();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            McpServersScreen(repository: _mcp!, profiles: _profiles),
+        // The chat's profile, else the launch profile (the screen reads it
+        // when this is null).
+        builder: (_) => McpServersScreen(
+          repository: _mcp!,
+          profiles: _profiles,
+          profile: _chat.profileResolver?.resolve(_chat.profile),
+        ),
       ),
     );
   }

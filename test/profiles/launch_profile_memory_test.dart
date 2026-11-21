@@ -93,4 +93,32 @@ void main() {
     expect(transport.asked, isEmpty);
     expect(inSidebar('Memory'), findsOneWidget);
   });
+
+  testWidgets('the count shows once a launch profile read that failed '
+      'succeeds', (tester) async {
+    var reads = 0;
+    final resolver = ProfileResolver(() async {
+      if (reads++ == 0) {
+        final options = RequestOptions(path: '/api/profiles/active');
+        throw DioException(
+          requestOptions: options,
+          response: Response<Object?>(requestOptions: options, statusCode: 500),
+        );
+      }
+      return (active: 'main', current: 'work');
+    });
+    await pumpChat(tester, resolver);
+    await openSidebarMore(tester);
+    await expectLater(resolver.load(), throwsA(isA<DioException>()));
+    await tester.pumpAndSettle();
+    expect(transport.asked, isEmpty);
+    expect(inSidebar('Memory'), findsOneWidget);
+
+    await tester.runAsync(resolver.load);
+    await tester.pumpAndSettle();
+
+    expect(inSidebar('Memory · 2 waiting'), findsOneWidget);
+    expect(transport.asked.map((a) => a.$2).toSet(), {'work'});
+    expect(reads, 2);
+  });
 }
