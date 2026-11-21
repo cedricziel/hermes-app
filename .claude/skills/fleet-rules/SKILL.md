@@ -131,17 +131,18 @@ A session reports READY to the orchestrator when all of these hold:
   origin/main is clean, (2) the later main commits do not change the same
   functions, classes or doc section the PR changes, (3) `Analyze & test` is
   green on the reviewed head, and (4) for a Dart PR, the trial check below
-  passes. The READY
-  report names the later main commits checked for (2). If (2) fails, re-merge
-  and get a scoped merge-only review.
+  passes. The READY report names the later main commits checked for (2). If
+  (2) fails, re-merge and get a scoped merge-only review.
 
 A "Dart PR" is one that touches any `.dart` file, `pubspec.*`,
 `analysis_options.yaml` or `l10n.yaml`. The "trial check" is
 `scripts/premerge_check.sh <pr>`, run from an origin/main checkout; use
 `--stack <pr>...` for back-to-back merges. It runs pub get, analyze,
-`test/architecture` and the affected tests, and prints the base SHA it checked
-against. A pass (exit 0) counts only while origin/main still equals that base
-SHA; otherwise rerun it. Exit 6 (budget cut) is not a pass.
+`test/architecture` and the affected tests, and prints the base SHA and the head
+SHA of the PR (and of every `--stack` PR) it checked. A pass (exit 0) counts
+only while origin/main still equals that base SHA and each of those PR heads
+still equals the head SHA it printed; otherwise rerun it. Exit 6 (budget cut)
+is not a pass.
 
 A READY report names the directories the PR touches under `lib/`, `test/`,
 `widgetbook/` and `packages/` (or "none").
@@ -151,9 +152,9 @@ the required checks on the head. Read check state with `status-reader`
 or `pull_request_read`; pending, queued and in-progress are not green.
 
 The orchestrator has at most one armed or hand-merged Dart PR at a time, until
-it has merged. (The overlap report of `scripts/premerge_check.sh` is information only.)
-Exception: a hand merge may proceed while another Dart PR is armed, if the trial
-check runs with `--stack <armed pr>` and passes.
+it has merged. (The overlap report of `scripts/premerge_check.sh` is information
+only.) Exception: a hand merge may proceed while another Dart PR is armed, if
+the trial check runs with `--stack <armed pr>` and passes.
 
 Every hand merge needs a READY report, a clean recorded review for the exact
 head, and every required check green on that head, except the per-shard checks
