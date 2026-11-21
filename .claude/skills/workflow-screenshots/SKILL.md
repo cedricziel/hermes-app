@@ -40,8 +40,16 @@ To see one widget in every state without a flow around it, use the
 - Third-party widgets that read a theme from a scope (`gpt_markdown` reads
   `material_ui`'s) need the app's `AppThemeScopes` (`lib/src/theme/material_ui_bridge.dart`).
   `HermesApp`, `pumpScreen` and the Widgetbook catalog all mount that one widget;
-  a hand-built `MaterialApp` in a test must too, or dark markdown headings draw
-  near-black (1.17:1) in the screenshot and the app never does. Add new app-level
+  a hand-built test app (`MaterialApp`, `CupertinoApp`, `WidgetsApp`, or a helper
+  such as `pumpChatScreen`, `pumpOnPlatform` or `pumpFiles` that builds one) that
+  renders markdown, code, files or skills widgets must mount `AppThemeScopes` in
+  its `builder:`. Without it `mui.Theme.of` does not throw but falls back to the
+  light theme, so dark markdown headings draw near-black (1.17:1) and code blocks
+  draw light on a dark page, in the screenshot and never in the app.
+  `test/app_theme_scopes_test.dart` enforces it: it derives the widgets that read
+  the theme from `lib/` and fails, naming the file and the widget, for a test
+  that builds an app, references one and mounts nothing (navigation-only roots
+  `AppShell`, `MacProfilesPage` and `HermesApp` do not count as readers). Add new app-level
   theme scopes inside `AppThemeScopes`. `test/app_theme_scopes_test.dart` compares
   the theme-like inherited widgets above the `Navigator` in `HermesApp` and
   `pumpScreen` (a scope added in `app.dart` that the harness lacks fails it; a
