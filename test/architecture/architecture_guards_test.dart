@@ -103,6 +103,9 @@ Rule _custom({
   );
 }
 
+/// A use of the catalog's keyboard override, a call or a tear-off.
+final _keyboardOverride = RegExp(r'\bmarkFocusRingKeyboardInput\b');
+
 final _buttonStyleCall = RegExp(r'\b(?:\w*Button\.styleFrom|ButtonStyle)\(');
 final _copyWithCall = RegExp(r'\.copyWith\(');
 
@@ -648,7 +651,7 @@ final guardRules = <Rule>[
     message:
         'markFocusRingKeyboardInput is for the catalog (widgetbook/) and '
         'tests only: the ring follows real input (lib/src/theme/focus_ring.dart).',
-    pattern: RegExp(r'\bmarkFocusRingKeyboardInput\s*\('),
+    pattern: _keyboardOverride,
     view: _code,
     allow: {'lib/src/theme/focus_ring.dart': 'defines it'},
   ),
@@ -666,6 +669,18 @@ final guardRules = <Rule>[
 
 void main() {
   ratchetTests(guardRules, namespace: 'arch');
+
+  test('the keyboard-override pattern catches a call and a tear-off', () {
+    expect(_keyboardOverride.hasMatch('markFocusRingKeyboardInput();'), isTrue);
+    expect(
+      _keyboardOverride.hasMatch('run(markFocusRingKeyboardInput);'),
+      isTrue,
+    );
+    expect(
+      _keyboardOverride.hasMatch('markFocusRingKeyboardInputs();'),
+      isFalse,
+    );
+  });
 
   group('button-shape scan', () {
     int hits(String source, {String path = 'lib/x.dart'}) =>

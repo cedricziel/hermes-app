@@ -35,9 +35,7 @@ Future<void> _openAfterClick(WidgetTester tester, String name) async {
       home: Scaffold(body: Builder(builder: _useCase(name).builder)),
     ),
   );
-  for (var i = 0; i < 4; i++) {
-    await tester.pump(const Duration(milliseconds: 400));
-  }
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -94,9 +92,7 @@ void main() {
             home: Scaffold(body: Builder(builder: _useCase(name).builder)),
           ),
         );
-        for (var i = 0; i < 4; i++) {
-          await tester.pump(const Duration(milliseconds: 400));
-        }
+        await tester.pumpAndSettle();
       }
 
       await mount('Mac thread row Archive (20 pt)');
