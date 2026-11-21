@@ -109,6 +109,25 @@ void main() {
     expect((await build(previous: first)).profile, 'work');
   });
 
+  test('a launch lookup that fails counts as one failed source', () async {
+    server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 500);
+
+    final result = await builder.build(signedIn: true, refreshRemote: true);
+
+    expect(result.sourcesFailed, 1);
+    expect(result.failures.errored, {'launch_profile'});
+    expect(result.failures.outcome, 'error');
+  });
+
+  test('a server with no profile routes is not a failed source', () async {
+    server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404);
+
+    final result = await builder.build(signedIn: true, refreshRemote: true);
+
+    expect(result.sourcesFailed, 0);
+    expect(result.failures.outcome, 'ok');
+  });
+
   test('a slow launch lookup spends the shared budget, not more', () async {
     server.onRequest(
       'GET',

@@ -144,7 +144,9 @@ class SurfaceSnapshotBuilder {
         if (hints?.profile == null &&
             mayBeFallback &&
             resolver.launch == null) {
-          await read(resolver.load);
+          final lookup = await read(resolver.load);
+          // A fixed source name, never a profile name.
+          if (!lookup.ok) fail('launch_profile', lookup);
           openProfile = chooseOpenProfile();
         }
         Future<void> readChats() async {
