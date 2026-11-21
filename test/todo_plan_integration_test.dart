@@ -181,7 +181,7 @@ void main() {
       });
       addTearDown(subscription.cancel);
       chat.newThread();
-      chat.submit('Create a synthetic session', const []);
+      await chat.submit('Create a synthetic session', const []);
       await pumpEventQueue();
       final thread = chat.selectedThread!;
       expect(thread.id, 'stored-1');
@@ -203,7 +203,7 @@ void main() {
     () async {
       await open();
       final thread = chat.selectedThread!;
-      chat.submit('Inspect the plan', const []);
+      await chat.submit('Inspect the plan', const []);
       await pumpEventQueue();
       gateway.event('todo.updated', 'foreign-runtime', plan(99, 'Foreign'));
       gateway.event('todo.updated', 'rt-1', plan(1, 'Active task'));
@@ -243,7 +243,7 @@ void main() {
         final state = chat.todoPlanIn(thread)!;
         gateway.handlers['session.resume'] = (_) =>
             resume(snapshot: missing ? null : plan(5, 'Old task'));
-        chat.submit('Continue on same connection', const []);
+        await chat.submit('Continue on same connection', const []);
         await pumpEventQueue();
 
         expect(chat.todoPlanIn(thread), same(state));
@@ -273,9 +273,9 @@ void main() {
           gateway.drop();
           await pumpEventQueue();
           expect(chat.todoPlanIn(thread), isNull);
-          chat.submit('Attach on new connection', const []);
+          await chat.submit('Attach on new connection', const []);
         } else {
-          chat.submit('Attach new runtime', const []);
+          await chat.submit('Attach new runtime', const []);
         }
         await pumpEventQueue();
 

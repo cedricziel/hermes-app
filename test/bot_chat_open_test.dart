@@ -92,7 +92,7 @@ void main() {
   });
   test('unknown mentions and selected handles are preserved without a client handoff', () async {
     await chat.openBot(context('research', 'alpha'));
-    chat.submit(
+    await chat.submit(
       'Ask @writer; preserve unknown@example.com and @unknown.',
       const [],
     );
@@ -162,7 +162,7 @@ void main() {
         server.requestsTo('GET', '/api/sessions/alpha-tip/messages'),
         isNotEmpty,
       );
-      chat.submit('Next question', const []);
+      await chat.submit('Next question', const []);
       expect(transport.sends.last.threadId, 'alpha-tip');
       expect(transport.sends.last.profile, 'research');
     },
