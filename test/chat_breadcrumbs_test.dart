@@ -125,7 +125,7 @@ void main() {
 
   test('a reply leaves a started and an ended crumb', () async {
     chat.newThread();
-    chat.submit(_prompt, const []);
+    await chat.submit(_prompt, const []);
     expect(last('chat.reply.started'), {'queued': false, 'attachments': 0});
 
     transport.sends.single
@@ -139,7 +139,7 @@ void main() {
 
   test('a send that fails ends the reply as failed', () async {
     chat.newThread();
-    chat.submit(_prompt, const []);
+    await chat.submit(_prompt, const []);
     transport.sends.single.fail(StateError(_reply));
     await pumpEventQueue();
 
@@ -148,7 +148,7 @@ void main() {
 
   test('a reply that ends without a completion is failed', () async {
     chat.newThread();
-    chat.submit(_prompt, const []);
+    await chat.submit(_prompt, const []);
     transport.sends.single.finish();
     await pumpEventQueue();
 
@@ -157,7 +157,7 @@ void main() {
 
   test('a stopped reply ends as stopped', () async {
     chat.newThread();
-    chat.submit(_prompt, const []);
+    await chat.submit(_prompt, const []);
     transport.sends.single
       ..emit(const ReplyCompleted(_reply, stopped: true))
       ..finish();
@@ -172,7 +172,7 @@ void main() {
       await chat.loadThreads(_profileName);
       chat.select(_threadId);
       chat.newThread();
-      chat.submit(_prompt, const []);
+      await chat.submit(_prompt, const []);
       transport.sends.single
         ..emit(const ReplyCompleted(_reply))
         ..finish();

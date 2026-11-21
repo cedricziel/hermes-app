@@ -321,9 +321,9 @@ void main() {
       () async {
         chat.select('recent');
         await pumpEventQueue();
-        chat.submit('First', const []);
+        await chat.submit('First', const []);
         await pumpEventQueue();
-        chat.submit('Second', const []);
+        await chat.submit('Second', const []);
         await pumpEventQueue();
         final replying = thread('recent');
         expect(replying.isReplying, isTrue);
