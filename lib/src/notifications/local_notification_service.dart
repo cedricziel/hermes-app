@@ -71,8 +71,10 @@ bool usableBusAddress(String address) {
     }
   }
   if (transport == 'unix') {
-    return (props['path']?.isNotEmpty ?? false) ||
-        (props['abstract']?.isNotEmpty ?? false);
+    // The package takes `path` whenever the key is there, even empty, and
+    // `abstract` only without it.
+    final path = props['path'] ?? props['abstract'];
+    return path != null && path.isNotEmpty;
   }
   if (transport == 'tcp') {
     final port = int.tryParse(props['port'] ?? '');
@@ -109,9 +111,15 @@ String? _decodeBusValue(String encoded) {
   }
 }
 
-bool _socketExists(String path) {
+bool _socketExists(String path) => isUnixSocket(path);
+
+/// Whether [path], symlinks followed, is a unix domain socket: a regular file
+/// or a folder where the bus socket should be is no bus.
+@visibleForTesting
+bool isUnixSocket(String path) {
   try {
-    return FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound;
+    return FileSystemEntity.typeSync(path) ==
+        FileSystemEntityType.unixDomainSock;
   } on Object {
     return false;
   }
@@ -404,12 +412,10 @@ class LocalNotificationService
   Future<void>? _initialized;
   var _launchAnswered = false;
 
-  /// Set when the Linux plugin's D-Bus setup failed, even after `initialize`
-  /// returned; the service is unsupported from then on.
-
   /// Whether a call that waits for a D-Bus reply (`show`) ever got one, an
-  /// error reply included. `initialize` returns at once, listing calls throw
-  /// locally and a `cancel` may never reach the bus, so they say nothing.
+  /// error reply included. `initialize` waits only on the disk, listing calls
+  /// throw locally and a `cancel` may never reach the bus, so they say
+  /// nothing.
   var _busResponded = false;
   final _pendingCalls = <void Function()>{};
 
@@ -430,21 +436,19 @@ class LocalNotificationService
     _timeoutLatched = false;
   }
 
-  void _markBusFailed({bool byTimeout = false}) {
-    if (byTimeout) {
-      _timeoutLatched = true;
-    } else {
-      _failedForGood = true;
-    }
+  /// A confirmed bus failure: final, and it ends every call still waiting.
+  void _markBusFailed() {
+    _failedForGood = true;
     for (final fail in _pendingCalls.toList()) {
       fail();
     }
   }
 
   /// Runs a plugin call. On Linux it also ends, as an error, when the bus
-  /// has failed or [kLinuxCallTimeout] passes, which also marks the bus
-  /// failed: the plugin's D-Bus client leaves a call pending forever once
-  /// its connection failed.
+  /// has failed for good or [kLinuxCallTimeout] passes. A timeout ends only
+  /// its own call; unless a call that waits for the bus was ever answered it
+  /// also refuses new calls until one is. The plugin's D-Bus client leaves a
+  /// call pending forever once its connection failed.
   Future<T> _guard<T>(Future<T> Function() call, {bool awaitsBus = false}) {
     if (defaultTargetPlatform != TargetPlatform.linux) return call();
     if (_linuxBusFailed) return Future.error(StateError('D-Bus unavailable'));
@@ -452,7 +456,7 @@ class LocalNotificationService
     final timer = Timer(kLinuxCallTimeout, () {
       // A bus that never answered is dead; one that has answered before may
       // only be slow (a notification daemon starting on demand).
-      if (!_busResponded) _markBusFailed(byTimeout: true);
+      if (!_busResponded) _timeoutLatched = true;
       if (!out.isCompleted) {
         out.completeError(TimeoutException('D-Bus call', kLinuxCallTimeout));
       }
@@ -468,8 +472,12 @@ class LocalNotificationService
         if (!out.isCompleted) out.complete(value);
       },
       onError: (Object error, StackTrace stack) {
-        // A local throw before Notify went out proves nothing about the bus.
+        // A local throw before Notify went out proves nothing about the bus,
+        // but a closed connection is gone for good.
         if (awaitsBus && isDBusReplyError(error)) _answered();
+        if (error.runtimeType.toString() == 'DBusClosedException') {
+          _markBusFailed();
+        }
         if (!out.isCompleted) out.completeError(error, stack);
       },
     );
@@ -497,13 +505,22 @@ class LocalNotificationService
     _ => false,
   };
 
-  Future<void> _initialize() => _initialized ??= _startGuarded().then<void>(
-    (_) {},
-    onError: (Object error, StackTrace stack) {
-      _initialized = null;
-      Error.throwWithStackTrace(error, stack);
-    },
-  );
+  /// The plugin's start, shared by every caller. On Linux each caller waits
+  /// at most [kLinuxCallTimeout] for it, and a timeout latches nothing: the
+  /// plugin's initialize waits only on the disk, so a slow one finishes later
+  /// and the next caller reuses the same start.
+  Future<void> _initialize() {
+    final started = _initialized ??= _startGuarded().then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {
+        _initialized = null;
+        Error.throwWithStackTrace(error, stack);
+      },
+    );
+    if (defaultTargetPlatform != TargetPlatform.linux) return started;
+    if (_linuxBusFailed) return Future.error(StateError('D-Bus unavailable'));
+    return started.timeout(kLinuxCallTimeout);
+  }
 
   /// On Linux the plugin subscribes to D-Bus signals without an error
   /// handler, so a bus that cannot be reached throws from futures nobody
@@ -521,7 +538,7 @@ class LocalNotificationService
     // `_onResponse` run in it. Only bus errors end here; anything else goes
     // to the parent zone, so the crash reporter still sees it.
     runZoned(
-      () => _guard(_start).then<void>(
+      () => _start().then<void>(
         (_) => done.isCompleted ? null : done.complete(),
         onError: fail,
       ),

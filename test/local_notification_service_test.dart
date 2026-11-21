@@ -1,6 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show SocketException;
+import 'dart:io'
+    show
+        Directory,
+        File,
+        InternetAddress,
+        InternetAddressType,
+        Link,
+        ServerSocket,
+        SocketException;
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
@@ -46,6 +54,9 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   InitializationSettings? settings;
   void Function()? duringInitialize;
   Completer<void>? showGate;
+
+  /// One hold per `show`, taken in order; a call past the list is not held.
+  final showHolds = <Completer<void>>[];
   var showCalls = 0;
   Completer<void>? activeGate;
   Completer<void>? cancelGate;
@@ -82,6 +93,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
       Error.throwWithStackTrace(error, StackTrace.current);
     }
     await showGate?.future;
+    if (showHolds.isNotEmpty) await showHolds.removeAt(0).future;
     posted.add(_Posted(id, title, body, payload, notificationDetails));
   }
 
@@ -1723,10 +1735,12 @@ void main() {
             pluginZone = Zone.current;
           };
         final service = serviceWith(plugin, bus: true);
-        service.post(note);
+        NotificationPostResult? first;
+        service.post(note).then((r) => first = r);
         async.flushMicrotasks();
         async.elapse(kLinuxCallTimeout);
         async.flushMicrotasks();
+        expect(first?.status, NotificationPostStatus.failed);
         pluginZone.handleUncaughtError(
           const SocketException('dead bus'),
           StackTrace.current,
@@ -1743,6 +1757,81 @@ void main() {
         debugDefaultTargetPlatformOverride = null;
       });
     });
+
+    test('an initialize that finishes after the deadline is reused', () {
+      fakeAsync((async) {
+        final plugin = _FakePlugin()..initializeHeld = Completer<void>();
+        final service = serviceWith(plugin, bus: true);
+        NotificationPostResult? first;
+        service.post(note).then((r) => first = r);
+        async.flushMicrotasks();
+        async.elapse(kLinuxCallTimeout);
+        async.flushMicrotasks();
+        expect(first?.status, NotificationPostStatus.failed);
+
+        // A slow disk, not a dead bus: nothing is latched.
+        plugin.initializeHeld!.complete();
+        async.flushMicrotasks();
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+
+        expect(next?.status, NotificationPostStatus.accepted);
+        expect(plugin.initializeCalls, 1);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    });
+
+    test('a timeout fails only its own call', () {
+      fakeAsync((async) {
+        final secondHold = Completer<void>();
+        final plugin = _FakePlugin()
+          ..showHolds.addAll([Completer<void>(), secondHold]);
+        final service = serviceWith(plugin, bus: true);
+        NotificationPostResult? first;
+        service.post(note).then((r) => first = r);
+        async.flushMicrotasks();
+
+        async.elapse(const Duration(seconds: 4));
+        NotificationPostResult? second;
+        service.post(note).then((r) => second = r);
+        async.flushMicrotasks();
+
+        // The first call times out at 5 s; the second is still within its own.
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
+        expect(first?.status, NotificationPostStatus.failed);
+        expect(second, isNull);
+
+        secondHold.complete();
+        async.flushMicrotasks();
+        expect(second?.status, NotificationPostStatus.accepted);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    });
+
+    test(
+      'a show that fails with DBusClosedException ends the bus for good',
+      () {
+        fakeAsync((async) {
+          final plugin = _FakePlugin()..showError = DBusClosedException();
+          final service = serviceWith(plugin, bus: true);
+          NotificationPostResult? first;
+          service.post(note).then((r) => first = r);
+          async.flushMicrotasks();
+          expect(first?.status, NotificationPostStatus.failed);
+
+          plugin.showError = null;
+          NotificationPostResult? next;
+          service.post(note).then((r) => next = r);
+          async.flushMicrotasks();
+
+          expect(next?.status, NotificationPostStatus.unsupported);
+          expect(plugin.showCalls, 1);
+          debugDefaultTargetPlatformOverride = null;
+        });
+      },
+    );
 
     test('a slow call on a bus that answered before fails only that call', () {
       fakeAsync((async) {
@@ -1994,6 +2083,7 @@ void main() {
         'unix:path=%zz',
         'unix:path=%2',
         'unix:dir=/tmp',
+        'unix:path=,abstract=x',
         'disabled:;unix:path=/x',
       ]) {
         expect(
@@ -2008,6 +2098,7 @@ void main() {
       for (final address in [
         'unix:path=/x',
         'unix:abstract=/tmp/dbus-x',
+        'unix:abstract=x',
         'tcp:host=localhost,port=1',
         'tcp:host=x,port=1234',
         'tcp:host=x,port=%312345',
@@ -2020,6 +2111,26 @@ void main() {
           reason: address,
         );
       }
+    });
+
+    test('only a unix socket counts as the bus socket', () async {
+      final dir = Directory.systemTemp.createTempSync('hermes_bus_probe_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final file = File('${dir.path}/file')..writeAsStringSync('x');
+      final folder = Directory('${dir.path}/folder')..createSync();
+      final socketPath = '${dir.path}/bus';
+      final server = await ServerSocket.bind(
+        InternetAddress(socketPath, type: InternetAddressType.unix),
+        0,
+      );
+      addTearDown(server.close);
+      Link('${dir.path}/link').createSync(socketPath);
+
+      expect(isUnixSocket(file.path), isFalse);
+      expect(isUnixSocket(folder.path), isFalse);
+      expect(isUnixSocket('${dir.path}/missing'), isFalse);
+      expect(isUnixSocket(socketPath), isTrue);
+      expect(isUnixSocket('${dir.path}/link'), isTrue);
     });
 
     test('is false with nothing set and no socket', () {
