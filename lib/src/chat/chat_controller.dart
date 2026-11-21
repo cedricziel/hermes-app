@@ -75,7 +75,11 @@ import '../app_lock/app_lock_controller.dart';
 import 'process_output_state.dart';
 import 'reactions/reaction_state.dart';
 import 'gateway/gateway_rpc_client.dart'
-    show GatewayRpcException, GatewayConnectionClosed;
+    show
+        GatewayRpcException,
+        GatewayConnectionClosed,
+        GatewayReplyLost,
+        GatewaySessionGone;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'queued_prompt.dart';
@@ -184,6 +188,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.connectorBrowser,
     this.usageTelemetry = const ConnectionTelemetry(),
     this.replayGrace = const Duration(seconds: 20),
+    this.reconnectRetry = const Duration(seconds: 15),
+    this.lostAdoptWindow = const Duration(seconds: 45),
     DateTime Function()? now,
   }) : _clock = now ?? DateTime.now,
        _watchSource = watchStatus?.source() {
@@ -265,6 +271,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _openGeneration++;
     _activeRefresh++;
     _pauses++;
+    _historyRetrying.clear();
     _loadingThreads = false;
     // A read that is cut short leaves its chat unloaded, so the transcript
     // keeps showing it as loading rather than as a new chat.
@@ -297,9 +304,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       unawaited(subscription.cancel());
     }
     _replies.clear();
+    _sendEnds.clear();
     _stopFollowing();
     _sending.clear();
     _cancelSettleWaits();
+    _ChatControllerStreaming(this)._cancelReconnects();
     _replayEnds?.cancel();
     _ChatControllerCheckpoints(this)._actionsSuspended();
     notifyListeners();
@@ -517,6 +526,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// announced may still arrive as a replay. Later than that, an ending is a
   /// new one.
   final Duration replayGrace;
+
+  /// How long a reply that lost its connection waits before the next try at
+  /// picking its turn up again, for as long as the chat stays in front. The
+  /// app coming to the front, the chat being opened and a stop that reached the
+  /// server try at once.
+  final Duration reconnectRetry;
+
+  /// How long after a reply was settled as lost the pick-up that follows may
+  /// still hand it the turn it stood for (a reconnect answers within the
+  /// transport's 20 s). A turn that starts later is another one and gets its
+  /// own bubble.
+  final Duration lostAdoptWindow;
   final DateTime Function() _clock;
   Timer? _replayEnds;
 
@@ -883,6 +904,26 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// again; the transcript shows the failure with a Retry instead of nothing.
   final _historyFailed = <String>{};
 
+  /// Chats whose Retry for the earlier messages is reading right now, while
+  /// the newest ones are on screen.
+  final _historyRetrying = <String>{};
+
+  /// How many first-page reads of a chat were started: a read that finds a
+  /// newer one has been replaced.
+  final _pageReadToken = <String, int>{};
+
+  /// Never reused, so a token that was pruned cannot match a later read.
+  var _pageReadSeq = 0;
+
+  /// [id]'s first page was put on screen (by a read, a refresh or a handoff):
+  /// no failure or retry stands for it any more, and a read that was still
+  /// out for it is replaced, so its late end changes nothing.
+  void _firstPageLanded(String id) {
+    _historyFailed.remove(id);
+    _historyRetrying.remove(id);
+    _pageReadToken[id] = ++_pageReadSeq;
+  }
+
   /// Threads with older rows on the server, by how many rows were read so far.
   final _olderRows = <String, int>{};
 
@@ -891,6 +932,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _bound = <ChatThread>{};
   var _sentMessages = 0;
   final _replies = <StreamSubscription<ChatEvent>>{};
+
+  /// Ends each send of a thread that is still streaming, as if its stream had
+  /// failed with the error given: the send is cancelled and its own end runs.
+  /// A settle the controller decides on itself (a stop that found the turn gone)
+  /// uses it, so no send is left attached to a reply that is over.
+  final _sendEnds = <ChatThread, List<void Function(Object)>>{};
+
+  /// The follow-up stream of each thread by id, to cancel one at a settle.
+  final _followByThread = <String, StreamSubscription<ChatEvent>>{};
 
   /// The listeners for turns Hermes chains after a reply, which outlive it.
   final _following = <StreamSubscription<ChatEvent>>{};
@@ -904,6 +954,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// The threads whose queue waits for the session to settle, each with the
   /// fallback timer that sends it when no settle report comes.
   final _settleTimers = <ChatThread, Timer>{};
+
+  /// The next try at picking up a reply that lost its connection, by thread.
+  final _reconnectTimers = <ChatThread, Timer>{};
+  final _reconnectTries = <ChatThread, int>{};
 
   /// The threads that changed on the server in a way the stream cannot carry,
   /// to read again once their reply is over.
@@ -1371,6 +1425,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..clear()
         ..addAll(page.messages);
       _unloaded.remove(selected.id);
+      _firstPageLanded(selected.id);
       if (page.hasMore) _olderRows[selected.id] = page.rows;
       if (thread.unread) selected.unread = true;
       _selectedId = selected.id;
@@ -1491,6 +1546,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _finishQueueBinding(thread, false);
     _suspendedQueues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
+    _reconnectTimers.remove(thread)?.cancel();
+    _reconnectTries.remove(thread);
     _refetch.remove(thread);
     liveActivities?.endChat(thread.id, _profile);
     _watchSource?.drop(thread);
@@ -1512,7 +1569,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (!active) return;
     final epoch = _activityEpoch;
     transport?.checkConnection().then((_) {
-      if (_currentActivity(epoch)) unawaited(refreshActive());
+      if (!_currentActivity(epoch)) return;
+      // The app is back: a reply that lost its connection tries again now.
+      for (final thread in [..._threads]) {
+        if (_reconnectingReply(thread) != null) _pickUp(thread);
+      }
+      unawaited(refreshActive());
     }, onError: (Object _) {});
   }
 
@@ -1547,6 +1609,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _subagentEnvironment?.dispose();
     housekeeping?.setActivity(false);
     _replayEnds?.cancel();
+    _ChatControllerStreaming(this)._cancelReconnects();
     for (final reply in _replies) {
       reply.cancel();
     }
@@ -1637,11 +1700,29 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         : null;
   }
 
-  /// Reads [thread]'s first page again after it failed.
+  /// What the first item of [thread]'s transcript says when its newest
+  /// messages are on screen but its first stored page could not be read (a
+  /// message was sent after the failure): [ChatEarlierMessagesStatus.failed],
+  /// or [ChatEarlierMessagesStatus.retrying] while Retry reads again. Null
+  /// otherwise; a chat with no messages shows [historyStatusOf] instead.
+  ChatEarlierMessagesStatus? earlierMessagesStatusOf(ChatThread thread) {
+    if (!thread.remote || thread.messages.isEmpty) return null;
+    final id = thread.id;
+    if (_historyFailed.contains(id)) return ChatEarlierMessagesStatus.failed;
+    if (_historyRetrying.contains(id) && _loadingMessages.containsKey(id)) {
+      return ChatEarlierMessagesStatus.retrying;
+    }
+    return null;
+  }
+
+  /// Reads [thread]'s first page again after it failed. Only a call to this
+  /// reads again; nothing retries on its own.
   void retryHistory(ChatThread thread) {
     if (!active || _selectedId != thread.id) return;
     if (!_historyFailed.contains(thread.id)) return;
-    breadcrumbs('chat.history.retry');
+    breadcrumbs('chat.history.retry', {
+      'withMessages': thread.messages.isNotEmpty,
+    });
     final epoch = _activityEpoch;
     final profile = _profile;
     final id = thread.id;
@@ -1718,11 +1799,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// never streamed (started on the TUI or another device) streams into it
   /// and shows its replying indicator. An idle thread closes the stream
   /// without events.
-  void _pickUp(ChatThread thread) {
+  void _pickUp(ChatThread thread, {bool retry = false}) {
     if (queueStore != null) unawaited(_restoreQueue(thread));
+    if (!retry) _ChatControllerStreaming(this)._restartReconnect(thread);
     final transport = this.transport;
     if (!active || transport == null || !thread.remote) return;
-    if (thread.isReplying) return;
+    // A reply that lost its connection is the one to pick up: it counts as
+    // replying, and what the server still runs goes into it.
+    if (thread.isReplying && _reconnectingReply(thread) == null) return;
     _followUps(transport, thread, _profile);
   }
 
@@ -2088,6 +2172,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_selectedId == previousId) _selectedId = id;
     _unloaded.remove(previousId);
     _historyFailed.remove(previousId);
+    _historyRetrying.remove(previousId);
+    _pageReadToken.remove(previousId);
     _olderRows.remove(previousId);
     if (_followingIds.remove(previousId)) _followingIds.add(id);
     if (_active.remove(previousId)) _active.add(id);

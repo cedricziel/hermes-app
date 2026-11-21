@@ -6,6 +6,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "window_size.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -13,6 +14,52 @@ struct _MyApplication {
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+// The work area of the monitor the window will most likely open on: the
+// monitor under the pointer on X11; on Wayland the pointer position is unknown
+// before a window is mapped, so this is the monitor at the origin. Falls back
+// to the primary monitor. False when GDK reports none.
+static gboolean get_work_area(GtkWindow* window, GdkRectangle* work_area) {
+  GdkDisplay* display = gtk_widget_get_display(GTK_WIDGET(window));
+  GdkMonitor* monitor = nullptr;
+  GdkSeat* seat = gdk_display_get_default_seat(display);
+  GdkDevice* pointer = seat != nullptr ? gdk_seat_get_pointer(seat) : nullptr;
+  if (pointer != nullptr) {
+    gint x = 0, y = 0;
+    gdk_device_get_position(pointer, nullptr, &x, &y);
+    monitor = gdk_display_get_monitor_at_point(display, x, y);
+  }
+  if (monitor == nullptr) monitor = gdk_display_get_primary_monitor(display);
+  if (monitor == nullptr) return FALSE;
+  gdk_monitor_get_workarea(monitor, work_area);
+  return work_area->width > 0 && work_area->height > 0;
+}
+
+// GDK on X11 sets no _NET_WM_ICON for an icon over 262144 pixels, which rules
+// out the 512 px asset, so both paths hand GTK a pixbuf scaled to this size.
+static const int kWindowIconSize = 256;
+
+// Sets the window icon: the installed theme icon named like the .desktop
+// file's Icon= (the .deb, which ships only a 512 px entry), else the PNG
+// shipped in the bundle's data dir (the tar.gz, which installs no theme entry).
+static void set_window_icon(GtkWindow* window) {
+  GtkIconTheme* theme = gtk_icon_theme_get_default();
+  g_autoptr(GdkPixbuf) icon = nullptr;
+  if (gtk_icon_theme_has_icon(theme, APPLICATION_ID)) {
+    icon = gtk_icon_theme_load_icon(theme, APPLICATION_ID, kWindowIconSize,
+                                    GTK_ICON_LOOKUP_FORCE_SIZE, nullptr);
+  }
+  if (icon == nullptr) {
+    g_autofree gchar* exe = g_file_read_link("/proc/self/exe", nullptr);
+    if (exe == nullptr) return;
+    g_autofree gchar* dir = g_path_get_dirname(exe);
+    g_autofree gchar* file =
+        g_build_filename(dir, "data", "icons", APPLICATION_ID ".png", nullptr);
+    icon = gdk_pixbuf_new_from_file_at_size(file, kWindowIconSize,
+                                            kWindowIconSize, nullptr);
+  }
+  if (icon != nullptr) gtk_window_set_icon(window, icon);
+}
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
@@ -52,7 +99,21 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "Hermes");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  // After both title paths, so the icon is set whichever one ran.
+  set_window_icon(window);
+
+  GdkGeometry min_size = {};
+  min_size.min_width = kMinWindowWidth;
+  min_size.min_height = kMinWindowHeight;
+  gtk_window_set_geometry_hints(window, nullptr, &min_size, GDK_HINT_MIN_SIZE);
+
+  WindowSize size = {kDefaultWindowWidth, kDefaultWindowHeight};
+  GdkRectangle work_area;
+  if (get_work_area(window, &work_area)) {
+    size = default_window_size(work_area.width, work_area.height);
+  }
+  gtk_window_set_default_size(window, size.width, size.height);
+  gtk_window_set_position(window, GTK_WIN_POS_CENTER);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

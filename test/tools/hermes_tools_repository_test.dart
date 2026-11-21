@@ -68,8 +68,8 @@ void main() {
       },
     );
 
-    test('forProfile binds another profile', () async {
-      await repository.forProfile('home').list();
+    test('the root binds the profile it is given', () async {
+      await HermesToolsRoot(server.client().raw).forProfile('home').list();
 
       expect(server.requests.single.queryParameters['profile'], 'home');
     });

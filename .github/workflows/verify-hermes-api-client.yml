@@ -14,20 +14,63 @@ jobs:
   verify:
     name: packages/hermes_api matches the spec
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
+      # This job is a required check, so the workflow has no `paths:` filter (a
+      # workflow skipped by one stays pending forever). The job runs on every
+      # pull request instead and skips the regeneration steps, still reporting
+      # success, when nothing the generated client depends on changed. On a
+      # pull request HEAD is the merge commit and HEAD^1 the base branch.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Decide whether the client can have changed
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          run=true
+          if [ "$EVENT_NAME" = pull_request ]; then
+            # Fail closed: anything unexpected runs the full check.
+            if [ "$(git rev-list --parents -n1 HEAD | wc -w)" -ne 3 ]; then
+              echo "::warning::HEAD is not a merge commit; running the full check"
+            else
+              list="$(mktemp)"
+              git -c core.quotePath=false diff --name-only -z --no-renames HEAD^1 HEAD > "$list"
+              if [ ! -s "$list" ]; then
+                echo "::warning::No changed files found; running the full check"
+              else
+                run=false
+                while IFS= read -r -d '' file; do
+                  echo "changed: $file"
+                  case "$file" in
+                    openapi/* | scripts/* | packages/hermes_api/* | openapitools.json | .fvmrc | pubspec.yaml | pubspec.lock | .github/workflows/verify-hermes-api-client.yml) run=true ;;
+                  esac
+                done < "$list"
+              fi
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "regenerate=$run" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/setup-java@v6
+        if: steps.scope.outputs.run == 'true'
         with:
           distribution: temurin
           java-version: "17"
 
       - uses: dart-lang/setup-dart@v1
+        if: steps.scope.outputs.run == 'true'
 
       - name: Regenerate packages/hermes_api
+        if: steps.scope.outputs.run == 'true'
         run: ./scripts/generate_hermes_api_client.sh
 
       - name: Fail if regeneration produced a diff
+        if: steps.scope.outputs.run == 'true'
         run: |
           if ! git diff --exit-code -- packages/hermes_api; then
             echo "::error::packages/hermes_api is out of date with openapi/hermes-agent.openapi.json. Run ./scripts/generate_hermes_api_client.sh and commit the result."

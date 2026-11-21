@@ -238,12 +238,26 @@ extension _ChatControllerSending on ChatController {
     var stopped = false;
     var folded = false;
     var settled = false;
+    // Set once the turn is the server's: its prompt was accepted or a frame of
+    // its reply came. A connection lost before that says nothing of a turn.
+    var begun = false;
     // Set when a spoken turn left no trace: it was withdrawn before it was
     // written, or Hermes took it as a stop phrase. Fixed words, for telemetry.
     String? withdrawn;
     final own = _OwnTurn();
+    // The connection dropped under a turn the server has: it may still run, so
+    // the reply waits for it instead of failing (see [markReconnecting]).
+    bool lost(Object? error) =>
+        withdrawn == null &&
+        !folded &&
+        reply.isPending &&
+        isConnectionLost(error) &&
+        // Only what this send itself saw: the transport's acceptance flag
+        // belongs to its latest send, which may be another chat's.
+        (begun || error is SendFailure || error is GatewayReplyLost);
     String outcome(Object? error) {
       if (withdrawn != null) return withdrawn!;
+      if (lost(error)) return 'reconnecting';
       if (error != null || reply.isPending && !folded) return 'failed';
       if (folded) return 'folded';
       if (stopped) return 'stopped';
@@ -252,9 +266,20 @@ extension _ChatControllerSending on ChatController {
           : 'completed';
     }
 
+    // Ends this send from outside, with an error, once the controller decided
+    // the reply is over: no later frame of it may touch the reply again.
+    late final void Function(Object) finish;
+
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
-      _finishMoaTurn(thread, reply);
+      if (_sendEnds[thread] case final ends?) {
+        ends.remove(finish);
+        if (ends.isEmpty) _sendEnds.remove(thread);
+      }
+      // A turn that may still run keeps its mixture-of-agents card and its
+      // warnings: nothing of it ended.
+      final holding = lost(error);
+      if (!holding) _finishMoaTurn(thread, reply);
       if (!_bound.contains(thread)) _finishQueueBinding(thread, false);
       if (protectedSend != null && !protectedSend.accepted) {
         if (!protectedSend.restored && protectedSend.started) {
@@ -269,7 +294,7 @@ extension _ChatControllerSending on ChatController {
         }
       }
       _replies.remove(subscription);
-      if (error != null || (!folded && reply.isPending)) {
+      if (!holding && (error != null || (!folded && reply.isPending))) {
         _discardWarnings(thread);
       }
       _sending.update(thread, (n) => n - 1);
@@ -320,11 +345,29 @@ extension _ChatControllerSending on ChatController {
           );
           notifyListeners();
         }
+      } else if (lost(error)) {
+        // Nothing is marked failed, announced or released: the turn is still
+        // the server's, and the queue waits behind it as it did.
+        _holdForReconnect(thread, reply);
       } else if (reply.isPending) {
+        // The queue rule after any failed reply: halted, so what waits in it
+        // stays and nothing is sent by itself.
         _turnEnded(thread, halted: true);
-        _updateReply(thread, reply, () => failReply(reply, error));
+        final loss = replyLossOf(error);
+        if (loss != null) {
+          breadcrumbs('chat.reply.settled', {'reason': loss.name});
+        }
+        _updateReply(
+          thread,
+          reply,
+          () =>
+              loss == null ? failReply(reply, error) : settleLost(reply, loss),
+        );
         if (!_currentActivity(epoch)) return;
         _announce(thread, const ReplyCompleted('', failed: true), profile);
+        // A reply the server lost may still be picked up and read again: what
+        // it did meanwhile goes into this same bubble.
+        if (loss != null) _afterLossSettle(thread, transport, profile);
         // A send that gave up asks for the thread to be read again: what
         // Hermes ran meanwhile is in its history. The read keeps this failed
         // turn after it (see [refreshThread]).
@@ -358,6 +401,11 @@ extension _ChatControllerSending on ChatController {
       }
     }
 
+    finish = (Object error) {
+      if (!_replies.contains(subscription)) return;
+      unawaited(subscription.cancel());
+      end(error);
+    };
     _sending.update(thread, (n) => n + 1, ifAbsent: () => 1);
     liveActivities?.begin(thread, profile: profile);
     _announcedTurns.add(thread);
@@ -445,6 +493,12 @@ extension _ChatControllerSending on ChatController {
     subscription = stream.listen(
       (event) {
         if (!_currentActivity(epoch)) return;
+        if (event is PromptAcknowledged ||
+            event is PromptAccepted &&
+                PromptAccepted.allowedStatuses.contains(event.status) ||
+            beginsTurn(event)) {
+          begun = true;
+        }
         if (event is PromptAcknowledged) {
           if (protectedSend == null ||
               _queueContextCurrent(
@@ -555,5 +609,6 @@ extension _ChatControllerSending on ChatController {
       cancelOnError: true,
     );
     _replies.add(subscription);
+    (_sendEnds[thread] ??= []).add(finish);
   }
 }

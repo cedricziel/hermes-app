@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/menu_layout.dart';
 
@@ -9,6 +10,7 @@ String _chord(SingleActivator activator) =>
     '${activator.trigger.keyLabel}';
 
 void main() {
+  final en = lookupAppLocalizations(const Locale('en'));
   const ipad = MenuPlatform.ipad;
 
   List<String> items(MenuSection section) => [
@@ -16,14 +18,14 @@ void main() {
       if (index > 0) '-',
       for (final entry in group)
         entry.shortcutOn(ipad) == null
-            ? entry.label
-            : '${entry.label} ${_chord(entry.shortcutOn(ipad)!)}',
+            ? entry.label(en)
+            : '${entry.label(en)} ${_chord(entry.shortcutOn(ipad)!)}',
     ],
   ];
 
   test('the iPad layout lists the sections, items and chords of the spec', () {
     final sections = {
-      for (final section in menuLayout) section.label: items(section),
+      for (final section in menuLayout) section.label(en): items(section),
     };
     expect(sections, {
       'Hermes': [
@@ -35,7 +37,7 @@ void main() {
         'Sign Out…',
       ],
       'File': ['New Chat ⌘N'],
-      'View': ['Back ⌘['],
+      'View': ['Reload ⌘R', '-', 'Back ⌘[', 'Enclosing Folder'],
       'Chat': [
         'Find… ⌘F',
         '-',
@@ -89,6 +91,36 @@ void main() {
       }),
       isEmpty,
     );
+  });
+
+  test(
+    'the Mac lists Reload, Enclosing Folder and the change steps in View',
+    () {
+      final view = menuLayout.firstWhere((section) => section.id == 'view');
+      final entries = {
+        for (final group in view.groupsOn(MenuPlatform.mac))
+          for (final entry in group) entry.command: entry,
+      };
+      String chord(MacCommand command) =>
+          _chord(entries[command]!.shortcutOn(MenuPlatform.mac)!);
+      expect(chord(MacCommand.reload), '⌘R');
+      expect(chord(MacCommand.enclosingFolder), '⌘Arrow Up');
+      expect(chord(MacCommand.previousChange), '⌥Arrow Up');
+      expect(chord(MacCommand.nextChange), '⌥Arrow Down');
+      expect(entries[MacCommand.previousChange]!.label(en), 'Previous Change');
+      expect(entries[MacCommand.nextChange]!.label(en), 'Next Change');
+    },
+  );
+
+  test('the iPad keeps the arrow keys for text and has no change steps', () {
+    final entries = {
+      for (final section in menuLayout)
+        for (final group in section.groupsOn(ipad))
+          for (final entry in group) entry.command: entry,
+    };
+    expect(entries[MacCommand.enclosingFolder]!.shortcutOn(ipad), isNull);
+    expect(entries.containsKey(MacCommand.previousChange), isFalse);
+    expect(entries.containsKey(MacCommand.nextChange), isFalse);
   });
 
   test('the Mac keeps Delete… on Command-Delete', () {
