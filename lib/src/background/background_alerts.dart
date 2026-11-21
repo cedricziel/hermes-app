@@ -238,7 +238,7 @@ class ScheduleAlertsStep extends BackgroundStep {
     ];
     if (unmuted.isNotEmpty) {
       final active = await _quietly(
-        () async => (await repositories.profiles.loadActive()).active,
+        repositories.profiles.resolver.load,
         _activeLookup,
       );
       for (final alert in alertsFor(unmuted, activeProfile: active)) {
