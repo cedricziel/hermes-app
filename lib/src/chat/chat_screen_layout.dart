@@ -153,6 +153,7 @@ extension _ChatScreenLayout on _ChatScreenState {
             onOpenScreen: () => _openViewer('preview'),
             onShowAgentDetails: _showAgentDetails,
             toolCallExpansion: _toolCallExpansion,
+            toolValueBudget: _toolValueBudget,
             needsYou: _needsYou,
             // The inspector lists the same items, so it replaces the line
             // (a phone's sheet covers the chat, so there the line stays); the

@@ -40,6 +40,7 @@ class VoiceCall extends ChangeNotifier {
     this.replySpoken,
     this.tones,
     this.haptics,
+    this.holdLease,
     this.releaseLease,
     this.deviceSpeech = false,
     TargetPlatform? platform,
@@ -122,6 +123,10 @@ class VoiceCall extends ChangeNotifier {
   final CallTones? tones;
   final CallHaptics? haptics;
 
+  /// Warms the profile's text-to-speech (the `tts-lease`) while the call is
+  /// open and Speak replies is on. A failure is ignored.
+  final Future<void> Function()? holdLease;
+
   /// Releases the `tts-lease` when the call holds one, as a teardown step.
   final Future<void> Function()? releaseLease;
 
@@ -190,6 +195,17 @@ class VoiceCall extends ChangeNotifier {
   /// no say (desktop), and then the screen shows no route line.
   late String route = _platform == TargetPlatform.iOS ? 'iPhone' : '';
   String caption = '';
+
+  /// The last turn of the call as the screen's two lines: what the user said
+  /// once it was sent, and the reply as far as it was spoken. In memory only,
+  /// for as long as the call is open: never logged, dropped by the teardown.
+  String lastYou = '', lastHermes = '';
+
+  /// Speak replies was off for the last reply and it finished: the screen says
+  /// it is in the chat, and [lastHermes] holds nothing.
+  bool replyInChat = false;
+  bool _speakReplies = true, _leaseArmed = false, _leaseHeld = false;
+  Future<void> _leaseWork = Future.value();
   String? error;
 
   /// What the screen explains, besides the state: a turn that could not be
@@ -270,6 +286,8 @@ class VoiceCall extends ChangeNotifier {
         if (!_current(epoch)) return;
         _vad = VoiceActivity(silence: _config.silence);
       }
+      _leaseArmed = true;
+      _holdLease();
       step = 'audio_focus';
       await VoiceAudioFocus.shared.acquire(this);
       if (!_current(epoch)) return;
@@ -555,6 +573,62 @@ class VoiceCall extends ChangeNotifier {
     _notify();
   }
 
+  /// Whether Hermes reads its replies aloud. On by default for every call and
+  /// never stored.
+  bool get speakReplies => _speakReplies;
+
+  /// Turning it off stops the voice now and releases the `tts-lease`; the reply
+  /// that is running goes on in the chat. Turning it on speaks from the next
+  /// reply on.
+  void setSpeakReplies(bool value) {
+    if (value == _speakReplies || ended || _ending || _disposed) return;
+    _speakReplies = value;
+    if (value) {
+      _holdLease();
+    } else {
+      _stopSpeech();
+      // The voice is gone; the reply goes on in the chat, so the orb must not
+      // offer to interrupt it.
+      if (_phase == CallPhase.speaking) phase = CallPhase.thinking;
+      unawaited(_releaseHeldLease());
+    }
+    _notify();
+  }
+
+  /// Warm-up for the speech provider. One lease operation at a time, in
+  /// order, so a release never overtakes the hold it follows.
+  void _holdLease() {
+    final hold = holdLease;
+    if (hold == null || !_leaseArmed || _leaseHeld || !_speakReplies) return;
+    _leaseHeld = true;
+    _leaseWork = _leaseWork.then((_) async {
+      try {
+        await hold().timeout(const Duration(seconds: 30));
+      } on Object {
+        // The first reply may only be slower.
+      }
+    });
+  }
+
+  Future<void> _releaseHeldLease() {
+    final release = releaseLease;
+    if (!_leaseHeld || release == null) return Future.value();
+    _leaseHeld = false;
+    return _leaseWork = _leaseWork.then((_) async {
+      // Hermes keeps the lease in a set with no expiry, so a missed release
+      // keeps a local speech model loaded until the server restarts: one
+      // retry, then give up.
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          await release().timeout(const Duration(seconds: 10));
+          return;
+        } on Object {
+          // Tried again once.
+        }
+      }
+    });
+  }
+
   /// Stops the speech socket and playback, and keeps the future so a turn
   /// waits for it.
   void _stopSpeech() {
@@ -791,41 +865,50 @@ class VoiceCall extends ChangeNotifier {
       step = 'interrupt';
       await _settleReply(epoch);
       if (_abandoned(epoch)) return;
-      step = 'speech_open';
-      speech = CallSpeechStream(
-        connect: connect,
-        output: bridge,
-        fallback: speechFallback,
-        onAudio: () {
-          firstAudio ??= _now();
-          if (_current(epoch) && !waitingForYou) {
-            phase = CallPhase.speaking;
-            _notify();
-          }
-        },
-        onFailure: (error) {
-          outcome = 'failed';
-          if (_current(epoch)) {
-            unawaited(
-              _end(
-                'speech',
-                _speechFailedText,
-                error,
-                speech?.usedFallback == true ? 'speech_fallback' : step,
-                null,
-                CallNotice.speechFailed,
-              ),
-            );
-          }
-        },
-      );
-      _speech = speech;
-      final opening = _now();
-      try {
-        await speech.open(profile);
-      } finally {
-        speechOpen = _now().difference(opening);
-        _speechRetries += speech.openRetries;
+      // Decided once per reply: a switch turned on meanwhile speaks from the
+      // next reply, and one turned off stops this one (`_stopSpeech`).
+      final speaks = _speakReplies;
+      if (speaks) {
+        step = 'speech_open';
+        final stream = speech = CallSpeechStream(
+          connect: connect,
+          output: bridge,
+          fallback: speechFallback,
+          onAudio: () {
+            firstAudio ??= _now();
+            if (_current(epoch) && !waitingForYou) {
+              phase = CallPhase.speaking;
+              _notify();
+            }
+          },
+          onFailure: (error) {
+            outcome = 'failed';
+            if (_current(epoch)) {
+              unawaited(
+                _end(
+                  'speech',
+                  _speechFailedText,
+                  error,
+                  speech?.usedFallback == true ? 'speech_fallback' : step,
+                  null,
+                  CallNotice.speechFailed,
+                ),
+              );
+            }
+          },
+        );
+        _speech = stream;
+        final opening = _now();
+        try {
+          await stream.open(profile);
+        } on Object {
+          // The switch went off while the socket opened: the voice was
+          // stopped on purpose, so its failed open is not the call's.
+          if (identical(_speech, stream)) rethrow;
+        } finally {
+          speechOpen = _now().difference(opening);
+          _speechRetries += stream.openRetries;
+        }
       }
       // Nothing between this check and the send may await.
       if (_abandoned(epoch)) return;
@@ -848,6 +931,9 @@ class VoiceCall extends ChangeNotifier {
             submitted = _now();
             _clearInterrupted();
             if (!_current(epoch)) return;
+            lastYou = text;
+            lastHermes = '';
+            replyInChat = false;
             if (!waitingForYou) {
               haptics?.submit();
               unawaited(_tone(CallTone.sent));
@@ -859,11 +945,16 @@ class VoiceCall extends ChangeNotifier {
           },
           onText: (part) {
             firstText ??= _now();
-            if (_current(epoch)) {
+            // Only a voice that is still this reply's gets the words: a switch
+            // turned off meanwhile took it away.
+            if (_current(epoch) &&
+                speech != null &&
+                identical(_speech, speech)) {
               if (spokenReply.isEmpty) _replyStarts();
               spokenReply.write(part);
               _replySpoken(spokenReply.toString());
-              speech!.append(part);
+              lastHermes = spokenReply.toString();
+              speech.append(part);
             }
           },
           onAttention: (waiting) {
@@ -884,24 +975,43 @@ class VoiceCall extends ChangeNotifier {
         return;
       }
       if (!_current(epoch)) return;
+      final voice = speech;
+      if (voice == null || !identical(_speech, voice)) {
+        // Not spoken: the switch was off for this reply. The tick at submit
+        // was the confirmation and the chat has the words.
+        _closeSpeech();
+        _turns++;
+        outcome = 'in_chat';
+        replyInChat = true;
+        caption = '';
+        phase = _idlePhase;
+        _notify();
+        return;
+      }
       // A tool-only turn may have nothing to read. Keep it conversational.
-      if (!speech.hasText) {
+      if (!voice.hasText) {
         // Spoken by the server's voice, like the sentence above: kept English.
         const finished =
             'I have finished. You can see the details in the chat.';
         if (spokenReply.isEmpty) _replyStarts();
         spokenReply.write(finished);
         _replySpoken(spokenReply.toString());
-        speech.append(finished);
+        lastHermes = spokenReply.toString();
+        voice.append(finished);
       }
       step = 'speech';
-      await speech.finish();
+      await voice.finish();
       _replyAudioEnded();
-      if (speech.usedFallback) _fallbacks++;
+      if (voice.usedFallback) _fallbacks++;
       if (!_current(epoch)) return;
       _turns++;
+      // A switch turned off while the voice finished stopped it partway.
+      final spokenToEnd = identical(_speech, voice);
       _speech = null;
-      outcome = 'spoken';
+      outcome = spokenToEnd ? 'spoken' : 'in_chat';
+      replyInChat = !spokenToEnd;
+      // The turn is over: its words move from the caption to the two lines.
+      caption = '';
       phase = _idlePhase;
       _notify();
     } on Object catch (error) {
@@ -1018,6 +1128,9 @@ class VoiceCall extends ChangeNotifier {
     CallNotice? notice,
   ) async {
     endReason = reason;
+    // The words of the call are not kept past it.
+    lastYou = lastHermes = caption = '';
+    replyInChat = false;
     _active = false;
     _epoch++;
     _vad.reset();
@@ -1061,7 +1174,7 @@ class VoiceCall extends ChangeNotifier {
     await _step(() async => await _events?.cancel());
     _events = null;
     VoiceAudioFocus.shared.release(this);
-    if (releaseLease case final release?) await _step(release);
+    await _step(_releaseHeldLease);
     await _step(agent.interrupt);
   }
 
