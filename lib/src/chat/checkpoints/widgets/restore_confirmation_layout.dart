@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/focus_ring.dart';
 import '../../../theme/platform_chrome.dart';
 import '../../../widgets/destructive_tint_button.dart';
 
@@ -117,14 +118,17 @@ class _Buttons extends StatelessWidget {
       cancel = FilledButton(
         autofocus: true,
         onPressed: onCancel,
-        style: FilledButton.styleFrom(
-          minimumSize: Size(0, minHeight),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.standard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
+        style:
+            FilledButton.styleFrom(
+              minimumSize: Size(0, minHeight),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.standard,
+            ).copyWith(
+              shape: focusRingShapeOf(
+                context,
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
         child: Text(cancelLabel, textAlign: TextAlign.center),
       );
       confirm = DestructiveTintButton(

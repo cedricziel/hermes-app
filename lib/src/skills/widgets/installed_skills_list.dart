@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/state_message.dart';
@@ -133,7 +134,11 @@ class SkillUpdatesSection extends StatelessWidget {
         visualDensity: VisualDensity.compact,
         textStyle: Theme.of(context).textTheme.labelLarge
             ?.copyWith(fontSize: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ).copyWith(
+        shape: focusRingShapeOf(
+          context,
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        ),
       );
 
   @override

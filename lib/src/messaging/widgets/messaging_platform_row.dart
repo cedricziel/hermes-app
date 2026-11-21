@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/platform_chrome.dart';
 import '../../../l10n/l10n.dart';
 import '../../widgets/grouped_list.dart';
@@ -93,11 +94,15 @@ ButtonStyle _setUpStyle(BuildContext context, {required bool mac}) =>
       padding: mac
           ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
           : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(mac ? 6 : 999),
-      ),
       textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
         fontSize: mac ? 12 : 14,
         fontWeight: mac ? FontWeight.w400 : FontWeight.w600,
+      ),
+    ).copyWith(
+      shape: focusRingShapeOf(
+        context,
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(mac ? 6 : 999),
+        ),
       ),
     );

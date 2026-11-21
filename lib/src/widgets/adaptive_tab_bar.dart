@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/focus_ring.dart';
 import '../theme/platform_chrome.dart';
 import 'shrink_to_fit_text.dart';
 
@@ -215,29 +216,35 @@ class _PillSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final segmentShape = shape(
+      side: selected ? BorderSide(color: scheme.outline) : BorderSide.none,
+      inset: compact ? 2 : 3,
+    );
     return Semantics(
       button: true,
       selected: selected,
       child: Material(
         color: selected ? thumbColor ?? scheme.surface : Colors.transparent,
         clipBehavior: Clip.antiAlias,
-        shape: shape(
-          side: selected ? BorderSide(color: scheme.outline) : BorderSide.none,
-          inset: compact ? 2 : 3,
-        ),
-        child: InkWell(
-          onTap: onTap,
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 6),
-              child: ShrinkToFitText(
-                label,
-                style: TextStyle(
-                  fontSize: compact ? 12 : 14,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected
-                      ? scheme.onSurface
-                      : scheme.onSurface.withValues(alpha: 0.7),
+        shape: segmentShape,
+        child: FocusRing(
+          radius: segmentShape is RoundedRectangleBorder
+              ? (segmentShape.borderRadius as BorderRadius).topLeft.x
+              : 999,
+          child: InkWell(
+            onTap: onTap,
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 6),
+                child: ShrinkToFitText(
+                  label,
+                  style: TextStyle(
+                    fontSize: compact ? 12 : 14,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    color: selected
+                        ? scheme.onSurface
+                        : scheme.onSurface.withValues(alpha: 0.7),
+                  ),
                 ),
               ),
             ),

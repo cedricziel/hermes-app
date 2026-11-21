@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'middle_ellipsis.dart';
@@ -682,12 +683,17 @@ class GroupedRow extends StatelessWidget {
               ),
       ),
     );
-    final ink = InkWell(
+    final tap = InkWell(
       canRequestFocus: focusable,
       focusColor: focusFill ? null : Colors.transparent,
       onTap: enabled ? onTap : null,
       child: content,
     );
+    // A row that draws its own focus mark (`focusFill` off) or takes none gets
+    // no ring from here.
+    final ink = focusable && focusFill
+        ? FocusRing(radius: metrics.radius - kFocusRingOffset, child: tap)
+        : tap;
     final color = selected ? scheme.outline : Colors.transparent;
     Widget merged(Widget child) => MergeSemantics(
       child: Semantics(
