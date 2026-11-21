@@ -34,18 +34,24 @@ class SwipeableThreadRow extends StatelessWidget {
       ? context.l10n.chatWidgetsThreadMenuUnpin
       : context.l10n.chatWidgetsThreadMenuPin;
 
+  String _archiveLabel(BuildContext context) => canonical
+      ? context.l10n.chatWidgetsThreadMenuRetire
+      : context.l10n.chatWidgetsThreadMenuArchive;
+
   Future<void> _showSheet(BuildContext context) async {
     final l10n = context.l10n;
     final pinLabel = _pinLabel(context);
+    final archiveLabel = _archiveLabel(context);
     final action = await showCupertinoModalPopup<ThreadAction>(
       context: context,
       builder: (sheet) => CupertinoActionSheet(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           for (final (action, label) in [
-            (ThreadAction.rename, l10n.chatWidgetsThreadMenuRename),
+            if (!canonical)
+              (ThreadAction.rename, l10n.chatWidgetsThreadMenuRename),
             (ThreadAction.pin, pinLabel),
-            (ThreadAction.archive, l10n.chatWidgetsThreadMenuArchive),
+            (ThreadAction.archive, archiveLabel),
           ])
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(sheet).pop(action),
@@ -72,11 +78,12 @@ class SwipeableThreadRow extends StatelessWidget {
     final pinLabel = _pinLabel(context);
     return Semantics(
       customSemanticsActions: {
-        CustomSemanticsAction(label: l10n.chatWidgetsThreadMenuRename): () =>
-            onAction(ThreadAction.rename),
+        if (!canonical)
+          CustomSemanticsAction(label: l10n.chatWidgetsThreadMenuRename): () =>
+              onAction(ThreadAction.rename),
         CustomSemanticsAction(label: pinLabel): () =>
             onAction(ThreadAction.pin),
-        CustomSemanticsAction(label: l10n.chatWidgetsThreadMenuArchive): () =>
+        CustomSemanticsAction(label: _archiveLabel(context)): () =>
             onAction(ThreadAction.archive),
         CustomSemanticsAction(label: l10n.chatWidgetsThreadMenuDelete): () =>
             onAction(ThreadAction.delete),

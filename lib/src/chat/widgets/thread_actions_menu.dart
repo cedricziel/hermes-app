@@ -189,8 +189,8 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
     final housekeeping = widget.housekeeping;
     return NamedPopupMenuButton<ThreadAction>(
       controller: _menu,
-      label: 'Chat actions for ${_thread.title}',
-      tooltip: 'Chat actions',
+      label: context.l10n.chatWidgetsThreadMenuLabel(_thread.title),
+      tooltip: context.l10n.chatWidgetsThreadMenuTooltip,
       icon: AppIcons.more,
       color: subtle,
       onSelected: _run,
@@ -305,11 +305,13 @@ Future<void> runThreadAction(
       await housekeeping.setPinned(thread, !thread.pinned);
     case (ThreadAction.archive, final housekeeping?):
       if (thread.isCanonicalBotChat) {
+        final l10n = context.l10n;
         final confirmed = await showConfirmDialog(
           context,
-          title: 'Retire this Bot Chat?',
-          message: 'This archives the canonical conversation. The next time you open this bot, a new Bot Chat is created after the server confirms retirement.',
-          confirmLabel: 'Retire Bot Chat',
+          title: l10n.chatWidgetsThreadMenuRetireConfirmTitle,
+          message: l10n.chatWidgetsThreadMenuRetireConfirmMessage,
+          confirmLabel: l10n.chatWidgetsThreadMenuRetireConfirmButton,
+          cancelLabel: l10n.chatWidgetsThreadMenuCancel,
           destructive: true,
         );
         if (confirmed) {

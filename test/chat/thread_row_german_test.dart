@@ -3,9 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/bot_mode/bot_chat_context.dart';
+import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/thread_housekeeping.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/touch_row_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+
+import '../support/fake_hermes_server.dart';
 
 /// A German device gets German words on a chat row everywhere: the phone's
 /// action sheet, the swipe actions, VoiceOver's custom actions and the
@@ -15,6 +22,7 @@ void main() {
     WidgetTester tester, {
     required Size size,
     bool canonical = false,
+    bool pinned = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -28,7 +36,7 @@ void main() {
         home: Scaffold(
           body: SwipeableThreadRow(
             title: 'Release notes',
-            pinned: false,
+            pinned: pinned,
             canonical: canonical,
             onAction: (_) {},
             child: const SizedBox(height: 44, child: Text('Row')),
@@ -145,5 +153,168 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(actions, [ThreadAction.archive]);
+  });
+
+  testWidgets(
+    'a pinned row offers Unpin in German on the sheet and VoiceOver',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpRow(tester, size: const Size(390, 844), pinned: true);
+
+      final data = tester.getSemantics(find.text('Row')).getSemanticsData();
+      final labels = [
+        for (final id in data.customSemanticsActionIds!)
+          CustomSemanticsAction.getAction(id)!.label,
+      ];
+      expect(labels, contains('Nicht mehr anheften'));
+      await tester.longPress(find.text('Row'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(CupertinoActionSheet),
+          matching: find.text('Nicht mehr anheften'),
+        ),
+        findsOneWidget,
+      );
+      handle.dispose();
+    },
+  );
+
+  testWidgets('a Bot Chat row has no Rename and says Retire in German', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pumpRow(tester, size: const Size(390, 844), canonical: true);
+
+    final data = tester.getSemantics(find.text('Row')).getSemanticsData();
+    final labels = [
+      for (final id in data.customSemanticsActionIds!)
+        CustomSemanticsAction.getAction(id)!.label,
+    ];
+    expect(labels, contains('Bot-Chat beenden…'));
+    expect(labels, isNot(contains('Umbenennen')));
+    expect(labels, isNot(contains('Archivieren')));
+    await tester.longPress(find.text('Row'));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(CupertinoActionSheet);
+    expect(
+      find.descendant(of: sheet, matching: find.text('Bot-Chat beenden…')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('Umbenennen')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('Archivieren')),
+      findsNothing,
+    );
+    handle.dispose();
+  });
+
+  group('ThreadActionsButton on iOS', () {
+    ThreadHousekeeping housekeeping() => ThreadHousekeeping(
+      repository: HermesChatRepository(FakeHermesServer().client().raw),
+      threads: () => const [],
+      profile: () => null,
+      changed: () {},
+      report: (_) {},
+      removed: (_) {},
+      history: (thread, {cancelled}) async => const [],
+    );
+
+    Future<void> pumpButton(
+      WidgetTester tester, {
+      required ChatThread thread,
+    }) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('de'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          home: Scaffold(
+            body: ThreadActionsButton(
+              thread: thread,
+              housekeeping: housekeeping(),
+              includeCopyTranscript: true,
+              onShowFiles: () {},
+              exportJson: ExportJsonOffer(onSelected: () {}),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final items = find.byType(CupertinoMenuItem);
+
+    testWidgets('every item and the tooltip are German', (tester) async {
+      await pumpButton(
+        tester,
+        thread: ChatThread(
+          id: 's1',
+          title: 'Release notes',
+          updatedAt: DateTime(2026),
+          pinned: true,
+        ),
+      );
+      expect(find.byTooltip('Chat-Aktionen'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.pumpAndSettle();
+
+      for (final label in [
+        'Dateien',
+        'Verlauf kopieren',
+        'Chat als JSON exportieren…',
+        'Umbenennen',
+        'Nicht mehr anheften',
+        'Archivieren',
+        'Löschen',
+      ]) {
+        expect(
+          find.descendant(of: items, matching: find.text(label)),
+          findsOneWidget,
+          reason: label,
+        );
+      }
+    });
+
+    testWidgets('a Bot Chat offers Retire, and its confirmation is German', (
+      tester,
+    ) async {
+      await pumpButton(
+        tester,
+        thread: ChatThread(
+          id: 's1',
+          title: 'Hermes',
+          updatedAt: DateTime(2026),
+          botContext: const BotChatContext(
+            bot: BotModeBot(serverId: 'server', name: 'default', revision: 0),
+            rootId: 'root',
+            storedId: 'tip',
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: items, matching: find.text('Umbenennen')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.descendant(of: items, matching: find.text('Bot-Chat beenden…')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Diesen Bot-Chat beenden?'), findsOneWidget);
+      expect(find.text('Bot-Chat beenden'), findsOneWidget);
+      expect(find.text('Abbrechen'), findsOneWidget);
+      expect(find.textContaining('kanonische Unterhaltung'), findsOneWidget);
+    });
   });
 }

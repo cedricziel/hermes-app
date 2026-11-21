@@ -2248,6 +2248,22 @@
   "@chatWidgetsThreadMenuRetire": {
     "description": "Row of a Bot Chat's actions menu that archives the canonical conversation, after a confirmation."
   },
+  "chatWidgetsThreadMenuRetireConfirmButton": "Retire Bot Chat",
+  "@chatWidgetsThreadMenuRetireConfirmButton": {
+    "description": "Confirm button of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuRetireConfirmMessage": "This archives the canonical conversation. The next time you open this bot, a new Bot Chat is created after the server confirms retirement.",
+  "@chatWidgetsThreadMenuRetireConfirmMessage": {
+    "description": "Text of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuRetireConfirmTitle": "Retire this Bot Chat?",
+  "@chatWidgetsThreadMenuRetireConfirmTitle": {
+    "description": "Title of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuTooltip": "Chat actions",
+  "@chatWidgetsThreadMenuTooltip": {
+    "description": "Hover text and screen reader name of the button that opens a chat's actions menu."
+  },
   "chatWidgetsThreadMenuUnpin": "Unpin",
   "@chatWidgetsThreadMenuUnpin": {
     "description": "Row of a chat's popover menu on an iPad that takes a pinned chat off the top of the list."
