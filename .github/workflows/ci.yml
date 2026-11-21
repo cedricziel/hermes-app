@@ -392,6 +392,77 @@ jobs:
       - name: Build debug app with share extension
         run: flutter build macos --debug
 
+      # Quits the debug build the way a user does and fails on a crash. The debug
+      # build alone has the HERMES_QUIT_AFTER_LAUNCH branch in AppDelegate.swift,
+      # which calls NSApp.terminate five seconds after launch, so
+      # FlutterEngineTerminationHandler and every NSApplicationWillTerminate
+      # observer of a plugin run. The step fails on a non-zero exit (139 is
+      # SIGSEGV) or a crash report newer than the launch.
+      - name: Launch the app and quit it normally
+        run: |
+          set -o pipefail
+          name="$(sed -n 's/^PRODUCT_NAME *= *//p' macos/Runner/Configs/AppInfo.xcconfig)"
+          app="build/macos/Build/Products/Debug/$name.app"
+          bin="$app/Contents/MacOS/$name"
+          [ -x "$bin" ] || { echo "::error::No debug binary at $bin"; exit 1; }
+          bundle="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")"
+          marker="$(mktemp)"
+          trap 'rm -f quit.log "$marker"' EXIT
+          reports() { # crash reports of the app newer than the launch
+            find "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports \
+              "$HOME/Library/Containers/$bundle/Data/Library/Logs" \
+              \( -name 'Hermes*.ips' -o -name 'Runner*.ips' \) -newer "$marker" 2>/dev/null || true
+          }
+          # Diagnosis only: ReportCrash writes the report a few seconds after the crash.
+          crash_report() {
+            report=""
+            for _ in $(seq 1 15); do
+              report="$(reports | head -n 1)"
+              [ -n "$report" ] && break
+              sleep 1
+            done
+            if [ -z "$report" ]; then echo "No Hermes or Runner crash report within 15 s."; return 0; fi
+            echo "::group::Crash report $report"
+            python3 -I - "$report" <<'PY' || true
+          import json, sys
+          lines = open(sys.argv[1], errors="replace").read().split("\n", 1)
+          try:
+              body = json.loads(lines[1])
+              images = [i.get("name", "?") for i in body.get("usedImages", [])]
+              print("exception:", body.get("exception"), "termination:", body.get("termination"))
+              for t in body.get("threads", []):
+                  if t.get("triggered"):
+                      print("crashed thread:", t.get("name") or t.get("queue") or t.get("id"))
+                      for n, f in enumerate(t.get("frames", [])[:30]):
+                          img = images[f["imageIndex"]] if f.get("imageIndex", -1) >= 0 else "?"
+                          print(f"{n:2} {img} {f.get('symbol', '?')}")
+          except Exception as error:
+              print("could not parse the report:", error)
+          PY
+            echo "::endgroup::"
+          }
+          # Diagnosis only: the same launch once more under lldb, to get a backtrace
+          # when no crash report exists. Its result is ignored and it cannot hang.
+          lldb_rerun() {
+            echo "::group::lldb rerun of the launch"
+            HERMES_QUIT_AFTER_LAUNCH=1 perl -e 'alarm 60; exec @ARGV' \
+              lldb -b -o run -k "thread backtrace all" -k "register read pc" -k 'image lookup -a $pc' -k quit \
+              -- "$bin" -ApplePersistenceIgnoreState YES 2>&1 | head -n 300 || true
+            echo "::endgroup::"
+          }
+          fail() { echo "::error::$1"; tail -n 40 quit.log; crash_report; lldb_rerun; exit 1; }
+          start=$SECONDS
+          if HERMES_QUIT_AFTER_LAUNCH=1 perl -e 'alarm 60; exec @ARGV' "$bin" \
+            -ApplePersistenceIgnoreState YES > quit.log 2>&1; then status=0; else status=$?; fi
+          echo "launch took $(( SECONDS - start )) s, exit status $status"
+          if [ "$status" -eq 142 ]; then fail "The app did not quit within 60 s (SIGALRM); log follows."; fi
+          if [ "$status" -ne 0 ]; then fail "The app exited with status $status on quit (139 is SIGSEGV); log follows."; fi
+          grep -q '^HERMES_QUIT terminating' quit.log || fail "The app exited before the quit hook ran; log follows."
+          # A crash after the exit status was decided still leaves a report.
+          sleep 5
+          if [ -n "$(reports)" ]; then fail "The app left a crash report: $(reports | head -n 1)"; fi
+          echo "The app quit normally."
+
   # The only test of the real libmpv decoder path in lib/src/voice/. It runs
   # for every code pull request, not only when a platform build does.
   native-audio-test:
