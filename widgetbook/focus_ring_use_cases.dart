@@ -1,5 +1,21 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/chat/checkpoints/widgets/restore_confirmation_layout.dart';
+import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
+import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/macos/mac_toolbar.dart';
+import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/messaging/widgets/messaging_platform_row.dart';
+import 'package:hermes_app/src/plugins/catalog_tab.dart';
+import 'package:hermes_app/src/plugins/widgets/catalog_row.dart';
+import 'package:hermes_app/src/skills/widgets/curator_run_confirmation.dart';
+import 'package:hermes_app/src/skills/widgets/installed_skills_list.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/voice/widgets/hands_free_strip.dart';
+import 'package:hermes_app/src/workspaces/widgets/folder_toolbar_button.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
+import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
+import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -7,13 +23,22 @@ import 'package:widgetbook/widgetbook.dart';
 import 'frame.dart';
 
 /// Shows [child] as it looks when the keyboard has moved focus to its
-/// [focusIndex]-th focusable control: the highlight mode is forced to
-/// traditional, as it is after a Tab press, and put back when the use case
-/// goes away. A null [focusIndex] leaves every control at rest.
+/// [focusIndex]-th focusable control, or to its [button]-th button: the
+/// highlight mode is forced to traditional, as it is after a Tab press, and
+/// put back when the use case goes away. With neither, every control is at
+/// rest. [hover] puts a mouse over the child first, for controls a row shows
+/// only while hovered.
 class _KeyboardFocus extends StatefulWidget {
-  const _KeyboardFocus({required this.focusIndex, required this.child});
+  const _KeyboardFocus({
+    this.focusIndex,
+    this.button,
+    this.hover = false,
+    required this.child,
+  });
 
   final int? focusIndex;
+  final int? button;
+  final bool hover;
   final Widget child;
 
   @override
@@ -31,11 +56,31 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
     _live++;
     FocusManager.instance.highlightStrategy =
         FocusHighlightStrategy.alwaysTraditional;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final index = widget.focusIndex;
-      if (!mounted || index == null) return;
-      final nodes = FocusScope.of(context).traversalDescendants.toList();
-      if (index < nodes.length) nodes[index].requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (widget.hover) {
+        final box = context.findRenderObject()! as RenderBox;
+        final at = box.localToGlobal(box.size.center(Offset.zero));
+        GestureBinding.instance
+          ..handlePointerEvent(
+            PointerAddedEvent(position: at, kind: PointerDeviceKind.mouse),
+          )
+          ..handlePointerEvent(
+            PointerHoverEvent(position: at, kind: PointerDeviceKind.mouse),
+          );
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
+      }
+      var nodes = FocusScope.of(context).traversalDescendants.toList();
+      final button = widget.button;
+      if (button != null) {
+        nodes = [
+          for (final n in nodes)
+            if (_insideButton(n)) n,
+        ];
+      }
+      final index = button ?? widget.focusIndex;
+      if (index != null && index < nodes.length) nodes[index].requestFocus();
     });
   }
 
@@ -50,6 +95,17 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Whether [node] belongs to a Material button (they all extend
+/// [ButtonStyleButton], so an exact-type lookup would find none).
+bool _insideButton(FocusNode node) {
+  var inside = false;
+  node.context?.visitAncestorElements((element) {
+    inside = element.widget is ButtonStyleButton;
+    return !inside;
+  });
+  return inside;
 }
 
 void _noop() {}
@@ -127,6 +183,169 @@ Widget _segments() => PillSegmentedControl<int>(
 Widget _at(int? index, Widget child) =>
     frame(_KeyboardFocus(focusIndex: index, child: child));
 
+Widget _buttonAt(int n, Widget child) =>
+    frame(_KeyboardFocus(button: n, child: child));
+
+Widget _mac(Widget child) => Builder(
+  builder: (context) => Theme(
+    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    child: child,
+  ),
+);
+
+Widget _settingsFormAction() => SizedBox(
+  height: 320,
+  child: _KeyboardFocus(
+    button: 0,
+    child: SettingsScaffold(
+      title: 'New task',
+      subtitle: 'work',
+      previousTitle: null,
+      formAction: SettingsFormAction(label: 'Save', onPressed: () {}),
+      body: ListView(children: const [ListTile(title: Text('Name'))]),
+    ),
+  ),
+);
+
+const _curator = CuratorRunConfirmationModel(
+  staleAfterDays: 30,
+  archiveAfterDays: 90,
+  pruneBuiltins: true,
+  consolidate: true,
+);
+
+/// The own-shape buttons that the ring was wired into after the theme's: each
+/// takes the ring through `focusRingShapeOf`.
+List<WidgetbookUseCase> _ownShapeUseCases() => [
+  WidgetbookUseCase(
+    name: 'Destructive tint button',
+    builder: (_) => _buttonAt(
+      0,
+      DestructiveTintButton(label: 'Stop process', onPressed: () {}),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Settings form action (Mac Save)',
+    builder: (_) => _mac(_settingsFormAction()),
+  ),
+  WidgetbookUseCase(
+    name: 'Restore confirmation Cancel',
+    builder: (_) => _buttonAt(
+      0,
+      RestoreConfirmationLayout(
+        title: 'Restore this file?',
+        body: const Text('The file goes back to how it was 12 minutes ago.'),
+        cancelLabel: 'Cancel',
+        confirmLabel: 'Restore',
+        onCancel: () {},
+        onConfirm: () {},
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Catalog detail Install',
+    builder: (_) =>
+        _buttonAt(0, InstallActions(installing: false, onInstall: (_) {})),
+  ),
+  ...onEachPlatform(
+    'Catalog row Install',
+    (_) => _buttonAt(0, InstallButton(installing: false, onPressed: () {})),
+  ),
+  WidgetbookUseCase(
+    name: 'Curator confirmation Cancel',
+    builder: (_) => _buttonAt(
+      0,
+      CuratorRunConfirmation(model: _curator, onCancel: () {}, onRun: () {}),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Curator confirmation Run',
+    builder: (_) => _buttonAt(
+      1,
+      CuratorRunConfirmation(model: _curator, onCancel: () {}, onRun: () {}),
+    ),
+  ),
+  ...onEachPlatform(
+    'Check for updates',
+    (_) => _buttonAt(0, SkillUpdatesSection(onPressed: () {})),
+  ),
+  WidgetbookUseCase(
+    name: 'Hands-free strip End',
+    builder: (_) => _buttonAt(
+      0,
+      HandsFreeStrip(microphone: HandsFreeMicrophone.open, onEnd: () {}),
+    ),
+  ),
+  ...onEachPlatform(
+    'Folder toolbar button',
+    (_) => _buttonAt(
+      0,
+      FolderToolbarButton(
+        folderName: 'hermes-app',
+        path: '~/dev/hermes-app',
+        branch: 'main',
+        onPressed: () {},
+      ),
+    ),
+  ),
+  for (final (name, n) in [('Archive', 0), ('More', 1)])
+    WidgetbookUseCase(
+      name: 'Mac thread row $name (20 pt)',
+      builder: (_) => _mac(
+        frame(
+          _KeyboardFocus(
+            button: n,
+            hover: true,
+            child: SizedBox(
+              width: 260,
+              child: MacThreadRow(
+                title: 'Plan the release',
+                selected: false,
+                onTap: () {},
+                onArchive: () {},
+                menuItems: (_) =>
+                    macThreadMenuItems(pinned: false, manageable: true),
+                onAction: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ...onEachPlatform(
+    'Messaging Set up',
+    (_) => _buttonAt(
+      0,
+      GroupedSection(
+        children: [
+          MessagingPlatformRow(
+            platform: const HermesMessagingPlatform(
+              id: 'whatsapp',
+              name: 'WhatsApp',
+            ),
+            onSetUp: () {},
+            onToggle: (_) {},
+          ),
+        ],
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Mac toolbar button',
+    builder: (_) => _mac(
+      _buttonAt(
+        0,
+        MacToolbarButton(
+          label: 'New Task',
+          shortcut: '⌘N',
+          icon: AppIcons.add,
+          onPressed: () {},
+        ),
+      ),
+    ),
+  ),
+];
+
 /// The keyboard focus ring: 2 px in the link colour, 2 px outside a button
 /// (its radius plus 2), 2 px inside a list row, menu item or segment that a
 /// container clips. It shows only after the keyboard moved focus, never after
@@ -160,6 +379,7 @@ WidgetbookNode focusRingNode() => WidgetbookComponent(
         const TextField(decoration: InputDecoration(labelText: 'Name')),
       ),
     ),
+    ..._ownShapeUseCases(),
     WidgetbookUseCase(
       name: 'Try it (press Tab)',
       builder: (_) => _at(
