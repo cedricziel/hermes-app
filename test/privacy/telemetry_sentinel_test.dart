@@ -506,7 +506,7 @@ void main() {
       unawaited(
         sinks.capturingPrint(() async {
           final seen = transport
-              .send(text: _msg)
+              .send(text: _msg, profile: _profile)
               .listen((_) {}, onError: (Object _) {});
           // The recovery window (60 s of fake time) runs out.
           await Future<void>.delayed(const Duration(seconds: 70));
@@ -515,7 +515,7 @@ void main() {
           gateway.silent.add('session.resume');
           // A pick-up of the thread the reply lost.
           final follow = transport
-              .followUps(_storedSession)
+              .followUps(_storedSession, profile: _profile)
               .listen((_) {}, onError: (Object _) {});
           await Future<void>.delayed(const Duration(seconds: 30));
           await follow.cancel();
