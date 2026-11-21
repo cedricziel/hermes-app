@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert' show jsonDecode;
+import 'dart:io' show SocketException;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fake_async/fake_async.dart';
@@ -6,6 +8,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/network/network_signals.dart';
+
+/// Named like the `dbus` package's exception, which is matched by name.
+class DBusServiceUnknownException implements Exception {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -42,15 +47,18 @@ void main() {
       current = [ConnectivityResult.wifi];
     });
 
-    tearDown(() => results.close());
+    tearDown(() => unawaited(results.close()));
 
-    ConnectivityNetworkSignals signals({bool reportsVpn = true}) =>
-        ConnectivityNetworkSignals(
-          results: results.stream,
-          check: () async => current,
-          reportsVpn: reportsVpn,
-          debounce: const Duration(milliseconds: 10),
-        );
+    ConnectivityNetworkSignals signals({
+      bool reportsVpn = true,
+      bool onLinux = false,
+    }) => ConnectivityNetworkSignals(
+      results: results.stream,
+      check: () async => current,
+      reportsVpn: reportsVpn,
+      onLinux: onLinux,
+      debounce: const Duration(milliseconds: 10),
+    );
 
     test('emits a change when the connection changes', () async {
       final s = signals();
@@ -87,6 +95,249 @@ void main() {
         expect(s.vpnActive, isFalse);
       },
     );
+
+    test('on Linux without a system bus it never touches connectivity but still nudges on resume', () async {
+      var checks = 0;
+      final s = ConnectivityNetworkSignals(
+        results: results.stream,
+        check: () async {
+          checks++;
+          return current;
+        },
+        onLinux: true,
+        hasSystemBus: () => false,
+        debounce: const Duration(milliseconds: 10),
+      );
+      addTearDown(s.dispose);
+      final changes = s.changes.first;
+
+      expect(results.hasListener, isFalse);
+      results.add([ConnectivityResult.mobile]);
+      s.didChangeAppLifecycleState(AppLifecycleState.resumed);
+
+      await changes.timeout(const Duration(seconds: 2));
+      expect(checks, 0);
+      expect(s.vpnActive, isNull);
+    });
+
+    test('on Linux with a system bus it subscribes and checks', () async {
+      var checks = 0;
+      final s = ConnectivityNetworkSignals(
+        results: results.stream,
+        check: () async {
+          checks++;
+          return current;
+        },
+        onLinux: true,
+        hasSystemBus: () => true,
+        debounce: const Duration(milliseconds: 10),
+      );
+      addTearDown(s.dispose);
+      final changes = s.changes.first;
+
+      expect(results.hasListener, isTrue);
+      results.add([ConnectivityResult.mobile]);
+
+      await changes.timeout(const Duration(seconds: 2));
+      expect(checks, 1);
+    });
+
+    test('on Linux a plugin that throws on listen leaves no uncaught error and resume still nudges', () async {
+      final broken = StreamController<List<ConnectivityResult>>(
+        onListen: () => throw const SocketException('no NetworkManager'),
+      );
+      final s = ConnectivityNetworkSignals(
+        results: broken.stream,
+        check: () async => throw StateError('no NetworkManager'),
+        onLinux: true,
+        hasSystemBus: () => true,
+        debounce: const Duration(milliseconds: 10),
+      );
+      addTearDown(s.dispose);
+      addTearDown(() => unawaited(broken.close()));
+      final changes = s.changes.first;
+      await pumpEventQueue();
+
+      s.didChangeAppLifecycleState(AppLifecycleState.resumed);
+
+      await changes.timeout(const Duration(seconds: 2));
+    });
+
+    ConnectivityNetworkSignals linuxSignals(
+      Future<List<ConnectivityResult>> Function() check,
+    ) => ConnectivityNetworkSignals(
+      results: results.stream,
+      check: check,
+      onLinux: true,
+      hasSystemBus: () => true,
+      debounce: const Duration(milliseconds: 10),
+    );
+
+    test('on Linux a bus error from the plugin is swallowed', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final s = linuxSignals(() {
+          Future<void>(() => throw const SocketException('dead bus'));
+          return Future.value(current);
+        });
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught, isEmpty);
+    });
+
+    test('on Linux a bus without NetworkManager is swallowed', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final broken = StreamController<List<ConnectivityResult>>(
+          onListen: () => throw DBusServiceUnknownException(),
+        );
+        addTearDown(() => unawaited(broken.close()));
+        final s = ConnectivityNetworkSignals(
+          results: broken.stream,
+          check: () {
+            Future<void>(() => throw DBusServiceUnknownException());
+            return Future.error(DBusServiceUnknownException());
+          },
+          onLinux: true,
+          hasSystemBus: () => true,
+        );
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught, isEmpty);
+    });
+
+    test('on Linux the dbus package\'s string errors are swallowed', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final s = linuxSignals(() {
+          Future<void>.error('D-Bus address transport not supported: x');
+          Future<void>.error('Unable to determine D-Bus unix address path');
+          return Future.value(current);
+        });
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught, isEmpty);
+    });
+
+    test(
+      'on Linux an unrelated FormatException reaches the parent zone',
+      () async {
+        final uncaught = <Object>[];
+        await runZonedGuarded(() async {
+          final s = linuxSignals(() {
+            Future<void>(() => jsonDecode('{not json'));
+            return Future.value(current);
+          });
+          addTearDown(s.dispose);
+          await pumpEventQueue();
+        }, (error, _) => uncaught.add(error));
+        expect(uncaught.single, isA<FormatException>());
+      },
+    );
+
+    test('on Linux a FormatException and any String are swallowed', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final s = linuxSignals(() {
+          Future<void>.error(
+            const FormatException(
+              'Unable to determine transport of D-Bus address: x',
+            ),
+          );
+          Future<void>.error('Failed to resolve host');
+          Future<void>.error('Invalid port number');
+          return Future.value(current);
+        });
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught, isEmpty);
+    });
+
+    test(
+      'on Linux an unrelated TimeoutException reaches the parent zone',
+      () async {
+        final uncaught = <Object>[];
+        await runZonedGuarded(() async {
+          final s = linuxSignals(() {
+            Future<void>(() => throw TimeoutException('other'));
+            return Future.value(current);
+          });
+          addTearDown(s.dispose);
+          await pumpEventQueue();
+        }, (error, _) => uncaught.add(error));
+        expect(uncaught.single, isA<TimeoutException>());
+      },
+    );
+
+    test('on Linux any other error reaches the parent zone', () async {
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        final s = linuxSignals(() {
+          Future<void>(() => throw StateError('a bug'));
+          return Future.value(current);
+        });
+        addTearDown(s.dispose);
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      expect(uncaught.single, isA<StateError>());
+    });
+
+    group('linuxSystemBusAvailable', () {
+      bool check(Map<String, String> env, Set<String> files) =>
+          linuxSystemBusAvailable(environment: env, exists: files.contains);
+
+      test('is false with no address and no socket', () {
+        expect(check({}, {}), isFalse);
+        expect(check({'DBUS_SYSTEM_BUS_ADDRESS': ''}, {}), isFalse);
+      });
+
+      test('an address that does not parse into a transport is no bus', () {
+        for (final address in [
+          'bogus',
+          'unix:guid=1',
+          'unix:path=',
+          'tcp:host=x,port=y',
+          'tcp:host=x',
+          'tcp:port=1',
+          'tcp:host=x,port=1,family=ipv5',
+          'unix:path=/x,bad',
+          'unix:dir=/tmp',
+          'disabled:;unix:path=/x',
+        ]) {
+          expect(
+            check(
+              {'DBUS_SYSTEM_BUS_ADDRESS': address},
+              {'/run/dbus/system_bus_socket'},
+            ),
+            isFalse,
+            reason: address,
+          );
+        }
+      });
+
+      test('a well-formed tcp address is a bus', () {
+        expect(
+          check({'DBUS_SYSTEM_BUS_ADDRESS': 'tcp:host=x,port=1'}, {}),
+          isTrue,
+        );
+        expect(
+          check({
+            'DBUS_SYSTEM_BUS_ADDRESS': 'tcp:host=x,port=1,family=ipv6',
+          }, {}),
+          isTrue,
+        );
+      });
+
+      test('is true with an address or either socket', () {
+        expect(check({'DBUS_SYSTEM_BUS_ADDRESS': 'unix:path=/x'}, {}), isTrue);
+        expect(check({}, {'/var/run/dbus/system_bus_socket'}), isTrue);
+        expect(check({}, {'/run/dbus/system_bus_socket'}), isTrue);
+      });
+    });
 
     test('does not know about a VPN where the platform cannot tell', () async {
       current = [ConnectivityResult.vpn];

@@ -98,10 +98,12 @@ or `SHOT_KANBAN_ONLY=true scripts/store-screenshots.sh mac`.
 | Mac               | 2880 x 1800 | Mac           |
 | Apple Watch Ultra | 422 x 514   | Apple Watch   |
 
-The Mac window opens at 800 x 600 points, below the 900 point breakpoint of the
-wide layout, so the test first resizes it (`SHOT_MAC_WINDOW`, 1440x900 by
-default). `mac compact` keeps the default size and writes `mac-compact-*`, which
-`finish` uses only when there is no wide capture.
+The test always resizes the Mac window first (`setContentSize`), so the
+screenshots do not depend on the window's default size (1100 x 760, above the
+900 point breakpoint of the wide layout). `SHOT_MAC_WINDOW` is 1440x900 by
+default; `mac compact` uses 800x600 (`SHOT_MAC_COMPACT_WINDOW`), which is
+compact, and writes `mac-compact-*`, which `finish` uses only when there is no
+wide capture.
 
 The watch screenshot needs the watchOS simulator runtime (Xcode > Settings >
 Components). The `watch` run builds the phone app with the watch app inside,

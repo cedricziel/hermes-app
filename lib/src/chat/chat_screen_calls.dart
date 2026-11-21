@@ -160,7 +160,10 @@ extension _ChatScreenCalls on _ChatScreenState {
               onContextLost: () => unawaited(created.end()),
             );
             final bridge = (widget.callBridge ?? createCallBridge)();
+            final lease = CallTtsLease(repository, profile: profile);
             created = VoiceCall(
+              holdLease: lease.hold,
+              releaseLease: lease.release,
               bridge: bridge,
               tones: BridgeCallTones(bridge),
               haptics: SystemCallHaptics(),

@@ -48,6 +48,15 @@ behind a conditional import/export with a matching browser stub; a runtime
 platform check alone cannot fix missing-method compilation errors. Validate
 with `scripts/build-widgetbook.sh` locally or the catalog build in CI.
 
+## Require pubspec.lock resolved with the pinned Flutter
+
+The `Analyze` step of that name fails when `flutter pub get` rewrites
+`pubspec.lock`. The lock was resolved with another Flutter than `.fvmrc`, for
+example by dependabot, or an SDK-pinned package such as `test_api` moved with
+the SDK. Fix: run `flutter pub get` on the `.fvmrc` Flutter and commit
+`pubspec.lock` (by name; pub get also rewrites generated platform files, which
+stay out). `update-flutter.yml` does this for its bump PR.
+
 ## Which jobs run
 
 `ci.yml` starts with a `Changes` job. On a pull request it diffs the merge
@@ -79,6 +88,19 @@ runs for every code PR in its own job, `Test native audio (Linux)`, which
 new path (a script it calls, a new asset folder), add it to the `builds` case in
 the `Changes` job, or PRs that touch only that path will skip the build.
 
+`verify-hermes-api-client.yml`'s job is a required check, so the workflow has no
+`paths:` filter (a skipped required workflow stays pending). Its first step
+diffs the merge commit like `Changes` does and sets `steps.scope.outputs.run`;
+the setup and regeneration steps carry `if:` on it, so the job still reports
+success when nothing under `openapi/`, `scripts/`, `packages/hermes_api/`,
+`openapitools.json`, `.fvmrc`, `pubspec.yaml`, `pubspec.lock` or the workflow
+changed. A non-merge HEAD or an empty diff runs the full check, and so does
+push to main.
+
+Every job in `ci.yml`, `widgetbook.yml` and `verify-hermes-api-client.yml` has
+`timeout-minutes` at 2x or more of the longest successful run seen (shards 45,
+platform builds 25 to 40, Analyze 15); raise it when a job legitimately grows.
+
 Only pull-request runs are cancelled by a newer push (`cancel-in-progress` is
 conditional in `ci.yml`, `messenger-plugin.yml`, `real-backend-contract.yml`
 and `verify-hermes-api-client.yml`). On main a run in progress finishes and a
@@ -103,6 +125,26 @@ requests. Their `if` therefore names `needs.analyze-and-test.result ==
 'success'` under `!cancelled()`. If builds show as skipped on a pull request that
 changes code, look there first.
 
+## flutter_soloud build guard
+
+`Build Linux (release)` runs `flutter build linux --release -v`, writes
+`build/flutter_build_linux.log`, then `scripts/check-soloud-build-log.sh`. It
+fails when the flutter_soloud build hook downloaded or built Xiph libraries or
+enabled VST3: it needs `[flutter_soloud] Building on Linux (<arch>) with Xiph
+libs [disabled]` (read from the hook's `stdout.txt` under
+`.dart_tool/hooks_runner/flutter_soloud/`, since Flutter keeps it out of the
+verbose log) and none of `Downloading prebuild archive`, `Extracting archive`,
+`releases/download`, `Configuring ogg|opus|vorbis|flac`, `Cloning`. A failure
+means `hooks.user_defines.flutter_soloud` in `pubspec.yaml` lost
+`no_xiph_libs: true` or `enable_vst3: false`, or a new version changed what the
+hook does. The unit-level twin is `test/dependency_flutter_soloud_guard_test.dart`
+(user-defines, exact pin, `kFlutterSoloudNoticesVersion` equal to the pin and the
+lock). To fix after a bump: read the new `hook/build.dart`, update
+`lib/src/settings/third_party_notices.dart` and its constant together, and adjust
+the script and `scripts/test_check_soloud_build_log.py` if the print line
+changed. Details: the flutter_soloud paragraph in
+`docs/architecture/native.md`. The script is in the `builds` path filter, so
+changing it runs the Linux build on a pull request.
 ## PR policy and Review recorded
 
 `pr-policy.yml` runs `scripts/pr_policy.py` (`policy` and `review`) on every

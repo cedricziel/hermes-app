@@ -19,6 +19,9 @@ T ok<T>(CuratorResult<T> result) {
 CuratorFailure? failure<T>(CuratorResult<T> result) =>
     result is CuratorFailed<T> ? result.kind : null;
 
+String? detailOf<T>(CuratorResult<T> result) =>
+    result is CuratorFailed<T> ? result.detail : null;
+
 void main() {
   late FakeHermesServer server;
   late HermesCuratorRepository repository;
@@ -282,6 +285,104 @@ void main() {
       },
     );
   });
+
+  group(
+    'Hermes\' text travels with a failure only where the screen shows it',
+    () {
+      test('a refused pause carries the detail, the kind stays', () async {
+        server.on('PUT', '/api/curator/paused', {
+          'detail': 'paused must be a boolean',
+        }, status: 400);
+        final result = await repository.setPaused(true, profile: 'demo-a');
+
+        expect(failure(result), CuratorFailure.refused);
+        expect(detailOf(result), 'paused must be a boolean');
+        expect('$result', 'CuratorFailed(refused)', reason: 'never logged');
+      });
+
+      test('a pause that failed on the server carries it too', () async {
+        server.on('PUT', '/api/curator/paused', {
+          'detail': 'disk full',
+        }, status: 500);
+        final result = await repository.setPaused(true, profile: 'demo-a');
+
+        expect(failure(result), CuratorFailure.server);
+        expect(detailOf(result), 'disk full');
+      });
+
+      test('a spawn failure carries its detail, as received', () async {
+        server.on('POST', '/api/curator/run', {
+          'detail': 'Failed to run curator: [Errno 2] no such file',
+        }, status: 500);
+        final result = await repository.run(profile: 'demo-a');
+
+        expect(failure(result), CuratorFailure.spawnFailed);
+        expect(
+          detailOf(result),
+          'Failed to run curator: [Errno 2] no such file',
+        );
+      });
+
+      test('nothing readable, nothing carried', () async {
+        for (final body in [
+          <String, Object?>{'detail': '   '},
+          <String, Object?>{'detail': 7},
+          <String, Object?>{'detail': <Object?>[]},
+          <String, Object?>{},
+        ]) {
+          server.on('PUT', '/api/curator/paused', body, status: 400);
+          expect(
+            detailOf(await repository.setPaused(true, profile: 'demo-a')),
+            isNull,
+            reason: '$body',
+          );
+        }
+      });
+
+      test('a huge detail is cut where it is read', () async {
+        server.on('PUT', '/api/curator/paused', {
+          'detail': 'x' * 50000,
+        }, status: 400);
+        final detail = detailOf(
+          await repository.setPaused(true, profile: 'demo-a'),
+        );
+        expect(detail, hasLength(1000));
+      });
+
+      test('no other failure carries text', () async {
+        // The unnamed run, a run for a bad name, a 401, "Curator unavailable"
+        // on a read and on a pause, a lost answer.
+        answer('POST', '/api/curator/run', recordedRunUnnamed);
+        expect(detailOf(await repository.run(profile: 'demo-a')), isNull);
+        answer('POST', '/api/curator/run', recordedRunProfileInvalid);
+        expect(detailOf(await repository.run(profile: 'bad name')), isNull);
+        server.on('PUT', '/api/curator/paused', {'detail': 'no'}, status: 401);
+        expect(
+          detailOf(await repository.setPaused(true, profile: 'demo-a')),
+          isNull,
+        );
+        answer('GET', '/api/curator', recordedCuratorUnavailable);
+        expect(detailOf(await repository.status(profile: 'demo-a')), isNull);
+        answer('PUT', '/api/curator/paused', recordedPauseUnavailable);
+        expect(
+          detailOf(await repository.setPaused(true, profile: 'demo-a')),
+          isNull,
+        );
+        server.on('PUT', '/api/curator/paused', {
+          'detail': 'Curator unavailable: import failed in /srv/x',
+        }, status: 500);
+        expect(
+          detailOf(await repository.setPaused(true, profile: 'demo-a')),
+          isNull,
+        );
+        server.on('PUT', '/api/curator/paused', {'detail': 'bad'}, status: 502);
+        expect(
+          detailOf(await repository.setPaused(true, profile: 'demo-a')),
+          isNull,
+        );
+      });
+    },
+  );
 
   group('pause', () {
     test('sends the flag and returns the value Hermes answers', () async {

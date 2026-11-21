@@ -13,6 +13,7 @@ import '../voice/calls/active_call.dart';
 import '../voice/calls/call_tones.dart';
 import '../voice/calls/call_audio_decoder.dart';
 import '../voice/calls/call_agent.dart';
+import '../voice/calls/call_tts_lease.dart';
 import '../voice/calls/voice_call.dart';
 import '../voice/calls/voice_model_route.dart';
 import '../voice/calls/call_microphone.dart';
@@ -43,6 +44,7 @@ import 'subagents/activity_selection.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
 import '../bot_screen/bot_screen_controller.dart';
+import '../bot_screen/bot_screen_profile.dart';
 import '../bot_screen/bot_screen_repository.dart';
 import '../bot_screen/bot_screen_viewer_ids.dart';
 import '../bot_screen/install/bot_screen_installs.dart';
@@ -66,6 +68,7 @@ import '../workspaces/workspace_telemetry.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../tools/hermes_tools_repository.dart';
 import '../tools/tools_availability.dart';
+import '../tools/tools_profile.dart';
 import '../tools/tools_screen.dart';
 import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';
@@ -108,7 +111,6 @@ import '../server_care/replies_in_progress.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
-import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import '../surfaces/surface_snapshot_store.dart';
 import '../surfaces/surface_snapshots.dart';
 import '../telemetry/breadcrumbs.dart';
@@ -161,6 +163,7 @@ import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
 import 'widgets/new_chat_fab.dart';
+import 'tool_value_budget.dart';
 import 'widgets/tool_call_expansion.dart';
 import '../kanban/widgets/task_panel/kanban_task_sheet.dart';
 import '../widgets/inspector_layout.dart';
@@ -321,6 +324,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// dropped when another chat or profile opens (`follow`) and with this
   /// screen, so on sign-out.
   final _toolCallExpansion = ToolCallExpansionStore();
+  final _toolValueBudget = ToolValueBudget();
 
   /// Tells the update question how many replies this chat has running.
   RepliesInProgress? _repliesCount;
@@ -969,6 +973,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _chat.appLifecycleChanged(state);
     _foreground = state == AppLifecycleState.resumed;
     _voiceCall?.lifecycleChanged(state);
     _syncBotScreenGates();
