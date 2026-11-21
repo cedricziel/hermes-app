@@ -361,6 +361,13 @@ class GuardTest(unittest.TestCase):
                     "git worktree list",
                     "git worktree remove .claude/worktrees/x",
                     "git worktree add ../wt -b claude/z",
+                    "git worktree add ../wt prune",
+                    "git worktree add -b prune ../wt",
+                    "git worktree remove prune",
+                    "git worktree lock prune",
+                    "git worktree move prune ../x",
+                    "git fetch --prune",
+                    "git remote prune origin",
                     "echo git worktree prune",
                 ]:
                     self.allowed(c)
