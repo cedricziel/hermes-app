@@ -186,4 +186,154 @@ void main() {
     }
     expect(short, isEmpty);
   });
+
+  test('a hand-built test app that renders a theme-scope reader mounts '
+      'AppThemeScopes', () {
+    // `mui.Theme.of` does not throw without the scope, it falls back to the
+    // light theme, so a dark test draws near-black headings and light code
+    // blocks. Nothing fails at run time: this reads the sources.
+    final readers = _readerClasses();
+    expect(readers, isNotEmpty);
+    expect(readers, containsAll(['BoundedMarkdown', 'HermesCodeBlock']));
+
+    final helpers = _supportHelpers();
+    final readerPattern = _wordsPattern(readers);
+    final bad = <String>[];
+    for (final f in _dartFiles('test')) {
+      final path = f.path;
+      if (!path.endsWith('_test.dart')) continue;
+      final code = _stripComments(f.readAsStringSync());
+      final mountsHelper = helpers.mounting.any(
+        (h) => RegExp('\\b$h\\(').hasMatch(code),
+      );
+      final callsPlain = helpers.plain.any(
+        (h) => RegExp('\\b$h\\(').hasMatch(code),
+      );
+      final buildsApp = _appConstructor.hasMatch(code) || callsPlain;
+      if (!buildsApp) continue;
+      if (_mountingIdentifier.hasMatch(code) || mountsHelper) continue;
+      final used = readerPattern
+          .allMatches(code)
+          .map((m) => m.group(0)!)
+          .toSet();
+      if (used.isNotEmpty) {
+        bad.add('$path: ${(used.toList()..sort()).join(', ')}');
+      }
+    }
+    expect(
+      bad,
+      isEmpty,
+      reason:
+          'These tests build their own app and reference a widget that reads '
+          "material_ui's theme, but never mount AppThemeScopes, so it draws "
+          'with the light fallback in a dark test. Mount AppThemeScopes in '
+          "the app's `builder:` (`builder: (_, child) => "
+          'AppThemeScopes(child: child!)`):\n${bad.join('\n')}',
+    );
+  });
+}
+
+final _appConstructor = RegExp(
+  r'\b(?:MaterialApp(?:\.router)?|CupertinoApp|WidgetsApp)\(',
+);
+final _mountingIdentifier = RegExp(
+  r'\b(?:AppThemeScopes|MaterialUiThemeScope|FlyerMaterialScope|'
+  r'buildMaterialUiTheme|pumpScreen|pumpWorkflowApp)\b|\bHermesApp\(',
+);
+final _comments = RegExp(r'//[^\n]*|/\*[\s\S]*?\*/');
+
+String _stripComments(String code) => code.replaceAll(_comments, '');
+
+List<File> _dartFiles(String dir) => [
+  for (final f in Directory(dir).listSync(recursive: true))
+    if (f is File && f.path.endsWith('.dart') && !f.path.contains('generated'))
+      f,
+];
+
+RegExp _wordsPattern(Iterable<String> words) =>
+    RegExp('\\b(?:${words.join('|')})\\b');
+
+/// Classes in `lib/` whose build reads `material_ui`'s theme or draws
+/// `gpt_markdown`, and every class that mentions one of those, transitively.
+/// Scope providers and app roots are not readers, and neither are the
+/// navigation-only roots: they open a reader only after a tap, and a test that
+/// pumps one of them to reach a route does not draw it.
+Set<String> _readerClasses() {
+  final decl = RegExp(
+    r'^(?:(?:abstract|base|final|sealed|interface|mixin)\s+)*'
+    r'(?:class|mixin|enum)\s+(\w+)',
+    multiLine: true,
+  );
+  final seed = RegExp(
+    r'\bmui\.Theme\.of\b|\bGptMarkdown\(|\bGptMarkdownTheme\b|\bmui\.[A-Z]\w*\(',
+  );
+  final provider = RegExp(
+    r'\bmui\.Theme\(|\bMaterialUiThemeScope\(|\bAppThemeScopes\(',
+  );
+  final bodies = <String, String>{};
+  for (final f in _dartFiles('lib')) {
+    final code = _stripComments(f.readAsStringSync());
+    final starts = decl.allMatches(code).toList();
+    for (var i = 0; i < starts.length; i++) {
+      final end = i + 1 < starts.length ? starts[i + 1].start : code.length;
+      bodies[starts[i].group(1)!] = code.substring(starts[i].start, end);
+    }
+  }
+  const navigationOnly = {'AppShell', 'MacProfilesPage', 'HermesApp'};
+  bool skipped(String name, String body) =>
+      provider.hasMatch(body) ||
+      _appConstructor.hasMatch(body) ||
+      navigationOnly.any((n) => name == n || name == '_${n}State');
+  final reached = <String>{
+    for (final e in bodies.entries)
+      if (!skipped(e.key, e.value) && seed.hasMatch(e.value)) e.key,
+  };
+  var grew = true;
+  while (grew && reached.isNotEmpty) {
+    grew = false;
+    final pattern = _wordsPattern(reached);
+    for (final e in bodies.entries) {
+      if (reached.contains(e.key) || skipped(e.key, e.value)) continue;
+      if (pattern.hasMatch(e.value)) {
+        reached.add(e.key);
+        grew = true;
+      }
+    }
+  }
+  return reached;
+}
+
+/// Top-level functions of the test helper files (`test/support` and the
+/// harnesses beside a test directory, anything not named `*_test.dart`) that
+/// build an app, split by whether
+/// they mount the theme scopes (directly or through another helper).
+({Set<String> mounting, Set<String> plain}) _supportHelpers() {
+  final chunkStart = RegExp(r'^(?=[A-Za-z])', multiLine: true);
+  final header = RegExp(
+    r'^(?!class|import|export|part|typedef|const|final|abstract|mixin|enum|'
+    r'extension)[\w<>?,. ]+?\s(\w+)\(',
+  );
+  final chunks = <String, String>{};
+  for (final f in _dartFiles('test')) {
+    if (f.path.endsWith('_test.dart')) continue;
+    for (final c in _stripComments(f.readAsStringSync()).split(chunkStart)) {
+      final m = header.firstMatch(c);
+      if (m != null) chunks[m.group(1)!] = c;
+    }
+  }
+  final mounting = <String>{};
+  final plain = <String>{};
+  for (var round = 0; round < 4; round++) {
+    for (final e in chunks.entries) {
+      bool calls(Set<String> names) =>
+          names.any((n) => n != e.key && RegExp('\\b$n\\(').hasMatch(e.value));
+      if (_mountingIdentifier.hasMatch(e.value) || calls(mounting)) {
+        mounting.add(e.key);
+        plain.remove(e.key);
+      } else if (_appConstructor.hasMatch(e.value) || calls(plain)) {
+        plain.add(e.key);
+      }
+    }
+  }
+  return (mounting: mounting, plain: plain);
 }

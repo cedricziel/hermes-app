@@ -20,6 +20,7 @@ import 'package:hermes_app/src/files/widgets/file_preview_header.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/files/widgets/files_spinner.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -92,6 +93,7 @@ void main() {
           ChangeNotifierProvider<AppLockController>.value(value: lock),
       ],
       child: MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(platform: platform),
