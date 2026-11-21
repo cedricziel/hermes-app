@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -26,6 +28,12 @@ Future<void> settle(WidgetTester tester) async {
 
 void main() {
   late FakeHermesServer server;
+
+  Map<String, dynamic> lastBoardQuery() => server
+      .requestsTo('GET', '/api/plugins/kanban/board')
+      .last
+      .queryParameters;
+
   var shellGeneration = 0;
 
   setUp(() {
@@ -160,6 +168,7 @@ void main() {
     await settle(tester);
     await tester.tap(find.text('Ops (24)'));
     await settle(tester);
+    expect(lastBoardQuery()['board'], 'ops');
     await showChip(tester, 'Running 12');
 
     expectAtTop(tester);
@@ -196,6 +205,7 @@ void main() {
     await openRunningAtBottom(tester);
 
     await pickFrom(tester, 'All tenants', 'acme');
+    expect(lastBoardQuery()['tenant'], 'acme');
     await showChip(tester, 'Running 12');
 
     expectAtTop(tester);
@@ -218,6 +228,7 @@ void main() {
     await openRunningAtBottom(tester);
 
     await toggleArchived(tester);
+    expect(lastBoardQuery()['include_archived'], true);
     await showChip(tester, 'Running 12');
 
     expectAtTop(tester);
@@ -246,5 +257,34 @@ void main() {
     await showChip(tester, 'Running 12');
 
     expectAtTop(tester);
+  });
+
+  testWidgets('going back to a board before it has loaded does not restore '
+      'the old offset', (tester) async {
+    await openRunningAtBottom(tester);
+    final held = Completer<FakeResponse>();
+    server.onRequest(
+      'GET',
+      '/api/plugins/kanban/board',
+      (_) => held.future,
+      query: {'board': 'ops'},
+    );
+
+    await tester.tap(find.byTooltip('Switch board'));
+    await settle(tester);
+    await tester.tap(find.text('Ops (24)'));
+    await settle(tester);
+    expect(lastBoardQuery()['board'], 'ops');
+    expect(find.text('Running job 0'), findsNothing);
+
+    await tester.tap(find.byTooltip('Switch board'));
+    await settle(tester);
+    await tester.tap(find.text('Default (24)'));
+    await settle(tester);
+    await showChip(tester, 'Running 12');
+
+    expectAtTop(tester);
+    held.complete((status: 200, body: kanbanBoardBody([])));
+    await settle(tester);
   });
 }

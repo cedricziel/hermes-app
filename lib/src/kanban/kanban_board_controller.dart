@@ -157,6 +157,12 @@ class KanbanBoardController extends ChangeNotifier {
   String get query => _query;
   bool get includeArchived => _includeArchived;
 
+  /// Counts every change of board or filter (never a status chip switch), so
+  /// a view can tell that something changed even when the change was undone
+  /// while the board was still loading.
+  int get filterGeneration => _filterGeneration;
+  int _filterGeneration = 0;
+
   /// The last refetch failed while a board is held, so what is shown may be
   /// stale. Without a board the full-page error covers the failure instead.
   bool get refreshFailed => _board != null && _error != null;
@@ -578,6 +584,7 @@ class KanbanBoardController extends ChangeNotifier {
   Future<void> selectBoard(String slug) async {
     if (!_canWork) return;
     _boardSlug = slug;
+    _filterGeneration++;
     // Filters belong to the board they were set on; a tenant the new board
     // lacks would hide its tasks with no way to clear it.
     _tenant = null;
@@ -596,22 +603,26 @@ class KanbanBoardController extends ChangeNotifier {
   Future<void> setTenant(String? tenant) {
     if (!_canWork) return Future<void>.value();
     _tenant = tenant;
+    _filterGeneration++;
     return _restart();
   }
 
   Future<void> setIncludeArchived(bool value) {
     if (!_canWork) return Future<void>.value();
     _includeArchived = value;
+    _filterGeneration++;
     return _restart();
   }
 
   void setAssignee(String? assignee) {
     _assignee = assignee;
+    _filterGeneration++;
     notifyListeners();
   }
 
   void setQuery(String query) {
     _query = query;
+    _filterGeneration++;
     notifyListeners();
   }
 
