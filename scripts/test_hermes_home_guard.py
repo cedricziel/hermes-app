@@ -35,6 +35,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -237,20 +238,50 @@ def check_workflow(rel, text, exceptions=None):
     return sites
 
 
-def scanned_files():
-    shell = sorted({p for g in SHELL_GLOBS for p in ROOT.glob(g) if p.is_file()})
-    yaml = sorted({p for g in YAML_GLOBS for p in ROOT.glob(g) if p.is_file()})
-    return shell, yaml
+def tracked_files(root):
+    """Repo-relative paths git tracks under [root], or None without git.
+
+    Agent worktrees live in `.claude/worktrees/` inside a checkout; their
+    stale copies of the scripts are not part of the repo and must not be scanned.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z"],
+            capture_output=True,
+            check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {n for n in out.decode().split("\0") if n}
 
 
-def check_repo():
+def scanned_files(root=None):
+    root = ROOT if root is None else root
+    tracked = tracked_files(root)
+
+    def keep(p):
+        if not p.is_file():
+            return False
+        rel = p.relative_to(root).as_posix()
+        if tracked is not None:
+            return rel in tracked
+        return not rel.startswith(".claude/worktrees/")
+
+    def pick(globs):
+        return sorted({p for g in globs for p in root.glob(g) if keep(p)})
+
+    return pick(SHELL_GLOBS), pick(YAML_GLOBS)
+
+
+def check_repo(root=None):
+    root = ROOT if root is None else root
     sites = []
-    shell, yaml = scanned_files()
+    shell, yaml = scanned_files(root)
     for path in shell:
-        sites.extend(check_text(path.relative_to(ROOT).as_posix(), path.read_text()))
+        sites.extend(check_text(path.relative_to(root).as_posix(), path.read_text()))
     for path in yaml:
         sites.extend(
-            check_workflow(path.relative_to(ROOT).as_posix(), path.read_text())
+            check_workflow(path.relative_to(root).as_posix(), path.read_text())
         )
     return sites
 
@@ -470,6 +501,32 @@ class RealScripts(unittest.TestCase):
     def test_every_hermes_home_in_the_repo_is_canonicalised(self):
         bad = [str(s) for s in check_repo() if s.problem]
         self.assertEqual(bad, [], "\n" + "\n".join(bad))
+
+    def make_repo(self, bad_rel, track):
+        repo = pathlib.Path(tempfile.mkdtemp(prefix="hermes-home-scan.")).resolve()
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+        bad = repo / bad_rel
+        bad.parent.mkdir(parents=True)
+        bad.write_text("HERMES_HOME=/tmp/raw\nhermes dashboard\n")
+        if track:
+            subprocess.run(["git", "-C", str(repo), "add", bad_rel], check=True)
+        return repo
+
+    def test_scan_ignores_untracked_agent_worktree_copies(self):
+        repo = self.make_repo(".claude/worktrees/x/scripts/dev.sh", track=False)
+        self.assertEqual([s for s in check_repo(repo) if s.problem], [])
+
+    def test_scan_still_catches_a_tracked_offender(self):
+        repo = self.make_repo("scripts/dev.sh", track=True)
+        found = [s for s in check_repo(repo) if s.problem]
+        self.assertTrue(found)
+        self.assertIn("scripts/dev.sh", str(found[0]))
+
+    def test_scan_without_git_skips_agent_worktrees(self):
+        repo = self.make_repo(".claude/worktrees/x/scripts/dev.sh", track=False)
+        with mock.patch.object(sys.modules[__name__], "tracked_files", lambda r: None):
+            self.assertEqual([s for s in check_repo(repo) if s.problem], [])
 
     def test_every_exception_still_matches_a_line(self):
         for rel, rx, why in EXCEPTIONS:
