@@ -258,6 +258,8 @@ class _Visitor extends RecursiveAstVisitor<void> {
           'package:flutter/material.dart',
           'package:flutter/widgets.dart',
           'package:flutter/cupertino.dart',
+          'package:material_ui/material_ui.dart',
+          'package:cupertino_ui/cupertino_ui.dart',
         ].contains(d.uri.stringValue),
       );
 
