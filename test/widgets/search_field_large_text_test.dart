@@ -136,4 +136,67 @@ void main() {
     visit(tester.renderObject(find.byType(TextField)));
     expect(editable!.preferredLineHeight, equals(20));
   });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    final ios = platform == TargetPlatform.iOS;
+    for (final scale in [2.0, 3.1]) {
+      testWidgets('$platform at ${scale}x keeps the filter button its size and '
+          'the hint on one line', (tester) async {
+        await tester.runAsync(loadTestFonts);
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _app(
+            platform,
+            scale,
+            SettingsScaffold(
+              title: 'Skills',
+              search: SettingsSearch(
+                query: '',
+                hint: _hint,
+                onChanged: (_) {},
+                filters: [
+                  SettingsFilter(
+                    label: 'All',
+                    selected: true,
+                    onSelected: () {},
+                  ),
+                  SettingsFilter(
+                    label: 'Enabled',
+                    selected: false,
+                    onSelected: () {},
+                  ),
+                ],
+              ),
+              body: const SizedBox(),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+
+        final field = tester.getRect(find.byType(SettingsSearchField));
+        final button = tester.getRect(
+          find.byKey(const Key('settings-search-filter')),
+        );
+        // The button keeps its platform size and stays centred in the field.
+        expect(button.size, Size.square(ios ? 36 : 44));
+        expect(button.center.dy, closeTo(field.center.dy, 0.5));
+
+        final hint = tester.renderObject<RenderParagraph>(
+          find.descendant(
+            of: find.byType(SettingsSearchField),
+            matching: find.text(_hint),
+          ),
+        );
+        expect(hint.size.width, greaterThan(0));
+        expect(
+          hint.size.height,
+          closeTo(hint.getMinIntrinsicHeight(double.infinity), 0.5),
+          reason: 'one line',
+        );
+      });
+    }
+  }
 }

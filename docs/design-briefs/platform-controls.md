@@ -70,3 +70,15 @@ Reason: a Mac toolbar control does not grow with the text size (AppKit toolbars 
 Alternative considered: growing the Mac toolbar with the text. Rejected, because every toolbar button, the 52 pt toolbar and the window chrome would have to grow with it for one field.
 
 Checked by `test/widgets/search_field_large_text_test.dart` and the catalog use cases `SettingsSearchField / Largest text`.
+
+### Design (done)
+
+Canvas: https://claude.ai/artifact/HPwY5Tj74AMWYYUYLrzeyH (private, ask its owner for access), 2026-11-21. Five artboards: iOS light and dark, Android light and dark (phone settings header with search at text scale 1.0 / 2.0 / 3.1, short hint "Search skills" and long hint "Search the skills hub" with the filter button), and the Mac toolbar (1.0x and the 1.3x clamp, light and dark). Text scale is simulated by scaling font sizes (the design system has no textScale prop).
+
+Decisions:
+- iOS and Android: the field's minimum height is max(36 or 44, scaled font x 1.5 + 8): iOS 36 / 59 / 87 pt and Android 44 / 56 / 83 dp at 1.0 / 2.0 / 3.1. The bar below the title grows with it (toolbar + field + 8). At 1.0x nothing changes.
+- The hint stays on one line and ends in an ellipsis; it never wraps.
+- Search, clear and filter icons keep their platform size; the filter button keeps its platform width and height (36 / 44) and stays centred in the taller field (it does not fill the field height).
+- Mac: the field stays 26 pt in the 52 pt toolbar; text scale is clamped at 1.3x; the line height shrinks only when a scaled line would not fit the border.
+
+Accepted differences from the Flutter renders: ellipsis position (Flutter breaks at a word, Chrome at a character); icons do not scale with text; the Flutter Mac field is wider than the design system's 180 / 240 pt field. The filter button at large text is covered by the filter case in the "Largest text" use case and its test.
