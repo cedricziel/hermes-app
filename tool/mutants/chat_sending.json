@@ -324,8 +324,8 @@
     {
       "id": "cs28",
       "file": "lib/src/chat/chat_controller_sending.dart",
-      "old": "event is SessionInfo && event.running == false) settled = true;",
-      "new": "event is SessionInfo && event.running == true) settled = true;",
+      "old": "event is SessionInfo && event.running == false) {\n          settled = true;",
+      "new": "event is SessionInfo && event.running == true) {\n          settled = true;",
       "note": "settled flag inverted"
     },
     {
