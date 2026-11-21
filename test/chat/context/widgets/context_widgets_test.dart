@@ -9,6 +9,8 @@ import 'package:hermes_app/src/chat/context/widgets/context_format.dart';
 import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../../support/test_localizations.dart';
+
 Future<void> _pump(
   WidgetTester tester,
   Widget child, {
@@ -22,7 +24,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       theme: buildHermesLightTheme(platform: platform),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)

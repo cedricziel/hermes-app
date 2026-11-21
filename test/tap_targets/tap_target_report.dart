@@ -19,6 +19,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import '../../widgetbook/directories.dart';
 import '../support/tap_targets.dart';
+import '../support/test_localizations.dart';
 
 Iterable<(String, WidgetbookUseCase)> _useCases(
   Iterable<WidgetbookNode> nodes, [
@@ -64,7 +65,7 @@ void main() {
         try {
           await tester.pumpWidget(
             MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: kTestLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               theme: buildHermesLightTheme(platform: platform),
               home: Scaffold(body: Builder(builder: useCase.builder)),

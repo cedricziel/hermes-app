@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 
 import '../support/fake_hermes_server.dart';
 import '../support/recorded_events.dart';
+import '../support/test_localizations.dart';
 
 const _channel = MethodChannel('hermes_app/menu');
 
@@ -190,7 +191,7 @@ void main() {
             locale: locale,
             theme: ThemeData(platform: TargetPlatform.iOS),
             localizationsDelegates: const [
-              ...AppLocalizations.localizationsDelegates,
+              ...kTestLocalizationsDelegates,
               GlobalMaterialLocalizations.delegate,
             ],
             supportedLocales: AppLocalizations.supportedLocales,

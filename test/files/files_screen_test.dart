@@ -30,6 +30,7 @@ import '../support/fake_files_source.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
 import '../support/fake_quick_look.dart';
+import '../support/test_localizations.dart';
 
 bool _stale = false;
 ValueNotifier<int> _changed = ValueNotifier(0);
@@ -91,7 +92,7 @@ void main() {
           ChangeNotifierProvider<AppLockController>.value(value: lock),
       ],
       child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(platform: platform),
         home: const Scaffold(body: Text('chat')),
