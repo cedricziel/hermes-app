@@ -9,6 +9,8 @@ import 'package:hermes_app/src/chat/checkpoints/widgets/restore_outcome_note.dar
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
 
+import '../../../support/test_localizations.dart';
+
 Future<void> _pump(
   WidgetTester tester,
   Widget child, {
@@ -24,7 +26,7 @@ Future<void> _pump(
     MaterialApp(
       theme: buildHermesLightTheme(platform: platform),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, app) => MediaQuery(
         data: MediaQuery.of(context)

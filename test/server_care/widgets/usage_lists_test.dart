@@ -6,9 +6,11 @@ import 'package:hermes_app/src/server_care/widgets/usage_day_list.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_model_list.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_totals_card.dart';
 
+import '../../support/test_localizations.dart';
+
 Widget _host(Widget child, {Locale? locale}) => MaterialApp(
   locale: locale,
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(body: SingleChildScrollView(child: child)),
 );

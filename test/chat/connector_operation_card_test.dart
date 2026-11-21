@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/connector_operation_state.dart';
 import 'package:hermes_app/src/chat/widgets/connector_operation_card.dart';
 
 import 'connector_fixtures.dart';
+import '../support/test_localizations.dart';
 
 void main() {
   testWidgets('the answer lines of the card follow the language', (
@@ -16,7 +17,7 @@ void main() {
         tester.pumpWidget(
           MaterialApp(
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: ConnectorOperationCard(

@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import 'test_localizations.dart';
+
 Future<void> pumpOnPlatform(
   WidgetTester tester,
   Widget child, {
@@ -15,7 +17,7 @@ Future<void> pumpOnPlatform(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: buildHermesLightTheme().copyWith(platform: platform),
       builder: (context, app) => MediaQuery(

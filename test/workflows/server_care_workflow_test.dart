@@ -27,6 +27,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/find_app_icon.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart' show letSocketsIdle;
+import '../support/test_localizations.dart';
 
 /// Server care through the real shell: the account menu's Server entry with
 /// its attention dot (phone) or the sidebar row with its caption (Mac), the
@@ -107,7 +108,7 @@ void main() {
           MaterialApp(
             debugShowCheckedModeBanner: false,
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: withScreenshotFont(theme),
             home: const AppShell(),
