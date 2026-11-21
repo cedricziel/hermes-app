@@ -885,6 +885,13 @@ abstract interface class ChatTransport {
   /// profile.
   Future<Map<String, String>> activeStatuses({String? profile});
 
+  /// Like [activeStatuses], but null unless the server really answered: an
+  /// offline socket, an older server without the method, an error answer and
+  /// an unreadable one are null, never an empty map. Only a real answer says a
+  /// session is not running, so only a real answer may release what waits for
+  /// that (Retry and Edit of a reply whose turn may still run).
+  Future<Map<String, String>?> activeStatusesAnswered({String? profile});
+
   /// Makes sure the connection still works, for when the app comes back from
   /// sleep: iOS and Android drop sockets then, often without saying so. A
   /// connection that does not answer is closed; a reply that was running on

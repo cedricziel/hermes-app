@@ -75,6 +75,8 @@ useful when it:
 - Never rebase or force-push a pushed branch. Merge main in.
 - No `git stash` (the stash list is shared between worktrees). Commit or use a
   patch file.
+- No `git worktree prune` (it deletes records of trees other sessions use). Remove one
+  tree with `git worktree remove <path>` once it is clean and merged.
 - Stage files by name, never `git add -A`.
 - Never delete remote branches.
 - After editing a Markdown file, diff it and revert any line you did not mean

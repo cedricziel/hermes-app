@@ -20,6 +20,7 @@ import 'files_notes.dart';
 import 'files_questions.dart';
 import 'markdown_inert.dart';
 import 'safe_path_text.dart';
+import '../../macos/menu_selection_area.dart';
 
 /// A text file the server cut short: how much came and how much there is.
 class FileTruncation {
@@ -428,7 +429,7 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
       onDownloadFull: onDownloadFull,
       body: (note) => _Scrolling(
         note: note,
-        child: SelectionArea(
+        child: MenuSelectionArea(
           child: AppMarkdownTheme(
             child: GptMarkdown(
               // A new budget is a new document: every fence is built anew and

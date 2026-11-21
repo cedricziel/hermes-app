@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
 /// Shows an adaptive dialog with stationary, restrained motion on macOS.
+///
+/// [barrierDismissible] null keeps each platform's own default (a tap on the
+/// barrier closes the dialog on Android and macOS, not on iOS); false makes
+/// the barrier inert everywhere.
 Future<T?> showAppDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
+  bool? barrierDismissible,
 }) {
   final navigator = Navigator.of(context, rootNavigator: true);
   final themes = InheritedTheme.capture(from: context, to: navigator.context);
@@ -17,11 +22,15 @@ Future<T?> showAppDialog<T>({
   if (Theme.of(context).platform != TargetPlatform.macOS) {
     // The dialog sits under the root navigator: carry the caller's theme
     // (and its platform) into it, so it is drawn as the caller would.
-    return showAdaptiveDialog<T>(context: context, builder: content);
+    return showAdaptiveDialog<T>(
+      context: context,
+      builder: content,
+      barrierDismissible: barrierDismissible,
+    );
   }
   return navigator.push<T>(
     RawDialogRoute<T>(
-      barrierDismissible: true,
+      barrierDismissible: barrierDismissible ?? true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       barrierColor: DialogTheme.of(context).barrierColor ?? Colors.black54,
       traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,

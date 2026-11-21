@@ -152,7 +152,7 @@ void main() {
     final module = chat.billingVerificationIn(thread);
     expect(module, isNotNull);
     expect(gateway.methods, isNot(contains('billing.step_up')));
-    chat.submit('Foreground', const []);
+    await chat.submit('Foreground', const []);
     await pumpEventQueue();
     final pending = module!.start();
     await pumpEventQueue();
@@ -274,7 +274,7 @@ void main() {
     await pumpEventQueue();
     expect(old.verification, isNull);
     expect(chat.billingVerificationIn(thread), isNull);
-    chat.submit('Reconnect', const []);
+    await chat.submit('Reconnect', const []);
     await pumpEventQueue();
     final replacement = chat.billingVerificationIn(thread)!;
     expect(replacement.verification, isNull);
@@ -315,7 +315,7 @@ void main() {
       gateway.requests.where((row) => row['method'] == 'billing.step_up'),
       hasLength(requestsBefore),
     );
-    chat.submit('Ordinary chat', const []);
+    await chat.submit('Ordinary chat', const []);
     await pumpEventQueue();
     expect(chat.selectedThread!.isReplying, isTrue);
     gateway.event('message.complete', 'rt-2', {
