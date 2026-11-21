@@ -41,6 +41,14 @@ add a test, do not work around it.
 - With `--post` the same script is a PostToolUse hook that runs
   `flutter gen-l10n` after a pull or merge that changed `lib/l10n/arb/*.arb`.
 
+- `gh` is search-only (F.333): only `gh api` GET on `search/{code,repositories,
+  issues,commits,users}` (with `-f` needing an explicit `-X GET`, since gh turns
+  `-f` into a POST), `gh --version`, `gh help` and bare `gh` pass; every other
+  `gh` call is blocked with the nearest `mcp__github__*` tool. It sees `gh` after
+  `env`/`sudo`/`command`/a path, inside `$(...)`, `bash -c`, `xargs` and
+  `find -exec`, and fails closed on a computed program name (`$G pr view`)
+  while `gh` is a word of the command. Quoted text like `git commit -m "gh x"`
+  passes. Not covered: `gh` run from inside a script file or a `python -c`.
 - Beyond git it also blocks `gh pr merge --delete-branch`, `gh api -X DELETE`
   on `git/refs`, `-c alias.*` and `GIT_CONFIG_KEY_*` for `core.hooksPath` or
   aliases, removing or `chmod -x` of the pre-commit hook, `git pull --rebase`

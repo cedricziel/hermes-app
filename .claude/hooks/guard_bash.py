@@ -940,6 +940,234 @@ def _check_env_words(words):
     return None
 
 
+GH_SEARCH = {"code", "repositories", "issues", "commits", "users"}
+GH_API_VALUED = {
+    "-X",
+    "--method",
+    "-f",
+    "--raw-field",
+    "-F",
+    "--field",
+    "-H",
+    "--header",
+    "-q",
+    "--jq",
+    "-t",
+    "--template",
+    "--input",
+    "--cache",
+    "-p",
+    "--preview",
+    "--hostname",
+}
+GH_API_BOOL = {"--paginate", "--slurp", "-i", "--include", "--silent", "--verbose"}
+GH_BODY_FLAGS = {"-f", "--raw-field", "-F", "--field", "--input"}
+GH_GLOBAL_VALUED = {"-R", "--repo", "--hostname"}
+
+MSG_GH_PREFIX = "Blocked: gh is for search only (fleet rules); "
+MSG_GH_UNPARSED = (
+    "Blocked: gh is for search only (fleet rules), and this command mentions gh in a "
+    "form the guard cannot parse (variable or computed program name, unknown flag). "
+    "Write the `gh api -X GET search/<code|repositories|issues|commits|users>` call "
+    "out in plain words, or use the GitHub MCP tool `mcp__github__…`."
+)
+GH_WORD = re.compile(r"(?<![\w./-])gh(?![\w-])")
+GH_RUNNERS = {
+    "find",
+    "parallel",
+    "flock",
+    "setsid",
+    "stdbuf",
+    "ionice",
+    "chroot",
+    "unbuffer",
+    "script",
+    "su",
+    "ssh",
+    "doas",
+    "taskset",
+    "strace",
+    "ltrace",
+    "nsenter",
+}
+
+# (regex on the normalised endpoint, tool, purpose); first match wins.
+GH_API_HINTS = [
+    (
+        r"^repos/[^/]+/[^/]+/pulls/\d+/(comments|reviews)",
+        "pull_request_read",
+        "PR reviews and comments",
+    ),
+    (r"^repos/[^/]+/[^/]+/pulls/\d+", "pull_request_read", "reading a pull request"),
+    (r"^repos/[^/]+/[^/]+/pulls", "list_pull_requests", "listing pull requests"),
+    (
+        r"^repos/[^/]+/[^/]+/issues/\d+",
+        "issue_read",
+        "reading an issue or its comments",
+    ),
+    (r"^repos/[^/]+/[^/]+/issues", "list_issues", "listing issues"),
+    (
+        r"^repos/[^/]+/[^/]+/check-runs|^repos/[^/]+/[^/]+/commits/[^/]+/check",
+        "get_check_run",
+        "check runs",
+    ),
+    (r"^repos/[^/]+/[^/]+/actions/jobs/\d+/logs", "get_job_logs", "job logs"),
+    (r"^repos/[^/]+/[^/]+/actions/runs", "actions_get / actions_list", "workflow runs"),
+    (r"^repos/[^/]+/[^/]+/actions", "actions_list", "workflows"),
+    (r"^repos/[^/]+/[^/]+/commits", "get_commit / list_commits", "commits"),
+    (r"^repos/[^/]+/[^/]+/contents", "get_file_contents", "file contents"),
+    (r"^repos/[^/]+/[^/]+/releases", "list_releases / get_latest_release", "releases"),
+    (r"^repos/[^/]+/[^/]+/(branches|git/refs/heads)", "list_branches", "branches"),
+    (r"^repos/[^/]+/[^/]+/(tags|git/refs/tags)", "list_tags", "tags"),
+    (r"^repos/[^/]+/[^/]+/labels", "get_label", "labels"),
+    (
+        r"^graphql",
+        "pull_request_read` or `mcp__github__issue_read",
+        "GraphQL queries",
+    ),
+]
+GH_SUB_HINTS = {
+    "pr": {
+        "default": ("pull_request_read / list_pull_requests", "reading pull requests"),
+        "create": ("create_pull_request", "opening a pull request"),
+        "merge": ("merge_pull_request", "merging a pull request"),
+        "review": ("pull_request_review_write", "reviews"),
+        "comment": ("add_issue_comment", "comments"),
+        "edit": ("update_pull_request", "editing a pull request"),
+        "close": ("update_pull_request", "closing a pull request"),
+        "checks": ("pull_request_read (get_check_runs)", "checks"),
+    },
+    "issue": {
+        "default": ("issue_read / list_issues", "reading issues"),
+        "create": ("issue_write", "creating an issue"),
+        "edit": ("issue_write", "editing an issue"),
+        "close": ("issue_write", "closing an issue"),
+        "comment": ("add_issue_comment", "comments"),
+    },
+    "run": ("actions_get / actions_list / get_job_logs", "workflow runs and logs"),
+    "workflow": ("actions_list / actions_run_trigger", "workflows"),
+    "release": ("list_releases / get_latest_release / get_release_by_tag", "releases"),
+    "repo": ("create_repository / fork_repository / get_file_contents", "repositories"),
+    "label": ("get_label", "labels"),
+}
+
+
+def _gh_block(tool, what):
+    return "%suse the GitHub MCP tool `mcp__github__%s` for %s." % (
+        MSG_GH_PREFIX,
+        tool,
+        what,
+    )
+
+
+def _gh_api_policy(args):
+    """`args` follows `gh api`. Allow only a GET on search/<kind>."""
+    method = None
+    has_body = False
+    endpoint = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        i += 1
+        if a == "--":
+            endpoint.extend(args[i:])
+            break
+        if not a.startswith("-") or a == "-":
+            endpoint.append(a)
+            continue
+        if a.startswith("--"):
+            key, eq, val = a.partition("=")
+        elif len(a) > 2:
+            if a[:2] not in GH_API_VALUED:
+                return MSG_GH_UNPARSED
+            key, eq, val = a[:2], "x", a[2:].lstrip("=")
+        else:
+            key, eq, val = a, "", ""
+        if key in GH_API_VALUED:
+            if not eq:
+                if i >= len(args):
+                    return MSG_GH_UNPARSED
+                val = args[i]
+                i += 1
+            if key in ("-X", "--method"):
+                method = val
+            if key in GH_BODY_FLAGS:
+                has_body = True
+        elif key in GH_API_BOOL and not eq:
+            pass
+        else:
+            return MSG_GH_UNPARSED
+    if len(endpoint) != 1:
+        return MSG_GH_UNPARSED
+    raw = endpoint[0]
+    if "$" in raw or "`" in raw:
+        return MSG_GH_UNPARSED
+    norm = raw.split("?", 1)[0].split("#", 1)[0].lstrip("/").rstrip("/")
+    is_search = (
+        norm.startswith("search/")
+        and norm[len("search/") :] in GH_SEARCH
+        and not any(c in raw for c in ("%", "\\", "\n"))
+    )
+    if not is_search:
+        for rx, tool, what in GH_API_HINTS:
+            if re.search(rx, norm):
+                return _gh_block(tool, what)
+        return _gh_block(
+            "… (the tool that matches `%s`)" % norm[:60],
+            "this request",
+        )
+    if method is not None and method.upper() != "GET":
+        return "%sgh api may only GET search/<kind>; %s is not allowed." % (
+            MSG_GH_PREFIX,
+            method.upper(),
+        )
+    if has_body and method is None:
+        return (
+            MSG_GH_PREFIX + "`gh api` with -f/-F/--input and no method sends a POST; "
+            "add `-X GET` to search."
+        )
+    return None
+
+
+def _gh_policy(args):
+    """gh is for search only. `args` is argv[1:]; None allows."""
+    i = 0
+    flags = []
+    while i < len(args) and args[i].startswith("-"):
+        a = args[i]
+        i += 1
+        if a in GH_GLOBAL_VALUED and i < len(args):
+            i += 1
+        elif a.split("=", 1)[0] in GH_GLOBAL_VALUED:
+            pass
+        else:
+            flags.append(a)
+    if i >= len(args):
+        if all(f in ("--version", "--help", "-h") for f in flags):
+            return None
+        return MSG_GH_UNPARSED
+    sub, rest = args[i], args[i + 1 :]
+    if "$" in sub or "`" in sub:
+        return MSG_GH_UNPARSED
+    if sub == "help":
+        return None
+    if sub == "api":
+        return _gh_api_policy(rest)
+    hint = GH_SUB_HINTS.get(sub)
+    if isinstance(hint, dict):
+        verb = next((r for r in rest if not r.startswith("-")), "")
+        tool, what = hint.get(verb) or hint["default"]
+    elif hint:
+        tool, what = hint
+    else:
+        return (
+            "%sthere is no gh replacement for `gh %s`; use the matching GitHub MCP "
+            "tool `mcp__github__…`, or `gh api -X GET search/<kind>` for search."
+            % (MSG_GH_PREFIX, sub[:30])
+        )
+    return _gh_block(tool, what)
+
+
 def _gh_check(argv):
     args = argv[1:]
     if not args:
@@ -963,7 +1191,7 @@ def _gh_check(argv):
                 method = a[2:]
         if method and method.upper() == "DELETE" and any("git/refs" in a for a in args):
             return MSG_DELETE
-    return None
+    return _gh_policy(args)
 
 
 # ---------------------------------------------------------------- driver
@@ -1087,6 +1315,11 @@ def _check_cmds(cmds, cwd, depth):
             m = _gh_check(argv)
         else:
             m = _check_program(argv)
+            if not m and prog in GH_RUNNERS:
+                for k, w in enumerate(argv[1:], 1):
+                    if os.path.basename(w) == "gh":
+                        m = _gh_check(argv[k:])
+                        break
         if m:
             return m
         if depth < 5:
@@ -1108,7 +1341,13 @@ def _check_cmds(cmds, cwd, depth):
 
 def _check(command, cwd, depth):
     cmds, _ = _lex(command)
-    return _check_cmds(cmds, cwd, depth)
+    m = _check_cmds(cmds, cwd, depth)
+    if m is None and GH_WORD.search(command):
+        for cmd in cmds:  # fail closed: a computed program name may be gh
+            argv = _strip_prefix(cmd.words)
+            if argv and ("$" in argv[0] or "`" in argv[0]):
+                return MSG_GH_UNPARSED
+    return m
 
 
 def check(command, cwd):
