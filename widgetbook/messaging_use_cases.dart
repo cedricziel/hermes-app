@@ -107,6 +107,19 @@ WidgetbookNode messagingNode() => WidgetbookFolder(
             name: 'Every state ($name)',
             builder: (context) => _on(context, platform, const _RowGroup()),
           ),
+        for (final scale in const [2.0, 3.0])
+          WidgetbookUseCase(
+            name: 'Set up, text ${scale.toInt()}x (Material)',
+            builder: (context) => _on(
+              context,
+              TargetPlatform.android,
+              MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(scale)),
+                child: const _RowGroup(),
+              ),
+            ),
+          ),
       ],
     ),
     WidgetbookComponent(
