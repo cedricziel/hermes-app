@@ -916,9 +916,6 @@ class GhSearchOnlyTest(unittest.TestCase):
         "find / -name gh -type f",
         "find . -name gh -print",
         "find . -exec echo gh pr merge 1 --delete-branch \\;",
-        "find . -exec gh api -X GET search/code -f q=x \\;",
-        "find . -exec gh api -X GET search/code -f q=x {} +",
-        "find . -exec gh help \\; -exec gh help \\;",
         "gh api -X GET search/code -f q=\"$Q\"",
         "find gh -type f",
         "find . -exec grep -l gh {} \\;",
@@ -940,6 +937,7 @@ class GhSearchOnlyTest(unittest.TestCase):
         "echo 'gh api repos/o/r/pulls/1'",
     ]
     BLOCK = [
+        "find . -exec gh help \\; -exec gh help \\;",
         # subcommands
         "gh pr view 1",
         "gh pr list",
@@ -1019,6 +1017,29 @@ class GhSearchOnlyTest(unittest.TestCase):
         "xargs gh pr view",
         "echo 'pr view 1' | xargs gh",
         "find . -exec gh help \\; -exec gh pr merge 1 --squash \\;",
+        "find . -exec env gh pr view 1 \\;",
+        "find . -exec sudo -n gh pr view 1 \\;",
+        "find . -exec timeout 5 gh pr list \\;",
+        "find . -exec env gh pr list \\;",
+        "printf 'pr merge 1\\n' | xargs gh -R o/r",
+        "xargs -n1 gh -R o/r",
+        "ssh -n host gh pr list",
+        "ssh -J jump host gh pr list",
+        "ssh -F cfg host gh pr list",
+        "ssh host env gh pr list",
+        "flock -w 5 /tmp/l gh pr list",
+        "flock --timeout 5 /tmp/l gh pr list",
+        "taskset -c 0 gh pr list",
+        "parallel --jobs 4 gh pr view ::: 1",
+        "nsenter -t 1 -m gh pr list",
+        "strace -fp 1 gh pr list",
+        "EP=repos/o/r; (EP=search/code); find . -exec gh api \"$EP\" \\;",
+        "find . -exec gh api -X GET search/code -f q=x \\;",  # no search through runners
+        "find . -exec gh api -X GET search/code -f q=x {} +",
+        "xargs grep gh",  # accepted false block
+        "ssh host ls /usr/bin/gh",  # accepted false block
+        "stdbuf -o L gh pr list",
+        "stdbuf -oL env gh pr list",
         "SUB=pr; (SUB=help); gh \"$SUB\" merge 1 --squash",
         "gh api -X \"$M\" search/code",
         "gh api search/$KIND",
@@ -1050,7 +1071,7 @@ class GhSearchOnlyTest(unittest.TestCase):
         for c in self.BLOCK:
             msg = guard.check(c, "/tmp")
             self.assertIsNotNone(msg, "should block: %s" % c)
-            self.assertIn("gh is for search only (fleet rules)", msg, c)
+            self.assertIn("search only", msg, c)
 
     def test_message_names_replacement(self):
         for c, tool in [
@@ -1126,6 +1147,11 @@ class GhLocalUnchangedTest(unittest.TestCase):
         "$G pr view 1; echo gh",
         "gh api -X GET search/issues -f q='repo:o/r is:pr is:merged'",
         "ssh host gh pr merge 1 -d",
+        "echo 1 | xargs gh pr view",
+        "xargs grep gh",
+        "ssh -J j host gh pr list",
+        "strace -fp 1 gh pr list",
+        "find . -exec env gh pr list \\;",
         "find . -exec echo gh pr merge 1 --delete-branch \\;",
         "find . -exec gh help \\; -exec gh pr merge 1 --squash \\;",
         "SUB=pr; (SUB=help); gh \"$SUB\" merge 1 --squash",

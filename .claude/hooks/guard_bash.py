@@ -1174,17 +1174,28 @@ def _gh_policy(args):
     return _gh_block(tool, what)
 
 
-GH_RUNNER_SKIP = {"ssh": 1, "flock": 1, "chroot": 1, "taskset": 1}
 GH_RUNNER_VALUED = {"-o", "-i", "-e", "-c", "-n", "-p", "-u", "-s", "-j", "-l", "-E"}
+# Runners that take a whole command line (a remote one, or one built by the tool):
+# any word with basename gh in it is a gh call. Others run the program operand.
+GH_RUNNERS_ANY_WORD = {
+    "parallel", "flock", "chroot", "taskset", "ssh", "nsenter", "strace", "ltrace",
+}
+
+MSG_GH_RUNNER = (
+    "Blocked: gh through a runner isn't allowed in cloud sessions (fleet rules: gh is "
+    "for search only); call `gh api -X GET search/<code|repositories|issues|commits|"
+    "users>` directly or use the GitHub MCP tools `mcp__github__…`."
+)
 
 
-def _runner_gh_ranges(prog, argv):
-    """(start, end) slices of argv that a runner command executes as `gh ...`.
+def _is_gh_program(words):
+    argv = _strip_prefix(list(words))
+    return bool(argv) and os.path.basename(argv[0]) == "gh"
 
-    Only the program operand counts: `find -name gh` or `grep gh` is not a gh call.
-    """
+
+def _runner_has_gh(prog, argv):
+    """True when a runner's execution region holds a gh call (cloud sessions)."""
     words = argv
-    out = []
     if prog == "find":
         k = 1
         while k < len(words):
@@ -1192,36 +1203,37 @@ def _runner_gh_ranges(prog, argv):
                 e = k + 1
                 while e < len(words) and words[e] not in (";", "+"):
                     e += 1
-                if k + 1 < e and os.path.basename(words[k + 1]) == "gh":
-                    hi = e - 1 if e - 1 > k + 1 and words[e - 1] == "{}" else e
-                    out.append((k + 1, hi))
+                if _is_gh_program(words[k + 1 : e]):
+                    return True
                 k = e
             k += 1
-        return out
+        return False
     end = len(words)
     if prog == "parallel":
         for k, w in enumerate(words):
             if w in (":::", "::::"):
                 end = k
                 break
-    skip = GH_RUNNER_SKIP.get(prog, 0)
+    if prog in GH_RUNNERS_ANY_WORD:
+        return any(os.path.basename(w) == "gh" for w in words[1:end])
     k = 1
     while k < end:
         w = words[k]
         if w == "--":
             k += 1
-            continue
-        if w.startswith("-") and w != "-":
+        elif w.startswith("-") and w != "-":
             k += 2 if w in GH_RUNNER_VALUED else 1
-            continue
-        if skip:
-            skip -= 1
-            k += 1
-            continue
-        if os.path.basename(w) == "gh":
-            out.append((k, end))
-        break
-    return out
+        else:
+            return _is_gh_program(words[k:end])
+    return False
+
+
+def _xargs_gh(words):
+    """`xargs` followed by any gh word, in any position."""
+    for k, w in enumerate(words):
+        if os.path.basename(w) == "xargs":
+            return any(os.path.basename(x) == "gh" for x in words[k + 1 :])
+    return False
 
 
 def _is_cloud():
@@ -1361,6 +1373,8 @@ def _check_cmds(cmds, cwd, depth):
                 home_set = True
             continue
         prog = os.path.basename(argv[0])
+        if _is_cloud() and _xargs_gh(words):
+            return MSG_GH_RUNNER
         m = _check_hermes_home(argv, cmd, cwd, home_set)
         if m:
             return m
@@ -1383,20 +1397,10 @@ def _check_cmds(cmds, cwd, depth):
                 oargv = _strip_prefix(orig_words)
                 if oargv and os.path.basename(oargv[0]) == "gh":
                     m = _gh_policy(oargv[1:])
-            if (
-                not m
-                and len(argv) == 1
-                and _is_cloud()
-                and any(os.path.basename(w) == "xargs" for w in words)
-            ):
-                m = MSG_GH_UNPARSED  # xargs feeds the subcommand: cannot be checked
         else:
             m = _check_program(argv)
-            if not m and _is_cloud() and prog in GH_RUNNERS:
-                for lo, hi in _runner_gh_ranges(prog, argv):
-                    m = _gh_check(argv[lo:hi])
-                    if m:
-                        break
+            if not m and _is_cloud() and prog in GH_RUNNERS and _runner_has_gh(prog, argv):
+                m = MSG_GH_RUNNER
         if m:
             return m
         if depth < 5:
