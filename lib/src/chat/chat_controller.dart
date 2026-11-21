@@ -1927,35 +1927,52 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final Map<String, String>? answered;
     try {
       answered = await transport.activeStatusesAnswered(profile: _profile);
-    } on Object {
-      // A poll never throws: nothing is released.
+    } on Object catch (e, stack) {
+      // A poll never throws: nothing is released. An answer that failed is
+      // expected; anything else is a bug.
+      if (e is! Exception) reportBug(e, stack, 'the held release ask');
       return;
     }
     if (answered == null || !active || generation != _loadGeneration) return;
-    final released = <ChatThread>[];
     for (final thread in [..._threads]) {
       final held = _ChatControllerCommands(this)._lastReplyHeld(thread);
       if (held == null || _runningStatuses.contains(answered[thread.id])) {
         continue;
       }
-      _ChatControllerStreaming(this)
-          ._updateReply(thread, held, () => held.serverMayRun = false);
-      released.add(thread);
-    }
-    // The turn is over: what it stored is read again (read-only, nothing is
-    // sent), so a stored answer replaces the failed bubble instead of
-    // standing beside it with Retry on.
-    for (final thread in released) {
-      try {
-        // Strict: the server's last change may be the one a read during the
-        // hold already saw, and only the hold changed since.
-        await _ChatControllerHistory(this)
-            ._refreshThreadImpl(thread.id, strict: true);
-      } on Object {
-        // The next refresh or open reads it again.
+      // The turn is over. What it stored is read again (read-only, nothing is
+      // sent) BEFORE the hold goes, so a stored answer replaces the failed
+      // bubble instead of standing beside it with Retry on; the hold stays
+      // until that read has landed, and a read that fails leaves it for the
+      // next poll to try again. A chat with nothing to read back (not stored
+      // on the server, or its messages never loaded) has no stale bubble.
+      if (repository != null &&
+          thread.remote &&
+          !_unloaded.contains(thread.id)) {
+        _releasing.add(thread);
+        try {
+          // Strict: the server's last change may be the one a read during the
+          // hold already saw, and only the hold changed since.
+          await _ChatControllerHistory(this)
+              ._refreshThreadImpl(thread.id, strict: true);
+        } on Object catch (e, stack) {
+          if (e is! StateError) reportBug(e, stack, 'the held release re-read');
+          continue;
+        } finally {
+          _releasing.remove(thread);
+        }
+        if (!active || generation != _loadGeneration) return;
+      }
+      // The re-read may have dropped the bubble; then nothing is held.
+      if (_ChatControllerCommands(this)._lastReplyHeld(thread) case final h?) {
+        _ChatControllerStreaming(this)
+            ._updateReply(thread, h, () => h.serverMayRun = false);
       }
     }
   }
+
+  /// The threads whose held reply is being released: a re-read in that state
+  /// no longer keeps the held bubble (see `_failedTurn`).
+  final _releasing = <ChatThread>{};
 
   Future<bool> _applyActive(
     ChatTransport transport,

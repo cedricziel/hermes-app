@@ -19,8 +19,10 @@ void main() {
   late FakeChatTransport transport;
   late ChatController chat;
   late List<Map<String, Object?>> stored;
+  var messagesFail = false;
 
   setUp(() {
+    messagesFail = false;
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     server = FakeHermesServer();
@@ -43,6 +45,7 @@ void main() {
           query: {'profile': profile},
         )
         ..onRequest('GET', '/api/sessions/s1/messages', (_) async {
+          if (messagesFail) return (status: 500, body: {'detail': 'down'});
           return (status: 200, body: messageListBody('s1', List.of(stored)));
         });
     }
@@ -145,6 +148,44 @@ void main() {
       expect(transport.undos, isEmpty);
     },
   );
+
+  test('a release whose re-read fails keeps Retry and Edit held, and the next '
+      'poll lands the read and releases', () async {
+    final thread = await heldTurn('default');
+    stored
+      ..add(messageRow(id: 3, role: 'user', content: 'Run the build'))
+      ..add(messageRow(id: 4, role: 'assistant', content: 'Done.'));
+    // Read during the hold: the failed bubble is kept.
+    await chat.refreshThread('s1');
+    await pumpEventQueue();
+    transport.active.clear();
+    transport.activeInProfile['default'] = {};
+
+    messagesFail = true;
+    await chat.refreshActive();
+    await pumpEventQueue();
+
+    // The stale bubble may still be on screen: nothing is enabled.
+    expect(chat.turnActionsHeld(thread), isTrue);
+    expect(chat.canEditLastPrompt(thread), isFalse);
+    await chat.retry(thread);
+    await chat.editLastPrompt(thread);
+    expect(transport.undos, isEmpty);
+    expect(transport.sends, hasLength(1));
+
+    messagesFail = false;
+    await chat.refreshActive();
+    await pumpEventQueue();
+
+    expect(chat.turnActionsHeld(thread), isFalse);
+    expect(
+      thread.messages.where((m) => m.status == MessageStatus.error),
+      isEmpty,
+    );
+    expect(lastAssistant(thread).content, 'Done.');
+    expect(transport.sends, hasLength(1));
+    expect(transport.undos, isEmpty);
+  });
 
   test('a ask that throws releases nothing and does not throw', () async {
     final thread = await heldTurn('default');
