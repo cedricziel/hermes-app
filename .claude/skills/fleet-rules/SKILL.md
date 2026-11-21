@@ -110,9 +110,9 @@ PR, where a check can read it. A push after the review needs a new review of
 the new commits, with the new head SHA.
 
 Authors may add fix notes to `## Review`, but never write or change a
-`Reviewer: ... Head: ... Verdict:` line or its `Range:` line (once the
-reviewer emits one): those are pasted from the isolated reviewer's output,
-unchanged. Paste the block as plain lines,
+`Reviewer: ... Head: ... Verdict:` line, its `Range:` line or the
+`Merge-review:` line of a merge-only review: those are pasted from the isolated
+reviewer's output, unchanged. Paste the block as plain lines,
 not inside a code fence (`pr-policy` ignores review lines inside fences). Order:
 push, review the pushed head, paste.
 

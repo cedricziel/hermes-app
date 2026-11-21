@@ -1,12 +1,16 @@
 name: PR policy
 
-# Why pull_request_target is safe here: this workflow checks out the default
+# Why pull_request_target is safe here: this workflow checks out the base
 # branch only (no `ref:`), so scripts/pr_policy.py is main's copy and a PR
-# cannot edit its own gate. Nothing from the PR is checked out, fetched,
-# executed, installed or built; the script reads the PR title, body, branch and
-# SHA from the event JSON ($GITHUB_EVENT_PATH, never interpolated into a `run:`
-# line) and the changed files and patches from the REST API as data. The token
-# is read-only (contents, pull-requests), and there are no secrets or caches.
+# cannot edit its own gate. Nothing from the PR is checked out, executed,
+# installed or built; the script reads the PR title, body, branch and SHA from
+# the event JSON ($GITHUB_EVENT_PATH, never interpolated into a `run:` line)
+# and the changed files and patches from the REST API as data. The review job
+# also FETCHES the PR head's commit objects (never its working tree) so the
+# script can run plumbing that only reads on them (rev-parse, rev-list,
+# cat-file, merge-base, diff-tree; merge-tree also writes its result tree into
+# the runner's ephemeral object store); fetched objects are data, run no hooks
+# and bring no config. The token is contents: read, with no secrets or caches.
 # Consequence: a PR that changes this file is checked by main's version.
 on:
   pull_request_target:
@@ -37,8 +41,41 @@ jobs:
     name: Review recorded
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # The narrowest token that can fetch: contents read. The review job calls
+    # no REST endpoint, so it does not get pull-requests.
+    permissions:
+      contents: read
     steps:
+      # Full history of every branch, so the base branch tip and the commits
+      # the PR's merges refer to are in the object store.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+      # First live exercise on the PR that carries this change: this fetch
+      # recipe has only been tried against local repositories until then.
+      # Objects only: `refs/pull/<n>/head` is served for fork PRs too, and the
+      # event's head SHA is fetched if a push moved the ref. Nothing is checked
+      # out. The token goes in through the environment as a scoped extraheader,
+      # not on a command line, and is not persisted in .git/config.
+      - name: Fetch the PR head's commits
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          export GIT_CONFIG_COUNT=2
+          export GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          export GIT_CONFIG_KEY_1="fetch.fsckObjects"
+          export GIT_CONFIG_VALUE_1="true"
+          git fetch --no-tags --no-recurse-submodules origin "refs/pull/${PR_NUMBER}/head" || true
+          if ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --no-recurse-submodules origin "${HEAD_SHA}" || true
+          fi
+          if ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::Could not fetch the PR head ${HEAD_SHA}: neither refs/pull/${PR_NUMBER}/head nor the SHA itself came back. Re-run the job; the review cannot be checked without the head's commits."
+            exit 1
+          fi
       - run: python3 -I scripts/pr_policy.py review

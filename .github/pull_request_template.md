@@ -12,4 +12,4 @@
 
 ## Review
 
-<!-- Paste the isolated reviewer's block: Reviewer: ... Head: <full sha> Verdict: clean | changes-requested, then Findings: ... and Proof reproduced: ... -->
+<!-- Paste the isolated reviewer's block verbatim, never write or edit it: Reviewer: ... Head: <full sha> Verdict: clean | changes-requested, then Range: <base sha>..<head sha>, Findings: ... and Proof reproduced: ... A push after a review needs a new review. A clean merge of main needs none (the check proves it from git). A merge with a conflict fix or an extra change needs the reviewer's block headed by a line Merge-review: <files>. -->
