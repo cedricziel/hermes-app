@@ -5,6 +5,7 @@ import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/models/widgets/model_setup_dialog.dart';
 import 'package:hermes_app/src/settings/widgets/helper_model_list.dart';
+import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -486,7 +487,10 @@ class _PopoverHostState extends State<_PopoverHost> {
           FocusHighlightStrategy.alwaysTraditional;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _open();
+      if (!mounted) return;
+      // A click on an earlier example must not hide the focused row's ring.
+      if (widget.state == _State.focused) markFocusRingKeyboardInput();
+      _open();
     });
   }
 

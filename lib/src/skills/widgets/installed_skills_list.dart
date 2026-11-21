@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/state_message.dart';
@@ -127,15 +128,23 @@ class SkillUpdatesSection extends StatelessWidget {
         title: 'Hub skills',
         trailing: OutlinedButton(
           onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 22),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
+          style:
+              OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 22),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ).copyWith(
+                shape: focusRingShapeOf(
+                  context,
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
           child: const Text(
             'Check for Updates',
             style: TextStyle(fontSize: 12),

@@ -482,7 +482,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final first = tester.widget<PopupMenuItem<FilesMenuChoice>>(
-        find.byType(PopupMenuItem<FilesMenuChoice>).first,
+        find.bySubtype<PopupMenuItem<FilesMenuChoice>>().first,
       );
       expect(first.enabled, isFalse);
       expect(find.byIcon(Icons.done), findsNothing);

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'focus_ring.dart';
 import 'hermes_code_colors.dart';
 import 'macos_page_transitions.dart';
 import 'platform_chrome.dart';
@@ -162,6 +163,12 @@ ThemeData _buildTheme({
   final overlaySurface = dark ? HermesColors.zinc900 : null;
   const overlayRadius = Radius.circular(_kOverlayRadius);
   final fieldRadius = BorderRadius.circular(10);
+  // The keyboard focus ring, in the link colour: the primary colour is near
+  // black, so a ring in it would vanish on a filled button.
+  final buttonShape = focusRingShape(
+    RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    link,
+  );
   final appleFieldBorder = OutlineInputBorder(
     borderRadius: fieldRadius,
     borderSide: BorderSide.none,
@@ -240,24 +247,21 @@ ThemeData _buildTheme({
       style: TextButton.styleFrom(
         minimumSize: appleButtonSize,
         foregroundColor: scheme.onSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+      ).copyWith(shape: buttonShape),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: appleButtonSize,
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+      ).copyWith(shape: buttonShape),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: appleButtonSize,
         foregroundColor: scheme.onSurface,
         side: BorderSide(color: scheme.outline),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+      ).copyWith(shape: buttonShape),
     ),
     dialogTheme: dark
         ? DialogThemeData(
@@ -302,7 +306,8 @@ ThemeData _buildTheme({
           )
         : null,
     iconButtonTheme: IconButtonThemeData(
-      style: IconButton.styleFrom(foregroundColor: scheme.onSurface),
+      style: IconButton.styleFrom(foregroundColor: scheme.onSurface)
+          .copyWith(shape: focusRingShape(const StadiumBorder(), link)),
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: scheme.surface,
