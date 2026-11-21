@@ -94,7 +94,6 @@ dependencies:
   open_file: ^4.0.0
   # The app's cache directory, where media the agent sent is downloaded.
   path_provider: ^2.1.6
-  flutter_json_view: ^1.1.5
   connectivity_plus: ^7.3.1
   # App version shown in the About dialog.
   package_info_plus: ^10.2.2
