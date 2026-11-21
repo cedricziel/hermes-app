@@ -94,6 +94,10 @@
   "@chatComposerHoldRestoring": {
     "description": "Line above the message box while files are restored from a checkpoint; Send is off until it finishes, typing is not."
   },
+  "chatNewMessageTitle": "New message",
+  "@chatNewMessageTitle": {
+    "description": "Title in the phone chat bar of a chat that has no title yet."
+  },
   "chatNoticeStopCommand": "Hermes took that as a stop command. Nothing was sent.",
   "@chatNoticeStopCommand": {
     "description": "Notice in the chat when a typed or queued message was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The text goes back into the message box."
