@@ -67,7 +67,7 @@ void main() {
       ]);
 
       // An own send opens the follow-up watch of the thread; it ends at once.
-      chat.submit('my prompt', const []);
+      await chat.submit('my prompt', const []);
       final send = transport.sends.single;
       send
         ..emit(const ReplyStarted())

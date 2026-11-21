@@ -54,7 +54,7 @@ void main() {
   /// Sends a prompt whose reply spawns a background subagent and ends.
   Future<(ChatThread, ChatMessage, FakeFollowUps)> delegate() async {
     chat.newThread();
-    chat.submit('Launch a test subagent', const []);
+    await chat.submit('Launch a test subagent', const []);
     transport.sends.last
       ..emit(const ThreadBound('s1'))
       ..emit(const ReplyStarted())

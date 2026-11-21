@@ -89,7 +89,7 @@ void main() {
     await chat.loadThreads();
     chat.select(id);
     await pumpEventQueue();
-    chat.submit('Any news?', const []);
+    await chat.submit('Any news?', const []);
     await pumpEventQueue();
     return transport.sends.last;
   }
@@ -127,7 +127,7 @@ void main() {
         ..emit(const ReplyCompleted('Checking first.'))
         ..finish();
       await pumpEventQueue();
-      chat.submit('And again', const []);
+      await chat.submit('And again', const []);
       await pumpEventQueue();
       final again = transport.sends.last;
       again
@@ -201,7 +201,7 @@ void main() {
   group('the turn Hermes runs ahead of the prompt', () {
     test('ending does not finish the prompt, which waits', () async {
       chat.newThread();
-      chat.submit('Plan it', const []);
+      await chat.submit('Plan it', const []);
       final turn = transport.sends.last..emit(const ThreadBound('n1'));
       turn
         ..emit(const UnsolicitedEvent(ReplyStarted()))
@@ -218,7 +218,7 @@ void main() {
 
     test('failing does not fail the prompt', () async {
       chat.newThread();
-      chat.submit('Plan it', const []);
+      await chat.submit('Plan it', const []);
       final turn = transport.sends.last..emit(const ThreadBound('n1'));
       turn
         ..emit(const UnsolicitedEvent(ReplyStarted()))
@@ -230,7 +230,7 @@ void main() {
 
     test('asking shows the user is needed', () async {
       chat.newThread();
-      chat.submit('Plan it', const []);
+      await chat.submit('Plan it', const []);
       transport.sends.last
         ..emit(const ThreadBound('n1'))
         ..emit(const UnsolicitedEvent(ReplyStarted()))

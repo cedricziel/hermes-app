@@ -59,7 +59,7 @@ void main() {
       turn(server, session);
       delivered.complete();
     };
-    chat.submit('Synthetic prompt', const []);
+    await chat.submit('Synthetic prompt', const []);
     await delivered.future.timeout(const Duration(seconds: 5));
     await pumpEventQueue();
   }
