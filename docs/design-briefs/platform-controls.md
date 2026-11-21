@@ -55,3 +55,18 @@ Open (follow-ups, not part of this change):
 - The design system's Mac `SettingsScaffold` `formAction` is a roughly 22 pt button with a 6 pt radius; it should become the 28 pt button.
 
 Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device.
+
+## Search fields at large text
+
+The shared search fields clipped their placeholder and text from 2.0x text, because their height was fixed.
+
+Decisions:
+
+- Phone (`SettingsSearchField` on iOS and Material): the height is a minimum that grows with the text scaler, `max(36 or 44, scaled line height + 8)`, from one function (`SettingsSearchField.heightFor`) that `SettingsScaffold`'s bar bottom also uses, so the bar grows with the field. At 1.0x the heights stay 36 and 44. The filter and clear buttons keep their platform size.
+- Mac (`MacToolbarSearchField`, also what `SettingsSearchField` shows on macOS): the field stays a 26 pt toolbar control and its text scaling is clamped at 1.3x, with a 1.2 line height so one line fits inside the border.
+
+Reason: a Mac toolbar control does not grow with the text size (AppKit toolbars stay at their set height); a phone search field has room to grow and the bar below the title can follow it.
+
+Alternative considered: growing the Mac toolbar with the text. Rejected, because every toolbar button, the 52 pt toolbar and the window chrome would have to grow with it for one field.
+
+Checked by `test/widgets/search_field_large_text_test.dart` and the catalog use cases `SettingsSearchField / Largest text`.

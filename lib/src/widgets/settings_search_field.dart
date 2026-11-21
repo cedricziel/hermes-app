@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../macos/mac_toolbar.dart';
@@ -42,7 +44,7 @@ class SettingsSearch {
   bool get filterActive => filters.isNotEmpty && !filters.first.selected;
 }
 
-/// The search field of a settings page: 36 points with a 10 point radius on
+/// The search field of a settings page: 36 points (more at large text) with a 10 point radius on
 /// iOS, a 44 point pill on Material, and the toolbar search field on macOS.
 class SettingsSearchField extends StatefulWidget {
   const SettingsSearchField({
@@ -56,8 +58,24 @@ class SettingsSearchField extends StatefulWidget {
   /// On a Mac, fills the width it is given instead of the toolbar's size.
   final bool fullWidth;
 
-  /// The field's height on iOS or Material.
-  static double heightFor({required bool ios}) => ios ? 36 : 44;
+  /// The field's height on iOS or Material: 36 or 44 points, or taller when
+  /// the text at [textScaler] needs more room for one line and its padding.
+  static double heightFor({
+    required bool ios,
+    TextScaler textScaler = TextScaler.noScaling,
+  }) {
+    final needed = textScaler.scale(_fontSize(ios)) * _lineHeight + _padding;
+    return math.max(ios ? 36.0 : 44.0, needed);
+  }
+
+  static double _fontSize(bool ios) => ios ? 17 : 16;
+
+  /// The body line height of the theme's text styles, as a multiple of the
+  /// font size.
+  static const _lineHeight = 1.5;
+
+  /// Room above and below the line at its tallest.
+  static const _padding = 8.0;
 
   @override
   State<SettingsSearchField> createState() => _SettingsSearchFieldState();
@@ -111,8 +129,13 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
     final ios = chrome == PlatformChrome.ios;
     final scheme = Theme.of(context).colorScheme;
     final muted = context.hermesColors.subtleText;
-    final height = SettingsSearchField.heightFor(ios: ios);
-    final fontSize = ios ? 17.0 : 16.0;
+    final height = SettingsSearchField.heightFor(
+      ios: ios,
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    final fontSize = SettingsSearchField._fontSize(ios);
+    // The filter button keeps its platform size however tall the field gets.
+    final buttonSize = SettingsSearchField.heightFor(ios: ios);
     return Container(
       height: height,
       clipBehavior: Clip.antiAlias,
@@ -179,8 +202,8 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
               iconSize: ios ? 18 : 22,
               padding: EdgeInsets.zero,
               style: IconButton.styleFrom(
-                fixedSize: Size.square(height),
-                minimumSize: Size.square(height),
+                fixedSize: Size.square(buttonSize),
+                minimumSize: Size.square(buttonSize),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 backgroundColor: search.filterActive
                     ? scheme.onSurface.withValues(alpha: 0.08)

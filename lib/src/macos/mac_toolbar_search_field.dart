@@ -5,11 +5,16 @@ import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 
 const double _restingWidth = 180;
+const double _maxTextScale = 1.3;
+
+// One line at the clamped size (17 points) fits the 24 inside the border.
+const double _lineHeight = 1.2;
 const double _activeWidth = 240;
 
 /// The search field of a Mac toolbar: a 26pt rounded field that grows from
 /// 180 to 240 points with a focus ring while it is in use. Escape and the
-/// clear button end the search.
+/// clear button end the search. Its text stops growing at 1.3 times, so the
+/// field stays 26 points at any text size, as a Mac toolbar does.
 class MacToolbarSearchField extends StatefulWidget {
   const MacToolbarSearchField({
     super.key,
@@ -106,52 +111,59 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
             width: focused ? 2 : 1,
           ),
         ),
-        child: Row(
-          children: [
-            const SizedBox(width: 7),
-            AppIcon(AppIcons.search, size: 14, color: subtle),
-            const SizedBox(width: 5),
-            Expanded(
-              child: TextField(
-                key: const Key('toolbar-search-field'),
-                controller: _text,
-                focusNode: _focus,
-                onChanged: widget.onChanged,
-                onSubmitted: widget.onSubmitted,
-                textInputAction: TextInputAction.search,
-                style: const TextStyle(fontSize: 13),
-                decoration: InputDecoration(
-                  isCollapsed: true,
-                  filled: false,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  hintText: widget.hint,
-                  hintStyle: TextStyle(fontSize: 13, color: subtle),
-                ),
-              ),
-            ),
-            if (widget.query.isNotEmpty || widget.active)
-              Semantics(
-                button: true,
-                label: 'End search',
-                child: GestureDetector(
-                  key: const Key('toolbar-search-clear'),
-                  onTap: _end,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: AppIcon(
-                      AppIcons.clearFilled,
-                      size: 14,
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: _maxTextScale,
+          child: Row(
+            children: [
+              const SizedBox(width: 7),
+              AppIcon(AppIcons.search, size: 14, color: subtle),
+              const SizedBox(width: 5),
+              Expanded(
+                child: TextField(
+                  key: const Key('toolbar-search-field'),
+                  controller: _text,
+                  focusNode: _focus,
+                  onChanged: widget.onChanged,
+                  onSubmitted: widget.onSubmitted,
+                  textInputAction: TextInputAction.search,
+                  style: const TextStyle(fontSize: 13, height: _lineHeight),
+                  decoration: InputDecoration(
+                    isCollapsed: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    hintText: widget.hint,
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      height: _lineHeight,
                       color: subtle,
                     ),
                   ),
                 ),
-              )
-            else
-              const SizedBox(width: 7),
-          ],
+              ),
+              if (widget.query.isNotEmpty || widget.active)
+                Semantics(
+                  button: true,
+                  label: 'End search',
+                  child: GestureDetector(
+                    key: const Key('toolbar-search-clear'),
+                    onTap: _end,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: AppIcon(
+                        AppIcons.clearFilled,
+                        size: 14,
+                        color: subtle,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(width: 7),
+            ],
+          ),
         ),
       ),
     );
