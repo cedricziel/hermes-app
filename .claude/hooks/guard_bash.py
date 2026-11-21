@@ -95,6 +95,7 @@ class Cmd:
         self.heredocs = []
         self.herestrings = []
         self.piped_from = None
+        self.paren_closed = False  # a `)` ended it: `*.dart)` is a case pattern
 
 
 def _lex(s, i=0, nested=False):
@@ -275,6 +276,8 @@ def _lex(s, i=0, nested=False):
             end_cmd()
             i += 1
         elif c == ")":
+            end_word()
+            cur.paren_closed = True
             end_cmd()
             if nested:
                 return cmds, i + 1
@@ -1196,9 +1199,20 @@ MSG_GH_GLOB = (
 )
 
 
+ARRAY_ASSIGN = re.compile(r"^[A-Za-z_]\w*\[[^]]*\]\+?=")
+GLOB_VAR_REF = re.compile(r"\$\{[^}]*\}|\$\w+")
+
+
 def _glob_prog(word):
-    """A program word with a glob or brace pattern (`/usr/bin/g[h]`); `[` and `[[` are tests."""
-    return word not in ("[", "[[") and any(c in word for c in GLOB_CHARS)
+    """A program word with a glob or brace pattern (`/usr/bin/g[h]`).
+
+    Not one: `[` and `[[` (tests), `a[0]=x` (array assignment) and variable
+    references such as `${FLUTTER}` or `${cmd[@]}`. A case pattern is skipped by
+    the caller (the lexer drops its `)`).
+    """
+    if word in ("[", "[[") or ARRAY_ASSIGN.match(word):
+        return False
+    return any(c in GLOB_VAR_REF.sub("", word) for c in GLOB_CHARS)
 
 
 def _has_gh_token(word):
@@ -1398,7 +1412,11 @@ def _check_cmds(cmds, cwd, depth):
         prog = os.path.basename(argv[0])
         if _is_cloud() and _xargs_gh(words):
             return MSG_GH_RUNNER
-        if _is_cloud() and _glob_prog(argv[0]):
+        if (
+            _is_cloud()
+            and not (cmd.paren_closed and len(cmd.words) == 1)  # case pattern
+            and _glob_prog(argv[0])
+        ):
             return MSG_GH_GLOB
         if _is_cloud() and cmd.dyn_prog and _has_gh_token(argv[0]):
             return MSG_GH_UNPARSED  # computed program whose value holds gh
