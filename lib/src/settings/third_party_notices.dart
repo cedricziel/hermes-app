@@ -1,5 +1,12 @@
 import 'package:flutter/foundation.dart';
 
+/// The `flutter_soloud` version the notices below were written for. It must
+/// equal the pin in `pubspec.yaml` and the version in `pubspec.lock`:
+/// `test/dependency_flutter_soloud_guard_test.dart` fails when they differ, so
+/// a new version is not shipped before its `hook/build.dart` (no Xiph or VST3
+/// download) and its bundled licences were read again.
+const kFlutterSoloudNoticesVersion = '5.3.0';
+
 /// Notices for the code `flutter_soloud` compiles into the call audio that
 /// Flutter's licence collection does not see: Flutter reads one LICENSE file
 /// at the top of each package, and these sit deeper in it. The texts are the

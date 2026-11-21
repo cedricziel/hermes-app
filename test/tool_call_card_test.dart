@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_json_view/flutter_json_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_bodies.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 Future<void> _pump(
@@ -57,14 +57,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Input'), findsOneWidget);
-    expect(find.byType(JsonView), findsOneWidget);
-    final viewer = find.byType(JsonView);
+    // The JSON input shows as coloured text as sent, with a switch to the tree.
+    expect(find.byType(ToolJsonView), findsOneWidget);
+    final json = find.byType(ToolJsonView);
     expect(
-      find.descendant(of: viewer, matching: find.textContaining('command')),
+      find.descendant(
+        of: json,
+        matching: find.textContaining('"command"', findRichText: true),
+      ),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: viewer, matching: find.textContaining('ls -la')),
+      find.descendant(
+        of: json,
+        matching: find.textContaining('ls -la', findRichText: true),
+      ),
       findsOneWidget,
     );
     expect(find.text('Result'), findsOneWidget);
@@ -103,7 +110,7 @@ void main() {
 
     expect(find.text('Input'), findsOneWidget);
     expect(find.text('ls -la'), findsWidgets);
-    expect(find.byType(JsonView), findsNothing);
+    expect(find.byType(ToolJsonView), findsNothing);
     expect(find.text('Result'), findsNothing);
   });
 
@@ -193,14 +200,11 @@ void main() {
     expect(find.text('Path'), findsOneWidget);
     expect(find.text('Limit'), findsOneWidget);
     expect(find.text('20'), findsOneWidget);
-    expect(find.byType(JsonView), findsNothing);
+    expect(find.byType(ToolJsonView), findsNothing);
     await tester.tap(find.text('Raw arguments'));
     await tester.pumpAndSettle();
-    final viewer = find.byType(JsonView);
-    expect(
-      find.descendant(of: viewer, matching: find.textContaining('limit')),
-      findsOneWidget,
-    );
+    expect(find.byType(ToolJsonView), findsOneWidget);
+    expect(find.textContaining('"limit"', findRichText: true), findsOneWidget);
   });
 
   testWidgets('a failed call labels its result as the error', (tester) async {

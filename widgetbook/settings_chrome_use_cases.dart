@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
+import 'package:hermes_app/src/widgets/adaptive_segmented_control.dart';
 import 'package:hermes_app/src/widgets/grouped_choice_row.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
@@ -80,6 +81,36 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
           name: 'Three segments',
           builder: (_) => frame(const _Pill(), maxWidth: 360),
         ),
+        WidgetbookUseCase(
+          name: 'Compact',
+          builder: (_) => frame(const _Compact(), maxWidth: 360),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'AdaptiveSegmentedControl',
+      useCases: [
+        for (final (name, platform) in _controlPlatforms)
+          for (final selected in [false, true])
+            WidgetbookUseCase(
+              name: '$name, ${selected ? 'Tree' : 'Text'} selected',
+              builder: (_) => frame(
+                _ControlOn(platform: platform, tree: selected),
+                maxWidth: 360,
+              ),
+            ),
+        for (final (name, platform) in _controlPlatforms)
+          WidgetbookUseCase(
+            name: '$name, text scale 2x',
+            builder: (_) => frame(
+              MediaQuery.withClampedTextScaling(
+                minScaleFactor: 2,
+                maxScaleFactor: 2,
+                child: _ControlOn(platform: platform, tree: false),
+              ),
+              maxWidth: 360,
+            ),
+          ),
       ],
     ),
   ],
@@ -321,6 +352,78 @@ class _SearchHostState extends State<_SearchHost> {
           ),
       ],
     ),
+  );
+}
+
+const _controlPlatforms = [
+  ('iPhone', TargetPlatform.iOS),
+  ('Mac', TargetPlatform.macOS),
+  ('Android', TargetPlatform.android),
+  ('Windows', TargetPlatform.windows),
+  ('Linux', TargetPlatform.linux),
+];
+
+/// The switch on [platform], on the card's own fill, with its hit area shown
+/// as a faint band so the room around the control can be seen.
+class _ControlOn extends StatefulWidget {
+  const _ControlOn({required this.platform, required this.tree});
+
+  final TargetPlatform platform;
+  final bool tree;
+
+  @override
+  State<_ControlOn> createState() => _ControlOnState();
+}
+
+class _ControlOnState extends State<_ControlOn> {
+  late var _tree = widget.tree;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: Theme.of(context).copyWith(platform: widget.platform),
+    child: Builder(
+      builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            border: Border.all(color: scheme.outline),
+          ),
+          child: Align(
+            alignment: Alignment.centerRight,
+            widthFactor: 1,
+            child: ColoredBox(
+              color: scheme.primary.withValues(alpha: 0.08),
+              child: AdaptiveSegmentedControl<bool>(
+                value: _tree,
+                semanticLabel: 'Show result as',
+                segments: const {false: 'Text', true: 'Tree'},
+                onChanged: (v) => setState(() => _tree = v),
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class _Compact extends StatefulWidget {
+  const _Compact();
+
+  @override
+  State<_Compact> createState() => _CompactState();
+}
+
+class _CompactState extends State<_Compact> {
+  var _value = 0;
+
+  @override
+  Widget build(BuildContext context) => PillSegmentedControl<int>(
+    compact: true,
+    value: _value,
+    segments: const {0: 'Text', 1: 'Tree'},
+    onChanged: (v) => setState(() => _value = v),
   );
 }
 
