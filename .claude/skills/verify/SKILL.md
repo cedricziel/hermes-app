@@ -33,7 +33,21 @@ scripts/verify.sh            # both tiers (about 5 min warm, 10 cold)
 scripts/verify.sh contract   # backend + contract tests only
 scripts/verify.sh app        # backend + app only
 scripts/verify.sh clean      # sweep runs left by a verify.sh killed with SIGKILL
+
+scripts/verify.sh launch-profile                    # only the launch-profile step (profile `launchprof`)
+scripts/verify.sh contract --launch-profile NAME    # contract tier, then the launch-profile step
+scripts/verify.sh all --launch-profile NAME         # contract, launch-profile, app
 ```
+
+The launch-profile step is a probe, not a gate: `all` and `contract` run it
+only when `--launch-profile NAME` is given, and without it the steps are
+exactly those above. **It is red on main until the launch-profile fix lands;
+it is the fix's proof.** Do not add it to a PR's required checks before then.
+NAME is a Hermes profile name (lowercase letters, numbers, `-` and `_`, at most
+64) that Hermes does not reserve: not `default`, `hermes`, `test`, `tmp`,
+`root`, `sudo` or the name of a hermes subcommand (`status`, `config`, ...);
+`scripts/profile-names.sh` has the list, read from `hermes_cli/profiles.py` at
+the pinned revision.
 
 Exit 0 and `[verify] verify all passed` (printed last, after cleanup) mean
 every tier passed and nothing of the run survived. Screenshots
@@ -83,6 +97,102 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
      after `flutter_soloud` changes compiles SoLoud through `dart run`'s build
      hook (a minute or two), which the stand-in NetworkManager's wait allows
      for.
+
+4. **Launch profile** (`launch-profile`, or `--launch-profile NAME` on `all`
+   and `contract`): `test/launch_profile_contract_test.dart` against a
+   backend of its own, started as `hermes -p NAME dashboard`
+   (`scripts/dev-backend.sh start --launch-profile NAME --sticky-profile
+   other-launch-profile`), so `GET /api/profiles/active` answers
+   `current: NAME` while a third profile is the sticky `active` one. Proves
+   that a chat with no profile of its own is read, written and shown for the
+   server's launch profile (`current`) on every surface, never `default` and
+   never the sticky one. Red on main until the fix lands; it is the fix's
+   proof, so it is an opt-in step, not part of `all`. Each surface is driven through the app's own
+   repository or controller code on the real generated client and Dio (the
+   gateway ones through the real socket), with a recorder of the `profile`
+   each request names; a failing run prints a table of surface to profile
+   sent. The surfaces and the code each drives: Chat (`ChatController.loadThreads`
+   with no profile: the session list and the profile it settles on), Bot
+   Screen (`BotScreenController(profile: botScreenProfileFor(chat.profile))`,
+   `display.status`; `botScreenProfileFor` is what `ChatScreen._syncBotScreen` calls),
+   Files (`HermesFilesRepository(profile: filesProfileFor(chat.profile))`,
+   the function `openFiles` calls), Workspaces
+   (`ChatController.workspaceCatalog()`), background refresh
+   (`withHeadlessHermes` + `HeadlessHermes.refreshSnapshot`: the profile the
+   snapshot names), Memory (`MemoryDestination(profile: chat.profile)` in a
+   widget test, with a recording gateway transport so the proposals commands
+   are checked too) and Tools (`ToolsAvailability` seeded with
+   `serverDefaultProfile`, as `AppShell` does, then `toolsProfileFor`, which
+   `ChatScreen._openTools` calls). Files and Tools go through functions the
+   screens call, so the test follows the app. Memory passes `chat.profile` the
+   way the sidebar entry does, copied by hand: the screen needs a whole app
+   around it, so when `ChatScreen` changes what it passes, change the test with
+   it. The test is read only except for the transient gateway
+   sessions the Memory commands open. Without `HERMES_DEV_URL` and
+   `HERMES_DEV_LAUNCH_PROFILE` the test skips (CI sets neither), and by hand:
+
+   ```bash
+   scripts/dev-backend.sh start --launch-profile launchprof --sticky-profile stickyprof
+   HERMES_DEV_URL=$(scripts/dev-backend.sh url) HERMES_DEV_LAUNCH_PROFILE=launchprof \
+     flutter test test/launch_profile_contract_test.dart
+   scripts/dev-backend.sh stop
+   ```
+
+   `hermes -p NAME dashboard` (the flag goes before the subcommand) is what
+   sets the launch profile: it points the dashboard's `HERMES_HOME` at
+   `<home>/profiles/NAME`, so `/api/status` reports that folder as
+   `hermes_home`, while the process environment still names `<home>`.
+   `hermes profile use` writes the sticky `active_profile` file in `<home>`
+   and does not move a running dashboard, which is what keeps the two apart.
+   `dev-backend.sh` takes these as flags only (no environment variables, so
+   the test's `HERMES_DEV_LAUNCH_PROFILE` never reaches it). The state
+   directory outlives a run, so a start reuses a profile that is there and
+   removes `active_profile` unless `--sticky-profile` is given: a plain start
+   after a launch-profile one launches the default profile again. Before any
+   `hermes` call or write it takes an allowlist for the state directory and an
+   ambient `HERMES_HOME`, because Hermes expands `~` and `$VAR` in them and bash
+   keeps a leading `//`: only a canonical absolute path passes (one leading `/`,
+   no `//`, no `.` or `..` segment, no `~`, `$`, backtick, control character or
+   trailing `/`), and the resolved path, symlinks followed, must pass the same rule (a symlink to a directory literally named `$X` is refused, since Hermes would expand it) and must not be at or
+   under a real home's `.hermes` or `.hermes<anything>` (`$HOME` and the passwd
+   entry; compared ignoring case, for case-insensitive volumes), nor under an
+   ambient `HERMES_HOME`. It also refuses a caller's `HERMES_DATA_DIR_SUFFIX`
+   (it moves Hermes' default home to `~/.hermes<suffix>`), a run whose home it
+   cannot tell (HOME unset and no passwd entry), and any symlink, and any file
+   with more than one hard link, anywhere in the state directory (it outlives a
+   run, and Hermes writes through such a link into wherever it points: a linked
+   `state.db` or `config.yaml` reaches the real home). That is one `find` over
+   the whole tree, before and after the directories are made, and the message
+   names the first offender. It refuses when any directory in the tree is not
+   readable and searchable by the user, or when `find` fails for any reason (a
+   missing or broken `find`, a read error): only a `find` that succeeded is
+   believed, and its error is in the message. All of that is exit 3, before any write or
+   `hermes` call; every later path is the resolved one, and `verify.sh` applies
+   the canonical-path and real-home rules to its temp root. Limits: a bind mount
+   of `~/.hermes` is not detected (nothing compares devices or inodes), so
+   don't point the state dir into one; a live process that plants a link
+   between the check and the start is outside the threat model; and a `find`
+   that exits 0 but lies is not defended against (a hostile PATH could shadow
+   `hermes` itself). The check writes no temp file: `find`'s output is read into
+   a variable.
+
+   Which `HOME` a `hermes` call gets: the profile commands of a launch-profile
+   start and its dashboard run with `HOME=$STATE_DIR/userhome` (and without
+   `HERMES_DATA_DIR_SUFFIX` and `SUDO_USER`, which would name another user's
+   home), so no profile alias lands in the real `~/.local/bin`. **A
+   launch-profile backend therefore does not see the file-based logins of the
+   real HOME** (`~/.claude/.credentials.json`, `gh auth token`, `~/.codex`), and
+   its providers do not show as signed in from them. A plain start's dashboard
+   keeps the caller's `HOME`, exactly as before, so Hermes can still borrow those
+   logins. A plain start is kept from the real Hermes home by the canonical
+   absolute paths, the resolved `.hermes*` check, no symlink or hard link
+   anywhere in the state dir, and dropping `HERMES_DATA_DIR_SUFFIX` and
+   `SUDO_USER`, not by a throwaway `HOME`.
+   `verify.sh` runs every backend on a throwaway `HOME`, as always.
+   `scripts/test_dev_backend.py` (run by CI's `unittest discover`, no network or
+   `hermes`) checks all of it with a stand-in `hermes` and a fake HOME: one test
+   per spelling and symlink that once got past, and a property test over
+   generated spellings.
 
 **Not proven here:** a call's audio on any platform (no device in the
 container, so recording, playback, echo and focus are unverified), and anything native outside Linux desktop: iOS, macOS,
@@ -169,3 +279,4 @@ Then add a row to "Covered behaviour" below and run `scripts/verify.sh` twice.
 | Password sign-in via loopback + PKCE, session stored in secure storage (keyring)                                                                                                                              | app      | step 2                                                                                                                                               |
 | Send a prompt, receive the streamed reply in the chat                                                                                                                                                         | app      | step 3                                                                                                                                               |
 | Server screen: account menu, Server, status read from the dashboard (headline card and gateway state row render, no read-failed or loading state)                                                             | app      | step 4 (`04-server`)                                                                                                                                 |
+| A chat with no profile names the server's launch profile (not `default`, not the sticky one) on the chat list, Bot Screen, Files, Workspaces, background refresh, Memory and Tools. Red on main until the fix lands; the fix's proof | launch-profile | `test/launch_profile_contract_test.dart` (opt in: `launch-profile` or `--launch-profile NAME`) |

@@ -132,8 +132,15 @@ String _boxLabel(WidgetTester tester, int index) =>
 Finder _label(String label) => find.bySemanticsLabel(label);
 
 /// A row of the tree, whether or not the 220 pt box has scrolled it into view.
-Finder _rich(String text) =>
-    find.textContaining(text, findRichText: true, skipOffstage: false);
+///
+/// A gap in a row (between a container's key or index and its count) is a
+/// widget span, read here as one space.
+Finder _rich(String text) => find.byWidgetPredicate(
+  (w) =>
+      w is RichText &&
+      w.text.toPlainText().replaceAll('\uFFFC', ' ').contains(text),
+  skipOffstage: false,
+);
 
 void main() {
   group('ToolValueView', () {
@@ -392,10 +399,11 @@ void main() {
         ),
       );
       expect(find.text('JSON'), findsOneWidget);
-      expect(_rich('Text | Baum'), findsOneWidget);
+      expect(find.text('Text'), findsOneWidget);
+      expect(find.text('Baum'), findsOneWidget);
     });
 
-    testWidgets('fits one row at 1.5x on a phone and wraps from 2x', (
+    testWidgets('fits one row up to 2.5x on a phone and wraps at 3x', (
       tester,
     ) async {
       // The test font is as wide as it is tall; the real one decides what
@@ -425,14 +433,21 @@ void main() {
       expect(copy15.top, lessThan(label15.bottom));
       expect(copy15.right, lessThanOrEqualTo(390));
 
-      final (label2, toggle2, copy2) = await rects(2.5);
+      // The control's labels stop growing at 1.3x (its height is fixed), so
+      // the row holds one line through 2.5x with the real font and the
+      // switch and Copy go under the label from 3x, about the largest size
+      // a phone offers. Nothing runs past the edge on the way.
+      final (label25, _, copy25) = await rects(2.5);
+      expect(copy25.top, lessThan(label25.bottom), reason: 'one row at 2.5x');
+      expect(copy25.right, lessThanOrEqualTo(390));
+      final (label3, toggle3, copy3) = await rects(3);
       expect(
-        toggle2.top,
-        greaterThanOrEqualTo(label2.bottom - 0.5),
-        reason: 'under the label',
+        toggle3.top,
+        greaterThanOrEqualTo(label3.bottom - 0.5),
+        reason: 'under the label at 3x',
       );
-      expect(copy2.right, lessThanOrEqualTo(390));
-      expect(toggle2.right, lessThanOrEqualTo(390));
+      expect(copy3.right, lessThanOrEqualTo(390));
+      expect(toggle3.right, lessThanOrEqualTo(390));
       expect(tester.takeException(), isNull);
     });
 
@@ -792,7 +807,8 @@ void main() {
             const ToolValuePanel(label: 'Input', text: _json, language: 'json'),
           ),
         );
-        expect(_rich('Text | Tree'), findsOneWidget);
+        expect(find.text('Text'), findsOneWidget);
+        expect(find.text('Tree'), findsOneWidget);
         expect(find.byKey(_treeKey), findsNothing);
         expect(_shown(_spans(tester)), _json);
         expect(_coloured(_spans(tester)), isTrue);
@@ -805,11 +821,11 @@ void main() {
           const ToolValuePanel(label: 'Input', text: _json, language: 'json'),
         ),
       );
-      await tester.tap(find.byKey(_toggle));
+      await tester.tap(find.text('Tree'));
       await tester.pump();
       expect(find.byKey(_treeKey), findsOneWidget);
       expect(_flat, findsNothing);
-      await tester.tap(find.byKey(_toggle));
+      await tester.tap(find.text('Text'));
       await tester.pump();
       expect(find.byKey(_treeKey), findsNothing);
       expect(_flat, findsOneWidget);
@@ -847,7 +863,7 @@ void main() {
         ),
       );
       await tester.pumpWidget(build('one'));
-      await tester.tap(find.byKey(_toggle));
+      await tester.tap(find.text('Tree'));
       await tester.pump();
       await tester.pumpWidget(build('two'));
       expect(find.byKey(_treeKey), findsOneWidget);
@@ -893,31 +909,29 @@ void main() {
       expect(CodeHighlightWorker.alive, 0);
     });
 
-    testWidgets('the switch says which view is active', (tester) async {
+    testWidgets('the switch is named, and the shown view is selected', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           const ToolValuePanel(label: 'Input', text: _json, language: 'json'),
         ),
       );
       final handle = tester.ensureSemantics();
+      expect(tester.getSemantics(find.byKey(_toggle)).label, 'Show result as');
       expect(
-        tester.getSemantics(find.byKey(_toggle)),
-        isSemantics(
-          label: 'Show result as\nShow as tree',
-          isButton: true,
-          hasToggledState: true,
-          isToggled: false,
-        ),
+        tester.getSemantics(find.text('Text')),
+        isSemantics(isSelected: true),
       );
-      await tester.tap(find.byKey(_toggle));
-      await tester.pump();
       expect(
-        tester.getSemantics(find.byKey(_toggle)),
-        isSemantics(
-          label: 'Show result as\nShow as text',
-          hasToggledState: true,
-          isToggled: true,
-        ),
+        tester.getSemantics(find.text('Tree')),
+        isNot(isSemantics(isSelected: true)),
+      );
+      await tester.tap(find.text('Tree'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(find.text('Tree')),
+        isSemantics(isSelected: true),
       );
       handle.dispose();
     });
@@ -985,34 +999,30 @@ void main() {
     testWidgets('summarises objects and arrays and folds on tap', (
       tester,
     ) async {
-      const text = '{"a": [1, 2], "o": {"p": {"k": 1}}, "one": [true]}';
-      await tester.pumpWidget(
-        _host(
-          const ToolValuePanel(
-            label: 'Result',
-            text: text,
-            language: 'json',
-            initiallyTree: true,
-          ),
-        ),
-      );
-      expect(_rich('{ 3 keys }'), findsOneWidget);
-      expect(_rich('a: [ 2 items ]'), findsOneWidget);
-      expect(_rich('one: [ 1 item ]'), findsOneWidget);
-      expect(_rich('o: { 1 key }'), findsOneWidget);
+      const text =
+          '{"a": [1, 2], "o": {"p": {"k": 1}, "q": {"m": 2}}, "one": [true]}';
+      await tester.pumpWidget(_host(ToolJsonTree(text: text)));
+      expect(_rich('3 keys'), findsNothing, reason: 'the root has no row');
+      expect(_rich('{ '), findsNothing, reason: 'counts have no braces');
+      expect(_rich('a: 2 items'), findsOneWidget);
+      expect(_rich('one: 1 item'), findsOneWidget);
+      expect(_rich('o: 2 keys'), findsOneWidget);
       expect(
-        _rich('k: 1'),
-        findsNothing,
-        reason: 'the third level starts folded',
+        _rich('0 1'),
+        findsOneWidget,
+        reason: 'array items have indexes and no colon',
       );
-      await tester.tap(_rich('p: { 1 key }'));
+      expect(_rich('1 2'), findsOneWidget);
+      expect(_rich('0: '), findsNothing);
+      expect(_rich('k: 1'), findsOneWidget, reason: 'first item at depth 2');
+      expect(_rich('m: 2'), findsNothing, reason: 'the next one starts folded');
+      await tester.tap(_rich('q: 1 key'));
       await tester.pump();
-      expect(_rich('k: 1'), findsOneWidget);
-      // Folding the root hides everything under it.
-      await tester.tap(_rich('{ 3 keys }'));
+      expect(_rich('m: 2'), findsOneWidget);
+      await tester.tap(_rich('o: 2 keys'));
       await tester.pump();
-      expect(_rich('o: '), findsNothing);
-      expect(_rich('{ 3 keys }'), findsOneWidget);
+      expect(_rich('p: '), findsNothing);
+      expect(_rich('o: 2 keys'), findsOneWidget);
     });
 
     testWidgets('colours keys, strings, numbers and literals as the text', (
@@ -1355,14 +1365,14 @@ void main() {
     testWidgets('a closed node with 1,990 children builds none', (
       tester,
     ) async {
-      final text = '{"a": {"b": ${wide(1990)}}}';
+      final text = '{"a": {"c": {"d": 1}, "b": ${wide(1990)}}}';
       final watch = Stopwatch()..start();
       await tester.pumpWidget(_host(ToolJsonTree(text: text)));
       debugPrint(
         'closed node with 1,990 keys: ${watch.elapsedMilliseconds} ms',
       );
-      // root, a and the closed b; none of its keys.
-      expect(rows(tester), 3);
+      // a, c, d and the closed b (the root has no row); none of b's keys.
+      expect(rows(tester), 4);
       expect(find.textContaining('key0', findRichText: true), findsNothing);
     });
 
@@ -1528,12 +1538,12 @@ void main() {
           ),
         ),
       );
-      final row = _rich('a: { 1 key }');
+      final row = _rich('a: 1 key');
       final node = tester.getSemantics(row);
       expect(
         node,
         isSemantics(
-          label: 'a: { 1 key }',
+          label: 'a:\n1 key',
           isButton: true,
           hasExpandedState: true,
           isExpanded: true,
@@ -1558,7 +1568,7 @@ void main() {
           hasExpandedState: true,
           isExpanded: false,
           hasTapAction: true,
-          label: 'a: { 1 key }',
+          label: 'a:\n1 key',
         ),
       );
       handle.dispose();

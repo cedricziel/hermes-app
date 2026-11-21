@@ -36,7 +36,7 @@ extension _ChatScreenBotScreen on _ChatScreenState {
     final gateway = _screenGateway;
     // A chat on the server's default profile names none; display calls
     // always name one.
-    final profile = _chat.profile ?? kDefaultProfile;
+    final profile = botScreenProfileFor(_chat.profile);
     if (gateway == null || (_screen != null && _screenProfile == profile)) {
       return;
     }
