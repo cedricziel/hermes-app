@@ -220,4 +220,30 @@ void main() {
       });
     },
   );
+
+  test(
+    'two reads in flight together arm one idle timer, after the last one',
+    () {
+      fakeAsync((async) {
+        final transports = <_Transport>[];
+        final source = WatchStatusSource(() {
+          final t = _Transport();
+          transports.add(t);
+          return t;
+        }, idleTimeout: idle);
+        unawaited(source.activeStatuses().then((_) {}));
+        unawaited(source.activeStatuses().then((_) {}));
+        expect(transports, hasLength(1));
+        async.elapse(const Duration(milliseconds: 10));
+        transports[0].reads[0].complete({}); // the first finisher, one left
+        async.elapse(const Duration(milliseconds: 10));
+        transports[0].reads[1].complete({}); // the last one: idle from 20 ms
+        // Past the first finisher's would-be deadline (110 ms).
+        async.elapse(const Duration(milliseconds: 95));
+        expect(transports[0].closed, isFalse);
+        async.elapse(const Duration(milliseconds: 10)); // past 120 ms
+        expect(transports[0].closed, isTrue);
+      });
+    },
+  );
 }
