@@ -94,6 +94,7 @@ jobs:
                     *) code=true ;;
                   esac
                   case "$file" in
+                    docs/* | openspec/* | *.md) ;;
                     ios/HermesWatch/* | ios/HermesSurfaceKit/* | .github/workflows/ci.yml) watch=true ;;
                   esac
                   case "$file" in
@@ -304,7 +305,7 @@ jobs:
           current_head=""
           state=""
           if response="$(gh api "repos/$REPO/pulls/$PR_NUMBER")" \
-            && parsed="$(printf '%s' "$response" | python3 -I -c 'import json, sys; d = json.load(sys.stdin); print(d["head"]["sha"], d["state"])')"; then
+            && parsed="$(printf '%s' "$response" | python3 -I -c 'import json, sys; d = json.load(sys.stdin); sha, state = d["head"]["sha"], d["state"]; assert all(isinstance(v, str) and v for v in (sha, state)); print(sha, state)')"; then
             read -r current_head state <<< "$parsed"
           fi
           superseded=false
@@ -671,7 +672,7 @@ jobs:
           current_head=""
           state=""
           if response="$(gh api "repos/$REPO/pulls/$PR_NUMBER")" \
-            && parsed="$(printf '%s' "$response" | python3 -I -c 'import json, sys; d = json.load(sys.stdin); print(d["head"]["sha"], d["state"])')"; then
+            && parsed="$(printf '%s' "$response" | python3 -I -c 'import json, sys; d = json.load(sys.stdin); sha, state = d["head"]["sha"], d["state"]; assert all(isinstance(v, str) and v for v in (sha, state)); print(sha, state)')"; then
             read -r current_head state <<< "$parsed"
           fi
           superseded=false

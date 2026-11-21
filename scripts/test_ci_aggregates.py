@@ -180,6 +180,7 @@ esac
                     gh_fails,
                     tuple(gh_labels),
                     tuple(sorted(resolved_env.items())),
+                    json.dumps([pull, cancel, extra_env], sort_keys=True, default=str),
                 )
                 if cache is not None and step.get("id") and cache_key in cache:
                     outputs, returncode = cache[cache_key]
@@ -473,6 +474,7 @@ def heredoc_word(script, start):
     removed, as (word, end). None when the word cannot be read with certainty:
     empty, an unterminated quote, or an expansion (`$`, a backtick)."""
     word, index, length = [], start, len(script)
+    quoted = False  # any quote or backslash: the body is not expanded
     while index < length:
         char = script[index]
         if char in " \t\n;&|<>()":
@@ -481,6 +483,7 @@ def heredoc_word(script, start):
             if index + 1 >= length:
                 return None
             word.append(script[index + 1])
+            quoted = True
             index += 2
         elif char in "$`":
             return None
@@ -489,8 +492,10 @@ def heredoc_word(script, start):
             if end == -1:
                 return None
             word.append(script[index + 1 : end])
+            quoted = True
             index = end + 1
         elif char == '"':
+            quoted = True
             index += 1
             while index < length and script[index] != '"':
                 if script[index] in "$`":
@@ -505,7 +510,7 @@ def heredoc_word(script, start):
         else:
             word.append(char)
             index += 1
-    return ("".join(word), index) if word else None
+    return ("".join(word), index, quoted) if word else None
 
 
 ARITH_MESSAGE = (
@@ -646,7 +651,7 @@ def commands(script):
                     segment.append(pair)
                     index += 1
                 else:
-                    heredocs.append((word[0], dash))
+                    heredocs.append((word[0], dash, word[2]))
                     segment.append(script[index : word[1]])
                     index = word[1]
                     continue
@@ -687,7 +692,8 @@ def commands(script):
                     segment.append(char)
                 if heredocs:
                     position = index + 1
-                    for delimiter, tabs in heredocs:
+                    for delimiter, tabs, quoted in heredocs:
+                        body = []
                         while True:
                             if position >= length:
                                 unbalanced = True
@@ -698,6 +704,13 @@ def commands(script):
                             position = min(end + 1, length)
                             if (line.lstrip("\t") if tabs else line) == delimiter:
                                 break
+                            body.append(line)
+                        # An unquoted delimiter expands $(...) and backticks
+                        # in the body, which can run a process substitution.
+                        if not quoted and re.search(
+                            r"(?<!\\)(\$\(|`)", "\n".join(body)
+                        ):
+                            unreadable = True
                     heredocs.clear()
                     index = position
                     continue
@@ -893,6 +906,35 @@ class ProcessSubstitution(unittest.TestCase):
         ):
             with self.subTest(script=script):
                 self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_an_expanding_heredoc_body_with_a_substitution_is_flagged(self):
+        # An unquoted delimiter expands $(...) and backticks in the body, so
+        # this runs the process substitution.
+        for script in (
+            "cat <<EOF\n$(cat <(printf x))\nEOF",
+            "cat <<EOF\nhi `cat <(printf x)`\nEOF",
+            "cat <<-EOF\n\t$(date)\n\tEOF",
+            "x=$(cat <<EOF\n$(date)\nEOF\n)",
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_a_literal_or_quoted_heredoc_body_stays_readable(self):
+        for script in (
+            "cat <<EOF\n<(x) $HOME ${HOME}\nEOF",
+            "cat <<EOF\n\\$(x) \\`y\\`\nEOF",
+            "cat <<'EOF'\n$(cat <(printf x)) `y`\nEOF",
+            'cat <<"EOF"\n$(date)\nEOF',
+            "cat <<\\EOF\n$(date)\nEOF",
+            "cat <<E'OF'\n`date`\nEOF",
+        ):
+            with self.subTest(script=script):
+                self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_arithmetic_in_double_quotes_gives_the_arithmetic_message(self):
+        self.assertEqual(
+            unmarked_substitutions('echo "$((1 << 2))"'), [ARITH_MESSAGE]
+        )
 
     def test_a_heredoc_marker_the_scanner_cannot_read_flags(self):
         for script in (
@@ -1171,6 +1213,10 @@ class SupersededHead(unittest.TestCase):
             '{"head": {"sha": "head-b"}}',
             '{"state": "open"}',
             '{"head": {"sha": ""}, "state": "open"}',
+            '{"head": {"sha": null}, "state": "open"}',
+            '{"head": {"sha": 7}, "state": "open"}',
+            '{"head": {"sha": "head-b"}, "state": null}',
+            '{"head": {"sha": "head-b"}, "state": ""}',
             "[]",
             "null",
         ):
@@ -1332,6 +1378,90 @@ STEP_IF_ALLOWLIST = {}
 STEP_SHELL_ALLOWLIST = {}
 
 
+class WatchClassification(unittest.TestCase):
+    """Runs the real `Classify the changed files` step on a merge commit."""
+
+    def classify(self, files):
+        step = next(
+            step
+            for step in load_jobs()["changes"]["steps"]
+            if step.get("id") == "filter"
+        )
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, ignore_errors=True)
+
+        def git(*args):
+            subprocess.run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                cwd=work,
+                check=True,
+                capture_output=True,
+            )
+
+        git("init", "-q", "-b", "main")
+        (work / "base.txt").write_text("base")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        git("checkout", "-q", "-b", "feature")
+        for name in files:
+            path = work / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("x")
+        git("add", "-A")
+        git("commit", "-q", "-m", "change")
+        git("checkout", "-q", "main")
+        (work / "other.txt").write_text("other")
+        git("add", "-A")
+        git("commit", "-q", "-m", "main moves")
+        git("merge", "-q", "--no-ff", "-m", "merge", "feature")
+        output = work / "output"
+        output.write_text("")
+        env = dict(
+            os.environ,
+            EVENT_NAME="pull_request",
+            GITHUB_OUTPUT=str(output),
+            GITHUB_STEP_SUMMARY=str(work / "summary"),
+        )
+        subprocess.run(
+            ["bash", "-e", "-c", step["run"]],
+            cwd=work,
+            env=env,
+            check=True,
+            capture_output=True,
+        )
+        return dict(line.split("=", 1) for line in output.read_text().splitlines())
+
+    def test_markdown_under_the_watch_paths_does_not_set_watch(self):
+        for name in (
+            "ios/HermesWatch/README.md",
+            "ios/HermesSurfaceKit/docs/notes.md",
+        ):
+            with self.subTest(name=name):
+                result = self.classify([name])
+                self.assertEqual(result["code"], "false")
+                self.assertEqual(result["watch"], "false")
+
+    def test_swift_under_the_watch_paths_still_sets_watch(self):
+        for name in (
+            "ios/HermesWatch/Sources/App.swift",
+            "ios/HermesSurfaceKit/Package.swift",
+        ):
+            with self.subTest(name=name):
+                result = self.classify([name])
+                self.assertEqual(result["code"], "true")
+                self.assertEqual(result["watch"], "true")
+
+    def test_markdown_beside_swift_keeps_watch(self):
+        result = self.classify(
+            ["ios/HermesWatch/README.md", "ios/HermesWatch/App.swift"]
+        )
+        self.assertEqual((result["code"], result["watch"]), ("true", "true"))
+
+    def test_workflow_edit_still_sets_watch(self):
+        result = self.classify([".github/workflows/ci.yml"])
+        self.assertEqual(result["watch"], "true")
+
+
 class StepSemantics(unittest.TestCase):
     def test_aggregate_steps_use_the_default_shell_and_directory(self):
         for job_id in aggregate_jobs():
@@ -1408,6 +1538,30 @@ class StepSemantics(unittest.TestCase):
                         f"{job_id}: {step.get('name')} has a pipeline but no "
                         "pipefail, and the default shell is bash -e",
                     )
+
+    def test_the_step_cache_follows_the_stub_inputs_too(self):
+        # Same env, same event, same labels: only the stubbed pull response
+        # (or cancel answer) differs between the two runs of the real step.
+        cache = {}
+        ctx = {
+            "needs_results": {"changes": "cancelled"},
+            "needs_outputs": {"changes": {}},
+            "event_name": "pull_request",
+            "base_ref": "main",
+            "head_ref": "claude/feature",
+            "head_sha": "head-a",
+        }
+        same = {"head": {"sha": "head-a"}, "state": "open"}
+        newer = {"head": {"sha": "head-b"}, "state": "open"}
+        run_job("analyze-and-test", dict(ctx), cache=cache, pull=same)
+        ok, out, _ = run_job("analyze-and-test", dict(ctx), cache=cache, pull=newer)
+        self.assertFalse(ok)
+        self.assertIn("/actions/runs/42/cancel", out)
+        ok, out, _ = run_job(
+            "analyze-and-test", dict(ctx), cache=cache, pull=newer, cancel="deny"
+        )
+        self.assertFalse(ok)
+        self.assertIn("/actions/runs/42/cancel", out)
 
     def test_step_cache_is_keyed_on_the_step_inputs(self):
         steps = [
