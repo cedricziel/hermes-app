@@ -72,7 +72,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
 
   /// Saved phone list offsets; owned here so a rebuilt shell starts at the top.
-  final _offsets = PageStorageBucket();
+  /// Replaced whenever the board or a filter changes, so only a status chip
+  /// switch ever brings an offset back.
+  var _offsets = PageStorageBucket();
+  String? _offsetsScope;
   late final KanbanRepository _repository;
   late final AppLifecycleListener _lifecycle;
 
@@ -521,15 +524,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final shown = _controller.shownStatus;
     final tasks =
         columns.where((c) => c.name == shown).firstOrNull?.tasks ?? const [];
-    // An offset belongs to one status of one board under one set of filters.
-    final scope = [
+    final filters = [
       _controller.boardSlug,
       _controller.tenant,
       _controller.assignee,
       _controller.includeArchived,
       _controller.query,
-      shown,
     ].join('\u0000');
+    if (filters != _offsetsScope) {
+      _offsetsScope = filters;
+      _offsets = PageStorageBucket();
+    }
+    final scope = '$filters\u0000$shown';
     return PageStorage(
       bucket: _offsets,
       child: Column(

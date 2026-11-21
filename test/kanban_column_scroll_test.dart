@@ -18,6 +18,10 @@ Future<void> settle(WidgetTester tester) async {
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
+  // A filter restarts the board; closing its event stream completes outside
+  // the fake clock, so give it a real turn.
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pump(const Duration(milliseconds: 100));
 }
 
 void main() {
@@ -43,16 +47,25 @@ void main() {
       ..on(
         'GET',
         '/api/plugins/kanban/board',
-        kanbanBoardBody([
-          for (var i = 0; i < 12; i++) ...[
-            kanbanTaskRow(
-              id: 'r$i',
-              title: 'Running job $i',
-              status: 'running',
-            ),
-            kanbanTaskRow(id: 't$i', title: 'Todo job $i', status: 'todo'),
+        kanbanBoardBody(
+          [
+            for (var i = 0; i < 12; i++) ...[
+              kanbanTaskRow(
+                id: 'r$i',
+                title: 'Running job $i',
+                status: 'running',
+                assignee: 'coder',
+              ),
+              kanbanTaskRow(
+                id: 't$i',
+                title: 'Todo job $i',
+                status: 'todo',
+                assignee: 'coder',
+              ),
+            ],
           ],
-        ]),
+          tenants: ['acme'],
+        ),
       );
   });
 
@@ -157,6 +170,79 @@ void main() {
 
     shellGeneration++;
     await pumpShell(tester);
+    await showChip(tester, 'Running 12');
+
+    expectAtTop(tester);
+  });
+
+  Future<void> toggleArchived(WidgetTester tester) async {
+    final chip = find.widgetWithText(FilterChip, 'Archived');
+    await tester.ensureVisible(chip);
+    await settle(tester);
+    await tester.tap(chip);
+    await settle(tester);
+  }
+
+  Future<void> pickFrom(WidgetTester tester, String menu, String option) async {
+    await tester.tap(find.widgetWithText(Chip, menu));
+    await settle(tester);
+    await tester.tap(find.text(option).last);
+    await settle(tester);
+  }
+
+  testWidgets('picking a tenant puts the column back at its top', (
+    tester,
+  ) async {
+    await openRunningAtBottom(tester);
+
+    await pickFrom(tester, 'All tenants', 'acme');
+    await showChip(tester, 'Running 12');
+
+    expectAtTop(tester);
+  });
+
+  testWidgets('picking an assignee puts the column back at its top', (
+    tester,
+  ) async {
+    await openRunningAtBottom(tester);
+
+    await pickFrom(tester, 'All assignees', 'coder');
+    await showChip(tester, 'Running 12');
+
+    expectAtTop(tester);
+  });
+
+  testWidgets('the archived switch puts the column back at its top', (
+    tester,
+  ) async {
+    await openRunningAtBottom(tester);
+
+    await toggleArchived(tester);
+    await showChip(tester, 'Running 12');
+
+    expectAtTop(tester);
+  });
+
+  testWidgets('undoing a search does not bring the old offset back', (
+    tester,
+  ) async {
+    await openRunningAtBottom(tester);
+
+    await tester.enterText(find.byType(TextField), 'Running');
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), '');
+    await settle(tester);
+
+    expectAtTop(tester);
+  });
+
+  testWidgets('turning archived on and off does not bring the offset back', (
+    tester,
+  ) async {
+    await openRunningAtBottom(tester);
+
+    await toggleArchived(tester);
+    await toggleArchived(tester);
     await showChip(tester, 'Running 12');
 
     expectAtTop(tester);
