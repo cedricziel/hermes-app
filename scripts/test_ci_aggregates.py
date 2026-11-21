@@ -533,11 +533,27 @@ _CONTINUATION = re.compile(r"(?<!\\)((?:\\\\)*)\\\n")
 
 
 def raw_substitution_at(script, position):
-    """The raw `<(` / `>(` pattern at `position`, seeing through backslash-
-    newline pairs. It over-approximates (single quotes and quoted heredoc
-    bodies do not join), which only ever flags more."""
-    chunk = _CONTINUATION.sub(r"\1", script[position : position + 96])
-    return _RAW_SUBSTITUTION.match(chunk)
+    """True when `<(` or `>(` starts at `position`, with quotes, backslashes and
+    backslash-newline continuations allowed between the `<`/`>` and the `(`,
+    however many. It over-approximates (single quotes and quoted heredoc bodies
+    do not join), which only ever flags more."""
+    if script[position : position + 1] not in ("<", ">"):
+        return False
+    index, length = position + 1, len(script)
+    while index < length:
+        char = script[index]
+        if char in "\"'\\":
+            index += 1
+        elif char == "\n":
+            slashes = 0
+            while script[index - 1 - slashes] == "\\" and index - 1 - slashes > position:
+                slashes += 1
+            if slashes % 2 == 0:
+                break  # an even run of backslashes: no continuation
+            index += 1
+        else:
+            break
+    return script[index : index + 1] == "("
 
 
 def at_command_position(segment):
@@ -1181,6 +1197,19 @@ class ProcessSubstitution(unittest.TestCase):
             with self.subTest(delimiter=delimiter):
                 script = f"cat <<{delimiter}\n<\\\n(x)\nEOF"
                 self.assertTrue(unmarked_substitutions(script))
+
+    def test_a_long_run_of_continuations_cannot_hide_a_substitution(self):
+        for pairs in (1, 48, 49, 300, 2000):
+            with self.subTest(pairs=pairs):
+                script = "diff <" + "\\\n" * pairs + "(echo a)"
+                self.assertTrue(unmarked_substitutions(script))
+                mixed = "diff >" + ("\\\n'" * pairs) + "(echo a)"
+                self.assertTrue(unmarked_substitutions(mixed))
+
+    def test_a_long_run_with_an_escaped_backslash_is_no_substitution(self):
+        # An even run of backslashes before a newline is no continuation.
+        script = "diff <" + "\\\n" * 100 + "\\\\\n(echo a)"
+        self.assertEqual(unmarked_substitutions(script), [])
 
     def test_an_escaped_backslash_is_no_continuation(self):
         # `\\` (an escaped backslash) then a newline: the newline stays a
