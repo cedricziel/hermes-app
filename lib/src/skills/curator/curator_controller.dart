@@ -202,7 +202,9 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
 
   // Hermes' own words, cleaned for display (`curatorServerText`): screen
   // state in the lifetime of the output lines. Dropped on lock, profile
-  // switch, a new run and dispose, hidden while blanked, never logged.
+  // switch and dispose (a new run also drops `notStartedDetail` and
+  // `failureLine`, the next pause attempt drops `pauseDetail`), hidden while
+  // blanked, never logged.
   String? _pauseDetail;
   String? _notStartedDetail;
   String? _failureLine;

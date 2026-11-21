@@ -65,5 +65,7 @@ void main() {
 
   test('the limit is the parameter', () {
     expect(curatorServerText('abcdef', limit: 4), 'abc…');
+    // A space right before the cut does not leave "word …".
+    expect(curatorServerText('ab cdef', limit: 4), 'ab…');
   });
 }
