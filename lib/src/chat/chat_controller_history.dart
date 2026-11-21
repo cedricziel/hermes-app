@@ -2,6 +2,73 @@ part of 'chat_controller.dart';
 
 /// Thread loading, message pagination, and history reconciliation.
 extension _ChatControllerHistory on ChatController {
+  Future<ThreadListRefreshResult> _pullRefreshThreadList() async {
+    final profile = _profile;
+    if (!active || repository == null || profile == null) {
+      return ThreadListRefreshResult.skipped;
+    }
+    var cancelled = false;
+    void Function()? waiter;
+    Future<ThreadListRefreshResult> attempt() async {
+      while (true) {
+        if (threadListInvalidationBlocked) {
+          final settled = Completer<void>();
+          void check() {
+            if (!threadListInvalidationBlocked && !settled.isCompleted) {
+              settled.complete();
+            }
+          }
+
+          waiter = check;
+          addListener(check);
+          try {
+            await settled.future;
+          } finally {
+            removeListener(check);
+            waiter = null;
+          }
+        }
+        if (cancelled || !active || _profile != profile) {
+          return ThreadListRefreshResult.skipped;
+        }
+        final generation = _loadGeneration;
+        final page = await readThreadListPage(profile);
+        if (cancelled) return ThreadListRefreshResult.skipped;
+        if (applyInvalidatedThreads(
+          page,
+          profile: profile,
+          generation: generation,
+        )) {
+          return ThreadListRefreshResult.refreshed;
+        }
+        // A change started during the read: wait for it and read again.
+        if (!active || _profile != profile) {
+          return ThreadListRefreshResult.skipped;
+        }
+      }
+    }
+
+    var result = ThreadListRefreshResult.failed;
+    try {
+      result = await attempt().timeout(threadListRefreshTimeout);
+    } on Object catch (e, stack) {
+      cancelled = true;
+      final stale = waiter;
+      if (stale != null) removeListener(stale);
+      if (e is! DioException && e is! TimeoutException) {
+        reportBug(e, stack, 'the chat list pull to refresh');
+      }
+    }
+    if (disposed) return result;
+    final failed = result == ThreadListRefreshResult.failed;
+    if (failed != _listRefreshFailed &&
+        result != ThreadListRefreshResult.skipped) {
+      _listRefreshFailed = failed;
+      notifyListeners();
+    }
+    return result;
+  }
+
   Future<void> _loadThreads(
     String? profile, {
     bool Function()? valid,
@@ -29,6 +96,7 @@ extension _ChatControllerHistory on ChatController {
     _listRefreshPending = false;
     _loadingThreads = true;
     _threadsFailed = false;
+    _listRefreshFailed = false;
     notifyListeners();
     try {
       if (!active || generation != _loadGeneration) return;

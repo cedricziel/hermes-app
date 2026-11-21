@@ -18,11 +18,18 @@
 # then the ones that import anything under a touched lib/src/<dir>/.
 # PREMERGE_TEST_BUDGET (600 s), PREMERGE_TEST_CAP (150 files),
 # PREMERGE_TEST_CONCURRENCY (4), PREMERGE_TEST_BATCH (20 files per flutter test).
+# A theme-wide or helper-wide selection (a change to lib/src/theme/ or to
+# test/support/fake_hermes_server.dart) needs PREMERGE_TEST_CAP and
+# PREMERGE_TEST_BUDGET raised; one recent run needed a budget of 3000 s.
+# PREMERGE_ALLOW_CAPPED=1 accepts a capped run as a pass (exit 0).
 #
 # Exit: 0 pass | 1 usage or fetch error, a selection error, or the PR is already
 #       in the base | 2 merge conflict | 3 pub get or analyze failed
 #       4 architecture tests failed | 5 affected tests failed
 #       6 affected tests cut short by the budget (not a pass)
+#       7 PASS (CAPPED: ...): the cap dropped (c2) directory-wide tests, so the
+#         run is not the full selection; exit 0 only with PREMERGE_ALLOW_CAPPED=1.
+#         A failure (5) or a budget cut (6) wins over capped.
 #
 # Uses git only. PREMERGE_LIST_OPEN=1 also asks `gh` (GraphQL, so not in cloud
 # sessions) for the open PRs that have auto-merge armed and adds them to
@@ -610,8 +617,10 @@ else
 fi
 
 CAPNOTE=""
+PASS_LABEL="PASS"
 if [ -n "$CAPPED_DIRS" ]; then
   CAPNOTE=" (CAPPED: (c2) tests skipped for $CAPPED_DIRS)"
+  PASS_LABEL="PASS (CAPPED: directory-wide tests skipped for $CAPPED_DIRS)"
   echo "affected tests: CAPPED at $TEST_CAP files; (c2) tests skipped for: $CAPPED_DIRS"
 fi
 if [ "$CUT" = 1 ]; then
@@ -635,7 +644,7 @@ if [ "$CUT" = 1 ]; then
 fi
 
 echo
-echo "PASS: origin/$BASE ($BASE_SHA) + ${STACK_DESC:+stacked $STACK_DESC + }#$PR ($PR_SHA) analyzes, passes the architecture tests and the affected tests."
+echo "$PASS_LABEL: origin/$BASE ($BASE_SHA) + ${STACK_DESC:+stacked $STACK_DESC + }#$PR ($PR_SHA) analyzes, passes the architecture tests and the affected tests."
 echo "affected tests: $RAN files run$CAPNOTE"
 if [ -n "$STACK_DESC" ]; then
   echo "stacked: $STACK_DESC (merge them first, bottom-up, then #$PR)"
@@ -644,6 +653,13 @@ echo "checked against: head #$PR $PR_SHA, base origin/$BASE $BASE_SHA"
 echo "RULE: merge or arm only while origin/$BASE still equals $BASE_SHA; rerun otherwise."
 if [ "$OVERLAP" = 1 ]; then
   echo "WARNING: overlap reported above. Arm #$PR only if no overlapping PR is armed."
+fi
+if [ -n "$CAPPED_DIRS" ] && [ "${PREMERGE_ALLOW_CAPPED:-}" != 1 ]; then
+  {
+    echo "CAPPED: the cap of $TEST_CAP files skipped the directory-wide tests for $CAPPED_DIRS. This is NOT a full pass: exit 7."
+    echo "Rerun with PREMERGE_TEST_CAP and PREMERGE_TEST_BUDGET raised (a theme-wide selection needed 3000 s), or set PREMERGE_ALLOW_CAPPED=1 to accept the skipped tests."
+  } >&2
+  exit 7
 fi
 echo "Next: safe to arm #$PR at exactly $PR_SHA: arm with a head-SHA match (\`gh pr merge --auto --squash --match-head-commit $PR_SHA\` locally, or the auto-merge route with that sha); rerun after ANY push to the PR or to main."
 exit 0

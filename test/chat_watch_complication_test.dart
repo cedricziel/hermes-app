@@ -111,7 +111,7 @@ void main() {
     await chat.loadThreads();
     chat.select(id);
     await pumpEventQueue();
-    chat.submit('Any news?', const []);
+    await chat.submit('Any news?', const []);
     await pumpEventQueue();
     return transport.sends.last;
   }
@@ -160,7 +160,7 @@ void main() {
   group('the title', () {
     test('of a new chat is not made from the prompt', () async {
       chat.newThread();
-      chat.submit('my secret prompt', const []);
+      await chat.submit('my secret prompt', const []);
       final turn = transport.sends.last;
       turn
         ..emit(const ThreadBound('n1'))
@@ -177,7 +177,7 @@ void main() {
 
     test('of a new chat shows once the gateway names it', () async {
       chat.newThread();
-      chat.submit('my secret prompt', const []);
+      await chat.submit('my secret prompt', const []);
       transport.sends.last
         ..emit(const ThreadBound('n1'))
         ..emit(const ThreadTitled('Backup'));
@@ -200,7 +200,9 @@ void main() {
       final file = File('${Directory.systemTemp.path}/taxes-2025.pdf')
         ..writeAsBytesSync([1, 2, 3]);
       addTearDown(file.deleteSync);
-      chat.submit('', [SharedFile(path: file.path, name: 'taxes-2025.pdf')]);
+      await chat.submit('', [
+        SharedFile(path: file.path, name: 'taxes-2025.pdf'),
+      ]);
       await pumpEventQueue();
 
       expect(sent, isNotEmpty);
@@ -228,7 +230,7 @@ void main() {
       await pumpEventQueue();
 
       await chat.editLastPrompt(chat.selectedThread!);
-      chat.submit('my edited secret', const []);
+      await chat.submit('my edited secret', const []);
       await pumpEventQueue();
 
       expect(sent, isNotEmpty);
@@ -239,7 +241,7 @@ void main() {
     test('is kept when a send goes in before its messages load', () async {
       await chat.loadThreads();
       chat.select('s1');
-      chat.submit('my hasty secret', const []);
+      await chat.submit('my hasty secret', const []);
       await pumpEventQueue();
 
       expect(sent, isNotEmpty);
@@ -319,7 +321,7 @@ void main() {
 
     test('after a resume does not finish the prompt, which waits', () async {
       chat.newThread();
-      chat.submit('Plan it', const []);
+      await chat.submit('Plan it', const []);
       final turn = transport.sends.last..emit(const ThreadBound('n1'));
       turn
         ..emit(const UnsolicitedEvent(ReplyStarted()))
@@ -337,7 +339,7 @@ void main() {
 
     test('after a resume that asks shows the user is needed', () async {
       chat.newThread();
-      chat.submit('Plan it', const []);
+      await chat.submit('Plan it', const []);
       transport.sends.last
         ..emit(const ThreadBound('n1'))
         ..emit(const UnsolicitedEvent(ReplyStarted()))

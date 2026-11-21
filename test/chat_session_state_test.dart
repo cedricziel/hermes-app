@@ -184,7 +184,7 @@ void main() {
       await chat.loadThreads('one');
       chat.select('shared');
       await pumpEventQueue();
-      chat.submit('First profile', const []);
+      await chat.submit('First profile', const []);
       final oldThread = chat.selectedThread!;
       final oldSend = transport.sends.last;
       oldSend.emit(
@@ -246,7 +246,7 @@ void main() {
         );
       await pumpEventQueue();
       final thread = chat.selectedThread!;
-      chat.submit('Queued prompt', const []);
+      await chat.submit('Queued prompt', const []);
       transport.sends.last.emit(
         const SessionReclaimed(
           'runtime-a',
@@ -329,7 +329,7 @@ void main() {
       );
       await pumpEventQueue();
       chat.reopenSession(thread);
-      chat.submit('New turn after reopening', const []);
+      await chat.submit('New turn after reopening', const []);
       final before = thread.messages.map((message) => message.content).toList();
       transport.undoGate!.complete();
       await edit;
@@ -379,7 +379,7 @@ void main() {
       report: (_) {},
     );
     chat.newThread();
-    chat.submit('Loaded prompt', const []);
+    await chat.submit('Loaded prompt', const []);
     transport.sends.last
       ..emit(const ThreadBound('stored-a'))
       ..emit(const ReplyCompleted('Loaded answer'))
@@ -487,7 +487,7 @@ void main() {
       },
     );
     chat.newThread();
-    chat.submit('Private prompt', const []);
+    await chat.submit('Private prompt', const []);
     transport.sends.last.emit(
       const SessionControlUpdated(control, runtimeId: 'private-runtime'),
     );

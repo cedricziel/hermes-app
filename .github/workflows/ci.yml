@@ -102,6 +102,13 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
 
+      - name: Require pubspec.lock resolved with the pinned Flutter
+        run: |
+          if ! git diff --exit-code -- pubspec.lock; then
+            echo "::error file=pubspec.lock::pubspec.lock was resolved with a different Flutter than .fvmrc. Run flutter pub get on the .fvmrc Flutter and commit pubspec.lock."
+            exit 1
+          fi
+
       - name: Require Swift Package Manager for Apple plugins
         run: python3 scripts/check_apple_spm.py
 

@@ -460,6 +460,8 @@ extension _ChatControllerQueues on ChatController {
       queued: true,
     )) {
       (_queues[thread] ??= []).insert(0, next);
+    } else {
+      _diag.queue(thread, 'drained', _queues[thread]?.length ?? 0);
     }
     notifyListeners();
   }
@@ -536,7 +538,9 @@ extension _ChatControllerQueues on ChatController {
     send.accepted = true;
     _knownQueueAcceptance.add((jsonEncode(send.scope.toJson()), send.id));
     final prompt = _entryFor(thread, send);
-    if (prompt != null) _queues[thread]?.remove(prompt);
+    if (prompt != null && (_queues[thread]?.remove(prompt) ?? false)) {
+      _diag.queue(thread, 'drained', _queues[thread]?.length ?? 0);
+    }
     if (_queues[thread]?.isEmpty ?? false) {
       _queues.remove(thread);
       _restoredQueues.remove(thread);

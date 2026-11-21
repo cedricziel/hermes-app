@@ -482,6 +482,23 @@ void main() {
     expect((await store.load(scope())).records, isEmpty);
   });
 
+  test('an accepted protected prompt is logged as drained, with the count '
+      'left', () async {
+    await store.commit(scope(), 'first');
+    await store.commit(scope(), 'second');
+    store = DurableQueueStore(directory: directory, keys: keys);
+    final chat = await open();
+    final thread = chat.selectedThread!;
+    chat.sendQueued(thread);
+    await transport.prepared;
+    await pumpEventQueue();
+
+    expect([
+      for (final (name, attributes) in outcomes)
+        if (name == 'chat.queue.state') attributes,
+    ], anyElement(equals({'state': 'drained', 'count': '1'})));
+  });
+
   test('lock cycle during enqueue keeps draft and does not dispatch', () async {
     final entered = Completer<void>();
     final release = Completer<void>();
