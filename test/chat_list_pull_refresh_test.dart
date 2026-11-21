@@ -109,6 +109,40 @@ void main() {
     expect(find.text(failedTitle), findsNothing);
   });
 
+  testWidgets('on iOS a pull announces Refreshing chats while it runs', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pumpChatScreen(
+      tester,
+      server: server,
+      withProfiles: true,
+      platform: TargetPlatform.iOS,
+    );
+    final hold = Completer<void>();
+    server.onRequest('GET', '/api/sessions', (_) async {
+      await hold.future;
+      return (
+        status: 200,
+        body: sessionListBody([
+          sessionRow(id: 's2', title: 'Release notes', lastActive: 1780000100),
+        ]),
+      );
+    });
+    expect(find.bySemanticsLabel('Refreshing chats'), findsNothing);
+
+    await tester.drag(row, const Offset(0, 400));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.bySemanticsLabel('Refreshing chats'), findsOneWidget);
+
+    hold.complete();
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Refreshing chats'), findsNothing);
+    handle.dispose();
+  });
+
   testWidgets('on Android the list has no refresh indicator', (tester) async {
     await pumpChatScreen(
       tester,
@@ -163,6 +197,15 @@ void main() {
   group('the controller while the list cannot take a read', () {
     late ChatController chat;
     late Completer<void> hold;
+
+    /// Lets the held request and everything chained to it finish: the test
+    /// zone runs its microtasks only on a pump, real I/O only in runAsync.
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() => pumpEventQueue(times: 50));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
 
     List<String> ids() => [for (final t in chat.threads) t.id];
 
@@ -244,11 +287,37 @@ void main() {
       expect(chat.threadListRefreshFailed, isTrue);
 
       hold.complete();
-      await tester.pump(const Duration(seconds: 1));
-      await tester.pump();
+      await settle(tester);
+      expect(chat.threadListInvalidationBlocked, isFalse);
 
       expect(ids(), isNot(contains('s3')));
       expect(listReads().length - base, 1);
+    });
+
+    testWidgets('a pull that times out during its read never merges it', (
+      tester,
+    ) async {
+      chat.threadListRefreshTimeout = const Duration(seconds: 5);
+      final readHold = Completer<void>();
+      server.onRequest('GET', '/api/sessions', (_) async {
+        await readHold.future;
+        return (
+          status: 200,
+          body: sessionListBody([
+            sessionRow(id: 's3', title: 'Fresh chat', lastActive: 1780000200),
+          ]),
+        );
+      });
+      expect(chat.threadListInvalidationBlocked, isFalse);
+
+      final result = chat.pullRefreshThreadList();
+      await tester.pump(const Duration(seconds: 6));
+      expect(await result, ThreadListRefreshResult.failed);
+
+      readHold.complete();
+      await settle(tester);
+
+      expect(ids(), isNot(contains('s3')));
     });
   });
 

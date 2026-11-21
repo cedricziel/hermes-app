@@ -153,7 +153,8 @@ class ThreadSidebar extends StatelessWidget {
   final double contentBottomPadding;
 
   /// Reads the first page of chats again, for a pull down on the list. The
-  /// pull is offered everywhere but on the Mac, and only with this.
+  /// pull is offered on iOS chrome only (iPhone and iPad), and only with
+  /// this.
   final Future<void> Function()? onRefresh;
 
   /// Whether the last pull to refresh failed; a notice above the list says
