@@ -88,7 +88,8 @@ String wellFormedText(String text) {
 String _escaped(String text, {required bool keepLineBreaks}) {
   var changed = false;
   final out = StringBuffer();
-  final runes = wellFormedText(text).runes.toList();
+  final wellFormed = wellFormedText(text);
+  final runes = wellFormed.runes.toList();
   for (var i = 0; i < runes.length; i++) {
     final rune = runes[i];
     if (keepLineBreaks && rune == 0x0A) {
@@ -107,7 +108,7 @@ String _escaped(String text, {required bool keepLineBreaks}) {
       out.writeCharCode(rune);
     }
   }
-  return changed ? out.toString() : wellFormedText(text);
+  return changed ? out.toString() : wellFormed;
 }
 
 bool _unsafe(int rune) =>

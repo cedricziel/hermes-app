@@ -56,7 +56,7 @@ void main() {
       report: (_) {},
     );
     chat.newThread();
-    chat.submit('Synthetic prompt', const []);
+    await chat.submit('Synthetic prompt', const []);
     source.publish(binding);
     source.sends.single.emit(const ThreadBound('stored'));
     await pumpEventQueue();
@@ -210,7 +210,7 @@ void main() {
     await pumpEventQueue();
     final thread = chat.selectedThread!;
     expect(chat.moaIn(thread).single.live, isFalse);
-    chat.submit('Next actual prompt', const []);
+    await chat.submit('Next actual prompt', const []);
     await pumpEventQueue();
     final pending = thread.messages.last;
     final second = source.sends.last;
@@ -257,7 +257,7 @@ void main() {
       profile: null,
     );
     source.publish(replacement);
-    chat.submit('Fresh turn', const []);
+    await chat.submit('Fresh turn', const []);
     await pumpEventQueue();
     source.sends.last.emit(const ReplyStarted());
     source.sends.last.emit(

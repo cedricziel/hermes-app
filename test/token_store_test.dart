@@ -158,6 +158,93 @@ void main() {
     expect(storage.value, isNull);
   });
 
+  group('TokenStore.replace refuses a pair that differs from the expected', () {
+    for (final field in ['refreshToken', 'accessToken', 'provider']) {
+      for (final next in <HermesSession?>[_session, null]) {
+        test('in only its $field, '
+            '${next == null ? 'deleting' : 'replacing'} nothing', () async {
+          final expected = HermesSession.fromStorageJson({
+            ..._session.toStorageJson(),
+            field: 'other-$field',
+          });
+          final storage = _FakeStorage(value: _stored());
+          final store = TokenStore(storage: storage);
+
+          expect(await store.replace(expected, next), isFalse);
+
+          expect(storage.value, _stored());
+          expect(storage.writes, isEmpty);
+        });
+      }
+    }
+  });
+
+  group('TokenStore serializes mutations under the session lock', () {
+    HermesSession pair(String name) => HermesSession.fromStorageJson({
+      ..._session.toStorageJson(),
+      'accessToken': '$name-access',
+      'refreshToken': '$name-refresh',
+    });
+
+    String encoded(HermesSession s) => jsonEncode(s.toStorageJson());
+
+    test(
+      'a write waits for a write in progress instead of racing it',
+      () async {
+        final storage = _FakeStorage(value: _stored());
+        final store = TokenStore(storage: storage);
+        final first = pair('first');
+        final second = pair('second');
+        final started = Completer<void>();
+        final release = Completer<void>();
+        storage.beforeWrite = () async {
+          storage.beforeWrite = null;
+          started.complete();
+          await release.future;
+        };
+
+        final firstWrite = store.write(first);
+        await started.future;
+        final secondWrite = store.write(second);
+        // Drains microtasks, so anything not waiting on the lock has run.
+        await pumpEventQueue();
+        release.complete();
+        await Future.wait([firstWrite, secondWrite]);
+
+        expect(storage.writes, [encoded(first), encoded(second)]);
+        expect(storage.value, encoded(second));
+      },
+    );
+
+    test(
+      'a second replace of the same pair finds the first one done',
+      () async {
+        final storage = _FakeStorage(value: _stored());
+        final store = TokenStore(storage: storage);
+        final first = pair('first');
+        final second = pair('second');
+        final started = Completer<void>();
+        final release = Completer<void>();
+        storage.beforeWrite = () async {
+          storage.beforeWrite = null;
+          started.complete();
+          await release.future;
+        };
+
+        final firstReplace = store.replace(_session, first);
+        await started.future;
+        final secondReplace = store.replace(_session, second);
+        await pumpEventQueue();
+        release.complete();
+
+        expect(await firstReplace, isTrue);
+        expect(await secondReplace, isFalse);
+        expect(storage.writes, [encoded(first)]);
+        expect(storage.value, encoded(first));
+      },
+    );
+  });
+
   group('TokenStore.recordMinter', () {
     const server = 'https://old.hermes.test';
 

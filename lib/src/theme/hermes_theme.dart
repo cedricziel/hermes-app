@@ -63,6 +63,10 @@ const double kHermesMutedAlpha = 0.7;
 /// A push button's height on macOS, tighter than a touch target.
 const double _kMacButtonHeight = 28;
 
+/// The `minimumSize` height that renders a Mac button [_kMacButtonHeight]
+/// tall: the desktop's compact density (-2) takes 8 off a button's minimum.
+const double _kMacButtonMinHeightBeforeDensity = _kMacButtonHeight + 8;
+
 /// [platform] defaults to the running platform; tests pass one to build the
 /// Apple or Material variant.
 ThemeData buildHermesLightTheme({TargetPlatform? platform}) {
@@ -140,7 +144,7 @@ ThemeData _buildTheme({
     platform: target,
   );
   final appleButtonSize = apple
-      ? Size(0, isIos ? kAppleMinTapTarget : _kMacButtonHeight)
+      ? Size(0, isIos ? kAppleMinTapTarget : _kMacButtonMinHeightBeforeDensity)
       : null;
   final macMenuText = isMac
       ? base.textTheme.bodyMedium?.copyWith(

@@ -147,6 +147,13 @@ is not a pass.
 A READY report names the directories the PR touches under `lib/`, `test/`,
 `widgetbook/` and `packages/` (or "none").
 
+`scripts/premerge_check.sh` exit codes: 0 pass, 5 affected tests failed, 6 cut short by
+the budget (not a pass), 7 capped (`PASS (CAPPED: ...)`: directory-wide tests were skipped;
+not a full pass). Read the PASS line, not only the exit status. Exit 7 is not a pass; a capped
+run passes only when rerun with `PREMERGE_ALLOW_CAPPED=1` (exit 0, and the PASS line still says
+CAPPED). Any other non-zero exit is a failure. A theme-wide or helper-wide PR needs `PREMERGE_TEST_CAP` and
+`PREMERGE_TEST_BUDGET` raised (one run needed 3000 s).
+
 The orchestrator then arms squash auto-merge when READY, and GitHub waits for
 the required checks on the head. Read check state with `status-reader`
 or `pull_request_read`; pending, queued and in-progress are not green.

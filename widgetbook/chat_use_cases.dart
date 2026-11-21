@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'package:hermes_app/src/chat/chat_models.dart'
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
+import 'package:hermes_app/src/chat/tool_value_budget.dart';
 import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
@@ -45,6 +47,9 @@ import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart'
+    show ActivityButton;
+import 'package:hermes_app/src/profiles/widgets/profile_avatar.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_arguments_view.dart';
@@ -101,27 +106,105 @@ const _queued = [
   ]),
 ];
 
-WidgetbookUseCase _phoneBar(String name, TargetPlatform platform) =>
-    WidgetbookUseCase(
-      name: name,
-      builder: (context) => Theme(
-        data: Theme.of(context).copyWith(platform: platform),
-        child: Builder(
-          builder: (context) => Scaffold(
-            appBar: buildChatAppBar(
-              context,
-              leading: IconButton(
-                icon: const Icon(Icons.menu),
-                tooltip: 'Open navigation menu',
-                onPressed: () {},
-              ),
-              title: Text(threads[0].title),
-              actions: [NewChatButton(onPressed: () {})],
-            ),
+const _longBarTitle =
+    'Plan the quarterly release, migrate the staging database and write up '
+    'the rollback notes for the on-call team';
+
+WidgetbookUseCase _phoneBar(
+  String name,
+  TargetPlatform platform, {
+  double textScale = 1,
+  double? width,
+  String? title,
+  bool persona = false,
+  bool pill = false,
+  Locale? locale,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (context) {
+    Widget bar(BuildContext context) {
+      final text = title ?? threads[0].title;
+      final below = chatTitleBelowBar(context);
+      final avatar = persona
+          ? ProfileAvatar(profile: messengerRecipients.first, size: 32)
+          : null;
+      return Scaffold(
+        appBar: buildChatAppBar(
+          context,
+          leading: IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Open navigation menu',
+            onPressed: () {},
           ),
+          title: below
+              ? null
+              : Row(
+                  children: [
+                    if (avatar != null) ...[avatar, const SizedBox(width: 8)],
+                    Expanded(
+                      child: Text(
+                        text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+          bottom: below
+              ? chatTitleBelowBarRow(context, text: text, avatar: avatar)
+              : null,
+          actions: [
+            ThreadActionsButton(
+              thread: threads[0],
+              includeCopyTranscript: true,
+            ),
+            ActivityButton(open: false, waiting: 0, onPressed: () {}),
+            NewChatButton(onPressed: () {}),
+          ],
         ),
+        body: pill
+            ? Align(
+                alignment: Alignment.bottomLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ComposerModelPill(
+                    options: modelOptions,
+                    choice: null,
+                    onChanged: (_) {},
+                  ),
+                ),
+              )
+            : null,
+      );
+    }
+
+    Widget content = Theme(
+      data: Theme.of(context).copyWith(platform: platform),
+      child: MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(textScale),
+          size: width == null
+              ? MediaQuery.sizeOf(context)
+              : Size(width, MediaQuery.sizeOf(context).height),
+        ),
+        child: Builder(builder: bar),
       ),
     );
+    if (width != null) {
+      // Wider than the viewport: draw at its own width, scaled to fit.
+      content = FittedBox(
+        child: SizedBox(width: width, height: 320, child: content),
+      );
+    }
+    return locale == null
+        ? content
+        : Localizations.override(
+            context: context,
+            locale: locale,
+            child: content,
+          );
+  },
+);
 
 WidgetbookUseCase _tool(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card));
@@ -288,6 +371,7 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           'Diff',
           const ToolCallCard(call: diffToolCall, initiallyOpen: true),
         ),
+        ..._toolValueCards(),
       ],
     ),
     WidgetbookComponent(
@@ -403,7 +487,69 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       name: 'ChatAppBar',
       useCases: [
         _phoneBar('iOS', TargetPlatform.iOS),
+        _phoneBar('iOS, text scale 2', TargetPlatform.iOS, textScale: 2),
         _phoneBar('Material (Android)', TargetPlatform.android),
+        _phoneBar(
+          'Material (Android), text scale 1.3 boundary',
+          TargetPlatform.android,
+          textScale: 1.3,
+          persona: true,
+          title: 'Weekly plan',
+        ),
+        _phoneBar(
+          'Material (Android), large text, avatar, long title and all actions',
+          TargetPlatform.android,
+          textScale: 2,
+          persona: true,
+          title: _longBarTitle,
+        ),
+        _phoneBar(
+          'Material (Android), text scale 3.1',
+          TargetPlatform.android,
+          textScale: 3.1,
+          persona: true,
+        ),
+        _phoneBar(
+          'Material (Android), large text, without persona',
+          TargetPlatform.android,
+          textScale: 2,
+        ),
+        _phoneBar(
+          'Material (Android), large text, persona and model pill',
+          TargetPlatform.android,
+          textScale: 2,
+          persona: true,
+          pill: true,
+        ),
+        for (final scale in [1.3, 2.0, 3.1])
+          _phoneBar(
+            'Material (Android), short title, text scale $scale',
+            TargetPlatform.android,
+            textScale: scale,
+            persona: true,
+            title: 'Taxes',
+          ),
+        _phoneBar(
+          'Material (Android), tablet width 800, text scale 1',
+          TargetPlatform.android,
+          width: 800,
+          persona: true,
+        ),
+        _phoneBar(
+          'Material (Android), tablet width 800, text scale 3.1',
+          TargetPlatform.android,
+          textScale: 3.1,
+          width: 800,
+          persona: true,
+        ),
+        _phoneBar(
+          'Material (Android), large text, German',
+          TargetPlatform.android,
+          textScale: 2,
+          locale: const Locale('de'),
+          title: 'Wochenplanung für das Release',
+          persona: true,
+        ),
       ],
     ),
     WidgetbookComponent(
@@ -1149,3 +1295,173 @@ class _ComposerState extends State<_Composer> {
         : null,
   );
 }
+
+String _keys(int n) => jsonEncode({
+  for (var i = 0; i < n; i++)
+    'key_$i': switch (i % 4) {
+      0 => 'value $i',
+      1 => i,
+      2 => i.isEven,
+      _ => [i, null],
+    },
+});
+
+/// The generic card with its value views: JSON, code, plain text, limits,
+/// hidden characters, a running call and a failed one with a JSON body.
+List<WidgetbookUseCase> _toolValueCards() => [
+  _tool(
+    'Value: JSON input and result',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'search_issues',
+        summary: '',
+        args: const {'query': 'is:open label:bug', 'limit': 5},
+        result: _keys(12),
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: JSON summary as input',
+    const ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: '{"command": "ls -la", "cwd": "/tmp"}',
+        result: 'total 0',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: 70-key JSON result',
+    ToolCallCard(
+      call: ToolCall(name: 'list_all', summary: '', result: _keys(70)),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: code output from a path extension',
+    const ToolCallCard(
+      call: ToolCall(
+        name: 'read_file',
+        summary: 'lib/main.dart',
+        args: {'path': 'lib/main.dart'},
+        result: "import 'package:flutter/material.dart';\n\n/// Starts the app.\nvoid main() {\n  runApp(const MyApp(title: 'Hermes', retries: 3));\n}\n",
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: plain text',
+    const ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: 'x',
+        result: 'Build finished in 12.4 s\n3 warnings, 0 errors\nDone.',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: very large (over 512 KB, plain, no tag)',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: 'x',
+        result: List.generate(
+          12000,
+          (i) => 'line $i: ${'abc ' * 12}',
+        ).join('\n'),
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: JSON over 64 KB (flat, no tree)',
+    ToolCallCard(
+      call: ToolCall(name: 'dump', summary: '', result: _keys(2400)),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: hidden characters',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: 'x',
+        result:
+            'rm -rf /tmp/${String.fromCharCode(0x202E)}gpj.txt\nzero${String.fromCharCode(0x200B)}width',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: running, plain',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: '',
+        status: ToolCallStatus.running,
+        args: const {'query': 'x'},
+        result: _keys(6),
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: failed with a JSON error body',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'fetch',
+        summary: 'x',
+        status: ToolCallStatus.error,
+        result: '{"error": {"code": 503, "message": "upstream timed out"}}',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: failed with a plain error',
+    const ToolCallCard(
+      call: ToolCall(
+        name: 'fetch',
+        summary: 'x',
+        status: ToolCallStatus.error,
+        result: 'connection reset by peer',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: long label at 2x text',
+    MediaQuery.withClampedTextScaling(
+      minScaleFactor: 2,
+      maxScaleFactor: 2,
+      child: ToolCallCard(
+        call: ToolCall(
+          name: 'mcp__github__list_pull_requests_for_repository',
+          summary: '',
+          result: _keys(8),
+        ),
+        initiallyOpen: true,
+      ),
+    ),
+  ),
+  _tool(
+    'Value: colouring budget spent',
+    ToolValueBudgetScope(
+      budget: ToolValueBudget(maxChars: 2000),
+      child: Column(
+        children: [
+          for (var i = 0; i < 3; i++) ...[
+            ToolCallCard(
+              call: ToolCall(name: 'dump_$i', summary: '', result: _keys(60)),
+              initiallyOpen: true,
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    ),
+  ),
+];
