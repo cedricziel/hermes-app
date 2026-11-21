@@ -37,7 +37,7 @@ void main() {
       de.chatWidgetsThreadMenuPin,
       de.chatWidgetsThreadMenuArchive,
       de.chatWidgetsThreadMenuDelete,
-      de.chatWidgetsThreadMenuCancel,
+      de.widgetsCancel,
     ]) {
       expect(find.text(label), findsWidgets, reason: label);
     }

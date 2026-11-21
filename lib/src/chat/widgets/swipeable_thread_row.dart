@@ -46,7 +46,6 @@ class SwipeableThreadRow extends StatelessWidget {
     final action = await showAppActionSheet<ThreadAction>(
       context: context,
       title: title,
-      cancelLabel: l10n.chatWidgetsThreadMenuCancel,
       entries: [
         for (final (action, label) in [
           if (!canonical)

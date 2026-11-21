@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
+import '../../l10n/l10n.dart';
+
 /// One entry of [showAppActionSheet]: [value] is what the sheet answers when
 /// the entry is tapped.
 class AppActionSheetEntry<T> {
@@ -14,14 +16,13 @@ class AppActionSheetEntry<T> {
   final bool destructive;
 }
 
-/// The iOS action sheet: a one-line [title], one button per entry and a
-/// [cancelLabel] button.
+/// The iOS action sheet: a one-line [title], one button per entry and Cancel
+/// (`widgetsCancel`).
 /// Answers the tapped entry's value, or null for Cancel and a tap outside.
 Future<T?> showAppActionSheet<T>({
   required BuildContext context,
   required String title,
   required List<AppActionSheetEntry<T>> entries,
-  required String cancelLabel,
 }) {
   return showCupertinoModalPopup<T>(
     context: context,
@@ -37,7 +38,7 @@ Future<T?> showAppActionSheet<T>({
       ],
       cancelButton: CupertinoActionSheetAction(
         onPressed: () => Navigator.of(sheet).pop(),
-        child: Text(cancelLabel),
+        child: Text(context.l10n.widgetsCancel),
       ),
     ),
   );
