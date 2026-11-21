@@ -1,17 +1,26 @@
 import 'package:app_links/app_links.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, visibleForTesting;
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import '../../auth/auth_controller.dart';
 import '../../deep_links/deep_link_listener.dart';
+import '../../deep_links/deep_link_source.dart';
 import '../../spotlight/spotlight_index.dart';
 import '../../spotlight/spotlight_links.dart';
 import '../../telemetry/breadcrumbs.dart';
 import '../../telemetry/telemetry.dart';
 
 /// The system search index and the deep links that arrive through it.
-List<SingleChildWidget> deepLinkProviders(Telemetry telemetry) => [
+///
+/// [launchArguments] are `main`'s arguments: on Linux a link that started the
+/// app is in them (see [withLaunchLink]).
+List<SingleChildWidget> deepLinkProviders(
+  Telemetry telemetry, {
+  required List<String> launchArguments,
+  @visibleForTesting Stream<Uri>? platformLinks,
+}) => [
   // Where the system search is; nothing off iOS. Its taps are links, so
   // it sits before the deep links.
   Provider<SpotlightIndex>(
@@ -23,15 +32,13 @@ List<SingleChildWidget> deepLinkProviders(Telemetry telemetry) => [
   ChangeNotifierProvider<DeepLinks?>(
     lazy: false,
     create: (context) {
-      if (kIsWeb ||
-          (defaultTargetPlatform != TargetPlatform.iOS &&
-              defaultTargetPlatform != TargetPlatform.macOS &&
-              defaultTargetPlatform != TargetPlatform.android)) {
-        return null;
-      }
+      if (!deepLinksSupported(defaultTargetPlatform)) return null;
       return DeepLinks(
         links: linksWithSpotlight(
-          AppLinks().uriLinkStream,
+          withLaunchLink(
+            platformLinks ?? AppLinks().uriLinkStream,
+            launchArguments,
+          ),
           context.read<SpotlightIndex>(),
           events: telemetry.events(),
         ),
