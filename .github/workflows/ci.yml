@@ -407,6 +407,30 @@ jobs:
           key="NSWindow Frame HermesMainWindow"
           forget() { defaults delete "$prefs" "$key" 2>/dev/null || true; }
           trap 'rm -f window.log' EXIT
+          # Diagnosis only: the newest crash report of the app, if one was written.
+          crash_report() {
+            report="$(ls -t "$HOME"/Library/Logs/DiagnosticReports/Hermes*.ips 2>/dev/null | head -n 1 || true)"
+            if [ -z "$report" ]; then echo "No Hermes crash report in ~/Library/Logs/DiagnosticReports."; return 0; fi
+            echo "::group::Crash report $report (crashed thread, then the file's first 200 lines)"
+            python3 -I - "$report" <<'PY' || true
+          import json, sys
+          lines = open(sys.argv[1], errors="replace").read().split("\n", 1)
+          try:
+              body = json.loads(lines[1])
+              images = [i.get("name", "?") for i in body.get("usedImages", [])]
+              print("exception:", body.get("exception"), "termination:", body.get("termination"))
+              for t in body.get("threads", []):
+                  if t.get("triggered"):
+                      print("crashed thread:", t.get("name") or t.get("queue") or t.get("id"))
+                      for n, f in enumerate(t.get("frames", [])[:30]):
+                          img = images[f["imageIndex"]] if f.get("imageIndex", -1) >= 0 else "?"
+                          print(f"{n:2} {img} {f.get('symbol', '?')}")
+          except Exception as error:
+              print("could not parse the report:", error)
+          PY
+            head -n 200 "$report" | cut -c1-300
+            echo "::endgroup::"
+          }
           # One launch: prints the HERMES_WINDOW line, or fails with the log.
           launch() { # <label> [WxH to resize to before quitting]
             start=$SECONDS
@@ -414,9 +438,9 @@ jobs:
               -ApplePersistenceIgnoreState YES > window.log 2>&1; then status=0; else status=$?; fi
             echo "launch $1 took $(( SECONDS - start )) s, exit status $status"
             if [ "$status" -eq 142 ]; then
-              echo "::error::Launch $1 did not quit within 60 s (SIGALRM); log follows."; tail -n 40 window.log; forget; exit 1
+              echo "::error::Launch $1 did not quit within 60 s (SIGALRM); log follows."; tail -n 40 window.log; crash_report; forget; exit 1
             elif [ "$status" -ne 0 ]; then
-              echo "::error::Launch $1 exited with status $status; log follows."; tail -n 40 window.log; forget; exit 1
+              echo "::error::Launch $1 exited with status $status; log follows."; tail -n 40 window.log; crash_report; forget; exit 1
             fi
             line="$(grep -E '^HERMES_WINDOW ' window.log | head -n 1 || true)"
             if [ -z "$line" ]; then
