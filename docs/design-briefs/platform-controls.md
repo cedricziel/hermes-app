@@ -55,3 +55,30 @@ Open (follow-ups, not part of this change):
 - The design system's Mac `SettingsScaffold` `formAction` is a roughly 22 pt button with a 6 pt radius; it should become the 28 pt button.
 
 Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device.
+
+## Android switch off state
+
+### Design (done)
+
+- Canvas: https://claude.ai/artifact/X2xtELLCTgUqYCbN9L9b5S (private; ask the owner for access)
+- Date: 2026-11-21
+- Boards (6, Android 412 wide, light and dark): switch states in a grouped section; Memory settings with mixed switches; before and after.
+
+Decisions:
+
+- Scope: Material switch (Android, Windows, Linux).
+- OFF outline is zinc500 (#71717A) in light and dark.
+- OFF thumb is zinc400 (#A1A1AA) in dark and zinc500 in light.
+- The track, the ON state and the disabled states are unchanged.
+- Contrast (WCAG 1.4.11, 3:1): outline against the page 4.12:1 dark and 4.83:1 light; thumb against the track 5.81:1 dark and 4.40:1 light. Before: 1.34:1 dark and 1.27:1 light, with the thumb at 1.00:1 (dark) and 1.16:1 (light) on the track.
+- Disabled switches are exempt from 1.4.11 and keep their dimmed look.
+
+Accepted differences (canvas against Flutter):
+
+- The design system's Switch component still draws the old OFF look; the canvas overrides it with token CSS on a wrapper. The design system needs the same change.
+- The design system draws a darker ring on the disabled ON switch (translucent border over translucent fill); Flutter draws a flat track. Disabled is unchanged and exempt.
+- Row height differs (subtitles in the canvas); the Flutter renders use the Ahem test font.
+
+Open owner decision:
+
+- iOS and macOS are unchanged. Their OFF colour is still undecided, because the same contrast question applies there (OFF track against the row: 1.43:1 dark, 1.20:1 light). The theme test holds them at those values so they cannot get worse.

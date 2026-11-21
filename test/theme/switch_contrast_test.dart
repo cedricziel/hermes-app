@@ -50,8 +50,11 @@ Future<_Painted> _paint(
   required TargetPlatform platform,
   required Brightness brightness,
   required bool on,
+  bool enabled = true,
+  bool withoutAdaptation = false,
 }) async {
-  final theme = _theme(platform, brightness);
+  var theme = _theme(platform, brightness);
+  if (withoutAdaptation) theme = theme.copyWith(adaptations: const []);
   final key = GlobalKey();
   await tester.pumpWidget(
     MaterialApp(
@@ -64,7 +67,10 @@ Future<_Painted> _paint(
             child: Container(
               color: theme.colorScheme.surface,
               padding: const EdgeInsets.all(24),
-              child: GroupedSwitch(value: on, onChanged: (_) {}),
+              child: GroupedSwitch(
+                value: on,
+                onChanged: enabled ? (_) {} : null,
+              ),
             ),
           ),
         ),
@@ -124,8 +130,6 @@ void main() {
             brightness: brightness,
             on: false,
           );
-          // ignore: avoid_print
-          print('MEASURE ${platform.name} ${brightness.name} OFF $p');
           expect(p.outlineOnBackground, greaterThanOrEqualTo(3.0));
           expect(p.thumbOnTrack, greaterThanOrEqualTo(3.0));
         },
@@ -140,10 +144,29 @@ void main() {
           brightness: brightness,
           on: true,
         );
-        // ignore: avoid_print
-        print('MEASURE ${platform.name} ${brightness.name} ON $p');
         expect(p.track, scheme.primary);
         expect(p.thumb, scheme.onPrimary);
+      });
+
+      testWidgets('${platform.name} ${brightness.name}: a disabled off switch '
+          'keeps Material\'s dimmed outline and thumb', (tester) async {
+        final adapted = await _paint(
+          tester,
+          platform: platform,
+          brightness: brightness,
+          on: false,
+          enabled: false,
+        );
+        final material = await _paint(
+          tester,
+          platform: platform,
+          brightness: brightness,
+          on: false,
+          enabled: false,
+          withoutAdaptation: true,
+        );
+        expect(adapted.outline, material.outline);
+        expect(adapted.thumb, material.thumb);
       });
     }
   }
@@ -167,8 +190,6 @@ void main() {
           brightness: brightness,
           on: false,
         );
-        // ignore: avoid_print
-        print('MEASURE ${platform.name} ${brightness.name} OFF $p');
         expect(p.trackOnBackground, greaterThanOrEqualTo(floor));
       },
     );

@@ -176,7 +176,7 @@ ThemeData _buildTheme({
     textTheme: isIos ? iosTextTheme(base.textTheme) : null,
     scaffoldBackgroundColor: scaffoldBackground,
     splashFactory: apple ? NoSplash.splashFactory : null,
-    adaptations: [_AppleSwitchAdaptation(scheme)],
+    adaptations: [_SwitchAdaptation(scheme)],
     extensions: [
       HermesChatColors(
         sidebar: sidebarBackground,
@@ -398,15 +398,16 @@ extension HermesThemeX on BuildContext {
   }
 }
 
-/// Keeps the iOS/macOS toggle's native shape and motion but swaps its green
-/// for the zinc primary; the thumb takes `onPrimary` so it stays visible on
-/// the near-white dark-mode track. Every other platform draws Material's
-/// switch, whose off state is made visible against the row (WCAG 1.4.11):
+/// Switch colours per platform. iOS and macOS keep the toggle's native shape
+/// and motion but swap its green for the zinc primary; the thumb takes
+/// `onPrimary` so it stays visible on the near-white dark-mode track. Every
+/// other platform draws Material's switch, whose off state is made visible
+/// against the row (WCAG 1.4.11):
 /// Material's defaults leave the outline, track and thumb all within a shade
 /// of the row's `surface`. The off state of the Apple switch is below 3:1 too;
 /// that is left as it is until the owner chooses its colour.
-class _AppleSwitchAdaptation extends Adaptation<SwitchThemeData> {
-  const _AppleSwitchAdaptation(this.scheme);
+class _SwitchAdaptation extends Adaptation<SwitchThemeData> {
+  const _SwitchAdaptation(this.scheme);
 
   final ColorScheme scheme;
 
