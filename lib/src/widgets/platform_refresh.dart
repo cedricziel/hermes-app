@@ -60,7 +60,7 @@ class _PlatformRefreshState extends State<PlatformRefresh> {
           child: IgnorePointer(
             child: Semantics(
               container: true,
-              liveRegion: true,
+              liveRegion: _refreshing,
               label: _refreshing ? label : '',
               child: const SizedBox(width: 1, height: 1),
             ),

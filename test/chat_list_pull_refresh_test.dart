@@ -53,6 +53,17 @@ void main() {
     }
   }
 
+  /// Whether the refresh's announcement node is a live region right now. An
+  /// idle one would post an empty announcement on iOS.
+  bool liveRegion(WidgetTester tester) => tester
+      .widget<Semantics>(
+        find.byWidgetPredicate(
+          (w) => w is Semantics && w.container && w.child is SizedBox,
+        ),
+      )
+      .properties
+      .liveRegion!;
+
   Future<void> pull(WidgetTester tester) async {
     await tester.drag(row, const Offset(0, 400));
     await tester.pumpAndSettle();
@@ -139,15 +150,15 @@ void main() {
       );
     });
     expect(find.bySemanticsLabel('Refreshing chats'), findsNothing);
+    expect(liveRegion(tester), isFalse);
     final stateBefore = tester.state(find.byType(RefreshIndicator));
     final reads = listReads().length;
 
     await tester.drag(row, const Offset(0, 400));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 200));
-    }
+    await stepFrames(tester);
 
     expect(find.bySemanticsLabel('Refreshing chats'), findsOneWidget);
+    expect(liveRegion(tester), isTrue);
     expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
     expect(tester.state(find.byType(RefreshIndicator)), same(stateBefore));
     expect(listReads().length - reads, 1);
@@ -161,6 +172,7 @@ void main() {
     hold.complete();
     await tester.pumpAndSettle();
     expect(find.bySemanticsLabel('Refreshing chats'), findsNothing);
+    expect(liveRegion(tester), isFalse);
     handle.dispose();
   });
 
