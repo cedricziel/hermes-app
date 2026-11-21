@@ -23,6 +23,10 @@ jobs:
   # packages, dependencies, assets, the packaging script, fastlane or this
   # workflow): Dart under lib/ and test/ is analyzed and tested on every code
   # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to the `builds` case in the filter below.
+  # The release-please pull request counts as docs-only too, but only while its
+  # diff is exactly CHANGELOG.md, .release-please-manifest.json and the
+  # `version:` line of pubspec.yaml: the code it carries was already tested on
+  # main, and its tag run builds everything in release-please.yml.
   changes:
     name: Changes
     runs-on: ubuntu-latest
@@ -42,6 +46,7 @@ jobs:
         id: filter
         env:
           EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
           code=true
@@ -79,6 +84,45 @@ jobs:
                     scripts/package-linux.sh | scripts/check-soloud-build-log.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
                   esac
                 done < "$list"
+                if [ "$HEAD_REF" = release-please--branches--main--components--hermes-app ]; then
+                  # Fail closed: every check below must pass, any other
+                  # outcome keeps the classification above. The raw diff must
+                  # list only plain modifications (no add, delete, rename,
+                  # mode change) of the three release files.
+                  release=true
+                  raw="$(git -c core.quotePath=false diff --raw --no-renames HEAD^1 HEAD)" || release=false
+                  if [ "$release" = true ]; then
+                    while IFS= read -r line; do
+                      case "$line" in
+                        ":100644 100644 "*" M"$'\t'CHANGELOG.md | ":100644 100644 "*" M"$'\t'.release-please-manifest.json | ":100644 100644 "*" M"$'\t'pubspec.yaml) ;;
+                        *) release=false ;;
+                      esac
+                    done <<< "$raw"
+                  fi
+                  if [ "$release" = true ]; then
+                    # pubspec.yaml: one removed and one added line, both the
+                    # `version:` line. numstat counts a binary change as `-`.
+                    numstat="$(git diff --numstat --no-renames HEAD^1 HEAD -- pubspec.yaml)" || release=false
+                    if [ "$numstat" != "$(printf '1\t1\tpubspec.yaml')" ]; then
+                      release=false
+                    fi
+                    # Only lines after the first hunk header are content.
+                    changed="$(git diff -U0 --no-renames HEAD^1 HEAD -- pubspec.yaml | sed -n '/^@@/,$p' | grep -E '^[-+]' || true)"
+                    if [ "$(printf '%s\n' "$changed" | grep -c '^-version: ' || true)" != 1 ] \
+                      || [ "$(printf '%s\n' "$changed" | grep -c '^+version: ' || true)" != 1 ] \
+                      || [ "$(printf '%s\n' "$changed" | wc -l)" != 2 ]; then
+                      release=false
+                    fi
+                  fi
+                  if [ "$release" = true ]; then
+                    echo "release-please pull request: treated as docs-only"
+                    code=false
+                    watch=false
+                    builds=false
+                  else
+                    echo "::warning::release-please branch changes more than its release files; classifying normally"
+                  fi
+                fi
               fi
             fi
           fi
