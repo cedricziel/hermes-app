@@ -11,7 +11,7 @@ and the platform builds, when any of these holds:
   - the event is push, workflow_dispatch or merge_group;
   - the pull request's base is not main (a stacked pull request);
   - the pull request has the label `ci:full`;
-  - it comes from the release-please branch;
+  - it comes from the release-please branch of this repository;
   - the decision cannot be made (error, missing or malformed data).
 Everything else is DEFERRED. The answer depends on the label set, never on which
 label event started the run, so an unrelated label gives the same answer as the
@@ -39,8 +39,11 @@ FULL = "full"
 DEFERRED = "deferred"
 
 
-def decide(event_name, base_ref, labels, head_ref="", error=False):
-    """Returns (mode, reason); mode is 'full' or 'deferred'."""
+def decide(
+    event_name, base_ref, labels, head_ref=None, error=False, head_repo=None, repo=None
+):
+    """Returns (mode, reason); mode is 'full' or 'deferred'. A pull request to
+    main without the label is deferred only when its head branch is known."""
     if error:
         return FULL, REASON_ERROR
     if event_name in FULL_EVENTS:
@@ -56,9 +59,16 @@ def decide(event_name, base_ref, labels, head_ref="", error=False):
     if base_ref != MAIN:
         return FULL, REASON_STACKED
     if head_ref == RELEASE_BRANCH:
-        return FULL, REASON_RELEASE
+        if head_repo and repo:
+            if head_repo == repo:
+                return FULL, REASON_RELEASE
+            # A fork can use the branch name; it proves nothing.
+        else:
+            return FULL, REASON_MISSING
     if FULL_LABEL in labels:
         return FULL, REASON_LABEL
+    if not isinstance(head_ref, str) or not head_ref:
+        return FULL, REASON_MISSING
     return DEFERRED, REASON_DEFERRED
 
 
@@ -72,8 +82,10 @@ def from_env(env):
         env.get("EVENT_NAME"),
         env.get("BASE_REF"),
         labels,
-        head_ref=env.get("HEAD_REF", ""),
+        head_ref=env.get("HEAD_REF"),
         error=flag == "true",
+        head_repo=env.get("HEAD_REPO"),
+        repo=env.get("REPO"),
     )
 
 

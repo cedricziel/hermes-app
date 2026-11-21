@@ -126,9 +126,12 @@ labels read from the API, and the head branch). A run is FULL when any holds:
 - the event is `push`, `workflow_dispatch` or `merge_group`;
 - the PR's base is not `main` (a stacked PR);
 - the PR has the label `ci:full`;
-- the PR's branch is the release-please branch (see below);
-- the gate cannot decide (label lookup failed, missing or malformed data):
-  fail closed.
+- the PR's branch is the release-please branch and its head repository is this
+  one (a fork using the name gets no shortcut; unknown repositories fail
+  closed);
+- the gate cannot decide: the label lookup failed, data is missing or
+  malformed, or the head branch of a PR to `main` without the label is unknown.
+  This fails closed, so such a PR runs FULL even without `ci:full`.
 
 Otherwise it is DEFERRED. Always run, full or deferred: `Changes`, `Analyze`
 (format, analyze, the script tests including `scripts/test_ci_gate.py`) and
@@ -186,7 +189,10 @@ failed one. The workflow is triggered by every label event, so an unrelated
 label could otherwise cancel a full run: only `ci:full` events cancel a run in
 progress. Any other label event queues behind it (a queued run is replaced by a
 newer one), recomputes the same decision from the label set, and so gives the
-same result. After `ci:full` is removed there is a short window: until the
+same result. A re-run (run attempt above 1) never cancels a run in progress
+either: the group is per pull request, so re-running a run on a replaced head
+must not cancel the current head's run (a queued run is still replaced by a
+newer queued one). After `ci:full` is removed there is a short window: until the
 new run's `Analyze & test` appears (after Analyze finishes), the previous green
 check is still the latest, so the PR stays mergeable. The tests did run on that
 head. The cost is one repeated full run per unrelated label added to a
@@ -228,8 +234,9 @@ step has its own `timeout-minutes`, like every job.
 
 **Aggregate tests.** `scripts/test_ci_aggregates.py` (PyYAML is installed in
 the `Test scripts` step; a missing module fails the test) runs the real `run:`
-scripts of `Analyze & test` in GitHub's default shell (`bash --noprofile --norc
--eo pipefail`), with the step conditions modelled
+scripts of `Analyze & test` in the default shell of a step without `shell:`
+(`bash -e {0}`, no pipefail; a script that needs it sets it), with the step
+conditions modelled
 too: a step's `if:` with the implicit `success()`, later steps skipped after a
 failure unless `always()` or `failure()`, `continue-on-error`, and the job
 failing only when a step failed without it. It does so for every outcome of the
@@ -249,9 +256,9 @@ a trailing shell comment `# process-substitution-ok: <reason>` outside quotes,
 because `pipefail` does not see a failure inside it.
 `scripts/*.sh` is out of scope. One known case: `scripts/test-shard.sh` reads
 its file list via `< <(find ...)`, so a failing `find` gives a smaller shard
-instead of an error (an empty list still exits 1). The scripts run in GitHub's
-default shell (`bash --noprofile --norc -eo pipefail`), and no aggregate step
-may set `shell:` or `working-directory:` nor the workflow `defaults.run`.
+instead of an error (an empty list still exits 1). The scripts run in the
+default shell of a step without `shell:` (`bash -e {0}`, no pipefail), and no
+aggregate step may set `shell:` or `working-directory:` nor the workflow `defaults.run`.
 `Builds` gets the same matrix and the same simulation, and the same
 self-cancel first step (with `actions: write`).
 

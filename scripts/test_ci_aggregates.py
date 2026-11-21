@@ -69,6 +69,7 @@ def resolve(expression, ctx):
         "github.event.pull_request.number": "1",
         "github.event.pull_request.head.sha": ctx.get("head_sha", "head-a"),
         "github.run_id": "42",
+        "github.event.pull_request.head.repo.full_name": ctx.get("head_repo", "o/r"),
     }
     if path in github:
         return github[path]
@@ -198,16 +199,10 @@ esac
                     script.write_text(step["run"])
                     output_file.write_text("")
                     result = subprocess.run(
-                        # GitHub's default shell: bash --noprofile --norc
-                        # -eo pipefail {0}
-                        [
-                            "bash",
-                            "--noprofile",
-                            "--norc",
-                            "-eo",
-                            "pipefail",
-                            str(script),
-                        ],
+                        # A step without `shell:` runs `bash -e {0}`, with no
+                        # pipefail (only an explicit `shell: bash` adds it), so a
+                        # script that needs it sets it itself.
+                        ["bash", "-e", str(script)],
                         env=env,
                         cwd=ROOT,
                         capture_output=True,
@@ -457,54 +452,122 @@ class LabelGate(unittest.TestCase):
         self.assertFalse(ok, out)
 
 
+_KEYWORDS = {"then", "do", "else", "elif", "fi", "done", "{", "}"}
+
+
 def commands(script):
-    """Splits a script into logical commands as (code, comment) pairs. The
-    quote state runs across lines, so a newline inside quotes stays inside the
-    command and a `#` inside quotes is no comment. A backslash-newline joins
-    lines. A comment is a `#` at a word start outside quotes, up to the
-    newline."""
-    result = []
-    code, comment, quote = [], None, None
-    index = 0
-    while index < len(script):
-        char = script[index]
-        if comment is not None:
-            if char == "\n":
-                result.append(("".join(code), "".join(comment)))
-                code, comment = [], None
+    """Splits a script into (segment, has_substitution, comment) triples.
+
+    A segment is one `;`-separated command at the top level; a lone reserved
+    word (`then`, `do`, `else`, ...) belongs to the command before it, so
+    `if diff <(a) <(b); then # marker` stays one command. The comment, a `#` at
+    a word start outside quotes, belongs to the LAST segment of its line only.
+    The quote state runs across lines and nests: `<(` or `>(` inside quotes is
+    text, but inside `$(...)` within double quotes it is code again. A
+    backslash-newline joins lines."""
+    results = []
+    stack = [["cmd", 0, False]]  # kind, paren depth, nested ($( or <( )
+    segment, segments, hit = [], [], False
+    index, length = 0, len(script)
+
+    def end_segment():
+        nonlocal segment, hit
+        segments.append(["".join(segment), hit])
+        segment, hit = [], False
+
+    def end_command(comment):
+        merged = []
+        for text, found in segments:
+            if merged and text.strip() in _KEYWORDS:
+                merged[-1][0] += ";" + text
+                merged[-1][1] = merged[-1][1] or found
             else:
-                comment.append(char)
-        elif char == "\\" and quote != "'" and index + 1 < len(script):
-            code.append(" " if script[index + 1] == "\n" else char + script[index + 1])
-            index += 1
-        elif quote:
-            code.append(char)
-            if char == quote:
-                quote = None
-        elif char in ("'", '"'):
-            quote = char
-            code.append(char)
-        elif char == "#" and (not code or code[-1].isspace()):
-            comment = ["#"]
-        elif char == "\n":
-            result.append(("".join(code), ""))
-            code = []
-        else:
-            code.append(char)
+                merged.append([text, found])
+        for position, (text, found) in enumerate(merged):
+            if text.strip():
+                last = position == len(merged) - 1
+                results.append((text.strip(), found, comment if last else ""))
+        segments.clear()
+
+    while index < length:
+        char = script[index]
+        pair = script[index : index + 2]
+        kind = stack[-1][0]
+        if kind == "sq":
+            segment.append(char)
+            if char == "'":
+                stack.pop()
+        elif kind == "dq":
+            if char == "\\" and index + 1 < length:
+                segment.append(pair)
+                index += 1
+            elif char == '"':
+                segment.append(char)
+                stack.pop()
+            elif pair == "$(":
+                segment.append(pair)
+                stack.append(["cmd", 0, True])
+                index += 1
+            else:
+                segment.append(char)
+        else:  # a command context
+            top_level = len(stack) == 1
+            if char == "\\" and index + 1 < length:
+                segment.append(" " if script[index + 1] == "\n" else pair)
+                index += 1
+            elif char == "'":
+                segment.append(char)
+                stack.append(["sq", 0, False])
+            elif char == '"':
+                segment.append(char)
+                stack.append(["dq", 0, False])
+            elif pair == "$(":
+                segment.append(pair)
+                stack.append(["cmd", 0, True])
+                index += 1
+            elif pair in ("<(", ">("):
+                hit = True
+                segment.append(pair)
+                stack.append(["cmd", 0, True])
+                index += 1
+            elif char == "(":
+                stack[-1][1] += 1
+                segment.append(char)
+            elif char == ")":
+                if stack[-1][2] and stack[-1][1] == 0:
+                    stack.pop()
+                elif stack[-1][1] > 0:
+                    stack[-1][1] -= 1
+                segment.append(char)
+            elif top_level and char == "#" and (not segment or segment[-1].isspace()):
+                end = script.find("\n", index)
+                end = length if end == -1 else end
+                end_segment()
+                end_command(script[index:end])
+                index = end
+                continue
+            elif top_level and char == ";":
+                end_segment()
+            elif top_level and char == "\n":
+                end_segment()
+                end_command("")
+            else:
+                segment.append(char)
         index += 1
-    result.append(("".join(code), "".join(comment or [])))
-    return result
+    end_segment()
+    end_command("")
+    return results
 
 
 MARKER = re.compile(r"^#\s*process-substitution-ok:\s*\S")
 
 
 def unmarked_substitutions(script):
-    hits = []
-    for code, comment in commands(script):
-        if re.search(r"[<>]\(", code) and not MARKER.match(comment):
-            hits.append(code.strip()[:120])
-    return hits
+    return [
+        text[:120]
+        for text, found, comment in commands(script)
+        if found and not MARKER.match(comment)
+    ]
 
 
 def process_substitutions():
@@ -538,6 +601,39 @@ class ProcessSubstitution(unittest.TestCase):
     def test_quote_state_runs_across_lines(self):
         script = 'echo "open\n# process-substitution-ok: fake" <(x)'
         self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_substitution_inside_quoted_text_is_no_code(self):
+        for script in (
+            'echo "<(x)"',
+            "echo '>(x)'",
+            'echo "a <(x) b" # fine',
+            "echo \\<(x)",
+        ):
+            with self.subTest(script=script):
+                self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_substitution_inside_a_command_substitution_in_quotes_is_code(self):
+        self.assertEqual(
+            len(unmarked_substitutions('echo "$(diff <(a) <(b))"')), 1
+        )
+
+    def test_marker_binds_to_its_own_command(self):
+        script = "diff <(a) <(b); echo ok # process-substitution-ok: x"
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+        script = "echo first; diff <(a) <(b) # process-substitution-ok: x"
+        self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_two_substitution_commands_need_two_markers(self):
+        script = "cat <(a); diff <(b) <(c) # process-substitution-ok: x"
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_marker_on_the_next_line_does_not_count(self):
+        script = "diff <(a) <(b)\n# process-substitution-ok: x"
+        self.assertEqual(len(unmarked_substitutions(script)), 1)
+
+    def test_a_then_belongs_to_the_command_before_it(self):
+        script = "if diff <(a) <(b); then # process-substitution-ok: x\n  echo ok\nfi"
+        self.assertEqual(unmarked_substitutions(script), [])
 
     def test_marker_must_carry_a_reason(self):
         self.assertEqual(
@@ -837,6 +933,71 @@ class SupersededHead(unittest.TestCase):
         self.assertNotIn("superseded=true", script[match.end():])
 
 
+class ConcurrencySimulation(unittest.TestCase):
+    """cancel-in-progress is evaluated for the run that ENTERS the group: it
+    decides whether the run already in progress is cancelled."""
+
+    def enters(self, event, action="", label="", attempt="1"):
+        context = {
+            "github.event_name": event,
+            "github.event.action": action,
+            "github.event.label.name": label,
+            "github.run_attempt": attempt,
+        }
+
+        def lookup(path):
+            if path not in context:
+                raise KeyError(path)
+            return context[path]
+
+        source = load_workflow()["concurrency"]["cancel-in-progress"]
+        return _truthy(Expression(source, lookup, lambda name: False).value())
+
+    def test_the_group_is_per_pull_request(self):
+        group = load_workflow()["concurrency"]["group"]
+        self.assertIn("github.ref", group)
+
+    def test_a_newer_push_cancels_the_run_in_progress(self):
+        for action in ("opened", "synchronize", "reopened"):
+            with self.subTest(action=action):
+                self.assertTrue(self.enters("pull_request", action))
+
+    def test_ci_full_label_events_on_the_current_head_cancel(self):
+        for action in ("labeled", "unlabeled"):
+            with self.subTest(action=action):
+                self.assertTrue(
+                    self.enters("pull_request", action, "ci:full")
+                )
+
+    def test_other_labels_never_cancel(self):
+        for action in ("labeled", "unlabeled"):
+            with self.subTest(action=action):
+                self.assertFalse(self.enters("pull_request", action, "bot"))
+
+    def test_a_rerun_of_an_older_run_never_cancels_the_current_one(self):
+        # Same group (the pull request), but attempt 2: a re-run of a run on a
+        # head that has since been replaced must not cancel the current head.
+        for action, label in (
+            ("synchronize", ""),
+            ("labeled", "ci:full"),
+            ("unlabeled", "ci:full"),
+            ("opened", ""),
+        ):
+            with self.subTest(action=action, label=label):
+                self.assertFalse(
+                    self.enters("pull_request", action, label, attempt="2")
+                )
+                self.assertFalse(
+                    self.enters("pull_request", action, label, attempt="3")
+                )
+
+    def test_push_and_dispatch_never_cancel(self):
+        for event in ("push", "workflow_dispatch"):
+            with self.subTest(event=event):
+                self.assertFalse(self.enters(event))
+                self.assertFalse(self.enters(event, attempt="2"))
+
+
 # Step conditions are modelled; these are the aggregate jobs' own steps. A
 # step-level `if:` on an aggregate would let GitHub skip the check and report
 # success. Allowlist: (job, step name) -> reason. Keep it empty if possible.
@@ -844,8 +1005,9 @@ STEP_IF_ALLOWLIST = {}
 
 
 # `shell:` and `working-directory:` change how the scripts run (a `shell: bash
-# {0}` drops pipefail), and `defaults.run` does the same for every step. The
-# tests run GitHub's default shell, so none may apply to an aggregate job.
+# {0}` would change the shell), and `defaults.run` does the same for every
+# step. The tests run GitHub's default shell, so none may apply to an
+# aggregate job.
 # Allowlist: (job, step name, key) -> reason. Keep it empty if possible.
 STEP_SHELL_ALLOWLIST = {}
 
@@ -896,10 +1058,36 @@ class StepSemantics(unittest.TestCase):
         with mock.patch(f"{__name__}.load_jobs", lambda: jobs):
             return run_job("synthetic", ctx)
 
-    def test_scripts_run_with_pipefail_like_the_default_shell(self):
+    def test_the_default_shell_has_no_pipefail(self):
         ok, out, _ = self.run_with_steps([{"run": "false | cat\necho after"}])
+        self.assertTrue(ok)
+        self.assertIn("after", out)
+
+    def test_a_script_can_set_pipefail_itself(self):
+        ok, out, _ = self.run_with_steps(
+            [{"run": "set -o pipefail\nfalse | cat\necho after"}]
+        )
         self.assertFalse(ok)
         self.assertNotIn("after", out)
+
+    def test_aggregate_scripts_with_a_pipeline_set_pipefail(self):
+        for job_id in aggregate_jobs():
+            for step in load_jobs()[job_id]["steps"]:
+                script = step.get("run", "")
+                # Case patterns (`a | b)`) and comments are no pipelines.
+                lines = [
+                    line
+                    for line in script.splitlines()
+                    if not line.lstrip().startswith("#")
+                    and not re.search(r"\)\s*(;;)?\s*$", line)
+                ]
+                if re.search(r"(?<!\|)\|(?!\|)", "\n".join(lines)):
+                    self.assertIn(
+                        "pipefail",
+                        script,
+                        f"{job_id}: {step.get('name')} has a pipeline but no "
+                        "pipefail, and the default shell is bash -e",
+                    )
 
     def test_step_cache_is_keyed_on_the_step_inputs(self):
         steps = [
@@ -1244,6 +1432,26 @@ def skip_allowed(need, outputs):
     return False
 
 
+def expected_to_run(job, outputs, aggregate_passed):
+    """The policy for every job of ci.yml, mirroring CLAUDE.md's CI paragraph:
+    the heavy jobs run only on a full code run, the builds also only when the
+    paths asked for them and Analyze & test passed. A job missing here fails
+    the simulation, so a new job must get a row."""
+    code = outputs["code"] == "true"
+    full = outputs["full"] == "true"
+    if job in ("changes", "analyze", "analyze-and-test", "builds"):
+        return True
+    if job in ("test", "coverage"):
+        return code and full
+    if job == "test-watch":
+        return outputs["watch"] == "true" and full
+    if job == "native-audio-test":
+        return aggregate_passed and code and full
+    if job.startswith("build-"):
+        return aggregate_passed and code and full and outputs["builds"] == "true"
+    raise AssertionError(f"no expectation for job {job!r}; add a row")
+
+
 VALUES = ("true", "false", "")
 FRESH = {
     "ci:full": dict(gh_labels=("ci:full",), gh_fails=False),
@@ -1296,11 +1504,13 @@ class NeedsGraphSimulation(unittest.TestCase):
             results[name] = "success" if runs else "skipped"
             return results[name]
 
-        for name in aggregate_jobs():
+        for name in jobs:
             result_of(name)
+        self.all_results.append((event, dict(outputs), fresh, dict(results)))
 
     def test_every_combination_of_changes_outputs(self):
         self.checked = []
+        self.all_results = []
         cache = {}
         combos = 0
         for event in ("pull_request", "push"):
@@ -1369,10 +1579,24 @@ class NeedsGraphSimulation(unittest.TestCase):
                 and not ok
             ):
                 holes.append(f"fails although the PR is docs-only: {label}")
+        for event, outputs, fresh, results in self.all_results:
+            aggregate_passed = results["analyze-and-test"] == "success"
+            for job, result in results.items():
+                if job in aggregate_jobs():
+                    continue
+                want = expected_to_run(job, outputs, aggregate_passed)
+                ran = result == "success"
+                if ran != want:
+                    holes.append(
+                        f"{job} {'ran' if ran else 'skipped'} but "
+                        f"{'should run' if want else 'should skip'}: "
+                        f"event={event} outputs={outputs} fresh={fresh}"
+                    )
+        jobs_covered = len(self.all_results[0][3]) if self.all_results else 0
         print(
             f"\nneeds-graph simulation: {combos} combinations, "
             f"{len(self.checked)} aggregate runs, {skips} passing skips checked, "
-            f"{len(holes)} hits"
+            f"{len(holes)} hits; every one of {jobs_covered} jobs checked"
         )
         self.assertEqual(holes, [])
 

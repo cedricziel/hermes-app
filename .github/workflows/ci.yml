@@ -15,10 +15,13 @@ on:
 # changes what the run must do. Any other label (a bot's, say) queues behind
 # the run in progress instead of cancelling a full run; it then runs with the
 # same label set and so gives the same result (see "Label gate" in the
-# flutter-ci skill for the cost).
+# flutter-ci skill for the cost). A re-run (run_attempt above 1) never cancels:
+# the group is per pull request, so a re-run of a run on a head that was
+# replaced since would otherwise cancel the current head's run. A queued run
+# is still replaced by a newer queued one, re-runs included.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' && ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'ci:full') }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == '1' && ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'ci:full') }}
 
 jobs:
   # Decides which heavy jobs a pull request needs. Push to main and manual runs
@@ -120,6 +123,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -293,6 +297,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_ID: ${{ github.run_id }}
         run: |
+          set -o pipefail
           if [ "$EVENT_NAME" != pull_request ]; then
             exit 0
           fi
@@ -334,6 +339,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -647,6 +653,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_ID: ${{ github.run_id }}
         run: |
+          set -o pipefail
           if [ "$EVENT_NAME" != pull_request ]; then
             exit 0
           fi

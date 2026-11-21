@@ -13,8 +13,15 @@ LABEL = "ci:full"
 RELEASE = "release-please--branches--main--components--hermes-app"
 
 
-def pr(labels, base="main", head="claude/feature"):
-    return ci_gate.decide("pull_request", base, labels, head_ref=head)
+def pr(labels, base="main", head="claude/feature", head_repo="o/r", repo="o/r"):
+    return ci_gate.decide(
+        "pull_request",
+        base,
+        labels,
+        head_ref=head,
+        head_repo=head_repo,
+        repo=repo,
+    )
 
 
 class PullRequestShapes(unittest.TestCase):
@@ -76,6 +83,50 @@ class PullRequestShapes(unittest.TestCase):
         )
 
 
+class MissingHeadAndForks(unittest.TestCase):
+    def test_missing_head_without_label_fails_closed(self):
+        for head in (None, ""):
+            with self.subTest(head=head):
+                self.assertEqual(
+                    pr([], head=head), ("full", ci_gate.REASON_MISSING)
+                )
+
+    def test_missing_head_with_label_is_decided_by_the_label(self):
+        self.assertEqual(pr([LABEL], head=None), ("full", ci_gate.REASON_LABEL))
+
+    def test_missing_head_on_a_stacked_pull_request_is_stacked(self):
+        self.assertEqual(
+            pr([], base="x", head=None), ("full", ci_gate.REASON_STACKED)
+        )
+
+    def test_from_env_without_head_ref_fails_closed(self):
+        env = {"EVENT_NAME": "pull_request", "BASE_REF": "main", "LABELS": ""}
+        self.assertEqual(ci_gate.from_env(env), ("full", ci_gate.REASON_MISSING))
+
+    def test_release_branch_from_a_fork_gets_no_shortcut(self):
+        self.assertEqual(
+            pr([], head=RELEASE, head_repo="fork/r"),
+            ("deferred", ci_gate.REASON_DEFERRED),
+        )
+        self.assertEqual(
+            pr([LABEL], head=RELEASE, head_repo="fork/r"),
+            ("full", ci_gate.REASON_LABEL),
+        )
+
+    def test_release_branch_with_unknown_repos_fails_closed(self):
+        for head_repo, repo in ((None, "o/r"), ("o/r", None), ("", "")):
+            with self.subTest(head_repo=head_repo, repo=repo):
+                self.assertEqual(
+                    pr([], head=RELEASE, head_repo=head_repo, repo=repo),
+                    ("full", ci_gate.REASON_MISSING),
+                )
+
+    def test_release_branch_from_the_same_repo_is_full(self):
+        self.assertEqual(
+            pr([], head=RELEASE), ("full", ci_gate.REASON_RELEASE)
+        )
+
+
 class OtherEvents(unittest.TestCase):
     def test_push(self):
         self.assertEqual(ci_gate.decide("push", "", []), ("full", ci_gate.REASON_EVENT))
@@ -126,7 +177,12 @@ class FailClosed(unittest.TestCase):
 
 class FromEnvironment(unittest.TestCase):
     def test_opened_without_label(self):
-        env = {"EVENT_NAME": "pull_request", "BASE_REF": "main", "LABELS": ""}
+        env = {
+            "EVENT_NAME": "pull_request",
+            "BASE_REF": "main",
+            "HEAD_REF": "claude/feature",
+            "LABELS": "",
+        }
         self.assertEqual(ci_gate.from_env(env), ("deferred", ci_gate.REASON_DEFERRED))
 
     def test_labels_are_one_per_line(self):
@@ -141,6 +197,7 @@ class FromEnvironment(unittest.TestCase):
         env = {
             "EVENT_NAME": "pull_request",
             "BASE_REF": "main",
+            "HEAD_REF": "claude/feature",
             "LABELS": "good first issue",
         }
         self.assertEqual(ci_gate.from_env(env), ("deferred", ci_gate.REASON_DEFERRED))
@@ -180,6 +237,8 @@ class FromEnvironment(unittest.TestCase):
             "EVENT_NAME": "pull_request",
             "BASE_REF": "main",
             "HEAD_REF": RELEASE,
+            "HEAD_REPO": "o/r",
+            "REPO": "o/r",
             "LABELS": "",
         }
         self.assertEqual(ci_gate.from_env(env), ("full", ci_gate.REASON_RELEASE))
@@ -188,6 +247,7 @@ class FromEnvironment(unittest.TestCase):
         env = {
             "EVENT_NAME": "pull_request",
             "BASE_REF": "main",
+            "HEAD_REF": "claude/feature",
             "LABELS": "ci:full \n",
         }
         self.assertEqual(ci_gate.from_env(env), ("deferred", ci_gate.REASON_DEFERRED))
