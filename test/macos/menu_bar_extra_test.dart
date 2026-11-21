@@ -534,7 +534,7 @@ void main() {
       startReply(prompt: 'One');
       await raiseApproval();
       chat.newThread();
-      chat.submit('Two', const []);
+      await chat.submit('Two', const []);
       transport.sends.last.emit(const ApprovalRequested(_approval2));
       await pumpEventQueue();
 

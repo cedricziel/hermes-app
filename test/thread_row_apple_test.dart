@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 
 import 'support/fake_hermes_server.dart';
@@ -55,6 +56,8 @@ void main() {
       tester,
     ) async {
       await pump(tester);
+      tester.view.physicalSize = const Size(393, 852);
+      await tester.pumpAndSettle();
 
       await tester.longPress(title);
       await tester.pumpAndSettle();
@@ -183,10 +186,15 @@ void main() {
   testWidgets('a sheet left open after its row is gone runs nothing', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final actions = <Object>[];
     final present = ValueNotifier(true);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(platform: TargetPlatform.iOS),
         home: Scaffold(
           body: ValueListenableBuilder(

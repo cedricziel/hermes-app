@@ -13,6 +13,7 @@ Run with `--post` as a PostToolUse hook: after a git pull/merge that changed
 lib/l10n/arb/*.arb it runs `flutter gen-l10n` (fail open).
 """
 
+import fnmatch
 import json
 import os
 import re
@@ -94,6 +95,8 @@ class Cmd:
         self.heredocs = []
         self.herestrings = []
         self.piped_from = None
+        self.paren_closed = False  # a `)` ended it: `*.dart)` is a case pattern
+        self.in_case = False  # the text holds a `case ... in ... esac` block
 
 
 def _lex(s, i=0, nested=False):
@@ -274,6 +277,8 @@ def _lex(s, i=0, nested=False):
             end_cmd()
             i += 1
         elif c == ")":
+            end_word()
+            cur.paren_closed = True
             end_cmd()
             if nested:
                 return cmds, i + 1
@@ -940,6 +945,354 @@ def _check_env_words(words):
     return None
 
 
+GH_SEARCH = {"code", "repositories", "issues", "commits", "users"}
+GH_API_VALUED = {
+    "-X",
+    "--method",
+    "-f",
+    "--raw-field",
+    "-F",
+    "--field",
+    "-H",
+    "--header",
+    "-q",
+    "--jq",
+    "-t",
+    "--template",
+    "--input",
+    "--cache",
+    "-p",
+    "--preview",
+    "--hostname",
+}
+GH_API_BOOL = {"--paginate", "--slurp", "-i", "--include", "--silent", "--verbose"}
+GH_BODY_FLAGS = {"-f", "--raw-field", "-F", "--field", "--input"}
+GH_GLOBAL_VALUED = {"-R", "--repo", "--hostname"}
+
+MSG_GH_PREFIX = "Blocked: gh is for search only (fleet rules); "
+MSG_GH_UNPARSED = (
+    "Blocked: gh is for search only (fleet rules), and this command mentions gh in a "
+    "form the guard cannot parse (variable or computed program name, unknown flag). "
+    "Write the `gh api -X GET search/<code|repositories|issues|commits|users>` call "
+    "out in plain words, or use the GitHub MCP tool `mcp__github__…`."
+)
+GH_WORD = re.compile(r"(?<![\w.-])gh(?![\w-])")  # also after a slash: /usr/bin/gh
+GH_RUNNERS = {
+    "find",
+    "parallel",
+    "flock",
+    "setsid",
+    "stdbuf",
+    "ionice",
+    "chroot",
+    "unbuffer",
+    "script",
+    "su",
+    "ssh",
+    "doas",
+    "taskset",
+    "strace",
+    "ltrace",
+    "nsenter",
+}
+
+# (regex on the normalised endpoint, tool, purpose); first match wins.
+GH_API_HINTS = [
+    (
+        r"^repos/[^/]+/[^/]+/pulls/\d+/(comments|reviews)",
+        "pull_request_read",
+        "PR reviews and comments",
+    ),
+    (r"^repos/[^/]+/[^/]+/pulls/\d+", "pull_request_read", "reading a pull request"),
+    (r"^repos/[^/]+/[^/]+/pulls", "list_pull_requests", "listing pull requests"),
+    (
+        r"^repos/[^/]+/[^/]+/issues/\d+",
+        "issue_read",
+        "reading an issue or its comments",
+    ),
+    (r"^repos/[^/]+/[^/]+/issues", "list_issues", "listing issues"),
+    (
+        r"^repos/[^/]+/[^/]+/check-runs|^repos/[^/]+/[^/]+/commits/[^/]+/check",
+        "get_check_run",
+        "check runs",
+    ),
+    (r"^repos/[^/]+/[^/]+/actions/jobs/\d+/logs", "get_job_logs", "job logs"),
+    (r"^repos/[^/]+/[^/]+/actions/runs", "actions_get / actions_list", "workflow runs"),
+    (r"^repos/[^/]+/[^/]+/actions", "actions_list", "workflows"),
+    (r"^repos/[^/]+/[^/]+/commits", "get_commit / list_commits", "commits"),
+    (r"^repos/[^/]+/[^/]+/contents", "get_file_contents", "file contents"),
+    (r"^repos/[^/]+/[^/]+/releases", "list_releases / get_latest_release", "releases"),
+    (r"^repos/[^/]+/[^/]+/(branches|git/refs/heads)", "list_branches", "branches"),
+    (r"^repos/[^/]+/[^/]+/(tags|git/refs/tags)", "list_tags", "tags"),
+    (r"^repos/[^/]+/[^/]+/labels", "get_label", "labels"),
+    (
+        r"^graphql",
+        "pull_request_read` or `mcp__github__issue_read",
+        "GraphQL queries",
+    ),
+]
+GH_SUB_HINTS = {
+    "pr": {
+        "default": ("pull_request_read / list_pull_requests", "reading pull requests"),
+        "create": ("create_pull_request", "opening a pull request"),
+        "merge": ("merge_pull_request", "merging a pull request"),
+        "review": ("pull_request_review_write", "reviews"),
+        "comment": ("add_issue_comment", "comments"),
+        "edit": ("update_pull_request", "editing a pull request"),
+        "close": ("update_pull_request", "closing a pull request"),
+        "checks": ("pull_request_read (get_check_runs)", "checks"),
+    },
+    "issue": {
+        "default": ("issue_read / list_issues", "reading issues"),
+        "create": ("issue_write", "creating an issue"),
+        "edit": ("issue_write", "editing an issue"),
+        "close": ("issue_write", "closing an issue"),
+        "comment": ("add_issue_comment", "comments"),
+    },
+    "run": ("actions_get / actions_list / get_job_logs", "workflow runs and logs"),
+    "workflow": ("actions_list / actions_run_trigger", "workflows"),
+    "release": ("list_releases / get_latest_release / get_release_by_tag", "releases"),
+    "repo": ("create_repository / fork_repository / get_file_contents", "repositories"),
+    "label": ("get_label", "labels"),
+}
+
+
+def _gh_block(tool, what):
+    return "%suse the GitHub MCP tool `mcp__github__%s` for %s." % (
+        MSG_GH_PREFIX,
+        tool,
+        what,
+    )
+
+
+def _gh_api_policy(args):
+    """`args` follows `gh api`. Allow only a GET on search/<kind>."""
+    method = None
+    has_body = False
+    endpoint = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        i += 1
+        if a == "--":
+            endpoint.extend(args[i:])
+            break
+        if not a.startswith("-") or a == "-":
+            endpoint.append(a)
+            continue
+        if a.startswith("--"):
+            key, eq, val = a.partition("=")
+        elif len(a) > 2:
+            if a[:2] not in GH_API_VALUED:
+                return MSG_GH_UNPARSED
+            key, eq, val = a[:2], "x", a[2:].lstrip("=")
+        else:
+            key, eq, val = a, "", ""
+        if key in GH_API_VALUED:
+            if not eq:
+                if i >= len(args):
+                    return MSG_GH_UNPARSED
+                val = args[i]
+                i += 1
+            if key in ("-X", "--method"):
+                method = val
+            if key in GH_BODY_FLAGS:
+                has_body = True
+        elif key in GH_API_BOOL and not eq:
+            pass
+        else:
+            return MSG_GH_UNPARSED
+    if len(endpoint) != 1:
+        return MSG_GH_UNPARSED
+    raw = endpoint[0]
+    if "$" in raw or "`" in raw:
+        return MSG_GH_UNPARSED
+    norm = raw.split("?", 1)[0].split("#", 1)[0].lstrip("/").rstrip("/")
+    is_search = (
+        norm.startswith("search/")
+        and norm[len("search/") :] in GH_SEARCH
+        and not any(c in raw for c in ("%", "\\", "\n"))
+    )
+    if not is_search:
+        for rx, tool, what in GH_API_HINTS:
+            if re.search(rx, norm):
+                return _gh_block(tool, what)
+        return _gh_block(
+            "… (the tool that matches `%s`)" % norm[:60],
+            "this request",
+        )
+    if method is not None and method.upper() != "GET":
+        return "%sgh api may only GET search/<kind>; %s is not allowed." % (
+            MSG_GH_PREFIX,
+            method.upper(),
+        )
+    if has_body and method is None:
+        return (
+            MSG_GH_PREFIX + "`gh api` with -f/-F/--input and no method sends a POST; "
+            "add `-X GET` to search."
+        )
+    return None
+
+
+def _gh_policy(args):
+    """gh is for search only. `args` is argv[1:]; None allows."""
+    i = 0
+    flags = []
+    while i < len(args) and args[i].startswith("-"):
+        a = args[i]
+        i += 1
+        if a in GH_GLOBAL_VALUED and i < len(args):
+            i += 1
+        elif a.split("=", 1)[0] in GH_GLOBAL_VALUED:
+            pass
+        else:
+            flags.append(a)
+    if i >= len(args):
+        if all(f in ("--version", "--help", "-h") for f in flags):
+            return None
+        return MSG_GH_UNPARSED
+    sub, rest = args[i], args[i + 1 :]
+    if "$" in sub or "`" in sub:
+        return MSG_GH_UNPARSED
+    if sub == "help":
+        return None
+    if sub == "api":
+        return _gh_api_policy(rest)
+    if sub == "search":
+        return (
+            MSG_GH_PREFIX
+            + "the gh search subcommand is not allowed; use "
+            + "`gh api -X GET search/<code|repositories|issues|commits|users> -f q=…`."
+        )
+    hint = GH_SUB_HINTS.get(sub)
+    if isinstance(hint, dict):
+        verb = next((r for r in rest if not r.startswith("-")), "")
+        tool, what = hint.get(verb) or hint["default"]
+    elif hint:
+        tool, what = hint
+    else:
+        return (
+            "%sthere is no gh replacement for `gh %s`; use the matching GitHub MCP "
+            "tool `mcp__github__…`, or `gh api -X GET search/<kind>` for search."
+            % (MSG_GH_PREFIX, sub[:30])
+        )
+    return _gh_block(tool, what)
+
+
+GH_RUNNER_VALUED = {"-o", "-i", "-e", "-c", "-n", "-p", "-u", "-s", "-j", "-l", "-E"}
+# Runners that take a whole command line (a remote one, or one built by the tool):
+# any word with basename gh in it is a gh call. Others run the program operand.
+GH_RUNNERS_ANY_WORD = {
+    "parallel", "flock", "chroot", "taskset", "ssh", "nsenter", "strace", "ltrace",
+}
+
+MSG_GH_RUNNER = (
+    "Blocked: gh through a runner isn't allowed in cloud sessions (fleet rules: gh is "
+    "for search only); call `gh api -X GET search/<code|repositories|issues|commits|"
+    "users>` directly or use the GitHub MCP tools `mcp__github__…`."
+)
+
+
+CASE_WORD = re.compile(r"\bcase\b")
+IN_WORD = re.compile(r"\bin\b")
+ESAC_WORD = re.compile(r"\besac\b")
+
+
+def _has_case_block(text):
+    """True when `case`, `in` and `esac` appear as words in that order (three linear scans)."""
+    m = CASE_WORD.search(text)
+    if not m:
+        return False
+    m = IN_WORD.search(text, m.end())
+    return bool(m) and ESAC_WORD.search(text, m.end()) is not None
+
+
+GLOB_CHARS = "*?[{"
+MSG_GH_GLOB = (
+    "Blocked: a program name with a glob pattern isn't allowed in cloud sessions "
+    "(fleet rules: gh is for search only); name the program literally."
+)
+
+
+ARRAY_ASSIGN = re.compile(r"^[A-Za-z_]\w*\[[^]]*\]\+?=")
+GLOB_VAR_REF = re.compile(r"\$\{[^}]*\}|\$\w+")
+
+
+def _glob_prog(word):
+    """A program word with a glob or brace pattern (`/usr/bin/g[h]`).
+
+    Not one: `[` and `[[` (tests), `a[0]=x` (array assignment) and variable
+    references such as `${FLUTTER}` or `${cmd[@]}`. A case pattern is skipped by
+    the caller (the lexer drops its `)`).
+    """
+    if word in ("[", "[[") or ARRAY_ASSIGN.match(word):
+        return False
+    return any(c in GLOB_VAR_REF.sub("", word) for c in GLOB_CHARS)
+
+
+def _has_gh_token(word):
+    """A word, or any whitespace-split part of it (a variable that held `/usr/bin/gh pr`),
+    has basename gh, or is a glob pattern that can match gh."""
+    for t in word.split():
+        b = os.path.basename(t)
+        if b == "gh" or (any(c in b for c in GLOB_CHARS) and fnmatch.fnmatchcase("gh", b)):
+            return True
+    return False
+
+
+def _is_gh_program(words):
+    argv = _strip_prefix(list(words))
+    return bool(argv) and (_has_gh_token(argv[0]) or _glob_prog(argv[0]))
+
+
+def _runner_has_gh(prog, argv):
+    """True when a runner's execution region holds a gh call (cloud sessions)."""
+    words = argv
+    if prog == "find":
+        k = 1
+        while k < len(words):
+            if words[k] in ("-exec", "-execdir", "-ok", "-okdir"):
+                e = k + 1
+                while e < len(words) and words[e] not in (";", "+"):
+                    e += 1
+                if _is_gh_program(words[k + 1 : e]):
+                    return True
+                k = e
+            k += 1
+        return False
+    end = len(words)
+    if prog == "parallel":
+        for k, w in enumerate(words):
+            if w in (":::", "::::"):
+                end = k
+                break
+    if prog in GH_RUNNERS_ANY_WORD:
+        return any(_has_gh_token(w) for w in words[1:end])
+    k = 1
+    while k < end:
+        w = words[k]
+        if w == "--":
+            k += 1
+        elif w.startswith("-") and w != "-":
+            k += 2 if w in GH_RUNNER_VALUED else 1
+        else:
+            return _is_gh_program(words[k:end])
+    return False
+
+
+def _xargs_gh(words):
+    """`xargs` followed by any gh word, in any position."""
+    for k, w in enumerate(words):
+        if os.path.basename(w) == "xargs":
+            return any(_has_gh_token(x) for x in words[k + 1 :])
+    return False
+
+
+def _is_cloud():
+    """Cloud sessions only: anything but exactly "true" is a local session."""
+    return os.environ.get("CLAUDE_CODE_REMOTE") == "true"
+
+
 def _gh_check(argv):
     args = argv[1:]
     if not args:
@@ -963,7 +1316,7 @@ def _gh_check(argv):
                 method = a[2:]
         if method and method.upper() == "DELETE" and any("git/refs" in a for a in args):
             return MSG_DELETE
-    return None
+    return _gh_policy(args) if _is_cloud() else None
 
 
 # ---------------------------------------------------------------- driver
@@ -1043,6 +1396,9 @@ def _check_cmds(cmds, cwd, depth):
     home_set = False
     env = {}
     for cmd in cmds:
+        orig_words = list(cmd.words)
+        orig_prog = _strip_prefix(orig_words)
+        cmd.dyn_prog = bool(orig_prog) and ("$" in orig_prog[0] or "`" in orig_prog[0])
         cmd.words = [_expand(w, env) for w in cmd.words]
         cmd.redirs = [_expand(w, env) for w in cmd.redirs]
         words = cmd.words
@@ -1069,6 +1425,16 @@ def _check_cmds(cmds, cwd, depth):
                 home_set = True
             continue
         prog = os.path.basename(argv[0])
+        if _is_cloud() and _xargs_gh(words):
+            return MSG_GH_RUNNER
+        if (
+            _is_cloud()
+            and not ((cmd.paren_closed or cmd.in_case) and len(cmd.words) == 1)  # case pattern
+            and _glob_prog(argv[0])
+        ):
+            return MSG_GH_GLOB
+        if _is_cloud() and cmd.dyn_prog and _has_gh_token(argv[0]):
+            return MSG_GH_UNPARSED  # computed program whose value holds gh
         m = _check_hermes_home(argv, cmd, cwd, home_set)
         if m:
             return m
@@ -1085,8 +1451,16 @@ def _check_cmds(cmds, cwd, depth):
             m = _check_git(argv, cwd, saw_setup, prefix)
         elif prog == "gh":
             m = _gh_check(argv)
+            if not m and _is_cloud():
+                # judge the words as typed too: a variable that decides the
+                # subcommand or endpoint is not a literal (scope is not modelled)
+                oargv = _strip_prefix(orig_words)
+                if oargv and os.path.basename(oargv[0]) == "gh":
+                    m = _gh_policy(oargv[1:])
         else:
             m = _check_program(argv)
+            if not m and _is_cloud() and prog in GH_RUNNERS and _runner_has_gh(prog, argv):
+                m = MSG_GH_RUNNER
         if m:
             return m
         if depth < 5:
@@ -1108,7 +1482,18 @@ def _check_cmds(cmds, cwd, depth):
 
 def _check(command, cwd, depth):
     cmds, _ = _lex(command)
-    return _check_cmds(cmds, cwd, depth)
+    if _is_cloud() and _has_case_block(command):
+        for cmd in cmds:  # a lone word there may be a case pattern (`*.py|*.sh)`)
+            cmd.in_case = True
+    m = _check_cmds(cmds, cwd, depth)
+    if m is None and _is_cloud() and GH_WORD.search(command):
+        for cmd in cmds:  # fail closed: a computed program name may be gh
+            argv = _strip_prefix(cmd.words)
+            if getattr(cmd, "dyn_prog", False) or (
+                argv and ("$" in argv[0] or "`" in argv[0])
+            ):
+                return MSG_GH_UNPARSED
+    return m
 
 
 def check(command, cwd):

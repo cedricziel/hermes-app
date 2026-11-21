@@ -22,6 +22,8 @@ import 'package:hermes_app/src/files/hermes_files_repository.dart';
 import 'package:hermes_app/src/memory/memory_destination.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
+import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
@@ -382,6 +384,22 @@ void main() {
         for (final r in seen.where(memoryRead))
           if (r.profile != null) r.profile!,
       });
+    });
+
+    test('Schedules: the jobs of the profile the tab opens on '
+        '(SchedulesController, scope as it is on first load)', () async {
+      final controller = SchedulesController(
+        repository: HermesCronRepository(api.raw),
+        profiles: profiles,
+      );
+      addTearDown(controller.dispose);
+      final profilesSent = await sent(() async {
+        await controller.refresh();
+        expect(controller.loaded, isTrue);
+      });
+      // The jobs request names the profile it scopes to; the launch lookup
+      // and the controller's own reads name none.
+      check('Schedules /api/cron/jobs', profilesSent);
     });
 
     test('Watch: the profile the watch names for its chats '

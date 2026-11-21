@@ -815,6 +815,39 @@ void main() {
       });
     });
 
+    test('names a profile other than the launch profile, not the sticky '
+        'default', () async {
+      server.on('GET', '/api/profiles/active', {
+        'active': 'default',
+        'current': 'work',
+      });
+      await baseline.write(_account, {
+        ...seen,
+        'default/job2': DateTime.utc(2026, 9, 20, 8),
+      });
+      jobs([
+        ran('2026-09-21T08:00:00+00:00'),
+        ran('2026-09-21T08:00:00+00:00', id: 'job2', profile: 'default'),
+      ]);
+
+      await refresh(() => [step()]);
+
+      expect(
+        {for (final alert in notifications.shown) alert.title},
+        {'Morning brief', 'Morning brief (default)'},
+      );
+    });
+
+    test('names no profile when the launch profile is unknown', () async {
+      server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404);
+      await baseline.write(_account, seen);
+      jobs([ran('2026-09-21T08:00:00+00:00')]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.single.title, 'Morning brief');
+    });
+
     test('announces a run once across two runs', () async {
       await baseline.write(_account, seen);
       jobs([ran('2026-09-21T08:00:00+00:00')]);

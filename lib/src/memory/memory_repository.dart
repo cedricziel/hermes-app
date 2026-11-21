@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../profiles/profile_resolver.dart';
 import '../telemetry/telemetry.dart';
 import 'memory_usage.dart';
 import '../telemetry/report_bug.dart';
@@ -66,22 +67,25 @@ class MemoryRepository {
   final DefaultApi _api;
   final ConnectionTelemetry telemetry;
 
-  Future<List<MemoryEntry>> load(String profile) => _read('list', () async {
-    final (entries, cards) = await _graph(profile);
-    return List<MemoryEntry>.unmodifiable(
-      await Future.wait([
-        for (final (i, entry) in entries.indexed)
-          _withText(entry, i < cards.length ? cards[i] : null, profile),
-      ]),
-    );
-  });
+  Future<List<MemoryEntry>> load(ResolvedProfile profile) =>
+      _read('list', () async {
+        final (entries, cards) = await _graph(profile);
+        return List<MemoryEntry>.unmodifiable(
+          await Future.wait([
+            for (final (i, entry) in entries.indexed)
+              _withText(entry, i < cards.length ? cards[i] : null, profile),
+          ]),
+        );
+      });
 
   /// How many entries [profile] holds, for the Profiles page; reads the
   /// graph only, not each entry's text.
-  Future<int> count(String profile) =>
+  Future<int> count(ResolvedProfile profile) =>
       _read('count', () async => (await _graph(profile)).$1.length);
 
-  Future<(List<MemoryEntry>, List<Object?>)> _graph(String profile) async {
+  Future<(List<MemoryEntry>, List<Object?>)> _graph(
+    ResolvedProfile profile,
+  ) async {
     final data = (await _api.getLearningGraphApiLearningGraphGet(
       profile: profile,
     )).data;
@@ -117,7 +121,7 @@ class MemoryRepository {
   Future<MemoryEntry> _withText(
     MemoryEntry entry,
     Object? card,
-    String profile,
+    ResolvedProfile profile,
   ) async {
     final body =
         card is Map &&
@@ -143,22 +147,23 @@ class MemoryRepository {
     }
   }
 
-  Future<MemoryLimits> limits(String profile) => _read('limits', () async {
-    final data = (await _api.getConfigApiConfigGet(profile: profile)).data;
-    if (data is! Map) throw MemoryFailure.malformed;
-    final memory = data['memory'];
-    int? limit(String key) {
-      final value = memory is Map ? memory[key] : null;
-      return value is int && value > 0 ? value : null;
-    }
+  Future<MemoryLimits> limits(ResolvedProfile profile) =>
+      _read('limits', () async {
+        final data = (await _api.getConfigApiConfigGet(profile: profile)).data;
+        if (data is! Map) throw MemoryFailure.malformed;
+        final memory = data['memory'];
+        int? limit(String key) {
+          final value = memory is Map ? memory[key] : null;
+          return value is int && value > 0 ? value : null;
+        }
 
-    return MemoryLimits(
-      aboutYou: limit('user_char_limit'),
-      agentNotes: limit('memory_char_limit'),
-    );
-  });
+        return MemoryLimits(
+          aboutYou: limit('user_char_limit'),
+          agentNotes: limit('memory_char_limit'),
+        );
+      });
 
-  Future<MemoryDetail> detail(String id, String profile) =>
+  Future<MemoryDetail> detail(String id, ResolvedProfile profile) =>
       _read('detail', () async {
         final data = (await _api.getLearningNodeApiLearningNodeGet(
           id: id,
@@ -178,7 +183,11 @@ class MemoryRepository {
         );
       });
 
-  Future<void> mutate(String id, String profile, {String? content}) async {
+  Future<void> mutate(
+    String id,
+    ResolvedProfile profile, {
+    String? content,
+  }) async {
     final operation = content == null ? 'delete' : 'save';
     Span? span;
     _quiet(
