@@ -29,6 +29,11 @@ Rules are stated in full in the area's file under `docs/architecture/`.
 
 ## UI
 
-Owned by the style session; filled in a later PR.
+Owned by the style session; the rest is filled in a later PR.
 
-**Keyboard focus ring** (`lib/src/theme/focus_ring.dart`): `focusRingShape` in a button style, `FocusRing` around a row, menu item or segment that a container clips; never a hand-drawn focus border or a raw colour. Rule: keyboard focus only, 2 px in the link colour. See `docs/architecture/settings-screens.md`.
+| Need | Building block | Where | Rule it enforces |
+| --- | --- | --- | --- |
+| A dialog | `showAppDialog` (`barrierDismissible`: null keeps the platform default, false makes the barrier inert everywhere) | `lib/src/widgets/dialog_presentation.dart` | No raw `showDialog` or `showAdaptiveDialog` (`style.dialog`). |
+| A sheet (dialog on a Mac and wide windows) | `showAdaptiveSheet` | `lib/src/widgets/adaptive_sheet.dart` | No raw `showModalBottomSheet` (`style.dialog`). |
+| An iOS action sheet (title, entries, Cancel from `widgetsCancel`) | `showAppActionSheet`, `AppActionSheetEntry` | `lib/src/widgets/app_action_sheet.dart` | `style.dialog` catches a raw `showCupertinoModalPopup` (and the other `show*` dialog calls, `AlertDialog`, `CupertinoAlertDialog`) outside the building-block files; use this helper for an action sheet. |
+| Show keyboard focus on a control | `focusRingShape` / `focusRingShapeOf` in a button style; `FocusRing` around a row, menu item or segment that a container clips | `lib/src/theme/focus_ring.dart` | Keyboard focus only, a 2 px ring in the link colour; never a hand-drawn focus border or a raw colour. `arch.button-shape-without-focus-ring` fails on a button style's own shape without the ring; `arch.focus-ring-keyboard-override` keeps `markFocusRingKeyboardInput` to the catalog and tests (`docs/architecture/settings-screens.md`). |
