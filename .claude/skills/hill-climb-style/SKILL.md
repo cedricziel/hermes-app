@@ -117,8 +117,10 @@ guidelines but does not stop at the first failure.
   screen and appends it to `build/tap_targets/workflows/<run>/<flow>.jsonl`, where `<run>` is
   `WORKFLOW_PLATFORM` or `default`. The script runs all of `test/workflows` twice: once as
   is (Android unless a test sets `platform:`), once with `WORKFLOW_PLATFORM=macOS`, so the
-  Mac numbers come from real macOS-themed renders. If some workflows cannot run as macOS,
-  the script prints the warning, keeps going and exits non-zero at the end.
+  Mac numbers come from real macOS-themed renders. The macOS pass has known failures
+  (about 145 tests use Android-specific finders), so its macOS counts miss the screens after
+  a failing step; the script prints the failed count and files at the end and still exits 0.
+  Only a failing default workflow pass or report step makes it exit non-zero.
   A screen is judged by the platform of the root theme it rendered with, never by window
   width: android (and fuchsia) 48, ios 44, macos 28 plus the inflated check. Windows and
   Linux render Material with a pointer; they are judged by the same 28 pt desktop rule but

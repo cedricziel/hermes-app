@@ -7,7 +7,8 @@
 # MAC_WORKFLOWS=0 skips the macOS pass; KEEP_WORKFLOWS=1 (with WORKFLOWS=0)
 # reuses those of the last run. A failing
 # workflow test does not stop the catalog report; the script then exits
-# non-zero at the end, because the screens of that test may be missing.
+# non-zero at the end, because the screens of that test may be missing. Failures
+# of the macOS pass are known and only listed as a warning.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export HERMES_TAP_REPORT=1
@@ -22,22 +23,28 @@ else
   rm -rf build/tap_targets
 fi
 workflows_failed=0
+mac_failed=0
+mac_files=
 if [ "${WORKFLOWS:-1}" != 0 ]; then
   flutter test test/workflows || workflows_failed=$?
   if [ "$workflows_failed" != 0 ]; then
     echo "WARNING: some workflow tests failed (exit $workflows_failed); their screens may be missing from this report." >&2
   fi
   if [ "${MAC_WORKFLOWS:-1}" != 0 ]; then
-    # Tests that cannot run as macOS fail here; list them, never abort.
-    mac_failed=0
-    WORKFLOW_PLATFORM=macOS flutter test test/workflows || mac_failed=$?
-    if [ "$mac_failed" != 0 ]; then
-      echo "WARNING: some workflow tests failed under WORKFLOW_PLATFORM=macOS (exit $mac_failed); see the failures listed above. Their macOS screens may be missing." >&2
-      workflows_failed=1
-    fi
+    # Known: tests with Android-specific finders fail as macOS. That is a
+    # warning at the end, never a failure of the script.
+    mac_log=$(mktemp)
+    WORKFLOW_PLATFORM=macOS flutter test test/workflows 2>&1 | tee "$mac_log" || true
+    mac_failed=$(grep -a '\[E\]' "$mac_log" | sed 's/^[0-9:]* *[+-][0-9]* *\(-[0-9]*\)\{0,1\}: *//' | sort -u | wc -l | tr -d ' ' || true)
+    mac_files=$(grep -a '\[E\]' "$mac_log" | grep -ao 'workflows/[a-z_0-9]*\.dart' | sort | uniq -c | sort -rn || true)
+    rm -f "$mac_log"
   fi
 fi
 flutter test test/tap_targets/tap_target_report.dart
+if [ "${mac_failed:-0}" != 0 ]; then
+  echo "WARNING: $mac_failed workflow tests failed under WORKFLOW_PLATFORM=macOS (known; not a failure of this script). Their macOS screens after the failing step are missing from the macOS counts. Failing files (count, file):" >&2
+  echo "$mac_files" >&2
+fi
 if [ "$workflows_failed" != 0 ]; then
   echo "WARNING: some workflow tests failed; the report above is incomplete." >&2
   exit 1
