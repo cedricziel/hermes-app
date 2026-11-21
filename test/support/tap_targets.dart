@@ -333,7 +333,8 @@ Future<TapSample> measureWorkflowScreen(
 /// A run with `WORKFLOW_PLATFORM` set records only the screens whose theme
 /// really has that platform: tests that ignore the variable (or pin their own
 /// `platform:`) already ran in the default pass and are not counted twice.
-/// [dir] and [run] default to `HERMES_TAP_DIR` and `WORKFLOW_PLATFORM`.
+/// [dir] and [run] default to `HERMES_TAP_DIR` and `WORKFLOW_PLATFORM`; pass
+/// [run] as [defaultRun] to record as the default run whatever the variable.
 Future<void> recordWorkflowScreen(
   WidgetTester tester,
   String flow,
@@ -342,6 +343,7 @@ Future<void> recordWorkflowScreen(
   String? run,
 }) async {
   run ??= Platform.environment['WORKFLOW_PLATFORM'];
+  if (run == defaultRun) run = null;
   final sample = await measureWorkflowScreen(tester, '$flow/$step');
   if (run != null && sample.rendered != run) return;
   final file = File(
@@ -354,6 +356,13 @@ Future<void> recordWorkflowScreen(
   );
 }
 
+/// The run folder of a pass without `WORKFLOW_PLATFORM`.
+const defaultRun = 'default';
+
+/// Every recorded workflow screen. A screen of another run that the default
+/// run already holds (same source, same rendered platform: a test that pins
+/// its own `platform:` renders the same in both passes) is dropped, so it
+/// counts once.
 List<TapSample> readWorkflowSamples({String? dir}) {
   final root = Directory('${dir ?? tapReportDir}/workflows');
   if (!root.existsSync()) return [];
@@ -364,11 +373,30 @@ List<TapSample> readWorkflowSamples({String? dir}) {
           .where((f) => f.path.endsWith('.jsonl'))
           .toList()
         ..sort((a, b) => a.path.compareTo(b.path));
+  String runOf(File f) => f.parent.uri.pathSegments.lastWhere(
+    (s) => s.isNotEmpty,
+    orElse: () => defaultRun,
+  );
+  final byRun = <String, List<TapSample>>{};
+  for (final f in files) {
+    for (final line in f.readAsLinesSync()) {
+      if (line.isEmpty) continue;
+      byRun
+          .putIfAbsent(runOf(f), () => [])
+          .add(
+            TapSample.fromJson(
+              (jsonDecode(line) as Map).cast<String, Object?>(),
+            ),
+          );
+    }
+  }
+  final base = byRun.remove(defaultRun) ?? const <TapSample>[];
+  final held = {for (final s in base) '${s.source}  ${s.rendered}'};
   return [
-    for (final f in files)
-      for (final line in f.readAsLinesSync())
-        if (line.isNotEmpty)
-          TapSample.fromJson((jsonDecode(line) as Map).cast<String, Object?>()),
+    ...base,
+    for (final run in byRun.keys.toList()..sort())
+      for (final s in byRun[run]!)
+        if (!held.contains('${s.source}  ${s.rendered}')) s,
   ];
 }
 

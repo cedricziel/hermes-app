@@ -118,8 +118,10 @@ guidelines but does not stop at the first failure.
   `WORKFLOW_PLATFORM` or `default`. The script runs all of `test/workflows` twice: once as
   is (Android unless a test sets `platform:`), once with `WORKFLOW_PLATFORM=macOS`, so the
   Mac numbers come from real macOS-themed renders: the macOS pass records only screens whose
-  theme platform is macOS, so tests that ignore `WORKFLOW_PLATFORM` or pin their own
-  `platform:` count once, from the default pass. The macOS pass has known failures
+  theme platform is macOS, so tests that ignore `WORKFLOW_PLATFORM` count once, from the
+  default pass; a test that pins `platform: macOS` is recorded in both passes and the reader
+  drops the macOS pass's copy of any screen (same source, same rendered platform) the default
+  pass already holds. The macOS pass has known failures
   (about 145 tests use Android-specific finders), so its macOS counts miss the screens after
   a failing step; the script prints the failed count and files at the end and still exits 0.
   Only a failing default workflow pass or report step makes it exit non-zero.

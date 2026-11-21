@@ -228,7 +228,13 @@ void main() {
     final dir = Directory.systemTemp.createTempSync('tap_runs');
     addTearDown(() => dir.deleteSync(recursive: true));
     await pumpAt(tester, TargetPlatform.android);
-    await recordWorkflowScreen(tester, 'a', '01', dir: dir.path);
+    await recordWorkflowScreen(
+      tester,
+      'a',
+      '01',
+      dir: dir.path,
+      run: defaultRun,
+    );
     await pumpAt(tester, TargetPlatform.macOS);
     await recordWorkflowScreen(tester, 'a', '02', dir: dir.path, run: 'macOS');
     final samples = readWorkflowSamples(dir: dir.path);
@@ -246,6 +252,29 @@ void main() {
     expect(readWorkflowSamples(dir: dir.path), isEmpty);
     await pumpAt(tester, TargetPlatform.macOS);
     await recordWorkflowScreen(tester, 'a', '02', dir: dir.path, run: 'macOS');
+    expect(readWorkflowSamples(dir: dir.path), hasLength(1));
+  });
+
+  testWidgets('a screen a test pins to macOS counts once across both runs', (
+    tester,
+  ) async {
+    final dir = Directory.systemTemp.createTempSync('tap_runs');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    await pumpAt(tester, TargetPlatform.macOS);
+    await recordWorkflowScreen(
+      tester,
+      'mac',
+      '01',
+      dir: dir.path,
+      run: defaultRun,
+    );
+    await recordWorkflowScreen(
+      tester,
+      'mac',
+      '01',
+      dir: dir.path,
+      run: 'macOS',
+    );
     expect(readWorkflowSamples(dir: dir.path), hasLength(1));
   });
 }
