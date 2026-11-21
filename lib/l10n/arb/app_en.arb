@@ -2196,6 +2196,18 @@
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
   },
+  "chatWidgetsThreadListRefreshFailedDetail": "Pull down to try again.",
+  "@chatWidgetsThreadListRefreshFailedDetail": {
+    "description": "Detail under the title of the notice above the chat list after a pull to refresh failed; the list stays as it was and nothing is retried on its own."
+  },
+  "chatWidgetsThreadListRefreshFailedTitle": "Couldn't refresh your chats.",
+  "@chatWidgetsThreadListRefreshFailedTitle": {
+    "description": "Title of the notice above the chat list when reading the first page of chats again, by pulling the list down, failed."
+  },
+  "chatWidgetsThreadListRefreshing": "Refreshing chats",
+  "@chatWidgetsThreadListRefreshing": {
+    "description": "Screen reader announcement of the spinner shown while the chat list is read again after a pull to refresh."
+  },
   "chatWidgetsToolValueCopied": "Copied",
   "@chatWidgetsToolValueCopied": {
     "description": "Shown for two seconds on the Copy button of a tool call's input or result after it was copied, and announced to screen readers."
