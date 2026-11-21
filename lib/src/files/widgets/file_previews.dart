@@ -431,6 +431,11 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
         child: SelectionArea(
           child: AppMarkdownTheme(
             child: GptMarkdown(
+              // A new budget is a new document: every fence is built anew and
+              // takes its share again. AppMarkdownTheme keeps finished blocks
+              // from rebuilding, so without this key the fences of the old
+              // text would keep their colours beside a full budget of new ones.
+              key: ObjectKey(_budget),
               // The reference pass runs last: inertMarkdown collapses links and
               // images to their text and can join an unfinished reference to a
               // semicolon.
