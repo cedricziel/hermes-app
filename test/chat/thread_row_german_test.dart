@@ -96,7 +96,8 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('the iPad popover is German', (tester) async {
+  testWidgets('the iPad popover is German and named', (tester) async {
+    final handle = tester.ensureSemantics();
     await pumpRow(tester, size: const Size(1024, 768));
 
     await tester.longPress(find.text('Row'));
@@ -110,6 +111,11 @@ void main() {
         reason: label,
       );
     }
+    expect(
+      find.bySemanticsLabel('Chat-Aktionen für Release notes'),
+      findsOneWidget,
+    );
+    handle.dispose();
   });
 
   testWidgets('a Bot Chat popover has no Rename and offers Retire', (
@@ -251,7 +257,10 @@ void main() {
 
     final items = find.byType(CupertinoMenuItem);
 
-    testWidgets('every item and the tooltip are German', (tester) async {
+    testWidgets('every item, the tooltip and the name are German', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
       await pumpButton(
         tester,
         thread: ChatThread(
@@ -262,6 +271,10 @@ void main() {
         ),
       );
       expect(find.byTooltip('Chat-Aktionen'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Chat-Aktionen für Release notes'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byTooltip('Chat-Aktionen'));
       await tester.pumpAndSettle();
@@ -281,6 +294,35 @@ void main() {
           reason: label,
         );
       }
+      handle.dispose();
+    });
+
+    testWidgets('Delete asks in German', (tester) async {
+      await pumpButton(
+        tester,
+        thread: ChatThread(
+          id: 's1',
+          title: 'Release notes',
+          updatedAt: DateTime(2026),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(of: items, matching: find.text('Löschen')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Diesen Chat löschen?'), findsOneWidget);
+      expect(
+        find.text(
+          '„Release notes“ und die Nachrichten darin werden endgültig gelöscht.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Abbrechen'), findsOneWidget);
+      expect(find.text('Löschen'), findsOneWidget);
     });
 
     testWidgets('a Bot Chat offers Retire, and its confirmation is German', (

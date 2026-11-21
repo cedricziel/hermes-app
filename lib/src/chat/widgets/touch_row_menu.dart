@@ -75,6 +75,13 @@ class _TouchRowMenuState extends State<TouchRowMenu> {
     return CupertinoMenuAnchor(
       controller: _menu,
       menuChildren: [
+        // The anchor scopes the open menu as a route but names it nothing; this
+        // first, empty node is what a screen reader announces as its name.
+        Semantics(
+          container: true,
+          label: l10n.chatWidgetsThreadMenuLabel(widget.title),
+          child: const SizedBox.shrink(),
+        ),
         if (!widget.canonical)
           item(ThreadAction.rename, l10n.chatWidgetsThreadMenuRename),
         item(

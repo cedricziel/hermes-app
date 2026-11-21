@@ -76,10 +76,18 @@ void main() {
     );
     expect(menu.width, lessThan(300));
     expect(
-      (menu.top - rowRect.top).abs(),
-      lessThan(rowRect.height + 24),
-      reason: 'the menu starts level with the row',
+      menu.left,
+      closeTo(rowRect.right, 1),
+      reason: "the menu opens at the row's trailing edge",
     );
+    expect(menu.top, closeTo(rowRect.top, 1), reason: 'level with the row');
+    final handle = tester.ensureSemantics();
+    expect(
+      find.bySemanticsLabel('Chat actions for Release notes'),
+      findsOneWidget,
+      reason: 'the open menu is named',
+    );
+    handle.dispose();
   });
 
   testWidgets('a secondary click opens the menu at the pointer', (
