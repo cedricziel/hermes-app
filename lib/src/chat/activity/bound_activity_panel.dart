@@ -337,13 +337,18 @@ class BoundActivityPanel extends StatelessWidget {
                 recalls: state?.memoryRecalls ?? const [],
                 earlierRecallsOmitted: state?.earlierRecallsOmitted ?? false,
                 reviewNotes: reviewNotes,
-                onOpenMemory: chat.repository == null || chat.profile == null
+                onOpenMemory:
+                    chat.repository == null ||
+                        chat.profileResolver?.resolve(chat.profile) == null
                     ? null
                     // Over the whole app, not inside the panel's own pages.
                     : () => Navigator.of(context, rootNavigator: true).push(
                         MaterialPageRoute<void>(
-                          builder: (_) =>
-                              MemoryDestination(profile: chat.profile),
+                          builder: (_) => MemoryDestination(
+                            profile: chat.profileResolver
+                                ?.resolve(chat.profile)
+                                ?.name,
+                          ),
                         ),
                       ),
               ),
