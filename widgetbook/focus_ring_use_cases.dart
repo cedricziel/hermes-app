@@ -169,7 +169,11 @@ class _OpenMenuState extends State<_OpenMenu> {
                 null,
           )
           .toList();
-      if (items.length > 1) items[1].requestFocus();
+      if (items.length > 1) {
+        // A click on an earlier example must not hide this one's ring.
+        markFocusRingKeyboardInput();
+        items[1].requestFocus();
+      }
       await menu;
     });
   }
