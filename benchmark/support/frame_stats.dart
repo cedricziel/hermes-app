@@ -119,6 +119,11 @@ class FrameLog {
     build.add(lap());
     // The rest of the frame: layout, compositing bits and paint. A list builds
     // its items while it lays out, so the tally runs through this part too.
+    // A pump does nothing when no frame is scheduled, and a build that left
+    // nothing dirty schedules none; scheduling one here makes the second pump
+    // run the pipeline in every recorded frame, so no frame's layout and
+    // paint is left for the next frame's lap.
+    tester.binding.scheduleFrame();
     await tester.pump(Duration.zero);
     layout.add(lap());
     debugOnRebuildDirtyWidget = null;

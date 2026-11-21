@@ -42,7 +42,9 @@ the benchmark.
   thread build, layout, paint) of the frames made while the measured pumps ran.
   Use this for absolute numbers. `raster_*` is reported beside it; under Xvfb the
   Linux embedder reports it as 0, so ignore it. Frame counts exceed the pump
-  count (the engine makes extra frames), which dilutes p50, not max or p95.
+  count (the engine makes extra, mostly cheap frames), which lowers p50 and p95
+  too; only `max` is immune. Compare p50 and p95 only between runs of the same
+  scenario, where the extra frames are alike.
 
 ## Reading results
 
@@ -50,8 +52,8 @@ the benchmark.
 `p95`/`p50` describe the steady cost; `>16`/`>100` count frames over those ms.
 The first frames of each stream are warm-up and left out. `extra` fields:
 `slowest` (index of the three worst frames among the measured ones, to find the
-step of the script), `pumps`, `open_wall_ms` (s5a: real ms from mount to the
-newest message on screen), `disclosures_opened` (s3).
+step of the script), `pumps`, `open_wall_ms` (s5a: real ms from the mount frame to the
+newest message on screen, before the settle), `disclosures_opened` (s3).
 
 `CHAT_BENCH_PHASES=1` (test mode only) splits each frame into event handling,
 build, and layout+paint, and counts the elements rebuilt per frame by widget
@@ -67,8 +69,8 @@ AB=${CHAT_BENCH_AB:-${TMPDIR:-/tmp}/hermes-chat-ab}    # scratch dir, outside th
 mkdir -p "$AB" && git worktree add --detach "$AB/base" origin/main   # baseline
 # candidate = this checkout
 for i in 1 2 3 4 5; do
-  (cd "$AB/base" && flutter pub get >/dev/null && CHAT_BENCH_DIR="$AB/base-$i" scripts/chat-bench.sh --mode test 1 "$FILTER")
-  CHAT_BENCH_DIR="$AB/cand-$i" scripts/chat-bench.sh --mode test 1 "$FILTER"
+  (cd "$AB/base" && flutter pub get >/dev/null && CHAT_BENCH_DIR="$AB/base-$i" scripts/chat-bench.sh --mode test 1 "$FILTER") || exit 1
+  CHAT_BENCH_DIR="$AB/cand-$i" scripts/chat-bench.sh --mode test 1 "$FILTER" || exit 1
 done
 python3 -I scripts/chat_bench_aggregate.py "$AB/base.json" "$AB"/base-*/test/run-1.json
 python3 -I scripts/chat_bench_aggregate.py "$AB/cand.json" "$AB"/cand-*/test/run-1.json
@@ -79,22 +81,27 @@ Same machine, nothing else running, one test process at a time. Measure one
 benchmark at a time on a machine: wrap runs in `flock -o <lockfile> scripts/chat-bench.sh ...`
 (`-o` keeps a background child from inheriting the lock). Compare the
 medians; treat a difference as real only when it is larger than about twice the
-CV of that scenario and statistic (below). Copy `benchmark/` and
-`scripts/chat-bench.sh` into the baseline worktree if it predates them. Confirm
+CV of that scenario and statistic (below). Copy `benchmark/`,
+`scripts/chat-bench.sh` and `scripts/chat_bench_aggregate.py` into the baseline worktree if it predates them. Confirm
 the winner in profile mode before claiming a speed-up.
 
-## Noise (this machine: 10 test runs, 5 profile runs)
+## Noise (measured at b3d73a50: 3 test runs, 5 profile runs)
 
-CV of the per-run value, across runs:
+CV of the per-run value, across runs, on this machine:
 
-- test mode: the median of the per-run `max` is stable (4-13 %) for `s1`,
-  `s2b-fences-300/1000`, `s3`, `s4a`, `s4b`, `s5a`; `p95` is 4-17 % there. `max`
-  is one GC or JIT hiccup (24-200 %) in `s2-code-blocks`, `s2b-fences-100`, `s5b`,
-  `s6`, `s7`: use `p95` and `p50` (6-27 %) for those.
-- profile mode: `max` CV 7-22 %, `p95` 3-23 %, `p50` steadier. Heaviest and most
-  repeatable: `s2b-fences-1000` (max 10 %, p95 5-6 %), `s4b` (7 %, 4-7 %), `s2-code-blocks`
-  (8-14 %, 3-4 %). Noisiest: `s6`, `s5a`, `s4a`, `s3` (20-30 % on p95).
-- No scenario is under 10 % on every statistic with 5 runs, so: run 5-10, compare
+- test mode (3 runs): `max` CV is 3-15 % for `s1`, `s2-code-blocks`,
+  `s2b-fences-300/1000`, `s4a`, `s4b`, `s6`, `s7` and `s5b` desktop; `p95` CV is
+  1-21 % there. `max` is one GC or JIT hiccup on `s2b-fences-100` (46-67 %),
+  `s5a` phone (94 %) and `s5b` phone (143 %): read `p95` and `p50` for those
+  (`s5a` is three frames, so its `p95` is its `max`). `s3` p95 varies a lot
+  when the machine is shared (11-28 % in the full run, phone median 1,493 ms),
+  and not alone (4-6 %, phone median 739 ms, `test 3 s3`): rerun it alone
+  under `flock`.
+- profile mode (5 runs): `max` CV is 3-31 % and `p95` CV 3-16 %; `p50` is
+  steadier. Steadiest: `s4a` (max 3-9 %), `s2-code-blocks` (4-11 %, p95 3-8 %),
+  `s6` p95 (5-15 %). Noisiest `max`: `s4b` phone (31 %), `s6` (22-31 %),
+  `s2b-fences-100/1000` (12-22 %).
+- Few scenarios are under 10 % on every statistic, so: run 5-10, compare
   medians, interleave, and ask for a difference above twice the CV.
 
 ## Traps
