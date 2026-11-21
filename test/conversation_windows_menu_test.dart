@@ -326,4 +326,41 @@ void main() {
     await tester.pump();
     expect(edit.value.selectAll, isTrue);
   });
+
+  testWidgets('signing out while the quick panel is shown turns the Edit '
+      'items back on', (tester) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await windows.togglePanel();
+    await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    await windows.closeAll();
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+  });
 }

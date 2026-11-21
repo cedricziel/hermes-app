@@ -294,8 +294,9 @@ class ConversationWindows extends ChangeNotifier {
   String? _keyWindowId;
 
   /// Whether the quick panel is shown, and so key: the native panel is made
-  /// key when shown and hides itself when it loses focus. It reports shown
-  /// and hidden, not key changes, so those stand for them.
+  /// key when shown and hides itself when it loses focus, except while it is
+  /// held (then it stays up with no event until the hold ends). It reports
+  /// shown and hidden, not key changes, so those stand for them.
   bool get quickPanelKey => _panelKey;
   bool _panelKey = false;
 
