@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../api/hermes_api_client.dart';
-import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
+import '../profiles/profile_resolver.dart';
 import 'files_failure.dart';
 import 'files_models.dart';
 import 'files_source.dart';
@@ -17,7 +17,7 @@ const kLargeDownloadBytes = 50 * 1024 * 1024;
 /// Reads a chat's working folder from the server over `/api/fs/*`: the
 /// folder listing, a file's text and a streamed download.
 ///
-/// Every request names its [profile] (`default` for none) except [probe].
+/// Every request names its [profile] except [probe].
 /// Paths are only ever the absolute ones the server returned, passed to the
 /// generated client as query parameters, never joined into a URL, and with
 /// [highestFolder] set none outside it is requested. Responses are untyped
@@ -30,14 +30,13 @@ const kLargeDownloadBytes = 50 * 1024 * 1024;
 class HermesFilesRepository implements FilesSource {
   HermesFilesRepository(
     this._client, {
-    String? profile,
+    required this.profile,
     FilesTelemetry? telemetry,
     this.idleTimeout = const Duration(seconds: 30),
-  }) : profile = profile ?? kDefaultProfile,
-       _telemetry = telemetry ?? FilesTelemetry();
+  }) : _telemetry = telemetry ?? FilesTelemetry();
 
   final HermesApiClient _client;
-  final String profile;
+  final ResolvedProfile profile;
   final FilesTelemetry _telemetry;
 
   /// How long a download may go without a chunk.
@@ -53,16 +52,8 @@ class HermesFilesRepository implements FilesSource {
   /// What it answers is thrown away: the folder belongs to whichever profile
   /// is active on the server. 404 and 405 are [FilesUnsupported], logged once
   /// per [FilesTelemetry]; any other failure is not "unsupported".
-  Future<FilesResult<void>> probe({CancelToken? cancelToken}) async {
-    final result = await _get<void>(
-      () =>
-          _client.raw.fsDefaultCwdApiFsDefaultCwdGet(cancelToken: cancelToken),
-      (_) => const FilesOk(null),
-      unsupportedOnMissing: true,
-    );
-    if (result is FilesUnsupported) _telemetry.unsupported();
-    return result;
-  }
+  Future<FilesResult<void>> probe({CancelToken? cancelToken}) =>
+      probeFiles(_client, telemetry: _telemetry, cancelToken: cancelToken);
 
   /// `GET /api/fs/default-cwd?profile=`: the start folder of a chat that has
   /// no stored folder yet. A local profile gets the dashboard's own folder.
@@ -344,5 +335,29 @@ class HermesFilesRepository implements FilesSource {
         mimeType: mime is String && mime.isNotEmpty ? mime : null,
       ),
     );
+  }
+}
+
+/// Whether the server has the `/api/fs` routes, by `GET /api/fs/default-cwd`
+/// sent without a profile: it needs none, and it is asked before any is
+/// known. See [HermesFilesRepository.probe].
+Future<FilesResult<void>> probeFiles(
+  HermesApiClient client, {
+  FilesTelemetry? telemetry,
+  CancelToken? cancelToken,
+}) async {
+  try {
+    await client.raw.fsDefaultCwdApiFsDefaultCwdGet(cancelToken: cancelToken);
+    return const FilesOk(null);
+  } on DioException catch (error) {
+    final status = error.response?.statusCode;
+    final kind = filesFailureForDio(error, fileRoute: false);
+    if (status == 405 || (status == 404 && kind == FilesFailure.missing)) {
+      (telemetry ?? FilesTelemetry()).unsupported();
+      return const FilesUnsupported();
+    }
+    return FilesFailed(kind);
+  } on Object {
+    return const FilesFailed(FilesFailure.unreadable);
   }
 }

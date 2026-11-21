@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
@@ -136,7 +137,7 @@ void main() {
     final screen = BotScreenController(
       BotScreenRepository(transport.requestKeepingConnection),
       transport.connectionEvents,
-      profile: 'work',
+      profile: resolvedProfile('work'),
       installs: installs,
     );
     controllers.add(screen);

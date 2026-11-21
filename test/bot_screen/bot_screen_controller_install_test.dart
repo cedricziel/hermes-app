@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_card_model.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
@@ -23,7 +24,7 @@ void main() {
       BotScreenController(
         BotScreenRepository(transport.requestKeepingConnection),
         transport.connectionEvents,
-        profile: 'work',
+        profile: resolvedProfile('work'),
         installs: withInstalls ? installs : null,
       );
 
@@ -144,7 +145,7 @@ void main() {
 
   test('an install of another profile is not shown', () async {
     final screen = await watched();
-    await installs.start('other', profileKey: '/other');
+    await installs.start(resolvedProfile('other'), profileKey: '/other');
     await settle();
 
     expect(screen.install, isNull);
@@ -168,7 +169,7 @@ void main() {
     expect(second.status?.installed, isFalse);
 
     // Another profile's install changes the installs, which tells everyone.
-    await installs.start('other', profileKey: '/other');
+    await installs.start(resolvedProfile('other'), profileKey: '/other');
     await settle();
 
     expect(second.status?.installed, isFalse);

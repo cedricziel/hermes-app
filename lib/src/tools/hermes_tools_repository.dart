@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart' show Span;
 import 'package:hermes_api/hermes_api.dart';
 
+import '../profiles/profile_resolver.dart';
 import '../telemetry/telemetry.dart';
 import 'tools_models.dart';
 import 'tools_write.dart' show quietly;
@@ -85,7 +86,7 @@ class HermesToolsRoot {
   final ConnectionTelemetry telemetry;
 
   /// The tools of [profile].
-  HermesToolsRepository forProfile(String profile) =>
+  HermesToolsRepository forProfile(ResolvedProfile profile) =>
       HermesToolsRepository(_api, profile: profile, telemetry: telemetry);
 }
 
@@ -112,7 +113,7 @@ class HermesToolsRepository {
   final DefaultApi _api;
 
   /// The profile every call acts on.
-  final String profile;
+  final ResolvedProfile profile;
   final ConnectionTelemetry telemetry;
 
   Future<ToolsResult<ToolsetList>> list() async {

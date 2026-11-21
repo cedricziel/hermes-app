@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -115,7 +116,11 @@ void main() {
       },
     );
 
-    await repository.moveWorkspace('s1', _bidi);
+    await repository.moveWorkspace(
+      profile: resolvedProfile('default'),
+      's1',
+      _bidi,
+    );
 
     expect(sent.single['cwd'], _bidi);
   });

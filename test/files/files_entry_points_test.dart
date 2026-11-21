@@ -149,7 +149,13 @@ void main() {
     testWidgets('a new chat opens at the catalog folder of its profile', (
       tester,
     ) async {
+      // This models a server with no profile routes, so the chat names no
+      // profile and New chat starts at once. A server that answers
+      // /api/profiles/active but not /api/profiles is not a real one: with a
+      // profile the chat first asks which profile the new chat is for.
       server
+        ..on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404)
+        ..on('GET', '/api/profiles', {'detail': 'x'}, status: 404)
         ..on('GET', '/api/chat/workspaces', {
           'projects': [],
           'repos': [],
