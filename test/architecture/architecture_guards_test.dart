@@ -25,6 +25,7 @@ Rule _guard({
   String root = 'lib',
   String Function(SourceFile) view = _text,
   Map<String, String> allow = const {},
+  Map<String, ExactAllow> exact = const {},
   bool Function(SourceFile)? where,
 }) {
   List<Hit>? hits;
@@ -35,13 +36,56 @@ Rule _guard({
     allow: allow.keys,
     where: where,
   );
+  if (exact.isNotEmpty) {
+    _exactChecks['arch.$name'] = (
+      allowed: {for (final e in exact.entries) e.key: e.value.count},
+      counts: () => countByPath(run()),
+    );
+  }
   return Rule(
     id: 'arch.$name',
     message: message,
-    scan: () => countByPath(run()),
+    scan: () {
+      final counts = countByPath(run());
+      // A file within its exact allowance is clean; above it, every hit of
+      // the file is reported.
+      return {
+        for (final e in counts.entries)
+          if (e.value > (exact[e.key]?.count ?? 0)) e.key: e.value,
+      };
+    },
     locate: (path) => hitLines(run(), path),
   );
 }
+
+/// How many hits of a guard one file may keep, and why. Exact: a file above
+/// it fails, and so does a file below it, so the list shrinks with the code.
+class ExactAllow {
+  const ExactAllow(this.count, this.reason);
+  final int count;
+  final String reason;
+}
+
+/// The exact allowances of the guards that have them, by rule id.
+final _exactChecks =
+    <
+      String,
+      ({Map<String, int> allowed, Map<String, int> Function() counts})
+    >{};
+
+/// The files that have fewer hits than their exact allowance: the list must
+/// shrink with them.
+List<String> exactShortfalls(
+  String id,
+  Map<String, int> actual,
+  Map<String, int> allowed,
+) => [
+  for (final e in allowed.entries)
+    if ((actual[e.key] ?? 0) < e.value)
+      '$id: ${e.key} has ${actual[e.key] ?? 0}, its allowance is '
+          '${e.value}. Shrink the allowlist to ${actual[e.key] ?? 0}'
+          '${(actual[e.key] ?? 0) == 0 ? ' (remove the entry)' : ''}.',
+];
 
 /// A guard with its own scan.
 Rule _custom({
@@ -390,6 +434,59 @@ final guardRules = <Rule>[
     },
   ),
 
+  // docs/architecture/app-shell.md: the launch profile comes from
+  // ProfileResolver; `active` of /api/profiles/active is the sticky CLI
+  // default.
+  _guard(
+    name: 'sticky-active-profile',
+    message:
+        'ask the launch profile with repositories.profiles.resolver.load(), '
+        'not loadActive() (the sticky active profile).',
+    pattern: RegExp(r'\bloadActive\('),
+    view: _code,
+    exact: {
+      'lib/src/profiles/hermes_profiles_repository.dart': ExactAllow(
+        2,
+        'defines loadActive and reads it in load() for the Profiles page',
+      ),
+    },
+  ),
+
+  // docs/architecture/app-shell.md: a missing profile is resolved, never
+  // named by hand. Limit: it sees `<x>profile ?? 'default'` only, not a
+  // ternary (`profile == null ? 'default' : ...`) or another variable name.
+  _guard(
+    name: 'default-profile-fallback',
+    message:
+        'resolve a missing profile with ProfileResolver.resolve; do not '
+        'write `profile ?? kDefaultProfile` or `profile ?? \'default\'`.',
+    pattern: RegExp(
+      r"""[pP]rofile\w*\s*\?\?\s*(?:kDefaultProfile|['"]default['"])""",
+    ),
+    exact: {
+      'lib/src/chat/chat_controller.dart': ExactAllow(
+        1,
+        'compares with a stored pending request; requests nothing',
+      ),
+      'lib/src/chat/chat_controller_voice.dart': ExactAllow(
+        1,
+        'key of the stop hand-backs',
+      ),
+      'lib/src/chat/chat_screen_navigation.dart': ExactAllow(
+        1,
+        'label of the connect card; requests nothing',
+      ),
+      'lib/src/providers/providers_screen.dart': ExactAllow(
+        1,
+        'label for a server without profiles',
+      ),
+      'lib/src/surfaces/surface_snapshot_builder.dart': ExactAllow(
+        2,
+        'open profile of a snapshot; stores none, no request carries it',
+      ),
+    },
+  ),
+
   // CLAUDE.md "Server care": doctor never runs with --fix.
   _custom(
     name: 'doctor-fix',
@@ -492,6 +589,29 @@ final guardRules = <Rule>[
 
 void main() {
   ratchetTests(guardRules, namespace: 'arch');
+
+  group('exact allowlists', () {
+    test('a file below its allowance must shrink the allowlist', () {
+      for (final entry in _exactChecks.entries) {
+        expect(
+          exactShortfalls(entry.key, entry.value.counts(), entry.value.allowed),
+          isEmpty,
+          reason: 'lower or remove the ExactAllow entry in this file',
+        );
+      }
+    });
+
+    test('exactShortfalls names a file that fell below or to zero', () {
+      expect(exactShortfalls('arch.x', {'a.dart': 1}, {'a.dart': 2}), [
+        'arch.x: a.dart has 1, its allowance is 2. Shrink the allowlist to 1.',
+      ]);
+      expect(exactShortfalls('arch.x', {}, {'a.dart': 1}), [
+        'arch.x: a.dart has 0, its allowance is 1. Shrink the allowlist to 0 '
+            '(remove the entry).',
+      ]);
+      expect(exactShortfalls('arch.x', {'a.dart': 2}, {'a.dart': 2}), isEmpty);
+    });
+  });
 
   group('error-interpolation scan', () {
     int count(String body) =>

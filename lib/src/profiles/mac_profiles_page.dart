@@ -183,7 +183,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         () => MemoryRepository(
           repositories.api.raw,
           telemetry: repositories.telemetry,
-        ).count(name),
+        ).count(repositories.profiles.resolver.named(name)),
       ),
       count(
         ProfileSection.mcp,
@@ -232,7 +232,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     final snapshot = await MemoryProposalsRepository(
       MemoryProposalSession(transport),
       telemetry: repositories.telemetry,
-    ).load(name);
+    ).load(repositories.profiles.resolver.named(name));
     if (!mounted || generation != _generation) return;
     setState(() {
       switch (snapshot.waiting) {

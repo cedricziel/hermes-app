@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/memory/memory_provider.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_settings_repository.dart';
@@ -21,7 +22,7 @@ void main() {
     test('an empty active provider is the built-in store', () async {
       final server = FakeHermesServer()
         ..on('GET', '/api/memory', memoryStatus());
-      final status = await repository(server).status('work');
+      final status = await repository(server).status(resolvedProfile('work'));
       expect(status.state, MemoryProviderState.builtin);
       expect(status.name, isNull);
       expect(server.requestsTo('GET', '/api/memory').single.queryParameters, {
@@ -42,7 +43,7 @@ void main() {
             ],
           ),
         );
-      final status = await repository(server).status('work');
+      final status = await repository(server).status(resolvedProfile('work'));
       expect(status.state, MemoryProviderState.ready);
       expect(status.name, 'honcho');
       expect(status.description, 'Honcho memory');
@@ -63,7 +64,10 @@ void main() {
               providers: [memoryProviderRow('gone', status: wire)],
             ),
           );
-        expect((await repository(server).status('work')).state, state);
+        expect(
+          (await repository(server).status(resolvedProfile('work'))).state,
+          state,
+        );
       });
     }
 
@@ -76,7 +80,7 @@ void main() {
       ]) {
         final server = FakeHermesServer()..on('GET', '/api/memory', body);
         await expectLater(
-          repository(server).status('work'),
+          repository(server).status(resolvedProfile('work')),
           throwsA(MemoryFailure.malformed),
         );
       }
@@ -96,7 +100,7 @@ void main() {
       await repository(
         server,
         telemetry: ConnectionTelemetry(tracer: tracer),
-      ).status('work');
+      ).status(resolvedProfile('work'));
       final span = tracer.spans.single;
       expect(span.name, 'memory.status.fetch');
       expect(span.attributes['provider_status'], 'missing');
@@ -117,7 +121,8 @@ void main() {
             'ok': true,
             'deleted': ['USER.md'],
           });
-        final deleted = await repository(server).reset('work', target);
+        final deleted = await repository(server)
+            .reset(resolvedProfile('work'), target);
         expect(deleted, 1);
         expect(body(server), {'target': target.wire});
         expect(
@@ -136,7 +141,8 @@ void main() {
           'detail': 'pick a profile',
         }, status: 400);
       await expectLater(
-        repository(server).reset('work', MemoryResetTarget.both),
+        repository(server)
+            .reset(resolvedProfile('work'), MemoryResetTarget.both),
         throwsA(
           isA<MemoryWriteFailure>()
               .having((e) => e.uncertain, 'uncertain', isFalse)
@@ -149,7 +155,8 @@ void main() {
       final server = FakeHermesServer()
         ..on('POST', '/api/memory/reset', {'ok': false});
       await expectLater(
-        repository(server).reset('work', MemoryResetTarget.both),
+        repository(server)
+            .reset(resolvedProfile('work'), MemoryResetTarget.both),
         throwsA(
           isA<MemoryWriteFailure>().having(
             (e) => e.uncertain,
@@ -171,7 +178,8 @@ void main() {
           ),
         );
       await expectLater(
-        repository(server).reset('work', MemoryResetTarget.both),
+        repository(server)
+            .reset(resolvedProfile('work'), MemoryResetTarget.both),
         throwsA(
           isA<MemoryWriteFailure>().having(
             (e) => e.uncertain,
@@ -187,7 +195,8 @@ void main() {
       final server = FakeHermesServer()
         ..on('POST', '/api/memory/reset', {'deleted': <Object?>[]});
       await expectLater(
-        repository(server).reset('work', MemoryResetTarget.both),
+        repository(server)
+            .reset(resolvedProfile('work'), MemoryResetTarget.both),
         throwsA(
           isA<MemoryWriteFailure>().having(
             (e) => e.uncertain,
@@ -213,7 +222,7 @@ void main() {
           events: (name, [attributes = const {}]) =>
               events.add('$name $attributes'),
         ),
-      ).reset('private-profile', MemoryResetTarget.both);
+      ).reset(resolvedProfile('private-profile'), MemoryResetTarget.both);
       final span = tracer.spans.single;
       expect(span.name, 'memory.reset');
       expect(span.attributes['target'], 'all');

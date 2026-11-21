@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../profiles/profile_resolver.dart';
 import '../telemetry/telemetry.dart';
 import 'memory_provider.dart';
 import 'memory_repository.dart';
@@ -19,7 +20,7 @@ class MemorySettingsRepository {
   final DefaultApi _api;
   final ConnectionTelemetry telemetry;
 
-  Future<MemorySettings> read(String profile) async {
+  Future<MemorySettings> read(ResolvedProfile profile) async {
     final span = _start('memory.settings.fetch');
     var outcome = 'success';
     try {
@@ -40,7 +41,7 @@ class MemorySettingsRepository {
   /// saved config, so nothing else changes. Throws [MemoryWriteFailure],
   /// `uncertain` when no answer came back.
   Future<void> write(
-    String profile,
+    ResolvedProfile profile,
     MemorySetting setting,
     Object value,
   ) async {
@@ -76,7 +77,7 @@ class MemorySettingsRepository {
     }
   }
 
-  Future<MemoryProviderStatus> status(String profile) async {
+  Future<MemoryProviderStatus> status(ResolvedProfile profile) async {
     final span = _start('memory.status.fetch');
     var outcome = 'success';
     try {
@@ -123,7 +124,7 @@ class MemorySettingsRepository {
   /// profile always goes along, since a multi-profile server refuses a reset
   /// without one. Throws [MemoryWriteFailure], `uncertain` when the answer
   /// did not confirm it; the request is never sent again.
-  Future<int> reset(String profile, MemoryResetTarget target) async {
+  Future<int> reset(ResolvedProfile profile, MemoryResetTarget target) async {
     final span = _start('memory.reset', {'target': target.wire});
     var outcome = 'reset';
     var deleted = 0;

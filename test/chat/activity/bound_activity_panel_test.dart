@@ -239,7 +239,7 @@ void main() {
       'under This session, not Now', (tester) async {
     await tester.runAsync(() async {
       await open('stored-1');
-      chat.submit('Start', const []);
+      await chat.submit('Start', const []);
       await pumpEventQueue();
       gateway.event('status.update', 'rt-1', {
         'kind': 'process',
