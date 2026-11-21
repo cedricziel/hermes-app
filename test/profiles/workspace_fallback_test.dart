@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show ValueNotifier;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_workspace_state.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
+import 'package:hermes_app/src/workspaces/ui/workspace_guard.dart';
+import 'package:hermes_app/src/workspaces/ui/workspace_picker_sheet.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -73,7 +76,10 @@ void main() {
         'repos': [],
         'default_cwd': _demo,
         'home': '/home/me',
-        'scan_enabled': false,
+        'scan_enabled': true,
+      })
+      ..on('GET', '/api/config', {
+        'desktop': {'repo_scan_roots': <Object?>[]},
       })
       ..on('GET', '/api/sessions/s1', {
         ...sessionRow(id: 's1', title: 'Chat s1'),
@@ -161,6 +167,45 @@ void main() {
       expect(block, WorkspaceMoveBlock.notAvailable);
       expect(moves, isEmpty);
       expect(server.requestsTo('GET', '/api/sessions/s1'), isEmpty);
+    });
+  });
+
+  group('the picker sheet', () {
+    Future<void> openPicker(WidgetTester tester) async {
+      await tester.runAsync(() => open(_Unlisted('work')));
+      chat.workspaceCatalog();
+      await tester.runAsync(() => pumpEventQueue());
+      late BuildContext context;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (c) {
+              context = c;
+              return const Scaffold(body: SizedBox());
+            },
+          ),
+        ),
+      );
+      unawaited(
+        showWorkspacePicker(
+          context,
+          chat: chat,
+          guard: WorkspaceGuard(chat),
+          onPick: (_) async => true,
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('browses the folder in work', (tester) async {
+      await openPicker(tester);
+
+      final reads = server.requestsTo('GET', '/api/fs/list');
+      expect(reads, isNotEmpty);
+      expect(profilesOf(reads), {'work'});
+      await tester.pumpWidget(const SizedBox());
     });
   });
 }

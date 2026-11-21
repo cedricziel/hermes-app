@@ -14,8 +14,8 @@ typedef SnapshotBuild = ({
   SourceFailures failures,
 });
 
-/// Which sources of a build failed, by slug (`profiles`, `chats`, `kanban`,
-/// `schedules`), split by why: [errored] threw or answered with an error,
+/// Which sources of a build failed, by slug (`launch_profile`, `profiles`,
+/// `chats`, `kanban`, `schedules`), split by why: [errored] threw or answered with an error,
 /// [timedOut] was still running when the build's budget ran out. A budget
 /// cut short is expected when the app goes to the background (the pause
 /// build has 800 ms before iOS suspends it), so only [errored] makes a build
@@ -95,20 +95,16 @@ class SurfaceSnapshotBuilder {
     Duration? budget,
   }) async {
     // The open profile: the chat screen's hint, else the one kept, else the
-    // one the dashboard was launched with. A kept `default` may be the
-    // fallback of a run that could not read the launch profile, so it gives
-    // way to the launch profile once that is known. `default` stands only
-    // when no launch profile is known (a server without profiles, or one not
-    // read yet).
+    // one the dashboard was launched with. When none is known (a server
+    // without profiles, or a launch profile not read yet) the reads use
+    // `default` but the snapshot stores none, so a reader falls back itself
+    // and a later build can still name the launch profile. A stored profile,
+    // `default` included, is never replaced: it is what the person had open.
     final resolver = _repositories.profiles.resolver;
-    final keptProfile = previous?.profile;
-    final mayBeFallback = keptProfile == null || keptProfile == kDefaultProfile;
-    String chooseOpenProfile() =>
-        hints?.profile ??
-        (mayBeFallback
-            ? resolver.launch ?? keptProfile ?? kDefaultProfile
-            : keptProfile);
-    var openProfile = chooseOpenProfile();
+    String? chooseOpenProfile() =>
+        hints?.profile ?? previous?.profile ?? resolver.launch;
+    var chosenProfile = chooseOpenProfile();
+    var openProfile = chosenProfile ?? kDefaultProfile;
     final now = _now();
     var profiles = previous?.profiles ?? const <String>[];
     final kept = previous?.recentChats ?? const <RecentChat>[];
@@ -140,17 +136,22 @@ class SurfaceSnapshotBuilder {
 
       try {
         // Inside the shared budget: a slow lookup is a timed-out read, and a
-        // launch profile already known costs nothing.
-        if (hints?.profile == null &&
-            mayBeFallback &&
-            resolver.launch == null) {
+        // launch profile already known costs nothing. It runs beside the
+        // reads that do not need the open profile (the profile list, Kanban);
+        // only the reads that do wait for it.
+        Future<void> openResolved() async {
+          if (chosenProfile != null) return;
           final lookup = await read(resolver.load);
           // A fixed source name, never a profile name.
           if (!lookup.ok) fail('launch_profile', lookup);
-          openProfile = chooseOpenProfile();
+          chosenProfile = chooseOpenProfile();
+          openProfile = chosenProfile ?? kDefaultProfile;
         }
+
+        final opened = openResolved();
         Future<void> readChats() async {
           final names = await read(_profileNames);
+          await opened;
           if (names.ok) {
             profiles = names.value!;
             // The hints stand in for a request for the open profile's chats.
@@ -178,7 +179,7 @@ class SurfaceSnapshotBuilder {
         final (_, kanbanRead, schedulesRead) = await (
           readChats(),
           read(_kanban),
-          read(() => _schedules(now, openProfile)),
+          opened.then((_) => read(() => _schedules(now, openProfile))),
         ).wait;
         if (kanbanRead.ok) {
           kanban = kanbanRead.value;
@@ -238,7 +239,7 @@ class SurfaceSnapshotBuilder {
       updatedAt: now,
       revision: previous?.revision ?? 0,
       signedIn: signedIn,
-      profile: openProfile,
+      profile: chosenProfile,
       profiles: profiles,
       recentChats: chats,
       pending: open,

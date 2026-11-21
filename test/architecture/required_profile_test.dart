@@ -114,26 +114,41 @@ void main() {
 
   test('nothing under lib/src gets round the resolver', () {
     // `ProfileResolver.resolve` is the one way from a chat's nullable profile
-    // to a ResolvedProfile. A string literal in its argument (`resolve(x ??
-    // 'default')`), a `.known(` resolver or a `resolvedProfile(` helper would
-    // each name a profile without asking the server.
+    // to a ResolvedProfile. A string literal, `kDefaultProfile` or `??` in its
+    // argument (`resolve(x ?? 'default')`), a `.known(` resolver or a
+    // `resolvedProfile(` helper would each name a profile without asking the
+    // server.
     //
     // Allowed, with the reason:
     //  - lib/src/profiles/profile_resolver.dart defines `.known(` and
     //    `resolvedProfile(` (the latter is `@visibleForTesting`).
-    const allowed = {'lib/src/profiles/profile_resolver.dart'};
-    final literalInResolve = RegExp(r'''\.resolve\([^)]*['"]''');
+    //  - `??` in `resolve(` in lib/src/chat/chat_controller_workspace.dart:
+    //    `resolve(profile ?? _profile)` is the new chat's recipient, else the
+    //    chat's own profile, both names the server gave. No name is invented.
+    const defined = {'lib/src/profiles/profile_resolver.dart'};
+    const coalescing = {'lib/src/chat/chat_controller_workspace.dart'};
+    final resolveCall = RegExp(r'\.resolve\(([^()]*)\)');
+    final invented = RegExp(r'''['"]|kDefaultProfile''');
     final offenders = <String>[];
     for (final file in Directory('lib/src').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
-      if (allowed.contains(file.path)) continue;
-      final lines = file.readAsLinesSync();
+      if (defined.contains(file.path)) continue;
+      final text = file.readAsStringSync();
+      int lineOf(int offset) =>
+          '\n'.allMatches(text.substring(0, offset)).length + 1;
+      for (final match in resolveCall.allMatches(text)) {
+        final args = match.group(1)!;
+        final coalesces = args.contains('??');
+        if (invented.hasMatch(args) ||
+            (coalesces && !coalescing.contains(file.path))) {
+          offenders.add('${file.path}:${lineOf(match.start)}');
+        }
+      }
+      final lines = text.split('\n');
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i];
         if (line.trimLeft().startsWith('//')) continue;
-        if (line.contains('.known(') ||
-            line.contains('resolvedProfile(') ||
-            literalInResolve.hasMatch(line)) {
+        if (line.contains('.known(') || line.contains('resolvedProfile(')) {
           offenders.add('${file.path}:${i + 1}');
         }
       }
@@ -144,7 +159,8 @@ void main() {
       isEmpty,
       reason:
           'resolve the profile with ProfileResolver.resolve(chat.profile); '
-          'a literal, .known( or resolvedProfile( names one by hand',
+          'a literal, kDefaultProfile, ?? in resolve(, .known( or '
+          'resolvedProfile( names one by hand',
     );
   });
 }

@@ -99,7 +99,9 @@ void main() {
       'one', () async {
     server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 500);
     final first = await build();
-    expect(first.profile, 'default');
+    // Nothing known yet: the fallback is not stored, so a reader falls back
+    // itself and a later build can name the launch profile.
+    expect(first.profile, isNull);
 
     server.on('GET', '/api/profiles/active', {
       'active': 'default',
@@ -107,6 +109,34 @@ void main() {
     });
 
     expect((await build(previous: first)).profile, 'work');
+  });
+
+  test(
+    'a default the person really picked survives a headless build',
+    () async {
+      server.on('GET', '/api/profiles/active', {
+        'active': 'default',
+        'current': 'work',
+      });
+      final previous = SurfaceSnapshot(
+        updatedAt: now,
+        profile: 'default',
+        profiles: const ['default', 'work'],
+      );
+
+      expect((await build(previous: previous)).profile, 'default');
+    },
+  );
+
+  test('a hint still wins over the launch profile', () async {
+    server.on('GET', '/api/profiles/active', {
+      'active': 'default',
+      'current': 'work',
+    });
+
+    final snapshot = await build(hints: const ChatHints(profile: 'default'));
+
+    expect(snapshot.profile, 'default');
   });
 
   test('a launch lookup that fails counts as one failed source', () async {
@@ -119,13 +149,44 @@ void main() {
     expect(result.failures.outcome, 'error');
   });
 
-  test('a server with no profile routes is not a failed source', () async {
-    server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404);
+  test(
+    'a server with no profile routes has no launch profile to fail',
+    () async {
+      server
+        ..on('GET', '/api/profiles', {'detail': 'x'}, status: 404)
+        ..on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404);
+
+      final result = await builder.build(signedIn: true, refreshRemote: true);
+
+      expect(result.snapshot.profile, isNull);
+      expect(result.failures.errored, isNot(contains('launch_profile')));
+      expect(result.failures.timedOut, isEmpty);
+    },
+  );
+
+  test('a stalled launch lookup still lets the profile list and Kanban '
+      'finish', () async {
+    server
+      ..on('GET', '/api/dashboard/plugins', [
+        {'name': 'kanban'},
+      ])
+      ..on(
+        'GET',
+        '/api/plugins/kanban/board',
+        kanbanBoardBody([kanbanTaskRow(id: '1', status: 'blocked')]),
+      )
+      ..onRequest(
+        'GET',
+        '/api/profiles/active',
+        (_) => Completer<FakeResponse>().future,
+      );
 
     final result = await builder.build(signedIn: true, refreshRemote: true);
 
-    expect(result.sourcesFailed, 0);
-    expect(result.failures.outcome, 'ok');
+    expect(result.snapshot.profiles, ['default', 'work']);
+    expect(result.snapshot.kanban?.blocked, 1);
+    expect(result.failures.timedOut, isNot(contains('profiles')));
+    expect(result.failures.timedOut, isNot(contains('kanban')));
   });
 
   test('a slow launch lookup spends the shared budget, not more', () async {
@@ -137,7 +198,7 @@ void main() {
 
     final snapshot = await build().timeout(const Duration(seconds: 3));
 
-    expect(snapshot.profile, 'default');
+    expect(snapshot.profile, isNull);
   });
 
   test('a chat the server has not named shows a fixed title, not its '
