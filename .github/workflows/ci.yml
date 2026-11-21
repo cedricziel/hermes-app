@@ -26,6 +26,7 @@ jobs:
   changes:
     name: Changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
       watch: ${{ steps.filter.outputs.watch }}
@@ -89,6 +90,7 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
@@ -123,6 +125,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -167,6 +170,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [changes, test]
     if: always() && !cancelled() && needs.changes.outputs.code == 'true'
     continue-on-error: true
@@ -204,6 +208,7 @@ jobs:
   analyze-and-test:
     name: Analyze & test
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [changes, analyze, test, test-watch]
     if: always()
     steps:
@@ -230,6 +235,7 @@ jobs:
   build-android:
     name: Build Android (release)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
@@ -258,6 +264,7 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
+    timeout-minutes: 30
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
@@ -285,6 +292,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.watch == 'true'
     runs-on: macos-26
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -306,6 +314,7 @@ jobs:
   build-ios:
     name: Build iOS (simulator)
     runs-on: macos-26
+    timeout-minutes: 40
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
@@ -357,6 +366,7 @@ jobs:
   build-macos:
     name: Build macOS (debug)
     runs-on: macos-26
+    timeout-minutes: 30
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
@@ -380,6 +390,7 @@ jobs:
   native-audio-test:
     name: Test native audio (Linux)
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     needs: [changes, analyze-and-test]
     if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
     steps:
@@ -406,6 +417,7 @@ jobs:
   build-linux:
     name: Build Linux (release)
     runs-on: ubuntu-22.04
+    timeout-minutes: 25
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
@@ -443,6 +455,7 @@ jobs:
   builds:
     name: Builds
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [changes, analyze-and-test, build-android, build-windows, build-ios, build-macos, build-linux]
     if: always()
     steps:
