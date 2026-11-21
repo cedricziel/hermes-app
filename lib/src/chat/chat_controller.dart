@@ -1919,11 +1919,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// status that counts as running ([_runningStatuses]: starting, streaming,
   /// resuming as well as working and waiting) keeps the hold.
   Future<void> _releaseHolds(ChatTransport transport, int generation) async {
-    if (!_threads.any(
-      (t) => _ChatControllerCommands(this)._lastReplyHeld(t) != null,
-    )) {
-      return;
-    }
+    // What each hold stood for when the ask went out: a turn sent after that
+    // is a different one, and an answer that predates it says nothing of it.
+    final asked = <ChatThread, (ChatMessage, int?)>{
+      for (final thread in _threads)
+        if (_ChatControllerCommands(this)._lastReplyHeld(thread)
+            case final held?)
+          thread: (held, _generations[thread]),
+    };
+    if (asked.isEmpty) return;
+    bool same(ChatThread thread, ChatMessage held) =>
+        asked[thread]!.$1 == held && asked[thread]!.$2 == _generations[thread];
     final Map<String, String>? answered;
     try {
       answered = await transport.activeStatusesAnswered(profile: _profile);
@@ -1934,9 +1940,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       return;
     }
     if (answered == null || !active || generation != _loadGeneration) return;
-    for (final thread in [..._threads]) {
+    for (final thread in [...asked.keys]) {
       final held = _ChatControllerCommands(this)._lastReplyHeld(thread);
-      if (held == null || _runningStatuses.contains(answered[thread.id])) {
+      if (held == null ||
+          !same(thread, held) ||
+          _runningStatuses.contains(answered[thread.id])) {
         continue;
       }
       // The turn is over. What it stored is read again (read-only, nothing is
@@ -1948,7 +1956,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (repository != null &&
           thread.remote &&
           !_unloaded.contains(thread.id)) {
-        _releasing.add(thread);
+        // Another poll is already releasing this thread: it decides.
+        if (!_releasing.add(thread)) continue;
         try {
           // Strict: the server's last change may be the one a read during the
           // hold already saw, and only the hold changed since.
@@ -1962,8 +1971,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         }
         if (!active || generation != _loadGeneration) return;
       }
-      // The re-read may have dropped the bubble; then nothing is held.
-      if (_ChatControllerCommands(this)._lastReplyHeld(thread) case final h?) {
+      // The re-read may have dropped the bubble; then nothing is held. A
+      // send that came meanwhile keeps its own hold.
+      if (_ChatControllerCommands(this)._lastReplyHeld(thread) case final h?
+          when same(thread, h)) {
         _ChatControllerStreaming(this)
             ._updateReply(thread, h, () => h.serverMayRun = false);
       }

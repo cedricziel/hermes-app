@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -185,6 +187,37 @@ void main() {
     expect(lastAssistant(thread).content, 'Done.');
     expect(transport.sends, hasLength(1));
     expect(transport.undos, isEmpty);
+  });
+
+  test('an idle answer that predates a newer turn does not release that '
+      "turn's hold", () async {
+    final thread = await heldTurn('default');
+    // A's hold is asked about; the server says idle, but the answer is slow.
+    transport
+      ..active.clear()
+      ..activeInProfile['default'] = {}
+      ..answeredGate = Completer<void>();
+    final gate = transport.answeredGate!;
+    final probe = chat.refreshActive();
+    await pumpEventQueue();
+
+    // B is sent meanwhile and ends where the server may still run it.
+    chat.submit('And again', const []);
+    final second = transport.sends.last;
+    transport.active['s1'] = 'working';
+    transport.activeInProfile['default'] = {'s1': 'working'};
+    second.fail(const GatewayReplyUnconfirmed());
+    await pumpEventQueue();
+    expect(chat.turnActionsHeld(thread), isTrue);
+
+    gate.complete();
+    await probe;
+    await pumpEventQueue();
+
+    expect(chat.turnActionsHeld(thread), isTrue);
+    expect(chat.canEditLastPrompt(thread), isFalse);
+    expect(transport.undos, isEmpty);
+    expect(transport.sends, hasLength(2));
   });
 
   test('a ask that throws releases nothing and does not throw', () async {

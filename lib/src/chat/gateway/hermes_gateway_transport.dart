@@ -532,8 +532,21 @@ class HermesGatewayTransport
       // Offline or an older server: no answer. A bug is not hidden.
       return null;
     }
-    // An answer without its list says nothing of any session.
-    if (result['sessions'] is! List<Object?>) return null;
+    // An answer without its list, or with a row it cannot read, says nothing
+    // of the sessions it fails to name: a missing session would read as not
+    // running. An empty list is a real answer.
+    if (result['sessions'] case final List<Object?> rows) {
+      for (final row in rows) {
+        if (row is! Map<String, Object?> ||
+            row['session_key'] is! String ||
+            (row['session_key']! as String).isEmpty ||
+            row['status'] is! String) {
+          return null;
+        }
+      }
+    } else {
+      return null;
+    }
     return _statusesOf(result);
   }
 

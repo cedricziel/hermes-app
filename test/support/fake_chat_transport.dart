@@ -174,8 +174,20 @@ class FakeChatTransport
     }
     if (activeError != null || activeUnanswered) return null;
     activeAsked.add(profile);
-    return Map.of(profile == null ? active : activeInProfile[profile] ?? {});
+    final answer = Map<String, String>.of(
+      profile == null ? active : activeInProfile[profile] ?? {},
+    );
+    // The answer is what the server said when asked, not when it arrives.
+    if (answeredGate case final gate?) {
+      answeredGate = null;
+      await gate.future;
+    }
+    return answer;
   }
+
+  /// When set, the next [activeStatusesAnswered] answers only once it
+  /// completes (a probe in flight); later asks go straight through.
+  Completer<void>? answeredGate;
 
   /// The server answers nothing usable (offline, an error, a bad list), as
   /// the real transport's [activeStatuses] reports it: an empty map.

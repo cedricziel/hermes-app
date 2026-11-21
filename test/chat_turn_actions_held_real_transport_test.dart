@@ -120,6 +120,36 @@ void main() {
     }
   });
 
+  group('a row the app cannot read is not an answer', () {
+    for (final (name, rows) in <(String, List<Object?>)>[
+      (
+        'a status that is null',
+        [
+          {'session_key': 'x', 'status': null},
+        ],
+      ),
+      (
+        'a session key that is not a string',
+        [
+          {'session_key': 7, 'status': 'idle'},
+        ],
+      ),
+      ('a row that is not an object', ['x']),
+      (
+        'a good row beside a bad one',
+        [
+          {'session_key': 'other', 'status': 'idle'},
+          {'status': 'idle'},
+        ],
+      ),
+    ]) {
+      test(name, () async {
+        gateway.handlers['session.active_list'] = (_) => {'sessions': rows};
+        await expectHeld(true);
+      });
+    }
+  });
+
   group('two rows of one session: a running one wins over an idle one', () {
     for (final order in [
       ['working', 'idle'],
