@@ -407,10 +407,19 @@ jobs:
           key="NSWindow Frame HermesMainWindow"
           forget() { defaults delete "$prefs" "$key" 2>/dev/null || true; }
           trap 'rm -f window.log' EXIT
-          # Diagnosis only: the newest crash report of the app, if one was written.
+          # Diagnosis only (never relaxes the check): the newest crash report of the
+          # app. ReportCrash writes it a few seconds after the crash, so wait for it.
           crash_report() {
-            report="$(ls -t "$HOME"/Library/Logs/DiagnosticReports/Hermes*.ips 2>/dev/null | head -n 1 || true)"
-            if [ -z "$report" ]; then echo "No Hermes crash report in ~/Library/Logs/DiagnosticReports."; return 0; fi
+            report=""
+            for _ in $(seq 1 15); do
+              report="$(ls -t "$HOME"/Library/Logs/DiagnosticReports/{Hermes,Runner}*.ips \
+                /Library/Logs/DiagnosticReports/{Hermes,Runner}*.ips \
+                "$HOME/Library/Containers/$bundle/Data/Library/Logs"/{Hermes,Runner}*.ips \
+                2>/dev/null | head -n 1 || true)"
+              [ -n "$report" ] && break
+              sleep 1
+            done
+            if [ -z "$report" ]; then echo "No Hermes or Runner crash report within 15 s."; return 0; fi
             echo "::group::Crash report $report (crashed thread, then the file's first 200 lines)"
             python3 -I - "$report" <<'PY' || true
           import json, sys
@@ -431,6 +440,16 @@ jobs:
             head -n 200 "$report" | cut -c1-300
             echo "::endgroup::"
           }
+          # Diagnosis only: the same launch once more under lldb, to get a backtrace
+          # when no crash report exists. Its result is ignored and it cannot hang.
+          lldb_rerun() { # <label> [WxH]
+            echo "::group::lldb rerun of launch $1"
+            if [ "$1" = 1 ]; then forget; fi
+            HERMES_REPORT_WINDOW=1 HERMES_REPORT_WINDOW_SET="${2:-}" perl -e 'alarm 60; exec @ARGV' \
+              lldb -b -o run -k "thread backtrace all" -k "register read pc" -k 'image lookup -a $pc' -k quit \
+              -- "$bin" -ApplePersistenceIgnoreState YES 2>&1 | head -n 300 || true
+            echo "::endgroup::"
+          }
           # One launch: prints the HERMES_WINDOW line, or fails with the log.
           launch() { # <label> [WxH to resize to before quitting]
             start=$SECONDS
@@ -438,9 +457,9 @@ jobs:
               -ApplePersistenceIgnoreState YES > window.log 2>&1; then status=0; else status=$?; fi
             echo "launch $1 took $(( SECONDS - start )) s, exit status $status"
             if [ "$status" -eq 142 ]; then
-              echo "::error::Launch $1 did not quit within 60 s (SIGALRM); log follows."; tail -n 40 window.log; crash_report; forget; exit 1
+              echo "::error::Launch $1 did not quit within 60 s (SIGALRM); log follows."; tail -n 40 window.log; crash_report; lldb_rerun "$1" "${2:-}"; forget; exit 1
             elif [ "$status" -ne 0 ]; then
-              echo "::error::Launch $1 exited with status $status; log follows."; tail -n 40 window.log; crash_report; forget; exit 1
+              echo "::error::Launch $1 exited with status $status; log follows."; tail -n 40 window.log; crash_report; lldb_rerun "$1" "${2:-}"; forget; exit 1
             fi
             line="$(grep -E '^HERMES_WINDOW ' window.log | head -n 1 || true)"
             if [ -z "$line" ]; then
