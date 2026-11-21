@@ -389,4 +389,33 @@ void main() {
     expect(first, isEmpty);
     expect(second, ['r1:once']);
   });
+
+  // Kill test for a memo that ignores whether a callback is given: a card made
+  // while none was set would keep refusing the answer.
+  testWidgets('a callback set while an approval is pending enables its '
+      'choices', (tester) async {
+    final answered = <String>[];
+    await mount(tester, [
+      _call('a'),
+      _call('b', status: ToolCallStatus.running),
+    ]);
+    host.currentState!.update(() => host.currentState!.approvals = {1: _ask});
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    final once = find.text(approvalChoiceLabels['once'] ?? 'once');
+    expect(once, findsOneWidget);
+    await tapIt(tester, once);
+    expect(answered, isEmpty);
+
+    host.currentState!.update(
+      () =>
+          host.currentState!.answer = (id, choice) async =>
+              answered.add('$id:$choice'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tapIt(tester, once);
+
+    expect(answered, ['r1:once']);
+  });
 }
