@@ -277,4 +277,32 @@ void main() {
     );
     expect(readWorkflowSamples(dir: dir.path), hasLength(1));
   });
+
+  testWidgets('one source rendered as Android and as macOS keeps both', (
+    tester,
+  ) async {
+    final dir = Directory.systemTemp.createTempSync('tap_runs');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    await pumpAt(tester, TargetPlatform.android);
+    await recordWorkflowScreen(
+      tester,
+      'chat',
+      '01',
+      dir: dir.path,
+      run: defaultRun,
+    );
+    await pumpAt(tester, TargetPlatform.macOS);
+    await recordWorkflowScreen(
+      tester,
+      'chat',
+      '01',
+      dir: dir.path,
+      run: 'macOS',
+    );
+    final samples = readWorkflowSamples(dir: dir.path);
+    expect(samples.map((s) => s.platform).toList()..sort(), [
+      'android',
+      'macos',
+    ]);
+  });
 }
