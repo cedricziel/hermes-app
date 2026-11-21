@@ -170,8 +170,9 @@ void main() {
 
         testWidgets('TextButton.icon keeps its width', (tester) async {
           final macTheme = theme(platform: TargetPlatform.macOS);
-          // The same theme whose text button sets nothing but the pre-fix
-          // minimum size, so no padding or density of its own.
+          // The same theme whose text button sets nothing but a 20 pt
+          // minimum height (what the pre-fix theme rendered), so no padding or
+          // density of its own.
           final before = macTheme.copyWith(
             textButtonTheme: TextButtonThemeData(
               style: ButtonStyle(

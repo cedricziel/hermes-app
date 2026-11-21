@@ -24,14 +24,14 @@ Renders: macOS theme, 1280 x 800, light and dark, before and after (a row of eve
 ## Design (done)
 
 Claude Design canvas "Hermes: Mac button height" (private; ask the owner for access): https://claude.ai/artifact/LkzdBEQjLvdjXPWMf36iyQ
-Date: 2026-11-21. Seven artboards on the Hermes App design system, Mac (`platform="apple"`, `type-ramp="default"`), light and dark.
+Date: 2026-11-21. Seven artboard files on the Hermes App design system, Mac (`platform="apple"`, `type-ramp="default"`), light and dark.
 
 Artboards:
 
-- Row 1: a Mac toolbar with a 28 pt Create beside a 26 pt search field and the 28 pt toolbar buttons; a dialog button row (Cancel outlined, one filled Save, 8 pt apart).
-- Row 2: a settings row (`GroupedRow device="mac"`, 40 pt) with a trailing 28 pt button; a 44 pt dense list row with an inline button.
-- Row 3: a 28 pt button, a 28 pt text field and a compact segmented control (28 pt in total) on one line.
-- Row 4: the same five contexts at 20 pt and at 28 pt, side by side (light).
+- Row 1 (`Main`, `DialogRow`): a Mac toolbar with a 28 pt Create beside a 26 pt search field and the 28 pt toolbar buttons; a dialog button row (Cancel outlined, one filled Save, 8 pt apart).
+- Row 2 (`SettingsRow`, `DenseList`): a settings row (`GroupedRow device="mac"`, 40 pt) with a trailing 28 pt button; a 44 pt dense list row with an inline button.
+- Row 3 (`FieldSegmented`): a 28 pt button, a 28 pt text field and a compact segmented control (28 pt in total) on one line.
+- Row 4: the same five contexts at 20 pt and at 28 pt, side by side (light): `Compare`, which imports the shared `ButtonSet` board once per height.
 
 Decisions:
 
@@ -51,7 +51,7 @@ Accepted differences from the Flutter build:
 Open (follow-ups, not part of this change):
 
 - Form fields on Mac are 48 pt, so a 28 pt button beside one is centred on it. A Mac-compact 28 pt field is needed.
-- The Flutter Mac segmented control's height was not measured; check it against the 28 pt line.
+- On a Mac the Material `SegmentedButton` measures 32 pt (`test/theme/mac_button_height_test.dart`), 4 pt above the 28 pt line; the `CupertinoSlidingSegmentedControl` used in Mac toolbars is not measured yet.
 - The design system's Mac `SettingsScaffold` `formAction` is a roughly 22 pt button with a 6 pt radius; it should become the 28 pt button.
 
 Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device.
