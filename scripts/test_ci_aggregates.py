@@ -519,7 +519,31 @@ ARITH_MESSAGE = (
 )
 
 
-_RAW_SUBSTITUTION = re.compile(r"[<>]\(")
+# `<(` or `>(`, also with quotes or backslashes between (`<""(a)`, `\\<\\(`);
+# line continuations are removed before the scan.
+_RAW_SUBSTITUTION = re.compile(r"[<>][\"'\\]*\(")
+_EVAL_WORD = re.compile(r"(?:eval|source)(?=[\s;&|)]|$)")
+_SHELL_C = re.compile(r"(?:ba|da|z|k)?sh\s+(?:-\w+\s+)*-c(?=[\s;&|)]|$)")
+_PIPE_INTO_SHELL = re.compile(r"\|(?!\|)\s*(?:ba|da|z|k)?sh(?=[\s;&|)]|$)")
+_DOT_COMMAND = re.compile(r"\.(?=\s)")
+_COMMAND_WORDS = {"then", "do", "else", "elif", "if", "while", "until", "!", "time"}
+
+
+def at_command_position(segment):
+    """True when the next word starts a command: at the start of a segment,
+    after `;`, `&`, `|`, `(`, `{`, a newline, or a reserved word."""
+    previous = segment[-1][-1:] if segment else ""
+    if previous and not previous.isspace() and previous not in ";&|({`\n":
+        return False
+    text = "".join(segment).rstrip(" \t")
+    if not text or text[-1] in ";&|({`\n":
+        return True
+    return text.split()[-1] in _COMMAND_WORDS
+
+
+def word_start(segment):
+    previous = segment[-1][-1:] if segment else ""
+    return not previous or previous.isspace() or previous in ";&|({`"
 _FORMAT_CALL = re.compile(r"format\s*\(", re.IGNORECASE)
 
 
@@ -551,30 +575,39 @@ def commands(script):
     workflow scripts. `<<<` is not a heredoc. Heredocs are recognised in every
     command context, and the delimiter word has its quotes and backslashes
     removed. `${{ ... }}` expressions are skipped as a whole."""
+    # A backslash-newline (an odd run of backslashes before the newline)
+    # joins lines in every context, so `<` + newline + `(a)` is `<(a)`.
+    script = re.sub(r"(?<!\\)((?:\\\\)*)\\\n", r"\1", script)
     results = []
     stack = [["cmd", 0, False]]  # kind, paren depth, nested ($( or <( )
     segment, segments, hit = [], [], False
-    heredocs = []  # (delimiter, tabs may indent it) waiting for their body
+    heredocs = []  # (delimiter, tabs may indent it, quoted, id) waiting for a body
+    owners = []  # ids of heredocs opened in the current segment
+    owner_result = {}  # heredoc id -> index of the result that opened it
+    heredoc_count = 0
     unbalanced = False
     unreadable = False  # a `<<` that could not be read with certainty
     arithmetic = False  # shell arithmetic, `$[`, or `let` was found
     index, length = 0, len(script)
 
     def end_segment():
-        nonlocal segment, hit
-        segments.append(["".join(segment), hit])
-        segment, hit = [], False
+        nonlocal segment, hit, owners
+        segments.append(["".join(segment), hit, owners])
+        segment, hit, owners = [], False, []
 
     def end_command(comment):
         merged = []
-        for text, found in segments:
+        for text, found, owned in segments:
             if merged and text.strip() in _KEYWORDS:
                 merged[-1][0] += ";" + text
                 merged[-1][1] = merged[-1][1] or found
+                merged[-1][2] = merged[-1][2] + owned
             else:
-                merged.append([text, found])
-        for position, (text, found) in enumerate(merged):
-            if text.strip() or found:
+                merged.append([text, found, list(owned)])
+        for position, (text, found, owned) in enumerate(merged):
+            if text.strip() or found or owned:
+                for heredoc_id in owned:
+                    owner_result[heredoc_id] = len(results)
                 last = position == len(merged) - 1
                 results.append(
                     (text.strip() or "<comment>", found, comment if last else "")
@@ -588,8 +621,8 @@ def commands(script):
         # Blunt rule: a literal `<(` or `>(` anywhere (quotes, comments,
         # heredoc bodies and ${{ }} included, an escaped one too) belongs to
         # the current command, which then needs the marker.
-        if pair in ("<(", ">(") or (
-            char == "\\" and script[index + 1 : index + 3] in ("<(", ">(")
+        if _RAW_SUBSTITUTION.match(script, index) or (
+            char == "\\" and _RAW_SUBSTITUTION.match(script, index + 1)
         ):
             hit = True
         if script.startswith("${{", index) and script.find("}}", index) != -1:
@@ -601,6 +634,8 @@ def commands(script):
                 # format() or a string literal can assemble shell text from
                 # pieces (`${{ '<' }}(a)`), which no text scan can see.
                 unreadable = True
+            if script[end : end + 1] == "(":
+                unreadable = True  # `${{ x }}(a)` can assemble `<(a)`
             segment.append(region)
             index = end
             continue
@@ -641,6 +676,19 @@ def commands(script):
                 segment.append(pair)
                 stack.append(["ansi", 0, False])
                 index += 1
+            elif (
+                (word_start(segment) and _EVAL_WORD.match(script, index))
+                or (word_start(segment) and _SHELL_C.match(script, index))
+                or (
+                    _DOT_COMMAND.match(script, index)
+                    and at_command_position(segment)
+                )
+                or (char == "|" and _PIPE_INTO_SHELL.match(script, index))
+            ):
+                # eval, source, `.`, `sh -c` and a pipe into a shell run text
+                # the scanner cannot read; no marker approves them.
+                unreadable = True
+                segment.append(char)
             elif char == "'":
                 segment.append(char)
                 stack.append(["sq", 0, False])
@@ -681,7 +729,9 @@ def commands(script):
                     segment.append(pair)
                     index += 1
                 else:
-                    heredocs.append((word[0], dash, word[2]))
+                    heredocs.append((word[0], dash, word[2], heredoc_count))
+                    owners.append(heredoc_count)
+                    heredoc_count += 1
                     segment.append(script[index : word[1]])
                     index = word[1]
                     continue
@@ -727,7 +777,7 @@ def commands(script):
                     segment.append(char)
                 if heredocs:
                     position = index + 1
-                    for delimiter, tabs, quoted in heredocs:
+                    for delimiter, tabs, quoted, heredoc_id in heredocs:
                         body = []
                         while True:
                             if position >= length:
@@ -745,9 +795,14 @@ def commands(script):
                         if not quoted and expands("\n".join(body)):
                             unreadable = True
                         if _RAW_SUBSTITUTION.search("\n".join(body)):
-                            if top_level and results:
-                                last = results[-1]
-                                results[-1] = (last[0], True, last[2])
+                            # Pinned to the command that opened the heredoc.
+                            if heredoc_id in owner_result:
+                                opener = results[owner_result[heredoc_id]]
+                                results[owner_result[heredoc_id]] = (
+                                    opener[0],
+                                    True,
+                                    opener[2],
+                                )
                             else:
                                 hit = True
                     heredocs.clear()
@@ -1039,6 +1094,97 @@ class ProcessSubstitution(unittest.TestCase):
         self.assertEqual(
             unmarked_substitutions('echo "$((1 << 2))"'), [ARITH_MESSAGE]
         )
+
+    def test_a_line_continuation_cannot_split_a_substitution(self):
+        for script in (
+            "diff <\\\n(a)",
+            "diff >\\\n(a)",
+            'echo "<\\\n(a)"',
+            "echo hi # <\\\n(a)",
+            "x=$(diff <\\\n(a))",
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_an_escaped_backslash_is_no_continuation(self):
+        # `\\` (an escaped backslash) then a newline: the newline stays a
+        # newline, so `(a)` is not joined to the `<` and nothing is flagged.
+        self.assertEqual(unmarked_substitutions("diff <\\\\\n(a)"), [])
+
+    def test_text_split_into_pieces_is_flagged(self):
+        for script in (
+            'eval "diff <""(a)"',
+            "bash -c 'diff <''(a)'",
+            "eval diff \\<\\(a\\)",
+            "diff <'(a)'",
+            'diff >"(a)"',
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+
+    def test_commands_that_run_assembled_text_are_unreadable(self):
+        # A marker never approves these: the scanner cannot say what runs.
+        for script in (
+            "l='<'; eval \"diff ${l}(a)\"",
+            "eval x",
+            "source env.sh",
+            ". ./env.sh",
+            "echo hi; . ./env.sh",
+            "bash -c 'x'",
+            "sh -c x",
+            "bash -e -c x",
+            "dash -c x",
+            "printf '%s' x | bash",
+            "printf '%s' x | sh",
+            "printf x |bash",
+            "diff ${{ env.LT }}(a)",
+            "if true; then eval x; fi",
+            "x=$(eval y)",
+        ):
+            with self.subTest(script=script):
+                self.assertTrue(unmarked_substitutions(script))
+                marked = script + " # process-substitution-ok: reviewed"
+                self.assertTrue(unmarked_substitutions(marked))
+
+    def test_words_that_only_contain_those_names_are_readable(self):
+        for script in (
+            "echo evaluate",
+            "x=eval",
+            "cat evalfile",
+            'echo "eval" \'source\'',
+            "bash script.sh",
+            "sh script.sh",
+            "echo a | tee x",
+            "true || sh_helper",
+            "cd .",
+            "echo . x",
+            "echo a | bash_helper",
+            "echo ${{ env.X }} (a)",
+            "echo ${{ matrix.shard }}",
+        ):
+            with self.subTest(script=script):
+                self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_a_heredoc_body_is_pinned_to_the_command_that_opened_it(self):
+        # The marker is on the LAST command of the line, but the body belongs
+        # to the first one.
+        script = "cat <<EOF; echo x # process-substitution-ok: r\n<(x)\nEOF"
+        self.assertTrue(unmarked_substitutions(script))
+
+    def test_a_marker_on_the_opening_command_approves_its_body(self):
+        for script in (
+            "bash <<'EOF' # process-substitution-ok: r\ndiff <(a) <(b)\nEOF",
+            "cat <<EOF # process-substitution-ok: r\n<(x)\nEOF",
+            "echo x; cat <<EOF # process-substitution-ok: r\n<(x)\nEOF",
+        ):
+            with self.subTest(script=script):
+                self.assertEqual(unmarked_substitutions(script), [])
+
+    def test_two_heredocs_on_a_line_pin_their_own_bodies(self):
+        script = (
+            "cat <<A; cat <<B # process-substitution-ok: r\n<(x)\nA\nplain\nB"
+        )
+        self.assertTrue(unmarked_substitutions(script))
 
     def test_a_heredoc_marker_the_scanner_cannot_read_flags(self):
         for script in (

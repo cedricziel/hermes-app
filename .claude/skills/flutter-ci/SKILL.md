@@ -260,7 +260,13 @@ bodies and `${{ }}` included, and needs the marker (a blunt rule that closes the
 evasions a structured reader cannot see, such as arithmetic-evaluated quotes);
 a `${{ format(...) }}` or any `${{ }}` holding a quote is flagged (it can
 assemble shell text, as in `${{ '<' }}(a)`), and an expanding heredoc body with a live
-`$(` or backtick (an even number of backslashes before it) too. For the quote
+`$(` or backtick (an even number of backslashes before it) too. Line continuations are joined first; `<` and `>` followed by quotes or
+backslashes before `(` count too. `eval`, `source`, `.`, `sh -c`/`bash -c`, a
+pipe into a shell and `}}(` are unreadable and no marker approves them, and a
+heredoc body's literal `<(` is pinned to the command that opened the heredoc.
+The lint covers text an author writes into the workflow file; a step output or
+other runtime data rendered into a script is script injection, which `env:`
+hardening covers and this lint does not. For the quote
 state the scanner skips heredoc
 bodies, reads `$'...'` as quoted text, ends a comment inside `$(...)` at its
 line, and fails closed on a script that ends inside a quote, a substitution or
