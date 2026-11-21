@@ -64,7 +64,7 @@ void main() {
       await chat.loadThreads('one');
       chat.select('shared');
       await pumpEventQueue();
-      chat.submit('First profile', const []);
+      await chat.submit('First profile', const []);
       final oldThread = chat.selectedThread!;
       final oldSend = transport.sends.last;
       oldSend.emit(
@@ -101,7 +101,7 @@ void main() {
         breadcrumbs: Breadcrumbs.of(trail),
       );
       chat.newThread();
-      chat.submit('Private prompt', const []);
+      await chat.submit('Private prompt', const []);
       const notice = AgentNotice(text: 'Private warning', key: 'private-key');
       transport.sends.last.emit(
         const NoticeShown(notice, runtimeId: 'private-runtime'),
@@ -147,7 +147,7 @@ void main() {
     await pumpEventQueue();
     final thread = chat.selectedThread!;
     expect(chat.noticesIn(thread), hasLength(1));
-    chat.submit('Next turn', const []);
+    await chat.submit('Next turn', const []);
     transport.followUpStreams['thread-a']!.finish();
     await pumpEventQueue();
     expect(chat.noticesIn(thread).single.text, 'Sticky warning');
@@ -369,7 +369,7 @@ void main() {
         },
       );
       chat.newThread();
-      chat.submit('Private prompt', const []);
+      await chat.submit('Private prompt', const []);
       transport.sends.last.emit(
         const NoticeShown(
           AgentNotice(text: 'Private warning', key: 'private-key'),

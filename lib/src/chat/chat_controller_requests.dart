@@ -71,6 +71,10 @@ extension _ChatControllerRequests on ChatController {
     bool idleOnly = false,
   }) {
     final ready = _finishTurnHold(thread, halted: halted, idleOnly: idleOnly);
+    final waiting = _queues[thread]?.length ?? 0;
+    if (!ready && waiting > 0 && !_diag.isHeld(thread)) {
+      _diag.queue(thread, 'paused', waiting);
+    }
     ready ? _queueTurnReady.add(thread) : _queueTurnReady.remove(thread);
     _ChatControllerCheckpoints(this)._actionsTurnEnded(thread);
     return ready;
@@ -279,6 +283,15 @@ extension _ChatControllerRequests on ChatController {
         if (reply.isPending && thread.messages.contains(reply)) reply,
     ];
     if (settling.isEmpty) return;
+    // A reply held for a reconnect ends here for good, once: the follow-ups
+    // that would have ended it were cancelled above. Before the queue is
+    // paused, so the pause is logged as one.
+    _diag.endedHeld(
+      thread,
+      outcome: 'failed',
+      error: error,
+      queued: _queues[thread]?.length ?? 0,
+    );
     // The hold goes: paused while another stop is still in flight, else none.
     _turnEnded(thread, halted: true);
     breadcrumbs('chat.reply.settled', {'reason': loss.name});

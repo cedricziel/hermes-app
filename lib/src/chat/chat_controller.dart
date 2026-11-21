@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, Message;
@@ -52,6 +53,7 @@ import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
 import 'chat_reply.dart';
+import 'reply_diagnostics.dart';
 import 'chat_transport.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
@@ -623,6 +625,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.
   final Breadcrumbs breadcrumbs;
+
+  /// What a reply that is lost, failed or waiting is diagnosed with.
+  late final ReplyDiagnostics _diag = ReplyDiagnostics(
+    events: events,
+    now: _clock,
+  );
+
+  /// The app moved to [state]: logged while a reply runs, with how long the
+  /// app was away on the return (see [ReplyDiagnostics.lifecycle]).
+  void appLifecycleChanged(AppLifecycleState state) => _diag.lifecycle(
+    state,
+    replyRunning: _sending.isNotEmpty || _threads.any((t) => t.isReplying),
+  );
   final AppEventLogger events;
   final ConnectionTelemetry usageTelemetry;
   final Future<bool> Function(Uri)? connectorBrowser;
@@ -1581,6 +1596,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _reclaimedQueueReview.remove(thread);
     _warnings.remove(thread)?.clear();
     _warningGenerations.remove(thread);
+    final abandoned = _queues[thread]?.length ?? 0;
+    if (abandoned > 0) _diag.queue(thread, 'abandoned', abandoned);
+    _diag.forget(thread);
     _queues.remove(thread);
     _loadedQueues.remove(thread);
     _restoredQueues.remove(thread);
@@ -1843,6 +1861,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// and shows its replying indicator. An idle thread closes the stream
   /// without events.
   void _pickUp(ChatThread thread, {bool retry = false}) {
+    if (_reconnectingReply(thread) != null) _diag.pickedUp(thread);
     if (queueStore != null) unawaited(_restoreQueue(thread));
     if (!retry) _ChatControllerStreaming(this)._restartReconnect(thread);
     final transport = this.transport;
