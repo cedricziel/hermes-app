@@ -59,6 +59,7 @@ import '../server_care/server_check_controller.dart';
 import '../server_care/server_care_scope.dart';
 import '../server_care/server_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
+import '../profiles/server_default_profile.dart';
 import '../profiles/mac_profiles_page.dart';
 import '../profiles/widgets/mac_profile_switcher.dart';
 import '../profiles/widgets/new_profile_dialog.dart';
@@ -502,8 +503,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     try {
       final active = await _profiles?.loadActive();
       if (active != null) {
-        final name = active.current.isNotEmpty ? active.current : active.active;
-        _defaultProfile = name.isEmpty ? null : name;
+        _defaultProfile = serverDefaultProfile(active);
       }
     } on Object {
       // The chat's own report is then what names the profile.
