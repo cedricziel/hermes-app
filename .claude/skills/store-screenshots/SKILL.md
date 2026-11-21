@@ -75,10 +75,19 @@ version>`. Check the editable version on App Store Connect first and pass
   only the light Kanban board and task details, preserving other raw captures.
 - The seed script uses `DEMO_SERVER_URL` to create Kanban tasks through the
   backend API after checking that `/api/status` reports the throwaway home.
-- The Mac window opens at 800 x 600, under the 900 point wide breakpoint. A
-  size in the xib or in `MainFlutterWindow.swift` never reached the built app;
-  the test resizes it through the `setContentSize` call on the
-  `hermes_app/window` channel (`SHOT_WINDOW`).
+- The main window has a 1100 x 760 xib default and a 640 x 480 minimum set in
+  `awakeFromNib`. An earlier note said a size in the xib or in
+  `MainFlutterWindow.swift` never reached the built app. The likely reason:
+  the xib window is restorable, and AppKit's saved state can bring the last
+  frame back after a kill (`dev-app.sh stop`, `flutter run`), a crash, Quit
+  and Keep Windows (⌥⌘Q), a logout with "Reopen windows", or when "Close
+  windows when quitting an application" is off; with the default setting a
+  Cmd-Q throws the state away, so a normal relaunch starts at 1100 x 760.
+  This is unverified on a Mac (`scripts/dev-app.sh start` and `screenshot`
+  show it). Keep resizing for screenshots through the `setContentSize` call
+  on the `hermes_app/window` channel (`SHOT_WINDOW`, and
+  `SHOT_MAC_COMPACT_WINDOW` for `mac compact`, 800x600), whatever the default
+  is.
 - Don't add erase boxes for the dev address by hand. The test finds the
   address text and writes its pixel box to `<screen>.erase`; `finish` erases
   that. A fixed box goes stale with the next layout change.
