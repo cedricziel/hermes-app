@@ -55,4 +55,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(answers, [null]);
   });
+
+  testWidgets('the sheet still builds after its opener is gone', (
+    tester,
+  ) async {
+    final showOpener = ValueNotifier(true);
+    final dark = ValueNotifier(false);
+    await tester.pumpWidget(
+      ValueListenableBuilder<bool>(
+        valueListenable: dark,
+        builder: (_, isDark, _) => MaterialApp(
+          theme: ThemeData(
+            platform: TargetPlatform.iOS,
+            brightness: isDark ? Brightness.dark : Brightness.light,
+          ),
+          home: ValueListenableBuilder<bool>(
+            valueListenable: showOpener,
+            builder: (_, show, _) => show
+                ? Builder(
+                    builder: (context) => TextButton(
+                      onPressed: () => showAppActionSheet<String>(
+                        context: context,
+                        title: 'Nightly',
+                        entries: const [
+                          AppActionSheetEntry(label: 'Rename', value: 'rename'),
+                        ],
+                      ),
+                      child: const Text('Open'),
+                    ),
+                  )
+                : const SizedBox(),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    showOpener.value = false;
+    await tester.pump();
+    dark.value = true;
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Cancel'), findsOneWidget);
+  });
 }

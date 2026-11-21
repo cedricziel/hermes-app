@@ -24,6 +24,8 @@ Future<T?> showAppActionSheet<T>({
   required String title,
   required List<AppActionSheetEntry<T>> entries,
 }) {
+  // Read before the popup: its builder can run again after the opener is gone.
+  final cancelLabel = context.l10n.widgetsCancel;
   return showCupertinoModalPopup<T>(
     context: context,
     builder: (sheet) => CupertinoActionSheet(
@@ -38,7 +40,7 @@ Future<T?> showAppActionSheet<T>({
       ],
       cancelButton: CupertinoActionSheetAction(
         onPressed: () => Navigator.of(sheet).pop(),
-        child: Text(context.l10n.widgetsCancel),
+        child: Text(cancelLabel),
       ),
     ),
   );
