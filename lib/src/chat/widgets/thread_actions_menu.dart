@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:flutter/services.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
@@ -294,7 +295,7 @@ Future<void> runThreadAction(
       await housekeeping.branch?.call(thread);
     case (ThreadAction.rename, final housekeeping?):
       if (thread.isCanonicalBotChat) return;
-      final title = await showAdaptiveDialog<String>(
+      final title = await showAppDialog<String>(
         context: context,
         builder: (_) => _RenameDialog(initial: thread.title),
       );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../telemetry/report_bug.dart';
@@ -37,7 +38,7 @@ Future<String?> askKanbanText(
   String? initial,
   String confirm = 'OK',
   bool multiline = false,
-}) => showAdaptiveDialog<String>(
+}) => showAppDialog<String>(
   context: context,
   builder: (_) => _TextDialog(
     title: title,
