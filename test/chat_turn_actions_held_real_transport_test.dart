@@ -120,6 +120,23 @@ void main() {
     }
   });
 
+  group('two rows of one session: a running one wins over an idle one', () {
+    for (final order in [
+      ['working', 'idle'],
+      ['idle', 'working'],
+    ]) {
+      test(order.join(' then '), () async {
+        gateway.handlers['session.active_list'] = (_) => {
+          'sessions': [
+            for (final status in order)
+              {'session_key': thread.id, 'status': status},
+          ],
+        };
+        await expectHeld(true);
+      });
+    }
+  });
+
   group('the hold ends on a real answer that does not list it as running', () {
     test('a list without the session', () async {
       gateway.activeSessions = {'someone-else': 'working'};

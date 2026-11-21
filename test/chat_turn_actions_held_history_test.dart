@@ -104,19 +104,55 @@ void main() {
   test('once the server says the turn is over, the re-read drops the reply '
       'for the stored one', () async {
     final thread = await heldTurn('default');
-    transport.active.clear();
-    transport.activeInProfile['default'] = {};
-    await chat.refreshActive();
     stored
       ..add(messageRow(id: 3, role: 'user', content: 'Run the build'))
       ..add(messageRow(id: 4, role: 'assistant', content: 'Done.'));
-
-    await chat.refreshThread('s1');
+    transport.active.clear();
+    transport.activeInProfile['default'] = {};
+    await chat.refreshActive();
     await pumpEventQueue();
 
     expect(chat.turnActionsHeld(thread), isFalse);
     expect(lastAssistant(thread).status, MessageStatus.sent);
     expect(lastAssistant(thread).content, 'Done.');
+  });
+
+  test(
+    'a hold released after a read that found the stored answer re-reads '
+    'the thread, so the failed bubble goes and Retry does not stay on',
+    () async {
+      final thread = await heldTurn('default');
+      stored
+        ..add(messageRow(id: 3, role: 'user', content: 'Run the build'))
+        ..add(messageRow(id: 4, role: 'assistant', content: 'Done.'));
+      // Read during the hold: the failed bubble is kept.
+      await chat.refreshThread('s1');
+      await pumpEventQueue();
+      expect(chat.turnActionsHeld(thread), isTrue);
+
+      transport.active.clear();
+      transport.activeInProfile['default'] = {};
+      await chat.refreshActive();
+      await pumpEventQueue();
+
+      expect(chat.turnActionsHeld(thread), isFalse);
+      expect(
+        thread.messages.where((m) => m.status == MessageStatus.error),
+        isEmpty,
+      );
+      expect(lastAssistant(thread).content, 'Done.');
+      expect(transport.sends, hasLength(1));
+      expect(transport.undos, isEmpty);
+    },
+  );
+
+  test('a ask that throws releases nothing and does not throw', () async {
+    final thread = await heldTurn('default');
+    transport.answeredError = StateError('bug');
+
+    expect(await chat.refreshActive(), isTrue);
+
+    expect(chat.turnActionsHeld(thread), isTrue);
   });
 
   test("the hold of a chat on another profile is asked about for that "
