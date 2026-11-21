@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gpt_markdown/custom_widgets/custom_divider.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/widgets/app_markdown_theme.dart';
 import 'package:hermes_app/src/widgets/bounded_markdown.dart';
 
@@ -14,6 +15,7 @@ const _finished = '[first](https://example.com/a)\n\nA finished paragraph.\n\n';
 Widget _app(String text, {required ThemeData theme, void Function()? onLink}) {
   return MaterialApp(
     theme: theme,
+    builder: (context, child) => AppThemeScopes(child: child!),
     home: Scaffold(
       body: AppMarkdownTheme(
         child: BoundedMarkdown(

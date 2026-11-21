@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/widgets/app_markdown_theme.dart';
 import 'package:hermes_app/src/widgets/bounded_markdown.dart';
 import 'package:hermes_app/src/widgets/hermes_code_block.dart';
@@ -25,6 +26,7 @@ int _colouredChars(WidgetTester tester) => tester
 
 Widget _app(String text, {ThemeData? theme}) => MaterialApp(
   theme: theme ?? buildHermesLightTheme(),
+  builder: (context, child) => AppThemeScopes(child: child!),
   home: Scaffold(
     body: SingleChildScrollView(
       child: AppMarkdownTheme(child: BoundedMarkdown(text)),
@@ -124,6 +126,38 @@ void main() {
     expect(streamed.length, 12);
     expect(_colouredChars(tester), lessThanOrEqualTo(kHighlightMaxDocument));
     expect(streamed, await _whole(tester, pieces.join()));
+  });
+
+  testWidgets('a second fence of 6,000 characters is charged for the first', (
+    tester,
+  ) async {
+    String block(String c) => List.filled(60, c * 99).join('\n');
+    final pieces = [
+      '```js\n',
+      block('a'),
+      '\n```\n\n',
+      '```js\n',
+      block('b'),
+      '\n```\n\n',
+    ];
+    final streamed = await _streamed(tester, pieces);
+    expect(streamed, [true, false]);
+    expect(_colouredChars(tester), lessThanOrEqualTo(kHighlightMaxDocument));
+  });
+
+  testWidgets('a fence that grows replaces only its own charge', (
+    tester,
+  ) async {
+    String block(String c, int lines) => List.filled(lines, c * 99).join('\n');
+    final first = '```js\n${block('a', 60)}\n```\n\n';
+    // 3,000 characters after the first's 6,000 fit; 4,500 do not.
+    await _streamed(tester, [first, '```js\n${block('b', 30)}']);
+    expect(_coloured(tester), [true, true]);
+    await tester.pumpWidget(_app('$first```js\n${block('b', 45)}'));
+    expect(_coloured(tester), [true, false]);
+    // Back within it, the first keeps its charge and the second takes its own.
+    await tester.pumpWidget(_app('$first```js\n${block('b', 31)}'));
+    expect(_coloured(tester), [true, true]);
   });
 
   testWidgets('a rebuild after the stream leaves every decision as it was', (
