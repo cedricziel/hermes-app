@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
+import 'support/test_localizations.dart';
 
 /// Thread rows follow the platform: swipe actions, a long-press sheet and 44pt
 /// rows on iOS; the "more" button stays on macOS and Material.
@@ -193,7 +194,7 @@ void main() {
     final present = ValueNotifier(true);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(platform: TargetPlatform.iOS),
         home: Scaffold(

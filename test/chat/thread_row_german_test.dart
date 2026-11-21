@@ -14,6 +14,7 @@ import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 
 import '../support/accessibility_announcements.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/test_localizations.dart';
 
 /// A German device gets German words on a chat row everywhere: the phone's
 /// action sheet, the swipe actions, VoiceOver's custom actions and the
@@ -31,7 +32,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('de'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(platform: TargetPlatform.iOS),
         home: Scaffold(
@@ -126,7 +127,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(platform: TargetPlatform.iOS),
         home: Scaffold(
@@ -238,7 +239,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('de'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: ThemeData(platform: TargetPlatform.iOS),
           home: Scaffold(
