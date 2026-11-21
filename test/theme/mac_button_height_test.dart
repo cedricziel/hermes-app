@@ -101,21 +101,24 @@ void main() {
       // sets part of its own style, or a banner that merges the theme's
       // style, must see the same padding and density as before.
       group('buttons that style themselves', () {
-        Future<void> pumpMac(WidgetTester tester, Widget child) =>
-            tester.pumpWidget(
-              MaterialApp(
-                theme: theme(platform: TargetPlatform.macOS),
-                locale: const Locale('de'),
-                localizationsDelegates: const [
-                  AppLocalizations.delegate,
-                  GlobalMaterialLocalizations.delegate,
-                  GlobalWidgetsLocalizations.delegate,
-                  GlobalCupertinoLocalizations.delegate,
-                ],
-                supportedLocales: AppLocalizations.supportedLocales,
-                home: Scaffold(body: Center(child: child)),
-              ),
-            );
+        Future<void> pumpMac(
+          WidgetTester tester,
+          Widget child, {
+          ThemeData? themed,
+        }) => tester.pumpWidget(
+          MaterialApp(
+            theme: themed ?? theme(platform: TargetPlatform.macOS),
+            locale: const Locale('de'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(body: Center(child: child)),
+          ),
+        );
 
         testWidgets('a stacked AppBanner action keeps its start edge', (
           tester,
@@ -166,16 +169,37 @@ void main() {
         });
 
         testWidgets('TextButton.icon keeps its width', (tester) async {
+          final macTheme = theme(platform: TargetPlatform.macOS);
+          // The same theme whose text button sets nothing but the pre-fix
+          // minimum size, so no padding or density of its own.
+          final before = macTheme.copyWith(
+            textButtonTheme: TextButtonThemeData(
+              style: ButtonStyle(
+                minimumSize: WidgetStatePropertyAll(
+                  Size(
+                    macTheme.textButtonTheme.style!.minimumSize!
+                        .resolve({})!
+                        .width,
+                    20,
+                  ),
+                ),
+              ),
+            ),
+          );
           final button = TextButton.icon(
             onPressed: () {},
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Go'),
           );
           await pumpMac(tester, button);
-          expect(
-            tester.getSize(find.byWidget(button)).width,
-            closeTo(82.2, 0.1),
-          );
+          final now = tester.getSize(find.byWidget(button));
+          await pumpMac(tester, button, themed: before);
+          // The theme change animates; read the size once it has settled.
+          await tester.pumpAndSettle();
+          final then = tester.getSize(find.byWidget(button));
+          expect(now.width, then.width);
+          expect(now.height, 28);
+          expect(then.height, 20);
         });
       });
     });

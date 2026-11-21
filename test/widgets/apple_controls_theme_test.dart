@@ -29,19 +29,6 @@ void main() {
       expect(theme.splashFactory, NoSplash.splashFactory);
     });
 
-    testWidgets('buttons are 28 tall once the density is applied', (
-      tester,
-    ) async {
-      final button = TextButton(onPressed: () {}, child: const Text('Go'));
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: theme,
-          home: Scaffold(body: Center(child: button)),
-        ),
-      );
-      expect(tester.getSize(find.byWidget(button)).height, 28);
-    });
-
     test('popup menus use the smaller Mac radius', () {
       final shape = theme.popupMenuTheme.shape! as RoundedRectangleBorder;
       expect(shape.borderRadius, BorderRadius.circular(6));
