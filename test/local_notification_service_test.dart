@@ -29,6 +29,9 @@ class _Posted {
 /// Named like the `dbus` package's exception, which is matched by name.
 class DBusServiceUnknownException implements Exception {}
 
+/// Thrown locally by the package when the socket is already closed.
+class DBusClosedException implements Exception {}
+
 class _FakePlugin implements FlutterLocalNotificationsPlugin {
   final posted = <_Posted>[];
   var initializeCalls = 0;
@@ -1787,6 +1790,34 @@ void main() {
         debugDefaultTargetPlatformOverride = null;
       });
     });
+
+    test(
+      'a show that fails with DBusClosedException does not prove the bus alive',
+      () {
+        fakeAsync((async) {
+          final plugin = _FakePlugin()..showError = DBusClosedException();
+          final service = serviceWith(plugin, bus: true);
+          NotificationPostResult? first;
+          service.post(note).then((r) => first = r);
+          async.flushMicrotasks();
+          expect(first?.status, NotificationPostStatus.failed);
+
+          plugin
+            ..showError = null
+            ..showGate = Completer<void>();
+          service.post(note);
+          async.flushMicrotasks();
+          async.elapse(kLinuxCallTimeout);
+          async.flushMicrotasks();
+
+          NotificationPostResult? next;
+          service.post(note).then((r) => next = r);
+          async.flushMicrotasks();
+          expect(next?.status, NotificationPostStatus.unsupported);
+          debugDefaultTargetPlatformOverride = null;
+        });
+      },
+    );
 
     test('a bus error reply to a show proves the bus alive', () {
       fakeAsync((async) {

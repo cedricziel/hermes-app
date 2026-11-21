@@ -112,12 +112,36 @@ bool isLinuxBusError(Object error) =>
     // notification plugin, say) is not a bus error.
     error is String ||
     (error is FormatException && error.message.contains('D-Bus address')) ||
-    isDBusReplyError(error);
-
-/// Whether [error] is an exception of the `dbus` package: an error the bus
-/// itself answered with, as opposed to a local throw before anything was sent.
-bool isDBusReplyError(Object error) =>
     error.runtimeType.toString().startsWith('DBus');
+
+/// The `dbus` package's exceptions that carry an answer from the bus
+/// (dbus 0.7.15: `DBusMethodResponseException` and its subclasses, and
+/// `DBusReplySignatureException`). The package is not a direct dependency, so
+/// they are matched by exact name. Others, such as `DBusClosedException`
+/// (thrown locally before anything is sent), prove nothing about the bus.
+const _dbusReplyExceptions = {
+  'DBusMethodResponseException',
+  'DBusErrorException',
+  'DBusFailedException',
+  'DBusServiceUnknownException',
+  'DBusUnknownObjectException',
+  'DBusUnknownInterfaceException',
+  'DBusUnknownMethodException',
+  'DBusTimeoutException',
+  'DBusTimedOutException',
+  'DBusInvalidArgsException',
+  'DBusUnknownPropertyException',
+  'DBusPropertyReadOnlyException',
+  'DBusPropertyWriteOnlyException',
+  'DBusNotSupportedException',
+  'DBusAccessDeniedException',
+  'DBusAuthFailedException',
+  'DBusReplySignatureException',
+};
+
+/// Whether [error] is one the bus itself answered with.
+bool isDBusReplyError(Object error) =>
+    _dbusReplyExceptions.contains(error.runtimeType.toString());
 
 /// How long a Linux plugin call may take. The D-Bus client of the plugin never
 /// completes a call when its connection failed, so without a bound a post
