@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
+import '../../l10n/l10n.dart';
 import '../theme/platform_chrome.dart';
 import 'app_action_sheet.dart';
 
@@ -46,7 +47,7 @@ class RowActions extends StatelessWidget {
     final action = await showAppActionSheet<RowAction>(
       context: context,
       title: title,
-      cancelLabel: 'Cancel',
+      cancelLabel: context.l10n.widgetsCancel,
       entries: [
         for (final action in actions)
           AppActionSheetEntry(
