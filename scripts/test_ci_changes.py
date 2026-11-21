@@ -234,10 +234,17 @@ class ChangesFilterTest(unittest.TestCase):
         del files[".release-please-manifest.json"]
         self.assertNormal(self.classify(files))
 
+    def test_pubspec_and_manifest_only_is_normal(self):
+        files = self.release_files()
+        del files["CHANGELOG.md"]
+        self.assertNormal(self.classify(files))
+
     def test_workflow_passes_branch_through_env(self):
         text = WORKFLOW.read_text()
         self.assertIn("HEAD_REF: ${{ github.head_ref }}", text)
-        self.assertIn("HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}", text)
+        self.assertIn(
+            "HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}", text
+        )
         self.assertNotIn("github.head_ref", filter_script())
         self.assertNotIn("github.event.pull_request", filter_script())
 
