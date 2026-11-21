@@ -21,9 +21,14 @@ class _KeyboardFocus extends StatefulWidget {
 }
 
 class _KeyboardFocusState extends State<_KeyboardFocus> {
+  /// How many of these are mounted. The next use case builds before the last
+  /// one is disposed, so the strategy goes back only when none is left.
+  static var _live = 0;
+
   @override
   void initState() {
     super.initState();
+    _live++;
     FocusManager.instance.highlightStrategy =
         FocusHighlightStrategy.alwaysTraditional;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -36,7 +41,10 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
 
   @override
   void dispose() {
-    FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic;
+    if (--_live == 0) {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.automatic;
+    }
     super.dispose();
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
+import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/platform_chrome.dart';
@@ -7,7 +8,6 @@ import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/platform_refresh.dart';
 import '../widgets/settings_search_field.dart';
-
 import 'catalog_controller.dart';
 import 'catalog_detail.dart';
 import 'catalog_entry.dart';
@@ -248,12 +248,17 @@ class _InstallActionsState extends State<InstallActions> {
         SizedBox(height: metrics.sectionGap),
         FilledButton(
           key: const Key('catalog-detail-install'),
-          style: FilledButton.styleFrom(
-            minimumSize: Size.fromHeight(metrics.rowMinHeight),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(metrics.radius),
-            ),
-          ),
+          style:
+              FilledButton.styleFrom(
+                minimumSize: Size.fromHeight(metrics.rowMinHeight),
+              ).copyWith(
+                shape: focusRingShapeOf(
+                  context,
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(metrics.radius),
+                  ),
+                ),
+              ),
           onPressed: widget.installing ? null : () => widget.onInstall(_enable),
           child: widget.installing
               ? const SizedBox.square(

@@ -680,7 +680,9 @@ class GroupedRow extends StatelessWidget {
     );
     // A row that draws its own focus mark (`focusFill` off) or takes none gets
     // no ring from here.
-    final ink = focusable && focusFill ? FocusRing(child: tap) : tap;
+    final ink = focusable && focusFill
+        ? FocusRing(radius: metrics.radius - kFocusRingOffset, child: tap)
+        : tap;
     final color = selected ? scheme.outline : Colors.transparent;
     Widget merged(Widget child) => MergeSemantics(
       child: Semantics(

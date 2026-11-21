@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -36,6 +37,7 @@ void _strategy(FocusHighlightStrategy strategy) {
 }
 
 void main() {
+  setUp(resetFocusRingInput);
   for (final (name, theme) in [
     ('light', buildHermesLightTheme()),
     ('dark', buildHermesDarkTheme()),
@@ -135,23 +137,86 @@ void main() {
           shape.base,
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         );
+        // A 10 px radius: the ring's inner edge is at radius 12, its outer
+        // edge at 14, both around the corner centre of the grown shape.
         const rect = Rect.fromLTWH(10, 10, 100, 40);
-        final ring = Path.combine(
-          PathOperation.difference,
-          shape.getOuterPath(rect.inflate(4)),
-          shape.getOuterPath(rect.inflate(2)),
-        );
-        expect(ring.getBounds(), rect.inflate(4));
+        final ring = shape.ringPath(rect);
+        const centre = Offset(20, 20);
+        final diagonal = Offset(-1, -1) / 1.4142135623730951;
+        bool inRing(double distance) =>
+            ring.contains(centre + diagonal * distance);
+        expect(inRing(11.5), isFalse, reason: 'inside the inner edge (12)');
+        expect(inRing(13), isTrue, reason: 'on the ring');
+        expect(inRing(14.5), isFalse, reason: 'outside the outer edge (14)');
       });
 
-      testWidgets('a pointer press shows no ring', (tester) async {
+      for (final kind in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
+        testWidgets('a ${kind.name} press takes the ring off a focused '
+            'button, and the next key puts it back', (tester) async {
+          // On a desktop the highlight mode stays traditional through a mouse
+          // click, so the press itself must switch the ring off.
+          _strategy(FocusHighlightStrategy.alwaysTraditional);
+          await _pump(tester, theme, buttons());
+          nodes['filled']!.requestFocus();
+          await tester.pumpAndSettle();
+          expect(
+            _material(tester, finders['filled']!).shape,
+            isA<FocusRingBorder>(),
+          );
+
+          final gesture = await tester.startGesture(
+            const Offset(2, 2),
+            kind: kind,
+          );
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(nodes['filled']!.hasFocus, isTrue, reason: 'focus is held');
+          expect(
+            _material(tester, finders['filled']!).shape,
+            isNot(isA<FocusRingBorder>()),
+            reason: 'no ring after a pointer press',
+          );
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+          await tester.pumpAndSettle();
+          expect(
+            _material(tester, finders['filled']!).shape,
+            isA<FocusRingBorder>(),
+          );
+        });
+      }
+
+      testWidgets('a button pressed with Space keeps the ring', (tester) async {
+        _strategy(FocusHighlightStrategy.alwaysTraditional);
         await _pump(tester, theme, buttons());
-        await tester.tap(finders['filled']!, kind: PointerDeviceKind.touch);
+        nodes['filled']!.requestFocus();
         await tester.pumpAndSettle();
-        expect(FocusManager.instance.highlightMode, FocusHighlightMode.touch);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
+        await tester.pump();
         expect(
           _material(tester, finders['filled']!).shape,
+          isA<FocusRingBorder>(),
+        );
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+      });
+
+      testWidgets('a button focused in touch mode gets the ring once the '
+          'keyboard is used', (tester) async {
+        _strategy(FocusHighlightStrategy.alwaysTouch);
+        await _pump(tester, theme, buttons());
+        nodes['text']!.requestFocus();
+        await tester.pumpAndSettle();
+        expect(
+          _material(tester, finders['text']!).shape,
           isNot(isA<FocusRingBorder>()),
+        );
+
+        FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.alwaysTraditional;
+        await tester.pumpAndSettle();
+        expect(
+          _material(tester, finders['text']!).shape,
+          isA<FocusRingBorder>(),
         );
       });
     });
@@ -216,12 +281,22 @@ void main() {
         );
         await tester.tap(find.byType(IconButton));
         await tester.pumpAndSettle();
+        // Opened by a pointer; the arrow keys then move focus in the menu.
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
         Focus.of(tester.element(find.text('Two'))).requestFocus();
         await tester.pumpAndSettle();
         expect(_ringPainter, findsOneWidget);
         final painter = _painter(tester);
         expect(painter.color, link);
-        expect(painter.fill, theme.hoverColor);
+        final fill = tester
+            .widget<CustomPaint>(
+              find.byWidgetPredicate(
+                (w) => w is CustomPaint && w.painter is FocusRingFillPainter,
+              ),
+            )
+            .painter!;
+        expect((fill as FocusRingFillPainter).color, theme.hoverColor);
         final ring = tester.getRect(_ringPainter);
         expect(ring.contains(tester.getCenter(find.text('Two'))), isTrue);
         expect(ring.contains(tester.getCenter(find.text('One'))), isFalse);

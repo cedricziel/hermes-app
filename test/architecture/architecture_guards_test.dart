@@ -103,6 +103,36 @@ Rule _custom({
   );
 }
 
+final _buttonStyleCall = RegExp(r'\b(?:\w*Button\.styleFrom|ButtonStyle)\(');
+
+/// A `shape:` argument of a button style (`styleFrom` or `ButtonStyle`) that
+/// does not go through `focusRingShape`/`focusRingShapeOf`.
+List<Hit> _buttonShapeHits() => [
+  for (final file in dartFiles('lib'))
+    for (final call in _buttonStyleCall.allMatches(file.code))
+      ..._shapeArgs(file, call.end),
+];
+
+Iterable<Hit> _shapeArgs(SourceFile file, int from) sync* {
+  final code = file.code;
+  var depth = 1;
+  for (var i = from; i < code.length && depth > 0; i++) {
+    final c = code[i];
+    if ('([{'.contains(c)) {
+      depth++;
+    } else if (')]}'.contains(c)) {
+      depth--;
+    } else if (depth == 1 &&
+        code.startsWith('shape:', i) &&
+        (i == 0 || !RegExp(r'\w').hasMatch(code[i - 1]))) {
+      final value = code.substring(i + 6).trimLeft();
+      if (!value.startsWith('focusRingShape')) {
+        yield Hit(file.path, file.lineOf(i), file.lineText(file.lineOf(i)));
+      }
+    }
+  }
+}
+
 /// Names that are an error in any scope.
 const _errorNames = [
   'err',
@@ -578,6 +608,15 @@ final guardRules = <Rule>[
 
   // docs/architecture/telemetry.md: events, breadcrumbs, span attributes and
   // debugPrint carry error.runtimeType, never the message.
+  _custom(
+    name: 'button-shape-without-focus-ring',
+    message:
+        'a button style that sets its own shape drops the keyboard focus '
+        'ring: write .copyWith(shape: focusRingShapeOf(context, shape)) '
+        '(lib/src/theme/focus_ring.dart) instead of shape: in styleFrom.',
+    hits: _buttonShapeHits,
+  ),
+
   _custom(
     name: 'error-interpolation-in-telemetry',
     message:

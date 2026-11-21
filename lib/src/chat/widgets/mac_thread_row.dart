@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../macos/mac_source_list.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_popup_menu_button.dart';
 import '../../widgets/named_icon_button.dart';
@@ -45,13 +46,18 @@ class MacThreadRow extends StatefulWidget {
   State<MacThreadRow> createState() => _MacThreadRowState();
 }
 
-final _buttonStyle = IconButton.styleFrom(
-  minimumSize: const Size.square(20),
-  maximumSize: const Size.square(20),
-  padding: EdgeInsets.zero,
-  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-);
+ButtonStyle _buttonStyle(BuildContext context) =>
+    IconButton.styleFrom(
+      minimumSize: const Size.square(20),
+      maximumSize: const Size.square(20),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ).copyWith(
+      shape: focusRingShapeOf(
+        context,
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+    );
 
 class _MacThreadRowState extends State<MacThreadRow> {
   final _menu = AdaptiveMenuController();
@@ -98,7 +104,7 @@ class _MacThreadRowState extends State<MacThreadRow> {
                       icon: AppIcons.archive,
                       iconSize: 14,
                       color: subtle,
-                      style: _buttonStyle,
+                      style: _buttonStyle(context),
                       onPressed: onArchive,
                     ),
                   const SizedBox(width: 2),
@@ -110,7 +116,7 @@ class _MacThreadRowState extends State<MacThreadRow> {
                     iconSize: 14,
                     color: subtle,
                     padding: EdgeInsets.zero,
-                    style: _buttonStyle,
+                    style: _buttonStyle(context),
                     itemBuilder: widget.menuItems,
                     onSelected: widget.onAction,
                   ),

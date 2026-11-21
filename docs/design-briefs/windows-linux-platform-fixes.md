@@ -26,6 +26,29 @@ Corrections where this brief did not work: none beyond the corrections above.
 
 Copy added: "Show menu bar" (Settings switch); "Keyboard shortcuts" (page title and the Settings row that opens it); tooltips with the chord in brackets ("New chat (Ctrl+N)", "Sidebar (Ctrl+B)").
 
+### F7 addendum (recorded with the PR)
+
+The pass above did not record these; they are checked against the real theme tokens (`hermes_theme.dart`) and recorded here, in the PR that builds the ring.
+
+- Contrast of the ring (link colour: #1565C0 light, #90CAF9 dark) against what it sits on, WCAG 1.4.11 needs 3:1:
+
+  | Surface | Light | Dark |
+  | --- | --- | --- |
+  | Page, grouped-section card and menu surface (`surface`) | 5.75 | 11.37 |
+  | Selected list row (`outline`) | 4.53 | 8.51 |
+  | Segmented-control track (Material pill, `surfaceContainerHighest`) | 5.23 | 8.51 |
+  | iOS and Mac segment track (dark `surface`) | n/a | 11.37 |
+  | Dialog surface (dark zinc900) | n/a | 10.13 |
+  | Settings-row focus fill (onSurface at 0.10 over the page) | 4.69 | 9.19 |
+  | Same fill over a selected row (0.12 at worst) | 3.59 | 5.91 |
+  | Menu hover fill (onSurface at 0.08 over the page) | 4.91 | 9.72 |
+
+  Every surface the ring touches is at or above 3:1. The filled button's own fill is not one of them: the ring sits 2 px outside it, so what it touches is the page (5.75 and 11.37). The ring against the fill itself would be 3.08 light and 1.68 dark, which does not matter because the 2 px gap of page separates them; the ring is never drawn on the fill.
+- Pressed: a keyboard-focused button pressed with Space or Enter keeps the ring (the state is focused and pressed, and the shape resolves on focused only); the pressed overlay sits inside it. A mouse or touch press shows no ring: on a desktop Flutter's highlight mode stays traditional through a mouse click, so the ring also follows the last input (a pointer-down hides it, the next key-down shows it again).
+- High contrast: the app has no high-contrast theme and does not read `MediaQuery.highContrast`. The ring is unchanged there and meets 3:1 on every surface above.
+- Hover plus focus: both show. The ring is drawn on top of the hover tint (a menu item also takes the hover fill, painted under its text and the ring).
+- Implementation records: a list row's ring radius is the section radius minus the 2 px inset; the model popover's choice row keeps its edge outline (inset 0); not covered are `ListTile` (7 sites), chips (3), `CheckedPopupMenuItem`, the Android `SegmentedButton`, the Mac compact menu row and the iOS and Mac system segmented control. `docs/architecture/settings-screens.md` has the list.
+
 ## F1 command set
 
 | Command                                       | Mac               | Windows and Linux                                                 |

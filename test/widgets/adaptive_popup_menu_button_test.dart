@@ -49,7 +49,7 @@ void main() {
     await tester.tap(find.byType(IconButton));
     await tester.pumpAndSettle();
     expect(find.byType(CupertinoMenuItem), findsNWidgets(3));
-    expect(find.byType(PopupMenuItem<String>), findsNothing);
+    expect(find.bySubtype<PopupMenuItem<String>>(), findsNothing);
     await tester.tap(find.text('Rename'));
     await tester.pumpAndSettle();
     expect(picked, ['rename']);
@@ -71,7 +71,12 @@ void main() {
     expect(find.byType(CupertinoMenuItem), findsNothing);
     expect(
       tester
-          .getSize(find.widgetWithText(PopupMenuItem<String>, 'Rename'))
+          .getSize(
+            find.ancestor(
+              of: find.text('Rename'),
+              matching: find.bySubtype<PopupMenuItem<String>>(),
+            ),
+          )
           .height,
       AdaptivePopupMenuButton.macRowHeight,
     );
@@ -87,7 +92,12 @@ void main() {
     expect(find.byType(CupertinoMenuItem), findsNothing);
     expect(
       tester
-          .getSize(find.widgetWithText(PopupMenuItem<String>, 'Rename'))
+          .getSize(
+            find.ancestor(
+              of: find.text('Rename'),
+              matching: find.bySubtype<PopupMenuItem<String>>(),
+            ),
+          )
           .height,
       kMinInteractiveDimension,
     );

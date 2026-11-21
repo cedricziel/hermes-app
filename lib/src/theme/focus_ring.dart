@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'hermes_theme.dart';
 
@@ -9,9 +11,71 @@ const double kFocusRingWidth = 2;
 const double kFocusRingOffset = 2;
 
 /// Whether the last input was the keyboard, which is the only time a focus
-/// ring shows: a pointer press focuses a button too, and draws nothing.
-bool get keyboardFocusShows =>
-    FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+/// ring shows. A pointer press focuses a button too and draws nothing.
+///
+/// Flutter's traditional highlight mode is not enough: on a desktop it stays
+/// on through a mouse click (only touch and stylus switch it off), so the
+/// last pointer-down and key-down are tracked here as well.
+bool get keyboardFocusShows {
+  _watchInput();
+  return FocusManager.instance.highlightMode ==
+          FocusHighlightMode.traditional &&
+      !_pointerWasLast;
+}
+
+bool _pointerWasLast = false;
+
+/// Tells [FocusRing] and the focused button that the input changed.
+class _InputChanges extends ChangeNotifier {
+  void notify() => notifyListeners();
+}
+
+final _inputChanges = _InputChanges();
+
+GestureBinding? _watchedGestures;
+FocusManager? _watchedManager;
+
+void _watchInput() {
+  final gestures = GestureBinding.instance;
+  if (!identical(_watchedGestures, gestures)) {
+    _watchedGestures = gestures;
+    gestures.pointerRouter.addGlobalRoute((event) {
+      if (event is PointerDownEvent && !_pointerWasLast) {
+        _pointerWasLast = true;
+        _inputChanged();
+      }
+    });
+  }
+  final manager = FocusManager.instance;
+  // A test binding replaces the manager between tests.
+  if (!identical(_watchedManager, manager)) {
+    _watchedManager = manager;
+    manager.addHighlightModeListener((_) => _inputChanged());
+    manager.addEarlyKeyEventHandler((event) {
+      if (event is KeyDownEvent && _pointerWasLast) {
+        _pointerWasLast = false;
+        _inputChanged();
+      }
+      return KeyEventResult.ignored;
+    });
+  }
+}
+
+/// Forgets the last pointer press, for a test that starts from the keyboard.
+@visibleForTesting
+void resetFocusRingInput() => _pointerWasLast = false;
+
+/// A button does not rebuild when the input changes, so the focused one is
+/// marked dirty here and its style resolves again.
+void _inputChanged() {
+  _inputChanges.notify();
+  final context = FocusManager.instance.primaryFocus?.context;
+  if (context is! Element || !context.mounted) return;
+  context.visitAncestorElements((element) {
+    element.markNeedsBuild();
+    return element.widget is! ButtonStyleButton;
+  });
+}
 
 /// [base] with a focus ring painted [offset] outside it: the same shape grown
 /// by [offset] and [offset] plus [width], with the control's corner radius
@@ -66,13 +130,20 @@ class FocusRingBorder extends OutlinedBorder {
   @override
   void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
     base.paint(canvas, rect, textDirection: textDirection);
-    final ring = Path.combine(
-      PathOperation.difference,
-      _grown(rect, offset + width, textDirection),
-      _grown(rect, offset, textDirection),
+    canvas.drawPath(
+      ringPath(rect, textDirection: textDirection),
+      Paint()..color = color,
     );
-    canvas.drawPath(ring, Paint()..color = color);
   }
+
+  /// What [paint] fills for the ring: the band between the shape grown by
+  /// [offset] and by [offset] plus [width].
+  @visibleForTesting
+  Path ringPath(Rect rect, {TextDirection? textDirection}) => Path.combine(
+    PathOperation.difference,
+    _grown(rect, offset + width, textDirection),
+    _grown(rect, offset, textDirection),
+  );
 
   @override
   OutlinedBorder copyWith({BorderSide? side}) => FocusRingBorder(
@@ -104,14 +175,26 @@ class FocusRingBorder extends OutlinedBorder {
 
 /// A button style's `shape`: [base], and with keyboard focus (never after a
 /// pointer press) a [FocusRingBorder] in [ring].
+///
+/// A button does not rebuild when the input changes, so a change marks the
+/// focused button dirty (`_inputChanged`); the ring then goes with a pointer
+/// press and returns with the next key, not only with the next focus move.
 WidgetStateProperty<OutlinedBorder?> focusRingShape(
   OutlinedBorder base,
   Color ring,
-) => WidgetStateProperty.resolveWith(
-  (states) => states.contains(WidgetState.focused) && keyboardFocusShows
+) => WidgetStateProperty.resolveWith((states) {
+  return states.contains(WidgetState.focused) && keyboardFocusShows
       ? FocusRingBorder(base: base, color: ring)
-      : base,
-);
+      : base;
+});
+
+/// [focusRingShape] in the link colour of [context]'s theme, for a button
+/// style that sets its own shape (a style's `shape` replaces the theme's, and
+/// with it the ring).
+WidgetStateProperty<OutlinedBorder?> focusRingShapeOf(
+  BuildContext context,
+  OutlinedBorder base,
+) => focusRingShape(base, context.hermesColors.link);
 
 /// What [FocusRing] paints, for a test to find.
 class FocusRingPainter extends CustomPainter {
@@ -120,7 +203,6 @@ class FocusRingPainter extends CustomPainter {
     required this.radius,
     this.inset = kFocusRingOffset,
     this.width = kFocusRingWidth,
-    this.fill,
   });
 
   final Color color;
@@ -128,17 +210,8 @@ class FocusRingPainter extends CustomPainter {
   final double inset;
   final double width;
 
-  /// Painted under the ring across the whole child, as a hover tint.
-  final Color? fill;
-
   @override
   void paint(Canvas canvas, Size size) {
-    if (fill != null) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
-        Paint()..color = fill!,
-      );
-    }
     final rect = (Offset.zero & size).deflate(inset + width / 2);
     if (rect.isEmpty) return;
     // [radius] is the ring's outer edge, as a border's is.
@@ -159,8 +232,26 @@ class FocusRingPainter extends CustomPainter {
       old.color != color ||
       old.radius != radius ||
       old.inset != inset ||
-      old.width != width ||
-      old.fill != fill;
+      old.width != width;
+}
+
+/// The hover tint a focused menu item takes, painted under the child so the
+/// text and the ink stay on top of it.
+class FocusRingFillPainter extends CustomPainter {
+  const FocusRingFillPainter({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) => canvas.drawRRect(
+    RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+    Paint()..color = color,
+  );
+
+  @override
+  bool shouldRepaint(FocusRingFillPainter old) =>
+      old.color != color || old.radius != radius;
 }
 
 /// A 2 px ring in the link colour drawn [kFocusRingOffset] inside [child]'s
@@ -198,17 +289,17 @@ class _FocusRingState extends State<FocusRing> {
   @override
   void initState() {
     super.initState();
-    FocusManager.instance.addHighlightModeListener(_modeChanged);
+    _watchInput();
+    _inputChanges.addListener(_onInput);
   }
 
   @override
   void dispose() {
-    FocusManager.instance.removeHighlightModeListener(_modeChanged);
+    _inputChanges.removeListener(_onInput);
     super.dispose();
   }
 
-  void _modeChanged(FocusHighlightMode mode) =>
-      setState(() => _keyboard = mode == FocusHighlightMode.traditional);
+  void _onInput() => setState(() => _keyboard = keyboardFocusShows);
 
   @override
   Widget build(BuildContext context) {
@@ -217,12 +308,14 @@ class _FocusRingState extends State<FocusRing> {
       skipTraversal: true,
       onFocusChange: (focused) => setState(() => _focused = focused),
       child: CustomPaint(
+        painter: _focused && _keyboard && widget.fill != null
+            ? FocusRingFillPainter(color: widget.fill!, radius: widget.radius)
+            : null,
         foregroundPainter: _focused && _keyboard
             ? FocusRingPainter(
                 color: context.hermesColors.link,
                 radius: widget.radius,
                 inset: widget.inset,
-                fill: widget.fill,
               )
             : null,
         child: widget.child,
