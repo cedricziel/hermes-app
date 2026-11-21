@@ -313,7 +313,7 @@ class ScheduleWatcher with WidgetsBindingObserver {
 
   Future<String?> _activeProfile() async {
     try {
-      return (await profiles?.loadActive())?.active;
+      return await profiles?.resolver.load();
     } on Object {
       return null;
     }

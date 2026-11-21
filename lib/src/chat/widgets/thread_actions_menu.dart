@@ -189,8 +189,8 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
     final housekeeping = widget.housekeeping;
     return NamedPopupMenuButton<ThreadAction>(
       controller: _menu,
-      label: 'Chat actions for ${_thread.title}',
-      tooltip: 'Chat actions',
+      label: context.l10n.chatWidgetsThreadMenuLabel(_thread.title),
+      tooltip: context.l10n.chatWidgetsThreadMenuTooltip,
       icon: AppIcons.more,
       color: subtle,
       onSelected: _run,
@@ -222,37 +222,43 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
               child: Text(context.l10n.filesEntryLabel),
             ),
           if (widget.includeCopyTranscript) ...[
-            const PopupMenuItem(
+            PopupMenuItem(
               value: ThreadAction.copyTranscript,
-              child: Text('Copy transcript'),
+              child: Text(context.l10n.chatWidgetsThreadMenuCopyTranscript),
             ),
             if (widget.exportJson case final offer?)
               PopupMenuItem(
                 value: ThreadAction.exportJson,
                 enabled: offer.enabled,
-                child: const Text('Export chat as JSON…'),
+                child: Text(context.l10n.chatWidgetsThreadMenuExportJson),
               ),
             if (housekeeping != null) const PopupMenuDivider(),
           ],
           if (housekeeping != null) ...[
             if (!_thread.isCanonicalBotChat)
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: ThreadAction.rename,
-                child: Text('Rename'),
+                child: Text(context.l10n.chatWidgetsThreadMenuRename),
               ),
             PopupMenuItem(
               value: ThreadAction.pin,
-              child: Text(_thread.pinned ? 'Unpin' : 'Pin'),
+              child: Text(
+                _thread.pinned
+                    ? context.l10n.chatWidgetsThreadMenuUnpin
+                    : context.l10n.chatWidgetsThreadMenuPin,
+              ),
             ),
             PopupMenuItem(
               value: ThreadAction.archive,
               child: Text(
-                _thread.isCanonicalBotChat ? 'Retire Bot Chat…' : 'Archive',
+                _thread.isCanonicalBotChat
+                    ? context.l10n.chatWidgetsThreadMenuRetire
+                    : context.l10n.chatWidgetsThreadMenuArchive,
               ),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: ThreadAction.delete,
-              child: Text('Delete'),
+              child: Text(context.l10n.chatWidgetsThreadMenuDelete),
             ),
           ],
         ],
@@ -299,11 +305,13 @@ Future<void> runThreadAction(
       await housekeeping.setPinned(thread, !thread.pinned);
     case (ThreadAction.archive, final housekeeping?):
       if (thread.isCanonicalBotChat) {
+        final l10n = context.l10n;
         final confirmed = await showConfirmDialog(
           context,
-          title: 'Retire this Bot Chat?',
-          message: 'This archives the canonical conversation. The next time you open this bot, a new Bot Chat is created after the server confirms retirement.',
-          confirmLabel: 'Retire Bot Chat',
+          title: l10n.chatWidgetsThreadMenuRetireConfirmTitle,
+          message: l10n.chatWidgetsThreadMenuRetireConfirmMessage,
+          confirmLabel: l10n.chatWidgetsThreadMenuRetireConfirmButton,
+          cancelLabel: l10n.chatWidgetsThreadMenuCancel,
           destructive: true,
         );
         if (confirmed) {
@@ -313,12 +321,13 @@ Future<void> runThreadAction(
         await housekeeping.archive(thread);
       }
     case (ThreadAction.delete, final housekeeping?):
-      final confirmed = await showConfirmDialog(
+      final l10n = context.l10n;
+      final confirmed = await showDestructiveConfirm(
         context,
-        title: 'Delete this chat?',
-        message: '"${thread.title}" and its messages will be deleted for good.',
-        confirmLabel: 'Delete',
-        destructive: true,
+        title: l10n.chatWidgetsThreadMenuDeleteTitle,
+        message: l10n.chatWidgetsThreadMenuDeleteMessage(thread.title),
+        confirmLabel: l10n.chatWidgetsThreadMenuDelete,
+        cancelLabel: l10n.chatWidgetsThreadMenuCancel,
       );
       if (confirmed) await housekeeping.delete(thread);
   }

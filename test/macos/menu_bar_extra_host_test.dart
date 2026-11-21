@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,9 +49,8 @@ void main() {
       );
 
       final chat = link.chat!;
-      chat
-        ..newThread()
-        ..submit('Plan the trip', const []);
+      chat.newThread();
+      unawaited(Future.value(chat.submit('Plan the trip', const [])));
       expect(MenuBarExtraModel.of(chat).replies.single.title, 'Plan the trip');
 
       link.newChat();
@@ -225,9 +226,8 @@ void main() {
         MenuBarExtraLink link,
       ) async {
         link.connect(chat: chat, openChat: (_) {}, newChat: () {});
-        chat
-          ..newThread()
-          ..submit('Private plan', const []);
+        chat.newThread();
+        unawaited(Future.value(chat.submit('Private plan', const [])));
         transport.sends.single.emit(
           const ApprovalRequested(
             ApprovalRequest(

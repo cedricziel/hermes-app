@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/memory/memory_decisions.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
@@ -23,7 +24,7 @@ void main() {
   late MemoryProposalsRepository repository;
 
   MemoryProposalsController bound([String profile = 'work']) {
-    controller.bind(repository, profile);
+    controller.bind(repository, resolvedProfile(profile));
     return controller;
   }
 
