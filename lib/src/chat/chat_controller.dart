@@ -1840,11 +1840,37 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final generation = _loadGeneration;
     final refresh = ++_activeRefresh;
     try {
-      return await _applyActive(transport, generation, refresh);
+      final answered = await _applyActive(transport, generation, refresh);
+      await _releaseHolds(transport, generation);
+      return answered;
     } finally {
       // The newest read's answer, or its failure (the poll goes on), ends
       // not knowing.
       if (refresh == _activeRefresh) _activeKnown = true;
+    }
+  }
+
+  /// Gives Retry and Edit back to the replies whose turn the server may still
+  /// run, when the server really answers that it does not run them. An
+  /// unreachable server, an error answer and an unreadable one release
+  /// nothing ([ChatTransport.activeStatusesAnswered] is null then), and every
+  /// status that counts as running ([_runningStatuses]: starting, streaming,
+  /// resuming as well as working and waiting) keeps the hold.
+  Future<void> _releaseHolds(ChatTransport transport, int generation) async {
+    if (!_threads.any(
+      (t) => _ChatControllerCommands(this)._lastReplyHeld(t) != null,
+    )) {
+      return;
+    }
+    final answered = await transport.activeStatusesAnswered(profile: _profile);
+    if (answered == null || !active || generation != _loadGeneration) return;
+    for (final thread in [..._threads]) {
+      final held = _ChatControllerCommands(this)._lastReplyHeld(thread);
+      if (held == null || _runningStatuses.contains(answered[thread.id])) {
+        continue;
+      }
+      _ChatControllerStreaming(this)
+          ._updateReply(thread, held, () => held.serverMayRun = false);
     }
   }
 
@@ -1868,19 +1894,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             statuses[thread.id] == 'waiting')
           thread.id,
     };
-    // A server that lists the session as not working has no turn of it to
-    // finish: the held actions of a reply that ended on a lost connection
-    // come back.
-    var changed = false;
-    for (final thread in _threads) {
-      if (working.contains(thread.id)) continue;
-      final held = _ChatControllerCommands(this)._lastReplyHeld(thread);
-      if (held == null) continue;
-      _ChatControllerStreaming(this)
-          ._updateReply(thread, held, () => held.serverMayRun = false);
-      changed = true;
-    }
-    if (working.length != _active.length) changed = true;
+    var changed = working.length != _active.length;
     if (!changed) {
       for (final id in working) {
         if (!_active.contains(id)) {

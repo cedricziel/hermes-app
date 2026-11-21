@@ -514,7 +514,11 @@ class HermesGatewayTransport
       _followUps(threadId, profile: profile);
 
   @override
-  Future<Map<String, String>> activeStatuses({String? profile}) async {
+  Future<Map<String, String>> activeStatuses({String? profile}) async =>
+      await activeStatusesAnswered(profile: profile) ?? const {};
+
+  @override
+  Future<Map<String, String>?> activeStatusesAnswered({String? profile}) async {
     final GatewayRpcClient client;
     final Map<String, Object?> result;
     try {
@@ -523,9 +527,11 @@ class HermesGatewayTransport
         'profile': ?profile,
       });
     } on Exception {
-      // Offline or an older server: no statuses. A bug is not hidden.
-      return const {};
+      // Offline or an older server: no answer. A bug is not hidden.
+      return null;
     }
+    // An answer without its list says nothing of any session.
+    if (result['sessions'] is! List<Object?>) return null;
     return _statusesOf(result);
   }
 

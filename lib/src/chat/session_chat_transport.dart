@@ -450,6 +450,10 @@ final class SessionChatTransport
       _call((d) => d.activeStatuses(profile: profile));
 
   @override
+  Future<Map<String, String>?> activeStatusesAnswered({String? profile}) =>
+      _call((d) => d.activeStatusesAnswered(profile: profile));
+
+  @override
   Future<void> checkConnection() => _call((d) => d.checkConnection());
 
   @override

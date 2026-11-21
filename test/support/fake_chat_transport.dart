@@ -161,8 +161,22 @@ class FakeChatTransport
   Future<Map<String, String>> activeStatuses({String? profile}) async {
     activeAsked.add(profile);
     if (activeError case final error?) throw error; // ignore: only_throw_errors
+    if (activeUnanswered) return const {};
     return Map.of(profile == null ? active : activeInProfile[profile] ?? {});
   }
+
+  /// What the real transport answers when the server cannot be asked: no
+  /// answer at all, which is not an empty list ([activeError] makes it so).
+  @override
+  Future<Map<String, String>?> activeStatusesAnswered({String? profile}) async {
+    if (activeError != null || activeUnanswered) return null;
+    activeAsked.add(profile);
+    return Map.of(profile == null ? active : activeInProfile[profile] ?? {});
+  }
+
+  /// The server answers nothing usable (offline, an error, a bad list), as
+  /// the real transport's [activeStatuses] reports it: an empty map.
+  bool activeUnanswered = false;
 
   final approvalAnswers = <(String, String)>[];
   final clarifyAnswers =

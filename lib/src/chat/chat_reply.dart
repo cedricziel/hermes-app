@@ -415,8 +415,10 @@ void markReconnecting(ChatMessage reply) {
 /// connection. A turn that may still run leaves the reply saying so rather than
 /// inviting a retry the server would refuse.
 bool serverMayStillRun(Object? error) => switch (error) {
+  // Once `prompt.submit` was written the server may have the prompt, whether
+  // or not it answered; before that it certainly has nothing.
   SendFailure(:final step, :final cause) =>
-    step == SendStep.reply && serverMayStillRun(cause),
+    step.index >= SendStep.submit.index && serverMayStillRun(cause),
   GatewaySessionGone() => false,
   GatewayTurnEnded(restarted: true) => false,
   GatewayConnectionClosed() => true,

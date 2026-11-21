@@ -165,6 +165,59 @@ void main() {
       expect(chat.turnActionsHeld(thread), isTrue);
       await expectNothingGoesOut();
     });
+
+    test('an unanswered ask (what the real transport reports offline, as an '
+        'error or unreadable) is not "nothing is running"', () async {
+      await startTurn();
+      await end(const GatewayReplyUnconfirmed(), serverRuns: true);
+      transport.active.clear();
+      transport.activeUnanswered = true;
+
+      await chat.refreshActive();
+
+      expect(chat.turnActionsHeld(thread), isTrue);
+      await expectNothingGoesOut();
+    });
+
+    for (final status in [
+      'working',
+      'waiting',
+      'starting',
+      'streaming',
+      'resuming',
+    ]) {
+      test('a server listing the session as $status keeps them held', () async {
+        await startTurn();
+        transport.active['s1'] = status;
+        send.fail(const GatewayReplyUnconfirmed());
+        await pumpEventQueue();
+
+        await chat.refreshActive();
+
+        expect(chat.turnActionsHeld(thread), isTrue);
+        await expectNothingGoesOut();
+      });
+    }
+
+    test('a send that failed once the prompt was written is held, one that '
+        'failed before it is not', () async {
+      await startTurn();
+      await end(
+        const SendFailure(SendStep.submit, GatewayConnectionClosed()),
+        serverRuns: true,
+      );
+      expect(chat.turnActionsHeld(thread), isTrue);
+      await expectNothingGoesOut();
+    });
+
+    test('a send that failed while attaching files is not held', () async {
+      await startTurn();
+      await end(
+        const SendFailure(SendStep.attach, GatewayConnectionClosed()),
+        serverRuns: true,
+      );
+      expect(chat.turnActionsHeld(thread), isFalse);
+    });
   });
 
   group('when the server definitely does not have the turn', () {

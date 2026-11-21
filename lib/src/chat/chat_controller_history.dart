@@ -908,6 +908,9 @@ extension _ChatControllerHistory on ChatController {
         if (same(history[i])) i,
     ];
     if (occurrences.length <= before) return [prompt, reply];
+    // The server may still run this turn and has already stored a row of it:
+    // the reply stays, so Retry and Edit do not come back on that row.
+    if (reply.serverMayRun) return [reply];
     final answered = history
         .skip(occurrences[before] + 1)
         .any((m) => m.role == ChatRole.assistant);

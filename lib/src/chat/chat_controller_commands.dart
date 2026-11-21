@@ -450,8 +450,10 @@ extension _ChatControllerCommands on ChatController {
       breadcrumbs('chat.branch', {'outcome': 'failed', 'from': from});
       // Hermes refused, or answered what the app cannot use.
       final problem = _turnProblemOf(TurnAction.branch, failure);
-      // Said under the chat's last reply when it is open, else as a note in
-      // the language of the device.
+      // Said under the chat's last reply when it is open, in the screen's
+      // language. A chat that is not open can only be told through `report`,
+      // a plain-text sink, so that one note is worded here in the device's
+      // language (a follow-up: make `report` take a kind).
       if (selectedThread != thread) {
         report(problem.text(l10nForPlatformLocale()));
       } else if (_sessionActionCurrent(thread, generation)) {
