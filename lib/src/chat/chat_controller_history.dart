@@ -882,6 +882,8 @@ extension _ChatControllerHistory on ChatController {
     String id, {
     bool strict = false,
     bool historyRemoved = false,
+    bool releasing = false,
+    int? sendGeneration,
   }) async {
     Never notRead() => throw StateError('The chat was not read again');
     if (!active) return strict ? notRead() : null;
@@ -894,8 +896,14 @@ extension _ChatControllerHistory on ChatController {
       return strict ? notRead() : null;
     }
     final generation = _loadGeneration;
+    // [sendGeneration]: the read was asked for the turn that stood there; a
+    // send made since is another turn's, and nothing of this read is its.
     bool stale() =>
-        !active || generation != _loadGeneration || thread.isReplying;
+        !active ||
+        generation != _loadGeneration ||
+        thread.isReplying ||
+        (sendGeneration != null &&
+            sendGeneration != (_generations[thread] ?? 0));
     try {
       final fresh = await repository.loadThread(id, profile: _profile);
       if (stale()) return strict ? notRead() : null;
@@ -914,7 +922,7 @@ extension _ChatControllerHistory on ChatController {
       }
       final page = await repository.loadMessagePage(id, profile: _profile);
       if (stale()) return strict ? notRead() : null;
-      var failed = _failedTurn(thread, page.messages);
+      var failed = _failedTurn(thread, page.messages, releasing: releasing);
       // After a full restore took history away, a failed turn whose prompt
       // the server no longer holds is gone with it, not put back. Any other
       // read keeps it, with its Retry.
@@ -951,7 +959,15 @@ extension _ChatControllerHistory on ChatController {
   /// A prompt repeats earlier ones, so it is found by its place among the user
   /// messages of the same text: with n of them before it here, the history
   /// holds it only when it has more than n, and its occurrence is the next.
-  List<ChatMessage> _failedTurn(ChatThread thread, List<ChatMessage> history) {
+  ///
+  /// A reply the server may still run (`serverMayRun`) is kept whatever the
+  /// history holds, except for the read that [releasing] it: that read is the
+  /// one that lets a stored answer replace the bubble.
+  List<ChatMessage> _failedTurn(
+    ChatThread thread,
+    List<ChatMessage> history, {
+    bool releasing = false,
+  }) {
     final messages = thread.messages;
     final reply = messages.lastOrNull;
     if (reply == null ||
@@ -970,6 +986,9 @@ extension _ChatControllerHistory on ChatController {
         if (same(history[i])) i,
     ];
     if (occurrences.length <= before) return [prompt, reply];
+    // The server may still run this turn and has already stored a row of it:
+    // the reply stays, so Retry and Edit do not come back on that row.
+    if (reply.serverMayRun && !releasing) return [reply];
     final answered = history
         .skip(occurrences[before] + 1)
         .any((m) => m.role == ChatRole.assistant);

@@ -109,3 +109,32 @@ Accepted differences (canvas against Flutter):
 Open owner decision:
 
 - iOS and macOS are unchanged. Their OFF colour is still undecided, because the same contrast question applies there (OFF track against the row: 1.43:1 dark, 1.20:1 light). The theme test holds them at those values so they cannot get worse.
+
+## Mac dialog presentation
+
+### Design (done)
+
+- Canvas: https://claude.ai/artifact/N5cvQWnP2mbH7R5gUW1pwQ (private; ask the owner for access)
+- Date: 2026-11-21
+- Boards (6, Mac 1280 x 800, light and dark): the thread rename dialog over a chat window before (Cupertino barrier) and after (theme barrier), light and dark; the Kanban Priority choice dialog over the inspector after, light and dark.
+
+Scope: macOS only. Nine dialogs that opened through `showAdaptiveDialog` (thread rename, Kanban "Board exported", Kanban error text, Kanban workers, Kanban task log, the Kanban assign and priority choices, plugin install report, hub skill confirm) open through `showAppDialog` (`lib/src/widgets/dialog_presentation.dart`). iOS, Android, Windows and Linux are unchanged. The decision is consistency with the other macOS dialogs that already use `showAppDialog` (for example the gateway restart confirm and `showConfirmDialog`).
+
+Decisions:
+
+- Transition: a 150 ms fade, none with reduced motion (was the Cupertino scale-in).
+- Barrier: the theme's `DialogTheme.barrierColor`: 54% black in light (the light theme sets none, so `Colors.black54`) and `0x99000000`, 60% black, in dark. Cupertino's system barrier was 20% black light and 48% dark.
+- Esc now closes all nine dialogs on macOS (new: the Cupertino route's non-dismissible barrier disabled it). A click outside closes all but the two dialogs with a text field (thread rename, Kanban text), so a stray click does not discard typed text; those two handle Esc themselves because their barrier is inert, and Cancel closes them too. This follows the new-profile dialog.
+- SafeArea and closed-loop focus traversal inside the dialog.
+- The dialog content (`AppAlertDialog`, `GroupedDialog`) does not change.
+
+Contrast (panel against the dimmed page, from the local render): light 1.44:1 before and 3.94:1 after; dark 1.33:1 before and 1.34:1 after. Light dims visibly darker and the panel separates much more; dark is practically unchanged because the page is already near black.
+
+Accepted differences from the Flutter build:
+
+- Motion (the fade, reduced motion, the lost scale-in), click-outside-to-close, Esc, SafeArea and focus traversal are behaviour and are not shown on static boards.
+- The canvas fakes the barrier by overriding `--h-apple-scrim` on the frame; the design system's `AlertDialog` and `GroupedDialog` have no barrier prop, and its Material `--h-scrim` (32% light, 60% dark) is not the theme barrier.
+- The rename field is a plain token-styled input; the Flutter field is `AppDialogTextField`.
+- Only the rename and the Priority choice are drawn; the other sites share the same route and barrier.
+
+Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device.

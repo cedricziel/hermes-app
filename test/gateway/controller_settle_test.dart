@@ -1040,7 +1040,8 @@ void main() {
         ]);
         expect(thread.messages, hasLength(4));
         expect(thread.messages.last.status, MessageStatus.error);
-        expect(thread.messages.last.error, isNotNull);
+        expect(thread.messages.last.error, isNull);
+        expect(thread.messages.last.failure, ReplyFailure.generic);
         expect(rig.chat.lastPromptText(thread), 'Plan');
         expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
       },
