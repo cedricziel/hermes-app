@@ -47,9 +47,10 @@ class _PlatformRefreshState extends State<PlatformRefresh> {
       child: widget.child,
     );
     final label = widget.semanticsLabel;
-    if (chrome != PlatformChrome.ios || !_refreshing || label == null) {
-      return indicator;
-    }
+    if (chrome != PlatformChrome.ios || label == null) return indicator;
+    // The same tree whether idle or refreshing: a root that changed shape
+    // would remount the indicator and the list under it mid-refresh. Only
+    // the live region's label changes.
     return Stack(
       children: [
         Positioned.fill(child: indicator),
@@ -60,7 +61,7 @@ class _PlatformRefreshState extends State<PlatformRefresh> {
             child: Semantics(
               container: true,
               liveRegion: true,
-              label: label,
+              label: _refreshing ? label : '',
               child: const SizedBox(width: 1, height: 1),
             ),
           ),

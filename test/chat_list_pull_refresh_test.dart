@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
 import 'package:flutter/material.dart';
 
 import 'dart:async';
@@ -43,6 +44,14 @@ void main() {
 
   final row = find.byKey(const ValueKey('thread-s2'));
   const failedTitle = "Couldn't refresh your chats.";
+
+  /// Frames in steps: one long pump does not run the release animation and
+  /// the request that follows it.
+  Future<void> stepFrames(WidgetTester tester) async {
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+  }
 
   Future<void> pull(WidgetTester tester) async {
     await tester.drag(row, const Offset(0, 400));
@@ -130,12 +139,24 @@ void main() {
       );
     });
     expect(find.bySemanticsLabel('Refreshing chats'), findsNothing);
+    final stateBefore = tester.state(find.byType(RefreshIndicator));
+    final reads = listReads().length;
 
     await tester.drag(row, const Offset(0, 400));
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump(const Duration(seconds: 1));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
 
     expect(find.bySemanticsLabel('Refreshing chats'), findsOneWidget);
+    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+    expect(tester.state(find.byType(RefreshIndicator)), same(stateBefore));
+    expect(listReads().length - reads, 1);
+
+    // A second pull while the first runs reads nothing more.
+    await tester.drag(row, const Offset(0, 400));
+    await stepFrames(tester);
+    expect(listReads().length - reads, 1);
+    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
 
     hold.complete();
     await tester.pumpAndSettle();
