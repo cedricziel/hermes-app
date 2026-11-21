@@ -392,6 +392,31 @@ jobs:
       - name: Build debug app with share extension
         run: flutter build macos --debug
 
+      # Diagnosis only (never fails the job): how the flutter_soloud plugin
+      # binds the symbols it takes from the native-assets library.
+      - name: Show how flutter_soloud binds its native symbols
+        continue-on-error: true
+        run: |
+          name="$(sed -n 's/^PRODUCT_NAME *= *//p' macos/Runner/Configs/AppInfo.xcconfig)"
+          app="build/macos/Build/Products/Debug/$name.app"
+          find "$app/Contents/Frameworks" -maxdepth 2 | head -n 60
+          for fw in "$app"/Contents/Frameworks/flutter_soloud*.framework; do
+            bin="$fw/Versions/A/$(basename "$fw" .framework)"
+            [ -f "$bin" ] || bin="$fw/$(basename "$fw" .framework)"
+            echo "== $bin"
+            otool -L "$bin" || true
+            echo "-- nm -m (undefined and weak soloud_/prepareEngine/clearDart symbols)"
+            nm -m "$bin" 2>&1 | grep -E "soloud_|prepareEngine|clearDartCallback|requestEngineTeardown" | head -n 60 || true
+            echo "-- dyld_info -fixups"
+            xcrun dyld_info -fixups "$bin" 2>&1 | grep -E "soloud_|prepareEngine|clearDartCallback|requestEngineTeardown|weak|lazy" | head -n 60 || true
+            echo "-- dyld_info -imports"
+            xcrun dyld_info -imports "$bin" 2>&1 | head -n 40 || true
+            echo "-- load commands (dylibs, weak dylibs, flat namespace)"
+            otool -l "$bin" | grep -E "LC_LOAD|cmd LC_|dylib|flags" | head -n 60 || true
+          done
+          echo "== native-assets libraries in the bundle"
+          find "$app" \( -name '*soloud*' -o -name '*.dylib' \) | head -n 40
+
       # Quits the debug build the way a user does and fails on a crash. The debug
       # build alone has the HERMES_QUIT_AFTER_LAUNCH branch in AppDelegate.swift,
       # which calls NSApp.terminate five seconds after launch, so
@@ -443,25 +468,36 @@ jobs:
           }
           # Diagnosis only: the same launch once more under lldb, to get a backtrace
           # when no crash report exists. Its result is ignored and it cannot hang.
-          lldb_rerun() {
-            echo "::group::lldb rerun of the launch"
-            HERMES_QUIT_AFTER_LAUNCH=1 perl -e 'alarm 60; exec @ARGV' \
+          lldb_rerun() { # <env assignment>
+            echo "::group::lldb rerun of the launch ($1)"
+            env "$1" perl -e 'alarm 60; exec @ARGV' \
               lldb -b -o run -k "thread backtrace all" -k "register read pc" -k 'image lookup -a $pc' -k quit \
               -- "$bin" -ApplePersistenceIgnoreState YES 2>&1 | head -n 300 || true
             echo "::endgroup::"
           }
-          fail() { echo "::error::$1"; tail -n 40 quit.log; crash_report; lldb_rerun; exit 1; }
-          start=$SECONDS
-          if HERMES_QUIT_AFTER_LAUNCH=1 perl -e 'alarm 60; exec @ARGV' "$bin" \
-            -ApplePersistenceIgnoreState YES > quit.log 2>&1; then status=0; else status=$?; fi
-          echo "launch took $(( SECONDS - start )) s, exit status $status"
-          if [ "$status" -eq 142 ]; then fail "The app did not quit within 60 s (SIGALRM); log follows."; fi
-          if [ "$status" -ne 0 ]; then fail "The app exited with status $status on quit (139 is SIGSEGV); log follows."; fi
-          grep -q '^HERMES_QUIT terminating' quit.log || fail "The app exited before the quit hook ran; log follows."
-          # A crash after the exit status was decided still leaves a report.
-          sleep 5
-          if [ -n "$(reports)" ]; then fail "The app left a crash report: $(reports | head -n 1)"; fi
-          echo "The app quit normally."
+          fail() { echo "::error::$2"; tail -n 40 quit.log; crash_report; lldb_rerun "$1"; exit 1; }
+          # One launch: <label> <env assignment> <line the app prints just before it quits>
+          quit_launch() {
+            start=$SECONDS
+            touch "$marker"
+            if env "$2" perl -e 'alarm 60; exec @ARGV' "$bin" \
+              -ApplePersistenceIgnoreState YES > quit.log 2>&1; then status=0; else status=$?; fi
+            echo "$1: launch took $(( SECONDS - start )) s, exit status $status"
+            cat quit.log | head -n 40
+            if [ "$status" -eq 142 ]; then fail "$2" "$1: the app did not quit within 60 s (SIGALRM); log follows."; fi
+            if [ "$status" -ne 0 ]; then fail "$2" "$1: the app exited with status $status on quit (139 is SIGSEGV); log follows."; fi
+            grep -q "^$3\$" quit.log || fail "$2" "$1: the app exited before its quit hook ran; log follows."
+            # A crash after the exit status was decided still leaves a report.
+            sleep 5
+            if [ -n "$(reports)" ]; then fail "$2" "$1: the app left a crash report: $(reports | head -n 1)"; fi
+            echo "$1: the app quit normally."
+          }
+          quit_launch "quit without SoLoud" HERMES_QUIT_AFTER_LAUNCH=1 "HERMES_QUIT terminating"
+          # SoLoud started the way a call starts it (lib/src/voice/calls/soloud_quit_probe.dart),
+          # then the app's own terminate. The probe reports a failed init and still quits, so
+          # a runner without an audio device is not a failure; a crash is.
+          quit_launch "quit after SoLoud" HERMES_SOLOUD_QUIT_PROBE=1 "HERMES_PROBE terminating"
+          grep -E "^HERMES_PROBE" quit.log
 
   # The only test of the real libmpv decoder path in lib/src/voice/. It runs
   # for every code pull request, not only when a platform build does.

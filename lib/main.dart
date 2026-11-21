@@ -21,6 +21,7 @@ import 'src/share/share_provider.dart';
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
 import 'src/update/github_release_store.dart';
+import 'src/voice/calls/soloud_quit_probe.dart';
 import 'src/windows/conversation_window_app.dart';
 
 Future<void> main([List<String> args = const []]) async {
@@ -39,6 +40,7 @@ Future<void> main([List<String> args = const []]) async {
   // A certificate installed in Settings counts once the user is back.
   AppLifecycleListener(onResume: () => unawaited(trustUserCertificates()));
 
+  unawaited(runSoloudQuitProbeIfAsked());
   runApp(
     MultiProvider(
       providers: [
