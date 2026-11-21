@@ -73,9 +73,18 @@ files=()
 for i in $(seq 1 "$runs"); do
   start=$(date +%s)
   echo "== $mode run $i of $runs"
+  # The exit status of the benchmark itself, not of tee or grep: a failing
+  # scenario must stop the script before it aggregates a partial run.
+  set +e
   CHAT_BENCH_OUT="$dir/run-$i.json" CHAT_BENCH_FILTER="$filter" run_once 2>&1 |
     tee "$dir/run-$i.log" |
-    grep -E '^(  s[0-9]|scenario|s[0-9]|.*(Some tests failed|\[E\]|Bad state))' || true
+    grep -E '^(  s[0-9]|scenario|s[0-9]|.*(Some tests failed|\[E\]|Bad state))'
+  status=${PIPESTATUS[0]}
+  set -e
+  if [ "$status" -ne 0 ]; then
+    echo "run $i failed with exit status $status (see $dir/run-$i.log)" >&2
+    exit "$status"
+  fi
   [ -f "$dir/run-$i.json" ] || { echo "run $i produced no results (see $dir/run-$i.log)" >&2; exit 1; }
   files+=("$dir/run-$i.json")
   echo "run $i took $(($(date +%s) - start)) s"

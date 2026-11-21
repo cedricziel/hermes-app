@@ -83,18 +83,23 @@ CV of that scenario and statistic (below). Copy `benchmark/` and
 `scripts/chat-bench.sh` into the baseline worktree if it predates them. Confirm
 the winner in profile mode before claiming a speed-up.
 
-## Noise (this machine: 10 test runs, 5 profile runs)
+## Noise (measured at b3d73a50: 3 test runs, 5 profile runs)
 
-CV of the per-run value, across runs:
+CV of the per-run value, across runs, on this machine:
 
-- test mode: the median of the per-run `max` is stable (4-13 %) for `s1`,
-  `s2b-fences-300/1000`, `s3`, `s4a`, `s4b`, `s5a`; `p95` is 4-17 % there. `max`
-  is one GC or JIT hiccup (24-200 %) in `s2-code-blocks`, `s2b-fences-100`, `s5b`,
-  `s6`, `s7`: use `p95` and `p50` (6-27 %) for those.
-- profile mode: `max` CV 7-22 %, `p95` 3-23 %, `p50` steadier. Heaviest and most
-  repeatable: `s2b-fences-1000` (max 10 %, p95 5-6 %), `s4b` (7 %, 4-7 %), `s2-code-blocks`
-  (8-14 %, 3-4 %). Noisiest: `s6`, `s5a`, `s4a`, `s3` (20-30 % on p95).
-- No scenario is under 10 % on every statistic with 5 runs, so: run 5-10, compare
+- test mode (3 runs): `max` CV is 3-15 % for `s1`, `s2-code-blocks`,
+  `s2b-fences-300/1000`, `s4a`, `s4b`, `s6`, `s7` and `s5b` desktop; `p95` CV is
+  1-21 % there. `max` is one GC or JIT hiccup on `s2b-fences-100` (46-67 %),
+  `s5a` phone (94 %) and `s5b` phone (143 %): read `p95` and `p50` for those
+  (`s5a` is three frames, so its `p95` is its `max`). `s3` p95 varies a lot
+  when the machine is shared (11-28 % in the full run, phone median 1,493 ms),
+  and not alone (4-6 %, phone median 739 ms, `test 3 s3`): rerun it alone
+  under `flock`.
+- profile mode (5 runs): `max` CV is 3-31 % and `p95` CV 3-16 %; `p50` is
+  steadier. Steadiest: `s4a` (max 3-9 %), `s2-code-blocks` (4-11 %, p95 3-8 %),
+  `s6` p95 (5-15 %). Noisiest `max`: `s4b` phone (31 %), `s6` (22-31 %),
+  `s2b-fences-100/1000` (12-22 %).
+- Few scenarios are under 10 % on every statistic, so: run 5-10, compare
   medians, interleave, and ask for a difference above twice the CV.
 
 ## Traps
