@@ -512,19 +512,6 @@ ARITH_MESSAGE = (
     "shell arithmetic is not supported in workflow scripts; use a variable or "
     "a script file"
 )
-_COMMAND_WORDS = {"then", "do", "else", "elif", "if", "while", "until", "!", "time"}
-
-
-def at_command_position(segment):
-    """True when the next word starts a command: at the start of a segment,
-    after `;`, `&`, `|`, `(`, `{`, a newline, or a reserved word."""
-    previous = segment[-1] if segment else ""
-    if previous and not previous.isspace() and previous not in ";&|({`\n":
-        return False  # inside a word, as in `xlet`
-    text = "".join(segment).rstrip(" \t")
-    if not text or text[-1] in ";&|({`\n":
-        return True
-    return text.split()[-1] in _COMMAND_WORDS
 
 
 def commands(script):
@@ -541,7 +528,7 @@ def commands(script):
     its line. A script that ends inside a quote, a substitution or a heredoc
     cannot be read reliably, so it counts as one unmarked substitution. So does a
     `<<` whose delimiter word cannot be read with certainty, and so does any
-    shell arithmetic (`((`, `$((`, `$[`, `let`), which is not supported in
+    shell arithmetic (`((`, `$((`, `$[`, any standalone word `let`), which is not supported in
     workflow scripts. `<<<` is not a heredoc. Heredocs are recognised in every
     command context, and the delimiter word has its quotes and backslashes
     removed. `${{ ... }}` expressions are skipped as a whole."""
@@ -631,8 +618,8 @@ def commands(script):
                 or script.startswith("$[", index)
                 or (
                     script.startswith("let", index)
-                    and script[index + 3 : index + 4] in ("", " ", "\t", "\n")
-                    and at_command_position(segment)
+                    and script[index + 3 : index + 4] in ("", " ", "\t", "\n", ";", "&", "|", ")")
+                    and (not segment or segment[-1][-1:].isspace() or segment[-1][-1:] in ";&|({`")
                 )
             ):
                 # Not read: bash falls back from arithmetic to subshells, so
@@ -871,6 +858,16 @@ class ProcessSubstitution(unittest.TestCase):
             'echo "$(( 1 + 2 ))"',
             'echo "$[ 1 + 2 ]"',
             "if true; then let x=1; fi",
+            "echo let me",
+            "x=1 let y=2",
+            "a=1 b=2 let c",
+            "echo hi; let",
+            "let; true",
+            "x=$(let)",
+            "let|cat",
+            "let&&true",
+            "(let x=1)",
+            "echo $(let x=1)",
             "true && let x=1",
             "echo $( (( i++ )) )",
         ):
@@ -885,9 +882,12 @@ class ProcessSubstitution(unittest.TestCase):
             "echo $'(('",
             "echo hi # ((",
             "cat <<EOF\n(( $[ let\nEOF",
-            "echo let me",
             "cat let.txt",
             "x=let",
+            "echo outlet",
+            "echo \"let me\"",
+            "echo 'let'",
+            "echo hi # let me",
             "echo ${{ ((a) && (b)) }}",
             "echo '$[x]'",
         ):
