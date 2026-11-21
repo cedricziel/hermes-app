@@ -218,6 +218,27 @@ void main() {
       expect((await opened()).load, CuratorLoad.offline);
     });
 
+    test('a status read with no answer in time is lost, not failed', () async {
+      server.onRequest(
+        'GET',
+        '/api/curator',
+        (r) => throw DioException(
+          requestOptions: r,
+          type: DioExceptionType.receiveTimeout,
+        ),
+      );
+      final c = await opened();
+
+      expect(c.load, CuratorLoad.lost);
+      expect(c.visible, isTrue);
+      expect(c.canRunNow, isFalse);
+
+      // Reads are safe to repeat: Try again reads again and recovers.
+      server.on('GET', '/api/curator', recordedCuratorRan);
+      await c.reload();
+      expect(c.load, CuratorLoad.loaded);
+    });
+
     test('off in config offers no Run now', () async {
       server.on('GET', '/api/curator', recordedCuratorDisabled);
       final c = await opened();
@@ -372,6 +393,190 @@ void main() {
 
       expect(c.confirmation?.consolidate, isNull);
       expect(c.confirmation?.pruneBuiltins, isNull);
+    });
+
+    Future<void> reopen(CuratorController c) async {
+      c.beginRun();
+      await pumpEventQueue();
+      c.cancelRun();
+    }
+
+    void configAnswers({required bool consolidate}) =>
+        server.on('GET', '/api/config', {
+          'curator': {'consolidate': consolidate, 'prune_builtins': false},
+        });
+
+    test(
+      'a failed read clears the cache: the next opening is hedged',
+      () async {
+        configAnswers(consolidate: false);
+        final c = await opened();
+        await reopen(c);
+        server.on('GET', '/api/config', 'oops', status: 500);
+        await reopen(c);
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      },
+    );
+
+    test('a newer successful read replaces the cache', () async {
+      configAnswers(consolidate: false);
+      final c = await opened();
+      await reopen(c);
+      configAnswers(consolidate: true);
+      await reopen(c);
+
+      c.beginRun();
+      expect(c.confirmation?.consolidate, isTrue);
+    });
+
+    test('a profile switch drops the cache', () async {
+      configAnswers(consolidate: false);
+      final c = await opened();
+      await reopen(c);
+      c.beginRun();
+      expect(c.confirmation?.consolidate, isFalse);
+      c.cancelRun();
+
+      c.switchProfile('demo-b');
+      await until(() => c.load != CuratorLoad.loading);
+      server.on('GET', '/api/config', 'oops', status: 500);
+      c.beginRun();
+      expect(c.confirmation?.consolidate, isNull);
+    });
+
+    group('config reads that land late', () {
+      Map<String, Object?> cfg(bool consolidate) => {
+        'curator': {'consolidate': consolidate, 'prune_builtins': false},
+      };
+
+      /// Answers each GET /api/config from its own gate, in call order.
+      List<Completer<FakeResponse>> gated() {
+        final gates = <Completer<FakeResponse>>[];
+        server.onRequest('GET', '/api/config', (_) {
+          final gate = Completer<FakeResponse>();
+          gates.add(gate);
+          return gate.future;
+        });
+        return gates;
+      }
+
+      Future<List<Completer<FakeResponse>>> firstRead(
+        CuratorController c,
+        bool consolidate,
+      ) async {
+        final gates = gated();
+        c.beginRun();
+        await until(() => gates.length == 1);
+        gates[0].complete((status: 200, body: cfg(consolidate)));
+        await until(() => c.confirmation?.consolidate != null);
+        c.cancelRun();
+        return gates;
+      }
+
+      test('a failed read after Cancel clears the cache', () async {
+        final c = await opened();
+        final gates = await firstRead(c, false);
+
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+        gates[1].complete((status: 500, body: 'oops'));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      });
+
+      test('a successful read after Cancel fills the cache', () async {
+        final c = await opened();
+        final gates = await firstRead(c, false);
+
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+        gates[1].complete((status: 200, body: cfg(true)));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isTrue);
+      });
+
+      test(
+        'an older read answering last does not overwrite the newer',
+        () async {
+          final c = await opened();
+          final gates = gated();
+          c.beginRun();
+          await until(() => gates.length == 1);
+          c.cancelRun();
+          c.beginRun();
+          await until(() => gates.length == 2);
+          c.cancelRun();
+
+          gates[1].complete((status: 200, body: cfg(true)));
+          await pumpEventQueue();
+          gates[0].complete((status: 200, body: cfg(false)));
+          await pumpEventQueue();
+
+          c.beginRun();
+          expect(c.confirmation?.consolidate, isTrue);
+        },
+      );
+
+      test('a newer failed read clears a cache an older read filled', () async {
+        final c = await opened();
+        final gates = await firstRead(c, true);
+
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+        c.beginRun();
+        await until(() => gates.length == 3);
+        c.cancelRun();
+
+        gates[1].complete((status: 500, body: 'oops'));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      });
+
+      test('an older failure answering last keeps the newer success', () async {
+        final c = await opened();
+        final gates = gated();
+        c.beginRun();
+        await until(() => gates.length == 1);
+        c.cancelRun();
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+
+        gates[1].complete((status: 200, body: cfg(true)));
+        await pumpEventQueue();
+        gates[0].complete((status: 500, body: 'oops'));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isTrue);
+      });
+
+      test('a read for the old profile does not fill the new cache', () async {
+        final c = await opened();
+        final gates = gated();
+        c.beginRun();
+        await until(() => gates.length == 1);
+        c.cancelRun();
+
+        c.switchProfile('demo-b');
+        await until(() => c.load != CuratorLoad.loading);
+        gates[0].complete((status: 200, body: cfg(true)));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      });
     });
 
     test('Cancel sends nothing and a late config does not reopen it', () async {
