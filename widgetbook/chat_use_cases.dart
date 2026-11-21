@@ -104,6 +104,10 @@ const _queued = [
   ]),
 ];
 
+const _longBarTitle =
+    'Plan the quarterly release, migrate the staging database and write up '
+    'the rollback notes for the on-call team';
+
 WidgetbookUseCase _phoneBar(
   String name,
   TargetPlatform platform, {
@@ -480,54 +484,60 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       name: 'ChatAppBar',
       useCases: [
         _phoneBar('iOS', TargetPlatform.iOS),
+        _phoneBar('iOS, text scale 2', TargetPlatform.iOS, textScale: 2),
         _phoneBar('Material (Android)', TargetPlatform.android),
         _phoneBar(
-          'Material (Android), large text',
-          TargetPlatform.android,
-          textScale: 2,
-        ),
-        _phoneBar(
-          'Material (Android), text scale 1.3',
+          'Material (Android), text scale 1.3 boundary',
           TargetPlatform.android,
           textScale: 1.3,
+          persona: true,
+          title: 'Weekly plan',
+        ),
+        _phoneBar(
+          'Material (Android), large text, avatar, long title and all actions',
+          TargetPlatform.android,
+          textScale: 2,
+          persona: true,
+          title: _longBarTitle,
         ),
         _phoneBar(
           'Material (Android), text scale 3.1',
           TargetPlatform.android,
           textScale: 3.1,
-        ),
-        _phoneBar(
-          'Material (Android), tablet width',
-          TargetPlatform.android,
-          textScale: 2,
-          width: 820,
-        ),
-        _phoneBar(
-          'Material (Android), large text, with persona',
-          TargetPlatform.android,
-          textScale: 2,
           persona: true,
         ),
         _phoneBar(
-          'Material (Android), large text, with model pill',
+          'Material (Android), large text, without persona',
           TargetPlatform.android,
           textScale: 2,
-          pill: true,
         ),
         _phoneBar(
-          'Material (Android), large text, with persona and model pill',
+          'Material (Android), large text, persona and model pill',
           TargetPlatform.android,
           textScale: 2,
           persona: true,
           pill: true,
         ),
+        for (final scale in [1.3, 2.0, 3.1])
+          _phoneBar(
+            'Material (Android), short title, text scale $scale',
+            TargetPlatform.android,
+            textScale: scale,
+            persona: true,
+            title: 'Taxes',
+          ),
         _phoneBar(
-          'Material (Android), large text, long title',
+          'Material (Android), tablet width 800, text scale 1',
           TargetPlatform.android,
-          textScale: 2,
-          title:
-              'Plan the quarterly release, migrate the staging database and '
-              'write up the rollback notes for the on-call team',
+          width: 800,
+          persona: true,
+        ),
+        _phoneBar(
+          'Material (Android), tablet width 800, text scale 3.1',
+          TargetPlatform.android,
+          textScale: 3.1,
+          width: 800,
+          persona: true,
         ),
         _phoneBar(
           'Material (Android), large text, German',
