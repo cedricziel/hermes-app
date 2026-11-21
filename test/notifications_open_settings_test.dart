@@ -12,6 +12,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/test_localizations.dart';
+
 /// A check result the test sets directly, where the real controller only
 /// reads on Android and iOS and from the platform.
 class _Checks extends BackgroundCheckController {
@@ -65,7 +67,7 @@ void main() {
         ],
         child: MaterialApp(
           locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme().copyWith(platform: platform),
           home: Builder(

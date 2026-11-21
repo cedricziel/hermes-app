@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_app/l10n/l10n.dart';
 import 'package:flutter/material.dart' show MaterialApp, Material, TextField;
 import 'package:hermes_app/src/macos/edit_menu_state.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -12,6 +11,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_conversation_window_host.dart';
+import 'support/test_localizations.dart';
 
 /// The menu bar while conversation windows are open: their list in the
 /// Window menu, and the window commands going to the key one.
@@ -43,7 +43,7 @@ void main() {
         ? child
         : Localizations(
             locale: locale,
-            delegates: AppLocalizations.localizationsDelegates,
+            delegates: kTestLocalizationsDelegates,
             child: child,
           );
     await tester.pumpWidget(

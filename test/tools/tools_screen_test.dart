@@ -18,6 +18,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/test_localizations.dart';
 import 'tools_screen_fixtures.dart';
 
 const _phone = Size(390, 844);
@@ -60,7 +61,7 @@ void main() {
     addTearDown(tester.view.reset);
     final app = MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: buildHermesLightTheme(platform: platform),
       home: const Scaffold(body: Text('home')),

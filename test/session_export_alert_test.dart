@@ -7,6 +7,8 @@ import 'package:hermes_app/src/chat/widgets/session_export_failure.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/busy_bar.dart';
 
+import 'support/test_localizations.dart';
+
 Widget _host(
   SessionExportPhase phase, {
   TargetPlatform platform = TargetPlatform.android,
@@ -14,7 +16,7 @@ Widget _host(
   List<String>? log,
 }) => MaterialApp(
   locale: locale,
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: ThemeData(platform: platform),
   home: Scaffold(

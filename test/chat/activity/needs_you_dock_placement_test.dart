@@ -13,6 +13,7 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ComposerHeightNotifier;
 
 import '../../support/fake_attachment_source.dart';
+import '../../support/test_localizations.dart';
 
 const _billing = NeedsYouItem(
   id: 'billing',
@@ -53,7 +54,7 @@ Future<void> _pump(
   }
   await tester.pumpWidget(
     MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: ChatThreadView(

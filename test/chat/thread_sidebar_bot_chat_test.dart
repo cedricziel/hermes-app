@@ -15,6 +15,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../support/fake_hermes_server.dart';
+import '../support/test_localizations.dart';
 
 /// A canonical Bot Chat row in the sidebar offers Retire and no Rename on
 /// iOS, in the phone's action sheet and in the iPad's popover.
@@ -43,7 +44,7 @@ void main() {
       ChangeNotifierProvider(
         create: (_) => AuthController(),
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           home: Scaffold(

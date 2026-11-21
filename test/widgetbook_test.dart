@@ -9,6 +9,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import '../widgetbook/directories.dart';
 import '../widgetbook/environment.dart';
+import 'support/test_localizations.dart';
 
 Iterable<(String, WidgetbookUseCase)> _useCases(
   Iterable<WidgetbookNode> nodes, [
@@ -45,10 +46,7 @@ void main() {
           try {
             await tester.pumpWidget(
               MaterialApp(
-                localizationsDelegates: [
-                  ...AppLocalizations.localizationsDelegates,
-                  ...kMaterialUiLocalizationsDelegates,
-                ],
+                localizationsDelegates: kTestLocalizationsDelegates,
                 builder: (context, child) => AppThemeScopes(child: child!),
                 supportedLocales: AppLocalizations.supportedLocales,
                 theme: theme,

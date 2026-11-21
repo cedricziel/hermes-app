@@ -21,6 +21,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
 import 'curator_fixtures.dart';
+import '../support/test_localizations.dart';
 
 const _curatorPath = '/api/curator';
 const _statusPath = '/api/actions/curator-run/status';
@@ -109,10 +110,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final app = MaterialApp(
-      localizationsDelegates: [
-        ...AppLocalizations.localizationsDelegates,
-        ...kMaterialUiLocalizationsDelegates,
-      ],
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(),

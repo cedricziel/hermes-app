@@ -1,7 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -12,6 +11,7 @@ import 'package:hermes_app/src/macos/mac_menu_bar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/macos/menu_selection_area.dart';
 
+import '../support/test_localizations.dart';
 import 'mac_menu_bar_test.dart' show FakeMenuChannel;
 
 // Flutter records an edit on the undo stack after a short pause.
@@ -57,11 +57,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: navigatorKey,
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) =>
             MacMenuBar(navigatorKey: navigatorKey, child: child!),
