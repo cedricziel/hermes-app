@@ -147,6 +147,11 @@ void main() {
         inInclusiveRange(0, settle.indexOf('window.setFrame(')),
       );
       expect(settle, contains('!window.styleMask.contains(.fullScreen)'));
+      // The CI report waits for this flag, so it is set before anything else.
+      expect(
+        settle.indexOf('self?.frameSettled = true'),
+        inInclusiveRange(0, settle.indexOf('if let restored')),
+      );
       // The CI round trip resizes the frame, not the content.
       final delegate = File('macos/Runner/AppDelegate.swift')
           .readAsStringSync();
@@ -193,7 +198,13 @@ void main() {
     expect(block, contains('HERMES_WINDOW frame='));
     // The report waits for the settleFrame call and, if it never comes, prints a
     // line the CI check rejects instead of a frame that looks settled.
-    expect(block, contains('frameSettled'));
+    expect(
+      block,
+      contains(
+        'let settled = (window as? MainFlutterWindow)?.frameSettled == true',
+      ),
+    );
+    expect(block, contains('if !settled && waited < 10 {'));
     expect(block, contains('HERMES_WINDOW unsettled'));
     expect(
       block.indexOf('HERMES_WINDOW unsettled'),

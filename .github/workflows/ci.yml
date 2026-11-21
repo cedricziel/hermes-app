@@ -434,8 +434,10 @@ jobs:
             else
               echo "::error::Unreadable HERMES_WINDOW line: $line"; forget; exit 1
             fi
-            # The frame is only the xib's content size plus the title bar once the
-            # window is styled; the report waits up to 10 s for settleFrame.
+            # The gate is settleFrame: the report waits up to 10 s for frameSettled
+            # and prints an "unsettled" line (rejected above) when it never comes.
+            # full=true is a cheap sanity check that awakeFromNib's insert of the
+            # full-size content view is still there; it cannot fail otherwise.
             if [ "$full" != "true" ]; then
               echo "::error::Launch $1: the window never got the full-size content view: $line"; forget; exit 1
             fi
