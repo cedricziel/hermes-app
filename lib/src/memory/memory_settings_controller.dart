@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../profiles/profile_resolver.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'memory_provider.dart';
 import 'memory_repository.dart';
@@ -19,7 +20,7 @@ class MemorySettingsController extends ChangeNotifier {
   final Future<void> Function()? onReset;
 
   MemorySettingsRepository? _repository;
-  String? _profile;
+  ResolvedProfile? _profile;
   MemorySettings? _confirmed;
   final _writing = <MemorySetting>{};
   final _running = <Future<void>>{};
@@ -59,7 +60,7 @@ class MemorySettingsController extends ChangeNotifier {
     work.whenComplete(() => _running.remove(work));
   }
 
-  void bind(MemorySettingsRepository? repository, String? profile) {
+  void bind(MemorySettingsRepository? repository, ResolvedProfile? profile) {
     if (identical(_repository, repository) && _profile == profile) return;
     _generation++;
     _repository = repository;

@@ -343,7 +343,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
       profile: _chat.profile,
       transport: _chat.transport,
     );
-    if (mounted) unawaited(_memoryWaiting?.refresh(_chat.profile));
+    if (mounted) unawaited(_refreshMemoryWaiting());
   }
 
   void _openPlugins() {

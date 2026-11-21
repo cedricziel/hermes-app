@@ -802,6 +802,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     blocked: _chat.threadListInvalidationBlocked,
   );
 
+  /// Counts the changes waiting in the chat's profile, or the launch profile
+  /// when the chat has none of its own. With neither known, nothing is asked
+  /// and no count shows.
+  Future<void> _refreshMemoryWaiting({bool ifStale = false}) async {
+    final waiting = _memoryWaiting;
+    final resolver = _chat.profileResolver;
+    if (waiting == null || resolver == null) return;
+    var profile = resolver.resolve(_chat.profile);
+    if (profile == null) {
+      try {
+        await resolver.load();
+      } on Object {
+        // No launch profile yet: no count, and the next look asks again.
+      }
+      if (!mounted || !identical(waiting, _memoryWaiting)) return;
+      profile = resolver.resolve(_chat.profile);
+    }
+    await (ifStale
+        ? waiting.refreshIfStale(profile)
+        : waiting.refresh(profile));
+  }
+
   void _memoryWaitingChanged() {
     if (mounted) setState(() {});
   }
@@ -817,7 +839,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _syncExport();
     final loading = _chat.loadingThreads;
     if (_wasLoadingThreads && !loading) {
-      unawaited(_memoryWaiting?.refresh(_chat.profile));
+      unawaited(_refreshMemoryWaiting());
     }
     _wasLoadingThreads = loading;
     final thread = _chat.selectedThread;
@@ -993,7 +1015,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _refreshReadAloud();
     _chat.checkConnection();
     unawaited(_chat.refreshModelOptionsOnResume());
-    unawaited(_memoryWaiting?.refreshIfStale(_chat.profile));
+    unawaited(_refreshMemoryWaiting(ifStale: true));
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
 

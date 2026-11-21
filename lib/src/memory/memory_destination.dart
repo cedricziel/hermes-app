@@ -217,7 +217,11 @@ class _MemoryDestinationState extends State<MemoryDestination> {
     );
   }
 
-  void _show(String profile) {
+  /// Shows the profile the person picked from the server's own list. A name
+  /// the resolver does not accept is left out, and nothing is requested.
+  void _show(String name) {
+    final profile = _repositories?.profiles.resolver.resolve(name);
+    if (profile == null) return;
     _controller.bind(_memory, profile);
     _settings.bind(_settingsRepository, profile);
     _proposals.bind(_proposalsRepository, profile);
@@ -248,8 +252,9 @@ class _MemoryDestinationState extends State<MemoryDestination> {
     try {
       // Without a profile of its own the screen opens on the one the
       // dashboard was launched with, not the sticky active one.
-      final selected =
-          widget.profile ?? await repositories.profiles.resolver.load();
+      final resolver = repositories.profiles.resolver;
+      if (widget.profile == null) await resolver.load();
+      final selected = resolver.resolve(widget.profile);
       final listed = await repositories.profiles.list();
       if (!mounted || generation != _generation) return;
       final profiles = {

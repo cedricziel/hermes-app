@@ -26,7 +26,7 @@ void main() {
   test('a memory request carries the profile it was given', () async {
     final server = FakeHermesServer()
       ..on('GET', '/api/learning/graph', {'nodes': <Object?>[]});
-    await MemoryRepository(server.client().raw).count('work');
+    await MemoryRepository(server.client().raw).count(resolvedProfile('work'));
 
     expect(server.requests.single.queryParameters['profile'], 'work');
   });
@@ -161,6 +161,78 @@ void main() {
           'resolve the profile with ProfileResolver.resolve(chat.profile); '
           'a literal, kDefaultProfile, ?? in resolve(, .known( or '
           'resolvedProfile( names one by hand',
+    );
+  });
+
+  test('only the profiles repository reads the sticky active profile', () {
+    // `GET /api/profiles/active` answers the sticky `active` (what a new CLI
+    // run picks up) and `current` (what the dashboard was launched with).
+    // `ProfileResolver` reads it once and keeps the launch profile; a second
+    // `loadActive(` call would pick a profile by `active` again. The Profiles
+    // page reads both through `load()` to show them side by side.
+    const owner = 'lib/src/profiles/hermes_profiles_repository.dart';
+    final offenders = <String>[];
+    for (final file in Directory('lib/src').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (file.path == owner) continue;
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].trimLeft().startsWith('//')) continue;
+        if (lines[i].contains('loadActive(')) {
+          offenders.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'ask the launch profile with repositories.profiles.resolver.load(), '
+          'not loadActive()',
+    );
+  });
+
+  test('a missing profile never falls back to a literal default', () {
+    // `profile ?? kDefaultProfile` and `profile ?? 'default'` name a profile
+    // the server never gave. Allowed, with the number of lines and why:
+    //  - chat_controller.dart (1): compares the chat's profile with the
+    //    profile of a stored pending request; nothing is requested with it.
+    //  - chat_controller_voice.dart (1): a key for the stop hand-back map.
+    //  - chat_screen_navigation.dart (1): the label of the connect card, which
+    //    words `hermes -p` commands; nothing is requested with it.
+    //  - providers/providers_screen.dart (1): the name the screen shows for a
+    //    server without profiles; its requests carry `widget.profile` itself.
+    //  - surfaces/surface_snapshot_builder.dart (2): the snapshot's open
+    //    profile when none is stored and the launch profile is unread; it
+    //    stores none (see the builder's comment) and no request carries it.
+    const allowed = {
+      'lib/src/chat/chat_controller.dart': 1,
+      'lib/src/chat/chat_controller_voice.dart': 1,
+      'lib/src/chat/chat_screen_navigation.dart': 1,
+      'lib/src/providers/providers_screen.dart': 1,
+      'lib/src/surfaces/surface_snapshot_builder.dart': 2,
+    };
+    final fallback = RegExp(
+      r'''[pP]rofile\w*\s*\?\?\s*(kDefaultProfile|['"]default['"])''',
+    );
+    final found = <String, int>{};
+    for (final file in Directory('lib/src').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      for (final line in file.readAsLinesSync()) {
+        if (line.trimLeft().startsWith('//')) continue;
+        if (fallback.hasMatch(line)) {
+          found.update(file.path, (n) => n + 1, ifAbsent: () => 1);
+        }
+      }
+    }
+
+    expect(
+      found,
+      allowed,
+      reason:
+          'resolve a missing profile with ProfileResolver.resolve; do not '
+          'name `default` by hand',
     );
   });
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 
@@ -14,7 +15,10 @@ void main() {
     server.on('GET', '/api/learning/node', memoryDetail);
     final controller = MemoryController();
     addTearDown(controller.dispose);
-    controller.bind(MemoryRepository(server.client().raw), 'work');
+    controller.bind(
+      MemoryRepository(server.client().raw),
+      resolvedProfile('work'),
+    );
     await pumpEventQueue();
     await controller.open(controller.entries.first);
     controller.beginEdit();
@@ -48,7 +52,7 @@ void main() {
       final server = FakeHermesServer()..on('PUT', '/api/learning/node', body);
       await expectLater(
         MemoryRepository(server.client().raw)
-            .mutate(memoryId, 'work', content: 'Updated'),
+            .mutate(memoryId, resolvedProfile('work'), content: 'Updated'),
         throwsA(isA<MemoryWriteFailure>()),
       );
     });

@@ -1,5 +1,6 @@
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_usage.dart';
@@ -31,7 +32,7 @@ void main() {
       );
       final controller = MemoryController(breadcrumbs: Breadcrumbs.of(trail));
       addTearDown(controller.dispose);
-      controller.bind(repository, 'private-profile');
+      controller.bind(repository, resolvedProfile('private-profile'));
       await pumpEventQueue();
       await controller.open(controller.entries.first);
       server.on('GET', '/api/learning/node', {
@@ -73,7 +74,11 @@ void main() {
         ),
       );
       await expectLater(
-        repository.mutate(memoryId, 'private-profile', content: fullMemory),
+        repository.mutate(
+          memoryId,
+          resolvedProfile('private-profile'),
+          content: fullMemory,
+        ),
         throwsA(isA<MemoryWriteFailure>()),
       );
       final exported = [
@@ -94,7 +99,11 @@ void main() {
           tracer: ThrowingTracer(),
           events: (_, [attributes = const {}]) => throw StateError('telemetry'),
         ),
-      ).mutate(memoryId, 'private-profile', content: fullMemory);
+      ).mutate(
+        memoryId,
+        resolvedProfile('private-profile'),
+        content: fullMemory,
+      );
     },
   );
 
@@ -119,7 +128,7 @@ void main() {
                 events.add('$name $attributes'),
           ),
         ),
-        'private-profile',
+        resolvedProfile('private-profile'),
       );
       await pumpEventQueue();
       controller.selectTab(MemoryTab.agentNotes);
@@ -160,10 +169,13 @@ void main() {
         events: (_, [attributes = const {}]) => throw StateError('telemetry'),
       ),
     );
-    expect(await repository.load('private-profile'), hasLength(2));
+    expect(
+      await repository.load(resolvedProfile('private-profile')),
+      hasLength(2),
+    );
     server.on('GET', '/api/learning/graph', {}, status: 500);
     await expectLater(
-      repository.load('private-profile'),
+      repository.load(resolvedProfile('private-profile')),
       throwsA(MemoryFailure.transport),
     );
   });
@@ -179,7 +191,7 @@ void main() {
         telemetry: ConnectionTelemetry(tracer: tracer),
       );
 
-      expect(await repository.count('private-profile'), 2);
+      expect(await repository.count(resolvedProfile('private-profile')), 2);
 
       final span = tracer.spans.single;
       expect(span.name, 'memory.fetch');

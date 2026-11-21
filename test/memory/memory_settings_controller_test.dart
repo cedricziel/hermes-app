@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/memory/memory_provider.dart';
 import 'package:hermes_app/src/memory/memory_settings.dart';
 import 'package:hermes_app/src/memory/memory_settings_controller.dart';
@@ -37,7 +38,10 @@ void main() {
       onReset: () async => reloaded++,
     );
     addTearDown(controller.dispose);
-    controller.bind(MemorySettingsRepository(server.client().raw), 'work');
+    controller.bind(
+      MemorySettingsRepository(server.client().raw),
+      resolvedProfile('work'),
+    );
     await controller.whenIdle;
     return controller;
   }
@@ -211,7 +215,10 @@ void main() {
       memorySettingsConfig(writeApproval: true),
       query: {'profile': 'other'},
     );
-    controller.bind(MemorySettingsRepository(server.client().raw), 'other');
+    controller.bind(
+      MemorySettingsRepository(server.client().raw),
+      resolvedProfile('other'),
+    );
     expect(controller.settings, isNull);
     await controller.whenIdle;
     expect(controller.settings!.writeApproval, isTrue);
@@ -308,7 +315,10 @@ void main() {
     test('binding another profile drops the notice', () async {
       final controller = await bound();
       await controller.reset(MemoryResetTarget.agentNotes);
-      controller.bind(MemorySettingsRepository(server.client().raw), 'other');
+      controller.bind(
+        MemorySettingsRepository(server.client().raw),
+        resolvedProfile('other'),
+      );
       expect(controller.notice, isNull);
       expect(controller.provider, isNull);
     });
