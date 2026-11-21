@@ -70,6 +70,12 @@ class KanbanScreen extends StatefulWidget {
 
 class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
+
+  /// Saved phone list offsets; owned here so a rebuilt shell starts at the top.
+  /// Replaced whenever the board or a filter changes, so only a status chip
+  /// switch ever brings an offset back.
+  var _offsets = PageStorageBucket();
+  int _offsetsGeneration = 0;
   late final KanbanRepository _repository;
   late final AppLifecycleListener _lifecycle;
 
@@ -518,48 +524,60 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final shown = _controller.shownStatus;
     final tasks =
         columns.where((c) => c.name == shown).firstOrNull?.tasks ?? const [];
-    return Column(
-      children: [
-        KanbanStatusChips(
-          columns: columns,
-          selected: shown,
-          onSelected: _controller.showStatus,
-        ),
-        Expanded(
-          child: Stack(
-            children: [
-              PlatformRefresh(
-                onRefresh: _controller.refresh,
-                child: tasks.isEmpty
-                    ? ListView(
-                        children: const [
-                          SizedBox(height: 80),
-                          Center(child: Text('No tasks here')),
-                        ],
-                      )
-                    : ListView.separated(
-                        padding: EdgeInsets.fromLTRB(
-                          12,
-                          12,
-                          12,
-                          12 + _fabInset,
-                        ),
-                        itemCount: tasks.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _item(tasks[i], narrow: true),
-                      ),
-              ),
-              if (tasks.any((t) => t.id == _dragId))
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: KanbanDropStrip(onDrop: _move),
-                ),
-            ],
+    if (_controller.filterGeneration != _offsetsGeneration) {
+      _offsetsGeneration = _controller.filterGeneration;
+      _offsets = PageStorageBucket();
+    }
+    final scope = '$_offsetsGeneration\u0000$shown';
+    return PageStorage(
+      bucket: _offsets,
+      child: Column(
+        children: [
+          KanbanStatusChips(
+            columns: columns,
+            selected: shown,
+            onSelected: _controller.showStatus,
           ),
-        ),
-      ],
+          Expanded(
+            child: Stack(
+              children: [
+                PlatformRefresh(
+                  onRefresh: _controller.refresh,
+                  child: tasks.isEmpty
+                      ? ListView(
+                          key: PageStorageKey<String>(scope),
+                          children: const [
+                            SizedBox(height: 80),
+                            Center(child: Text('No tasks here')),
+                          ],
+                        )
+                      : ListView.separated(
+                          // One saved offset per status chip.
+                          key: PageStorageKey<String>(scope),
+                          padding: EdgeInsets.fromLTRB(
+                            12,
+                            12,
+                            12,
+                            12 + _fabInset,
+                          ),
+                          itemCount: tasks.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (_, i) => _item(tasks[i], narrow: true),
+                        ),
+                ),
+                if (tasks.any((t) => t.id == _dragId))
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: KanbanDropStrip(onDrop: _move),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
