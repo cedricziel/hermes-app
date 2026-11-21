@@ -9,6 +9,7 @@ import '../api/hermes_repositories.dart';
 import '../settings/about_dialog.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/platform_chrome.dart';
+import 'edit_menu_state.dart';
 import 'ipad_menu_bridge.dart';
 import 'mac_commands.dart';
 import 'mac_window.dart';
@@ -40,6 +41,7 @@ class MacMenuBar extends StatefulWidget {
 
 class _MacMenuBarState extends State<MacMenuBar> {
   final _registry = MacCommandRegistry();
+  final _edit = EditMenuState();
   late final _rootCommands = {
     MacCommand.about: MacCommandHandler(_about),
     MacCommand.help: MacCommandHandler(_help),
@@ -59,6 +61,7 @@ class _MacMenuBarState extends State<MacMenuBar> {
   void initState() {
     super.initState();
     _registry.addListener(_registryChanged);
+    _edit.addListener(_registryChanged);
   }
 
   @override
@@ -101,6 +104,7 @@ class _MacMenuBarState extends State<MacMenuBar> {
   @override
   void dispose() {
     _ipad?.dispose();
+    _edit.dispose();
     _registry.dispose();
     super.dispose();
   }
@@ -120,16 +124,19 @@ class _MacMenuBarState extends State<MacMenuBar> {
 
   @override
   Widget build(BuildContext context) {
-    final content = MacCommandScope.root(
-      registry: _registry,
-      child: MacCommandScope(commands: _rootCommands, child: widget.child),
+    final content = InheritedProvider<EditMenuState>.value(
+      value: _edit,
+      child: MacCommandScope.root(
+        registry: _registry,
+        child: MacCommandScope(commands: _rootCommands, child: widget.child),
+      ),
     );
     if (!MacWindow.enabled ||
         platformChromeOf(context) != PlatformChrome.macos) {
       return content;
     }
     return PlatformMenuBar(
-      menus: _menus ??= macMenus(_registry, context.l10n),
+      menus: _menus ??= macMenus(_registry, context.l10n, _edit),
       child: content,
     );
   }
@@ -137,10 +144,15 @@ class _MacMenuBarState extends State<MacMenuBar> {
 
 /// The menus of the Mac menu bar, each item enabled while [registry] has a
 /// handler for its command.
+///
+/// The Edit items follow [editMenu]: each is off while what has focus cannot
+/// take it, and all are off without one.
 List<PlatformMenuItem> macMenus(
   MacCommandRegistry registry,
-  AppLocalizations l10n,
-) {
+  AppLocalizations l10n, [
+  EditMenuState? editMenu,
+]) {
+  final available = editMenu?.value ?? EditAvailability.none;
   PlatformMenuItem item(
     MacCommand command,
     String label, {
@@ -168,12 +180,13 @@ List<PlatformMenuItem> macMenus(
 
   PlatformMenuItem edit(
     String label,
-    Intent intent,
-    MenuSerializableShortcut shortcut,
-  ) => PlatformMenuItem(
+    MenuSerializableShortcut shortcut, {
+    required bool enabled,
+    required VoidCallback run,
+  }) => PlatformMenuItem(
     label: label,
     shortcut: shortcut,
-    onSelected: () => _invokeOnFocus(intent),
+    onSelected: enabled ? run : null,
   );
 
   PlatformProvidedMenuItem provided(PlatformProvidedMenuItemType type) =>
@@ -218,35 +231,41 @@ List<PlatformMenuItem> macMenus(
         group([
           edit(
             l10n.macosMenuUndo,
-            const UndoTextIntent(cause),
             metaActivator(LogicalKeyboardKey.keyZ),
+            enabled: available.undo,
+            run: () => editMenu?.undo(),
           ),
           edit(
             l10n.macosMenuRedo,
-            const RedoTextIntent(cause),
             metaActivator(LogicalKeyboardKey.keyZ, shift: true),
+            enabled: available.redo,
+            run: () => editMenu?.redo(),
           ),
         ]),
         group([
           edit(
             l10n.macosMenuCut,
-            const CopySelectionTextIntent.cut(cause),
             metaActivator(LogicalKeyboardKey.keyX),
+            enabled: available.cut,
+            run: () => _invokeOnFocus(const CopySelectionTextIntent.cut(cause)),
           ),
           edit(
             l10n.macosMenuCopy,
-            CopySelectionTextIntent.copy,
             metaActivator(LogicalKeyboardKey.keyC),
+            enabled: available.copy,
+            run: () => _invokeOnFocus(CopySelectionTextIntent.copy),
           ),
           edit(
             l10n.macosMenuPaste,
-            const PasteTextIntent(cause),
             metaActivator(LogicalKeyboardKey.keyV),
+            enabled: available.paste,
+            run: () => _invokeOnFocus(const PasteTextIntent(cause)),
           ),
           edit(
             l10n.macosMenuSelectAll,
-            const SelectAllTextIntent(cause),
             metaActivator(LogicalKeyboardKey.keyA),
+            enabled: available.selectAll,
+            run: () => _invokeOnFocus(const SelectAllTextIntent(cause)),
           ),
         ]),
       ],
@@ -302,12 +321,6 @@ VoidCallback _deleteThreadOrLine(MacCommandRegistry registry) => () {
   }
 };
 
-bool _editingText() =>
-    FocusManager.instance.primaryFocus?.context
-        ?.findAncestorStateOfType<EditableTextState>() !=
-    null;
+bool _editingText() => EditMenuState.focusedField() != null;
 
-void _invokeOnFocus(Intent intent) {
-  final context = FocusManager.instance.primaryFocus?.context;
-  if (context != null) Actions.maybeInvoke(context, intent);
-}
+void _invokeOnFocus(Intent intent) => EditMenuState.invokeOnFocus(intent);
