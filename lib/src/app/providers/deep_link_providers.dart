@@ -1,5 +1,6 @@
 import 'package:app_links/app_links.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, visibleForTesting;
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
@@ -17,7 +18,8 @@ import '../../telemetry/telemetry.dart';
 /// app is in them (see [withLaunchLink]).
 List<SingleChildWidget> deepLinkProviders(
   Telemetry telemetry, {
-  List<String> launchArguments = const [],
+  required List<String> launchArguments,
+  @visibleForTesting Stream<Uri>? platformLinks,
 }) => [
   // Where the system search is; nothing off iOS. Its taps are links, so
   // it sits before the deep links.
@@ -33,7 +35,10 @@ List<SingleChildWidget> deepLinkProviders(
       if (!deepLinksSupported(defaultTargetPlatform)) return null;
       return DeepLinks(
         links: linksWithSpotlight(
-          withLaunchLink(AppLinks().uriLinkStream, launchArguments),
+          withLaunchLink(
+            platformLinks ?? AppLinks().uriLinkStream,
+            launchArguments,
+          ),
           context.read<SpotlightIndex>(),
           events: telemetry.events(),
         ),
