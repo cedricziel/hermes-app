@@ -106,10 +106,13 @@ class MainFlutterWindow: NSWindow {
       case "settleFrame":
         // macos_window_utils adds the full-size content view and a toolbar after
         // awakeFromNib, which relaunched a saved 900x600 frame as 900x568 (one
-        // title bar short; CI, launch 2). Put the restored frame back once.
+        // title bar short; CI, launch 2). Put the restored frame back once,
+        // unless state restoration already made the window full screen.
         if let restored = self?.restoredFrame, let window = self {
           self?.restoredFrame = nil
-          if window.frame.size != restored.size { window.setFrame(restored, display: true) }
+          if !window.styleMask.contains(.fullScreen), window.frame.size != restored.size {
+            window.setFrame(restored, display: true)
+          }
         }
         result(nil)
       case "setContentSize":

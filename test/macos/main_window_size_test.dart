@@ -132,6 +132,16 @@ void main() {
         File('lib/src/macos/mac_window.dart').readAsStringSync(),
         contains("invokeMethod<void>('settleFrame')"),
       );
+      // A window AppKit restored in full screen keeps the full-screen frame.
+      final settle = RegExp(
+        r'case "settleFrame":.*?result\(nil\)',
+        dotAll: true,
+      ).firstMatch(swift)!.group(0)!;
+      expect(
+        settle.indexOf('.fullScreen'),
+        inInclusiveRange(0, settle.indexOf('window.setFrame(')),
+      );
+      expect(settle, contains('!window.styleMask.contains(.fullScreen)'));
       // The CI round trip resizes the frame, not the content.
       final delegate = File('macos/Runner/AppDelegate.swift')
           .readAsStringSync();

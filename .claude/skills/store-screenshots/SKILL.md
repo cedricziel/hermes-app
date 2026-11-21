@@ -76,8 +76,9 @@ version>`. Check the editable version on App Store Connect first and pass
 - The seed script uses `DEMO_SERVER_URL` to create Kanban tasks through the
   backend API after checking that `/api/status` reports the throwaway home.
 - The main window opens at 1100 x 760 on a first launch and then remembers its
-  last frame (frame autosave `HermesMainWindow`, PR #1132 and its follow-up);
-  the `build-macos` CI job measures both (see docs/architecture/macos.md). The
+  last frame (frame autosave `HermesMainWindow`, added by PR #1168; #1132 set the sizes);
+  the `build-macos` CI job measures the remembered frame, and the 1100 x 760
+  default only on a screen big enough to hold it (see docs/architecture/macos.md). The
   screenshot test resizes it through the `setContentSize` call (followed by
   `center()`) on the `hermes_app/window` channel (`SHOT_WINDOW`) every run
   (`SHOT_MAC_COMPACT_WINDOW`, 800x600, for `mac compact`), so a remembered frame
