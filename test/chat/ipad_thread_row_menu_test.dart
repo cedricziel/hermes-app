@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/accessibility_announcements.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/pump_chat.dart';
 
@@ -46,6 +47,7 @@ void main() {
   testWidgets('a long press opens a popover at the row, not a sheet', (
     tester,
   ) async {
+    final said = captureAnnouncements(tester);
     await pumpIpad(tester);
 
     await tester.longPress(title);
@@ -81,13 +83,9 @@ void main() {
       reason: "the menu opens at the row's trailing edge",
     );
     expect(menu.top, closeTo(rowRect.top, 1), reason: 'level with the row');
-    final handle = tester.ensureSemantics();
-    expect(
-      find.bySemanticsLabel('Chat actions for Release notes'),
-      findsOneWidget,
-      reason: 'the open menu is named',
-    );
-    handle.dispose();
+    expect(said, [
+      'Chat actions for Release notes',
+    ], reason: 'the open menu is named by an announcement');
   });
 
   testWidgets('a secondary click opens the menu at the pointer', (

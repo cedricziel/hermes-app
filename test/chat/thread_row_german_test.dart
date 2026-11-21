@@ -12,6 +12,7 @@ import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/touch_row_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 
+import '../support/accessibility_announcements.dart';
 import '../support/fake_hermes_server.dart';
 
 /// A German device gets German words on a chat row everywhere: the phone's
@@ -97,7 +98,7 @@ void main() {
   });
 
   testWidgets('the iPad popover is German and named', (tester) async {
-    final handle = tester.ensureSemantics();
+    final said = captureAnnouncements(tester);
     await pumpRow(tester, size: const Size(1024, 768));
 
     await tester.longPress(find.text('Row'));
@@ -111,11 +112,7 @@ void main() {
         reason: label,
       );
     }
-    expect(
-      find.bySemanticsLabel('Chat-Aktionen für Release notes'),
-      findsOneWidget,
-    );
-    handle.dispose();
+    expect(said, ['Chat-Aktionen für Release notes']);
   });
 
   testWidgets('a Bot Chat popover has no Rename and offers Retire', (

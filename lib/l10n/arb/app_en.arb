@@ -2228,7 +2228,7 @@
   },
   "chatWidgetsThreadMenuLabel": "Chat actions for {title}",
   "@chatWidgetsThreadMenuLabel": {
-    "description": "Name of a chat's actions: the screen reader name of the open iPad popover menu, the long-press hint of the chat row on an iPad, and the name of the chat actions button on the other platforms.",
+    "description": "Name of a chat's actions: spoken when the iPad popover menu opens, the long-press hint of the chat row on an iPad, and the name of the chat actions button on the other platforms.",
     "placeholders": {
       "title": {
         "type": "String",

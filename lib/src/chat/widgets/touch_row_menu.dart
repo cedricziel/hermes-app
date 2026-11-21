@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/semantics.dart';
 
 import '../../../l10n/l10n.dart';
 import 'thread_actions_menu.dart';
@@ -53,6 +56,20 @@ class _TouchRowMenuState extends State<TouchRowMenu> {
     }
   }
 
+  /// The anchor scopes the open menu as a route but cannot give it a name, and
+  /// a label-only node in the menu would be dropped for having no size. So the
+  /// menu's name is spoken when it opens.
+  void _announce() {
+    final context = this.context;
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        context.l10n.chatWidgetsThreadMenuLabel(widget.title),
+        Directionality.of(context),
+      ).catchError((Object _) {}),
+    );
+  }
+
   void _openAt(Offset local) {
     if (_menu.isOpen) _menu.close();
     _menu.open(position: local);
@@ -74,14 +91,8 @@ class _TouchRowMenuState extends State<TouchRowMenu> {
         );
     return CupertinoMenuAnchor(
       controller: _menu,
+      onOpen: _announce,
       menuChildren: [
-        // The anchor scopes the open menu as a route but names it nothing; this
-        // first, empty node is what a screen reader announces as its name.
-        Semantics(
-          container: true,
-          label: l10n.chatWidgetsThreadMenuLabel(widget.title),
-          child: const SizedBox.shrink(),
-        ),
         if (!widget.canonical)
           item(ThreadAction.rename, l10n.chatWidgetsThreadMenuRename),
         item(
