@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 HOOK = Path(__file__).resolve().parent.parent / ".claude" / "hooks" / "guard_bash.py"
@@ -247,6 +248,7 @@ class GuardTest(unittest.TestCase):
     def setUpClass(cls):
         # an agent session exports it; the tests choose their own project
         cls.saved_project = os.environ.pop("CLAUDE_PROJECT_DIR", None)
+        cls.saved_remote = os.environ.pop("CLAUDE_CODE_REMOTE", None)  # local mode
         cls.tmp = tempfile.TemporaryDirectory()
         cls.repo = cls.tmp.name
         git(cls.repo, "init", "-q", "-b", "claude/pushed")
@@ -278,6 +280,8 @@ class GuardTest(unittest.TestCase):
     def tearDownClass(cls):
         if cls.saved_project is not None:
             os.environ["CLAUDE_PROJECT_DIR"] = cls.saved_project
+        if cls.saved_remote is not None:
+            os.environ["CLAUDE_CODE_REMOTE"] = cls.saved_remote
         cls.tmp.cleanup()
         cls.nohook.cleanup()
 
@@ -886,6 +890,375 @@ class GuardTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
         self.assertIn("internal error", r.stderr)
 
+
+class GhSearchOnlyTest(unittest.TestCase):
+    """Cloud (CLAUDE_CODE_REMOTE=true). F.333: gh is for search only; everything else goes through the GitHub MCP tools."""
+
+    ENV = "true"
+
+    def setUp(self):
+        patcher = mock.patch.dict(os.environ, {"CLAUDE_CODE_REMOTE": self.ENV})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    ALLOW = [
+        "gh api -X GET search/code -f q=foo",
+        "gh api -X GET search/repositories -f q=foo --paginate",
+        "gh api search/issues?q=repo:o/r+is:open",
+        "gh api search/commits -q .items",
+        "gh api --method GET search/users -f q=x",
+        "gh api --method=GET search/code -f q=x --jq '.items[].path'",
+        "gh api -XGET search/code -f q=x",
+        "gh api /search/code?q=x",
+        "gh api search/code?q=x --jq .total_count --paginate",
+        "gh api -X GET search/issues -f q=x | head",
+        "gh --version",
+        "find / -name gh -type f",
+        "find . -name gh -print",
+        "${FLUTTER} test",
+        "\"${FLUTTER}\" test",
+        "\"${HOME}/bin/tool\" --x",
+        "${HOME}/.pub-cache/bin/fvm flutter test",
+        "cmd=(flutter test); \"${cmd[@]}\"",
+        "a[0]=x",
+        "case a.py in\n  *.py|*.sh) printf ok;;\nesac",
+        "case $x in\n  [a-z]*) echo l;;\n  *) echo o;;\nesac",
+        "case $x in\n  a|b) echo ab;;\nesac",
+        "arr=(a b); arr[1]=c",
+        "declare -A m; m[k]=v",
+        "case \"$x\" in *.dart) echo d;; *) echo o;; esac",
+        "ls *.dart",
+        "rm build/*.o",
+        "grep -r 'a*b' .",
+        "find . -name '*.dart'",
+        "dart format lib/**/*.dart",
+        "[ -f x ] && echo y",
+        "ssh host ls *.dart",
+        "/usr/bin/gh api -X GET search/code -f q=x",
+        "G=hello; echo $G",
+        "find . -exec echo gh pr merge 1 --delete-branch \\;",
+        "gh api -X GET search/code -f q=\"$Q\"",
+        "find gh -type f",
+        "find . -exec grep -l gh {} \\;",
+        "stdbuf -oL grep gh log",
+        "parallel echo ::: gh hub",
+        "gh",  # bare gh only prints help
+        "gh help",
+        "gh help api",
+        "gh -h",
+        "gh api -X GET search/code -f q=x && echo done",
+        "git commit -m 'fix gh hint'",
+        'git commit -m "gh pr view is blocked"',
+        "echo gh pr view",
+        "grep -rn 'gh api' docs/",
+        "which gh",
+        "ls /usr/bin/gh",
+        "brew install gh",
+        "git log --grep='gh pr'",
+        "echo 'gh api repos/o/r/pulls/1'",
+    ]
+    BLOCK = [
+        "find . -exec gh help \\; -exec gh help \\;",
+        # subcommands
+        "gh pr view 1",
+        "gh pr list",
+        "gh pr create --title x --body y",
+        "gh pr merge 12 --squash",
+        "gh pr merge 1 --delete-branch=false",
+        "gh pr checks 3",
+        "gh pr comment 3 -b x",
+        "gh issue list",
+        "gh issue view 1",
+        "gh issue create -t x",
+        "gh repo view o/r",
+        "gh repo clone o/r",
+        "gh run list",
+        "gh run view 1 --log",
+        "gh workflow run ci.yml",
+        "gh release create v1",
+        "gh label list",
+        "gh auth status",
+        "gh search code foo",
+        "gh -R o/r pr list",
+        "gh --paginate",
+        # api on non-search paths and methods
+        "gh api repos/o/r/pulls/1178",
+        "gh api repos/o/r",
+        "gh api user",
+        "gh api graphql -f query='{viewer{login}}'",
+        "gh api -X POST repos/o/r/issues -f title=x",
+        "gh api -X PATCH repos/o/r/pulls/1 -f state=closed",
+        "gh api -X PUT repos/o/r/pulls/1/merge",
+        "gh api -X DELETE repos/o/r/issues/comments/1",
+        "gh api -X POST search/code",
+        "gh api -X DELETE search/code",
+        "gh api search/code -f q=x",  # -f without a method is a POST
+        "gh api search/code --input body.json",
+        "gh api search",
+        "gh api search/",
+        "gh api search/labels?q=x",
+        "gh api",
+        # bypass attempts
+        "env gh pr view 1",
+        "env -i FOO=1 gh pr view 1",
+        "command gh pr view 1",
+        "sudo gh pr view 1",
+        "sudo -u root gh api repos/o/r",
+        "time gh pr view 1",
+        "nohup gh run list",
+        "/usr/bin/gh pr view 1",
+        "/opt/homebrew/bin/gh api repos/o/r",
+        "./gh pr view 1",
+        "FOO=1 gh pr view 1",
+        "echo $(gh api repos/o/r/pulls/1178)",
+        "echo `gh pr view 1`",
+        "x=$(gh api repos/o/r/pulls/1)",
+        "(gh pr view 1)",
+        "true; gh pr view 1",
+        "true && gh pr view 1",
+        "false || gh pr view 1",
+        "ls | gh pr view 1",
+        "gh pr view 1 | head",
+        "gh api search/code -f q=x -X GET; gh pr view 1",
+        "gh api repos/o/r/pulls/1 -X GET",
+        "gh api repos/o/r/pulls/1 --method GET",
+        "gh api repos/o/r/pulls/1 --method=GET",
+        "gh api -XGET repos/o/r",
+        "gh api 'search/../repos/x'",
+        "gh api 'search/code/../../repos/x'",
+        "gh api search/%2e%2e/repos/x",
+        "gh api https://api.github.com/search/code",
+        "gh api search/code search/issues",
+        "gh api -X GET search/code -f q=x repos/o/r",
+        "gh api -X GET --unknown-flag search/code",
+        "gh api -X",
+        "bash -c 'gh pr view 1'",
+        "sh -c \"gh api repos/o/r\"",
+        "eval 'gh pr view 1'",
+        "xargs gh pr view",
+        "echo 'pr view 1' | xargs gh",
+        "find . -exec gh help \\; -exec gh pr merge 1 --squash \\;",
+        "find . -exec env gh pr view 1 \\;",
+        "find . -exec sudo -n gh pr view 1 \\;",
+        "find . -exec timeout 5 gh pr list \\;",
+        "find . -exec env gh pr list \\;",
+        "printf 'pr merge 1\\n' | xargs gh -R o/r",
+        "xargs -n1 gh -R o/r",
+        "ssh -n host gh pr list",
+        "ssh -J jump host gh pr list",
+        "ssh -F cfg host gh pr list",
+        "ssh host env gh pr list",
+        "flock -w 5 /tmp/l gh pr list",
+        "flock --timeout 5 /tmp/l gh pr list",
+        "taskset -c 0 gh pr list",
+        "parallel --jobs 4 gh pr view ::: 1",
+        "nsenter -t 1 -m gh pr list",
+        "strace -fp 1 gh pr list",
+        "EP=repos/o/r; (EP=search/code); find . -exec gh api \"$EP\" \\;",
+        "find . -exec gh api -X GET search/code -f q=x \\;",  # no search through runners
+        "find . -exec gh api -X GET search/code -f q=x {} +",
+        "xargs grep gh",  # accepted false block
+        "ssh host ls /usr/bin/gh",  # accepted false block
+        "stdbuf -o L gh pr list",
+        "stdbuf -oL env gh pr list",
+        "SUB=pr; (SUB=help); gh \"$SUB\" merge 1 --squash",
+        "gh api -X \"$M\" search/code",
+        "gh api search/$KIND",
+        "G='gh pr'; $G merge 1 --squash",
+        "G=gh; $G pr view 1",
+        "/usr/bin/g[h] pr view 1",
+        "(/usr/bin/g[h] pr view 1)",
+        "case x in a) echo;; esac; /usr/bin/g[h] pr view 1",
+        "/usr/bin/g? pr view 1",
+        "/usr/*/gh pr view 1",
+        "env /usr/bin/g[h] pr view 1",
+        "sudo /usr/bin/g? pr view 1",
+        "find . -exec /usr/bin/g[h] pr view 1 \\;",
+        "/usr/bin/g{h,x} pr view 1",
+        "find . -exec /usr/bin/g{h,x} pr view 1 \\;",
+        "ssh host /usr/bin/g[h] pr view 1",
+        "G='/usr/bin/g''h pr'; $G merge 1",  # text never says gh
+        "G='/usr/bin/gh pr'; $G merge 1 --squash",
+        "G='./gh pr'; $G merge 1",
+        "G=\"$HOME/bin/gh pr\"; $G merge 1",
+        "G='/usr/bin/gh pr'; ${G} merge 1",
+        "G='/usr/bin/gh pr'; \"$G\" merge 1",
+        "`echo /usr/bin/gh` pr merge 1",
+        "G='/usr/bin/gh pr'; find . -exec $G merge 1 \\;",
+        "G='/usr/bin/gh pr'; ssh host $G merge 1",
+        "gh $(echo pr) view 1",
+        "xargs gh < f",
+        "ssh host gh pr list",
+        "flock /tmp/l gh pr list",
+        "parallel gh pr view ::: 1 2",
+        "find . -type f -exec gh pr view 1 \\;",
+        "stdbuf -oL gh pr list",
+        "echo 1 | xargs -n1 gh pr view",
+        "find . -exec gh pr list \\;",
+        "watch -n1 gh pr list",
+        "timeout 5 gh pr view 1",
+        # fail closed on computed program names
+        "$G pr view 1; echo gh",
+        "gh $SUB view 1",
+        "gh api $EP",
+        "gh api search/$KIND",
+    ]
+
+    def test_allow(self):
+        for c in self.ALLOW:
+            self.assertIsNone(guard.check(c, "/tmp"), "should allow: %s" % c)
+
+    def test_block(self):
+        for c in self.BLOCK:
+            msg = guard.check(c, "/tmp")
+            self.assertIsNotNone(msg, "should block: %s" % c)
+            self.assertIn("search only", msg, c)
+
+    def test_message_names_replacement(self):
+        for c, tool in [
+            ("gh api repos/o/r/pulls/1178", "pull_request_read"),
+            ("gh api repos/o/r/pulls", "list_pull_requests"),
+            ("gh api repos/o/r/issues/5/comments", "issue_read"),
+            ("gh api repos/o/r/contents/README.md", "get_file_contents"),
+            ("gh api repos/o/r/actions/runs/9", "actions_get"),
+            ("gh pr view 1", "pull_request_read"),
+            ("gh pr create", "create_pull_request"),
+            ("gh pr merge 1", "merge_pull_request"),
+            ("gh issue create", "issue_write"),
+            ("gh run view 1", "actions_get"),
+            ("gh release list", "list_releases"),
+        ]:
+            msg = guard.check(c, "/tmp")
+            self.assertIn("mcp__github__", msg, c)
+            self.assertIn(tool, msg, c)
+
+    def test_case_scan_is_linear(self):
+        for text in ("case in " * 2000, "case in " * 2000 + "esac", "in case " * 2000):
+            start = time.monotonic()
+            guard.check(text, "/tmp")
+            self.assertLess(time.monotonic() - start, 0.5, text[:12])
+
+    def test_gh_search_hint(self):
+        msg = guard.check("gh search code foo", "/tmp")
+        self.assertIn("gh api -X GET search/", msg)
+        self.assertNotIn("no gh replacement", msg)
+
+    def test_hook_process_exit_codes(self):
+        def run(cmd):
+            return subprocess.run(
+                [sys.executable, "-I", str(HOOK)],
+                input=json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": "/tmp"}),
+                capture_output=True,
+                text=True,
+                env={**os.environ, "CLAUDE_CODE_REMOTE": self.ENV},
+            )
+
+        r = run("gh api repos/o/r/pulls/1178")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("mcp__github__pull_request_read", r.stderr)
+        r = run("gh api -X GET search/code -f q=x")
+        self.assertEqual(r.returncode, 0)
+
+
+
+class GhLocalUnchangedTest(unittest.TestCase):
+    """Anything but CLAUDE_CODE_REMOTE=true is a local session: main's behaviour."""
+
+    SKILL_GH = [
+        "gh pr list --label release-please --json number,title",
+        "gh pr view 12 --json mergeStateStatus,statusCheckRollup",
+        "gh pr view 12 --json state",
+        "gh pr checks 12",
+        "gh pr create --title x --body y",
+        "gh pr merge 12 --auto --squash --match-head-commit abc123",
+        "gh pr merge 12 --squash",
+        "gh run list --workflow release-please.yml --limit 3",
+        "gh run list --workflow app-store.yml --limit 3",
+        "gh run view 99 --log-failed",
+        "gh run watch 99",
+        "gh release view v1.2.3 --json body --jq .body",
+        "gh release list --limit 20 --json tagName,isPrerelease",
+        "gh release edit v1.2.3 --prerelease=false --latest",
+        "gh release edit v1.2.3 --notes-file notes.md",
+        "gh workflow run release-please.yml -f tag=v1.2.3 -f only=testflight",
+        "gh workflow run app-store.yml -f tag=v1.2.3 -f dry_run=false",
+        "gh issue list",
+        "gh repo view o/r",
+        "gh label list",
+        "gh api repos/o/r/pulls/1178",
+        "gh api repos/o/r/git/refs/heads/x",
+        "gh api -X DELETE repos/o/r/issues/comments/1",
+        "gh api graphql -f query=x",
+        "env gh pr view 1",
+        "echo $(gh pr view 1)",
+        "$G pr view 1; echo gh",
+        "gh api -X GET search/issues -f q='repo:o/r is:pr is:merged'",
+        "ssh host gh pr merge 1 -d",
+        "G='/usr/bin/gh pr'; $G merge 1 --squash",
+        "G='./gh pr'; ${G} merge 1",
+        "echo 1 | xargs gh pr view",
+        "/usr/bin/g[h] pr view 1",
+        "/usr/bin/g? pr view 1",
+        "G='/usr/bin/gh pr'; $G merge 1 --squash",
+        "G='./gh pr'; ${G} merge 1",
+        "xargs grep gh",
+        "ssh -J j host gh pr list",
+        "strace -fp 1 gh pr list",
+        "find . -exec env gh pr list \\;",
+        "find . -exec echo gh pr merge 1 --delete-branch \\;",
+        "find . -exec gh help \\; -exec gh pr merge 1 --squash \\;",
+        "SUB=pr; (SUB=help); gh \"$SUB\" merge 1 --squash",
+        "G='gh pr'; $G merge 1 --squash",
+        "find . -exec gh pr merge 1 -d \\;",
+        "parallel gh pr merge 1 ::: --delete-branch",
+        "flock /tmp/l gh pr merge 1 --delete-branch",
+        "strace -f gh api -X DELETE repos/o/r/git/refs/heads/x",
+    ]
+    STILL_BLOCKED = [
+        "gh pr merge 1 --delete-branch",
+        "gh api -X DELETE repos/o/r/git/refs/heads/x",
+    ]
+
+    def test_local_values(self):
+        for val in (None, "", "false", "1", "True", "yes", " true"):
+            env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_REMOTE"}
+            if val is not None:
+                env["CLAUDE_CODE_REMOTE"] = val
+            with mock.patch.dict(os.environ, env, clear=True):
+                for c in self.SKILL_GH:
+                    self.assertIsNone(guard.check(c, "/tmp"), "%r should allow: %s" % (val, c))
+                for c in self.STILL_BLOCKED:
+                    self.assertIsNotNone(guard.check(c, "/tmp"), "%r should block: %s" % (val, c))
+
+    def test_local_never_scans_for_case(self):
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_REMOTE"}
+
+        def boom(_text):
+            raise AssertionError("case scan ran in a local session")
+
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(guard, "_has_case_block", boom):
+            self.assertIsNone(guard.check("case a in a) echo;; esac", "/tmp"))
+
+    def test_cloud_detection(self):
+        with mock.patch.dict(os.environ, {"CLAUDE_CODE_REMOTE": "true"}):
+            self.assertTrue(guard._is_cloud())
+            self.assertIsNotNone(guard.check("gh pr view 1", "/tmp"))
+        with mock.patch.dict(os.environ, {"CLAUDE_CODE_REMOTE": "false"}):
+            self.assertFalse(guard._is_cloud())
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_REMOTE"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertFalse(guard._is_cloud())
+
+    def test_hook_process_local(self):
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_REMOTE"}
+        r = subprocess.run(
+            [sys.executable, "-I", str(HOOK)],
+            input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "gh pr view 1"}, "cwd": "/tmp"}),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(r.returncode, 0)
 
 if __name__ == "__main__":
     unittest.main()
