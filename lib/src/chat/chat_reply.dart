@@ -4,15 +4,11 @@ import 'gateway/gateway_rpc_client.dart'
     show
         GatewayConnectionClosed,
         GatewayReplyUnconfirmed,
+        GatewayRpcException,
         GatewaySessionGone,
         GatewayTurnEnded;
 
-const kReplyFailedMessage = 'Something went wrong. Try sending it again.';
-
 const kReplyStoppedMessage = 'Stopped.';
-
-const kProfileUnavailableMessage =
-    'That profile is no longer available. Pick another one.';
 
 /// Folds a transport event into the assistant message it belongs to. Thread
 /// events concern the thread, not the reply, and are left to the caller.
@@ -179,18 +175,17 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       reply.errorEventSeen = false;
       reply.settledWithoutCompletion = false;
       reply.loss = null;
+      // The server ended the turn itself: nothing of it runs any more.
+      reply.serverMayRun = false;
       if (failed) {
         if (partial) {
           // The text is what streamed before the failure: it stays, and the
           // explanation is the error, not the text.
           if (text.isNotEmpty) reply.content = text;
-          _markFailed(
-            reply,
-            error == null || error.isEmpty ? kReplyFailedMessage : error,
-          );
+          _markFailed(reply, error: error, serverReported: true);
           return;
         }
-        _markFailed(reply, text.isEmpty ? kReplyFailedMessage : text);
+        _markFailed(reply, error: text, serverReported: true);
         return;
       }
       final alreadyShown =
@@ -235,7 +230,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       if (held != null) {
         reply.pendingError = null;
         reply.errorEventSeen = false;
-        _markFailed(reply, held);
+        _markFailed(reply, error: held, serverReported: true);
         return;
       }
       reply.activity = null;
@@ -386,7 +381,10 @@ void settleLost(ChatMessage reply, ReplyLoss loss) {
   reply.reconnecting = false;
   reply.reconnectIdle = false;
   reply.error = null;
+  reply.failure = null;
   reply.loss = loss;
+  // A server that could not say may well be running the turn.
+  reply.serverMayRun = loss == ReplyLoss.unconfirmed;
   reply.status = MessageStatus.error;
   _settleRunningTools(reply, ToolCallStatus.cancelled);
   expireInputRequests(reply);
@@ -406,19 +404,60 @@ void markReconnecting(ChatMessage reply) {
   reply.activity = null;
 }
 
+/// Whether the server may still be running the turn of a reply that ended with
+/// [error]: the end came from a closed or unreachable gateway, or from a server
+/// that could not be made to say, not from an answer of the server's. A
+/// refusal, a missing profile and a bad attachment are answers (or never
+/// reached the turn), a turn the server says it no longer has is over, and a
+/// send that failed before the prompt was submitted never gave the server a
+/// turn. The gateway wraps every connection failure in a
+/// [GatewayConnectionClosed]; an error of any other kind says nothing about the
+/// connection. A turn that may still run leaves the reply saying so rather than
+/// inviting a retry the server would refuse.
+bool serverMayStillRun(Object? error) => switch (error) {
+  // Once `prompt.submit` was written the server may have the prompt, whether
+  // or not it answered; before that it certainly has nothing.
+  SendFailure(:final step, :final cause) =>
+    step.index >= SendStep.submit.index && serverMayStillRun(cause),
+  GatewaySessionGone() => false,
+  GatewayTurnEnded(restarted: true) => false,
+  GatewayConnectionClosed() => true,
+  _ => false,
+};
+
+/// Whether [error] is a refusal the server gave, read through the step it came
+/// at.
+bool _answeredByServer(Object? error) => switch (error) {
+  SendFailure(:final cause) => _answeredByServer(cause),
+  GatewayRpcException() => true,
+  _ => false,
+};
+
 /// Ends [reply] after the stream broke, keeping whatever had streamed. [error]
 /// is what broke it, when known: it decides the explanation shown. An error
 /// the server reported before the stream broke explains it better than the
-/// generic message.
+/// generic message. Running tool calls are marked failed only when the server
+/// reported the failure; a connection the client lost says nothing of them, so
+/// they are settled as not finished.
 void failReply(ChatMessage reply, [Object? error]) {
   final held = reply.pendingError;
   reply.pendingError = null;
   reply.errorEventSeen = false;
-  _markFailed(reply, switch (error) {
-    ProfileUnavailableException() => kProfileUnavailableMessage,
-    AttachmentException(:final message) => message,
-    _ => held == null || held.isEmpty ? kReplyFailedMessage : held,
-  });
+  final reported = held != null && held.isNotEmpty;
+  _markFailed(
+    reply,
+    error: reported
+        ? held
+        : switch (error) {
+            AttachmentException(:final message) => message,
+            _ => null,
+          },
+    failure: error is ProfileUnavailableException
+        ? ReplyFailure.profileUnavailable
+        : ReplyFailure.generic,
+    serverReported: reported || _answeredByServer(error),
+    mayRun: !reported && serverMayStillRun(error),
+  );
 }
 
 /// Closes off [text] as its own segment, ahead of whatever tool calls have
@@ -519,13 +558,30 @@ void _addInputRequest(ChatMessage reply, InputRequest request) {
   };
 }
 
-void _markFailed(ChatMessage reply, String error) {
+/// Ends [reply] as failed. [error] is the server's own explanation, if any;
+/// without it the widget layer words [failure]. Running calls are marked
+/// failed only when [serverReported]: otherwise nothing is known of them but
+/// that they did not report an end. [mayRun] says the server may still be
+/// running the turn (see [ChatMessage.serverMayRun]).
+void _markFailed(
+  ChatMessage reply, {
+  String? error,
+  ReplyFailure failure = ReplyFailure.generic,
+  required bool serverReported,
+  bool mayRun = false,
+}) {
   reply.reasoningActive = false;
   reply.reconnecting = false;
   reply.reconnectIdle = false;
-  reply.error = error;
+  reply.error = error == null || error.isEmpty ? null : error;
+  reply.failure = reply.error == null ? failure : null;
+  reply.loss = null;
+  reply.serverMayRun = mayRun;
   reply.status = MessageStatus.error;
-  _settleRunningTools(reply, ToolCallStatus.error);
+  _settleRunningTools(
+    reply,
+    serverReported ? ToolCallStatus.error : ToolCallStatus.cancelled,
+  );
   expireInputRequests(reply);
 }
 

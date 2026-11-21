@@ -262,6 +262,7 @@ Widget _buildText(
   final scheme = Theme.of(context).colorScheme;
   final error = message.metadata?[kMetaError] as String?;
   final loss = message.metadata?[kMetaLoss] as String?;
+  final failure = message.metadata?[kMetaFailure] as String?;
   final style = TextStyle(
     color: scheme.onSurface,
     fontSize: messageFontSizeFor(Theme.of(context).platform),
@@ -303,6 +304,8 @@ Widget _buildText(
       onEdit: latest ? onEdit : null,
       onBranch: onBranch == null ? null : () => onBranch(message.id),
       status: status,
+      heldAnnounceKey:
+          '${message.id}#${message.createdAt?.microsecondsSinceEpoch}#held',
       readAloud: readAloud,
       onReadAloud: onReadAloud,
     ),
@@ -330,6 +333,13 @@ Widget _buildText(
           announceKey:
               '${message.id}#${message.createdAt?.microsecondsSinceEpoch}#$loss',
         )
+      else if (failure != null)
+        ReplyErrorNote(switch (failure) {
+          kFailureMayStillRun => context.l10n.chatReplyFailedMayStillRun,
+          'profileUnavailable' =>
+            context.l10n.chatReplyFailedProfileUnavailable,
+          _ => context.l10n.chatReplyFailedGeneric,
+        })
       else if (error != null)
         if (onCheckProviders != null && isProviderReplyError(error))
           Padding(

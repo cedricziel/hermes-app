@@ -6,7 +6,6 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_message_mapper.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
-import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/chat_warning_state.dart' show AgentNotice;
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -155,7 +154,8 @@ void main() {
       await lose();
 
       expect(assistant().status, MessageStatus.error);
-      expect(assistant().error, kReplyFailedMessage);
+      expect(assistant().error, isNull);
+      expect(assistant().failure, ReplyFailure.generic);
       expect(assistant().reconnecting, isFalse);
       expectOneSubmit();
     });
@@ -599,20 +599,43 @@ void main() {
   });
 
   group('a real failure still fails the reply', () {
-    for (final (name, error) in <(String, Object)>[
-      ('an unknown error', StateError('boom')),
-      ('a turn the server ended with nothing', const GatewayTurnEnded()),
-      ('an answer from the server', const GatewayRpcException(5000, 'boom')),
-    ]) {
+    // A tool call is marked failed only when the server reported the failure;
+    // a connection the client lost says nothing of it. The server may still run
+    // the turn only when the end came from the connection.
+    for (final (name, error, tool, mayRun)
+        in <(String, Object, ToolCallStatus, bool)>[
+          (
+            'an unknown error',
+            StateError('boom'),
+            ToolCallStatus.cancelled,
+            false,
+          ),
+          (
+            'a turn the server ended with nothing',
+            const GatewayTurnEnded(),
+            ToolCallStatus.cancelled,
+            true,
+          ),
+          (
+            'an answer from the server',
+            const GatewayRpcException(5000, 'boom'),
+            ToolCallStatus.error,
+            false,
+          ),
+        ]) {
       test(name, () async {
         await startTurn();
+        // The server still lists the session as working.
+        transport.active['s1'] = 'working';
         await lose(error);
 
         final reply = assistant();
         expect(reply.status, MessageStatus.error);
-        expect(reply.error, kReplyFailedMessage);
+        expect(reply.error, isNull);
+        expect(reply.failure, ReplyFailure.generic);
         expect(reply.reconnecting, isFalse);
-        expect(reply.toolCalls.single.status, ToolCallStatus.error);
+        expect(reply.toolCalls.single.status, tool);
+        expect(reply.serverMayRun, mayRun);
         expect(thread.isReplying, isFalse);
         expectOneSubmit();
       });
