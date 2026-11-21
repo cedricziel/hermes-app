@@ -151,7 +151,7 @@ the required checks on the head. Read check state with `status-reader`
 or `pull_request_read`; pending, queued and in-progress are not green.
 
 The orchestrator has at most one armed or hand-merged Dart PR at a time, until
-it has merged. (The overlap report of `scripts/premerge_check.sh` (not yet on main) is information only.)
+it has merged. (The overlap report of `scripts/premerge_check.sh` is information only.)
 Exception: a hand merge may proceed while another Dart PR is armed, if the trial
 check runs with `--stack <armed pr>` and passes.
 
