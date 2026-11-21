@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../../l10n/l10n.dart';
@@ -101,7 +102,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
     );
     if (!ok || inspection == null || !mounted) return;
     final i = inspection!;
-    await showAdaptiveDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (context) => AppAlertDialog(
         title: Text('Run #${worker.runId}'),

@@ -4,7 +4,6 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 import 'checkpoints/transcript_outcome.dart';
 import 'chat_message_kinds.dart';
 import 'chat_models.dart';
-import 'chat_reply.dart' show kReplyFailedMessage;
 import 'markdown_entities.dart';
 import 'media/extract_media.dart';
 import '../voice/voice_transcript.dart';
@@ -200,7 +199,13 @@ List<Message> chatMessageToFlyer(
           MessageStatus.error when m.loss != null && m.error == null => {
             kMetaLoss: m.loss!.name,
           },
-          MessageStatus.error => {kMetaError: m.error ?? kReplyFailedMessage},
+          MessageStatus.error when m.error != null => {kMetaError: m.error},
+          MessageStatus.error => {
+            kMetaFailure: switch (m.failure ?? ReplyFailure.generic) {
+              ReplyFailure.generic when m.serverMayRun => kFailureMayStillRun,
+              final failure => failure.name,
+            },
+          },
           MessageStatus.streaming => {kMetaStreaming: true},
           _ when m.stopped => {kMetaStopped: true},
           _ => null,
