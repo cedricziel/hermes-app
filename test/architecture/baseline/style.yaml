@@ -373,8 +373,7 @@ style.string:
   lib/src/chat/widgets/reasoning_block.dart: 1
   lib/src/chat/widgets/review_summary_note.dart: 1
   lib/src/chat/widgets/session_status_card.dart: 2
-  lib/src/chat/widgets/swipeable_thread_row.dart: 6
-  lib/src/chat/widgets/thread_actions_menu.dart: 24
+  lib/src/chat/widgets/thread_actions_menu.dart: 14
   lib/src/chat/widgets/thread_grouping_controls.dart: 3
   lib/src/chat/widgets/thread_search_view.dart: 2
   lib/src/chat/widgets/thread_sidebar.dart: 15
