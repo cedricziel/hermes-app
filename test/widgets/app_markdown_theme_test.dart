@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gpt_markdown/custom_widgets/custom_divider.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/app_markdown_theme.dart';
 import 'package:hermes_app/src/widgets/bounded_markdown.dart';
@@ -69,5 +70,53 @@ void main() {
     expect(markdownInkOf(tester, 'the link'), isNot(lightLink));
     final dark = buildHermesDarkTheme();
     expect(markdownInkOf(tester, 'Heading'), dark.colorScheme.onSurface);
+  });
+
+  // Each input of the cached theme data alone: a key that drops one of them
+  // keeps handing out the old data, and the old colour is drawn.
+  group('one changed input reaches the markdown', () {
+    const text =
+        '## Heading\n\nSee [the link](https://example.com).\n\n---\n\nEnd';
+    const other = Color(0xFF12AB34);
+    final light = buildHermesLightTheme();
+
+    Future<void> mountThenChange(WidgetTester tester, ThemeData changed) async {
+      await tester.pumpWidget(_app(text, theme: light));
+      await tester.pumpWidget(_app(text, theme: changed));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the link colour alone', (tester) async {
+      await mountThenChange(
+        tester,
+        light.copyWith(
+          extensions: [
+            light.extension<HermesChatColors>()!.copyWith(link: other),
+          ],
+        ),
+      );
+      expect(markdownInkOf(tester, 'the link'), other);
+    });
+
+    testWidgets('the on-surface colour alone', (tester) async {
+      await mountThenChange(
+        tester,
+        light.copyWith(
+          colorScheme: light.colorScheme.copyWith(onSurface: other),
+        ),
+      );
+      expect(markdownInkOf(tester, 'Heading'), other);
+    });
+
+    testWidgets('the outline colour alone', (tester) async {
+      await mountThenChange(
+        tester,
+        light.copyWith(colorScheme: light.colorScheme.copyWith(outline: other)),
+      );
+      expect(
+        tester.widget<CustomDivider>(find.byType(CustomDivider)).color,
+        other,
+      );
+    });
   });
 }
