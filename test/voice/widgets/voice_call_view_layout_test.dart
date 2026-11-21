@@ -30,6 +30,7 @@ Widget _view(CallPhase phase, {bool notice = false, bool caption = true}) =>
       onEnd: () {},
       onMute: () {},
       onSpeaker: () {},
+      onSpeakRepliesChanged: (_) {},
       onShowChat: () {},
     );
 

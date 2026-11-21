@@ -128,12 +128,23 @@ const int kCodeHighlightMaxRuns = 1000;
 /// joined, is unchanged.
 List<CodeRun> capRuns(List<CodeRun> runs, {int max = kCodeHighlightMaxRuns}) {
   final out = <CodeRun>[];
+  // The text of the last run in [out] while it is still being merged into,
+  // so a long chain of one token is joined once and not copied per run.
+  StringBuffer? open;
+  void close() {
+    if (open != null) {
+      out[out.length - 1] = (open.toString(), out.last.$2);
+      open = null;
+    }
+  }
+
   for (var i = 0; i < runs.length; i++) {
     final run = runs[i];
     if (out.isNotEmpty && out.last.$2 == run.$2) {
-      out[out.length - 1] = (out.last.$1 + run.$1, run.$2);
+      (open ??= StringBuffer(out.last.$1)).write(run.$1);
       continue;
     }
+    close();
     if (out.length == max - 1) {
       final rest = StringBuffer();
       for (var j = i; j < runs.length; j++) {
@@ -144,6 +155,7 @@ List<CodeRun> capRuns(List<CodeRun> runs, {int max = kCodeHighlightMaxRuns}) {
     }
     out.add(run);
   }
+  close();
   return out;
 }
 
@@ -207,6 +219,16 @@ List<CodeRun> highlightCode(String text, String? language) {
     final result = _highlighter.highlight(text, language: grammar);
     final table = result.scopes;
     final runs = <CodeRun>[];
+    // The last run's text while tokens of its class keep arriving, so a long
+    // chain of one class is joined once and not copied per token.
+    StringBuffer? open;
+    void close() {
+      if (open != null) {
+        runs[runs.length - 1] = (open.toString(), runs.last.$2);
+        open = null;
+      }
+    }
+
     final cache = <int, CodeToken?>{};
     for (var i = 0; i < result.tokenCount; i++) {
       final slice = text.substring(result.tokenStart(i), result.tokenEnd(i));
@@ -230,11 +252,13 @@ List<CodeRun> highlightCode(String text, String? language) {
         return punctuation ? CodeToken.punctuation : null;
       });
       if (runs.isNotEmpty && runs.last.$2 == token) {
-        runs[runs.length - 1] = (runs.last.$1 + slice, token);
+        (open ??= StringBuffer(runs.last.$1)).write(slice);
       } else {
+        close();
         runs.add((slice, token));
       }
     }
+    close();
     // A grammar that drops or repeats text is worse than none.
     return runs.map((run) => run.$1).join() == text ? capRuns(runs) : plain;
   } on Object {
