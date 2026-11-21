@@ -459,6 +459,18 @@ jobs:
           scripts/check-soloud-build-log.sh build/flutter_build_linux.log
           test -f build/linux/x64/release/bundle/lib/libflutter_soloud_plugin.so
 
+      # A failed first configure used to leave /usr/local in the cache, and the
+      # next build installed the app there (linux/CMakeLists.txt forces it now).
+      - name: Check the install prefix is the bundle directory
+        run: |
+          cache=$(ls build/linux/*/release/CMakeCache.txt)
+          prefix=$(sed -n 's/^CMAKE_INSTALL_PREFIX:[A-Z]*=//p' $cache)
+          echo "CMAKE_INSTALL_PREFIX=$prefix"
+          case "$prefix" in
+            "$PWD"/build/linux/*/release/bundle) ;;
+            *) echo "install prefix escapes the build tree" >&2; exit 1 ;;
+          esac
+
       - name: Package tar.gz and .deb
         run: scripts/package-linux.sh 0.0.0-ci
 
