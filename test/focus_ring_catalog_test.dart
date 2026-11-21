@@ -65,4 +65,42 @@ void main() {
     );
     expect(material.shape, isNot(isA<FocusRingBorder>()));
   });
+
+  for (final second in [
+    'Mac thread row Archive (20 pt)',
+    'Mac thread row More (20 pt)',
+  ]) {
+    testWidgets('a hover preview mounted after another one still gets '
+        'focus and its ring ($second)', (tester) async {
+      addTearDown(forgetFocusRingWatchers);
+      Future<void> mount(String name) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildHermesLightTheme(),
+            home: Scaffold(body: Builder(builder: _useCase(name).builder)),
+          ),
+        );
+        for (var i = 0; i < 4; i++) {
+          await tester.pump(const Duration(milliseconds: 400));
+        }
+      }
+
+      await mount('Mac thread row Archive (20 pt)');
+      // Another route in between disposes the first preview.
+      await tester.pumpWidget(const SizedBox());
+      await mount(second);
+      expect(tester.takeException(), isNull);
+      final focused = FocusManager.instance.primaryFocus?.context;
+      expect(focused, isNotNull);
+      final material = tester.widget<Material>(
+        find
+            .descendant(
+              of: find.byType(IconButton).at(second.contains('More') ? 1 : 0),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(material.shape, isA<FocusRingBorder>());
+    });
+  }
 }

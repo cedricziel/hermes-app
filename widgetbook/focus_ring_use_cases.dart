@@ -51,6 +51,12 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
   /// one is disposed, so the strategy goes back only when none is left.
   static var _live = 0;
 
+  /// Each hover preview is its own mouse device, so a second one never adds
+  /// a device the first still holds; `dispose` removes it again.
+  static var _devices = 0;
+  final _device = ++_devices;
+  Offset? _hoverAt;
+
   @override
   void initState() {
     super.initState();
@@ -62,12 +68,21 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
       if (widget.hover) {
         final box = context.findRenderObject()! as RenderBox;
         final at = box.localToGlobal(box.size.center(Offset.zero));
+        _hoverAt = at;
         GestureBinding.instance
           ..handlePointerEvent(
-            PointerAddedEvent(position: at, kind: PointerDeviceKind.mouse),
+            PointerAddedEvent(
+              position: at,
+              kind: PointerDeviceKind.mouse,
+              device: _device,
+            ),
           )
           ..handlePointerEvent(
-            PointerHoverEvent(position: at, kind: PointerDeviceKind.mouse),
+            PointerHoverEvent(
+              position: at,
+              kind: PointerDeviceKind.mouse,
+              device: _device,
+            ),
           );
         await WidgetsBinding.instance.endOfFrame;
         if (!mounted) return;
@@ -91,6 +106,16 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
 
   @override
   void dispose() {
+    final at = _hoverAt;
+    if (at != null) {
+      GestureBinding.instance.handlePointerEvent(
+        PointerRemovedEvent(
+          position: at,
+          kind: PointerDeviceKind.mouse,
+          device: _device,
+        ),
+      );
+    }
     if (--_live == 0) {
       FocusManager.instance.highlightStrategy =
           FocusHighlightStrategy.automatic;
