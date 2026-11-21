@@ -1056,6 +1056,32 @@ List<Hit> _englishDefaultHits() => [
     if (!_englishDefaultNotVisibleText.containsKey(f.owner)) f.hit,
 ];
 
+/// An `import` or `export` of a Flutter barrel that starts a line.
+final _flutterBarrelImport = RegExp(
+  r'''^[ \t]*(?:import|export)\s+['"]package:flutter/(?:material|cupertino)\.dart['"]''',
+  multiLine: true,
+);
+
+/// Dart roots the barrel guard reads; `packages/hermes_api` is generated.
+const _barrelRoots = [
+  'lib',
+  'test',
+  'widgetbook',
+  'integration_test',
+  'test_driver',
+  'packages',
+];
+
+List<Hit> _flutterBarrelImports() => [
+  for (final root in _barrelRoots)
+    ...scanPattern(
+      root,
+      _flutterBarrelImport,
+      view: _text,
+      where: (f) => !f.path.startsWith('packages/hermes_api/'),
+    ),
+];
+
 /// Every guard of this file.
 final guardRules = <Rule>[
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
@@ -1253,6 +1279,18 @@ final guardRules = <Rule>[
       multiLine: true,
     ),
     where: (f) => f.path.startsWith('lib/src/') && f.path.contains('/widgets/'),
+  ),
+
+  // Flutter 3.50 deprecates the two barrels (#1232).
+  _custom(
+    name: 'material-ui-imports',
+    message:
+        'import package:material_ui/material_ui.dart and '
+        'package:cupertino_ui/cupertino_ui.dart, not package:flutter/material.dart '
+        'or package:flutter/cupertino.dart (deprecated since Flutter 3.50). '
+        'Rewrite the files with: dart run tool/migrate_material_ui_imports.dart '
+        '<file ...>',
+    hits: _flutterBarrelImports,
   ),
 
   // component-catalog skill: icon buttons are NamedIconButton.
