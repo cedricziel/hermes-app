@@ -17,6 +17,7 @@ import 'call_bridge.dart';
 import 'call_config.dart';
 import 'call_speech_stream.dart';
 import 'call_tones.dart';
+import 'echo_guard.dart';
 import 'call_telemetry.dart';
 import 'voice_activity.dart';
 import 'whisper_hallucination.dart';
@@ -36,6 +37,7 @@ class VoiceCall extends ChangeNotifier {
     this.speechFallback,
     this.loadConfig,
     this.echoGuard,
+    this.replySpoken,
     this.tones,
     this.haptics,
     this.releaseLease,
@@ -76,6 +78,46 @@ class VoiceCall extends ChangeNotifier {
   /// before the hallucination and stop-phrase checks; null drops nothing.
   final bool Function(String text)? echoGuard;
 
+  /// The call's own guard, used unless [echoGuard] replaces it (tests).
+  final _echo = EchoGuard();
+
+  /// How long after the reply's audio drained a transcript can still be that
+  /// audio heard back: the room's tail and the microphone's reopening.
+  static const echoTail = Duration(milliseconds: 1500);
+
+  /// When the reply being spoken began, and when its audio ended or was cut
+  /// off (null while it plays). Speech that began outside this span, widened
+  /// by [echoTail], is never taken for its echo.
+  DateTime? _replyBegan, _replyEnded;
+
+  /// When the utterance being heard began.
+  DateTime? _onsetAt;
+
+  void _replyStarts() {
+    _replyBegan = _now();
+    _replyEnded = null;
+  }
+
+  void _replyAudioEnded() {
+    if (_replyBegan != null) _replyEnded ??= _now();
+  }
+
+  bool _beganInEchoWindow(DateTime onset) {
+    final began = _replyBegan;
+    if (began == null || onset.isBefore(began)) return false;
+    final ended = _replyEnded;
+    return ended == null || !onset.isAfter(ended.add(echoTail));
+  }
+
+  void _replySpoken(String reply) {
+    _echo.spoken(reply);
+    replySpoken?.call(reply);
+  }
+
+  /// Told the reply as it is handed to the speech, so [echoGuard] has the
+  /// words to compare a transcript with.
+  final void Function(String reply)? replySpoken;
+
   /// The call's three sounds and its haptics. Null is silence.
   final CallTones? tones;
   final CallHaptics? haptics;
@@ -98,6 +140,7 @@ class VoiceCall extends ChangeNotifier {
   VoiceCallConfig _config = const VoiceCallConfig();
   StreamSubscription<Map<String, Object?>>? _events;
   Timer? _clock;
+  Timer? _connectTimer;
   CallSpeechStream? _speech;
   Future<void> _interruption = Future.value();
   DateTime? _started;
@@ -139,16 +182,27 @@ class VoiceCall extends ChangeNotifier {
   /// since. The next spoken turn is then sent `interrupted`, unless this is
   /// cleared first (mute, a route change, a typed message) or too old.
   DateTime? _cutOffAt;
-  CallPhase phase = CallPhase.connecting;
+  CallPhase _phase = CallPhase.connecting;
   bool muted = false;
   bool speaker = false;
-  String route = 'iPhone';
+
+  /// Where the call's audio goes, as the bridge names it; empty where it has
+  /// no say (desktop), and then the screen shows no route line.
+  late String route = _platform == TargetPlatform.iOS ? 'iPhone' : '';
   String caption = '';
   String? error;
 
   /// What the screen explains, besides the state: a turn that could not be
   /// heard, or speech that failed.
   CallNotice? notice;
+
+  CallPhase get phase => _phase;
+  set phase(CallPhase value) {
+    if (_phase == value) return;
+    _phase = value;
+    // Where nothing cancels echo, the microphone is open only while listening.
+    _syncCapture();
+  }
 
   /// The fixed word that ended the call (the telemetry `reason`), once ended.
   String? endReason;
@@ -230,6 +284,20 @@ class VoiceCall extends ChangeNotifier {
       step = 'native_start';
       await bridge.start(callId, 'Hermes');
       opened = true;
+      // A bridge that never says `activated` must not leave Connecting forever.
+      if (_current(epoch)) {
+        _connectTimer = Timer(callConnectTimeout, () {
+          if (_active || _ending || ended || _disposed) return;
+          unawaited(
+            _end(
+              'native_error',
+              _nativeErrorText('activation_timeout'),
+              null,
+              'activation_timeout',
+            ),
+          );
+        });
+      }
     } on CallPreparationException catch (failure) {
       if (_current(epoch)) await _end('prepare', failure.message);
     } on PlatformException catch (error) {
@@ -345,7 +413,7 @@ class VoiceCall extends ChangeNotifier {
         if (_requestedMute && phase == CallPhase.sending) _dropTurn();
         _lastPCM = _now();
       case 'route':
-        route = event['name'] as String? ?? 'iPhone';
+        route = event['name'] as String? ?? route;
         speaker = event['speaker'] == true;
       case 'ended':
         unawaited(_end('hang_up'));
@@ -431,9 +499,13 @@ class VoiceCall extends ChangeNotifier {
   Future<void> voiceStopped() => _end('voice_stopped');
 
   /// Pauses or resumes capture to match what the call wants: closed while it
-  /// waits for the user or plays a tone. Pausing drops what was half heard.
+  /// waits for the user, plays a tone, or (with no barge-in) does anything but
+  /// listen. Pausing drops what was half heard.
   void _syncCapture() {
-    final want = waitingForYou || _tonesPlaying > 0;
+    final want =
+        waitingForYou ||
+        _tonesPlaying > 0 ||
+        (_active && !bargeInActive && _phase != CallPhase.listening);
     if (want == _paused || ended || _ending) return;
     _paused = want;
     if (want) _vad.reset();
@@ -488,7 +560,10 @@ class VoiceCall extends ChangeNotifier {
   void _stopSpeech() {
     final speech = _speech;
     _speech = null;
-    if (speech != null) _after(speech.stop());
+    if (speech != null) {
+      _replyAudioEnded();
+      _after(speech.stop());
+    }
   }
 
   void _after(Future<void> work) {
@@ -504,7 +579,7 @@ class VoiceCall extends ChangeNotifier {
     if (!bargeInActive && phase != CallPhase.listening) return;
     final activity = _vad.add(pcm);
     if (activity.started) {
-      _lastActivity = _now();
+      _lastActivity = _onsetAt = _now();
       notice = null;
       // Speaking over the reply cuts it off.
       if (phase == CallPhase.speaking) _cutOffAt = _now();
@@ -517,7 +592,7 @@ class VoiceCall extends ChangeNotifier {
       _notify();
     }
     if (activity.utterance case final utterance?) {
-      unawaited(_turn(utterance, _epoch));
+      unawaited(_turn(utterance, _epoch, _onsetAt ?? _now()));
     }
   }
 
@@ -660,7 +735,7 @@ class VoiceCall extends ChangeNotifier {
     if (speech != null) unawaited(speech.close().catchError((Object _) {}));
   }
 
-  Future<void> _turn(Uint8List pcm, int epoch) async {
+  Future<void> _turn(Uint8List pcm, int epoch, DateTime onset) async {
     if (_abandoned(epoch)) return;
     phase = CallPhase.sending;
     _notify();
@@ -671,6 +746,7 @@ class VoiceCall extends ChangeNotifier {
     DateTime? submitted, firstText, firstAudio, replyDone;
     CallTurnAnswer? answered;
     var refusedByChat = false;
+    final spokenReply = StringBuffer();
     Duration? transcription, speechOpen;
     try {
       final String text;
@@ -689,8 +765,14 @@ class VoiceCall extends ChangeNotifier {
       // One order, the first match decides: empty, echo, hallucination, stop
       // phrase, else sent. A dropped transcript says nothing, and the reply
       // that may still be running is left alone.
+      // An empty transcript is dropped before the guard, which it must not
+      // spend. A non-empty one spends it whatever the answer, and counts as
+      // an echo only for speech that began while the reply played or just
+      // after.
+      final looksLikeEcho =
+          text.isNotEmpty && (echoGuard?.call(text) ?? _echo.isEcho(text));
       if (text.isEmpty ||
-          (echoGuard?.call(text) ?? false) ||
+          (looksLikeEcho && _beganInEchoWindow(onset)) ||
           isWhisperHallucination(text)) {
         phase = _idlePhase;
         _notify();
@@ -777,7 +859,12 @@ class VoiceCall extends ChangeNotifier {
           },
           onText: (part) {
             firstText ??= _now();
-            if (_current(epoch)) speech!.append(part);
+            if (_current(epoch)) {
+              if (spokenReply.isEmpty) _replyStarts();
+              spokenReply.write(part);
+              _replySpoken(spokenReply.toString());
+              speech!.append(part);
+            }
           },
           onAttention: (waiting) {
             _attentionReply = waiting;
@@ -800,10 +887,16 @@ class VoiceCall extends ChangeNotifier {
       // A tool-only turn may have nothing to read. Keep it conversational.
       if (!speech.hasText) {
         // Spoken by the server's voice, like the sentence above: kept English.
-        speech.append('I have finished. You can see the details in the chat.');
+        const finished =
+            'I have finished. You can see the details in the chat.';
+        if (spokenReply.isEmpty) _replyStarts();
+        spokenReply.write(finished);
+        _replySpoken(spokenReply.toString());
+        speech.append(finished);
       }
       step = 'speech';
       await speech.finish();
+      _replyAudioEnded();
       if (speech.usedFallback) _fallbacks++;
       if (!_current(epoch)) return;
       _turns++;
@@ -929,6 +1022,7 @@ class VoiceCall extends ChangeNotifier {
     _epoch++;
     _vad.reset();
     _clock?.cancel();
+    _connectTimer?.cancel();
     final speech = _speech;
     _speech = null;
     final connected = _connectedOnce;
@@ -988,6 +1082,9 @@ class VoiceCall extends ChangeNotifier {
     super.dispose();
   }
 }
+
+/// How long the bridge has to report `activated` after `start` returns.
+const callConnectTimeout = Duration(seconds: 15);
 
 /// How long a call may go without speech and without a reply.
 const callIdleLimit = Duration(minutes: 5);

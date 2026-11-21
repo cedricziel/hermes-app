@@ -300,8 +300,10 @@ void main() {
         logged.clear();
         call = build(echoGuard: (text) => text == 'Goodbye.');
         await activate();
+        await say('Say bye');
+        agent.text!('Goodbye.');
         await say('Goodbye.');
-        expect(agent.prompts, isEmpty);
+        expect(agent.prompts, ['Say bye']);
         expect(call.ended, isFalse);
         expect(call.phase, CallPhase.listening);
       },

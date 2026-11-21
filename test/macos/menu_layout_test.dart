@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/menu_layout.dart';
 
@@ -9,6 +10,7 @@ String _chord(SingleActivator activator) =>
     '${activator.trigger.keyLabel}';
 
 void main() {
+  final en = lookupAppLocalizations(const Locale('en'));
   const ipad = MenuPlatform.ipad;
 
   List<String> items(MenuSection section) => [
@@ -16,14 +18,14 @@ void main() {
       if (index > 0) '-',
       for (final entry in group)
         entry.shortcutOn(ipad) == null
-            ? entry.label
-            : '${entry.label} ${_chord(entry.shortcutOn(ipad)!)}',
+            ? entry.label(en)
+            : '${entry.label(en)} ${_chord(entry.shortcutOn(ipad)!)}',
     ],
   ];
 
   test('the iPad layout lists the sections, items and chords of the spec', () {
     final sections = {
-      for (final section in menuLayout) section.label: items(section),
+      for (final section in menuLayout) section.label(en): items(section),
     };
     expect(sections, {
       'Hermes': [
@@ -105,8 +107,8 @@ void main() {
       expect(chord(MacCommand.enclosingFolder), '⌘Arrow Up');
       expect(chord(MacCommand.previousChange), '⌥Arrow Up');
       expect(chord(MacCommand.nextChange), '⌥Arrow Down');
-      expect(entries[MacCommand.previousChange]!.label, 'Previous Change');
-      expect(entries[MacCommand.nextChange]!.label, 'Next Change');
+      expect(entries[MacCommand.previousChange]!.label(en), 'Previous Change');
+      expect(entries[MacCommand.nextChange]!.label(en), 'Next Change');
     },
   );
 
