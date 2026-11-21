@@ -573,6 +573,193 @@ void main() {
     });
   });
 
+  group('Hermes\' own text', () {
+    Future<AppLockController> enabledLock(WidgetTester tester) async {
+      final lock = AppLockController(
+        authenticator: FakeDeviceAuthenticator(),
+        coverWhenInactive: false,
+      );
+      addTearDown(lock.dispose);
+      await tester.runAsync(lock.load);
+      await tester.runAsync(() => lock.setEnabled(true));
+      return lock;
+    }
+
+    void refusePause() => server.on('PUT', '/api/curator/paused', {
+      'detail': 'not\nallowed\u202E here',
+    }, status: 400);
+
+    void failSpawn() => server.on('POST', '/api/curator/run', {
+      'detail': 'Failed to run curator: [Errno 21] Is a directory',
+    }, status: 500);
+
+    testWidgets('a refused pause says why, cleaned', (tester) async {
+      refusePause();
+      await pumpSkills(tester);
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text("Couldn't change it: not allowed<U+202E> here"),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a refused pause with no readable text says only that', (
+      tester,
+    ) async {
+      server.on('PUT', '/api/curator/paused', {'detail': '  '}, status: 400);
+      await pumpSkills(tester);
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text("Couldn't change it"), findsOneWidget);
+    });
+
+    testWidgets('a spawn failure says nothing started, with its text', (
+      tester,
+    ) async {
+      failSpawn();
+      await pumpSkills(tester);
+      await tester.tap(runNow());
+      await tester.pumpAndSettle();
+      await tester.tap(confirmRunButton());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Nothing started. Failed to run curator: [Errno 21] Is a directory',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Try again'), findsOneWidget);
+    });
+
+    testWidgets('a failed pass shows its last line under Failed', (
+      tester,
+    ) async {
+      logs(
+        answers: [
+          recordedStatusArchived,
+          recordedStatusArchived,
+          recordedStatusDisabled,
+        ],
+      );
+      await pumpSkills(tester);
+      await runAPass(tester);
+
+      expect(find.text('Failed'), findsOneWidget);
+      expect(
+        find.text(
+          'curator: disabled via config; enable with `curator.enabled: true`',
+        ),
+        findsWidgets,
+        reason: 'the failure line, and the line in the output when opened',
+      );
+    });
+
+    testWidgets('App Lock drops the pause text for good', (tester) async {
+      refusePause();
+      final lock = await enabledLock(tester);
+      await pumpSkills(tester, lock: lock);
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('not allowed'), findsOneWidget);
+
+      away(tester);
+      await tester.pump();
+      expect(find.textContaining('not allowed'), findsNothing);
+      back(tester);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('not allowed'), findsNothing);
+      expect(find.text("Couldn't change it"), findsOneWidget);
+    });
+
+    testWidgets('App Lock drops the text of a failed pass', (tester) async {
+      logs(
+        answers: [
+          recordedStatusArchived,
+          recordedStatusArchived,
+          recordedStatusDisabled,
+        ],
+      );
+      final lock = await enabledLock(tester);
+      await pumpSkills(tester, lock: lock);
+      await runAPass(tester);
+      expect(find.textContaining('disabled via config'), findsOneWidget);
+
+      away(tester);
+      await tester.pump();
+      back(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('disabled via config'), findsNothing);
+      expect(find.text('Failed'), findsOneWidget);
+    });
+
+    testWidgets('inactive hides the failed line and brings it back', (
+      tester,
+    ) async {
+      logs(
+        answers: [
+          recordedStatusArchived,
+          recordedStatusArchived,
+          recordedStatusDisabled,
+        ],
+      );
+      await pumpSkills(tester);
+      await runAPass(tester);
+      expect(find.textContaining('disabled via config'), findsOneWidget);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(find.textContaining('disabled via config'), findsNothing);
+      back(tester);
+      await tester.pump();
+      expect(find.textContaining('disabled via config'), findsOneWidget);
+    });
+
+    testWidgets('another profile does not show the pause text of the first', (
+      tester,
+    ) async {
+      refusePause();
+      await pumpSkills(tester);
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('not allowed'), findsOneWidget);
+
+      await tester.tap(find.text('default'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(CheckedPopupMenuItem<String>, 'work'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('not allowed'), findsNothing);
+    });
+
+    testWidgets('a spawn failure text goes with a profile switch', (
+      tester,
+    ) async {
+      failSpawn();
+      await pumpSkills(tester);
+      await tester.tap(runNow());
+      await tester.pumpAndSettle();
+      await tester.tap(confirmRunButton());
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Errno 21'), findsOneWidget);
+
+      await tester.tap(find.text('default'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(CheckedPopupMenuItem<String>, 'work'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Errno 21'), findsNothing);
+    });
+  });
+
   group('App Lock and inactive', () {
     Future<AppLockController> enabledLock(WidgetTester tester) async {
       final lock = AppLockController(

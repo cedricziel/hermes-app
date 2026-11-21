@@ -1,6 +1,7 @@
-/// Why a curator call did not produce a value. A kind only: the server's own
-/// words (they can name a profile or a server path) and the request that
-/// failed (its URL carries the profile) never travel with it.
+/// Why a curator call did not produce a value. A kind, and for the two
+/// failures the screen words itself with Hermes' text (a refused pause, a
+/// failed spawn) the text of Hermes' `detail`, as received. The request that
+/// failed (its URL carries the profile) never travels with it.
 enum CuratorFailure {
   /// The request never left the device: no connection.
   offline,
@@ -57,9 +58,16 @@ final class CuratorProfileGone<T> extends CuratorResult<T> {
 }
 
 final class CuratorFailed<T> extends CuratorResult<T> {
-  const CuratorFailed(this.kind);
+  const CuratorFailed(this.kind, {this.detail});
 
   final CuratorFailure kind;
+
+  /// Hermes' own text, set only for a refused or failed pause
+  /// ([CuratorFailure.refused], [CuratorFailure.server]) and a run that could
+  /// not be spawned ([CuratorFailure.spawnFailed]). It can name a profile or a
+  /// server path: it is raw, for the controller to clean and keep in screen
+  /// state only, never to log, and never part of [toString].
+  final String? detail;
 
   @override
   String toString() => 'CuratorFailed(${kind.name})';
