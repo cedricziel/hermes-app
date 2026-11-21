@@ -4,23 +4,27 @@ Hermes runs expanduser(expandvars(...)) on HERMES_HOME, so a path that looks
 like a throwaway folder can resolve to the real ~/.hermes (a directory called
 `$X`, a `~`, a symlink onto one). scripts/profile-names.sh holds the check
 (`canonical_abs_path`, wrapped with `resolve_path` by `canonical_resolved_path`).
-This test reads each script statically and fails, naming file:line, when
-HERMES_HOME is assigned from anything but a variable that went through it.
+This test reads each script as text and fails, naming file:line, on anything
+it cannot show to be safe. The rules are blunt on purpose; nothing here tries
+to parse shell.
 
-The rules:
-  * every `HERMES_HOME=value` word (plain, after `export`, `env`, `local`,
-    in `HOME=x HERMES_HOME=y cmd`, or quoted for `env`/`eval`/`bash -c`) is an
-    assignment;
-  * the value must be `$VAR`, `${VAR}` or `$VAR/<plain segments>` with VAR in
-    SAFE_VARS for that file, and each assignment of VAR in that file must be
-    one of the lines SAFE_VARS lists;
-  * `unset HERMES_HOME` and `env -u HERMES_HOME` are fine; reading it is fine;
-  * anything else the reader cannot take at face value (an empty value, `+=`,
-    `export HERMES_HOME` with no value, `read`/`printf -v` into it, an
-    unbalanced quote) is flagged too.
+For every non-comment line of a shell script (continuation lines joined,
+heredoc bodies and strings included):
+  1. Any mention of HERMES_HOME is a failure, except
+       * an assignment `HERMES_HOME=$VAR`, `HERMES_HOME="${VAR}/plain/segments"`
+         where VAR is listed in SAFE_VARS for that file;
+       * `unset ... HERMES_HOME`, `-u HERMES_HOME`;
+       * a read: `$HERMES_HOME`, `${HERMES_HOME}`, `${HERMES_HOME:-...}`;
+       * a fragment in EXCEPTIONS (file, regex, reason).
+  2. Any occurrence of a SAFE_VARS name that is not a read (`$NAME`, `${NAME}`,
+     `${NAME:-...}`) is a write, whatever its form (`cd x && NAME=..`,
+     `declare`, `read`, `for NAME in`, `+=`, `printf -v`, a bare `local NAME`).
+     It must be one of that variable's listed `assign` lines.
+  3. The `requires` lines must exist as non-comment lines.
+A workflow file may not mention HERMES_HOME at all (WORKFLOW_EXCEPTIONS).
 
 Not covered: a name built at run time (`${!name}`), and code outside the
-scanned shell scripts (Python tests that build an environment, for instance).
+scanned files (Python tests that build an environment, for instance).
 """
 
 import os
@@ -34,14 +38,13 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-# Scripts scanned: all shell under scripts/, plus other places that could
-# launch hermes. A workflow's `HERMES_HOME:` env key is flagged outright.
 SHELL_GLOBS = ("scripts/**/*.sh", "tool/**/*.sh", ".claude/**/*.sh")
 YAML_GLOBS = (".github/workflows/*.yml", ".github/workflows/*.yaml")
 
 # Variables that hold a canonicalised path, per script. `assign` lists every
-# line (stripped) that may assign the variable; `requires` lists lines that
-# must exist in the script for the variable to count as checked.
+# line (stripped) that may write the variable; `requires` lists text that must
+# appear on a non-comment line of the script for the variable to count as
+# checked.
 SAFE_VARS = {
     # bind_state_dir sets it from the resolved state directory, which
     # refuse_real_hermes_home passes through canonical_abs_path first
@@ -62,14 +65,40 @@ SAFE_VARS = {
         },
     },
     "scripts/store-screenshots.sh": {
-        "home": {
-            "assign": ['home="$state/home"'],
+        "SCREENSHOT_HOME_CANON": {
+            "assign": [
+                'SCREENSHOT_HOME_CANON="$(canonical_resolved_path "$state/home")" || {'
+            ],
             "requires": [
-                'state="$(canonical_resolved_path "$ROOT_DIR/.dart_tool/hermes-dev")" || {',
+                'if [[ -L "$state/home" ]]; then',
+                'if where="$(inside_real_hermes_home "$SCREENSHOT_HOME_CANON")"; then',
             ],
         },
     },
 }
+
+# Text in a script that mentions HERMES_HOME without setting it. Each is a
+# regex for a fragment of a line, with the reason it is fine.
+EXCEPTIONS = [
+    (
+        "scripts/dev-backend.sh",
+        r"sed -n 's/\^HERMES_HOME=//p'",
+        "reads the launched process's environment",
+    ),
+    (
+        "scripts/verify.sh",
+        r"sed -n 's/\^HERMES_HOME=//p'",
+        "reads the launched process's environment",
+    ),
+    (
+        "scripts/verify.sh",
+        r'die "backend \$name runs on HERMES_HOME=\$env_home, not \$state/home"',
+        "message text",
+    ),
+]
+
+# Same, for workflow files: (file, regex, reason).
+WORKFLOW_EXCEPTIONS = []
 
 FIX = (
     "Hermes expands $VAR and ~ in HERMES_HOME. Take the value from "
@@ -85,7 +114,7 @@ class Site:
     def __init__(self, path, line, value, problem):
         self.path = path
         self.line = line
-        self.value = value  # raw value text, or None for a non-assignment
+        self.value = value  # raw value text of a safe assignment, else None
         self.problem = problem  # None when safe
 
     def __str__(self):
@@ -94,12 +123,9 @@ class Site:
         return f"{self.path}:{self.line}: {self.problem}. {FIX}"
 
 
-# --- reading shell ---------------------------------------------------------
-
-
 def logical_lines(text):
-    """(line number, text) with continuations joined and heredoc bodies and
-    full-line comments dropped."""
+    """(line number, text) with continuations joined; full-line comments are
+    dropped. Nothing else is: heredoc bodies and strings are code here."""
     out = []
     lines = text.split("\n")
     i = 0
@@ -113,224 +139,100 @@ def logical_lines(text):
             i += 1
             cur = cur[:-1] + " " + lines[i]
         i += 1
-        if cur.lstrip().startswith("#"):
-            continue
-        # A quoted string can run over several lines (a python -c snippet).
-        while i < len(lines) and "an unbalanced quote" in scan(cur)[1]:
-            cur = cur + "\n" + lines[i]
-            i += 1
-        out.append((start, cur))
-        for m in re.finditer(r"(?<!<)<<-?\s*([\"']?)([A-Za-z_]\w*)\1", cur):
-            delim = m.group(2)
-            while i < len(lines) and lines[i].strip() != delim:
-                i += 1
-            i += 1
+        if not cur.lstrip().startswith("#"):
+            out.append((start, cur))
     return out
 
 
-def matching_paren(text, open_index):
-    depth = 0
-    for j in range(open_index, len(text)):
-        if text[j] == "(":
-            depth += 1
-        elif text[j] == ")":
-            depth -= 1
-            if depth == 0:
-                return j
-    return -1
-
-
-def scan(text):
-    """(commands, problems): commands are lists of raw words (quotes kept),
-    command substitutions are scanned too."""
-    cmds, problems = [[]], []
-    word = []
-    quote = None
-    i, n = 0, len(text)
-
-    def flush():
-        if word:
-            cmds[-1].append("".join(word))
-            word.clear()
-
-    def substitution(i):
-        # text[i] is `$` and text[i+1] is `(`, or text[i] is a backtick.
-        if text[i] == "`":
-            j = text.find("`", i + 1)
-            inner = text[i + 1 : j] if j != -1 else ""
-        else:
-            j = matching_paren(text, i + 1)
-            inner = text[i + 2 : j] if j != -1 else ""
-        if j == -1:
-            problems.append("an unbalanced command substitution")
-            return n
-        word.append(text[i : j + 1])
-        sub_cmds, sub_problems = scan(inner)
-        cmds.extend(sub_cmds)
-        problems.extend(sub_problems)
-        return j + 1
-
-    while i < n:
-        c = text[i]
-        if quote == "'":
-            word.append(c)
-            if c == "'":
-                quote = None
-            i += 1
-        elif quote == '"':
-            if c == "\\" and i + 1 < n:
-                word.append(text[i : i + 2])
-                i += 2
-            elif c == "`" or (c == "$" and text[i + 1 : i + 2] == "("):
-                i = substitution(i)
-            else:
-                word.append(c)
-                if c == '"':
-                    quote = None
-                i += 1
-        elif c == "\\" and i + 1 < n:
-            word.append(text[i : i + 2])
-            i += 2
-        elif c in "'\"":
-            quote = c
-            word.append(c)
-            i += 1
-        elif c == "`" or (c == "$" and text[i + 1 : i + 2] == "("):
-            i = substitution(i)
-        elif c in " \t":
-            flush()
-            i += 1
-        elif c in ";|&()":
-            flush()
-            if cmds[-1]:
-                cmds.append([])
-            i += 1
-        elif c == "#" and not word:
-            break
-        else:
-            word.append(c)
-            i += 1
-    if quote:
-        problems.append("an unbalanced quote")
-    flush()
-    return [c for c in cmds if c], problems
-
-
-# --- judging a value -------------------------------------------------------
-
-
-def judge_value(value, rel, safe_vars):
-    """None when `value` is a canonicalised variable of `rel`, else why not."""
-    if value.strip("\"'") == "":
-        return "HERMES_HOME is set empty, which makes Hermes fall back to ~/.hermes"
-    m = re.fullmatch(
-        r'(?P<q>"?)\$(?:\{(?P<a>\w+)\}|(?P<b>\w+))(?P<suffix>(?:/'
-        + SEGMENT
-        + r")*)(?P=q)",
-        value,
+def read_forms(name):
+    return re.compile(
+        r"\$\{" + name + r"(?::-[^}]*)?\}|\$" + name + r"(?![A-Za-z0-9_])"
     )
-    if not m:
-        return f"HERMES_HOME is set from {value}, which is not a variable that went through canonical_abs_path"
-    name = m.group("a") or m.group("b")
-    if name not in safe_vars:
-        return f"HERMES_HOME is set from ${name}, which is not a variable that went through canonical_abs_path"
-    return None
 
 
-def check_text(rel, text, safe_vars=None):
+def assign_form(safe_names):
+    names = "|".join(re.escape(n) for n in safe_names) or "(?!)"
+    return re.compile(
+        r"""(?<![\w"'$-])HERMES_HOME=(?P<q>"?)\$(?:\{(?P<a>"""
+        + names
+        + r""")\}|(?P<b>"""
+        + names
+        + r"""))(?P<suffix>(?:/"""
+        + SEGMENT
+        + r""")*)(?P=q)(?=[\s;)]|$)"""
+    )
+
+
+def check_text(rel, text, safe_vars=None, exceptions=None):
     """Every HERMES_HOME site in a shell script, as Site objects."""
     safe_vars = SAFE_VARS.get(rel, {}) if safe_vars is None else safe_vars
+    if exceptions is None:
+        exceptions = [(rx, why) for (f, rx, why) in EXCEPTIONS if f == rel]
     sites = []
-    assigned = {name: [] for name in safe_vars}  # (line, stripped text)
-    for lineno, line in logical_lines(text):
-        for name in safe_vars:
-            if re.match(
-                rf"\s*(?:local\s+|export\s+|readonly\s+)?{re.escape(name)}=", line
-            ):
-                assigned[name].append((lineno, line.strip()))
-        if "HERMES_HOME" not in line:
-            continue
-        cmds, problems = scan(line)
-        for problem in problems:
-            sites.append(Site(rel, lineno, None, f"cannot read this line ({problem})"))
-        queue = list(cmds)
-        while queue:
-            words = queue.pop(0)
-            for idx, w in enumerate(words):
-                prev = words[idx - 1] if idx else ""
-                bare = w.strip("\"'")
-                if prev in ("eval", "-c") and w[:1] in "\"'" and "HERMES_HOME" in w:
-                    inner_cmds, inner_problems = scan(w[1:-1])
-                    queue.extend(inner_cmds)
-                    for problem in inner_problems:
-                        sites.append(
-                            Site(
-                                rel, lineno, None, f"cannot read this line ({problem})"
-                            )
-                        )
-                    continue
-                m = re.match(r"""^(["']?)HERMES_HOME(\+?)=(.*)$""", w)
-                if m:
-                    quote, plus, value = m.groups()
-                    if plus:
-                        sites.append(
-                            Site(
-                                rel,
-                                lineno,
-                                value,
-                                "HERMES_HOME is appended to with +=, which cannot be checked",
-                            )
-                        )
-                        continue
-                    if quote:
-                        value = value[:-1] if value.endswith(quote) else value
-                        value = f'"{value}"' if quote == '"' else f"'{value}'"
-                    sites.append(
-                        Site(rel, lineno, value, judge_value(value, rel, safe_vars))
-                    )
-                elif bare == "HERMES_HOME":
-                    if words[0] == "unset" or prev == "-u":
-                        continue
-                    sites.append(
-                        Site(
-                            rel,
-                            lineno,
-                            None,
-                            "HERMES_HOME is named with no value (export, read or printf -v), so its source cannot be checked",
-                        )
-                    )
-    # The variables must be assigned only where the table says, and the script
-    # must carry the checks that make them canonical.
-    for name, spec in safe_vars.items():
-        for lineno, stripped in assigned[name]:
-            if stripped not in spec["assign"]:
+    assign_re = assign_form(list(safe_vars))
+    logical = logical_lines(text)
+    for lineno, line in logical:
+        rest = line
+        for m in assign_re.finditer(line):
+            sites.append(Site(rel, lineno, m.group(0).split("=", 1)[1], None))
+        rest = assign_re.sub(" ", rest)
+        for rx, _why in exceptions:
+            rest = re.sub(rx, " ", rest)
+        rest = re.sub(r"^\s*unset(?:\s+\w+)+", " ", rest)
+        rest = re.sub(r"(?<![\w-])-u\s+HERMES_HOME(?![\w=])", " ", rest)
+        rest = read_forms("HERMES_HOME").sub(" ", rest)
+        if "HERMES_HOME" in rest:
+            if re.search(r"HERMES_HOME\s*(?:[+:]?=)", rest):
+                why = "HERMES_HOME is set here from a value that is not a variable listed in SAFE_VARS"
+            else:
+                why = (
+                    "HERMES_HOME is named here in a form the guard cannot take as safe"
+                )
+            sites.append(Site(rel, lineno, None, f"{why} ({line.strip()[:100]!r})"))
+        for name, spec in safe_vars.items():
+            if line.strip() in spec["assign"]:
+                continue
+            bare = read_forms(name).sub(" ", line)
+            if re.search(r"(?<![\w$])" + re.escape(name) + r"(?![\w])", bare):
                 sites.append(
                     Site(
                         rel,
                         lineno,
                         None,
-                        f"${name} is assigned here ({stripped!r}), which SAFE_VARS does not list",
+                        f"{name} is written here ({line.strip()[:100]!r}), which SAFE_VARS does not list",
                     )
                 )
+    code = [line for _n, line in logical]
+    for name, spec in safe_vars.items():
         for needed in spec["requires"]:
-            if needed not in text:
+            if not any(needed in line for line in code):
                 sites.append(
                     Site(
                         rel,
                         1,
                         None,
-                        f"${name} is trusted but the script no longer contains {needed!r}",
+                        f"{name} is trusted but the script has no non-comment line with {needed!r}",
                     )
                 )
     return sites
 
 
-def check_yaml(rel, text):
+def check_workflow(rel, text, exceptions=None):
+    if exceptions is None:
+        exceptions = [(rx, why) for (f, rx, why) in WORKFLOW_EXCEPTIONS if f == rel]
     sites = []
     for lineno, line in enumerate(text.split("\n"), 1):
-        if re.match(r"\s*(?:-\s*)?['\"]?HERMES_HOME['\"]?\s*:", line):
+        rest = line
+        for rx, _why in exceptions:
+            rest = re.sub(rx, " ", rest)
+        if "HERMES_HOME" in rest:
             sites.append(
-                Site(rel, lineno, None, "a workflow sets HERMES_HOME in an env block")
+                Site(
+                    rel,
+                    lineno,
+                    None,
+                    f"a workflow mentions HERMES_HOME ({line.strip()[:100]!r})",
+                )
             )
     return sites
 
@@ -347,7 +249,9 @@ def check_repo():
     for path in shell:
         sites.extend(check_text(path.relative_to(ROOT).as_posix(), path.read_text()))
     for path in yaml:
-        sites.extend(check_yaml(path.relative_to(ROOT).as_posix(), path.read_text()))
+        sites.extend(
+            check_workflow(path.relative_to(ROOT).as_posix(), path.read_text())
+        )
     return sites
 
 
@@ -355,10 +259,12 @@ def check_repo():
 
 
 class GuardRules(unittest.TestCase):
-    SAFE = {"HOME_DIR": {"assign": ['HOME_DIR="$STATE_DIR/home"'], "requires": []}}
+    SAFE = {
+        "HOME_DIR": {"assign": ['HOME_DIR="$STATE_DIR/home"'], "requires": []},
+    }
 
-    def sites(self, text):
-        return check_text("x.sh", text, self.SAFE)
+    def sites(self, text, **kw):
+        return check_text("x.sh", text, self.SAFE, **kw)
 
     def assertFlagged(self, text, fragment=None):
         found = [s for s in self.sites(text) if s.problem]
@@ -373,7 +279,7 @@ class GuardRules(unittest.TestCase):
         found = [s for s in self.sites(text) if s.problem]
         self.assertEqual(found, [], f"flagged: {text!r}: {[str(s) for s in found]}")
 
-    # unsafe forms
+    # unsafe HERMES_HOME values
     def test_literal_path_is_flagged(self):
         self.assertFlagged("HERMES_HOME=/tmp/x hermes dashboard")
 
@@ -382,7 +288,7 @@ class GuardRules(unittest.TestCase):
         self.assertFlagged("export HERMES_HOME=$HOME/x")
 
     def test_unchecked_variable_is_flagged(self):
-        self.assertFlagged('HERMES_HOME="$WORK/home" python x.py', "$WORK")
+        self.assertFlagged('HERMES_HOME="$WORK/home" python x.py', "HERMES_HOME")
         self.assertFlagged('HERMES_HOME="${OTHER}" python x.py')
 
     def test_tilde_is_flagged(self):
@@ -392,8 +298,8 @@ class GuardRules(unittest.TestCase):
         self.assertFlagged("HERMES_HOME='$HOME_DIR' hermes")
 
     def test_empty_value_is_flagged(self):
-        self.assertFlagged("HERMES_HOME= hermes dashboard", "empty")
-        self.assertFlagged('HERMES_HOME="" hermes dashboard', "empty")
+        self.assertFlagged("HERMES_HOME= hermes dashboard")
+        self.assertFlagged('HERMES_HOME="" hermes dashboard')
 
     def test_suffix_with_dot_dot_or_expansion_is_flagged(self):
         self.assertFlagged('HERMES_HOME="$HOME_DIR/../x" hermes')
@@ -402,54 +308,108 @@ class GuardRules(unittest.TestCase):
         self.assertFlagged('HERMES_HOME="$HOME_DIR$X" hermes')
         self.assertFlagged('HERMES_HOME="$(pwd)" hermes')
 
-    def test_env_forms_are_flagged(self):
+    def test_env_and_declaration_forms_are_flagged(self):
         self.assertFlagged("env HERMES_HOME=/x hermes")
-        self.assertFlagged('env -u FOO "HERMES_HOME=/x" hermes')
+        self.assertFlagged('env "HERMES_HOME=$HOME_DIR" hermes')
+        self.assertFlagged('export "HERMES_HOME"=/x')
         self.assertFlagged("declare -x HERMES_HOME=/x")
         self.assertFlagged("local HERMES_HOME=/x")
         self.assertFlagged("cd x && HERMES_HOME=/x hermes")
-        self.assertFlagged("(HERMES_HOME=/x hermes)")
         self.assertFlagged('x="$(HERMES_HOME=/x hermes)"')
 
-    def test_code_in_a_string_is_flagged(self):
+    def test_one_bad_assignment_beside_a_good_one_is_flagged(self):
+        self.assertFlagged('HERMES_HOME="$HOME_DIR" hermes; HERMES_HOME=/x hermes')
+
+    def test_code_in_strings_and_heredocs_is_flagged(self):
         self.assertFlagged("eval 'HERMES_HOME=/x hermes'")
-        self.assertFlagged("bash -c 'cd /x; HERMES_HOME=/x hermes'")
+        self.assertFlagged("bash -lc 'cd /x; HERMES_HOME=/x hermes'")
+        self.assertFlagged("sh -ec 'HERMES_HOME=/x hermes'")
+        self.assertFlagged("bash <<EOF\nHERMES_HOME=/x hermes\nEOF")
+        self.assertFlagged(
+            "python3 - <<PY\nimport os\nos.environ['HERMES_HOME'] = '/x'\nPY"
+        )
+        self.assertFlagged("python3 -c \"import os; os.environ['HERMES_HOME']='/x'\"")
+        self.assertFlagged('eval "$cmd HERMES_HOME"')
+        self.assertFlagged(': "${HERMES_HOME:=/x}"')
+        self.assertFlagged("source ./env && echo HERMES_HOME")
+        self.assertFlagged("echo 'HERMES_HOME=/x' >> env.sh")
+
+    def test_a_heredoc_or_comment_marker_hides_nothing(self):
+        self.assertFlagged('echo "<<EOF"\nHERMES_HOME=/x hermes')
+        self.assertFlagged("# <<EOF\nHERMES_HOME=/x hermes")
+        self.assertFlagged("echo hi # '\nHERMES_HOME=/x hermes")
 
     def test_continuation_lines_are_read_as_one(self):
         self.assertFlagged('HOME="$a" \\\n  HERMES_HOME="/x" \\\n  hermes')
 
     def test_unreadable_forms_are_flagged(self):
-        self.assertFlagged("export HERMES_HOME", "no value")
-        self.assertFlagged("read -r HERMES_HOME", "no value")
-        self.assertFlagged("printf -v HERMES_HOME '%s' x", "no value")
-        self.assertFlagged("HERMES_HOME+=/x hermes", "+=")
-        self.assertFlagged('HERMES_HOME="$HOME_DIR hermes', "unbalanced")
+        self.assertFlagged("export HERMES_HOME")
+        self.assertFlagged("read -r HERMES_HOME")
+        self.assertFlagged("printf -v HERMES_HOME '%s' x")
+        self.assertFlagged("HERMES_HOME+=/x hermes")
+        self.assertFlagged('HERMES_HOME="$HOME_DIR hermes')
 
     def test_the_report_names_the_line(self):
         found = [s for s in self.sites("a\n\nHERMES_HOME=/x hermes") if s.problem]
         self.assertTrue(str(found[0]).startswith("x.sh:3:"))
 
-    def test_an_unlisted_assignment_of_a_safe_variable_is_flagged(self):
-        text = 'HOME_DIR="$STATE_DIR/home"\nHOME_DIR="/elsewhere"\nHERMES_HOME="$HOME_DIR" hermes\n'
-        found = [s for s in self.sites(text) if s.problem]
-        self.assertEqual([s.line for s in found], [2])
+    # writes to a safe variable
+    def test_every_write_to_a_safe_variable_is_flagged(self):
+        forms = [
+            "HOME_DIR=/tmp/x",
+            "cd x && HOME_DIR=/tmp/x",
+            "declare HOME_DIR=/x",
+            "export HOME_DIR=/x",
+            "read -r HOME_DIR",
+            "for HOME_DIR in a b; do :; done",
+            "HOME_DIR+=/x",
+            "printf -v HOME_DIR '%s' /x",
+            "local HOME_DIR",
+            "local a HOME_DIR=/x",
+            "(HOME_DIR=/x; hermes)",
+            'HOME_DIR="$(pwd)"',
+            ': "${HOME_DIR:=/x}"',
+            "eval 'HOME_DIR=/x'",
+            "unset HOME_DIR",
+            "mapfile HOME_DIR",
+        ]
+        for form in forms:
+            with self.subTest(form=form):
+                found = [s for s in self.sites(form) if s.problem]
+                self.assertTrue(found, f"not flagged: {form!r}")
+                self.assertIn("HOME_DIR is written here", str(found[0]))
+
+    def test_the_listed_assignment_and_reads_of_a_safe_variable_pass(self):
+        self.assertSafe('HOME_DIR="$STATE_DIR/home"')
+        self.assertSafe('  HOME_DIR="$STATE_DIR/home"  ')
+        self.assertSafe(
+            '[[ -d "$HOME_DIR/profiles/$1" ]] && echo "${HOME_DIR}" "${HOME_DIR:-}"'
+        )
+        self.assertSafe('echo "$HOME_DIRS" "$MY_HOME_DIR"')
 
     def test_a_missing_proof_is_flagged(self):
-        safe = {
-            "HOME_DIR": {
-                "assign": ['HOME_DIR="$STATE_DIR/home"'],
-                "requires": ['canonical_abs_path "$state"'],
-            }
-        }
-        found = check_text(
-            "x.sh", 'HOME_DIR="$STATE_DIR/home"\nHERMES_HOME="$HOME_DIR" hermes\n', safe
-        )
-        self.assertTrue([s for s in found if s.problem])
+        safe = {"HOME_DIR": {"assign": [], "requires": ['canonical_abs_path "$state"']}}
+        self.assertTrue([s for s in check_text("x.sh", "true", safe) if s.problem])
 
-    def test_a_workflow_env_key_is_flagged(self):
-        self.assertTrue(check_yaml("w.yml", "env:\n  HERMES_HOME: /x\n"))
-        self.assertTrue(check_yaml("w.yml", "      - HERMES_HOME: /x\n"))
-        self.assertFalse(check_yaml("w.yml", "run: echo HERMES_HOME is not set\n"))
+    def test_a_proof_in_a_comment_does_not_count(self):
+        safe = {"HOME_DIR": {"assign": [], "requires": ['canonical_abs_path "$state"']}}
+        text = '# canonical_abs_path "$state"\ntrue\n'
+        self.assertTrue([s for s in check_text("x.sh", text, safe) if s.problem])
+        text = 'canonical_abs_path "$state" || exit 3\n'
+        self.assertFalse([s for s in check_text("x.sh", text, safe) if s.problem])
+
+    # workflows
+    def test_a_workflow_mention_is_flagged(self):
+        self.assertTrue(check_workflow("w.yml", "env:\n  HERMES_HOME: /x\n"))
+        self.assertTrue(check_workflow("w.yml", "run: HERMES_HOME=/x hermes\n"))
+        self.assertTrue(check_workflow("w.yml", "# HERMES_HOME in a comment\n"))
+        self.assertFalse(check_workflow("w.yml", "run: echo ok\n"))
+
+    def test_a_workflow_exception_is_honoured(self):
+        text = "run: echo HERMES_HOME is not set\n"
+        self.assertFalse(
+            check_workflow("w.yml", text, [(r"echo HERMES_HOME is not set", "why")])
+        )
 
     # safe forms
     def test_a_canonical_variable_passes(self):
@@ -459,23 +419,31 @@ class GuardRules(unittest.TestCase):
         self.assertSafe('HERMES_HOME="$HOME_DIR/profiles/x" hermes')
         self.assertSafe('export HERMES_HOME="$HOME_DIR"')
         self.assertSafe('env -u A HOME="$h" HERMES_HOME="$HOME_DIR" hermes')
-        self.assertSafe('env "HERMES_HOME=$HOME_DIR" hermes')
 
     def test_assigned_inside_a_function_or_continuation_passes(self):
         self.assertSafe(
             'f() {\n  HOME="$a" HERMES_HOME="$HOME_DIR" \\\n    hermes "$@"\n}'
         )
 
-    def test_unset_reads_and_text_pass(self):
+    def test_unset_and_reads_pass(self):
         self.assertSafe("unset HERMES_HOME")
         self.assertSafe("unset A \\\n  B HERMES_HOME \\\n  C")
         self.assertSafe("env -u HERMES_HOME hermes")
-        self.assertSafe('[[ -z "${HERMES_HOME:-}" ]] && echo "$HERMES_HOME"')
-        self.assertSafe("tr '\\0' '\\n' <environ | sed -n 's/^HERMES_HOME=//p'")
-        self.assertSafe('die "runs on HERMES_HOME=$env_home, not $state"')
+        self.assertSafe(
+            '[[ -z "${HERMES_HOME:-}" ]] && echo "$HERMES_HOME" "${HERMES_HOME}"'
+        )
         self.assertSafe("# HERMES_HOME=/x in a comment")
-        self.assertSafe("echo ok # HERMES_HOME=/x")
-        self.assertSafe("cat <<EOF\nHERMES_HOME=/x\nEOF\nhermes")
+
+    def test_an_exception_only_covers_its_fragment(self):
+        exceptions = [(r"sed -n 's/\^HERMES_HOME=//p'", "reads the environment")]
+        ok = "tr x y | sed -n 's/^HERMES_HOME=//p'"
+        self.assertEqual(
+            [s for s in self.sites(ok, exceptions=exceptions) if s.problem], []
+        )
+        bad = ok + "; HERMES_HOME=/x hermes"
+        self.assertTrue(
+            [s for s in self.sites(bad, exceptions=exceptions) if s.problem]
+        )
 
 
 class RealScripts(unittest.TestCase):
@@ -492,15 +460,24 @@ class RealScripts(unittest.TestCase):
             }
             <= names
         )
-        sites = [s for s in check_repo() if s.value is not None]
-        assigned = {(s.path, s.value) for s in sites}
+        assigned = {(s.path, s.value) for s in check_repo() if s.value is not None}
         self.assertIn(("scripts/dev-backend.sh", '"$HOME_DIR"'), assigned)
         self.assertIn(("scripts/fetch_openapi_spec.sh", '"$WORK_CANON/home"'), assigned)
-        self.assertIn(("scripts/store-screenshots.sh", '"$home"'), assigned)
+        self.assertIn(
+            ("scripts/store-screenshots.sh", '"$SCREENSHOT_HOME_CANON"'), assigned
+        )
 
     def test_every_hermes_home_in_the_repo_is_canonicalised(self):
         bad = [str(s) for s in check_repo() if s.problem]
         self.assertEqual(bad, [], "\n" + "\n".join(bad))
+
+    def test_every_exception_still_matches_a_line(self):
+        for rel, rx, why in EXCEPTIONS:
+            text = (ROOT / rel).read_text()
+            self.assertTrue(
+                any(re.search(rx, line) for _n, line in logical_lines(text)),
+                f"{rel}: the exception {rx!r} ({why}) matches nothing; remove it",
+            )
 
 
 BASH = shutil.which("bash")
@@ -650,6 +627,62 @@ class ScriptSites(unittest.TestCase):
         result = self.shoot(self.tmp / "link")
         self.assertEqual(result.returncode, 3, result.stderr)
         self.assertEqual(self.logged(), "", "the seeding ran")
+
+    def real_home_with_state(self):
+        """A fake HOME (the one run_script gives) with a real-looking state.db."""
+        real = self.tmp / "home" / ".hermes"
+        real.mkdir(parents=True)
+        (real / "state.db").write_text("keep\n")
+        return real
+
+    def test_screenshots_leave_the_real_state_db_when_home_is_a_symlink_to_it(self):
+        real = self.real_home_with_state()
+        repo = self.screenshots(self.tmp / "sym")
+        state = repo / ".dart_tool" / "hermes-dev"
+        state.mkdir(parents=True)
+        (state / "home").symlink_to(real)
+        result = self.shoot(repo)
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertIn("refusing", result.stderr)
+        self.assertEqual(
+            (real / "state.db").read_text(), "keep\n", "state.db was deleted"
+        )
+        self.assertEqual(self.logged(), "", "the seeding ran")
+
+    def test_screenshots_refuse_a_state_dir_under_the_real_home(self):
+        real = self.real_home_with_state()
+        repo = self.screenshots(self.tmp / "under")
+        state = real / "dev"
+        (state / "home").mkdir(parents=True)
+        (state / "home" / "state.db").write_text("keep\n")
+        result = self.run_script(
+            repo / "scripts" / "store-screenshots.sh",
+            "ios",
+            "iphone",
+            HERMES_PYTHON=str(self.seed),
+            HERMES_DEV_STATE_DIR=str(state),
+        )
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertIn("real Hermes home", result.stderr)
+        self.assertEqual((state / "home" / "state.db").read_text(), "keep\n")
+        self.assertEqual(self.logged(), "", "the seeding ran")
+
+    def test_screenshots_seed_the_home_of_hermes_dev_state_dir(self):
+        repo = self.screenshots(self.tmp / "own")
+        state = self.tmp / "elsewhere"
+        (state / "home").mkdir(parents=True)
+        (state / "home" / "state.db").write_text("old\n")
+        self.run_script(
+            repo / "scripts" / "store-screenshots.sh",
+            "ios",
+            "iphone",
+            HERMES_PYTHON=str(self.seed),
+            HERMES_DEV_STATE_DIR=str(state),
+        )
+        self.assertIn(f"seed HERMES_HOME={state}/home\n", self.logged())
+        self.assertFalse(
+            (state / "home" / "state.db").exists(), "the old state.db was kept"
+        )
 
 
 if __name__ == "__main__":
