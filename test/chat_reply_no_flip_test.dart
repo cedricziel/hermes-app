@@ -157,52 +157,69 @@ void main() {
       return thread;
     }
 
+    /// [settleRestarted] on fake time, so the adoption window runs out by
+    /// elapsing it, not by waiting.
+    ChatThread settleRestartedFake(FakeAsync async) {
+      chat.newThread();
+      final thread = chat.selectedThread!;
+      chat.submit('Run the build', const []);
+      transport.sends.single
+        ..emit(const ThreadBound('s1'))
+        ..emit(const PromptAcknowledged(1))
+        ..emit(const ReplyDelta('Starting the build. '));
+      async.flushMicrotasks();
+      transport.sends.single.fail(const GatewayTurnEnded(restarted: true));
+      async.flushMicrotasks();
+      return thread;
+    }
+
     test('another prompt that runs on the session much later gets a bubble of '
-        'its own, and the notice stays', () async {
-      build(const Duration(milliseconds: 20));
-      final thread = await settleRestarted();
-      final lost = thread.messages.lastWhere(
-        (m) => m.role == ChatRole.assistant,
-      );
-      expect(lost.loss, ReplyLoss.restarted);
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-
-      transport.followUpStreams['s1']!
-        ..emit(const ReplyStarted())
-        ..emit(const ReplyDelta('Answer to the other prompt.'))
-        ..emit(const ReplyCompleted('Answer to the other prompt.'))
-        ..emit(const SessionInfo(running: false));
-      await pumpEventQueue();
-
-      final replies = thread.messages
-          .where((m) => m.role == ChatRole.assistant)
-          .toList();
-      expect(replies, hasLength(2));
-      expect(lost.loss, ReplyLoss.restarted);
-      expect(lost.status, MessageStatus.error);
-      expect(lost.content, 'Starting the build. ');
-      expect(replies.last.content, 'Answer to the other prompt.');
-      expect(transport.sends, hasLength(1));
-    });
-
-    test(
-      'a completion that comes much later does not fill the notice',
-      () async {
+        'its own, and the notice stays', () {
+      fakeAsync((async) {
         build(const Duration(milliseconds: 20));
-        final thread = await settleRestarted();
+        final thread = settleRestartedFake(async);
         final lost = thread.messages.lastWhere(
           (m) => m.role == ChatRole.assistant,
         );
-        await Future<void>.delayed(const Duration(milliseconds: 80));
+        expect(lost.loss, ReplyLoss.restarted);
+        async.elapse(const Duration(milliseconds: 80));
+
+        transport.followUpStreams['s1']!
+          ..emit(const ReplyStarted())
+          ..emit(const ReplyDelta('Answer to the other prompt.'))
+          ..emit(const ReplyCompleted('Answer to the other prompt.'))
+          ..emit(const SessionInfo(running: false));
+        async.flushMicrotasks();
+
+        final replies = thread.messages
+            .where((m) => m.role == ChatRole.assistant)
+            .toList();
+        expect(replies, hasLength(2));
+        expect(lost.loss, ReplyLoss.restarted);
+        expect(lost.status, MessageStatus.error);
+        expect(lost.content, 'Starting the build. ');
+        expect(replies.last.content, 'Answer to the other prompt.');
+        expect(transport.sends, hasLength(1));
+      });
+    });
+
+    test('a completion that comes much later does not fill the notice', () {
+      fakeAsync((async) {
+        build(const Duration(milliseconds: 20));
+        final thread = settleRestartedFake(async);
+        final lost = thread.messages.lastWhere(
+          (m) => m.role == ChatRole.assistant,
+        );
+        async.elapse(const Duration(milliseconds: 80));
 
         transport.followUpStreams['s1']!.emit(const ReplyCompleted('Other.'));
-        await pumpEventQueue();
+        async.flushMicrotasks();
 
         expect(lost.status, MessageStatus.error);
         expect(lost.loss, ReplyLoss.restarted);
         expect(lost.content, 'Starting the build. ');
-      },
-    );
+      });
+    });
 
     test(
       'only the first turn of the pick-up is the settled reply\'s own',

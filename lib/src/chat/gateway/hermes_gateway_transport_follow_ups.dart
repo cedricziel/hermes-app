@@ -464,6 +464,14 @@ Map<String, String> _statusesOf(Map<String, Object?> result) {
       if (row
           case {'session_key': final String key, 'status': final String status}
           when key.isNotEmpty) {
+        // Two rows of one session: a running one wins, so an idle row never
+        // hides a turn that runs.
+        final known = statuses[key];
+        if (known != null &&
+            _liveStatuses.contains(known) &&
+            !_liveStatuses.contains(status)) {
+          continue;
+        }
         statuses[key] = status;
       }
     }

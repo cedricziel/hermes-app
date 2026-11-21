@@ -8,6 +8,7 @@ import '../schedule_models.dart';
 import '../schedule_widgets.dart';
 import 'run_history_empty.dart';
 import 'run_history_pending.dart';
+import '../../macos/menu_selection_area.dart';
 
 /// How [job] is doing as the first row of its detail: the status, the next
 /// run, why the last run failed on the error line and an undelivered result
@@ -52,7 +53,7 @@ class ScheduleStatusRow extends StatelessWidget {
               metrics.rowPadding,
               metrics.rowVerticalPadding,
             ),
-            child: SelectionArea(
+            child: MenuSelectionArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 4,

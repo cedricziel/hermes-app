@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart' show MaterialApp, Material, TextField;
+import 'package:hermes_app/src/macos/edit_menu_state.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:hermes_app/src/windows/conversation_windows_menu.dart';
@@ -239,5 +241,163 @@ void main() {
     expect(registry.invoke(MacCommand.back), isFalse);
     expect(registry.invoke(MacCommand.forward), isFalse);
     expect(mainCommands, isEmpty);
+  });
+
+  testWidgets('the Edit items go off while a conversation window is key', (
+    tester,
+  ) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+
+    await windows.open('s1', profile: null, title: 'A');
+    await tester.pump();
+    await focus(tester, 'w0');
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    await host.call('focused', {'window_id': 'w0', 'focused': false});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+  });
+
+  testWidgets('the Edit items go off while the quick panel is shown', (
+    tester,
+  ) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+
+    await windows.togglePanel();
+    await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    await host.call('panel', {
+      'window_id': 'p0',
+      'event': 'hidden',
+      'reason': 'focus_lost',
+    });
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+  });
+
+  testWidgets('signing out while the quick panel is shown turns the Edit '
+      'items back on', (tester) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await windows.togglePanel();
+    await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    await windows.closeAll();
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+  });
+
+  testWidgets('the quick panel going away while shown turns the '
+      'Edit items back on', (tester) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await windows.togglePanel();
+    await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    host.closed('p0');
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
   });
 }

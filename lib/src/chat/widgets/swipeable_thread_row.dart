@@ -5,6 +5,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/breakpoints.dart';
+import '../../widgets/app_action_sheet.dart';
 import 'thread_actions_menu.dart';
 import 'touch_row_menu.dart';
 
@@ -42,32 +43,23 @@ class SwipeableThreadRow extends StatelessWidget {
     final l10n = context.l10n;
     final pinLabel = _pinLabel(context);
     final archiveLabel = _archiveLabel(context);
-    final action = await showCupertinoModalPopup<ThreadAction>(
+    final action = await showAppActionSheet<ThreadAction>(
       context: context,
-      builder: (sheet) => CupertinoActionSheet(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: [
-          for (final (action, label) in [
-            if (!canonical)
-              (ThreadAction.rename, l10n.chatWidgetsThreadMenuRename),
-            (ThreadAction.pin, pinLabel),
-            (ThreadAction.archive, archiveLabel),
-          ])
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(sheet).pop(action),
-              child: Text(label),
-            ),
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(sheet).pop(ThreadAction.delete),
-            child: Text(l10n.chatWidgetsThreadMenuDelete),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(sheet).pop(),
-          child: Text(l10n.chatWidgetsThreadMenuCancel),
+      title: title,
+      entries: [
+        for (final (action, label) in [
+          if (!canonical)
+            (ThreadAction.rename, l10n.chatWidgetsThreadMenuRename),
+          (ThreadAction.pin, pinLabel),
+          (ThreadAction.archive, archiveLabel),
+        ])
+          AppActionSheetEntry(label: label, value: action),
+        AppActionSheetEntry(
+          label: l10n.chatWidgetsThreadMenuDelete,
+          value: ThreadAction.delete,
+          destructive: true,
         ),
-      ),
+      ],
     );
     if (action != null && context.mounted) onAction(action);
   }
