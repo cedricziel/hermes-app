@@ -126,6 +126,18 @@ const _couldNotStop = 'Could not stop the reply. Try again.';
 /// The title of a chat that has no prompt yet.
 const _newChatTitle = 'New chat';
 
+/// How a pull to refresh of the chat list ended.
+enum ThreadListRefreshResult {
+  /// The first page was read and merged in.
+  refreshed,
+
+  /// The read failed or did not finish in time.
+  failed,
+
+  /// Nothing to refresh, or the list changed owner while it was waiting.
+  skipped,
+}
+
 /// An external open interrupted by suspension, for owner-controlled recovery.
 class InterruptedChatOpening {
   const InterruptedChatOpening({
@@ -1068,6 +1080,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         profile: profile,
         generation: generation,
       );
+      if (applied && _listRefreshFailed) {
+        _listRefreshFailed = false;
+        notifyListeners();
+      }
       // A change that started during the read: wait for it and read again.
       if (!applied &&
           active &&
@@ -1081,6 +1097,24 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       // The next find, or opening the screen again, reads the list.
     }
   }
+
+  /// How long a pull to refresh waits for the list to settle and be read
+  /// before it ends as a failure.
+  Duration threadListRefreshTimeout = const Duration(seconds: 30);
+
+  bool _listRefreshFailed = false;
+
+  /// Whether the last pull to refresh of the list failed; the list shows its
+  /// notice until the next read of the list succeeds.
+  bool get threadListRefreshFailed => _listRefreshFailed;
+
+  /// A pull to refresh of the chat list: reads its first page again and
+  /// merges it in. While the list cannot take it (it is loading, or has
+  /// pending changes) it waits for the list to settle, then reads; it never
+  /// throws and ends in [ThreadListRefreshResult.failed] when the wait or the
+  /// read fails or takes longer than [threadListRefreshTimeout].
+  Future<ThreadListRefreshResult> pullRefreshThreadList() =>
+      _ChatControllerHistory(this)._pullRefreshThreadList();
 
   @override
   void notifyListeners() {
