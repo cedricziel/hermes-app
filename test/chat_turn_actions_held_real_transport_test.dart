@@ -139,7 +139,7 @@ void main() {
         'a good row beside a bad one',
         [
           {'session_key': 'other', 'status': 'idle'},
-          {'status': 'idle'},
+          {'session_key': 'x', 'status': 7},
         ],
       ),
     ]) {
@@ -165,6 +165,17 @@ void main() {
         await expectHeld(true);
       });
     }
+  });
+
+  test('a row that names no stored session (a live id only) is ignored, and '
+      'the answer still counts', () async {
+    gateway.handlers['session.active_list'] = (_) => {
+      'sessions': [
+        {'id': 'live', 'status': 'running'},
+        {'session_key': 'other', 'status': 'idle'},
+      ],
+    };
+    await expectHeld(false);
   });
 
   group('the hold ends on a real answer that does not list it as running', () {

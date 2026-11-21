@@ -534,15 +534,14 @@ class HermesGatewayTransport
     }
     // An answer without its list, or with a row it cannot read, says nothing
     // of the sessions it fails to name: a missing session would read as not
-    // running. An empty list is a real answer.
+    // running. An empty list is a real answer, and so is a row that names no
+    // stored session at all (a live id only), which belongs to no chat here.
     if (result['sessions'] case final List<Object?> rows) {
       for (final row in rows) {
-        if (row is! Map<String, Object?> ||
-            row['session_key'] is! String ||
-            (row['session_key']! as String).isEmpty ||
-            row['status'] is! String) {
-          return null;
-        }
+        if (row is! Map<String, Object?>) return null;
+        final key = row['session_key'];
+        if (key == null || key == '') continue;
+        if (key is! String || row['status'] is! String) return null;
       }
     } else {
       return null;
