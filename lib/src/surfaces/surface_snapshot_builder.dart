@@ -94,22 +94,21 @@ class SurfaceSnapshotBuilder {
     bool redact = false,
     Duration? budget,
   }) async {
-    // With nothing open and nothing kept, the open profile is the one the
-    // dashboard was launched with; `default` only on a server with no
-    // profiles at all.
+    // The open profile: the chat screen's hint, else the one kept, else the
+    // one the dashboard was launched with. A kept `default` may be the
+    // fallback of a run that could not read the launch profile, so it gives
+    // way to the launch profile once that is known. `default` stands only
+    // when no launch profile is known (a server without profiles, or one not
+    // read yet).
     final resolver = _repositories.profiles.resolver;
-    if (refreshRemote && hints?.profile == null && previous?.profile == null) {
-      try {
-        await resolver.load();
-      } on Object {
-        // Unreadable: the snapshot then names the fallback.
-      }
-    }
-    final openProfile =
+    final keptProfile = previous?.profile;
+    final mayBeFallback = keptProfile == null || keptProfile == kDefaultProfile;
+    String chooseOpenProfile() =>
         hints?.profile ??
-        previous?.profile ??
-        resolver.launch ??
-        kDefaultProfile;
+        (mayBeFallback
+            ? resolver.launch ?? keptProfile ?? kDefaultProfile
+            : keptProfile);
+    var openProfile = chooseOpenProfile();
     final now = _now();
     var profiles = previous?.profiles ?? const <String>[];
     final kept = previous?.recentChats ?? const <RecentChat>[];
@@ -140,6 +139,14 @@ class SurfaceSnapshotBuilder {
       }
 
       try {
+        // Inside the shared budget: a slow lookup is a timed-out read, and a
+        // launch profile already known costs nothing.
+        if (hints?.profile == null &&
+            mayBeFallback &&
+            resolver.launch == null) {
+          await read(resolver.load);
+          openProfile = chooseOpenProfile();
+        }
         Future<void> readChats() async {
           final names = await read(_profileNames);
           if (names.ok) {

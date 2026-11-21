@@ -111,4 +111,40 @@ void main() {
           'for a name picked from the server profile list',
     );
   });
+
+  test('nothing under lib/src gets round the resolver', () {
+    // `ProfileResolver.resolve` is the one way from a chat's nullable profile
+    // to a ResolvedProfile. A string literal in its argument (`resolve(x ??
+    // 'default')`), a `.known(` resolver or a `resolvedProfile(` helper would
+    // each name a profile without asking the server.
+    //
+    // Allowed, with the reason:
+    //  - lib/src/profiles/profile_resolver.dart defines `.known(` and
+    //    `resolvedProfile(` (the latter is `@visibleForTesting`).
+    const allowed = {'lib/src/profiles/profile_resolver.dart'};
+    final literalInResolve = RegExp(r'''\.resolve\([^)]*['"]''');
+    final offenders = <String>[];
+    for (final file in Directory('lib/src').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (allowed.contains(file.path)) continue;
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        if (line.trimLeft().startsWith('//')) continue;
+        if (line.contains('.known(') ||
+            line.contains('resolvedProfile(') ||
+            literalInResolve.hasMatch(line)) {
+          offenders.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'resolve the profile with ProfileResolver.resolve(chat.profile); '
+          'a literal, .known( or resolvedProfile( names one by hand',
+    );
+  });
 }

@@ -293,6 +293,7 @@ void main() {
     test('Workspaces: the catalog of a chat with no profile '
         '(ChatController.workspaceCatalog, the welcome view and the '
         'picker)', () async {
+      await profiles.resolver.load();
       final chat = newChat();
       expect(chat.profile, isNull);
       final profilesSent = await sent(() async {

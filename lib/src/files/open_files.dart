@@ -53,7 +53,10 @@ Future<void> openFiles(
   final profile =
       resolver.resolve(chat.profile) ??
       await _resolveAfterLoad(resolver, chat.profile);
-  if (profile == null || !context.mounted) return;
+  // The person may have moved to another chat while the profile was read.
+  if (profile == null || !context.mounted || chat.selectedId != thread.id) {
+    return;
+  }
   final threadId = thread.id;
   final telemetry = FilesTelemetry(repositories.telemetry, breadcrumbs);
   // A new chat with no stored folder yet runs in the folder the workspace

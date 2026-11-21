@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +10,8 @@ import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/files/files_availability.dart';
 import 'package:hermes_app/src/files/files_screen.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart'
+    show ActiveProfile;
 import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/tools/tools_availability.dart';
 import 'package:hermes_app/src/tools/tools_screen.dart';
@@ -61,8 +65,10 @@ void main() {
         '/api/sessions',
         sessionListBody([
           {...sessionRow(id: 's1', title: 'Field notes'), 'cwd': _root},
+          {...sessionRow(id: 's2', title: 'Other notes'), 'cwd': _root},
         ]),
       )
+      ..on('GET', '/api/sessions/s2/messages', messageListBody('s2', []))
       ..on('GET', '/api/sessions/s1/messages', messageListBody('s1', []))
       ..on('GET', '/api/fs/default-cwd', {'cwd': _root})
       ..on('GET', '/api/fs/git-root', {'root': null})
@@ -283,4 +289,23 @@ void main() {
       await close(tester);
     });
   });
+
+  testWidgets(
+    'Files does not open for a chat the person left while it waited',
+    (tester) async {
+      final gate = Completer<ActiveProfile>();
+      await pump(tester, ProfileResolver(() => gate.future));
+      await openActivity(tester);
+      await tester.tap(find.byKey(const Key('activity-files-row')));
+      await tester.pump();
+
+      await openThread(tester, 'Other notes');
+      gate.complete((active: 'main', current: 'work'));
+      await settle(tester);
+
+      expect(find.byType(FilesScreen), findsNothing);
+      expect(fsReads(), isEmpty);
+      await close(tester);
+    },
+  );
 }

@@ -95,6 +95,32 @@ void main() {
     },
   );
 
+  test('a profile the launch lookup could not read is not kept as the open '
+      'one', () async {
+    server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 500);
+    final first = await build();
+    expect(first.profile, 'default');
+
+    server.on('GET', '/api/profiles/active', {
+      'active': 'default',
+      'current': 'work',
+    });
+
+    expect((await build(previous: first)).profile, 'work');
+  });
+
+  test('a slow launch lookup spends the shared budget, not more', () async {
+    server.onRequest(
+      'GET',
+      '/api/profiles/active',
+      (_) => Completer<FakeResponse>().future,
+    );
+
+    final snapshot = await build().timeout(const Duration(seconds: 3));
+
+    expect(snapshot.profile, 'default');
+  });
+
   test('a chat the server has not named shows a fixed title, not its '
       'preview', () async {
     server.on(

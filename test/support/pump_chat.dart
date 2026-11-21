@@ -54,7 +54,8 @@ Future<void> pumpChatScreen(
   bool withProfiles = false,
   // Where a chat with no profile works. Left out, a chat on a screen without
   // `withProfiles` resolves to `default`; pass one to test another launch
-  // profile, or none known.
+  // profile, or none known. The chat's own first list still asks the
+  // repositories' resolver, so a chat stays profile-less when that read 404s.
   ProfileResolver? profileResolver,
   bool withSkills = false,
   HermesModelsRepository? models,
