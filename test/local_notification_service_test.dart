@@ -34,10 +34,10 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   var initializeCalls = 0;
   Exception? initializeError;
   Completer<void>? initializeHeld;
-  Exception? showError;
+  Object? showError;
   bool? notificationsEnabled;
   NotificationAppLaunchDetails? launchDetails;
-  Exception? launchDetailsError;
+  Object? launchDetailsError;
   DidReceiveNotificationResponseCallback? onResponse;
   DidReceiveBackgroundNotificationResponseCallback? onBackgroundResponse;
   InitializationSettings? settings;
@@ -75,7 +75,9 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     String? payload,
   }) async {
     showCalls++;
-    if (showError case final error?) throw error;
+    if (showError case final error?) {
+      Error.throwWithStackTrace(error, StackTrace.current);
+    }
     await showGate?.future;
     posted.add(_Posted(id, title, body, payload, notificationDetails));
   }
@@ -84,12 +86,14 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   Future<NotificationAppLaunchDetails?>
   getNotificationAppLaunchDetails() async {
     await launchGate?.future;
-    if (launchDetailsError case final error?) throw error;
+    if (launchDetailsError case final error?) {
+      Error.throwWithStackTrace(error, StackTrace.current);
+    }
     return launchDetails;
   }
 
   final active = <ActiveNotification>[];
-  Exception? activeError;
+  Object? activeError;
   Exception? cancelError;
   final cancelled = <int>[];
   final cancelledTags = <String?>[];
@@ -102,7 +106,8 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   }
 
   List<ActiveNotification> _active() => [
-    if (activeError case final error?) throw error,
+    if (activeError case final error?)
+      Error.throwWithStackTrace(error, StackTrace.current),
     for (final a in active)
       if (defaultTargetPlatform == TargetPlatform.android)
         ActiveNotification(id: a.id, tag: a.tag, title: a.title, body: a.body)
@@ -1693,6 +1698,122 @@ void main() {
       });
       return finished;
     }
+
+    /// A first `show` that hangs after [prime] ran, and whether the bus is
+    /// then latched failed: the next post is `unsupported` without a new show.
+    void latchesAfter(
+      _FakePlugin plugin,
+      Future<void> Function(LocalNotificationService service) prime,
+    ) {
+      fakeAsync((async) {
+        final service = serviceWith(plugin, bus: true);
+        prime(service);
+        async.flushMicrotasks();
+
+        plugin.showGate = Completer<void>();
+        NotificationPostResult? result;
+        service.post(note).then((r) => result = r);
+        async.flushMicrotasks();
+        async.elapse(kLinuxCallTimeout);
+        async.flushMicrotasks();
+        expect(result?.status, NotificationPostStatus.failed);
+
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+        expect(next?.status, NotificationPostStatus.unsupported);
+        expect(plugin.showCalls, 1);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+
+    test('launch details that fail locally do not prove the bus alive', () {
+      latchesAfter(
+        _FakePlugin()..launchDetailsError = UnimplementedError(),
+        (s) => s.launchTarget(),
+      );
+    });
+
+    test('a listing that fails locally does not prove the bus alive', () {
+      latchesAfter(
+        _FakePlugin()..activeError = UnimplementedError(),
+        (s) => s.withdrawAnswerable(),
+      );
+    });
+
+    test('launch details that return do not prove the bus alive', () {
+      latchesAfter(_FakePlugin(), (s) => s.launchTarget());
+    });
+
+    test('a listing that returns does not prove the bus alive', () {
+      latchesAfter(_FakePlugin(), (s) => s.withdrawAnswerable());
+    });
+
+    test('a cancel does not prove the bus alive', () {
+      final plugin = _FakePlugin();
+      plugin.active.add(
+        ActiveNotification(
+          id: 1,
+          payload: notificationPayload(_request(_approval)),
+        ),
+      );
+      latchesAfter(plugin, (s) => s.withdrawAnswerable());
+      expect(plugin.cancelled, [1]);
+    });
+
+    test('a show that fails locally does not prove the bus alive', () {
+      fakeAsync((async) {
+        final plugin = _FakePlugin()..showError = Exception('local');
+        final service = serviceWith(plugin, bus: true);
+        NotificationPostResult? first;
+        service.post(note).then((r) => first = r);
+        async.flushMicrotasks();
+        expect(first?.status, NotificationPostStatus.failed);
+
+        plugin
+          ..showError = null
+          ..showGate = Completer<void>();
+        NotificationPostResult? hung;
+        service.post(note).then((r) => hung = r);
+        async.flushMicrotasks();
+        async.elapse(kLinuxCallTimeout);
+        async.flushMicrotasks();
+        expect(hung?.status, NotificationPostStatus.failed);
+
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+        expect(next?.status, NotificationPostStatus.unsupported);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    });
+
+    test('a bus error reply to a show proves the bus alive', () {
+      fakeAsync((async) {
+        final plugin = _FakePlugin()..showError = DBusServiceUnknownException();
+        final service = serviceWith(plugin, bus: true);
+        service.post(note);
+        async.flushMicrotasks();
+
+        plugin
+          ..showError = null
+          ..showGate = Completer<void>();
+        NotificationPostResult? hung;
+        service.post(note).then((r) => hung = r);
+        async.flushMicrotasks();
+        async.elapse(kLinuxCallTimeout);
+        async.flushMicrotasks();
+        expect(hung?.status, NotificationPostStatus.failed);
+
+        NotificationPostResult? next;
+        service.post(note).then((r) => next = r);
+        async.flushMicrotasks();
+        plugin.showGate!.complete();
+        async.flushMicrotasks();
+        expect(next?.status, NotificationPostStatus.accepted);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    });
 
     test('a hanging getActiveNotifications ends withdrawAnswerable', () {
       final plugin = _FakePlugin()..activeGate = Completer<void>();

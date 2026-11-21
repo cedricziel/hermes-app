@@ -112,6 +112,11 @@ bool isLinuxBusError(Object error) =>
     // notification plugin, say) is not a bus error.
     error is String ||
     (error is FormatException && error.message.contains('D-Bus address')) ||
+    isDBusReplyError(error);
+
+/// Whether [error] is an exception of the `dbus` package: an error the bus
+/// itself answered with, as opposed to a local throw before anything was sent.
+bool isDBusReplyError(Object error) =>
     error.runtimeType.toString().startsWith('DBus');
 
 /// How long a Linux plugin call may take. The D-Bus client of the plugin never
@@ -391,7 +396,8 @@ class LocalNotificationService
         if (!out.isCompleted) out.complete(value);
       },
       onError: (Object error, StackTrace stack) {
-        if (awaitsBus) _busResponded = true;
+        // A local throw before Notify went out proves nothing about the bus.
+        if (awaitsBus && isDBusReplyError(error)) _busResponded = true;
         if (!out.isCompleted) out.completeError(error, stack);
       },
     );
