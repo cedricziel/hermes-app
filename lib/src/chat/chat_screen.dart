@@ -44,7 +44,6 @@ import 'subagents/activity_selection.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
 import '../bot_screen/bot_screen_controller.dart';
-import '../bot_screen/bot_screen_profile.dart';
 import '../bot_screen/bot_screen_repository.dart';
 import '../bot_screen/bot_screen_viewer_ids.dart';
 import '../bot_screen/install/bot_screen_installs.dart';
@@ -68,7 +67,6 @@ import '../workspaces/workspace_telemetry.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../tools/hermes_tools_repository.dart';
 import '../tools/tools_availability.dart';
-import '../tools/tools_profile.dart';
 import '../tools/tools_screen.dart';
 import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';
@@ -86,6 +84,7 @@ import '../notifications/notification_settings.dart';
 import '../notifications/request_notifications.dart' show accountHashFor;
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../plugins/plugins_screen.dart';
+import '../profiles/profile_resolver.dart';
 import '../profiles/chat_profiles.dart';
 import 'gateway_connection_transport.dart';
 import 'invalidation/change_invalidation_binding.dart';
@@ -204,6 +203,7 @@ class ChatScreen extends StatefulWidget {
     this.mcp,
     this.tools,
     this.toolsAvailability,
+    this.profileResolver,
     this.onShowChat,
     this.onExternalNavigation,
     this.onShareEntry,
@@ -248,6 +248,10 @@ class ChatScreen extends StatefulWidget {
   /// Whether the server offers Tools; the shell's when null. Without either
   /// there is no Tools entry.
   final ToolsAvailability? toolsAvailability;
+
+  /// Where a chat with no profile works; the profiles' own unless given
+  /// (tests do).
+  final ProfileResolver? profileResolver;
 
   /// Reads what the welcome view's starter prompts are built from; the
   /// connected dashboard's when null.
@@ -371,7 +375,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The Bot Screen of the chat's profile, and what it was made for.
   BotScreenController? _screen;
   BotScreenRepository? _screenRepository;
-  String? _screenProfile;
+  ResolvedProfile? _screenProfile;
 
   /// The viewer ids the server minted for this app in this run, which tell a
   /// lease that is this device's from someone else's.
@@ -588,6 +592,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       usageTelemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
       repository: widget.repository ?? repositories?.chat,
       profiles: _profiles,
+      profileResolver: widget.profileResolver,
       models: _models,
       transport: transport,
       appLock: appLock,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/toolset_installs.dart';
 import 'package:hermes_app/src/tools/widgets/tools_switch.dart';
@@ -24,8 +25,10 @@ void main() {
   const computerText =
       "See a desktop's screen and move its mouse and keyboard.";
 
-  HermesToolsRepository repository() =>
-      HermesToolsRepository(world.server.client().raw, profile: 'work');
+  HermesToolsRepository repository() => HermesToolsRepository(
+    world.server.client().raw,
+    profile: resolvedProfile('work'),
+  );
 
   Future<void> start(
     WidgetTester tester, {

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -15,7 +16,9 @@ import '../support/fake_hermes_server.dart';
 void main() {
   test('a tools request carries the profile it was bound to', () async {
     final server = FakeHermesServer()..on('GET', '/api/tools/toolsets', {});
-    await HermesToolsRoot(server.client().raw).forProfile('work').list();
+    await HermesToolsRoot(server.client().raw)
+        .forProfile(resolvedProfile('work'))
+        .list();
 
     expect(server.requests.single.queryParameters['profile'], 'work');
   });
@@ -38,7 +41,7 @@ void main() {
       sent.add(params);
       return {};
     });
-    await repository.status('work');
+    await repository.status(resolvedProfile('work'));
 
     expect(sent.single['profile'], 'work');
   });
@@ -79,6 +82,85 @@ void main() {
       offenders,
       isEmpty,
       reason: 'Kanban is shared by every profile; send no profile',
+    );
+  });
+
+  test('only the Profiles page names a profile by hand', () {
+    // `ProfileResolver.named` takes any string: it is for a name the person
+    // picked from the server's own list. Everything else resolves.
+    const allowed = {'lib/src/profiles/mac_profiles_page.dart'};
+    final offenders = <String>[];
+    for (final file in Directory('lib/src').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (allowed.contains(file.path)) continue;
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].contains('resolver.named(') ||
+            lines[i].contains('.named(')) {
+          if (lines[i].trimLeft().startsWith('//')) continue;
+          offenders.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'resolve the profile with ProfileResolver.resolve; named() is '
+          'for a name picked from the server profile list',
+    );
+  });
+
+  test('nothing under lib/src gets round the resolver', () {
+    // `ProfileResolver.resolve` is the one way from a chat's nullable profile
+    // to a ResolvedProfile. A string literal, `kDefaultProfile` or `??` in its
+    // argument (`resolve(x ?? 'default')`), a `.known(` resolver or a
+    // `resolvedProfile(` helper would each name a profile without asking the
+    // server.
+    //
+    // Allowed, with the reason:
+    //  - lib/src/profiles/profile_resolver.dart defines `.known(` and
+    //    `resolvedProfile(` (the latter is `@visibleForTesting`).
+    //  - `??` in `resolve(` in lib/src/chat/chat_controller_workspace.dart:
+    //    `resolve(profile ?? _profile)` is the new chat's recipient, else the
+    //    chat's own profile, both names the server gave. No name is invented.
+    const defined = {'lib/src/profiles/profile_resolver.dart'};
+    const coalescing = {'lib/src/chat/chat_controller_workspace.dart'};
+    final resolveCall = RegExp(r'\.resolve\(([^()]*)\)');
+    final invented = RegExp(r'''['"]|kDefaultProfile''');
+    final offenders = <String>[];
+    for (final file in Directory('lib/src').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (defined.contains(file.path)) continue;
+      final text = file.readAsStringSync();
+      int lineOf(int offset) =>
+          '\n'.allMatches(text.substring(0, offset)).length + 1;
+      for (final match in resolveCall.allMatches(text)) {
+        final args = match.group(1)!;
+        final coalesces = args.contains('??');
+        if (invented.hasMatch(args) ||
+            (coalesces && !coalescing.contains(file.path))) {
+          offenders.add('${file.path}:${lineOf(match.start)}');
+        }
+      }
+      final lines = text.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        if (line.trimLeft().startsWith('//')) continue;
+        if (line.contains('.known(') || line.contains('resolvedProfile(')) {
+          offenders.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'resolve the profile with ProfileResolver.resolve(chat.profile); '
+          'a literal, kDefaultProfile, ?? in resolve(, .known( or '
+          'resolvedProfile( names one by hand',
     );
   });
 }

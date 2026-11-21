@@ -17,6 +17,14 @@ REPO="NousResearch/hermes-agent"
 OUT="$ROOT_DIR/openapi/hermes-agent.openapi.json"
 WORK="$(mktemp -d -t hermes-openapi.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
+# shellcheck source=profile-names.sh
+source "$ROOT_DIR/scripts/profile-names.sh"
+# Hermes runs expandvars and expanduser on HERMES_HOME: a TMPDIR that resolves
+# to a name with a `$` or `~` in it would send the writes somewhere else.
+WORK_CANON="$(canonical_resolved_path "$WORK")" || {
+  echo "refusing: $WORK is not a canonical absolute path once resolved (no //, ., .., ~, \$ or backtick)" >&2
+  exit 3
+}
 
 SHA="$(gh api "repos/$REPO/commits/$REF" --jq .sha)"
 echo "==> $REPO@$SHA"
@@ -29,7 +37,7 @@ UV_NO_CONFIG=1 uv venv --quiet --python 3.14 "$WORK/venv"
 UV_NO_CONFIG=1 uv pip install --quiet --python "$WORK/venv/bin/python" -e "$WORK/src"
 
 echo "==> Dumping the schema"
-(cd "$WORK" && HERMES_HOME="$WORK/home" "$WORK/venv/bin/python" -I -c '
+(cd "$WORK" && HERMES_HOME="$WORK_CANON/home" "$WORK/venv/bin/python" -I -c '
 import json, sys
 import hermes_cli.web_server as ws
 spec = ws.app.openapi()
