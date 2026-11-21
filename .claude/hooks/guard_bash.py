@@ -52,6 +52,11 @@ MSG_STASH = (
     "Blocked: git stash. The stash stack is shared by every worktree and session. "
     "Commit work in progress on your own branch instead."
 )
+MSG_WORKTREE_PRUNE = (
+    "Blocked: git worktree prune deletes the records of worktrees other sessions may be "
+    "using (fleet rules); remove one tree with git worktree remove <path> after checking "
+    "it is clean and merged."
+)
 MSG_ADD_ALL = (
     "Blocked: staging everything (`git add -A/--all/./:/`, `git add -u` without paths, "
     "`git commit -a`, `git commit .`). Building the apps rewrites tracked ios/ and "
@@ -673,6 +678,12 @@ def _check_git(argv, cwd, installed_hook_in_same_command, env_words=()):
 
     if sub == "stash":
         return MSG_STASH
+
+    if sub == "worktree":
+        # every form, --dry-run included: simpler than telling a dry run apart
+        action = next((a for a in rest if not a.startswith("-")), None)
+        if action == "prune":
+            return MSG_WORKTREE_PRUNE
 
     if sub == "config":
         pos = [a for a in rest if not a.startswith("-")]

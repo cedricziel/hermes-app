@@ -333,6 +333,45 @@ class GuardTest(unittest.TestCase):
         self.allowed("git commit -m 'drop the stash'")
         self.allowed("echo git stash")
 
+    def test_worktree_prune(self):
+        for remote in (None, "true"):
+            env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_REMOTE"}
+            if remote:
+                env["CLAUDE_CODE_REMOTE"] = remote
+            with mock.patch.dict(os.environ, env, clear=True):
+                for c in [
+                    "git worktree prune",
+                    "git worktree prune -v",
+                    "git worktree prune --expire now",
+                    "git worktree prune --dry-run",
+                    "git worktree prune -n",
+                    "git -C . worktree prune",
+                    "git -c x=y worktree prune",
+                    "bash -c 'git worktree prune'",
+                    "FOO=1 git worktree prune",
+                    "env git worktree prune",
+                    "/usr/bin/git worktree prune",
+                    "cd x && git worktree prune",
+                ]:
+                    self.blocked(c, needle="worktree remove")
+                for c in [
+                    'git commit -m "worktree prune notes"',
+                    "grep -r 'git worktree prune' .",
+                    "cat <<EOF\ngit worktree prune\nEOF",
+                    "git worktree list",
+                    "git worktree remove .claude/worktrees/x",
+                    "git worktree add ../wt -b claude/z",
+                    "git worktree add ../wt prune",
+                    "git worktree add -b prune ../wt",
+                    "git worktree remove prune",
+                    "git worktree lock prune",
+                    "git worktree move prune ../x",
+                    "git fetch --prune",
+                    "git remote prune origin",
+                    "echo git worktree prune",
+                ]:
+                    self.allowed(c)
+
     def test_add_all(self):
         for c in [
             "git add -A",
