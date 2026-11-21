@@ -1,0 +1,132 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/memory/widgets/memory_choice_dialog.dart';
+import 'package:hermes_app/src/settings/appearance_dialog.dart';
+import 'package:hermes_app/src/widgets/grouped_dialog.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/settings/theme_controller.dart';
+import 'package:provider/provider.dart';
+
+import '../support/test_localizations.dart';
+
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+final _dialog = find.byType(GroupedDialog);
+final _done = find.text('Done');
+
+typedef _Open = Future<void> Function(BuildContext context);
+
+/// Opens a settings dialog through [open] on [platform] and leaves it showing.
+Future<void> _show(
+  WidgetTester tester,
+  TargetPlatform platform,
+  _Open open,
+) async {
+  await tester.pumpWidget(
+    ChangeNotifierProvider(
+      create: (_) => ThemeController(),
+      child: MaterialApp(
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: buildHermesLightTheme().copyWith(platform: platform),
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => open(context),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('Open'));
+  await tester.pumpAndSettle();
+  expect(_dialog, findsOneWidget);
+}
+
+Future<void> _tapBarrier(WidgetTester tester) async {
+  await tester.tapAt(const Offset(4, 4));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _esc(WidgetTester tester) async {
+  await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+  await tester.pumpAndSettle();
+}
+
+Future<String?> _memoryChoice(BuildContext context) => showMemoryChoice<String>(
+  context,
+  title: 'Reports',
+  options: const [('off', 'Off'), ('on', 'On')],
+  current: 'on',
+);
+
+void main() {
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+  });
+
+  final dialogs = <String, _Open>{
+    'Appearance': showAppearanceDialog,
+    'Memory choice': _memoryChoice,
+  };
+
+  for (final MapEntry(key: name, value: open) in dialogs.entries) {
+    group(name, () {
+      testWidgets('iOS: a barrier tap leaves it open, Done closes it', (
+        tester,
+      ) async {
+        await _show(tester, TargetPlatform.iOS, open);
+        await _tapBarrier(tester);
+        expect(_dialog, findsOneWidget);
+        await tester.tap(_done);
+        await tester.pumpAndSettle();
+        expect(_dialog, findsNothing);
+      });
+
+      testWidgets('macOS: a barrier click closes it', (tester) async {
+        await _show(tester, TargetPlatform.macOS, open);
+        await _tapBarrier(tester);
+        expect(_dialog, findsNothing);
+      });
+
+      testWidgets('Android: a barrier tap closes it', (tester) async {
+        await _show(tester, TargetPlatform.android, open);
+        await _tapBarrier(tester);
+        expect(_dialog, findsNothing);
+      });
+
+      testWidgets('macOS: Esc closes it', (tester) async {
+        await _show(tester, TargetPlatform.macOS, open);
+        await _esc(tester);
+        expect(_dialog, findsNothing);
+      });
+
+      // Recorded, not endorsed: plain showDialog closed on Esc on iOS too;
+      // the Cupertino route has no Esc binding.
+      testWidgets('iOS: Esc leaves it open', (tester) async {
+        await _show(tester, TargetPlatform.iOS, open);
+        await _esc(tester);
+        expect(_dialog, findsOneWidget);
+      });
+    });
+  }
+
+  testWidgets('Memory choice on iOS still returns the picked value', (
+    tester,
+  ) async {
+    String? picked;
+    await _show(
+      tester,
+      TargetPlatform.iOS,
+      (context) async => picked = await _memoryChoice(context),
+    );
+    await tester.tap(find.text('Off'));
+    await tester.pumpAndSettle();
+    expect(picked, 'off');
+    expect(_dialog, findsNothing);
+  });
+}
