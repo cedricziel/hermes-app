@@ -35,6 +35,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -237,20 +238,79 @@ def check_workflow(rel, text, exceptions=None):
     return sites
 
 
-def scanned_files():
-    shell = sorted({p for g in SHELL_GLOBS for p in ROOT.glob(g) if p.is_file()})
-    yaml = sorted({p for g in YAML_GLOBS for p in ROOT.glob(g) if p.is_file()})
-    return shell, yaml
+GIT_ENV_LEAKS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
 
 
-def check_repo():
+def git_env():
+    """The environment without the variables a git hook points at another repo."""
+    return {k: v for k, v in os.environ.items() if k not in GIT_ENV_LEAKS}
+
+
+def tracked_files(root):
+    """Repo-relative paths git lists under [root] (tracked, plus untracked and
+    not ignored), or None when that list cannot be trusted.
+
+    None means: no git, [root] is not the top of its own repository (it may sit
+    inside a parent repo that lists nothing for it), or the list is empty. The
+    caller then falls back to the filesystem. Submodule files are not listed
+    here; a repo that gains submodules would need the fallback for them.
+    """
+    root = pathlib.Path(root)
+    try:
+        top = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            check=True,
+            env=git_env(),
+        ).stdout.decode().strip()
+        if not top or os.path.realpath(top) != os.path.realpath(root):
+            return None
+        names = git_ls_files(root, "--cached", "--others", "--exclude-standard")
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return names or None
+
+
+def git_ls_files(root, *flags):
+    out = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z", *flags],
+        capture_output=True,
+        check=True,
+        env=git_env(),
+    ).stdout
+    return {n for n in out.decode().split("\0") if n}
+
+
+def scanned_files(root=None):
+    root = ROOT if root is None else root
+    tracked = tracked_files(root)
+    # A file committed under .claude/worktrees/ is part of the repo and stays
+    # scanned; an untracked copy there is an agent worktree's and is skipped.
+    committed = git_ls_files(root, "--cached") if tracked is not None else set()
+
+    def keep(p):
+        if not p.is_file():
+            return False
+        rel = p.relative_to(root).as_posix()
+        if rel.startswith(".claude/worktrees/") and rel not in committed:
+            return False
+        return tracked is None or rel in tracked
+
+    def pick(globs):
+        return sorted({p for g in globs for p in root.glob(g) if keep(p)})
+
+    return pick(SHELL_GLOBS), pick(YAML_GLOBS)
+
+
+def check_repo(root=None):
+    root = ROOT if root is None else root
     sites = []
-    shell, yaml = scanned_files()
+    shell, yaml = scanned_files(root)
     for path in shell:
-        sites.extend(check_text(path.relative_to(ROOT).as_posix(), path.read_text()))
+        sites.extend(check_text(path.relative_to(root).as_posix(), path.read_text()))
     for path in yaml:
         sites.extend(
-            check_workflow(path.relative_to(ROOT).as_posix(), path.read_text())
+            check_workflow(path.relative_to(root).as_posix(), path.read_text())
         )
     return sites
 
@@ -470,6 +530,83 @@ class RealScripts(unittest.TestCase):
     def test_every_hermes_home_in_the_repo_is_canonicalised(self):
         bad = [str(s) for s in check_repo() if s.problem]
         self.assertEqual(bad, [], "\n" + "\n".join(bad))
+
+    def make_repo(self, bad_rel, track):
+        repo = pathlib.Path(tempfile.mkdtemp(prefix="hermes-home-scan.")).resolve()
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True, env=git_env())
+        self.plant(repo, bad_rel)
+        if track:
+            subprocess.run(
+                ["git", "-C", str(repo), "add", bad_rel], check=True, env=git_env()
+            )
+        return repo
+
+    def plant(self, repo, rel):
+        bad = repo / rel
+        bad.parent.mkdir(parents=True, exist_ok=True)
+        bad.write_text("HERMES_HOME=/tmp/raw\nhermes dashboard\n")
+
+    def test_scan_ignores_untracked_agent_worktree_copies(self):
+        repo = self.make_repo(".claude/worktrees/x/scripts/dev.sh", track=False)
+        self.assertEqual([s for s in check_repo(repo) if s.problem], [])
+
+    def test_scan_still_catches_a_tracked_offender(self):
+        repo = self.make_repo("scripts/dev.sh", track=True)
+        found = [s for s in check_repo(repo) if s.problem]
+        self.assertTrue(found)
+        self.assertIn("scripts/dev.sh", str(found[0]))
+
+    def test_git_listing_is_used_and_names_the_tracked_file(self):
+        repo = self.make_repo("scripts/dev.sh", track=True)
+        self.assertEqual(tracked_files(repo), {"scripts/dev.sh"})
+
+    def test_scan_catches_an_untracked_unstaged_script(self):
+        repo = self.make_repo("scripts/dev.sh", track=True)
+        self.plant(repo, "scripts/new.sh")
+        names = {s.path for s in check_repo(repo) if s.problem}
+        self.assertIn("scripts/new.sh", names)
+
+    def test_scan_does_not_fail_open_inside_a_parent_repo(self):
+        parent = self.make_repo("README.txt", track=True)
+        src = parent / "src"
+        self.plant(src, "scripts/x.sh")
+        self.assertIsNone(tracked_files(src))
+        names = {s.path for s in check_repo(src) if s.problem}
+        self.assertIn("scripts/x.sh", names)
+
+    def test_scan_ignores_git_env_pointing_at_another_repo(self):
+        repo = self.make_repo("scripts/dev.sh", track=True)
+        other = self.make_repo("README.txt", track=True)
+        env = {"GIT_DIR": str(other / ".git"), "GIT_WORK_TREE": str(other)}
+        with mock.patch.dict(os.environ, env):
+            listed = tracked_files(repo)
+            found = [s for s in check_repo(repo) if s.problem]
+        self.assertEqual(listed, {"scripts/dev.sh"})
+        self.assertTrue(found)
+
+    def test_scan_still_catches_a_committed_file_under_agent_worktrees(self):
+        rel = ".claude/worktrees/x/scripts/d.sh"
+        repo = self.make_repo(rel, track=False)
+        subprocess.run(
+            ["git", "-C", str(repo), "add", "-f", rel], check=True, env=git_env()
+        )
+        names = {s.path for s in check_repo(repo) if s.problem}
+        self.assertIn(rel, names)
+        self.plant(repo, ".claude/worktrees/y/scripts/d.sh")
+        names = {s.path for s in check_repo(repo) if s.problem}
+        self.assertNotIn(".claude/worktrees/y/scripts/d.sh", names)
+
+    def test_an_empty_git_listing_counts_as_none(self):
+        repo = pathlib.Path(tempfile.mkdtemp(prefix="hermes-home-scan.")).resolve()
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True, env=git_env())
+        self.assertIsNone(tracked_files(repo))
+
+    def test_scan_without_git_skips_agent_worktrees(self):
+        repo = self.make_repo(".claude/worktrees/x/scripts/dev.sh", track=False)
+        with mock.patch.object(sys.modules[__name__], "tracked_files", lambda r: None):
+            self.assertEqual([s for s in check_repo(repo) if s.problem], [])
 
     def test_every_exception_still_matches_a_line(self):
         for rel, rx, why in EXCEPTIONS:
