@@ -5,7 +5,6 @@ import '../../../l10n/l10n.dart';
 import '../../models/model_provider_option.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
-import '../../widgets/dialog_presentation.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
@@ -44,14 +43,21 @@ class KanbanBulkBar extends StatelessWidget {
     BuildContext context,
     String title,
     List<(String, T)> options,
-  ) => showAppDialog<T>(
-    context: context,
+  ) => showKanbanDialog<T>(
+    context,
     builder: (dialog) => KanbanTaskChoiceDialog<(String, T)>(
       title: title,
       options: options,
       labelOf: (option) => option.$1,
       selected: null,
       footer: dialog.l10n.kanbanBulkPickerFooter(selectedCount),
+      // Cancel, not the header's Done: Move to has a status named Done.
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialog),
+          child: Text(dialog.l10n.widgetsCancel),
+        ),
+      ],
       onPicked: (option) => Navigator.pop(dialog, option.$2),
     ),
   );

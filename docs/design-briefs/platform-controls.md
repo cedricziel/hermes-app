@@ -226,9 +226,9 @@ Rendered locally with headless Chrome; not checked in the claude.ai viewer or on
 
 - Canvas: https://claude.ai/artifact/PoFXDU6uzrwYHFde4gJCZz (private; ask the owner for access)
 - Date: 2026-11-22
-- Boards (8): iPhone 390 x 844 over the Kanban list in selection mode: Move to light (before), Move to light (after), Priority dark (after). Mac 1280 x 800 over the Kanban board: Assign to light (before and after), Move to dark (after). Android 412 x 915: Priority light (before and after).
+- Boards (9): iPhone 390 x 844 over the Kanban list in selection mode: Move to light (before), Move to light (after), Move to light at 1.5x text (after), Priority dark (after). Mac 1280 x 800 over the Kanban board: Assign to light (before and after), Move to dark (after). Android 412 x 915: Priority light (before and after).
 
-Scope: the bulk bar's picker (`_pick` in `lib/src/kanban/widgets/kanban_bulk_bar.dart`, used for Move to, Assign to, Priority and Effort) moves from a raw Material `SimpleDialog` with `SimpleDialogOption`s to `KanbanTaskChoiceDialog` through `showAppDialog`, the way the task panel's assign and priority picks already open. Archive keeps its confirmation. iOS gets the Cupertino route, macOS the 150 ms fade and Android the Material dialog, as in "Kanban dialog presentation", "Settings dialog presentation" and "Mac dialog presentation".
+Scope: the bulk bar's picker (`_pick` in `lib/src/kanban/widgets/kanban_bulk_bar.dart`, used for Move to, Assign to, Priority and Effort) moves from a raw Material `SimpleDialog` with `SimpleDialogOption`s to `KanbanTaskChoiceDialog` through `showAppDialog`, the way the task panel's assign and priority picks already open. `KanbanTaskChoiceDialog` gains a Cancel action (optional `actions`) as well as the optional footer and the nullable `selected`; the task panel's own callers keep their header Done. Archive keeps its confirmation. iOS gets the Cupertino route, macOS the 150 ms fade and Android the Material dialog, as in "Kanban dialog presentation", "Settings dialog presentation" and "Mac dialog presentation".
 
 Decisions:
 
@@ -236,14 +236,14 @@ Decisions:
 - The picker never reads the selected tasks' values, so Priority shows no mark even when every selected task has the same one.
 - A pick closes the dialog and applies, as before (`onPicked` pops the value; the bar then calls `onMove`, `onAssign`, `onPriority` or `onEffort`). The radio is not redrawn as selected, because the group value stays null.
 - A one-line footer under the rows names the scope: "Applies to the N selected tasks." (one task: "Applies to the selected task."). It needs an optional `footer` on `KanbanTaskChoiceDialog`. The old picker never named the count; with no current value to anchor on, this is the only context the dialog gives.
-- Way out without a pick: iOS and macOS keep Done in the header; Android has none, so Back or a tap outside closes it. On macOS and Android a click outside closes it (no text field, nothing to lose); on iOS a tap outside does not close it, as in "Settings dialog presentation", and Done or Esc does. Esc closes it on iOS (a hardware keyboard) and macOS. A dismissal applies nothing.
+- Way out without a pick: the picker has no Done in the header, on any platform. A Done there would sit beside the "Done" status row of Move to (at 3x text the header read "Move to Done"). It has one Cancel text button in the footer (`GroupedDialog.actions`), like the other Kanban dialogs. Cancel, Esc (iOS with a hardware keyboard, and macOS) and Back on Android close it, and a click outside closes it on macOS and Android, applying nothing. On iOS a tap outside does not close it, as in "Settings dialog presentation".
 - Effort ("Profile default", then the efforts) uses the same dialog and form.
 - Cancel and the confirmation of Archive are unchanged. The four picks are one helper, not four dialogs.
 
 Accepted differences from the Flutter build:
 
 - The before boards are hand-drawn: the design system has no Material `SimpleDialog`, so they approximate Flutter's defaults (28 pt corners, 24 pt title, 48 pt options) with `--h-*` tokens.
-- The design system's `KanbanTaskChoiceDialog` has no footer, so the after boards compose `GroupedDialog`, `GroupedSection` (with the footer) and `GroupedChoiceRow` directly.
+- The design system's `KanbanTaskChoiceDialog` has no scope footer and no actions prop, so the after boards compose `GroupedDialog` (its Done hidden by a CSS rule), `GroupedSection` (with the footer) and `GroupedChoiceRow` directly, and draw the Cancel footer as plain markup. The 1.5x board is a CSS zoom of a 236 pt wide dialog, not a real text scale.
 - On Android the after title is 18 pt semibold, where the old SimpleDialog title was 24 pt regular.
 - iPhone light falls to about 1.6:1 between panel and page (Cupertino barrier 0.20), the accepted loss of "Settings dialog presentation". Dark panels are carried by their zinc-500 edge, as before.
 - Motion, hover, focus rings, Esc and the radio's pressed state are behaviour and are not shown on static boards.

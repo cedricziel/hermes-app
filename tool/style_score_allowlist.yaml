@@ -40,8 +40,8 @@ allow:
   - path: lib/src/kanban/widgets/kanban_task_panel.dart
     category: b.dialog
     match: "showDialog<void>("
-    reason: The Android, Windows and Linux task panel switches between this dialog and the sheet below at kKanbanColumnsBreakpoint (720 pt), while showAdaptiveSheet switches at isWideLayout (900 pt); converting would turn a 720 to 899 pt window from a dialog into a sheet, a product decision left to the owner. The dialog is also a fixed 560 x 720 frame, which showAdaptiveSheet cannot set.
+    reason: The Android, Windows and Linux task panel switches between this dialog and the sheet below at kKanbanColumnsBreakpoint (720 pt), while showAdaptiveSheet switches at isWideLayout (900 pt); converting would turn a 720 to 899 pt window from a dialog into a sheet, a product decision left to the owner. The dialog is also capped at 560 x 720 (maxWidth and maxHeight), which showAdaptiveSheet cannot set.
   - path: lib/src/kanban/widgets/kanban_task_panel.dart
     category: b.dialog
     match: "showModalBottomSheet<void>("
-    reason: The phone sheet of the task panel opens below kKanbanColumnsBreakpoint (720 pt), not at showAdaptiveSheet's isWideLayout (900 pt), so converting would turn a 720 to 899 pt window from a dialog into a sheet, a product decision left to the owner. It is also drawn at 0.92 of the height, which showAdaptiveSheet cannot set.
+    reason: The phone sheet of the task panel opens below kKanbanColumnsBreakpoint (720 pt), not at showAdaptiveSheet's isWideLayout (900 pt), so converting would turn a 720 to 899 pt window from a dialog into a sheet, a product decision left to the owner. Its height is capped at 0.92 of the screen, which showAdaptiveSheet cannot set.

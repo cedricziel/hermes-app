@@ -173,6 +173,12 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           selected: null,
           labelOf: (priority) => priority == 0 ? 'Normal' : 'P$priority',
           footer: context.l10n.kanbanBulkPickerFooter(1),
+          actions: [
+            TextButton(
+              onPressed: () {},
+              child: Text(context.l10n.widgetsCancel),
+            ),
+          ],
           onPicked: (_) {},
         ),
       ),
@@ -184,7 +190,39 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           selected: null,
           labelOf: kanbanStatusLabel,
           footer: context.l10n.kanbanBulkPickerFooter(3),
+          actions: [
+            TextButton(
+              onPressed: () {},
+              child: Text(context.l10n.widgetsCancel),
+            ),
+          ],
           onPicked: (_) {},
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'None checked, largest text (iPhone)',
+        builder: (context) => Theme(
+          data: Theme.of(context).copyWith(platform: TargetPlatform.iOS),
+          child: MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: Builder(
+              builder: (context) => KanbanTaskChoiceDialog<String>(
+                title: 'Move to',
+                options: const ['triage', 'todo', 'ready', 'blocked', 'done'],
+                selected: null,
+                labelOf: kanbanStatusLabel,
+                footer: context.l10n.kanbanBulkPickerFooter(3),
+                actions: [
+                  TextButton(
+                    onPressed: () {},
+                    child: Text(context.l10n.widgetsCancel),
+                  ),
+                ],
+                onPicked: (_) {},
+              ),
+            ),
+          ),
         ),
       ),
     ],

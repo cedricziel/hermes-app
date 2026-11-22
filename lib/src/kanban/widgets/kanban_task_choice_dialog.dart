@@ -13,6 +13,7 @@ class KanbanTaskChoiceDialog<T> extends StatelessWidget {
     required this.selected,
     required this.onPicked,
     this.footer,
+    this.actions,
   });
 
   final String title;
@@ -27,9 +28,13 @@ class KanbanTaskChoiceDialog<T> extends StatelessWidget {
   /// A note under the rows, such as what the pick applies to.
   final String? footer;
 
+  /// Replaces the header's Done, as in [GroupedDialog.actions].
+  final List<Widget>? actions;
+
   @override
   Widget build(BuildContext context) => GroupedDialog(
     title: title,
+    actions: actions,
     children: [
       RadioGroup<T>(
         groupValue: selected,

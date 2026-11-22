@@ -1,7 +1,10 @@
+import 'dart:ui' show CheckedState, SemanticsAction;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_bulk_bar.dart';
+import 'package:hermes_app/src/widgets/grouped_choice_row.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 
 import 'support/pump_on_platform.dart';
@@ -40,10 +43,28 @@ Future<void> _open(
 
 final _dialog = find.byType(GroupedDialog);
 
-/// A choice group that holds no value: no row is checked.
-final _emptyGroup = find.byWidgetPredicate(
-  (widget) => widget is RadioGroup && (widget as dynamic).groupValue == null,
-);
+final _rows = find.byWidgetPredicate((widget) => widget is GroupedChoiceRow);
+
+/// Every row is an unchecked member of a mutually exclusive group you can tap.
+void _expectNoRowChecked(WidgetTester tester) {
+  final count = _rows.evaluate().length;
+  expect(count, greaterThan(1));
+  for (var i = 0; i < count; i++) {
+    final data = tester.getSemantics(_rows.at(i)).getSemanticsData();
+    // CheckedState.isFalse: it has a checked state, and it is off.
+    expect(
+      data.flagsCollection.isChecked,
+      CheckedState.isFalse,
+      reason: 'row $i',
+    );
+    expect(
+      data.flagsCollection.isInMutuallyExclusiveGroup,
+      isTrue,
+      reason: 'row $i',
+    );
+    expect(data.hasAction(SemanticsAction.tap), isTrue, reason: 'row $i');
+  }
+}
 
 /// Action, the row to pick and what the bar must then report.
 const _picks = [
@@ -66,12 +87,14 @@ void main() {
         testWidgets('$action opens a grouped dialog with no row checked', (
           tester,
         ) async {
+          final semantics = tester.ensureSemantics();
           await _open(tester, platform, _Calls(), action);
 
           expect(_dialog, findsOneWidget);
           expect(find.byType(SimpleDialog), findsNothing);
           expect(find.text(row), findsOneWidget);
-          expect(_emptyGroup, findsOneWidget);
+          _expectNoRowChecked(tester);
+          semantics.dispose();
         });
 
         testWidgets('$action applies the pick once and closes', (tester) async {
@@ -96,19 +119,17 @@ void main() {
         expect(find.text('Applies to the selected task.'), findsOneWidget);
       });
 
-      if (platform != TargetPlatform.android) {
-        testWidgets('Done closes it and applies nothing', (tester) async {
-          final calls = _Calls();
-          // Priority, since Move has a row of its own named Done.
-          await _open(tester, platform, calls, 'Priority');
+      testWidgets('Cancel closes it and applies nothing', (tester) async {
+        final calls = _Calls();
+        await _open(tester, platform, calls, 'Move');
 
-          await tester.tap(find.text('Done'));
-          await tester.pumpAndSettle();
+        expect(find.text('Done'), findsOneWidget, reason: 'only the status');
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
 
-          expect(_dialog, findsNothing);
-          expect(calls.log, isEmpty);
-        });
-      }
+        expect(_dialog, findsNothing);
+        expect(calls.log, isEmpty);
+      });
 
       if (platform == TargetPlatform.iOS) {
         testWidgets('a barrier tap leaves it open, Esc closes it', (
