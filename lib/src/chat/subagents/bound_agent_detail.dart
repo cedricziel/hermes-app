@@ -58,6 +58,12 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
   Timer? _clock;
   final _noteField = TextEditingController();
   final _focus = FocusNode(debugLabel: 'agent-detail');
+  // Below the Esc binding, so focus that leaves the note field lands here; Tab
+  // leaves it for the chat beside the detail, which is not a modal.
+  final _scope = FocusScopeNode(
+    debugLabel: 'agent-detail-scope',
+    traversalEdgeBehavior: TraversalEdgeBehavior.parentScope,
+  );
   final _ended = ValueNotifier(false);
   var _asking = false;
 
@@ -155,6 +161,7 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
     _watch?.close();
     _noteField.dispose();
     _focus.dispose();
+    _scope.dispose();
     // A confirmation still open for this detail closes with it.
     _ended.value = true;
     _ended.dispose();
@@ -188,7 +195,8 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
             onInvoke: (_) {
               // Escape in the note field with text in it only leaves the
               // field: leaving the detail drops the note.
-              if (_focus.hasFocus &&
+              // The scope also has focus after a click took it off the field.
+              if (_scope.hasFocus &&
                   !_focus.hasPrimaryFocus &&
                   _noteField.text.isNotEmpty) {
                 _focus.requestFocus();
@@ -199,27 +207,32 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
             },
           ),
         },
-        child: Focus(
-          focusNode: _focus,
-          autofocus: true,
-          child: AgentDetailView(
-            model: model,
-            onBack: widget.onBack,
-            onClose: widget.onClose,
-            onStop: controller != null && controller.canStop
-                ? controller.startStop
-                : null,
-            onSendNote: controller != null && controller.canSendNote
-                ? () => unawaited(controller.sendNote())
-                : null,
-            onNoteChanged: (text) => controller?.setNote(text),
-            onCopyNote: () => unawaited(
-              Clipboard.setData(ClipboardData(text: controller?.note ?? '')),
+        // A scope below the binding: a click that takes focus out of the note
+        // field lands here, not on the route's scope above the Actions.
+        child: FocusScope(
+          node: _scope,
+          child: Focus(
+            focusNode: _focus,
+            autofocus: true,
+            child: AgentDetailView(
+              model: model,
+              onBack: widget.onBack,
+              onClose: widget.onClose,
+              onStop: controller != null && controller.canStop
+                  ? controller.startStop
+                  : null,
+              onSendNote: controller != null && controller.canSendNote
+                  ? () => unawaited(controller.sendNote())
+                  : null,
+              onNoteChanged: (text) => controller?.setNote(text),
+              onCopyNote: () => unawaited(
+                Clipboard.setData(ClipboardData(text: controller?.note ?? '')),
+              ),
+              onJumpToLatest: () => controller?.jumpToLatest(),
+              onHolding: (holding) => controller?.setReaderHolding(holding),
+              noteController: _noteField,
+              outputMaxHeight: widget.outputMaxHeight,
             ),
-            onJumpToLatest: () => controller?.jumpToLatest(),
-            onHolding: (holding) => controller?.setReaderHolding(holding),
-            noteController: _noteField,
-            outputMaxHeight: widget.outputMaxHeight,
           ),
         ),
       ),
