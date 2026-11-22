@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
@@ -524,8 +525,11 @@ List<WidgetbookUseCase> _ownShapeUseCases() => [
                 selected: false,
                 onTap: () {},
                 onArchive: () {},
-                menuItems: (_) =>
-                    macThreadMenuItems(pinned: false, manageable: true),
+                menuItems: (context) => macThreadMenuItems(
+                  context.l10n,
+                  pinned: false,
+                  manageable: true,
+                ),
                 onAction: (_) {},
               ),
             ),

@@ -297,6 +297,28 @@ void main() {
       handle.dispose();
     });
 
+    testWidgets('Rename asks in German', (tester) async {
+      await pumpButton(
+        tester,
+        thread: ChatThread(
+          id: 's1',
+          title: 'Release notes',
+          updatedAt: DateTime(2026),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(of: items, matching: find.text('Umbenennen')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chat umbenennen'), findsOneWidget);
+      expect(find.text('Abbrechen'), findsOneWidget);
+      expect(find.text('Speichern'), findsOneWidget);
+    });
+
     testWidgets('Delete asks in German', (tester) async {
       await pumpButton(
         tester,

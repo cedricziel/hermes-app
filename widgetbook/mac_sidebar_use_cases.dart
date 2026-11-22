@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 import 'package:hermes_app/src/drag_out/drag_out_source.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -48,11 +49,14 @@ Widget _row({
   busy: busy,
   onTap: () {},
   onArchive: () {},
-  menuItems: (_) => macThreadMenuItems(pinned: false, manageable: true),
+  menuItems: (context) =>
+      macThreadMenuItems(context.l10n, pinned: false, manageable: true),
   onAction: (_) {},
 );
 
 /// A menu shown as it opens over a row, for the catalog to look at.
+final _english = lookupAppLocalizations(const Locale('en'));
+
 class _OpenMenu extends StatefulWidget {
   const _OpenMenu({required this.items});
 
@@ -183,13 +187,18 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
         _case(
           'Server thread',
           () => _OpenMenu(
-            items: macThreadMenuItems(pinned: false, manageable: true),
+            items: macThreadMenuItems(
+              _english,
+              pinned: false,
+              manageable: true,
+            ),
           ),
         ),
         _case(
           'Pinned, with a new window',
           () => _OpenMenu(
             items: macThreadMenuItems(
+              _english,
               pinned: true,
               manageable: true,
               canOpenInNewWindow: true,
@@ -199,7 +208,11 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
         _case(
           'Local draft',
           () => _OpenMenu(
-            items: macThreadMenuItems(pinned: false, manageable: false),
+            items: macThreadMenuItems(
+              _english,
+              pinned: false,
+              manageable: false,
+            ),
           ),
         ),
       ],

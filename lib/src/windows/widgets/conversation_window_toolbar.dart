@@ -166,8 +166,9 @@ class _MoreButtonState extends State<_MoreButton> {
       tooltip: '',
       onSelected: onAction,
       // Pin has its own toolbar button.
-      itemBuilder: (_) => [
+      itemBuilder: (context) => [
         for (final entry in macThreadMenuItems(
+          context.l10n,
           pinned: false,
           manageable: true,
           exportJson: widget.exportJson,

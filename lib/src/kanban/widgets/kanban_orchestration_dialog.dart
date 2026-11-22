@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/grouped_dialog.dart';
 import '../../telemetry/report_bug.dart';
 import '../kanban_errors.dart';
@@ -98,22 +99,23 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
+    final l10n = context.l10n;
     return GroupedDialog(
-      title: 'Orchestration',
+      title: l10n.kanbanOrchestrationTitle,
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.widgetsCancel),
         ),
         FilledButton(
           onPressed: settings == null ? null : _save,
-          child: const Text('Save'),
+          child: Text(l10n.kanbanSaveAction),
         ),
       ],
       children: [
         KanbanOrchestrationFields(
           loading: settings == null && !_failed,
-          error: _failed ? 'Could not load the settings' : null,
+          error: _failed ? l10n.kanbanOrchestrationLoadFailed : null,
           autoDecompose: settings == null ? false : _autoDecompose,
           autoPromote: settings == null ? false : _autoPromote,
           orchestrator: settings == null ? '' : _orchestrator,
