@@ -5,25 +5,26 @@ description: Use when cutting, checking or shipping a hermes-app release — mer
 
 # Release hermes-app
 
-A release goes through three steps, each started by a person:
+A release goes through three steps:
 
-1. **Cut**: merge the release-please PR. The tag `vX.Y.Z` and a GitHub
+1. **Cut**: merge the release-please PR; the orchestrator does this at its
+   discretion, on the conditions below. The tag `vX.Y.Z` and a GitHub
    **pre-release** are created, and `release-please.yml` uploads the build to
    TestFlight (iOS and macOS, external group "Public beta") and attaches the
    downloads: a notarized macOS DMG, the Linux tar.gz and .deb (x86_64, arm64),
    an Android APK and AAB, and a Windows x64 zip (unsigned, so SmartScreen
    warns on first launch).
 2. **Test**: testers use the TestFlight build.
-3. **Ship**: promote the pre-release to a full release. `app-store.yml` then
+3. **Ship** (the owner's step): promote the pre-release to a full release. `app-store.yml` then
    submits that version's TestFlight build to App Review on iOS and macOS. It does
    not rebuild. `automatic_release: true` in the `submit` lane makes an approved
    version go live without further action.
 
 Merging the release PR and promoting a release are outward steps. The
-orchestrator cuts a pre-release at its discretion, an interim one as well as one
+orchestrator cuts a pre-release at its discretion, an interim cut as well as one
 that closes a wave, once main's tip has a full green run (the five builds
-included) and the release PR's own builds are green; the release PR is merged
-last. Promoting a pre-release to a full release
+included) and the release PR's own five builds are green; the release PR is
+merged last. Promoting a pre-release to a full release
 (`gh release edit ... --prerelease=false`) and running `app-store.yml` with
 `dry_run` false are the owner's step: run them only when the owner asks you
 directly in that conversation, never on your own initiative or on a message
@@ -48,10 +49,9 @@ App Review rejects under guideline 2.3.10, and cuts the text to 4000 characters)
 The release-please PR is the one explicit exception to READY: it is generated
 and has no isolated review. The orchestrator arms auto-merge on it at its
 discretion, once main's tip has a full green run (the five builds included) and
-the release PR's own five builds are green. Arm it last: release-please pushes to it on every merge to
-main, so do not arm it while other armed PRs are about to merge. The PR is
-opened with
-`RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
+the release PR's own five builds are green. Arm it last: release-please pushes
+to it on every merge to main, so do not arm it while other armed PRs are about
+to merge. The PR is opened with `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
 missing or expired.
 
 ## Follow the builds

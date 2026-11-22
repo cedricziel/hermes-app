@@ -145,8 +145,9 @@ reports to the orchestrator, who arms auto-merge.
   are green on the head. Never push to an armed PR; ask the orchestrator to
   disarm first. A superseded commit's cancelled run shows as a failure: compare
   the run's head sha with the PR's head before acting.
-- **Release PR.** Each merge regenerates the release-please PR. Do not touch it
-  until the rollout is done.
+- **Release PR.** Each merge regenerates the release-please PR. The orchestrator
+  may cut a pre-release between waves at its discretion (`release` skill); never
+  arm it while rollout PRs are armed or about to merge.
 
 ## Afterwards
 
