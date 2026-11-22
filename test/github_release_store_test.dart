@@ -120,10 +120,8 @@ void main() {
             ...AppLocalizations.localizationsDelegates,
             if (bridged) ...kMaterialUiLocalizationsDelegates,
           ],
-          builder: (context, child) {
-            final scoped = MaterialUiThemeScope(child: child!);
-            return bridged ? scoped : child;
-          },
+          builder: (context, child) =>
+              bridged ? MaterialUiThemeScope(child: child!) : child!,
           home: UpgradeAlert(
             upgrader: upgrader,
             showReleaseNotes: false,

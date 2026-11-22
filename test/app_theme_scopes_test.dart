@@ -217,12 +217,39 @@ void main() {
     final bad = <String>[];
     for (final f in dartFiles('test')) {
       if (!f.path.endsWith('_test.dart')) continue;
-      final used = _unmountedReaderUses(readers, helpers, f);
+      final used = _unmountedReaderUses(
+        readers,
+        helpers,
+        f,
+        exemptions: _exemptions,
+      );
       if (used.isNotEmpty) {
         bad.add('${f.path}: ${(used.toList()..sort()).join(', ')}');
       }
     }
     expect(bad, isEmpty, reason: _unmountedReason(bad));
+  });
+
+  test('every exemption is still an offender without it', () {
+    final readers = _readers();
+    final helpers = _testHelpers(readers);
+    final stale = <String>[];
+    for (final e in _exemptions) {
+      final files = dartFiles('test').where((f) => f.path == e.path);
+      final offends =
+          files.isNotEmpty &&
+          _apps(files.single.code)
+              .any((a) => !a.mounted && a.args.contains(e.appContains)) &&
+          _unmountedReaderUses(readers, helpers, files.single).isNotEmpty;
+      if (!offends) stale.add('${e.path}: ${e.appContains}');
+    }
+    expect(
+      stale,
+      isEmpty,
+      reason:
+          'These exemptions no longer apply (the file, the app or the reader '
+          'use is gone). Remove them from _exemptions:\n${stale.join('\n')}',
+    );
   });
 
   group('the guard on fixtures', () {
@@ -485,6 +512,52 @@ void main() {
       expect(readers.names, contains('ProbeChain'));
     });
 
+    test('an exemption lets exactly its app through', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/md.dart',
+          'class BoundedMarkdown extends StatelessWidget {\n'
+              "  Widget build(BuildContext context) => GptMarkdown('x');\n"
+              '}\n',
+        ),
+      ]);
+      const toggled =
+          'MaterialApp(builder: (_, c) => on ? AppThemeScopes(child: c!) : c!,'
+          ' home: BoundedMarkdown("x"))';
+      final file = SourceFile('test/e_test.dart', 'final a = $toggled;');
+      const helpers = (mounting: <_Helper>[], plain: <_Helper>[]);
+      const exempt = <_Exemption>[
+        (
+          path: 'test/e_test.dart',
+          appContains: 'on ? AppThemeScopes',
+          reason: 'r',
+        ),
+      ];
+      expect(_unmountedReaderUses(readers, helpers, file), isNotEmpty);
+      expect(
+        _unmountedReaderUses(readers, helpers, file, exemptions: exempt),
+        isEmpty,
+      );
+      expect(
+        _unmountedReaderUses(
+          readers,
+          helpers,
+          SourceFile('test/other_test.dart', 'final a = $toggled;'),
+          exemptions: exempt,
+        ),
+        isNotEmpty,
+      );
+      final second = SourceFile(
+        'test/e_test.dart',
+        'final a = $toggled;\n'
+            'final b = MaterialApp(home: BoundedMarkdown("y"));',
+      );
+      expect(
+        _unmountedReaderUses(readers, helpers, second, exemptions: exempt),
+        isNotEmpty,
+      );
+    });
+
     group('readers in test code', () {
       final readers = _readersOf([
         SourceFile(
@@ -697,6 +770,20 @@ String _withoutFinders(String code) {
   }
 }
 
+/// An app the guard leaves alone on purpose: the test [path] builds an app
+/// whose arguments contain [appContains] and does not mount the scopes, for
+/// [reason]. Each entry has to stay an offender (see the test below), so it
+/// is removed as soon as it no longer applies.
+typedef _Exemption = ({String path, String appContains, String reason});
+
+const List<_Exemption> _exemptions = [
+  (
+    path: 'test/github_release_store_test.dart',
+    appContains: 'bridged ? MaterialUiThemeScope',
+    reason: 'tests the unbridged fallback on purpose',
+  ),
+];
+
 typedef _Helpers = ({List<_Helper> mounting, List<_Helper> plain});
 
 /// The readers the test [file] refers to when it builds an unmounted app of
@@ -705,10 +792,19 @@ typedef _Helpers = ({List<_Helper> mounting, List<_Helper> plain});
 Set<String> _unmountedReaderUses(
   _Readers readers,
   _Helpers helpers,
-  SourceFile file,
-) {
+  SourceFile file, {
+  List<_Exemption> exemptions = const [],
+}) {
   final code = file.code;
-  final unmounted = _apps(code).where((a) => !a.mounted).length;
+  final unmounted = _apps(code)
+      .where(
+        (a) =>
+            !a.mounted &&
+            !exemptions.any(
+              (e) => e.path == file.path && a.args.contains(e.appContains),
+            ),
+      )
+      .length;
   final plainCalled = helpers.plain.where((h) => h.calledIn(code)).toList();
   if (unmounted == 0 && plainCalled.isEmpty) return const {};
   return {
@@ -1047,11 +1143,15 @@ String? _namedArgument(String args, String label) {
 
 /// Every app built in [code], and whether it mounts the theme scopes.
 /// `HermesApp` is the real app and always does.
-List<({int start, bool mounted})> _apps(String code) => [
+List<({int start, bool mounted, String args})> _apps(String code) => [
   for (final m in _appConstructor.allMatches(code))
-    (start: m.start, mounted: _constructorMounts(code, m.end)),
+    (
+      start: m.start,
+      mounted: _constructorMounts(code, m.end),
+      args: code.substring(m.end, callEnd(code, m.end) - 1),
+    ),
   for (final m in RegExp(r'(?<![\w.])HermesApp\(').allMatches(code))
-    (start: m.start, mounted: true),
+    (start: m.start, mounted: true, args: ''),
 ];
 
 class _Helper {

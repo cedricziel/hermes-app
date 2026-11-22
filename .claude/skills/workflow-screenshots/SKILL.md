@@ -62,7 +62,11 @@ To see one widget in every state without a flow around it, use the
   only `?:`: a mount behind a `switch`, a collection `if` or an `if`/`return`
   block, or a scope on a builder sibling instead of `child`, is not caught.
   An extension member (`context.surface`) counts as a reader use only in a file
-  that is in the extension's library or imports it. Add new app-level
+  that is in the extension's library or imports it. A test that leaves its app
+  unmounted on purpose (the unbridged fallback) goes on the `_exemptions` list in
+  the guard, with the path, the text of the app and a one-line reason; a test
+  asserts each entry is still an offender, so remove it once it no longer
+  applies. Never hide a conditional mount from the guard by rewriting it. Add new app-level
   theme scopes inside `AppThemeScopes`. `test/app_theme_scopes_test.dart` compares
   the theme-like inherited widgets above the `Navigator` in `HermesApp` and
   `pumpScreen` (a scope added in `app.dart` that the harness lacks fails it; a
