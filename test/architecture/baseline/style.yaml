@@ -375,7 +375,6 @@ style.string:
   lib/src/kanban/kanban_workers_screen.dart: 8
   lib/src/kanban/widgets/kanban_board_menu.dart: 3
   lib/src/kanban/widgets/kanban_board_toolbar.dart: 4
-  lib/src/kanban/widgets/kanban_bulk_bar.dart: 1
   lib/src/kanban/widgets/kanban_card.dart: 1
   lib/src/kanban/widgets/kanban_card_drag.dart: 1
   lib/src/kanban/widgets/kanban_inspector_layout.dart: 1

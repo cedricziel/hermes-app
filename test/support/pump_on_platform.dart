@@ -12,12 +12,14 @@ Future<void> pumpOnPlatform(
   required TargetPlatform platform,
   Widget? bottom,
   EdgeInsets padding = EdgeInsets.zero,
+  Locale? locale,
 }) async {
   tester.view.physicalSize = const Size(393, 852);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
+      locale: locale,
       localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: buildHermesLightTheme(platform: platform),
