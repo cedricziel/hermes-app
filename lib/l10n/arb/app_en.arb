@@ -3329,6 +3329,22 @@
   },
 
   "@@x-area-navigation": "",
+  "navigationChordTooltip": "{label} ({chord})",
+  "@navigationChordTooltip": {
+    "description": "Hover text of a button whose command has a keyboard shortcut on Windows and Linux, such as New chat (Ctrl+N).",
+    "placeholders": {
+      "label": {"type": "String", "example": "New chat"},
+      "chord": {"type": "String", "example": "Ctrl+N"}
+    }
+  },
+  "navigationKeyboardShortcutsOr": "or",
+  "@navigationKeyboardShortcutsOr": {
+    "description": "Between two key combinations that do the same, such as Ctrl+R or F5."
+  },
+  "navigationKeyboardShortcutsTitle": "Keyboard shortcuts",
+  "@navigationKeyboardShortcutsTitle": {
+    "description": "Title of the page that lists the keyboard shortcuts, and of the Settings row that opens it."
+  },
 
   "@@x-area-network": "",
 

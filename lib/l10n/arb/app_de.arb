@@ -710,6 +710,9 @@
   "modelsSetupTitle": "Modell einrichten",
 
   "@@x-area-navigation": "",
+  "navigationChordTooltip": "{label} ({chord})",
+  "navigationKeyboardShortcutsOr": "oder",
+  "navigationKeyboardShortcutsTitle": "Tastenkürzel",
 
   "@@x-area-network": "",
 
