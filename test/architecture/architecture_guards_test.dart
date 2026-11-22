@@ -152,7 +152,7 @@ final _rawExpansionTile = RegExp(
 /// The wrappers are matched at a word boundary, so `NotMiniFabFocusRing(`
 /// counts for nothing.
 final _floatingButton = RegExp(
-  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?!\w)(?:\.(\w+))?',
+  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?!\w)(?:\.(\w+)\b)?',
 );
 final _inMiniWrapper = RegExp(r'\bMiniFabFocusRing\(\s*child:\s*$');
 final _inOutsideWrapper = RegExp(
@@ -181,9 +181,17 @@ List<int> bareFloatingButtons(String code) {
         if (depth == 0) break;
       }
     }
-    final mini =
-        m.group(1) == 'small' ||
-        RegExp(r'\bmini\s*:\s*true').hasMatch(args.toString());
+    final value = RegExp(r'\bmini\s*:\s*([^,]*)')
+        .firstMatch(args.toString())
+        ?.group(1)
+        ?.trim();
+    // Only the literals `true` and `false` can be read: any other value (a
+    // variable, `!false`) hides whether the button is mini, so it is flagged.
+    if (value != null && value != 'true' && value != 'false') {
+      bare.add(m.start);
+      continue;
+    }
+    final mini = m.group(1) == 'small' || value == 'true';
     final before = code.substring(0, m.start);
     final ok =
         call && (mini ? _inMiniWrapper : _inOutsideWrapper).hasMatch(before);
@@ -840,7 +848,7 @@ final guardRules = <Rule>[
     name: 'floating-button-without-focus-ring',
     message:
         'wrap a FloatingActionButton in FocusRing.outside(radius: <its '
-        'radius>, child: ...), or a mini one (mini: true, .small) in MiniFabFocusRing(child: ...) (lib/src/theme/focus_ring.dart): its shape is '
+        'radius>, child: ...), or a mini one (mini: true, .small) in MiniFabFocusRing(child: ...); mini: must be the literal true or false, else use MiniFabFocusRing (lib/src/theme/focus_ring.dart): its shape is '
         'not state-aware, so the keyboard focus ring is a wrapper.',
     hits: _floatingButtonHits,
   ),
@@ -986,6 +994,41 @@ void main() {
       expect(bare('FloatingActionButton(onPressed: f)'), isTrue);
       expect(bare('FloatingActionButton.extended(onPressed: f)'), isTrue);
       expect(bare('f(FloatingActionButton.new)'), isTrue);
+    });
+
+    test('mini must be a literal, and nested mini is not the button\'s', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      const mini = 'MiniFabFocusRing(child: ';
+      const outside = 'FocusRing.outside(radius: 28, child: ';
+      // Only the literals true and false can be read.
+      expect(
+        bare('${mini}FloatingActionButton(mini: compact, onPressed: f))'),
+        isTrue,
+      );
+      expect(
+        bare('${outside}FloatingActionButton(mini: compact, onPressed: f))'),
+        isTrue,
+      );
+      expect(
+        bare('${mini}FloatingActionButton(mini: !false, onPressed: f))'),
+        isTrue,
+      );
+      expect(
+        bare('${outside}FloatingActionButton(mini: false, onPressed: f))'),
+        isFalse,
+      );
+      expect(bare('${mini}FloatingActionButton(mini: true))'), isFalse);
+      // A nested Foo(mini: true) is not the button's: the regular button
+      // inside MiniFabFocusRing is flagged.
+      expect(
+        bare('${mini}FloatingActionButton(child: Foo(mini: true)))'),
+        isTrue,
+      );
+      expect(
+        bare('${outside}FloatingActionButton(child: Foo(mini: true)))'),
+        isFalse,
+      );
+      expect(bare('FloatingActionButtonThemeData(mini: compact)'), isFalse);
     });
 
     test('mini is read from the button\'s own arguments only', () {
