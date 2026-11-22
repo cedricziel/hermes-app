@@ -20,7 +20,7 @@ final _documents = <String, String Function()>{
   'identical fences': identicalFences,
   'tildes, info strings and 4-backtick fences': tildesInfoStringsAndLongFences,
   'unclosed fence at the end': unclosedAtEnd,
-  'lines of 495 to 502 characters': longLines,
+  'lines of 495 to 502 characters around the 500 limit': longLines,
   'block growing past 8000 characters': growingBlock,
   'emoji and ZWJ sequences': emojiFences,
   'lone surrogates': loneSurrogates,
@@ -48,6 +48,6 @@ void main() {
     ].join('\n\n');
     await tester.pumpWidget(markdownApp(document, const Env()));
     expect(colouredChars(tester), lessThanOrEqualTo(kDocumentLimit));
-    expect(codeChars(tester), greaterThan(kDocumentLimit));
+    expect(colourableChars(tester), greaterThan(kDocumentLimit));
   });
 }

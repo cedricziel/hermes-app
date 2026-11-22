@@ -29,23 +29,28 @@ final _documents = <String, String Function()>{
 void main() {
   defineStreamCases(_documents);
 
-  // The mixed document is about 97 000 characters: chunks of 61 would take
+  // The mixed document is over 100 000 characters: chunks of 61 would take
   // minutes, so it streams in chunks of 400 and, around the limit, of 7.
-  testWidgets('the 97k mixed document, chunks of 400 and 7 around the limit', (
+  testWidgets(
+    'the large mixed document, chunks of 400 and 7 around the limit',
+    (tester) async {
+      final document = mixedDocument();
+      expect(document.length, greaterThan(100000));
+      await streamDocument(
+        tester,
+        document,
+        chunk: 400,
+        fineChunk: 7,
+        finePumps: 150,
+      );
+    },
+  );
+
+  // Under the limit on purpose: it checks only that one-character chunks of
+  // footnotes, lists and alerts render, not the colouring limit.
+  testWidgets('a small document streams in one-character chunks', (
     tester,
   ) async {
-    final document = mixedDocument();
-    expect(document.length, greaterThan(95000));
-    await streamDocument(
-      tester,
-      document,
-      chunk: 400,
-      fineChunk: 7,
-      finePumps: 150,
-    );
-  });
-
-  testWidgets('a small document, one character at a time', (tester) async {
     final small = [
       for (var i = 0; i < 2; i++)
         'P $i [^s$i].\n\n- li\n\n${indent('  ', fenced(codeBody(4, i)))}\n\n'

@@ -73,8 +73,8 @@ void main() {
           chunk: doc.key == 'identical fences' ? 61 : 400,
           // HermesCodeBlock's header Row overflows by 1.3 px at 3x text in a
           // 400 px view when the mixed document's fences are drawn. That is a
-          // separate layout defect with its own roadmap row; the follow-up fix
-          // PR moves these two cases back to 400 px.
+          // separate layout defect; #1302 moves these two cases back to
+          // 400 px.
           width: doc.key == 'mixed' && _scaled.contains(event.key) ? 900 : 400,
         );
       });
@@ -110,15 +110,14 @@ void main() {
     tester,
   ) async {
     final document = growingBlock();
-    final shrunk = document.replaceFirst(codeBody(80), codeBody(60));
+    final shrunk = document.replaceFirst(
+      codeBody(growingBlockLines),
+      codeBody(60),
+    );
     await streamDocument(
       tester,
       document,
       steps: [Step(_at(document, 0.8), replace: shrunk)],
     );
-  });
-
-  testWidgets('lone surrogates while the reply streams', (tester) async {
-    await streamDocument(tester, loneSurrogates(), chunk: 61);
   });
 }
