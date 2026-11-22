@@ -480,7 +480,7 @@
   "chatWidgetsThreadMenuDelete": "Löschen",
   "chatWidgetsThreadMenuDeleteMessage": "„{title}“ und die Nachrichten darin werden endgültig gelöscht.",
   "chatWidgetsThreadMenuDeleteTitle": "Diesen Chat löschen?",
-  "chatWidgetsThreadMenuExportJson": "Chat als JSON exportieren…",
+  "chatWidgetsThreadMenuExportJson": "Chat als JSON exportieren …",
   "chatWidgetsThreadMenuLabel": "Chat-Aktionen für {title}",
   "chatWidgetsThreadMenuPin": "Anheften",
   "chatWidgetsThreadMenuRename": "Umbenennen",

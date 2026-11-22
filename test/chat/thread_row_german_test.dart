@@ -291,8 +291,7 @@ void main() {
       );
       await openMenu(tester);
       await tester.tap(find.text('Verlauf kopieren'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
       expect(find.text('Verlauf kopiert'), findsOneWidget);
     });
 
@@ -371,7 +370,7 @@ void main() {
       for (final label in [
         'Dateien',
         'Verlauf kopieren',
-        'Chat als JSON exportieren…',
+        'Chat als JSON exportieren …',
         'Umbenennen',
         'Nicht mehr anheften',
         'Archivieren',

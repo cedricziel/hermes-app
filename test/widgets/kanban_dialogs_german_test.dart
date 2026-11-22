@@ -53,6 +53,7 @@ void main() {
     expectGerman([
       'Ops exportieren',
       'Server-Pfad',
+      'Export-Ordner verwenden',
       'Anhänge einbeziehen',
       'Worker-Logs einbeziehen',
       'Das Archiv wird auf dem Server geschrieben, nicht auf diesem Gerät. Bleibt es leer, wird der Export-Ordner des Servers verwendet.',
