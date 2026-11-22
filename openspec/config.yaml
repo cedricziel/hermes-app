@@ -9,8 +9,8 @@ context: |
   Language: artifacts are written in English.
   Validation: cloud sessions have no `openspec` CLI on PATH. Before opening the PR, run
   `npx --yes @fission-ai/openspec@2.1.1 validate <change> --strict` from the repo root, once
-  per change (2.1.1 rather than the generated-skills pin, because it has the dropped-scenario
-  check). Put its output, or the reason it could not run, in the PR's `## Proof`. If the
+  per change (2.1.1 rather than the generated-skills pin, because only it checks requirement
+  length in a change). Put its output, or the reason it could not run, in the PR's `## Proof`. If the
   permission system refuses npx because it downloads and runs a package, say so in `## Proof`;
   never work around the refusal. It fails on a requirement over 500 characters (a warning that
   `--strict` turns into a failure): split it into ADDED requirements. It also fails on a
