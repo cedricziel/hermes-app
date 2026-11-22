@@ -29,7 +29,7 @@ Why four: server alerts and background work have no notification to carry. Why r
 
 ### Creating the channels
 
-On Android 8+ the service creates all four through `AndroidFlutterLocalNotificationsPlugin.createNotificationChannel` in `_start()`, in both the app's isolate and the background isolate, after the migration step below has run or been skipped. Creating an existing channel updates its name and description and leaves its importance alone. Below Android 8 channels do not exist and the calls are no-ops (the post's `priority` then applies and stays set).
+On Android 8+ the service creates all four through `AndroidFlutterLocalNotificationsPlugin.createNotificationChannel` in `_start()`, in both the app's isolate and the background isolate, once the migration step below has finished (flag set) or the flag was already set. A step that fails at its read (step 2) creates none of the new channels; a step that fails at a later create or delete leaves the flag unset. In both cases posts keep using `agent_activity` until a later start finishes the step. Creating an existing channel updates its name and description and leaves its importance alone. Below Android 8 channels do not exist and the calls are no-ops (the post's `priority` then applies and stays set).
 
 `AndroidNotificationDetails` gets the chosen channel's id, name, description and importance on every post, as today. With `channelAction` at `createIfNotExists`, a post never fails for a missing channel.
 
@@ -41,7 +41,7 @@ A. Delete it in the release that ships the split. Any setting the user made on `
 B. Keep it unused for a release. Settings stay but nothing reads them, an empty channel sits in settings under the old name, and the same migration is still to be written later.
 C. Carry over, then delete once (proposed).
 
-Android lowers an existing channel's importance on a recreate only while the user has not changed it, and never raises it, so a carry-over has to happen before the new channels exist: once created at `high`, they cannot be lowered to match. Order of the step, in `_start()` after `initialize` and before any `createNotificationChannel` for the new ids and before any post of this run:
+Android lowers an existing channel's importance on a recreate only while the user has not changed it, and never raises it, so the carry-over has to be known before the new channels exist: no loud channel may exist for a post to use, or for the user to start editing, before the old mute has been read and applied. Order of the step, in `_start()` after `initialize` and before any `createNotificationChannel` for the new ids and before any post of this run:
 
 1. If the flag `hermes.notifications.channels.v1` is set, skip the step.
 2. Read the old channel with `getNotificationChannels()` (nullable; null counts as a failed read).
@@ -49,6 +49,8 @@ Android lowers an existing channel's importance on a recreate only while the use
 4. `deleteNotificationChannel(channelId: 'agent_activity')`, then set the flag. Other settings (sound, vibration, lock-screen visibility, bubbles) are not carried; the release note says so.
 
 While the step is pending (the flag is not set: a failed read or delete, or the step has not run yet) a post goes to `agent_activity`, whatever its kind, so no notification lands in a channel created at the wrong importance and the user's mute still holds. Once the flag is set, posts use the new ids. A failure leaves the flag unset and the old channel in place; the next start tries again.
+
+The flag is read per post (preferences read through `SharedPreferencesAsync`, which has no cache), not once per start, so an isolate whose own step failed sees the flag the other isolate set and moves to the new ids. A post already in flight to `agent_activity` can still recreate it: `createIfNotExists` brings back the deleted channel with the user's earlier settings, and the flag is already set, so step 4 would never delete it again. So once the flag is set, every start also deletes a leftover `agent_activity` (idempotent: deleting a missing channel is harmless), and the new ids never depend on it.
 
 Two isolates start the service (the app and the WorkManager background run) and can both see the flag unset. The step is serialised with the existing cross-isolate lock pattern (the SQLite connection lock, as `announced-lock.sqlite` uses), taken around steps 1 to 4 and re-checking the flag inside the lock; the loser finds the flag set and skips. The steps are also idempotent (creating an existing channel changes nothing, deleting a missing one is harmless), so a lock failure degrades to a repeated harmless run, never to a lost mute: the creation in step 3 happens only when the old channel was still there to read.
 
