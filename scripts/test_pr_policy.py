@@ -140,6 +140,37 @@ class CommentInCodeTest(unittest.TestCase):
         for b in self.bodies():
             self.assertEqual(review_recorded(b, SHA), [], b)
 
+    def test_mid_line_unclosed_opener_is_plain_text(self):
+        for proof in [
+            "Typing <!-- in the composer no longer opens a comment.",
+            "A lone ` backtick, then <!-- an opener.",
+        ]:
+            b = body(proof=proof)
+            self.assertEqual(run(b=b), [], proof)
+            self.assertEqual(review_recorded(b, SHA), [], proof)
+
+    def test_line_start_unclosed_opener_hides_the_rest(self):
+        for opener in ("<!-- note", "   <!-- note"):
+            b = body(proof="Done.\n" + opener)
+            self.assertTrue(any("missing" in f for f in run(b=b)), opener)
+            self.assertTrue(review_recorded(b, SHA), opener)
+
+    def test_mid_line_opener_closed_later_is_a_comment(self):
+        b = body(proof="Done <!-- note\nstill hidden -->\nVisible.")
+        self.assertEqual(run(b=b), [])
+        self.assertNotIn("hidden", pr_policy._strip_comments(b))
+
+    def test_fence_inside_a_comment_does_not_hide_the_hatch(self):
+        proof = "<!--\n```\n-->"
+        line = "Catalog-first: not applicable, a pure helper with no states"
+        review = (
+            f"Reviewer: isolated-reviewer Head: {SHA} Verdict: clean\nFindings: 0\n"
+            f"<!--\n{line}\nRevert-the-fix: not applicable\nProof reproduced: yes\n"
+        )
+        out, note = catalog_first([added(WIDGET, CLASS)], body(proof=proof, review=review), SHA)
+        self.assertEqual(len(out), 1)
+        self.assertIsNone(note)
+
     def test_prose_comment_still_unclosed_to_the_end(self):
         b = body(proof="Done.\n<!-- note")
         self.assertTrue(any("missing" in f for f in run(b=b)))
@@ -720,8 +751,29 @@ class CatalogFirstTest(unittest.TestCase):
         self.assertEqual(len(out), 1)
 
     def test_unclosed_comment_strips_to_the_end(self):
-        self.assertEqual(pr_policy._strip_comments("a <!-- x\ny"), "a ")
+        self.assertEqual(pr_policy._strip_comments("a\n<!-- x\ny"), "a\n")
         self.assertEqual(pr_policy._strip_comments("a <!-- x --> b"), "a  b")
+
+    def test_block_commented_widget_does_not_trigger(self):
+        files = [
+            added(
+                WIDGET,
+                "/*",
+                "class Old extends StatelessWidget {",
+                "}",
+                "*/",
+                "class Plain {}",
+            )
+        ]
+        self.assertEqual(self.run_cf(files), ([], None))
+
+    def test_declaration_after_a_block_comment_still_triggers(self):
+        files = [
+            added(WIDGET, "/* the row", "   of chips */", "class Real", "    extends StatelessWidget {")
+        ]
+        out, _ = self.run_cf(files)
+        self.assertEqual(len(out), 1)
+        self.assertIn("Real", out[0])
 
     def test_renamed_or_removed_widget_file_no_trigger(self):
         for status in ("renamed", "removed"):
