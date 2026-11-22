@@ -32,7 +32,7 @@ Details of the compact and medium forms:
 
 ## Non-goals
 
-- Changing the Mac, the expanded sidebar or the iPad layout. An iPad at 700 to 899 dp keeps the sidebar it has; this change gives it no rail.
+- Changing the Mac, the expanded sidebar or an expanded iPad window. An iPad window of 700 to 899 dp with a shortest side of at least 600 keeps the sidebar it has, and this change gives it no rail; a narrower Split View or Slide Over pane gets the tab bar, as above.
 - A rail on iOS, or a tab bar on desktop.
 - New deep links or a Settings deep link. `hermes://` stays as in `docs/architecture/deep-links.md`.
 - Badges for unread chats or open requests on the Chats tab. Only the server attention mark moves, to More.

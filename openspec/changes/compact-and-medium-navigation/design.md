@@ -35,7 +35,7 @@ Everything below was read in the code at the base commit of this branch.
 
 - **A. Rail on Material chrome, list-detail Chats from 720 dp. (Recommended.)** An 80 dp rail leaves 520 dp at 600; a 280 dp list plus a 360 dp conversation needs 720 with the rail, hence 720. Below that a single pane with the rail.
 - **B. Widen "wide" to 600.** Gives a 280 pt sidebar plus a 320 pt conversation at 600: too narrow, and it moves 30 call sites.
-- **C. Rail on iPad too.** Rejected for now: an iPad at 700 to 899 already has the sidebar and the audit found no fault there.
+- **C. Rail on iPad too.** Rejected for now: an expanded iPad window (700 or more with a shortest side of at least 600) already has the sidebar and the audit found no fault there; narrower iPad windows get the tab bar.
 
 ## Decisions
 

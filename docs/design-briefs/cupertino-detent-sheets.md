@@ -17,7 +17,7 @@ New components needed: the iOS sheet container (rounded top, hairline, scrim, de
 
 ## Proposed:
 
-On iPhone, every sheet opened through `showAdaptiveSheet` gets rounded top corners, a grabber and one of three detents: `fit` for confirmations and short menus, `mediumLarge` for lists and details that grow, `large` for flows with text fields. iPad, Mac and wide layouts keep their dialog. Android keeps its Material sheet.
+On iPhone, every sheet opened through `showAdaptiveSheet` gets rounded top corners, a grabber and one of three detents: `fit` for confirmations and short menus, `mediumLarge` for lists and details that grow, `large` for flows with text fields. A full-screen iPad, the Mac and wide layouts keep their dialog; an iPad window that is not expanded (Split View or Slide Over) gets the iPhone sheet. Android keeps its Material sheet.
 
 ### Who and why
 
