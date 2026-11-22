@@ -2055,6 +2055,143 @@ void main() {
         );
       });
     });
+
+    group('a member name that is also a common call', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/md.dart',
+          'class BoundedMarkdown extends StatelessWidget {\n'
+              "  Widget build(BuildContext context) => GptMarkdown('x');\n"
+              '}\n',
+        ),
+      ]);
+      const helpers = (mounting: <_Helper>[], plain: <_Helper>[]);
+      Set<String> uses(String body) => _unmountedReaderUses(
+        readers,
+        helpers,
+        SourceFile('test/t_test.dart', body),
+      );
+      String suite(String before, String inTest) =>
+          '$before'
+          'void main() {\n'
+          '  testWidgets("t", (t) async {\n'
+          '$inTest'
+          '    await t.pumpWidget(MaterialApp(home: Text("x")));\n'
+          '  });\n'
+          '}\n';
+
+      test('a text-only test that disposes is not blamed on a state class', () {
+        expect(
+          uses(
+            suite(
+              'class _HostState extends State<StatefulWidget> {\n'
+                  '  Widget build(c) => BoundedMarkdown("x");\n'
+                  '  void dispose() {}\n'
+                  '}\n',
+              '    addTearDown(c.dispose);\n',
+            ),
+          ),
+          isEmpty,
+        );
+      });
+
+      test('a text-only test that pumps is not blamed on a rig', () {
+        expect(
+          uses(
+            suite(
+              'class _Rig {\n'
+                  '  Widget get screen => BoundedMarkdown("x");\n'
+                  '  Future<void> pump(t) async {}\n'
+                  '}\n',
+              '    await t.pump();\n',
+            ),
+          ),
+          isEmpty,
+        );
+      });
+
+      test(
+        'a bare call that shares an extension member name is not blamed',
+        () {
+          expect(
+            uses(
+              suite(
+                'extension _Md on WidgetTester {\n'
+                    '  Widget get md => BoundedMarkdown("x");\n'
+                    '}\n',
+                '    md();\n',
+              ),
+            ),
+            isEmpty,
+          );
+        },
+      );
+
+      test('an instance held in a local of main still reaches its class', () {
+        expect(
+          uses(
+            'class _Rig {\n'
+            '  Widget get view => BoundedMarkdown("x");\n'
+            '}\n'
+            'void main() {\n'
+            '  final rig = _Rig();\n'
+            '  testWidgets("t", (t) async {\n'
+            '    await t.pumpWidget(MaterialApp(home: rig.view));\n'
+            '  });\n'
+            '}\n',
+          ),
+          isNotEmpty,
+        );
+      });
+
+      test('an extension type member and an enum member reach their type', () {
+        expect(
+          uses(
+            'extension type _Wrap(int v) {\n'
+            '  Widget get shown => BoundedMarkdown("x");\n'
+            '}\n'
+            'void main() {\n'
+            '  testWidgets("t", (t) async {\n'
+            '    await t.pumpWidget(MaterialApp(home: _Wrap(1).shown));\n'
+            '  });\n'
+            '}\n',
+          ),
+          isNotEmpty,
+        );
+        expect(
+          uses(
+            'enum _Case {\n'
+            '  a;\n'
+            '  Widget get shown => BoundedMarkdown("x");\n'
+            '}\n'
+            'void main() {\n'
+            '  for (final c in _Case.values) {\n'
+            '    testWidgets("t", (t) async {\n'
+            '      await t.pumpWidget(MaterialApp(home: c.shown));\n'
+            '    });\n'
+            '  }\n'
+            '}\n',
+          ),
+          isNotEmpty,
+        );
+      });
+
+      test('a method call on an extension member reaches it', () {
+        expect(
+          uses(
+            'extension _Md on WidgetTester {\n'
+            '  Widget md() => BoundedMarkdown("x");\n'
+            '}\n'
+            'void main() {\n'
+            '  testWidgets("t", (t) async {\n'
+            '    await t.pumpWidget(MaterialApp(home: t.md()));\n'
+            '  });\n'
+            '}\n',
+          ),
+          isNotEmpty,
+        );
+      });
+    });
   });
 }
 
@@ -2318,18 +2455,28 @@ class _Index extends RecursiveAstVisitor<void> {
   final loops = <AstNode>[];
 
   /// What a name can stand for: a function, a variable or a type declared in
-  /// the file, with its range and the names it answers to. A type or an
-  /// extension answers to its own name and to the names of its members
-  /// (`t.md` reaches a getter of an extension). A reader built inside one is
-  /// drawn only by what refers to one of those names.
-  final bindings = <({Set<String> names, _Span span})>[];
+  /// the file, with its range, the names it answers to and, for an extension,
+  /// its members. A type is reached by its name alone; an extension has no
+  /// name to use, so `t.md` reaches its getter `md` (see [accesses]). A reader
+  /// built inside one is drawn only by what refers to one of those.
+  final bindings = <({Set<String> names, Set<String> members, _Span span})>[];
+
+  /// The member of every access: `md` in `x.md` or `t.md()`. Only an access
+  /// reaches a member of an extension, never a bare call that shares its name
+  /// (`pump()`, `dispose`).
+  final accesses = <({String name, int offset})>[];
 
   /// Every name the file refers to, as the tree has it: an identifier or the
   /// name of a type. A label (`body:`) and a declared name are not references.
   final references = <({String name, int offset})>[];
 
-  void _bind(Iterable<String> names, AstNode node) => bindings.add((
+  void _bind(
+    Iterable<String> names,
+    AstNode node, {
+    Iterable<String> members = const [],
+  }) => bindings.add((
     names: {...names},
+    members: {...members},
     span: (start: node.offset, end: node.end),
   ));
 
@@ -2348,6 +2495,21 @@ class _Index extends RecursiveAstVisitor<void> {
   }
 
   @override
+  void visitPrefixedIdentifier(PrefixedIdentifier node) {
+    accesses.add((name: node.identifier.name, offset: node.identifier.offset));
+    super.visitPrefixedIdentifier(node);
+  }
+
+  @override
+  void visitPropertyAccess(PropertyAccess node) {
+    accesses.add((
+      name: node.propertyName.name,
+      offset: node.propertyName.offset,
+    ));
+    super.visitPropertyAccess(node);
+  }
+
+  @override
   void visitNamedType(NamedType node) {
     references.add((name: node.name.lexeme, offset: node.offset));
     super.visitNamedType(node);
@@ -2361,50 +2523,47 @@ class _Index extends RecursiveAstVisitor<void> {
 
   @override
   void visitClassDeclaration(ClassDeclaration node) {
-    _bind([
-      node.namePart.typeName.lexeme,
-      ..._memberNames(node.body.members),
-    ], node);
+    _bind([node.namePart.typeName.lexeme], node);
     super.visitClassDeclaration(node);
   }
 
   @override
   void visitMixinDeclaration(MixinDeclaration node) {
-    _bind([node.name.lexeme, ..._memberNames(node.body.members)], node);
+    _bind([node.name.lexeme], node);
     super.visitMixinDeclaration(node);
   }
 
   @override
   void visitEnumDeclaration(EnumDeclaration node) {
-    final body = node.body;
-    _bind([
-      node.namePart.typeName.lexeme,
-      if (body is BlockEnumBody) ..._memberNames(body.members),
-    ], node);
+    _bind([node.namePart.typeName.lexeme], node);
     super.visitEnumDeclaration(node);
   }
 
   @override
   void visitExtensionTypeDeclaration(ExtensionTypeDeclaration node) {
-    _bind([
-      node.namePart.typeName.lexeme,
-      ..._memberNames(node.body.members),
-    ], node);
+    _bind([node.namePart.typeName.lexeme], node);
     super.visitExtensionTypeDeclaration(node);
   }
 
   @override
   void visitExtensionDeclaration(ExtensionDeclaration node) {
-    _bind([
-      if (node.name != null) node.name!.lexeme,
-      ..._memberNames(node.body.members),
-    ], node);
+    _bind(
+      [if (node.name != null) node.name!.lexeme],
+      node,
+      members: _memberNames(node.body.members),
+    );
     super.visitExtensionDeclaration(node);
   }
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
     calls.add(node);
+    if (node.realTarget != null) {
+      accesses.add((
+        name: node.methodName.name,
+        offset: node.methodName.offset,
+      ));
+    }
     super.visitMethodInvocation(node);
   }
 
@@ -2833,11 +2992,15 @@ Set<String> _attributedUses(_Readers readers, SourceFile file, int offset) {
   // What the test refers to by name: in its own callback, in the `setUp` and
   // `setUpAll` around it and in the loops that make it, and, to a fixpoint, in
   // whatever those refer to.
-  final referenced = <String>{
-    ..._names(p, own),
+  final seeds = [
+    own,
     for (final n in [...p.setUpCalls, ...p.index.loops].where(inAround))
-      ..._names(p, (start: n.offset, end: n.end)),
-  };
+      (start: n.offset, end: n.end),
+  ];
+  final referenced = <String>{for (final r in seeds) ..._names(p, r)};
+  final accessed = <String>{for (final r in seeds) ..._accessed(p, r)};
+  bool reaches(({Set<String> names, Set<String> members, _Span span}) b) =>
+      b.names.any(referenced.contains) || b.members.any(accessed.contains);
   // Only a declaration around the tests is followed (a top-level one, or a
   // local of `main` or a group), and as a whole: what it holds is its own.
   final outer = [
@@ -2847,9 +3010,12 @@ Set<String> _attributedUses(_Readers readers, SourceFile file, int offset) {
   for (var grew = true; grew;) {
     grew = false;
     for (final b in outer) {
-      if (b.names.any(referenced.contains)) {
+      if (reaches(b)) {
         for (final n in _names(p, b.span)) {
           grew |= referenced.add(n);
+        }
+        for (final n in _accessed(p, b.span)) {
+          grew |= accessed.add(n);
         }
       }
     }
@@ -2868,7 +3034,7 @@ Set<String> _attributedUses(_Readers readers, SourceFile file, int offset) {
       for (final b in p.index.bindings)
         if (h.offset >= b.span.start && h.offset < b.span.end) b,
     ]..sort((a, b) => a.span.start.compareTo(b.span.start));
-    return holders.isEmpty || holders.first.names.any(referenced.contains);
+    return holders.isEmpty || reaches(holders.first);
   }
 
   return {
@@ -2887,6 +3053,12 @@ Set<String> _attributedUses(_Readers readers, SourceFile file, int offset) {
 /// The names [p] refers to in [span].
 Set<String> _names(_Parsed p, _Span span) => {
   for (final r in p.index.references)
+    if (r.offset >= span.start && r.offset < span.end) r.name,
+};
+
+/// The members [p] accesses in [span] (`md` in `t.md`).
+Set<String> _accessed(_Parsed p, _Span span) => {
+  for (final r in p.index.accesses)
     if (r.offset >= span.start && r.offset < span.end) r.name,
 };
 
