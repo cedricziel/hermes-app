@@ -382,12 +382,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
           ),
         );
       case 'orchestration':
-        showDialog<void>(
-          context: context,
-          builder: (_) => KanbanOrchestrationDialog(
-            repository: _repository,
-            board: _controller.boardSlug,
-          ),
+        showKanbanOrchestrationDialog(
+          context,
+          repository: _repository,
+          board: _controller.boardSlug,
         );
     }
   }
