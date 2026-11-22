@@ -147,7 +147,7 @@ Rendered locally with headless Chrome; not checked in the claude.ai viewer or on
 - Date: 2026-11-21
 - Boards (8): iPhone 390x844, Appearance over the chat, light and dark, before and after (4); iPhone after, Notifications (longest content) light; iPhone after, Memory choice dark; Mac 1280x800 after, Settings light and dark.
 
-Scope: nine `GroupedDialog`s move from `showDialog` to `showAppDialog` (`lib/src/widgets/dialog_presentation.dart`): App Lock, About, Appearance, Settings (Mac only), Notifications, Spotlight (iOS and macOS), Dictation (iOS and macOS), Portable calls (not iOS) and Memory choice. Their content does not change. `KanbanTaskChoiceDialog` (Kanban Assign and Priority), already on `showAppDialog`, also gets the iOS Esc binding and the safe-area inset below.
+Scope: nine `GroupedDialog`s move from `showDialog` to `showAppDialog` (`lib/src/widgets/dialog_presentation.dart`): App Lock, About, Appearance, Settings (Mac only), Notifications, Spotlight (iOS and macOS), Dictation (iOS and macOS), Portable calls (not iOS) and Memory choice. Their content does not change. `KanbanTaskChoiceDialog` (Kanban Assign and Priority), already on `showAppDialog`, also gets the iOS Esc binding and the safe-area inset below, and the Kanban task log dialog (custom actions, no Esc binding) gets the inset.
 
 - iOS: Material route (fade, `showDialog` barrier, tap outside closes) becomes the Cupertino route (scale-in, Cupertino barrier, tap outside does not close; Done stays, and Esc closes the dialog the same way Done does).
 - macOS: Material route becomes the app's 150 ms fade, theme barrier, click outside closes, as in "Mac dialog presentation".

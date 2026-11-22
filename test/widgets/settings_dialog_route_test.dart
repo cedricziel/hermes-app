@@ -270,4 +270,24 @@ void main() {
     await _esc(tester);
     expect(_dialog, findsNothing);
   });
+
+  testWidgets('iOS: a dialog with custom actions leaves a field its focus', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    await _show(
+      tester,
+      TargetPlatform.iOS,
+      (context) => showAppDialog<void>(
+        context: context,
+        builder: (_) => GroupedDialog(
+          title: 'Name',
+          actions: [TextButton(onPressed: () {}, child: const Text('Save'))],
+          children: [TextField(focusNode: focus, autofocus: true)],
+        ),
+      ),
+    );
+    expect(focus.hasPrimaryFocus, isTrue);
+  });
 }
