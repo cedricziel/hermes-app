@@ -605,3 +605,21 @@ class _KeyboardFocusBuilderState extends State<KeyboardFocusBuilder> {
   @override
   Widget build(BuildContext context) => widget.builder(context, _keyboard);
 }
+
+/// The keyboard focus ring of a mini floating button, a circle 2 px outside
+/// the painted 40 dp circle whatever box Material lays round it: with a padded
+/// tap target (Android, iOS) the button is laid out 48 dp and the ring's outer
+/// edge is that box; with a shrink-wrapped one (macOS, Windows, Linux) the box
+/// is the circle itself, so the ring goes outside it. The only wrapper for a
+/// mini button (`arch.floating-button-without-focus-ring`).
+class MiniFabFocusRing extends StatelessWidget {
+  const MiniFabFocusRing({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      Theme.of(context).materialTapTargetSize == MaterialTapTargetSize.padded
+      ? FocusRing(radius: 24, inset: 0, child: child)
+      : FocusRing.outside(radius: 20, child: child);
+}

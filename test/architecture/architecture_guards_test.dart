@@ -145,10 +145,10 @@ final _rawExpansionTile = RegExp(
 );
 
 /// A floating button not directly inside `FocusRing.outside(radius: ..., child:`
-/// (or `FocusRing(radius: ..., inset: 0, child:` for the mini button's tap box).
+/// (or `MiniFabFocusRing(child:` for a mini button).
 final _bareFloatingButton = RegExp(
   r'(?<!FocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*)'
-  r'(?<!FocusRing\(\s*radius:\s*[^,()]+,\s*inset:\s*0,\s*child:\s*)'
+  r'(?<!MiniFabFocusRing\(\s*child:\s*)'
   r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?:(?:\.\w+)?\s*[<(]|\.\w+)',
 );
 
@@ -794,7 +794,7 @@ final guardRules = <Rule>[
     name: 'floating-button-without-focus-ring',
     message:
         'wrap a FloatingActionButton in FocusRing.outside(radius: <its '
-        'radius>, child: ...) (lib/src/theme/focus_ring.dart): its shape is '
+        'radius>, child: ...), or a mini one in MiniFabFocusRing(child: ...) (lib/src/theme/focus_ring.dart): its shape is '
         'not state-aware, so the keyboard focus ring is a wrapper.',
     pattern: _bareFloatingButton,
     view: _code,
@@ -913,14 +913,17 @@ void main() {
         isTrue,
       );
       expect(bare('Tooltip(child: FloatingActionButton(a))'), isTrue);
+      expect(bare('MiniFabFocusRing(child: FloatingActionButton(a))'), isFalse);
       expect(
-        bare('FocusRing(radius: 24, inset: 0, child: FloatingActionButton(a))'),
+        bare('MiniFabFocusRing(\n child: m.FloatingActionButton(mini: true))'),
         isFalse,
       );
+      // A bare inset-0 ring fits one platform only.
       expect(
-        bare('FocusRing(radius: 24, inset: 2, child: FloatingActionButton(a))'),
+        bare('FocusRing(radius: 24, inset: 0, child: FloatingActionButton(a))'),
         isTrue,
       );
+      expect(bare('Tooltip(child: FloatingActionButton(a))'), isTrue);
       expect(bare('child: m.FloatingActionButton(onPressed: f)'), isTrue);
       expect(bare('child: m.FloatingActionButton.extended(a)'), isTrue);
       expect(bare('builder: FloatingActionButton.new'), isTrue);

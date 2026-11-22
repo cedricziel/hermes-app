@@ -44,13 +44,10 @@ class ScrollToLatestButton extends StatelessWidget {
             child: Tooltip(
               message: context.l10n.chatScrollToLatest,
               excludeFromSemantics: true,
-              // The shape is not state-aware: the ring is a wrapper. The mini
-              // button keeps a 48 dp tap box round its 40 dp circle, so the
-              // ring's outer edge is that box (inset 0, radius 24): a circle
-              // 2 px outside the painted one.
-              child: FocusRing(
-                radius: 24,
-                inset: 0,
+              // The shape is not state-aware: the ring is a wrapper that
+              // follows the painted circle, in a padded or a shrink-wrapped
+              // tap box.
+              child: MiniFabFocusRing(
                 child: FloatingActionButton(
                   heroTag: null,
                   mini: true,

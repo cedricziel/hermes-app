@@ -28,7 +28,7 @@ class WhatsTheDifferenceLink extends StatelessWidget {
         link: true,
         // The ring is 2 px outside the link's tap area, which nothing clips.
         child: FocusRing.outside(
-          radius: 4,
+          radius: 0,
           child: InkWell(
             onTap: onTap,
             child: ConstrainedBox(
