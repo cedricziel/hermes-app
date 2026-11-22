@@ -110,7 +110,7 @@ void main() {
         ],
         child: MaterialApp(
           builder: (_, child) => AppThemeScopes(child: child!),
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: Align(alignment: Alignment.topLeft, child: child),
           ),

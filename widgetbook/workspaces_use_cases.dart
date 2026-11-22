@@ -22,6 +22,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
 import 'host.dart';
+import 'platform_theme.dart';
 
 // Everything here is invented: a made-up server, folders, projects and chats.
 
@@ -51,10 +52,8 @@ Widget _german(Widget child) => Builder(
 );
 
 Widget _on(TargetPlatform platform, Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: platform),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, platform), child: child),
 );
 
 Widget _reducedMotion(Widget child) => Builder(

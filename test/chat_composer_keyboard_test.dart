@@ -41,7 +41,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       builder: (_, child) => AppThemeScopes(child: child!),
-      theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+      theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
       home: Scaffold(
         body: FlyerMaterialScope(
           child: Chat(

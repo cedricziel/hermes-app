@@ -9,10 +9,9 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'support/fake_hermes_server.dart';
 
 void main() {
-  ThemeData themed(TargetPlatform platform, {bool dark = false}) =>
-      (dark ? buildHermesDarkTheme() : buildHermesLightTheme()).copyWith(
-        platform: platform,
-      );
+  ThemeData themed(TargetPlatform platform, {bool dark = false}) => dark
+      ? buildHermesDarkTheme(platform: platform)
+      : buildHermesLightTheme(platform: platform);
 
   Future<bool> mcpSwitchIsCupertino(
     WidgetTester tester,

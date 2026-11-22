@@ -61,6 +61,35 @@ Widget _app(
 void main() {
   final zoom = find.byType(InteractiveViewer);
 
+  group('the viewer theme', () {
+    for (final (platform, shrinkWrap) in [
+      (TargetPlatform.macOS, true),
+      (TargetPlatform.windows, true),
+      (TargetPlatform.iOS, false),
+      (TargetPlatform.android, false),
+    ]) {
+      testWidgets('is built for $platform, dark', (tester) async {
+        await tester.pumpWidget(
+          _app(BotScreenViewerPhase.live, platform: platform),
+        );
+
+        final theme = Theme.of(tester.element(zoom));
+        expect(theme.brightness, Brightness.dark);
+        expect(theme.platform, platform);
+        expect(
+          theme.materialTapTargetSize,
+          shrinkWrap
+              ? MaterialTapTargetSize.shrinkWrap
+              : MaterialTapTargetSize.padded,
+        );
+        expect(
+          theme.visualDensity,
+          shrinkWrap ? VisualDensity.compact : VisualDensity.standard,
+        );
+      });
+    }
+  });
+
   group('the picture', () {
     testWidgets('zooms out no further than the screen and up to 4 times', (
       tester,

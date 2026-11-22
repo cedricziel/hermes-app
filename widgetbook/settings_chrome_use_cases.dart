@@ -10,6 +10,7 @@ import 'package:hermes_app/src/widgets/settings_search_field.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 WidgetbookNode settingsChromeNode() => WidgetbookFolder(
   name: 'Settings pages',
@@ -414,7 +415,7 @@ class _ControlOnState extends State<_ControlOn> {
 
   @override
   Widget build(BuildContext context) => Theme(
-    data: Theme.of(context).copyWith(platform: widget.platform),
+    data: platformTheme(context, widget.platform),
     child: Builder(
       builder: (context) {
         final scheme = Theme.of(context).colorScheme;

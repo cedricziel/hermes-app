@@ -20,7 +20,7 @@ Widget _host(
 }) => MaterialApp(
   localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
-  theme: buildHermesLightTheme().copyWith(platform: platform),
+  theme: buildHermesLightTheme(platform: platform),
   home: MediaQuery(
     data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
     child: Scaffold(

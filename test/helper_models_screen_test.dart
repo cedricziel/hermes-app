@@ -63,7 +63,7 @@ void main() {
   }) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: platform),
+        theme: buildHermesLightTheme(platform: platform),
         home: HelperModelsScreen(
           repository: HermesModelsRepository(server.client().raw),
           profile: 'work',
