@@ -42,6 +42,30 @@ import 'package:hermes_app/src/widgets/composer_selector_chip.dart';
 import 'package:hermes_app/src/widgets/disclosure_tile.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_line_model.dart';
+import 'package:hermes_app/src/chat/activity/working_summary.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/checkpoints/checkpoints_state.dart';
+import 'package:hermes_app/src/chat/checkpoints/widgets/file_checkpoints_row.dart';
+import 'package:hermes_app/src/chat/context/context_models.dart';
+import 'package:hermes_app/src/chat/context/context_state.dart';
+import 'package:hermes_app/src/chat/context/widgets/context_format.dart';
+import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
+import 'package:hermes_app/src/chat/subagents/agent_models.dart';
+import 'package:hermes_app/src/chat/subagents/widgets/agent_row.dart';
+import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
+import 'package:hermes_app/src/chat/widgets/tool_json_tree.dart';
+import 'package:hermes_app/src/files/widgets/file_row.dart';
+import 'package:hermes_app/src/kanban/kanban_models.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
+import 'package:hermes_app/src/schedules/widgets/schedule_advanced_row.dart';
+import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/widgets/grouped_action_row.dart';
+import 'package:hermes_app/src/workspaces/widgets/working_directory_line.dart';
+import 'package:hermes_app/src/workspaces/widgets/working_directory_row.dart';
 
 /// The drawn geometry of the keyboard focus ring against what is painted: the
 /// ring follows the visible shape, not the layout box round it. An outside
@@ -106,7 +130,7 @@ class _Recorder implements Canvas {
   final half = painter.width / 2;
   RRect grow(double by) => RRect.fromRectAndRadius(
     center.outerRect.inflate(by),
-    Radius.circular(center.tlRadiusX + by),
+    Radius.circular(math.max(0, center.tlRadiusX + by)),
   );
   return (
     Path.combine(
@@ -743,6 +767,8 @@ void main() {
     );
   });
 
+  group('rows and cards of F.427 (tables B and C)', _insideRowTests);
+
   group('inside rings lie 2 px within their clip or item', () {
     testOnPlatforms('GroupedRow', (tester, platform) async {
       await _pump(
@@ -924,6 +950,484 @@ void main() {
       });
     }
   });
+}
+
+/// An inside ring on a row or card: its outer edge lies [inset] px inside
+/// [clip], the ring is 2 px wide, and the corner follows [radius], the ring's
+/// own outer radius (0 for a square row, whose corners are probed as points).
+void expectInsideRow(
+  WidgetTester tester,
+  Rect clip, {
+  required double radius,
+  double inset = 2,
+  String? why,
+}) {
+  final (band, painter) = _ring(tester);
+  expect(painter.radius, radius, reason: '$why: ring radius');
+  expect(painter.inset, inset, reason: '$why: ring inset');
+  expect(painter.width, 2, reason: '$why: ring width');
+  final square = radius == 0;
+  final clipRadius = square ? null : radius + inset;
+  for (final d in [inset + 0.6, inset + 1.0, inset + 1.4]) {
+    for (final p in _probes(clip, clipRadius, -d)) {
+      expect(band.contains(p), isTrue, reason: '$why: $d px in at $p');
+    }
+  }
+  for (final d in [inset - 0.6, inset + 2.6]) {
+    for (final p in _probes(clip, clipRadius, -d)) {
+      expect(band.contains(p), isFalse, reason: '$why: $d px in at $p');
+    }
+  }
+  if (square) {
+    // The ring's corner is square: on the diagonal it is in the band at
+    // inset + 1, and not outside it.
+    final c = inset + 1;
+    expect(band.contains(clip.topLeft + Offset(c, c)), isTrue, reason: why);
+    expect(band.contains(clip.bottomRight - Offset(c, c)), isTrue);
+    expect(band.contains(clip.topLeft + const Offset(1, 1)), isFalse);
+  }
+}
+
+/// The platforms an inside ring is checked on: the padded and the shrink-wrap
+/// ones, Windows included.
+const _rowPlatforms = [
+  TargetPlatform.android,
+  TargetPlatform.macOS,
+  TargetPlatform.linux,
+  TargetPlatform.windows,
+];
+
+/// A section's corner radius, less the ring's inset, per platform.
+double _sectionRingRadius(TargetPlatform platform) => switch (platform) {
+  TargetPlatform.iOS => 10,
+  TargetPlatform.macOS => 8,
+  _ => 12,
+};
+
+Widget _still(Widget child) => Builder(
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(disableAnimations: true),
+    child: child,
+  ),
+);
+
+void _insideRowTests() {
+  /// Pumps [body] (360 wide, no animations), focuses [focus], and checks the
+  /// ring against [clipFinder] with the brief's radius and inset.
+  Future<void> check(
+    WidgetTester tester, {
+    required TargetPlatform platform,
+    required Widget body,
+    required Finder focus,
+    required Finder clipFinder,
+    required double radius,
+    double inset = 2,
+    String why = 'row',
+  }) async {
+    await _pump(tester, platform, _still(SizedBox(width: 360, child: body)));
+    await _focus(tester, focus);
+    final clip = tester.getRect(clipFinder);
+    expect(tester.getRect(_ringFinder), clip, reason: '$why: wraps the row');
+    expectInsideRow(tester, clip, radius: radius, inset: inset, why: why);
+  }
+
+  Finder inkIn(Type t) => find
+      .descendant(of: find.byType(t).last, matching: find.byType(InkWell))
+      .first;
+
+  testOnPlatforms(
+    'GroupedActionRow',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: GroupedSection(
+        children: [
+          GroupedActionRow(
+            title: 'Restart',
+            icon: AppIcons.refresh,
+            onPressed: () {},
+          ),
+          GroupedActionRow(
+            title: 'Check',
+            icon: AppIcons.play,
+            onPressed: () {},
+          ),
+        ],
+      ),
+      focus: find.byType(GroupedActionRow).last,
+      clipFinder: inkIn(GroupedActionRow),
+      radius: _sectionRingRadius(platform),
+      why: 'GroupedActionRow',
+    ),
+    platforms: [..._rowPlatforms, TargetPlatform.iOS],
+  );
+
+  testOnPlatforms(
+    'iOS GroupedValueRow wrapper',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: GroupedSection(
+        children: [
+          GroupedValueRow(title: 'Provider', value: 'Anthropic', onTap: () {}),
+          GroupedValueRow(title: 'Model', value: 'sonnet', onTap: () {}),
+        ],
+      ),
+      focus: find.byType(GroupedValueRow).last,
+      clipFinder: inkIn(GroupedValueRow),
+      radius: 10,
+      why: 'GroupedValueRow',
+    ),
+    platforms: const [TargetPlatform.iOS],
+  );
+
+  testOnPlatforms(
+    'Schedules Advanced row',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: GroupedSection(
+        children: [
+          const GroupedRow(title: 'Prompt', value: 'Summarize'),
+          ScheduleAdvancedRow(open: false, onTap: () {}),
+        ],
+      ),
+      focus: find.byType(ScheduleAdvancedRow),
+      clipFinder: inkIn(ScheduleAdvancedRow),
+      radius: _sectionRingRadius(platform),
+      why: 'Advanced row',
+    ),
+    platforms: [..._rowPlatforms, TargetPlatform.iOS],
+  );
+
+  testOnPlatforms(
+    'FileRow',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: FileRow(
+        model: const FileRowModel(name: 'src', isFolder: true),
+        onTap: () {},
+      ),
+      focus: find.byType(FileRow),
+      clipFinder: find.byType(InkWell),
+      radius: 0,
+      why: 'FileRow',
+    ),
+    platforms: _rowPlatforms,
+  );
+
+  testOnPlatforms(
+    'Activity line',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: ActivityLine(
+        model: ActivityLineModel.fromSummary(
+          lookupAppLocalizations(const Locale('en')),
+          WorkingSummary(
+            sentence: const WorkingSentence(
+              WorkingSentenceKind.goal,
+              at: 1,
+              text: 'Ship the report',
+            ),
+          ),
+        ),
+        onOpen: () {},
+      ),
+      focus: find.byType(ActivityLine),
+      clipFinder: find.descendant(
+        of: find.byType(ActivityLine),
+        matching: find.byType(InkWell),
+      ),
+      radius: 0,
+      why: 'ActivityLine',
+    ),
+    platforms: _rowPlatforms,
+  );
+
+  testOnPlatforms(
+    'Agent row',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: AgentRow(
+        model: const AgentRowModel(
+          goal: 'Summarize the advisories',
+          state: AgentState.finished,
+          runTime: Duration(seconds: 48),
+          toolCount: 4,
+        ),
+        onShowDetails: () {},
+      ),
+      focus: find.byType(AgentRow),
+      clipFinder: find.descendant(
+        of: find.byType(AgentRow),
+        matching: find.byType(InkWell),
+      ),
+      radius: 0,
+      why: 'AgentRow',
+    ),
+    platforms: _rowPlatforms,
+  );
+
+  testOnPlatforms('Context row', (tester, platform) {
+    const figures = ContextFigures(
+      used: 124000,
+      max: 200000,
+      percent: 62,
+      estimated: false,
+      source: ContextSource.providerUsage,
+    );
+    return check(
+      tester,
+      platform: platform,
+      body: ContextRow(
+        figures: figures,
+        level: contextLevelOf(figures),
+        onOpen: () {},
+      ),
+      focus: find.byType(ContextRow),
+      clipFinder: find.descendant(
+        of: find.byType(ContextRow),
+        matching: find.byType(InkWell),
+      ),
+      radius: 0,
+      why: 'ContextRow',
+    );
+  }, platforms: _rowPlatforms);
+
+  testOnPlatforms(
+    'File checkpoints row',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: FileCheckpointsRow(
+        state: CheckpointsRowState.count,
+        count: 3,
+        onOpen: () {},
+      ),
+      focus: find.byType(FileCheckpointsRow),
+      clipFinder: find.descendant(
+        of: find.byType(FileCheckpointsRow),
+        matching: find.byType(InkWell),
+      ),
+      radius: 0,
+      why: 'FileCheckpointsRow',
+    ),
+    platforms: _rowPlatforms,
+  );
+
+  const done = [
+    Subagent(
+      id: 'a1',
+      goal: 'Audit the dependency tree',
+      count: 2,
+      status: SubagentStatus.completed,
+      duration: Duration(seconds: 12),
+    ),
+    Subagent(
+      id: 'a2',
+      goal: 'Summarize the advisories',
+      index: 1,
+      count: 2,
+      status: SubagentStatus.completed,
+      duration: Duration(seconds: 48),
+    ),
+  ];
+  Widget card() => SubagentGroupCard(
+    subagents: done,
+    initiallyOpen: true,
+    onShowDetails: (_) {},
+  );
+
+  testOnPlatforms(
+    'Sub-agent group header',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: card(),
+      focus: find.byType(InkWell).first,
+      clipFinder: find.byType(InkWell).first,
+      radius: 8,
+      why: 'sub-agent header',
+    ),
+    platforms: _rowPlatforms,
+  );
+
+  testOnPlatforms(
+    'Sub-agent line',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: card(),
+      focus: find.byType(InkWell).at(1),
+      clipFinder: find.byType(InkWell).at(1),
+      radius: 0,
+      why: 'sub-agent line',
+    ),
+    platforms: _rowPlatforms,
+  );
+
+  testOnPlatforms(
+    'Tool-call JSON tree row',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: const ToolJsonTree(
+        text: '{"path": "go.sum", "options": {"recursive": true}}',
+      ),
+      focus: find.byType(InkWell).first,
+      clipFinder: find.byType(InkWell).first,
+      radius: 0,
+      why: 'JSON tree row',
+    ),
+    platforms: _rowPlatforms,
+  );
+
+  testOnPlatforms(
+    'Restart banner',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: ServerRestartBanner.restarting(onTap: () {}),
+      focus: find.byType(ServerRestartBanner),
+      clipFinder: find.descendant(
+        of: find.byType(ServerRestartBanner),
+        matching: find.byType(InkWell),
+      ),
+      radius: 0,
+      why: 'restart banner',
+    ),
+    platforms: _rowPlatforms,
+  );
+
+  testOnPlatforms(
+    'Working-folder row',
+    (tester, platform) => check(
+      tester,
+      platform: platform,
+      body: WorkingDirectoryRow(
+        folderName: 'demo',
+        path: '/home/me/demo',
+        branch: 'main',
+        serverDefault: true,
+        onTap: () {},
+      ),
+      focus: find.byType(WorkingDirectoryRow),
+      clipFinder: find.descendant(
+        of: find.byType(WorkingDirectoryRow),
+        matching: find.byType(InkWell),
+      ),
+      radius: 10,
+      why: 'working-folder row',
+    ),
+    platforms: _rowPlatforms,
+  );
+
+  for (final below in [false, true]) {
+    testOnPlatforms(
+      'Working-folder line${below ? ' (full width)' : ''}',
+      (tester, platform) => check(
+        tester,
+        platform: platform,
+        body: WorkingDirectoryLine(
+          title: 'Weekly planning',
+          folderName: 'api',
+          branch: 'main',
+          belowBar: below,
+          onTap: () {},
+        ),
+        focus: find.byType(WorkingDirectoryLine),
+        clipFinder: find.descendant(
+          of: find.byType(WorkingDirectoryLine),
+          matching: find.byType(InkWell),
+        ),
+        radius: 0,
+        why: 'working-folder line',
+      ),
+      platforms: _rowPlatforms,
+    );
+  }
+
+  for (final selected in [false, true]) {
+    testOnPlatforms(
+      'Kanban card${selected ? ', selected' : ''}',
+      (tester, platform) => check(
+        tester,
+        platform: platform,
+        body: KanbanCard(
+          task: const KanbanTask(
+            id: 't_1a2b3c',
+            title: 'Draft the weekly report',
+            status: 'todo',
+          ),
+          selected: selected,
+          onTap: () {},
+        ),
+        focus: find.byType(KanbanCard),
+        clipFinder: find.descendant(
+          of: find.byType(KanbanCard),
+          matching: find.byType(InkWell),
+        ),
+        // Clears the selected card's 2 px border by 2 px.
+        radius: selected ? 10 : 11,
+        inset: selected ? 4 : 3,
+        why: 'kanban card',
+      ),
+      platforms: _rowPlatforms,
+    );
+  }
+
+  testOnPlatforms('FileRow: keyboard focus shows the ring, a click does not', (
+    tester,
+    platform,
+  ) async {
+    await _pump(
+      tester,
+      platform,
+      SizedBox(
+        width: 360,
+        child: FileRow(
+          model: const FileRowModel(name: 'src', isFolder: true),
+          onTap: () {},
+        ),
+      ),
+    );
+    await _focus(tester, find.byType(FileRow));
+    expect(_ringFinder, findsOneWidget, reason: 'keyboard focus');
+    await tester.tap(find.byType(FileRow));
+    await tester.pumpAndSettle();
+    expect(_ringFinder, findsNothing, reason: 'after a pointer click');
+    await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(_ringFinder, findsOneWidget, reason: 'the next key press');
+  }, platforms: _rowPlatforms);
+
+  testOnPlatforms('GroupedActionRow: a click shows no ring', (
+    tester,
+    platform,
+  ) async {
+    await _pump(
+      tester,
+      platform,
+      SizedBox(
+        width: 360,
+        child: GroupedSection(
+          children: [
+            GroupedActionRow(
+              title: 'Restart',
+              icon: AppIcons.refresh,
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.tap(find.byType(GroupedActionRow));
+    await tester.pumpAndSettle();
+    expect(_ringFinder, findsNothing);
+  }, platforms: _rowPlatforms);
 }
 
 void _ignore(AttachOrigin _) {}

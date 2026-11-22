@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_toggled.dart';
@@ -82,50 +83,56 @@ class _SubagentGroupCardState extends State<SubagentGroupCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
-            onTap: () {
-              DisclosureToggledNotification.send(context);
-              setState(() => _open = !_open);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              child: Row(
-                children: [
-                  ToolCallStatusIcon(
-                    status: running.isNotEmpty
-                        ? ToolCallStatus.running
-                        : failed.isNotEmpty
-                        ? ToolCallStatus.error
-                        : subagents.every(
-                            (s) => s.status == SubagentStatus.interrupted,
-                          )
-                        ? ToolCallStatus.cancelled
-                        : ToolCallStatus.completed,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: scheme.onSurface,
+          FocusRing(
+            radius: 8,
+            child: InkWell(
+              onTap: () {
+                DisclosureToggledNotification.send(context);
+                setState(() => _open = !_open);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    ToolCallStatusIcon(
+                      status: running.isNotEmpty
+                          ? ToolCallStatus.running
+                          : failed.isNotEmpty
+                          ? ToolCallStatus.error
+                          : subagents.every(
+                              (s) => s.status == SubagentStatus.interrupted,
+                            )
+                          ? ToolCallStatus.cancelled
+                          : ToolCallStatus.completed,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onSurface,
+                        ),
                       ),
                     ),
-                  ),
-                  if (!waiting)
-                    Text(
-                      _totalDuration(subagents),
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: subtle,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    if (!waiting)
+                      Text(
+                        _totalDuration(subagents),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: subtle,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -292,27 +299,30 @@ class SubagentCard extends StatelessWidget {
       child: Semantics(
         button: true,
         hint: l10n.chatSubagentsRowShowDetailsHint,
-        child: InkWell(
-          onTap: () => open(s.id),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: switch (chrome) {
-                PlatformChrome.material => 48,
-                PlatformChrome.ios => kAppleMinTapTarget,
-                PlatformChrome.macos => 28,
-              },
-            ),
-            child: Row(
-              children: [
-                Expanded(child: row),
-                ExcludeSemantics(
-                  child: AppIcon(
-                    AppIcons.chevronRight,
-                    size: 16,
-                    color: subtle,
+        child: FocusRing(
+          radius: 0,
+          child: InkWell(
+            onTap: () => open(s.id),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: switch (chrome) {
+                  PlatformChrome.material => 48,
+                  PlatformChrome.ios => kAppleMinTapTarget,
+                  PlatformChrome.macos => 28,
+                },
+              ),
+              child: Row(
+                children: [
+                  Expanded(child: row),
+                  ExcludeSemantics(
+                    child: AppIcon(
+                      AppIcons.chevronRight,
+                      size: 16,
+                      color: subtle,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

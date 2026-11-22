@@ -5,6 +5,7 @@ import '../../files/widgets/files_metrics.dart';
 import '../../files/widgets/files_spinner.dart';
 import '../../files/widgets/server_path_text.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/loading_skeleton.dart';
@@ -253,10 +254,13 @@ class WorkingDirectoryRow extends StatelessWidget {
         color: scheme.surfaceContainerHighest,
         borderRadius: radius,
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          child: ExcludeSemantics(child: content),
+        child: FocusRing(
+          radius: 10,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: ExcludeSemantics(child: content),
+          ),
         ),
       ),
     );

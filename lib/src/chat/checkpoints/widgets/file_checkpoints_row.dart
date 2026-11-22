@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../l10n/l10n.dart';
 import '../../../theme/app_icons.dart';
+import '../../../theme/focus_ring.dart';
 import '../../../theme/hermes_theme.dart';
 import '../checkpoints_state.dart';
 
@@ -145,7 +146,12 @@ class FileCheckpointsRow extends StatelessWidget {
       label: [title, ?subtitle, ?error].join('. '),
       onTap: openable ? onOpen : null,
       child: ExcludeSemantics(
-        child: openable ? InkWell(onTap: onOpen, child: body) : body,
+        child: openable
+            ? FocusRing(
+                radius: 0,
+                child: InkWell(onTap: onOpen, child: body),
+              )
+            : body,
       ),
     );
   }
