@@ -152,7 +152,7 @@ final _rawExpansionTile = RegExp(
 /// The wrappers are matched at a word boundary, so `NotMiniFabFocusRing(`
 /// counts for nothing.
 final _floatingButton = RegExp(
-  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?:\.(\w+))?',
+  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?!\w)(?:\.(\w+))?',
 );
 final _inMiniWrapper = RegExp(r'\bMiniFabFocusRing\(\s*child:\s*$');
 final _inOutsideWrapper = RegExp(
@@ -165,19 +165,25 @@ List<int> bareFloatingButtons(String code) {
     final after = code.substring(m.end).trimLeft();
     // A tear-off or a type argument without a call is never wrapped.
     final call = after.startsWith('(') || after.startsWith('<');
-    var args = '';
+    // The button's own arguments only: what sits in a nested call, a closure
+    // or a collection (`onPressed: () => configure(mini: true)`) is not its.
+    final args = StringBuffer();
     if (call) {
       final open = code.indexOf('(', m.end);
       var depth = 0;
-      var i = open;
-      for (; i < code.length; i++) {
-        if (code[i] == '(') depth++;
-        if (code[i] == ')' && --depth == 0) break;
+      for (var i = open; i < code.length; i++) {
+        final c = code[i];
+        final opens = c == '(' || c == '[' || c == '{';
+        final closes = c == ')' || c == ']' || c == '}';
+        if (closes) depth--;
+        if (depth == 1 && !opens && !closes) args.write(c);
+        if (opens) depth++;
+        if (depth == 0) break;
       }
-      args = code.substring(open, i.clamp(0, code.length));
     }
     final mini =
-        m.group(1) == 'small' || RegExp(r'\bmini\s*:\s*true').hasMatch(args);
+        m.group(1) == 'small' ||
+        RegExp(r'\bmini\s*:\s*true').hasMatch(args.toString());
     final before = code.substring(0, m.start);
     final ok =
         call && (mini ? _inMiniWrapper : _inOutsideWrapper).hasMatch(before);
@@ -959,6 +965,62 @@ void main() {
       expect(bare('f(m.FloatingActionButton.large)'), isTrue);
       expect(bare('f(FloatingActionButton.small)'), isTrue);
       expect(bare('class MyFloatingActionButton {}'), isFalse);
+    });
+
+    test('theme, location and animator names are not floating buttons', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      expect(bare('FloatingActionButtonThemeData(shape: s)'), isFalse);
+      expect(
+        bare('floatingActionButtonTheme: FloatingActionButtonThemeData()'),
+        isFalse,
+      );
+      expect(
+        bare(
+          'floatingActionButtonLocation: FloatingActionButtonLocation.endFloat',
+        ),
+        isFalse,
+      );
+      expect(bare('f(FloatingActionButtonAnimator.scaling)'), isFalse);
+      expect(bare('m.FloatingActionButtonLocation.centerDocked'), isFalse);
+      // The constructor and its tear-offs still count.
+      expect(bare('FloatingActionButton(onPressed: f)'), isTrue);
+      expect(bare('FloatingActionButton.extended(onPressed: f)'), isTrue);
+      expect(bare('f(FloatingActionButton.new)'), isTrue);
+    });
+
+    test('mini is read from the button\'s own arguments only', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      const mini = 'MiniFabFocusRing(child: ';
+      expect(
+        bare('${mini}FloatingActionButton(mini: true, onPressed: f))'),
+        isFalse,
+      );
+      expect(
+        bare(
+          '${mini}FloatingActionButton(onPressed: f, child: Icon(a), mini: true))',
+        ),
+        isFalse,
+      );
+      // `mini: true` in a nested call is not the button's.
+      expect(
+        bare(
+          '${mini}FloatingActionButton(onPressed: () => configure(mini: true)))',
+        ),
+        isTrue,
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 28, child: FloatingActionButton(onPressed: () => configure(mini: true)))',
+        ),
+        isFalse,
+        reason: 'not mini, so FocusRing.outside is right',
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 20, child: FloatingActionButton(mini: true, onPressed: () => f(mini: false)))',
+        ),
+        isTrue,
+      );
     });
 
     test('a mini button belongs in MiniFabFocusRing, not FocusRing.outside', () {
