@@ -6,6 +6,7 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
@@ -160,6 +161,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
         SettingsBarAction(
           label: context.l10n.kanbanRefreshAction,
           icon: AppIcons.refresh,
+          command: MacCommand.reload,
           shortcut: mac ? '⌘R' : null,
           busy: _reloading,
           onPressed: _reload,
@@ -214,8 +216,10 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                     ),
             ),
     );
-    if (!mac) return scaffold;
-    // View > Reload owns ⌘R.
+    if (!mac && !bindsDesktopChords(Theme.of(context).platform)) {
+      return scaffold;
+    }
+    // View > Reload owns ⌘R, and Ctrl+R and F5 on Windows and Linux.
     return MacCommandScope(
       commands: {
         MacCommand.reload: MacCommandHandler(

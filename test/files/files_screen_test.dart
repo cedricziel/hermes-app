@@ -18,6 +18,7 @@ import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/files/widgets/file_preview_cover.dart';
 import 'package:hermes_app/src/files/widgets/file_preview_header.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
+import 'package:hermes_app/src/navigation/desktop_command_shortcuts.dart';
 import 'package:hermes_app/src/files/widgets/files_spinner.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
@@ -82,6 +83,7 @@ void main() {
     AppLockController? lock,
     ShareFile? share,
     MacCommandRegistry? commands,
+    bool desktopKeys = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -93,10 +95,12 @@ void main() {
           ChangeNotifierProvider<AppLockController>.value(value: lock),
       ],
       child: MaterialApp(
-        builder: (_, child) => AppThemeScopes(child: child!),
         localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(platform: platform),
+        builder: (_, child) => AppThemeScopes(
+          child: desktopKeys ? DesktopCommandShortcuts(child: child!) : child!,
+        ),
         home: const Scaffold(body: Text('chat')),
       ),
     );
@@ -556,6 +560,52 @@ void main() {
       await settle(tester);
 
       expect(source.count('list'), greaterThan(before));
+    });
+
+    testWidgets('on Linux Ctrl+R and F5 list the folder again', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pump(
+        tester,
+        size: const Size(1200, 800),
+        platform: TargetPlatform.linux,
+        commands: commands,
+        desktopKeys: true,
+      );
+      var before = source.count('list');
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await settle(tester);
+      expect(source.count('list'), greaterThan(before));
+
+      before = source.count('list');
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await settle(tester);
+      expect(source.count('list'), greaterThan(before));
+    });
+
+    testWidgets('on Linux Alt+Up goes to the parent folder', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pump(
+        tester,
+        size: const Size(1200, 800),
+        platform: TargetPlatform.linux,
+        commands: commands,
+        desktopKeys: true,
+      );
+      await tester.tap(find.text('reports'));
+      await settle(tester);
+      expect(find.text('summary.txt'), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await settle(tester);
+
+      expect(find.text('export.zip'), findsOneWidget);
     });
 
     testWidgets('the commands leave with the page', (tester) async {

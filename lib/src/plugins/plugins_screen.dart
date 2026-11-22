@@ -6,6 +6,7 @@ import 'package:flutter_otel/flutter_otel.dart'
 
 import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 
 import '../api/hermes_repositories.dart';
 import '../theme/app_icons.dart';
@@ -207,8 +208,10 @@ class _PluginsScreenState extends State<PluginsScreen>
           ],
           body: body!,
         );
-        if (!mac) return scaffold;
-        // View > Reload owns ⌘R.
+        if (!mac && !bindsDesktopChords(Theme.of(context).platform)) {
+          return scaffold;
+        }
+        // View > Reload owns ⌘R, and Ctrl+R and F5 on Windows and Linux.
         return MacCommandScope(
           commands: {
             MacCommand.reload: MacCommandHandler(
