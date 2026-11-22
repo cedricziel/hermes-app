@@ -97,7 +97,6 @@ int colouredChars(WidgetTester tester) =>
         .where((b) => b.highlightCode)
         .fold(0, (sum, b) => sum + b.codes.length);
 
-/// The characters of every code block, coloured or not.
 /// The characters of the code blocks that may be coloured: within the block
 /// and the line limits. A document needs more than [kDocumentLimit] of them
 /// for the document limit to be reached.
@@ -108,9 +107,6 @@ int colourableChars(WidgetTester tester) => codeBlocks(tester)
           !b.codes.split(RegExp('[\r\n]')).any((l) => l.length > kLineLimit),
     )
     .fold(0, (sum, b) => sum + b.codes.length);
-
-int codeChars(WidgetTester tester) =>
-    codeBlocks(tester).fold(0, (sum, b) => sum + b.codes.length);
 
 /// A change made while the reply streams.
 class Step {
@@ -148,7 +144,7 @@ class Step {
 class Streamed {
   int maxColoured = 0;
   int pumps = 0;
-  int codeCharsAtEnd = 0;
+  int colourableCharsAtEnd = 0;
 }
 
 void _check(WidgetTester tester, Streamed seen, String where) {
@@ -177,6 +173,66 @@ void _check(WidgetTester tester, Streamed seen, String where) {
       );
     }
   }
+}
+
+/// Mounts a new `BoundedMarkdown` with the final [text] and checks that no
+/// block is refused that fits: a block within the block and line limits may
+/// stay plain only because the coloured blocks before it plus its own size
+/// pass the document limit. An unclosed block is judged like a closed one (the
+/// code block style never turns off colouring while streaming).
+///
+/// The same lower bound is left out per pump on purpose. On main, 143 of 145
+/// cases fail it: 105 settle plain and 38 are refused mid-stream at 1,132 to
+/// 3,841 coloured characters. A later fix PR turns it on.
+Future<void> _checkFreshMount(
+  WidgetTester tester,
+  Streamed seen,
+  String text,
+  Env env,
+) async {
+  await tester.pumpWidget(const SizedBox());
+  await tester.pumpWidget(markdownApp(text, env));
+  for (var k = 0; k < 6; k++) {
+    await tester.pump(const Duration(milliseconds: 500));
+  }
+  void nothingRefused(String where) {
+    _check(tester, seen, where);
+    var colouredBefore = 0;
+    for (final b in codeBlocks(tester)) {
+      final length = b.codes.length;
+      if (b.highlightCode) {
+        colouredBefore += length;
+      } else if (length <= kBlockLimit &&
+          !b.codes.split(RegExp('[\r\n]')).any((l) => l.length > kLineLimit)) {
+        expect(
+          colouredBefore + length,
+          greaterThan(kDocumentLimit),
+          reason:
+              'a block of $length characters that fits every limit is plain '
+              'after $colouredBefore coloured characters $where',
+        );
+      }
+    }
+  }
+
+  nothingRefused('in a fresh mount of the final text');
+  // The parent rebuilds the same mount with the same text: a second pass over
+  // the document must judge its blocks from the first block again.
+  await tester.pumpWidget(
+    markdownApp(
+      text,
+      Env(
+        dark: env.dark,
+        scale: env.scale,
+        rtl: env.rtl,
+        noAnimations: env.noAnimations,
+        accessibleNavigation: env.accessibleNavigation,
+        tick: env.tick + 1,
+        defaultFontSize: env.defaultFontSize,
+      ),
+    ),
+  );
+  nothingRefused('in a fresh mount after a parent rebuild');
 }
 
 /// Streams [document] in chunks of [chunk] characters, applying [steps], and
@@ -262,16 +318,17 @@ Future<Streamed> streamDocument(
     await tester.pump(const Duration(milliseconds: 500));
     _check(tester, seen, 'while settling');
   }
-  seen.codeCharsAtEnd = colourableChars(tester);
+  seen.colourableCharsAtEnd = colourableChars(tester);
+  await _checkFreshMount(tester, seen, text, env);
   if (const bool.fromEnvironment('COLOUR_REPORT')) {
     debugPrint(
       'COLOUR_REPORT max=${seen.maxColoured} pumps=${seen.pumps} '
-      'code=${seen.codeCharsAtEnd}',
+      'colourable=${seen.colourableCharsAtEnd}',
     );
   }
   if (expectOverflow) {
     expect(
-      seen.codeCharsAtEnd,
+      seen.colourableCharsAtEnd,
       greaterThan(kDocumentLimit),
       reason:
           'the document must hold more colourable code (within the block and '
@@ -435,8 +492,9 @@ String unclosedAtEnd() =>
     '${paragraphs(6, (i) => fenced(codeBody(30, i * 7)))}'
     '${fence}js\n${codeBody(60, 999)}';
 
-/// Fences with one line of 495 to 502 characters each (the limit is 500), the
-/// first over-limit lines early in the document, where the budget is not spent.
+/// Twelve fences: eleven hold one line of 495 to 502 characters (the limit is
+/// 500) and one is plain. The first over-limit lines sit early in the
+/// document, where the budget is not spent.
 String longLines() {
   const lengths = [null, 501, 495, 502, 496, 500, 497, 501, 498, 499, 500, 502];
   return paragraphs(
