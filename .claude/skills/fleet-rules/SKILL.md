@@ -183,8 +183,10 @@ one-armed-Dart-PR limit), and then only after the trial check.
   green and it still has not merged after about 15 minutes, disarm, then
   re-arm.
 - Exception: the release-please PR is generated and has no isolated review.
-  It is armed only when the owner asks, after its five builds are green, with
-  the asked-for version in its title, and last (see the `release` skill).
+  The orchestrator arms it at its discretion, an interim cut as well as one
+  that closes a wave, once main's tip has a full green run (the five builds
+  included) and the release PR's own builds are green, and last (see the
+  `release` skill).
 - Docs-only PRs cannot auto-merge while the ruleset requires the individual
   test shards (they never report on a docs-only PR). Docs-only means the
   `Changes` job output `code=false` on the exact head, so the shards show
