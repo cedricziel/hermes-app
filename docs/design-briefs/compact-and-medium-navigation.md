@@ -43,7 +43,7 @@ People on an iPhone or an Android phone who open Kanban or Schedules often, and 
 | Rail with Chats single pane                | Android tablet | 600 and 719 dp         | rail 80 dp                                                                  |
 | Rail with list and detail                  | Android tablet | 720, 800 and 899 dp    | list 280 dp; empty detail; conversation open                                |
 | Rail and More                              | Android tablet | 800 dp                 | More as a page beside the rail                                              |
-| Unchanged, for contrast                    | iPad           | 744 pt and 1024 pt     | sidebar as today                                                            |
+| Unchanged, for contrast                    | iPad full screen | 744 pt and 1024 pt     | sidebar as today                                                            |
 | Unchanged                                  | Windows, Linux | 500 dp and 1000 dp     | drawer, sidebar                                                             |
 
 ### Decisions to take
@@ -55,7 +55,7 @@ People on an iPhone or an Android phone who open Kanban or Schedules often, and 
 - Rail alignment: items at the top with More last, or More pinned at the bottom.
 - Android Back on a tab root: leave the app (today), or return to Chats first.
 - The medium list width (280 dp, decided: see the design pass) and whether the list may collapse.
-- Whether an iPad Split View window at 507 pt gets the same tab bar as an iPhone.
+- An iPad Split View window at 507 pt: decided by the design pass, it gets the same tab bar as an iPhone.
 
 ### Accessibility
 

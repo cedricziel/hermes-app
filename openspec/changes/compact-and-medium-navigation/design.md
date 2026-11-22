@@ -9,7 +9,7 @@ Everything below was read in the code at the base commit of this branch.
 - `kWideLayoutBreakpoint = 900` (`lib/src/theme/breakpoints.dart:9`). `isWideLayout` (`:27`) is true from 900 dp on every platform, and from `kIpadRegularWidth = 700` (`:14`) on iOS chrome when the shortest side is at least `kIpadMinShortestSide = 600` (`:18`), so an iOS window of 700 or more with a shortest side of at least 600 is wide (a full-screen iPad in both orientations, and a Split View pane that size), and narrower Split View and Slide Over windows are not.
 - Other numbers that are not the shell's: `kMacSplitBreakpoint = 560` (`:38`), `kKanbanColumnsBreakpoint = 720` (`:42`), `kHeaderLargeTextScale = 1.3` (`lib/src/workspaces/widgets/working_directory_line.dart:14`).
 - There is no medium form. About 30 call sites ask `isWideLayout` for a split or a dialog; they keep doing so.
-- Window size classes in Material 3 are compact under 600, medium 600 to 839, expanded from 840. The app's 900 is its own and stays: moving it would change 30 call sites and the iPad rule. Medium here is 600 to 899.
+- Window size classes in Material 3 are compact under 600, medium 600 to 839, expanded from 840. The app's 900 is its own and stays: moving it would change 30 call sites and the iOS 700 rule (`kIpadRegularWidth`). Medium here is 600 to 899.
 
 ### Shell today
 
@@ -35,7 +35,7 @@ Everything below was read in the code at the base commit of this branch.
 
 - **A. Rail on Material chrome, list-detail Chats from 720 dp. (Recommended.)** An 80 dp rail leaves 520 dp at 600; a 280 dp list plus a 360 dp conversation needs 720 with the rail, hence 720. Below that a single pane with the rail.
 - **B. Widen "wide" to 600.** Gives a 280 pt sidebar plus a 320 pt conversation at 600: too narrow, and it moves 30 call sites.
-- **C. Rail on iPad too.** Rejected for now: an expanded iPad window (700 or more with a shortest side of at least 600) already has the sidebar and the audit found no fault there; narrower iPad windows get the tab bar.
+- **C. Rail on an expanded iPad window too.** Rejected for now: an expanded iPad window (700 or more with a shortest side of at least 600) already has the sidebar and the audit found no fault there; narrower iPad windows get the tab bar.
 
 ## Decisions
 

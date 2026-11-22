@@ -9,7 +9,7 @@ The system SHALL choose the shell's form in one place, from the width, the platf
 - **WHEN** the available width is 599, 600, 719, 720, 899 and 900 logical pixels on an Android tablet
 - **THEN** the forms are compact, medium, medium, medium, medium and expanded
 
-#### Scenario: iPad
+#### Scenario: iPad full screen and in Split View
 
 - **WHEN** a full-screen iPad is 744 logical pixels wide, and later the same iPad is in Split View at 507
 - **THEN** the first is expanded with today's sidebar and the second is compact with the tab bar

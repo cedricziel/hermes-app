@@ -4,7 +4,7 @@ Three PRs, each about 500 changed lines or fewer with tests. Every behaviour tas
 
 ## 1. PR 1: `feat(widgets): add the large title header and scope behind a flag`
 
-- [ ] 1.1 Catalog use cases (first), in `widgetbook/` beside the adaptive chrome ones: the header and a `SettingsScaffold(largeTitle: true)` page on iOS at rest, half collapsed, collapsed and with short content; with a subtitle, a subtitle menu and a 60 character title; 390 pt light and dark, 320 pt at text scale 2.0 and 3.1; the same page on Android and on iPad at 1024 pt as the unchanged pair. `test/widgetbook_test.dart` builds each in both themes.
+- [ ] 1.1 Catalog use cases (first), in `widgetbook/` beside the adaptive chrome ones: the header and a `SettingsScaffold(largeTitle: true)` page on iOS at rest, half collapsed, collapsed and with short content; with a subtitle, a subtitle menu and a 60 character title; 390 pt light and dark, 320 pt at text scale 2.0 and 3.1; the same page on Android and on a full-screen iPad at 1024 pt as the unchanged pair. `test/widgetbook_test.dart` builds each in both themes.
 - [ ] 1.2 Write failing widget tests in `test/widgets/settings_scaffold_test.dart`: the flag is ignored on Material, macOS, expanded layouts (`isWideLayout` true), in a pane, with `cancel` and with `formAction`; on an iOS layout that is not expanded, scrolling by the header height fades the bar title in; Reduce Motion switches without a fade; one heading in the semantics tree at each offset; the bar's actions keep 44 pt targets at scale 3.1.
 - [ ] 1.3 Implement `LargeTitleHeader` and `LargeTitleScope` (`lib/src/widgets/large_title_header.dart`), the flag and the bar title fade in `SettingsScaffold`, and the header insertion in `GroupedListView`. Existing tests must not change.
 - [ ] 1.4 Revert check: remove the scope wiring and see the collapse test fail.
@@ -14,7 +14,7 @@ Three PRs, each about 500 changed lines or fewer with tests. Every behaviour tas
 
 Server overview, MCP servers, Tools, Profiles, Messaging and Helper models, and More if the navigation change has landed.
 
-- [ ] 2.1 For each page, a failing test that it shows the header on iOS when not expanded (an iPhone at 390 and 852 wide, an iPad in Split View), the bar title appears after scrolling, and nothing changes on Android and iPad. Then switch the flag on.
+- [ ] 2.1 For each page, a failing test that it shows the header on iOS when not expanded (an iPhone at 390 and 852 wide, an iPad in Split View), the bar title appears after scrolling, and nothing changes on Android and on a full-screen iPad. Then switch the flag on.
 - [ ] 2.2 Fix the sentence in `docs/design-briefs/toolsets.md:118` and `:202` if it still names a collapsing title that the Tools page does not have, or keep it if the page now does.
 - [ ] 2.3 Update `docs/architecture/app-shell.md` (settings kit) and `docs/architecture/settings-screens.md` with the flag and the rule for which pages opt in.
 - [ ] 2.4 Rerun `test/workflows/` as iPhone and look at the screenshots at default and large text.

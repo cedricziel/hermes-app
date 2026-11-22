@@ -39,7 +39,7 @@ People on an iPhone, who today cannot tell a list root from a pushed detail page
 | Chats list         | iPhone   | 390 pt                 | large "Chats" with the profile label, New message in the bar, `NewChatFab` below |
 | Providers or Bots  | iPhone   | 390 pt                 | the search field options below                                                   |
 | Skills             | iPhone   | 390 pt                 | unchanged, small title with tabs, for contrast                                   |
-| Any of the above   | iPad     | 1024 pt                | unchanged, for contrast                                                          |
+| Any of the above   | iPad full screen | 1024 pt                | unchanged, for contrast                                                          |
 | Any of the above   | Android  | 412 dp                 | unchanged, for contrast                                                          |
 
 ### Decisions to take

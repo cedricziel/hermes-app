@@ -23,7 +23,7 @@ On an iOS layout that is not expanded (`isWideLayout` false), a sheet opened thr
 
 On macOS and on wide layouts, including a full-screen iPad, the adaptive sheet SHALL remain a dialog. On Android, Windows and Linux it SHALL remain a Material bottom sheet with its existing handle and height options. The detent profile SHALL have no effect there.
 
-#### Scenario: iPad
+#### Scenario: Full-screen iPad
 
 - **WHEN** a sheet opens on a full-screen iPad
 - **THEN** it is a dialog, as today

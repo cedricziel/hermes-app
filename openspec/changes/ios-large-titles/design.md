@@ -39,7 +39,7 @@ Read in the code at the base commit of this branch.
 | Files, file preview                                                           | iPhone   | no                                    | the path bar needs the room                   |
 | Conversation, group chat                                                      | iPhone   | no                                    | not a list                                    |
 | Server sub-pages, skill, server and schedule detail, task, editors, forms     | iPhone   | no                                    | detail pages and forms                        |
-| Any page in a pane, any page at regular width                                 | iPad     | no                                    | out of scope for now                          |
+| Any page in a pane, any page at regular width                                 | iPad at regular width | no                                    | out of scope for now                          |
 
 9. **The Chats list.** On a compact phone the title is the list's own, "Chats", with the profile label under it as the subtitle that the bar carries today. New message stays a 44 pt bar button, and `NewChatFab` is unchanged. If the navigation change has landed, the menu button is already gone from this bar.
 10. **Long dynamic titles.** The bar title keeps `shrinkTitle` for long dynamic titles on detail pages, which stay small.
@@ -69,7 +69,7 @@ iOS only, on an iOS layout that is not expanded (where `isWideLayout` is false: 
 
 ## Acceptance checks
 
-- **Catalog** (first): the header and the scaffold on iOS in four states: at rest, half collapsed, collapsed, and short content that cannot scroll; with a subtitle, with a subtitle menu, and with a 60 character title; at 390 pt in light and dark, at 320 pt with scale 2.0 and 3.1; the same page on Android and on iPad as a regression pair showing no change.
+- **Catalog** (first): the header and the scaffold on iOS in four states: at rest, half collapsed, collapsed, and short content that cannot scroll; with a subtitle, with a subtitle menu, and with a 60 character title; at 390 pt in light and dark, at 320 pt with scale 2.0 and 3.1; the same page on Android and on a full-screen iPad at 1024 pt as a regression pair showing no change.
 - **Widget:** the flag is ignored on Material, on macOS, at regular width, in a pane, with `cancel` or `formAction`; with it on, scrolling by the header's height fades the bar title in; the semantics tree holds one heading at each offset; Reduce Motion switches without a fade; `GroupedListView` inserts the header once.
 - **Per page:** each opted-in page shows the header and its title, and keeps all of its existing behaviour (existing tests unchanged).
 - **Workflow screenshots:** rerun `test/workflows/` as iPhone and look at them.
