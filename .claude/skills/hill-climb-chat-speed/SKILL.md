@@ -40,15 +40,18 @@ the benchmark.
   those of a release build, so do not quote them as what users feel.
 - **profile**: `flutter drive --profile -d linux` under Xvfb, the real app in
   AOT with no asserts. A frame is the engine's `FrameTiming.buildDuration` (UI
-  thread build, layout, paint) of the frames that started inside a measured
-  pump (unmeasured pumps in between, such as the scroll before an `s3` tap, are
-  not counted).
+  thread build, layout, paint) of the frames whose build started inside a
+  measured pump (not the vsync start: the live binding keeps a vsync request
+  outstanding, so the mount pump can be drawn by a frame that began before
+  it). Unmeasured pumps in between, such as the scroll before an `s3` tap, are
+  not counted.
   Use this for absolute numbers. `raster_*` is reported beside it; under Xvfb the
   Linux embedder reports it as 0, so ignore it. Frames equal measured pumps
   (`s4a` 174/174, `s6` 149/149), except where one measured pump makes more than
-  one engine frame: `s3` (179-180 frames against 174 pumps) and `s5b` (page
-  loads during the drag). There the extra cheap frames dilute p50 and p95; only
-  `max` is immune. Compare p50 and p95 only between runs of the same scenario,
+  one engine frame: `s3` (179-180 frames against 174 pumps), `s5b` (page
+  loads during the drag) and `s5a` phone (4 frames against 3 pumps: its last
+  pump draws two). `s5a` desktop has 4 frames for 4 pumps, mount included.
+  There the extra cheap frames dilute p50 and p95; only `max` is immune. Compare p50 and p95 only between runs of the same scenario,
   where the extra frames are alike.
 
 ## Reading results
