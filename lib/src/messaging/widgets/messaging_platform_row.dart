@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
 import '../hermes_messaging_repository.dart';
@@ -62,24 +63,29 @@ class _SetUpButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        minimumSize: Size.zero,
-        // Taps reach the pill across 48 dp; a Mac takes clicks.
-        tapTargetSize: mac
-            ? MaterialTapTargetSize.shrinkWrap
-            : MaterialTapTargetSize.padded,
-        visualDensity: VisualDensity.standard,
-        padding: mac
-            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
-            : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(mac ? 6 : 999),
-        ),
-        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontSize: mac ? 12 : 14,
-          fontWeight: mac ? FontWeight.w400 : FontWeight.w600,
-        ),
-      ),
+      style:
+          OutlinedButton.styleFrom(
+            minimumSize: Size.zero,
+            // Taps reach the pill across 48 dp; a Mac takes clicks.
+            tapTargetSize: mac
+                ? MaterialTapTargetSize.shrinkWrap
+                : MaterialTapTargetSize.padded,
+            visualDensity: VisualDensity.standard,
+            padding: mac
+                ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
+                : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontSize: mac ? 12 : 14,
+              fontWeight: mac ? FontWeight.w400 : FontWeight.w600,
+            ),
+          ).copyWith(
+            shape: focusRingShapeOf(
+              context,
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(mac ? 6 : 999),
+              ),
+            ),
+          ),
       child: Text(mac ? 'Set Up…' : 'Set up'),
     );
   }

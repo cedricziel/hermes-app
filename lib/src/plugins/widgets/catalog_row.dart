@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/focus_ring.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
 import '../catalog_entry.dart';
@@ -95,32 +96,38 @@ class InstallButton extends StatelessWidget {
           visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
           padding: const EdgeInsets.symmetric(horizontal: 14),
           tapTargetSize: MaterialTapTargetSize.padded,
-          shape: const StadiumBorder(),
           textStyle: text?.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
+        ).copyWith(shape: focusRingShapeOf(context, const StadiumBorder())),
         child: label,
       );
     }
     return OutlinedButton(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        minimumSize: Size(0, mac ? 22 : 32),
-        padding: mac
-            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
-            : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        // Taps reach the 32 dp pill across 48 dp; a Mac takes clicks.
-        tapTargetSize: mac
-            ? MaterialTapTargetSize.shrinkWrap
-            : MaterialTapTargetSize.padded,
-        visualDensity: mac ? VisualDensity.compact : null,
-        shape: mac
-            ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
-            : const StadiumBorder(),
-        textStyle: text?.copyWith(
-          fontSize: mac ? 12 : 14,
-          fontWeight: mac ? FontWeight.w400 : FontWeight.w600,
-        ),
-      ),
+      style:
+          OutlinedButton.styleFrom(
+            minimumSize: Size(0, mac ? 22 : 32),
+            padding: mac
+                ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
+                : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            // Taps reach the 32 dp pill across 48 dp; a Mac takes clicks.
+            tapTargetSize: mac
+                ? MaterialTapTargetSize.shrinkWrap
+                : MaterialTapTargetSize.padded,
+            visualDensity: mac ? VisualDensity.compact : null,
+            textStyle: text?.copyWith(
+              fontSize: mac ? 12 : 14,
+              fontWeight: mac ? FontWeight.w400 : FontWeight.w600,
+            ),
+          ).copyWith(
+            shape: focusRingShapeOf(
+              context,
+              mac
+                  ? RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    )
+                  : const StadiumBorder(),
+            ),
+          ),
       child: label,
     );
   }
