@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gpt_markdown/custom_widgets/custom_divider.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/widgets/app_markdown_theme.dart';
@@ -118,6 +119,41 @@ void main() {
       expect(
         tester.widget<CustomDivider>(find.byType(CustomDivider)).color,
         other,
+      );
+    });
+
+    testWidgets('the brightness alone', (tester) async {
+      // Only the package's brightness-derived defaults (here the highlight
+      // colour) tell it apart: the app's own colours stay the same.
+      Color? seen;
+      Widget scoped(ThemeData theme) => MaterialApp(
+        theme: theme,
+        builder: (context, child) => AppThemeScopes(child: child!),
+        home: AppMarkdownTheme(
+          child: Builder(
+            builder: (context) {
+              seen = GptMarkdownTheme.of(context).highlightColor;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      await tester.pumpWidget(scoped(light));
+      final lightHighlight = seen;
+      await tester.pumpWidget(
+        scoped(
+          light.copyWith(
+            colorScheme: light.colorScheme.copyWith(
+              brightness: Brightness.dark,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(seen, isNot(lightHighlight));
+      expect(
+        seen,
+        GptMarkdownThemeData(brightness: Brightness.dark).highlightColor,
       );
     });
   });
