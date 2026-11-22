@@ -2,7 +2,7 @@
 
 Openspec change: `openspec/changes/compact-and-medium-navigation` (audit items D1 and E6, roadmap F.229 and F.210). The design pass ran (below). This brief says what to decide and where; the facts and the recommendation are in that change's `design.md`.
 
-## Design pass
+## Design (done)
 
 Canvas: https://claude.ai/artifact/LDMhPqNsZKuVda2BaFUTex (private; ask its owner for access). It holds 16 artboards for three changes; row 1 is this one, seven artboards. Each recommendation below awaits the owner's decision; the alternative is named after it.
 

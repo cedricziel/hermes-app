@@ -40,7 +40,7 @@ iOS only for the new look, on an iOS layout that is not expanded (`isWideLayout`
 - **Privacy.** Sheets show what they show today: a command the user must read before saving (`McpCommandReview`), keys being typed (toolset setup), a file name and size. None of it goes to a breadcrumb, span or log; this change records nothing.
 - **Confirmations are never auto-confirmed.** Dismissal by swipe or barrier returns null, which every confirmation call site already treats as cancel (for example `compress_flow.dart:42`, `restore_flow.dart`). A test per confirmation family asserts this.
 - **Never resent / lost answers.** Restore and compress go out only after a confirmation (`CLAUDE.md`, Chat). A sheet that dismisses itself mid-send must not cancel the request: dismissal while busy is refused through `PopScope`.
-- **Touch targets.** The grabber band is a drag area, not a button. Every sheet keeps a 44 pt Close, Cancel or Done in its content. The accessibility actions on the grabber are the non-gesture way to resize.
+- **Touch targets.** The grabber band is a drag area, not a button. Every sheet keeps a Close, Cancel or Done in its content: a text button painted at least 44 pt tall, or an icon button with a tap target of at least 44 pt. The accessibility actions on the grabber are the non-gesture way to resize.
 - **Status is not colour alone.** The grabber is a shape. Nothing in a sheet's chrome carries status.
 - **Telemetry.** None added.
 
@@ -68,7 +68,7 @@ iOS only for the new look, on an iOS layout that is not expanded (`isWideLayout`
 
 ## Design pass
 
-The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/cupertino-detent-sheets.md`. It confirms decision 3 (the grabber on every iOS sheet, `fit` included), medium at half the height under the safe inset, no presenter scaling for `large` (option C stays rejected) and the proposal's profile table. One build note: sheet actions stay at least 44 pt, which the iOS theme already gives (`lib/src/theme/hermes_theme.dart:147-149`); task A.7 guards it.
+The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/cupertino-detent-sheets.md`. It confirms decision 3 (the grabber on every iOS sheet, `fit` included), medium at half the height under the safe inset, no presenter scaling for `large` (option C stays rejected) and the proposal's profile table. One build note: in a sheet, text, filled and outlined buttons paint at least 44 pt tall (the iOS theme's `minimumSize`, `lib/src/theme/hermes_theme.dart:147-149`), and icon buttons such as Close paint at 40 x 40 with a tap target of at least 44 (padded to 48); task A.7 guards both.
 
 ## Open questions for the design pass
 

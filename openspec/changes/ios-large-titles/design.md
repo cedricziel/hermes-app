@@ -27,7 +27,7 @@ Read in the code at the base commit of this branch.
 4. **The header.** `LargeTitleHeader`: title at 34 pt, weight 700, the page's text colour, left aligned at the grouped gutter; the subtitle below it at 15 pt in the muted colour; a subtitle menu keeps its button. It wraps freely and is never clamped (checked to text scale 3.1). It is `Semantics(header: true)`.
 5. **The collapse.** The bar title's opacity goes from 0 to 1 over the last 24 pt of the header's scroll-off. With Reduce Motion on it switches at the end instead of fading. While the header is on screen the bar title is excluded from semantics, and once it is off screen the header is, so a screen reader finds one heading.
 6. **The bar.** Its hairline appears when the content has scrolled under it (offset above 0), and is absent at rest. The design pass confirms or reverts this.
-7. **Search and tabs.** Pages with tabs keep small titles: each tab is its own scroll view and a header cannot scroll with all of them. On a page without a large title the search field stays in `AppBar.bottom`. Leaving it there on a large-title page would put the field above the title, which iOS never does, so on a large-title page (PR 3) the field sits in the content directly under the large title, scrolls away with it, and pins under the bar while it is focused or holds a query; the query, focus and keyboard survive a collapse. The design pass recommended this placement and the owner confirms it before PR 3; the alternative (the field pinned in the bar) is rejected for the reason above.
+7. **Search and tabs.** Pages with tabs keep small titles: each tab is its own scroll view and a header cannot scroll with all of them. On a page without a large title the search field stays in `AppBar.bottom`. Leaving it there on a large-title page would put the field above the title, which iOS never does, so on a large-title page (PR 3) the field sits in the content directly under the large title, scrolls away with it when empty and unfocused, and otherwise stays under the title when it takes focus, scrolls with the content, and pins under the bar once it reaches it, while it is focused or holds a query; the query, focus and keyboard survive a collapse. The design pass recommended this placement and the owner confirms it before PR 3; the alternative (the field pinned in the bar) is rejected for the reason above.
 8. **Which pages.**
 
 | Page                                                                          | Platform | Large title                           | Why                                           |
@@ -77,7 +77,7 @@ iOS only, on an iOS layout that is not expanded (where `isWideLayout` is false: 
 
 ## Design pass
 
-The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/ios-large-titles.md`. It confirms decision 6 (no hairline at rest) and recommends the search placement that decision 7 now records: the field under the large title, scrolling with it, pinned under the bar once focused or holding a query. PR 3 starts once the owner confirms it.
+The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/ios-large-titles.md`. It confirms decision 6 (no hairline at rest) and recommends the search placement that decision 7 now records: the field under the large title, scrolling with it, and, while focused or holding a query, pinned under the bar once it reaches it. PR 3 starts once the owner confirms it.
 
 ## Open questions for the design pass
 

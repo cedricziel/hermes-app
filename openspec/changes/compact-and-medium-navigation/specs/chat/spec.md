@@ -36,7 +36,7 @@ The system SHALL render a message as its tool call cards, each after the reasoni
 
 #### Scenario: Responsive layout
 
-- **WHEN** the shell form is expanded (900 logical pixels or more on any platform, a full-screen iPad from 700, any Mac window)
+- **WHEN** the shell form is expanded (900 logical pixels or more on any platform, an iOS window of 700 or more with a shortest side of at least 600, any Mac window)
 - **THEN** the thread rail is permanently shown beside the transcript, with the thread title above it
 - **AND WHEN** the form is medium on Android, Windows or Linux and the width is 720 logical pixels or more
 - **THEN** the thread list is shown beside the transcript, right of the navigation rail, and the thread title is shown in the conversation's app bar

@@ -11,5 +11,10 @@ A `requests` link SHALL open the chat holding the open approval, question or inp
 
 #### Scenario: Nothing waiting
 
-- **WHEN** no loaded chat has an open request and the user opens `hermes://requests`
+- **WHEN** no loaded chat has an open request, the stored snapshot lists no open request in another profile that the server still reports as waiting, and the user opens `hermes://requests`
 - **THEN** the chat list is shown
+
+#### Scenario: Stored request in another profile
+
+- **WHEN** no loaded chat has an open request, the stored snapshot's oldest open request is in profile `work` while the app shows `default`, the server still reports it as waiting, and the user opens `hermes://requests`
+- **THEN** the app switches to `work` and opens that chat, and the chat list is not shown

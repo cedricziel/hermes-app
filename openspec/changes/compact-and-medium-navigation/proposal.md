@@ -9,7 +9,7 @@ Audit items D1 (roadmap F.229) and E6 (roadmap F.210).
 Both audit findings are true in the code today.
 
 - **Phones navigate by drawer.** Below the wide breakpoint the shell is a `Scaffold` with a 280 pt `Drawer` and no bottom bar (`lib/src/shell/app_shell.dart:885-897`). Kanban and Schedules are two taps away: the menu button, then the row. Chats has its own drawer that repeats the destinations and adds Profiles, Skills, Memory, Messaging, Plugins, MCP servers, Providers, Tools and Helper models (`lib/src/chat/chat_screen_layout.dart:370-440`). Server on a phone sits in the account menu (`lib/src/chat/widgets/thread_sidebar.dart`, `AccountFooter`). The kanban spec says so outright: "there is no bottom navigation bar" (`openspec/specs/kanban/spec.md:58`).
-- **600 to 899 dp is a stretched phone.** `isWideLayout` is true from 900 dp everywhere, and from 700 dp only for a full-screen iPad (`lib/src/theme/breakpoints.dart:9-36`). An Android tablet in portrait (about 800 dp), a foldable's inner screen, or a Windows or Linux window of 700 dp gets the phone layout: a full-page chat list, then a pushed conversation, with a drawer.
+- **600 to 899 dp is a stretched phone.** `isWideLayout` is true from 900 dp everywhere, and on iOS from 700 dp for a window whose shortest side is at least 600, such as a full-screen iPad (`lib/src/theme/breakpoints.dart:9-36`). An Android tablet in portrait (about 800 dp), a foldable's inner screen, or a Windows or Linux window of 700 dp gets the phone layout: a full-page chat list, then a pushed conversation, with a drawer.
 
 ## What Changes
 

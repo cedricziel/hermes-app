@@ -23,7 +23,7 @@ Server overview, MCP servers, Tools, Profiles, Messaging and Helper models, and 
 
 Starts after the owner confirms the search placement of design decision 7 (the field under the large title).
 
-- [ ] 3.1 Failing tests for the search placement in `specs/large-titles/spec.md` ("Search sits under the large title"): the field is under the large title at rest, scrolls away with it when empty and unfocused, pins under the bar while focused or holding a query, and the keyboard and the query survive a collapse.
+- [ ] 3.1 Failing tests for the search placement in `specs/large-titles/spec.md` ("Search sits under the large title"): the field is under the large title at rest, scrolls away with it when empty and unfocused, focusing it at rest leaves it where it is under the title (it does not move to the bar), and while focused or holding a query it scrolls with the content and pins under the bar once it reaches it, and the keyboard and the query survive a collapse.
 - [ ] 3.2 Move Schedules' custom `AppBar` onto the same header, and give the Chats list its large title (`chat_screen_layout.dart`, `ThreadSidebar(fullPage: true)`), keeping New message in the bar and `NewChatFab` in place.
 - [ ] 3.3 Rerun the workflow screenshots and the Chats tests in `test/messenger_navigation_test.dart`.
 - [ ] 3.4 Report to the orchestrator whether Android (`SliverAppBar.large`) and iPad should follow, as roadmap rows.

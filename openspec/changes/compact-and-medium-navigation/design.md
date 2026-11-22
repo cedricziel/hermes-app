@@ -6,7 +6,7 @@ Everything below was read in the code at the base commit of this branch.
 
 ### Breakpoints today
 
-- `kWideLayoutBreakpoint = 900` (`lib/src/theme/breakpoints.dart:9`). `isWideLayout` (`:27`) is true from 900 dp on every platform, and from `kIpadRegularWidth = 700` (`:14`) on iOS chrome when the shortest side is at least `kIpadMinShortestSide = 600` (`:18`), so a full-screen iPad is wide in both orientations and an iPad in Split View or Slide Over is not.
+- `kWideLayoutBreakpoint = 900` (`lib/src/theme/breakpoints.dart:9`). `isWideLayout` (`:27`) is true from 900 dp on every platform, and from `kIpadRegularWidth = 700` (`:14`) on iOS chrome when the shortest side is at least `kIpadMinShortestSide = 600` (`:18`), so an iOS window of 700 or more with a shortest side of at least 600 is wide (a full-screen iPad in both orientations, and a Split View pane that size), and narrower Split View and Slide Over windows are not.
 - Other numbers that are not the shell's: `kMacSplitBreakpoint = 560` (`:38`), `kKanbanColumnsBreakpoint = 720` (`:42`), `kHeaderLargeTextScale = 1.3` (`lib/src/workspaces/widgets/working_directory_line.dart:14`).
 - There is no medium form. About 30 call sites ask `isWideLayout` for a split or a dialog; they keep doing so.
 - Window size classes in Material 3 are compact under 600, medium 600 to 839, expanded from 840. The app's 900 is its own and stays: moving it would change 30 call sites and the iPad rule. Medium here is 600 to 899.

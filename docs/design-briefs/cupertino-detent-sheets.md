@@ -2,7 +2,7 @@
 
 Openspec change: `openspec/changes/cupertino-detent-sheets` (audit item D6, roadmap F.231). The design pass ran (below). This brief says what to decide and where; the facts and the recommendation are in that change's `design.md`. Kanban's task sheet is the existing example of the look.
 
-## Design pass
+## Design (done)
 
 Canvas: https://claude.ai/artifact/LDMhPqNsZKuVda2BaFUTex (private; ask its owner for access). Row 3, five artboards at 393 x 852 and 852 x 393. Each recommendation awaits the owner's decision; the alternative is named after it.
 
@@ -13,7 +13,7 @@ Canvas: https://claude.ai/artifact/LDMhPqNsZKuVda2BaFUTex (private; ask its owne
 - **Landscape 852 x 393:** under 500 pt of height every sheet is large, at most 640 pt wide and centred, with the grabber.
 - **Not drawn, decided:** no sheet changes profile from the proposal's table.
 
-New components needed: the iOS sheet container (rounded top, hairline, scrim, detent height) and the grabber (36 x 5 in a 17 pt band, an adjustable control on `mediumLarge`), both plain markup on the canvas; the closest existing piece is `KanbanDetentSheet`. The design canvas's kit draws `Button` 40 px tall, so the canvas raises sheet actions itself; the app's iOS theme already gives buttons a 44 pt minimum (`lib/src/theme/hermes_theme.dart:147-149`), and task A.7 guards it in sheets.
+New components needed: the iOS sheet container (rounded top, hairline, scrim, detent height) and the grabber (36 x 5 in a 17 pt band, an adjustable control on `mediumLarge`), both plain markup on the canvas; the closest existing piece is `KanbanDetentSheet`. The design canvas's kit draws `Button` 40 px tall, so the canvas raises sheet actions itself; in the app, text, filled and outlined buttons already paint at least 44 pt tall on iOS (`lib/src/theme/hermes_theme.dart:147-149`), and icon buttons such as Close paint at 40 x 40 with a tap target padded to 48. Task A.7 guards both: 44 pt painted for the first kind, a 44 pt tap target for icon buttons.
 
 ## Proposed:
 
