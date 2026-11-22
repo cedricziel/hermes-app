@@ -52,6 +52,9 @@ add a test, do not work around it.
   `find -exec`, and fails closed on a computed program name (`$G pr view`)
   while `gh` is a word of the command. Quoted text like `git commit -m "gh x"`
   passes. Not covered: `gh` run from inside a script file or a `python -c`.
+- In local and cloud sessions alike, each `find -exec/-execdir/-ok/-okdir`
+  action (after `env`/`sudo`/`timeout`/`nice`, up to its `;`, or a `{}` followed by `+`) gets the same
+  git checks and messages as a direct command; `find -exec sh -c 'git stash'` is not unwrapped.
 - Beyond git it also blocks `gh pr merge --delete-branch`, `gh api -X DELETE`
   on `git/refs`, `-c alias.*` and `GIT_CONFIG_KEY_*` for `core.hooksPath` or
   aliases, removing or `chmod -x` of the pre-commit hook, `git pull --rebase`
@@ -82,11 +85,13 @@ add a test, do not work around it.
   file executable.
 
 Known gaps: a program named by substitution (`$(which git) stash`), a banned
-command inside a script file or a git alias defined in a config file, `find
--exec` and similar runners, other ways to delete a remote branch through
+command inside a script file or a git alias defined in a config file, other runners
+(`parallel`) for the git bans, other ways to delete a remote branch through
 `gh`, a hook path built from a variable (`$HOOKS/pre-commit`) or written with
 `sed -i` or `python`, and hosts without `python3` (the hook then cannot run and
-does not block).
+does not block). For `find` actions, `-execdir` judges git scope by the shell's cwd.
+`flock`, `stdbuf`, `ionice` and `setsid` are not unwrapped for the git bans.
+Non-git checks (`hermes dashboard`, `chmod` on `.git/hooks`) are not applied to find actions.
 
 ## Add or change a rule
 
