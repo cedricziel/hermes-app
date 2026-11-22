@@ -77,6 +77,7 @@ void main() {
     tester.view.physicalSize = const Size(600, 400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final semantics = tester.ensureSemantics();
     final failures = <String>[];
     // The header is the block's width less its 10 and 8 px padding.
     const padding = 18.0;
@@ -128,6 +129,9 @@ void main() {
                 failures.add('$where: overflow');
                 continue;
               }
+              if (find.bySemanticsLabel(label).evaluate().isEmpty) {
+                failures.add('$where: language name not in semantics');
+              }
               if (copy) {
                 final size = tester.getSize(find.bySemanticsLabel('Copy code'));
                 if (size.width < 32 || size.height < 32) {
@@ -139,6 +143,7 @@ void main() {
         }
       }
     }
+    semantics.dispose();
     expect(failures, isEmpty, reason: failures.join('\n'));
   });
 }

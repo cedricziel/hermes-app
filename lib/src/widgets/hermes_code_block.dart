@@ -201,7 +201,10 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
                               // Below this the chip cannot hold its padding,
                               // icon and gap, so it is left out.
                               builder: (context, box) => box.maxWidth < 44
-                                  ? const SizedBox.shrink()
+                                  ? Semantics(
+                                      label: displayName,
+                                      child: const SizedBox.shrink(),
+                                    )
                                   : Align(
                                       alignment:
                                           AlignmentDirectional.centerStart,
