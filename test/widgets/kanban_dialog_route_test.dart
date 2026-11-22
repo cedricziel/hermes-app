@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
@@ -168,39 +170,42 @@ void main() {
     });
   }
 
-  // A click that leaves the field must not strand Esc outside the binding.
+  // A click outside a field takes focus out of it on desktop: Flutter runs
+  // EditableTextTapOutsideIntent, which unfocuses the field. Esc must still
+  // close the dialog then, although the focus fell back to the route.
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final (name, marker, _, show) in dialogs.where((d) => d.$3)) {
       testWidgets(
         '$name on ${platform.name}: type, click outside, Esc closes',
         (tester) async {
           await open(tester, platform, show, marker);
-          await tester.enterText(
-            find.byType(EditableText).first,
-            'typed words',
-          );
-          await clickBarrier(tester);
-          // A desktop pointer click outside a field unfocuses it.
-          FocusManager.instance.primaryFocus?.unfocus();
-          await tester.pump();
-          expect(find.text(marker), findsWidgets);
-          await esc(tester);
-          expect(find.text(marker), findsNothing);
-        },
-      );
-
-      testWidgets(
-        '$name on ${platform.name}: type, tap the title, Esc closes',
-        (tester) async {
-          await open(tester, platform, show, marker);
-          await tester.enterText(
-            find.byType(EditableText).first,
-            'typed words',
-          );
-          await tester.tap(find.text(marker).first);
+          final finder = find.byType(EditableText).first;
+          final field = tester.widget<EditableText>(finder);
+          await tester.enterText(finder, 'typed words');
+          expect(field.focusNode.hasPrimaryFocus, isTrue);
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            Actions.invoke(
+              tester.element(
+                find
+                    .descendant(
+                      of: finder,
+                      matching: find.byType(TextFieldTapRegion),
+                    )
+                    .first,
+              ),
+              EditableTextTapOutsideIntent(
+                focusNode: field.focusNode,
+                pointerDownEvent: const PointerDownEvent(
+                  kind: PointerDeviceKind.mouse,
+                ),
+              ),
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
           await tester.pumpAndSettle();
-          FocusManager.instance.primaryFocus?.unfocus();
-          await tester.pump();
+          expect(field.focusNode.hasPrimaryFocus, isFalse);
           expect(find.text(marker), findsWidgets);
           await esc(tester);
           expect(find.text(marker), findsNothing);

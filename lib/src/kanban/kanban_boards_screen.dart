@@ -310,7 +310,6 @@ Future<KanbanImportOptions?> showKanbanImportDialog(BuildContext context) =>
     showKanbanDialog<KanbanImportOptions>(
       context,
       textEntry: true,
-      autofocusField: true,
       builder: (_) => const _ImportDialog(),
     );
 

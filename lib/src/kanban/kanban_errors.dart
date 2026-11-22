@@ -37,13 +37,11 @@ Future<bool> runKanbanAction(
 /// A [textEntry] dialog makes the macOS barrier inert, so a stray click does
 /// not throw away typed text. An inert barrier (that one, and iOS's own) turns
 /// Esc off with it, so Esc is bound here on both Apple platforms and closes
-/// the route; Material keeps what it had. [DismissOnEscape] takes
-/// focus first unless the dialog has an autofocus field ([autofocusField]).
+/// the route; Material keeps what it had. [DismissOnEscape] binds it.
 Future<T?> showKanbanDialog<T>(
   BuildContext context, {
   required WidgetBuilder builder,
   bool textEntry = false,
-  bool autofocusField = false,
 }) {
   final chrome = platformChromeOf(context);
   return showAppDialog<T>(
@@ -53,10 +51,7 @@ Future<T?> showKanbanDialog<T>(
         : null,
     builder: (dialog) {
       if (chrome == PlatformChrome.material) return builder(dialog);
-      return DismissOnEscape(
-        autofocus: !autofocusField,
-        child: Builder(builder: builder),
-      );
+      return DismissOnEscape(autofocus: true, child: Builder(builder: builder));
     },
   );
 }
