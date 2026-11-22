@@ -135,6 +135,8 @@ void main() {
       );
 
       expect(find.text('3 Aufgaben archivieren?'), findsOneWidget);
+      expect(find.text('Abbrechen'), findsOneWidget);
+      expect(find.text('Cancel'), findsNothing);
       await tester.tap(find.text('Archivieren').last);
       await tester.pumpAndSettle();
       expect(calls.log, ['archive']);
