@@ -59,6 +59,7 @@ import 'fixtures.dart';
 import 'frame.dart';
 import 'host.dart';
 import 'kanban_screen_use_cases.dart';
+import 'platform_theme.dart';
 
 final Uint8List _pixel = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -488,7 +489,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
         WidgetbookUseCase(
           name: 'Threads on Android',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+            data: platformTheme(context, TargetPlatform.android),
             child: Hosted<CatalogAuth>(
               create: () => CatalogAuth(gated: true),
               dispose: (auth) => auth.dispose(),
@@ -511,7 +512,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
         WidgetbookUseCase(
           name: 'Searching on Android',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+            data: platformTheme(context, TargetPlatform.android),
             child: Hosted<CatalogAuth>(
               create: () => CatalogAuth(gated: true),
               dispose: (auth) => auth.dispose(),
@@ -624,7 +625,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
           WidgetbookUseCase(
             name: 'Notifications · desktop, no background check ($platform)',
             builder: (context) => Theme(
-              data: Theme.of(context).copyWith(platform: platform),
+              data: platformTheme(context, platform),
               child: withAppProviders(
                 CatalogAuth(),
                 _dialog(showNotificationsDialog),
@@ -649,14 +650,14 @@ WidgetbookNode appNode() => WidgetbookFolder(
             name:
                 'App lock · ${platform == TargetPlatform.linux ? 'not available' : 'no Windows Hello'} ($platform)',
             builder: (context) => Theme(
-              data: Theme.of(context).copyWith(platform: platform),
+              data: platformTheme(context, platform),
               child: _appLock(available: false),
             ),
           ),
         WidgetbookUseCase(
           name: 'App lock · Windows Hello ready (windows)',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.windows),
+            data: platformTheme(context, TargetPlatform.windows),
             child: _appLock(available: true),
           ),
         ),
@@ -963,7 +964,7 @@ class _DestinationsState extends State<_Destinations> {
 
 Widget _shortShellSidebar() => Builder(
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: MediaQuery(
       data: MediaQuery.of(context).copyWith(size: const Size(800, 280)),
       child: Align(
@@ -1031,7 +1032,7 @@ class _PullToRefreshListState extends State<_PullToRefreshList> {
 
   @override
   Widget build(BuildContext context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.iOS),
+    data: platformTheme(context, TargetPlatform.iOS),
     child: fill(
       Scaffold(
         body: ThreadSidebar(

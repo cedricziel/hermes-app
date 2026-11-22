@@ -45,7 +45,7 @@ void main() {
       Provider<MediaStore?>.value(
         value: media ?? store,
         child: MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: Column(
               mainAxisSize: MainAxisSize.min,

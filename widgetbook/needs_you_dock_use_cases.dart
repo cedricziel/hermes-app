@@ -10,6 +10,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 /// The dock with working paging, since the model holds the shown index.
 class _Demo extends StatefulWidget {
@@ -397,9 +398,10 @@ WidgetbookNode needsYouBodiesNode() => WidgetbookFolder(
 
 Widget _header(int waiting, {required bool apple}) => Builder(
   builder: (context) => Theme(
-    data: Theme.of(
+    data: platformTheme(
       context,
-    ).copyWith(platform: apple ? TargetPlatform.iOS : TargetPlatform.android),
+      apple ? TargetPlatform.iOS : TargetPlatform.android,
+    ),
     child: Material(
       color: Theme.of(context).colorScheme.surface,
       child: ChatHeader(
@@ -416,7 +418,7 @@ Widget _header(int waiting, {required bool apple}) => Builder(
 
 Widget _macToolbar(int waiting) => Builder(
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: Align(
       alignment: Alignment.topCenter,
       child: MacChatToolbar(

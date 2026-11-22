@@ -26,6 +26,7 @@ import 'frame.dart';
 import 'fixtures.dart';
 import 'host.dart';
 import 'kanban_screen_use_cases.dart';
+import 'platform_theme.dart';
 
 WidgetbookUseCase _open(
   String name,
@@ -44,7 +45,7 @@ WidgetbookUseCase _material(
 ) => WidgetbookUseCase(
   name: name,
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+    data: platformTheme(context, TargetPlatform.android),
     child: Builder(builder: (context) => openOnShow(open)),
   ),
 );

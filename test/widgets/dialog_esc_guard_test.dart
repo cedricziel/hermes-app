@@ -40,7 +40,7 @@ void main() {
           child: MaterialApp(
             localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            theme: buildHermesLightTheme().copyWith(platform: platform),
+            theme: buildHermesLightTheme(platform: platform),
             home: Builder(
               builder: (c) {
                 context = c;

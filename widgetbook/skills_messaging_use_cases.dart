@@ -27,6 +27,7 @@ import 'package:widgetbook/widgetbook.dart';
 import '../test/support/fake_hermes_server.dart';
 import 'frame.dart';
 import 'host.dart';
+import 'platform_theme.dart';
 
 /// Skills, the hub, messaging and profiles of one invented dashboard.
 FakeHermesServer skillsServer() => FakeHermesServer()
@@ -307,7 +308,7 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
           WidgetbookUseCase(
             name: 'Text ${scale.toInt()}x (Mac)',
             builder: (context) => Theme(
-              data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+              data: platformTheme(context, TargetPlatform.macOS),
               child: MediaQuery(
                 data: MediaQuery.of(context)
                     .copyWith(textScaler: TextScaler.linear(scale)),

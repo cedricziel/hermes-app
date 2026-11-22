@@ -25,7 +25,7 @@ void main() {
         (tester) async {
           await tester.pumpWidget(
             MaterialApp(
-              theme: buildHermesLightTheme().copyWith(platform: platform),
+              theme: buildHermesLightTheme(platform: platform),
               home: Scaffold(
                 appBar: AppBar(
                   automaticallyImplyLeading: false,

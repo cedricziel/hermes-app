@@ -36,7 +36,7 @@ Future<void> _pump(
       ],
       child: MaterialApp(
         builder: (_, child) => AppThemeScopes(child: child!),
-        theme: buildHermesLightTheme().copyWith(platform: platform),
+        theme: buildHermesLightTheme(platform: platform),
         home: const ChatScreen(),
       ),
     ),

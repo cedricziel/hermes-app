@@ -69,7 +69,7 @@ void main() {
           locale: locale,
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           home: Builder(
             builder: (context) => TextButton(
               onPressed: () =>

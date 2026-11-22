@@ -21,6 +21,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'bot_screen_fixture.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 /// [model] as the Activity panel lists it, in a column as wide as the
 /// inspector.
@@ -411,7 +412,7 @@ WidgetbookUseCase _on(
 ) => WidgetbookUseCase(
   name: name,
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: platform),
+    data: platformTheme(context, platform),
     child: Builder(builder: builder),
   ),
 );

@@ -229,18 +229,14 @@ void main() {
       await pumpScreen(
         tester,
         shots,
-        Builder(
-          builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
-            child: KanbanScreen(
-              repository: KanbanRepository(server.client()),
-              connect: ({required since, board}) async =>
-                  StreamChannelController<String>().foreign,
-            ),
-          ),
+        KanbanScreen(
+          repository: KanbanRepository(server.client()),
+          connect: ({required since, board}) async =>
+              StreamChannelController<String>().foreign,
         ),
         size: size,
         brightness: brightness,
+        platform: TargetPlatform.macOS,
       );
       await shots.capture(tester, 'board');
 

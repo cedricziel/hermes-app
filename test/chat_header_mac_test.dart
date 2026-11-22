@@ -31,7 +31,7 @@ Future<void> _pump(WidgetTester tester, TargetPlatform platform) async {
       ],
       child: MaterialApp(
         builder: (_, child) => AppThemeScopes(child: child!),
-        theme: buildHermesLightTheme().copyWith(platform: platform),
+        theme: buildHermesLightTheme(platform: platform),
         home: const MacSidebarScope(child: ChatScreen()),
       ),
     ),

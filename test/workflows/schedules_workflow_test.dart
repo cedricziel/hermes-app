@@ -2626,8 +2626,10 @@ Future<void> _mount(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: withScreenshotFont(
-            dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
-          ).copyWith(platform: platform),
+            dark
+                ? buildHermesDarkTheme(platform: platform)
+                : buildHermesLightTheme(platform: platform),
+          ),
           home: home,
         ),
       ),
