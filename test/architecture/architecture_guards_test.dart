@@ -103,6 +103,43 @@ Rule _custom({
   );
 }
 
+/// A Material list tile built outside a `FocusRing(`: the tile's shape is not
+/// state-aware, so the ring is a wrapper. `\b` keeps `MacSourceListTile` out.
+final _bareListTile = RegExp(
+  r'(?<!FocusRing\(\s*(?:child:\s*)?)\b(?:Checkbox|Switch|Radio)?ListTile'
+  r'(?:<[^()]*>)?(?:\.adaptive)?\(',
+);
+
+/// A chip built with its own `shape:`, which replaces the theme's and the ring.
+final _chipCall = RegExp(
+  r'\b(?:Raw|Filter|Choice|Input|Action)?Chip(?:\.elevated)?\(',
+);
+
+/// A chip theme with its own shape below the app theme replaces the ring the
+/// same way; only `hermes_theme.dart` sets one.
+final _chipThemeCall = RegExp(r'\bChipThemeData(?:\.\w+)?\(');
+final _shapeArgument = RegExp(r'(?<![\w.])shape\s*:');
+
+List<Hit> chipShapeHitsIn(SourceFile file) => [
+  for (final (at, args) in callArguments(file, _chipCall))
+    if (_shapeArgument.hasMatch(args))
+      Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
+  if (file.path != 'lib/src/theme/hermes_theme.dart')
+    for (final (at, args) in callArguments(file, _chipThemeCall))
+      if (_shapeArgument.hasMatch(args))
+        Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
+];
+
+/// A raw popup menu: `PopupMenuButton<T>(`, the inferred `PopupMenuButton(`,
+/// or `showMenu`.
+final _rawPopupMenu = RegExp(
+  r'(?<![\w.])(?:PopupMenuButton\s*[<(]|showMenu\s*[<(])',
+);
+
+List<Hit> _chipShapeHits() => [
+  for (final file in dartFiles('lib')) ...chipShapeHitsIn(file),
+];
+
 /// A use of the catalog's keyboard override, a call or a tear-off.
 final _keyboardOverride = RegExp(r'\bmarkFocusRingKeyboardInput\b');
 
@@ -662,6 +699,47 @@ final guardRules = <Rule>[
     hits: _buttonShapeHits,
   ),
 
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": a Material
+  // tile keeps only its own focus fill unless it sits in a FocusRing.
+  _guard(
+    name: 'list-tile-without-focus-ring',
+    message:
+        'wrap a ListTile, CheckboxListTile, SwitchListTile or RadioListTile in '
+        'FocusRing(child: ...) so the keyboard focus ring shows inside the row '
+        '(lib/src/theme/focus_ring.dart).',
+    pattern: _bareListTile,
+    view: _code,
+  ),
+
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": chips take
+  // the ring from the theme's shape.
+  _custom(
+    name: 'chip-shape-without-focus-ring',
+    message:
+        'a chip that sets its own shape: drops the keyboard focus ring the '
+        'theme gives it (ChipThemeData.shape, FocusRingStateBorder in '
+        'lib/src/theme/focus_ring.dart): leave the shape to the theme.',
+    hits: _chipShapeHits,
+  ),
+
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": a menu is
+  // built by AdaptivePopupMenuButton, which puts the ring on its items.
+  _guard(
+    name: 'popup-menu-without-focus-ring',
+    message:
+        'use AdaptivePopupMenuButton (or NamedPopupMenuButton): it gives each '
+        'menu item the keyboard focus ring; a raw PopupMenuButton or showMenu '
+        'does not.',
+    pattern: _rawPopupMenu,
+    view: _code,
+    allow: {
+      'lib/src/widgets/adaptive_popup_menu_button.dart': 'the implementation',
+      'lib/src/widgets/row_actions.dart':
+          'the Mac row context menu, whose items are rows of the Mac compact '
+          'menu (not covered by the ring)',
+    },
+  ),
+
   // docs/architecture/settings-screens.md, "Keyboard focus ring": the catalog
   // forces the keyboard state of its previews; app code never does, since the
   // ring would show after a pointer press in a release build.
@@ -699,6 +777,60 @@ void main() {
       _keyboardOverride.hasMatch('markFocusRingKeyboardInputs();'),
       isFalse,
     );
+  });
+
+  group('list tile, chip and popup menu guards', () {
+    bool tile(String code) => _bareListTile.hasMatch(code);
+
+    test('a tile outside FocusRing is flagged, one inside is not', () {
+      expect(tile('children: [ListTile(title: a)]'), isTrue);
+      expect(tile('x = SwitchListTile.adaptive(value: v)'), isTrue);
+      expect(tile('CheckboxListTile(value: v)'), isTrue);
+      expect(tile('FocusRing(child: ListTile(title: a))'), isFalse);
+      expect(
+        tile('FocusRing(\n  child: CheckboxListTile.adaptive(\n'),
+        isFalse,
+      );
+      expect(tile('MacSourceListTile(title: a)'), isFalse);
+      expect(tile('RadioListTile<int>(value: 1)'), isTrue);
+      expect(tile('RadioListTile<T>.adaptive(value: v)'), isTrue);
+      expect(tile('x = RadioListTile<List<int>>(value: v)'), isTrue);
+      expect(tile('FocusRing(child: RadioListTile<int>(value: 1))'), isFalse);
+      expect(tile('FocusRing(radius: 4, child: ListTile(title: a))'), isTrue);
+    });
+
+    int chips(String source) =>
+        chipShapeHitsIn(SourceFile('lib/x.dart', source)).length;
+
+    test('a chip with its own shape is flagged', () {
+      expect(chips('x = FilterChip(label: a, shape: s);'), 1);
+      expect(chips('x = Chip(label: a, side: BorderSide(color: c));'), 0);
+      expect(chips('x = ChoiceChip(label: Text(a), onSelected: f);'), 0);
+      expect(chips('x = StatusChip(shape: s);'), 0);
+      expect(chips('x = FilterChip.elevated(label: a, shape: s);'), 1);
+      expect(chips('x = ChoiceChip.elevated(label: a, onSelected: f);'), 0);
+    });
+
+    test('a chip theme shape outside the app theme is flagged', () {
+      int themed(String source, String path) =>
+          chipShapeHitsIn(SourceFile(path, source)).length;
+      const code = 'x = ChipThemeData(shape: s);';
+      expect(themed(code, 'lib/src/x.dart'), 1);
+      expect(
+        themed('x = ChipThemeData.fromDefaults(shape: s);', 'lib/x.dart'),
+        1,
+      );
+      expect(themed('x = ChipThemeData(side: s);', 'lib/src/x.dart'), 0);
+      expect(themed(code, 'lib/src/theme/hermes_theme.dart'), 0);
+    });
+
+    test('a popup menu without its type argument is flagged', () {
+      expect(_rawPopupMenu.hasMatch('PopupMenuButton<int>(a)'), isTrue);
+      expect(_rawPopupMenu.hasMatch('PopupMenuButton(itemBuilder: b)'), isTrue);
+      expect(_rawPopupMenu.hasMatch('showMenu<int>(context: c)'), isTrue);
+      expect(_rawPopupMenu.hasMatch('AdaptivePopupMenuButton(a)'), isFalse);
+      expect(_rawPopupMenu.hasMatch('NamedPopupMenuButton<int>(a)'), isFalse);
+    });
   });
 
   group('button-shape scan', () {
