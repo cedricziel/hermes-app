@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import '../../../l10n/l10n.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../theme/app_icons.dart';
-import 'schedule_filter_menu.dart';
 import '../../theme/focus_ring.dart';
+import 'schedule_filter_menu.dart';
 
 /// The Schedules toolbar in a Mac window: the title with the number of jobs
 /// listed, the profile scope, the status filter, Refresh and New Schedule.

@@ -1,18 +1,17 @@
-import 'package:flutter/cupertino.dart';
-
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'adaptive_popup_menu_button.dart';
 import 'adaptive_tab_bar.dart';
 import 'grouped_list.dart';
 import 'shrink_to_fit_text.dart';
-import '../theme/focus_ring.dart';
 
 /// A labelled value that opens a picker: on iOS the value muted before the
 /// chevron, on Material under the label, and on the Mac in a pop-up button.

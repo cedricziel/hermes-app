@@ -38,7 +38,6 @@ import 'kanban_workers_screen.dart';
 import 'widgets/kanban_board_menu.dart';
 import 'widgets/kanban_board_toolbar.dart';
 import 'widgets/kanban_bulk_bar.dart';
-import 'widgets/new_task_fab.dart';
 import 'widgets/kanban_card.dart';
 import 'widgets/kanban_card_drag.dart';
 import 'widgets/kanban_drop_strip.dart';
@@ -47,6 +46,7 @@ import 'widgets/kanban_mac_toolbar.dart';
 import 'widgets/kanban_status_chips.dart';
 import 'widgets/kanban_orchestration_dialog.dart';
 import 'widgets/kanban_task_panel.dart';
+import 'widgets/new_task_fab.dart';
 
 /// The Kanban board: status chips over a card list on a phone, real columns
 /// on a wide screen. Kept current by the plugin's event stream.

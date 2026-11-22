@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 
 import '../../macos/mac_source_list.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../thread_search.dart';
 import 'relative_time.dart';
-import '../../theme/focus_ring.dart';
 
 /// [hits] split into the chats whose title holds [query] and those that
 /// only matched in their messages, each in the order given.

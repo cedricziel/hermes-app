@@ -1,13 +1,13 @@
-import 'package:flutter/cupertino.dart';
-
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_tab_bar.dart';
@@ -22,7 +22,6 @@ import 'files_questions.dart';
 import 'markdown_inert.dart';
 import 'safe_path_text.dart';
 import '../../macos/menu_selection_area.dart';
-import '../../theme/focus_ring.dart';
 
 /// A text file the server cut short: how much came and how much there is.
 class FileTruncation {

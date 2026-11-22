@@ -2,8 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
-import '../../theme/focus_ring.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 
 /// What a call is doing, as the orb shows it. Each state has its own icon, so
 /// no state depends on colour.
