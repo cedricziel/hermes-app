@@ -8,12 +8,14 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/blueprint_screens.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_form_screen.dart';
+import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_detail_view.dart';
 import 'package:hermes_app/src/schedules/widgets/schedules_mac_toolbar.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/motion_spinner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -207,11 +209,13 @@ void main() {
       await tester.tap(find.byKey(const Key('schedule-filter')));
       await tester.pumpAndSettle();
 
-      final entries = find.byWidgetPredicate((w) => w is PopupMenuEntry);
+      // The menu builds each checked item as a FocusRingCheckedMenuItem.
       expect(
         [
-          for (final entry in tester.widgetList<PopupMenuEntry>(entries))
-            ((entry as CheckedPopupMenuItem).child! as Text).data,
+          for (final entry in tester.widgetList<FocusRingCheckedMenuItem>(
+            find.byType(FocusRingCheckedMenuItem<ScheduleFilter>),
+          ))
+            (entry.item.child! as Text).data,
         ],
         ['All tasks', 'Failing (1)', 'Paused'],
       );

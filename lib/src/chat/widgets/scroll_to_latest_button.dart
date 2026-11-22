@@ -4,6 +4,7 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart'
 import 'package:provider/provider.dart';
 
 import '../../../l10n/l10n.dart';
+import '../../theme/focus_ring.dart';
 
 /// The chat list's jump-to-latest button above the composer: named for
 /// screen readers, and out of the semantics tree and out of reach while it is
@@ -43,16 +44,21 @@ class ScrollToLatestButton extends StatelessWidget {
             child: Tooltip(
               message: context.l10n.chatScrollToLatest,
               excludeFromSemantics: true,
-              child: FloatingActionButton(
-                heroTag: null,
-                mini: true,
-                shape: const CircleBorder(),
-                backgroundColor: scheme.surfaceContainer,
-                foregroundColor: scheme.onSurface,
-                onPressed: onPressed,
-                child: Icon(
-                  Icons.keyboard_arrow_down,
-                  semanticLabel: context.l10n.chatScrollToLatest,
+              // The shape is not state-aware: the ring is a wrapper that
+              // follows the painted circle, in a padded or a shrink-wrapped
+              // tap box.
+              child: MiniFabFocusRing(
+                child: FloatingActionButton(
+                  heroTag: null,
+                  mini: true,
+                  shape: const CircleBorder(),
+                  backgroundColor: scheme.surfaceContainer,
+                  foregroundColor: scheme.onSurface,
+                  onPressed: onPressed,
+                  child: Icon(
+                    Icons.keyboard_arrow_down,
+                    semanticLabel: context.l10n.chatScrollToLatest,
+                  ),
                 ),
               ),
             ),

@@ -46,6 +46,7 @@ import 'widgets/kanban_mac_toolbar.dart';
 import 'widgets/kanban_status_chips.dart';
 import 'widgets/kanban_orchestration_dialog.dart';
 import 'widgets/kanban_task_panel.dart';
+import 'widgets/new_task_fab.dart';
 
 /// The Kanban board: status chips over a card list on a phone, real columns
 /// on a wide screen. Kept current by the plugin's event stream.
@@ -296,11 +297,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         ),
         floatingActionButton: !_fabShown
             ? null
-            : FloatingActionButton.extended(
-                onPressed: _newTask,
-                icon: const AppIcon(AppIcons.add),
-                label: const Text('New task'),
-              ),
+            : NewTaskFab(onPressed: _newTask),
       ),
     );
   }

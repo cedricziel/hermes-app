@@ -130,6 +130,90 @@ List<Hit> chipShapeHitsIn(SourceFile file) => [
         Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
 ];
 
+/// The sliding segmented control, the Material segmented button, the
+/// expansion tile and a floating button, each of which draws its own focus
+/// state that a wrapper or a helper turns into the keyboard ring.
+final _rawSlidingControl = RegExp(
+  r'(?<!FocusRing\.outside\(\s*radius:\s*9,\s*child:\s*)'
+  r'(?<![\w.])(?:\w+\.)*\bCupertinoSlidingSegmentedControl(?:\s*[<(]|\.new\b)',
+);
+final _rawSegmentedButton = RegExp(
+  r'(?<!\w)(?:\w+\.)?\bSegmentedButton(?:\s*[<(]|\.\w+)',
+);
+final _rawExpansionTile = RegExp(
+  r'(?<![\w.])(?:\w+\.)*\bExpansionTile(?:\s*[<(]|\.\w+)',
+);
+
+/// Every floating button in [code] that is not in the wrapper that gives it
+/// the keyboard ring, as offsets: a mini button (`mini: true`,
+/// `FloatingActionButton.small`) must be directly inside
+/// `MiniFabFocusRing(child:`, any other button directly inside
+/// `FocusRing.outside(radius: ..., child:`, and a tear-off is never wrapped.
+/// The wrappers are matched at a word boundary, so `NotMiniFabFocusRing(`
+/// counts for nothing.
+final _floatingButton = RegExp(
+  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?!\w)(?:\.(\w+)\b)?',
+);
+final _genericCall = RegExp(r'^<[^<>()]*(?:<[^<>()]*>[^<>()]*)*>\s*\(');
+final _inMiniWrapper = RegExp(
+  r'\bMiniFabFocusRing\(\s*child:\s*(?:const\s+)?$',
+);
+final _inOutsideWrapper = RegExp(
+  r'\bFocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*(?:const\s+)?$',
+);
+
+List<int> bareFloatingButtons(String code) {
+  final bare = <int>[];
+  for (final m in _floatingButton.allMatches(code)) {
+    final after = code.substring(m.end).trimLeft();
+    // A call, with or without type arguments, or a `.name` / `.new` tear-off
+    // is a use; a type (`FloatingActionButton? b`, `w is FloatingActionButton`,
+    // `List<FloatingActionButton>`) is not.
+    final call = after.startsWith('(') || _genericCall.hasMatch(after);
+    if (!call && m.group(1) == null) continue;
+    // The button's own arguments only: what sits in a nested call, a closure
+    // or a collection (`onPressed: () => configure(mini: true)`) is not its.
+    final args = StringBuffer();
+    if (call) {
+      final open = code.indexOf('(', m.end);
+      var depth = 0;
+      for (var i = open; i < code.length; i++) {
+        final c = code[i];
+        final opens = c == '(' || c == '[' || c == '{';
+        final closes = c == ')' || c == ']' || c == '}';
+        if (closes) depth--;
+        if (depth == 1 && !opens && !closes) args.write(c);
+        if (opens) depth++;
+        if (depth == 0) break;
+      }
+    }
+    // `mini` as a named argument only: at the start of an argument, so
+    // `heroTag: c ? mini : true` is not it.
+    final value = RegExp(r'(?:^|,)\s*mini\s*:\s*([^,]*)')
+        .firstMatch(args.toString())
+        ?.group(1)
+        ?.trim();
+    // Only the literals `true` and `false` can be read: any other value (a
+    // variable, `!false`) hides whether the button is mini, so it is flagged.
+    if (value != null && value != 'true' && value != 'false') {
+      bare.add(m.start);
+      continue;
+    }
+    final mini = m.group(1) == 'small' || value == 'true';
+    final before = code.substring(0, m.start);
+    final ok =
+        call && (mini ? _inMiniWrapper : _inOutsideWrapper).hasMatch(before);
+    if (!ok) bare.add(m.start);
+  }
+  return bare;
+}
+
+List<Hit> _floatingButtonHits() => [
+  for (final file in dartFiles('lib'))
+    for (final at in bareFloatingButtons(file.code))
+      Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
+];
+
 /// A raw popup menu: `PopupMenuButton<T>(`, the inferred `PopupMenuButton(`,
 /// or `showMenu`.
 final _rawPopupMenu = RegExp(
@@ -734,10 +818,51 @@ final guardRules = <Rule>[
     view: _code,
     allow: {
       'lib/src/widgets/adaptive_popup_menu_button.dart': 'the implementation',
-      'lib/src/widgets/row_actions.dart':
-          'the Mac row context menu, whose items are rows of the Mac compact '
-          'menu (not covered by the ring)',
     },
+  ),
+
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": controls
+  // that draw their own focus state take the ring from one building block.
+  _guard(
+    name: 'sliding-control-without-focus-ring',
+    message:
+        'wrap a CupertinoSlidingSegmentedControl in FocusRing.outside('
+        'radius: 9, child: ...) (lib/src/theme/focus_ring.dart): the track '
+        'clips its segments, so the keyboard focus ring goes round the control.',
+    pattern: _rawSlidingControl,
+    view: _code,
+  ),
+  _guard(
+    name: 'segmented-button-without-focus-ring',
+    message:
+        'use AdaptiveSegmentedControl (lib/src/widgets/adaptive_segmented_'
+        'control.dart): its Material segments carry the keyboard focus ring.',
+    pattern: _rawSegmentedButton,
+    view: _code,
+    allow: {
+      'lib/src/widgets/adaptive_segmented_control.dart': 'the implementation',
+    },
+  ),
+  _guard(
+    name: 'expansion-tile-without-focus-ring',
+    message:
+        'use DisclosureTile (lib/src/widgets/disclosure_tile.dart): its header '
+        'carries the keyboard focus ring and the disclosure semantics.',
+    pattern: _rawExpansionTile,
+    view: _code,
+    allow: {'lib/src/widgets/disclosure_tile.dart': 'the implementation'},
+  ),
+  _custom(
+    name: 'floating-button-without-focus-ring',
+    message:
+        'wrap a FloatingActionButton in FocusRing.outside(radius: <its '
+        'radius>, child: ...) or a mini one (mini: true or .small) in '
+        'MiniFabFocusRing(child: ...) (lib/src/theme/focus_ring.dart): its '
+        'shape is not state-aware, so the keyboard focus ring is a wrapper. '
+        'mini: must be the literal true or false: write a literal mini: true '
+        'button inside MiniFabFocusRing, or a regular button inside '
+        'FocusRing.outside.',
+    hits: _floatingButtonHits,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": the catalog
@@ -810,6 +935,276 @@ void main() {
       _keyboardOverride.hasMatch('markFocusRingKeyboardInputs();'),
       isFalse,
     );
+  });
+
+  group('segmented control, expansion tile and floating button guards', () {
+    test(
+      'a raw sliding control, segmented button or expansion tile is flagged',
+      () {
+        expect(
+          _rawSlidingControl.hasMatch('CupertinoSlidingSegmentedControl<int>('),
+          isTrue,
+        );
+        expect(
+          _rawSlidingControl.hasMatch('RingedSlidingSegmentedControl<int>('),
+          isFalse,
+        );
+        expect(_rawSegmentedButton.hasMatch('x = SegmentedButton<T>('), isTrue);
+        expect(
+          _rawSegmentedButton.hasMatch('SegmentedButton.styleFrom('),
+          isTrue,
+        );
+        expect(
+          _rawSegmentedButton.hasMatch('AdaptiveSegmentedButton('),
+          isFalse,
+        );
+        expect(_rawSegmentedButton.hasMatch('ui.SegmentedButton('), isTrue);
+        expect(_rawSegmentedButton.hasMatch('m.SegmentedButton<T>('), isTrue);
+        expect(
+          _rawSegmentedButton.hasMatch('x = SegmentedButton.new;'),
+          isTrue,
+        );
+        expect(
+          _rawSlidingControl.hasMatch(
+            'c.CupertinoSlidingSegmentedControl<int>(',
+          ),
+          isTrue,
+        );
+        expect(
+          _rawSlidingControl.hasMatch(
+            'f(CupertinoSlidingSegmentedControl.new)',
+          ),
+          isTrue,
+        );
+        expect(
+          _rawSlidingControl.hasMatch(
+            'FocusRing.outside(radius: 9, child: c.CupertinoSlidingSegmentedControl<int>(',
+          ),
+          isFalse,
+        );
+        expect(_rawExpansionTile.hasMatch('m.ExpansionTile(title: a)'), isTrue);
+        expect(_rawExpansionTile.hasMatch('ExpansionTile(title: a)'), isTrue);
+        expect(_rawExpansionTile.hasMatch('ExpansionTile.new'), isTrue);
+        expect(_rawExpansionTile.hasMatch('DisclosureTile(title: a)'), isFalse);
+      },
+    );
+
+    test('a floating button outside its wrapper is flagged', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      const outside = 'FocusRing.outside(radius: 28, child: ';
+      expect(bare('child: FloatingActionButton(onPressed: f)'), isTrue);
+      expect(bare('FloatingActionButton.extended(onPressed: f)'), isTrue);
+      expect(bare('Tooltip(child: FloatingActionButton(a))'), isTrue);
+      expect(
+        bare('FocusRing(radius: 8, child: FloatingActionButton(a))'),
+        isTrue,
+      );
+      expect(bare('${outside}FloatingActionButton.extended(a))'), isFalse);
+      expect(bare('${outside}m.FloatingActionButton(a))'), isFalse);
+      expect(
+        bare(
+          'FocusRing.outside(\n radius: kHermesRadius,\n child: FloatingActionButton(a))',
+        ),
+        isFalse,
+      );
+      // A bare inset-0 ring fits one platform only.
+      expect(
+        bare('FocusRing(radius: 24, inset: 0, child: FloatingActionButton(a))'),
+        isTrue,
+      );
+      // Tear-offs are never wrapped.
+      expect(bare('builder: FloatingActionButton.new'), isTrue);
+      expect(bare('builder: FloatingActionButton.extended'), isTrue);
+      expect(bare('f(m.FloatingActionButton.large)'), isTrue);
+      expect(bare('f(FloatingActionButton.small)'), isTrue);
+      expect(bare('class MyFloatingActionButton {}'), isFalse);
+    });
+
+    test('theme, location and animator names are not floating buttons', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      expect(bare('FloatingActionButtonThemeData(shape: s)'), isFalse);
+      expect(
+        bare('floatingActionButtonTheme: FloatingActionButtonThemeData()'),
+        isFalse,
+      );
+      expect(
+        bare(
+          'floatingActionButtonLocation: FloatingActionButtonLocation.endFloat',
+        ),
+        isFalse,
+      );
+      expect(bare('f(FloatingActionButtonAnimator.scaling)'), isFalse);
+      expect(bare('m.FloatingActionButtonLocation.centerDocked'), isFalse);
+      // The constructor and its tear-offs still count.
+      expect(bare('FloatingActionButton(onPressed: f)'), isTrue);
+      expect(bare('FloatingActionButton.extended(onPressed: f)'), isTrue);
+      expect(bare('f(FloatingActionButton.new)'), isTrue);
+    });
+
+    test('a ternary or a const does not change what the scan reads', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      expect(
+        bare(
+          'MiniFabFocusRing(child: FloatingActionButton(heroTag: c ? mini : true, mini: compact))',
+        ),
+        isTrue,
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 28, child: FloatingActionButton(heroTag: c ? mini : other))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 28, child: const FloatingActionButton(onPressed: f))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare(
+          'MiniFabFocusRing(child: const FloatingActionButton(mini: true, onPressed: f))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare(
+          'MiniFabFocusRing(\n child: const m.FloatingActionButton.small(a))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare('Padding(child: const FloatingActionButton(onPressed: f))'),
+        isTrue,
+      );
+    });
+
+    test('type positions are not uses of the button', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      expect(bare('FloatingActionButton? b;'), isFalse);
+      expect(bare('if (w is FloatingActionButton) {}'), isFalse);
+      expect(bare('final List<FloatingActionButton> xs = [];'), isFalse);
+      expect(bare('final m.FloatingActionButton b = f();'), isFalse);
+      expect(bare('Foo<FloatingActionButton>(a)'), isFalse);
+      // Calls (also with type arguments) and tear-offs still are.
+      expect(bare('FloatingActionButton(onPressed: f)'), isTrue);
+      expect(bare('FloatingActionButton<int>(onPressed: f)'), isTrue);
+      expect(bare('f(FloatingActionButton.new)'), isTrue);
+      expect(bare('f(FloatingActionButton.small)'), isTrue);
+      expect(bare('x = FloatingActionButton.extended(a)'), isTrue);
+    });
+
+    test('mini must be a literal, and nested mini is not the button\'s', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      const mini = 'MiniFabFocusRing(child: ';
+      const outside = 'FocusRing.outside(radius: 28, child: ';
+      // Only the literals true and false can be read.
+      expect(
+        bare('${mini}FloatingActionButton(mini: compact, onPressed: f))'),
+        isTrue,
+      );
+      expect(
+        bare('${outside}FloatingActionButton(mini: compact, onPressed: f))'),
+        isTrue,
+      );
+      expect(
+        bare('${mini}FloatingActionButton(mini: !false, onPressed: f))'),
+        isTrue,
+      );
+      expect(
+        bare('${outside}FloatingActionButton(mini: false, onPressed: f))'),
+        isFalse,
+      );
+      expect(bare('${mini}FloatingActionButton(mini: true))'), isFalse);
+      // A nested Foo(mini: true) is not the button's: the regular button
+      // inside MiniFabFocusRing is flagged.
+      expect(
+        bare('${mini}FloatingActionButton(child: Foo(mini: true)))'),
+        isTrue,
+      );
+      expect(
+        bare('${outside}FloatingActionButton(child: Foo(mini: true)))'),
+        isFalse,
+      );
+      expect(bare('FloatingActionButtonThemeData(mini: compact)'), isFalse);
+    });
+
+    test('mini is read from the button\'s own arguments only', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      const mini = 'MiniFabFocusRing(child: ';
+      expect(
+        bare('${mini}FloatingActionButton(mini: true, onPressed: f))'),
+        isFalse,
+      );
+      expect(
+        bare(
+          '${mini}FloatingActionButton(onPressed: f, child: Icon(a), mini: true))',
+        ),
+        isFalse,
+      );
+      // `mini: true` in a nested call is not the button's.
+      expect(
+        bare(
+          '${mini}FloatingActionButton(onPressed: () => configure(mini: true)))',
+        ),
+        isTrue,
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 28, child: FloatingActionButton(onPressed: () => configure(mini: true)))',
+        ),
+        isFalse,
+        reason: 'not mini, so FocusRing.outside is right',
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 20, child: FloatingActionButton(mini: true, onPressed: () => f(mini: false)))',
+        ),
+        isTrue,
+      );
+    });
+
+    test('a mini button belongs in MiniFabFocusRing, not FocusRing.outside', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      const mini = 'MiniFabFocusRing(child: ';
+      expect(
+        bare('${mini}FloatingActionButton(mini: true, onPressed: f))'),
+        isFalse,
+      );
+      expect(
+        bare(
+          '${mini}m.FloatingActionButton(\n  heroTag: null,\n  mini: true,\n))',
+        ),
+        isFalse,
+      );
+      expect(bare('${mini}FloatingActionButton.small(onPressed: f))'), isFalse);
+      // The Android defect: the 20 px outside ring on a mini button.
+      expect(
+        bare(
+          'FocusRing.outside(radius: 20, child: FloatingActionButton(mini: true))',
+        ),
+        isTrue,
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 20, child: FloatingActionButton.small(a))',
+        ),
+        isTrue,
+      );
+      // The mini wrapper on a button that is not mini.
+      expect(bare('${mini}FloatingActionButton(onPressed: f))'), isTrue);
+      expect(bare('${mini}FloatingActionButton.extended(a))'), isTrue);
+      expect(bare('${mini}FloatingActionButton(mini: false, a))'), isTrue);
+      // A wrapper that only ends in the name does not count.
+      expect(
+        bare('NotMiniFabFocusRing(child: FloatingActionButton(mini: true))'),
+        isTrue,
+      );
+      expect(
+        bare('MyFocusRing.outside(radius: 20, child: FloatingActionButton(a))'),
+        isTrue,
+      );
+    });
   });
 
   group('list tile, chip and popup menu guards', () {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/platform_chrome.dart';
 import '../input/screen_gesture_layer.dart';
 
@@ -142,21 +143,25 @@ class _Key extends StatelessWidget {
             style: TextStyle(color: foreground, fontWeight: FontWeight.w600),
           )
         : AppIcon(icon!, size: 20, color: foreground);
-    final key = Material(
-      color: held ? scheme.primary : scheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
+    // The ring is 2 px outside the key, which nothing clips.
+    final key = FocusRing.outside(
+      radius: 10,
+      child: Material(
+        color: held ? scheme.primary : scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(10),
-        onTap: onPressed,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: minimumWidth,
-            minHeight: minimumHeight,
-          ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 7),
-              child: content,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onPressed,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: minimumWidth,
+              minHeight: minimumHeight,
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 7),
+                child: content,
+              ),
             ),
           ),
         ),
