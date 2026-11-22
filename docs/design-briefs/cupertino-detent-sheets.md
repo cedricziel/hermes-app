@@ -58,4 +58,4 @@ The grabber has an accessible name and, on `mediumLarge` sheets, increase and de
 
 ### Differences by platform
 
-iOS compact only. iPad regular width and macOS keep the dialog. Android keeps `showModalBottomSheet` with its handle and height cap. Windows and Linux keep what they have.
+iOS layouts that are not expanded only (`isWideLayout` false: iPhone, iPad Split View and Slide Over). iPad regular width and macOS keep the dialog. Android keeps `showModalBottomSheet` with its handle and height cap. Windows and Linux keep what they have.

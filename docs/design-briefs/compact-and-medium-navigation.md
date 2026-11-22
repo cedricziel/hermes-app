@@ -12,7 +12,7 @@ Canvas: https://claude.ai/artifact/LDMhPqNsZKuVda2BaFUTex (private; ask its owne
 - **More page:** a page, not a sheet. Server first with its warning line ("Needs attention: …", icon and words), then one Manage group in the drawer's order, then one Settings row that pushes the Settings list (recommended; alternative: the Settings entries inline as one group), then Change server and Sign out (destructive text, no filled button).
 - **iPhone 320 pt at text 2.0:** labels grow to 1.3x, then the one that does not fit ("Schedules") shrinks to one line; never wrapped or hidden; the bar grows to 56 pt. Recommended addition: the iOS large content viewer on long press. Hiding labels is rejected.
 - **Android 412 dp:** Material 3 navigation bar, 80 dp, pill behind the selected icon, labels always shown. Recommended: Back on a tab root returns to Chats first, then leaves (a behaviour change from today). Alternative: leave the app from any tab root, as today.
-- **Android tablet 800 dp:** 80 dp rail with items at the top and More last (alternative: More pinned to the bottom); the list fixed at 300 dp (alternative: collapsible); the open chat beside it. Recommended: the rail on Android, Windows and Linux alike (alternative: Android only).
+- **Android tablet 800 dp:** 80 dp rail with items at the top and More last (alternative: More pinned to the bottom); the list fixed at 280 dp (alternative: collapsible). Correction after the pass: the canvas drew 300 dp, but 80 (rail) + 300 + a 360 dp conversation needs 740; 280 keeps the 720 dp threshold; the open chat beside it. Recommended: the rail on Android, Windows and Linux alike (alternative: Android only).
 - **Not drawn, decided:** an iPad Split View window at 507 pt gets the iPhone tab bar.
 
 New components needed: `ShellDestinationBar` in three forms (Cupertino tab bar, Material navigation bar, Material rail), drawn as plain markup on the canvas; the canvas's Cupertino icon subset has no filled glyph for Bots, Kanban, Schedules or More, so the build uses the `*_fill` CupertinoIcons glyphs. The Chats list on the canvas is drawn with grouped rows as a stand-in for `ThreadSidebar(fullPage: true)`, which this change does not restyle.
@@ -41,7 +41,7 @@ People on an iPhone or an Android phone who open Kanban or Schedules often, and 
 | Navigation bar, five items                 | Android phone  | 412 dp, light and dark | Material 3 pill indicator, labels always shown                              |
 | Navigation bar, 360 dp at 2.0 text         | Android phone  | 360 dp                 |                                                                             |
 | Rail with Chats single pane                | Android tablet | 600 and 719 dp         | rail 80 dp                                                                  |
-| Rail with list and detail                  | Android tablet | 720, 800 and 899 dp    | list 300 dp; empty detail; conversation open                                |
+| Rail with list and detail                  | Android tablet | 720, 800 and 899 dp    | list 280 dp; empty detail; conversation open                                |
 | Rail and More                              | Android tablet | 800 dp                 | More as a page beside the rail                                              |
 | Unchanged, for contrast                    | iPad           | 744 pt and 1024 pt     | sidebar as today                                                            |
 | Unchanged                                  | Windows, Linux | 500 dp and 1000 dp     | drawer, sidebar                                                             |
@@ -54,7 +54,7 @@ People on an iPhone or an Android phone who open Kanban or Schedules often, and 
 - Whether the rail is Android only or also Windows and Linux windows of 600 to 899 dp.
 - Rail alignment: items at the top with More last, or More pinned at the bottom.
 - Android Back on a tab root: leave the app (today), or return to Chats first.
-- The medium list width (300 dp proposed) and whether the list may collapse.
+- The medium list width (280 dp, decided: see the design pass) and whether the list may collapse.
 - Whether an iPad Split View window at 507 pt gets the same tab bar as an iPhone.
 
 ### Accessibility

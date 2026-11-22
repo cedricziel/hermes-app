@@ -13,12 +13,12 @@ Both audit findings are true in the code today.
 
 ## What Changes
 
-One rule picks the shell's form from the available width, in one function next to `isWideLayout`:
+One rule picks the shell's form from the available width, in one function next to `isWideLayout`. Expanded follows `isWideLayout` (`lib/src/theme/breakpoints.dart:27-34`): 900 and up everywhere, and on iOS 700 and up when the window's shortest side is at least 600, which takes in a full-screen iPad and an iPad Split View pane of that size; every Mac window is expanded too.
 
 | Form     | Width         | iPhone, iPad Split View, Android phone        | Android tablet, foldable, Windows, Linux                      | iPad full screen                                   | macOS             |
 | -------- | ------------- | --------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------- | ----------------- |
 | Compact  | under 600 dp  | bottom tab bar on iOS, bottom navigation bar on Android | bottom navigation bar on Android, drawer on Windows and Linux | not reachable (a full-screen iPad is at least 700) | sidebar, as today |
-| Medium   | 600 to 899 dp | tab bar on iOS (an iPhone in landscape up to 899 pt, such as 852 x 393); navigation rail on an Android phone in landscape | navigation rail, with Chats as list and detail from 720 dp    | sidebar, as today (700 dp and up counts as wide)   | sidebar           |
+| Medium   | 600 to 899 dp | tab bar on iOS (an iPhone in landscape up to 899 pt, such as 852 x 393; an iPad Split View pane under 700, or one whose shortest side is under 600); navigation rail on an Android phone in landscape | navigation rail, with Chats as list and detail from 720 dp    | sidebar, as today (700 dp and up with a shortest side of 600 or more counts as wide, Split View included) | sidebar           |
 | Expanded | 900 dp and up | sidebar, as today                             | sidebar, as today                                             | sidebar, as today                                  | sidebar           |
 
 Details of the compact and medium forms:
@@ -52,8 +52,8 @@ Details of the compact and medium forms:
 - `messenger-navigation`: "Chats is the compact home" reaches other destinations through the tab bar, rail or More instead of a menu.
 - `memory-navigation`: "Memory entry in the chat sidebar" names the More page instead of the phone drawer.
 - `mcp-servers`: "Sidebar entry" adds the More page, and closes the drawer only where one is open.
-- `chat`: the "Responsive layout" scenario of "Rendering of messages" says that below 900 the thread rail opens as a drawer; it now names the list beside the conversation at 720 to 899 on the rail platforms, the full-page list on phones and iOS, and the drawer only on Windows and Linux under 600.
-- `deep-links`: "Opening the oldest request" selects Chats and shows the list where the shell has a bar or rail, instead of opening the chat drawer.
+- `chat`: the block also corrects two stale statements it restates: the thinking indicator is a spinner with the elapsed time and the activity, not three dots (`lib/src/chat/widgets/thinking_indicator.dart:7`, `:55-62`), and it shows only while nothing else of the reply does. The "Responsive layout" scenario of "Rendering of messages" says that below 900 the thread rail opens as a drawer; it now names the list beside the conversation at 720 to 899 on the rail platforms, the full-page list on phones and iOS, and the drawer only on Windows and Linux under 600.
+- `deep-links`: "Opening the oldest request" no longer says "open the chat drawer" on a phone. Today a non-Mac layout that is not wide already closes the chat and shows the full-page list (`chat_screen_external_openings.dart:181-184`), so the drawer branch (`:190`) is never reached there. The delta keeps that and adds the rail's list-detail Chats from 720, where the open chat stays.
 
 Two specs mention the chat drawer and still hold unchanged: `chat` ("Opening a thread from a notification") and `notifications` ("Tapping a notification opens its chat") close the thread drawer only "when it is open". On a touch phone there is no drawer to close, and a Windows or Linux window under 600 keeps it, so both read true in every form; selecting Chat for a notification tap is what the bar does too.
 

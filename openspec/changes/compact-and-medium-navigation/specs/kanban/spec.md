@@ -21,7 +21,7 @@ The system SHALL offer the Kanban destination only while the server reports the 
 
 ### Requirement: Chat and Kanban navigation adapts to screen width
 
-While more than one destination is offered, the system SHALL list them (Chat, Kanban when the plugin is on, and any other) at the top of the sidebar, above Chat's threads. When the available width is 900 logical pixels or more the sidebar is shown next to every page. Switching to Kanban SHALL NOT discard the chat: the chat stays mounted, keeping its state, while the Kanban page is shown.
+While more than one destination is offered and a sidebar is shown (the expanded form), the system SHALL list them (Chat, Kanban when the plugin is on, and any other) at the top of the sidebar, above Chat's threads. When the available width is 900 logical pixels or more the sidebar is shown next to every page. Switching to Kanban SHALL NOT discard the chat: the chat stays mounted, keeping its state, while the Kanban page is shown.
 
 #### Scenario: Phone-width layout
 

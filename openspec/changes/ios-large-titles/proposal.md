@@ -8,7 +8,7 @@ Audit item D5 (roadmap F.230). It does not depend on the navigation change (`com
 
 The premise is true. No page in the app has a large title: `rg` finds no `CupertinoSliverNavigationBar`, `SliverAppBar.large` or large-title code in `lib/` or `widgetbook/`. Every iPhone page draws a 44 pt bar with a centred 17 pt title:
 
-- `SettingsScaffold._phone` (`lib/src/widgets/settings_scaffold.dart:366-420`): `toolbarHeight: kAppleNavBarHeight`, `centerTitle: ios`, a `SettingsBarTitle` of 17 pt on one line with an ellipsis (`:497-545`). About 45 pages use it (about 50 call sites in about 40 files, among them Server, Bots, Skills, Plugins, MCP servers, Providers, Tools, Profiles, Messaging, Memory, Helper models, Files).
+- `SettingsScaffold._phone` (`lib/src/widgets/settings_scaffold.dart:366-420`): `toolbarHeight: kAppleNavBarHeight`, `centerTitle: ios`, a `SettingsBarTitle` of 17 pt on one line with an ellipsis (`:488-561`). About 45 pages use it (about 50 call sites in about 40 files, among them Server, Bots, Skills, Plugins, MCP servers, Providers, Tools, Profiles, Messaging, Memory, Helper models, Files).
 - Chats: `buildChatAppBar` (`lib/src/chat/widgets/chat_app_bar.dart:107-135`) with a centred 17 pt "Chats" (`lib/src/chat/chat_screen_layout.dart:436-452`).
 - Kanban: `AppBar(title: const Text('Kanban'))` (`lib/src/kanban/kanban_screen.dart:257-259`).
 - Schedules: a custom `AppBar` with `SettingsBarTitle` (`lib/src/schedules/schedules_screen.dart:249-262`).

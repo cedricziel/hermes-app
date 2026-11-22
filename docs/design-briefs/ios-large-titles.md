@@ -12,6 +12,8 @@ Canvas: https://claude.ai/artifact/LDMhPqNsZKuVda2BaFUTex (private; ask its owne
 - **320 pt at text 2.0:** "Helper models" wraps over two lines with no clamp; the subtitle and rows grow with it; bar buttons stay 44 pt.
 - **Not drawn, decided:** size and weight as proposed (34 pt bold, 15 pt muted). iPad at regular width and Android `SliverAppBar.large` stay out of scope; a later change can take them.
 
+Corrections to the brief: none; the canvas followed it. Copy the design added: the Server page's section headers "Status", "Details" and "Host" and the footer "Read from the server when this page opened.", stand-ins for the page's real copy, which this change does not alter.
+
 New components needed: `LargeTitleHeader` (plain markup on the canvas: an `h1` at 34 pt over a muted subtitle, placed as the list's first child). The bar title fade and the hairline are `SettingsScaffold` states the design system does not draw yet.
 
 ## Proposed:
@@ -42,11 +44,11 @@ People on an iPhone, who today cannot tell a list root from a pushed detail page
 
 ### Decisions to take
 
-- Where the search field sits with a large title: under the title and scrolling away (iOS), pinned in the bar, or pinned once focused or holding a query.
-- Whether the bar has a hairline at rest, or only once content scrolls under it.
-- The large title's size and weight (34 pt, bold proposed) and the subtitle's (15 pt, muted).
-- Whether Server, which is a destination on a Mac and a row in More on a phone, shows its attention state beside the title.
-- Whether iPad at regular width should follow later, and whether Android gets `SliverAppBar.large`.
+- Search field: recommended under the title, scrolling with it, and pinning under the bar once it reaches it while focused or holding a query (design pass; the owner confirms).
+- Hairline: only once content scrolls under the bar (design pass).
+- Sizes: decided by the design pass, a 34 pt bold title and a 15 pt muted subtitle.
+- Server's attention state: recommended as a warning line in its first group, not beside the title (design pass).
+- iPad at regular width and Android `SliverAppBar.large`: out of scope; a later change may take them.
 
 ### Accessibility
 
@@ -54,4 +56,4 @@ One heading per page at every scroll position. The header wraps at any text size
 
 ### Differences by platform
 
-iOS compact only. Android, macOS, Windows, Linux and iPad regular width are unchanged.
+iOS layouts that are not expanded only (`isWideLayout` false: iPhone, iPad Split View and Slide Over). Android, macOS, Windows, Linux and iPad regular width are unchanged.

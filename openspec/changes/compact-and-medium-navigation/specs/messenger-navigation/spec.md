@@ -12,7 +12,7 @@ On every non-Mac layout that is not expanded, except the rail's list-detail Chat
 #### Scenario: Empty or failed list
 
 - **WHEN** the profile has no conversations or its list cannot load
-- **THEN** Chats shows the existing empty or error/retry state and retains New message and the destination bar
+- **THEN** Chats shows the existing empty or error/retry state and retains New message and its navigation: the destination bar or rail, or the drawer on Windows and Linux under 600
 
 #### Scenario: Reach another destination
 

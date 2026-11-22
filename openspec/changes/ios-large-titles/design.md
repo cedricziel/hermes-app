@@ -5,7 +5,7 @@
 Read in the code at the base commit of this branch.
 
 - `SettingsScaffold` (`lib/src/widgets/settings_scaffold.dart:189`) takes `title`, `subtitle`, `subtitleMenu`, `previousTitle`, `actions`, `tabs`, `tabController`, `search`, `formAction`, `cancel`, `macCancel`, `shrinkTitle` and a free `body` widget. On a phone it builds an `AppBar` with the title, and the tabs and search in `AppBar.bottom` (`:366-440`).
-- The title text is `SettingsBarTitle` (`:497-545`): 17 pt on iOS, one line, ellipsis (or `FittedBox` with `shrinkTitle`), the subtitle at 12 pt under it.
+- The title text is `SettingsBarTitle` (`:488-561`): 17 pt on iOS, one line, ellipsis (or `FittedBox` with `shrinkTitle`), the subtitle at 12 pt under it.
 - Leading: `AdaptiveBackButton`, or `ShellMenu.button` on a shell page, or Cancel for a form (`:379-399`). Pages inside a detail pane have no leading (`inSettingsPane`, `lib/src/widgets/settings_pane.dart`).
 - `GroupedListView` (`lib/src/widgets/grouped_list.dart:148`) is a `ListView` with an optional `controller` (so it uses the primary scroll controller when none is given). 54 calls in 47 files.
 - Chats: `buildChatAppBar` (`chat_app_bar.dart:107`) and the list `ThreadSidebar(fullPage: true)` (`chat_screen_layout.dart:465`) with `NewChatFab` over it on iOS. Kanban: `kanban_screen.dart:244-270`. Schedules: `schedules_screen.dart:249-275`.

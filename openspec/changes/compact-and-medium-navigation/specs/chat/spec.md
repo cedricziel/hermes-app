@@ -2,7 +2,7 @@
 
 ### Requirement: Rendering of messages
 
-The system SHALL render a message as its tool call cards, each after the reasoning that led to it, with each agent input request card right after the tool call that was running when it arrived, then the reasoning that followed the last call, then the text, then a thinking indicator, and SHALL render message text as markdown.
+The system SHALL render a message as its tool call cards, each after the reasoning that led to it, with each agent input request card right after the tool call that was running when it arrived, then the reasoning that followed the last call, then the text, then, only while the reply is pending with nothing of these to show, a thinking indicator, and SHALL render message text as Markdown.
 
 #### Scenario: What follows an input request renders below it
 
@@ -12,7 +12,7 @@ The system SHALL render a message as its tool call cards, each after the reasoni
 #### Scenario: Thinking indicator
 
 - **WHEN** an assistant reply is pending with no text yet, no reasoning yet and no input request is waiting
-- **THEN** a thinking indicator (three pulsing dots) is shown in place of text
+- **THEN** a thinking indicator (a spinner, the elapsed time and what the reply is doing) is shown in place of text
 
 #### Scenario: No indicator while the agent waits for the user
 

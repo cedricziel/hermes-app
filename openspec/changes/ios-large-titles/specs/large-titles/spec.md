@@ -62,7 +62,7 @@ Turning a large title on SHALL NOT change the bar's back button, menu button, ac
 
 ### Requirement: Search sits under the large title
 
-On a page with a large title and a search field, the search field SHALL sit in the content directly under the large title and its subtitle, not in the bar. While the field is empty and unfocused it SHALL scroll away with the large title. While it is focused or holds a query it SHALL stay pinned under the bar. Collapsing or restoring the large title SHALL keep the query, the focus and the keyboard.
+On a large-title page with search, the field SHALL sit in the content under the large title and subtitle, not in the bar. Empty and unfocused, it SHALL scroll away with the title. Focused or holding a query, it SHALL scroll with the content until it reaches the bar and then stay pinned under it, without jumping to the bar on focus. Collapsing or restoring the title SHALL keep the query, the focus and the keyboard.
 
 #### Scenario: Search at rest
 
@@ -76,8 +76,10 @@ On a page with a large title and a search field, the search field SHALL sit in t
 
 #### Scenario: Focused or holding a query
 
-- **WHEN** the search field is focused or holds a query and the user scrolls the results up
-- **THEN** the field stays pinned under the bar, and the query and the keyboard are kept
+- **WHEN** the search field is focused at rest
+- **THEN** it stays under the large title
+- **AND WHEN** the user then scrolls the results up
+- **THEN** the field rises with the title, pins under the bar once it reaches it, and the query and the keyboard are kept
 
 ### Requirement: Titles carry no user content in telemetry
 

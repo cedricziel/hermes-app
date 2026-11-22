@@ -8,13 +8,13 @@ Audit item D6 (roadmap F.231). The premise is half true; see "Why".
 
 On iPhone a sheet is a Material bottom sheet with no detents. `showAdaptiveSheet` (`lib/src/widgets/adaptive_sheet.dart:10-37`) opens a dialog on macOS and on wide layouts, and otherwise calls `showModalBottomSheet` with `isScrollControlled`, `useSafeArea`, an optional Material drag handle (`showDragHandle`, off by default) and an optional height cap. It has 19 call sites in 19 files: 17 sheets, plus the macOS branches of the plugin detail (`plugins/installed_tab.dart:53`, `catalog_tab.dart:66`), whose other platforms use a raw sheet. Five more sheets call `showModalBottomSheet` directly (`lib/src/models/widgets/model_picker.dart:112`, `lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart:21`, `lib/src/kanban/widgets/kanban_task_panel.dart:82` on Android, `lib/src/plugins/installed_tab.dart:55` and `catalog_tab.dart:68`). The audit's "about 30" is 22 in the code today.
 
-What is already done: **Kanban's task sheet has the iOS behaviour.** `showKanbanDetentSheet` (`kanban_task_sheet.dart:16-30`) is a `DraggableScrollableSheet` that opens at half height (`initialChildSize: 0.5`), snaps to half and full (`snapSizes: [0.5, 1]`), drops when swiped below half, and draws a 36 x 5 grabber (`:46-100`). `test/kanban_task_sheet_test.dart` pins it on iPhone, iPad and Mac. That is the prototype of this change. It is private to Kanban's helper, which the chat's Activity panel also calls (`chat/chat_screen_navigation.dart:91`, with its own `DraggableScrollableController` to grow it); no other sheet can have it.
+What is already done: **Kanban's task sheet has the iOS behaviour.** `showKanbanDetentSheet` (`kanban_task_sheet.dart:17-30`) is a `DraggableScrollableSheet` that opens at half height (`initialChildSize: 0.5`), snaps to half and full (`snapSizes: [0.5, 1]`), drops when swiped below half, and draws a 36 x 5 grabber (`KanbanDetentSheet` at `:48`, the grabber at `:112-121`). `test/kanban_task_sheet_test.dart` pins it on iPhone, iPad and Mac. That is the prototype of this change. The chat's Activity panel calls the same helper (`chat/chat_screen_navigation.dart:91`, with its own `DraggableScrollableController` to grow it) on every layout that is not wide, since `_toggleActivity` checks only `_wide` (`:57-91`): on Android, Windows and Linux it is already a half-height detent sheet with a grabber today. No other sheet has the helper.
 
 `cupertino_ui` 1.1.7 has `showCupertinoSheet` (`sheet.dart`), but it is a full-height page sheet only: the file has no detent or grabber code.
 
 ## What Changes
 
-On an iOS layout that is not expanded (where `isWideLayout` is false: an iPhone, an iPad in Split View or Slide Over), `showAdaptiveSheet` takes a `detents` argument and draws an iOS sheet: rounded top corners, a grabber, and the chosen detents. Nothing changes for Android, macOS, iPad or any wide layout.
+On an iOS layout that is not expanded (where `isWideLayout` is false: an iPhone, an iPad in Split View or Slide Over), `showAdaptiveSheet` takes a `detents` argument and draws an iOS sheet: rounded top corners, a grabber, and the chosen detents. Nothing changes for Android, macOS, an iPad at regular width (expanded) or any wide layout; an iPad in Split View or Slide Over that is not expanded gets the iPhone sheet.
 
 Three detent profiles:
 
@@ -55,22 +55,23 @@ Future<T?> showAdaptiveSheet<T>(
   bool showDragHandle = false,
   double? maxSheetHeightFraction,
   SheetDetents detents = SheetDetents.fit,
+  DraggableScrollableController? controller,
 });
 ```
 
-1. **Scope.** `detents` takes effect only on iOS chrome below the wide breakpoint. macOS keeps the dialog, wide layouts keep the dialog, Android keeps `showModalBottomSheet` with `showDragHandle` and `maxSheetHeightFraction` as today, and `detents` is ignored there.
+1. **Scope.** `detents` takes effect only on iOS chrome below the wide breakpoint. macOS keeps the dialog, wide layouts keep the dialog, Android keeps `showModalBottomSheet` with `showDragHandle` and `maxSheetHeightFraction` as today, and `detents` is ignored there. Kanban's helper is carved out of this rule off iOS (item 8): there it keeps its own detent sheet. A caller may pass `controller` (iOS only) to move the sheet between detents itself: the Activity panel animates to large when an agent is picked (`chat/chat_screen_navigation.dart:71-90`) and keeps doing so. If the spike (A.2) picks `smooth_sheets`, `controller` becomes that package's controller with the same duty.
 2. **Default.** `fit`, which matches today's geometry (a scroll-controlled sheet that is as tall as its content, up to the screen), plus the grabber and the iOS corners. A caller that passes nothing changes only in those two ways.
 3. **Geometry.** Medium is half of the height below the top safe inset. Large is that full height. Both are fractions of the route's own box, as in `KanbanDetentSheet`.
 4. **Scroll.** The sheet gives its content a scroll controller through `AdaptiveSheetScope.scrollControllerOf(context)`. Content that scrolls passes it to its list so a drag on the list moves the sheet at the top edge. Content that does not scroll drags from the grabber band only.
 5. **Dismiss.** A drag below the lowest detent and a barrier tap call `Navigator.maybePop`, never `pop`.
 6. **Keyboard.** Focus in a text field moves the sheet to large and keeps the field visible.
 7. **Result.** The returned value is what the content pops, unchanged.
-8. **Kanban.** `showKanbanDetentSheet` becomes a call to `showAdaptiveSheet(detents: SheetDetents.mediumLarge)` and `KanbanDetentSheet` is deleted; the keys `kanbanTaskSheet` and `kanbanTaskGrabber` stay for the tests, or the tests move with the code.
+8. **Kanban.** On iOS, `showKanbanDetentSheet` becomes a call to `showAdaptiveSheet(detents: SheetDetents.mediumLarge)`. Carve-out: on Android, Windows and Linux it keeps its own `KanbanDetentSheet` unchanged, because the chat's Activity panel uses it there as a detent sheet today and `showAdaptiveSheet` ignores `detents` off iOS; `KanbanDetentSheet` is therefore kept. The keys `kanbanTaskSheet` and `kanbanTaskGrabber` stay for the tests.
 9. **Catalog and tests.** The use cases and tests listed in tasks.md PR A.
 
 ## Non-goals
 
-- Android, macOS, Windows, Linux and iPad. A wide layout keeps its dialog.
+- Android, macOS, Windows, Linux and an iPad at regular width (expanded). A wide layout keeps its dialog; an iPad window that is not expanded is in scope, as above.
 - Action sheets (`showCupertinoModalPopup`, `app_action_sheet.dart`) and pickers (`adaptive_pickers.dart`): they are already iOS native in form.
 - Changing what any sheet says or does, or its copy.
 - A native `UISheetPresentationController` through a platform view.

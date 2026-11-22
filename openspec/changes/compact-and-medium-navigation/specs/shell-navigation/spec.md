@@ -2,7 +2,7 @@
 
 ### Requirement: The shell has three forms
 
-The system SHALL choose the shell's form from the available width. Expanded is 900 logical pixels or more, and also a full-screen iPad of 700 or more and any Mac window; it keeps the sidebar. Medium is 600 to 899 logical pixels that are not expanded. Compact is below 600. The form SHALL be decided in one place, and `isWideLayout` SHALL be true exactly when the form is expanded on non-Mac platforms.
+The system SHALL choose the shell's form in one place, from the width, the platform and the Mac sidebar. Expanded, which keeps the sidebar, is 900 logical pixels or more, an iOS window of 700 or more whose shortest side is at least 600, and any Mac window. Medium is 600 to 899 and compact below 600, each only when not expanded. `isWideLayout` SHALL be true exactly when the form is expanded on non-Mac platforms.
 
 #### Scenario: Width table
 
