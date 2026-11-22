@@ -331,7 +331,7 @@ void main() {
         build: () => NewTaskFab(onPressed: () {}),
         inside: find.byType(FloatingActionButton),
         inset: -4,
-        radius: 32,
+        radius: 16 + 4,
       );
 
       ringsOnKeyboardOnly(
@@ -357,7 +357,7 @@ void main() {
           ),
         ),
         inside: find.byType(FloatingActionButton),
-        inset: -4,
+        inset: 0,
         radius: 24,
       );
     });

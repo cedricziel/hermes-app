@@ -73,6 +73,8 @@ The pass above did not record these; they are checked against the real theme tok
 
   On a filled row (the Mac menu row, whose focused fill is `colorScheme.primary`) the ring is `onPrimary`, not the link colour, which measures only 1.68:1 against that fill in dark and 3.08:1 in light. `onPrimary` is 17.72:1 in light (white on zinc900) and 16.97:1 in dark (zinc900 on zinc50).
 
+  An outside ring follows the painted shape, not the layout box: the mini scroll-to-latest button keeps a 48 dp tap box round its 40 dp circle, so its ring has its outer edge on the box (a circle 2 px outside the painted one); the extended "New task" button paints a 16 px rounded rectangle, not a stadium. `test/focus_ring_geometry_test.dart` checks the drawn ring of every outside ring and of the buttons, chips, tiles and menu items merged earlier.
+
   iOS pull-down menu items are not given a ring: `CupertinoMenuItem` is focusable by keyboard and draws Apple's own focus fill. Hand-rolled `InkWell` list rows (sidebar, file, thread, source-list, search-result and similar full-width rows) are not covered yet.
 
 ## F1 command set
