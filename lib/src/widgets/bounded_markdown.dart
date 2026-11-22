@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter/widgets.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:material_ui/material_ui.dart' as mui;
@@ -178,14 +179,16 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
   final _fences = _DocumentFences();
 
   // `GptMarkdown` keeps what it rendered per segment and builds a code block
-  // again only when its segment changed, so a pass asks about some blocks only,
-  // usually the last ones. A block's place is therefore read from the document
-  // (`_DocumentFences`), not counted from the first question of a pass: a pass
-  // is expected to start at the first block that changed, or at the first block
-  // when the renderer dropped what it kept. The renderer also builds its tail
-  // again on its own (a held-back construct is released after a quiet moment),
-  // with no build of ours before it: that pass starts at the tail.
-  int _start = 0;
+  // again only when its segment changed, or looked up a link or footnote
+  // definition that changed, so a pass asks about some blocks only. A block's
+  // place is therefore read from the document (`_DocumentFences`), not counted
+  // from the first question of a pass: a pass is expected to ask about the
+  // blocks of those segments in order (`_expected`), or about every block when
+  // the renderer dropped what it kept. The renderer also builds its tail again
+  // on its own (a held-back construct is released after a quiet moment), with
+  // no build of ours before it: that pass asks about the tail's blocks.
+  List<int> _expected = const [];
+  List<int> _pass = const [];
   int? _cursor;
   bool _dropped = true;
   bool _repeat = false;
@@ -218,19 +221,27 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
   /// Where the block with body [code], asked about now, sits in the document.
   int _placeOf(String code) {
     final codes = _fences.codes;
-    final from = _cursor ?? (_repeat ? _fences.tailStart : _start);
-    if (_cursor == null) _endPassWithFrame();
-    var place = -1;
-    for (var i = from; i < codes.length && place < 0; i++) {
-      if (codes[i] == code) place = i;
+    if (_cursor == null) {
+      _pass = _repeat ? _fences.tailPlaces : _expected;
+      _endPassWithFrame();
     }
-    // Not after the expected place: another form of the same body (the last
-    // block while its closing fence arrives). Take the expected place, never
-    // an earlier copy's; with no place left, the block is judged against what
-    // the whole document is planned to use.
-    if (place < 0) place = from < codes.length ? from : -1;
-    if (place < 0) return -1;
-    _cursor = place + 1;
+    var at = _cursor ?? 0;
+    var place = -1;
+    for (var j = at; j < _pass.length && place < 0; j++) {
+      if (codes[_pass[j]] == code) {
+        place = _pass[j];
+        at = j;
+      }
+    }
+    // Not among the places still expected: another form of the same body (the
+    // last block while its closing fence arrives). Take the next expected
+    // place, never an earlier copy's; with none left, the block is judged
+    // against what the whole document is planned to use.
+    if (place < 0) {
+      if (at >= _pass.length) return -1;
+      place = _pass[at];
+    }
+    _cursor = at + 1;
     return place;
   }
 
@@ -277,12 +288,28 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
     GptMarkdownTheme.of(context);
     DefaultTextStyle.of(context);
     MediaQuery.maybeTextScalerOf(context);
+    // The renderer reads this while a reply arrives (it labels the revealing
+    // text for screen readers) and drops everything it kept when it changes.
+    // A dependency it does not have must not be added: that would drop here
+    // what the renderer keeps (see the canary test).
+    MediaQuery.maybeAccessibleNavigationOf(context);
     Directionality.maybeOf(context);
     _fences.update(widget.data);
-    _start = _dropped ? 0 : _fences.firstChanged;
+    if (_fences.shifted) {
+      // A definition that arrived changed the fences of an earlier segment (a
+      // footnote shows its own once referenced), which moves the places of the
+      // blocks after it. The renderer keeps those with decisions made for their
+      // old places, so a new key builds every block again.
+      _budget.clear();
+      _generation++;
+      _dropped = true;
+    }
+    _expected = _dropped
+        ? List.generate(_fences.codes.length, (i) => i)
+        : _fences.askedPlaces;
     _budget.plan(
       _fences.codes,
-      from: _dropped || _fences.definitionsChanged ? 0 : _start,
+      from: _expected.isEmpty ? _fences.codes.length : _expected.first,
     );
     _dropped = false;
     _repeat = false;
@@ -308,12 +335,34 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
 List<String> boundedMarkdownFences(String data) =>
     (_DocumentFences()..update(data)).codes;
 
+/// For each of [texts], shown one after the other by one widget, the bodies of
+/// the blocks `BoundedMarkdown` expects the renderer to ask about, in order.
+@visibleForTesting
+List<List<String>> boundedMarkdownExpectedQuestions(List<String> texts) {
+  final fences = _DocumentFences();
+  return [
+    for (final text in texts)
+      [
+        for (final place in (fences..update(text)).askedPlaces)
+          fences.codes[place],
+      ],
+  ];
+}
+
+/// The fences of one segment and the definition labels its parse looked up.
+class _Parsed {
+  const _Parsed(this.codes, this.lookups);
+
+  final List<String> codes;
+  final Set<String> lookups;
+}
+
 /// The bodies of the fenced code blocks of a markdown document, in document
 /// order, read the way `GptMarkdown` reads it: split into the segments it
 /// renders one by one, each parsed once.
 class _DocumentFences {
   final _segments = MarkdownSegmentCache();
-  Map<String, List<String>> _parsed = {};
+  Map<String, _Parsed> _parsed = {};
 
   /// The code of every block, in document order.
   List<String> codes = const [];
@@ -321,19 +370,20 @@ class _DocumentFences {
   List<String> _before = const [];
   MarkdownDefinitions _definitions = MarkdownDefinitions.empty;
 
-  /// Whether the link and footnote definitions of the document changed since
-  /// the last [update]: a footnote is shown (and its fences exist) only once
-  /// referenced, from any segment.
-  bool definitionsChanged = false;
+  /// The places of the blocks the renderer builds again after the last
+  /// [update], in order: those of the segments that changed (by index and
+  /// text) and of the ones that looked up a link or footnote definition that
+  /// changed (a footnote is shown, and its fences exist, only once referenced,
+  /// from any segment).
+  List<int> askedPlaces = const [];
 
-  /// The place of the first block in a segment that changed since the last
-  /// [update], the first one `GptMarkdown` builds again; the count of blocks
-  /// when no segment changed.
-  int firstChanged = 0;
+  /// Whether a definition changed the fences of a segment that is followed by
+  /// blocks the renderer does not build again.
+  bool shifted = false;
 
-  /// The place of the first block of the last segment, the one the renderer
-  /// builds again on its own while it holds the end of a stream back.
-  int tailStart = 0;
+  /// The places of the blocks of the last segment, the ones the renderer builds
+  /// again on its own while it holds the end of a stream back.
+  List<int> tailPlaces = const [];
 
   void update(String data) {
     const config = GptMarkdownConfig();
@@ -356,47 +406,69 @@ class _DocumentFences {
       same++;
     }
     // The renderer parses every segment against the definitions of the whole
-    // document.
+    // document, and builds again the ones that looked up a changed one.
     final definitions = MarkdownDefinitions.collect(
       source,
       blockRegistry: registry,
       html: html,
     );
-    definitionsChanged = definitions != _definitions;
-    if (definitionsChanged) _parsed = {};
+    final changedKeys = definitions.changedKeys(_definitions);
     _definitions = definitions;
-    final parsed = <String, List<String>>{};
+    final stale = {
+      for (final MapEntry(:key, :value) in _parsed.entries)
+        if (value.lookups.any(changedKeys.contains)) key,
+    };
+    final parsed = <String, _Parsed>{};
     final next = <String>[];
-    var changed = -1;
+    final asked = <int>[];
+    var tail = const <int>[];
+    var moved = false;
+    var wasShifted = false;
     for (var i = 0; i < segments.length; i++) {
-      if (i == same) changed = next.length;
-      if (i == segments.length - 1) tailStart = next.length;
       final segment = segments[i];
-      next.addAll(
-        parsed[segment] ??=
-            _parsed[segment] ?? _fencesIn(segment, registry, html, definitions),
-      );
+      final isStale = stale.contains(segment);
+      final entry =
+          parsed[segment] ??
+          (isStale ? null : _parsed[segment]) ??
+          _fencesIn(segment, registry, html, definitions);
+      parsed[segment] = entry;
+      if (moved && i < same && !isStale && entry.codes.isNotEmpty) {
+        wasShifted = true;
+      }
+      if (isStale &&
+          i < same &&
+          !listEquals(_parsed[segment]?.codes, entry.codes)) {
+        moved = true;
+      }
+      final first = next.length;
+      next.addAll(entry.codes);
+      final places = [for (var k = first; k < next.length; k++) k];
+      if (i >= same || isStale) asked.addAll(places);
+      if (i == segments.length - 1) tail = places;
     }
     _parsed = parsed;
     _before = segments;
-    firstChanged = changed < 0 ? next.length : changed;
+    shifted = wasShifted;
+    askedPlaces = asked;
+    tailPlaces = tail;
     codes = next;
   }
 
-  static List<String> _fencesIn(
+  static _Parsed _fencesIn(
     String segment,
     MarkdownBlockRegistry? registry,
     MarkdownHtml html,
     MarkdownDefinitions definitions,
   ) {
     final out = <String>[];
+    final lookups = <String>{};
     try {
       _collect(
         Plusparse.parse(
           segment,
           blockRegistry: registry,
           html: html,
-          definitions: definitions,
+          definitions: definitions.recording(lookups),
         ).children,
         out,
       );
@@ -404,7 +476,7 @@ class _DocumentFences {
       // A segment the parser rejects has no places; its blocks are judged in
       // the order they are asked about.
     }
-    return out;
+    return _Parsed(out, lookups);
   }
 
   static void _collect(List<MdNode> nodes, List<String> out) {

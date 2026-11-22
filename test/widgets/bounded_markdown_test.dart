@@ -206,6 +206,33 @@ void main() {
       expect(budget.used, 0);
     });
 
+    test('a block with no place takes only what the plan left', () {
+      final budget = CodeHighlightBudget()
+        ..plan([_block(6000), _block(3000, 'b')]);
+      // 9,000 are planned: 1,000 are left, and a block past them is plain.
+      expect(budget.admitUnplaced(_block(1500, 'c')), isFalse);
+      expect(budget.admitUnplaced(_block(900, 'd')), isTrue);
+      // The same body keeps its answer; another one counts the first.
+      expect(budget.admitUnplaced(_block(900, 'd')), isTrue);
+      expect(budget.admitUnplaced(_block(900, 'e')), isFalse);
+    });
+
+    test('plan judges every block from a place on, in order', () {
+      final budget = CodeHighlightBudget();
+      final blocks = [for (var i = 0; i < 4; i++) _block(4000, 'abcd'[i])];
+      budget.plan(blocks);
+      expect(budget.used, 0, reason: 'a plan opens no pass');
+      // Two blocks fit; the places after them stay plain, as in a full mount.
+      budget.begin();
+      expect(budget.admitAt(0, blocks[0]), isTrue);
+      expect(budget.admitAt(1, blocks[1]), isTrue);
+      expect(budget.admitAt(2, blocks[2]), isFalse);
+      // A plan from the second place keeps the first one's decision.
+      budget.plan([...blocks.take(1), _block(1000, 'x')], from: 1);
+      expect(budget.admitUnplaced(_block(5100, 'y')), isFalse);
+      expect(budget.admitUnplaced(_block(5000, 'z')), isTrue);
+    });
+
     test('clear forgets the decisions', () {
       final budget = CodeHighlightBudget()..admit(_block(6000));
       budget.clear();

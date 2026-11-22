@@ -26,20 +26,47 @@ int _chars(WidgetTester t) =>
         .fold(0, (sum, b) => sum + b.codes.length);
 
 class _Env {
-  const _Env({this.dark = false, this.scale = 1});
+  const _Env({
+    this.dark = false,
+    this.scale = 1,
+    this.nav = false,
+    this.dim = false,
+    this.fontSize,
+  });
   final bool dark;
   final double scale;
+
+  /// `MediaQuery.accessibleNavigation`, which the renderer reads while a reply
+  /// arrives.
+  final bool nav;
+
+  /// `MediaQuery.platformBrightness`, which the app's theme scopes follow.
+  final bool dim;
+
+  /// The `style` parameter of the widget itself.
+  final double? fontSize;
 }
 
 Widget _app(String text, [_Env env = const _Env()]) => MaterialApp(
   theme: env.dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
   builder: (c, child) => MediaQuery(
-    data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(env.scale)),
+    data: MediaQuery.of(c).copyWith(
+      textScaler: TextScaler.linear(env.scale),
+      accessibleNavigation: env.nav,
+      platformBrightness: env.dim ? Brightness.dark : Brightness.light,
+    ),
     child: AppThemeScopes(child: child!),
   ),
   home: Scaffold(
     body: SingleChildScrollView(
-      child: AppMarkdownTheme(child: BoundedMarkdown(text)),
+      child: AppMarkdownTheme(
+        child: BoundedMarkdown(
+          text,
+          style: env.fontSize == null
+              ? null
+              : TextStyle(fontSize: env.fontSize),
+        ),
+      ),
     ),
   ),
 );
@@ -135,7 +162,91 @@ String get _footnotes {
   ].join();
 }
 
+String get _distinct => [
+  for (var f = 0; f < 8; f++)
+    'Para $f.\n\n${_f}js\n${_body(30, f * 100)}\n$_f\n\n',
+].join();
+
+/// Reference links whose definitions arrive after the segments that use them:
+/// the renderer builds those segments, and their fences, again.
+String _refLinks({required bool same}) {
+  final segments = [
+    for (var i = 0; i < 10; i++)
+      '- see [doc$i] here\n\n  ${_f}js\n'
+          '${_indent('  ', _body(25, same ? 0 : i * 100))}\n  $_f\n\n',
+  ].join();
+  final defs = [for (var i = 0; i < 10; i++) '[doc$i]: https://example.com/$i']
+      .join('\n');
+  return 'Intro.\n\n${segments}Tail para.\n\n$defs\n';
+}
+
+/// Footnote definitions that come before the text that references them: their
+/// fences exist only once the references arrive, at the end.
+String _footnotesFirst({required bool same}) {
+  final defs = [
+    for (var i = 0; i < 8; i++)
+      '[^d$i]: note $i\n\n    ${_f}js\n'
+          '${_indent('    ', _body(30, same ? 0 : i * 100))}\n    $_f\n\n',
+  ].join();
+  final refs = [for (var i = 0; i < 8; i++) 'late[^d$i]'].join(' ');
+  return 'Intro.\n\n$defs\nNow $refs.\n';
+}
+
+/// Footnote definitions followed by fences of their own: the references arrive
+/// last, and the fences the footnotes show move every block after them.
+String _footnotesBeforeFences({required bool same}) {
+  String fence(int seed) => '${_f}js\n${_body(20, same ? 0 : seed)}\n$_f';
+  final defs = [
+    for (var i = 0; i < 3; i++)
+      '[^d$i]: note $i\n\n${_indent('    ', fence(500 + i * 100))}\n\n',
+  ].join();
+  final later = [
+    for (var i = 0; i < 4; i++) 'Para $i.\n\n${fence(i * 100)}\n\n',
+  ].join();
+  final refs = [for (var i = 0; i < 3; i++) 'late[^d$i]'].join(' ');
+  return 'Intro.\n\n${fence(900)}\n\n$defs$later$refs.\n';
+}
+
+String get _mixed =>
+    [_distinct.substring(0, 3000), _lists, _alerts, _footnotes].join('\n\n');
+
 void main() {
+  for (final chunk in [61, 400]) {
+    for (final same in [true, false]) {
+      final kind = same ? 'identical' : 'distinct';
+      testWidgets('reference links defined last, $kind, $chunk a pump', (
+        t,
+      ) async {
+        await _stream(t, _refLinks(same: same), chunk);
+      });
+      testWidgets('footnotes shown before other fences, $kind, $chunk a pump', (
+        t,
+      ) async {
+        await _stream(t, _footnotesBeforeFences(same: same), chunk);
+      });
+      testWidgets('footnotes defined first, $kind, $chunk a pump', (t) async {
+        await _stream(t, _footnotesFirst(same: same), chunk);
+      });
+    }
+  }
+
+  // The renderer drops what it kept when what it reads from `MediaQuery`
+  // changes, which `BoundedMarkdown` must see too.
+  for (final MapEntry(:key, :value) in {
+    'identical fences': _identical,
+    'distinct fences': _distinct,
+    'mixed fences': _mixed,
+  }.entries) {
+    testWidgets('screen reader navigation turned on mid-stream, $key', (
+      t,
+    ) async {
+      await _stream(t, value, 61, midway: const _Env(nav: true));
+    });
+    testWidgets('the text style changed mid-stream, $key', (t) async {
+      await _stream(t, value, 61, midway: const _Env(fontSize: 19));
+    });
+  }
+
   for (final chunk in [7, 61]) {
     testWidgets('identical fences, $chunk characters a pump', (t) async {
       await _stream(t, _identical, chunk);
@@ -165,6 +276,12 @@ void main() {
       kHighlightMaxDocument ~/ blocks.first.codes.length,
     );
     expect(_coloured(t), _greedy(blocks));
+  });
+
+  testWidgets('the platform brightness changed in the middle of a stream', (
+    t,
+  ) async {
+    await _stream(t, _lists, 61, midway: const _Env(dim: true));
   });
 
   testWidgets('a theme change in the middle of a stream', (t) async {

@@ -70,21 +70,6 @@ List<String> _fence(String lang, String body, {String lead = ''}) => [
 ];
 
 void main() {
-  testWidgets('streamed fences of one body stay within the document budget', (
-    tester,
-  ) async {
-    final body = List.generate(30, _line).join('\n');
-    final pieces = [
-      for (var f = 0; f < 8; f++) ..._fence('js', body, lead: 'Para $f text.'),
-    ];
-    final streamed = await _streamed(tester, pieces);
-    expect(streamed.length, 8);
-    expect(_colouredChars(tester), lessThanOrEqualTo(kHighlightMaxDocument));
-    final whole = await _whole(tester, pieces.join());
-    expect(whole.where((c) => c).length, lessThan(8));
-    expect(streamed, whole, reason: 'the same blocks, in the same order');
-  });
-
   testWidgets('streamed fences of different bodies colour the first ones', (
     tester,
   ) async {
@@ -100,31 +85,6 @@ void main() {
     expect(_colouredChars(tester), lessThanOrEqualTo(kHighlightMaxDocument));
     expect(streamed.first, isTrue);
     expect(streamed.last, isFalse);
-    expect(streamed, await _whole(tester, pieces.join()));
-  });
-
-  testWidgets('fences in lists and quotes keep their place while streaming', (
-    tester,
-  ) async {
-    final body = List.generate(12, _line).join('\n');
-    String indented(String prefix) =>
-        '${body.split('\n').map((l) => '$prefix$l').join('\n')}\n';
-    final pieces = [
-      for (var f = 0; f < 6; f++) ...[
-        'Item $f:\n\n',
-        '- first\n\n',
-        '  ```js\n',
-        indented('  '),
-        '  ```\n\n',
-        '> quoted $f\n>\n',
-        '> ```js\n',
-        indented('> '),
-        '> ```\n\n',
-      ],
-    ];
-    final streamed = await _streamed(tester, pieces);
-    expect(streamed.length, 12);
-    expect(_colouredChars(tester), lessThanOrEqualTo(kHighlightMaxDocument));
     expect(streamed, await _whole(tester, pieces.join()));
   });
 
