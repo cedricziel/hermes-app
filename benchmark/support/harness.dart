@@ -12,6 +12,7 @@ import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -166,6 +167,7 @@ Future<BenchChat> openBenchChat(
       localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: _theme(macSidebar ? TargetPlatform.macOS : null),
+      builder: (context, child) => AppThemeScopes(child: child!),
       home: ChatScreen(
         repository: HermesChatRepository(api),
         transport: transport,
@@ -175,7 +177,7 @@ Future<BenchChat> openBenchChat(
   );
   if (macSidebar) app = MacSidebarScope(child: app);
   if (mountLog != null) {
-    await mountLog.frame(tester, before: () => tester.pumpWidget(app));
+    await mountLog.mount(tester, () => tester.pumpWidget(app));
   } else {
     await tester.pumpWidget(app);
   }
