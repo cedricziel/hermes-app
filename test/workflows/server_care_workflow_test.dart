@@ -17,6 +17,7 @@ import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -106,6 +107,7 @@ void main() {
           auth,
           lock: lock,
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             debugShowCheckedModeBanner: false,
             locale: locale,
             localizationsDelegates: kTestLocalizationsDelegates,

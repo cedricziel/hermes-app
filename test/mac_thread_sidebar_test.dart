@@ -18,6 +18,7 @@ import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -82,6 +83,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: platform),
           home: MacSidebarScope(
             child: ChatScreen(
@@ -364,6 +366,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: ThreadSidebar(
@@ -393,6 +396,7 @@ void main() {
     Future<void> pumpNavigation(WidgetTester tester, TargetPlatform platform) =>
         tester.pumpWidget(
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             theme: buildHermesLightTheme(platform: platform),
             home: Scaffold(
               body: ShellNavigation(

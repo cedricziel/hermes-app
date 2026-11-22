@@ -27,6 +27,7 @@ import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/vault_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/test_localizations.dart';
 
@@ -57,6 +58,7 @@ Future<void> _pumpChat(
   addTearDown(controller.dispose);
   await tester.pumpWidget(
     MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(),
       home: Scaffold(
         body: Chat(
@@ -293,6 +295,7 @@ void main() {
         addTearDown(controller.dispose);
         await tester.pumpWidget(
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             locale: locale,
             localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,

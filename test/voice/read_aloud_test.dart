@@ -20,6 +20,7 @@ import 'package:hermes_app/src/voice/read_aloud.dart';
 import 'package:hermes_app/src/voice/synthesized_speech.dart';
 import 'package:hermes_app/src/voice/voice_audio_focus.dart';
 import 'package:hermes_app/src/voice/voice_playback.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 
 import '../support/attachment_fixtures.dart';
@@ -209,6 +210,7 @@ void main() {
             ChangeNotifierProvider.value(value: playback),
           ],
           child: MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             theme: buildHermesLightTheme(),
             home: Scaffold(
               body: ReadAloudActions(
@@ -318,6 +320,7 @@ void main() {
             synthesize: (_, _) => throw UnimplementedError(),
           ),
           child: MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             theme: buildHermesLightTheme(),
             home: Scaffold(
               body: Chat(

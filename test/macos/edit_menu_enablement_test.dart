@@ -10,6 +10,7 @@ import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/macos/mac_menu_bar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/macos/menu_selection_area.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import '../support/test_localizations.dart';
 import 'mac_menu_bar_test.dart' show FakeMenuChannel;
@@ -59,8 +60,10 @@ void main() {
         navigatorKey: navigatorKey,
         localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        builder: (context, child) =>
-            MacMenuBar(navigatorKey: navigatorKey, child: child!),
+        builder: (context, child) => MacMenuBar(
+          navigatorKey: navigatorKey,
+          child: AppThemeScopes(child: child!),
+        ),
         home: Scaffold(body: home),
       ),
     );

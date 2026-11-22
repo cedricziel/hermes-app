@@ -7,6 +7,7 @@ import 'package:hermes_app/src/widgets/hermes_code_block.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 Future<int> _render(WidgetTester tester, String text) async {
   tester.view.physicalSize = const Size(1000, 900);
@@ -26,6 +27,7 @@ Future<int> _render(WidgetTester tester, String text) async {
   final watch = Stopwatch()..start();
   await tester.pumpWidget(
     MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(),
       home: Scaffold(
         body: Chat(

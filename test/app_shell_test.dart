@@ -37,6 +37,7 @@ import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -120,7 +121,9 @@ void main() {
           theme: buildHermesLightTheme().copyWith(platform: platform),
           builder: (context, child) {
             final content =
-                macCommandsBuilder(commands)?.call(context, child) ?? child!;
+                macCommandsBuilder(commands)
+                    ?.call(context, AppThemeScopes(child: child!)) ??
+                AppThemeScopes(child: child!);
             return lock == null ? content : AppLockGate(child: content);
           },
           home: AppShell(

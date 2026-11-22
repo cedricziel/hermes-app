@@ -16,6 +16,7 @@ import 'package:hermes_app/src/skills/skill_editor_screen.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -106,9 +107,10 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
-          builder: lock == null
-              ? null
-              : (context, child) => AppLockGate(child: child!),
+          builder: (context, child) {
+            final scoped = AppThemeScopes(child: child!);
+            return lock == null ? scoped : AppLockGate(child: scoped);
+          },
           home: AppShell(
             plugins: HermesPluginsRepository(server.client().raw),
             cron: HermesCronRepository(server.client().raw),

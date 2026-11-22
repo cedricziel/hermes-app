@@ -26,6 +26,7 @@ import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/navigation/desktop_command_shortcuts.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -174,9 +175,9 @@ void main() {
   }) async {
     Widget app = MaterialApp(
       theme: ThemeData(platform: platform),
-      builder: desktopKeys
-          ? (context, child) => DesktopCommandShortcuts(child: child!)
-          : null,
+      builder: (_, child) => AppThemeScopes(
+        child: desktopKeys ? DesktopCommandShortcuts(child: child!) : child!,
+      ),
       home: Scaffold(
         body: Align(
           alignment: Alignment.topRight,
@@ -237,6 +238,7 @@ void main() {
       });
       final controller = checkpointsOf();
       Widget presence(Key key) => MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: CheckpointsPanelPresence(
           key: key,
           controller: controller,
@@ -271,6 +273,7 @@ void main() {
       addTearDown(showPresence.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           navigatorKey: navigator,
           home: ValueListenableBuilder<bool>(
             valueListenable: showPresence,
@@ -809,6 +812,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: ListenableBuilder(
             listenable: chat,
