@@ -684,6 +684,9 @@
   "memoryWaitingTitle": "Wartet auf dich",
 
   "@@x-area-messaging": "",
+  "messagingSetUp": "Einrichten",
+  "messagingSetUpMac": "Einrichten…",
+  "messagingSetUpValue": "Einrichten",
 
   "@@x-area-models": "",
   "modelsPickerDefaultUses": "Verwendet {model}",
@@ -1341,6 +1344,7 @@
   "@@x-area-shell": "",
 
   "@@x-area-skills": "",
+  "skillsCheckForUpdatesMac": "Nach Updates suchen",
   "skillsCuratorAnnounceFinished": "Kurator-Durchlauf abgeschlossen",
   "skillsCuratorAnnounceResumed": "Fortgesetzt",
   "skillsCuratorAnnounceStarted": "Kurator-Durchlauf gestartet",

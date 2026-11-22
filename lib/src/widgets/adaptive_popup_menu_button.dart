@@ -68,6 +68,53 @@ class _FocusRingMenuItemState<T>
   );
 }
 
+/// A [CheckedPopupMenuItem] that shows the keyboard focus ring, inside the
+/// row, and takes the hover fill while it has keyboard focus. [CheckedPopupMenuItem]'s
+/// state is private, so this wraps one built from the same fields (check mark,
+/// text style, semantics and tap are Material's own).
+///
+/// [AdaptivePopupMenuButton] builds it from every [CheckedPopupMenuItem] on
+/// Material and Windows and Linux; call sites keep writing the Material item.
+class FocusRingCheckedMenuItem<T> extends PopupMenuEntry<T> {
+  const FocusRingCheckedMenuItem({super.key, required this.item});
+
+  /// The item to wrap; its key stays on this entry, not on the copy.
+  final CheckedPopupMenuItem<T> item;
+
+  @override
+  double get height => item.height;
+
+  @override
+  bool represents(T? value) => item.represents(value);
+
+  @override
+  State<FocusRingCheckedMenuItem<T>> createState() =>
+      _FocusRingCheckedMenuItemState<T>();
+}
+
+class _FocusRingCheckedMenuItemState<T>
+    extends State<FocusRingCheckedMenuItem<T>> {
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    return FocusRing(
+      radius: 4,
+      fill: Theme.of(context).hoverColor,
+      child: CheckedPopupMenuItem<T>(
+        value: item.value,
+        checked: item.checked,
+        enabled: item.enabled,
+        padding: item.padding,
+        height: item.height,
+        labelTextStyle: item.labelTextStyle,
+        mouseCursor: item.mouseCursor,
+        onTap: item.onTap,
+        child: item.child,
+      ),
+    );
+  }
+}
+
 /// A [PopupMenuButton] that follows the platform: a pull-down
 /// [CupertinoMenuAnchor] on iOS, a compact menu on macOS (rows of 22 logical
 /// pixels highlighted in the primary colour, as on a Mac), and the plain
@@ -238,7 +285,10 @@ class _AdaptivePopupMenuButtonState<T>
         ),
       ),
     ),
-    CheckedPopupMenuItem<T>() => entry,
+    CheckedPopupMenuItem<T>() => FocusRingCheckedMenuItem<T>(
+      key: entry.key,
+      item: entry,
+    ),
     PopupMenuItem<T>() => FocusRingMenuItem<T>(
       key: entry.key,
       value: entry.value,

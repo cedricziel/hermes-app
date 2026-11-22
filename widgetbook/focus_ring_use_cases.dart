@@ -1,12 +1,19 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
+import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
+import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/restore_confirmation_layout.dart';
 import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/macos/mac_toolbar.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/messaging/widgets/messaging_platform_row.dart';
+import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
+import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
 import 'package:hermes_app/src/plugins/catalog_tab.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/profiles/widgets/recipient_picker.dart';
 import 'package:hermes_app/src/plugins/widgets/catalog_row.dart';
 import 'package:hermes_app/src/skills/widgets/curator_run_confirmation.dart';
 import 'package:hermes_app/src/skills/widgets/installed_skills_list.dart';
@@ -217,6 +224,158 @@ class _OpenMenuState extends State<_OpenMenu> {
       const SizedBox(height: 200, child: Text('The menu opens at the corner.'));
 }
 
+/// A real [AdaptivePopupMenuButton] menu of checked items, opened at its
+/// button with the second item focused (an item only builds in a menu route).
+class _OpenCheckedMenu extends StatefulWidget {
+  const _OpenCheckedMenu();
+
+  @override
+  State<_OpenCheckedMenu> createState() => _OpenCheckedMenuState();
+}
+
+class _OpenCheckedMenuState extends State<_OpenCheckedMenu> {
+  final _menu = AdaptiveMenuController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _menu.open();
+      await WidgetsBinding.instance.endOfFrame;
+      await WidgetsBinding.instance.endOfFrame;
+      final items = FocusManager.instance.rootScope.traversalDescendants
+          .where(
+            (n) =>
+                n.context
+                    ?.findAncestorWidgetOfExactType<
+                      CheckedPopupMenuItem<int>
+                    >() !=
+                null,
+          )
+          .toList();
+      if (items.length > 1) {
+        // A click on an earlier example must not hide this one's ring.
+        markFocusRingKeyboardInput();
+        items[1].requestFocus();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 220,
+    child: Align(
+      alignment: Alignment.topLeft,
+      child: AdaptivePopupMenuButton<int>(
+        controller: _menu,
+        tooltip: 'Sort',
+        icon: const Icon(Icons.sort),
+        onSelected: (_) {},
+        itemBuilder: (_) => const [
+          CheckedPopupMenuItem<int>(
+            value: 1,
+            checked: true,
+            child: Text('Newest first'),
+          ),
+          CheckedPopupMenuItem<int>(
+            value: 2,
+            checked: false,
+            child: Text('Oldest first'),
+          ),
+          CheckedPopupMenuItem<int>(
+            value: 3,
+            checked: false,
+            child: Text('Name'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _chips() => Wrap(
+  spacing: 16,
+  runSpacing: 16,
+  children: [
+    FilterChip(
+      label: const Text('Archived'),
+      selected: true,
+      onSelected: (_) {},
+    ),
+    ChoiceChip(
+      label: const Text('Running 3'),
+      selected: false,
+      onSelected: (_) {},
+    ),
+  ],
+);
+
+const _recipients = [
+  HermesProfile(name: 'writer', displayName: 'Writer'),
+  HermesProfile(name: 'research', displayName: 'Research'),
+];
+
+/// The Material controls the ring was wired into after the buttons: checked
+/// menu items, the tiles of a list, and chips.
+List<WidgetbookUseCase> _menuTileChipUseCases() => [
+  WidgetbookUseCase(
+    name: 'Checked menu item',
+    builder: (_) => _at(null, const _OpenCheckedMenu()),
+  ),
+  WidgetbookUseCase(
+    name: 'List tile (attach menu)',
+    builder: (_) => _at(
+      1,
+      const Card(
+        child: AttachMenu(origins: AttachOrigin.values, onPick: _ignoreOrigin),
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'List tile, selected (recipient picker)',
+    builder: (_) => _at(
+      1,
+      RecipientPicker(
+        profiles: _recipients,
+        selectedProfile: 'writer',
+        onSelected: (_) {},
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Switch list tile (take over)',
+    builder: (_) => _at(
+      0,
+      Card(
+        child: TakeoverConfirmation(onCancel: () {}, onConfirm: (_) {}),
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Checkbox list tile (platform hint)',
+    builder: (_) => _at(
+      1,
+      Card(
+        margin: EdgeInsets.zero,
+        child: PlatformHintPrompt(
+          profiles: const ['default', 'work'],
+          text: appPlatformHint,
+          selected: const {'default'},
+          onToggle: (_, _) {},
+          onAdd: () {},
+          onLater: () {},
+          onNever: () {},
+        ),
+      ),
+    ),
+  ),
+  WidgetbookUseCase(name: 'Filter chip', builder: (_) => _at(0, _chips())),
+  WidgetbookUseCase(name: 'Choice chip', builder: (_) => _at(1, _chips())),
+];
+
+void _ignoreOrigin(AttachOrigin _) {}
+
 Widget _segments() => PillSegmentedControl<int>(
   value: 0,
   segments: const {0: 'Chats', 1: 'Files', 2: 'Tasks'},
@@ -422,6 +581,7 @@ WidgetbookNode focusRingNode() => WidgetbookComponent(
         const TextField(decoration: InputDecoration(labelText: 'Name')),
       ),
     ),
+    ..._menuTileChipUseCases(),
     ..._ownShapeUseCases(),
     WidgetbookUseCase(
       name: 'Try it (press Tab)',

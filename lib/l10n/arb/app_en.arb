@@ -3207,6 +3207,18 @@
   },
 
   "@@x-area-messaging": "",
+  "messagingSetUp": "Set up",
+  "@messagingSetUp": {
+    "description": "Button at the end of a messaging platform row that has no credentials yet, on Android, Windows and Linux. Opens the platform's setup."
+  },
+  "messagingSetUpMac": "Set Up…",
+  "@messagingSetUpMac": {
+    "description": "Same button on a Mac, where a button that opens a form ends in an ellipsis."
+  },
+  "messagingSetUpValue": "Set Up",
+  "@messagingSetUpValue": {
+    "description": "The muted value at the end of the same row on iOS, in place of a button."
+  },
 
   "@@x-area-models": "",
   "modelsPickerDefaultUses": "Uses {model}",
@@ -6637,6 +6649,10 @@
   "@@x-area-shell": "",
 
   "@@x-area-skills": "",
+  "skillsCheckForUpdatesMac": "Check for Updates",
+  "@skillsCheckForUpdatesMac": {
+    "description": "Bordered button on the Hub skills row on a Mac. Starts the check for updates of the skills installed from the hub."
+  },
   "skillsCuratorAnnounceFinished": "Curator pass finished",
   "@skillsCuratorAnnounceFinished": {
     "description": "Announced by a screen reader once when a pass ends well."
