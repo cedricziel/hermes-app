@@ -147,7 +147,7 @@ Rendered locally with headless Chrome; not checked in the claude.ai viewer or on
 - Date: 2026-11-21
 - Boards (8): iPhone 390x844, Appearance over the chat, light and dark, before and after (4); iPhone after, Notifications (longest content) light; iPhone after, Memory choice dark; Mac 1280x800 after, Settings light and dark.
 
-Scope: nine `GroupedDialog`s move from `showDialog` to `showAppDialog` (`lib/src/widgets/dialog_presentation.dart`): App Lock, About, Appearance, Settings (Mac only), Notifications, Spotlight (iOS and macOS), Dictation (iOS and macOS), Portable calls (not iOS) and Memory choice. Their content does not change.
+Scope: nine `GroupedDialog`s move from `showDialog` to `showAppDialog` (`lib/src/widgets/dialog_presentation.dart`): App Lock, About, Appearance, Settings (Mac only), Notifications, Spotlight (iOS and macOS), Dictation (iOS and macOS), Portable calls (not iOS) and Memory choice. Their content does not change. `KanbanTaskChoiceDialog` (Kanban Assign and Priority), already on `showAppDialog`, also gets the iOS Esc binding and the safe-area inset below.
 
 - iOS: Material route (fade, `showDialog` barrier, tap outside closes) becomes the Cupertino route (scale-in, Cupertino barrier, tap outside does not close; Done stays, and Esc closes the dialog the same way Done does).
 - macOS: Material route becomes the app's 150 ms fade, theme barrier, click outside closes, as in "Mac dialog presentation".
@@ -158,6 +158,7 @@ Decisions:
 - Losing tap-outside on iOS is accepted. Every one of the nine has Done in its header. On iOS a modal panel with a Done button (a Settings-style sheet, a form or page sheet, an alert) is left through its button, and an outside tap is for popovers and action sheets. It also matches every other adaptive dialog in the app on iOS (`showAdaptiveDialog` defaults `barrierDismissible` to false there) and removes accidental closes. In Memory choice a row pick still closes with the value and Done closes with none.
 - Esc keeps closing these dialogs on iOS (a hardware keyboard on iPad): `GroupedDialog` binds Esc to Done on iOS, because the Cupertino route's inert barrier does not.
 - iOS barrier: Cupertino's (`kCupertinoModalBarrierColor`: 0.20 light, 0.478 dark; the design system's `--h-apple-scrim`) replaces `showDialog`'s (black54, 0.541, in light; the theme's 0.60 in dark). One barrier per platform, the same as the other iOS dialogs. Passing `barrierColor` on iOS to keep the old one was rejected: it would need a new `showAppDialog` parameter and would make these nine differ from the rest.
+- On iOS a `GroupedDialog` keeps the safe-area inset (status bar, Dynamic Island, home indicator), as `showDialog` gave it.
 - macOS barrier: unchanged (theme barrier: black54 in light, 0.60 in dark). Only the route and its 150 ms fade change.
 - Android, Windows, Linux: unchanged.
 

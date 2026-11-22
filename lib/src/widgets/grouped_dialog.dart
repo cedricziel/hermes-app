@@ -103,8 +103,11 @@ class GroupedDialog extends StatelessWidget {
         ),
       ),
     );
+    if (chrome != PlatformChrome.ios) return dialog;
+    // The Cupertino route has no SafeArea, which showDialog's route gave.
+    final safe = SafeArea(child: dialog);
     // Esc does what Done does; the Cupertino route has no Esc of its own.
-    if (chrome != PlatformChrome.ios || actions != null) return dialog;
+    if (actions != null) return safe;
     return Actions(
       actions: {
         DismissIntent: CallbackAction<DismissIntent>(
@@ -112,7 +115,7 @@ class GroupedDialog extends StatelessWidget {
         ),
       },
       // Focus must sit inside, or the key event never reaches the Actions.
-      child: Focus(autofocus: true, skipTraversal: true, child: dialog),
+      child: Focus(autofocus: true, skipTraversal: true, child: safe),
     );
   }
 }

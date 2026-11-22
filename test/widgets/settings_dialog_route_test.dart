@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_task_choice_dialog.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/memory/widgets/memory_choice_dialog.dart';
 import 'package:hermes_app/src/settings/appearance_dialog.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
@@ -16,6 +18,11 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 final _dialog = find.byType(GroupedDialog);
 final _done = find.text('Done');
+
+/// The visible panel, not the full-screen box that centres it.
+final _panel = find
+    .descendant(of: find.byType(Dialog), matching: find.byType(Material))
+    .first;
 
 typedef _Open = Future<void> Function(BuildContext context);
 
@@ -178,4 +185,89 @@ void main() {
       expect(_dialog, findsNothing);
     });
   }
+
+  testWidgets('iOS: the dialog and Done stay inside the safe area at 3x text', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(390, 844)
+      ..devicePixelRatio = 1
+      ..padding = const FakeViewPadding(top: 59, bottom: 34)
+      ..viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+    addTearDown(tester.view.reset);
+    tester.platformDispatcher.textScaleFactorTestValue = 3;
+    addTearDown(tester.platformDispatcher.clearAllTestValues);
+    await _show(
+      tester,
+      TargetPlatform.iOS,
+      (context) => showMemoryChoice<int>(
+        context,
+        title: 'Review every',
+        options: [for (var i = 1; i <= 12; i++) (i, 'Every $i turns')],
+        current: 1,
+      ),
+    );
+    final dialog = tester.getRect(_panel);
+    final done = tester.getRect(_done);
+    expect(dialog.top, greaterThanOrEqualTo(59));
+    expect(dialog.bottom, lessThanOrEqualTo(844 - 34));
+    expect(done.top, greaterThanOrEqualTo(59));
+  });
+
+  testWidgets('iOS: the dialog is centred in the safe area', (tester) async {
+    tester.view
+      ..physicalSize = const Size(390, 844)
+      ..devicePixelRatio = 1
+      ..padding = const FakeViewPadding(top: 59, bottom: 34)
+      ..viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+    addTearDown(tester.view.reset);
+    await _show(tester, TargetPlatform.iOS, showAppearanceDialog);
+    final rect = tester.getRect(_panel);
+    expect(rect.center.dy, closeTo((59 + 844 - 34) / 2, 1));
+    // Where main's showDialog put it.
+    expect(rect.top, closeTo(329.5, 1));
+  });
+
+  testWidgets('macOS: Esc does not close a dialog whose barrier is inert', (
+    tester,
+  ) async {
+    await _show(
+      tester,
+      TargetPlatform.macOS,
+      (context) => showAppDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const GroupedDialog(title: 'Inert', children: []),
+      ),
+    );
+    await _esc(tester);
+    expect(_dialog, findsOneWidget);
+  });
+
+  testWidgets('Android: Esc closes a dialog like the route does', (
+    tester,
+  ) async {
+    await _show(tester, TargetPlatform.android, _memoryChoice);
+    await _esc(tester);
+    expect(_dialog, findsNothing);
+  });
+
+  testWidgets('iOS: Esc closes the Kanban choice dialog', (tester) async {
+    await _show(
+      tester,
+      TargetPlatform.iOS,
+      (context) => showAppDialog<int>(
+        context: context,
+        builder: (dialog) => KanbanTaskChoiceDialog<int>(
+          title: 'Priority',
+          options: const [0, 1],
+          labelOf: (value) => 'P$value',
+          selected: 0,
+          onPicked: (value) => Navigator.pop(dialog, value),
+        ),
+      ),
+    );
+    await _esc(tester);
+    expect(_dialog, findsNothing);
+  });
 }
