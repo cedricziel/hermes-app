@@ -445,6 +445,26 @@ List<Hit> errorInterpolationHits(SourceFile file) {
   return hits;
 }
 
+/// `.copyWith(platform: …)`: a theme copied onto another platform keeps the
+/// base theme's tap-target size, density and platform-specific component
+/// themes.
+final _themePlatformCopy = RegExp(r'\.copyWith\(\s*platform\s*:');
+
+/// Files under `widgetbook/` and `test/` that may still copy a theme onto
+/// another platform, each with its reason. Empty: every preview and test host
+/// builds the theme for its platform.
+const _themePlatformCopyAllow = <String, String>{};
+
+List<Hit> _themePlatformCopies() => [
+  for (final root in const ['widgetbook', 'test'])
+    ...scanPattern(
+      root,
+      _themePlatformCopy,
+      view: _code,
+      allow: _themePlatformCopyAllow.keys,
+    ),
+];
+
 List<Hit> _errorInterpolation() => [
   for (final file in dartFiles('lib')) ...errorInterpolationHits(file),
 ];
@@ -920,10 +940,50 @@ final guardRules = <Rule>[
         '(reportBug) is the one place that keeps the full message.',
     hits: _errorInterpolation,
   ),
+  _custom(
+    name: 'theme-platform-copy',
+    message:
+        'build the theme for the platform instead of copying one onto it: '
+        'buildHermesLightTheme(platform: p) / buildHermesDarkTheme(platform: '
+        'p), or platformTheme(context, p) in widgetbook/. '
+        '`.copyWith(platform: …)` keeps the base theme\'s materialTapTargetSize, '
+        'visualDensity and platform-specific component themes, so a Mac case '
+        'under flutter test gets phone sizing.',
+    hits: _themePlatformCopies,
+  ),
 ];
 
 void main() {
   ratchetTests(guardRules, namespace: 'arch');
+
+  test('the theme-platform-copy pattern catches a platform copy only', () {
+    for (final bad in [
+      'Theme.of(context).copyWith(platform: platform)',
+      'base.copyWith(\n  platform: TargetPlatform.macOS,\n)',
+      'buildHermesLightTheme().copyWith(platform: p)',
+    ]) {
+      expect(_themePlatformCopy.hasMatch(bad), isTrue, reason: bad);
+    }
+    for (final fine in [
+      'buildHermesLightTheme(platform: p)',
+      'Theme.of(context).copyWith(visualDensity: d)',
+      'theme.copyWith(appBarTheme: a, platform2: p)',
+      'MediaQuery.of(context).copyWith(size: s)',
+    ]) {
+      expect(_themePlatformCopy.hasMatch(fine), isFalse, reason: fine);
+    }
+  });
+
+  test('the theme-platform-copy scan ignores comments and strings', () {
+    final f = SourceFile(
+      'test/x.dart',
+      "// base.copyWith(platform: p)\nfinal s = 'a.copyWith(platform: p)';\n"
+          'final t = base.copyWith(platform: p);\n',
+    );
+    final hits = _themePlatformCopy.allMatches(f.code).toList();
+    expect(hits, hasLength(1));
+    expect(f.lineOf(hits.single.start), 3);
+  });
 
   test('the keyboard-override pattern catches a call and a tear-off', () {
     expect(_keyboardOverride.hasMatch('markFocusRingKeyboardInput();'), isTrue);

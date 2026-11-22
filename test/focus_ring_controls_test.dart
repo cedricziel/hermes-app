@@ -99,12 +99,12 @@ double _contrast(Color a, Color b) {
 void main() {
   setUp(resetFocusRingInput);
 
-  for (final (name, theme) in [
-    ('light', buildHermesLightTheme()),
-    ('dark', buildHermesDarkTheme()),
+  for (final (name, theme, build) in [
+    ('light', buildHermesLightTheme(), buildHermesLightTheme),
+    ('dark', buildHermesDarkTheme(), buildHermesDarkTheme),
   ]) {
     final link = theme.extension<HermesChatColors>()!.link;
-    ThemeData on(TargetPlatform platform) => theme.copyWith(platform: platform);
+    ThemeData on(TargetPlatform platform) => build(platform: platform);
 
     /// The three things every control must do: a keyboard ring in the link
     /// colour (2 px wide), none after a pointer press (back with the next
@@ -699,7 +699,7 @@ void main() {
   ) async {
     await _pump(
       tester,
-      buildHermesLightTheme().copyWith(platform: TargetPlatform.android),
+      buildHermesLightTheme(platform: TargetPlatform.android),
       NewChatFab(onPressed: () {}),
     );
     expect(

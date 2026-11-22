@@ -11,7 +11,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 Future<void> _pumpGroup(WidgetTester tester) => tester.pumpWidget(
   MaterialApp(
-    theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.macOS),
+    theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
     home: const Scaffold(
       body: SingleChildScrollView(
         child: SizedBox(

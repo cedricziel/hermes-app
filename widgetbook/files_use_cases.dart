@@ -30,6 +30,7 @@ import 'code_block_use_cases.dart';
 import 'files_sample_image.dart';
 import 'frame.dart';
 import 'host.dart';
+import 'platform_theme.dart';
 
 // Everything here is invented: a made-up server, folder and files.
 
@@ -232,10 +233,8 @@ Widget _reducedMotion(Widget child) => Builder(
 );
 
 Widget _on(TargetPlatform platform, Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: platform),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, platform), child: child),
 );
 
 /// An iPad in portrait: regular width, so the questions are alerts.

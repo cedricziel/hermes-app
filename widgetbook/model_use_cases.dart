@@ -10,6 +10,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 const _longModel = ModelChoice(
   'openrouter',
@@ -251,7 +252,7 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           WidgetbookUseCase(
             name: 'Desktop popover: $label',
             builder: (context) => Theme(
-              data: Theme.of(context).copyWith(platform: platform),
+              data: platformTheme(context, platform),
               child: Builder(
                 builder: (context) => MediaQuery(
                   data: MediaQuery.of(context).copyWith(size: Size(width, 700)),

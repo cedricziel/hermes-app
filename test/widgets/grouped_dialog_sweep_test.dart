@@ -72,9 +72,7 @@ Widget _app(_Cell cell, {required bool legacy}) {
     debugShowCheckedModeBanner: false,
     localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    theme: withScreenshotFont(
-      buildHermesLightTheme().copyWith(platform: cell.platform),
-    ),
+    theme: withScreenshotFont(buildHermesLightTheme(platform: cell.platform)),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context)
           .copyWith(textScaler: TextScaler.linear(cell.scale)),

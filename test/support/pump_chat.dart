@@ -102,7 +102,7 @@ Future<void> pumpChatScreen(
       debugShowCheckedModeBanner: false,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: theme ?? buildHermesLightTheme().copyWith(platform: platform),
+      theme: theme ?? buildHermesLightTheme(platform: platform),
       builder: macCommandsBuilder(commands),
       home: _Visible(
         visible: visible,

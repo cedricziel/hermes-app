@@ -199,7 +199,7 @@ void main() {
         ChangeNotifierProvider.value(
           value: settings,
           child: MaterialApp(
-            theme: buildHermesLightTheme().copyWith(platform: platform),
+            theme: buildHermesLightTheme(platform: platform),
             home: Builder(
               builder: (context) => TextButton(
                 onPressed: () => showNotificationsDialog(context),

@@ -34,7 +34,7 @@ Future<void> _pump(
         ),
       ],
       child: MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: platform),
+        theme: buildHermesLightTheme(platform: platform),
         home: const ChatScreen(),
       ),
     ),

@@ -19,7 +19,7 @@ Future<void> pumpOnPlatform(
     MaterialApp(
       localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: buildHermesLightTheme().copyWith(platform: platform),
+      theme: buildHermesLightTheme(platform: platform),
       builder: (context, app) => MediaQuery(
         data: MediaQuery.of(context).copyWith(padding: padding),
         child: app!,

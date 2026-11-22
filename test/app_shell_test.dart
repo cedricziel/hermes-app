@@ -117,7 +117,7 @@ void main() {
             ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         ],
         child: MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           builder: (context, child) {
             final content =
                 macCommandsBuilder(commands)?.call(context, child) ?? child!;

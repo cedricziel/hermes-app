@@ -6,6 +6,7 @@ import 'package:hermes_app/src/chat/subagents/widgets/agent_output_view.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 const _goal =
     'Audit the dependency tree for packages with known vulnerabilities';
@@ -276,7 +277,7 @@ List<WidgetbookUseCase> _case(
       WidgetbookUseCase(
         name: name,
         builder: (context) => Theme(
-          data: Theme.of(context).copyWith(platform: platform),
+          data: platformTheme(context, platform),
           child: Builder(builder: build),
         ),
       ),

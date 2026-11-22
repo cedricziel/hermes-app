@@ -23,10 +23,10 @@ Widget _host(
   double width = 390,
   bool realFonts = false,
 }) {
-  final light = buildHermesLightTheme();
+  final light = buildHermesLightTheme(platform: platform);
   final base = realFonts ? withScreenshotFont(light) : light;
   return MaterialApp(
-    theme: platform == null ? base : base.copyWith(platform: platform),
+    theme: base,
     themeAnimationDuration: Duration.zero,
     locale: locale,
     localizationsDelegates: kTestLocalizationsDelegates,
