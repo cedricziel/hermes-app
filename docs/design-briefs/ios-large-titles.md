@@ -1,6 +1,18 @@
 # Design brief: iOS large titles
 
-Openspec change: `openspec/changes/ios-large-titles` (audit item D5, roadmap F.230). The design pass has not run. This brief says what to decide and where; the facts and the recommendation are in that change's `design.md`.
+Openspec change: `openspec/changes/ios-large-titles` (audit item D5, roadmap F.230). The design pass ran (below). This brief says what to decide and where; the facts and the recommendation are in that change's `design.md`.
+
+## Design pass
+
+Canvas: https://claude.ai/artifact/LDMhPqNsZKuVda2BaFUTex (private; ask its owner for access). Row 2, four artboards. Each recommendation awaits the owner's decision; the alternative is named after it.
+
+- **Server at rest (390 pt):** 34 pt bold title and a 15 pt muted subtitle as the first thing in the list, at the grouped gutter; no bar title and no hairline at rest (confirms decision 6). Recommended: Server's attention state stays a warning line in its first group, not a mark beside the title. Alternative: a mark beside the title.
+- **Server collapsed:** the header has scrolled off, the 17 pt bar title has faded in, and the hairline shows once content is under the bar; back chevron, Refresh and the bar height are unchanged.
+- **Chats list at rest:** recommended: the search field sits under the large title and scrolls away with it, and pins under the bar once focused or holding a query. Alternative: pinned in the bar always, which puts the field above the title. New chat stays a bar button.
+- **320 pt at text 2.0:** "Helper models" wraps over two lines with no clamp; the subtitle and rows grow with it; bar buttons stay 44 pt.
+- **Not drawn, decided:** size and weight as proposed (34 pt bold, 15 pt muted). iPad at regular width and Android `SliverAppBar.large` stay out of scope; a later change can take them.
+
+New components needed: `LargeTitleHeader` (plain markup on the canvas: an `h1` at 34 pt over a muted subtitle, placed as the list's first child). The bar title fade and the hairline are `SettingsScaffold` states the design system does not draw yet.
 
 ## Proposed:
 

@@ -1,6 +1,19 @@
 # Design brief: Cupertino sheets with detents
 
-Openspec change: `openspec/changes/cupertino-detent-sheets` (audit item D6, roadmap F.231). The design pass has not run. This brief says what to decide and where; the facts and the recommendation are in that change's `design.md`. Kanban's task sheet is the existing example of the look.
+Openspec change: `openspec/changes/cupertino-detent-sheets` (audit item D6, roadmap F.231). The design pass ran (below). This brief says what to decide and where; the facts and the recommendation are in that change's `design.md`. Kanban's task sheet is the existing example of the look.
+
+## Design pass
+
+Canvas: https://claude.ai/artifact/LDMhPqNsZKuVda2BaFUTex (private; ask its owner for access). Row 3, five artboards at 393 x 852 and 852 x 393. Each recommendation awaits the owner's decision; the alternative is named after it.
+
+- **fit, restore confirmation:** opens at its content's height. Recommended: the grabber on every iOS sheet, and Kanban's 12 pt corners with the overlay hairline (alternatives: grabber only where a sheet resizes; a larger iOS radius). Cancel is the default and Restore files is an outlined destructive button, never filled; both 50 pt tall.
+- **mediumLarge at medium, model picker:** half of the height under the top safe inset, as Kanban (recommended; alternative: another fraction). The list scrolls inside, Reasoning effort stays pinned at the sheet's bottom, and Done (44 pt) stays in the content.
+- **mediumLarge at large:** the full height under the safe inset over a scrim, the presenter not scaled (recommended). Alternative: a native page sheet with the presenter peeking, which would move `large` to `showCupertinoSheet`.
+- **large, provider form:** opens at large only, with Cancel and Connect in its own bar row; a swipe or barrier tap goes through `PopScope`, so a busy form snaps back. The key field follows the secret-field rule.
+- **Landscape 852 x 393:** under 500 pt of height every sheet is large, at most 640 pt wide and centred, with the grabber.
+- **Not drawn, decided:** no sheet changes profile from the proposal's table.
+
+New components needed: the iOS sheet container (rounded top, hairline, scrim, detent height) and the grabber (36 x 5 in a 17 pt band, an adjustable control on `mediumLarge`), both plain markup on the canvas; the closest existing piece is `KanbanDetentSheet`. The design system's `Button` is 40 px tall on Apple touch, under the 44 pt rule; the canvas raises sheet actions to 50 pt, and the build must too.
 
 ## Proposed:
 

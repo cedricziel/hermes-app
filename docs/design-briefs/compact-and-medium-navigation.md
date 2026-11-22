@@ -1,6 +1,21 @@
 # Design brief: compact and medium navigation
 
-Openspec change: `openspec/changes/compact-and-medium-navigation` (audit items D1 and E6, roadmap F.229 and F.210). The design pass has not run. This brief says what to decide and where; the facts and the recommendation are in that change's `design.md`.
+Openspec change: `openspec/changes/compact-and-medium-navigation` (audit items D1 and E6, roadmap F.229 and F.210). The design pass ran (below). This brief says what to decide and where; the facts and the recommendation are in that change's `design.md`.
+
+## Design pass
+
+Canvas: https://claude.ai/artifact/LDMhPqNsZKuVda2BaFUTex (private; ask its owner for access). It holds 16 artboards for three changes; row 1 is this one, seven artboards. Each recommendation below awaits the owner's decision; the alternative is named after it.
+
+- **iPhone 390, tab bar, light:** Chats, Bots, Kanban, Schedules, More; selected = filled icon, bold label and the selected state, never tint alone; each item fills its column and the 49 pt bar; the server attention dot sits on More, whose accessible name adds "server needs attention".
+- **iPhone 390, dark:** the same translucent bar on the dark surface with the Apple hairline; unselected items in muted text, which passes AA.
+- **Chats and More only:** recommended: the bar is always there on a phone. Alternative: keep the drawer until a middle destination exists.
+- **More page:** a page, not a sheet. Server first with its warning line ("Needs attention: …", icon and words), then one Manage group in the drawer's order, then one Settings row that pushes the Settings list (recommended; alternative: the Settings entries inline as one group), then Change server and Sign out (destructive text, no filled button).
+- **iPhone 320 pt at text 2.0:** labels grow to 1.3x, then the one that does not fit ("Schedules") shrinks to one line; never wrapped or hidden; the bar grows to 56 pt. Recommended addition: the iOS large content viewer on long press. Hiding labels is rejected.
+- **Android 412 dp:** Material 3 navigation bar, 80 dp, pill behind the selected icon, labels always shown. Recommended: Back on a tab root returns to Chats first, then leaves (a behaviour change from today). Alternative: leave the app from any tab root, as today.
+- **Android tablet 800 dp:** 80 dp rail with items at the top and More last (alternative: More pinned to the bottom); the list fixed at 300 dp (alternative: collapsible); the open chat beside it. Recommended: the rail on Android, Windows and Linux alike (alternative: Android only).
+- **Not drawn, decided:** an iPad Split View window at 507 pt gets the iPhone tab bar.
+
+New components needed: `ShellDestinationBar` in three forms (Cupertino tab bar, Material navigation bar, Material rail), drawn as plain markup on the canvas; the canvas's Cupertino icon subset has no filled glyph for Bots, Kanban, Schedules or More, so the build uses the `*_fill` CupertinoIcons glyphs. The Chats list on the canvas is drawn with grouped rows as a stand-in for `ThreadSidebar(fullPage: true)`, which this change does not restyle.
 
 ## Proposed:
 

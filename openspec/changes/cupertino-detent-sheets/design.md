@@ -66,6 +66,10 @@ iOS only for the new look (iPhone and compact iPad). Android, macOS, Windows and
 - **Spec scenarios:** `specs/adaptive-sheets/spec.md`.
 - **Workflow screenshots:** rerun `test/workflows/` as iPhone and look at the sheets.
 
+## Design pass
+
+The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/cupertino-detent-sheets.md`. It confirms decision 3 (the grabber on every iOS sheet, `fit` included), medium at half the height under the safe inset, no presenter scaling for `large` (option C stays rejected) and the proposal's profile table. One build note: sheet actions must be at least 44 pt, so the 40 px shared button is raised in sheets.
+
 ## Open questions for the design pass
 
 See `docs/design-briefs/cupertino-detent-sheets.md`.

@@ -75,6 +75,10 @@ iOS only (iPhone and any compact iOS layout). Android, macOS, Windows, Linux and
 - **Workflow screenshots:** rerun `test/workflows/` as iPhone and look at them.
 - **Revert check:** reverting the scope wiring fails the collapse test.
 
+## Design pass
+
+The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/ios-large-titles.md`. It confirms decision 6 (no hairline at rest) and recommends the search placement decision 7 waits for: the field under the large title, scrolling with it, pinned under the bar once focused or holding a query. That unblocks PR 3 once the owner agrees.
+
 ## Open questions for the design pass
 
 See `docs/design-briefs/ios-large-titles.md`.

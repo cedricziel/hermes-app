@@ -95,6 +95,10 @@ Written before the code, carried by the tasks.
 - **Revert check:** each behaviour test fails when its code is reverted, as the fleet rules ask.
 - **Workflow screenshots:** `test/workflows/` rerun on phone and desktop sizes; look at them after the UI change.
 
+## Design pass
+
+The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/compact-and-medium-navigation.md`. One recommendation changes behaviour and awaits the owner: Android Back on a tab root returns to Chats first, then leaves the app (the risk table's open point). The others confirm this design: the bar is always present on a phone, More is a page with one Settings row, the rail sits on all Material chrome with More last at the top, and the list stays 300 dp.
+
 ## Open questions for the design pass
 
 See `docs/design-briefs/compact-and-medium-navigation.md`.
