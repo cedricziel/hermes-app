@@ -2,7 +2,7 @@
 
 ### Requirement: Chats is the compact home
 
-On compact iOS and Android layouts, the signed-in app SHALL initially present a full-page Chats list unless an explicit launch action targets another screen. The list SHALL provide search and New message. The other shell destinations SHALL be reached through the destination bar, which is shown on the list and hidden while a conversation is open.
+On every non-Mac layout that is not expanded, except the rail's list-detail Chats from 720 logical pixels, the signed-in app SHALL initially present a full-page Chats list unless an explicit launch action targets another screen. The list SHALL provide search and New message. Other destinations SHALL be reached through the destination bar or rail, hidden while a conversation is open, or on Windows and Linux under 600 through the drawer.
 
 #### Scenario: Ordinary launch
 

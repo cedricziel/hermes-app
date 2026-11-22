@@ -46,7 +46,7 @@ Read in the code at the base commit of this branch.
 
 ## Platforms
 
-iOS only (iPhone and any compact iOS layout). Android, macOS, Windows, Linux and watchOS are unchanged. No native change.
+iOS only, on an iOS layout that is not expanded (where `isWideLayout` is false: an iPhone, an iPad in Split View or Slide Over). Android, macOS, Windows, Linux and watchOS are unchanged. No native change.
 
 ## Invariants touched
 

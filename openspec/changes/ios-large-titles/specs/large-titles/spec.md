@@ -2,7 +2,7 @@
 
 ### Requirement: List and overview pages show a large title on iPhone
 
-On a compact iOS layout, a page that is a list or an overview with one vertical scroll view and no tabs SHALL show its title at 34 points as the first element of its content, left aligned, with its subtitle under it. The navigation bar above SHALL be 44 points tall and show no title while the large title is on screen. The pages are listed in the design of this change and SHALL be switched on one by one.
+On an iOS layout that is not expanded (`isWideLayout` false), a page that is a list or an overview with one vertical scroll view and no tabs SHALL show its title at 34 points as the first element of its content, left aligned, with its subtitle under it. The navigation bar above SHALL be 44 points tall and show no title while the large title is on screen. The pages are listed in the design of this change and SHALL be switched on one by one.
 
 #### Scenario: Server overview at rest
 

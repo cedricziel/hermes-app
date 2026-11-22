@@ -2,7 +2,7 @@
 
 ### Requirement: iPhone sheets have detents and a grabber
 
-On a compact iOS layout, a sheet opened through the shared adaptive sheet SHALL have rounded top corners, a grabber, and one of three detent profiles chosen by its caller. A `fit` sheet opens at its content's height up to the full height. A `mediumLarge` sheet opens at half of the height below the top safe inset and can be dragged to the full height. A `large` sheet opens at the full height. A drag down from the lowest detent SHALL dismiss the sheet.
+On an iOS layout that is not expanded (`isWideLayout` false), a sheet opened through the shared adaptive sheet SHALL have rounded top corners, a grabber, and one of three detent profiles chosen by its caller. A `fit` sheet opens at its content's height up to the full height. A `mediumLarge` sheet opens at half of the height below the top safe inset and can be dragged to the full height. A `large` sheet opens at the full height. A drag down from the lowest detent SHALL dismiss the sheet.
 
 #### Scenario: Medium and large
 

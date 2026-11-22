@@ -32,7 +32,7 @@ Read in the code at the base commit of this branch.
 
 ## Platforms
 
-iOS only for the new look (iPhone and compact iPad). Android, macOS, Windows and Linux are unchanged. watchOS has no sheets here. No native, entitlement or Xcode change.
+iOS only for the new look, on an iOS layout that is not expanded (`isWideLayout` false: an iPhone, an iPad in Split View or Slide Over). Android, macOS, Windows and Linux are unchanged. watchOS has no sheets here. No native, entitlement or Xcode change.
 
 ## Invariants touched
 
@@ -68,7 +68,7 @@ iOS only for the new look (iPhone and compact iPad). Android, macOS, Windows and
 
 ## Design pass
 
-The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/cupertino-detent-sheets.md`. It confirms decision 3 (the grabber on every iOS sheet, `fit` included), medium at half the height under the safe inset, no presenter scaling for `large` (option C stays rejected) and the proposal's profile table. One build note: sheet actions must be at least 44 pt, so the 40 px shared button is raised in sheets.
+The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/cupertino-detent-sheets.md`. It confirms decision 3 (the grabber on every iOS sheet, `fit` included), medium at half the height under the safe inset, no presenter scaling for `large` (option C stays rejected) and the proposal's profile table. One build note: sheet actions stay at least 44 pt, which the iOS theme already gives (`lib/src/theme/hermes_theme.dart:147-149`); task A.7 guards it.
 
 ## Open questions for the design pass
 

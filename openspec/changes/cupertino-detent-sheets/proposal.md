@@ -14,7 +14,7 @@ What is already done: **Kanban's task sheet has the iOS behaviour.** `showKanban
 
 ## What Changes
 
-On iPhone and other compact iOS layouts, `showAdaptiveSheet` takes a `detents` argument and draws an iOS sheet: rounded top corners, a grabber, and the chosen detents. Nothing changes for Android, macOS, iPad or any wide layout.
+On an iOS layout that is not expanded (where `isWideLayout` is false: an iPhone, an iPad in Split View or Slide Over), `showAdaptiveSheet` takes a `detents` argument and draws an iOS sheet: rounded top corners, a grabber, and the chosen detents. Nothing changes for Android, macOS, iPad or any wide layout.
 
 Three detent profiles:
 

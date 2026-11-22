@@ -42,14 +42,14 @@ On iOS below 900 logical pixels when not expanded (iPhone, iPad Split View and S
 
 ### Requirement: Narrow desktop windows keep the drawer
 
-On Windows and Linux below 600 logical pixels the shell SHALL keep today's drawers, with no More row: on Chats, the chat's own drawer with the destinations, the management entries and the account menu; on any other destination, the shell's drawer with the destinations only. A window whose server offers no destination beyond Chats SHALL keep the chat alone with the chat's own drawer and SHALL NOT gain a shell drawer.
+On Windows and Linux below 600 logical pixels the shell SHALL keep today's drawers, with no More row: on Chats, the chat's own drawer with the destinations, the management entries and the account menu; on any other destination, the shell's drawer with the destinations and the account menu. A window whose server offers no destination beyond Chats SHALL keep the chat alone with the chat's own drawer and SHALL NOT gain a shell drawer.
 
 #### Scenario: Narrow desktop window
 
 - **WHEN** a Windows or Linux window is 500 logical pixels wide, the server offers Kanban, and the user opens the drawer on Chats
 - **THEN** the drawer lists Chats and Kanban, then the management entries and the account menu, and has no More row
 - **AND WHEN** the user opens the drawer on Kanban
-- **THEN** it lists Chats and Kanban only
+- **THEN** it lists Chats and Kanban, then the account menu, and has no More row
 
 ### Requirement: Destination items are labelled and large enough
 
@@ -62,12 +62,17 @@ The Apple form SHALL be a tab bar and the Material form a navigation bar or rail
 
 ### Requirement: The bar yields to the conversation and the keyboard
 
-The bottom bar SHALL be hidden while a conversation is open in the compact messenger navigator and while the on-screen keyboard is shown. A page pushed over the shell SHALL cover the bar. Returning from a conversation SHALL show the bar with Chats selected.
+The bottom bar SHALL be hidden while a conversation is open in the compact messenger navigator, while the on-screen keyboard is shown, and while Kanban is in selection mode, where Kanban's own bulk bar (`kanban_screen.dart:273`) takes the bottom edge. A page pushed over the shell SHALL cover the bar. Returning from a conversation SHALL show the bar with Chats selected.
 
 #### Scenario: Open a conversation
 
 - **WHEN** the user opens a conversation from the Chats list on a phone
 - **THEN** the bar is not shown, and Back shows the list with the bar
+
+#### Scenario: Kanban selection mode
+
+- **WHEN** the user long-presses a card on a phone and Kanban enters selection mode
+- **THEN** the destination bar is hidden and the bulk bar sits at the bottom edge, and the destination bar returns when selection mode ends
 
 #### Scenario: Keyboard
 
@@ -176,7 +181,7 @@ Selecting a destination SHALL record the existing `nav.destination` breadcrumb w
 
 ### Requirement: The via value says how a destination was reached
 
-`via` SHALL be `bar`, `rail`, `drawer` or `sidebar` for a tap on that control, `link` for a deep link, a notification target or the share entry, and `fallback` when the selected destination went away and Chats was selected instead. More is a destination selected through the bar or rail, so `more` SHALL NOT be a `via` value.
+`via` SHALL be `bar`, `rail`, `drawer` or `sidebar` for a tap on that control, `link` for a deep link, a notification target or the share entry, and `fallback` when the selected destination went away and Chats was selected instead (that breadcrumb also keeps today's `gone: true`). More is a destination selected through the bar or rail, so `more` SHALL NOT be a `via` value.
 
 #### Scenario: Selected by a link
 
