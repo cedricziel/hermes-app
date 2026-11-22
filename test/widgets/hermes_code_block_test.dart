@@ -5,6 +5,7 @@ import 'package:hermes_app/src/theme/hermes_code_colors.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/bounded_markdown.dart';
 import 'package:hermes_app/src/widgets/hermes_code_block.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 /// The leaf spans of the code text of the [index]th block on screen.
 List<TextSpan> _runs(WidgetTester tester, {int index = 0}) {
@@ -22,6 +23,7 @@ List<TextSpan> _runs(WidgetTester tester, {int index = 0}) {
 
 Future<void> _pump(WidgetTester tester, Widget child) => tester.pumpWidget(
   MaterialApp(
+    builder: (_, child) => AppThemeScopes(child: child!),
     theme: buildHermesLightTheme(),
     home: Scaffold(body: SingleChildScrollView(child: child)),
   ),

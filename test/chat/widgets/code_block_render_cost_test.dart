@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/bounded_markdown.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 /// Wall-clock cost of laying out and painting a reply that holds fenced code
 /// blocks. `flutter_test` pumps are synchronous on the test isolate, so a
@@ -36,6 +37,7 @@ Future<({int first, int rest})> _render(
   final first = Stopwatch()..start();
   await tester.pumpWidget(
     MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(),
       home: Scaffold(
         body: Chat(

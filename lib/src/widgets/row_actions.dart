@@ -7,6 +7,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../theme/platform_chrome.dart';
+import 'adaptive_popup_menu_button.dart';
 import 'app_action_sheet.dart';
 
 /// One thing a list row can do besides opening: switch it, run it, delete it.
@@ -61,7 +62,7 @@ class RowActions extends StatelessWidget {
   Future<void> _showMenu(BuildContext context, Offset at) async {
     final overlay =
         Overlay.of(context).context.findRenderObject()! as RenderBox;
-    final action = await showMenu<RowAction>(
+    final action = await showRingMenu<RowAction>(
       context: context,
       position: RelativeRect.fromRect(
         at & Size.zero,

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -355,6 +357,18 @@ class FocusRing extends StatefulWidget {
     this.fill,
   });
 
+  /// A ring [kFocusRingOffset] outside [child], the way a button's is, for a
+  /// control that nothing clips (a floating button, a standalone tap target):
+  /// [radius] is the control's own, and the ring's is that plus the offset and
+  /// the width. Nothing changes in layout; the paint reaches past the bounds.
+  const FocusRing.outside({
+    super.key,
+    required this.child,
+    required double radius,
+  }) : radius = radius + kFocusRingOffset + kFocusRingWidth,
+       inset = -(kFocusRingOffset + kFocusRingWidth),
+       fill = null;
+
   final Widget child;
   final double radius;
 
@@ -412,4 +426,200 @@ class _FocusRingState extends State<FocusRing> {
       ),
     );
   }
+}
+
+/// What [HostFocusRing] paints: [FocusRingPainter]'s ring, on the render box of
+/// a widget above it rather than on its own.
+class HostFocusRingPainter extends FocusRingPainter {
+  const HostFocusRingPainter({
+    required this.owner,
+    required this.host,
+    required super.color,
+    required super.radius,
+    super.inset,
+    this.maxHeight,
+  });
+
+  /// The ring's height at most, from the host's top, for a host that is taller
+  /// than what a container shows of it.
+  final double? maxHeight;
+
+  /// The element of the [HostFocusRing] that paints, and of the host it rings.
+  final Element owner;
+  final Element host;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final own = owner.renderObject;
+    final target = host.renderObject;
+    if (own is! RenderBox || target is! RenderBox) return;
+    if (!own.hasSize || !target.hasSize || !target.attached) return;
+    canvas
+      ..save()
+      ..transform(target.getTransformTo(own).storage);
+    final height = maxHeight;
+    super.paint(
+      canvas,
+      height == null
+          ? target.size
+          : Size(target.size.width, math.min(target.size.height, height)),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(HostFocusRingPainter old) =>
+      super.shouldRepaint(old) ||
+      old.host != host ||
+      old.owner != owner ||
+      old.maxHeight != maxHeight;
+}
+
+/// A [FocusRing] for a control that Material builds around [child] and does
+/// not let a wrapper reach: the ring goes 2 px inside the nearest [H] above
+/// this widget (an ink well's `ListTile`, a segment's `TextButton`), drawn by
+/// [child]'s own paint, so the control's own shape and ink stay as they are.
+///
+/// It shows while the nearest focus node above it has focus, so [child] must
+/// sit inside the control's own ink well, as a title or a label does.
+class HostFocusRing<H extends Widget> extends StatefulWidget {
+  const HostFocusRing({
+    super.key,
+    required this.child,
+    this.radius = 8,
+    this.maxHeight,
+  });
+
+  final Widget child;
+
+  /// How much of the host's height is shown, when a container crops it.
+  final double? maxHeight;
+
+  /// The ring's outer radius, the host's own corner radius.
+  final double radius;
+
+  @override
+  State<HostFocusRing<H>> createState() => _HostFocusRingState<H>();
+}
+
+class _HostFocusRingState<H extends Widget> extends State<HostFocusRing<H>> {
+  bool _keyboard = keyboardFocusShows;
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _watchInput();
+    _inputChanges.addListener(_onInput);
+  }
+
+  @override
+  void dispose() {
+    _inputChanges.removeListener(_onInput);
+    super.dispose();
+  }
+
+  void _onInput() {
+    final next = keyboardFocusShows;
+    if (next == _keyboard) return;
+    _keyboard = next;
+    // Only a focused ring paints differently; the rest reads it when focus
+    // arrives.
+    if (_focused) setState(() {});
+  }
+
+  Element? _host() {
+    Element? host;
+    context.visitAncestorElements((element) {
+      if (element.widget is H) {
+        host = element;
+        return false;
+      }
+      return true;
+    });
+    return host;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final focused = _focused =
+        Focus.maybeOf(context, scopeOk: false)?.hasFocus ?? false;
+    final host = focused && _keyboard ? _host() : null;
+    return CustomPaint(
+      foregroundPainter: host == null
+          ? null
+          : HostFocusRingPainter(
+              owner: context as Element,
+              host: host,
+              color: context.hermesColors.link,
+              radius: widget.radius,
+              maxHeight: widget.maxHeight,
+            ),
+      child: widget.child,
+    );
+  }
+}
+
+/// Builds with whether the keyboard has the last input ([keyboardFocusShows]),
+/// and again when a pointer press or a key press changes it, for a control
+/// that draws its own focus state and must hide it after a pointer press. An
+/// unfocused control is not rebuilt for it ([focused]).
+class KeyboardFocusBuilder extends StatefulWidget {
+  const KeyboardFocusBuilder({
+    super.key,
+    required this.focused,
+    required this.builder,
+  });
+
+  /// Whether the control has focus. Only then does an input change rebuild.
+  final bool focused;
+
+  final Widget Function(BuildContext context, bool keyboard) builder;
+
+  @override
+  State<KeyboardFocusBuilder> createState() => _KeyboardFocusBuilderState();
+}
+
+class _KeyboardFocusBuilderState extends State<KeyboardFocusBuilder> {
+  bool _keyboard = keyboardFocusShows;
+
+  @override
+  void initState() {
+    super.initState();
+    _inputChanges.addListener(_onInput);
+  }
+
+  @override
+  void dispose() {
+    _inputChanges.removeListener(_onInput);
+    super.dispose();
+  }
+
+  void _onInput() {
+    final next = keyboardFocusShows;
+    if (next == _keyboard) return;
+    _keyboard = next;
+    if (widget.focused) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _keyboard);
+}
+
+/// The keyboard focus ring of a mini floating button, a circle 2 px outside
+/// the painted 40 dp circle whatever box Material lays round it: with a padded
+/// tap target (Android, iOS) the button is laid out 48 dp and the ring's outer
+/// edge is that box; with a shrink-wrapped one (macOS, Windows, Linux) the box
+/// is the circle itself, so the ring goes outside it. The only wrapper for a
+/// mini button (`arch.floating-button-without-focus-ring`).
+class MiniFabFocusRing extends StatelessWidget {
+  const MiniFabFocusRing({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      Theme.of(context).materialTapTargetSize == MaterialTapTargetSize.padded
+      ? FocusRing(radius: 24, inset: 0, child: child)
+      : FocusRing.outside(radius: 20, child: child);
 }

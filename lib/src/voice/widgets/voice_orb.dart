@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 
 /// What a call is doing, as the orb shows it. Each state has its own icon, so
 /// no state depends on colour.
@@ -84,11 +85,15 @@ class VoiceOrb extends StatelessWidget {
         child: Material(
           type: MaterialType.transparency,
           shape: const CircleBorder(),
-          child: InkResponse(
-            onTap: onTap,
-            customBorder: const CircleBorder(),
+          // The ring is 2 px outside the disc, which nothing clips.
+          child: FocusRing.outside(
             radius: diameter / 2,
-            child: disc,
+            child: InkResponse(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              radius: diameter / 2,
+              child: disc,
+            ),
           ),
         ),
       );

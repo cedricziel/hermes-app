@@ -378,7 +378,7 @@ style.string:
   lib/src/kanban/kanban_boards_screen.dart: 27
   lib/src/kanban/kanban_create_screen.dart: 8
   lib/src/kanban/kanban_errors.dart: 2
-  lib/src/kanban/kanban_screen.dart: 14
+  lib/src/kanban/kanban_screen.dart: 13
   lib/src/kanban/kanban_workers_screen.dart: 8
   lib/src/kanban/widgets/kanban_board_menu.dart: 3
   lib/src/kanban/widgets/kanban_board_toolbar.dart: 4

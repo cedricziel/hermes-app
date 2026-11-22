@@ -11,6 +11,7 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -86,6 +87,7 @@ void main() {
             ),
           ],
           child: MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             theme: buildHermesLightTheme(),
             home: ChatScreen(
               repository: HermesChatRepository(server.client().raw),

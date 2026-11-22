@@ -15,6 +15,7 @@ import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -76,9 +77,10 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
-          builder: locked
-              ? (context, child) => AppLockGate(child: child!)
-              : null,
+          builder: (context, child) {
+            final scoped = AppThemeScopes(child: child!);
+            return locked ? AppLockGate(child: scoped) : scoped;
+          },
           home: screen(),
         ),
       ),

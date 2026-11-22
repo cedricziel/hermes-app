@@ -109,8 +109,28 @@ select iOS or macOS.
 
 The viewports are Phone (iOS) and Desktop (macOS) only. To show the Material
 variant, wrap the use case in `Theme(data: Theme.of(context).copyWith(platform:
-TargetPlatform.android))`; `widgetbook/settings_chrome_use_cases.dart` builds
-one use case per platform this way (`_onEach`).
+TargetPlatform.android))`; `onEachPlatform` (`widgetbook/frame.dart`) builds
+one use case per platform this way. That is fine for platform chrome, but
+`ThemeData.copyWith(platform: …)` does not recompute the defaults derived from
+the platform, such as `materialTapTargetSize` (padded on Android and iOS,
+shrink-wrapped on macOS, Windows and Linux) or `visualDensity`. It keeps the
+base theme's tap-target size and density. Under `flutter test` the base theme
+is built for Android on any host (`FLUTTER_TEST` forces `defaultTargetPlatform`
+to android), so it is padded and standard density, and a desktop-platform case
+still gets the phone layout. In the catalog, `widgetbook/environment.dart`
+builds the base for the host; on a Mac that is shrink-wrapped and compact, so
+iPhone and Material cases made with `copyWith` get desktop sizing. It also
+keeps everything the app theme built for the base platform, including
+platform-specific component themes (input decoration, button sizes, menus), so a
+preview that must look like the target platform builds that platform's theme.
+Anything that depends on tap-target size or density, such as focus-ring
+geometry, needs the app theme built for that platform with
+`buildHermesLightTheme(platform: …)` or `buildHermesDarkTheme(platform: …)`
+(`lib/src/theme/hermes_theme.dart`), and the case run on at least one
+shrink-wrap platform. In #1284 the scroll-to-latest mini button's focus ring sat
+inside the button on the desktop because the tests only used the padded layout;
+see `test/focus_ring_geometry_test.dart` (added in #1284), which runs every
+ring per platform.
 
 For PR screenshots without running the catalog, render use cases in a
 throwaway test with `ScreenshotRecorder` (`test/support/screenshot_recorder.dart`):

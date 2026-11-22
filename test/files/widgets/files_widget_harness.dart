@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import '../../support/test_localizations.dart';
 
@@ -40,7 +41,7 @@ Future<void> pumpFiles(
           textScaler: TextScaler.linear(textScale),
           disableAnimations: reduceMotion,
         ),
-        child: app!,
+        child: AppThemeScopes(child: app!),
       ),
       home: Scaffold(body: child),
     ),

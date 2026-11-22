@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'adaptive_popup_menu_button.dart';
@@ -467,32 +468,35 @@ class GroupedSegmentedRow<T extends Object> extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final chrome = platformChromeOf(context);
     final Widget control = chrome.isApple
-        ? CupertinoSlidingSegmentedControl<T>(
-            groupValue: value,
-            backgroundColor: scheme.surfaceContainerHighest,
-            thumbColor: scheme.surface,
-            padding: const EdgeInsets.all(2),
-            children: {
-              for (final MapEntry(key: segment, value: label)
-                  in segments.entries)
-                segment: Semantics(
-                  button: true,
-                  selected: segment == value,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: ShrinkToFitText(
-                      label,
-                      style: TextStyle(
-                        fontSize: chrome == PlatformChrome.macos ? 12 : 13,
-                        color: scheme.onSurface,
+        ? FocusRing.outside(
+            radius: 9,
+            child: CupertinoSlidingSegmentedControl<T>(
+              groupValue: value,
+              backgroundColor: scheme.surfaceContainerHighest,
+              thumbColor: scheme.surface,
+              padding: const EdgeInsets.all(2),
+              children: {
+                for (final MapEntry(key: segment, value: label)
+                    in segments.entries)
+                  segment: Semantics(
+                    button: true,
+                    selected: segment == value,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: ShrinkToFitText(
+                        label,
+                        style: TextStyle(
+                          fontSize: chrome == PlatformChrome.macos ? 12 : 13,
+                          color: scheme.onSurface,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            },
-            onValueChanged: (segment) {
-              if (segment != null) onChanged(segment);
-            },
+              },
+              onValueChanged: (segment) {
+                if (segment != null) onChanged(segment);
+              },
+            ),
           )
         : PillSegmentedControl<T>(
             value: value,

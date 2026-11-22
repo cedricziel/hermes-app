@@ -16,6 +16,7 @@ import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/windows/conversation_window_args.dart';
 import 'package:hermes_app/src/windows/conversation_window_screen.dart';
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -427,6 +428,7 @@ void main() {
         lock.setCovered(true);
         await tester.pumpWidget(
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             home: ConversationWindowScreen(
               args: const ConversationWindowArgs(
                 threadId: 'stored-1',
@@ -498,6 +500,7 @@ void main() {
       addTearDown(queue.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
