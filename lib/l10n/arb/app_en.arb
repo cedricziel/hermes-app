@@ -2900,6 +2900,15 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanBulkPickerFooter": "{count, plural, =1{Applies to the selected task.} other{Applies to the {count} selected tasks.}}",
+  "@kanbanBulkPickerFooter": {
+    "description": "Note under the choices of a bulk action in Kanban selection mode (Move to, Assign to, Priority, Reasoning effort). {count} is how many tasks are selected.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "kanbanNewTaskAction": "New task",
   "@kanbanNewTaskAction": {
     "description": "Label of the floating button on the board that opens the new task form."

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_choice_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_actions.dart';
@@ -161,6 +162,28 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           options: const [0, 1, 2, 3],
           selected: 2,
           labelOf: (priority) => priority == 0 ? 'Normal' : 'P$priority',
+          onPicked: (_) {},
+        ),
+      ),
+      ...onEachPlatform(
+        'None checked, one task',
+        (context) => KanbanTaskChoiceDialog<int>(
+          title: 'Priority',
+          options: const [0, 1, 2, 3],
+          selected: null,
+          labelOf: (priority) => priority == 0 ? 'Normal' : 'P$priority',
+          footer: context.l10n.kanbanBulkPickerFooter(1),
+          onPicked: (_) {},
+        ),
+      ),
+      ...onEachPlatform(
+        'None checked, three tasks',
+        (context) => KanbanTaskChoiceDialog<String>(
+          title: 'Move to',
+          options: const ['triage', 'todo', 'ready', 'blocked', 'done'],
+          selected: null,
+          labelOf: kanbanStatusLabel,
+          footer: context.l10n.kanbanBulkPickerFooter(3),
           onPicked: (_) {},
         ),
       ),
