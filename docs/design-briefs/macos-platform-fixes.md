@@ -47,6 +47,14 @@ People who use Hermes on a Mac as a desktop app, with a keyboard and a window th
 - C9: before, pull-to-refresh only; below 720 pt a detent sheet. After: toolbar button, Command-R, dialog.
 - F1: before, chords on Command only. After: the table in the Windows and Linux brief.
 
+## Proposed (design pass not run)
+
+Three audit items need a design pass before any widget work. Each has an openspec change; the notes are replaced by "Design (done)" decisions when the pass runs. "C9" here means the toast; the Refresh fix above keeps its own C9 name.
+
+- Proposed: C4, Settings as its own window (`openspec/changes/mac-settings-window`). A Mac Settings window opened and focused by Command-comma, about 520 x 640, minimum 420 x 480, the existing grouped list, no scrim over the chat. Boards: default light, dark and German; a nested Appearance dialog; signed out (main-owned rows disabled with a reason).
+- Proposed: C9 toast, a Mac toast (`openspec/changes/mac-toast`). A small capsule in the content pane, top centre under the toolbar (bottom above the composer is the alternative), an icon and a word per tone, an optional 28 pt action, announced to VoiceOver. Boards: four tones, with and without action, one and three lines, German, largest text, compact and wide window, hovered.
+- Proposed: C11, sub-pages keep the sidebar (`openspec/changes/mac-subpages-keep-sidebar`). Skills, Memory, Files, Tools and the other pushed pages open in the content pane beside the docked sidebar. Boards: 1100 x 760, 760 x 480 (the narrowest docked case) and 640 x 480 (compact), the toolbar with the sidebar toggle beside Back, and the sidebar's selected state.
+
 ## Accessibility
 
 Mac pointer targets stay at least 28 pt (Refresh is a 28 pt toolbar button). Dimmed menu items are disabled, not only grey. Refresh has an accessible label and names its chord. Status is never colour alone. Text size is honoured at every window size above the minimum.
