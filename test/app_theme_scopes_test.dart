@@ -206,9 +206,6 @@ void main() {
     // light theme, so a dark test draws near-black headings and light code
     // blocks. Nothing fails at run time: this reads the sources.
     final readers = _readers();
-    final memberPattern = readers.members.isEmpty
-        ? null
-        : RegExp('\\.\\s*(?:${readers.members.join('|')})\\b');
     final helpers = _testHelpers();
     final bad = <String>[];
     for (final f in dartFiles('test')) {
@@ -223,8 +220,7 @@ void main() {
           prefixes: _importPrefixes(f),
         ).allMatches(code))
           m.group(0)!,
-        if (memberPattern != null)
-          for (final m in memberPattern.allMatches(code)) m.group(0)!,
+        ..._memberUses(readers, f, code),
       };
       if (used.isNotEmpty) {
         bad.add('${f.path}: ${(used.toList()..sort()).join(', ')}');
@@ -246,7 +242,7 @@ void main() {
   group('the guard on fixtures', () {
     bool mounted(String app) => _apps(app).single.mounted;
 
-    test('a scope beside the reader in home: does not mount the app', () {
+    test('a scope in home: does not mount the app', () {
       expect(
         mounted(
           'MaterialApp(home: Scaffold(body: Column(children: ['
@@ -256,7 +252,7 @@ void main() {
       );
       expect(
         mounted('MaterialApp(home: AppThemeScopes(child: Chat()))'),
-        isTrue,
+        isFalse,
       );
       expect(
         mounted(
@@ -308,13 +304,72 @@ void main() {
         ),
         SourceFile(
           'lib/a/user.dart',
-          'class UsesIt extends StatelessWidget {\n'
+          "import 'ext.dart';\n"
+              'class UsesIt extends StatelessWidget {\n'
               '  Widget build(BuildContext context) => context.mdView;\n'
+              '}\n',
+        ),
+        SourceFile(
+          'lib/b/unrelated.dart',
+          'class Unrelated extends StatelessWidget {\n'
+              '  Widget build(BuildContext context) => x.mdView;\n'
+              '}\n',
+        ),
+        SourceFile(
+          'lib/b/package_user.dart',
+          "import 'package:hermes_app/a/ext.dart';\n"
+              'class ViaPackage {\n'
+              '  Object build(BuildContext context) => context.mdView;\n'
               '}\n',
         ),
       ]);
       expect(readers.members, contains('mdView'));
-      expect(readers.names, contains('UsesIt'));
+      expect(readers.names, containsAll(['UsesIt', 'ViaPackage']));
+      expect(readers.names, isNot(contains('Unrelated')));
+    });
+
+    test('a test sees an extension member only through an import', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/probe.dart',
+          'extension ProbeTheme on BuildContext {\n'
+              '  Color get surface => mui.Theme.of(this).surface;\n'
+              '}\n',
+        ),
+      ]);
+      final importing = SourceFile(
+        'test/a_test.dart',
+        "import 'package:hermes_app/a/probe.dart';\n",
+      );
+      final other = SourceFile('test/b_test.dart', '');
+      expect(_memberUses(readers, importing, 'x.surface'), ['.surface']);
+      expect(_memberUses(readers, other, 'x.surface'), isEmpty);
+    });
+
+    test('a lib body that uses a prefixed reader is a reader', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/md.dart',
+          'class Heading extends StatelessWidget {\n'
+              "  Widget build(BuildContext context) => GptMarkdown('x');\n"
+              '}\n',
+        ),
+        SourceFile(
+          'lib/b/use.dart',
+          "import 'package:hermes_app/a/md.dart' as md;\n"
+              'class Page extends StatelessWidget {\n'
+              '  Widget build(BuildContext context) => md.Heading();\n'
+              '}\n',
+        ),
+        SourceFile(
+          'lib/b/other.dart',
+          'class Elsewhere {\n'
+              '  Object build() => foo.Heading();\n'
+              '}\n',
+        ),
+      ]);
+      expect(readers.names, contains('Page'));
+      expect(readers.names, isNot(contains('Elsewhere')));
     });
 
     test('a private reader in a part file of another directory is found', () {
@@ -396,6 +451,20 @@ RegExp _wordsPattern(
   return RegExp('(?<![\\w.\$])$qualifier(?:${words.join('|')})\\b');
 }
 
+/// The `.member` uses in [code] of extension members declared in a library
+/// that [file] imports.
+Iterable<String> _memberUses(_Readers readers, SourceFile file, String code) {
+  final imported = _importsOf(file);
+  final visible = [
+    for (final e in readers.members.entries)
+      if (e.value.any(imported.contains)) e.key,
+  ];
+  if (visible.isEmpty) return const [];
+  return RegExp('\\.\\s*(?:${visible.join('|')})\\b')
+      .allMatches(code)
+      .map((m) => m.group(0)!);
+}
+
 /// The `as` prefixes of the imports of [file].
 Set<String> _importPrefixes(SourceFile file) => {
   for (final m in RegExp(
@@ -430,6 +499,11 @@ class _Decl {
   /// The library the declaration belongs to, so a private name is shared with
   /// the `part` files of its library and with nothing else.
   late String library = path;
+
+  /// What the library imports (resolved repo paths) and the prefixes it
+  /// imports under.
+  Set<String> imports = const {};
+  Set<String> prefixes = const {};
 }
 
 final _chunkStart = RegExp(r'^(?=[A-Za-z_])', multiLine: true);
@@ -503,18 +577,45 @@ final _identifier = RegExp(r'(?<![\w.$])[A-Za-z_]\w*');
 /// function, getter or variable name), transitively. An extension is part of
 /// the type it extends. Scope providers, app roots and the navigation-only
 /// roots are not readers.
-({Set<String> names, Set<String> members, List<String> seedsWithoutBody})
-_readers() => _readersOf(dartFiles('lib'));
+/// What [_readersOf] derives. [members] maps an extension member name to the
+/// libraries that declare it: `.name` is a reader only in a file that is in
+/// one of them or imports one.
+typedef _Readers = ({
+  Set<String> names,
+  Map<String, Set<String>> members,
+  List<String> seedsWithoutBody,
+});
 
-({Set<String> names, Set<String> members, List<String> seedsWithoutBody})
-_readersOf(List<SourceFile> files) {
+_Readers _readers() => _readersOf(dartFiles('lib'));
+
+/// The repo paths [file] imports: `package:hermes_app/` and relative imports.
+Set<String> _importsOf(SourceFile file) => {
+  for (final m in RegExp(
+    r'''^import\s+['"]([^'"]+)['"]''',
+    multiLine: true,
+  ).allMatches(file.text))
+    if (m.group(1)!.startsWith('package:hermes_app/'))
+      'lib/${m.group(1)!.substring('package:hermes_app/'.length)}'
+    else if (!m.group(1)!.contains(':'))
+      Uri(path: file.path).resolve(m.group(1)!).path,
+};
+
+_Readers _readersOf(List<SourceFile> files) {
   final decls = <_Decl>[];
+  final imports = <String, Set<String>>{};
+  final prefixes = <String, Set<String>>{};
   for (final f in files) {
     final library = _libraryOf(f);
+    (imports[library] ??= {}).addAll(_importsOf(f));
+    (prefixes[library] ??= {}).addAll(_importPrefixes(f));
     for (final d in _declarations(f)) {
       d.library = library;
       decls.add(d);
     }
+  }
+  for (final d in decls) {
+    d.imports = imports[d.library]!;
+    d.prefixes = prefixes[d.library]!;
   }
   final all = <_Decl>[];
   for (final d in decls) {
@@ -543,8 +644,15 @@ _readersOf(List<SourceFile> files) {
 
   final mentions = <String, List<_Decl>>{};
   for (final d in all) {
-    final names = _identifier.allMatches(d.body).map((m) => m.group(0)!);
-    for (final m in names.toSet()) {
+    final names = {
+      for (final m in _identifier.allMatches(d.body)) m.group(0)!,
+      if (d.prefixes.isNotEmpty)
+        for (final m in RegExp(
+          '(?<![\\w.\$])(?:${d.prefixes.join('|')})\\.([A-Za-z_]\\w*)',
+        ).allMatches(d.body))
+          m.group(1)!,
+    };
+    for (final m in names) {
       (mentions[m] ??= []).add(d);
     }
   }
@@ -562,7 +670,7 @@ _readersOf(List<SourceFile> files) {
   for (final d in all) {
     if (_seed.hasMatch(d.body)) reach(d);
   }
-  final members = <String>{};
+  final members = <String, Set<String>>{};
   while (queue.isNotEmpty) {
     final d = queue.removeLast();
     for (final m in mentions[d.name] ?? const <_Decl>[]) {
@@ -573,10 +681,14 @@ _readersOf(List<SourceFile> files) {
       // An extension on a type `lib/` does not declare (`BuildContext`) is
       // reached through its members: `context.view`.
       for (final member in _memberNames(d.body)) {
-        members.add(member);
+        (members[member] ??= {}).add(d.library);
         final use = RegExp('\\.\\s*$member\\b');
         for (final other in all) {
-          if (other != d && use.hasMatch(other.body)) reach(other);
+          final sees =
+              other.library == d.library ||
+              other.imports.contains(d.library) ||
+              other.imports.contains(d.path);
+          if (other != d && sees && use.hasMatch(other.body)) reach(other);
         }
       }
     }
@@ -594,8 +706,8 @@ _readersOf(List<SourceFile> files) {
 
 /// Whether the app constructor whose `(` ends just before [open] mounts a
 /// scope: a call in its `builder:` argument that is not inside a `?`/`:`
-/// conditional, or a `home:` argument that is the scope call itself (a scope
-/// somewhere in a `home:` subtree covers only that part of it).
+/// conditional. A scope in `home:` does not count: a route pushed from `home`
+/// is built outside it.
 bool _constructorMounts(String code, int open) {
   final args = code.substring(open, callEnd(code, open) - 1);
   final builder = _namedArgument(args, 'builder');
@@ -603,12 +715,6 @@ bool _constructorMounts(String code, int open) {
     for (final m in _mountCall.allMatches(builder)) {
       if (!_inConditional(builder, m.start)) return true;
     }
-  }
-  final home = _namedArgument(args, 'home')?.trim();
-  if (home != null) {
-    final m = RegExp('^(?:const\\s+)?(?:${_mountCall.pattern})')
-        .firstMatch(home);
-    if (m != null && callEnd(home, m.end) == home.length) return true;
   }
   return false;
 }
