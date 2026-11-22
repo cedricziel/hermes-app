@@ -1,17 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_orchestration_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
 
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+
 import '../support/fake_hermes_server.dart';
+import '../support/test_localizations.dart';
 
 /// The four Kanban dialogs with their own actions open through `showAppDialog`:
 /// iOS gets the Cupertino route (a barrier tap keeps it, Esc still closes it),
@@ -23,7 +26,9 @@ void main() {
   Future<void> pump(WidgetTester tester, TargetPlatform platform) =>
       tester.pumpWidget(
         MaterialApp(
-          theme: ThemeData(platform: platform),
+          localizationsDelegates: kTestLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: buildHermesLightTheme().copyWith(platform: platform),
           home: Builder(
             builder: (c) {
               context = c;
@@ -170,47 +175,42 @@ void main() {
     });
   }
 
-  // A click outside a field takes focus out of it on desktop: Flutter runs
-  // EditableTextTapOutsideIntent, which unfocuses the field. Esc must still
-  // close the dialog then, although the focus fell back to the route.
+  // A pointer click that takes focus out of the field must not strand Esc above
+  // the binding (the setup and the click are those of dialog_esc_guard_test).
+  Future<void> click(WidgetTester tester, Offset at) async {
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: at);
+    await gesture.down(at);
+    await gesture.up();
+    await gesture.removePointer();
+    await tester.pump();
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final (name, marker, _, show) in dialogs.where((d) => d.$3)) {
-      testWidgets(
-        '$name on ${platform.name}: type, click outside, Esc closes',
-        (tester) async {
+      for (final target in const ['barrier', 'title']) {
+        testWidgets('$name on ${platform.name}: a click on the $target, '
+            'then Esc, closes it', (tester) async {
           await open(tester, platform, show, marker);
-          final finder = find.byType(EditableText).first;
-          final field = tester.widget<EditableText>(finder);
-          await tester.enterText(finder, 'typed words');
+          final field = tester.widget<EditableText>(
+            find.byType(EditableText).first,
+          );
+          await tester.tap(find.byType(EditableText).first);
+          await tester.enterText(find.byType(EditableText).first, 'draft');
+          await tester.pump();
           expect(field.focusNode.hasPrimaryFocus, isTrue);
-          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-          try {
-            Actions.invoke(
-              tester.element(
-                find
-                    .descendant(
-                      of: finder,
-                      matching: find.byType(TextFieldTapRegion),
-                    )
-                    .first,
-              ),
-              EditableTextTapOutsideIntent(
-                focusNode: field.focusNode,
-                pointerDownEvent: const PointerDownEvent(
-                  kind: PointerDeviceKind.mouse,
-                ),
-              ),
-            );
-          } finally {
-            debugDefaultTargetPlatformOverride = null;
-          }
-          await tester.pumpAndSettle();
+          await click(
+            tester,
+            target == 'barrier'
+                ? const Offset(4, 4)
+                : tester.getCenter(find.text(marker).first),
+          );
           expect(field.focusNode.hasPrimaryFocus, isFalse);
           expect(find.text(marker), findsWidgets);
           await esc(tester);
           expect(find.text(marker), findsNothing);
-        },
-      );
+        });
+      }
     }
   }
 }
