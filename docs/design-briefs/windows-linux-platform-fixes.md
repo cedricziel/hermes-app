@@ -48,7 +48,16 @@ The pass above did not record these; they are checked against the real theme tok
 - High contrast: the app has no high-contrast theme and does not read `MediaQuery.highContrast`. The ring is unchanged there and meets 3:1 on every surface above.
 - Hover plus focus: both show. The ring is drawn on top of the hover tint (a menu item also takes the hover fill, painted under its text and the ring).
 - Placement change, Mac thread row: the Archive and More buttons are 20 x 20 targets 4 pt apart (were 2). Their rings reach 4 pt out, so with 2 pt the Archive ring would cover the More button. The title gets 2 pt less width; a row without Archive (no `onArchive`) now has 4 pt of dead gap before More, where it had 2 (an older quirk: the gap is drawn either way). The buttons keep their 20 x 20 size and hit areas; the row's 28 pt height holds the ring.
-- Implementation records: a list row's ring radius is the section radius minus the 2 px inset; the model popover's choice row keeps its edge outline (inset 0); not covered are `ListTile` (7 sites), chips (3), `CheckedPopupMenuItem`, the Android `SegmentedButton`, the Mac compact menu row and the iOS and Mac system segmented control. `docs/architecture/settings-screens.md` has the list.
+- Implementation records: a list row's ring radius is the section radius minus the 2 px inset; the model popover's choice row keeps its edge outline (inset 0); not covered are the Android `SegmentedButton`, the Mac compact menu row and the iOS and Mac system segmented control. `docs/architecture/settings-screens.md` has the list.
+- Addendum, checked menu items, list tiles and chips (same ring, no other visual change; no placement change was needed):
+
+  | Control | Ring | Where |
+  | --- | --- | --- |
+  | Checked menu item (Material, Windows, Linux menus) | 2 px inside, radius 4, with the menu hover fill | The menu clips it, as for a plain menu item |
+  | `ListTile`, `CheckboxListTile`, `SwitchListTile` | 2 px inside, radius 8 | A sheet, dialog or bordered box clips or abuts it; a tile fills its row |
+  | `FilterChip`, `ChoiceChip` | 2 px outside, the chip's 8 px radius plus 2 | Not clipped: the chip row has room (the status chips scroll with 12 px of padding and 48 px of height) |
+
+  The composer's `InputChip` has only a delete button, which keeps Material's focus fill.
 
 ## F1 command set
 

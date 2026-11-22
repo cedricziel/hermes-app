@@ -308,11 +308,6 @@ Widget _chips() => Wrap(
       selected: false,
       onSelected: (_) {},
     ),
-    InputChip(
-      label: const Text('notes.txt'),
-      avatar: const Icon(Icons.description_outlined, size: 16),
-      onDeleted: _noop,
-    ),
   ],
 );
 
@@ -360,7 +355,7 @@ List<WidgetbookUseCase> _menuTileChipUseCases() => [
   WidgetbookUseCase(
     name: 'Checkbox list tile (platform hint)',
     builder: (_) => _at(
-      null,
+      1,
       Card(
         margin: EdgeInsets.zero,
         child: PlatformHintPrompt(
@@ -377,7 +372,6 @@ List<WidgetbookUseCase> _menuTileChipUseCases() => [
   ),
   WidgetbookUseCase(name: 'Filter chip', builder: (_) => _at(0, _chips())),
   WidgetbookUseCase(name: 'Choice chip', builder: (_) => _at(1, _chips())),
-  WidgetbookUseCase(name: 'Input chip', builder: (_) => _at(2, _chips())),
 ];
 
 void _ignoreOrigin(AttachOrigin _) {}
