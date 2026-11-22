@@ -250,4 +250,5 @@ whose status your change moves.
 - What you could not check (the claude.ai viewer, real devices).
 - Any component props you guessed and did not confirm.
 - If you changed the repo: branch, head sha, PR link, and the result of
-  `openspec validate <change> --strict`.
+  `npx --yes @fission-ai/openspec@2.1.1 validate <change> --strict` (see
+  `openspec/config.yaml`).
