@@ -185,8 +185,9 @@ one-armed-Dart-PR limit), and then only after the trial check.
 - Exception: the release-please PR is generated and has no isolated review.
   The orchestrator arms it at its discretion, an interim cut as well as one
   that closes a wave, once main's tip has a full green run (the five builds
-  included) and the release PR's current head has its five builds green, and
-  last (see the `release` skill).
+  included) and the release PR's current head has its five builds green; it
+  disarms it when a new head arrives, and arms it last (see the `release`
+  skill).
 - Docs-only PRs cannot auto-merge while the ruleset requires the individual
   test shards (they never report on a docs-only PR). Docs-only means the
   `Changes` job output `code=false` on the exact head, so the shards show

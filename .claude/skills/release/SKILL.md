@@ -47,14 +47,15 @@ removes the Markdown, leaves out lines about Android, Windows or Linux, which
 App Review rejects under guideline 2.3.10, and cuts the text to 4000 characters).
 
 The release-please PR is the one explicit exception to READY: it is generated
-and has no isolated review. The orchestrator merges it at its discretion, once
-main's tip has a full green run (the five builds included). It confirms the five
-builds are green on the release PR's current head immediately before the merge.
-release-please pushes a new head on every merge to main, and an earlier green
-run does not count for a new head. So it merges by hand, or arms auto-merge only
-when no other PR is about to merge and disarms it if a new head arrives first.
-The PR is opened with `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did
-not run, the token is missing or expired.
+and has no isolated review. The orchestrator arms auto-merge on it at its
+discretion, once main's tip has a full green run (the five builds included),
+only when no other PR is about to merge, and only once the release PR's current
+head has its five builds green. release-please pushes a new head on every merge
+to main, and an earlier green run does not count for a new head: the
+orchestrator disarms the PR if a new head arrives before the merge, and arms it
+again only after that head's five builds are green. The PR is opened with
+`RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
+missing or expired.
 
 ## Follow the builds
 
