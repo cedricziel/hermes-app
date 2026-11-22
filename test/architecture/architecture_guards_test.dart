@@ -107,18 +107,34 @@ Rule _custom({
 /// state-aware, so the ring is a wrapper. `\b` keeps `MacSourceListTile` out.
 final _bareListTile = RegExp(
   r'(?<!FocusRing\(\s*(?:child:\s*)?)\b(?:Checkbox|Switch|Radio)?ListTile'
-  r'(?:\.adaptive)?\(',
+  r'(?:<[^()]*>)?(?:\.adaptive)?\(',
 );
 
 /// A chip built with its own `shape:`, which replaces the theme's and the ring.
-final _chipCall = RegExp(r'\b(?:Raw|Filter|Choice|Input|Action)?Chip\(');
+final _chipCall = RegExp(
+  r'\b(?:Raw|Filter|Choice|Input|Action)?Chip(?:\.elevated)?\(',
+);
+
+/// A chip theme with its own shape below the app theme replaces the ring the
+/// same way; only `hermes_theme.dart` sets one.
+final _chipThemeCall = RegExp(r'\bChipThemeData(?:\.\w+)?\(');
 final _shapeArgument = RegExp(r'(?<![\w.])shape\s*:');
 
 List<Hit> chipShapeHitsIn(SourceFile file) => [
   for (final (at, args) in callArguments(file, _chipCall))
     if (_shapeArgument.hasMatch(args))
       Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
+  if (file.path != 'lib/src/theme/hermes_theme.dart')
+    for (final (at, args) in callArguments(file, _chipThemeCall))
+      if (_shapeArgument.hasMatch(args))
+        Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
 ];
+
+/// A raw popup menu: `PopupMenuButton<T>(`, the inferred `PopupMenuButton(`,
+/// or `showMenu`.
+final _rawPopupMenu = RegExp(
+  r'(?<![\w.])(?:PopupMenuButton\s*[<(]|showMenu\s*[<(])',
+);
 
 List<Hit> _chipShapeHits() => [
   for (final file in dartFiles('lib')) ...chipShapeHitsIn(file),
@@ -714,7 +730,7 @@ final guardRules = <Rule>[
         'use AdaptivePopupMenuButton (or NamedPopupMenuButton): it gives each '
         'menu item the keyboard focus ring; a raw PopupMenuButton or showMenu '
         'does not.',
-    pattern: RegExp(r'(?<![\w.])(?:PopupMenuButton\s*<|showMenu\s*[<(])'),
+    pattern: _rawPopupMenu,
     view: _code,
     allow: {
       'lib/src/widgets/adaptive_popup_menu_button.dart': 'the implementation',
@@ -776,6 +792,10 @@ void main() {
         isFalse,
       );
       expect(tile('MacSourceListTile(title: a)'), isFalse);
+      expect(tile('RadioListTile<int>(value: 1)'), isTrue);
+      expect(tile('RadioListTile<T>.adaptive(value: v)'), isTrue);
+      expect(tile('x = RadioListTile<List<int>>(value: v)'), isTrue);
+      expect(tile('FocusRing(child: RadioListTile<int>(value: 1))'), isFalse);
       expect(tile('FocusRing(radius: 4, child: ListTile(title: a))'), isTrue);
     });
 
@@ -787,6 +807,29 @@ void main() {
       expect(chips('x = Chip(label: a, side: BorderSide(color: c));'), 0);
       expect(chips('x = ChoiceChip(label: Text(a), onSelected: f);'), 0);
       expect(chips('x = StatusChip(shape: s);'), 0);
+      expect(chips('x = FilterChip.elevated(label: a, shape: s);'), 1);
+      expect(chips('x = ChoiceChip.elevated(label: a, onSelected: f);'), 0);
+    });
+
+    test('a chip theme shape outside the app theme is flagged', () {
+      int themed(String source, String path) =>
+          chipShapeHitsIn(SourceFile(path, source)).length;
+      const code = 'x = ChipThemeData(shape: s);';
+      expect(themed(code, 'lib/src/x.dart'), 1);
+      expect(
+        themed('x = ChipThemeData.fromDefaults(shape: s);', 'lib/x.dart'),
+        1,
+      );
+      expect(themed('x = ChipThemeData(side: s);', 'lib/src/x.dart'), 0);
+      expect(themed(code, 'lib/src/theme/hermes_theme.dart'), 0);
+    });
+
+    test('a popup menu without its type argument is flagged', () {
+      expect(_rawPopupMenu.hasMatch('PopupMenuButton<int>(a)'), isTrue);
+      expect(_rawPopupMenu.hasMatch('PopupMenuButton(itemBuilder: b)'), isTrue);
+      expect(_rawPopupMenu.hasMatch('showMenu<int>(context: c)'), isTrue);
+      expect(_rawPopupMenu.hasMatch('AdaptivePopupMenuButton(a)'), isFalse);
+      expect(_rawPopupMenu.hasMatch('NamedPopupMenuButton<int>(a)'), isFalse);
     });
   });
 
