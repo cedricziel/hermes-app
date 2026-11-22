@@ -753,6 +753,29 @@ final guardRules = <Rule>[
     allow: {'lib/src/theme/focus_ring.dart': 'defines it'},
   ),
 
+  // docs/architecture/settings-screens.md, "Dialogs and sheets": a dialog that
+  // binds Esc itself must keep it after a click took focus out of its field;
+  // test/widgets/dialog_esc_guard_test.dart walks the dialogs that do.
+  _guard(
+    name: 'dismiss-intent-binding',
+    message:
+        'a dialog that needs its own Esc wraps its content in '
+        'DismissOnEscape (lib/src/widgets/route_dismissal.dart), which keeps '
+        'a FocusScope below the binding; add the dialog to '
+        'test/widgets/dialog_esc_guard_test.dart.',
+    pattern: RegExp(r'\bDismissIntent\b'),
+    view: _code,
+    allow: {
+      'lib/src/widgets/route_dismissal.dart': 'DismissOnEscape, the block',
+      'lib/src/widgets/grouped_dialog.dart':
+          'GroupedDialog Done-only iOS binding; its dialog test covers it',
+      'lib/src/widgets/anchored_popover.dart': 'a popover, not a dialog',
+      'lib/src/chat/subagents/bound_agent_detail.dart': 'a page, not a dialog',
+      'lib/src/bot_screen/viewer/bot_screen_viewer.dart':
+          'a full-screen viewer with its own key handling',
+    },
+  ),
+
   // docs/architecture/telemetry.md: events, breadcrumbs, span attributes and
   // debugPrint carry error.runtimeType, never the message.
   _custom(
