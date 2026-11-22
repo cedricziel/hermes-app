@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/bot_mode/bot_chat_context.dart';
@@ -197,14 +198,14 @@ void main() {
       for (final id in data.customSemanticsActionIds!)
         CustomSemanticsAction.getAction(id)!.label,
     ];
-    expect(labels, contains('Bot-Chat beenden…'));
+    expect(labels, contains('Bot-Chat beenden …'));
     expect(labels, isNot(contains('Umbenennen')));
     expect(labels, isNot(contains('Archivieren')));
     await tester.longPress(find.text('Row'));
     await tester.pumpAndSettle();
     final sheet = find.byType(CupertinoActionSheet);
     expect(
-      find.descendant(of: sheet, matching: find.text('Bot-Chat beenden…')),
+      find.descendant(of: sheet, matching: find.text('Bot-Chat beenden …')),
       findsOneWidget,
     );
     expect(
@@ -216,6 +217,94 @@ void main() {
       findsNothing,
     );
     handle.dispose();
+  });
+
+  group('ThreadActionsButton on macOS', () {
+    ThreadHousekeeping housekeeping({bool historyFails = false}) =>
+        ThreadHousekeeping(
+          repository: HermesChatRepository(FakeHermesServer().client().raw),
+          threads: () => const [],
+          profile: () => null,
+          changed: () {},
+          report: (_) {},
+          removed: (_) {},
+          history: (thread, {cancelled}) async =>
+              historyFails ? throw StateError('offline') : const [],
+          branch: (_) async {},
+        );
+
+    Future<void> openMenu(
+      WidgetTester tester, {
+      bool historyFails = false,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('de'),
+          localizationsDelegates: kTestLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: ThreadActionsButton(
+              thread: ChatThread(
+                id: 's1',
+                title: 'Release notes',
+                updatedAt: DateTime(2026),
+                remote: true,
+              ),
+              housekeeping: housekeeping(historyFails: historyFails),
+              onOpenInNewWindow: (_) {},
+              exportJson: ExportJsonOffer(onSelected: () {}),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('every menu item is German', (tester) async {
+      await openMenu(tester);
+      for (final label in [
+        'In neuem Fenster öffnen',
+        'Umbenennen …',
+        'Anheften',
+        'Verlauf kopieren',
+        'Chat als JSON exportieren …',
+        'In neuem Chat verzweigen',
+        'Archivieren',
+        'Löschen …',
+      ]) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+    });
+
+    testWidgets('copying says so in German', (tester) async {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => null,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await openMenu(tester);
+      await tester.tap(find.text('Verlauf kopieren'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Verlauf kopiert'), findsOneWidget);
+    });
+
+    testWidgets('a failed copy says so in German', (tester) async {
+      await openMenu(tester, historyFails: true);
+      await tester.tap(find.text('Verlauf kopieren'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Der Verlauf konnte nicht kopiert werden'),
+        findsOneWidget,
+      );
+    });
   });
 
   group('ThreadActionsButton on iOS', () {
@@ -371,7 +460,7 @@ void main() {
         findsNothing,
       );
       await tester.tap(
-        find.descendant(of: items, matching: find.text('Bot-Chat beenden…')),
+        find.descendant(of: items, matching: find.text('Bot-Chat beenden …')),
       );
       await tester.pumpAndSettle();
 

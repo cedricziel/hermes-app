@@ -54,6 +54,8 @@ void main() {
       'Ops exportieren',
       'Server-Pfad',
       'Anhänge einbeziehen',
+      'Worker-Logs einbeziehen',
+      'Das Archiv wird auf dem Server geschrieben, nicht auf diesem Gerät. Bleibt es leer, wird der Export-Ordner des Servers verwendet.',
       'Abbrechen',
       'Exportieren',
     ]);
@@ -68,6 +70,10 @@ void main() {
     expectGerman([
       'Board importieren',
       'Archivpfad',
+      'Das Archiv muss bereits auf dem Server liegen.',
+      'Neuer Board-Slug',
+      'Optional',
+      'Danach öffnen',
       'Abbrechen',
       'Importieren',
     ]);
@@ -113,8 +119,33 @@ void main() {
       'Orchestrierung',
       'Orchestrator-Profil',
       'Aktives Profil (default)',
+      'Triage-Aufgaben automatisch zerlegen',
+      'Aus: von Hand zerlegen',
+      'Unteraufgaben weiterschieben, sobald sie bereit sind',
+      'Standardmäßig zuständig',
       'Abbrechen',
       'Speichern',
     ]);
+  });
+
+  testWidgets('orchestration says so in German when it cannot load', (
+    tester,
+  ) async {
+    final server = FakeHermesServer()
+      ..on('GET', '/api/plugins/kanban/orchestration', {
+        'detail': 'boom',
+      }, status: 500);
+    await open(
+      tester,
+      () =>
+          () => showKanbanOrchestrationDialog(
+            context,
+            repository: KanbanRepository(server.client()),
+          ),
+    );
+    expect(
+      find.text('Die Einstellungen konnten nicht geladen werden'),
+      findsOneWidget,
+    );
   });
 }

@@ -2252,7 +2252,7 @@
   },
   "chatWidgetsThreadMenuCancel": "Cancel",
   "@chatWidgetsThreadMenuCancel": {
-    "description": "Cancel button of the iPhone chat row action sheet and of the alerts that ask before deleting a chat or retiring a Bot Chat."
+    "description": "Cancel button of the iPhone chat row action sheet, of the alerts that ask before deleting a chat or retiring a Bot Chat, and of the rename chat dialog."
   },
   "chatWidgetsThreadMenuCopied": "Transcript copied",
   "@chatWidgetsThreadMenuCopied": {
@@ -3058,7 +3058,7 @@
   },
   "macosMenuArchive": "Archive",
   "@macosMenuArchive": {
-    "description": "Chat menu: archives the open chat."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: archives the chat."
   },
   "macosMenuBack": "Back",
   "@macosMenuBack": {
@@ -3066,7 +3066,7 @@
   },
   "macosMenuChangeFolder": "Change Folder…",
   "@macosMenuChangeFolder": {
-    "description": "Chat menu: moves the open chat to another working folder; opens a picker."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: moves the chat to another working folder; opens a picker."
   },
   "macosMenuChat": "Chat",
   "@macosMenuChat": {
@@ -3086,7 +3086,7 @@
   },
   "macosMenuCopyTranscript": "Copy Transcript",
   "@macosMenuCopyTranscript": {
-    "description": "Chat menu: copies the open chat as text."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: copies the chat as text."
   },
   "macosMenuCut": "Cut",
   "@macosMenuCut": {
@@ -3094,7 +3094,7 @@
   },
   "macosMenuDelete": "Delete…",
   "@macosMenuDelete": {
-    "description": "Chat menu: deletes the open chat after a confirmation."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: deletes the chat after a confirmation."
   },
   "macosMenuEdit": "Edit",
   "@macosMenuEdit": {
@@ -3106,7 +3106,7 @@
   },
   "macosMenuExportChat": "Export Chat as JSON…",
   "@macosMenuExportChat": {
-    "description": "Chat menu: saves the open chat as a JSON file; a dialog follows."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: saves the chat as a JSON file; a dialog follows."
   },
   "macosMenuFile": "File",
   "@macosMenuFile": {
@@ -3150,7 +3150,7 @@
   },
   "macosMenuOpenInNewWindow": "Open in New Window",
   "@macosMenuOpenInNewWindow": {
-    "description": "File menu: opens the chat in a window of its own."
+    "description": "File menu, and the Mac chat row menu: opens the chat in a window of its own."
   },
   "macosMenuPaste": "Paste",
   "@macosMenuPaste": {
@@ -3158,7 +3158,7 @@
   },
   "macosMenuPin": "Pin",
   "@macosMenuPin": {
-    "description": "Chat menu: pins the open chat to the top of the list."
+    "description": "Chat menu, and the Mac chat row menu: pins the chat to the top of the list."
   },
   "macosMenuPreviousChange": "Previous Change",
   "@macosMenuPreviousChange": {
@@ -3174,7 +3174,7 @@
   },
   "macosMenuRename": "Rename…",
   "@macosMenuRename": {
-    "description": "Chat menu: renames the open chat."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: renames the chat."
   },
   "macosMenuSelectAll": "Select All",
   "@macosMenuSelectAll": {
@@ -3202,7 +3202,7 @@
   },
   "macosMenuUnpin": "Unpin",
   "@macosMenuUnpin": {
-    "description": "Chat menu while the chat is pinned: removes the pin."
+    "description": "Chat menu, and the Mac chat row menu, while the chat is pinned: removes the pin."
   },
   "macosMenuView": "View",
   "@macosMenuView": {
@@ -8702,7 +8702,7 @@
   "@@x-area-widgets": "",
   "widgetsCancel": "Cancel",
   "@widgetsCancel": {
-    "description": "Label of the button that closes a form or dialog in a settings page bar without saving."
+    "description": "Label of the button that closes a form or dialog without saving: in a settings page bar and in the Kanban export, import, edit task and orchestration dialogs."
   },
   "widgetsDone": "Done",
   "@widgetsDone": {

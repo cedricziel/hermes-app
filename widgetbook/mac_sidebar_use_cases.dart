@@ -55,12 +55,11 @@ Widget _row({
 );
 
 /// A menu shown as it opens over a row, for the catalog to look at.
-final _english = lookupAppLocalizations(const Locale('en'));
-
 class _OpenMenu extends StatefulWidget {
   const _OpenMenu({required this.items});
 
-  final List<PopupMenuEntry<ThreadAction>> items;
+  final List<PopupMenuEntry<ThreadAction>> Function(AppLocalizations l10n)
+  items;
 
   @override
   State<_OpenMenu> createState() => _OpenMenuState();
@@ -83,7 +82,7 @@ class _OpenMenuState extends State<_OpenMenu> {
     child: AdaptivePopupMenuButton<ThreadAction>(
       controller: _menu,
       icon: const AppIcon(AppIcons.more),
-      itemBuilder: (_) => widget.items,
+      itemBuilder: (_) => widget.items(context.l10n),
     ),
   );
 }
@@ -187,18 +186,15 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
         _case(
           'Server thread',
           () => _OpenMenu(
-            items: macThreadMenuItems(
-              _english,
-              pinned: false,
-              manageable: true,
-            ),
+            items: (l10n) =>
+                macThreadMenuItems(l10n, pinned: false, manageable: true),
           ),
         ),
         _case(
           'Pinned, with a new window',
           () => _OpenMenu(
-            items: macThreadMenuItems(
-              _english,
+            items: (l10n) => macThreadMenuItems(
+              l10n,
               pinned: true,
               manageable: true,
               canOpenInNewWindow: true,
@@ -208,11 +204,8 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
         _case(
           'Local draft',
           () => _OpenMenu(
-            items: macThreadMenuItems(
-              _english,
-              pinned: false,
-              manageable: false,
-            ),
+            items: (l10n) =>
+                macThreadMenuItems(l10n, pinned: false, manageable: false),
           ),
         ),
       ],
