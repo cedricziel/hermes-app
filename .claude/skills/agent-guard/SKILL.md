@@ -89,7 +89,9 @@ command inside a script file or a git alias defined in a config file, other runn
 (`parallel`) for the git bans, other ways to delete a remote branch through
 `gh`, a hook path built from a variable (`$HOOKS/pre-commit`) or written with
 `sed -i` or `python`, and hosts without `python3` (the hook then cannot run and
-does not block).
+does not block). For `find` actions, `-execdir` judges git scope by the shell's cwd.
+`flock`, `stdbuf`, `ionice` and `setsid` are not unwrapped for the git bans.
+Non-git checks (`hermes dashboard`, `chmod` on `.git/hooks`) are not applied to find actions.
 
 ## Add or change a rule
 

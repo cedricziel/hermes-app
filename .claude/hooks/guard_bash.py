@@ -1257,13 +1257,13 @@ def _is_gh_program(words):
 
 
 def _find_actions(words):
-    """The argv of each `find` -exec/-execdir/-ok/-okdir action, up to its `;` or `+`."""
+    """The argv of each `find` -exec/-execdir/-ok/-okdir action, up to its `;` or a `{}` followed by `+`."""
     actions = []
     k = 1
     while k < len(words):
         if words[k] in ("-exec", "-execdir", "-ok", "-okdir"):
             e = k + 1
-            while e < len(words) and words[e] not in (";", "+"):
+            while e < len(words) and not (words[e] == ";" or (words[e] == "+" and words[e - 1] == "{}")):
                 e += 1
             actions.append(words[k + 1 : e])
             k = e
@@ -1479,7 +1479,7 @@ def _check_cmds(cmds, cwd, depth):
                 for action in _find_actions(argv):
                     a = _strip_prefix(action)
                     if a and os.path.basename(a[0]) == "git":
-                        m = m or _check_git(a, cwd, saw_setup, ())
+                        m = m or _check_git(a, cwd, saw_setup, action[: max(0, len(action) - len(a))])
             if not m and _is_cloud() and prog in GH_RUNNERS and _runner_has_gh(prog, argv):
                 m = MSG_GH_RUNNER
         if m:

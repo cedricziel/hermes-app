@@ -966,18 +966,20 @@ class FindExecGitTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def run_hook(self, cmd):
+    def run_hook(self, cmd, cwd=None, project=None):
         env = {
             k: v
             for k, v in os.environ.items()
             if k not in ("CLAUDE_CODE_REMOTE", "CLAUDE_PROJECT_DIR")
         }
+        if project is not None:
+            env["CLAUDE_PROJECT_DIR"] = project
         if self.REMOTE is not None:
             env["CLAUDE_CODE_REMOTE"] = self.REMOTE
         return subprocess.run(
             [sys.executable, "-I", str(HOOK)],
             input=json.dumps(
-                {"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": self.repo}
+                {"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": cwd or self.repo}
             ),
             capture_output=True,
             text=True,
@@ -1037,6 +1039,28 @@ class FindExecGitTest(unittest.TestCase):
         ):
             self.blocked(c)
 
+    def test_env_prefix_scopes_the_git_check(self):
+        other = tempfile.TemporaryDirectory()
+        self.addCleanup(other.cleanup)
+        git(other.name, "init", "-q", "-b", "claude/y")
+        cfg = "git config core.hooksPath /dev/null"
+        # cwd is another repo; GIT_DIR points into the project: blocked, like the direct command
+        in_project = "env GIT_DIR=%s/.git %s" % (self.repo, cfg)
+        for cmd in (in_project, "find . -exec %s \\;" % in_project):
+            r = self.run_hook(cmd, cwd=other.name, project=self.repo)
+            self.assertEqual(r.returncode, 2, cmd)
+        # cwd is the project; GIT_DIR points elsewhere: allowed, like the direct command
+        elsewhere = "env GIT_DIR=%s/.git %s" % (other.name, cfg)
+        for cmd in (elsewhere, "find . -exec %s \\;" % elsewhere):
+            r = self.run_hook(cmd, cwd=self.repo, project=self.repo)
+            self.assertEqual(r.returncode, 0, "%s\n%s" % (cmd, r.stderr))
+
+    def test_plus_ends_an_action_only_after_braces(self):
+        self.blocked("find . -exec git commit -m + --no-verify \\;")
+        self.blocked("find . -exec git push origin + -f \\;")
+        self.allowed("find . -exec git add {} +")
+        self.allowed("find . -exec grep -l x {} +")
+
     def test_innocent_commands_stay_allowed(self):
         for c in (
             "find . -name '*.git' -exec grep -l stash {} \\;",
@@ -1062,6 +1086,8 @@ class FindExecGitCloudTest(FindExecGitTest):
 
 class FindExecGitLocalFalseTest(FindExecGitTest):
     REMOTE = "false"
+
+
 class GhSearchOnlyTest(unittest.TestCase):
     """Cloud (CLAUDE_CODE_REMOTE=true). F.333: gh is for search only; everything else goes through the GitHub MCP tools."""
 
