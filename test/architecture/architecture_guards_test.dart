@@ -144,13 +144,53 @@ final _rawExpansionTile = RegExp(
   r'(?<![\w.])(?:\w+\.)*\bExpansionTile(?:\s*[<(]|\.\w+)',
 );
 
-/// A floating button not directly inside `FocusRing.outside(radius: ..., child:`
-/// (or `MiniFabFocusRing(child:` for a mini button).
-final _bareFloatingButton = RegExp(
-  r'(?<!FocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*)'
-  r'(?<!MiniFabFocusRing\(\s*child:\s*)'
-  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?:(?:\.\w+)?\s*[<(]|\.\w+)',
+/// Every floating button in [code] that is not in the wrapper that gives it
+/// the keyboard ring, as offsets: a mini button (`mini: true`,
+/// `FloatingActionButton.small`) must be directly inside
+/// `MiniFabFocusRing(child:`, any other button directly inside
+/// `FocusRing.outside(radius: ..., child:`, and a tear-off is never wrapped.
+/// The wrappers are matched at a word boundary, so `NotMiniFabFocusRing(`
+/// counts for nothing.
+final _floatingButton = RegExp(
+  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?:\.(\w+))?',
 );
+final _inMiniWrapper = RegExp(r'\bMiniFabFocusRing\(\s*child:\s*$');
+final _inOutsideWrapper = RegExp(
+  r'\bFocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*$',
+);
+
+List<int> bareFloatingButtons(String code) {
+  final bare = <int>[];
+  for (final m in _floatingButton.allMatches(code)) {
+    final after = code.substring(m.end).trimLeft();
+    // A tear-off or a type argument without a call is never wrapped.
+    final call = after.startsWith('(') || after.startsWith('<');
+    var args = '';
+    if (call) {
+      final open = code.indexOf('(', m.end);
+      var depth = 0;
+      var i = open;
+      for (; i < code.length; i++) {
+        if (code[i] == '(') depth++;
+        if (code[i] == ')' && --depth == 0) break;
+      }
+      args = code.substring(open, i.clamp(0, code.length));
+    }
+    final mini =
+        m.group(1) == 'small' || RegExp(r'\bmini\s*:\s*true').hasMatch(args);
+    final before = code.substring(0, m.start);
+    final ok =
+        call && (mini ? _inMiniWrapper : _inOutsideWrapper).hasMatch(before);
+    if (!ok) bare.add(m.start);
+  }
+  return bare;
+}
+
+List<Hit> _floatingButtonHits() => [
+  for (final file in dartFiles('lib'))
+    for (final at in bareFloatingButtons(file.code))
+      Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
+];
 
 /// A raw popup menu: `PopupMenuButton<T>(`, the inferred `PopupMenuButton(`,
 /// or `showMenu`.
@@ -790,14 +830,13 @@ final guardRules = <Rule>[
     view: _code,
     allow: {'lib/src/widgets/disclosure_tile.dart': 'the implementation'},
   ),
-  _guard(
+  _custom(
     name: 'floating-button-without-focus-ring',
     message:
         'wrap a FloatingActionButton in FocusRing.outside(radius: <its '
-        'radius>, child: ...), or a mini one in MiniFabFocusRing(child: ...) (lib/src/theme/focus_ring.dart): its shape is '
+        'radius>, child: ...), or a mini one (mini: true, .small) in MiniFabFocusRing(child: ...) (lib/src/theme/focus_ring.dart): its shape is '
         'not state-aware, so the keyboard focus ring is a wrapper.',
-    pattern: _bareFloatingButton,
-    view: _code,
+    hits: _floatingButtonHits,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": the catalog
@@ -891,31 +930,22 @@ void main() {
       },
     );
 
-    test('a floating button outside FocusRing.outside is flagged', () {
-      bool bare(String code) => _bareFloatingButton.hasMatch(code);
+    test('a floating button outside its wrapper is flagged', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      const outside = 'FocusRing.outside(radius: 28, child: ';
       expect(bare('child: FloatingActionButton(onPressed: f)'), isTrue);
       expect(bare('FloatingActionButton.extended(onPressed: f)'), isTrue);
-      expect(bare('FloatingActionButton.small(onPressed: f)'), isTrue);
-      expect(
-        bare(
-          'FocusRing.outside(radius: 28, child: FloatingActionButton.extended(a))',
-        ),
-        isFalse,
-      );
-      expect(
-        bare(
-          'FocusRing.outside(\n radius: kHermesRadius,\n child: FloatingActionButton(a))',
-        ),
-        isFalse,
-      );
+      expect(bare('Tooltip(child: FloatingActionButton(a))'), isTrue);
       expect(
         bare('FocusRing(radius: 8, child: FloatingActionButton(a))'),
         isTrue,
       );
-      expect(bare('Tooltip(child: FloatingActionButton(a))'), isTrue);
-      expect(bare('MiniFabFocusRing(child: FloatingActionButton(a))'), isFalse);
+      expect(bare('${outside}FloatingActionButton.extended(a))'), isFalse);
+      expect(bare('${outside}m.FloatingActionButton(a))'), isFalse);
       expect(
-        bare('MiniFabFocusRing(\n child: m.FloatingActionButton(mini: true))'),
+        bare(
+          'FocusRing.outside(\n radius: kHermesRadius,\n child: FloatingActionButton(a))',
+        ),
         isFalse,
       );
       // A bare inset-0 ring fits one platform only.
@@ -923,17 +953,53 @@ void main() {
         bare('FocusRing(radius: 24, inset: 0, child: FloatingActionButton(a))'),
         isTrue,
       );
-      expect(bare('Tooltip(child: FloatingActionButton(a))'), isTrue);
-      expect(bare('child: m.FloatingActionButton(onPressed: f)'), isTrue);
-      expect(bare('child: m.FloatingActionButton.extended(a)'), isTrue);
+      // Tear-offs are never wrapped.
       expect(bare('builder: FloatingActionButton.new'), isTrue);
       expect(bare('builder: FloatingActionButton.extended'), isTrue);
-      expect(bare('f(FloatingActionButton.small)'), isTrue);
       expect(bare('f(m.FloatingActionButton.large)'), isTrue);
+      expect(bare('f(FloatingActionButton.small)'), isTrue);
       expect(bare('class MyFloatingActionButton {}'), isFalse);
+    });
+
+    test('a mini button belongs in MiniFabFocusRing, not FocusRing.outside', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      const mini = 'MiniFabFocusRing(child: ';
       expect(
-        bare('FocusRing.outside(radius: 28, child: m.FloatingActionButton(a))'),
+        bare('${mini}FloatingActionButton(mini: true, onPressed: f))'),
         isFalse,
+      );
+      expect(
+        bare(
+          '${mini}m.FloatingActionButton(\n  heroTag: null,\n  mini: true,\n))',
+        ),
+        isFalse,
+      );
+      expect(bare('${mini}FloatingActionButton.small(onPressed: f))'), isFalse);
+      // The Android defect: the 20 px outside ring on a mini button.
+      expect(
+        bare(
+          'FocusRing.outside(radius: 20, child: FloatingActionButton(mini: true))',
+        ),
+        isTrue,
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 20, child: FloatingActionButton.small(a))',
+        ),
+        isTrue,
+      );
+      // The mini wrapper on a button that is not mini.
+      expect(bare('${mini}FloatingActionButton(onPressed: f))'), isTrue);
+      expect(bare('${mini}FloatingActionButton.extended(a))'), isTrue);
+      expect(bare('${mini}FloatingActionButton(mini: false, a))'), isTrue);
+      // A wrapper that only ends in the name does not count.
+      expect(
+        bare('NotMiniFabFocusRing(child: FloatingActionButton(mini: true))'),
+        isTrue,
+      );
+      expect(
+        bare('MyFocusRing.outside(radius: 20, child: FloatingActionButton(a))'),
+        isTrue,
       );
     });
   });

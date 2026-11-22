@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart' show CupertinoSlidingSegmentedControl;
 import 'package:flutter/material.dart';
@@ -51,12 +52,38 @@ final _ringFinder = find.byWidgetPredicate(
   (w) => w is CustomPaint && w.foregroundPainter is FocusRingPainter,
 );
 
-/// A canvas that keeps the one rounded rectangle drawn on it.
+/// A canvas that keeps the one rounded rectangle drawn on it, with the
+/// transform in force when it was drawn (save, restore, translate and
+/// transform are followed; a painter that drops or reverses its transform
+/// draws somewhere else).
 class _Recorder implements Canvas {
+  final _stack = <Matrix4>[Matrix4.identity()];
   RRect? rrect;
 
   @override
-  void drawRRect(RRect rrect, Paint paint) => this.rrect = rrect;
+  void save() => _stack.add(_stack.last.clone());
+
+  @override
+  void restore() => _stack.removeLast();
+
+  @override
+  void translate(double dx, double dy) =>
+      _stack.last.multiply(Matrix4.translationValues(dx, dy, 0));
+
+  @override
+  void transform(Float64List matrix4) =>
+      _stack.last.multiply(Matrix4.fromFloat64List(matrix4));
+
+  @override
+  void drawRRect(RRect rrect, Paint paint) {
+    final m = _stack.last;
+    // Only translations are expected: a scale would change the ring's width.
+    expect(m.getMaxScaleOnAxis(), closeTo(1, 1e-6));
+    this.rrect = RRect.fromRectAndRadius(
+      MatrixUtils.transformRect(m, rrect.outerRect),
+      Radius.circular(rrect.tlRadiusX),
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
@@ -71,19 +98,11 @@ class _Recorder implements Canvas {
       tester.widget<CustomPaint>(finder).foregroundPainter! as FocusRingPainter;
   final box = tester.renderObject<RenderBox>(finder);
   final recorder = _Recorder();
-  final Offset origin;
-  if (painter is HostFocusRingPainter) {
-    // Drawn on the host's own box, which the painter reaches by a transform.
-    final host = painter.host.renderObject! as RenderBox;
-    final height = painter.maxHeight;
-    painter.paint(recorder, box.size);
-    origin = host.localToGlobal(Offset.zero);
-    expect(height == null || height <= host.size.height, isTrue);
-  } else {
-    painter.paint(recorder, box.size);
-    origin = box.localToGlobal(Offset.zero);
-  }
-  final center = recorder.rrect!.shift(origin);
+  painter.paint(recorder, box.size);
+  expect(recorder._stack, hasLength(1), reason: 'every save is restored');
+  // The recorded rectangle is in the painting box's own coordinates (the
+  // painter's transform included); the box's origin puts it on screen.
+  final center = recorder.rrect!.shift(box.localToGlobal(Offset.zero));
   final half = painter.width / 2;
   RRect grow(double by) => RRect.fromRectAndRadius(
     center.outerRect.inflate(by),
@@ -264,9 +283,6 @@ Future<void> _focus(WidgetTester tester, Finder inside) async {
 Finder _materialOf(Finder inside) =>
     find.ancestor(of: inside, matching: find.byType(Material)).first;
 
-/// A padded platform (the tap target of a button, chip and mini FAB is padded
-/// to 48) and two desktop ones (shrink-wrapped): the layout box round a control
-/// differs, the painted shape does not.
 /// The platforms whose widgets use the sliding control.
 const _appleOnly = [TargetPlatform.iOS, TargetPlatform.macOS];
 
@@ -278,6 +294,9 @@ Finder _track<T extends Object>() => find
     )
     .first;
 
+/// A padded platform (the tap target of a button, chip and mini FAB is padded
+/// to 48) and two desktop ones (shrink-wrapped): the layout box round a control
+/// differs, the painted shape does not.
 const _platforms = [
   TargetPlatform.android,
   TargetPlatform.macOS,
@@ -808,7 +827,6 @@ void main() {
           onChanged: (_) {},
         ),
       );
-      if (platform != TargetPlatform.android) return;
       await _focus(tester, find.text('Files'));
       final segment = tester.getRect(find.byType(TextButton).at(1));
       // The control crops its segments to 28 dp.
@@ -841,11 +859,6 @@ void main() {
     });
 
     testOnPlatforms('Mac menu row', (tester, platform) async {
-      await _pump(
-        tester,
-        platform,
-        const SizedBox(width: 200, child: MacMenuRow(child: Text('Rename'))),
-      );
       // A row outside a menu has no focus of its own: give it one.
       final node = FocusNode();
       addTearDown(node.dispose);
