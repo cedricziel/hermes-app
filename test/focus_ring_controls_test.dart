@@ -298,7 +298,7 @@ void main() {
         build: () => WhatsTheDifferenceLink(onTap: () {}),
         inside: find.byType(InkWell),
         inset: -4,
-        radius: 8,
+        radius: 4,
       );
 
       ringsOnKeyboardOnly(
