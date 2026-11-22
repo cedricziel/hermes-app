@@ -174,6 +174,7 @@ void main() {
     // that `runApp` a MaterialApp, which no test can start without native
     // channels, so this reads the source: a file may not build more apps than
     // it mounts scopes. Comments and strings are not code to the parser.
+    expect(_syntaxErrors(dartFiles('lib')), isEmpty);
     final short = <String>[];
     for (final f in dartFiles('lib')) {
       if (!_appWord.hasMatch(f.raw)) continue;
@@ -219,6 +220,7 @@ void main() {
     // blocks. Nothing fails at run time: this reads the sources.
     final readers = _readers();
     final helpers = _testHelpers(readers);
+    expect(_syntaxErrors(dartFiles('test')), isEmpty);
     final bad = <String>[];
     for (final f in dartFiles('test')) {
       if (!f.path.endsWith('_test.dart')) continue;
@@ -273,6 +275,17 @@ class C extends StatelessWidget {
 }
 mixin M {}
 enum E { a }
+enum E2 { a; void f() {} }
+class Rig {
+  Rig(this.v);
+  Rig.named() : v = 0;
+  final int v;
+  static Widget stat(BuildContext c, Widget? child) => child!;
+}
+extension FactoryPreview on Widget Function() {
+  Widget get preview => x;
+}
+Object tears() => MaterialApp(builder: Rig.stat, home: Rig().stat, key: (k));
 extension type T(int v) {}
 class A = Object with M;
 final top = 1;
@@ -282,7 +295,7 @@ extension X on int {
 }
 Widget _scoped(BuildContext c, Widget? child) => AppThemeScopes(child: child!);
 void main() {
-  MaterialApp(builder: (_, child) => child!);
+  MaterialApp(builder: (_, child) { final w = child!; return w; });
   MaterialApp.router(routerConfig: r);
   const m.CupertinoApp();
   mui.Theme.of(c);
@@ -368,7 +381,8 @@ void main() {
       'FormalParameter.isPositional and .name':
           first<FunctionExpression>(
             (f) =>
-                f.parameters?.parameters.last.isPositional == true &&
+                f.parameters?.parameters.length == 2 &&
+                f.parameters!.parameters.last.isPositional &&
                 f.parameters?.parameters.last.name?.lexeme == 'child',
           ) !=
           null,
@@ -408,6 +422,52 @@ void main() {
       'TopLevelVariableDeclaration (variables)': unit.declarations
           .whereType<TopLevelVariableDeclaration>()
           .any((v) => v.variables.variables.first.name.lexeme == 'top'),
+      'NamedArgument whose value is a PrefixedIdentifier (a static tear-off)':
+          first<NamedArgument>(
+            (a) =>
+                a.name.lexeme == 'builder' &&
+                a.argumentExpression is PrefixedIdentifier,
+          ) !=
+          null,
+      'PropertyAccess (a tear-off of a call result)':
+          first<PropertyAccess>((a) => a.propertyName.name == 'stat') != null,
+      'ParenthesizedExpression':
+          first<ParenthesizedExpression>(
+            (e) => e.expression is SimpleIdentifier,
+          ) !=
+          null,
+      'VariableDeclaration with a name and an initializer':
+          first<VariableDeclaration>(
+            (v) => v.name.lexeme == 'w' && v.initializer != null,
+          ) !=
+          null,
+      'FieldDeclaration (fields.variables)':
+          first<FieldDeclaration>(
+            (f) => f.fields.variables.first.name.lexeme == 'v',
+          ) !=
+          null,
+      'ConstructorDeclaration (name, typeName)':
+          first<ConstructorDeclaration>(
+            (c) => c.name?.lexeme == 'named' && c.typeName?.name == 'Rig',
+          ) !=
+          null,
+      'EnumDeclaration with a BlockEnumBody and its members': unit.declarations
+          .whereType<EnumDeclaration>()
+          .any((e) {
+            final body = e.body;
+            return e.namePart.typeName.lexeme == 'E2' &&
+                body is BlockEnumBody &&
+                body.members.length == 1;
+          }),
+      'ExtensionDeclaration on a type that is not a NamedType': unit
+          .declarations
+          .whereType<ExtensionDeclaration>()
+          .any(
+            (e) =>
+                e.name?.lexeme == 'FactoryPreview' &&
+                e.onClause?.extendedType is! NamedType &&
+                e.body.members.length == 1,
+          ),
       'ConditionalExpression':
           first<ConditionalExpression>((_) => true) != null,
       'SwitchExpression': first<SwitchExpression>((_) => true) != null,
@@ -1519,6 +1579,288 @@ void main() {
       final part = SourceFile('lib/a/part.dart', "part of r'../a.dart';\n");
       expect(_libraryOf(part), 'lib/a.dart');
     });
+
+    group('a reader nothing in the test refers to', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/md.dart',
+          'class BoundedMarkdown extends StatelessWidget {\n'
+              "  Widget build(BuildContext context) => GptMarkdown('x');\n"
+              '}\n',
+        ),
+      ]);
+      const helpers = (mounting: <_Helper>[], plain: <_Helper>[]);
+      Set<String> uses(String body) => _unmountedReaderUses(
+        readers,
+        helpers,
+        SourceFile('test/t_test.dart', body),
+      );
+      const textOnly =
+          '  testWidgets("t", (t) async {\n'
+          '    await t.pumpWidget(MaterialApp(home: Text("x")));\n'
+          '  });\n';
+      const mountedHost =
+          'MaterialApp(builder: (_, child) => AppThemeScopes(child: child!), '
+          'home: BoundedMarkdown("x"))';
+
+      test('a mounted app built in a local helper of main is not blamed', () {
+        expect(
+          uses(
+            'void main() {\n'
+            '  Widget host() => $mountedHost;\n'
+            '$textOnly'
+            '}\n',
+          ),
+          isEmpty,
+        );
+      });
+
+      test('a mounted app built in a top-level helper is not blamed', () {
+        expect(
+          uses(
+            'Widget host() => $mountedHost;\n'
+            'void main() {\n'
+            '$textOnly'
+            '}\n',
+          ),
+          isEmpty,
+        );
+      });
+
+      test('a top-level class the test never mentions is not blamed', () {
+        expect(
+          uses(
+            'class _Host {\n'
+            '  Widget build() => BoundedMarkdown("x");\n'
+            '}\n'
+            'void main() {\n'
+            '$textOnly'
+            '}\n',
+          ),
+          isEmpty,
+        );
+      });
+
+      test('a top-level value the test never mentions is not blamed', () {
+        expect(
+          uses(
+            'final _cases = [BoundedMarkdown("x")];\n'
+            'void main() {\n'
+            '$textOnly'
+            '}\n',
+          ),
+          isEmpty,
+        );
+      });
+
+      test('a mounted app built in a setUp is not blamed', () {
+        expect(
+          uses(
+            'void main() {\n'
+            '  setUp(() {\n'
+            '    app = $mountedHost;\n'
+            '  });\n'
+            '$textOnly'
+            '}\n',
+          ),
+          isEmpty,
+        );
+      });
+
+      test('one it reaches through another helper still counts', () {
+        expect(
+          uses(
+            'Widget _a() => _b();\n'
+            'Widget _b() => BoundedMarkdown("x");\n'
+            'void main() {\n'
+            '  testWidgets("t", (t) async {\n'
+            '    await t.pumpWidget(MaterialApp(home: _a()));\n'
+            '  });\n'
+            '}\n',
+          ),
+          {'BoundedMarkdown (reader built in a top-level helper at line 2)'},
+        );
+      });
+
+      test('a loop over a named list the test reaches still counts', () {
+        expect(
+          uses(
+            'final _cases = [BoundedMarkdown("x")];\n'
+            'void main() {\n'
+            '  for (final w in _cases) {\n'
+            '    testWidgets("t", (t) async {\n'
+            '      await t.pumpWidget(MaterialApp(home: w));\n'
+            '    });\n'
+            '  }\n'
+            '}\n',
+          ),
+          isNotEmpty,
+        );
+      });
+    });
+
+    group('a scope that wraps an alias of the child', () {
+      bool mounted(String builder) =>
+          _apps('Object a() => MaterialApp(builder: $builder);').single.mounted;
+
+      test('a widget built around the child and then scoped mounts', () {
+        expect(
+          mounted(
+            '(_, child) { final w = MediaQuery(data: d, child: child!); '
+            'return AppThemeScopes(child: w); }',
+          ),
+          isTrue,
+        );
+      });
+
+      test('a plain local copy of the child mounts', () {
+        expect(
+          mounted(
+            '(_, child) { final content = child!; '
+            'return AppThemeScopes(child: content); }',
+          ),
+          isTrue,
+        );
+      });
+
+      test('an alias of an alias mounts', () {
+        expect(
+          mounted(
+            '(_, child) { final a = child!; final b = Pad(child: a); '
+            'return AppThemeScopes(child: b); }',
+          ),
+          isTrue,
+        );
+      });
+
+      test('a local that is not made of the child does not', () {
+        expect(
+          mounted(
+            '(_, child) { final w = Other(); '
+            'return AppThemeScopes(child: w); }',
+          ),
+          isFalse,
+        );
+      });
+    });
+
+    group('the child of the scope, and nothing else it takes', () {
+      bool mounted(String builder) =>
+          _apps('Object a() => MaterialApp(builder: $builder);').single.mounted;
+
+      test('the child in a key does not mount', () {
+        expect(
+          mounted(
+            '(_, c) => Stack(children: [AppThemeScopes('
+            'key: ObjectKey(c), child: const SizedBox()), c!])',
+          ),
+          isFalse,
+        );
+      });
+
+      test('the child as the child still mounts', () {
+        expect(mounted('(_, c) => AppThemeScopes(child: c!)'), isTrue);
+        expect(
+          mounted('(_, c) => AppThemeScopes(key: ObjectKey(c), child: c!)'),
+          isTrue,
+        );
+      });
+    });
+
+    group('a parse error', () {
+      test('is reported for a file, and a fixture snippet is not one', () {
+        final broken = SourceFile('lib/a/broken.dart', 'class {\n');
+        expect(_syntaxErrors([broken]), isNotEmpty);
+        expect(
+          _syntaxErrors([broken]).first,
+          startsWith('lib/a/broken.dart:1:'),
+        );
+        expect(
+          _syntaxErrors([SourceFile('lib/a/ok.dart', 'class A {}\n')]),
+          isEmpty,
+        );
+        final snippet = SourceFile(
+          'test/t_test.dart',
+          'await pump(MaterialApp(home: x));',
+        );
+        expect(_syntaxErrors([snippet]), isNotEmpty);
+        expect(_apps(snippet.raw), hasLength(1));
+      });
+    });
+
+    group('a finder that takes more than the type', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/md.dart',
+          'class BoundedMarkdown extends StatelessWidget {\n'
+              "  Widget build(BuildContext context) => GptMarkdown('x');\n"
+              '}\n',
+        ),
+      ]);
+      const helpers = (mounting: <_Helper>[], plain: <_Helper>[]);
+      Set<String> uses(String body) => _unmountedReaderUses(
+        readers,
+        helpers,
+        SourceFile('test/t_test.dart', body),
+      );
+
+      test('its type is not a use, with named arguments or without', () {
+        expect(
+          uses(
+            'void f() {\n'
+            '  MaterialApp(home: Text("x"));\n'
+            '  expect(find.byType(BoundedMarkdown, skipOffstage: false),\n'
+            '      findsNothing);\n'
+            '  expect(find.byElementType(BoundedMarkdown), findsNothing);\n'
+            '}\n',
+          ),
+          isEmpty,
+        );
+      });
+
+      test('building the reader beside such a finder is a use', () {
+        expect(
+          uses(
+            'void f() {\n'
+            '  MaterialApp(home: BoundedMarkdown("x"));\n'
+            '  expect(find.byType(BoundedMarkdown, skipOffstage: false),\n'
+            '      findsOneWidget);\n'
+            '}\n',
+          ),
+          {'BoundedMarkdown'},
+        );
+      });
+    });
+
+    test('an extension on a type with no name still holds its members', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/md.dart',
+          'class BoundedMarkdown extends StatelessWidget {\n'
+              "  Widget build(BuildContext context) => GptMarkdown('x');\n"
+              '}\n',
+        ),
+        SourceFile(
+          'lib/a/preview.dart',
+          'extension FactoryPreview on Widget Function() {\n'
+              "  Widget get preview => BoundedMarkdown('x');\n"
+              '}\n'
+              'class Plain {\n'
+              '  Object build() => preview;\n'
+              '}\n',
+        ),
+      ]);
+      expect(readers.members.keys, contains('preview'));
+      expect(readers.names, isNot(contains('Plain')));
+      const helpers = (mounting: <_Helper>[], plain: <_Helper>[]);
+      final file = SourceFile(
+        'test/f_test.dart',
+        "import 'package:hermes_app/a/preview.dart';\n"
+            'Object f(Widget Function() factory) =>\n'
+            '    MaterialApp(home: factory.preview);\n',
+      );
+      expect(_unmountedReaderUses(readers, helpers, file), {'.preview'});
+    });
   });
 }
 
@@ -1618,6 +1960,15 @@ typedef _Hit = ({int offset, String text});
 
 final _parsedFiles = Expando<_Parsed>('parsed');
 
+/// The files the guard scans for real (`lib/` and `test/`), as opposed to the
+/// fixtures' sources.
+final _realFiles = <SourceFile>{...dartFiles('lib'), ...dartFiles('test')};
+
+/// The syntax errors of every file in [files], as `path:line: message`.
+List<String> _syntaxErrors(Iterable<SourceFile> files) => [
+  for (final f in files) ..._parse(f).strictErrors,
+];
+
 /// [file] parsed once, without resolving anything.
 _Parsed _parse(SourceFile file) => _parsedFiles[file] ??= _Parsed(file);
 
@@ -1630,7 +1981,7 @@ _Parsed _parse(SourceFile file) => _parsedFiles[file] ??= _Parsed(file);
 /// wrapped in a function on its first line, so offsets and line numbers stay
 /// those of the snippet.
 class _Parsed {
-  _Parsed._(this.view, this.unit);
+  _Parsed._(this.view, this.unit, this.strictErrors);
 
   factory _Parsed(SourceFile file) {
     ParseStringResult parse(String content) => parseString(
@@ -1641,7 +1992,14 @@ class _Parsed {
     );
     var result = parse(file.raw);
     var source = file.raw;
-    if (result.errors.isNotEmpty) {
+    final strictErrors = [
+      for (final e in result.errors)
+        '${file.path}:${result.lineInfo.getLocation(e.offset).lineNumber}: '
+            '${e.message}',
+    ];
+    // Only a fixture may be a bare snippet: a real file that does not parse
+    // is a finding, not something to wrap until it does.
+    if (result.errors.isNotEmpty && !_realFiles.contains(file)) {
       const head = 'Future<void> __snippet() async { ';
       for (final tail in const ['\n}', ';\n}']) {
         final wrapped = parse('$head${file.raw}$tail');
@@ -1655,6 +2013,7 @@ class _Parsed {
     return _Parsed._(
       identical(source, file.raw) ? file : SourceFile(file.path, source),
       result.unit,
+      strictErrors,
     );
   }
 
@@ -1662,6 +2021,10 @@ class _Parsed {
   /// [SourceFile.code] view, which has the offsets of the tree.
   final SourceFile view;
   final CompilationUnit unit;
+
+  /// What the parser reported for the text as it was given, `path:line:
+  /// message`. Empty for every real file the guard reads.
+  final List<String> strictErrors;
 
   String get code => view.code;
 
@@ -1687,16 +2050,14 @@ class _Parsed {
       switch (call.methodName.name) {
         case 'byWidgetPredicate':
           cuts.add((start: call.offset, end: call.end));
-        case 'byType':
-          final args = call.argumentList.arguments;
-          final only = args.length == 1 ? args.single : null;
-          if (only is SimpleIdentifier ||
-              only is PrefixedIdentifier ||
-              only is PropertyAccess) {
-            cuts.add((
-              start: call.argumentList.leftParenthesis.end,
-              end: call.argumentList.rightParenthesis.offset,
-            ));
+        case 'byType' || 'byElementType':
+          final type = call.argumentList.arguments
+              .where((a) => a is! NamedArgument)
+              .firstOrNull;
+          if (type is SimpleIdentifier ||
+              type is PrefixedIdentifier ||
+              type is PropertyAccess) {
+            cuts.add((start: type!.offset, end: type.end));
           }
       }
     }
@@ -1762,6 +2123,45 @@ class _Index extends RecursiveAstVisitor<void> {
       <String, List<({FormalParameterList? parameters, FunctionBody body})>>{};
   final loops = <AstNode>[];
 
+  /// What a name can stand for: a function, a variable or a type declared in
+  /// the file, with its range. A reader built inside one is drawn only by what
+  /// refers to that name.
+  final bindings = <({String name, _Span span})>[];
+
+  void _bind(String name, AstNode node) =>
+      bindings.add((name: name, span: (start: node.offset, end: node.end)));
+
+  @override
+  void visitVariableDeclaration(VariableDeclaration node) {
+    _bind(node.name.lexeme, node);
+    super.visitVariableDeclaration(node);
+  }
+
+  @override
+  void visitClassDeclaration(ClassDeclaration node) {
+    _bind(node.namePart.typeName.lexeme, node);
+    super.visitClassDeclaration(node);
+  }
+
+  @override
+  void visitMixinDeclaration(MixinDeclaration node) {
+    _bind(node.name.lexeme, node);
+    super.visitMixinDeclaration(node);
+  }
+
+  @override
+  void visitEnumDeclaration(EnumDeclaration node) {
+    _bind(node.namePart.typeName.lexeme, node);
+    super.visitEnumDeclaration(node);
+  }
+
+  @override
+  void visitExtensionDeclaration(ExtensionDeclaration node) {
+    final name = node.name;
+    if (name != null) _bind(name.lexeme, node);
+    super.visitExtensionDeclaration(node);
+  }
+
   @override
   void visitMethodInvocation(MethodInvocation node) {
     calls.add(node);
@@ -1776,6 +2176,7 @@ class _Index extends RecursiveAstVisitor<void> {
 
   @override
   void visitFunctionDeclaration(FunctionDeclaration node) {
+    if (node.name.lexeme != 'main') _bind(node.name.lexeme, node);
     if (!node.isGetter && !node.isSetter) {
       final f = node.functionExpression;
       (functions[node.name.lexeme] ??= []).add((
@@ -1851,7 +2252,14 @@ List<_Shape> _shapes(AstNode node) {
 
 /// An app built in a source: where, whether its `builder:` mounts a scope,
 /// the text of its arguments, and whether it is the real `HermesApp`.
-typedef _App = ({int start, bool mounted, String args, bool hermes});
+typedef _App = ({
+  int start,
+  bool mounted,
+  String args,
+  int argsStart,
+  int argsEnd,
+  bool hermes,
+});
 
 /// Every app built in [code]; [code] may be a snippet.
 List<_App> _apps(String code) => _parse(SourceFile('snippet.dart', code)).apps;
@@ -1881,6 +2289,8 @@ List<_App> _findApps(_Parsed p) {
                 args.leftParenthesis.end,
                 args.rightParenthesis.offset,
               ),
+        argsStart: args.leftParenthesis.end,
+        argsEnd: args.rightParenthesis.offset,
         hermes: hermes,
       ));
       return;
@@ -1937,11 +2347,59 @@ bool _builderMounts(_Parsed p, Expression e) {
 bool _bodyMounts(FunctionBody body, FormalParameterList? parameters) {
   final child = _childParameter(parameters);
   if (child == null) return false;
+  final names = _aliases(body, child);
   final finder = _ScopeCalls();
   body.accept(finder);
   return finder.scopes.any(
-    (scope) => !_inConditional(scope, body) && _mentions(scope, child),
+    (scope) => !_inConditional(scope, body) && _wrapsChild(scope, names),
   );
+}
+
+/// Whether the `child:` of the scope call [scope], and nothing else it takes
+/// (a `key:`, say), uses one of [names].
+bool _wrapsChild(AstNode scope, Set<String> names) {
+  final args = switch (scope) {
+    MethodInvocation() => scope.argumentList,
+    InstanceCreationExpression() => scope.argumentList,
+    _ => null,
+  };
+  if (args == null) return false;
+  for (final a in args.arguments) {
+    if (a is NamedArgument && a.name.lexeme == 'child') {
+      return names.any((n) => _mentions(a.argumentExpression, n));
+    }
+  }
+  return false;
+}
+
+/// [child] and every local variable of [body] whose initializer uses a name
+/// already in the set (`final content = child!;`), to a fixpoint.
+Set<String> _aliases(FunctionBody body, String child) {
+  final vars = _Variables();
+  body.accept(vars);
+  final names = {child};
+  var grew = true;
+  while (grew) {
+    grew = false;
+    for (final v in vars.found) {
+      if (names.contains(v.name.lexeme)) continue;
+      if (names.any((n) => _mentions(v.initializer!, n))) {
+        names.add(v.name.lexeme);
+        grew = true;
+      }
+    }
+  }
+  return names;
+}
+
+class _Variables extends RecursiveAstVisitor<void> {
+  final found = <VariableDeclaration>[];
+
+  @override
+  void visitVariableDeclaration(VariableDeclaration node) {
+    if (node.initializer != null) found.add(node);
+    super.visitVariableDeclaration(node);
+  }
 }
 
 /// The name of the second positional parameter of a builder: the child.
@@ -2085,16 +2543,61 @@ Set<String> _attributedUses(_Readers readers, SourceFile file, int offset) {
               : 'a top-level helper',
         ),
   ];
+  bool inAround(AstNode n) =>
+      around.any((r) => n.offset >= r.span.start && n.offset < r.span.end);
+  // What the test refers to by name: in its own callback, in the `setUp` and
+  // `setUpAll` around it and in the loops that make it, and, to a fixpoint, in
+  // whatever those refer to.
+  final referenced = <String>{
+    ..._names(p, own),
+    for (final n in [...p.setUpCalls, ...p.index.loops].where(inAround))
+      ..._names(p, (start: n.offset, end: n.end)),
+  };
+  for (var grew = true; grew;) {
+    grew = false;
+    for (final b in p.index.bindings) {
+      if (referenced.contains(b.name)) {
+        for (final n in _names(p, b.span)) {
+          grew |= referenced.add(n);
+        }
+      }
+    }
+  }
+  // A reader built around the tests counts when a `setUp`, `setUpAll` or loop
+  // builds it, or when the declaration that builds it is referred to. One in
+  // an app's own arguments belongs to that app, which is judged on its own.
+  bool counts(_Hit h, String origin) {
+    if (p.apps.any((a) => h.offset >= a.argsStart && h.offset < a.argsEnd)) {
+      return false;
+    }
+    if (_builtIn(p, h.offset, origin) != origin) return true;
+    final holders = [
+      for (final b in p.index.bindings)
+        if (h.offset >= b.span.start && h.offset < b.span.end) b,
+    ];
+    return holders.isEmpty || holders.any((b) => referenced.contains(b.name));
+  }
+
   return {
     for (final h in hits)
       if (h.offset >= own.start && h.offset < own.end) h.text,
     for (final r in around)
       for (final h in hits)
-        if (h.offset >= r.span.start && h.offset < r.span.end)
+        if (h.offset >= r.span.start &&
+            h.offset < r.span.end &&
+            counts(h, r.origin))
           '${h.text} (reader built in ${_builtIn(p, h.offset, r.origin)} '
               'at line ${p.lineOf(h.offset)})',
   };
 }
+
+/// The identifiers (not member names after a dot) in [span] of [p].
+Set<String> _names(_Parsed p, _Span span) => {
+  for (final m in _identifier.allMatches(
+    p.code.substring(span.start, span.end),
+  ))
+    m.group(0)!,
+};
 
 /// [span] without the `test`, `testWidgets` and `group` calls in it that no
 /// other such call in it holds: what is built around the tests of a group.
@@ -2274,6 +2777,8 @@ class _Decl {
   late final String body = _parse(file).code.substring(offset, end);
 
   /// A class, mixin, enum or extension type: a declaration with members.
+  bool get isExtension => node is ExtensionDeclaration;
+
   bool get isType =>
       node is ClassDeclaration ||
       node is ClassTypeAlias ||
@@ -2428,10 +2933,12 @@ _Readers _readersOf(List<SourceFile> files) {
       if (d.name.startsWith('_') && m.library != d.library) continue;
       reach(m);
     }
-    if (d.on != null) {
+    if (d.isExtension) {
       // An extension is reached through its members, `context.view` from
       // anywhere that sees it, or a bare `view` in the body of the type it
-      // extends. Its receiver is not a reader just for being extended.
+      // extends. Its receiver is not a reader just for being extended. Its
+      // members count whatever it extends, a type with no name (`Widget
+      // Function()`) included; only a named receiver is compared.
       for (final member in d.memberNames) {
         (members[member] ??= {}).add(d.library);
         final use = RegExp('\\.\\s*$member\\b');
@@ -2446,7 +2953,8 @@ _Readers _readersOf(List<SourceFile> files) {
           // bare; the chain `build` -> `_outer` -> `_inner` is followed to
           // its end because each reached declaration is queued in turn.
           if (use.hasMatch(other.body) ||
-              ((other.name == d.on || other.on == d.on) &&
+              (d.on != null &&
+                  (other.name == d.on || other.on == d.on) &&
                   bare.hasMatch(other.body))) {
             reach(other);
           }

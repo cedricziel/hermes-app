@@ -92,10 +92,20 @@ To see one widget in every state without a flow around it, use the
     barrels are not followed, so a library re-exported elsewhere is seen only
     through its own imports; a function that returns a record of widgets is not
     followed; a tear-off is looked up by name in its own file only (not through a
-    `part`, an import or a local variable); an early `return child!` before an
-    unconditional-looking mount is not caught. Reader names, seeds and finders
-    are still matched as words in the comment-free text of the range the syntax
-    tree gives (`_wordsPattern`, `_seed`), not as nodes.
+    `part`, an import or a local variable). A mount that depends on a condition
+    on a reference to the scope (`final s = AppThemeScopes(child: child!);
+    return on ? s : child!;`) or on an early `return child!` before it is not
+    caught; these are on the roadmap. Reader names, seeds and finders are still
+    matched as words in the comment-free text of the range the syntax tree gives
+    (`_wordsPattern`, `_seed`), not as nodes.
+  - A scope that wraps a local made of the child (`final content = child!;
+    return AppThemeScopes(child: content);`) mounts, and only the scope's
+    `child:` counts, not its `key:`. A reader built around the tests counts
+    only when a `setUp`, `setUpAll` or loop builds it, or when something the
+    test refers to by name (transitively) does; a reader in a mounted app's own
+    arguments, or in a declaration nothing refers to, is not blamed on another
+    test. Every file the guard scans has to parse without errors; a fixture may
+    be a bare snippet, a real file may not.
   - `the analyzer API canary` parses a snippet with every construct the guard
     reads (named arguments, bare and prefixed calls, constructions, extensions
     and their members, directives, conditionals, loops) and names the ones the
@@ -108,10 +118,13 @@ To see one widget in every state without a flow around it, use the
   `test/app_theme_scopes_test.dart` compares the theme-like inherited widgets
   above the `Navigator` in `HermesApp` and `pumpScreen` (a scope added in
   `app.dart` that the harness lacks fails it; a chrome-only inherited widget goes
-  on its `_notTheme` list) and, as a source check (a file may not build more
-  `MaterialApp`, `.router`, `CupertinoApp` or `WidgetsApp` constructors than
-  `AppThemeScopes(` calls), that every app in `lib/` (the conversation window and
-  quick panel engines too) mounts it. It does not catch a scope added between the
+  on its `_notTheme` list) and, as a source check, that a file in `lib/` does
+  not build more apps (`MaterialApp`, `.router`, `CupertinoApp` or `WidgetsApp`,
+  `HermesApp` aside) than it has `AppThemeScopes(` calls. That is a file-level
+  count: it does not prove that each app mounts the scope (two apps and two scope calls pass
+  even when one scope is in `home:`), so every app in `lib/` (the
+  conversation window and quick panel engines too) still has to mount it in its
+  `builder:`. It does not catch a scope added between the
   `Navigator` and a route, or a value changed inside an existing type such as
   `scrollBehavior`.
 - Fonts must be loaded inside the test body (`shots.start` does it). Loaded in a
