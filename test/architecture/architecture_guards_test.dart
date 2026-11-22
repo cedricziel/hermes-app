@@ -144,9 +144,11 @@ final _rawExpansionTile = RegExp(
   r'(?<![\w.])(?:\w+\.)*\bExpansionTile(?:\s*[<(]|\.\w+)',
 );
 
-/// A floating button not directly inside `FocusRing.outside(radius: ..., child:`.
+/// A floating button not directly inside `FocusRing.outside(radius: ..., child:`
+/// (or `FocusRing(radius: ..., inset: 0, child:` for the mini button's tap box).
 final _bareFloatingButton = RegExp(
   r'(?<!FocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*)'
+  r'(?<!FocusRing\(\s*radius:\s*[^,()]+,\s*inset:\s*0,\s*child:\s*)'
   r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?:(?:\.\w+)?\s*[<(]|\.\w+)',
 );
 
@@ -911,6 +913,14 @@ void main() {
         isTrue,
       );
       expect(bare('Tooltip(child: FloatingActionButton(a))'), isTrue);
+      expect(
+        bare('FocusRing(radius: 24, inset: 0, child: FloatingActionButton(a))'),
+        isFalse,
+      );
+      expect(
+        bare('FocusRing(radius: 24, inset: 2, child: FloatingActionButton(a))'),
+        isTrue,
+      );
       expect(bare('child: m.FloatingActionButton(onPressed: f)'), isTrue);
       expect(bare('child: m.FloatingActionButton.extended(a)'), isTrue);
       expect(bare('builder: FloatingActionButton.new'), isTrue);
