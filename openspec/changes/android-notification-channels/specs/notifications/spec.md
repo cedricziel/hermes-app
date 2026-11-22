@@ -17,7 +17,7 @@ The system SHALL post notifications on Android, iOS and macOS, through the Andro
 
 ### Requirement: Android notification channels
 
-On Android the system SHALL post each notification through the channel for its kind, so the user can control each kind in the system settings: `chat_replies` for finished and failed replies, `chat_requests` for approvals, questions and needs-you requests (including the background check's generic one) and the notices "Couldn't send your answer" and "Open Hermes to answer.", `agent_messages` for messages from Hermes and their summary, and `scheduled_tasks` for a scheduled task's run. The first three SHALL have high importance and `scheduled_tasks` default importance. The channel SHALL depend only on the kind of notification, never on its title, body, profile or any server value. Once the migration step below has finished, the channels SHALL exist before the next notification is posted, in the app and in a background run; until then notifications use `agent_activity`. The channel ids are permanent. A channel's name and description SHALL be the app's text in the user's language, set when the channel is created and updated when the app's language changes, and SHALL never carry a title, profile name, server address or identifier. The channels do not change a notification's body, buttons, lock-screen visibility, tag or grouping.
+On Android the system SHALL post each notification through the channel for its kind, so the user can control each kind in the system settings: `chat_replies` for finished and failed replies, `chat_requests` for approvals, questions and needs-you requests (including the background check's generic one) and the notices "Couldn't send your answer" and "Open Hermes to answer.", `agent_messages` for messages from Hermes and their summary, and `scheduled_tasks` for a scheduled task's run. The first three SHALL have high importance and `scheduled_tasks` default importance. The channel SHALL depend only on the kind of notification, never on its title, body, profile or any server value. Once the migration step below has finished, the channels SHALL exist before the next notification is posted, in the app and in a background run; until then notifications use `agent_activity`. The channel ids are permanent. A channel's name and description SHALL be the app's text in the user's language, set when the channel is created and updated when the app's language changes once the migration step has finished, and SHALL never carry a title, profile name, server address or identifier. The channels do not change a notification's body, buttons, lock-screen visibility, tag or grouping.
 
 #### Scenario: A reply finishes
 
@@ -47,9 +47,14 @@ On Android the system SHALL post each notification through the channel for its k
 
 #### Scenario: Language changes
 
-- **WHEN** the app's language changes
+- **WHEN** the app's language changes after the migration step has finished
 - **THEN** the channels' names and descriptions follow it
 - **AND** no channel's importance changes
+
+#### Scenario: Language changes while the migration is pending
+
+- **WHEN** the app's language changes before the migration step has finished
+- **THEN** no channel is created or renamed
 
 #### Scenario: Another platform
 

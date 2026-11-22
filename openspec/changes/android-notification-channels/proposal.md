@@ -25,7 +25,7 @@ The app has only one channel today, so the split is new work: nothing else creat
 
 - Categories the app does not send are not created. There is no server-alert notification (the Server screen's status is read in the app and sends nothing) and no ongoing or foreground-service notification on Android (the background refresh is WorkManager with no visible notification; Live Activities are iOS only). A low-importance "background" channel would be empty, and an empty channel only clutters the system settings. When one of them exists, it gets its own change and its own id.
 - The old `agent_activity` channel stops being used. The migration (design.md) carries a mute over to the new channels, then deletes the old one once.
-- Channel names and descriptions come from the ARB files, set when the channels are created and again on a locale change (Android lets name and description be updated).
+- Channel names and descriptions come from the ARB files, set when the channels are created and again on a locale change once the migration has finished (Android lets name and description be updated).
 - iOS, macOS, Windows and Linux are untouched: they have no channels.
 
 Non-goals:
