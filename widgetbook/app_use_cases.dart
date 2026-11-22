@@ -35,7 +35,13 @@ import 'package:hermes_app/src/notifications/notifications_dialog.dart';
 import 'package:hermes_app/src/screens/home_screen.dart';
 import 'package:hermes_app/src/screens/login_screen.dart';
 import 'package:hermes_app/src/screens/server_setup_screen.dart';
+import 'package:hermes_app/src/memory/widgets/memory_choice_dialog.dart';
 import 'package:hermes_app/src/settings/about_dialog.dart';
+import 'package:hermes_app/src/voice/calls/portable_call_settings.dart';
+import 'package:hermes_app/src/voice/dictation_dialog.dart';
+import 'package:hermes_app/src/voice/dictation_settings.dart';
+import 'package:hermes_app/src/voice/on_device_speech.dart';
+import 'package:hermes_app/src/voice/portable_calls_dialog.dart';
 import 'package:hermes_app/src/settings/appearance_dialog.dart';
 import 'package:hermes_app/src/settings/report_bug_link.dart';
 import 'package:hermes_app/src/settings/settings_dialog.dart';
@@ -126,6 +132,28 @@ Widget _appLock({required bool available}) => Hosted<AppLockController>(
   builder: (_, lock) =>
       withAppProviders(CatalogAuth(), _dialog(showAppLockDialog), lock: lock),
 );
+
+/// The dictation dialog over [speech], which answers for the on-device model.
+Widget _dictation(OnDeviceSpeech speech) => MultiProvider(
+  providers: [
+    ChangeNotifierProvider(create: (_) => DictationSettings()),
+    Provider<OnDeviceSpeech>.value(value: speech),
+  ],
+  child: _dialog(showDictationDialog),
+);
+
+/// A recognizer whose model for the device language is being downloaded.
+class _DownloadingSpeech extends OnDeviceSpeech {
+  @override
+  Future<OnDeviceModel> status(String locale) async =>
+      OnDeviceModel.downloading;
+
+  @override
+  Stream<double> get installProgress => Stream.value(0.4);
+
+  @override
+  Future<void> install(String locale) => Completer<void>().future;
+}
 
 WidgetbookUseCase _screen(
   String name,
@@ -634,14 +662,32 @@ WidgetbookNode appNode() => WidgetbookFolder(
         ),
         ...onEachPlatform(
           'About',
-          (_) => withAppProviders(
-            CatalogAuth(),
-            _dialog(
-              (context) => showDialog<void>(
-                context: context,
-                builder: (_) =>
-                    AppAboutDialog(version: '0.1.31', openLink: _opensLink),
-              ),
+          (_) => withAppProviders(CatalogAuth(), _dialog(showAppAboutDialog)),
+        ),
+        ...onEachPlatform(
+          'Portable calls',
+          (_) => ChangeNotifierProvider(
+            create: (_) => PortableCallSettings(),
+            child: _dialog(showPortableCallsDialog),
+          ),
+        ),
+        ...onEachPlatform('Dictation', (_) => _dictation(OnDeviceSpeech())),
+        ...onEachPlatform(
+          'Dictation · downloading',
+          (_) => _dictation(_DownloadingSpeech()),
+        ),
+        ...onEachPlatform(
+          'Memory choice',
+          (_) => _dialog(
+            (context) => showMemoryChoice<String>(
+              context,
+              title: 'In-chat reports',
+              options: const [
+                ('off', 'Off'),
+                ('on', 'On'),
+                ('verbose', 'Verbose'),
+              ],
+              current: 'on',
             ),
           ),
         ),
