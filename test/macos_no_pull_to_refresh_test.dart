@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
@@ -216,6 +217,73 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(refreshed, 1);
+  });
+
+  group('Reload on Windows and Linux', () {
+    for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+      Future<void> pumpDesktop(WidgetTester tester, Widget home) async {
+        final commands = MacCommandRegistry();
+        addTearDown(commands.dispose);
+        tester.view.physicalSize = const Size(900, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildHermesLightTheme(platform: platform),
+            localizationsDelegates: kTestLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            builder: macCommandsBuilder(commands, desktopKeys: true),
+            home: home,
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> ctrlR(WidgetTester tester) async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('Ctrl+R and F5 reload the active workers on $platform', (
+        tester,
+      ) async {
+        await pumpDesktop(
+          tester,
+          KanbanWorkersScreen(
+            repository: KanbanRepository(server.client()),
+            board: 'ops',
+            onChanged: () {},
+          ),
+        );
+        const path = '/api/plugins/kanban/workers/active';
+        final before = server.requestsTo('GET', path).length;
+        await ctrlR(tester);
+        expect(server.requestsTo('GET', path).length, before + 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+        await tester.pumpAndSettle();
+        expect(server.requestsTo('GET', path).length, before + 2);
+      });
+
+      testWidgets('Ctrl+R and F5 reload the Plugins tab on $platform', (
+        tester,
+      ) async {
+        await pumpDesktop(
+          tester,
+          PluginsScreen(
+            repository: HermesPluginManagerRepository(server.client().raw),
+          ),
+        );
+        const path = '/api/dashboard/plugins/hub';
+        final before = server.requestsTo('GET', path).length;
+        await ctrlR(tester);
+        expect(server.requestsTo('GET', path).length, before + 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+        await tester.pumpAndSettle();
+        expect(server.requestsTo('GET', path).length, before + 2);
+      });
+    }
   });
 
   group('View > Reload on the Mac', () {

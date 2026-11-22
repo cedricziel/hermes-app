@@ -21,7 +21,12 @@ extension _ChatScreenLayout on _ChatScreenState {
       ),
       actions: [
         NamedIconButton(
-          label: 'New message',
+          label: context.l10n.chatWidgetsNewMessage,
+          tooltip: withChordHint(
+            context,
+            context.l10n.chatWidgetsNewMessage,
+            MacCommand.newChat,
+          ),
           icon: AppIcons.compose,
           onPressed: _newThread,
         ),
@@ -456,7 +461,12 @@ extension _ChatScreenLayout on _ChatScreenState {
                       ),
                       actions: [
                         NamedIconButton(
-                          label: 'New message',
+                          label: context.l10n.chatWidgetsNewMessage,
+                          tooltip: withChordHint(
+                            context,
+                            context.l10n.chatWidgetsNewMessage,
+                            MacCommand.newChat,
+                          ),
                           icon: AppIcons.compose,
                           onPressed: _newThread,
                         ),
@@ -487,6 +497,13 @@ extension _ChatScreenLayout on _ChatScreenState {
               MacCommand.find: MacCommandHandler(
                 !_detailOpen && search != null ? _focusSidebarSearch : null,
               ),
+              // Show or hide the sidebar is the chat list's drawer on
+              // Windows and Linux, while the list is showing; a wide window
+              // keeps its sidebar.
+              if (bindsDesktopChords(Theme.of(context).platform))
+                MacCommand.toggleSidebar: MacCommandHandler(
+                  _detailOpen ? null : _toggleDrawer,
+                ),
             },
             child: phone,
           );

@@ -24,6 +24,7 @@ import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
+import 'package:hermes_app/src/navigation/desktop_command_shortcuts.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -170,10 +171,13 @@ void main() {
     bool rows = true,
     TargetPlatform? platform,
     MacCommandRegistry? commands,
+    bool desktopKeys = false,
   }) async {
     Widget app = MaterialApp(
-      builder: (_, child) => AppThemeScopes(child: child!),
       theme: ThemeData(platform: platform),
+      builder: (_, child) => AppThemeScopes(
+        child: desktopKeys ? DesktopCommandShortcuts(child: child!) : child!,
+      ),
       home: Scaffold(
         body: Align(
           alignment: Alignment.topRight,
@@ -580,9 +584,56 @@ void main() {
       expect(commands.handlerFor(MacCommand.nextChange), isNull);
     });
 
-    testWidgets('other platforms keep the keys', (tester) async {
+    for (final platform in [TargetPlatform.windows, TargetPlatform.linux]) {
+      testWidgets('$platform steps with F8 and Shift+F8, not Alt+arrows', (
+        tester,
+      ) async {
+        final commands = MacCommandRegistry();
+        addTearDown(commands.dispose);
+        await tester.runAsync(open);
+        await pumpPanel(
+          tester,
+          platform: platform,
+          commands: commands,
+          desktopKeys: true,
+        );
+        await openFirstFile(tester);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsWidgets,
+        );
+
+        // The old Alt+arrow binding is Mac and touch only.
+        await optionArrow(tester, LogicalKeyboardKey.arrowDown);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsWidgets,
+          reason: '$platform',
+        );
+
+        // Next change is Shift+F8, previous is F8.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f8);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await settle(tester);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsNothing,
+          reason: '$platform',
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.f8);
+        await settle(tester);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsWidgets,
+          reason: '$platform',
+        );
+      });
+    }
+
+    testWidgets('Android keeps the Alt+arrow keys', (tester) async {
       await tester.runAsync(open);
-      await pumpPanel(tester, platform: TargetPlatform.windows);
+      await pumpPanel(tester, platform: TargetPlatform.android);
       await openFirstFile(tester);
       expect(find.text(breakableFileName('token_refresh.dart')), findsWidgets);
 

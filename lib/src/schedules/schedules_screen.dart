@@ -14,6 +14,7 @@ import 'schedule_detail.dart';
 import 'schedule_models.dart';
 import 'schedules_controller.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../shell/shell_navigation.dart';
 import 'schedules_list.dart';
 
@@ -194,7 +195,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
         () => _new(wide: _split),
         title: context.l10n.macosMenuNewSchedule,
       ),
-      if (platformChromeOf(context) == PlatformChrome.macos)
+      if (platformChromeOf(context) == PlatformChrome.macos ||
+          bindsDesktopChords(Theme.of(context).platform))
         MacCommand.reload: MacCommandHandler(
           _reloading ? null : () => unawaited(_reload()),
         ),

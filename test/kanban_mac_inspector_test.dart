@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_create_screen.dart';
@@ -69,6 +70,7 @@ void main() {
     Size size = const Size(1400, 900),
     TargetPlatform platform = TargetPlatform.macOS,
     MacCommandRegistry? commands,
+    bool desktopKeys = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -78,7 +80,7 @@ void main() {
         create: (_) => AuthController(),
         child: MaterialApp(
           theme: buildHermesLightTheme(platform: platform),
-          builder: macCommandsBuilder(commands),
+          builder: macCommandsBuilder(commands, desktopKeys: desktopKeys),
           home: KanbanScreen(
             repository: KanbanRepository(server.client()),
             connect: ({required since, board}) async =>
@@ -115,6 +117,34 @@ void main() {
     );
     expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
   });
+
+  for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+    testWidgets('Ctrl+R and F5 read the board again on $platform', (
+      tester,
+    ) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pumpBoard(
+        tester,
+        platform: platform,
+        commands: commands,
+        desktopKeys: true,
+      );
+      int boards() =>
+          server.requestsTo('GET', '/api/plugins/kanban/board').length;
+      final before = boards();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(boards(), before + 1);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await tester.pumpAndSettle();
+      expect(boards(), before + 2);
+    });
+  }
 
   testWidgets('the Mac toolbar names the board, the filter and the count', (
     tester,

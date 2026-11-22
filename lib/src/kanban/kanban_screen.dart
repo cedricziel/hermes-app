@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/auth_controller.dart';
 import '../chat/widgets/new_chat_fab.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../navigation/desktop_navigation_history.dart';
 import '../macos/mac_toolbar.dart';
 import '../theme/platform_chrome.dart';
@@ -185,7 +186,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       _newTask,
       title: context.l10n.macosMenuNewTask,
     ),
-    if (_mac)
+    if (_mac || bindsDesktopChords(Theme.of(context).platform))
       MacCommand.reload: MacCommandHandler(
         _reloading ? null : () => unawaited(_reload()),
       ),

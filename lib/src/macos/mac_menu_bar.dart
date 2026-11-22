@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
@@ -6,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
+import '../navigation/desktop_command_shortcuts.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../settings/about_dialog.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/platform_chrome.dart';
@@ -45,6 +49,7 @@ class _MacMenuBarState extends State<MacMenuBar> {
   late final _rootCommands = {
     MacCommand.about: MacCommandHandler(_about),
     MacCommand.help: MacCommandHandler(_help),
+    MacCommand.keyboardShortcuts: MacCommandHandler(_keyboardShortcuts),
     MacCommand.closeWindow: const MacCommandHandler(MacWindow.close),
     MacCommand.showMainWindow: const MacCommandHandler(MacWindow.orderFront),
   };
@@ -114,6 +119,11 @@ class _MacMenuBarState extends State<MacMenuBar> {
     if (context != null) showAppAboutDialog(context);
   }
 
+  void _keyboardShortcuts() {
+    final context = widget.navigatorKey.currentContext;
+    if (context != null) unawaited(showKeyboardShortcuts(context));
+  }
+
   Future<void> _help() async {
     try {
       await launchUrl(_helpUrl, mode: LaunchMode.externalApplication);
@@ -128,7 +138,9 @@ class _MacMenuBarState extends State<MacMenuBar> {
       value: _edit,
       child: MacCommandScope.root(
         registry: _registry,
-        child: MacCommandScope(commands: _rootCommands, child: widget.child),
+        child: DesktopCommandShortcuts(
+          child: MacCommandScope(commands: _rootCommands, child: widget.child),
+        ),
       ),
     );
     if (!MacWindow.enabled ||

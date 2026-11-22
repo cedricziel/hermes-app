@@ -1256,21 +1256,26 @@ def _is_gh_program(words):
     return bool(argv) and (_has_gh_token(argv[0]) or _glob_prog(argv[0]))
 
 
+def _find_actions(words):
+    """The argv of each `find` -exec/-execdir/-ok/-okdir action, up to its `;` or a `{}` followed by `+`."""
+    actions = []
+    k = 1
+    while k < len(words):
+        if words[k] in ("-exec", "-execdir", "-ok", "-okdir"):
+            e = k + 1
+            while e < len(words) and not (words[e] == ";" or (words[e] == "+" and words[e - 1] == "{}")):
+                e += 1
+            actions.append(words[k + 1 : e])
+            k = e
+        k += 1
+    return actions
+
+
 def _runner_has_gh(prog, argv):
     """True when a runner's execution region holds a gh call (cloud sessions)."""
     words = argv
     if prog == "find":
-        k = 1
-        while k < len(words):
-            if words[k] in ("-exec", "-execdir", "-ok", "-okdir"):
-                e = k + 1
-                while e < len(words) and words[e] not in (";", "+"):
-                    e += 1
-                if _is_gh_program(words[k + 1 : e]):
-                    return True
-                k = e
-            k += 1
-        return False
+        return any(_is_gh_program(a) for a in _find_actions(words))
     end = len(words)
     if prog == "parallel":
         for k, w in enumerate(words):
@@ -1470,6 +1475,11 @@ def _check_cmds(cmds, cwd, depth):
                     m = _gh_policy(oargv[1:])
         else:
             m = _check_program(argv)
+            if not m and prog == "find":
+                for action in _find_actions(argv):
+                    a = _strip_prefix(action)
+                    if a and os.path.basename(a[0]) == "git":
+                        m = m or _check_git(a, cwd, saw_setup, action[: max(0, len(action) - len(a))])
             if not m and _is_cloud() and prog in GH_RUNNERS and _runner_has_gh(prog, argv):
                 m = MSG_GH_RUNNER
         if m:

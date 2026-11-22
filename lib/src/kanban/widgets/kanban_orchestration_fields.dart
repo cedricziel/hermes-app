@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/grouped_form.dart';
 import '../../widgets/grouped_list.dart';
 
@@ -28,6 +29,7 @@ class KanbanOrchestrationFields extends StatelessWidget {
   final String? error;
 
   Widget _profilePicker(
+    AppLocalizations l10n,
     String label,
     String value,
     ValueChanged<String> onChanged,
@@ -38,12 +40,15 @@ class KanbanOrchestrationFields extends StatelessWidget {
       '',
       ...{...profiles, if (value.isNotEmpty) value},
     ],
-    labelOf: (name) => name.isEmpty ? 'Active profile ($activeProfile)' : name,
+    labelOf: (name) => name.isEmpty
+        ? l10n.kanbanOrchestrationActiveProfile(activeProfile)
+        : name,
     onSelected: onChanged,
   );
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (loading || error != null) {
       return SizedBox(
         height: 80,
@@ -61,14 +66,14 @@ class KanbanOrchestrationFields extends StatelessWidget {
         GroupedSection(
           children: [
             GroupedSwitchRow(
-              title: 'Auto-decompose triage tasks',
-              caption: 'Off: decompose by hand',
+              title: l10n.kanbanOrchestrationAutoDecompose,
+              caption: l10n.kanbanOrchestrationAutoDecomposeCaption,
               value: autoDecompose,
               onTap: () => onDecomposeChanged(!autoDecompose),
               onChanged: onDecomposeChanged,
             ),
             GroupedSwitchRow(
-              title: 'Promote children when ready',
+              title: l10n.kanbanOrchestrationAutoPromote,
               value: autoPromote,
               onTap: () => onPromoteChanged(!autoPromote),
               onChanged: onPromoteChanged,
@@ -78,12 +83,14 @@ class KanbanOrchestrationFields extends StatelessWidget {
         GroupedSection(
           children: [
             _profilePicker(
-              'Orchestrator profile',
+              l10n,
+              l10n.kanbanOrchestrationOrchestrator,
               orchestrator,
               onOrchestratorChanged,
             ),
             _profilePicker(
-              'Default assignee',
+              l10n,
+              l10n.kanbanOrchestrationDefaultAssignee,
               defaultAssignee,
               onAssigneeChanged,
             ),

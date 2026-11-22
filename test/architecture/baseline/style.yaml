@@ -338,7 +338,7 @@ style.string:
   lib/src/chat/widgets/attachment_views.dart: 3
   lib/src/chat/widgets/billing_verification_card.dart: 9
   lib/src/chat/widgets/chat_composer.dart: 6
-  lib/src/chat/widgets/chat_header.dart: 2
+  lib/src/chat/widgets/chat_header.dart: 1
   lib/src/chat/widgets/clarify_card.dart: 4
   lib/src/chat/widgets/composer_stop_button.dart: 2
   lib/src/chat/widgets/connector_operation_card.dart: 9
@@ -350,7 +350,6 @@ style.string:
   lib/src/chat/widgets/message_actions.dart: 1
   lib/src/chat/widgets/message_drag_grip.dart: 1
   lib/src/chat/widgets/moa_progress_card.dart: 5
-  lib/src/chat/widgets/new_chat_fab.dart: 2
   lib/src/chat/widgets/process_output_card.dart: 4
   lib/src/chat/widgets/queued_prompts.dart: 9
   lib/src/chat/widgets/quick_look_target.dart: 5
@@ -358,10 +357,9 @@ style.string:
   lib/src/chat/widgets/reasoning_block.dart: 1
   lib/src/chat/widgets/review_summary_note.dart: 1
   lib/src/chat/widgets/session_status_card.dart: 2
-  lib/src/chat/widgets/thread_actions_menu.dart: 14
   lib/src/chat/widgets/thread_grouping_controls.dart: 3
   lib/src/chat/widgets/thread_search_view.dart: 2
-  lib/src/chat/widgets/thread_sidebar.dart: 15
+  lib/src/chat/widgets/thread_sidebar.dart: 14
   lib/src/chat/widgets/tool_call_bodies.dart: 2
   lib/src/chat/widgets/tool_call_card.dart: 2
   lib/src/chat/widgets/tool_call_group.dart: 1
@@ -370,7 +368,7 @@ style.string:
   lib/src/chat/widgets/welcome_view.dart: 1
   lib/src/chat/widgets/working_dot.dart: 1
   lib/src/handoff/handoff_dialog.dart: 4
-  lib/src/kanban/kanban_boards_screen.dart: 27
+  lib/src/kanban/kanban_boards_screen.dart: 13
   lib/src/kanban/kanban_create_screen.dart: 8
   lib/src/kanban/kanban_errors.dart: 2
   lib/src/kanban/kanban_screen.dart: 13
@@ -383,11 +381,8 @@ style.string:
   lib/src/kanban/widgets/kanban_inspector_layout.dart: 1
   lib/src/kanban/widgets/kanban_list_rows.dart: 6
   lib/src/kanban/widgets/kanban_mac_toolbar.dart: 6
-  lib/src/kanban/widgets/kanban_orchestration_dialog.dart: 3
-  lib/src/kanban/widgets/kanban_orchestration_fields.dart: 2
-  lib/src/kanban/widgets/kanban_task_edit_fields.dart: 2
   lib/src/kanban/widgets/kanban_task_log_dialog.dart: 2
-  lib/src/kanban/widgets/kanban_task_panel.dart: 17
+  lib/src/kanban/widgets/kanban_task_panel.dart: 14
   lib/src/kanban/widgets/kanban_worker_log.dart: 1
   lib/src/kanban/widgets/task_panel/kanban_task_actions.dart: 8
   lib/src/kanban/widgets/task_panel/kanban_task_attachments.dart: 5
@@ -445,7 +440,7 @@ style.string:
   lib/src/quick_panel/widgets/quick_panel_view.dart: 2
   lib/src/quick_panel/widgets/shortcut_recorder_row.dart: 1
   lib/src/schedules/blueprint_screens.dart: 6
-  lib/src/schedules/job_form_screen.dart: 11
+  lib/src/schedules/job_form_screen.dart: 10
   lib/src/schedules/schedule_actions.dart: 4
   lib/src/schedules/schedule_alerts.dart: 1
   lib/src/schedules/schedule_picker.dart: 5

@@ -36,6 +36,7 @@ import '../macos/mac_app.dart';
 import '../macos/mac_window.dart';
 import '../macos/mac_commands.dart';
 import '../navigation/desktop_navigation_history.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../macos/mac_sidebar.dart';
 import '../settings/account_actions.dart';
 import '../settings/settings_dialog.dart';
@@ -721,7 +722,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 : built,
           );
     final chrome = platformChromeOf(context);
-    if (!chrome.isApple) return provided;
+    if (!chrome.isApple && !bindsDesktopChords(Theme.of(context).platform)) {
+      return provided;
+    }
     final mac = chrome == PlatformChrome.macos;
     if (mac && !_macLoaded) {
       _macLoaded = true;

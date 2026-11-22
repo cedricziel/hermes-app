@@ -243,6 +243,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
     );
   }
 
+  /// Opens the drawer of the chat list, or closes it while it is open.
+  void _toggleDrawer() {
+    final scaffold = _chatsScaffoldKey.currentState;
+    if (scaffold == null) return;
+    if (scaffold.isDrawerOpen) {
+      scaffold.closeDrawer();
+    } else {
+      scaffold.openDrawer();
+    }
+  }
+
   /// Opens the Files page of the chat in front.
   void _showFiles(FilesOpenedFrom from) {
     _closeDrawerIfNarrow();
