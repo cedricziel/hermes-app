@@ -13,8 +13,8 @@ import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/mac_commands_builder.dart';
 import '../support/pump_chat.dart';
-import '../support/real_async.dart';
 import '../support/test_localizations.dart';
+import '../support/wait_until.dart';
 
 /// The commands a screen offers on Windows and Linux that only the Mac
 /// offered before: the chord reaches the screen through the registry.
@@ -49,11 +49,10 @@ void main() {
         ),
       );
       int statuses() => server.requestsTo('GET', '/api/status').length;
-      await tester.runAsync(
-        () => waitForReal(
-          () => statuses() >= 1,
-          what: 'the initial status request',
-        ),
+      await waitUntil(
+        tester,
+        () => statuses() >= 1,
+        reason: 'the initial status request',
       );
       await tester.pumpAndSettle();
       final before = statuses();
@@ -61,21 +60,19 @@ void main() {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.runAsync(
-        () => waitForReal(
-          () => statuses() >= before + 1,
-          what: 'the Ctrl+R status request',
-        ),
+      await waitUntil(
+        tester,
+        () => statuses() >= before + 1,
+        reason: 'the Ctrl+R status request',
       );
       await tester.pumpAndSettle();
       expect(statuses(), before + 1);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.f5);
-      await tester.runAsync(
-        () => waitForReal(
-          () => statuses() >= before + 2,
-          what: 'the F5 status request',
-        ),
+      await waitUntil(
+        tester,
+        () => statuses() >= before + 2,
+        reason: 'the F5 status request',
       );
       await tester.pumpAndSettle();
       expect(statuses(), before + 2);
