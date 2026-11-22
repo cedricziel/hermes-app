@@ -213,15 +213,11 @@ void main() {
     // light theme, so a dark test draws near-black headings and light code
     // blocks. Nothing fails at run time: this reads the sources.
     final readers = _readers();
-    final helpers = _testHelpers();
+    final helpers = _testHelpers(readers);
     final bad = <String>[];
     for (final f in dartFiles('test')) {
       if (!f.path.endsWith('_test.dart')) continue;
-      final code = f.code;
-      final unmounted = _apps(code).where((a) => !a.mounted).length;
-      final usesPlain = helpers.plain.any((h) => h.calledIn(code));
-      if (unmounted == 0 && !usesPlain) continue;
-      final used = _readerUses(readers, f);
+      final used = _unmountedReaderUses(readers, helpers, f);
       if (used.isNotEmpty) {
         bad.add('${f.path}: ${(used.toList()..sort()).join(', ')}');
       }
@@ -458,6 +454,121 @@ void main() {
       });
     });
 
+    test('a chain of extensions on one type reaches the type', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/chain.dart',
+          "part 'chain_a.dart';\n"
+              "part 'chain_b.dart';\n"
+              'class ProbeChain extends StatefulWidget {\n'
+              '  State createState() => _ProbeChainState();\n'
+              '}\n'
+              'class _ProbeChainState {\n'
+              '  Widget build(c) => _outer(c);\n'
+              '}\n',
+        ),
+        SourceFile(
+          'lib/a/chain_a.dart',
+          "part of 'chain.dart';\n"
+              'extension _A on _ProbeChainState {\n'
+              '  Widget _outer(c) => _inner(c);\n'
+              '}\n',
+        ),
+        SourceFile(
+          'lib/a/chain_b.dart',
+          "part of 'chain.dart';\n"
+              'extension _B on _ProbeChainState {\n'
+              '  Widget _inner(c) => Text("x", style: mui.Theme.of(c).text);\n'
+              '}\n',
+        ),
+      ]);
+      expect(readers.names, contains('ProbeChain'));
+    });
+
+    group('readers in test code', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/md.dart',
+          'class BoundedMarkdown extends StatelessWidget {\n'
+              "  Widget build(BuildContext context) => GptMarkdown('x');\n"
+              '}\n',
+        ),
+      ]);
+      final helpers = _helpersOf([
+        SourceFile(
+          'test/zz/md_harness.dart',
+          'Future<void> pumpMarkdown(WidgetTester t, String s) =>\n'
+              '    t.pumpWidget(MaterialApp(home: Scaffold(body: '
+              'BoundedMarkdown(s))));\n'
+              'Future<void> pumpPreview(WidgetTester t) =>\n'
+              '    pumpMarkdown(t, "x");\n'
+              'Future<void> pumpOuter(WidgetTester t) => pumpPreview(t);\n'
+              'Future<void> pumpText(WidgetTester t) =>\n'
+              '    t.pumpWidget(MaterialApp(home: Text("x")));\n'
+              'Future<void> pumpScoped(WidgetTester t) => t.pumpWidget(\n'
+              '    MaterialApp(\n'
+              '      builder: (_, c) => AppThemeScopes(child: c!),\n'
+              '      home: BoundedMarkdown("x"),\n'
+              '    ),\n'
+              '  );\n',
+        ),
+      ], readers: readers);
+      Set<String> uses(String body) => _unmountedReaderUses(
+        readers,
+        helpers,
+        SourceFile('test/zz/a_test.dart', body),
+      );
+
+      test('a finder is a use when a plain helper renders the reader', () {
+        expect(
+          uses(
+            "await pumpMarkdown(tester, '# h');\n"
+            'expect(find.byType(BoundedMarkdown), findsOneWidget);',
+          ),
+          isNotEmpty,
+        );
+      });
+
+      test('a reader a plain helper renders is a use by every caller', () {
+        expect(uses('await pumpPreview(tester);'), isNotEmpty);
+        expect(uses('await pumpOuter(tester);'), isNotEmpty);
+      });
+
+      test('a text-only plain helper and a scoped helper are accepted', () {
+        expect(uses('await pumpText(tester);'), isEmpty);
+        expect(uses('await pumpScoped(tester);'), isEmpty);
+        expect(
+          uses(
+            'await t.pumpWidget(MaterialApp(home: Text("x")));\n'
+            'expect(find.byType(BoundedMarkdown), findsNothing);',
+          ),
+          isEmpty,
+        );
+      });
+
+      test('a direct seed in an unscoped test app is a reader use', () {
+        expect(
+          uses("await t.pumpWidget(MaterialApp(home: GptMarkdown('x')));"),
+          isNotEmpty,
+        );
+        expect(
+          uses(
+            'await t.pumpWidget(MaterialApp(home: Builder(builder: (c) =>\n'
+            '    Text("x", style: mui.Theme.of(c).text))));',
+          ),
+          isNotEmpty,
+        );
+        expect(
+          uses(
+            'await t.pumpWidget(MaterialApp(\n'
+            '    builder: (_, c) => AppThemeScopes(child: c!),\n'
+            "    home: GptMarkdown('x')));",
+          ),
+          isEmpty,
+        );
+      });
+    });
+
     test('a lib body that uses a prefixed reader is a reader', () {
       final readers = _readersOf([
         SourceFile(
@@ -586,16 +697,40 @@ String _withoutFinders(String code) {
   }
 }
 
-/// The readers [file] (a test) refers to: names and prefixed names, and the
-/// extension members it can see.
-Set<String> _readerUses(_Readers readers, SourceFile file) {
-  final code = _withoutFinders(file.code);
+typedef _Helpers = ({List<_Helper> mounting, List<_Helper> plain});
+
+/// The readers the test [file] refers to when it builds an unmounted app of
+/// its own or calls a helper whose app is unmounted, else none. The readers a
+/// plain helper renders count as uses of every caller.
+Set<String> _unmountedReaderUses(
+  _Readers readers,
+  _Helpers helpers,
+  SourceFile file,
+) {
+  final code = file.code;
+  final unmounted = _apps(code).where((a) => !a.mounted).length;
+  final plainCalled = helpers.plain.where((h) => h.calledIn(code)).toList();
+  if (unmounted == 0 && plainCalled.isEmpty) return const {};
+  return {
+    ..._readerUses(readers, file),
+    for (final h in plainCalled)
+      for (final use in h.uses) '$use (via ${h.name})',
+  };
+}
+
+/// The readers [file] (a test or a helper file) refers to in [within] (its
+/// whole code by default), finders aside: names and prefixed names, the seeds
+/// themselves (`GptMarkdown(`, `mui.Theme.of`) and the extension members it
+/// can see.
+Set<String> _readerUses(_Readers readers, SourceFile file, {String? within}) {
+  final code = _withoutFinders(within ?? file.code);
   return {
     for (final m in _wordsPattern(
       readers.names,
       prefixes: _importPrefixes(file),
     ).allMatches(code))
       m.group(0)!,
+    for (final m in _seed.allMatches(code)) m.group(0)!,
     ..._memberUses(readers, file, code),
   };
 }
@@ -828,8 +963,12 @@ _Readers _readersOf(List<SourceFile> files) {
               other.imports.contains(d.library) ||
               other.imports.contains(d.path);
           if (other == d || !sees) continue;
+          // The extended type, or another extension on it, calls the member
+          // bare; the chain `build` -> `_outer` -> `_inner` is followed to
+          // its end because each reached declaration is queued in turn.
           if (use.hasMatch(other.body) ||
-              (other.name == d.on && bare.hasMatch(other.body))) {
+              ((other.name == d.on || other.on == d.on) &&
+                  bare.hasMatch(other.body))) {
             reach(other);
           }
         }
@@ -921,6 +1060,10 @@ class _Helper {
   final String name;
   final bool isType;
 
+  /// The readers this helper renders itself, or through the plain helpers it
+  /// calls.
+  Set<String> uses = {};
+
   bool calledIn(String code) =>
       RegExp(isType ? '(?<![\\w.])$name\\b' : '(?<![\\w.])$name\\(')
           .hasMatch(code);
@@ -930,19 +1073,21 @@ class _Helper {
 /// named `*_test.dart`: `test/support` and the harnesses beside a directory)
 /// that build an app, split by whether every app they build mounts the scopes,
 /// directly or through another helper.
-({List<_Helper> mounting, List<_Helper> plain}) _testHelpers() => _helpersOf([
+_Helpers _testHelpers(_Readers readers) => _helpersOf([
   for (final f in dartFiles('test'))
     if (!f.path.endsWith('_test.dart')) f,
-]);
+], readers: readers);
 
 /// A helper is plain when any app it builds, or any helper it calls, is plain;
 /// it mounts when it builds apps that all mount or calls only mounting
 /// helpers. Iterates until nothing changes, so a long chain of callers ending
 /// in a plain app is plain whatever the declaration order.
-({List<_Helper> mounting, List<_Helper> plain}) _helpersOf(
-  List<SourceFile> files,
-) {
+_Helpers _helpersOf(List<SourceFile> files, {_Readers? readers}) {
   final decls = [for (final f in files) ..._declarations(f)];
+  final fileOf = {
+    for (final f in files)
+      for (final d in _declarations(f)) d.path: f,
+  };
   final mounting = <String, _Helper>{};
   final plain = <String, _Helper>{};
   var changed = true;
@@ -962,6 +1107,31 @@ class _Helper {
           (apps.isNotEmpty || calls(mounting.values))) {
         mounting[d.name] = helper;
         changed = true;
+      }
+    }
+  }
+  if (readers != null) {
+    final own = {
+      for (final d in decls)
+        if (plain.containsKey(d.name))
+          d.name: _readerUses(readers, fileOf[d.path]!, within: d.body),
+    };
+    var grew = true;
+    while (grew) {
+      grew = false;
+      for (final d in decls) {
+        final h = plain[d.name];
+        if (h == null) continue;
+        final uses = {...own[d.name]!, ...h.uses};
+        for (final other in plain.values) {
+          if (other.name != d.name && other.calledIn(d.body)) {
+            uses.addAll(other.uses);
+          }
+        }
+        if (uses.length > h.uses.length) {
+          h.uses = uses;
+          grew = true;
+        }
       }
     }
   }
