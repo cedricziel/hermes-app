@@ -53,7 +53,7 @@ add a test, do not work around it.
   while `gh` is a word of the command. Quoted text like `git commit -m "gh x"`
   passes. Not covered: `gh` run from inside a script file or a `python -c`.
 - In local and cloud sessions alike, each `find -exec/-execdir/-ok/-okdir`
-  action (after `env`/`sudo`/`timeout`/`nice`, up to its `;` or `+`) gets the same
+  action (after `env`/`sudo`/`timeout`/`nice`, up to its `;`, or a `{}` followed by `+`) gets the same
   git checks and messages as a direct command; `find -exec sh -c 'git stash'` is not unwrapped.
 - Beyond git it also blocks `gh pr merge --delete-branch`, `gh api -X DELETE`
   on `git/refs`, `-c alias.*` and `GIT_CONFIG_KEY_*` for `core.hooksPath` or
