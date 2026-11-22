@@ -9,6 +9,10 @@
 /// The `architecture-guards` skill says how to add a rule and prove it fails.
 library;
 
+import 'package:analyzer/dart/analysis/features.dart';
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'ratchet.dart';
@@ -642,6 +646,172 @@ List<Hit> _testsReadingDocs() {
 }
 
 /// Every guard of this file.
+/// The widgets that draw the keyboard focus ring for what is built inside
+/// them: [FocusRing] (and `FocusRing.outside`), the grouped row and its ink,
+/// and the mini floating button's ring.
+const _ringOwners = {
+  'FocusRing',
+  'GroupedRow',
+  'GroupedRowInk',
+  'MiniFabFocusRing',
+};
+
+/// The classes whose `InkWell` or `InkResponse` takes its ring from somewhere
+/// other than an enclosing ring widget, as `path#Class`, each with the reason.
+/// Exact: an entry that no longer matches a call fails, so the list shrinks with
+/// the code.
+const _inkWellRingOwnedElsewhere = <String, String>{
+  'lib/src/widgets/grouped_list.dart#GroupedRowInk':
+      'the building block itself: it wraps the ink well it builds in a '
+      'FocusRing in the same build (through a local, which the syntax tree '
+      'does not follow), unless the row takes no focus or draws its own mark',
+};
+
+/// How a call reads in the parse tree (nothing is resolved): the type it names
+/// and the named constructor, if any. `a.B(` is the constructor of `B` under
+/// the import prefix `a` or the named constructor `B` of the type `a`, so a
+/// call has up to two shapes.
+List<({String type, String? named})> _inkCallShapes(AstNode node) {
+  if (node is InstanceCreationExpression) {
+    return [
+      (
+        type: node.constructorName.type.name.lexeme,
+        named: node.constructorName.name?.name,
+      ),
+    ];
+  }
+  if (node is MethodInvocation && !node.isCascaded) {
+    final target = node.target;
+    final name = node.methodName.name;
+    if (target == null) return [(type: name, named: null)];
+    if (target is SimpleIdentifier) {
+      return [(type: name, named: null), (type: target.name, named: name)];
+    }
+    if (target is PrefixedIdentifier) {
+      return [(type: target.identifier.name, named: name)];
+    }
+  }
+  return const [];
+}
+
+bool _isInkCall(AstNode node) => _inkCallShapes(node).any(
+  (s) => s.named == null && (s.type == 'InkWell' || s.type == 'InkResponse'),
+);
+
+ArgumentList? _argumentsOf(AstNode node) => switch (node) {
+  InstanceCreationExpression() => node.argumentList,
+  MethodInvocation() => node.argumentList,
+  _ => null,
+};
+
+/// Whether the ink well [node] has a tap handler that is not a literal null.
+bool _hasTapHandler(AstNode node) {
+  for (final a in _argumentsOf(node)?.arguments ?? const <Expression>[]) {
+    if (a is NamedArgument && a.name.lexeme == 'onTap') {
+      return a.argumentExpression is! NullLiteral;
+    }
+  }
+  return false;
+}
+
+/// Whether [node] sits inside a call that draws the ring (a [_ringOwners]
+/// widget) or inside a button, whose theme draws it.
+bool _insideRingOwner(AstNode node) {
+  for (var p = node.parent; p != null; p = p.parent) {
+    for (final shape in _inkCallShapes(p)) {
+      if (_ringOwners.contains(shape.type)) return true;
+      if (shape.named == null && shape.type.endsWith('Button')) return true;
+    }
+  }
+  return false;
+}
+
+/// An `InkWell(` or `InkResponse(` with a tap handler that no enclosing ring
+/// widget or button covers, and the `path#Class` it sits in (no class for a
+/// top-level function).
+typedef InkFinding = ({Hit hit, String owner});
+
+/// The `InkWell(` and `InkResponse(` calls of [file] with a tap handler that no
+/// enclosing ring widget or button covers. Read from the analyzer's unresolved
+/// syntax tree, so what encloses a call is what the tree says, not how many
+/// lines above a `FocusRing` happens to be.
+List<InkFinding> inkWellFindingsIn(SourceFile file) {
+  final unit = parseString(
+    content: file.raw,
+    path: file.path,
+    featureSet: FeatureSet.latestLanguageVersion(),
+    throwIfDiagnostics: false,
+  ).unit;
+  final found = <AstNode>[];
+  unit.accept(_InkCalls(found));
+  return [
+    for (final node in found)
+      if (_hasTapHandler(node) && !_insideRingOwner(node))
+        (
+          hit: Hit(
+            file.path,
+            file.lineOf(node.offset),
+            file.lineText(file.lineOf(node.offset)),
+          ),
+          owner:
+              '${file.path}#'
+              '${node.thisOrAncestorOfType<ClassDeclaration>()?.namePart.typeName.lexeme ?? ''}',
+        ),
+  ];
+}
+
+/// Every call of a tree, for the canary.
+class _AllCalls extends RecursiveAstVisitor<void> {
+  _AllCalls._(this.nodes);
+  final List<AstNode> nodes;
+
+  static List<AstNode> of(AstNode unit) {
+    final all = <AstNode>[];
+    unit.accept(_AllCalls._(all));
+    return all;
+  }
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    nodes.add(node);
+    super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    nodes.add(node);
+    super.visitInstanceCreationExpression(node);
+  }
+}
+
+class _InkCalls extends RecursiveAstVisitor<void> {
+  _InkCalls(this.found);
+  final List<AstNode> found;
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    if (_isInkCall(node)) found.add(node);
+    super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    if (_isInkCall(node)) found.add(node);
+    super.visitInstanceCreationExpression(node);
+  }
+}
+
+List<InkFinding>? _inkFindings;
+
+List<InkFinding> _allInkFindings() => _inkFindings ??= [
+  for (final file in dartFiles('lib')) ...inkWellFindingsIn(file),
+];
+
+List<Hit> _inkWellHits() => [
+  for (final f in _allInkFindings())
+    if (!_inkWellRingOwnedElsewhere.containsKey(f.owner)) f.hit,
+];
+
 final guardRules = <Rule>[
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
   _guard(
@@ -873,6 +1043,21 @@ final guardRules = <Rule>[
         '(lib/src/theme/focus_ring.dart).',
     pattern: _bareListTile,
     view: _code,
+  ),
+
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": a tappable
+  // row or card takes its ring from FocusRing, not from Material's own tint.
+  _custom(
+    name: 'inkwell-without-focus-ring',
+    message:
+        'an InkWell or InkResponse with an onTap takes keyboard focus and shows '
+        'no ring of its own: put it inside FocusRing(radius: <the row\'s '
+        'radius minus 2>, child: ...) for a row or card a container clips, '
+        'FocusRing.outside(radius: ...) for a tap target nothing clips '
+        '(lib/src/theme/focus_ring.dart), or GroupedRowInk / GroupedRow in a '
+        'grouped section; a file whose ring another widget owns goes on '
+        '_inkWellRingOwnedElsewhere with its reason.',
+    hits: _inkWellHits,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": chips take
@@ -1353,6 +1538,144 @@ void main() {
       expect(
         bare('MyFocusRing.outside(radius: 20, child: FloatingActionButton(a))'),
         isTrue,
+      );
+    });
+  });
+
+  group('inkwell guard', () {
+    int hits(String source) =>
+        inkWellFindingsIn(SourceFile('lib/x.dart', source)).length;
+
+    test('a tappable ink well outside a ring is flagged', () {
+      expect(hits('f() => InkWell(onTap: g, child: a);'), 1);
+      expect(hits('f() => InkResponse(onTap: g, child: a);'), 1);
+      expect(hits('f() => const InkWell(onTap: g, child: a);'), 1);
+      expect(hits('f() => new InkWell(onTap: g, child: a);'), 1);
+      expect(hits('f() => m.InkWell(onTap: g, child: a);'), 1);
+      expect(hits('f() => Material(child: InkWell(onTap: g, child: a));'), 1);
+      expect(
+        hits(
+          'f() => Column(children: [InkWell(onTap: g, child: a), '
+          'InkWell(onTap: h, child: b)]);',
+        ),
+        2,
+      );
+    });
+
+    test('the ring must enclose the call, not sit near it', () {
+      // A ring above, below or beside, however close, rings nothing.
+      expect(
+        hits(
+          'f() => Column(children: [FocusRing(child: a), '
+          'InkWell(onTap: g, child: b)]);',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() { final r = FocusRing(radius: 4, child: a);\n'
+          'return InkWell(onTap: g, child: r); }',
+        ),
+        1,
+      );
+      expect(hits('f() => InkWell(onTap: g, child: FocusRing(child: a));'), 1);
+      // And it counts however far down the call is, and however many lines
+      // the arguments take.
+      expect(
+        hits(
+          'f() => FocusRing(\n${'  // pad\n' * 40}  child: Padding(\n'
+          '    padding: p,\n    child: InkWell(\n${'      key: k,\n' * 30}'
+          '      onTap: g,\n      child: a,\n    ),\n  ),\n);',
+        ),
+        0,
+      );
+    });
+
+    test('a ring widget, a grouped row or a button encloses', () {
+      for (final owner in [
+        'FocusRing(radius: 4, child: ',
+        'FocusRing.outside(radius: 8, child: ',
+        'm.FocusRing(child: ',
+        'GroupedRowInk(onTap: g, child: ',
+        'GroupedRow(title: t, onTap: g, trailing: ',
+        'MiniFabFocusRing(child: ',
+        'TextButton(onPressed: g, child: ',
+        'NamedIconButton(onPressed: g, label: l, icon: ',
+      ]) {
+        expect(
+          hits('f() => $owner InkWell(onTap: g, child: a));'),
+          0,
+          reason: owner,
+        );
+      }
+      // An unrelated widget, or one that only ends alike, does not.
+      expect(hits('f() => Padding(child: InkWell(onTap: g));'), 1);
+      expect(hits('f() => NotARing(child: InkWell(onTap: g));'), 1);
+      expect(hits('f() => FocusRingLike(child: InkWell(onTap: g));'), 1);
+    });
+
+    test('only a tap handler makes an ink well focusable here', () {
+      expect(hits('f() => InkWell(child: a);'), 0);
+      expect(hits('f() => InkWell(onTap: null, child: a);'), 0);
+      expect(hits('f() => InkWell(onTap: cond ? g : null, child: a);'), 1);
+      expect(hits('f() => InkWell(onTap: () {}, child: a);'), 1);
+      // Known gap: a handler other than onTap is not read.
+      expect(hits('f() => InkWell(onLongPress: g, child: a);'), 0);
+    });
+
+    test('comments and strings are not code', () {
+      expect(hits('// InkWell(onTap: g)\nf() => 1;'), 0);
+      expect(hits("f() => 'InkWell(onTap: g, child: a)';"), 0);
+      expect(hits('/* InkResponse(onTap: g) */ f() => 1;'), 0);
+    });
+
+    test('the finding names the line and the class it sits in', () {
+      final found = inkWellFindingsIn(
+        SourceFile(
+          'lib/y.dart',
+          'class A {\n  Widget w() => InkWell(\n    onTap: g,\n  );\n}\n'
+              'Widget top() => InkWell(onTap: g);\n',
+        ),
+      );
+      expect(found.map((f) => f.hit.line), [2, 6]);
+      expect(found.map((f) => f.owner), ['lib/y.dart#A', 'lib/y.dart#']);
+    });
+
+    test('an allowlist entry still matches a call, so the list shrinks', () {
+      final owners = {for (final f in _allInkFindings()) f.owner};
+      for (final entry in _inkWellRingOwnedElsewhere.keys) {
+        expect(
+          owners,
+          contains(entry),
+          reason: '$entry no longer has an unringed ink well: remove it',
+        );
+      }
+    });
+
+    test('the analyzer API canary: the parser still produces what the scan '
+        'reads', () {
+      final unit = parseString(
+        content:
+            'f() { InkWell(onTap: g); const InkWell(onTap: g); '
+            'm.InkResponse(onTap: null); FocusRing.outside(radius: 1, '
+            'child: x); }',
+        featureSet: FeatureSet.latestLanguageVersion(),
+      ).unit;
+      final calls = <AstNode>[];
+      unit.accept(_InkCalls(calls));
+      expect(calls, hasLength(3), reason: 'the ink calls it finds');
+      expect(
+        calls.where(_hasTapHandler),
+        hasLength(2),
+        reason: 'a NamedArgument onTap that is not a NullLiteral',
+      );
+      final outside = _AllCalls.of(
+        unit,
+      ).firstWhere((n) => _inkCallShapes(n).any((s) => s.named == 'outside'));
+      expect(
+        _inkCallShapes(outside).any((s) => s.type == 'FocusRing'),
+        isTrue,
+        reason: 'a named constructor reads as its type with a name',
       );
     });
   });
