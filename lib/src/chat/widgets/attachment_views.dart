@@ -394,8 +394,11 @@ class AttachmentCardFrame extends StatelessWidget {
         type: MaterialType.transparency,
         // Nothing clips the card; only a tappable one is focusable (a Mac
         // card opens by double click, a failed download retries on a tap).
+        // The Save button draws its own ring, so the card's follows only the
+        // card's own focus.
         child: FocusRing.outside(
           radius: kHermesRadius,
+          ownFocus: true,
           child: InkWell(
             borderRadius: radius,
             onTap: onTap,

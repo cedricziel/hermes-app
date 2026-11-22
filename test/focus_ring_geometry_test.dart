@@ -33,6 +33,7 @@ import 'package:hermes_app/src/models/model_provider_option.dart'
     show ModelChoice;
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/voice/widgets/voice_orb.dart';
@@ -61,6 +62,7 @@ import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 import 'package:hermes_app/src/widgets/composer_selector_chip.dart';
 import 'package:hermes_app/src/widgets/disclosure_tile.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
+import 'package:hermes_app/src/widgets/named_icon_button.dart';
 
 /// The drawn geometry of the keyboard focus ring against what is painted: the
 /// ring follows the visible shape, not the layout box round it. An outside
@@ -742,6 +744,69 @@ void main() {
         name: 'retry card',
       );
     });
+
+    /// The card with its Save button, as a chat shows a downloaded file. Save
+    /// draws its own ring; the card's must stay off while Save has the focus.
+    Widget cardWithSave({VoidCallback? onTap}) => AttachmentCardFrame(
+      attachment: const ChatAttachment(
+        name: 'report.pdf',
+        kind: AttachmentKind.file,
+        size: 4821,
+      ),
+      onTap: onTap,
+      trailing: NamedIconButton(
+        label: 'Save report.pdf',
+        icon: AppIcons.download,
+        onPressed: _ignoreTap,
+      ),
+    );
+
+    final cardRing = find.byWidgetPredicate(
+      (w) =>
+          w is CustomPaint &&
+          w.foregroundPainter is FocusRingPainter &&
+          w.foregroundPainter is! HostFocusRingPainter &&
+          (w.foregroundPainter! as FocusRingPainter).radius == 14 + 4,
+    );
+
+    testOnPlatforms('attachment card: no card ring while Save has focus', (
+      tester,
+      platform,
+    ) async {
+      // A Mac card has no tap and is not focusable; the others are.
+      final onTap = platform == TargetPlatform.macOS ? null : _ignoreTap;
+      await _pump(tester, platform, cardWithSave(onTap: onTap));
+      await _focus(tester, find.byType(NamedIconButton));
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<NamedIconButton>(),
+        isNotNull,
+        reason: 'Save has the focus',
+      );
+      expect(cardRing, findsNothing, reason: 'the card ring stays off');
+    }, platforms: platforms);
+
+    testOnPlatforms(
+      'attachment card: the card ring shows on its own focus',
+      (tester, platform) async {
+        await _pump(tester, platform, cardWithSave(onTap: _ignoreTap));
+        // The card's own node: the nearest one above its content.
+        Focus.of(
+          tester.element(
+            find.descendant(
+              of: find.byType(InkWell),
+              matching: find.byType(Row),
+            ),
+          ),
+        ).requestFocus();
+        await tester.pumpAndSettle();
+        expect(cardRing, findsOneWidget, reason: 'the card itself has focus');
+      },
+      platforms: [
+        for (final p in platforms)
+          if (p != TargetPlatform.macOS) p,
+      ],
+    );
 
     testOnPlatforms('Bot Screen preview: radius 8, into the 4 px above', (
       tester,

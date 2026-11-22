@@ -657,6 +657,42 @@ void main() {
     await gesture.up();
   });
 
+  for (final (ownFocus, shows) in [(false, true), (true, false)]) {
+    testWidgets(
+      'a focused button inside a FocusRing ${shows ? 'lights' : 'leaves dark'} '
+      'the ring with ownFocus: $ownFocus',
+      (tester) async {
+        _strategy(FocusHighlightStrategy.alwaysTraditional);
+        final button = FocusNode();
+        final own = FocusNode();
+        addTearDown(button.dispose);
+        addTearDown(own.dispose);
+        await _pump(
+          tester,
+          buildHermesLightTheme(),
+          FocusRing(
+            ownFocus: ownFocus,
+            child: Focus(
+              focusNode: own,
+              child: TextButton(
+                focusNode: button,
+                onPressed: () {},
+                child: const Text('Save'),
+              ),
+            ),
+          ),
+        );
+        button.requestFocus();
+        await tester.pumpAndSettle();
+        expect(_ringPainter, shows ? findsOneWidget : findsNothing);
+        // The row's own node takes the ring in both modes.
+        own.requestFocus();
+        await tester.pumpAndSettle();
+        expect(_ringPainter, findsOneWidget);
+      },
+    );
+  }
+
   testWidgets('a mouse click that opens a dialog shows no ring on its '
       'autofocused button; the next key does', (tester) async {
     // Nothing has resolved a button style yet, as on a fresh screen.

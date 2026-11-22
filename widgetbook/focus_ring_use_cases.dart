@@ -51,6 +51,7 @@ import 'package:hermes_app/src/models/model_provider_option.dart'
     show ModelChoice, ModelOption, ModelOptions, ModelProviderOption;
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/widgets/named_icon_button.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'bot_screen_fixture.dart';
@@ -900,6 +901,15 @@ List<WidgetbookUseCase> _outside(
     ),
 ];
 
+bool _inSave(FocusNode node) {
+  var found = false;
+  node.context?.visitAncestorElements((element) {
+    found = element.widget is NamedIconButton;
+    return !found;
+  });
+  return found;
+}
+
 bool _inEffort(FocusNode node) {
   var found = false;
   node.context?.visitAncestorElements((element) {
@@ -969,6 +979,27 @@ List<WidgetbookUseCase> _outsideTapTargetUseCases() => [
       'Material': TargetPlatform.android,
       'Mac': TargetPlatform.macOS,
     },
+  ),
+  // Save draws its own ring and the card's stays off. A Mac card has no tap.
+  ..._outside(
+    'Attachment card, Save focused',
+    () => AttachmentCardFrame(
+      attachment: const ChatAttachment(
+        name: 'quarterly-report.pdf',
+        kind: AttachmentKind.file,
+        size: 482113,
+      ),
+      onTap: _noop,
+      trailing: NamedIconButton(
+        label: 'Save quarterly-report.pdf',
+        tooltip: 'Save',
+        icon: AppIcons.download,
+        iconSize: 20,
+        visualDensity: VisualDensity.compact,
+        onPressed: _noop,
+      ),
+    ),
+    where: _inSave,
   ),
   ..._outside(
     'Bot Screen preview',
