@@ -69,7 +69,9 @@ The pass above did not record these; they are checked against the real theme tok
   | Bot Screen key, copy buttons (tool value, code block), voice orb, "What's the difference" link | 2 px outside | Not clipped |
   | `new_chat_fab`, scroll-to-latest, "New task" | 2 px outside the button | Not clipped; a floating button's shape is not state-aware, so a wrapper, not `FloatingActionButtonThemeData.shape` |
   | `DisclosureTile` header | 2 px inside the header row, radius 8 | The tile's `Material` clips; only the header row, never the tile with its children |
-  | Mac compact menu row, Mac checked menu item, row context menu | 2 px inside, radius 4 | The row's own fill (primary) stays; the checked item and the context menu have no hover fill on a Mac |
+  | Mac compact menu row, Mac checked menu item, row context menu | 2 px inside, radius 4 | The row's own fill (primary) stays; the checked item has no hover fill on a Mac (the theme clears it). The context menu is a plain Material menu, so its focused item takes `Theme.hoverColor` (alpha 0.04) under the ring |
+
+  On a filled row (the Mac menu row, whose focused fill is `colorScheme.primary`) the ring is `onPrimary`, not the link colour, which measures only 1.68:1 against that fill in dark and 3.08:1 in light. `onPrimary` is 17.72:1 in light (white on zinc900) and 16.97:1 in dark (zinc900 on zinc50).
 
   iOS pull-down menu items are not given a ring: `CupertinoMenuItem` is focusable by keyboard and draws Apple's own focus fill. Hand-rolled `InkWell` list rows (sidebar, file, thread, source-list, search-result and similar full-width rows) are not covered yet.
 

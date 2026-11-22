@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
-import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
 
 /// Opens an [AdaptivePopupMenuButton]'s menu from outside, for a right-click
@@ -479,12 +478,14 @@ class _MacMenuRowState extends State<MacMenuRow> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      // The row's own fill follows focus; the keyboard ring is 2 px inside it,
-      // and goes with a pointer press.
+      // The row's own fill follows focus; the keyboard ring is 2 px inside it
+      // and goes with a pointer press. It is onPrimary, not the link colour:
+      // the focused row is filled with the primary colour, where the link
+      // colour measures 1.68:1 (dark) and 3.08:1 (light).
       child: KeyboardFocusBuilder(
         builder: (context, keyboard) => CustomPaint(
           foregroundPainter: keyboard && widget.enabled && focused
-              ? FocusRingPainter(color: context.hermesColors.link, radius: 4)
+              ? FocusRingPainter(color: scheme.onPrimary, radius: 4)
               : null,
           child: Container(
             height: widget.height,

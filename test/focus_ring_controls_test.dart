@@ -91,6 +91,11 @@ Future<void> _pointerPress(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+double _contrast(Color a, Color b) {
+  final (la, lb) = (a.computeLuminance(), b.computeLuminance());
+  return (la > lb ? la + .05 : lb + .05) / (la > lb ? lb + .05 : la + .05);
+}
+
 void main() {
   setUp(resetFocusRingInput);
 
@@ -448,7 +453,13 @@ void main() {
         ]);
         expect(_ringPainter, findsOneWidget);
         final painter = _painter(tester);
-        expect(painter.color, link);
+        // On the primary fill the link colour is 1.68:1 (dark), so the ring is
+        // onPrimary, which clears 3:1 against it.
+        expect(painter.color, theme.colorScheme.onPrimary);
+        expect(
+          _contrast(painter.color, theme.colorScheme.primary),
+          greaterThanOrEqualTo(3),
+        );
         expect(painter.radius, 4);
         expect(painter.inset, kFocusRingOffset);
         final row = tester.getRect(find.byType(MacMenuRow).last);
