@@ -23,7 +23,7 @@ Three PRs, each about 500 changed lines or fewer. Conventional Commit scope `set
 ## 3. PR 3: `docs(settings): record the Settings window`
 
 - [ ] 3.1 Update `docs/architecture/macos.md` (the window, the bridge, the App Lock rule) and `docs/architecture/app-shell.md` if the shell's command changed. Add a note to the `verify-in-app` skill on opening the window.
-- [ ] 3.2 Write failing tests, then add the breadcrumbs and the `settings.window.command_failed` event (`command`, `outcome`), recorded by the main engine's `SettingsWindows`; the tests also check that no value, name or address is in them.
+- [ ] 3.2 Write failing tests first for the failure path with a fake link: a command that times out, finds no owner or is rejected in the window sends `settings.commandFailed` (fixed command name and outcome only) to the main engine, and the main engine's `SettingsWindows` records `settings.window.command_failed` (`command`, `outcome`). Then add that report and the breadcrumbs, recorded by `SettingsWindows`; the tests also check that no value, name or address is in them.
 - [ ] 3.3 Run `/simplify`, `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then check the window on a Mac with `verify-in-app`: open, change Appearance, record a shortcut, lock the app.
 
 ## Not verified on a device

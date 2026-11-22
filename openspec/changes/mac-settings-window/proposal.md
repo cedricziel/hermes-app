@@ -34,7 +34,7 @@ The window never gets a token, header, server address or identity: the snapshot 
 ## Observability
 
 - Breadcrumbs `settings.window.opened`, `settings.window.focused`, `settings.window.closed` (user steps; no attributes).
-- Log event `settings.window.command_failed` through `AppEventLogger` with `command` (fixed name) and `outcome` (`timeout`, `no_owner`, `rejected`): a failing bridge would otherwise look like a dead switch. No value, no setting content.
+- Log event `settings.window.command_failed` through `AppEventLogger` with `command` (fixed name) and `outcome` (`timeout`, `no_owner`, `rejected`), recorded by the main engine from a failure report the Settings window sends over the link, since the window starts no telemetry: a failing bridge would otherwise look like a dead switch. No value, no setting content.
 - No span: nothing here takes time or crosses the network.
 
 ## Design pass

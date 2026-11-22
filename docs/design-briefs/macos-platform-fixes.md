@@ -71,7 +71,7 @@ First design pass: Claude Design canvas "Hermes: Mac Settings window, toast, sub
 
 Not yet on the canvas (still owed before the catalog work): for the Settings window, dark, German, the largest text size and the Appearance dialog open in it; for the toast, German, the largest text size, a compact window, over a Kanban board and hovered; for sub-pages, 640 x 480 (compact, sidebar over the page), Memory, Files and Tools in the pane, the toolbar with the sidebar toggle beside Back, Kanban's task panel at 900, dark and German.
 
-Copy the design adds: the tone words Info, Done, Warning, Error (German: Info, Erledigt, Warnung, Fehler), new l10n strings. "Sign in to change this." comes from `mac-settings-window/design.md`.
+Copy the design adds: the tone words Info, Done, Warning, Error (German: Info, Erledigt, Warnung, Fehler), new l10n strings. "Sign in to change this." and the failed-command line "Couldn't change this setting. Try again." come from `mac-settings-window/design.md` (new strings, its task 1.3).
 
 New components needed: `SettingsWindowFrame` (window title bar with traffic lights and title, closest: `ConversationWindowScreen`), `AppToast` capsule (closest: `AppBanner`), a narrow-pane mode of `SettingsScaffold` on the Mac that shows search as a toolbar button (closest: the chat toolbar's `medium` search button), and the content-pane frame (`ContentPaneFrame`, closest: `AppShell` with a page child).
 
