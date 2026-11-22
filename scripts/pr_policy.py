@@ -63,7 +63,8 @@ _MODEL_RES = [
 ]
 _FOOTER = "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 _SESSION_URL_RE = re.compile(r"^\s*<?https?://claude\.ai/code/session_\S+?>?\s*$")
-_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+# An unclosed `<!--` comments out the rest of the text, as GitHub renders it.
+_COMMENT_RE = re.compile(r"<!--.*?(?:-->|\Z)", re.S)
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _INLINE_CODE_RE = re.compile(r"(`+)(?!`).+?(?<!`)\1(?!`)")
 # TODO, TBD, n/a, "-", "..." (with bullets and punctuation) are not answers.
@@ -408,8 +409,11 @@ def fill_patches(api, repo, files, base_sha, head_sha):
     failures = []
     for f in files:
         read = f["filename"] in READ_FILES
-        catalog = _is_widget_file(f) or _is_catalog_file(f)
-        if (read or catalog) and f.get("status") != "removed" and not f.get("patch"):
+        if (
+            (read or _is_widget_file(f))
+            and f.get("status") != "removed"
+            and not f.get("patch")
+        ):
             patch = local_patch(api, repo, f, base_sha, head_sha)
             if patch is None:
                 if not read and _is_widget_file(f):
@@ -466,12 +470,63 @@ def _hatch_reason_ok(reason):
     return any(w not in _PLACEHOLDER_WORDS for w in words)
 
 
-def catalog_first(files, body, head_sha):
+def _hatch_window(section):
+    """The text of the clean review block after its `Reviewer:` line, up to its
+    `Proof reproduced:` line, or up to the first blank line when the block has
+    none. The reviewer emits the hatch inside this window; a line the author
+    adds elsewhere in ## Review (editing the body does not change the head)
+    is outside it."""
+    m = REVIEW_LINE_RE.search(section)
+    if not m:
+        return ""
+    rest = section[m.end() :]
+    p = re.search(r"^Proof reproduced:", rest, re.M)
+    if p:
+        return rest[: p.start()]
+    return re.split(r"\n[ \t]*\n", rest, maxsplit=1)[0]
+
+
+def _hatch(body, head_sha):
+    """The reason of an accepted escape hatch, else None. See catalog_first."""
+    _, texts = _sections(body or "")
+    section = _strip_fences(texts.get("Review", ""))
+    if review_recorded(body, head_sha):
+        return None
+    m = CATALOG_HATCH_RE.search(_hatch_window(section))
+    if m and _hatch_reason_ok(m.group(1)):
+        return m.group(1)
+    return None
+
+
+def _names_a_class(files, classes):
+    used = "\n".join(_added_text(f.get("patch")) for f in files if _is_catalog_file(f))
+    return any(re.search(rf"\b{re.escape(n)}\b", used) for n in classes)
+
+
+def _needs_patch(f):
+    """A widgetbook .dart file listed without a patch that may hold added
+    lines: not removed, and not a pure rename."""
+    return (
+        _is_catalog_file(f)
+        and not f.get("patch")
+        and f.get("status") != "removed"
+        and not (f.get("status") == "renamed" and f.get("changes") == 0)
+    )
+
+
+def catalog_first(files, body, head_sha, fetch=None):
     """Returns (failures, notice). The notice is the accepted escape hatch's
-    reason. The hatch is the line `Catalog-first: not applicable, <reason>`
-    inside ## Review (fenced code stripped), beside a clean review line for
-    head_sha, with a reason of at least 10 characters that is not a placeholder:
-    any push changes the head, so only the reviewer can unlock the check."""
+    reason. The hatch is the line `Catalog-first: not applicable, <reason>` in
+    the reviewer's block: after its `Reviewer:` line for head_sha with Verdict
+    clean, before its `Proof reproduced:` line, outside fenced code and HTML
+    comments. The reason must be at least 10 characters and not a placeholder.
+    The reviewer emits it, so the author cannot add it to a body that carries a
+    clean review, and any push changes the head.
+
+    `fetch(f)` returns a patch for a widgetbook file listed without one, or
+    None. It is called only once the PR adds a public widget that no patch in
+    hand names and no hatch covers; a file that cannot be read does not count
+    as naming a class."""
     new, unread = {}, []
     for f in files:
         if not _is_widget_file(f):
@@ -483,27 +538,27 @@ def catalog_first(files, body, head_sha):
             new.setdefault(name, f["filename"])
     if not new and not unread:
         return [], None
-    if new and not unread:
-        used = "\n".join(
-            _added_text(f.get("patch")) for f in files if _is_catalog_file(f)
-        )
-        if any(re.search(rf"\b{re.escape(n)}\b", used) for n in new):
+    if new and not unread and _names_a_class(files, new):
+        return [], None
+    reason = _hatch(body, head_sha)
+    if reason is not None:
+        return [], f"Catalog-first: not applicable, {reason}"
+    if new and not unread and fetch:
+        for f in files:
+            if _needs_patch(f):
+                f["patch"] = fetch(f) or ""
+        if _names_a_class(files, new):
             return [], None
-    _, texts = _sections(body or "")
-    section = _strip_fences(texts.get("Review", ""))
-    m = CATALOG_HATCH_RE.search(section)
-    if m and _hatch_reason_ok(m.group(1)) and not review_recorded(body, head_sha):
-        return [], f"Catalog-first: not applicable, {m.group(1)}"
     found = [f"{n} ({path})" for n, path in new.items()]
     found += [f"{path} (its declarations could not be read)" for path in unread]
     return [
         "New public widgets have no Widgetbook use case: "
         + ", ".join(found)
-        + ". Add a use case under widgetbook/ that names one of them (the "
-        "component-catalog skill). If a use case truly does not apply, have the "
-        "isolated reviewer confirm it, then add the line 'Catalog-first: not "
-        "applicable, <reason>' (reason of at least 10 characters) to ## Review "
-        "next to its clean block for the current head."
+        + ". Add a use case in a widgetbook/ .dart file that names one of them "
+        "(the component-catalog skill). If none applies, the isolated reviewer "
+        "emits 'Catalog-first: not applicable, <reason>' in its block (at least "
+        "10 characters; 'shown through the <Parent> use case' is a reason) for "
+        "the current head."
     ], None
 
 
@@ -579,7 +634,12 @@ def main(argv, api=api_get):
             corruption_diff(files),
             same,
         )
-        more, notice = catalog_first(files, pr.get("body") or "", head_sha)
+        more, notice = catalog_first(
+            files,
+            pr.get("body") or "",
+            head_sha,
+            lambda f: local_patch(api, repo, f, pr["base"]["sha"], head_sha),
+        )
         failures += more
         if notice:
             print(f"::notice::{notice}")

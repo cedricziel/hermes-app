@@ -119,11 +119,13 @@ not inside a code fence (`pr-policy` ignores review lines inside fences). Order:
 push, review the pushed head, paste.
 
 Catalog first (`PR policy`): a PR that adds a public widget class under
-`lib/src/**/widgets/` fails unless a line it adds under `widgetbook/` names the
-class. Fix: add the use case (`component-catalog`). Only when none applies,
-the isolated reviewer confirms it and the line `Catalog-first: not applicable,
-<reason>` goes inside `## Review` beside the clean block for the current head;
-details in `flutter-ci`.
+`lib/src/**/widgets/` fails unless a line it adds names one of the new
+classes, in a widgetbook `.dart` file. Fix: add the use case
+(`component-catalog`). Only when none applies (no state or layout to show, or
+"shown through the `<Parent>` use case"), the isolated reviewer emits
+`Catalog-first: not applicable, <reason>` in its block, pasted unchanged with
+the rest of the block. An author's own line does not count; details in
+`flutter-ci`.
 
 ## READY and merging
 
