@@ -753,6 +753,39 @@ final guardRules = <Rule>[
     allow: {'lib/src/theme/focus_ring.dart': 'defines it'},
   ),
 
+  // docs/architecture/settings-screens.md, "Dialogs and sheets": a dialog that
+  // binds Esc itself must keep it after a click took focus out of its field;
+  // test/widgets/dialog_esc_guard_test.dart walks the dialogs that do.
+  _guard(
+    name: 'dismiss-intent-binding',
+    message:
+        'a dialog that needs its own Esc wraps its content in '
+        'DismissOnEscape (lib/src/widgets/route_dismissal.dart), which keeps '
+        'a FocusScope below the binding; add the dialog to '
+        'test/widgets/dialog_esc_guard_test.dart.',
+    pattern: RegExp(r'\bDismissIntent\b'),
+    view: _code,
+    allow: {
+      'lib/src/widgets/route_dismissal.dart': 'DismissOnEscape, the block',
+      'lib/src/widgets/grouped_dialog.dart':
+          'Done-only GroupedDialogs have no text field, and a click does not '
+          'move focus off the autofocused wrapper; tested: dialog_esc_guard_'
+          'test.dart "appearance on iOS: a click on the title, then Esc"',
+      'lib/src/widgets/anchored_popover.dart':
+          'its barrier is dismissible, so the route\'s own Esc closes it when '
+          'a click moves focus to the route scope; tested: anchored_popover_'
+          'test.dart "Escape closes a popover after a mouse click inside it"',
+      'lib/src/chat/subagents/bound_agent_detail.dart':
+          'a FocusScope (parentScope traversal) sits below its Actions; '
+          'tested: bound_activity_panel_agents_test.dart "Escape after a mouse '
+          'click inside the detail" and "Tab from the note field"',
+      'lib/src/bot_screen/viewer/bot_screen_viewer.dart':
+          'no text field, so a click does not move focus out of its Focus; '
+          'tested: bot_screen_viewer_chat_screen_test.dart "Escape still '
+          'closes the overlay after a mouse click on its edge"',
+    },
+  ),
+
   // docs/architecture/telemetry.md: events, breadcrumbs, span attributes and
   // debugPrint carry error.runtimeType, never the message.
   _custom(

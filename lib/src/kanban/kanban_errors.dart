@@ -84,17 +84,8 @@ class _TextDialogState extends State<_TextDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => Actions(
-    // The macOS barrier is inert here, which also turns Esc off; the other
-    // platforms keep what they had.
-    actions: platformChromeOf(context) == PlatformChrome.macos
-        ? {
-            DismissIntent: CallbackAction<DismissIntent>(
-              onInvoke: (_) => dismissRoute(context),
-            ),
-          }
-        : const {},
-    child: AppAlertDialog(
+  Widget build(BuildContext context) {
+    final dialog = AppAlertDialog(
       title: Text(widget.title),
       content: AppDialogTextField(
         controller: _controller,
@@ -113,8 +104,13 @@ class _TextDialogState extends State<_TextDialog> {
           child: Text(widget.confirm),
         ),
       ],
-    ),
-  );
+    );
+    // The macOS barrier is inert here, which also turns Esc off; the other
+    // platforms keep what they had. The field autofocuses.
+    return platformChromeOf(context) == PlatformChrome.macos
+        ? DismissOnEscape(child: dialog)
+        : dialog;
+  }
 }
 
 Future<bool> confirmKanban(
