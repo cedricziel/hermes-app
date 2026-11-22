@@ -1,6 +1,30 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_line_model.dart';
+import 'package:hermes_app/src/chat/activity/working_summary.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/checkpoints/checkpoints_state.dart';
+import 'package:hermes_app/src/chat/checkpoints/widgets/file_checkpoints_row.dart';
+import 'package:hermes_app/src/chat/context/context_models.dart';
+import 'package:hermes_app/src/chat/context/context_state.dart';
+import 'package:hermes_app/src/chat/context/widgets/context_format.dart';
+import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
+import 'package:hermes_app/src/chat/subagents/agent_models.dart';
+import 'package:hermes_app/src/chat/subagents/widgets/agent_row.dart';
+import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
+import 'package:hermes_app/src/chat/widgets/tool_json_tree.dart';
+import 'package:hermes_app/src/files/widgets/file_row.dart';
+import 'package:hermes_app/src/kanban/kanban_models.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
+import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/grouped_action_row.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/workspaces/widgets/working_directory_line.dart';
+import 'package:hermes_app/src/workspaces/widgets/working_directory_row.dart';
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/restore_confirmation_layout.dart';
@@ -863,6 +887,334 @@ List<WidgetbookUseCase> _remainingControlUseCases() => [
   ),
 ];
 
+/// [child] on [platform], with the app theme built for it (`buildHermes*Theme`
+/// recomputes the tap-target size, density and chrome that `copyWith` would
+/// keep), in the brightness the catalog is showing.
+Widget _onPlatform(TargetPlatform platform, Widget child) => Builder(
+  builder: (context) => Theme(
+    data: Theme.brightnessOf(context) == Brightness.dark
+        ? buildHermesDarkTheme(platform: platform)
+        : buildHermesLightTheme(platform: platform),
+    child: child,
+  ),
+);
+
+const _platformNames = {
+  TargetPlatform.iOS: 'iPhone',
+  TargetPlatform.macOS: 'Mac',
+  TargetPlatform.android: 'Material',
+};
+
+/// One use case per platform of [platforms], for a ring whose radius follows
+/// the section's (iOS 10, Mac 8, Material 12).
+List<WidgetbookUseCase> _eachPlatform(
+  String name,
+  Widget Function() build, {
+  List<TargetPlatform> platforms = const [
+    TargetPlatform.iOS,
+    TargetPlatform.macOS,
+    TargetPlatform.android,
+  ],
+}) => [
+  for (final platform in platforms)
+    WidgetbookUseCase(
+      name: '$name (${_platformNames[platform]})',
+      builder: (_) => _onPlatform(platform, build()),
+    ),
+];
+
+Widget _section(List<Widget> rows) => GroupedSection(children: rows);
+
+Widget _actionRows() => _section([
+  GroupedActionRow(
+    title: 'Restart gateway',
+    icon: AppIcons.refresh,
+    onPressed: () {},
+  ),
+  GroupedActionRow(
+    title: 'Run a server check',
+    icon: AppIcons.play,
+    onPressed: () {},
+  ),
+]);
+
+Widget _valueRows() => _section([
+  GroupedValueRow(title: 'Provider', value: 'Anthropic', onTap: () {}),
+  GroupedValueRow(
+    title: 'Model',
+    value: 'claude-sonnet',
+    caption: 'Anthropic',
+    onTap: () {},
+  ),
+]);
+
+/// The Schedules form's "Advanced" row: a [GroupedRow] without a tap of its
+/// own inside an ink well that opens the fields under it.
+Widget _advancedRow() => _section([
+  const GroupedRow(title: 'Prompt', value: 'Summarize the news'),
+  MergeSemantics(
+    child: Semantics(
+      button: true,
+      expanded: false,
+      child: InkWell(
+        onTap: () {},
+        child: GroupedRow(
+          title: 'Advanced',
+          trailing: Builder(
+            builder: (context) => AppIcon(
+              AppIcons.chevronRight,
+              size: 18,
+              color: context.hermesColors.subtleText,
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+]);
+
+const _folder = FileRowModel(name: 'src', isFolder: true);
+const _file = FileRowModel(name: 'analysis.py', isFolder: false);
+
+Widget _fileRows() => Builder(
+  builder: (context) => GroupedSection(
+    dividerIndent: GroupedMetrics.of(context).indentAfterLeading,
+    children: [
+      FileRow(model: _folder, onTap: () {}),
+      FileRow(model: _file, onTap: () {}),
+    ],
+  ),
+);
+
+Widget _activityLine() => Builder(
+  builder: (context) => ActivityLine(
+    model: ActivityLineModel.fromSummary(
+      context.l10n,
+      WorkingSummary(
+        sentence: const WorkingSentence(
+          WorkingSentenceKind.goal,
+          at: 1,
+          text: 'Ship the weekly report by Friday',
+        ),
+      ),
+    ),
+    onOpen: () {},
+  ),
+);
+
+const _agent = AgentRowModel(
+  goal: 'Audit the dependency tree for packages with known vulnerabilities',
+  state: AgentState.running,
+  runTime: Duration(minutes: 1, seconds: 12),
+  toolCount: 4,
+  currentTool: 'read_file',
+  currentPreview: 'go.sum',
+);
+
+Widget _agentRows() => Column(
+  children: [
+    AgentRow(model: _agent, onShowDetails: () {}, onStop: () {}),
+    AgentRow(
+      model: const AgentRowModel(
+        goal: 'Summarize the open advisories',
+        state: AgentState.finished,
+        runTime: Duration(seconds: 48),
+        toolCount: 4,
+      ),
+      onShowDetails: () {},
+    ),
+  ],
+);
+
+Widget _contextRow() {
+  const figures = ContextFigures(
+    used: 124000,
+    max: 200000,
+    percent: 62,
+    estimated: false,
+    source: ContextSource.providerUsage,
+  );
+  return ContextRow(
+    figures: figures,
+    level: contextLevelOf(figures),
+    onOpen: () {},
+    onCompress: () {},
+    onDismissSuggestion: () {},
+  );
+}
+
+Widget _checkpointsRow() => FileCheckpointsRow(
+  state: CheckpointsRowState.count,
+  count: 3,
+  onOpen: () {},
+);
+
+const _subagents = [
+  Subagent(
+    id: 'agent-1',
+    goal: 'Audit the dependency tree for packages with known vulnerabilities',
+    count: 2,
+    toolCount: 6,
+    lastTool: 'read_file',
+    lastToolPreview: 'go.sum',
+  ),
+  Subagent(
+    id: 'agent-2',
+    goal: 'Summarize the open advisories for the release notes',
+    index: 1,
+    count: 2,
+    status: SubagentStatus.completed,
+    toolCount: 4,
+    summary: 'Two advisories apply; both are fixed in the next patch release.',
+    duration: Duration(seconds: 48),
+  ),
+];
+
+Widget _subagentCard() => const SubagentGroupCard(
+  subagents: _subagents,
+  initiallyOpen: true,
+  onShowDetails: _ignoreId,
+);
+
+void _ignoreId(String _) {}
+
+Widget _jsonTree() => const Card(
+  margin: EdgeInsets.zero,
+  clipBehavior: Clip.antiAlias,
+  child: ToolJsonTree(
+    text:
+        '{"path": "go.sum", "limit": 20, "options": {"recursive": true, '
+        '"follow": false}, "tags": ["a", "b"]}',
+  ),
+);
+
+Widget _restartBanner() => ServerRestartBanner.restarting(onTap: () {});
+
+Widget _workingFolderRow() => Builder(
+  builder: (context) => Container(
+    color: Theme.of(context).colorScheme.surface,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    child: WorkingDirectoryRow(
+      folderName: 'demo',
+      path: '/home/me/code/demo',
+      branch: 'main',
+      serverDefault: true,
+      onTap: () {},
+    ),
+  ),
+);
+
+Widget _workingFolderLine({required bool belowBar}) => WorkingDirectoryLine(
+  title: 'Weekly planning',
+  folderName: 'api',
+  branch: 'main',
+  belowBar: belowBar,
+  onTap: () {},
+);
+
+const _plainTask = KanbanTask(
+  id: 't_1a2b3c',
+  title: 'Draft the weekly report',
+  status: 'todo',
+  assignee: 'writer',
+  commentCount: 2,
+);
+
+Widget _kanbanColumn({bool selected = false}) => SizedBox(
+  width: 260,
+  child: Column(
+    spacing: 8,
+    children: [
+      KanbanCard(task: _plainTask, onTap: () {}, selected: selected),
+      KanbanCard(
+        task: const KanbanTask(
+          id: 't_4d5e6f',
+          title: 'Review the release notes',
+          status: 'todo',
+          priority: 2,
+        ),
+        onTap: () {},
+      ),
+    ],
+  ),
+);
+
+/// The rows that take the ring inside their own edge, because a section, a
+/// list or a card clips them (F.427, tables B and C). Each focuses a row with
+/// the keyboard: the ring is 2 px inside the row, with the radius the row's
+/// container gives it.
+List<WidgetbookUseCase> _insideRowUseCases() => [
+  ..._eachPlatform(
+    'Inside row: Grouped action row',
+    () => _at(1, _actionRows()),
+  ),
+  ..._eachPlatform(
+    'Inside row: Grouped value row (iOS wrapper)',
+    () => _at(1, _valueRows()),
+    platforms: const [TargetPlatform.iOS],
+  ),
+  ..._eachPlatform(
+    'Inside row: Schedules Advanced row',
+    () => _at(1, _advancedRow()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: File row',
+    builder: (_) => _at(1, _fileRows()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Activity line',
+    builder: (_) => _at(0, _activityLine()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Agent row',
+    builder: (_) => _at(0, _agentRows()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Context row',
+    builder: (_) => _at(0, _contextRow()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: File checkpoints row',
+    builder: (_) => _at(0, _checkpointsRow()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Sub-agent group header',
+    builder: (_) => _at(0, _subagentCard()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Sub-agent line',
+    builder: (_) => _at(1, _subagentCard()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Tool-call JSON tree row',
+    builder: (_) => _at(1, _jsonTree()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Restart banner',
+    builder: (_) => _at(0, _restartBanner()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Working-folder row',
+    builder: (_) => _at(0, _workingFolderRow()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Working-folder line',
+    builder: (_) => _at(0, _workingFolderLine(belowBar: false)),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Working-folder line (full width)',
+    builder: (_) => _at(0, _workingFolderLine(belowBar: true)),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Kanban card',
+    builder: (_) => _at(0, _kanbanColumn()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Kanban card, selected',
+    builder: (_) => _at(0, _kanbanColumn(selected: true)),
+  ),
+];
+
 /// The keyboard focus ring: 2 px in the link colour, 2 px outside a button
 /// (its radius plus 2), 2 px inside a list row, menu item or segment that a
 /// container clips. It shows only after the keyboard moved focus, never after
@@ -899,6 +1251,7 @@ WidgetbookNode focusRingNode() => WidgetbookComponent(
     ..._menuTileChipUseCases(),
     ..._ownShapeUseCases(),
     ..._remainingControlUseCases(),
+    ..._insideRowUseCases(),
     WidgetbookUseCase(
       name: 'Try it (press Tab)',
       builder: (_) => _at(
