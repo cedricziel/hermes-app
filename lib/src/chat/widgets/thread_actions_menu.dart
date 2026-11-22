@@ -383,37 +383,31 @@ class _RenameDialogState extends State<_RenameDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Actions(
-      // The macOS barrier is inert here, which also turns Esc off; the other
-      // platforms keep what they had.
-      actions: platformChromeOf(context) == PlatformChrome.macos
-          ? {
-              DismissIntent: CallbackAction<DismissIntent>(
-                onInvoke: (_) => dismissRoute(context),
-              ),
-            }
-          : const {},
-      child: AppAlertDialog(
-        title: const Text('Rename chat'),
-        content: AppDialogTextField(
-          controller: _controller,
-          onSubmitted: (_) => _save(),
-        ),
-        actions: [
-          AppDialogAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ListenableBuilder(
-            listenable: _controller,
-            builder: (context, _) => AppDialogAction(
-              isDefault: true,
-              onPressed: _controller.text.trim().isEmpty ? null : _save,
-              child: const Text('Save'),
-            ),
-          ),
-        ],
+    final dialog = AppAlertDialog(
+      title: const Text('Rename chat'),
+      content: AppDialogTextField(
+        controller: _controller,
+        onSubmitted: (_) => _save(),
       ),
+      actions: [
+        AppDialogAction(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) => AppDialogAction(
+            isDefault: true,
+            onPressed: _controller.text.trim().isEmpty ? null : _save,
+            child: const Text('Save'),
+          ),
+        ),
+      ],
     );
+    // The macOS barrier is inert here, which also turns Esc off; the other
+    // platforms keep what they had. The field autofocuses.
+    return platformChromeOf(context) == PlatformChrome.macos
+        ? DismissOnEscape(child: dialog)
+        : dialog;
   }
 }
