@@ -79,6 +79,6 @@ The system SHALL, once after an update that brings the channels, replace the ear
 
 #### Scenario: Migration fails
 
-- **WHEN** reading or deleting the earlier channel fails
+- **WHEN** reading the earlier channel, creating a new channel or deleting the earlier channel fails
 - **THEN** it is tried again at the next start
 - **AND** notifications keep posting through `agent_activity` until it succeeds
