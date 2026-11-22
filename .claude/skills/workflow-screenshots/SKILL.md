@@ -98,14 +98,24 @@ To see one widget in every state without a flow around it, use the
     caught; these are on the roadmap. Reader names, seeds and finders are still
     matched as words in the comment-free text of the range the syntax tree gives
     (`_wordsPattern`, `_seed`), not as nodes.
+  - A reader named in a test by a member (`t.md`, a getter of an extension)
+    is reached through the members of the class or extension that holds it,
+    and references are identifiers and type names in the syntax tree, so a
+    label such as `body:` or a local inside a declaration is not one. Only a
+    declaration around the tests is followed, as a whole.
   - A scope that wraps a local made of the child (`final content = child!;
-    return AppThemeScopes(child: content);`) mounts, and only the scope's
+    return AppThemeScopes(child: content);`) mounts, unless the local is
+    assigned again or its value has a `?:`, `switch` or collection `if`; a
+    local declared bare and assigned once (`Widget w; w = child!;`) does not
+    count, which is conservative. Only the scope's
     `child:` counts, not its `key:`. A reader built around the tests counts
     only when a `setUp`, `setUpAll` or loop builds it, or when something the
     test refers to by name (transitively) does; a reader in a mounted app's own
     arguments, or in a declaration nothing refers to, is not blamed on another
     test. Every file the guard scans has to parse without errors; a fixture may
-    be a bare snippet, a real file may not.
+    be a bare snippet, a real file may not. If a Flutter or Dart bump brings
+    syntax that the `analyzer` package cannot parse, that assertion fails with
+    `path:line`; bump `analyzer`, do not change the file.
   - `the analyzer API canary` parses a snippet with every construct the guard
     reads (named arguments, bare and prefixed calls, constructions, extensions
     and their members, directives, conditionals, loops) and names the ones the

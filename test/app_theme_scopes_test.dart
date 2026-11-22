@@ -1861,6 +1861,200 @@ void main() {
       );
       expect(_unmountedReaderUses(readers, helpers, file), {'.preview'});
     });
+
+    group(
+      'a reader built around the tests is reached by member and by word',
+      () {
+        final readers = _readersOf([
+          SourceFile(
+            'lib/a/md.dart',
+            'class BoundedMarkdown extends StatelessWidget {\n'
+                "  Widget build(BuildContext context) => GptMarkdown('x');\n"
+                '}\n',
+          ),
+        ]);
+        const helpers = (mounting: <_Helper>[], plain: <_Helper>[]);
+        Set<String> uses(String body) => _unmountedReaderUses(
+          readers,
+          helpers,
+          SourceFile('test/t_test.dart', body),
+        );
+        const pumpMd =
+            'void main() {\n'
+            '  testWidgets("t", (t) async {\n'
+            '    await t.pumpWidget(MaterialApp(home: t.md));\n'
+            '  });\n'
+            '}\n';
+
+        test('a member of a named extension is reached by its member name', () {
+          expect(
+            uses(
+              'extension _Md on WidgetTester {\n'
+              '  Widget get md => BoundedMarkdown("x");\n'
+              '}\n'
+              '$pumpMd',
+            ),
+            isNotEmpty,
+          );
+        });
+
+        test('a member of an unnamed extension is reached the same way', () {
+          expect(
+            uses(
+              'extension on WidgetTester {\n'
+              '  Widget get md => BoundedMarkdown("x");\n'
+              '}\n'
+              '$pumpMd',
+            ),
+            isNotEmpty,
+          );
+        });
+
+        test(
+          'a member another member of the type calls bare is reached too',
+          () {
+            expect(
+              uses(
+                'extension _Md on WidgetTester {\n'
+                '  Widget get md => _inner;\n'
+                '  Widget get _inner => BoundedMarkdown("x");\n'
+                '}\n'
+                '$pumpMd',
+              ),
+              isNotEmpty,
+            );
+          },
+        );
+
+        test('a member nothing refers to is not blamed', () {
+          expect(
+            uses(
+              'extension _Md on WidgetTester {\n'
+              '  Widget get other => BoundedMarkdown("x");\n'
+              '}\n'
+              'class _Host {\n'
+              '  Widget get md => BoundedMarkdown("x");\n'
+              '}\n'
+              'void main() {\n'
+              '  testWidgets("t", (t) async {\n'
+              '    await t.pumpWidget(MaterialApp(home: Text("x")));\n'
+              '  });\n'
+              '}\n',
+            ),
+            isEmpty,
+          );
+        });
+
+        test('a named argument label is not a reference', () {
+          expect(
+            uses(
+              'Widget body() => BoundedMarkdown("x");\n'
+              'void main() {\n'
+              '  testWidgets("t", (t) async {\n'
+              '    await t.pumpWidget(\n'
+              '        MaterialApp(home: Scaffold(body: Text("x"))));\n'
+              '  });\n'
+              '}\n',
+            ),
+            isEmpty,
+          );
+        });
+
+        test('a local inside a declaration is not a name of its own', () {
+          expect(
+            uses(
+              'class _Host {\n'
+              '  Widget build() {\n'
+              '    final screen = BoundedMarkdown("x");\n'
+              '    return screen;\n'
+              '  }\n'
+              '}\n'
+              'void main() {\n'
+              '  testWidgets("t", (t) async {\n'
+              '    final screen = Text("x");\n'
+              '    await t.pumpWidget(MaterialApp(home: screen));\n'
+              '  });\n'
+              '}\n',
+            ),
+            isEmpty,
+          );
+        });
+
+        test('a type named in a constructor call is a reference', () {
+          expect(
+            uses(
+              'class _Host extends StatelessWidget {\n'
+              '  const _Host();\n'
+              '  Widget build(BuildContext c) => BoundedMarkdown("x");\n'
+              '}\n'
+              'void main() {\n'
+              '  testWidgets("t", (t) async {\n'
+              '    await t.pumpWidget(MaterialApp(home: const _Host()));\n'
+              '  });\n'
+              '}\n',
+            ),
+            isNotEmpty,
+          );
+        });
+      },
+    );
+
+    group('a scope around a local that is not the child on every path', () {
+      bool mounted(String builder) =>
+          _apps('Object a() => MaterialApp(builder: $builder);').single.mounted;
+
+      test('a local reassigned under a condition does not mount', () {
+        expect(
+          mounted(
+            '(_, child) { var w = child!; if (on) w = Other(); '
+            'return AppThemeScopes(child: w); }',
+          ),
+          isFalse,
+        );
+      });
+
+      test('a local whose value is a conditional does not mount', () {
+        expect(
+          mounted(
+            '(_, child) { final w = on ? child! : Other(); '
+            'return AppThemeScopes(child: w); }',
+          ),
+          isFalse,
+        );
+      });
+
+      test('a local overwritten before the scope does not mount', () {
+        expect(
+          mounted(
+            '(_, child) { var content = child!; '
+            'content = const SizedBox(); '
+            'return Stack(children: '
+            '[AppThemeScopes(child: content), child!]); }',
+          ),
+          isFalse,
+        );
+      });
+
+      test('an alias of such a local does not mount either', () {
+        expect(
+          mounted(
+            '(_, child) { final w = on ? child! : Other(); '
+            'final v = Pad(child: w); return AppThemeScopes(child: v); }',
+          ),
+          isFalse,
+        );
+      });
+
+      test('a local that is only ever the child still mounts', () {
+        expect(
+          mounted(
+            '(_, child) { final w = MediaQuery(data: d, child: child!); '
+            'return AppThemeScopes(child: w); }',
+          ),
+          isTrue,
+        );
+      });
+    });
   });
 }
 
@@ -2124,41 +2318,87 @@ class _Index extends RecursiveAstVisitor<void> {
   final loops = <AstNode>[];
 
   /// What a name can stand for: a function, a variable or a type declared in
-  /// the file, with its range. A reader built inside one is drawn only by what
-  /// refers to that name.
-  final bindings = <({String name, _Span span})>[];
+  /// the file, with its range and the names it answers to. A type or an
+  /// extension answers to its own name and to the names of its members
+  /// (`t.md` reaches a getter of an extension). A reader built inside one is
+  /// drawn only by what refers to one of those names.
+  final bindings = <({Set<String> names, _Span span})>[];
 
-  void _bind(String name, AstNode node) =>
-      bindings.add((name: name, span: (start: node.offset, end: node.end)));
+  /// Every name the file refers to, as the tree has it: an identifier or the
+  /// name of a type. A label (`body:`) and a declared name are not references.
+  final references = <({String name, int offset})>[];
+
+  void _bind(Iterable<String> names, AstNode node) => bindings.add((
+    names: {...names},
+    span: (start: node.offset, end: node.end),
+  ));
+
+  static Iterable<String> _memberNames(Iterable<ClassMember> members) => [
+    for (final m in members)
+      if (m is MethodDeclaration)
+        m.name.lexeme
+      else if (m is FieldDeclaration)
+        for (final v in m.fields.variables) v.name.lexeme,
+  ];
+
+  @override
+  void visitSimpleIdentifier(SimpleIdentifier node) {
+    references.add((name: node.name, offset: node.offset));
+    super.visitSimpleIdentifier(node);
+  }
+
+  @override
+  void visitNamedType(NamedType node) {
+    references.add((name: node.name.lexeme, offset: node.offset));
+    super.visitNamedType(node);
+  }
 
   @override
   void visitVariableDeclaration(VariableDeclaration node) {
-    _bind(node.name.lexeme, node);
+    _bind([node.name.lexeme], node);
     super.visitVariableDeclaration(node);
   }
 
   @override
   void visitClassDeclaration(ClassDeclaration node) {
-    _bind(node.namePart.typeName.lexeme, node);
+    _bind([
+      node.namePart.typeName.lexeme,
+      ..._memberNames(node.body.members),
+    ], node);
     super.visitClassDeclaration(node);
   }
 
   @override
   void visitMixinDeclaration(MixinDeclaration node) {
-    _bind(node.name.lexeme, node);
+    _bind([node.name.lexeme, ..._memberNames(node.body.members)], node);
     super.visitMixinDeclaration(node);
   }
 
   @override
   void visitEnumDeclaration(EnumDeclaration node) {
-    _bind(node.namePart.typeName.lexeme, node);
+    final body = node.body;
+    _bind([
+      node.namePart.typeName.lexeme,
+      if (body is BlockEnumBody) ..._memberNames(body.members),
+    ], node);
     super.visitEnumDeclaration(node);
   }
 
   @override
+  void visitExtensionTypeDeclaration(ExtensionTypeDeclaration node) {
+    _bind([
+      node.namePart.typeName.lexeme,
+      ..._memberNames(node.body.members),
+    ], node);
+    super.visitExtensionTypeDeclaration(node);
+  }
+
+  @override
   void visitExtensionDeclaration(ExtensionDeclaration node) {
-    final name = node.name;
-    if (name != null) _bind(name.lexeme, node);
+    _bind([
+      if (node.name != null) node.name!.lexeme,
+      ..._memberNames(node.body.members),
+    ], node);
     super.visitExtensionDeclaration(node);
   }
 
@@ -2176,7 +2416,7 @@ class _Index extends RecursiveAstVisitor<void> {
 
   @override
   void visitFunctionDeclaration(FunctionDeclaration node) {
-    if (node.name.lexeme != 'main') _bind(node.name.lexeme, node);
+    if (node.name.lexeme != 'main') _bind([node.name.lexeme], node);
     if (!node.isGetter && !node.isSetter) {
       final f = node.functionExpression;
       (functions[node.name.lexeme] ??= []).add((
@@ -2377,11 +2617,19 @@ bool _wrapsChild(AstNode scope, Set<String> names) {
 Set<String> _aliases(FunctionBody body, String child) {
   final vars = _Variables();
   body.accept(vars);
+  // A local that is assigned again, or whose value depends on a condition, is
+  // not the child on every path.
+  final eligible = [
+    for (final v in vars.found)
+      if (!vars.assigned.contains(v.name.lexeme) &&
+          !_hasConditional(v.initializer!))
+        v,
+  ];
   final names = {child};
   var grew = true;
   while (grew) {
     grew = false;
-    for (final v in vars.found) {
+    for (final v in eligible) {
       if (names.contains(v.name.lexeme)) continue;
       if (names.any((n) => _mentions(v.initializer!, n))) {
         names.add(v.name.lexeme);
@@ -2392,8 +2640,44 @@ Set<String> _aliases(FunctionBody body, String child) {
   return names;
 }
 
+/// Whether a `?:`, a `switch` or a collection `if` is anywhere in [node].
+bool _hasConditional(AstNode node) {
+  final finder = _Conditionals();
+  node.accept(finder);
+  return finder.found;
+}
+
+class _Conditionals extends RecursiveAstVisitor<void> {
+  bool found = false;
+
+  @override
+  void visitConditionalExpression(ConditionalExpression node) {
+    found = true;
+  }
+
+  @override
+  void visitSwitchExpression(SwitchExpression node) {
+    found = true;
+  }
+
+  @override
+  void visitIfElement(IfElement node) {
+    found = true;
+  }
+}
+
 class _Variables extends RecursiveAstVisitor<void> {
   final found = <VariableDeclaration>[];
+
+  /// The names assigned to after their declaration: `w = Other();`.
+  final assigned = <String>{};
+
+  @override
+  void visitAssignmentExpression(AssignmentExpression node) {
+    final target = node.leftHandSide;
+    if (target is SimpleIdentifier) assigned.add(target.name);
+    super.visitAssignmentExpression(node);
+  }
 
   @override
   void visitVariableDeclaration(VariableDeclaration node) {
@@ -2543,8 +2827,9 @@ Set<String> _attributedUses(_Readers readers, SourceFile file, int offset) {
               : 'a top-level helper',
         ),
   ];
-  bool inAround(AstNode n) =>
-      around.any((r) => n.offset >= r.span.start && n.offset < r.span.end);
+  bool inAroundSpan(int offset) =>
+      around.any((r) => offset >= r.span.start && offset < r.span.end);
+  bool inAround(AstNode n) => inAroundSpan(n.offset);
   // What the test refers to by name: in its own callback, in the `setUp` and
   // `setUpAll` around it and in the loops that make it, and, to a fixpoint, in
   // whatever those refer to.
@@ -2553,10 +2838,16 @@ Set<String> _attributedUses(_Readers readers, SourceFile file, int offset) {
     for (final n in [...p.setUpCalls, ...p.index.loops].where(inAround))
       ..._names(p, (start: n.offset, end: n.end)),
   };
+  // Only a declaration around the tests is followed (a top-level one, or a
+  // local of `main` or a group), and as a whole: what it holds is its own.
+  final outer = [
+    for (final b in p.index.bindings)
+      if (_outermost(p, b.span) && inAroundSpan(b.span.start)) b,
+  ];
   for (var grew = true; grew;) {
     grew = false;
-    for (final b in p.index.bindings) {
-      if (referenced.contains(b.name)) {
+    for (final b in outer) {
+      if (b.names.any(referenced.contains)) {
         for (final n in _names(p, b.span)) {
           grew |= referenced.add(n);
         }
@@ -2571,11 +2862,13 @@ Set<String> _attributedUses(_Readers readers, SourceFile file, int offset) {
       return false;
     }
     if (_builtIn(p, h.offset, origin) != origin) return true;
+    // Judged by the outermost declaration that holds it: a local inside a
+    // class or function is that declaration's, not a name of its own.
     final holders = [
       for (final b in p.index.bindings)
         if (h.offset >= b.span.start && h.offset < b.span.end) b,
-    ];
-    return holders.isEmpty || holders.any((b) => referenced.contains(b.name));
+    ]..sort((a, b) => a.span.start.compareTo(b.span.start));
+    return holders.isEmpty || holders.first.names.any(referenced.contains);
   }
 
   return {
@@ -2591,13 +2884,19 @@ Set<String> _attributedUses(_Readers readers, SourceFile file, int offset) {
   };
 }
 
-/// The identifiers (not member names after a dot) in [span] of [p].
+/// The names [p] refers to in [span].
 Set<String> _names(_Parsed p, _Span span) => {
-  for (final m in _identifier.allMatches(
-    p.code.substring(span.start, span.end),
-  ))
-    m.group(0)!,
+  for (final r in p.index.references)
+    if (r.offset >= span.start && r.offset < span.end) r.name,
 };
+
+/// Whether no other declaration of [p] holds [span].
+bool _outermost(_Parsed p, _Span span) => !p.index.bindings.any(
+  (o) =>
+      o.span.start <= span.start &&
+      o.span.end >= span.end &&
+      (o.span.start != span.start || o.span.end != span.end),
+);
 
 /// [span] without the `test`, `testWidgets` and `group` calls in it that no
 /// other such call in it holds: what is built around the tests of a group.
