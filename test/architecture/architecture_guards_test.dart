@@ -154,17 +154,23 @@ final _rawExpansionTile = RegExp(
 final _floatingButton = RegExp(
   r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?!\w)(?:\.(\w+)\b)?',
 );
-final _inMiniWrapper = RegExp(r'\bMiniFabFocusRing\(\s*child:\s*$');
+final _genericCall = RegExp(r'^<[^<>()]*(?:<[^<>()]*>[^<>()]*)*>\s*\(');
+final _inMiniWrapper = RegExp(
+  r'\bMiniFabFocusRing\(\s*child:\s*(?:const\s+)?$',
+);
 final _inOutsideWrapper = RegExp(
-  r'\bFocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*$',
+  r'\bFocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*(?:const\s+)?$',
 );
 
 List<int> bareFloatingButtons(String code) {
   final bare = <int>[];
   for (final m in _floatingButton.allMatches(code)) {
     final after = code.substring(m.end).trimLeft();
-    // A tear-off or a type argument without a call is never wrapped.
-    final call = after.startsWith('(') || after.startsWith('<');
+    // A call, with or without type arguments, or a `.name` / `.new` tear-off
+    // is a use; a type (`FloatingActionButton? b`, `w is FloatingActionButton`,
+    // `List<FloatingActionButton>`) is not.
+    final call = after.startsWith('(') || _genericCall.hasMatch(after);
+    if (!call && m.group(1) == null) continue;
     // The button's own arguments only: what sits in a nested call, a closure
     // or a collection (`onPressed: () => configure(mini: true)`) is not its.
     final args = StringBuffer();
@@ -181,7 +187,9 @@ List<int> bareFloatingButtons(String code) {
         if (depth == 0) break;
       }
     }
-    final value = RegExp(r'\bmini\s*:\s*([^,]*)')
+    // `mini` as a named argument only: at the start of an argument, so
+    // `heroTag: c ? mini : true` is not it.
+    final value = RegExp(r'(?:^|,)\s*mini\s*:\s*([^,]*)')
         .firstMatch(args.toString())
         ?.group(1)
         ?.trim();
@@ -848,8 +856,12 @@ final guardRules = <Rule>[
     name: 'floating-button-without-focus-ring',
     message:
         'wrap a FloatingActionButton in FocusRing.outside(radius: <its '
-        'radius>, child: ...), or a mini one (mini: true, .small) in MiniFabFocusRing(child: ...); mini: must be the literal true or false, else use MiniFabFocusRing (lib/src/theme/focus_ring.dart): its shape is '
-        'not state-aware, so the keyboard focus ring is a wrapper.',
+        'radius>, child: ...) or a mini one (mini: true or .small) in '
+        'MiniFabFocusRing(child: ...) (lib/src/theme/focus_ring.dart): its '
+        'shape is not state-aware, so the keyboard focus ring is a wrapper. '
+        'mini: must be the literal true or false: write a literal mini: true '
+        'button inside MiniFabFocusRing, or a regular button inside '
+        'FocusRing.outside.',
     hits: _floatingButtonHits,
   ),
 
@@ -994,6 +1006,59 @@ void main() {
       expect(bare('FloatingActionButton(onPressed: f)'), isTrue);
       expect(bare('FloatingActionButton.extended(onPressed: f)'), isTrue);
       expect(bare('f(FloatingActionButton.new)'), isTrue);
+    });
+
+    test('a ternary or a const does not change what the scan reads', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      expect(
+        bare(
+          'MiniFabFocusRing(child: FloatingActionButton(heroTag: c ? mini : true, mini: compact))',
+        ),
+        isTrue,
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 28, child: FloatingActionButton(heroTag: c ? mini : other))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare(
+          'FocusRing.outside(radius: 28, child: const FloatingActionButton(onPressed: f))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare(
+          'MiniFabFocusRing(child: const FloatingActionButton(mini: true, onPressed: f))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare(
+          'MiniFabFocusRing(\n child: const m.FloatingActionButton.small(a))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare('Padding(child: const FloatingActionButton(onPressed: f))'),
+        isTrue,
+      );
+    });
+
+    test('type positions are not uses of the button', () {
+      bool bare(String code) => bareFloatingButtons(code).isNotEmpty;
+      expect(bare('FloatingActionButton? b;'), isFalse);
+      expect(bare('if (w is FloatingActionButton) {}'), isFalse);
+      expect(bare('final List<FloatingActionButton> xs = [];'), isFalse);
+      expect(bare('final m.FloatingActionButton b = f();'), isFalse);
+      expect(bare('Foo<FloatingActionButton>(a)'), isFalse);
+      // Calls (also with type arguments) and tear-offs still are.
+      expect(bare('FloatingActionButton(onPressed: f)'), isTrue);
+      expect(bare('FloatingActionButton<int>(onPressed: f)'), isTrue);
+      expect(bare('f(FloatingActionButton.new)'), isTrue);
+      expect(bare('f(FloatingActionButton.small)'), isTrue);
+      expect(bare('x = FloatingActionButton.extended(a)'), isTrue);
     });
 
     test('mini must be a literal, and nested mini is not the button\'s', () {
