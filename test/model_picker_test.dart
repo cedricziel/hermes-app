@@ -342,9 +342,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
-          theme: withScreenshotFont(
-            buildHermesLightTheme().copyWith(platform: platform),
-          ),
+          theme: withScreenshotFont(buildHermesLightTheme(platform: platform)),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: TextScaler.linear(scale)),
@@ -443,7 +441,7 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            theme: buildHermesLightTheme().copyWith(platform: platform),
+            theme: buildHermesLightTheme(platform: platform),
             home: Scaffold(
               body: ModelPicker(
                 options: long,

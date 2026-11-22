@@ -12,6 +12,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 // A solid colour; stretched, it stands in for a photo.
 final Uint8List _photo = base64Decode(
@@ -114,7 +115,7 @@ class _LiveState extends State<_Live> {
   Widget build(BuildContext context) {
     final enabled = widget.enabled;
     return Theme(
-      data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+      data: platformTheme(context, TargetPlatform.macOS),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

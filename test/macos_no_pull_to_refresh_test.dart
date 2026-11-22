@@ -48,7 +48,7 @@ void main() {
   });
 
   Widget app(TargetPlatform platform, Widget home) => MaterialApp(
-    theme: buildHermesLightTheme().copyWith(platform: platform),
+    theme: buildHermesLightTheme(platform: platform),
     localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: home,
@@ -295,9 +295,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(
-            platform: TargetPlatform.macOS,
-          ),
+          theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: macCommandsBuilder(commands),

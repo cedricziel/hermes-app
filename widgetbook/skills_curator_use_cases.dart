@@ -10,6 +10,7 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 // The skill curator section in every state of the design brief
 // (docs/design-briefs/skills-curator.md). The model is plain, so each case
@@ -360,7 +361,7 @@ WidgetbookUseCase _confirm(
       _Where.linux => TargetPlatform.linux,
     };
     Widget body = Theme(
-      data: Theme.of(context).copyWith(platform: platform),
+      data: platformTheme(context, platform),
       child: Builder(
         builder: (context) => Align(
           alignment: dialog ? Alignment.center : Alignment.bottomCenter,

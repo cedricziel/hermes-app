@@ -134,7 +134,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           home: Scaffold(
             body: Focus(
               canRequestFocus: false,

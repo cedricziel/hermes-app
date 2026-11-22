@@ -21,7 +21,7 @@ Future<void> pump(
   double textScale = 1,
 }) => tester.pumpWidget(
   MaterialApp(
-    theme: buildHermesLightTheme().copyWith(platform: platform),
+    theme: buildHermesLightTheme(platform: platform),
     locale: locale,
     localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,

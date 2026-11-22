@@ -118,8 +118,7 @@ void main() {
       Locale? locale,
       double width = 360,
     }) {
-      final theme = buildHermesLightTheme().copyWith(
-        platform: platform,
+      final theme = buildHermesLightTheme(platform: platform).copyWith(
         // A Mac theme draws compact buttons; the banner must not inherit that.
         visualDensity: platform == TargetPlatform.macOS
             ? VisualDensity.compact
@@ -180,7 +179,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: AppBanner(
               tone: AppBannerTone.neutral,
@@ -296,7 +295,7 @@ void main() {
       TargetPlatform platform = TargetPlatform.iOS,
       TextDirection direction = TextDirection.ltr,
     }) => MaterialApp(
-      theme: buildHermesLightTheme().copyWith(platform: platform),
+      theme: buildHermesLightTheme(platform: platform),
       locale: locale,
       localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -464,7 +463,7 @@ void main() {
         'at the normal size', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           locale: const Locale('de'),
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
