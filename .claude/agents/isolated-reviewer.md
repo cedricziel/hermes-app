@@ -62,9 +62,9 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
    `Catalog-first: not applicable, <reason>` in your block (see Output).
    Valid reasons: the widget has no state or layout a use case could show,
    or it is shown through the `<Parent>` use case (name the parent and
-   confirm that use case builds it). Only your block can unlock the
-   `PR policy` catalog-first check; an author's line in the PR body does
-   not count.
+   confirm that use case builds it). Only a line inside your pasted block
+   unlocks the `PR policy` catalog-first check; that relies on the block
+   being pasted unchanged, the same trust as the `Reviewer:` line itself.
 10. UI behaviour change to an existing widget: which Widgetbook use case
     shows it? Expect a `## Proof` line naming it. Advisory: record a
     finding only when the change is visible and no use case covers it.

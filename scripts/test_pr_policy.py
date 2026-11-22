@@ -122,6 +122,28 @@ class BodyTest(unittest.TestCase):
         self.assertEqual(run(b=b), [])
 
 
+class CommentInCodeTest(unittest.TestCase):
+    """`<!--` inside inline code or a fence is literal text on GitHub: it must
+    not hide the rest of the body."""
+
+    def bodies(self):
+        yield body(proof="An unclosed `<!--` now hides the rest.")
+        yield body(proof="Use ``<!--`` and `<!-- x`.")
+        yield body(proof="```html\n<!-- never closed\n```\nDone.")
+        yield body(proof="~~~\n<!--\n~~~\nDone.")
+
+    def test_check_keeps_every_section(self):
+        for b in self.bodies():
+            self.assertEqual(run(b=b), [], b)
+
+    def test_review_stays_recorded(self):
+        for b in self.bodies():
+            self.assertEqual(review_recorded(b, SHA), [], b)
+
+    def test_prose_comment_still_unclosed_to_the_end(self):
+        b = body(proof="Done.\n<!-- note")
+        self.assertTrue(any("missing" in f for f in run(b=b)))
+
 class FixTest(unittest.TestCase):
     def test_fix_without_question_fails(self):
         out = run("fix(chat): crash")

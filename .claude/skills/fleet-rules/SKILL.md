@@ -124,7 +124,8 @@ classes, in a widgetbook `.dart` file. Fix: add the use case
 (`component-catalog`). Only when none applies (no state or layout to show, or
 "shown through the `<Parent>` use case"), the isolated reviewer emits
 `Catalog-first: not applicable, <reason>` in its block, pasted unchanged with
-the rest of the block. An author's own line does not count; details in
+the rest of the block. Only a line inside that pasted block counts, which
+relies on the block being pasted unchanged, like the `Reviewer:` line; details in
 `flutter-ci`.
 
 ## READY and merging

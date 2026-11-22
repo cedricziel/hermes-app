@@ -98,8 +98,28 @@ def is_bot(author, head_ref, same_repo=True):
     return bool(BOT_BRANCH_RE.fullmatch(head_ref))
 
 
+_MASK = "\x00"
+
+
+def _mask_code_openers(text):
+    """Hides every `<!--` inside fenced code or an inline code span, which
+    GitHub renders literally, so it never opens a comment."""
+    out, fenced = [], False
+    for line in text.split("\n"):
+        if _FENCE_RE.match(line):
+            fenced = not fenced
+        elif fenced:
+            line = line.replace("<!--", _MASK)
+        else:
+            line = _INLINE_CODE_RE.sub(
+                lambda m: m.group(0).replace("<!--", _MASK), line
+            )
+        out.append(line)
+    return "\n".join(out)
+
+
 def _strip_comments(text):
-    return _COMMENT_RE.sub("", text)
+    return _COMMENT_RE.sub("", _mask_code_openers(text)).replace(_MASK, "<!--")
 
 
 def _strip_fences(text):
@@ -520,8 +540,9 @@ def catalog_first(files, body, head_sha, fetch=None):
     the reviewer's block: after its `Reviewer:` line for head_sha with Verdict
     clean, before its `Proof reproduced:` line, outside fenced code and HTML
     comments. The reason must be at least 10 characters and not a placeholder.
-    The reviewer emits it, so the author cannot add it to a body that carries a
-    clean review, and any push changes the head.
+    Only a line inside the reviewer's pasted block counts; that relies on the
+    block being pasted unchanged, the same trust as the `Reviewer:` line itself.
+    Any push changes the head, so the review has to be redone.
 
     `fetch(f)` returns a patch for a widgetbook file listed without one, or
     None. It is called only once the PR adds a public widget that no patch in
