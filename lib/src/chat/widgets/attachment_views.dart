@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../media/quick_look.dart';
@@ -391,49 +392,57 @@ class AttachmentCardFrame extends StatelessWidget {
       ),
       child: Material(
         type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppIcon(
-                  attachment.kind == AttachmentKind.image
-                      ? AppIcons.image
-                      : AppIcons.file,
-                  size: 20,
-                  color: scheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        attachment.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, height: 1.3),
-                      ),
-                      if (subtitle != null)
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.3,
-                            color: noticeIsError
-                                ? scheme.error
-                                : context.hermesColors.subtleText,
-                          ),
-                        ),
-                    ],
+        // Nothing clips the card; only a tappable one is focusable (a Mac
+        // card opens by double click, a failed download retries on a tap).
+        child: FocusRing.outside(
+          radius: kHermesRadius,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppIcon(
+                    attachment.kind == AttachmentKind.image
+                        ? AppIcons.image
+                        : AppIcons.file,
+                    size: 20,
+                    color: scheme.primary,
                   ),
-                ),
-                if (trailing != null) ...[const SizedBox(width: 6), trailing!],
-              ],
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          attachment.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14, height: 1.3),
+                        ),
+                        if (subtitle != null)
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.3,
+                              color: noticeIsError
+                                  ? scheme.error
+                                  : context.hermesColors.subtleText,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 6),
+                    trailing!,
+                  ],
+                ],
+              ),
             ),
           ),
         ),

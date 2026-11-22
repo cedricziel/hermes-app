@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../bot_screen_preview_model.dart';
@@ -239,10 +240,15 @@ class _Labeled extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: child,
+        // The ring paints into the 4 px above, where the screen has no
+        // room of its own; nothing in the layout changes.
+        child: FocusRing.outside(
+          radius: 8,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: child,
+          ),
         ),
       ),
     );
