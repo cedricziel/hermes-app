@@ -38,8 +38,23 @@ import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_preview_model.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/starter_prompts.dart';
+import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
+import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
+import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
+import 'package:hermes_app/src/chat/chat_models.dart'
+    show AttachmentKind, ChatAttachment;
+import 'package:hermes_app/src/models/model_provider_option.dart'
+    show ModelChoice, ModelOption, ModelOptions, ModelProviderOption;
+import 'package:hermes_app/src/models/widgets/model_picker.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'bot_screen_fixture.dart';
+import 'fixtures.dart';
 import 'frame.dart';
 import 'platform_theme.dart';
 
@@ -860,6 +875,137 @@ List<WidgetbookUseCase> _remainingControlUseCases() => [
   ),
 ];
 
+/// The keyboard-focused states of the tap targets that nothing clips (F.427,
+/// table D): the ring is 2 px outside the control, the control's radius plus 2.
+/// Each is the real widget on its platform's own theme.
+const _outsidePhones = {
+  'Material': TargetPlatform.android,
+  'iPhone': TargetPlatform.iOS,
+  'Mac': TargetPlatform.macOS,
+};
+
+List<WidgetbookUseCase> _outside(
+  String item,
+  Widget Function() build, {
+  Map<String, TargetPlatform> platforms = _outsidePhones,
+  bool Function(FocusNode node)? where,
+}) => [
+  for (final MapEntry(key: name, value: platform) in platforms.entries)
+    WidgetbookUseCase(
+      name: 'Outside tap target: $item ($name)',
+      builder: (_) => _on(
+        platform,
+        frame(_KeyboardFocus(focusIndex: 0, where: where, child: build())),
+      ),
+    ),
+];
+
+bool _inEffort(FocusNode node) {
+  var found = false;
+  node.context?.visitAncestorElements((element) {
+    found = element.widget.key == const Key('effort-medium');
+    return !found;
+  });
+  return found;
+}
+
+/// One model only, so that at a large text size (where the effort pills sit at
+/// the end of the list) the pills are still on screen.
+const _oneModel = ModelOptions(
+  current: ModelChoice('anthropic', 'claude-opus-4'),
+  providers: [
+    ModelProviderOption(
+      id: 'anthropic',
+      label: 'Anthropic',
+      models: [ModelOption(id: 'claude-opus-4', canDisableReasoning: true)],
+    ),
+  ],
+);
+
+Widget _effortPicker({double textScale = 1}) => Builder(
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context)
+        .copyWith(textScaler: TextScaler.linear(textScale)),
+    child: SizedBox(
+      width: 420,
+      child: Material(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        child: ModelPicker(
+          options: textScale > 1 ? _oneModel : modelOptions,
+          selected: const ModelChoice(
+            'anthropic',
+            'claude-opus-4',
+            effort: 'high',
+          ),
+          onChanged: (_) {},
+        ),
+      ),
+    ),
+  ),
+);
+
+List<WidgetbookUseCase> _outsideTapTargetUseCases() => [
+  ..._outside(
+    'Tool-call group header',
+    () => const ToolCallGroup(calls: finishedToolRun),
+  ),
+  ..._outside(
+    'Reasoning toggle',
+    () => const ReasoningBlock(text: reasoningText),
+  ),
+  ..._outside(
+    'Attachment retry card',
+    () => AttachmentCardFrame(
+      attachment: const ChatAttachment(
+        name: 'quarterly-report.pdf',
+        kind: AttachmentKind.file,
+        size: 482113,
+      ),
+      notice: "Couldn't download. Tap to retry.",
+      noticeIsError: true,
+      onTap: _noop,
+    ),
+    platforms: {
+      'Material': TargetPlatform.android,
+      'Mac': TargetPlatform.macOS,
+    },
+  ),
+  ..._outside(
+    'Bot Screen preview',
+    () => BotScreenPreview(
+      model: BotScreenPreviewFrame(bytes: botScreenFixturePng()),
+      onTap: _noop,
+    ),
+  ),
+  ..._outside(
+    'Welcome card',
+    () => SizedBox(
+      height: 460,
+      child: WelcomeView(
+        greetingName: 'Ada',
+        prompts: buildStarterPrompts(const StarterContext()),
+        onPick: (_) {},
+      ),
+    ),
+  ),
+  ..._outside('Effort pill', _effortPicker, where: _inEffort),
+  ..._outside(
+    'Effort pill, text 3x',
+    () => _effortPicker(textScale: 3),
+    platforms: const {'Material': TargetPlatform.android},
+    where: _inEffort,
+  ),
+  ..._outside(
+    'Mac pop-up value',
+    () => const GroupedSection(
+      children: [
+        GroupedValueRow(title: 'Model', value: 'claude-opus-4', onTap: _noop),
+      ],
+    ),
+    platforms: const {'Mac': TargetPlatform.macOS},
+  ),
+];
+
 /// The keyboard focus ring: 2 px in the link colour, 2 px outside a button
 /// (its radius plus 2), 2 px inside a list row, menu item or segment that a
 /// container clips. It shows only after the keyboard moved focus, never after
@@ -896,6 +1042,7 @@ WidgetbookNode focusRingNode() => WidgetbookComponent(
     ..._menuTileChipUseCases(),
     ..._ownShapeUseCases(),
     ..._remainingControlUseCases(),
+    ..._outsideTapTargetUseCases(),
     WidgetbookUseCase(
       name: 'Try it (press Tab)',
       builder: (_) => _at(
