@@ -2900,6 +2900,10 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanNewTaskAction": "New task",
+  "@kanbanNewTaskAction": {
+    "description": "Label of the floating button on the board that opens the new task form."
+  },
   "kanbanRefreshAction": "Refresh",
   "@kanbanRefreshAction": {
     "description": "Name of the Refresh button on the board and the workers page; reads the list again."

@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/blueprint_screens.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_form_screen.dart';
+import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
@@ -207,11 +209,13 @@ void main() {
       await tester.tap(find.byKey(const Key('schedule-filter')));
       await tester.pumpAndSettle();
 
-      final entries = find.byWidgetPredicate((w) => w is PopupMenuEntry);
+      // The menu builds each checked item as a FocusRingCheckedMenuItem.
       expect(
         [
-          for (final entry in tester.widgetList<PopupMenuEntry>(entries))
-            ((entry as CheckedPopupMenuItem).child! as Text).data,
+          for (final entry in tester.widgetList<FocusRingCheckedMenuItem>(
+            find.byType(FocusRingCheckedMenuItem<ScheduleFilter>),
+          ))
+            (entry.item.child! as Text).data,
         ],
         ['All tasks', 'Failing (1)', 'Paused'],
       );

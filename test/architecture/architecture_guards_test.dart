@@ -130,6 +130,22 @@ List<Hit> chipShapeHitsIn(SourceFile file) => [
         Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
 ];
 
+/// The sliding segmented control, the Material segmented button, the
+/// expansion tile and a floating button, each of which draws its own focus
+/// state that a wrapper or a helper turns into the keyboard ring.
+final _rawSlidingControl = RegExp(
+  r'(?<!FocusRing\.outside\(\s*radius:\s*9,\s*child:\s*)'
+  r'\bCupertinoSlidingSegmentedControl\s*[<(]',
+);
+final _rawSegmentedButton = RegExp(r'(?<![\w.])SegmentedButton\s*[<(.]');
+final _rawExpansionTile = RegExp(r'\bExpansionTile\s*[<(.]');
+
+/// A floating button not directly inside `FocusRing.outside(radius: ..., child:`.
+final _bareFloatingButton = RegExp(
+  r'(?<!FocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*)'
+  r'\bFloatingActionButton(?:\.\w+)?\s*[<(]',
+);
+
 /// A raw popup menu: `PopupMenuButton<T>(`, the inferred `PopupMenuButton(`,
 /// or `showMenu`.
 final _rawPopupMenu = RegExp(
@@ -734,10 +750,48 @@ final guardRules = <Rule>[
     view: _code,
     allow: {
       'lib/src/widgets/adaptive_popup_menu_button.dart': 'the implementation',
-      'lib/src/widgets/row_actions.dart':
-          'the Mac row context menu, whose items are rows of the Mac compact '
-          'menu (not covered by the ring)',
     },
+  ),
+
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": controls
+  // that draw their own focus state take the ring from one building block.
+  _guard(
+    name: 'sliding-control-without-focus-ring',
+    message:
+        'wrap a CupertinoSlidingSegmentedControl in FocusRing.outside('
+        'radius: 9, child: ...) (lib/src/theme/focus_ring.dart): the track '
+        'clips its segments, so the keyboard focus ring goes round the control.',
+    pattern: _rawSlidingControl,
+    view: _code,
+  ),
+  _guard(
+    name: 'segmented-button-without-focus-ring',
+    message:
+        'use AdaptiveSegmentedControl (lib/src/widgets/adaptive_segmented_'
+        'control.dart): its Material segments carry the keyboard focus ring.',
+    pattern: _rawSegmentedButton,
+    view: _code,
+    allow: {
+      'lib/src/widgets/adaptive_segmented_control.dart': 'the implementation',
+    },
+  ),
+  _guard(
+    name: 'expansion-tile-without-focus-ring',
+    message:
+        'use DisclosureTile (lib/src/widgets/disclosure_tile.dart): its header '
+        'carries the keyboard focus ring and the disclosure semantics.',
+    pattern: _rawExpansionTile,
+    view: _code,
+    allow: {'lib/src/widgets/disclosure_tile.dart': 'the implementation'},
+  ),
+  _guard(
+    name: 'floating-button-without-focus-ring',
+    message:
+        'wrap a FloatingActionButton in FocusRing.outside(radius: <its '
+        'radius>, child: ...) (lib/src/theme/focus_ring.dart): its shape is '
+        'not state-aware, so the keyboard focus ring is a wrapper.',
+    pattern: _bareFloatingButton,
+    view: _code,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": the catalog
@@ -777,6 +831,59 @@ void main() {
       _keyboardOverride.hasMatch('markFocusRingKeyboardInputs();'),
       isFalse,
     );
+  });
+
+  group('segmented control, expansion tile and floating button guards', () {
+    test(
+      'a raw sliding control, segmented button or expansion tile is flagged',
+      () {
+        expect(
+          _rawSlidingControl.hasMatch('CupertinoSlidingSegmentedControl<int>('),
+          isTrue,
+        );
+        expect(
+          _rawSlidingControl.hasMatch('RingedSlidingSegmentedControl<int>('),
+          isFalse,
+        );
+        expect(_rawSegmentedButton.hasMatch('x = SegmentedButton<T>('), isTrue);
+        expect(
+          _rawSegmentedButton.hasMatch('SegmentedButton.styleFrom('),
+          isTrue,
+        );
+        expect(
+          _rawSegmentedButton.hasMatch('AdaptiveSegmentedButton('),
+          isFalse,
+        );
+        expect(_rawSegmentedButton.hasMatch('ui.SegmentedButton('), isFalse);
+        expect(_rawExpansionTile.hasMatch('ExpansionTile(title: a)'), isTrue);
+        expect(_rawExpansionTile.hasMatch('ExpansionTile.new'), isTrue);
+        expect(_rawExpansionTile.hasMatch('DisclosureTile(title: a)'), isFalse);
+      },
+    );
+
+    test('a floating button outside FocusRing.outside is flagged', () {
+      bool bare(String code) => _bareFloatingButton.hasMatch(code);
+      expect(bare('child: FloatingActionButton(onPressed: f)'), isTrue);
+      expect(bare('FloatingActionButton.extended(onPressed: f)'), isTrue);
+      expect(bare('FloatingActionButton.small(onPressed: f)'), isTrue);
+      expect(
+        bare(
+          'FocusRing.outside(radius: 28, child: FloatingActionButton.extended(a))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare(
+          'FocusRing.outside(\n radius: kHermesRadius,\n child: FloatingActionButton(a))',
+        ),
+        isFalse,
+      );
+      expect(
+        bare('FocusRing(radius: 8, child: FloatingActionButton(a))'),
+        isTrue,
+      );
+      expect(bare('Tooltip(child: FloatingActionButton(a))'), isTrue);
+    });
   });
 
   group('list tile, chip and popup menu guards', () {

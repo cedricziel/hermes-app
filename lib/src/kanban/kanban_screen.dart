@@ -38,6 +38,7 @@ import 'kanban_workers_screen.dart';
 import 'widgets/kanban_board_menu.dart';
 import 'widgets/kanban_board_toolbar.dart';
 import 'widgets/kanban_bulk_bar.dart';
+import 'widgets/new_task_fab.dart';
 import 'widgets/kanban_card.dart';
 import 'widgets/kanban_card_drag.dart';
 import 'widgets/kanban_drop_strip.dart';
@@ -296,11 +297,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         ),
         floatingActionButton: !_fabShown
             ? null
-            : FloatingActionButton.extended(
-                onPressed: _newTask,
-                icon: const AppIcon(AppIcons.add),
-                label: const Text('New task'),
-              ),
+            : NewTaskFab(onPressed: _newTask),
       ),
     );
   }

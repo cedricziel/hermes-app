@@ -5,6 +5,7 @@ import '../../../l10n/l10n.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../theme/app_icons.dart';
 import 'schedule_filter_menu.dart';
+import '../../theme/focus_ring.dart';
 
 /// The Schedules toolbar in a Mac window: the title with the number of jobs
 /// listed, the profile scope, the status filter, Refresh and New Schedule.
@@ -90,15 +91,18 @@ class ScheduleScopeControl extends StatelessWidget {
         style: TextStyle(fontSize: 12, color: scheme.onSurface),
       ),
     );
-    return CupertinoSlidingSegmentedControl<bool>(
-      groupValue: allProfiles,
-      backgroundColor: scheme.surfaceContainerHighest,
-      thumbColor: scheme.surface,
-      padding: const EdgeInsets.all(2),
-      children: {false: label('This profile'), true: label('All profiles')},
-      onValueChanged: (value) {
-        if (value != null) onChanged(value);
-      },
+    return FocusRing.outside(
+      radius: 9,
+      child: CupertinoSlidingSegmentedControl<bool>(
+        groupValue: allProfiles,
+        backgroundColor: scheme.surfaceContainerHighest,
+        thumbColor: scheme.surface,
+        padding: const EdgeInsets.all(2),
+        children: {false: label('This profile'), true: label('All profiles')},
+        onValueChanged: (value) {
+          if (value != null) onChanged(value);
+        },
+      ),
     );
   }
 }

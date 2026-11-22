@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/new_chat_fab.dart';
 import 'package:hermes_app/src/chat/widgets/scroll_to_latest_button.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/kanban/widgets/new_task_fab.dart';
 import 'package:hermes_app/src/macos/mac_toolbar.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/messaging/widgets/messaging_platform_row.dart';
@@ -671,7 +672,7 @@ class _OpenRowContextMenuState extends State<_OpenRowContextMenu> {
             (n) =>
                 n.context
                     ?.findAncestorWidgetOfExactType<
-                      PopupMenuItem<RowAction>
+                      FocusRingMenuItem<RowAction>
                     >() !=
                 null,
           )
@@ -833,11 +834,7 @@ List<WidgetbookUseCase> _remainingControlUseCases() => [
         0,
         Padding(
           padding: const EdgeInsets.all(8),
-          child: FloatingActionButton.extended(
-            onPressed: _noop,
-            icon: const Icon(Icons.add),
-            label: const Text('New task'),
-          ),
+          child: const NewTaskFab(onPressed: _noop),
         ),
       ),
     ),

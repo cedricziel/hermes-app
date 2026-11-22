@@ -1,6 +1,7 @@
+import 'package:flutter/cupertino.dart';
+
 import 'dart:math' as math;
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -11,6 +12,7 @@ import 'adaptive_popup_menu_button.dart';
 import 'adaptive_tab_bar.dart';
 import 'grouped_list.dart';
 import 'shrink_to_fit_text.dart';
+import '../theme/focus_ring.dart';
 
 /// A labelled value that opens a picker: on iOS the value muted before the
 /// chevron, on Material under the label, and on the Mac in a pop-up button.
@@ -467,32 +469,35 @@ class GroupedSegmentedRow<T extends Object> extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final chrome = platformChromeOf(context);
     final Widget control = chrome.isApple
-        ? CupertinoSlidingSegmentedControl<T>(
-            groupValue: value,
-            backgroundColor: scheme.surfaceContainerHighest,
-            thumbColor: scheme.surface,
-            padding: const EdgeInsets.all(2),
-            children: {
-              for (final MapEntry(key: segment, value: label)
-                  in segments.entries)
-                segment: Semantics(
-                  button: true,
-                  selected: segment == value,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: ShrinkToFitText(
-                      label,
-                      style: TextStyle(
-                        fontSize: chrome == PlatformChrome.macos ? 12 : 13,
-                        color: scheme.onSurface,
+        ? FocusRing.outside(
+            radius: 9,
+            child: CupertinoSlidingSegmentedControl<T>(
+              groupValue: value,
+              backgroundColor: scheme.surfaceContainerHighest,
+              thumbColor: scheme.surface,
+              padding: const EdgeInsets.all(2),
+              children: {
+                for (final MapEntry(key: segment, value: label)
+                    in segments.entries)
+                  segment: Semantics(
+                    button: true,
+                    selected: segment == value,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: ShrinkToFitText(
+                        label,
+                        style: TextStyle(
+                          fontSize: chrome == PlatformChrome.macos ? 12 : 13,
+                          color: scheme.onSurface,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            },
-            onValueChanged: (segment) {
-              if (segment != null) onChanged(segment);
-            },
+              },
+              onValueChanged: (segment) {
+                if (segment != null) onChanged(segment);
+              },
+            ),
           )
         : PillSegmentedControl<T>(
             value: value,

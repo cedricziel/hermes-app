@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 
 /// A thumb-reachable shortcut to the chat list's existing new-chat action.
@@ -18,22 +19,27 @@ class NewChatFab extends StatelessWidget {
     return Tooltip(
       message: 'New chat',
       excludeFromSemantics: true,
-      child: FloatingActionButton(
-        heroTag: null,
-        onPressed: onPressed,
-        backgroundColor: colors.primary,
-        foregroundColor: colors.onPrimary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(kHermesRadius),
-        ),
-        elevation: 2,
-        focusElevation: 3,
-        hoverElevation: 3,
-        highlightElevation: 4,
-        child: const AppIcon(
-          AppIcons.compose,
-          size: 26,
-          semanticLabel: 'New chat',
+      // A floating button's shape is not state-aware, so the keyboard focus
+      // ring is a wrapper, 2 px outside it (nothing clips it).
+      child: FocusRing.outside(
+        radius: kHermesRadius,
+        child: FloatingActionButton(
+          heroTag: null,
+          onPressed: onPressed,
+          backgroundColor: colors.primary,
+          foregroundColor: colors.onPrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kHermesRadius),
+          ),
+          elevation: 2,
+          focusElevation: 3,
+          hoverElevation: 3,
+          highlightElevation: 4,
+          child: const AppIcon(
+            AppIcons.compose,
+            size: 26,
+            semanticLabel: 'New chat',
+          ),
         ),
       ),
     );

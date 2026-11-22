@@ -7,6 +7,7 @@ import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../thread_search.dart';
 import 'relative_time.dart';
+import '../../theme/focus_ring.dart';
 
 /// [hits] split into the chats whose title holds [query] and those that
 /// only matched in their messages, each in the order given.
@@ -65,22 +66,25 @@ class MacSearchResults extends StatelessWidget {
         if (onScopeChanged != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-            child: CupertinoSlidingSegmentedControl<ThreadSearchScope>(
-              key: const Key('search-scope'),
-              groupValue: scope,
-              onValueChanged: (value) {
-                if (value != null) onScopeChanged(value);
-              },
-              children: const {
-                ThreadSearchScope.profile: Text(
-                  'This profile',
-                  style: TextStyle(fontSize: 12),
-                ),
-                ThreadSearchScope.allProfiles: Text(
-                  'All profiles',
-                  style: TextStyle(fontSize: 12),
-                ),
-              },
+            child: FocusRing.outside(
+              radius: 9,
+              child: CupertinoSlidingSegmentedControl<ThreadSearchScope>(
+                key: const Key('search-scope'),
+                groupValue: scope,
+                onValueChanged: (value) {
+                  if (value != null) onScopeChanged(value);
+                },
+                children: const {
+                  ThreadSearchScope.profile: Text(
+                    'This profile',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  ThreadSearchScope.allProfiles: Text(
+                    'All profiles',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                },
+              ),
             ),
           ),
         Expanded(child: _body(context)),
