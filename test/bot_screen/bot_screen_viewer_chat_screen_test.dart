@@ -263,6 +263,29 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('Escape still closes the overlay after a mouse click on its '
+      'edge', (tester) async {
+    await pumpScreen(tester);
+    await tester.tap(enlarge);
+    await settle(tester);
+    await serve(tester);
+
+    final at = tester.getBottomLeft(viewer) + const Offset(2, -2);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: at);
+    await mouse.down(at);
+    await mouse.up();
+    await mouse.removePointer();
+    await tester.pump();
+    expect(viewer, findsOne);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(viewer, findsNothing);
+    expect(channels.last.sentCloseCode, 1000);
+    await finish(tester);
+  });
+
   testWidgets('a tap or click on the picture sends no input', (tester) async {
     await pumpScreen(tester);
     await tester.tap(enlarge);

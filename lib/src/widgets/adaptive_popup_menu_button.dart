@@ -68,6 +68,103 @@ class _FocusRingMenuItemState<T>
   );
 }
 
+/// A [CheckedPopupMenuItem] that shows the keyboard focus ring, inside the
+/// row, and takes the hover fill while it has keyboard focus. [CheckedPopupMenuItem]'s
+/// state is private, so this wraps one built from the same fields (check mark,
+/// text style, semantics and tap are Material's own).
+///
+/// [AdaptivePopupMenuButton] builds it from every [CheckedPopupMenuItem] on
+/// Material and Windows and Linux; call sites keep writing the Material item.
+class FocusRingCheckedMenuItem<T> extends PopupMenuEntry<T> {
+  const FocusRingCheckedMenuItem({super.key, required this.item});
+
+  /// The item to wrap; its key stays on this entry, not on the copy.
+  final CheckedPopupMenuItem<T> item;
+
+  @override
+  double get height => item.height;
+
+  @override
+  bool represents(T? value) => item.represents(value);
+
+  @override
+  State<FocusRingCheckedMenuItem<T>> createState() =>
+      _FocusRingCheckedMenuItemState<T>();
+}
+
+class _FocusRingCheckedMenuItemState<T>
+    extends State<FocusRingCheckedMenuItem<T>> {
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    return FocusRing(
+      radius: 4,
+      fill: Theme.of(context).hoverColor,
+      child: CheckedPopupMenuItem<T>(
+        value: item.value,
+        checked: item.checked,
+        enabled: item.enabled,
+        padding: item.padding,
+        height: item.height,
+        labelTextStyle: item.labelTextStyle,
+        mouseCursor: item.mouseCursor,
+        onTap: item.onTap,
+        child: item.child,
+      ),
+    );
+  }
+}
+
+/// [entry] as a menu item that shows the keyboard focus ring, 2 px inside the
+/// row, and takes the hover fill while focused: [FocusRingMenuItem] for a
+/// plain or destructive item, [FocusRingCheckedMenuItem] for a checked one.
+/// Anything else (a divider) stays as it is. [AdaptivePopupMenuButton] builds
+/// its Material and Windows and Linux menus from it, and so does
+/// [showRingMenu].
+PopupMenuEntry<T> ringMenuEntry<T>(PopupMenuEntry<T> entry) => switch (entry) {
+  AdaptiveMenuItem<T>(destructive: true) => FocusRingMenuItem<T>(
+    key: entry.key,
+    value: entry.value,
+    onTap: entry.onTap,
+    enabled: entry.enabled,
+    child: Builder(
+      builder: (context) => DefaultTextStyle.merge(
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+        child: entry.child ?? const SizedBox.shrink(),
+      ),
+    ),
+  ),
+  CheckedPopupMenuItem<T>() => FocusRingCheckedMenuItem<T>(
+    key: entry.key,
+    item: entry,
+  ),
+  PopupMenuItem<T>() => FocusRingMenuItem<T>(
+    key: entry.key,
+    value: entry.value,
+    onTap: entry.onTap,
+    enabled: entry.enabled,
+    height: entry.height,
+    padding: entry.padding,
+    textStyle: entry.textStyle,
+    labelTextStyle: entry.labelTextStyle,
+    mouseCursor: entry.mouseCursor,
+    child: entry.child,
+  ),
+  _ => entry,
+};
+
+/// [showMenu] with every item given the keyboard focus ring ([ringMenuEntry]):
+/// the context menu of a row, opened where it was clicked.
+Future<T?> showRingMenu<T>({
+  required BuildContext context,
+  required RelativeRect position,
+  required List<PopupMenuEntry<T>> items,
+}) => showMenu<T>(
+  context: context,
+  position: position,
+  items: [for (final entry in items) ringMenuEntry(entry)],
+);
+
 /// A [PopupMenuButton] that follows the platform: a pull-down
 /// [CupertinoMenuAnchor] on iOS, a compact menu on macOS (rows of 22 logical
 /// pixels highlighted in the primary colour, as on a Mac), and the plain
@@ -225,46 +322,24 @@ class _AdaptivePopupMenuButtonState<T>
     ];
   }
 
-  PopupMenuEntry<T> _plain(PopupMenuEntry<T> entry) => switch (entry) {
-    AdaptiveMenuItem<T>(destructive: true) => FocusRingMenuItem<T>(
-      key: entry.key,
-      value: entry.value,
-      onTap: entry.onTap,
-      enabled: entry.enabled,
-      child: Builder(
-        builder: (context) => DefaultTextStyle.merge(
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
-          child: entry.child ?? const SizedBox.shrink(),
-        ),
-      ),
-    ),
-    CheckedPopupMenuItem<T>() => entry,
-    PopupMenuItem<T>() => FocusRingMenuItem<T>(
-      key: entry.key,
-      value: entry.value,
-      onTap: entry.onTap,
-      enabled: entry.enabled,
-      height: entry.height,
-      padding: entry.padding,
-      textStyle: entry.textStyle,
-      labelTextStyle: entry.labelTextStyle,
-      mouseCursor: entry.mouseCursor,
-      child: entry.child,
-    ),
-    _ => entry,
-  };
+  PopupMenuEntry<T> _plain(PopupMenuEntry<T> entry) => ringMenuEntry(entry);
 
   static double _macHeight(PopupMenuItem<Object?> entry) =>
       (entry is AdaptiveMenuItem ? entry.macHeight : null) ??
       AdaptivePopupMenuButton.macRowHeight;
 
   PopupMenuEntry<T> _compact(PopupMenuEntry<T> entry) => switch (entry) {
-    CheckedPopupMenuItem<T>() => CheckedPopupMenuItem<T>(
-      value: entry.value,
-      checked: entry.checked,
-      enabled: entry.enabled,
-      height: AdaptivePopupMenuButton.macRowHeight,
-      child: entry.child,
+    // The Mac menu paints no hover fill (the theme clears it), so a focused
+    // checked item shows the ring alone.
+    CheckedPopupMenuItem<T>() => FocusRingCheckedMenuItem<T>(
+      key: entry.key,
+      item: CheckedPopupMenuItem<T>(
+        value: entry.value,
+        checked: entry.checked,
+        enabled: entry.enabled,
+        height: AdaptivePopupMenuButton.macRowHeight,
+        child: entry.child,
+      ),
     ),
     PopupMenuItem<T>() => PopupMenuItem<T>(
       value: entry.value,
@@ -403,30 +478,42 @@ class _MacMenuRowState extends State<MacMenuRow> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: Container(
-        height: widget.height,
-        padding: const EdgeInsets.symmetric(horizontal: 9),
-        decoration: BoxDecoration(
-          color: lit ? scheme.primary : null,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: DefaultTextStyle.merge(
-          style: TextStyle(fontSize: 13, color: color),
-          child: Row(
-            children: [
-              Expanded(child: widget.child),
-              if (shortcut != null) ...[
-                const SizedBox(width: 24),
-                Text(
-                  shortcut,
-                  style: TextStyle(
-                    color: lit
-                        ? scheme.onPrimary.withValues(alpha: 0.8)
-                        : muted,
-                  ),
-                ),
-              ],
-            ],
+      // The row's own fill follows focus; the keyboard ring is 2 px inside it
+      // and goes with a pointer press. It is onPrimary, not the link colour:
+      // the focused row is filled with the primary colour, where the link
+      // colour measures 1.68:1 (dark) and 3.08:1 (light).
+      child: KeyboardFocusBuilder(
+        focused: focused,
+        builder: (context, keyboard) => CustomPaint(
+          foregroundPainter: keyboard && widget.enabled && focused
+              ? FocusRingPainter(color: scheme.onPrimary, radius: 4)
+              : null,
+          child: Container(
+            height: widget.height,
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            decoration: BoxDecoration(
+              color: lit ? scheme.primary : null,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: DefaultTextStyle.merge(
+              style: TextStyle(fontSize: 13, color: color),
+              child: Row(
+                children: [
+                  Expanded(child: widget.child),
+                  if (shortcut != null) ...[
+                    const SizedBox(width: 24),
+                    Text(
+                      shortcut,
+                      style: TextStyle(
+                        color: lit
+                            ? scheme.onPrimary.withValues(alpha: 0.8)
+                            : muted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

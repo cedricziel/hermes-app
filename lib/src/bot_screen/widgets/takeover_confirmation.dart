@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../theme/focus_ring.dart';
 
 /// What the user is told before taking over the screen, with a way not to be
 /// asked again. It is the content of a sheet (a bottom sheet on a phone, a
@@ -66,11 +67,13 @@ class _TakeoverConfirmationState extends State<TakeoverConfirmation> {
             'still see it.',
           ),
           if (widget.offerDontAskAgain)
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text("Don't ask again"),
-              value: _dontAskAgain,
-              onChanged: (value) => setState(() => _dontAskAgain = value),
+            FocusRing(
+              child: SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text("Don't ask again"),
+                value: _dontAskAgain,
+                onChanged: (value) => setState(() => _dontAskAgain = value),
+              ),
             ),
           const SizedBox(height: 8),
           Wrap(

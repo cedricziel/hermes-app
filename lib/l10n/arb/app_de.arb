@@ -606,6 +606,7 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanNewTaskAction": "Neue Aufgabe",
   "kanbanRefreshAction": "Aktualisieren",
 
   "@@x-area-live_activities": "",

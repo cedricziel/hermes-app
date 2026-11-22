@@ -7,6 +7,7 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import '../../../l10n/l10n.dart';
 import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_tab_bar.dart';
@@ -517,28 +518,31 @@ class MarkdownModeControl extends StatelessWidget {
     };
     final files = FilesMetrics.of(context);
     final control = platformChromeOf(context).isApple
-        ? CupertinoSlidingSegmentedControl<bool>(
-            groupValue: showSource,
-            backgroundColor: scheme.surfaceContainerHighest,
-            thumbColor: scheme.surface,
-            padding: const EdgeInsets.all(2),
-            children: {
-              for (final MapEntry(:key, :value) in labels.entries)
-                key: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    value,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: files.pointer ? 12 : null,
-                      color: scheme.onSurface,
+        ? FocusRing.outside(
+            radius: 9,
+            child: CupertinoSlidingSegmentedControl<bool>(
+              groupValue: showSource,
+              backgroundColor: scheme.surfaceContainerHighest,
+              thumbColor: scheme.surface,
+              padding: const EdgeInsets.all(2),
+              children: {
+                for (final MapEntry(:key, :value) in labels.entries)
+                  key: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: files.pointer ? 12 : null,
+                        color: scheme.onSurface,
+                      ),
                     ),
                   ),
-                ),
-            },
-            onValueChanged: (value) {
-              if (value != null) onChanged(value);
-            },
+              },
+              onValueChanged: (value) {
+                if (value != null) onChanged(value);
+              },
+            ),
           )
         : PillSegmentedControl<bool>(
             value: showSource,

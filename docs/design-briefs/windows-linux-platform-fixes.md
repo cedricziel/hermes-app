@@ -48,7 +48,34 @@ The pass above did not record these; they are checked against the real theme tok
 - High contrast: the app has no high-contrast theme and does not read `MediaQuery.highContrast`. The ring is unchanged there and meets 3:1 on every surface above.
 - Hover plus focus: both show. The ring is drawn on top of the hover tint (a menu item also takes the hover fill, painted under its text and the ring).
 - Placement change, Mac thread row: the Archive and More buttons are 20 x 20 targets 4 pt apart (were 2). Their rings reach 4 pt out, so with 2 pt the Archive ring would cover the More button. The title gets 2 pt less width; a row without Archive (no `onArchive`) now has 4 pt of dead gap before More, where it had 2 (an older quirk: the gap is drawn either way). The buttons keep their 20 x 20 size and hit areas; the row's 28 pt height holds the ring.
-- Implementation records: a list row's ring radius is the section radius minus the 2 px inset; the model popover's choice row keeps its edge outline (inset 0); not covered are `ListTile` (7 sites), chips (3), `CheckedPopupMenuItem`, the Android `SegmentedButton`, the Mac compact menu row and the iOS and Mac system segmented control. `docs/architecture/settings-screens.md` has the list.
+- Implementation records: a list row's ring radius is the section radius minus the 2 px inset; the model popover's choice row keeps its edge outline (inset 0). `docs/architecture/settings-screens.md` has the list of what is covered.
+- Addendum, checked menu items, list tiles and chips (same ring, no other visual change; no placement change was needed):
+
+  | Control | Ring | Where |
+  | --- | --- | --- |
+  | Checked menu item (Material, Windows, Linux menus) | 2 px inside, radius 4, with the menu hover fill | The menu clips it, as for a plain menu item |
+  | `ListTile`, `CheckboxListTile`, `SwitchListTile` | 2 px inside, radius 8 | A sheet, dialog or bordered box clips or abuts it; a tile fills its row |
+  | `FilterChip`, `ChoiceChip` | 2 px outside, the chip's 8 px radius plus 2 | Not clipped: the chip row has room (the status chips scroll with 12 px of padding and 48 px of height) |
+
+  The composer's `InputChip` has only a delete button, which keeps Material's focus fill.
+- Addendum, segmented controls, tap targets, floating buttons, disclosure tiles and Mac menus (same ring, no other visual change; no placement change was needed):
+
+  | Control | Ring | Where |
+  | --- | --- | --- |
+  | Android `SegmentedButton` segment | 2 px inside the segment, radius 12 | The control crops its segments to its own outline and height (28 dp, though the button lays out 32) |
+  | iOS and Mac sliding control (`CupertinoSlidingSegmentedControl`, six sites) | Round the whole control, 2 px outside the 9 pt track | The track clips its segments and the thumb marks the selection; a hardware keyboard on an iPad moves focus into it, so a ring belongs. The Mac pill control already had it per segment |
+  | Model pill (`ComposerSelectorChip`) | 2 px inside, radius 18 | The pill (radius 20) clips its main area; the Retry button keeps its own button ring |
+  | Weekday toggles | 2 px outside, the pill's radius plus 2 | Not clipped; the toggles are 4 pt apart, so a ring touches the next toggle's edge without covering it |
+  | Bot Screen key, copy buttons (tool value, code block), voice orb, "What's the difference" link | 2 px outside | Not clipped |
+  | `new_chat_fab`, scroll-to-latest, "New task" | 2 px outside the button | Not clipped; a floating button's shape is not state-aware, so a wrapper, not `FloatingActionButtonThemeData.shape` |
+  | `DisclosureTile` header | 2 px inside the header row, radius 8 | The tile's `Material` clips; only the header row, never the tile with its children |
+  | Mac compact menu row, Mac checked menu item, row context menu | 2 px inside, radius 4 | The row's own fill (primary) stays; the checked item has no hover fill on a Mac (the theme clears it). The context menu is a plain Material menu, so its focused item takes `Theme.hoverColor` (alpha 0.04) under the ring |
+
+  On a filled row (the Mac menu row, whose focused fill is `colorScheme.primary`) the ring is `onPrimary`, not the link colour, which measures only 1.68:1 against that fill in dark and 3.08:1 in light. `onPrimary` is 17.72:1 in light (white on zinc900) and 16.97:1 in dark (zinc900 on zinc50).
+
+  An outside ring follows the painted shape, not the layout box: the mini scroll-to-latest button is laid out 48 dp on Android and iOS (padded tap target) and 40 dp on macOS, Windows and Linux (shrink-wrapped), round a 40 dp painted circle, so `MiniFabFocusRing` picks the ring from the theme (a circle with its outer edge on the 48 box, or `FocusRing.outside(radius: 20)`); the extended "New task" button paints a 16 px rounded rectangle, not a stadium; the "What's the difference" link is a plain rectangle (radius 0). `test/focus_ring_geometry_test.dart` checks the drawn ring of every outside ring in this addendum, and of the buttons, chips, tiles and menu items merged earlier, on Android (padded tap targets) and on macOS and Linux (shrink-wrapped); Windows is not run, since it shares Linux's shrink-wrap default. Exceptions to "all three": the sliding controls run on iOS and macOS, the weekday toggles also on iOS, the Android segments on Android only, the Mac menu row on macOS only, and the Material menu items on Android and Linux. Skipped there: the model popover's choice row, the Mac checked menu item and the Mac row context menu items. The tool-value copy button and the link paint no fill, so their ring follows the ink (hover) area.
+
+  iOS pull-down menu items are not given a ring: `CupertinoMenuItem` is focusable by keyboard and draws Apple's own focus fill. Hand-rolled `InkWell` list rows (sidebar, file, thread, source-list, search-result and similar full-width rows) are not covered yet.
 
 ## F1 command set
 

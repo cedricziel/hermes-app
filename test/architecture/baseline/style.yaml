@@ -33,7 +33,6 @@ style.color:
   lib/src/widgets/grouped_dialog.dart: 2
 
 style.dialog:
-  lib/src/app_lock/app_lock_dialog.dart: 1
   lib/src/bot_mode/bot_mode_roster_screen.dart: 2
   lib/src/bot_mode/groups/group_chat_screen.dart: 2
   lib/src/bot_mode/groups/widgets/group_widgets.dart: 1
@@ -43,19 +42,11 @@ style.dialog:
   lib/src/kanban/widgets/kanban_bulk_bar.dart: 1
   lib/src/kanban/widgets/kanban_task_panel.dart: 3
   lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart: 2
-  lib/src/memory/widgets/memory_choice_dialog.dart: 1
   lib/src/models/widgets/model_picker.dart: 2
-  lib/src/notifications/notifications_dialog.dart: 1
   lib/src/plugins/catalog_tab.dart: 1
   lib/src/plugins/installed_tab.dart: 1
   lib/src/plugins/plugins_screen.dart: 1
   lib/src/profiles/widgets/new_profile_dialog.dart: 1
-  lib/src/settings/about_dialog.dart: 1
-  lib/src/settings/appearance_dialog.dart: 1
-  lib/src/settings/settings_dialog.dart: 1
-  lib/src/spotlight/spotlight_dialog.dart: 1
-  lib/src/voice/dictation_dialog.dart: 1
-  lib/src/voice/portable_calls_dialog.dart: 1
 
 style.elevation:
   lib/src/chat/widgets/new_chat_fab.dart: 1
@@ -387,7 +378,7 @@ style.string:
   lib/src/kanban/kanban_boards_screen.dart: 27
   lib/src/kanban/kanban_create_screen.dart: 8
   lib/src/kanban/kanban_errors.dart: 2
-  lib/src/kanban/kanban_screen.dart: 14
+  lib/src/kanban/kanban_screen.dart: 13
   lib/src/kanban/kanban_workers_screen.dart: 8
   lib/src/kanban/widgets/kanban_board_menu.dart: 3
   lib/src/kanban/widgets/kanban_board_toolbar.dart: 4

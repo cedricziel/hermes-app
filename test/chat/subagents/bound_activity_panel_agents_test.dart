@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
@@ -844,6 +845,60 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await settle(tester);
       expect(find.byType(AgentNoteField), findsNothing);
+    });
+
+    panelTest('Escape after a mouse click inside the detail, outside the '
+        'field, still goes back', (tester) async {
+      await arrangeOne(tester);
+      await openDetail(tester, 'a1');
+      await tester.ensureVisible(noteField());
+      await tester.tap(noteField());
+      await tester.enterText(noteField(), 'x');
+      await tester.pump();
+
+      // Above the field, inside the detail, on a paragraph: a mouse click
+      // takes focus out of the field.
+      final at = tester.getTopLeft(noteField()) - const Offset(0, 30);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: at);
+      await mouse.down(at);
+      await mouse.up();
+      await mouse.removePointer();
+      await tester.pump();
+      expect(find.byType(AgentNoteField), findsOneWidget);
+
+      // The first Escape with text in the note only steps out: leaving the
+      // detail drops the note. The second goes back.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      expect(find.byType(AgentNoteField), findsOneWidget);
+      expect(tester.widget<TextField>(noteField()).controller!.text, 'x');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      expect(find.byType(AgentNoteField), findsNothing);
+    });
+
+    panelTest('Tab from the note field reaches the chat beside the detail', (
+      tester,
+    ) async {
+      await arrangeOne(tester);
+      await openDetail(tester, 'a1');
+      await tester.ensureVisible(noteField());
+      await tester.tap(noteField());
+      await tester.pump();
+      final composerField = find.descendant(
+        of: find.byKey(const Key('strip-side')),
+        matching: find.byType(EditableText),
+      );
+      var reached = false;
+      for (var i = 0; i < 60 && !reached; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        reached = tester
+            .widgetList<EditableText>(composerField)
+            .any((f) => f.focusNode.hasFocus);
+      }
+      expect(reached, isTrue);
     });
 
     panelTest('an agent that ends while Stopping leaves no banner under '

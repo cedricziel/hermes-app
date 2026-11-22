@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'grouped_list.dart';
@@ -25,18 +26,22 @@ class WhatsTheDifferenceLink extends StatelessWidget {
       alignment: AlignmentDirectional.centerStart,
       child: Semantics(
         link: true,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: target),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              widthFactor: 1,
-              child: Text(
-                context.l10n.toolsFooterLink,
-                style: TextStyle(
-                  fontSize: metrics.footerSize,
-                  color: context.hermesColors.link,
+        // The ring is 2 px outside the link's tap area, which nothing clips.
+        child: FocusRing.outside(
+          radius: 0,
+          child: InkWell(
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: target),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                widthFactor: 1,
+                child: Text(
+                  context.l10n.toolsFooterLink,
+                  style: TextStyle(
+                    fontSize: metrics.footerSize,
+                    color: context.hermesColors.link,
+                  ),
                 ),
               ),
             ),
