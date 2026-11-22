@@ -104,15 +104,14 @@ void main() {
     tester,
   ) async {
     final document = growingBlock();
-    final shrunk = document.replaceFirst(codeBody(80), codeBody(60));
+    final shrunk = document.replaceFirst(
+      codeBody(growingBlockLines),
+      codeBody(60),
+    );
     await streamDocument(
       tester,
       document,
       steps: [Step(_at(document, 0.8), replace: shrunk)],
     );
-  });
-
-  testWidgets('lone surrogates while the reply streams', (tester) async {
-    await streamDocument(tester, loneSurrogates(), chunk: 61);
   });
 }

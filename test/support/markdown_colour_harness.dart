@@ -98,6 +98,17 @@ int colouredChars(WidgetTester tester) =>
         .fold(0, (sum, b) => sum + b.codes.length);
 
 /// The characters of every code block, coloured or not.
+/// The characters of the code blocks that may be coloured: within the block
+/// and the line limits. A document needs more than [kDocumentLimit] of them
+/// for the document limit to be reached.
+int colourableChars(WidgetTester tester) => codeBlocks(tester)
+    .where(
+      (b) =>
+          b.codes.length <= kBlockLimit &&
+          !b.codes.split(RegExp('[\r\n]')).any((l) => l.length > kLineLimit),
+    )
+    .fold(0, (sum, b) => sum + b.codes.length);
+
 int codeChars(WidgetTester tester) =>
     codeBlocks(tester).fold(0, (sum, b) => sum + b.codes.length);
 
@@ -251,7 +262,7 @@ Future<Streamed> streamDocument(
     await tester.pump(const Duration(milliseconds: 500));
     _check(tester, seen, 'while settling');
   }
-  seen.codeCharsAtEnd = codeChars(tester);
+  seen.codeCharsAtEnd = colourableChars(tester);
   if (const bool.fromEnvironment('COLOUR_REPORT')) {
     debugPrint(
       'COLOUR_REPORT max=${seen.maxColoured} pumps=${seen.pumps} '
@@ -263,8 +274,8 @@ Future<Streamed> streamDocument(
       seen.codeCharsAtEnd,
       greaterThan(kDocumentLimit),
       reason:
-          'the document must hold more code than the limit, or the case '
-          'proves nothing',
+          'the document must hold more colourable code (within the block and '
+          'line limits) than the document limit, or the case proves nothing',
     );
   }
   return seen;
@@ -424,17 +435,26 @@ String unclosedAtEnd() =>
     '${paragraphs(6, (i) => fenced(codeBody(30, i * 7)))}'
     '${fence}js\n${codeBody(60, 999)}';
 
-String longLines() => paragraphs(
-  8,
-  (i) => fenced(
-    i.isEven
-        ? codeBody(20)
-        : '${codeBody(10)}\n${'y' * (495 + i)}\n${codeBody(10)}',
-  ),
-);
+/// Fences with one line of 495 to 502 characters each (the limit is 500), the
+/// first over-limit lines early in the document, where the budget is not spent.
+String longLines() {
+  const lengths = [null, 501, 495, 502, 496, 500, 497, 501, 498, 499, 500, 502];
+  return paragraphs(
+    lengths.length,
+    (i) => fenced(
+      lengths[i] == null
+          ? codeBody(20)
+          : '${codeBody(10)}\n${'y' * lengths[i]!}\n${codeBody(10)}',
+    ),
+  );
+}
+
+/// The lines of the block that grows past 8000 characters.
+const growingBlockLines = 150;
 
 String growingBlock() =>
-    'Intro\n\n${fenced(codeBody(80))}\n\n${identicalFences(6, 20)}';
+    'Intro\n\n${fenced(codeBody(growingBlockLines))}\n\n'
+    '${identicalFences(9, 20)}';
 
 String emojiFences() => paragraphs(
   8,
