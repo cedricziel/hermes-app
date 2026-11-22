@@ -40,8 +40,33 @@ To see one widget in every state without a flow around it, use the
 - Third-party widgets that read a theme from a scope (`gpt_markdown` reads
   `material_ui`'s) need the app's `AppThemeScopes` (`lib/src/theme/material_ui_bridge.dart`).
   `HermesApp`, `pumpScreen` and the Widgetbook catalog all mount that one widget;
-  a hand-built `MaterialApp` in a test must too, or dark markdown headings draw
-  near-black (1.17:1) in the screenshot and the app never does. Add new app-level
+  a hand-built test app (`MaterialApp`, `CupertinoApp`, `WidgetsApp`, or a helper
+  such as `pumpChatScreen`, `pumpOnPlatform` or `pumpFiles` that builds one) that
+  renders markdown, code, files or skills widgets must mount `AppThemeScopes` in
+  its `builder:`. Without it `mui.Theme.of` does not throw but falls back to the
+  light theme, so dark markdown headings draw near-black (1.17:1) and code blocks
+  draw light on a dark page, in the screenshot and never in the app.
+  `test/app_theme_scopes_test.dart` enforces it. It derives the readers from
+  `lib/` (every class, function, getter or extension that reads `mui.Theme.of`,
+  draws `GptMarkdown`, or mentions one that does; the navigation-only roots
+  `AppShell`, `MacProfilesPage` and `HermesApp` do not count). A `*_test.dart`
+  file fails, naming the file and the readers, when it references one and builds
+  an app that mounts nothing: no `AppThemeScopes(`, `MaterialUiThemeScope(`,
+  `FlyerMaterialScope(` or `mui.Theme(` call in its `builder:` outside a `?`/`:`
+  conditional (a scope in `home:` never counts: a route pushed from `home` is
+  built outside it), or calls a
+  helper (any function or class under `test/` outside `*_test.dart` files) whose
+  app does not. A mention in a string, an import or a `find.byType` does not
+  count, and one mounted app does not excuse another in the same file. The guard scans
+  `test/` only; `benchmark/` apps are out of its scope. The conditional check sees
+  only `?:`: a mount behind a `switch`, a collection `if` or an `if`/`return`
+  block, or a scope on a builder sibling instead of `child`, is not caught.
+  An extension member (`context.surface`) counts as a reader use only in a file
+  that is in the extension's library or imports it. A test that leaves its app
+  unmounted on purpose (the unbridged fallback) goes on the `_exemptions` list in
+  the guard, with the path, the text of the app and a one-line reason; a test
+  asserts each entry is still an offender, so remove it once it no longer
+  applies. Never hide a conditional mount from the guard by rewriting it. Add new app-level
   theme scopes inside `AppThemeScopes`. `test/app_theme_scopes_test.dart` compares
   the theme-like inherited widgets above the `Navigator` in `HermesApp` and
   `pumpScreen` (a scope added in `app.dart` that the harness lacks fails it; a

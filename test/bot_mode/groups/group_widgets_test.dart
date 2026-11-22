@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.dart';
 import 'package:hermes_app/src/bot_mode/groups/widgets/group_widgets.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import '../group_protocol/groups_repository_test.dart' as fixtures;
 
@@ -11,6 +12,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: GroupRoomRow(
             room: GroupRoom.fromJson(fixtures.room()),
@@ -34,6 +36,7 @@ void main() {
       final selected = <String>{};
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: GroupMemberChecklist(
               members: members,
@@ -62,6 +65,7 @@ void main() {
       ];
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: ThemeData(platform: platform),
           home: Scaffold(
             body: GroupMemberChecklist(
@@ -99,6 +103,7 @@ void main() {
     ].map((id) => GroupMember.fromJson(fixtures.member(id))).toList();
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: GroupMemberChecklist(
             members: members,
@@ -128,6 +133,7 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: GroupEventRow(
             event: event,
@@ -159,6 +165,7 @@ void main() {
       });
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: GroupActivity(
               working: true,
@@ -191,6 +198,7 @@ void main() {
       var stopped = false;
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: GroupActivity(
               working: true,
@@ -226,6 +234,7 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: GroupActivity(
             working: true,

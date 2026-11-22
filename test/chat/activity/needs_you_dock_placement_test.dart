@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/activity/widgets/needs_you_dock.dart';
 import 'package:hermes_app/src/chat/activity/widgets/needs_you_models.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/chat_thread_view.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ComposerHeightNotifier;
@@ -54,6 +55,7 @@ Future<void> _pump(
   }
   await tester.pumpWidget(
     MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
       localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(

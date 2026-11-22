@@ -13,6 +13,7 @@ import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart'
     show ActiveProfile;
 import 'package:hermes_app/src/profiles/profile_resolver.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -79,6 +80,7 @@ void main() {
       Provider<HermesRepositories?>.value(
         value: null,
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(

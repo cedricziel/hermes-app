@@ -17,6 +17,7 @@ import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/skills/skill_editor_screen.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -248,6 +249,7 @@ class _Fixture {
           ),
         ],
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: TargetPlatform.linux),
           home: const AppShell(),
         ),

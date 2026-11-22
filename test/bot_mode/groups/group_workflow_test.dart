@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.dart';
 import 'package:hermes_app/src/bot_mode/groups/group_chat_screen.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import '../group_protocol/groups_repository_test.dart' as fixtures;
 import '../../support/screenshot_recorder.dart';
@@ -130,6 +131,7 @@ void main() {
         await tester.pumpWidget(
           shots.frame(
             MaterialApp(
+              builder: (_, child) => AppThemeScopes(child: child!),
               debugShowCheckedModeBanner: false,
               theme: withScreenshotFont(theme.value),
               home: GroupChatScreen(
