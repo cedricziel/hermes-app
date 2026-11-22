@@ -8,9 +8,11 @@ import '../../widgets/platform_refresh.dart';
 
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
+import '../../macos/mac_commands.dart';
 import '../../macos/mac_sidebar.dart';
 import '../../memory/memory_waiting_count.dart';
 import '../../macos/mac_source_list.dart' show kMacSourceListRowHeight;
+import '../../navigation/keyboard_shortcuts.dart';
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
@@ -215,6 +217,11 @@ class ThreadSidebar extends StatelessWidget {
                   child: SidebarAction(
                     icon: AppIcons.add,
                     label: 'New chat',
+                    tooltip: withChordHint(
+                      context,
+                      'New chat',
+                      MacCommand.newChat,
+                    ),
                     onTap: onNewThread,
                   ),
                 ),
@@ -470,7 +477,11 @@ class SidebarAction extends StatelessWidget {
     required this.onTap,
     this.selected = false,
     this.expanded,
+    this.tooltip,
   });
+
+  /// Hover text, such as the label with its keyboard shortcut.
+  final String? tooltip;
 
   final AppIconSet icon;
   final String label;
@@ -484,7 +495,7 @@ class SidebarAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
+    final row = Semantics(
       button: true,
       selected: selected,
       expanded: expanded,
@@ -518,6 +529,10 @@ class SidebarAction extends StatelessWidget {
         ),
       ),
     );
+    final tooltip = this.tooltip;
+    return tooltip == null
+        ? row
+        : Tooltip(message: tooltip, excludeFromSemantics: true, child: row);
   }
 }
 

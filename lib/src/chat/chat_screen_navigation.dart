@@ -152,6 +152,9 @@ extension _ChatScreenNavigation on _ChatScreenState {
         : null;
     return {
       MacCommand.newChat: MacCommandHandler(_startThread),
+      // Windows and Linux have a sidebar to hide only where it is a drawer.
+      if (bindsDesktopChords(Theme.of(context).platform) && !_wide)
+        MacCommand.toggleSidebar: MacCommandHandler(_toggleDrawer),
       MacCommand.openInNewWindow: MacCommandHandler(
         _windows != null && thread != null && thread.remote
             ? () => unawaited(_openInWindow(thread))
@@ -241,6 +244,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
         openPicker: true,
       ),
     );
+  }
+
+  /// Opens the chat list's drawer, or closes it while it is open.
+  void _toggleDrawer() {
+    final scaffold = _scaffoldKey.currentState;
+    if (scaffold == null) return;
+    if (scaffold.isDrawerOpen) {
+      scaffold.closeDrawer();
+    } else {
+      scaffold.openDrawer();
+    }
   }
 
   /// Opens the Files page of the chat in front.

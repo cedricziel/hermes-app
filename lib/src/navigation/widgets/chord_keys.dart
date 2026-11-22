@@ -33,7 +33,7 @@ class ChordKeys extends StatelessWidget {
               ),
             Row(
               mainAxisSize: MainAxisSize.min,
-              spacing: 3,
+              spacing: 4,
               children: [for (final key in chord.keys) _KeyCap(label: key)],
             ),
           ],

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../macos/mac_commands.dart';
+import '../../navigation/keyboard_shortcuts.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
@@ -17,7 +19,7 @@ class NewChatFab extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Tooltip(
-      message: 'New chat',
+      message: withChordHint(context, 'New chat', MacCommand.newChat),
       excludeFromSemantics: true,
       // A floating button's shape is not state-aware, so the keyboard focus
       // ring is a wrapper, 2 px outside it (nothing clips it).

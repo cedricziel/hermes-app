@@ -8,6 +8,7 @@ import '../app_lock/app_lock_dialog.dart';
 import '../auth/auth_controller.dart';
 import '../macos/menu_bar_extra/menu_bar_extra_settings.dart';
 import '../macos/menu_bar_extra/widgets/menu_bar_item_section.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../notifications/notification_settings.dart';
 import '../notifications/notifications_dialog.dart';
 import '../quick_panel/global_shortcut.dart';
@@ -32,6 +33,7 @@ enum _Setting {
   voiceCalls,
   spotlight,
   appLock,
+  keyboardShortcuts,
   about,
   changeServer;
 
@@ -42,6 +44,7 @@ enum _Setting {
     voiceCalls => l10n.settingsVoiceCalls,
     spotlight => l10n.settingsSpotlight,
     appLock => l10n.settingsAppLock,
+    keyboardShortcuts => l10n.navigationKeyboardShortcutsTitle,
     about => l10n.settingsAboutHermes,
     changeServer => l10n.settingsChangeServer,
   };
@@ -87,6 +90,12 @@ Future<void> showSettingsDialog(BuildContext context) async {
       ? _maybeRead<MenuBarExtraSettings>(context)
       : null;
   final callSettings = _maybeRead<PortableCallSettings>(context);
+  final hasShortcutsPage = switch (Theme.of(context).platform) {
+    TargetPlatform.macOS ||
+    TargetPlatform.windows ||
+    TargetPlatform.linux => true,
+    _ => false,
+  };
   final picked = await showAppDialog<_Setting>(
     context: context,
     builder: (context) {
@@ -122,7 +131,12 @@ Future<void> showSettingsDialog(BuildContext context) async {
               ),
             ),
           GroupedSection(
-            children: [row(_Setting.about), row(_Setting.changeServer)],
+            children: [
+              // Where a keyboard is the usual way in: the Mac, Windows, Linux.
+              if (hasShortcutsPage) row(_Setting.keyboardShortcuts),
+              row(_Setting.about),
+              row(_Setting.changeServer),
+            ],
           ),
         ],
       );
@@ -142,6 +156,8 @@ Future<void> showSettingsDialog(BuildContext context) async {
       await showSpotlightDialog(context);
     case _Setting.appLock:
       await showAppLockDialog(context);
+    case _Setting.keyboardShortcuts:
+      await showKeyboardShortcuts(context);
     case _Setting.about:
       await showAppAboutDialog(context);
     case _Setting.changeServer:

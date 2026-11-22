@@ -22,6 +22,7 @@ extension _ChatScreenLayout on _ChatScreenState {
       actions: [
         NamedIconButton(
           label: 'New message',
+          tooltip: withChordHint(context, 'New message', MacCommand.newChat),
           icon: AppIcons.compose,
           onPressed: _newThread,
         ),
@@ -457,6 +458,11 @@ extension _ChatScreenLayout on _ChatScreenState {
                       actions: [
                         NamedIconButton(
                           label: 'New message',
+                          tooltip: withChordHint(
+                            context,
+                            'New message',
+                            MacCommand.newChat,
+                          ),
                           icon: AppIcons.compose,
                           onPressed: _newThread,
                         ),

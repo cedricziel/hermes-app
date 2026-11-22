@@ -5,6 +5,7 @@ import '../macos/mac_commands.dart';
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_window.dart';
 import '../navigation/desktop_navigation_history.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
 import '../theme/focus_ring.dart';
@@ -26,6 +27,7 @@ class SettingsBarAction {
     required this.icon,
     required this.onPressed,
     this.shortcut,
+    this.command,
     this.busy = false,
     this.key,
   }) : menu = null;
@@ -37,6 +39,7 @@ class SettingsBarAction {
     this.key,
   }) : onPressed = null,
        shortcut = null,
+       command = null,
        busy = false;
 
   /// The accessible name and tooltip.
@@ -47,6 +50,10 @@ class SettingsBarAction {
 
   /// The key equivalent a Mac tooltip shows, such as "⌘N".
   final String? shortcut;
+
+  /// The menu command this button also runs; Windows and Linux show its chord
+  /// after the label in the tooltip.
+  final MacCommand? command;
 
   /// Shows a spinner in place of the glyph in a Mac toolbar while it runs.
   final bool busy;
@@ -463,9 +470,13 @@ class SettingsScaffold extends StatelessWidget {
     final style = ios ? appleBarButtonStyle : null;
     final menu = action.menu;
     if (menu == null) {
+      final command = action.command;
       return NamedIconButton(
         key: action.key,
         label: action.label,
+        tooltip: command == null
+            ? null
+            : withChordHint(context, action.label, command),
         icon: action.icon,
         style: style,
         onPressed: action.onPressed,

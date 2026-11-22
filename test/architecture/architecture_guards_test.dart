@@ -224,6 +224,27 @@ List<Hit> _chipShapeHits() => [
   for (final file in dartFiles('lib')) ...chipShapeHitsIn(file),
 ];
 
+/// A Windows or Linux chord of a menu command (docs/design-briefs/
+/// windows-linux-platform-fixes.md, "F1 command set") bound by a widget
+/// instead of declared in `menu_layout.dart`: a `SingleActivator` on one of
+/// those keys without a Cmd, or a `ctrlActivator` call.
+final _chordActivator = RegExp(r'\b(?:SingleActivator|ctrlActivator)\(');
+final _commandKey = RegExp(
+  r'^\s*(?:LogicalKeyboardKey\.)?(?:f1|f5|f8|keyN|keyF|keyR|keyB|keyP|comma)\b',
+);
+
+List<Hit> menuChordHitsIn(SourceFile file) => [
+  for (final (at, args) in callArguments(file, _chordActivator))
+    if (file.code.startsWith('ctrlActivator(', at) ||
+        (_commandKey.hasMatch(args) && !args.contains('meta:')))
+      Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
+];
+
+List<Hit> _menuChordHits() => [
+  for (final file in dartFiles('lib'))
+    if (file.path != 'lib/src/macos/menu_layout.dart') ...menuChordHitsIn(file),
+];
+
 /// A use of the catalog's keyboard override, a call or a tear-off.
 final _keyboardOverride = RegExp(r'\bmarkFocusRingKeyboardInput\b');
 
@@ -806,6 +827,19 @@ final guardRules = <Rule>[
     hits: _chipShapeHits,
   ),
 
+  // docs/architecture/macos.md, "Keyboard shortcuts on Windows and Linux": the
+  // chords of the menu commands are declared once, in menu_layout.dart.
+  _custom(
+    name: 'menu-chord-outside-menu-layout',
+    message:
+        'a menu command\'s chord is declared once, next to the Mac\'s, in '
+        'lib/src/macos/menu_layout.dart (desktopShortcuts), and the screen '
+        'offers the command with a MacCommandScope; DesktopCommandShortcuts '
+        '(lib/src/navigation/) binds it. A second handler for the same key '
+        'fires twice or fights the first.',
+    hits: _menuChordHits,
+  ),
+
   // docs/architecture/settings-screens.md, "Keyboard focus ring": a menu is
   // built by AdaptivePopupMenuButton, which puts the ring on its items.
   _guard(
@@ -1250,6 +1284,27 @@ void main() {
       );
       expect(themed('x = ChipThemeData(side: s);', 'lib/src/x.dart'), 0);
       expect(themed(code, 'lib/src/theme/hermes_theme.dart'), 0);
+    });
+
+    test('a menu command chord outside menu_layout.dart is flagged', () {
+      int chords(String source) =>
+          menuChordHitsIn(SourceFile('lib/src/x.dart', source)).length;
+      expect(
+        chords('x = SingleActivator(LogicalKeyboardKey.keyN, control: true);'),
+        1,
+      );
+      expect(chords('x = SingleActivator(LogicalKeyboardKey.f5);'), 1);
+      expect(chords('x = ctrlActivator(LogicalKeyboardKey.keyB);'), 1);
+      // A Mac chord, and keys no menu command uses, are not.
+      expect(
+        chords('x = SingleActivator(LogicalKeyboardKey.keyN, meta: true);'),
+        0,
+      );
+      expect(chords('x = SingleActivator(LogicalKeyboardKey.escape);'), 0);
+      expect(
+        chords('x = SingleActivator(LogicalKeyboardKey.keyV, control: true);'),
+        0,
+      );
     });
 
     test('a popup menu without its type argument is flagged', () {

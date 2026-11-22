@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../l10n/l10n.dart';
 import '../../../macos/mac_commands.dart';
+import '../../../navigation/keyboard_shortcuts.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/platform_chrome.dart';
 import '../../activity/activity_page_binding.dart';
@@ -139,8 +140,12 @@ class _FileChangePageState extends State<FileChangePage>
     }
     final (folder, name) = splitChangedPath(file.path);
     final hasPrevious = at > 0, hasNext = at < files.length - 1;
-    // On a Mac the menu's Previous and Next Change own ⌥↑ and ⌥↓.
-    final menuOwnsKeys = platformChromeOf(context) == PlatformChrome.macos;
+    // The Previous and Next Change commands own the keys on a Mac (⌥↑ and
+    // ⌥↓) and on Windows and Linux (F8 and Shift+F8); other platforms with a
+    // keyboard keep ⌥↑ and ⌥↓ here.
+    final menuOwnsKeys =
+        platformChromeOf(context) == PlatformChrome.macos ||
+        bindsDesktopChords(Theme.of(context).platform);
     return MacCommandScope(
       commands: {
         MacCommand.previousChange: MacCommandHandler(
@@ -161,12 +166,22 @@ class _FileChangePageState extends State<FileChangePage>
           ActivityPageAction(
             key: const Key('file-previous'),
             label: l10n.chatCheckpointsPageFilePrevious,
+            tooltip: withChordHint(
+              context,
+              l10n.chatCheckpointsPageFilePrevious,
+              MacCommand.previousChange,
+            ),
             icon: AppIcons.expandLess,
             onPressed: hasPrevious ? () => _step(files, -1) : null,
           ),
           ActivityPageAction(
             key: const Key('file-next'),
             label: l10n.chatCheckpointsPageFileNext,
+            tooltip: withChordHint(
+              context,
+              l10n.chatCheckpointsPageFileNext,
+              MacCommand.nextChange,
+            ),
             icon: AppIcons.expandMore,
             onPressed: hasNext ? () => _step(files, 1) : null,
           ),

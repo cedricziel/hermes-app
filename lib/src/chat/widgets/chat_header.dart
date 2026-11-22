@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../macos/mac_commands.dart';
+import '../../navigation/keyboard_shortcuts.dart';
 import '../../theme/app_icons.dart';
 import '../../workspaces/ui/bound_working_directory.dart'
     show FolderLineBuilder;
@@ -133,6 +135,7 @@ class NewChatButton extends StatelessWidget {
   Widget build(BuildContext context) => NamedIconButton(
     key: const Key('header-new-chat'),
     label: 'New chat',
+    tooltip: withChordHint(context, 'New chat', MacCommand.newChat),
     icon: AppIcons.compose,
     onPressed: onPressed,
   );
