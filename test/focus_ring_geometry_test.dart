@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart' show CupertinoSlidingSegmentedControl;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
@@ -18,6 +19,19 @@ import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/src/kanban/widgets/new_task_fab.dart';
 import 'package:hermes_app/src/schedules/schedule_picker.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_preview_model.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/starter_prompts.dart';
+import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
+import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
+import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
+import 'package:hermes_app/src/models/model_provider_option.dart'
+    show ModelChoice;
+import 'package:hermes_app/src/models/widgets/model_picker.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/voice/widgets/voice_orb.dart';
@@ -28,6 +42,11 @@ import 'package:hermes_app/src/widgets/whats_the_difference_link.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 import 'package:provider/provider.dart';
+
+import '../widgetbook/bot_screen_fixture.dart';
+import '../widgetbook/fixtures.dart' show modelOptions;
+import 'support/test_localizations.dart';
+
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
 import 'package:hermes_app/src/files/widgets/file_previews.dart';
@@ -40,9 +59,8 @@ import 'package:hermes_app/src/schedules/widgets/schedules_mac_toolbar.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 import 'package:hermes_app/src/widgets/composer_selector_chip.dart';
 import 'package:hermes_app/src/widgets/disclosure_tile.dart';
-import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
-import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/widgets/named_icon_button.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line_model.dart';
 import 'package:hermes_app/src/chat/activity/working_summary.dart';
@@ -62,7 +80,6 @@ import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_advanced_row.dart';
 import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
-import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/grouped_action_row.dart';
 import 'package:hermes_app/src/workspaces/widgets/working_directory_line.dart';
 import 'package:hermes_app/src/workspaces/widgets/working_directory_row.dart';
@@ -270,6 +287,8 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: kTestLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: buildHermesLightTheme(platform: platform),
       builder: (_, child) => AppThemeScopes(child: child!),
       home: Scaffold(
@@ -627,6 +646,380 @@ void main() {
               matching: find.byType(DecoratedBox),
             )
             .first,
+      );
+    });
+  });
+
+  group('outside tap targets of F.427 (table D)', () {
+    const platforms = [
+      TargetPlatform.android,
+      TargetPlatform.macOS,
+      TargetPlatform.linux,
+      TargetPlatform.windows,
+    ];
+
+    /// The ring wraps [ink] exactly (so it sits 2 px outside the control, the
+    /// paint reaches past its bounds and nothing changes in layout), is 2 px
+    /// wide in the link colour, and its band lies 2 to 4 px outside the
+    /// control's painted shape, whose corner radius is [radius].
+    Future<void> expectOutsideTarget(
+      WidgetTester tester, {
+      required TargetPlatform platform,
+      required Widget body,
+      required Finder ink,
+      required double radius,
+      required String name,
+    }) async {
+      await _pump(tester, platform, body);
+      await _focus(tester, ink);
+      final rect = tester.getRect(ink.first);
+      expect(tester.getRect(_ringFinder), rect, reason: '$name: wraps it');
+      final (band, painter) = _ring(tester);
+      expect(painter.width, kFocusRingWidth);
+      expect(painter.inset, -(kFocusRingOffset + kFocusRingWidth));
+      expect(painter.color, tester.element(_ringFinder).hermesColors.link);
+      expectRingHugs(band, (rect, radius), reason: name);
+    }
+
+    /// Only the keyboard shows the ring: a pointer press hides it and the
+    /// next key brings it back.
+    Future<void> expectKeyboardOnly(WidgetTester tester) async {
+      expect(_ringFinder, findsOneWidget, reason: 'keyboard focus');
+      await tester.tapAt(
+        const Offset(790, 1390),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(_ringFinder, findsNothing, reason: 'a pointer press hides it');
+      await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(_ringFinder, findsOneWidget, reason: 'the next key shows it');
+    }
+
+    testOnPlatforms('tool-call group header: radius 8', (
+      tester,
+      platform,
+    ) async {
+      await expectOutsideTarget(
+        tester,
+        platform: platform,
+        body: const ToolCallGroup(
+          calls: [
+            ToolCall(name: 'terminal', summary: 'ls'),
+            ToolCall(name: 'read_file', summary: 'Makefile'),
+          ],
+        ),
+        ink: find.byType(InkWell),
+        radius: 8,
+        name: 'tool-call group header',
+      );
+    }, platforms: platforms);
+
+    testOnPlatforms('reasoning toggle: radius 8', (tester, platform) async {
+      await expectOutsideTarget(
+        tester,
+        platform: platform,
+        body: const ReasoningBlock(text: 'Considered the options.'),
+        ink: find.byType(InkWell),
+        radius: 8,
+        name: 'reasoning toggle',
+      );
+    }, platforms: platforms);
+
+    testOnPlatforms('attachment card: radius 14', (tester, platform) async {
+      await expectOutsideTarget(
+        tester,
+        platform: platform,
+        body: const AttachmentCardFrame(
+          attachment: ChatAttachment(
+            name: 'report.pdf',
+            kind: AttachmentKind.file,
+            size: 4821,
+          ),
+          onTap: _ignoreTap,
+        ),
+        ink: find.byType(InkWell),
+        radius: 14,
+        name: 'attachment card',
+      );
+    }, platforms: platforms);
+
+    testWidgets('macOS: the failed-download retry card takes the ring too', (
+      tester,
+    ) async {
+      await expectOutsideTarget(
+        tester,
+        platform: TargetPlatform.macOS,
+        body: const AttachmentCardFrame(
+          attachment: ChatAttachment(
+            name: 'report.pdf',
+            kind: AttachmentKind.file,
+          ),
+          notice: "Couldn't download.",
+          noticeIsError: true,
+          onTap: _ignoreTap,
+        ),
+        ink: find.byType(InkWell),
+        radius: 14,
+        name: 'retry card',
+      );
+    });
+
+    /// The card with its Save button, as a chat shows a downloaded file. Save
+    /// draws its own ring; the card's must stay off while Save has the focus.
+    Widget cardWithSave({VoidCallback? onTap}) => AttachmentCardFrame(
+      attachment: const ChatAttachment(
+        name: 'report.pdf',
+        kind: AttachmentKind.file,
+        size: 4821,
+      ),
+      onTap: onTap,
+      trailing: NamedIconButton(
+        label: 'Save report.pdf',
+        icon: AppIcons.download,
+        onPressed: _ignoreTap,
+      ),
+    );
+
+    final cardRing = find.byWidgetPredicate(
+      (w) =>
+          w is CustomPaint &&
+          w.foregroundPainter is FocusRingPainter &&
+          w.foregroundPainter is! HostFocusRingPainter &&
+          (w.foregroundPainter! as FocusRingPainter).radius == 14 + 4,
+    );
+
+    testOnPlatforms('attachment card: no card ring while Save has focus', (
+      tester,
+      platform,
+    ) async {
+      // A Mac card has no tap and is not focusable; the others are.
+      final onTap = platform == TargetPlatform.macOS ? null : _ignoreTap;
+      await _pump(tester, platform, cardWithSave(onTap: onTap));
+      await _focus(tester, find.byType(NamedIconButton));
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<NamedIconButton>(),
+        isNotNull,
+        reason: 'Save has the focus',
+      );
+      expect(cardRing, findsNothing, reason: 'the card ring stays off');
+    }, platforms: platforms);
+
+    testOnPlatforms(
+      'attachment card: the card ring shows on its own focus',
+      (tester, platform) async {
+        await _pump(tester, platform, cardWithSave(onTap: _ignoreTap));
+        // The card's own node: the nearest one above its content.
+        Focus.of(
+          tester.element(
+            find.descendant(
+              of: find.byType(InkWell),
+              matching: find.byType(Row),
+            ),
+          ),
+        ).requestFocus();
+        await tester.pumpAndSettle();
+        expect(cardRing, findsOneWidget, reason: 'the card itself has focus');
+      },
+      platforms: [
+        for (final p in platforms)
+          if (p != TargetPlatform.macOS) p,
+      ],
+    );
+
+    testOnPlatforms('Bot Screen preview: radius 8, into the 4 px above', (
+      tester,
+      platform,
+    ) async {
+      await expectOutsideTarget(
+        tester,
+        platform: platform,
+        body: SizedBox(
+          width: 360,
+          child: BotScreenPreview(
+            model: BotScreenPreviewFrame(bytes: botScreenFixturePng()),
+            onTap: () {},
+          ),
+        ),
+        ink: find.byType(InkWell),
+        radius: 8,
+        name: 'Bot Screen preview',
+      );
+    }, platforms: platforms);
+
+    Widget welcome() => SizedBox(
+      height: 460,
+      width: 360,
+      child: WelcomeView(
+        greetingName: 'Ada',
+        prompts: buildStarterPrompts(const StarterContext()),
+        onPick: (_) {},
+      ),
+    );
+
+    testOnPlatforms('welcome card: radius 14', (tester, platform) async {
+      await expectOutsideTarget(
+        tester,
+        platform: platform,
+        body: welcome(),
+        ink: find.byType(InkWell).first,
+        radius: 14,
+        name: 'welcome card',
+      );
+    }, platforms: platforms);
+
+    testWidgets('welcome card: the ring follows the keyboard only', (
+      tester,
+    ) async {
+      await _pump(tester, TargetPlatform.linux, welcome());
+      await _focus(tester, find.byType(InkWell).first);
+      await expectKeyboardOnly(tester);
+    });
+
+    Widget picker() => SizedBox(
+      width: 420,
+      height: 900,
+      child: ModelPicker(
+        options: modelOptions,
+        selected: const ModelChoice(
+          'anthropic',
+          'claude-opus-4',
+          effort: 'high',
+        ),
+        onChanged: (_) {},
+      ),
+    );
+    final pillBox = find.byKey(const Key('effort-medium'));
+    final pillInk = find.descendant(
+      of: pillBox,
+      matching: find.byType(InkWell),
+    );
+
+    /// The ring of the effort pill wraps the painted pill, not the hit area
+    /// round it ([hit] tall), and follows the shape: [radius] of it.
+    Future<void> expectEffortPill(
+      WidgetTester tester, {
+      required TargetPlatform platform,
+      required double Function(Rect pill) radius,
+      required double height,
+      required double hit,
+      double textScale = 1,
+    }) async {
+      await _pump(
+        tester,
+        platform,
+        MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+          child: picker(),
+        ),
+      );
+      // From a large text scale on the pills sit at the end of the list.
+      if (pillBox.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(
+          pillBox,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        // The drag was a pointer press; this test is about the keyboard.
+        await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+      }
+      await _focus(tester, pillInk);
+      final rect = tester.getRect(pillInk);
+      expect(rect.height, greaterThanOrEqualTo(height - 0.01));
+      expect(
+        tester.getRect(_ringFinder),
+        rect,
+        reason: 'wraps the painted pill, not its hit area',
+      );
+      if (hit > height) {
+        expect(tester.getRect(pillBox).height, greaterThanOrEqualTo(hit));
+      }
+      final (band, painter) = _ring(tester);
+      expect(painter.width, kFocusRingWidth);
+      expect(painter.inset, -(kFocusRingOffset + kFocusRingWidth));
+      expectRingHugs(band, (rect, radius(rect)), reason: 'effort pill');
+    }
+
+    testOnPlatforms(
+      'effort pill: a stadium that follows the height',
+      (tester, platform) async {
+        await expectEffortPill(
+          tester,
+          platform: platform,
+          radius: (pill) => pill.height / 2,
+          height: 40,
+          hit: platform == TargetPlatform.android ? 48 : 40,
+        );
+      },
+      platforms: const [
+        TargetPlatform.android,
+        TargetPlatform.linux,
+        TargetPlatform.windows,
+      ],
+    );
+
+    testWidgets('effort pill (Material, text 3x): the radius follows the '
+        'taller pill', (tester) async {
+      await expectEffortPill(
+        tester,
+        platform: TargetPlatform.android,
+        textScale: 3,
+        radius: (pill) => pill.height / 2,
+        height: 40,
+        hit: 48,
+      );
+      expect(
+        tester.getRect(pillInk).height,
+        greaterThan(44),
+        reason: 'grew with the text',
+      );
+    });
+
+    testWidgets('effort pill (iPhone): radius 9', (tester) async {
+      await expectEffortPill(
+        tester,
+        platform: TargetPlatform.iOS,
+        radius: (_) => 9,
+        height: 36,
+        hit: 44,
+      );
+    });
+
+    testWidgets('effort pill (Mac): radius 7', (tester) async {
+      await expectEffortPill(
+        tester,
+        platform: TargetPlatform.macOS,
+        radius: (_) => 7,
+        height: 28,
+        hit: 28,
+      );
+    });
+
+    testWidgets('effort pill: the ring follows the keyboard only', (
+      tester,
+    ) async {
+      await _pump(tester, TargetPlatform.android, picker());
+      await _focus(tester, pillInk);
+      await expectKeyboardOnly(tester);
+    });
+
+    testWidgets('Mac pop-up value: radius 6', (tester) async {
+      await expectOutsideTarget(
+        tester,
+        platform: TargetPlatform.macOS,
+        body: SizedBox(
+          width: 360,
+          child: GroupedSection(
+            children: [
+              GroupedValueRow(title: 'Model', value: 'opus', onTap: () {}),
+            ],
+          ),
+        ),
+        // The row's own ink well takes no focus (no tap); the pop-up's does.
+        ink: find.byType(InkWell).last,
+        radius: 6,
+        name: 'Mac pop-up value',
       );
     });
   });
@@ -1431,3 +1824,5 @@ void _insideRowTests() {
 }
 
 void _ignore(AttachOrigin _) {}
+
+void _ignoreTap() {}

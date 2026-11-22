@@ -348,6 +348,11 @@ class FocusRingFillPainter extends CustomPainter {
 ///
 /// [fill] is painted under the ring while it shows, so a focused menu item
 /// takes the hover tint.
+///
+/// With [ownFocus] the ring follows only the child's own focus node, the
+/// nearest one below it (the row's ink well), and not one further down: a
+/// button inside the row that draws its own ring does not also light the
+/// row's. Use it where [child] holds a focusable control of its own.
 class FocusRing extends StatefulWidget {
   const FocusRing({
     super.key,
@@ -355,6 +360,7 @@ class FocusRing extends StatefulWidget {
     this.radius = 8,
     this.inset = kFocusRingOffset,
     this.fill,
+    this.ownFocus = false,
   });
 
   /// A ring [kFocusRingOffset] outside [child], the way a button's is, for a
@@ -365,6 +371,7 @@ class FocusRing extends StatefulWidget {
     super.key,
     required this.child,
     required double radius,
+    this.ownFocus = false,
   }) : radius = radius + kFocusRingOffset + kFocusRingWidth,
        inset = -(kFocusRingOffset + kFocusRingWidth),
        fill = null;
@@ -376,11 +383,20 @@ class FocusRing extends StatefulWidget {
   final double inset;
   final Color? fill;
 
+  /// Show the ring only while the nearest focus node below this widget has
+  /// primary focus, not while a control further down has it.
+  final bool ownFocus;
+
   @override
   State<FocusRing> createState() => _FocusRingState();
 }
 
 class _FocusRingState extends State<FocusRing> {
+  final _node = FocusNode(
+    debugLabel: 'FocusRing',
+    canRequestFocus: false,
+    skipTraversal: true,
+  );
   bool _focused = false;
   bool _keyboard = keyboardFocusShows;
 
@@ -389,12 +405,39 @@ class _FocusRingState extends State<FocusRing> {
     super.initState();
     _watchInput();
     _inputChanges.addListener(_onInput);
+    if (widget.ownFocus) FocusManager.instance.addListener(_onFocusMoved);
+  }
+
+  @override
+  void didUpdateWidget(FocusRing old) {
+    super.didUpdateWidget(old);
+    if (old.ownFocus == widget.ownFocus) return;
+    if (widget.ownFocus) {
+      FocusManager.instance.addListener(_onFocusMoved);
+    } else {
+      FocusManager.instance.removeListener(_onFocusMoved);
+    }
+    _onFocusMoved();
   }
 
   @override
   void dispose() {
     _inputChanges.removeListener(_onInput);
+    if (widget.ownFocus) FocusManager.instance.removeListener(_onFocusMoved);
+    _node.dispose();
     super.dispose();
+  }
+
+  /// Whether the ring's focus state is "focused" for the mode in force.
+  bool _shows(bool hasFocus) {
+    if (!widget.ownFocus) return hasFocus;
+    return hasFocus && FocusManager.instance.primaryFocus?.parent == _node;
+  }
+
+  void _onFocusMoved() {
+    if (!mounted) return;
+    final next = _shows(_node.hasFocus);
+    if (next != _focused) setState(() => _focused = next);
   }
 
   void _onInput() {
@@ -408,9 +451,8 @@ class _FocusRingState extends State<FocusRing> {
   @override
   Widget build(BuildContext context) {
     return Focus(
-      canRequestFocus: false,
-      skipTraversal: true,
-      onFocusChange: (focused) => setState(() => _focused = focused),
+      focusNode: _node,
+      onFocusChange: (focused) => setState(() => _focused = _shows(focused)),
       child: CustomPaint(
         painter: _focused && _keyboard && widget.fill != null
             ? FocusRingFillPainter(color: widget.fill!, radius: widget.radius)
