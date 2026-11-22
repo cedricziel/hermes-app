@@ -1,6 +1,6 @@
 # Design
 
-Platforms: macOS gets the new look. iOS, Android, Windows and Linux keep the floating SnackBar (`platformChromeOf(context)`, `lib/src/theme/platform_chrome.dart:16`, is `macos` only on macOS). No native, entitlement or Xcode change.
+Platforms: macOS gets the new look. iOS, Android, Windows and Linux keep each call site's current SnackBar, the fixed full-width default except where a call site floats today (the export flow) (`platformChromeOf(context)`, `lib/src/theme/platform_chrome.dart:16`, is `macos` only on macOS). No native, entitlement or Xcode change.
 
 Invariants touched: App Lock (no message under the cover), privacy (no message text in telemetry), accessibility (the owner's rule: never status by colour alone).
 
@@ -22,7 +22,7 @@ C. Inline banners (`AppBanner`) for results. Persistent and accessible, but they
 
 D. Notification Center banners from the app. Outside the window, needs permission, and shows message text on the Lock Screen path the privacy rules limit. Rejected.
 
-Recommendation: A, with B's theme as the floor on other platforms (they keep the SnackBar unchanged in this change).
+Recommendation: A. Other platforms keep each call site's SnackBar unchanged in this change; B's theme is a possible later step there.
 
 ## The Mac toast
 
@@ -41,7 +41,7 @@ Recommendation: A, with B's theme as the floor on other platforms (they keep the
 
 ## Migration
 
-- `AppToast.show(context, text, {tone, action})`; on other platforms it calls `ScaffoldMessenger.maybeOf(context)?.showSnackBar` with the floating behaviour, so output there matches today's.
+- `AppToast.show(context, text, {tone, action})`; on other platforms it calls `ScaffoldMessenger.maybeOf(context)?.showSnackBar` with the behaviour the call site has today (fixed by default; the export flow passes its floating behaviour and margin through), so output there matches today's.
 - Add guard `arch.raw-snackbar` in `test/architecture/architecture_guards_test.dart` with the message "use AppToast.show", allow-listing `lib/src/widgets/app_toast.dart`, and record today's per-file counts in `test/architecture/baseline/arch.yaml`. The ratchet only shrinks: each migration PR lowers it with `UPDATE_BASELINE=1`.
 - The first PR migrates the block's own users: the export flow (drops `_aboveComposer`), chat notices, schedules. Other areas follow, one PR per area as needed.
 
@@ -69,4 +69,4 @@ Canvas "Hermes: Mac Settings window, toast, sub-pages" (private, ask its owner f
 - Tones, light and dark: each tone leads with its icon and a bold word, Info, Done, Warning, Error (German: Info, Erledigt, Warnung, Fehler; new strings); colour tints only the icon; at most one action, a 28 pt text button; text wraps to three lines at most.
 - Alternative, bottom centre 16 pt above the composer: not chosen; it must track the composer's height and clashes with other bottom bars.
 
-Still owed: German, the largest text size, a compact window, over a Kanban board, and the hovered state.
+Still owed: German, the largest text size, a compact window, over a Kanban board, and the hovered state (the same list as the brief's "Not yet on the canvas").

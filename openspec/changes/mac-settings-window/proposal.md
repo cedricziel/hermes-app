@@ -15,7 +15,7 @@ The audit premise holds: Settings is inside the main window. It is a dialog, not
 
 ## What Changes
 
-Recommended (design.md, "Options"): a separate Settings window on macOS, a second Flutter window of the kind the conversation windows already are (`desktop_multi_window`, `lib/src/windows/`). ⌘, and the account-menu "Settings…" open it or focus it if it is open. The window is a view: it holds no session, no token and no App Lock state. The settings that persist in preferences are read and written in the window; the ones the main engine owns (App Lock, notifications permission, Spotlight index, the quick-panel shortcut, the menu bar item, Change Server) are changed by commands over the window link, answered by the main engine, which sends back a snapshot of on/off values and availability.
+Recommended (design.md, "Options"): a separate Settings window on macOS, a second Flutter window of the kind the conversation windows already are (`desktop_multi_window`, `lib/src/windows/`). ⌘, and the account-menu "Settings…" open it or focus it if it is open. The window is a view: it holds no session, no token and no App Lock state. The settings that persist in preferences are read and written in the window; the ones the main engine owns (App Lock, notifications permission, Spotlight index, the menu bar item, Change Server) are changed by commands over the window link, answered by the main engine, which sends back a snapshot of on/off values and availability. The quick-panel shortcut's native recorder is hosted in the window itself and sets the same app-wide chord (design.md, "Quick panel shortcut").
 
 Other platforms keep `showSettingsDialog` unchanged.
 

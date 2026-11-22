@@ -18,7 +18,7 @@ Why that looks wrong on a Mac:
 An adaptive building block `AppToast` (message, optional tone, optional single action) shown through one call, `AppToast.show(context, ...)`.
 
 - On macOS it draws a Mac toast: a small rounded capsule on the translucent material, an icon for the tone, the text, an optional action, placed in the content pane (not over the sidebar), top centre under the toolbar, away from the composer. It is announced to VoiceOver, pauses while hovered or focused, dismisses on click or Escape, and one message at a time replaces the previous.
-- On other platforms it shows today's floating `SnackBar` through `ScaffoldMessenger`, so nothing changes there.
+- On other platforms it shows the same `SnackBar` each call site shows today through `ScaffoldMessenger`: the fixed full-width default for most, floating only where a call site floats today (the export flow). Nothing changes on iOS, Android, Windows or Linux.
 - Call sites move to `AppToast.show` in batches. A new architecture rule (`arch.raw-snackbar`) bans a raw `showSnackBar` outside the block, with the 42 files in the baseline ratchet (`test/architecture/baseline/arch.yaml`), which only shrinks.
 
 ## Non-goals

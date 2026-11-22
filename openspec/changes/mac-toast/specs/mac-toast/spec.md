@@ -8,7 +8,7 @@ Shows short results in the Mac app as a toast that looks and speaks like a Mac m
 
 ### Requirement: Mac toast for transient messages
 
-On macOS, a transient result message SHALL be shown as a toast in the content pane, not as a full-width bar at the window's bottom edge. Other platforms SHALL keep the floating snack bar.
+On macOS, a transient result message SHALL be shown as a toast in the content pane, not as a full-width bar at the window's bottom edge. Other platforms SHALL keep the snack bar each call site shows today, unchanged (full width at the bottom by default, floating where it floats today).
 
 #### Scenario: Result message on a Mac
 
@@ -18,7 +18,7 @@ On macOS, a transient result message SHALL be shown as a toast in the content pa
 #### Scenario: Other platforms
 
 - **WHEN** the same action ends on iOS, Android, Windows or Linux
-- **THEN** a floating snack bar appears as before
+- **THEN** the same snack bar appears as before, unchanged
 
 ### Requirement: Status is never colour alone
 

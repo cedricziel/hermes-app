@@ -23,7 +23,7 @@ Windows and Linux wide layouts use the same pushes and the same Row of sidebar a
 ## Non-goals
 
 - No change to which pages exist, their contents or their toolbar actions.
-- No change to Kanban, Schedules, Bots, Profiles or Server, which are already shell destinations.
+- No change to the first pages of the Kanban, Schedules, Bots, Profiles and Server destinations, which already sit in the content pane. Pages pushed from them (Kanban's board manager and task pages, the server-care pages) and the Profiles page pushed from the chat do move into the pane.
 - No sidebar on a compact window: below `kMacCompactWindowWidth` (760, `lib/src/macos/mac_sidebar.dart:20`) the sidebar opens over the page from the toolbar, as today.
 - No change to the minimum window size (640 x 480, `kMacMainWindowMinSize`, `lib/src/theme/breakpoints.dart`), see design.md.
 - No new navigation history model: ⌘[ and ⌘] keep using `DesktopNavigationHistory`.

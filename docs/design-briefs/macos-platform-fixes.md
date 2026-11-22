@@ -69,7 +69,7 @@ First design pass: Claude Design canvas "Hermes: Mac Settings window, toast, sub
 - C11 proposed, Skills in the content pane: the sidebar stays live; the Chat destination stays current but no chat row is selected while a sub-page is open (open question 2); Back (Command-[) leads the toolbar.
 - C11 proposed at 760 x 480: the sidebar still docks (280) and the page gets 480; the toolbar keeps Back, title, tabs and +, and the search field becomes a search button, because with the field the subtitle was cut to "defaul…".
 
-Not yet on the canvas (still owed before the catalog work): German, largest text, the nested Appearance dialog in the window, the Settings window in dark, the toast hovered and in a compact window, and sub-pages at 640 x 480 and with Memory, Files and Tools.
+Not yet on the canvas (still owed before the catalog work): for the Settings window, dark, German, the largest text size and the Appearance dialog open in it; for the toast, German, the largest text size, a compact window, over a Kanban board and hovered; for sub-pages, 640 x 480 (compact, sidebar over the page), Memory, Files and Tools in the pane, the toolbar with the sidebar toggle beside Back, Kanban's task panel at 900, dark and German.
 
 Copy the design adds: the tone words Info, Done, Warning, Error (German: Info, Erledigt, Warnung, Fehler), new l10n strings. "Sign in to change this." comes from `mac-settings-window/design.md`.
 
