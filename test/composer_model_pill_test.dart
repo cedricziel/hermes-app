@@ -42,7 +42,7 @@ Future<List<ModelChoice>> _pumpPill(
     MaterialApp(
       theme: platform == null
           ? buildHermesLightTheme()
-          : buildHermesLightTheme().copyWith(platform: platform),
+          : buildHermesLightTheme(platform: platform),
       home: Scaffold(
         body: StatefulBuilder(
           builder: (context, setState) => ComposerModelPill(
@@ -153,7 +153,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.macOS),
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: const Scaffold(body: SizedBox()),
       ),
     );

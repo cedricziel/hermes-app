@@ -107,30 +107,29 @@ Workflow screenshots must pass `platform` explicitly to `pumpScreen` when checki
 Apple chrome. `phoneSize` and `desktopSize` change only the viewport; they do not
 select iOS or macOS.
 
-The viewports are Phone (iOS) and Desktop (macOS) only. To show the Material
-variant, wrap the use case in `Theme(data: Theme.of(context).copyWith(platform:
-TargetPlatform.android))`; `onEachPlatform` (`widgetbook/frame.dart`) builds
-one use case per platform this way. That is fine for platform chrome, but
+The viewports are Phone (iOS) and Desktop (macOS) only. To show another
+platform, wrap the use case in `Theme(data: platformTheme(context, platform))`
+(`widgetbook/platform_theme.dart`); `onEachPlatform` (`widgetbook/frame.dart`)
+builds one use case per platform this way. `platformTheme` builds the app theme
+for that platform (`buildHermesLightTheme(platform: …)` or
+`buildHermesDarkTheme(platform: …)`) in the brightness of the surrounding
+theme. Never use `Theme.of(context).copyWith(platform: …)` (or
+`buildHermes…Theme().copyWith(platform: …)` in a test) for a platform preview:
 `ThemeData.copyWith(platform: …)` does not recompute the defaults derived from
 the platform, such as `materialTapTargetSize` (padded on Android and iOS,
-shrink-wrapped on macOS, Windows and Linux) or `visualDensity`. It keeps the
-base theme's tap-target size and density. Under `flutter test` the base theme
-is built for Android on any host (`FLUTTER_TEST` forces `defaultTargetPlatform`
-to android), so it is padded and standard density, and a desktop-platform case
-still gets the phone layout. In the catalog, `widgetbook/environment.dart`
-builds the base for the host; on a Mac that is shrink-wrapped and compact, so
-iPhone and Material cases made with `copyWith` get desktop sizing. It also
-keeps everything the app theme built for the base platform, including
-platform-specific component themes (input decoration, button sizes, menus), so a
-preview that must look like the target platform builds that platform's theme.
-Anything that depends on tap-target size or density, such as focus-ring
-geometry, needs the app theme built for that platform with
-`buildHermesLightTheme(platform: …)` or `buildHermesDarkTheme(platform: …)`
-(`lib/src/theme/hermes_theme.dart`), and the case run on at least one
-shrink-wrap platform. In #1284 the scroll-to-latest mini button's focus ring sat
-inside the button on the desktop because the tests only used the padded layout;
-see `test/focus_ring_geometry_test.dart` (added in #1284), which runs every
-ring per platform.
+shrink-wrapped on macOS, Windows and Linux) or `visualDensity`, and keeps the
+base theme's platform-specific component themes (input decoration, button
+sizes, menus). Under `flutter test` the base theme is built for Android on any
+host (`FLUTTER_TEST` forces `defaultTargetPlatform` to android), so a desktop
+case got the phone layout; in the catalog on a Mac the base is the host, so
+iPhone and Material cases got desktop sizing. The `arch.theme-platform-copy`
+guard fails on `.copyWith(platform: …)` (in any argument position) in
+`lib/`, `widgetbook/` and `test/`. Anything
+that depends on tap-target size or density, such as focus-ring geometry, needs
+the case run on at least one shrink-wrap platform. In #1284 the scroll-to-latest
+mini button's focus ring sat inside the button on the desktop because the tests
+only used the padded layout; see `test/focus_ring_geometry_test.dart` (added in
+#1284), which runs every ring per platform.
 
 For PR screenshots without running the catalog, render use cases in a
 throwaway test with `ScreenshotRecorder` (`test/support/screenshot_recorder.dart`):

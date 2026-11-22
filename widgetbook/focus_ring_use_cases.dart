@@ -67,6 +67,7 @@ import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 /// Shows [child] as it looks when the keyboard has moved focus to its
 /// [focusIndex]-th focusable control, or to its [button]-th button: the
@@ -434,10 +435,8 @@ Widget _buttonAt(int n, Widget child) =>
     frame(_KeyboardFocus(button: n, child: child));
 
 Widget _mac(Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, TargetPlatform.macOS), child: child),
 );
 
 Widget _settingsFormAction() => SizedBox(
@@ -594,10 +593,8 @@ List<WidgetbookUseCase> _ownShapeUseCases() => [
 ];
 
 Widget _on(TargetPlatform platform, Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: platform),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, platform), child: child),
 );
 
 /// A menu of plain rows opened under its button on a Mac, with the second row

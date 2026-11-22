@@ -16,7 +16,7 @@ final _darkThemes = <TargetPlatform, ThemeData>{};
 /// The viewer's black look for [platform], made once.
 ThemeData _darkTheme(TargetPlatform platform) => _darkThemes.putIfAbsent(
   platform,
-  () => buildHermesDarkTheme().copyWith(platform: platform),
+  () => buildHermesDarkTheme(platform: platform),
 );
 
 /// The screen viewer: a header that names the profile and who is in control,

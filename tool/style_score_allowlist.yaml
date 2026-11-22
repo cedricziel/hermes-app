@@ -29,3 +29,11 @@ allow:
     category: d.string
     match: "title: 'Hermes'"
     reason: The dictation engine option is named after the product, which is not translated.
+  - path: lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart
+    category: b.dialog
+    match: "showModalBottomSheet<void>("
+    reason: showKanbanDetentSheet is hand-built on purpose, since showAdaptiveSheet cannot express its half-open and full detents, and the Activity panel shares it.
+  - path: lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart
+    category: b.dialog
+    match: "showDialog<void>("
+    reason: showKanbanFormSheet is hand-built on purpose, since it is a fixed 560 x 720 frame with its own corner radius, which showAdaptiveSheet cannot set.

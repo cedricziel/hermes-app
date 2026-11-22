@@ -38,7 +38,7 @@ Future<void> _show(
       child: MaterialApp(
         localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        theme: buildHermesLightTheme().copyWith(platform: platform),
+        theme: buildHermesLightTheme(platform: platform),
         home: Builder(
           builder: (context) => TextButton(
             onPressed: () => open(context),
@@ -143,7 +143,7 @@ void main() {
         MaterialApp(
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           home: Builder(
             builder: (context) => TextButton(
               onPressed: () => Navigator.of(context).push(

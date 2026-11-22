@@ -10,6 +10,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/fake_hermes_server.dart';
 import 'skills_messaging_use_cases.dart';
+import 'platform_theme.dart';
 
 const _platforms = {
   'iPhone': TargetPlatform.iOS,
@@ -26,7 +27,7 @@ List<WidgetbookUseCase> _onEach(
     WidgetbookUseCase(
       name: '$state ($name)',
       builder: (context) => Theme(
-        data: Theme.of(context).copyWith(platform: platform),
+        data: platformTheme(context, platform),
         child: Builder(builder: builder),
       ),
     ),
@@ -144,7 +145,7 @@ WidgetbookNode skillsNode() => WidgetbookFolder(
             'Featured ($name)',
             (skills, hub) => Builder(
               builder: (context) => Theme(
-                data: Theme.of(context).copyWith(platform: platform),
+                data: platformTheme(context, platform),
                 child: Scaffold(
                   body: DiscoverTab(hub: hub, onOpen: (_) {}),
                 ),

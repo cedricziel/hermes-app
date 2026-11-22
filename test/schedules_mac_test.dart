@@ -86,7 +86,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: platform),
+        theme: buildHermesLightTheme(platform: platform),
         builder: macCommandsBuilder(commands),
         home: SchedulesScreen(controller: controller, onOpenRun: (_, _) {}),
       ),
