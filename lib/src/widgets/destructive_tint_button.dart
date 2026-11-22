@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/platform_chrome.dart';
 
 /// A destructive action drawn tinted: the error colour on a faint tint of
@@ -45,7 +46,8 @@ class DestructiveTintButton extends StatelessWidget {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       // The compact density a Mac theme sets would cut the minimum height.
       visualDensity: VisualDensity.standard,
-      shape: WidgetStatePropertyAll(
+      shape: focusRingShapeOf(
+        context,
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       foregroundColor: WidgetStateProperty.resolveWith(

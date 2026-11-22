@@ -1,4 +1,5 @@
 import 'files_use_cases.dart';
+import 'focus_ring_use_cases.dart';
 import 'server_care_logs_use_cases.dart';
 import 'workspaces_use_cases.dart';
 import 'tools_use_cases.dart';
@@ -135,6 +136,7 @@ final List<WidgetbookNode> directories = [
   stateMessageNode(),
   busyBarNode(),
   groupedRowValueNode(),
+  focusRingNode(),
   ...serverCareStatusNodes(),
   ...serverCareSplitNodes(),
   ...serverCareGatewayNodes(),
