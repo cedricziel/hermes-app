@@ -4905,13 +4905,13 @@
   "@@x-area-quick_panel": "",
 
   "@@x-area-schedules": "",
-  "schedulesRefreshAction": "Refresh",
-  "@schedulesRefreshAction": {
-    "description": "Name of the Refresh button of the Schedules bar; reads the jobs again."
-  },
   "schedulesFormAdvanced": "Advanced",
   "@schedulesFormAdvanced": {
     "description": "Title of the row of the schedule form that shows or hides the advanced fields."
+  },
+  "schedulesRefreshAction": "Refresh",
+  "@schedulesRefreshAction": {
+    "description": "Name of the Refresh button of the Schedules bar; reads the jobs again."
   },
 
   "@@x-area-screens": "",

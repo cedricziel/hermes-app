@@ -1016,8 +1016,8 @@
   "@@x-area-quick_panel": "",
 
   "@@x-area-schedules": "",
-  "schedulesRefreshAction": "Aktualisieren",
   "schedulesFormAdvanced": "Erweitert",
+  "schedulesRefreshAction": "Aktualisieren",
 
   "@@x-area-screens": "",
   "screensRefreshAction": "Aktualisieren",
