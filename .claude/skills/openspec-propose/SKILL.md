@@ -146,8 +146,6 @@ In both branches, never create the root as a side effect: do not run `openspec i
    openspec status --change "<name>"
    ```
 
-   **Validate the change.** Cloud sessions have no `openspec` CLI on PATH. Run the pinned package from the repo root, once per change: `npx --yes @fission-ai/openspec@2.1.1 validate <change> --strict`. Run it before opening the PR and put its output (or the reason it could not run) in the PR's `## Proof`. If the permission system refuses `npx` because it downloads and runs a package, say so in `## Proof`; never work around the refusal. Strict mode refuses a requirement over 500 characters and a MODIFIED block that drops a scenario the current spec has; split long requirements into ADDED ones instead.
-
 **Output**
 
 After completing all artifacts, summarize:
