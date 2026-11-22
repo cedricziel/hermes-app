@@ -176,7 +176,6 @@ void main() {
         late BuildContext inside;
         await tester.pumpWidget(
           MaterialApp(
-            builder: (_, child) => MaterialUiThemeScope(child: child!),
             localizationsDelegates: [
               GlobalMaterialLocalizations.delegate,
               GlobalWidgetsLocalizations.delegate,

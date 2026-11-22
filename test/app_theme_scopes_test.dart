@@ -558,6 +558,34 @@ void main() {
       );
     });
 
+    test('theme data in a test is not a direct seed', () {
+      final readers = _readersOf([SourceFile('lib/a/x.dart', 'class X {}\n')]);
+      const helpers = (mounting: <_Helper>[], plain: <_Helper>[]);
+      Set<String> uses(String body) => _unmountedReaderUses(
+        readers,
+        helpers,
+        SourceFile('test/t_test.dart', body),
+      );
+      expect(
+        uses(
+          'void main() {\n'
+          '  testWidgets("a", (t) async {\n'
+          '    await t.pumpWidget(MaterialApp(home: Text("x")));\n'
+          '  });\n'
+          '  test("b", () {\n'
+          '    expect(mui.ThemeData().useMaterial3, isTrue);\n'
+          '    final k = GptMarkdownTheme;\n'
+          '  });\n'
+          '}\n',
+        ),
+        isEmpty,
+      );
+      expect(
+        uses('await t.pumpWidget(MaterialApp(home: GptMarkdown("x")));'),
+        isNotEmpty,
+      );
+    });
+
     group('readers in test code', () {
       final readers = _readersOf([
         SourceFile(
@@ -583,7 +611,28 @@ void main() {
               '      builder: (_, c) => AppThemeScopes(child: c!),\n'
               '      home: BoundedMarkdown("x"),\n'
               '    ),\n'
-              '  );\n',
+              '  );\n'
+              'class MixedRig {\n'
+              '  Future<void> scoped(WidgetTester t) => t.pumpWidget(\n'
+              '    MaterialApp(\n'
+              '      builder: (_, c) => AppThemeScopes(child: c!),\n'
+              '      home: BoundedMarkdown("x"),\n'
+              '    ),\n'
+              '  );\n'
+              '  Future<void> label(WidgetTester t) =>\n'
+              '      t.pumpWidget(MaterialApp(home: Text("x")));\n'
+              '}\n'
+              'class LeakyRig {\n'
+              '  Future<void> scoped(WidgetTester t) => t.pumpWidget(\n'
+              '    MaterialApp(\n'
+              '      builder: (_, c) => AppThemeScopes(child: c!),\n'
+              '      home: Text("x"),\n'
+              '    ),\n'
+              '  );\n'
+              '  Future<void> label(WidgetTester t) => t.pumpWidget(\n'
+              '    MaterialApp(home: BoundedMarkdown("x")),\n'
+              '  );\n'
+              '}\n',
         ),
       ], readers: readers);
       Set<String> uses(String body) => _unmountedReaderUses(
@@ -605,6 +654,11 @@ void main() {
       test('a reader a plain helper renders is a use by every caller', () {
         expect(uses('await pumpPreview(tester);'), isNotEmpty);
         expect(uses('await pumpOuter(tester);'), isNotEmpty);
+      });
+
+      test('a rig only counts the readers its unscoped methods render', () {
+        expect(uses('await MixedRig().label(tester);'), isEmpty);
+        expect(uses('await LeakyRig().label(tester);'), isNotEmpty);
       });
 
       test('a text-only plain helper and a scoped helper are accepted', () {
@@ -737,6 +791,11 @@ const _seedAlternatives = [
   r'\bmui\.[A-Z]\w*\(',
 ];
 final _seed = RegExp(_seedAlternatives.join('|'));
+
+/// What in test code reads the theme itself: the two seeds that cannot be
+/// anything else. `mui.ThemeData(` or `GptMarkdownTheme` in a test is data,
+/// not a draw.
+final _testSeed = RegExp(r'\bGptMarkdown\(|\bmui\.Theme\.of\b');
 final _provider = RegExp(
   r'\bmui\.Theme\(|\bMaterialUiThemeScope\(|\bAppThemeScopes\(',
 );
@@ -782,6 +841,11 @@ const List<_Exemption> _exemptions = [
     appContains: 'bridged ? MaterialUiThemeScope',
     reason: 'tests the unbridged fallback on purpose',
   ),
+  (
+    path: 'test/github_release_store_test.dart',
+    appContains: 'inside = context',
+    reason: 'localization-only app that renders no reader and stays unbridged',
+  ),
 ];
 
 typedef _Helpers = ({List<_Helper> mounting, List<_Helper> plain});
@@ -821,13 +885,30 @@ Set<String> _unmountedReaderUses(
 Set<String> _readerUses(_Readers readers, SourceFile file, {String? within}) {
   final code = _withoutFinders(within ?? file.code);
   return {
-    for (final m in _wordsPattern(
-      readers.names,
-      prefixes: _importPrefixes(file),
-    ).allMatches(code))
-      m.group(0)!,
-    for (final m in _seed.allMatches(code)) m.group(0)!,
+    if (readers.names.isNotEmpty)
+      for (final m in _wordsPattern(
+        readers.names,
+        prefixes: _importPrefixes(file),
+      ).allMatches(code))
+        m.group(0)!,
+    for (final m in _testSeed.allMatches(code)) m.group(0)!,
     ..._memberUses(readers, file, code),
+  };
+}
+
+/// The readers helper [d] renders itself. A class counts only the members
+/// that build an unmounted app: a rig with a scoped method and an unscoped
+/// one that pumps text is no reader use for a test that calls the second.
+Set<String> _ownUses(_Readers readers, SourceFile file, _Decl d) {
+  if (!_typeDecl.hasMatch(d.body)) {
+    return _readerUses(readers, file, within: d.body);
+  }
+  return {
+    for (final member in d.body.split(
+      RegExp(r'(?=^  [^\s}])', multiLine: true),
+    ))
+      if (_apps(member).any((a) => !a.mounted))
+        ..._readerUses(readers, file, within: member),
   };
 }
 
@@ -1214,7 +1295,7 @@ _Helpers _helpersOf(List<SourceFile> files, {_Readers? readers}) {
     final own = {
       for (final d in decls)
         if (plain.containsKey(d.name))
-          d.name: _readerUses(readers, fileOf[d.path]!, within: d.body),
+          d.name: _ownUses(readers, fileOf[d.path]!, d),
     };
     var grew = true;
     while (grew) {
