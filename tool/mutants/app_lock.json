@@ -229,13 +229,6 @@
       "note": "concurrent unlock does not share one prompt"
     },
     {
-      "id": "a16",
-      "file": "lib/src/app_lock/app_lock_controller.dart",
-      "old": "if (_authenticating) return false;",
-      "new": "if (false) return false;",
-      "note": "unlock during confirm prompt"
-    },
-    {
       "id": "a17",
       "file": "lib/src/app_lock/app_lock_controller.dart",
       "old": "if (_available == null) {",

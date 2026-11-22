@@ -27,7 +27,8 @@ Subjects: `auth_controller`, `server_address`, `token_store`, `chat_sending`,
 `gateway_reconnect`, `gateway_replay`, `app_lock`, `deeplinks`, `files`
 (`ServerPath`, `SecretNames`), `inline_reply`, `kanban`, `media`, `model`
 (chat model choice, first-run card, composer pill) and `queue` (the durable
-queue store). `tests` is every importer plus `test/workflows/*`;
+queue store). `tests` holds at least every importer plus `test/workflows/*`, and may add
+curated tests that exercise the subject through another library;
 `quick_tests` is optional (`deeplinks` and `inline_reply` have none, so
 `--quick` runs their full list), and where present it is the curated core.
 
@@ -128,8 +129,18 @@ together.
 - `queue` q18 (attachment size check): the blob is sealed under a name-bound
   AAD and its size is taken from the same bytes (`bytes.length`).
 - `model` mo05 (`profile != _profile` after the await in `_loadModelOptions`):
-  `_profile` only changes in `_loadThreads`, which bumps `_loadGeneration`
-  first, so the generation guard beside it already rejects the late answer.
+  `_profile` only changes in `_loadThreads`. A late answer started before it
+  fails the `_loadGeneration` guard. A `refreshModelOptions()` started after
+  `_loadThreads` bumped the generation but before it set `_profile` passes
+  that guard, and the `_modelOptionsGeneration` request guard rejects it,
+  since the `_loadModelOptions` call right after `_profile = profile` bumps it.
+- `inline_reply` i11 (`!_mark.written` in `_failed`): with the prompt written
+  and not acknowledged, `_byMark(failed)` returns the same unconfirmed
+  verdict the fall-through returns.
+- `app_lock` a16 (`_authenticating` guard in `_unlockOnce`): it runs only
+  through `unlock()`, which needs `_locked`, and `_locked` is true only while
+  the lock is enforced, so `setEnabled(true)`'s prompt (which runs while
+  `_enabled` is false) never overlaps it. Holds unless `load()` runs twice.
 
 ## The removal rule
 
