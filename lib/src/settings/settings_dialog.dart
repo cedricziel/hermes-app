@@ -18,6 +18,7 @@ import '../voice/calls/portable_call_settings.dart';
 import '../voice/dictation_dialog.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/portable_calls_dialog.dart';
+import '../widgets/dialog_presentation.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
 import 'about_dialog.dart';
@@ -86,7 +87,7 @@ Future<void> showSettingsDialog(BuildContext context) async {
       ? _maybeRead<MenuBarExtraSettings>(context)
       : null;
   final callSettings = _maybeRead<PortableCallSettings>(context);
-  final picked = await showDialog<_Setting>(
+  final picked = await showAppDialog<_Setting>(
     context: context,
     builder: (context) {
       GroupedRow row(_Setting setting) => GroupedRow(

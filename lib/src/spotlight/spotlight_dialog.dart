@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../widgets/dialog_presentation.dart';
 import '../widgets/grouped_dialog.dart';
 import 'spotlight_settings.dart';
 import 'widgets/spotlight_settings_view.dart';
 
 Future<void> showSpotlightDialog(BuildContext context) {
   final settings = context.read<SpotlightSettings>();
-  return showDialog<void>(
+  return showAppDialog<void>(
     context: context,
     builder: (_) => ChangeNotifierProvider.value(
       value: settings,
