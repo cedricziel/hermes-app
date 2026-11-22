@@ -1381,12 +1381,6 @@ List<WidgetbookUseCase> _outsideTapTargetUseCases() => [
   ),
 ];
 
-/// The keyboard focus ring: 2 px in the link colour, 2 px outside a button
-/// (its radius plus 2), 2 px inside a list row, menu item or segment that a
-/// container clips. It shows only after the keyboard moved focus, never after
-/// a pointer press; a text field keeps its own focus border. Each use case
-/// forces keyboard mode and focuses one control; "Resting" is the same
-/// controls with nothing focused, and "Try it" is for pressing Tab.
 /// Owns the sign-in state a sidebar reads, for as long as the use case is on
 /// screen. Built in `initState`, not asynchronously, so that the focus the
 /// preview moves is there on the first frame.
@@ -1546,34 +1540,38 @@ Widget _macSearchResults({List<String> recent = const []}) => fill(
   width: 300,
 );
 
-Widget _macThreadRow() => SizedBox(
-  width: 260,
-  child: MacThreadRow(
-    title: 'Plan the release',
-    selected: true,
-    onTap: () {},
-    onArchive: () {},
-    menuItems: (context) =>
-        macThreadMenuItems(context.l10n, pinned: false, manageable: true),
-    onAction: (_) {},
+Widget _macThreadRow() => frame(
+  SizedBox(
+    width: 260,
+    child: MacThreadRow(
+      title: 'Plan the release',
+      selected: true,
+      onTap: () {},
+      onArchive: () {},
+      menuItems: (context) =>
+          macThreadMenuItems(context.l10n, pinned: false, manageable: true),
+      onAction: (_) {},
+    ),
   ),
 );
 
-Widget _macDestination() => SizedBox(
-  width: 260,
-  child: Padding(
-    padding: const EdgeInsets.all(8),
-    child: Column(
-      children: [
-        MacSourceListRow(
-          icon: AppIcons.settings,
-          label: 'Profiles',
-          caption: '3',
-          selected: true,
-          onTap: () {},
-        ),
-        MacSourceListRow(icon: AppIcons.add, label: 'Skills', onTap: () {}),
-      ],
+Widget _macDestination() => frame(
+  SizedBox(
+    width: 260,
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        children: [
+          MacSourceListRow(
+            icon: AppIcons.settings,
+            label: 'Profiles',
+            caption: '3',
+            selected: true,
+            onTap: () {},
+          ),
+          MacSourceListRow(icon: AppIcons.add, label: 'Skills', onTap: () {}),
+        ],
+      ),
     ),
   ),
 );
@@ -1645,6 +1643,12 @@ List<WidgetbookUseCase> _sidebarRowUseCases() => [
   ),
 ];
 
+/// The keyboard focus ring: 2 px in the link colour, 2 px outside a button
+/// (its radius plus 2), 2 px inside a list row, menu item or segment that a
+/// container clips. It shows only after the keyboard moved focus, never after
+/// a pointer press; a text field keeps its own focus border. Each use case
+/// forces keyboard mode and focuses one control; "Resting" is the same
+/// controls with nothing focused, and "Try it" is for pressing Tab.
 WidgetbookNode focusRingNode() => WidgetbookComponent(
   name: 'Keyboard focus ring',
   useCases: [

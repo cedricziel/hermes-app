@@ -645,16 +645,12 @@ List<Hit> _testsReadingDocs() {
   return hits;
 }
 
-/// Every guard of this file.
-/// The widgets that draw the keyboard focus ring for what is built inside
-/// them: [FocusRing] (and `FocusRing.outside`), the grouped row and its ink,
-/// and the mini floating button's ring.
-const _ringOwners = {
-  'FocusRing',
-  'GroupedRow',
-  'GroupedRowInk',
-  'MiniFabFocusRing',
-};
+/// The widgets that draw the keyboard focus ring for what is built in their
+/// `child:` slot, and nothing else of theirs: [FocusRing] (and
+/// `FocusRing.outside`), the grouped row's ink, and the mini floating button's
+/// ring. A [GroupedRow] is not one: it rings its own ink, and an ink well in its
+/// `trailing` or any other slot sits inside that one with no ring.
+const _ringOwners = {'FocusRing', 'GroupedRowInk', 'MiniFabFocusRing'};
 
 /// The classes whose `InkWell` or `InkResponse` takes its ring from somewhere
 /// other than an enclosing ring widget, as `path#Class`, each with the reason.
@@ -704,23 +700,46 @@ ArgumentList? _argumentsOf(AstNode node) => switch (node) {
   _ => null,
 };
 
-/// Whether the ink well [node] has a tap handler that is not a literal null.
+/// The handlers that make an ink well take focus, as Flutter's
+/// `_primaryButtonEnabled` and `_secondaryButtonEnabled` read them
+/// (`onTapCancel` alone does not).
+const _inkHandlers = {
+  'onTap',
+  'onDoubleTap',
+  'onLongPress',
+  'onLongPressUp',
+  'onTapUp',
+  'onTapDown',
+  'onSecondaryTap',
+  'onSecondaryTapUp',
+  'onSecondaryTapDown',
+};
+
+/// Whether the ink well [node] has a handler that is not a literal null.
 bool _hasTapHandler(AstNode node) {
   for (final a in _argumentsOf(node)?.arguments ?? const <Expression>[]) {
-    if (a is NamedArgument && a.name.lexeme == 'onTap') {
-      return a.argumentExpression is! NullLiteral;
+    if (a is NamedArgument &&
+        _inkHandlers.contains(a.name.lexeme) &&
+        a.argumentExpression is! NullLiteral) {
+      return true;
     }
   }
   return false;
 }
 
-/// Whether [node] sits inside a call that draws the ring (a [_ringOwners]
-/// widget) or inside a button, whose theme draws it.
+/// Whether [node] is built in the `child:` slot of a ring owner. The walk goes
+/// up the tree and stops, with no ring, at the first enclosing ink well (that
+/// one decides, an outer ring does not reach through it), at any function body
+/// (a callback or a route builder such as `showDialog`'s runs elsewhere), and
+/// at an owner reached through any slot but `child`.
 bool _insideRingOwner(AstNode node) {
+  String? slot;
   for (var p = node.parent; p != null; p = p.parent) {
+    if (p is FunctionBody || p is Declaration) return false;
+    if (_isInkCall(p)) return false;
+    if (p is NamedArgument) slot = p.name.lexeme;
     for (final shape in _inkCallShapes(p)) {
-      if (_ringOwners.contains(shape.type)) return true;
-      if (shape.named == null && shape.type.endsWith('Button')) return true;
+      if (_ringOwners.contains(shape.type) && slot == 'child') return true;
     }
   }
   return false;
@@ -812,6 +831,7 @@ List<Hit> _inkWellHits() => [
     if (!_inkWellRingOwnedElsewhere.containsKey(f.owner)) f.hit,
 ];
 
+/// Every guard of this file.
 final guardRules = <Rule>[
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
   _guard(
@@ -1055,7 +1075,7 @@ final guardRules = <Rule>[
         'radius minus 2>, child: ...) for a row or card a container clips, '
         'FocusRing.outside(radius: ...) for a tap target nothing clips '
         '(lib/src/theme/focus_ring.dart), or GroupedRowInk / GroupedRow in a '
-        'grouped section; a file whose ring another widget owns goes on '
+        'grouped section; a class (path#Class) whose ring another widget owns goes on '
         '_inkWellRingOwnedElsewhere with its reason.',
     hits: _inkWellHits,
   ),
@@ -1591,16 +1611,14 @@ void main() {
       );
     });
 
-    test('a ring widget, a grouped row or a button encloses', () {
+    test('a ring widget in its child slot encloses', () {
       for (final owner in [
         'FocusRing(radius: 4, child: ',
         'FocusRing.outside(radius: 8, child: ',
         'm.FocusRing(child: ',
         'GroupedRowInk(onTap: g, child: ',
-        'GroupedRow(title: t, onTap: g, trailing: ',
         'MiniFabFocusRing(child: ',
-        'TextButton(onPressed: g, child: ',
-        'NamedIconButton(onPressed: g, label: l, icon: ',
+        'FocusRing(radius: 4, child: Padding(child: ',
       ]) {
         expect(
           hits('f() => $owner InkWell(onTap: g, child: a));'),
@@ -1614,13 +1632,92 @@ void main() {
       expect(hits('f() => FocusRingLike(child: InkWell(onTap: g));'), 1);
     });
 
-    test('only a tap handler makes an ink well focusable here', () {
+    test('a nested ink well is decided by itself, not by an outer ring', () {
+      expect(
+        hits(
+          'f() => FocusRing(ownFocus: true, child: '
+          'InkWell(onTap: g, child: InkWell(onTap: g)));',
+        ),
+        1,
+      );
+    });
+
+    test('a ring owner reached through another slot does not enclose', () {
+      expect(hits('f() => FocusRing(radius: 4, other: InkWell(onTap: g));'), 1);
+      expect(
+        hits('f() => GroupedRow(title: t, trailing: InkWell(onTap: g));'),
+        1,
+      );
+    });
+
+    test('a button or a custom trigger is not a ring owner', () {
+      expect(
+        hits(
+          'f() => AdaptivePopupMenuButton(items: i, '
+          'child: InkWell(onTap: g));',
+        ),
+        1,
+      );
+      expect(
+        hits('f() => TextButton(onPressed: g, child: InkWell(onTap: g));'),
+        1,
+      );
+    });
+
+    test('ownership does not cross a callback or a route builder', () {
+      expect(
+        hits(
+          'f() => TextButton(onPressed: () => showDialog(builder: (_) => '
+          'InkWell(onTap: g)));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusRing(child: Builder(builder: (c) { '
+          'return InkWell(onTap: g); }));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusRing(child: Builder(builder: (c) => '
+          'FocusRing(child: InkWell(onTap: g))));',
+        ),
+        0,
+      );
+    });
+
+    test('every handler that makes an ink well focusable is read', () {
+      for (final h in [
+        'onTap',
+        'onDoubleTap',
+        'onLongPress',
+        'onLongPressUp',
+        'onTapUp',
+        'onTapDown',
+        'onSecondaryTap',
+        'onSecondaryTapUp',
+        'onSecondaryTapDown',
+      ]) {
+        expect(hits('f() => InkWell($h: g, child: a);'), 1, reason: h);
+        expect(hits('f() => InkResponse($h: g, child: a);'), 1, reason: h);
+        expect(hits('f() => InkWell($h: null, child: a);'), 0, reason: h);
+        expect(
+          hits('f() => FocusRing(child: InkWell($h: g, child: a));'),
+          0,
+          reason: h,
+        );
+      }
+      // onTapCancel alone does not enable an ink well.
+      expect(hits('f() => InkWell(onTapCancel: g, child: a);'), 0);
+    });
+
+    test('only a handler makes an ink well focusable here', () {
       expect(hits('f() => InkWell(child: a);'), 0);
       expect(hits('f() => InkWell(onTap: null, child: a);'), 0);
       expect(hits('f() => InkWell(onTap: cond ? g : null, child: a);'), 1);
       expect(hits('f() => InkWell(onTap: () {}, child: a);'), 1);
-      // Known gap: a handler other than onTap is not read.
-      expect(hits('f() => InkWell(onLongPress: g, child: a);'), 0);
     });
 
     test('comments and strings are not code', () {
