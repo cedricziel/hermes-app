@@ -295,6 +295,47 @@ double measureRowText(
   }
 }
 
+/// The ink of a row of a [GroupedSection]: the tap target, its focus tint and
+/// the keyboard focus ring 2 px inside the section's clip, with the section's
+/// corner radius less the inset. [GroupedRow], [GroupedActionRow], the iOS
+/// value row and the Schedules "Advanced" row all take it from here, so a row
+/// that builds its own tap target gets the same ring.
+///
+/// A row that draws its own focus mark ([focusFill] off) or takes none
+/// ([focusable] off) gets no ring from here.
+class GroupedRowInk extends StatelessWidget {
+  const GroupedRowInk({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.focusable = true,
+    this.focusFill = true,
+  });
+
+  final Widget child;
+
+  /// Null draws a row that does not take focus or taps.
+  final VoidCallback? onTap;
+  final bool focusable;
+  final bool focusFill;
+
+  @override
+  Widget build(BuildContext context) {
+    final tap = InkWell(
+      canRequestFocus: focusable,
+      focusColor: focusFill ? null : Colors.transparent,
+      onTap: onTap,
+      child: child,
+    );
+    return focusable && focusFill
+        ? FocusRing(
+            radius: GroupedMetrics.of(context).radius - kFocusRingOffset,
+            child: tap,
+          )
+        : tap;
+  }
+}
+
 /// A row of a [GroupedSection]: a [title] with optional inline [meta] (a
 /// version), a [subtitle] (one line unless [subtitleMaxLines] says more) and
 /// [warning] and [error] lines under it, which wrap, and at the
@@ -683,17 +724,12 @@ class GroupedRow extends StatelessWidget {
               ),
       ),
     );
-    final tap = InkWell(
-      canRequestFocus: focusable,
-      focusColor: focusFill ? null : Colors.transparent,
+    final ink = GroupedRowInk(
+      focusable: focusable,
+      focusFill: focusFill,
       onTap: enabled ? onTap : null,
       child: content,
     );
-    // A row that draws its own focus mark (`focusFill` off) or takes none gets
-    // no ring from here.
-    final ink = focusable && focusFill
-        ? FocusRing(radius: metrics.radius - kFocusRingOffset, child: tap)
-        : tap;
     final color = selected ? scheme.outline : Colors.transparent;
     Widget merged(Widget child) => MergeSemantics(
       child: Semantics(

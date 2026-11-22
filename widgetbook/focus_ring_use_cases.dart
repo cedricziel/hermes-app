@@ -19,6 +19,8 @@ import 'package:hermes_app/src/chat/widgets/tool_json_tree.dart';
 import 'package:hermes_app/src/files/widgets/file_row.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
+import 'package:hermes_app/src/schedules/job_form_screen.dart'
+    show ScheduleAdvancedRow;
 import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_action_row.dart';
@@ -948,29 +950,10 @@ Widget _valueRows() => _section([
   ),
 ]);
 
-/// The Schedules form's "Advanced" row: a [GroupedRow] without a tap of its
-/// own inside an ink well that opens the fields under it.
+/// The Schedules form's "Advanced" row, in a section under another row.
 Widget _advancedRow() => _section([
   const GroupedRow(title: 'Prompt', value: 'Summarize the news'),
-  MergeSemantics(
-    child: Semantics(
-      button: true,
-      expanded: false,
-      child: InkWell(
-        onTap: () {},
-        child: GroupedRow(
-          title: 'Advanced',
-          trailing: Builder(
-            builder: (context) => AppIcon(
-              AppIcons.chevronRight,
-              size: 18,
-              color: context.hermesColors.subtleText,
-            ),
-          ),
-        ),
-      ),
-    ),
-  ),
+  ScheduleAdvancedRow(open: false, onTap: () {}),
 ]);
 
 const _folder = FileRowModel(name: 'src', isFolder: true);

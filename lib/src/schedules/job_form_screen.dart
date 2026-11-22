@@ -252,7 +252,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                             'folder; its output is added to the prompt.'
                       : null,
                   children: [
-                    _AdvancedRow(
+                    ScheduleAdvancedRow(
                       key: const Key('job-advanced'),
                       open: _advancedOpen,
                       onTap: () =>
@@ -328,8 +328,12 @@ class _JobFormScreenState extends State<JobFormScreen> {
 }
 
 /// The row that shows or hides the advanced fields under it.
-class _AdvancedRow extends StatelessWidget {
-  const _AdvancedRow({super.key, required this.open, required this.onTap});
+class ScheduleAdvancedRow extends StatelessWidget {
+  const ScheduleAdvancedRow({
+    super.key,
+    required this.open,
+    required this.onTap,
+  });
 
   final bool open;
   final VoidCallback onTap;
@@ -339,7 +343,7 @@ class _AdvancedRow extends StatelessWidget {
     child: Semantics(
       button: true,
       expanded: open,
-      child: InkWell(
+      child: GroupedRowInk(
         onTap: onTap,
         child: GroupedRow(
           title: 'Advanced',
