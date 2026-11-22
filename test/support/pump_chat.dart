@@ -69,6 +69,7 @@ Future<void> pumpChatScreen(
   StarterContextLoader? starterContext,
   TargetPlatform? platform,
   MacCommandRegistry? commands,
+  bool desktopKeys = false,
   VoiceRecorder? voiceRecorder,
   CallBridge Function()? callBridge,
   VoiceRecorder? voiceMessageRecorder,
@@ -103,7 +104,7 @@ Future<void> pumpChatScreen(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: theme ?? buildHermesLightTheme().copyWith(platform: platform),
-      builder: macCommandsBuilder(commands),
+      builder: macCommandsBuilder(commands, desktopKeys: desktopKeys),
       home: _Visible(
         visible: visible,
         builder: (shown) => ChatScreen(

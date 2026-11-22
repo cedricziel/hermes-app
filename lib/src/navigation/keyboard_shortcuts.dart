@@ -27,13 +27,14 @@ MenuEntry? menuEntryOf(MacCommand command) {
 
 /// [chord] as the keys a person presses on Windows and Linux, such as
 /// `Ctrl`, `Shift`, `F`.
-ShortcutChord desktopChordOf(SingleActivator chord) => ShortcutChord([
-  if (chord.control) 'Ctrl',
-  if (chord.alt) 'Alt',
-  if (chord.shift) 'Shift',
-  if (chord.meta) 'Win',
-  _keyName(chord.trigger),
-]);
+ShortcutChord desktopChordOf(SingleActivator chord, AppLocalizations l10n) =>
+    ShortcutChord([
+      if (chord.control) l10n.navigationKeyCtrl,
+      if (chord.alt) l10n.navigationKeyAlt,
+      if (chord.shift) l10n.navigationKeyShift,
+      if (chord.meta) l10n.navigationKeyWin,
+      _keyName(chord.trigger, l10n),
+    ]);
 
 /// [chord] as the Mac writes it: ⌃⌥⇧⌘ and then the key.
 ShortcutChord macChordOf(SingleActivator chord) => ShortcutChord([
@@ -44,12 +45,18 @@ ShortcutChord macChordOf(SingleActivator chord) => ShortcutChord([
   _macKeyName(chord.trigger),
 ]);
 
-String _keyName(LogicalKeyboardKey key) => switch (key) {
-  LogicalKeyboardKey.arrowLeft => 'Left',
-  LogicalKeyboardKey.arrowRight => 'Right',
-  LogicalKeyboardKey.arrowUp => 'Up',
-  LogicalKeyboardKey.arrowDown => 'Down',
-  LogicalKeyboardKey.backspace => 'Backspace',
+String _keyName(LogicalKeyboardKey key, AppLocalizations l10n) => switch (key) {
+  LogicalKeyboardKey.arrowLeft => l10n.navigationKeyLeft,
+  LogicalKeyboardKey.arrowRight => l10n.navigationKeyRight,
+  LogicalKeyboardKey.arrowUp => l10n.navigationKeyUp,
+  LogicalKeyboardKey.arrowDown => l10n.navigationKeyDown,
+  LogicalKeyboardKey.backspace => l10n.navigationKeyBackspace,
+  _ => _plainKeyName(key),
+};
+
+/// A key whose name is the same in every language: a letter, a function key
+/// or a punctuation mark.
+String _plainKeyName(LogicalKeyboardKey key) => switch (key) {
   LogicalKeyboardKey.bracketLeft => '[',
   LogicalKeyboardKey.bracketRight => ']',
   LogicalKeyboardKey.comma => ',',
@@ -62,13 +69,19 @@ String _macKeyName(LogicalKeyboardKey key) => switch (key) {
   LogicalKeyboardKey.arrowUp => '↑',
   LogicalKeyboardKey.arrowDown => '↓',
   LogicalKeyboardKey.backspace => '⌫',
-  _ => _keyName(key),
+  _ => _plainKeyName(key),
 };
 
 /// The chords of [entry] on [platform], as written there.
-List<ShortcutChord> chordsOf(MenuEntry entry, MenuPlatform platform) => [
+List<ShortcutChord> chordsOf(
+  MenuEntry entry,
+  MenuPlatform platform,
+  AppLocalizations l10n,
+) => [
   for (final chord in entry.shortcutsOn(platform))
-    platform == MenuPlatform.mac ? macChordOf(chord) : desktopChordOf(chord),
+    platform == MenuPlatform.mac
+        ? macChordOf(chord)
+        : desktopChordOf(chord, l10n),
 ];
 
 /// Every command of [menuLayout] that has a chord on [platform], grouped as
@@ -85,7 +98,7 @@ List<ShortcutSectionModel> keyboardShortcutSections(
               if (entry.shortcutsOn(platform).isNotEmpty)
                 ShortcutRowModel(
                   label: _withoutEllipsis(entry.label(l10n)),
-                  chords: chordsOf(entry, platform),
+                  chords: chordsOf(entry, platform, l10n),
                 ),
         ]
         case final rows when rows.isNotEmpty)
@@ -131,5 +144,8 @@ String withChordHint(BuildContext context, String label, MacCommand command) {
   if (!bindsDesktopChords(Theme.of(context).platform)) return label;
   final chord = menuEntryOf(command)?.shortcutOn(MenuPlatform.desktop);
   if (chord == null) return label;
-  return context.l10n.navigationChordTooltip(label, desktopChordOf(chord).text);
+  return context.l10n.navigationChordTooltip(
+    label,
+    desktopChordOf(chord, context.l10n).text,
+  );
 }

@@ -27,21 +27,33 @@ class KeyboardShortcutsView extends StatelessWidget {
   final List<ShortcutSectionModel> sections;
 
   @override
-  Widget build(BuildContext context) => GroupedListView(
-    children: [
-      for (final section in sections)
-        GroupedSection(
-          header: section.title,
-          children: [
-            for (final row in section.rows)
-              GroupedRow(
-                title: row.label,
-                titleMaxLines: null,
-                focusable: false,
-                trailing: ChordKeys(chords: row.chords),
-              ),
-          ],
-        ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    // From 1.3x text the key caps sit on a line of their own, where they can
+    // wrap, instead of squeezing the name of the command.
+    final stacked = MediaQuery.textScalerOf(context).scale(16) / 16 > 1.3;
+    return GroupedListView(
+      children: [
+        for (final section in sections)
+          GroupedSection(
+            header: section.title,
+            children: [
+              for (final row in section.rows)
+                GroupedRow(
+                  title: row.label,
+                  titleMaxLines: null,
+                  focusable: false,
+                  separateTrailing: stacked,
+                  trailingBelow: stacked,
+                  trailing: ChordKeys(
+                    chords: row.chords,
+                    alignment: stacked
+                        ? WrapAlignment.start
+                        : WrapAlignment.end,
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
 }

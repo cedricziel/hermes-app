@@ -233,16 +233,29 @@ final _commandKey = RegExp(
   r'^\s*(?:LogicalKeyboardKey\.)?(?:f1|f5|f8|keyN|keyF|keyR|keyB|keyP|comma)\b',
 );
 
+/// Alt with Left, Right or Up is Back, Forward and Enclosing Folder.
+final _altArrowKey = RegExp(
+  r'^\s*(?:LogicalKeyboardKey\.)?arrow(?:Left|Right|Up)\b',
+);
+
+bool _isMenuChord(String args) =>
+    !args.contains('meta:') &&
+    (_commandKey.hasMatch(args) ||
+        (_altArrowKey.hasMatch(args) && args.contains('alt: true')));
+
 List<Hit> menuChordHitsIn(SourceFile file) => [
   for (final (at, args) in callArguments(file, _chordActivator))
-    if (file.code.startsWith('ctrlActivator(', at) ||
-        (_commandKey.hasMatch(args) && !args.contains('meta:')))
+    if (file.code.startsWith('ctrlActivator(', at) || _isMenuChord(args))
       Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
 ];
 
 List<Hit> _menuChordHits() => [
   for (final file in dartFiles('lib'))
-    if (file.path != 'lib/src/macos/menu_layout.dart') ...menuChordHitsIn(file),
+    // The page keeps Alt+Up and Alt+Down for Android and iPad keyboards,
+    // where no menu command owns them.
+    if (file.path != 'lib/src/macos/menu_layout.dart' &&
+        file.path != 'lib/src/chat/checkpoints/pages/file_change_page.dart')
+      ...menuChordHitsIn(file),
 ];
 
 /// A use of the catalog's keyboard override, a call or a tear-off.
@@ -1301,6 +1314,25 @@ void main() {
         0,
       );
       expect(chords('x = SingleActivator(LogicalKeyboardKey.escape);'), 0);
+      // Alt with Left, Right or Up; a plain arrow, or Alt+Down, is not.
+      for (final key in ['arrowLeft', 'arrowRight', 'arrowUp']) {
+        expect(
+          chords('x = SingleActivator(LogicalKeyboardKey.$key, alt: true);'),
+          1,
+          reason: key,
+        );
+        expect(chords('x = SingleActivator(LogicalKeyboardKey.$key);'), 0);
+      }
+      expect(
+        chords('x = SingleActivator(LogicalKeyboardKey.arrowDown, alt: true);'),
+        0,
+      );
+      expect(
+        chords(
+          'x = SingleActivator(LogicalKeyboardKey.arrowUp, alt: true, meta: true);',
+        ),
+        0,
+      );
       expect(
         chords('x = SingleActivator(LogicalKeyboardKey.keyV, control: true);'),
         0,

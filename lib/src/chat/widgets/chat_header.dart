@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../macos/mac_commands.dart';
 import '../../navigation/keyboard_shortcuts.dart';
 import '../../theme/app_icons.dart';
@@ -134,8 +135,12 @@ class NewChatButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => NamedIconButton(
     key: const Key('header-new-chat'),
-    label: 'New chat',
-    tooltip: withChordHint(context, 'New chat', MacCommand.newChat),
+    label: context.l10n.chatWidgetsNewChat,
+    tooltip: withChordHint(
+      context,
+      context.l10n.chatWidgetsNewChat,
+      MacCommand.newChat,
+    ),
     icon: AppIcons.compose,
     onPressed: onPressed,
   );

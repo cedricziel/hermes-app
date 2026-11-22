@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -131,6 +132,42 @@ Widget _app(
   ),
 );
 
+Future<void> _pressActivator(WidgetTester tester, SingleActivator a) async {
+  final modifiers = [
+    if (a.control) LogicalKeyboardKey.controlLeft,
+    if (a.alt) LogicalKeyboardKey.altLeft,
+    if (a.shift) LogicalKeyboardKey.shiftLeft,
+    if (a.meta) LogicalKeyboardKey.metaLeft,
+  ];
+  for (final modifier in modifiers) {
+    await tester.sendKeyDownEvent(modifier);
+  }
+  await tester.sendKeyEvent(a.trigger);
+  for (final modifier in modifiers.reversed) {
+    await tester.sendKeyUpEvent(modifier);
+  }
+  await tester.pump();
+}
+
+Future<void> _onPlatform(
+  TargetPlatform platform,
+  Future<void> Function() body,
+) async {
+  debugDefaultTargetPlatformOverride = platform;
+  try {
+    await body();
+  } finally {
+    debugDefaultTargetPlatformOverride = null;
+  }
+}
+
+bool _same(SingleActivator a, SingleActivator b) =>
+    a.trigger == b.trigger &&
+    a.control == b.control &&
+    a.alt == b.alt &&
+    a.shift == b.shift &&
+    a.meta == b.meta;
+
 void main() {
   late MacCommandRegistry registry;
   late List<MacCommand> fired;
@@ -157,7 +194,7 @@ void main() {
             for (final entry in group)
               if (entry.shortcutsOn(MenuPlatform.desktop).isNotEmpty)
                 entry.command: [
-                  for (final chord in chordsOf(entry, MenuPlatform.desktop))
+                  for (final chord in chordsOf(entry, MenuPlatform.desktop, en))
                     chord.text,
                 ],
       };
@@ -173,6 +210,7 @@ void main() {
                 entry.command: chordsOf(
                   entry,
                   MenuPlatform.mac,
+                  en,
                 ).single.keys.join(),
       };
       expect(declared, {
@@ -184,7 +222,7 @@ void main() {
     });
 
     test(
-      'no chord of the Windows and Linux table clashes with text editing',
+      'no Ctrl chord is a text editing key, and none is AltGr or a bracket',
       () {
         for (final chords in _desktopTable.values) {
           for (final chord in chords) {
@@ -225,6 +263,20 @@ void main() {
         }
       },
     );
+
+    test('the key names follow the language', () {
+      final de = lookupAppLocalizations(const Locale('de'));
+      final chord = ctrlActivator(LogicalKeyboardKey.keyF, shift: true);
+      expect(desktopChordOf(chord, en).text, 'Ctrl+Shift+F');
+      expect(desktopChordOf(chord, de).text, 'Strg+Umschalt+F');
+      expect(
+        desktopChordOf(
+          const SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true),
+          de,
+        ).text,
+        'Alt+Links',
+      );
+    });
 
     test('a command with a chord on Windows and Linux is listed once', () {
       final commands = [
@@ -340,6 +392,93 @@ void main() {
         expect(fired, [MacCommand.newChat]);
       },
     );
+  });
+
+  group('a text field keeps the keys text editing binds', () {
+    for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+      testWidgets(
+        'Alt+Left, Alt+Right and Alt+Up move the caret on $platform',
+        (tester) async {
+          await _onPlatform(platform, () async {
+            final controller = TextEditingController(
+              text: 'one two\nthree four',
+            );
+            addTearDown(controller.dispose);
+            controller.selection = const TextSelection.collapsed(offset: 14);
+            await tester.pumpWidget(
+              _app(
+                platform,
+                registry,
+                body: TextField(
+                  controller: controller,
+                  maxLines: null,
+                  autofocus: true,
+                ),
+              ),
+            );
+            await tester.pump();
+
+            await _press(tester, 'Alt+Left');
+            expect(controller.selection.baseOffset, 8, reason: 'start of line');
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+            await tester.pump();
+            expect(controller.selection.baseOffset, 18, reason: 'end of line');
+            await _press(tester, 'Alt+Up');
+            expect(controller.selection.baseOffset, 0, reason: 'start of text');
+
+            expect(fired, isEmpty);
+          });
+        },
+      );
+
+      testWidgets('every declared chord that text editing binds stays with '
+          'the field on $platform', (tester) async {
+        await _onPlatform(platform, () async {
+          await tester.pumpWidget(
+            _app(
+              platform,
+              registry,
+              body: const TextField(maxLines: null, autofocus: true),
+            ),
+          );
+          await tester.pump();
+
+          final declared = [
+            for (final section in menuLayout)
+              for (final group in section.groupsOn(MenuPlatform.desktop))
+                for (final entry in group)
+                  ...entry.shortcutsOn(MenuPlatform.desktop),
+          ];
+          final clashes = [
+            for (final chord in declared)
+              if (textEditingChords().any((text) => _same(text, chord))) chord,
+          ];
+          // Alt+Left, Alt+Right and Alt+Up are the known ones; a new clash is
+          // pressed here too.
+          expect(clashes.length, greaterThanOrEqualTo(3));
+          for (final chord in clashes) {
+            await _pressActivator(tester, chord);
+          }
+          expect(fired, isEmpty);
+        });
+      });
+    }
+
+    testWidgets('and without a field, the same chords run the commands', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(TargetPlatform.linux, registry));
+      await _press(tester, 'Alt+Left');
+      await _press(tester, 'Alt+Right');
+      await _press(tester, 'Alt+Up');
+      expect(fired, [
+        MacCommand.back,
+        MacCommand.forward,
+        MacCommand.enclosingFolder,
+      ]);
+    });
   });
 
   group('a text field', () {

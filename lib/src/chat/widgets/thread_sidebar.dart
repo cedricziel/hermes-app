@@ -216,10 +216,10 @@ class ThreadSidebar extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: SidebarAction(
                     icon: AppIcons.add,
-                    label: 'New chat',
+                    label: context.l10n.chatWidgetsNewChat,
                     tooltip: withChordHint(
                       context,
-                      'New chat',
+                      context.l10n.chatWidgetsNewChat,
                       MacCommand.newChat,
                     ),
                     onTap: onNewThread,

@@ -7,9 +7,16 @@ import '../keyboard_shortcut_models.dart';
 /// The key combinations of a command as small key caps, with "or" between
 /// combinations that do the same.
 class ChordKeys extends StatelessWidget {
-  const ChordKeys({super.key, required this.chords});
+  const ChordKeys({
+    super.key,
+    required this.chords,
+    this.alignment = WrapAlignment.end,
+  });
 
   final List<ShortcutChord> chords;
+
+  /// Where the caps start on a line; they wrap when the line is full.
+  final WrapAlignment alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +26,7 @@ class ChordKeys extends StatelessWidget {
       label: chords.map((chord) => chord.text).join(' $or '),
       excludeSemantics: true,
       child: Wrap(
-        alignment: WrapAlignment.end,
+        alignment: alignment,
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 6,
         runSpacing: 4,
@@ -31,9 +38,9 @@ class ChordKeys extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall
                     ?.copyWith(color: muted),
               ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            Wrap(
               spacing: 4,
+              runSpacing: 4,
               children: [for (final key in chord.keys) _KeyCap(label: key)],
             ),
           ],
@@ -54,17 +61,19 @@ class _KeyCap extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
         border: Border.all(color: theme.colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: theme.colorScheme.onSurface,
+      child: Center(
+        widthFactor: 1,
+        child: Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
         ),
       ),
     );

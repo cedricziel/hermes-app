@@ -137,6 +137,23 @@ WidgetbookNode keyboardShortcutsNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
+          name: 'Windows and Linux, text 3x',
+          builder: (context) => Theme(
+            data: _themeFor(context, TargetPlatform.linux),
+            child: Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: const TextScaler.linear(3)),
+                child: pushed(
+                  KeyboardShortcutsPage(
+                    sections: _windowsAndLinux(context.l10n),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'Mac keys',
           builder: (context) => Theme(
             data: _themeFor(context, TargetPlatform.macOS),

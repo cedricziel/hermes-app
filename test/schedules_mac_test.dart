@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -80,6 +81,7 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     Size size = const Size(1000, 800),
     MacCommandRegistry? commands,
+    bool desktopKeys = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -87,7 +89,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildHermesLightTheme().copyWith(platform: platform),
-        builder: macCommandsBuilder(commands),
+        builder: macCommandsBuilder(commands, desktopKeys: desktopKeys),
         home: SchedulesScreen(controller: controller, onOpenRun: (_, _) {}),
       ),
     );
@@ -135,6 +137,33 @@ void main() {
 
       expect(server.requestsTo('GET', '/api/cron/jobs').length, before + 1);
     });
+
+    for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+      testWidgets('Ctrl+R and F5 list the jobs again on $platform', (
+        tester,
+      ) async {
+        final commands = MacCommandRegistry();
+        addTearDown(commands.dispose);
+        await pumpScreen(
+          tester,
+          platform: platform,
+          commands: commands,
+          desktopKeys: true,
+        );
+        int jobs() => server.requestsTo('GET', '/api/cron/jobs').length;
+        final before = jobs();
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pumpAndSettle();
+        expect(jobs(), before + 1);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+        await tester.pumpAndSettle();
+        expect(jobs(), before + 2);
+      });
+    }
 
     testWidgets('Refresh shows a spinner and disables Reload while it runs', (
       tester,
