@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../l10n/l10n.dart';
 import '../../../theme/app_icons.dart';
+import '../../../theme/focus_ring.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../../widgets/busy_bar.dart';
 import '../context_state.dart';
@@ -189,7 +190,12 @@ class ContextRow extends StatelessWidget {
           label: semanticsLabel,
           onTap: openable ? onOpen : null,
           child: ExcludeSemantics(
-            child: openable ? InkWell(onTap: onOpen, child: body) : body,
+            child: openable
+                ? FocusRing(
+                    radius: 0,
+                    child: InkWell(onTap: onOpen, child: body),
+                  )
+                : body,
           ),
         ),
         if (suggestion)

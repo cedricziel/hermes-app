@@ -116,7 +116,7 @@ class GroupedValueRow extends StatelessWidget {
       : MergeSemantics(
           child: Semantics(
             button: true,
-            child: InkWell(onTap: onTap, child: row),
+            child: GroupedRowInk(onTap: onTap, child: row),
           ),
         );
 }

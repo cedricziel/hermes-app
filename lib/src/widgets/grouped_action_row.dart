@@ -222,7 +222,7 @@ class GroupedActionRow extends StatelessWidget {
             enabled: !working && !done && !disabled,
             liveRegion: working || done,
             label: semanticLabel,
-            child: InkWell(
+            child: GroupedRowInk(
               onTap: working || done ? null : onPressed,
               child: ExcludeSemantics(
                 excluding: semanticLabel != null,
