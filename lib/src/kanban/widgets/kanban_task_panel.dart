@@ -242,10 +242,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   );
 
   Future<void> _edit(KanbanTask task) async {
-    final edited = await showDialog<(String, String)>(
-      context: context,
-      builder: (_) => _EditTaskDialog(task: task),
-    );
+    final edited = await showKanbanTaskEditDialog(context, task);
     if (edited == null || edited.$1.isEmpty || !mounted) return;
     await _run(() => _task.update(title: edited.$1, body: edited.$2));
   }
@@ -458,6 +455,15 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     },
   );
 }
+
+/// Edits [task]'s title and description; answers the trimmed pair, or null.
+Future<(String, String)?> showKanbanTaskEditDialog(
+  BuildContext context,
+  KanbanTask task,
+) => showDialog<(String, String)>(
+  context: context,
+  builder: (_) => _EditTaskDialog(task: task),
+);
 
 class _EditTaskDialog extends StatefulWidget {
   const _EditTaskDialog({required this.task});

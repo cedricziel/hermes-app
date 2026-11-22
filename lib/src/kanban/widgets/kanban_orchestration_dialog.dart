@@ -8,6 +8,16 @@ import '../kanban_repository.dart';
 import 'kanban_orchestration_fields.dart';
 import '../../widgets/route_dismissal.dart';
 
+Future<void> showKanbanOrchestrationDialog(
+  BuildContext context, {
+  required KanbanRepository repository,
+  String? board,
+}) => showDialog<void>(
+  context: context,
+  builder: (_) =>
+      KanbanOrchestrationDialog(repository: repository, board: board),
+);
+
 /// Edits how the plugin fans out and picks up tasks (`kanban.*` in the
 /// server's config).
 class KanbanOrchestrationDialog extends StatefulWidget {

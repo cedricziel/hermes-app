@@ -97,10 +97,7 @@ class KanbanBoardsScreen extends StatelessWidget {
   }
 
   Future<void> _export(BuildContext context, String slug, String name) async {
-    final options = await showDialog<_ExportOptions>(
-      context: context,
-      builder: (_) => _ExportDialog(name: name),
-    );
+    final options = await showKanbanExportDialog(context, name: name);
     if (options == null || !context.mounted) return;
     KanbanExport? result;
     final ok = await runKanbanAction(
@@ -145,10 +142,7 @@ class KanbanBoardsScreen extends StatelessWidget {
   }
 
   Future<void> _import(BuildContext context) async {
-    final options = await showDialog<_ImportOptions>(
-      context: context,
-      builder: (_) => const _ImportDialog(),
-    );
+    final options = await showKanbanImportDialog(context);
     if (options == null || !context.mounted) return;
     KanbanImport? result;
     final ok = await runKanbanAction(
@@ -231,7 +225,16 @@ class KanbanBoardsScreen extends StatelessWidget {
   }
 }
 
-typedef _ExportOptions = ({String output, bool attachments, bool logs});
+/// Asks what to put in the archive of the board [name].
+Future<KanbanExportOptions?> showKanbanExportDialog(
+  BuildContext context, {
+  required String name,
+}) => showDialog<KanbanExportOptions>(
+  context: context,
+  builder: (_) => _ExportDialog(name: name),
+);
+
+typedef KanbanExportOptions = ({String output, bool attachments, bool logs});
 
 class _ExportDialog extends StatefulWidget {
   const _ExportDialog({required this.name});
@@ -262,7 +265,7 @@ class _ExportDialogState extends State<_ExportDialog> {
         child: const Text('Cancel'),
       ),
       FilledButton(
-        onPressed: () => Navigator.pop<_ExportOptions>(context, (
+        onPressed: () => Navigator.pop<KanbanExportOptions>(context, (
           output: _output.text.trim(),
           attachments: _attachments,
           logs: _logs,
@@ -301,7 +304,14 @@ class _ExportDialogState extends State<_ExportDialog> {
   );
 }
 
-typedef _ImportOptions = ({String archive, String slug, bool open});
+/// Asks which server-side archive to import and how to name the board.
+Future<KanbanImportOptions?> showKanbanImportDialog(BuildContext context) =>
+    showDialog<KanbanImportOptions>(
+      context: context,
+      builder: (_) => const _ImportDialog(),
+    );
+
+typedef KanbanImportOptions = ({String archive, String slug, bool open});
 
 class _ImportDialog extends StatefulWidget {
   const _ImportDialog();
@@ -333,7 +343,7 @@ class _ImportDialogState extends State<_ImportDialog> {
       FilledButton(
         onPressed: _archive.text.trim().isEmpty
             ? null
-            : () => Navigator.pop<_ImportOptions>(context, (
+            : () => Navigator.pop<KanbanImportOptions>(context, (
                 archive: _archive.text.trim(),
                 slug: _slug.text.trim(),
                 open: _open,
