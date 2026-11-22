@@ -51,11 +51,14 @@ To see one widget in every state without a flow around it, use the
   draws `GptMarkdown`, or mentions one that does; the navigation-only roots
   `AppShell`, `MacProfilesPage` and `HermesApp` do not count). A `*_test.dart`
   file fails, naming the file and the readers, when it references one and builds
-  an app whose own `builder:` or `home:` does not call `AppThemeScopes(`,
-  `MaterialUiThemeScope(`, `FlyerMaterialScope(` or `mui.Theme(`, or calls a
+  an app that mounts nothing: no `AppThemeScopes(`, `MaterialUiThemeScope(`,
+  `FlyerMaterialScope(` or `mui.Theme(` call in its `builder:` outside a `?`/`:`
+  conditional, and none that is the whole `home:` expression (a scope inside a
+  `home:` subtree covers only that part), or calls a
   helper (any function or class under `test/` outside `*_test.dart` files) whose
   app does not. A mention in a string, an import or a `find.byType` does not
-  count, and one mounted app does not excuse another in the same file. Add new app-level
+  count, and one mounted app does not excuse another in the same file. The guard scans
+  `test/` only; `benchmark/` apps are out of its scope. Add new app-level
   theme scopes inside `AppThemeScopes`. `test/app_theme_scopes_test.dart` compares
   the theme-like inherited widgets above the `Navigator` in `HermesApp` and
   `pumpScreen` (a scope added in `app.dart` that the harness lacks fails it; a
