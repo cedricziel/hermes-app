@@ -80,9 +80,11 @@ void main() {
     final failures = <String>[];
     // The header is the block's width less its 10 and 8 px padding.
     const padding = 18.0;
-    final widths = [for (var w = 40.0; w <= 120; w += 2) w, 56.7, 400.0];
+    final widths = [for (var w = 10.0; w <= 120; w += 2) w, 56.7, 400.0];
     for (final width in widths) {
       for (final copy in [true, false]) {
+        // The 32 px copy button alone does not fit a narrower header.
+        if (copy && width < 32) continue;
         for (final rtl in [false, true]) {
           for (final scale in [1.0, 3.0]) {
             for (final label in ['py', 'a' * 45]) {
