@@ -164,4 +164,50 @@ void main() {
     semantics.dispose();
     expect(failures, isEmpty, reason: failures.join('\n'));
   });
+
+  for (final (header, copy) in [(80.0, true), (40.0, false)]) {
+    for (final scale in [1.0, 3.0]) {
+      testWidgets(
+        'an icon-only chip stays drawn: header $header px, copy $copy, '
+        'scale $scale',
+        (tester) async {
+          tester.view.physicalSize = const Size(600, 400);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: buildHermesLightTheme(),
+              builder: (context, child) => AppThemeScopes(
+                child: MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(scale)),
+                  child: child!,
+                ),
+              ),
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: header + 18,
+                    child: HermesCodeBlock(
+                      name: 'python',
+                      codes: 'x\n',
+                      style: CodeBlockStyle(showCopyButton: copy),
+                      highlightCode: true,
+                      scalesItsOwnText: true,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          expect(tester.takeException(), isNull);
+          expect(
+            find.byWidgetPredicate((w) => w is Icon && w.size == 13),
+            findsOneWidget,
+          );
+        },
+      );
+    }
+  }
 }

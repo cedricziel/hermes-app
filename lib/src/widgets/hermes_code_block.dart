@@ -188,12 +188,12 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
                       const EdgeInsets.fromLTRB(10, 8, 8, 2),
                   child: LayoutBuilder(
                     builder: (context, box) {
-                      // Below this the chip cannot hold its padding, icon and
-                      // gap, so it is left out. Its name then goes on the
+                      // 36 px is the chip's minimum (padding, icon and gap);
+                      // below it the chip is left out. Its name then goes on the
                       // header, which has an area, so it stays in the tree.
                       final chipFits =
                           box.maxWidth - (showCopy ? _copyButtonSize + 8 : 0) >=
-                          44;
+                          36;
                       final header = Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -207,34 +207,41 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
                                 ),
                                 child: Align(
                                   alignment: AlignmentDirectional.centerStart,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: scheme.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(7),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 9,
-                                        vertical: 5,
+                                  // The chip names itself, so the name stays
+                                  // when its text has no room left.
+                                  child: Semantics(
+                                    label: displayName,
+                                    excludeSemantics: true,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: scheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(7),
                                       ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            mui.Icons.terminal_rounded,
-                                            size: 13,
-                                            color: scheme.onSurfaceVariant,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Flexible(
-                                            child: Text(
-                                              displayName,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: widget.style.languageStyle,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 9,
+                                          vertical: 5,
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              mui.Icons.terminal_rounded,
+                                              size: 13,
+                                              color: scheme.onSurfaceVariant,
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(width: 5),
+                                            Flexible(
+                                              child: Text(
+                                                displayName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style:
+                                                    widget.style.languageStyle,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
