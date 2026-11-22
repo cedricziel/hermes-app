@@ -13,6 +13,7 @@ import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 
 import 'support/attachment_fixtures.dart';
@@ -86,6 +87,7 @@ void main() {
       Provider<MediaStore?>.value(
         value: provideStore ? (withStore ?? store) : null,
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(),
           home: Scaffold(
             body: Chat(

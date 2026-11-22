@@ -17,6 +17,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/voice/voice_playback.dart';
 import 'package:hermes_app/src/voice/voice_playback_scope.dart';
 import 'package:hermes_app/src/voice/widgets/voice_message_view.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 
 import '../support/attachment_fixtures.dart';
@@ -108,6 +109,7 @@ void main() {
           ChangeNotifierProvider.value(value: playback),
         ],
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: Align(alignment: Alignment.topLeft, child: child),

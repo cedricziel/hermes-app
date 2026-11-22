@@ -26,6 +26,7 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/voice/calls/call_bridge.dart';
 import 'package:hermes_app/src/voice/voice_recorder.dart';
 import 'package:provider/provider.dart';
@@ -103,7 +104,12 @@ Future<void> pumpChatScreen(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: theme ?? buildHermesLightTheme(platform: platform),
-      builder: macCommandsBuilder(commands),
+      builder: (context, child) {
+        final scoped = AppThemeScopes(child: child!);
+        return commands == null
+            ? scoped
+            : macCommandsBuilder(commands)!(context, scoped);
+      },
       home: _Visible(
         visible: visible,
         builder: (shown) => ChatScreen(

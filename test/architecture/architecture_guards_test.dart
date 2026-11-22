@@ -995,6 +995,8 @@ void main() {
         'base.copyWith(\n  appBarTheme: AppBarTheme(leadingWidth: 4),\n  platform: p,\n)',
         'base.copyWith(appBarTheme: AppBarTheme(titleTextStyle: '
             'TextStyle(fontSize: 12)), platform: p)',
+        'b.copyWith(\n  textTheme: b.textTheme.apply(bodyColor: '
+            'Color(Colors.red.toARGB32())),\n  platform: p,\n)',
       ]) {
         expect(hits(bad), 1, reason: bad);
       }

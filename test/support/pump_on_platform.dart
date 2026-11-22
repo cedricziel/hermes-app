@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'test_localizations.dart';
 
@@ -22,7 +23,7 @@ Future<void> pumpOnPlatform(
       theme: buildHermesLightTheme(platform: platform),
       builder: (context, app) => MediaQuery(
         data: MediaQuery.of(context).copyWith(padding: padding),
-        child: app!,
+        child: AppThemeScopes(child: app!),
       ),
       home: Scaffold(body: child, bottomNavigationBar: bottom),
     ),

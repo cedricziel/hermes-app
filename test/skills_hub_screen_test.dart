@@ -8,6 +8,7 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/hub_skill_screen.dart';
 import 'package:hermes_app/src/skills/skill_detail_screen.dart';
 import 'package:hermes_app/src/skills/skills_screen.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_hermes_server.dart';
 
@@ -96,6 +97,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         theme: ThemeData(platform: platform),
         home: SkillsScreen(
           repository: HermesSkillsRepository(server.client().raw),

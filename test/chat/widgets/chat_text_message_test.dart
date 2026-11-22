@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/chat_text_message.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/type_scale.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 /// The look of a text message through the real chat path. Distinct colours for
 /// the chat theme's `onPrimary` and `onSurface`: links must ignore both and
@@ -50,7 +51,7 @@ Future<void> _pump(
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
+        child: AppThemeScopes(child: child!),
       ),
       home: Scaffold(
         body: Chat(

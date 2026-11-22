@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
@@ -167,6 +168,7 @@ void main() {
   testWidgets('MacThreadRow shows the working mark when busy', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: MacThreadRow(
             title: 'Run failure',

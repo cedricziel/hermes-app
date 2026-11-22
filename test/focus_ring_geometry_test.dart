@@ -228,9 +228,6 @@ void expectInsideClip(WidgetTester tester, Rect clip, {String? why}) {
   );
 }
 
-Widget _scoped(BuildContext context, Widget? child) =>
-    AppThemeScopes(child: child!);
-
 Future<void> _pump(
   WidgetTester tester,
   TargetPlatform platform,
@@ -250,7 +247,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       theme: buildHermesLightTheme(platform: platform),
-      builder: _scoped,
+      builder: (_, child) => AppThemeScopes(child: child!),
       home: Scaffold(
         body: Align(
           alignment: Alignment.topLeft,
