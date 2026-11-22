@@ -2132,6 +2132,14 @@
   "@chatWidgetsHistoryLoading": {
     "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
   },
+  "chatWidgetsNewChat": "New chat",
+  "@chatWidgetsNewChat": {
+    "description": "Name and hover text of the buttons that start a new chat."
+  },
+  "chatWidgetsNewMessage": "New message",
+  "@chatWidgetsNewMessage": {
+    "description": "Name and hover text of the button that starts a new chat on the messenger-style chat list."
+  },
   "chatWidgetsProgramConfirmCancel": "Cancel",
   "@chatWidgetsProgramConfirmCancel": {
     "description": "Cancel button of the program stop confirmation."
@@ -3329,6 +3337,58 @@
   },
 
   "@@x-area-navigation": "",
+  "navigationChordTooltip": "{label} ({chord})",
+  "@navigationChordTooltip": {
+    "description": "Hover text of a button whose command has a keyboard shortcut on Windows and Linux, such as New chat (Ctrl+N).",
+    "placeholders": {
+      "label": {"type": "String", "example": "New chat"},
+      "chord": {"type": "String", "example": "Ctrl+N"}
+    }
+  },
+  "navigationKeyAlt": "Alt",
+  "@navigationKeyAlt": {
+    "description": "The Alt key, as written on a keyboard shortcut."
+  },
+  "navigationKeyBackspace": "Backspace",
+  "@navigationKeyBackspace": {
+    "description": "The Backspace key, as written on a keyboard shortcut."
+  },
+  "navigationKeyCtrl": "Ctrl",
+  "@navigationKeyCtrl": {
+    "description": "The Control key, as written on a keyboard shortcut."
+  },
+  "navigationKeyDown": "Down",
+  "@navigationKeyDown": {
+    "description": "The Down arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyLeft": "Left",
+  "@navigationKeyLeft": {
+    "description": "The Left arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyRight": "Right",
+  "@navigationKeyRight": {
+    "description": "The Right arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyShift": "Shift",
+  "@navigationKeyShift": {
+    "description": "The Shift key, as written on a keyboard shortcut."
+  },
+  "navigationKeyUp": "Up",
+  "@navigationKeyUp": {
+    "description": "The Up arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyWin": "Win",
+  "@navigationKeyWin": {
+    "description": "The Windows key, as written on a keyboard shortcut."
+  },
+  "navigationKeyboardShortcutsOr": "or",
+  "@navigationKeyboardShortcutsOr": {
+    "description": "Between two key combinations that do the same, such as Ctrl+R or F5."
+  },
+  "navigationKeyboardShortcutsTitle": "Keyboard shortcuts",
+  "@navigationKeyboardShortcutsTitle": {
+    "description": "Title of the page that lists the keyboard shortcuts, and of the Settings row that opens it."
+  },
 
   "@@x-area-network": "",
 

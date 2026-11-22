@@ -35,6 +35,7 @@ enum MacCommand {
   deleteThread,
   showMainWindow,
   help,
+  keyboardShortcuts,
 }
 
 /// What a [MacCommand] does on the screen in front. A null [onInvoke] shows
