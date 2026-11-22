@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 
 /// Shows [child] as it looks after a Tab press has put the keyboard focus on
-/// the focusable control that holds [target] (a key anywhere inside that
-/// control's focus scope below it): the highlight mode is forced to
-/// traditional and the last input marked as the keyboard, and both go back
-/// when the use case goes away. Catalog only.
+/// the first focusable control that is below, or holds, a widget keyed
+/// [target]: the highlight mode is forced to traditional and the last input
+/// marked as the keyboard, and both go back when the use case goes away.
+/// Catalog only.
 class KeyboardFocused extends StatefulWidget {
   const KeyboardFocused({super.key, required this.target, required this.child});
 
@@ -54,19 +54,20 @@ class _KeyboardFocusedState extends State<KeyboardFocused> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// Whether [context] is, or has below it, a widget keyed [key].
+/// Whether [context] is below a widget keyed [key], or has one below it.
 bool _holds(BuildContext? context, Key key) {
   if (context == null) return false;
-  var found = false;
+  var found = context.widget.key == key;
+  context.visitAncestorElements((element) {
+    found = found || element.widget.key == key;
+    return !found;
+  });
   void walk(Element element) {
     if (found) return;
-    if (element.widget.key == key) {
-      found = true;
-      return;
-    }
+    if (element.widget.key == key) found = true;
     element.visitChildren(walk);
   }
 
   (context as Element).visitChildren(walk);
-  return found || (context.widget.key == key);
+  return found;
 }
