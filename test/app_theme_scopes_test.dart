@@ -586,6 +586,87 @@ void main() {
       );
     });
 
+    group('attribution to the callback', () {
+      final readers = _readersOf([SourceFile('lib/a/x.dart', 'class X {}\n')]);
+      const helpers = (mounting: <_Helper>[], plain: <_Helper>[]);
+      Set<String> uses(String body) => _unmountedReaderUses(
+        readers,
+        helpers,
+        SourceFile('test/t_test.dart', body),
+      );
+      const localization =
+          '  testWidgets("loc", (t) async {\n'
+          '    await t.pumpWidget(MaterialApp(home: Builder(builder: (c) {\n'
+          '      inside = c;\n'
+          '      return SizedBox();\n'
+          '    })));\n'
+          '  });\n';
+      const theme =
+          '  testWidgets("theme", (t) async {\n'
+          '    expect(mui.Theme.of(x).colorScheme, y);\n'
+          '  });\n';
+
+      test('a localization-only app beside another test reading the theme', () {
+        expect(uses('void main() {\n$localization$theme}\n'), isEmpty);
+      });
+
+      test('a new unscoped test that renders a reader in the same file', () {
+        expect(
+          uses(
+            'void main() {\n$localization$theme'
+            '  testWidgets("new", (t) async {\n'
+            '    await t.pumpWidget(MaterialApp(home: GptMarkdown("x")));\n'
+            '  });\n'
+            '}\n',
+          ),
+          isNotEmpty,
+        );
+      });
+
+      test('an app in a helper inside a group counts the whole group', () {
+        expect(
+          uses(
+            'void main() {\n'
+            '  group("g", () {\n'
+            '    Future<void> pump(t) =>\n'
+            '        t.pumpWidget(MaterialApp(home: Text("x")));\n'
+            '    testWidgets("a", (t) async {\n'
+            '      await pump(t);\n'
+            '      expect(mui.Theme.of(x), y);\n'
+            '    });\n'
+            '  });\n'
+            '}\n',
+          ),
+          isNotEmpty,
+        );
+      });
+    });
+
+    test('a direct material_ui widget is a seed, data types are not', () {
+      final readers = _readersOf([SourceFile('lib/a/x.dart', 'class X {}\n')]);
+      const helpers = (mounting: <_Helper>[], plain: <_Helper>[]);
+      Set<String> uses(String body) => _unmountedReaderUses(
+        readers,
+        helpers,
+        SourceFile('test/t_test.dart', body),
+      );
+      expect(
+        uses(
+          'await t.pumpWidget(MaterialApp(home: '
+          'mui.Slider(value: 0.5, onChanged: null)));',
+        ),
+        isNotEmpty,
+      );
+      expect(
+        uses(
+          'await t.pumpWidget(MaterialApp(home: Text("x")));\n'
+          'final d = mui.ThemeData(colorScheme: mui.ColorScheme.light());\n'
+          'final t2 = mui.TextTheme();',
+        ),
+        isEmpty,
+      );
+    });
+
     group('readers in test code', () {
       final readers = _readersOf([
         SourceFile(
@@ -622,6 +703,11 @@ void main() {
               '  Future<void> label(WidgetTester t) =>\n'
               '      t.pumpWidget(MaterialApp(home: Text("x")));\n'
               '}\n'
+              'class ZzSplitRig {\n'
+              '  Widget body(String t) => Scaffold(body: BoundedMarkdown(t));\n'
+              '  Future<void> pump(String t) =>\n'
+              '      tester.pumpWidget(MaterialApp(home: body(t)));\n'
+              '}\n'
               'class LeakyRig {\n'
               '  Future<void> scoped(WidgetTester t) => t.pumpWidget(\n'
               '    MaterialApp(\n'
@@ -654,6 +740,10 @@ void main() {
       test('a reader a plain helper renders is a use by every caller', () {
         expect(uses('await pumpPreview(tester);'), isNotEmpty);
         expect(uses('await pumpOuter(tester);'), isNotEmpty);
+      });
+
+      test('a rig counts members that its unscoped methods call', () {
+        expect(uses('await ZzSplitRig(tester).pump("# h");'), isNotEmpty);
       });
 
       test('a rig only counts the readers its unscoped methods render', () {
@@ -792,10 +882,14 @@ const _seedAlternatives = [
 ];
 final _seed = RegExp(_seedAlternatives.join('|'));
 
-/// What in test code reads the theme itself: the two seeds that cannot be
-/// anything else. `mui.ThemeData(` or `GptMarkdownTheme` in a test is data,
-/// not a draw.
-final _testSeed = RegExp(r'\bGptMarkdown\(|\bmui\.Theme\.of\b');
+/// What in test code reads the theme itself: `GptMarkdown(`, `mui.Theme.of`
+/// and a direct `mui.Widget(`. Value types (`mui.ThemeData(`, `ColorScheme`,
+/// `TextTheme`, anything named `*Data`, `*Theme` or `*Scheme`) and the scope
+/// `mui.Theme(` are data, not a draw, and `GptMarkdownTheme` alone is no use.
+final _testSeed = RegExp(
+  r'\bGptMarkdown\(|\bmui\.Theme\.of\b|'
+  r'\bmui\.(?!\w*(?:Data|Theme|Scheme)\()[A-Z]\w*\(',
+);
 final _provider = RegExp(
   r'\bmui\.Theme\(|\bMaterialUiThemeScope\(|\bAppThemeScopes\(',
 );
@@ -841,11 +935,6 @@ const List<_Exemption> _exemptions = [
     appContains: 'bridged ? MaterialUiThemeScope',
     reason: 'tests the unbridged fallback on purpose',
   ),
-  (
-    path: 'test/github_release_store_test.dart',
-    appContains: 'inside = context',
-    reason: 'localization-only app that renders no reader and stays unbridged',
-  ),
 ];
 
 typedef _Helpers = ({List<_Helper> mounting, List<_Helper> plain});
@@ -860,22 +949,44 @@ Set<String> _unmountedReaderUses(
   List<_Exemption> exemptions = const [],
 }) {
   final code = file.code;
-  final unmounted = _apps(code)
-      .where(
-        (a) =>
-            !a.mounted &&
-            !exemptions.any(
-              (e) => e.path == file.path && a.args.contains(e.appContains),
-            ),
-      )
-      .length;
+  final unmounted = [
+    for (final a in _apps(code))
+      if (!a.mounted &&
+          !exemptions.any(
+            (e) => e.path == file.path && a.args.contains(e.appContains),
+          ))
+        a,
+  ];
   final plainCalled = helpers.plain.where((h) => h.calledIn(code)).toList();
-  if (unmounted == 0 && plainCalled.isEmpty) return const {};
+  if (unmounted.isEmpty && plainCalled.isEmpty) return const {};
   return {
-    ..._readerUses(readers, file),
+    // A helper's app is drawn wherever it is called: the whole file counts.
+    if (plainCalled.isNotEmpty) ..._readerUses(readers, file),
+    // An app of the file's own draws only what its test or group builds.
+    for (final a in unmounted)
+      ..._readerUses(readers, file, within: _callbackAround(code, a.start)),
     for (final h in plainCalled)
       for (final use in h.uses) '$use (via ${h.name})',
   };
+}
+
+/// The narrowest `test`, `testWidgets` or `group` callback of [code] that
+/// holds [offset], or all of [code] when the offset is in none of them (a
+/// top-level helper or `main` itself).
+String _callbackAround(String code, int offset) {
+  var start = 0;
+  var end = code.length;
+  for (final m in RegExp(
+    r'(?<![\w.])(?:testWidgets|test|group)\(',
+  ).allMatches(code)) {
+    if (m.start > offset) break;
+    final close = callEnd(code, m.end);
+    if (close > offset && close - m.start < end - start) {
+      start = m.start;
+      end = close;
+    }
+  }
+  return code.substring(start, end);
 }
 
 /// The readers [file] (a test or a helper file) refers to in [within] (its
@@ -897,18 +1008,42 @@ Set<String> _readerUses(_Readers readers, SourceFile file, {String? within}) {
 }
 
 /// The readers helper [d] renders itself. A class counts only the members
-/// that build an unmounted app: a rig with a scoped method and an unscoped
-/// one that pumps text is no reader use for a test that calls the second.
+/// that build an unmounted app, and the members those call by bare name (to a
+/// fixpoint): a rig with a scoped method and an unscoped one that pumps text is
+/// no reader use for a test that calls the second.
 Set<String> _ownUses(_Readers readers, SourceFile file, _Decl d) {
   if (!_typeDecl.hasMatch(d.body)) {
     return _readerUses(readers, file, within: d.body);
   }
+  final members = d.body.split(RegExp(r'(?=^  [^\s}])', multiLine: true));
+  String? nameOf(String member) =>
+      RegExp(r'\bget\s+(\w+)').firstMatch(member)?.group(1) ??
+      RegExp(r'(\w+)\s*(?:<[^>(]*>)?\s*\(').firstMatch(member)?.group(1);
+  final named = {
+    for (final m in members)
+      if (nameOf(m) != null) nameOf(m)!: m,
+  };
+  final counted = <String>{
+    for (final m in members)
+      if (_apps(m).any((a) => !a.mounted) && nameOf(m) != null) nameOf(m)!,
+  };
+  var grew = true;
+  while (grew) {
+    grew = false;
+    for (final name in counted.toList()) {
+      for (final e in named.entries) {
+        if (!counted.contains(e.key) &&
+            e.key != name &&
+            RegExp('(?<![\\w.\$])${e.key}\\b').hasMatch(named[name]!)) {
+          counted.add(e.key);
+          grew = true;
+        }
+      }
+    }
+  }
   return {
-    for (final member in d.body.split(
-      RegExp(r'(?=^  [^\s}])', multiLine: true),
-    ))
-      if (_apps(member).any((a) => !a.mounted))
-        ..._readerUses(readers, file, within: member),
+    for (final name in counted)
+      ..._readerUses(readers, file, within: named[name]!),
   };
 }
 
