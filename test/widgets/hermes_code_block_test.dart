@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gpt_markdown/gpt_markdown.dart' show CodeBlockStyle;
 import 'package:hermes_app/src/theme/hermes_code_colors.dart';
@@ -35,6 +36,22 @@ HermesCodeBlock _block({required bool highlight}) => HermesCodeBlock(
   style: const CodeBlockStyle(),
   highlightCode: highlight,
 );
+
+/// How many nodes of the real semantics tree carry [label] as a line of their
+/// label. A node with no area is dropped from it, so this is not the same as
+/// `find.bySemanticsLabel`, which also matches a dropped node.
+int _nodesNamed(WidgetTester tester, String label) {
+  var count = 0;
+  bool visit(SemanticsNode node) {
+    if (node.label.split('\n').contains(label)) count++;
+    node.visitChildren(visit);
+    return true;
+  }
+
+  // ignore: deprecated_member_use
+  visit(tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!);
+  return count;
+}
 
 void main() {
   testWidgets('a block told not to colour is one plain run', (tester) async {
@@ -129,8 +146,9 @@ void main() {
                 failures.add('$where: overflow');
                 continue;
               }
-              if (find.bySemanticsLabel(label).evaluate().isEmpty) {
-                failures.add('$where: language name not in semantics');
+              final named = _nodesNamed(tester, label);
+              if (named != 1) {
+                failures.add('$where: $named semantics nodes carry the name');
               }
               if (copy) {
                 final size = tester.getSize(find.bySemanticsLabel('Copy code'));
