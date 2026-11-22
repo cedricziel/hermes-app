@@ -53,12 +53,16 @@ To see one widget in every state without a flow around it, use the
   file fails, naming the file and the readers, when it references one and builds
   an app that mounts nothing: no `AppThemeScopes(`, `MaterialUiThemeScope(`,
   `FlyerMaterialScope(` or `mui.Theme(` call in its `builder:` outside a `?`/`:`
-  conditional, and none that is the whole `home:` expression (a scope inside a
-  `home:` subtree covers only that part), or calls a
+  conditional (a scope in `home:` never counts: a route pushed from `home` is
+  built outside it), or calls a
   helper (any function or class under `test/` outside `*_test.dart` files) whose
   app does not. A mention in a string, an import or a `find.byType` does not
   count, and one mounted app does not excuse another in the same file. The guard scans
-  `test/` only; `benchmark/` apps are out of its scope. Add new app-level
+  `test/` only; `benchmark/` apps are out of its scope. The conditional check sees
+  only `?:`: a mount behind a `switch`, a collection `if` or an `if`/`return`
+  block, or a scope on a builder sibling instead of `child`, is not caught.
+  An extension member (`context.surface`) counts as a reader use only in a file
+  that is in the extension's library or imports it. Add new app-level
   theme scopes inside `AppThemeScopes`. `test/app_theme_scopes_test.dart` compares
   the theme-like inherited widgets above the `Navigator` in `HermesApp` and
   `pumpScreen` (a scope added in `app.dart` that the harness lacks fails it; a
