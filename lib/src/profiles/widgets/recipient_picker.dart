@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/focus_ring.dart';
+
 import '../hermes_profiles_repository.dart';
 import '../profile_avatar_repository.dart';
 import 'profile_avatar.dart';
@@ -76,21 +78,25 @@ class RecipientPicker extends StatelessWidget {
           ),
       ] else
         for (final profile in profiles)
-          ListTile(
-            leading: ExcludeSemantics(
-              child: ProfileAvatar(profile: profile, repository: avatars),
+          FocusRing(
+            child: ListTile(
+              leading: ExcludeSemantics(
+                child: ProfileAvatar(profile: profile, repository: avatars),
+              ),
+              title: Text(
+                profile.label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: profile.label != profile.name
+                  ? Text(profile.name)
+                  : null,
+              selected: selectedProfile == profile.name,
+              trailing: selectedProfile == profile.name
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => onSelected(profile),
             ),
-            title: Text(
-              profile.label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: profile.label != profile.name ? Text(profile.name) : null,
-            selected: selectedProfile == profile.name,
-            trailing: selectedProfile == profile.name
-                ? const Icon(Icons.check)
-                : null,
-            onTap: () => onSelected(profile),
           ),
     ],
   );

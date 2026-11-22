@@ -305,6 +305,14 @@ ThemeData _buildTheme({
             ),
           )
         : null,
+    // A chip's default shape (8 px) with the ring; a chip sets no shape of its
+    // own, and a `side` still draws its border.
+    chipTheme: ChipThemeData(
+      shape: FocusRingStateBorder(
+        base: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        color: link,
+      ),
+    ),
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(foregroundColor: scheme.onSurface)
           .copyWith(shape: focusRingShape(const StadiumBorder(), link)),

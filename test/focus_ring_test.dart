@@ -2,6 +2,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
+import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
+import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
+import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
+import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/profiles/widgets/recipient_picker.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
@@ -41,6 +48,8 @@ void _strategy(FocusHighlightStrategy strategy) {
         FocusHighlightStrategy.automatic,
   );
 }
+
+void _ignore(AttachOrigin _) {}
 
 void main() {
   setUp(resetFocusRingInput);
@@ -307,6 +316,264 @@ void main() {
         expect(ring.contains(tester.getCenter(find.text('Two'))), isTrue);
         expect(ring.contains(tester.getCenter(find.text('One'))), isFalse);
       });
+    });
+
+    group('checked menu items, list tiles and chips, $name', () {
+      Future<void> openCheckedMenu(WidgetTester tester) async {
+        await _pump(
+          tester,
+          theme,
+          AdaptivePopupMenuButton<int>(
+            tooltip: 'Menu',
+            itemBuilder: (_) => const [
+              CheckedPopupMenuItem(
+                key: ValueKey('one'),
+                value: 1,
+                checked: true,
+                child: Text('One'),
+              ),
+              CheckedPopupMenuItem(value: 2, child: Text('Two')),
+            ],
+          ),
+        );
+        await tester.tap(find.byType(IconButton));
+        await tester.pumpAndSettle();
+        // Opened by a pointer; the arrow keys then move focus in the menu.
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('a focused checked menu item draws the ring and the hover '
+          'fill 2 px inside; only that item', (tester) async {
+        _strategy(FocusHighlightStrategy.alwaysTraditional);
+        await openCheckedMenu(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        expect(_ringPainter, findsOneWidget);
+        final painter = _painter(tester);
+        expect(painter.color, link);
+        expect(painter.width, 2);
+        expect(painter.inset, 2);
+        expect(
+          tester
+              .widget<CustomPaint>(
+                find.byWidgetPredicate(
+                  (w) => w is CustomPaint && w.painter is FocusRingFillPainter,
+                ),
+              )
+              .painter,
+          isA<FocusRingFillPainter>().having(
+            (p) => p.color,
+            'color',
+            theme.hoverColor,
+          ),
+        );
+        final ring = tester.getRect(_ringPainter);
+        expect(ring.contains(tester.getCenter(find.text('Two'))), isTrue);
+        expect(ring.contains(tester.getCenter(find.text('One'))), isFalse);
+      });
+
+      testWidgets('a checked menu item keeps its key, its check mark and its '
+          'taps', (tester) async {
+        _strategy(FocusHighlightStrategy.alwaysTraditional);
+        int? picked;
+        await _pump(
+          tester,
+          theme,
+          AdaptivePopupMenuButton<int>(
+            tooltip: 'Menu',
+            onSelected: (v) => picked = v,
+            itemBuilder: (_) => const [
+              CheckedPopupMenuItem(
+                key: ValueKey('one'),
+                value: 1,
+                checked: true,
+                child: Text('One'),
+              ),
+              CheckedPopupMenuItem(value: 2, child: Text('Two')),
+            ],
+          ),
+        );
+        await tester.tap(find.byType(IconButton));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('one')), findsOneWidget);
+        expect(find.byIcon(Icons.done), findsOneWidget);
+        expect(
+          tester
+              .widgetList<CheckedPopupMenuItem<int>>(
+                find.byType(CheckedPopupMenuItem<int>),
+              )
+              .map((i) => i.checked),
+          [true, false],
+        );
+        await tester.tap(find.text('Two'));
+        await tester.pumpAndSettle();
+        expect(picked, 2);
+      });
+
+      testWidgets('a checked menu item shows no ring for touch focus or '
+          'after a pointer press', (tester) async {
+        _strategy(FocusHighlightStrategy.alwaysTouch);
+        await openCheckedMenu(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        expect(_ringPainter, findsNothing);
+
+        _strategy(FocusHighlightStrategy.alwaysTraditional);
+        await tester.pumpAndSettle();
+        expect(_ringPainter, findsOneWidget);
+        final press = await tester.startGesture(
+          tester.getCenter(find.text('Two')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(_ringPainter, findsNothing);
+        await press.cancel();
+      });
+
+      // The real sites of a Material tile: each is wrapped by [FocusRing],
+      // so the ring is 2 px inside, where the sheet or box clips it.
+      final tiles = <String, (Widget, Finder)>{
+        'ListTile': (
+          const AttachMenu(origins: AttachOrigin.values, onPick: _ignore),
+          find.byType(ListTile).last,
+        ),
+        'selected ListTile': (
+          RecipientPicker(
+            profiles: const [
+              HermesProfile(name: 'writer', displayName: 'Writer'),
+              HermesProfile(name: 'research', displayName: 'Research'),
+            ],
+            selectedProfile: 'writer',
+            onSelected: (_) {},
+          ),
+          find.byType(ListTile).first,
+        ),
+        'SwitchListTile': (
+          TakeoverConfirmation(onCancel: () {}, onConfirm: (_) {}),
+          find.byType(SwitchListTile),
+        ),
+        'CheckboxListTile': (
+          Card(
+            child: PlatformHintPrompt(
+              profiles: const ['default', 'work'],
+              text: appPlatformHint,
+              selected: const {'default'},
+              onToggle: (_, _) {},
+              onAdd: () {},
+              onLater: () {},
+              onNever: () {},
+            ),
+          ),
+          find.byType(CheckboxListTile).last,
+        ),
+      };
+      for (final MapEntry(key: kind, value: (tile, row)) in tiles.entries) {
+        testWidgets('a focused $kind draws the ring 2 px inside, keyboard '
+            'only', (tester) async {
+          _strategy(FocusHighlightStrategy.alwaysTraditional);
+          await _pump(tester, theme, SingleChildScrollView(child: tile));
+          expect(_ringPainter, findsNothing);
+          Focus.of(
+            tester.element(
+              find.descendant(of: row, matching: find.byType(Text)).first,
+            ),
+          ).requestFocus();
+          await tester.pumpAndSettle();
+          expect(_ringPainter, findsOneWidget);
+          final painter = _painter(tester);
+          expect(painter.color, link);
+          expect(painter.width, 2);
+          expect(painter.inset, 2);
+          expect(
+            tester.getRect(_ringPainter).contains(tester.getCenter(row)),
+            isTrue,
+          );
+
+          final press = await tester.startGesture(
+            tester.getCenter(row),
+            kind: PointerDeviceKind.mouse,
+          );
+          await tester.pumpAndSettle();
+          expect(_ringPainter, findsNothing, reason: 'a pointer press');
+          await press.cancel();
+        });
+      }
+
+      final chips = <String, Widget Function(FocusNode)>{
+        'FilterChip': (n) => FilterChip(
+          focusNode: n,
+          label: const Text('Archived'),
+          selected: true,
+          onSelected: (_) {},
+        ),
+        'ChoiceChip': (n) => ChoiceChip(
+          focusNode: n,
+          label: const Text('Running'),
+          selected: false,
+          onSelected: (_) {},
+        ),
+        // Pressable, as an input chip must be to take focus itself; the
+        // composer's chips only have a delete button, which keeps its own.
+        'InputChip': (n) => InputChip(
+          focusNode: n,
+          label: const Text('notes.txt'),
+          onPressed: () {},
+          onDeleted: () {},
+        ),
+      };
+      for (final MapEntry(key: kind, value: build) in chips.entries) {
+        testWidgets('a focused $kind has a 2 px ring in the link colour, 2 px '
+            'out, keyboard only', (tester) async {
+          _strategy(FocusHighlightStrategy.alwaysTraditional);
+          final node = FocusNode();
+          addTearDown(node.dispose);
+          await _pump(
+            tester,
+            theme,
+            Column(
+              children: [
+                build(node),
+                const SizedBox(key: ValueKey('away'), width: 50, height: 50),
+              ],
+            ),
+          );
+          final chip = find.byType(RawChip);
+          expect(_material(tester, chip).shape, isNot(isA<FocusRingBorder>()));
+
+          node.requestFocus();
+          await tester.pumpAndSettle();
+          final shape = _material(tester, chip).shape;
+          expect(shape, isA<FocusRingBorder>());
+          expect((shape as FocusRingBorder).color, link);
+          expect(shape.width, 2);
+          expect(shape.offset, 2);
+
+          // A pointer press elsewhere takes the ring away at once, without
+          // the chip being rebuilt by anything else.
+          final press = await tester.startGesture(
+            tester.getCenter(find.byKey(const ValueKey('away'))),
+            kind: PointerDeviceKind.mouse,
+          );
+          await tester.pump();
+          expect(_material(tester, chip).shape, isNot(isA<FocusRingBorder>()));
+          await press.cancel();
+        });
+
+        testWidgets('a $kind gets no ring for touch focus', (tester) async {
+          _strategy(FocusHighlightStrategy.alwaysTouch);
+          final node = FocusNode();
+          addTearDown(node.dispose);
+          await _pump(tester, theme, build(node));
+          node.requestFocus();
+          await tester.pumpAndSettle();
+          expect(node.hasFocus, isTrue);
+          expect(
+            _material(tester, find.byType(RawChip)).shape,
+            isNot(isA<FocusRingBorder>()),
+          );
+        });
+      }
     });
   }
 
