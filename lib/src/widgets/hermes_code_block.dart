@@ -197,39 +197,51 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
                             padding: EdgeInsetsDirectional.only(
                               end: showCopy ? 8 : 0,
                             ),
-                            child: Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: scheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(7),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 9,
-                                    vertical: 5,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        mui.Icons.terminal_rounded,
-                                        size: 13,
-                                        color: scheme.onSurfaceVariant,
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Flexible(
-                                        child: Text(
-                                          displayName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: widget.style.languageStyle,
+                            child: LayoutBuilder(
+                              // Below this the chip cannot hold its padding,
+                              // icon and gap, so it is left out.
+                              builder: (context, box) => box.maxWidth < 44
+                                  ? const SizedBox.shrink()
+                                  : Align(
+                                      alignment:
+                                          AlignmentDirectional.centerStart,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: scheme.surfaceContainerHighest,
+                                          borderRadius: BorderRadius.circular(
+                                            7,
+                                          ),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 9,
+                                            vertical: 5,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                mui.Icons.terminal_rounded,
+                                                size: 13,
+                                                color: scheme.onSurfaceVariant,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Flexible(
+                                                child: Text(
+                                                  displayName,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: widget
+                                                      .style
+                                                      .languageStyle,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                                    ),
                             ),
                           ),
                         ),

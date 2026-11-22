@@ -73,51 +73,70 @@ void main() {
     expect(last.single.style, isNull);
   });
 
-  // The last width is what a fence nested in lists and quotes gets at 3x.
-  for (final (label, width) in [
-    ('python', 400.0),
-    ('a-very-long-language-label-for-a-fenced-block', 400.0),
-    ('python', 56.7),
-  ]) {
-    testWidgets('the header stays inside $width px at 3x text with "$label"', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(400, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        MaterialApp(
-          builder: (context, child) => AppThemeScopes(
-            child: MediaQuery(
-              data: MediaQuery.of(context)
-                  .copyWith(textScaler: const TextScaler.linear(3)),
-              child: child!,
-            ),
-          ),
-          theme: buildHermesLightTheme(),
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: width,
-                  child: HermesCodeBlock(
-                    name: label,
-                    codes: 'def f(x):\n    return x + 1\n',
-                    style: const CodeBlockStyle(),
-                    highlightCode: true,
-                    scalesItsOwnText: true,
+  testWidgets('the header never overflows, whatever its width', (tester) async {
+    tester.view.physicalSize = const Size(600, 400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final failures = <String>[];
+    // The header is the block's width less its 10 and 8 px padding.
+    const padding = 18.0;
+    final widths = [for (var w = 40.0; w <= 120; w += 2) w, 56.7, 400.0];
+    for (final width in widths) {
+      for (final copy in [true, false]) {
+        for (final rtl in [false, true]) {
+          for (final scale in [1.0, 3.0]) {
+            for (final label in ['py', 'a' * 45]) {
+              await tester.pumpWidget(
+                MaterialApp(
+                  key: UniqueKey(),
+                  theme: buildHermesLightTheme(),
+                  builder: (context, child) => AppThemeScopes(
+                    child: Directionality(
+                      textDirection: rtl
+                          ? TextDirection.rtl
+                          : TextDirection.ltr,
+                      child: MediaQuery(
+                        data: MediaQuery.of(context)
+                            .copyWith(textScaler: TextScaler.linear(scale)),
+                        child: child!,
+                      ),
+                    ),
+                  ),
+                  home: Scaffold(
+                    body: Align(
+                      alignment: Alignment.topLeft,
+                      child: SizedBox(
+                        width: width + padding,
+                        child: HermesCodeBlock(
+                          name: label,
+                          codes: 'x\n',
+                          style: CodeBlockStyle(showCopyButton: copy),
+                          highlightCode: true,
+                          scalesItsOwnText: true,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
-        ),
-      );
-      expect(tester.takeException(), isNull);
-      final copy = tester.getSize(find.bySemanticsLabel('Copy code'));
-      expect(copy.width, greaterThanOrEqualTo(32));
-      expect(copy.height, greaterThanOrEqualTo(32));
-    });
-  }
+              );
+              final where =
+                  'header $width px, copy $copy, rtl $rtl, scale $scale, '
+                  'label ${label.length} chars';
+              if (tester.takeException() != null) {
+                failures.add('$where: overflow');
+                continue;
+              }
+              if (copy) {
+                final size = tester.getSize(find.bySemanticsLabel('Copy code'));
+                if (size.width < 32 || size.height < 32) {
+                  failures.add('$where: copy button $size');
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(failures, isEmpty, reason: failures.join('\n'));
+  });
 }
