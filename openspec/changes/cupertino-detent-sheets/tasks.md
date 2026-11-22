@@ -1,0 +1,26 @@
+# Tasks
+
+Three PRs, each about 500 changed lines or fewer with tests, merged in order. PR A belongs to the style session, which owns `lib/src/widgets/adaptive_sheet.dart`; this change states the contract (proposal.md, "The contract the style session implements") and builds PR B and PR C after PR A merges. Every behaviour task starts with a failing test. UI starts in the catalog. The design pass (`docs/design-briefs/cupertino-detent-sheets.md`) runs before PR A.
+
+## A. PR A (style session): `feat(widgets): give iPhone sheets detents and a grabber in showAdaptiveSheet`
+
+- [ ] A.1 Catalog use cases (first), in `widgetbook/adaptive_use_cases.dart` beside `showAdaptiveSheet` (`:65`): each profile (`fit`, `mediumLarge`, `large`) on iPhone 393 x 852 at rest, with a scrolling list, with a text field and the keyboard up, at 320 x 568 with text scale 2.0 and 3.1, and in landscape 852 x 393; light and dark; the unchanged pair on Android (Material handle), iPad (dialog) and Mac (dialog). `test/widgetbook_test.dart` builds them in both themes.
+- [ ] A.2 Spike, written into the PR body: the in-repo `DraggableScrollableSheet` (Kanban's) against `smooth_sheets` on the keyboard, nested scroll and `PopScope` cases. Choose the in-repo sheet unless the package passes a case the in-repo one fails; say why in the PR, as `CLAUDE.md` asks when no package fits.
+- [ ] A.3 Write failing widget tests for the contract, modelled on `test/kanban_task_sheet_test.dart`: detent heights and flings, dismissal below the lowest detent, `PopScope(canPop: false)` snaps back, the grabber's 36 x 5 size and its increase and decrease actions, a focused text field goes to large, short content opens at its own height, a 2.0 and a 3.1 text scale never clip, landscape is large only, Android still builds the Material sheet with `_DragHandle` when asked, wide layouts and macOS still build a `Dialog`.
+- [ ] A.4 Implement `SheetDetents`, the `detents` argument and `AdaptiveSheetScope.scrollControllerOf`. Default `fit`.
+- [ ] A.5 Move Kanban onto it: `showKanbanDetentSheet` calls `showAdaptiveSheet(detents: SheetDetents.mediumLarge)`; keep `test/kanban_task_sheet_test.dart` passing unchanged; then delete `KanbanDetentSheet`.
+- [ ] A.6 `dart format`, `flutter analyze`, `flutter test`, `flutter test test/architecture`.
+
+## B. PR B: `feat(ui): choose a detent for every sheet`
+
+- [ ] B.1 Write the failing guard `arch.sheets.detents` in `test/architecture/` (a `showAdaptiveSheet(` call without `detents:` fails, with a message naming the three profiles), see the `architecture-guards` skill. Revert the argument at one site and watch it fail.
+- [ ] B.2 Write a failing per-call-site table test: each sheet opens with the profile in the proposal's table (`fit`: attach menu, restore, compress, curator run, MCP command review, Bot Screen takeover, app prompt hint, soul changed, file size, "What's the difference?"; `mediumLarge`: toolset model list, folder picker, working folder details, skill job status; `large`: provider connect and sign-in forms, toolset setup and MCP install).
+- [ ] B.3 Write failing cancel-path tests per confirmation family (restore, compress, curator run, MCP command review, takeover, file size): a swipe down returns null and nothing is sent. Write failing busy tests for the app prompt hint, toolset setup and MCP install: a swipe down is refused while busy.
+- [ ] B.4 Pass `detents:` at each of the 17 shared call sites, and make the content use `AdaptiveSheetScope.scrollControllerOf` where it scrolls (model list, folder browser, skill job details). Remove the fixed `SizedBox` heights that stood in for a detent (`provider_flow.dart:76-82` keeps its dialog branch).
+- [ ] B.5 Run the workflow screenshots as iPhone and look at every sheet at default and large text.
+
+## C. PR C: `feat(ui): move the remaining raw sheets onto the adaptive sheet`
+
+- [ ] C.1 Write failing tests that the model picker, the plugin detail on iOS and Kanban's Android branch use `showAdaptiveSheet` and keep their present behaviour on each platform (the model picker's desktop popover and wide dialog, the plugin detail's wide pane, the Material 92% sheet on Android).
+- [ ] C.2 Migrate `model_picker.dart:112`, `installed_tab.dart:55`, `catalog_tab.dart:68` and `kanban_task_panel.dart:82`; lower `style.dialog`'s baseline for them (`UPDATE_BASELINE=1 flutter test test/architecture`; never raise it).
+- [ ] C.3 Update `docs/architecture/settings-screens.md` and `docs/architecture/chat.md` where they name sheet behaviour, and report to the orchestrator whether iPad regular width should get detent sheets (a roadmap row).
