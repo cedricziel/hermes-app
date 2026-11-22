@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
+import '../widgets/dialog_presentation.dart';
 import '../widgets/grouped_choice_row.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
@@ -9,7 +10,7 @@ import 'theme_controller.dart';
 
 Future<void> showAppearanceDialog(BuildContext context) {
   final theme = context.read<ThemeController>();
-  return showDialog<void>(
+  return showAppDialog<void>(
     context: context,
     builder: (_) => ChangeNotifierProvider.value(
       value: theme,
