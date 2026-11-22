@@ -21,7 +21,7 @@ The system SHALL choose the shell's form from the available width. Expanded is 9
 
 ### Requirement: Destination bar and rail
 
-On iOS below 900 logical pixels when not expanded (iPhone, iPad Split View and Slide Over) and on Android below 600, the shell SHALL show a bottom bar whose items are Chats, then Bots, Kanban and Schedules while the server offers each, then More. On Android, Windows and Linux from 600 to 899 logical pixels it SHALL show a navigation rail with the same items. On Windows and Linux below 600 it SHALL keep a drawer. The Apple form SHALL be a tab bar and the Material form a navigation bar or rail with labels always shown. Every item SHALL have a visible label and an accessible name, the selected item SHALL differ by a filled icon and a bold label as well as colour, and every target SHALL be at least 44 points on iOS and 48 logical pixels on Android at any text size.
+On iOS below 900 logical pixels when not expanded (iPhone, iPad Split View and Slide Over) and on Android below 600, the shell SHALL show a bottom bar whose items are Chats, then Bots, Kanban and Schedules while the server offers each, then More. On Android, Windows and Linux from 600 to 899 logical pixels it SHALL show a navigation rail with the same items. On Windows and Linux below 600 it SHALL keep a drawer.
 
 #### Scenario: Server offers everything
 
@@ -37,6 +37,10 @@ On iOS below 900 logical pixels when not expanded (iPhone, iPad Split View and S
 
 - **WHEN** the server stops offering Kanban while it is selected
 - **THEN** its item disappears and Chats is selected
+
+### Requirement: Destination items are labelled and large enough
+
+The Apple form SHALL be a tab bar and the Material form a navigation bar or rail with labels always shown. Every item SHALL have a visible label and an accessible name, the selected item SHALL differ by a filled icon and a bold label as well as colour, and every target SHALL be at least 44 points on iOS and 48 logical pixels on Android at any text size.
 
 #### Scenario: Large text
 
@@ -59,12 +63,16 @@ The bottom bar SHALL be hidden while a conversation is open in the compact messe
 
 ### Requirement: More holds everything else
 
-More SHALL be a page, not a menu, that lists the management entries the chat sidebar and drawer list today, each under its present gate: Profiles, Skills, Memory (with its waiting count), Messaging, Plugins, MCP servers, Providers, Tools and Helper models. It SHALL also list Server, with the needs-attention mark and its words, and Settings: Appearance, Notifications, Dictation, Voice calls, Spotlight, App lock, Connection details and About, followed by Sign out and Change server where the account menu offers them. Picking an entry SHALL push its page over the shell.
+More SHALL be a page, not a menu, that lists the management entries the chat sidebar and drawer list today, each under its present gate: Profiles, Skills, Memory (with its waiting count), Messaging, Plugins, MCP servers, Providers, Tools and Helper models. Picking an entry SHALL push its page over the shell.
 
 #### Scenario: Gates are kept
 
 - **WHEN** the server lacks the tools routes and has no Skills support
 - **THEN** More shows no Tools, Skills or Memory entry and no error
+
+### Requirement: More lists Server and Settings
+
+More SHALL also list Server, with the needs-attention mark and its words, and Settings: Appearance, Notifications, Dictation, Voice calls, Spotlight, App lock, Connection details and About, followed by Sign out and Change server where the account menu offers them.
 
 #### Scenario: Server needs attention
 
