@@ -17,6 +17,7 @@ import 'package:widgetbook/widgetbook.dart';
 import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 WidgetbookUseCase _use(String name, Widget widget) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(widget, maxWidth: 560));
@@ -202,7 +203,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
       WidgetbookUseCase(
         name: 'None checked, largest text (iPhone)',
         builder: (context) => Theme(
-          data: Theme.of(context).copyWith(platform: TargetPlatform.iOS),
+          data: platformTheme(context, TargetPlatform.iOS),
           child: MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: const TextScaler.linear(3)),
