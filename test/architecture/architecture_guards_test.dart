@@ -448,23 +448,47 @@ List<Hit> errorInterpolationHits(SourceFile file) {
 /// `.copyWith(platform: …)`: a theme copied onto another platform keeps the
 /// base theme's tap-target size, density and platform-specific component
 /// themes.
-final _themePlatformCopy = RegExp(
-  r'\.copyWith\((?:[^()]|\([^()]*\))*?(?<=[(,]\s*)platform\s*:',
-);
+final _copyWithOpen = RegExp(r'\.copyWith\(');
 
 /// Files under `lib/`, `widgetbook/` and `test/` that may still copy a theme onto
 /// another platform, each with its reason. Empty: every preview and test host
 /// builds the theme for its platform.
 const _themePlatformCopyAllow = <String, String>{};
 
+final _platformArg = RegExp(r'platform\s*:');
+final _argStart = RegExp(r'[(,]\s*$');
+
+/// A `platform:` argument at the top level of a `.copyWith(` argument list in
+/// [file]. One nested in an argument (`ListTileThemeData(platform: p)`) or a
+/// ternary (`c ? platform : d`) is not a hit.
+List<Hit> themePlatformCopyHitsIn(SourceFile file) {
+  final code = file.code;
+  final hits = <Hit>[];
+  for (final m in _copyWithOpen.allMatches(code)) {
+    var depth = 1;
+    for (var i = m.end; i < code.length && depth > 0; i++) {
+      final c = code[i];
+      if ('([{'.contains(c)) {
+        depth++;
+      } else if (')]}'.contains(c)) {
+        depth--;
+      } else if (depth == 1 &&
+          code.startsWith('platform', i) &&
+          _platformArg.matchAsPrefix(code, i) != null &&
+          _argStart.hasMatch(code.substring(m.end - 1, i))) {
+        final line = file.lineOf(i);
+        hits.add(Hit(file.path, line, file.lineText(line)));
+      }
+    }
+  }
+  return hits;
+}
+
 List<Hit> _themePlatformCopies() => [
   for (final root in const ['lib', 'widgetbook', 'test'])
-    ...scanPattern(
-      root,
-      _themePlatformCopy,
-      view: _code,
-      allow: _themePlatformCopyAllow.keys,
-    ),
+    for (final file in dartFiles(root))
+      if (!isAllowed(file.path, _themePlatformCopyAllow.keys))
+        ...themePlatformCopyHitsIn(file),
 ];
 
 List<Hit> _errorInterpolation() => [
@@ -958,37 +982,48 @@ final guardRules = <Rule>[
 void main() {
   ratchetTests(guardRules, namespace: 'arch');
 
-  test('the theme-platform-copy pattern catches a platform copy only', () {
-    for (final bad in [
-      'Theme.of(context).copyWith(platform: platform)',
-      'base.copyWith(\n  platform: TargetPlatform.macOS,\n)',
-      'buildHermesLightTheme().copyWith(platform: p)',
-      'base.copyWith(visualDensity: d, platform: p)',
-      'base.copyWith(\n  appBarTheme: AppBarTheme(leadingWidth: 4),\n  platform: p,\n)',
-    ]) {
-      expect(_themePlatformCopy.hasMatch(bad), isTrue, reason: bad);
-    }
-    for (final fine in [
-      'buildHermesLightTheme(platform: p)',
-      'Theme.of(context).copyWith(visualDensity: d)',
-      'theme.copyWith(appBarTheme: a, platform2: p)',
-      'MediaQuery.of(context).copyWith(size: s)',
-      'base.copyWith(tile: ListTileThemeData(platform: p))',
-      'base.copyWith(visualDensity: c ? platform : d)',
-    ]) {
-      expect(_themePlatformCopy.hasMatch(fine), isFalse, reason: fine);
-    }
-  });
+  group('theme-platform-copy scan', () {
+    int hits(String source) =>
+        themePlatformCopyHitsIn(SourceFile('test/x.dart', source)).length;
 
-  test('the theme-platform-copy scan ignores comments and strings', () {
-    final f = SourceFile(
-      'test/x.dart',
-      "// base.copyWith(platform: p)\nfinal s = 'a.copyWith(platform: p)';\n"
-          'final t = base.copyWith(platform: p);\n',
-    );
-    final hits = _themePlatformCopy.allMatches(f.code).toList();
-    expect(hits, hasLength(1));
-    expect(f.lineOf(hits.single.start), 3);
+    test('catches a platform argument at any position and nesting before', () {
+      for (final bad in [
+        'Theme.of(context).copyWith(platform: platform)',
+        'base.copyWith(\n  platform: TargetPlatform.macOS,\n)',
+        'buildHermesLightTheme().copyWith(platform: p)',
+        'base.copyWith(visualDensity: d, platform: p)',
+        'base.copyWith(\n  appBarTheme: AppBarTheme(leadingWidth: 4),\n  platform: p,\n)',
+        'base.copyWith(appBarTheme: AppBarTheme(titleTextStyle: '
+            'TextStyle(fontSize: 12)), platform: p)',
+      ]) {
+        expect(hits(bad), 1, reason: bad);
+      }
+    });
+
+    test('ignores nested platform arguments, ternaries and other calls', () {
+      for (final fine in [
+        'buildHermesLightTheme(platform: p)',
+        'Theme.of(context).copyWith(visualDensity: d)',
+        'theme.copyWith(appBarTheme: a, platform2: p)',
+        'MediaQuery.of(context).copyWith(size: s)',
+        'base.copyWith(tile: ListTileThemeData(platform: p))',
+        'base.copyWith(visualDensity: c ? platform : d)',
+        'x.copyWith(a: f(g(platform: p)))',
+      ]) {
+        expect(hits(fine), 0, reason: fine);
+      }
+    });
+
+    test('ignores comments and strings', () {
+      final f = SourceFile(
+        'test/x.dart',
+        "// base.copyWith(platform: p)\nfinal s = 'a.copyWith(platform: p)';\n"
+            'final t = base.copyWith(platform: p);\n',
+      );
+      final found = themePlatformCopyHitsIn(f);
+      expect(found, hasLength(1));
+      expect(found.single.line, 3);
+    });
   });
 
   test('the keyboard-override pattern catches a call and a tear-off', () {

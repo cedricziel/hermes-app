@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
-import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -230,20 +229,14 @@ void main() {
       await pumpScreen(
         tester,
         shots,
-        Builder(
-          builder: (context) => Theme(
-            data: (Theme.of(context).brightness == Brightness.dark
-                ? buildHermesDarkTheme(platform: TargetPlatform.macOS)
-                : buildHermesLightTheme(platform: TargetPlatform.macOS)),
-            child: KanbanScreen(
-              repository: KanbanRepository(server.client()),
-              connect: ({required since, board}) async =>
-                  StreamChannelController<String>().foreign,
-            ),
-          ),
+        KanbanScreen(
+          repository: KanbanRepository(server.client()),
+          connect: ({required since, board}) async =>
+              StreamChannelController<String>().foreign,
         ),
         size: size,
         brightness: brightness,
+        platform: TargetPlatform.macOS,
       );
       await shots.capture(tester, 'board');
 
