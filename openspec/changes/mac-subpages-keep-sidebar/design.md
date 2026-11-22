@@ -7,8 +7,8 @@ Invariants touched: auth (no page of an old session outlives the connection), Ap
 ## Current behaviour
 
 - One root navigator: `MaterialApp` at `lib/src/app.dart:173`, with the observers `_handoffObserver`, `_history` (`DesktopNavigationHistory`) and `_pushedRoutes`. The shell is its `home`.
-- The Mac sidebar is a `MacSplitView` (`lib/src/macos/mac_sidebar.dart:279`). Two places build it: `AppShell` for the non-chat destinations (`lib/src/shell/app_shell.dart:857-860`) and `ChatScreen` for the chat (`lib/src/chat/chat_screen_layout.dart:344-347`, `buildSidebar(...)` beside `content`). `MacSidebarScope` is provided inside `AppShell` (`app_shell.dart:749`).
-- Sub-pages are root-navigator routes, so they cover the split view. List: `chat_screen_navigation.dart` `:274` Profiles, `:311` Messaging, `:327` Skills, `:351` Plugins, `:361` MCP, `:404` Tools, `:491` Providers, `:510` Helper models, `:520` Connection details; `lib/src/memory/memory_destination.dart:47` Memory; `lib/src/files/open_files.dart:67` Files (root navigator by choice, because the Activity panel has its own navigator, `lib/src/chat/activity/checkpoints_context_panel.dart:241`); `lib/src/kanban/kanban_screen.dart:206`, `:306`; the server-care pages.
+- The Mac sidebar is a `MacSplitView` (`lib/src/macos/mac_sidebar.dart:279`). Two places build it: `AppShell` for the non-chat destinations (`lib/src/shell/app_shell.dart:860-864`) and `ChatScreen` for the chat (`lib/src/chat/chat_screen_layout.dart:344-347`, `buildSidebar(...)` beside `content`). `MacSidebarScope` is provided inside `AppShell` (`app_shell.dart:749`).
+- Sub-pages are root-navigator routes, so they cover the split view. List: `chat_screen_navigation.dart` `:274` Profiles, `:311` Messaging, `:327` Skills, `:351` Plugins, `:361` MCP, `:404` Tools, `:491` Providers, `:510` Helper models; `lib/src/memory/memory_destination.dart:47` Memory; `lib/src/files/open_files.dart:67` Files (root navigator by choice, because the Activity panel has its own navigator, `lib/src/chat/activity/checkpoints_context_panel.dart:241`); `lib/src/kanban/kanban_screen.dart:206`, `:306`; the server-care pages. Connection details (`chat_screen_navigation.dart:520`) is pushed on the root navigator too and stays there (see "What B changes").
 - Each such page draws its own toolbar. `SettingsScaffold` on macOS shows `MacToolbar` with a back button and leaves room for the traffic lights when the page covers the window (`lib/src/widgets/settings_scaffold.dart:244-276`, `mac_toolbar.dart:45-47`). ⌘[ is `MacCommand.back`, offered while the route is current (`settings_scaffold.dart:260-262`) and routed through `DesktopNavigationHistory`.
 - Pages that sit in a pane already exist: `SettingsPane` marks a page with no route of its own (`lib/src/widgets/settings_pane.dart`, used by `ServerSplitView`).
 - Widths: the sidebar docks from `kMacCompactWindowWidth` (760) and is 220 to 360 wide, 280 by default (`mac_sidebar.dart:14-20`). At 760 the content is 400 to 540 wide. List-and-detail pages already read their own box width: `kMacSplitBreakpoint` (560, `lib/src/theme/breakpoints.dart:38`) is written for "a Mac window's sidebar takes room", and `providers_screen.dart:570` and `schedules_screen.dart:210` use it. A few pages read the window's width instead (`isWideLayout(context)` without `width:`, e.g. `lib/src/tools/tools_screen.dart:347`, `lib/src/mcp/mcp_servers_screen.dart:80`) and would think they have 900 points when they have 620.
@@ -17,8 +17,11 @@ Invariants touched: auth (no page of an old session outlives the connection), Ap
 ## Options
 
 A. Wrap each pushed page in its own split view (`MacSplitView(sidebar: ..., content: page)` in every route builder). Rejected: the sidebar's controller state (chats, search, selection) belongs to `ChatScreen`, so each route would need it passed in or duplicated, and the sidebar would animate in and out with every route.
+
 B. A nested `Navigator` in the content slot (recommended). `ChatScreen` and `AppShell` wrap `content` in a shared `ContentPaneNavigator` whose first page is today's content; sub-pages push onto it with `Navigator.of(context)` as they do now, so the call sites in `chat_screen_navigation.dart` do not change; dialogs, sheets and popups keep using the root navigator (`showAppDialog`, `lib/src/widgets/dialog_presentation.dart:12`). The sidebar sits outside it and never rebuilds for a push. `ChatScreen` already runs nested navigators for the compact messenger (`chat_screen_layout.dart:363`) and the Activity panel, so the pattern exists.
+
 C. Make each sub-page a `SettingsPane` in a destination, as Server does. Right for list-and-detail areas (Providers, Messaging), too large for one change, and it does not cover Files or Memory.
+
 D. Do nothing; document that Back is the way out. Cheapest; leaves the audit finding open.
 
 Recommendation: B, Mac first.
@@ -31,7 +34,7 @@ Recommendation: B, Mac first.
 - Escape and the window's close button are unchanged.
 - The sidebar stays live: picking a chat or a destination while a sub-page is open pops the content pane to its first route and then shows the pick. Search in the toolbar of the chat is not available on a sub-page (its toolbar belongs to the chat); the sub-page's own toolbar shows.
 - Toolbar: a page in the pane has no traffic-light padding (`clearTrafficLights` false); it shows the sidebar toggle at its leading edge when the sidebar is collapsed or compact, next to the back button (`MacToolbar` already does this when a `ShellMenu` is above it).
-- Selected state: open question 2 in the proposal.
+- Selected state (open question 2, decided in the design pass, the owner may overrule): while a sub-page is open the Chat destination stays current and no chat row is selected; the toolbar title says where the user is. Back to the first route selects the chat the user came from again; picking a chat selects that one.
 - Connection end: `AppShell` unmounts and takes the nested navigator with it, so no page of the old session stays, and `ConnectionPageCloser` still sweeps the root. Keep the rule from `docs/architecture/app-shell.md` ("Pages above the shell") and add: a page in the content pane goes when the shell does. Under App Lock `AppLockGate` already covers everything (`lib/src/app_lock/app_lock_gate.dart`), so a pane page is covered too; Files and server-care pages keep their lock cleanup (`FilesLockCleanup`, `ClosesWith`).
 - Android back and the iOS swipe are not affected on those platforms (root navigator as before).
 
@@ -44,7 +47,7 @@ Recommendation: B, Mac first.
 
 ## Risks
 
-- A nested navigator changes `Navigator.of(context)` for every widget below it; code that expected the root (a `pop` that meant "close the shell page", `rootNavigator: true` lookups, `ModalRoute.of(context)`) needs a pass. A source scan (task 2.1) lists every `Navigator.of(context, rootNavigator: true)` and `Navigator.of(context)` under `lib/src/` that a sub-page can reach.
+- A nested navigator changes `Navigator.of(context)` for every widget below it; code that expected the root (a `pop` that meant "close the shell page", `rootNavigator: true` lookups, `ModalRoute.of(context)`) needs a pass. A source scan (task 1.4) lists every `Navigator.of(context, rootNavigator: true)` and `Navigator.of(context)` under `lib/src/` that a sub-page can reach.
 - Hero and shared-element transitions between the content pane and a page.
 - Handoff and deep links open pages through the root navigator (`HandoffNavigationObserver`, notification targets); a link to Skills must still land in the pane, not over it.
 - `DesktopNavigationHistory` and `PushedRoutes` were written for one navigator.
@@ -53,12 +56,18 @@ Recommendation: B, Mac first.
 ## Acceptance
 
 - Catalog (`widgetbook/`): the pane frame (`ContentPaneFrame`: sidebar slot plus content slot plus toolbar) with Skills, Memory, Files and Tools content, at 1100 x 760, 760 x 480 and 640 x 480, light, dark, German, largest text, sidebar collapsed and expanded.
-- Widget tests: a push from the chat keeps the sidebar and its selected chat; Back pops to the chat; ⌘[ and ⌘] move through sub-pages; picking another chat from the sidebar pops the stack; a dialog opened from a sub-page uses the root navigator and covers the window.
+- Widget tests: a push from the chat keeps the sidebar and clears the chat row's selection; Back pops to the chat and selects it again; ⌘[ and ⌘] move through sub-pages; picking another chat from the sidebar pops the stack; a dialog opened from a sub-page uses the root navigator and covers the window.
 - Lifecycle tests: sign-out, server change and session expiry remove an open sub-page in the same frame as today; App Lock covers it and Files' downloads are cleared (the existing `FilesLockCleanup` tests keep passing).
 - Width tests at 760, 900 and 1100 for Tools and MCP servers.
 - Workflow tests (`test/workflows/`) keep passing; look at the new screenshots.
 - Architecture guard `arch.subpage-push`: a sub-page route pushed with `Navigator.of(context).push` or `rootNavigator: true` outside the helper fails, baseline of the current sites that ratchets down.
 - Spec scenarios in `specs/mac-subpages/spec.md`.
+
+## Telemetry
+
+- Breadcrumb `nav.subpage.opened`, recorded by `pushSubpage` through `Breadcrumbs` when it pushes a sub-page, with one attribute, `kind`: a fixed slug per route (`skills`, `memory`, `files`, `tools`, ...), never a title, profile, path or id.
+- Breadcrumb `nav.subpage.closed_by_sidebar`, recorded by `ContentPaneNavigator` when a pick in the sidebar pops the stack, with no attributes.
+- No span and no log event: nothing crosses a boundary. None of these holds user content; a test checks the attribute set.
 
 ## Design pass
 

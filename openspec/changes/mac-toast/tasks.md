@@ -5,8 +5,9 @@ Three PRs, each about 500 changed lines or fewer. Conventional Commit scope `wid
 ## 1. PR 1: `feat(widgets): Mac toast view and use cases`
 
 - [ ] 1.1 Design pass (`design-pass` skill) for the toast: placement, look, tones, the modal-barrier question. Record the decisions in design.md and in `docs/design-briefs/macos-platform-fixes.md`, replacing its "Proposed:" note.
-- [ ] 1.2 Build `AppToastView` as a plain-model widget in `lib/src/widgets/` (message, tone, action label, callbacks; no controller) with Widgetbook use cases in `widgetbook/` first: every tone with its icon and word, with and without action, one and three lines, German, largest text, light and dark, compact and wide window, hovered, reduced motion. Run `flutter test test/widgetbook_test.dart`.
-- [ ] 1.3 Write failing semantics tests (live region, one announcement, icon and word per tone, three-line cut keeps the full text in the label), then make the view pass them.
+- [ ] 1.2 Add the tone words Info, Done, Warning and Error to `lib/l10n/arb/app_en.arb` and `app_de.arb` (German: Info, Erledigt, Warnung, Fehler) under the widgets area anchor, with descriptions; run `flutter gen-l10n`.
+- [ ] 1.3 Build `AppToastView` as a plain-model widget in `lib/src/widgets/` (message, tone, action label, callbacks; no controller) with Widgetbook use cases in `widgetbook/` first: every tone with its icon and word, with and without action, one and three lines, German, largest text, light and dark, compact and wide window, hovered, reduced motion. Run `flutter test test/widgetbook_test.dart`.
+- [ ] 1.4 Write failing semantics tests (live region, one announcement, icon and word per tone, three-line cut keeps the full text in the label), then make the view pass them.
 
 ## 2. PR 2: `feat(widgets): show transient messages as a toast on the Mac`
 
@@ -20,6 +21,9 @@ Three PRs, each about 500 changed lines or fewer. Conventional Commit scope `wid
 
 - [ ] 3.1 One PR per remaining area, each lowering the baseline; no behaviour change on non-Mac platforms. Report hard-coded English messages found on the way to the orchestrator, do not fix them here.
 - [ ] 3.2 Update `docs/architecture/macos.md` and `docs/building-blocks.md` (a row "A short result message: AppToast") in the first PR that lands the block.
+- [ ] 3.3 Update the skills it makes stale in the same PR: `workflow-screenshots` and `verify-in-app` (where a toast shows on the Mac and how to catch it in a screenshot), and `architecture-guards` if `arch.raw-snackbar` needs a note.
+- [ ] 3.4 Telemetry: none, as the proposal says; no task adds a span, log event or breadcrumb, and a review checks that no toast text reaches one.
+- [ ] 3.5 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then check a toast on a Mac with `verify-in-app` (placement in the content pane, VoiceOver, hover pause).
 
 ## Not verified on a device
 

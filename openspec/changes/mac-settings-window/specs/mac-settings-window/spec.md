@@ -8,7 +8,7 @@ Gives the Mac app a Settings window of its own, opened and focused with ⌘,, th
 
 ### Requirement: Settings is a window on macOS
 
-On macOS, Settings… (⌘, and the sidebar account menu's Settings…) SHALL open one Settings window beside the main window, not a dialog over it. Other platforms SHALL keep the settings dialog.
+On macOS, Settings… (⌘, and the sidebar account menu's Settings…) SHALL open one Settings window beside the main window, not a dialog over it. On an iPad, ⌘, SHALL keep opening the settings dialog; other platforms SHALL stay as they are.
 
 #### Scenario: Open
 
@@ -25,10 +25,10 @@ On macOS, Settings… (⌘, and the sidebar account menu's Settings…) SHALL op
 - **WHEN** the user presses ⌘W in the Settings window
 - **THEN** only the Settings window closes
 
-#### Scenario: Other platforms
+#### Scenario: iPad ⌘, keeps the dialog; other platforms unchanged
 
-- **WHEN** the user opens Settings on iOS, Android, Windows or Linux
-- **THEN** the existing settings dialog opens
+- **WHEN** the user presses ⌘, on an iPad with a keyboard
+- **THEN** the existing settings dialog opens, and nothing changes on iPhone, Android, Windows or Linux
 
 ### Requirement: The window holds no session
 
@@ -44,10 +44,10 @@ The Settings window SHALL NOT hold a token, an authenticated client, an App Lock
 - **WHEN** the main window does not answer a command
 - **THEN** the Settings window shows the previous value and one generic line, and sends the command again only when the user acts again
 
-#### Scenario: No session
+#### Scenario: No session (only if the owner allows Settings while signed out, open question 3)
 
-- **WHEN** the app has no signed-in session
-- **THEN** the rows that need the main window's session are disabled with a line that says why, and Appearance, Dictation and Voice calls still work
+- **WHEN** the app has no signed-in session and Settings may open then
+- **THEN** the rows that need the main window's session are disabled with a line that says why, Appearance, Dictation and Voice calls still work, and Change Server is not listed
 
 ### Requirement: App Lock covers Settings
 
@@ -80,3 +80,12 @@ A preference the Settings window writes (theme mode, dictation engine, portable 
 
 - **WHEN** the user picks Dark in the Settings window
 - **THEN** the main window switches to the dark theme
+
+### Requirement: Backend contract
+
+The Settings window SHALL rely on no Hermes route, RPC method or minimum Hermes version; it changes only settings stored on the device, and Change Server runs the existing sign-in flow.
+
+#### Scenario: Any supported server
+
+- **WHEN** the app is connected to the oldest Hermes it supports
+- **THEN** the Settings window opens and works as on the newest one

@@ -36,7 +36,7 @@ Back, ⌘[ and ⌘] SHALL move through sub-pages as they do today, and Back from
 #### Scenario: Back
 
 - **WHEN** the user opens Memory from the chat and presses ⌘[
-- **THEN** the chat is shown again in the content area with the same chat selected
+- **THEN** the chat is shown again in the content area and its row in the sidebar is selected again
 
 #### Scenario: Dialog over the page
 
@@ -46,6 +46,11 @@ Back, ⌘[ and ⌘] SHALL move through sub-pages as they do today, and Back from
 ### Requirement: The sidebar works while a sub-page is open
 
 Choosing a chat or a destination in the sidebar SHALL close the open sub-pages and show the choice.
+
+#### Scenario: No chat row selected while a sub-page is open
+
+- **WHEN** the user opens Skills from a chat
+- **THEN** the Chat destination stays current and no chat row is selected until the user goes back or picks a chat
 
 #### Scenario: Pick a chat
 
@@ -83,3 +88,12 @@ iOS, iPadOS, Android, Windows and Linux SHALL keep opening sub-pages over the wh
 
 - **WHEN** the user opens Skills on an iPhone
 - **THEN** the page is pushed as before
+
+### Requirement: Backend contract
+
+Keeping the sidebar SHALL rely on no Hermes route, RPC method or minimum Hermes version; the sub-pages make the same requests they make today.
+
+#### Scenario: Any supported server
+
+- **WHEN** the app is connected to the oldest Hermes it supports
+- **THEN** sub-pages open beside the sidebar as on the newest one

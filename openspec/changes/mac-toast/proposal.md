@@ -17,7 +17,7 @@ Why that looks wrong on a Mac:
 
 An adaptive building block `AppToast` (message, optional tone, optional single action) shown through one call, `AppToast.show(context, ...)`.
 
-- On macOS it draws a Mac toast: a small rounded capsule on the translucent material, an icon for the tone, the text, an optional action, placed in the content pane (not over the sidebar), above the composer. It is announced to VoiceOver, pauses while hovered or focused, dismisses on click or Escape, and one message at a time replaces the previous.
+- On macOS it draws a Mac toast: a small rounded capsule on the translucent material, an icon for the tone, the text, an optional action, placed in the content pane (not over the sidebar), top centre under the toolbar, away from the composer. It is announced to VoiceOver, pauses while hovered or focused, dismisses on click or Escape, and one message at a time replaces the previous.
 - On other platforms it shows today's floating `SnackBar` through `ScaffoldMessenger`, so nothing changes there.
 - Call sites move to `AppToast.show` in batches. A new architecture rule (`arch.raw-snackbar`) bans a raw `showSnackBar` outside the block, with the 42 files in the baseline ratchet (`test/architecture/baseline/arch.yaml`), which only shrinks.
 
@@ -27,7 +27,7 @@ An adaptive building block `AppToast` (message, optional tone, optional single a
 - No system notification (Notification Center) for in-app results; notifications stay in `lib/src/notifications/`.
 - No stack or history of toasts, no multiple actions, no undo framework.
 - No replacement of `AppBanner` (persistent, inline status) or of dialogs for errors that need a decision.
-- No new copy: texts are the existing ones; hard-coded English literals found on the way are reported, not fixed here.
+- No new copy beyond the four tone words the design pass added (Info, Done, Warning, Error): message texts are the existing ones; hard-coded English literals found on the way are reported, not fixed here.
 
 ## Security and privacy impact
 
@@ -43,6 +43,6 @@ Needed: new look and placement. Record a "Proposed:" note in `docs/design-briefs
 
 ## Open questions for the owner
 
-1. Placement: bottom centre above the composer (the Mac HUD habit, and where the eye is after sending) or top centre under the toolbar (never near the composer)? design.md recommends top centre; the design pass decides.
-2. Should errors stay a toast at all? design.md keeps a toast for "could not" results only when the action can be retried or ignored, and leaves failures that need a decision to dialogs and banners.
-3. Is a ratchet over 42 files acceptable, or should the migration be one PR per area?
+1. Placement: answered by the design pass: top centre under the toolbar, never near the composer (design.md, "Design pass"). The owner may overrule it for bottom centre above the composer.
+2. Should errors stay a toast at all? design.md ("Which results are toasts") keeps a toast for "could not" results only when the action can be retried or ignored, and leaves failures that need a decision to dialogs and banners.
+3. The plan is both: a ratchet baseline over the 42 files, lowered by one migration PR per area (design.md, "Migration"). Is a baseline that large acceptable while the area PRs land?

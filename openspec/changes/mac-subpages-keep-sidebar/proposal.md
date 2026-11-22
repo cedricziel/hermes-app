@@ -4,7 +4,7 @@ Audit item C11.
 
 ## Why
 
-On a wide Mac window the shell shows the sidebar beside the content (`MacSplitView`, `lib/src/shell/app_shell.dart:857-860`). Kanban, Schedules, Bots, Profiles and Server are shell destinations, so they sit in the content pane and the sidebar stays. Every other sub-page is pushed with `Navigator.of(context).push(MaterialPageRoute(...))` on the one root navigator (`MaterialApp` at `lib/src/app.dart:173`; the shell is its `home`). A route on the root navigator covers the whole window, sidebar included. Pushed this way, from `lib/src/chat/chat_screen_navigation.dart`: Profiles (`:274`), Messaging (`:311`), Skills (`:327`), Plugins (`:351`), MCP servers (`:361`), Tools (`:404`), Providers (`:491`), Helper models (`:510`), Connection details (`:520`); and Memory (`lib/src/memory/memory_destination.dart:47`) and Files (`lib/src/files/open_files.dart:67`, with `rootNavigator: true`), which also push on the root navigator. Kanban's board manager and task pages and the Settings-style pages of server care push the same way (`lib/src/kanban/kanban_screen.dart:206`, `:306`).
+On a wide Mac window the shell shows the sidebar beside the content (`MacSplitView`, `lib/src/shell/app_shell.dart:860-864`). Kanban, Schedules, Bots, Profiles and Server are shell destinations, so they sit in the content pane and the sidebar stays. Every other sub-page is pushed with `Navigator.of(context).push(MaterialPageRoute(...))` on the one root navigator (`MaterialApp` at `lib/src/app.dart:173`; the shell is its `home`). A route on the root navigator covers the whole window, sidebar included. Pushed this way, from `lib/src/chat/chat_screen_navigation.dart`: Profiles (`:274`), Messaging (`:311`), Skills (`:327`), Plugins (`:351`), MCP servers (`:361`), Tools (`:404`), Providers (`:491`), Helper models (`:510`); and Memory (`lib/src/memory/memory_destination.dart:47`) and Files (`lib/src/files/open_files.dart:67`, with `rootNavigator: true`), which also push on the root navigator. Connection details (`:520`) is pushed the same way but is about the connection, not the shell, and stays full window. Kanban's board manager and task pages and the Settings-style pages of server care push the same way (`lib/src/kanban/kanban_screen.dart:206`, `:306`).
 
 The code already knows this: `MacToolbar.clearTrafficLights` exists "for a page that covers the whole window, such as one pushed over the sidebar" (`lib/src/macos/mac_toolbar.dart:45-47`), and `SettingsScaffold` pads for the title bar when it is not in a pane (`lib/src/widgets/settings_scaffold.dart:271-276`). The sidebar's toggle and its source list disappear on those pages, because `MacSidebarScope` sits inside `AppShell` (`app_shell.dart:749`) and a pushed route is a sibling of the shell, not a child.
 
@@ -18,7 +18,7 @@ On macOS, sub-pages that belong to the chat shell open in the content pane, with
 
 Routes that stay full window: Connection details and sign-in (they are about the connection, not the shell), the voice call screen, the Bot Screen viewer, media and Quick Look viewers, and every dialog, sheet and popup (`showAppDialog` and friends use the root navigator on purpose).
 
-Windows and Linux wide layouts use the same pushes and the same Row of sidebar and content (`app_shell.dart:863-871`); the nested navigator would serve them too. This change turns it on for macOS only; enabling the others is one switch in `keepsSidebarForSubpages` after the Windows and Linux brief owner agrees. iPad and phones are out of scope.
+Windows and Linux wide layouts use the same pushes and the same Row of sidebar and content (`app_shell.dart:866-872`); the nested navigator would serve them too. This change turns it on for macOS only; enabling the others is one switch in `keepsSidebarForSubpages` after the Windows and Linux brief owner agrees. iPad and phones are out of scope.
 
 ## Non-goals
 
@@ -44,5 +44,5 @@ Needed: this changes placement. Record a "Proposed:" note in `docs/design-briefs
 ## Open questions for the owner
 
 1. Windows and Linux: switch the nested navigator on there in the same release, or Mac only first?
-2. Should the sidebar show a selected row for the open sub-page (Skills, Memory, ...)? Today those rows are actions, not destinations.
+2. Should the sidebar show a selected row for the open sub-page (Skills, Memory, ...)? Today those rows are actions, not destinations. The design pass chose none: while a sub-page is open the Chat destination stays current, no chat row is selected, and Back selects the chat the user came from again. This is the owner's call; the owner may overrule it.
 3. Is Files a sub-page here, or a window-wide page? It is reached from the chat header and the Activity panel too; design.md keeps it in the pane.

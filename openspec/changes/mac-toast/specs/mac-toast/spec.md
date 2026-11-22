@@ -78,3 +78,12 @@ Code SHALL show a transient message only through the shared toast call. A new di
 
 - **WHEN** a change adds a `showSnackBar` call outside the shared block
 - **THEN** the architecture check fails and names the shared call
+
+### Requirement: Backend contract
+
+The toast SHALL rely on no Hermes route, RPC method or minimum Hermes version; it shows messages the app already makes from the routes it uses today.
+
+#### Scenario: Any supported server
+
+- **WHEN** the app is connected to the oldest Hermes it supports
+- **THEN** result messages appear as toasts as on the newest one
