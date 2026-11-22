@@ -79,6 +79,28 @@ class FrameLog {
     pumps++;
   }
 
+  /// Records [pump] as one measured frame, with no pump of its own after it.
+  /// For a pump that already produces the frame, such as `pumpWidget` mounting
+  /// the screen: [frame] would add `tester.pump(frameStep)` and count two
+  /// frames as one. (`CHAT_BENCH_PHASES=1` times it whole, not split.)
+  Future<void> mount(WidgetTester tester, Future<void> Function() pump) async {
+    _wall.start();
+    if (profileMode) {
+      final start = Timeline.now;
+      await pump();
+      _spans.add((start, Timeline.now));
+      pumps++;
+      return;
+    }
+    _watch
+      ..reset()
+      ..start();
+    await pump();
+    _watch.stop();
+    ms.add(_watch.elapsedMicroseconds / 1000);
+    pumps++;
+  }
+
   /// Diagnostic (`CHAT_BENCH_PHASES=1`, test mode): the same frame cut into
   /// event handling, build, layout and paint. Each phase is its own pump that
   /// stops after that phase, and the next one carries on from there. The

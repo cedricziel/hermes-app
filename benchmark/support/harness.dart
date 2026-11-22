@@ -177,7 +177,7 @@ Future<BenchChat> openBenchChat(
   );
   if (macSidebar) app = MacSidebarScope(child: app);
   if (mountLog != null) {
-    await mountLog.frame(tester, before: () => tester.pumpWidget(app));
+    await mountLog.mount(tester, () => tester.pumpWidget(app));
   } else {
     await tester.pumpWidget(app);
   }

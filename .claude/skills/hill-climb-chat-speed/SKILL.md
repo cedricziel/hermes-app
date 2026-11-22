@@ -22,9 +22,10 @@ Scenario ids: `s1-markdown` (300-message history, 6,000-word reply),
 `s2-code-blocks` (12 fences, one of 2,000 lines), `s2b-fences-100|300|1000`
 (empty fences), `s3-tool-calls` (40 calls with large JSON, some opened),
 `s4a-tables`, `s4b-lists`, `s5-open-2000` (a = open, b = scroll up through
-pages), `s6-typing`, `s7-mac-sidebar` (500 chats, desktop only). Each runs at
-390x844 and 1280x800. Output: a table, `build/chat_bench/<mode>/run-N.json` and
-`aggregate.json` (median across runs and the coefficient of variation).
+pages), `s6-typing`, `s7-mac-sidebar` (500 chats, desktop only). The scenario
+filter matches these ids, so `s5-` selects both `s5a` and `s5b`; `s5a` alone
+matches nothing. Each runs at 390x844 and 1280x800. Output: a table,
+`build/chat_bench/<mode>/run-N.json` and `aggregate.json` (median across runs and the coefficient of variation).
 
 Shared code is in `benchmark/support/` (`scenarios.dart` holds the scenarios,
 `frame_stats.dart` the measuring, `harness.dart` the screen setup,
@@ -97,8 +98,9 @@ CV of the per-run value, across runs, on this machine:
   `s2b-fences-300/1000`, `s4a`, `s4b`, `s6`, `s7` and `s5b` desktop; `p95` CV is
   1-21 % there. `max` is one GC or JIT hiccup on `s2b-fences-100` (46-67 %),
   `s5a` phone (94 %) and `s5b` phone (143 %): read `p95` and `p50` for those
-  (`s5a` is three frames, so its `p95` is its `max`). `s3` p95 varies a lot
-  when the machine is shared (11-28 % in the full run, phone median 1,493 ms),
+  (`s5a` is three or four frames, so its `p95` is its `max`; its first frame is
+  the mount pump alone, `FrameLog.mount`, with no extra pump after it). `s3` p95
+  varies a lot when the machine is shared (11-28 % in the full run, phone median 1,493 ms),
   and not alone (4-6 %, phone median 739 ms, `test 3 s3`): rerun it alone
   under `flock`.
 - profile mode (5 runs): `max` CV is 3-31 % and `p95` CV 3-16 %; `p50` is
