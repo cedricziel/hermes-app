@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../starter_prompts.dart';
 
@@ -177,27 +178,36 @@ class _SuggestionCard extends StatelessWidget {
       width: width,
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(kHermesRadius),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(kHermesRadius),
-              border: Border.all(color: scheme.outline),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppIcon(icon, size: 16, color: context.hermesColors.subtleText),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    text,
-                    style: TextStyle(fontSize: 13.5, color: scheme.onSurface),
+        // The cards sit 10 px apart inside 24 px of padding: the ring goes
+        // outside.
+        child: FocusRing.outside(
+          radius: kHermesRadius,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(kHermesRadius),
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(kHermesRadius),
+                border: Border.all(color: scheme.outline),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppIcon(
+                    icon,
+                    size: 16,
+                    color: context.hermesColors.subtleText,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      text,
+                      style: TextStyle(fontSize: 13.5, color: scheme.onSurface),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

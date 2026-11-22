@@ -3,6 +3,7 @@ import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_toggled.dart';
@@ -199,60 +200,67 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
           return Material(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () {
-                DisclosureToggledNotification.send(context);
-                setState(() {
-                  _pieces = null;
-                  _store.setGroupOpen(_scope, !_open);
-                });
-              },
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: minTap),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 4,
-                      horizontal: 2,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ToolCallStatusIcon(status: status, waiting: isWaiting),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            wellFormedText(label),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: scheme.onSurface,
+            // Hugs its text and nothing clips it: the ring goes outside.
+            child: FocusRing.outside(
+              radius: 8,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  DisclosureToggledNotification.send(context);
+                  setState(() {
+                    _pieces = null;
+                    _store.setGroupOpen(_scope, !_open);
+                  });
+                },
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: minTap),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: 1,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ToolCallStatusIcon(
+                            status: status,
+                            waiting: isWaiting,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              wellFormedText(label),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onSurface,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 2),
-                        if (warns)
-                          Tooltip(
-                            message: 'Tool output warning',
-                            child: AppIcon(
-                              AppIcons.warning,
-                              size: 16,
-                              color: scheme.error,
+                          const SizedBox(width: 2),
+                          if (warns)
+                            Tooltip(
+                              message: 'Tool output warning',
+                              child: AppIcon(
+                                AppIcons.warning,
+                                size: 16,
+                                color: scheme.error,
+                              ),
                             ),
+                          AppIcon(
+                            showsOpen
+                                ? AppIcons.expandLess
+                                : AppIcons.chevronRight,
+                            size: 16,
+                            color: subtle,
                           ),
-                        AppIcon(
-                          showsOpen
-                              ? AppIcons.expandLess
-                              : AppIcons.chevronRight,
-                          size: 16,
-                          color: subtle,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),

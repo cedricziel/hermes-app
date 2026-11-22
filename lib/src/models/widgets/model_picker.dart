@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../l10n/l10n.dart';
 import '../../files/widgets/safe_path_text.dart';
 import '../../theme/breakpoints.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/anchored_popover.dart';
@@ -666,6 +667,10 @@ class _EffortControl extends StatelessWidget {
   );
 }
 
+/// A corner radius larger than any pill is tall: a rounded rectangle scales
+/// it down to half its height, so the ring stays a stadium at any text size.
+const double _stadiumRadius = 1000;
+
 class _EffortSegment extends StatelessWidget {
   const _EffortSegment({
     super.key,
@@ -695,27 +700,35 @@ class _EffortSegment extends StatelessWidget {
             side: side,
           )
         : StadiumBorder(side: side);
-    final pill = Material(
-      color: selected ? scheme.surface : scheme.surfaceContainerHighest,
-      clipBehavior: Clip.antiAlias,
-      shape: shape,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          // A minimum: the pill grows with the text size.
-          constraints: BoxConstraints(minHeight: height),
-          padding: EdgeInsets.symmetric(horizontal: height / 2.5, vertical: 4),
-          child: Align(
-            widthFactor: 1,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected
-                    ? scheme.onSurface
-                    : scheme.onSurface.withValues(alpha: 0.7),
+    // The ring goes round the painted pill, not the hit area, and follows its
+    // shape: half the height on Material, which grows with the text.
+    final pill = FocusRing.outside(
+      radius: chrome.isApple ? height / 4 : _stadiumRadius,
+      child: Material(
+        color: selected ? scheme.surface : scheme.surfaceContainerHighest,
+        clipBehavior: Clip.antiAlias,
+        shape: shape,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            // A minimum: the pill grows with the text size.
+            constraints: BoxConstraints(minHeight: height),
+            padding: EdgeInsets.symmetric(
+              horizontal: height / 2.5,
+              vertical: 4,
+            ),
+            child: Align(
+              widthFactor: 1,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected
+                      ? scheme.onSurface
+                      : scheme.onSurface.withValues(alpha: 0.7),
+                ),
               ),
             ),
           ),
