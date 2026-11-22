@@ -1,10 +1,23 @@
 # Spec Delta
 
+No backend contract is involved: no Hermes route or RPC method is called or changed, and no minimum Hermes version applies.
+
+## MODIFIED Requirements
+
+### Requirement: Supported platforms
+
+The system SHALL post notifications on Android, iOS and macOS, through the Android channels the "Android notification channels" requirement defines. On other platforms it SHALL do nothing and report the permission as unavailable. A notification that cannot be shown SHALL be dropped without an error reaching the user.
+
+#### Scenario: Unsupported platform
+
+- **WHEN** the app runs on Windows or Linux and a reply completes
+- **THEN** no notification is shown and no error is raised
+
 ## ADDED Requirements
 
 ### Requirement: Android notification channels
 
-On Android the system SHALL post each notification through the channel for its kind, so the user can control each kind in the system settings: `chat_replies` for finished and failed replies, `chat_requests` for approvals, questions and needs-you requests and the notice that an answer could not be sent, `agent_messages` for messages from Hermes and their summary, and `scheduled_tasks` for a scheduled task's run. The first three SHALL have high importance and `scheduled_tasks` default importance. The channel SHALL depend only on the kind of notification, never on its title, body, profile or any server value. The channels SHALL exist before the first notification is posted, in the app and in a background run. The channel ids are permanent. A channel's name and description SHALL be the app's text in the user's language, set when the channel is created and updated when the app's language changes, and SHALL never carry a title, profile name, server address or identifier. The channels do not change a notification's body, buttons, lock-screen visibility, tag or grouping.
+On Android the system SHALL post each notification through the channel for its kind, so the user can control each kind in the system settings: `chat_replies` for finished and failed replies, `chat_requests` for approvals, questions and needs-you requests (including the background check's generic one) and the notices "Couldn't send your answer" and "Open Hermes to answer.", `agent_messages` for messages from Hermes and their summary, and `scheduled_tasks` for a scheduled task's run. The first three SHALL have high importance and `scheduled_tasks` default importance. The channel SHALL depend only on the kind of notification, never on its title, body, profile or any server value. The channels SHALL exist before the first notification is posted, in the app and in a background run. The channel ids are permanent. A channel's name and description SHALL be the app's text in the user's language, set when the channel is created and updated when the app's language changes, and SHALL never carry a title, profile name, server address or identifier. The channels do not change a notification's body, buttons, lock-screen visibility, tag or grouping.
 
 #### Scenario: A reply finishes
 
@@ -45,7 +58,7 @@ On Android the system SHALL post each notification through the channel for its k
 
 ### Requirement: Moving from the single Android channel
 
-The system SHALL, once after an update that brings the channels, replace the earlier single channel `agent_activity`. When that channel exists and its importance is lower than high (the user lowered or blocked it), the new channels SHALL be created with that importance so the user's choice stays; the earlier channel SHALL then be deleted, and the step SHALL not run again. When it does not exist, only the new channels are created. A step that fails SHALL leave the earlier channel in place and be tried again at the next start, and SHALL never sign the user out or lose a notification. The step SHALL record its outcome with a fixed name and flags only.
+The system SHALL, once after an update that brings the channels, replace the earlier single channel `agent_activity`. The step SHALL run before any of the new channels is created and before any notification of that run is posted, and SHALL be serialised between the app and a background run. When the earlier channel exists and its importance is lower than high (the user lowered or blocked it), the new channels SHALL be created with that importance so the user's choice stays; the earlier channel SHALL then be deleted, and the step SHALL not run again. When it does not exist, only the new channels are created. Until the step has finished, notifications SHALL keep being posted through `agent_activity`. A step that fails SHALL leave the earlier channel in place and be tried again at the next start, and SHALL never sign the user out or lose a notification. The step SHALL record its outcome with a fixed name and flags only.
 
 #### Scenario: Untouched earlier channel
 
@@ -68,4 +81,4 @@ The system SHALL, once after an update that brings the channels, replace the ear
 
 - **WHEN** reading or deleting the earlier channel fails
 - **THEN** it is tried again at the next start
-- **AND** notifications still post through the new channels
+- **AND** notifications keep posting through `agent_activity` until it succeeds

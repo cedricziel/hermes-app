@@ -4,22 +4,22 @@ Owner decides: whether the old `agent_activity` channel is deleted in the releas
 
 ## Why
 
-On Android the app creates one notification channel, `agent_activity` ("Agent activity", importance high, description "Replies and requests from Hermes"), and every notification goes through it: a finished or failed reply, an approval or question, a scheduled task's run, a message from Hermes, and the endings ("Couldn't send your answer", "Ask not sent"). Android lets a user control only a channel at a time, so someone who finds scheduled-task results noisy can only silence replies and approvals with them, and someone who wants approvals to stay loud cannot quiet messages.
+On Android the app creates one notification channel, `agent_activity` ("Agent activity", importance high, description "Replies and requests from Hermes"), and every notification goes through it: a finished or failed reply, an approval or question, a scheduled task's run, a message from Hermes, "Couldn't send your answer", "Open Hermes to answer." and "Ask not sent". Android lets a user control only a channel at a time, so someone who finds scheduled-task results noisy can only silence replies and approvals with them, and someone who wants approvals to stay loud cannot quiet messages.
 
-Android keeps a user's choices (importance, sound, vibration, lock-screen visibility, blocked) on the channel id for good, and an app cannot raise or lower a channel's importance once it exists. So the ids chosen here stay. The split is cheap now and cannot be redone without another migration.
+Android keeps a user's choices (importance, sound, vibration, lock-screen visibility, blocked) on the channel id for good. An app can lower an existing channel's importance by recreating it only while the user has not changed that channel, and can never raise it. So the ids chosen here stay, and a later change costs another migration.
 
-There is no sensible split today: nothing else creates a channel (no `createNotificationChannel` call, no Kotlin channel code; `flutter_local_notifications` creates `agent_activity` on the first post).
+The app has only one channel today, so the split is new work: nothing else creates a channel (no `createNotificationChannel` call, no Kotlin channel code; `flutter_local_notifications` creates `agent_activity` on the first post).
 
 ## What Changes
 
 - Android posts through four channels instead of one. Ids are permanent:
 
-  | Id                | Name                    | Importance | Used by                                                                                              |
-  | ----------------- | ----------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
-  | `chat_replies`    | Replies                 | high       | finished and failed reply, and the endings "Ask not sent"                                            |
-  | `chat_requests`   | Approvals and questions | high       | approval, question and "needs you" requests, the answerable variant, and "Couldn't send your answer" |
-  | `agent_messages`  | Messages from Hermes    | high       | `hermes send --to hermes_app:inbox` messages and their summary                                       |
-  | `scheduled_tasks` | Scheduled tasks         | default    | a scheduled task's run                                                                               |
+  | Id                | Name                    | Importance | Used by                                                                                                                                                                               |
+  | ----------------- | ----------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `chat_replies`    | Replies                 | high       | finished and failed reply, and "Ask not sent"                                                                                                                                         |
+  | `chat_requests`   | Approvals and questions | high       | approval, question and "needs you" requests (also the background check's generic one with no category), the answerable variant, "Couldn't send your answer", "Open Hermes to answer." |
+  | `agent_messages`  | Messages from Hermes    | high       | `hermes send --to hermes_app:inbox` messages and their summary                                                                                                                        |
+  | `scheduled_tasks` | Scheduled tasks         | default    | a scheduled task's run                                                                                                                                                                |
 
   Each has a description in the ARB files (design.md). Importance `high` is today's value, so a user who never opened the system settings sees no change except for scheduled tasks, which become `default` (no heads-up pop-up). The owner can keep them at `high`.
 
@@ -31,7 +31,7 @@ There is no sensible split today: nothing else creates a channel (no `createNoti
 Non-goals:
 
 - No change to what a notification says, its buttons, its lock-screen visibility (`secret` for the answerable variant), its tag (`hermes.request`) or its grouping per chat.
-- No in-app per-channel switches. The Notifications dialog (Notify me, scheduled tasks, Messages from Hermes) stays; the system's channel settings are the new control, and the dialog's "Open settings" button already opens the app's notification screen.
+- No in-app per-channel switches. The Notifications dialog (Notify me, scheduled tasks, Messages from Hermes) stays; the system's channel settings are the new control. The dialog's "Open settings" button shows only after the system denied notifications (`notifications_dialog.dart`), so a user who was not denied has no in-app way to the channel settings. Offering the button on Android at all times is left out here and can be its own change.
 - No channel group, no per-profile channels, no sound or vibration choice made by the app.
 - No new kind of notification.
 
