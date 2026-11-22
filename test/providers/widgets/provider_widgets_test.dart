@@ -26,7 +26,7 @@ Future<void> _pump(
       locale: locale,
       localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: buildHermesLightTheme().copyWith(platform: platform),
+      theme: buildHermesLightTheme(platform: platform),
       builder: (context, c) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(scale)),

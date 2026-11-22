@@ -202,7 +202,7 @@ void main() {
           value: settings,
           child: MaterialApp(
             builder: (_, child) => AppThemeScopes(child: child!),
-            theme: buildHermesLightTheme().copyWith(platform: platform),
+            theme: buildHermesLightTheme(platform: platform),
             home: Builder(
               builder: (context) => TextButton(
                 onPressed: () => showNotificationsDialog(context),

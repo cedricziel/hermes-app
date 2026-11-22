@@ -5,6 +5,7 @@ import 'package:hermes_app/src/macos/mac_source_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 WidgetbookNode threadGroupingNode() => WidgetbookComponent(
   name: 'Chat grouping',
@@ -14,7 +15,7 @@ WidgetbookNode threadGroupingNode() => WidgetbookComponent(
         WidgetbookUseCase(
           name: '${platform.name} ${grouping.name}',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: platform),
+            data: platformTheme(context, platform),
             child: frame(
               ThreadGroupingMenu(grouping: grouping, onChanged: (_) {}),
             ),
@@ -24,7 +25,7 @@ WidgetbookNode threadGroupingNode() => WidgetbookComponent(
       WidgetbookUseCase(
         name: '${platform.name} Inline menu',
         builder: (context) => Theme(
-          data: Theme.of(context).copyWith(platform: platform),
+          data: platformTheme(context, platform),
           child: frame(
             ThreadSectionHeading(
               label: 'Pinned',
@@ -51,7 +52,7 @@ WidgetbookNode threadGroupingNode() => WidgetbookComponent(
       WidgetbookUseCase(
         name: 'iOS ${collapsed ? 'Collapsed' : 'Expanded'} folder',
         builder: (context) => Theme(
-          data: Theme.of(context).copyWith(platform: TargetPlatform.iOS),
+          data: platformTheme(context, TargetPlatform.iOS),
           child: frame(
             ThreadSectionHeader(
               label: 'hermes-app',

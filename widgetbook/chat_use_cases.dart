@@ -66,6 +66,7 @@ import 'package:widgetbook/widgetbook.dart';
 import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 Future<void> _answers(Object? _) =>
     Future<void>.delayed(const Duration(milliseconds: 600));
@@ -180,7 +181,7 @@ WidgetbookUseCase _phoneBar(
     }
 
     Widget content = Theme(
-      data: Theme.of(context).copyWith(platform: platform),
+      data: platformTheme(context, platform),
       child: MediaQuery(
         data: MediaQuery.of(context).copyWith(
           textScaler: TextScaler.linear(textScale),
@@ -930,8 +931,7 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           WidgetbookUseCase(
             name: name,
             builder: (context) => Theme(
-              data: Theme.of(context)
-                  .copyWith(platform: TargetPlatform.android),
+              data: platformTheme(context, TargetPlatform.android),
               child: ChangeNotifierProvider(
                 create: (_) => ComposerHeightNotifier(),
                 child: frame(
@@ -959,7 +959,7 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         WidgetbookUseCase(
           name: 'Android touch targets',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+            data: platformTheme(context, TargetPlatform.android),
             child: frame(
               MessageActions(
                 text: 'The build finished.',

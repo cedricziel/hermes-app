@@ -17,10 +17,12 @@ Future<List<bool>> _pump(
   double textScale = 1,
 }) async {
   final picks = <bool>[];
-  final base = dark ? buildHermesDarkTheme() : buildHermesLightTheme();
+  final base = dark
+      ? buildHermesDarkTheme(platform: platform)
+      : buildHermesLightTheme(platform: platform);
   await tester.pumpWidget(
     MaterialApp(
-      theme: base.copyWith(platform: platform),
+      theme: base,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),

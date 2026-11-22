@@ -17,9 +17,9 @@ Widget _host(
   TargetPlatform platform = TargetPlatform.iOS,
   bool dark = false,
 }) => MaterialApp(
-  theme: (dark ? buildHermesDarkTheme() : buildHermesLightTheme()).copyWith(
-    platform: platform,
-  ),
+  theme: dark
+      ? buildHermesDarkTheme(platform: platform)
+      : buildHermesLightTheme(platform: platform),
   home: Scaffold(body: Center(child: child)),
 );
 
@@ -133,10 +133,8 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(
-          platform: TargetPlatform.macOS,
-          visualDensity: VisualDensity.compact,
-        ),
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS)
+            .copyWith(visualDensity: VisualDensity.compact),
         home: Scaffold(
           body: Center(
             child: DestructiveTintButton(label: 'Stop', onPressed: () {}),
@@ -214,10 +212,8 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(
-          platform: TargetPlatform.macOS,
-          visualDensity: VisualDensity.compact,
-        ),
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS)
+            .copyWith(visualDensity: VisualDensity.compact),
         home: Scaffold(
           body: Center(
             child: DestructiveTintButton(label: 'Stop agent', onPressed: () {}),
