@@ -191,42 +191,48 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
                     children: [
                       if (showLabel)
                         Flexible(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: scheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(7),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 5,
+                          // The gap lives here, so it shrinks with the chip
+                          // and the copy button never loses its width.
+                          child: Padding(
+                            padding: EdgeInsetsDirectional.only(
+                              end: showCopy ? 8 : 0,
+                            ),
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: scheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(7),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      mui.Icons.terminal_rounded,
-                                      size: 13,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Flexible(
-                                      child: Text(
-                                        displayName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: widget.style.languageStyle,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 9,
+                                    vertical: 5,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        mui.Icons.terminal_rounded,
+                                        size: 13,
+                                        color: scheme.onSurfaceVariant,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 5),
+                                      Flexible(
+                                        child: Text(
+                                          displayName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: widget.style.languageStyle,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      if (showLabel && showCopy) const SizedBox(width: 8),
                       if (!showLabel) const Spacer(),
                       if (showCopy) _copyButton(context),
                     ],

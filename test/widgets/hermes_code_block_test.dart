@@ -72,4 +72,52 @@ void main() {
     expect(last, hasLength(1));
     expect(last.single.style, isNull);
   });
+
+  // The last width is what a fence nested in lists and quotes gets at 3x.
+  for (final (label, width) in [
+    ('python', 400.0),
+    ('a-very-long-language-label-for-a-fenced-block', 400.0),
+    ('python', 56.7),
+  ]) {
+    testWidgets('the header stays inside $width px at 3x text with "$label"', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => AppThemeScopes(
+            child: MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(3)),
+              child: child!,
+            ),
+          ),
+          theme: buildHermesLightTheme(),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: width,
+                  child: HermesCodeBlock(
+                    name: label,
+                    codes: 'def f(x):\n    return x + 1\n',
+                    style: const CodeBlockStyle(),
+                    highlightCode: true,
+                    scalesItsOwnText: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      final copy = tester.getSize(find.bySemanticsLabel('Copy code'));
+      expect(copy.width, greaterThanOrEqualTo(32));
+      expect(copy.height, greaterThanOrEqualTo(32));
+    });
+  }
 }

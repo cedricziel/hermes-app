@@ -59,8 +59,6 @@ final _midStream = <String, _Steps>{
   ],
 };
 
-const _scaled = {'3x text scale', 'a scale and theme change'};
-
 void main() {
   for (final doc in _documents.entries) {
     for (final event in _midStream.entries) {
@@ -71,11 +69,7 @@ void main() {
           document,
           steps: event.value(document),
           chunk: doc.key == 'identical fences' ? 61 : 400,
-          // HermesCodeBlock's header Row overflows by 1.3 px at 3x text in a
-          // 400 px view when the mixed document's fences are drawn. That is a
-          // separate layout defect with its own roadmap row; the follow-up fix
-          // PR moves these two cases back to 400 px.
-          width: doc.key == 'mixed' && _scaled.contains(event.key) ? 900 : 400,
+          width: 400,
         );
       });
     }

@@ -75,5 +75,14 @@ WidgetbookComponent codeBlockComponent() => WidgetbookComponent(
       name: 'Largest text',
       builder: (_) => _block('python', _python, textScale: 3, maxWidth: 360),
     ),
+    WidgetbookUseCase(
+      name: 'Long language at largest text, phone width',
+      builder: (_) => _block(
+        'a-very-long-language-label-for-a-fenced-block',
+        _python,
+        textScale: 3,
+        maxWidth: 400,
+      ),
+    ),
   ],
 );
