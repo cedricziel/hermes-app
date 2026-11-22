@@ -42,12 +42,14 @@ On iOS below 900 logical pixels when not expanded (iPhone, iPad Split View and S
 
 ### Requirement: Narrow desktop windows keep the drawer
 
-On Windows and Linux below 600 logical pixels the shell SHALL keep today's drawer: the destinations at the top, then the management entries, Server and the account menu that More holds elsewhere, with no More row of its own. A window whose server offers no destination beyond Chats SHALL keep the chat alone with the chat's own drawer and SHALL NOT gain a shell drawer.
+On Windows and Linux below 600 logical pixels the shell SHALL keep today's drawers, with no More row: on Chats, the chat's own drawer with the destinations, the management entries and the account menu; on any other destination, the shell's drawer with the destinations only. A window whose server offers no destination beyond Chats SHALL keep the chat alone with the chat's own drawer and SHALL NOT gain a shell drawer.
 
 #### Scenario: Narrow desktop window
 
-- **WHEN** a Windows or Linux window is 500 logical pixels wide and the server offers Kanban
-- **THEN** the drawer lists Chats and Kanban, then the management entries, Server and the account menu, and has no More row
+- **WHEN** a Windows or Linux window is 500 logical pixels wide, the server offers Kanban, and the user opens the drawer on Chats
+- **THEN** the drawer lists Chats and Kanban, then the management entries and the account menu, and has no More row
+- **AND WHEN** the user opens the drawer on Kanban
+- **THEN** it lists Chats and Kanban only
 
 ### Requirement: Destination items are labelled and large enough
 
@@ -74,7 +76,7 @@ The bottom bar SHALL be hidden while a conversation is open in the compact messe
 
 ### Requirement: More holds everything else
 
-More SHALL be a page, not a menu, that lists the management entries the chat sidebar and drawer list today, each under its present gate: Profiles, Skills, Memory (with its waiting count), Messaging, Plugins, MCP servers, Providers, Tools and Helper models. Picking an entry SHALL push its page over the shell.
+More SHALL be a page, not a menu. Its first group SHALL be Server. Its next group SHALL hold the management entries the chat sidebar and drawer list today, each under its present gate: Profiles, Skills, Memory (with its waiting count), Messaging, Plugins, MCP servers, Providers, Tools and Helper models. Picking an entry SHALL push its page over the shell.
 
 #### Scenario: Gates are kept
 
@@ -83,7 +85,7 @@ More SHALL be a page, not a menu, that lists the management entries the chat sid
 
 ### Requirement: More lists Server and Settings
 
-More SHALL also list Server, with the needs-attention mark and its words, and Settings: Appearance, Notifications, Dictation, Voice calls, Spotlight, App lock, Connection details and About, followed by Sign out and Change server where the account menu offers them.
+The Server row SHALL show the needs-attention mark and its words. After the management entries, More SHALL show one Settings row that pushes a Settings page listing Appearance, Notifications, Dictation, Voice calls, Spotlight, App lock, Connection details and About. Its last group SHALL be Change server, then Sign out, where the account menu offers them.
 
 #### Scenario: Server needs attention
 
@@ -92,12 +94,25 @@ More SHALL also list Server, with the needs-attention mark and its words, and Se
 
 ### Requirement: Medium Chats shows list and detail
 
-From 720 logical pixels on the medium form, Chats SHALL show the thread list beside the open conversation, with the rail at the left. Below 720 it SHALL use the compact list and pushed conversation beside the rail. Resizing between forms SHALL keep the selected conversation, the unsent draft, queued prompts and an ongoing reply, and SHALL NOT build a second chat owner.
+On Android, Windows and Linux at the medium form, Chats SHALL show the thread list beside the open conversation from 720 logical pixels, with the rail at the left, and below 720 the compact list and pushed conversation beside the rail.
 
 #### Scenario: Tablet in portrait
 
 - **WHEN** an Android tablet is 800 logical pixels wide
 - **THEN** the rail, the thread list and the conversation are shown together
+
+### Requirement: Medium Chats on iOS has no rail
+
+On iOS at the medium form (an iPhone in landscape, an iPad in Split View) Chats SHALL be the compact list and pushed conversation with the tab bar, and SHALL NOT show a rail.
+
+#### Scenario: iPhone in landscape
+
+- **WHEN** an iPhone is 852 logical pixels wide and 393 high
+- **THEN** Chats is the full-page list with the tab bar, a conversation is pushed over it, and no rail is shown
+
+### Requirement: Resizing keeps the conversation
+
+Resizing between forms SHALL keep the selected conversation, the unsent draft, queued prompts and an ongoing reply, and SHALL NOT build a second chat owner.
 
 #### Scenario: Resize with a draft
 

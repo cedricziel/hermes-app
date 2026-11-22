@@ -2,7 +2,7 @@
 
 ### Requirement: Opening the oldest request
 
-A `requests` link SHALL open the chat holding the open approval, question or input request raised first among the loaded chats, judged by when its reply began. With no open request it SHALL show the chat list without opening a chat: with a destination bar or rail it SHALL select Chats and close the open chat; in a Windows or Linux window under 600 logical pixels it SHALL close the open chat and open the chat drawer; where the list is always on screen it SHALL leave things as they are.
+A `requests` link SHALL open the chat holding the open request (approval, question or input) raised first among the loaded chats, by when its reply began. With none open it SHALL show the chat list without opening a chat: with a bar or rail it SHALL select Chats and close the open chat, unless the list is beside it (the rail's Chats from 720), where the chat stays; under 600 on Windows or Linux it SHALL close the chat and open the chat drawer; with the sidebar it SHALL change nothing.
 
 #### Scenario: Two chats waiting
 

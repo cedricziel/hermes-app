@@ -26,7 +26,7 @@ While more than one destination is offered, the system SHALL list them (Chat, Ka
 #### Scenario: Phone-width layout
 
 - **WHEN** the plugin is on and the width is below 600 logical pixels on iPhone or Android
-- **THEN** Chats, Kanban and More are items of the bottom bar on every page, and no menu button or drawer is shown
+- **THEN** Chats, Kanban and More are items of the bottom bar on every destination's root page, and no menu button or drawer is shown
 
 #### Scenario: Wide layout
 

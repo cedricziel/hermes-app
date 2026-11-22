@@ -9,8 +9,9 @@ Three PRs, each about 500 changed lines or fewer with tests, merged in order. PR
 - [ ] A.3 Write failing widget tests for the contract, modelled on `test/kanban_task_sheet_test.dart`: detent heights and flings, dismissal below the lowest detent, `PopScope(canPop: false)` snaps back, the grabber's 36 x 5 size and its increase and decrease actions, a focused text field goes to large, short content opens at its own height, a 2.0 and a 3.1 text scale never clip, landscape is large only, Android still builds the Material sheet with `_DragHandle` when asked, wide layouts and macOS still build a `Dialog`.
 - [ ] A.4 Implement `SheetDetents`, the `detents` argument and `AdaptiveSheetScope.scrollControllerOf`. Default `fit`.
 - [ ] A.5 Add the grabber's accessible name and its increase and decrease action labels as en and de ARB strings in `lib/l10n/arb/app_en.arb` and `app_de.arb` under the `@@x-area-widgets` anchor, read with `context.l10n` in the sheet widget; run `flutter gen-l10n`. A widget test reads the semantics label and both action labels.
-- [ ] A.6 Move Kanban onto it: `showKanbanDetentSheet` calls `showAdaptiveSheet(detents: SheetDetents.mediumLarge)`; keep `test/kanban_task_sheet_test.dart` passing unchanged; then delete `KanbanDetentSheet`.
-- [ ] A.7 `dart format`, `flutter analyze`, `flutter test`, `flutter test test/architecture`.
+- [ ] A.6 Move Kanban onto it: `showKanbanDetentSheet` calls `showAdaptiveSheet(detents: SheetDetents.mediumLarge)`; keep `test/kanban_task_sheet_test.dart` passing unchanged; then delete `KanbanDetentSheet`. The chat's Activity panel (`chat_screen_navigation.dart:91`) calls the same helper with its own `DraggableScrollableController`: keep that controller working through the shared sheet (a controller parameter or the scope), and keep the Activity panel tests passing unchanged.
+- [ ] A.7 Raise the buttons in an iOS sheet to at least 44 pt: the shared `Button` is 40 px, so the sheet's theme sets a 44 pt minimum height for its Close, Cancel, Done and action buttons. Write the failing target-size test first: in each profile, every button in a sample sheet measures at least 44 x 44 pt at text scale 1.0 and 2.0.
+- [ ] A.8 `dart format`, `flutter analyze`, `flutter test`, `flutter test test/architecture`.
 
 ## B. PR B: `feat(ui): choose a detent for every sheet`
 

@@ -23,11 +23,11 @@ One rule picks the shell's form from the available width, in one function next t
 
 Details of the compact and medium forms:
 
-- **Destinations.** Chats; then Bots, Kanban and Schedules only while the server offers them (the existing gates); then **More**. More is a grouped page that holds what the drawer holds today: Profiles, Skills, Memory, Messaging, Plugins, MCP servers, Providers, Tools, Helper models (each with its current gate), **Server** (with the attention mark) and **Settings** (the account menu's entries: Appearance, Notifications, Dictation, Voice calls, Spotlight, App lock, Connection details, About, then Sign out and Change server).
+- **Destinations.** Chats; then Bots, Kanban and Schedules only while the server offers them (the existing gates); then **More**. More is a grouped page, in the order of the design pass: **Server** first (with the attention mark and its words), then what the drawer holds today (Profiles, Skills, Memory, Messaging, Plugins, MCP servers, Providers, Tools, Helper models, each with its current gate), then one **Settings** row that pushes a Settings page with the account menu's entries (Appearance, Notifications, Dictation, Voice calls, Spotlight, App lock, Connection details, About), then Change server, then Sign out.
 - **Cupertino and Material.** The Apple form is a translucent tab bar with a filled icon and a bold label for the selected tab. The Material form is a Material 3 `NavigationBar` (compact) or `NavigationRail` (medium) with labels always shown and the indicator pill. Both live behind one plain-model widget so the shell does not know which it draws.
 - **Expanded from 900 everywhere.** An iPhone in landscape that is 900 pt or wider (932 x 430) is expanded and keeps today's sidebar, as `isWideLayout` already makes it.
 - **The drawer goes away** on touch phones. Windows and Linux windows under 600 dp keep it as it is today (destinations, management entries, Server and the account menu, with no More row), because a bottom bar is not a desktop idiom; a window with no destination beyond Chats keeps the chat alone with the chat's own drawer.
-- **Chats at 720 to 899 dp** shows the thread list (the existing full-page list) beside the conversation, with the rail at the left. From 600 to 719 dp it stays a pushed conversation with the rail. The other destinations keep their own layouts: they measure their own width, which the rail narrows.
+- **Chats at 720 to 899 dp** on Android, Windows and Linux shows the thread list (the existing full-page list) beside the conversation, with the rail at the left. From 600 to 719 dp it stays a pushed conversation with the rail. On iOS the medium form (an iPhone in landscape, an iPad in Split View) has no rail: Chats is the full-page list and pushed conversation with the tab bar, as on compact. The other destinations keep their own layouts: they measure their own width, which the rail narrows.
 - The existing rule stays: a Mac window always has its sidebar, and a full-screen iPad keeps today's sidebar.
 
 ## Non-goals
@@ -52,6 +52,7 @@ Details of the compact and medium forms:
 - `messenger-navigation`: "Chats is the compact home" reaches other destinations through the tab bar, rail or More instead of a menu.
 - `memory-navigation`: "Memory entry in the chat sidebar" names the More page instead of the phone drawer.
 - `mcp-servers`: "Sidebar entry" adds the More page, and closes the drawer only where one is open.
+- `chat`: the "Responsive layout" scenario of "Rendering of messages" says that below 900 the thread rail opens as a drawer; it now names the list beside the conversation at 720 to 899 on the rail platforms, the full-page list on phones and iOS, and the drawer only on Windows and Linux under 600.
 - `deep-links`: "Opening the oldest request" selects Chats and shows the list where the shell has a bar or rail, instead of opening the chat drawer.
 
 Two specs mention the chat drawer and still hold unchanged: `chat` ("Opening a thread from a notification") and `notifications` ("Tapping a notification opens its chat") close the thread drawer only "when it is open". On a touch phone there is no drawer to close, and a Windows or Linux window under 600 keeps it, so both read true in every form; selecting Chat for a notification tap is what the bar does too.

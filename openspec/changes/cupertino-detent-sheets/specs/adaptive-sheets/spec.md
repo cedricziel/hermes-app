@@ -39,8 +39,10 @@ A swipe down, a barrier tap and the system Back action SHALL go through the shee
 
 #### Scenario: Busy install
 
-- **WHEN** the user swipes down on the MCP install sheet while the install runs
+- **WHEN** the user swipes down on the MCP install sheet while its install request is in flight
 - **THEN** the sheet returns to its detent and the install continues
+- **AND WHEN** the install request has been answered and the server is building in the background
+- **THEN** a swipe down closes the sheet and the build goes on
 
 #### Scenario: Confirmation dismissed
 
